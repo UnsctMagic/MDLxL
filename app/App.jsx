@@ -956,11 +956,11 @@ export default function App() {
       setLiveUV(null); clearZoomAnchor(); say(`Geoset ${index + 1}: ${before} → ${after} triangles.`); return result;
     } catch (error) { say(error.message, true); return false; }
   }
-  async function importPart({source,rgb,texturePaths,assets}) {
+  async function importPart({source,animations,texturePaths,assets}) {
     const {commitPart}=await import('../src/bits-and-parts.js');
     if(latest.current.session!==session || savingRef.current)return false;
     const target=session;
-    const result=edit('Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Nodes','PivotPoints','GeosetAnims','Info'],m=>commitPart(m,source,{rgb,texturePaths}),{rethrow:true});
+    const result=edit('Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Info'],m=>commitPart(m,source,{animations,texturePaths}),{rethrow:true});
     if(result===false)return false;
     await loadTextures(assets,target,{source:'forge'});
     if(latest.current.session!==target)return result;

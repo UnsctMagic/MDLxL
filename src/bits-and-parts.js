@@ -1,13 +1,12 @@
 import { ensureDummyBone } from './dummy-bone.js';
 import { importGeosets, openDocument, recalculateExtents } from './editor-document.js';
-import { sampleGeosetAnimation, sampleTrack } from './animation.js';
 import { captureMeshSelection } from './mesh-clipboard.js';
+import { createSequence, setSequenceName } from './sequence-editor.js';
 
 const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
 export const partPathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 const canonical = value => Array.isArray(value) || ArrayBuffer.isView(value) ? Array.from(value, canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined).map(key => [key, canonical(value[key])])) : value;
 const fingerprint = value => JSON.stringify(canonical(value));
-const constantKey = (Frame, rgb, lineType) => ({ Frame, Vector: new Float32Array(rgb), ...(lineType > 1 ? { InTan: new Float32Array(lineType === 2 ? rgb.map(() => 0) : rgb), OutTan: new Float32Array(lineType === 2 ? rgb.map(() => 0) : rgb) } : {}) });
 export const partTextureKey = texture => fingerprint({ ...texture, Image: partPathKey(texture.Image), ReplaceableId: texture.ReplaceableId || 0, Flags: texture.Flags || 0 });
 
 /** Capture only selected vertices, including loose points, across every donor
@@ -24,39 +23,49 @@ export function collectPart(source, selection) {
   return model;
 }
 
-/** Existing displayed RGB keys become named, constant presets, using the same
- * sampling path as Bitz import (including global color channels). */
-export function currentPartPresets(source) {
-  return (source.Sequences || []).flatMap((sequence, sequenceIndex) => {
-    const colors = [], samples = partColorSamples(source, sequenceIndex);
-    for (const channel of partColorSources(source, sequenceIndex)) if (!samples.some(sample => sample.recordIndex === channel.recordIndex)) samples.push({ rgb: resolvePartColor(source, { sequenceIndex, recordIndex: channel.recordIndex, frame: sequence.Interval[0] }) });
-    for (const sample of samples) if (!colors.some(rgb => rgb.every((value, index) => Math.abs(value - sample.rgb[index]) < 1e-6))) colors.push(sample.rgb);
-    return colors.map((rgb, index) => ({ name: colors.length === 1 ? sequence.Name : `${sequence.Name} RGB ${index + 1}`, rgb }));
-  });
+// Only appearance dependencies are imported; source rig movement is not.
+function visitPartTracks(model, visitor) {
+  const seen = new Set();
+  const visit = value => {
+    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value.Keys)) { visitor(value); return; }
+    for (const child of Object.values(value)) visit(child);
+  };
+  for (const owner of ['GeosetAnims', 'Materials', 'TextureAnims']) visit(model[owner]);
 }
 
-/** Build a standalone Bit. Each chosen RGB is a real sequence with constant
- * keys for every collected geoset; no source rig animation is carried over. */
-export function collectedPartModel(source, { name, importCurrent = false, presets = [] }) {
-  if (!String(name || '').trim()) throw Error('Name the Bit before saving.');
+/** null keeps the source as is; a selection keeps complete appearance tracks
+ * for those sequences. Geoset IDs, static colors, defaults and globals survive. */
+export function selectPartAnimations(source, animations = null) {
   const model = structuredClone(source);
+  if (animations === null) return model;
+  if (!Array.isArray(animations) || !animations.length) throw Error('Select one or more animations, or import as is.');
+  const indices = new Set(), names = new Set();
+  model.Sequences = animations.map(({ sequenceIndex }) => {
+    if (!Number.isInteger(sequenceIndex) || !source.Sequences?.[sequenceIndex]) throw Error('Choose an available source animation.');
+    if (indices.has(sequenceIndex)) throw Error('Select each source animation once.');
+    indices.add(sequenceIndex);
+    return structuredClone(source.Sequences[sequenceIndex]);
+  });
+  animations.forEach(({ name }, index) => {
+    setSequenceName(model, index, name);
+    const key = model.Sequences[index].Name.toLowerCase();
+    if (names.has(key)) throw Error('Selected animation names must be unique.');
+    names.add(key);
+  });
+  visitPartTracks(model, track => {
+    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+    track.Keys = track.Keys.filter(key => model.Sequences.some(sequence => key.Frame >= sequence.Interval[0] && key.Frame <= sequence.Interval[1]));
+  });
+  for (const geoset of model.Geosets) geoset.Anims = animations.map(({ sequenceIndex }) => structuredClone(geoset.Anims?.[sequenceIndex] || { MinimumExtent: geoset.MinimumExtent, MaximumExtent: geoset.MaximumExtent, BoundsRadius: geoset.BoundsRadius }));
+  return model;
+}
+
+export function collectedPartModel(source, { name, animations = null }) {
+  if (!String(name || '').trim()) throw Error('Name the Bit before saving.');
+  const model = selectPartAnimations(source, animations);
   model.Info.Name = name.trim();
-  const appearance = model.Geosets.map((_, index) => sampleGeosetAnimation(model, index, 0, -1));
-  model.Sequences = [];
-  model.GeosetAnims = model.Geosets.map((_, index) => ({ GeosetId: index, Flags: 2, Color: new Float32Array(appearance[index].color), Alpha: appearance[index].alpha }));
-  for (const preset of [...(importCurrent ? currentPartPresets(source) : []), ...presets]) {
-    if (!preset.name?.trim()) throw Error('Name each RGB animation.');
-    const rgb = preset.rgb;
-    if (!rgb || rgb.length !== 3 || Array.from(rgb).some(value => !Number.isFinite(value) || value < 0 || value > 1)) throw Error('RGB values must be between 0 and 255.');
-    if (model.Sequences.some(sequence => sequence.Name.toLowerCase() === preset.name.trim().toLowerCase())) throw Error('RGB animation names must be unique.');
-    const start = model.Sequences.length * 1000, end = start + 900;
-    model.Sequences.push({ Name: preset.name.trim(), Interval: new Uint32Array([start, end]), NonLooping: false, MoveSpeed: 0, Rarity: 0, MinimumExtent: model.Info.MinimumExtent.slice(), MaximumExtent: model.Info.MaximumExtent.slice(), BoundsRadius: model.Info.BoundsRadius });
-    for (const record of model.GeosetAnims) {
-      if (!record.Color?.Keys) { record._MdxDefaults = { Color: record.Color.slice() }; record.Color = { LineType: 0, GlobalSeqId: null, Keys: [] }; }
-      record.Color.Keys.push(...[start, end].map(Frame => constantKey(Frame, rgb, record.Color.LineType)));
-    }
-  }
-  for (const geoset of model.Geosets) geoset.Anims = model.Sequences.map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius }));
   return model;
 }
 
@@ -64,27 +73,6 @@ export function serializeCollectedPart(model) {
   const document = openDocument(`Version { FormatVersion ${model.Version}, }\nModel "Collected Bit" { BlendTime 150, }`, 'Collected Bit.mdl');
   document.apply('Collect Bit', [], target => Object.assign(target, structuredClone(model)));
   return document.serialize('mdx');
-}
-
-/** Uniform, constant presets can be chosen directly by their animation. */
-export function partPresetColor(model, sequenceIndex) {
-  const sequence = model.Sequences?.[sequenceIndex];
-  if (!sequence) return null;
-  const sources = partColorSources(model, sequenceIndex);
-  if (new Set(sources.map(source => source.geosetIndex)).size !== model.Geosets.length) return null;
-  let rgb;
-  for (const source of sources) {
-    const track = model.GeosetAnims[source.recordIndex].Color;
-    if (source.global) return null;
-    const frames = [sequence.Interval[0], sequence.Interval[1], ...(track.Keys || []).map(key => key.Frame).filter(frame => frame >= sequence.Interval[0] && frame <= sequence.Interval[1])];
-    for (const frame of frames) {
-      const color = resolvePartColor(model, { sequenceIndex, recordIndex: source.recordIndex, frame });
-      if (rgb && color.some((value, index) => Math.abs(value - rgb[index]) > 1e-6)) return null;
-      rgb = color;
-    }
-    if (track.LineType > 1 && (track.Keys || []).some(key => key.Frame >= sequence.Interval[0] && key.Frame <= sequence.Interval[1] && ['InTan', 'OutTan'].some(field => key[field] && Array.from(key[field]).some((value, index) => Math.abs(value - (track.LineType === 2 ? 0 : rgb[index])) > 1e-6)))) return null;
-  }
-  return rgb || null;
 }
 
 export function partTextureIndices(model) {
@@ -103,78 +91,24 @@ export function partTextureIndices(model) {
   return [...indices];
 }
 
-/** Every offered sample identifies a real color channel. A frame/geoset choice
- * is explicit even when one sequence has several colors or changes over time. */
-export function partColorSources(model, sequenceIndex) {
-  const sequence = model.Sequences?.[sequenceIndex];
-  if (!sequence) return [];
-  return (model.GeosetAnims || []).flatMap((animation, recordIndex) => {
-    if (!(animation.Flags & 2) || !model.Geosets?.[animation.GeosetId] || animation.Color == null) return [];
-    const color = animation.Color;
-    const global = Number.isInteger(color.GlobalSeqId) && color.GlobalSeqId >= 0;
-    if (color.Keys && !color.Keys.some(key => global || (key.Frame >= sequence.Interval[0] && key.Frame <= sequence.Interval[1]))) return [];
-    return [{ recordIndex, geosetIndex: animation.GeosetId, global, animated: !!color.Keys }];
-  });
-}
-
-export function resolvePartColor(model, { sequenceIndex, recordIndex, frame }) {
-  const sequence = model.Sequences?.[sequenceIndex];
-  if (!sequence || !partColorSources(model, sequenceIndex).some(item => item.recordIndex === recordIndex)) throw Error('Choose an available source animation and geoset color.');
-  if (!Number.isFinite(frame) || frame < sequence.Interval[0] || frame > sequence.Interval[1]) throw Error('Choose a sample frame inside the source animation.');
-  const color = sampleTrack(model.GeosetAnims[recordIndex].Color, frame, { interval: sequence.Interval, globalSequences: model.GlobalSequences, globalTime: frame, fallback: [NaN, NaN, NaN] });
-  const rgb = Array.from(color);
-  if (rgb.length !== 3 || rgb.some(value => !Number.isFinite(value))) throw Error('This source sample has no usable RGB value.');
-  return rgb.map(value => Math.max(0, Math.min(1, value)));
-}
-
-/** Enumerate explicitly selectable color-key samples; manual frame sampling
- * remains available between keys. Global keys are placed in this sequence. */
-export function partColorSamples(model, sequenceIndex) {
-  const sequence = model.Sequences?.[sequenceIndex];
-  if (!sequence) return [];
-  const [start, end] = sequence.Interval;
-  return partColorSources(model, sequenceIndex).flatMap(source => {
-    const color = model.GeosetAnims[source.recordIndex].Color, duration = model.GlobalSequences?.[color.GlobalSeqId];
-    const frames = color.Keys ? color.Keys.map(key => source.global && duration > 0 ? key.Frame + Math.ceil((start - key.Frame) / duration) * duration : key.Frame).filter(frame => frame >= start && frame <= end) : [start];
-    return [...new Set(frames)].flatMap(frame => {
-      try { return [{ ...source, frame, rgb: resolvePartColor(model, { sequenceIndex, recordIndex: source.recordIndex, frame }) }]; } catch { return []; }
-    });
-  });
-}
-
-export function applyPartColor(model, geosetIndices, rgb) {
-  if (rgb == null) return;
-  if ((!Array.isArray(rgb) && !ArrayBuffer.isView(rgb)) || rgb.length !== 3 || Array.from(rgb).some(value => !Number.isFinite(value) || value < 0 || value > 1)) throw Error('The chosen RGB must have three values from 0 to 1.');
-  const indices = new Set(geosetIndices), seen = new Set();
-  model.GeosetAnims ||= [];
-  for (const animation of model.GeosetAnims) if (indices.has(animation.GeosetId)) {
-    // Replacing only Color removes source color keys while preserving alpha,
-    // flags unrelated to color, and all unrelated channels.
-    animation.Color = new Float32Array(rgb); animation.Flags = (animation.Flags || 0) | 2; seen.add(animation.GeosetId);
-    if (animation._MdxDefaults) delete animation._MdxDefaults.Color;
-  }
-  for (const index of indices) if (!seen.has(index)) model.GeosetAnims.push({ GeosetId: index, Flags: 2, Alpha: 1, Color: new Float32Array(rgb) });
-}
-
 /** Isolated bind-pose geometry preview. No destination role is created. */
-export function previewPart(source, rgb = null) {
+export function previewPart(source) {
   const model = structuredClone(source);
   // The imported part keeps file-space coordinates and is rebound as one rigid
   // part. Source rig movement must not imply it will be copied into the target.
   model.Nodes = []; model.Bones = []; model.Helpers = []; model.PivotPoints = [];
   for (const key of ['Attachments', 'Lights', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters', 'EventObjects', 'CollisionShapes']) model[key] = [];
   for (const geoset of model.Geosets) { geoset.Groups = [[]]; geoset.VertexGroup = new Uint8Array(geoset.Vertices.length / 3); delete geoset.SkinWeights; }
-  applyPartColor(model, model.Geosets.map((_, index) => index), rgb);
   return model;
 }
 
 /** Whole-part import. Prepare on a clone so even callers outside EditorDocument
  * get all-or-nothing data changes; the UI wraps this in one undoable edit. */
-export function commitPart(target, source, { rgb = null, texturePaths = {} } = {}) {
+export function commitPart(target, source, { animations = null, texturePaths = {} } = {}) {
   if (!source?.Geosets?.length) throw Error('This model has no geosets to import.');
   if (source.Version !== target.Version) throw Error('BitsAndParts requires matching model formats. Convert a copy to the destination format first.');
   if (source.BindPoses?.length || target.BindPoses?.length) throw Error('Parts with bind-pose matrices require baking before import.');
-  const next = structuredClone(target), staged = structuredClone(source);
+  const next = structuredClone(target), staged = selectPartAnimations(source, animations);
   for (const key of ['Textures', 'Materials', 'TextureAnims', 'GlobalSequences', 'Geosets', 'GeosetAnims']) next[key] ||= [];
   const maps = { textures: new Map(), materials: new Map(), textureAnims: new Map(), globals: new Map() };
   const reuse = (collection, item) => { const key = fingerprint(item), index = collection.findIndex(existing => fingerprint(existing) === key); return index < 0 ? collection.push(item) - 1 : index; };
@@ -217,7 +151,29 @@ export function commitPart(target, source, { rgb = null, texturePaths = {} } = {
     }
     remapGlobals(material); maps.materials.set(id, reuse(next.Materials, material)); return maps.materials.get(id);
   };
-  applyPartColor(staged, staged.Geosets.map((_, index) => index), rgb);
+  // Keep relative source timing, including keys outside sequence intervals.
+  // Allocate through the sequence editor and shift only local appearance keys.
+  const sequenceIndices = [];
+  let sourceStart = Math.min(...staged.Sequences.map(sequence => sequence.Interval[0])), offset = 0;
+  visitPartTracks(staged, track => {
+    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+    for (const key of track.Keys) sourceStart = Math.min(sourceStart, key.Frame);
+  });
+  for (const sequence of staged.Sequences) {
+    const index = createSequence(next, sequence.Interval[1] - sequence.Interval[0]);
+    if (!sequenceIndices.length) offset = next.Sequences[index].Interval[0] - sourceStart;
+    const interval = new Uint32Array(Array.from(sequence.Interval, frame => frame + offset));
+    if (sequence.Interval[1] + offset > 0x7fffffff) throw Error('There is not enough frame space to import these animations.');
+    next.Sequences[index] = { ...structuredClone(sequence), Interval: interval };
+    sequenceIndices.push(index);
+  }
+  if (sequenceIndices.length) visitPartTracks(staged, track => {
+    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+    for (const key of track.Keys) {
+      if (key.Frame + offset > 0x7fffffff) throw Error('There is not enough frame space to import these animation keys.');
+      key.Frame += offset;
+    }
+  });
   for (const geoset of staged.Geosets) {
     if (!geoset.Vertices?.length || geoset.Vertices.length % 3 || !geoset.Faces || geoset.Faces.length % 3 || Array.from(geoset.Faces).some(index => index < 0 || index >= geoset.Vertices.length / 3)) throw Error('The part contains invalid geometry.');
     geoset.MaterialID = materialRef(geoset.MaterialID);
@@ -235,5 +191,5 @@ export function commitPart(target, source, { rgb = null, texturePaths = {} } = {
   for (const index of geosetIndices) { const geoset = next.Geosets[index]; geoset.Anims = (next.Sequences || []).map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius })); }
   if (next.Info) Object.assign(next.Info, { NumGeosets: next.Geosets.length, NumGeosetAnims: next.GeosetAnims.length, NumBones: next.Bones.length });
   Object.assign(target, next);
-  return { geosetIndices, boneId: bone.ObjectId, materialMap: Object.fromEntries(maps.materials), textureMap: Object.fromEntries(maps.textures) };
+  return { geosetIndices, sequenceIndices, boneId: bone.ObjectId, materialMap: Object.fromEntries(maps.materials), textureMap: Object.fromEntries(maps.textures) };
 }
