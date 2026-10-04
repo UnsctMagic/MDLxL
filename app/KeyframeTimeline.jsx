@@ -179,7 +179,6 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     }
     if (event.button === 2 && (!upper || !onCursor)) return;
     event.preventDefault(); panel.current?.focus({ preventScroll: true }); setContext(null);
-    if (!upper) { if (at(event) < frame) previous(event.shiftKey); else next(event.shiftKey); return; }
     const extend = event.shiftKey || event.button === 2, anchor = selectionAnchor();
     if (event.button === 2) suppressContext.current = true;
     seek(at(event), extend, anchor);
