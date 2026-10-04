@@ -102,7 +102,9 @@ export function createShowcaseDirector(getSettings, now = () => performance.now(
         if (settings.previewOrbit) clock.orbitSeconds += elapsed;
       }
       if (clock.live) clock.globalTime = clock.seconds * 1000;
-      else clock.globalTime += Math.max(0, delta);
+      // Export replay is driven by seekRecording. Preview redraws between
+      // captures must hold effects at that time, even when encoding is slow.
+      else if (!clock.recording) clock.globalTime += Math.max(0, delta);
       if (clock.recording || settings.previewOrbit) clock.angle = (Number(settings.startAngle) || 0) + clock.orbitSeconds * orbitRate(settings);
       const span = Math.max(.02, Number(settings.length)), cycle = clock.recording ? 0 : Math.floor(clock.seconds / span);
       const animation = showcaseAnimation(settings.model, settings.playlist, clock.recording ? clock.seconds : clock.seconds % span, false);
