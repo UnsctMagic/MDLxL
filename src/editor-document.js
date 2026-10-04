@@ -14,6 +14,7 @@ import { prepareMdlPopcornColors, restoreMdlPopcornRotations } from './popcorn-r
 import { writeMdlUVSets } from './uv-coordinate-codec.js';
 import { convertMdxGeosetColorTracks } from './geoset-color-codec.js';
 import { geosetColorExportIssues, prepareGeosetAnimationColors } from './geoset-animation-defaults.js';
+import { GEOSET_TABS_KEY, GEOSET_TAB_KEY, geosetTabsData, normalizeGeosetTabs, readGeosetTabs, writeGeosetTabs, isGeosetTabsChunk } from './geoset-tabs.js';
 
 const V3 = (x = 0, y = 0, z = 0) => new Float32Array([x, y, z]);
 const clone = (value) => structuredClone(value);
@@ -40,12 +41,14 @@ const MDL_TO_KEY = Object.fromEntries(Object.entries(SECTION_TYPES).map(([k, v])
 const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
 const nodeCollections = (model) => Object.values(NODE_TYPES).flatMap(([key]) => model[key] || []);
 const fingerprint = (value) => JSON.stringify(value, (key, val) => {
+  if (key === GEOSET_TAB_KEY) return undefined;
   if (ArrayBuffer.isView(val)) return { $type: val.constructor.name, $data: Array.from(val) };
   if (typeof val === 'number' && !Number.isFinite(val)) return { $number: String(val) };
   return val;
 });
 const nodeCollectionKeys = new Set(Object.values(NODE_TYPES).map(([key]) => key));
 const ignoreHistoryAlias = (path) => path[0] === 'Nodes' || path.length === 3 && nodeCollectionKeys.has(path[0]) && path[2] === 'PivotPoint';
+const ignoreSerializationAlias = path => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === 'Geosets' && path[2] === GEOSET_TAB_KEY;
 const pickSections = (model, keys) => Object.fromEntries([...keys].filter(key => key !== 'Nodes').map(key => [key, model[key]]));
 
 function emptyModel(version = 800, name = 'Untitled') {
@@ -192,6 +195,7 @@ function normalizeModel(model, previous) {
   for (const texture of model.Textures) { texture.Image ??= ''; texture.ReplaceableId ??= 0; texture.Flags ??= 0; }
   for (const node of model.ParticleEmitters2) node.Squirt = !!node.Squirt;
   updateCounts(model);
+  normalizeGeosetTabs(model);
 }
 
 function surgicalMdl(original, sections, generated, keys) {
@@ -254,6 +258,7 @@ export class EditorDocument {
           this.model.GeosetAnims = convertMdxGeosetColorTracks(this.model.GeosetAnims);
         }
         normalizeModel(this.model);
+        this._sourceWarnings.push(...readGeosetTabs(this._original, this.format, this.model, this._container));
       } catch (error) {
         this.readOnly = true;
         this._sourceErrors.push({ severity: 'error', code: 'SEMANTIC_DECODE_FAILED', message: `Editing unavailable: ${error.message}. The original file can still be copied exactly.` });
@@ -294,7 +299,7 @@ export class EditorDocument {
   _changedKeys() {
     const candidates = this._candidateKeys();
     if (this._changeCache?.revision !== this.revision) {
-      const changes = createChanges(pickSections(this._savedModel, candidates), pickSections(this.model, candidates), { ignore: ignoreHistoryAlias });
+      const changes = createChanges(pickSections(this._savedModel, candidates), pickSections(this.model, candidates), { ignore: ignoreSerializationAlias });
       // Once compared, clean sections need no further scans until a real edit
       // touches them. This also handles staged and restored saved baselines.
       this._dirtyCandidates = new Set(changes.map(change => change.path[0]));
@@ -302,7 +307,8 @@ export class EditorDocument {
     }
     return this._changeCache.keys;
   }
-  get dirty() { return this._changedKeys().length > 0; }
+  get _tabsChanged() { return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model)); }
+  get dirty() { return this._changedKeys().length > 0 || this._tabsChanged; }
   get canUndo() { return this._historyStore.stats.undoSteps > 0; }
   get canRedo() { return this._historyStore.stats.redoSteps > 0; }
   get historyStats() { return this._historyStore.stats; }
@@ -323,7 +329,7 @@ export class EditorDocument {
   }
   _unknownSections() {
     const known = new Set(Object.values(SECTION_TYPES).map((s) => s[1]));
-    return this.format === 'mdx' ? [...new Set(this._container.chunks.filter((c) => !known.has(c.tag)).map((c) => c.tag))] : [...new Set(this._sections.filter((s) => !s.key).map((s) => s.name))];
+    return this.format === 'mdx' ? [...new Set(this._container.chunks.filter((c) => !known.has(c.tag) && !isGeosetTabsChunk(this._original, c)).map((c) => c.tag))] : [...new Set(this._sections.filter((s) => !s.key).map((s) => s.name))];
   }
   convertVersion(target) {
     if (this.readOnly) throw new Error('This document is read-only.');
@@ -478,7 +484,7 @@ export class EditorDocument {
     warnings.push(...stringIssues);
     const unknown = this._unknownSections();
     if (conversion && unknown.length) warnings.push(`Cannot convert unrecognized source data: ${unknown.join(', ')}.`);
-    return { format, conversion, exact: !conversion && changed.length === 0, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: ['mdl', 'mdx'].includes(format) && (!this.readOnly || !conversion && !changed.length) && !stringIssues.length && !(conversion && unknown.length) };
+    return { format, conversion, exact: !conversion && changed.length === 0 && !this._tabsChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: ['mdl', 'mdx'].includes(format) && (!this.readOnly || !conversion && !changed.length && !this._tabsChanged) && !stringIssues.length && !(conversion && unknown.length) };
   }
   serialize(format = this.format, { timings = {} } = {}) {
     Object.assign(timings, { serializationMs: 0, reparsingMs: 0, verificationMs: 0, errorFormattingMs: 0 });
@@ -496,6 +502,14 @@ export class EditorDocument {
       return bytes;
     };
     if (impact.exact) return remember(this._original);
+    if (!impact.conversion && !impact.changedSections.length) {
+      const output = writeGeosetTabs(this._original, format, this.model);
+      nextStage('reparsingMs');
+      const reopened = openDocument(output, `validation.${format}`);
+      nextStage('verificationMs');
+      if (reopened.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata did not reopen.');
+      return remember(output);
+    }
     // Object IDs stay stable in the editor and its undo history. Only the save
     // snapshot is numbered in the compatible node order for external editors.
     let saveModel = this.model;
@@ -528,7 +542,7 @@ export class EditorDocument {
     const keys = saveModel !== this.model || this._recoverySavedChanges.length
       ? Object.keys(SECTION_TYPES).filter(key => fingerprint(sourceModel[key]) !== fingerprint(saveModel[key]))
       : this._changedKeys();
-    const output = impact.conversion ? generated : format === 'mdl' ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys);
+    const output = writeGeosetTabs(impact.conversion ? generated : format === 'mdl' ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys), format, saveModel);
     // A writer can succeed while emitting a dialect the reader cannot parse.
     // Check the final surgical/conversion result before allowing it onto disk.
     nextStage('reparsingMs');
@@ -540,6 +554,7 @@ export class EditorDocument {
     }
     if (reopened.version !== this.version) throw new Error('Save verification failed: model version changed.');
     assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings });
+    if (JSON.stringify(geosetTabsData(saveModel)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata changed.');
     for (const key of Object.keys(SECTION_TYPES)) if (Array.isArray(this.model[key]) && this.model[key].length !== reopened.model[key]?.length) throw new Error(`Save verification failed: ${key} count changed during serialization.`);
     for (let index = 0; index < this.model.Geosets.length; index++) if (this.model.Geosets[index].TVertices.length !== reopened.model.Geosets[index].TVertices.length) throw new Error(`Save verification failed: Geoset ${index} UV set count changed during serialization.`);
     const existingErrors = new Set(validateModel(this.model).filter((d) => d.severity === 'error').map((d) => `${d.code}:${d.path}`));

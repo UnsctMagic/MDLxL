@@ -2,8 +2,9 @@ import { Buffer } from 'buffer';
 import { parseMdx } from './mdx-container.js';
 import { mdxChunk, mdxRecords } from './mdx-compatibility.js';
 import { mdlMembers } from './mdl-compatibility.js';
+import { GEOSET_TAB_KEY } from './geoset-tabs.js';
 
-const fingerprint = value => JSON.stringify(value,(key,v)=>key==='PivotPoint'?undefined:ArrayBuffer.isView(v)?Array.from(v):typeof v==='number'&&!Number.isFinite(v)?String(v):v);
+const fingerprint = value => JSON.stringify(value,(key,v)=>key==='PivotPoint'||key===GEOSET_TAB_KEY?undefined:ArrayBuffer.isView(v)?Array.from(v):typeof v==='number'&&!Number.isFinite(v)?String(v):v);
 const recordTags = new Set(['SEQS','TEXS','MTLS','TXAN','GEOS','GEOA','BONE','HELP','ATCH','LITE','PREM','PRE2','RIBB','CORN','CAMS','CLID','EVTS','PIVT','GLBS']);
 function matches(before,after) {
   const pool=new Map();

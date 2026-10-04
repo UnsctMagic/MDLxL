@@ -65,7 +65,7 @@ function normalizeVersionFields(model, target) {
 }
 
 // src/editor-document.js
-var import_buffer9 = require("buffer");
+var import_buffer10 = require("buffer");
 
 // ../../../../../ChatGPT/MDLxL/node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
 var TextureFlags = /* @__PURE__ */ (function(TextureFlags2) {
@@ -309,12 +309,12 @@ function parseArrayOrSingleItem(state, arr) {
   return arr;
 }
 function parseObject(state) {
-  let prefix = null;
+  let prefix2 = null;
   const obj = {};
   if (state.char() !== "{") {
-    prefix = parseString(state);
-    if (prefix === null) prefix = parseNumber(state);
-    if (prefix === null) throwError(state, "expected string or number");
+    prefix2 = parseString(state);
+    if (prefix2 === null) prefix2 = parseNumber(state);
+    if (prefix2 === null) throwError(state, "expected string or number");
   }
   strictParseSymbol(state, "{");
   while (state.char() !== "}") {
@@ -329,7 +329,7 @@ function parseObject(state) {
     parseSymbol(state, ",");
   }
   strictParseSymbol(state, "}");
-  return [prefix, obj];
+  return [prefix2, obj];
 }
 function parseVersion$1(state, model) {
   const [_unused, obj] = parseObject(state);
@@ -5562,8 +5562,8 @@ function finishCompatibleMdl(input, model) {
       if (typeof value === "number" || typeof value === "string" || ArrayBuffer.isView(value) || value.Keys) {
         const reverse = ["Color", "AmbColor"].includes(key) && m.name !== "ParticleEmitterPopcorn";
         const baseline = o._MdxDefaults?.[key];
-        const prefix = value.Keys && baseline != null ? mdlProperty(key, baseline, reverse, true) + "\n" : "";
-        edits.push({ start: c.start, end: c.end, text: prefix + mdlProperty(m.name === "Geoset" && key === "Name" ? "LevelOfDetailName" : key, value, reverse, c.isStatic) });
+        const prefix2 = value.Keys && baseline != null ? mdlProperty(key, baseline, reverse, true) + "\n" : "";
+        edits.push({ start: c.start, end: c.end, text: prefix2 + mdlProperty(m.name === "Geoset" && key === "Name" ? "LevelOfDetailName" : key, value, reverse, c.isStatic) });
       }
     }
     for (const key of extensionFields) if (o[key] != null && !represented.has(key) && key !== "ShadowCasting" && model.Version >= (fieldVersions[key] || 0)) {
@@ -5617,9 +5617,9 @@ function formatGeneratedMdl(input) {
     const header = bytes.subarray(member.start, member.open.start).toString("utf8").trim();
     const suffix = bytes.subarray(member.close.end, member.end).toString("utf8").trim();
     const inline = member.name === "DontInherit" || !["VertexGroup", "EventTrack", "GlobalSequences"].includes(member.name) && member.children.length > 0 && member.children.every((child) => !child.children && child.header.every(numeric));
-    const prefix = header ? header + " " : "";
-    if (inline) return indent + prefix + "{ " + member.children.map((child) => render(child, 0)).join(" ") + " }" + suffix;
-    return indent + prefix + "{\n" + member.children.map((child) => render(child, depth + 1)).join("\n") + (member.children.length ? "\n" : "") + indent + "}" + suffix;
+    const prefix2 = header ? header + " " : "";
+    if (inline) return indent + prefix2 + "{ " + member.children.map((child) => render(child, 0)).join(" ") + " }" + suffix;
+    return indent + prefix2 + "{\n" + member.children.map((child) => render(child, depth + 1)).join("\n") + (member.children.length ? "\n" : "") + indent + "}" + suffix;
   }
   return import_buffer4.Buffer.from(members.map((member) => render(member, 0)).join("\n") + "\n");
 }
@@ -5739,7 +5739,7 @@ function geosetColorExportIssues(animations, format) {
 }
 
 // src/save-equivalence.js
-var ignored = /* @__PURE__ */ new Set(["Nodes", "PivotPoint", "TotalGroupsCount", "NumGeosets", "NumGeosetAnims", "NumBones", "NumHelpers", "NumLights", "NumAttachments", "NumEvents", "NumParticleEmitters", "NumParticleEmitters2", "NumRibbonEmitters"]);
+var ignored = /* @__PURE__ */ new Set(["_GeosetTabId", "Nodes", "PivotPoint", "TotalGroupsCount", "NumGeosets", "NumGeosetAnims", "NumBones", "NumHelpers", "NumLights", "NumAttachments", "NumEvents", "NumParticleEmitters", "NumParticleEmitters2", "NumRibbonEmitters"]);
 var defaults = { AnimationFile: "", Path: "", PriorityPlane: 0, Gravity: 0, SyncPoint: 0, Flags: 0, SelectionFlags: 0, Variant: 0, Shader: "", Name: "", LevelOfDetail: 0, Alpha: 1, EmissiveGain: 1, FresnelOpacity: 0, FresnelTeamColor: 0, ShaderTypeId: 0, ShadowIntensity: 0, ShadowCasting: 0, ShadowCastingStart: 0, ShadowCastingEnd: 0, QuadraticFalloff: 5e-4, LinearFalloff: 0, Damping: 1e-5, _MdxTextureId: 0 };
 var equalNumber = (a, b) => Object.is(a, b) || Object.is(Math.fround(a), Math.fround(b));
 var integerFields = /* @__PURE__ */ new Set(["Version", "Frame", "Flags", "RenderMode", "Shading", "SelectionFlags", "SyncPoint", "ObjectId", "Parent", "GeosetId", "GeosetAnimId", "MaterialID", "TextureID", "NormalTextureID", "ORMTextureID", "EmissiveTextureID", "TeamColorTextureID", "ReflectionsTextureID", "TextureSlot", "TVertexAnimId", "CoordId", "GlobalSeqId", "LineType", "AttachmentID", "ReplaceableId", "FilterMode", "LightType", "Shape", "Rows", "Columns", "PriorityPlane", "SelectionGroup", "LevelOfDetail", "ShaderTypeId", "Variant", "BlendTime", "_MdxTextureId"]);
@@ -5825,8 +5825,90 @@ function assertModelEquivalent(expected, actual, options) {
 }
 
 // src/record-preservation.js
+var import_buffer6 = require("buffer");
+
+// src/geoset-tabs.js
 var import_buffer5 = require("buffer");
-var fingerprint = (value) => JSON.stringify(value, (key, v) => key === "PivotPoint" ? void 0 : ArrayBuffer.isView(v) ? Array.from(v) : typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
+var GEOSET_TABS_TAG = "MDLXL_GEOSET_TABS_V1:8f75130f-6e97-4b72-97d5-bf1d348e91ab";
+var GEOSET_TABS_CHUNK = "XLGT";
+var GEOSET_TABS_KEY = "_GeosetTabs";
+var GEOSET_TAB_KEY = "_GeosetTabId";
+var prefix = `// ${GEOSET_TABS_TAG} `;
+function validData(data, model) {
+  return Array.isArray(data?.tabs) && data.geosets && typeof data.geosets === "object" && !Array.isArray(data.geosets) && data.tabs.every((tab) => typeof tab?.id === "string" && tab.id && !["all", "ungrouped"].includes(tab.id) && typeof tab.name === "string" && typeof tab.visible === "boolean") && new Set(data.tabs.map((tab) => tab.id)).size === data.tabs.length && Object.entries(data.geosets).every(([index2, id]) => /^\d+$/.test(index2) && Number.isSafeInteger(Number(index2)) && (!model || model.Geosets[index2]) && data.tabs.some((tab) => tab.id === id));
+}
+function validRecord(record) {
+  try {
+    return validData(JSON.parse(record.text.slice(prefix.length)));
+  } catch {
+    return false;
+  }
+}
+function geosetTabsData(model) {
+  const tabs = model[GEOSET_TABS_KEY] || [], ids = new Set(tabs.map((tab) => tab.id));
+  const geosets = {};
+  model.Geosets.forEach((geoset, index2) => {
+    if (ids.has(geoset[GEOSET_TAB_KEY])) geosets[index2] = geoset[GEOSET_TAB_KEY];
+  });
+  return { tabs, geosets };
+}
+function normalizeGeosetTabs(model) {
+  const ids = new Set((model[GEOSET_TABS_KEY] || []).map((tab) => tab.id));
+  for (const geoset of model.Geosets) if (!ids.has(geoset[GEOSET_TAB_KEY])) delete geoset[GEOSET_TAB_KEY];
+}
+function isGeosetTabsChunk(bytes, chunk) {
+  return chunk.tag === GEOSET_TABS_CHUNK && import_buffer5.Buffer.from(bytes).subarray(chunk.payloadOffset, chunk.payloadOffset + prefix.length).toString("utf8") === prefix;
+}
+function metadataRecords(bytes, format, container) {
+  if (format === "mdl") return (container || parseMdl(bytes)).tokens.filter((token2) => token2.kind === "line-comment" && token2.raw.toString("utf8").startsWith(prefix)).map((token2) => ({ start: token2.start, end: token2.end + (bytes[token2.end] === 13 ? bytes[token2.end + 1] === 10 ? 2 : 1 : bytes[token2.end] === 10 ? 1 : 0), text: token2.raw.toString("utf8") }));
+  return (container || parseMdx(bytes)).chunks.filter((chunk) => isGeosetTabsChunk(bytes, chunk)).map((chunk) => ({ start: chunk.offset, end: chunk.payloadOffset + chunk.declaredSize, text: bytes.subarray(chunk.payloadOffset, chunk.payloadOffset + chunk.declaredSize).toString("utf8") }));
+}
+function readGeosetTabs(input, format, model, container) {
+  const bytes = import_buffer5.Buffer.from(input), records = metadataRecords(bytes, format, container);
+  const diagnostics = [];
+  for (const record of records) {
+    let data;
+    try {
+      data = JSON.parse(record.text.slice(prefix.length));
+    } catch {
+      diagnostics.push({ severity: "warning", code: "GEOSET_TABS_METADATA", message: "The MDLxL geoset tab comment contains invalid JSON; its source bytes are retained." });
+      continue;
+    }
+    if (!validData(data, model)) {
+      diagnostics.push({ severity: "warning", code: "GEOSET_TABS_METADATA", message: "The MDLxL geoset tab comment has invalid tab or geoset references; its source bytes are retained." });
+      continue;
+    }
+    if (data.tabs.length) model[GEOSET_TABS_KEY] = data.tabs;
+    else delete model[GEOSET_TABS_KEY];
+    for (const geoset of model.Geosets) delete geoset[GEOSET_TAB_KEY];
+    for (const [index2, id] of Object.entries(data.geosets)) model.Geosets[index2][GEOSET_TAB_KEY] = id;
+  }
+  return diagnostics;
+}
+function writeGeosetTabs(input, format, model) {
+  const bytes = import_buffer5.Buffer.from(input), parts = [], records = metadataRecords(bytes, format).filter(validRecord);
+  let cursor = 0;
+  for (const record of records) {
+    parts.push(bytes.subarray(cursor, record.start));
+    cursor = record.end;
+  }
+  parts.push(bytes.subarray(cursor));
+  const body = import_buffer5.Buffer.concat(parts), data = geosetTabsData(model);
+  if (!data.tabs.length) return body;
+  const text = import_buffer5.Buffer.from(prefix + JSON.stringify(data) + "\n", "utf8");
+  if (format === "mdl") {
+    const bom = body.subarray(0, 3).equals(import_buffer5.Buffer.from([239, 187, 191])) ? 3 : 0;
+    return import_buffer5.Buffer.concat([body.subarray(0, bom), text, body.subarray(bom)]);
+  }
+  const header = import_buffer5.Buffer.alloc(8);
+  header.write(GEOSET_TABS_CHUNK, "ascii");
+  header.writeUInt32LE(text.length, 4);
+  const container = parseMdx(body), end = body.length - container.trailingBytes.length;
+  return import_buffer5.Buffer.concat([body.subarray(0, end), header, text, body.subarray(end)]);
+}
+
+// src/record-preservation.js
+var fingerprint = (value) => JSON.stringify(value, (key, v) => key === "PivotPoint" || key === GEOSET_TAB_KEY ? void 0 : ArrayBuffer.isView(v) ? Array.from(v) : typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
 var recordTags = /* @__PURE__ */ new Set(["SEQS", "TEXS", "MTLS", "TXAN", "GEOS", "GEOA", "BONE", "HELP", "ATCH", "LITE", "PREM", "PRE2", "RIBB", "CORN", "CAMS", "CLID", "EVTS", "PIVT", "GLBS"]);
 function matches(before, after) {
   const pool = /* @__PURE__ */ new Map();
@@ -5838,14 +5920,14 @@ function matches(before, after) {
   return after.map((v) => pool.get(fingerprint(v))?.shift());
 }
 function preserveMdxRecords(original, generated, before, after, sections) {
-  const oldBytes = import_buffer5.Buffer.from(original), newBytes = import_buffer5.Buffer.from(generated), oldChunks = new Map(parseMdx(oldBytes).chunks.map((c) => [c.tag, c]));
+  const oldBytes = import_buffer6.Buffer.from(original), newBytes = import_buffer6.Buffer.from(generated), oldChunks = new Map(parseMdx(oldBytes).chunks.map((c) => [c.tag, c]));
   const keys = new Map(Object.entries(sections).map(([key, [, tag]]) => [tag, key]));
-  return import_buffer5.Buffer.concat([import_buffer5.Buffer.from("MDLX"), ...parseMdx(newBytes).chunks.map((c) => {
+  return import_buffer6.Buffer.concat([import_buffer6.Buffer.from("MDLX"), ...parseMdx(newBytes).chunks.map((c) => {
     const key = keys.get(c.tag), old = oldChunks.get(c.tag), payload = newBytes.subarray(c.payloadOffset, c.payloadOffset + c.declaredSize);
     if (!recordTags.has(c.tag) || !old || !Array.isArray(before[key]) || !Array.isArray(after[key])) return mdxChunk(c.tag, payload);
     const previous = mdxRecords(oldBytes.subarray(old.payloadOffset, old.payloadOffset + old.declaredSize), c.tag), fresh = mdxRecords(payload, c.tag), indices = matches(before[key], after[key]);
     if (previous.length !== before[key].length || fresh.length !== after[key].length) throw new Error(`Cannot match ${c.tag} source records safely.`);
-    return mdxChunk(c.tag, import_buffer5.Buffer.concat(fresh.map((b, i) => indices[i] === void 0 ? b : previous[indices[i]])));
+    return mdxChunk(c.tag, import_buffer6.Buffer.concat(fresh.map((b, i) => indices[i] === void 0 ? b : previous[indices[i]])));
   })]);
 }
 var containers2 = { Sequences: "Anim", Textures: "Bitmap", Materials: "Material", TextureAnims: "TVertexAnim" };
@@ -5870,7 +5952,7 @@ function preserveMdlRecords(original, generated, before, after, sections) {
     p = e.end;
   }
   parts.push(newTree.bytes.subarray(p));
-  return import_buffer5.Buffer.concat(parts);
+  return import_buffer6.Buffer.concat(parts);
 }
 
 // src/selection-history.js
@@ -6164,9 +6246,9 @@ var HistoryStore = class _HistoryStore {
 };
 
 // src/event-object-codec.js
-var import_buffer6 = require("buffer");
+var import_buffer7 = require("buffer");
 function eventTrackTokens(input) {
-  const bytes = import_buffer6.Buffer.from(input), tokens = parseMdl(bytes).tokens.filter((token2) => !["whitespace", "line-comment", "block-comment"].includes(token2.kind));
+  const bytes = import_buffer7.Buffer.from(input), tokens = parseMdl(bytes).tokens.filter((token2) => !["whitespace", "line-comment", "block-comment"].includes(token2.kind));
   const raw2 = (token2) => token2?.raw.toString("utf8");
   let objectId = null, globalSeqId = null, trackOpen = null, remove = null, depth = 0;
   for (let i = 0; i < tokens.length; i++) {
@@ -6189,10 +6271,10 @@ function eventTrackTokens(input) {
 }
 function prepareMdlEventObject(input) {
   const { bytes, objectId, globalSeqId, remove } = eventTrackTokens(input);
-  return { objectId, globalSeqId, bytes: remove ? import_buffer6.Buffer.concat([bytes.subarray(0, remove.start), import_buffer6.Buffer.from(" "), bytes.subarray(remove.end)]) : bytes };
+  return { objectId, globalSeqId, bytes: remove ? import_buffer7.Buffer.concat([bytes.subarray(0, remove.start), import_buffer7.Buffer.from(" "), bytes.subarray(remove.end)]) : bytes };
 }
 function writeMdlEventGlobalSequences(generated, sections, model) {
-  const bytes = import_buffer6.Buffer.from(generated), byId = new Map((model.EventObjects || []).map((event) => [event.ObjectId, event]));
+  const bytes = import_buffer7.Buffer.from(generated), byId = new Map((model.EventObjects || []).map((event) => [event.ObjectId, event]));
   const parts = [];
   let cursor = 0;
   for (const section of sections) {
@@ -6201,12 +6283,12 @@ function writeMdlEventGlobalSequences(generated, sections, model) {
     const id = byId.get(objectId)?.GlobalSeqId;
     if (!Number.isInteger(id) || id < 0 || !trackOpen) continue;
     const position = section.start + trackOpen.end;
-    parts.push(bytes.subarray(cursor, position), import_buffer6.Buffer.from(`
+    parts.push(bytes.subarray(cursor, position), import_buffer7.Buffer.from(`
 		GlobalSeqId ${id},`));
     cursor = position;
   }
   parts.push(bytes.subarray(cursor));
-  return import_buffer6.Buffer.concat(parts);
+  return import_buffer7.Buffer.concat(parts);
 }
 function visitMdxEventTracks(bytes, visitor) {
   for (const chunk of parseMdx(bytes).chunks) if (chunk.tag === "EVTS") {
@@ -6223,14 +6305,14 @@ function visitMdxEventTracks(bytes, visitor) {
   }
 }
 function restoreMdxEventGlobalSequences(input, model) {
-  const bytes = import_buffer6.Buffer.from(input), byId = new Map((model.EventObjects || []).map((event) => [event.ObjectId, event]));
+  const bytes = import_buffer7.Buffer.from(input), byId = new Map((model.EventObjects || []).map((event) => [event.ObjectId, event]));
   visitMdxEventTracks(bytes, ({ objectId, globalSeqId }) => {
     const event = byId.get(objectId);
     if (event && globalSeqId >= 0) event.GlobalSeqId = globalSeqId;
   });
 }
 function writeMdxEventGlobalSequences(input, model) {
-  const bytes = import_buffer6.Buffer.from(input), byId = new Map((model.EventObjects || []).map((event) => [event.ObjectId, event]));
+  const bytes = import_buffer7.Buffer.from(input), byId = new Map((model.EventObjects || []).map((event) => [event.ObjectId, event]));
   visitMdxEventTracks(bytes, ({ objectId, offset }) => {
     const id = byId.get(objectId)?.GlobalSeqId;
     bytes.writeInt32LE(Number.isInteger(id) && id >= 0 ? id : -1, offset);
@@ -6239,9 +6321,9 @@ function writeMdxEventGlobalSequences(input, model) {
 }
 
 // src/popcorn-rotation-codec.js
-var import_buffer7 = require("buffer");
+var import_buffer8 = require("buffer");
 function restoreMdlPopcornRotations(input, sections, model) {
-  const bytes = import_buffer7.Buffer.from(input), owners2 = new Map((model.ParticleEmitterPopcorns || []).map((node) => [node.ObjectId, node]));
+  const bytes = import_buffer8.Buffer.from(input), owners2 = new Map((model.ParticleEmitterPopcorns || []).map((node) => [node.ObjectId, node]));
   if (!owners2.size) return;
   for (const section of sections) {
     if (section.key !== "ParticleEmitterPopcorns") continue;
@@ -6284,9 +6366,9 @@ function prepareMdlPopcornColors(emitters = []) {
 }
 
 // src/uv-coordinate-codec.js
-var import_buffer8 = require("buffer");
+var import_buffer9 = require("buffer");
 function writeMdlUVSets(input, sections, model) {
-  const bytes = import_buffer8.Buffer.from(input), parts = [];
+  const bytes = import_buffer9.Buffer.from(input), parts = [];
   let cursor = 0, geosetIndex = 0;
   for (const section of sections) {
     if (section.key !== "Geosets") continue;
@@ -6314,11 +6396,11 @@ ${rows.join("\n")}
 `;
     }).join("");
     const position = section.start + close.start;
-    parts.push(bytes.subarray(cursor, position), import_buffer8.Buffer.from(blocks));
+    parts.push(bytes.subarray(cursor, position), import_buffer9.Buffer.from(blocks));
     cursor = position;
   }
   parts.push(bytes.subarray(cursor));
-  return import_buffer8.Buffer.concat(parts);
+  return import_buffer9.Buffer.concat(parts);
 }
 
 // src/geoset-color-codec.js
@@ -6371,12 +6453,14 @@ var MDL_TO_KEY = Object.fromEntries(Object.entries(SECTION_TYPES).map(([k, v]) =
 var TEXTURE_SLOTS2 = ["TextureID", "NormalTextureID", "ORMTextureID", "EmissiveTextureID", "TeamColorTextureID", "ReflectionsTextureID"];
 var nodeCollections = (model) => Object.values(NODE_TYPES).flatMap(([key]) => model[key] || []);
 var fingerprint2 = (value) => JSON.stringify(value, (key, val) => {
+  if (key === GEOSET_TAB_KEY) return void 0;
   if (ArrayBuffer.isView(val)) return { $type: val.constructor.name, $data: Array.from(val) };
   if (typeof val === "number" && !Number.isFinite(val)) return { $number: String(val) };
   return val;
 });
 var nodeCollectionKeys = new Set(Object.values(NODE_TYPES).map(([key]) => key));
 var ignoreHistoryAlias = (path) => path[0] === "Nodes" || path.length === 3 && nodeCollectionKeys.has(path[0]) && path[2] === "PivotPoint";
+var ignoreSerializationAlias = (path) => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === "Geosets" && path[2] === GEOSET_TAB_KEY;
 var pickSections = (model, keys) => Object.fromEntries([...keys].filter((key) => key !== "Nodes").map((key) => [key, model[key]]));
 function emptyModel(version = 800, name = "Untitled") {
   const model = {
@@ -6388,7 +6472,7 @@ function emptyModel(version = 800, name = "Untitled") {
   return model;
 }
 function scanMdlSections(input) {
-  const bytes = import_buffer9.Buffer.from(input);
+  const bytes = import_buffer10.Buffer.from(input);
   const sections = [];
   let start = -1, name = "", depth = 0, i = 0;
   while (i < bytes.length) {
@@ -6397,7 +6481,7 @@ function scanMdlSections(input) {
       i += 2;
       while (i < bytes.length && bytes[i] !== 10 && bytes[i] !== 13) i++;
     } else if (c === 47 && bytes[i + 1] === 42) {
-      const end = bytes.indexOf(import_buffer9.Buffer.from("*/"), i + 2);
+      const end = bytes.indexOf(import_buffer10.Buffer.from("*/"), i + 2);
       if (end < 0) throw new Error("Unterminated MDL block comment.");
       i = end + 2;
     } else if (c === 34) {
@@ -6534,11 +6618,12 @@ function normalizeModel(model, previous) {
   }
   for (const node of model.ParticleEmitters2) node.Squirt = !!node.Squirt;
   updateCounts(model);
+  normalizeGeosetTabs(model);
 }
 function surgicalMdl(original, sections, generated, keys) {
   const fresh = scanMdlSections(generated);
   const replacements = /* @__PURE__ */ new Map();
-  for (const key of keys) replacements.set(key, import_buffer9.Buffer.concat(fresh.filter((s) => s.key === key).flatMap((s) => [generated.subarray(s.start, s.end), import_buffer9.Buffer.from("\n")])));
+  for (const key of keys) replacements.set(key, import_buffer10.Buffer.concat(fresh.filter((s) => s.key === key).flatMap((s) => [generated.subarray(s.start, s.end), import_buffer10.Buffer.from("\n")])));
   const parts = [];
   const inserted = /* @__PURE__ */ new Set();
   let cursor = 0;
@@ -6552,8 +6637,8 @@ function surgicalMdl(original, sections, generated, keys) {
     cursor = section.end;
   }
   parts.push(original.subarray(cursor));
-  for (const [key, bytes] of replacements) if (!inserted.has(key) && bytes.length) parts.push(import_buffer9.Buffer.from("\n"), bytes);
-  const output = import_buffer9.Buffer.concat(parts);
+  for (const [key, bytes] of replacements) if (!inserted.has(key) && bytes.length) parts.push(import_buffer10.Buffer.from("\n"), bytes);
+  const output = import_buffer10.Buffer.concat(parts);
   return orderMdlNodes(output);
 }
 function orderMdlNodes(output) {
@@ -6567,13 +6652,13 @@ function orderMdlNodes(output) {
     cursor = section.end;
   });
   reordered.push(output.subarray(cursor));
-  return import_buffer9.Buffer.concat(reordered);
+  return import_buffer10.Buffer.concat(reordered);
 }
 function surgicalMdx(original, container, generated, keys) {
   const fresh = parseMdx(generated);
   if (fresh.hasErrors) throw new Error("Generated MDX has an invalid chunk structure.");
   const tags = new Set(keys.map((key) => SECTION_TYPES[key][1]));
-  const replacements = new Map([...tags].map((tag) => [tag, import_buffer9.Buffer.concat(fresh.chunks.filter((chunk) => chunk.tag === tag).map((chunk) => generated.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize)))]));
+  const replacements = new Map([...tags].map((tag) => [tag, import_buffer10.Buffer.concat(fresh.chunks.filter((chunk) => chunk.tag === tag).map((chunk) => generated.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize)))]));
   const inserted = /* @__PURE__ */ new Set();
   const parts = [original.subarray(0, 4)];
   for (const chunk of container.chunks) {
@@ -6585,7 +6670,7 @@ function surgicalMdx(original, container, generated, keys) {
   }
   for (const [tag, bytes] of replacements) if (!inserted.has(tag)) parts.push(bytes);
   parts.push(container.trailingBytes);
-  return import_buffer9.Buffer.concat(parts);
+  return import_buffer10.Buffer.concat(parts);
 }
 var EditorDocument = class _EditorDocument {
   constructor(input, name = "Untitled.mdl", options = {}) {
@@ -6605,6 +6690,7 @@ var EditorDocument = class _EditorDocument {
           this.model.GeosetAnims = convertMdxGeosetColorTracks(this.model.GeosetAnims);
         }
         normalizeModel(this.model);
+        this._sourceWarnings.push(...readGeosetTabs(this._original, this.format, this.model, this._container));
       } catch (error) {
         this.readOnly = true;
         this._sourceErrors.push({ severity: "error", code: "SEMANTIC_DECODE_FAILED", message: `Editing unavailable: ${error.message}. The original file can still be copied exactly.` });
@@ -6617,7 +6703,7 @@ var EditorDocument = class _EditorDocument {
     this._recoverySavedChanges = [];
   }
   _loadSource(input) {
-    this._original = typeof input === "string" ? import_buffer9.Buffer.from(input, "utf8") : import_buffer9.Buffer.from(input instanceof ArrayBuffer ? new Uint8Array(input) : input);
+    this._original = typeof input === "string" ? import_buffer10.Buffer.from(input, "utf8") : import_buffer10.Buffer.from(input instanceof ArrayBuffer ? new Uint8Array(input) : input);
     this.format = this._original.subarray(0, 4).toString("ascii") === "MDLX" ? "mdx" : "mdl";
     this._container = this.format === "mdx" ? parseMdx(this._original) : parseMdl(this._original);
     this.version = this._container.version;
@@ -6646,14 +6732,17 @@ var EditorDocument = class _EditorDocument {
   _changedKeys() {
     const candidates = this._candidateKeys();
     if (this._changeCache?.revision !== this.revision) {
-      const changes = createChanges(pickSections(this._savedModel, candidates), pickSections(this.model, candidates), { ignore: ignoreHistoryAlias });
+      const changes = createChanges(pickSections(this._savedModel, candidates), pickSections(this.model, candidates), { ignore: ignoreSerializationAlias });
       this._dirtyCandidates = new Set(changes.map((change) => change.path[0]));
       this._changeCache = { revision: this.revision, keys: [...new Set(changes.map((change) => change.path[0]).filter((key) => key in SECTION_TYPES))] };
     }
     return this._changeCache.keys;
   }
+  get _tabsChanged() {
+    return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model));
+  }
   get dirty() {
-    return this._changedKeys().length > 0;
+    return this._changedKeys().length > 0 || this._tabsChanged;
   }
   get canUndo() {
     return this._historyStore.stats.undoSteps > 0;
@@ -6683,7 +6772,7 @@ var EditorDocument = class _EditorDocument {
   }
   _unknownSections() {
     const known = new Set(Object.values(SECTION_TYPES).map((s) => s[1]));
-    return this.format === "mdx" ? [...new Set(this._container.chunks.filter((c) => !known.has(c.tag)).map((c) => c.tag))] : [...new Set(this._sections.filter((s) => !s.key).map((s) => s.name))];
+    return this.format === "mdx" ? [...new Set(this._container.chunks.filter((c) => !known.has(c.tag) && !isGeosetTabsChunk(this._original, c)).map((c) => c.tag))] : [...new Set(this._sections.filter((s) => !s.key).map((s) => s.name))];
   }
   convertVersion(target) {
     if (this.readOnly) throw new Error("This document is read-only.");
@@ -6858,7 +6947,7 @@ var EditorDocument = class _EditorDocument {
     warnings.push(...stringIssues);
     const unknown = this._unknownSections();
     if (conversion && unknown.length) warnings.push(`Cannot convert unrecognized source data: ${unknown.join(", ")}.`);
-    return { format, conversion, exact: !conversion && changed.length === 0, readOnly: this.readOnly, changedSections: changed.map((key) => key === "Info" ? "Model" : key), preservedUnknown: unknown, warnings, canSave: ["mdl", "mdx"].includes(format) && (!this.readOnly || !conversion && !changed.length) && !stringIssues.length && !(conversion && unknown.length) };
+    return { format, conversion, exact: !conversion && changed.length === 0 && !this._tabsChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === "Info" ? "Model" : key), preservedUnknown: unknown, warnings, canSave: ["mdl", "mdx"].includes(format) && (!this.readOnly || !conversion && !changed.length && !this._tabsChanged) && !stringIssues.length && !(conversion && unknown.length) };
   }
   serialize(format = this.format, { timings = {} } = {}) {
     Object.assign(timings, { serializationMs: 0, reparsingMs: 0, verificationMs: 0, errorFormattingMs: 0 });
@@ -6879,6 +6968,14 @@ var EditorDocument = class _EditorDocument {
         return bytes;
       };
       if (impact.exact) return remember(this._original);
+      if (!impact.conversion && !impact.changedSections.length) {
+        const output2 = writeGeosetTabs(this._original, format, this.model);
+        nextStage("reparsingMs");
+        const reopened2 = openDocument(output2, `validation.${format}`);
+        nextStage("verificationMs");
+        if (reopened2.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened2.model))) throw new Error("Save verification failed: geoset tab metadata did not reopen.");
+        return remember(output2);
+      }
       let saveModel = this.model;
       if (serializedNodes(saveModel).some((node, index2) => node.ObjectId !== index2)) {
         saveModel = clone(saveModel);
@@ -6892,14 +6989,14 @@ var EditorDocument = class _EditorDocument {
       const animations = prepareGeosetAnimationColors(saveModel.GeosetAnims, format);
       const exportModel = format === "mdl" ? { ...saveModel, ParticleEmitterPopcorns: prepareMdlPopcornColors(saveModel.ParticleEmitterPopcorns), GeosetAnims: animations } : { ...saveModel, GeosetAnims: convertMdxGeosetColorTracks(animations), BindPoses: saveModel.BindPoses?.length ? saveModel.BindPoses : void 0 };
       const mdlModel = format === "mdl" ? { ...exportModel, Geosets: exportModel.Geosets.map((g) => ({ ...g, TVertices: g.TVertices.length ? g.TVertices : [new Float32Array()] })), CollisionShapes: exportModel.CollisionShapes.map((n) => [1, 3].includes(n.Shape) ? { ...n, Shape: 0 } : n) } : null;
-      let generated = format === "mdl" ? finishCompatibleMdl(import_buffer9.Buffer.from(emptyFaceGroups(generate(mdlModel)), "utf8"), { ...saveModel, GeosetAnims: animations }) : import_buffer9.Buffer.from(generateCompatibleMdx(exportModel));
+      let generated = format === "mdl" ? finishCompatibleMdl(import_buffer10.Buffer.from(emptyFaceGroups(generate(mdlModel)), "utf8"), { ...saveModel, GeosetAnims: animations }) : import_buffer10.Buffer.from(generateCompatibleMdx(exportModel));
       if (format === "mdl") generated = writeMdlUVSets(generated, scanMdlSections(generated), exportModel);
       generated = format === "mdl" ? writeMdlEventGlobalSequences(generated, scanMdlSections(generated), exportModel) : writeMdxEventGlobalSequences(generated, exportModel);
       if (format === "mdl") generated = orderMdlNodes(formatGeneratedMdl(generated));
       const sourceModel = this._recoverySavedChanges.length ? openDocument(this._original, this.name).model : this._savedModel;
       if (!impact.conversion) generated = format === "mdx" ? preserveMdxRecords(this._original, generated, sourceModel, saveModel, SECTION_TYPES) : preserveMdlRecords(this._original, generated, sourceModel, saveModel, SECTION_TYPES);
       const keys = saveModel !== this.model || this._recoverySavedChanges.length ? Object.keys(SECTION_TYPES).filter((key) => fingerprint2(sourceModel[key]) !== fingerprint2(saveModel[key])) : this._changedKeys();
-      const output = impact.conversion ? generated : format === "mdl" ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys);
+      const output = writeGeosetTabs(impact.conversion ? generated : format === "mdl" ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys), format, saveModel);
       nextStage("reparsingMs");
       const reopened = openDocument(output, `validation.${format}`);
       nextStage("verificationMs");
@@ -6909,6 +7006,7 @@ var EditorDocument = class _EditorDocument {
       }
       if (reopened.version !== this.version) throw new Error("Save verification failed: model version changed.");
       assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings });
+      if (JSON.stringify(geosetTabsData(saveModel)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error("Save verification failed: geoset tab metadata changed.");
       for (const key of Object.keys(SECTION_TYPES)) if (Array.isArray(this.model[key]) && this.model[key].length !== reopened.model[key]?.length) throw new Error(`Save verification failed: ${key} count changed during serialization.`);
       for (let index2 = 0; index2 < this.model.Geosets.length; index2++) if (this.model.Geosets[index2].TVertices.length !== reopened.model.Geosets[index2].TVertices.length) throw new Error(`Save verification failed: Geoset ${index2} UV set count changed during serialization.`);
       const existingErrors = new Set(validateModel(this.model).filter((d) => d.severity === "error").map((d) => `${d.code}:${d.path}`));
