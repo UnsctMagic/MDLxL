@@ -179,13 +179,21 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     }
     if (event.button === 2 && (!upper || !onCursor)) return;
     event.preventDefault(); panel.current?.focus({ preventScroll: true }); setContext(null);
-    if (!upper) { if (at(event) < frame) previous(event.shiftKey); else next(event.shiftKey); return; }
     const extend = event.shiftKey || event.button === 2, anchor = selectionAnchor();
     if (event.button === 2) suppressContext.current = true;
-    seek(at(event), extend, anchor);
+    let dragging = upper;
+    if (upper) seek(at(event), extend, anchor);
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    const move = pointer => seek(at(pointer), extend || pointer.shiftKey, anchor);
-    const end = () => { cleanup.current?.(); cleanup.current = null; };
+    const move = pointer => {
+      if (!dragging && Math.abs(pointer.clientX - event.clientX) <= 4) return;
+      dragging = true; seek(at(pointer), extend || pointer.shiftKey, anchor);
+    };
+    const end = pointer => {
+      cleanup.current?.(); cleanup.current = null;
+      if (!dragging && pointer.type === 'pointerup') {
+        if (at(event) < frame) previous(extend); else next(extend);
+      }
+    };
     cleanup.current?.();
     ownerWindow.addEventListener('pointermove', move); ownerWindow.addEventListener('pointerup', end, { once: true }); ownerWindow.addEventListener('pointercancel', end, { once: true });
     cleanup.current = () => { ownerWindow.removeEventListener('pointermove', move); ownerWindow.removeEventListener('pointerup', end); ownerWindow.removeEventListener('pointercancel', end); };
