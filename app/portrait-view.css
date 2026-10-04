@@ -31,11 +31,13 @@
 .classic-app .classic-toolbar .toolbar-visibility button{min-width:38px;height:23px;min-height:23px;padding:0 6px}
 /* Vis trims only the top presentation. Menus/hotkeys and the Animation portrait
    toolbar stay available, and no renderer or editor state is remounted. */
-.classic-app[data-vis-ui]>.classic-modules>:not(.toolbar-modules),
+.classic-app[data-vis-ui]>.classic-modules>:not(.toolbar-modules):not(.editor-modules),
+.classic-app[data-vis-ui]>.classic-modules>.editor-modules>button,
 .classic-app[data-vis-ui]>.classic-modules>.toolbar-modules>:not(.vis-toggle),
 .classic-app[data-vis-ui]>.classic-toolbar :is(.toolbar-modules,.addon-menu,.language-switch,[data-warmkey="new"],[data-warmkey="redo"],[data-warmkey="copy"],[data-warmkey="paste"],[data-warmkey="convertVersion"]),
-.classic-app[data-vis-ui]>.classic-modules .quick-display-options,
 .classic-app[data-vis-ui] .classic-view-label>:not(:first-child){display:none}
+.classic-app[data-vis-ui]>.classic-modules>.editor-modules{grid-row:1/-1;align-self:center}
+.classic-app[data-vis-ui]>.classic-modules>.editor-modules>.quick-display{flex:0 0 auto}
 .portrait-toolbar button{min-height:24px;padding:1px 10px}.portrait-toolbar button[aria-pressed=true]{font-weight:bold;background:var(--ui-selected,#eae6d8);border-color:var(--ui-accent,#5c87ad)}
 .portrait-camera{border:1px solid var(--ui-border,#888);margin:0 0 5px;padding:4px;display:grid;gap:4px}
 .portrait-camera>strong{text-align:center;line-height:17px}.portrait-camera select{width:100%}

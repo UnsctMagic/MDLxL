@@ -29,7 +29,10 @@ test('Vis is a reversible presentation toggle, not a model or editing command',(
   assert.match(group,/onClick=\{hide\}/);
   assert.match(group,/onClick=\{\(\) => setHidden\(\{\}\)\}/);
   assert.match(css,/data-vis-ui\]>\.classic-modules/);
-  assert.match(css,/data-vis-ui\]>\.classic-modules \.quick-display-options/);
+  assert.match(css,/data-vis-ui\]>\.classic-modules>:not\(\.toolbar-modules\):not\(\.editor-modules\)/);
+  assert.match(css,/data-vis-ui\]>\.classic-modules>\.editor-modules>button/);
+  assert.match(css,/data-vis-ui\]>\.classic-modules>\.editor-modules\{grid-row:1\/-1;align-self:center\}/);
+  assert.doesNotMatch(css,/data-vis-ui\][^{}]*\.quick-display-options[^{}]*\{display:none\}/);
   assert.doesNotMatch(css,/data-vis-ui[^{}]*portrait-toolbar/);
 });
 
