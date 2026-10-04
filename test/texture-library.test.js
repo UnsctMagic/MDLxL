@@ -14,6 +14,50 @@ const data=JSON.parse(await fs.readFile(new URL('../electron/data/texture-librar
 const annotated=data.items.map(t=>({...t,source:'native',sourcePath:'war3.w3mod:'+t.path,folder:'war3.w3mod:'+t.path.slice(0,t.path.lastIndexOf('\\')),variant:'classic'}));
 const prepared=prepareTextureLibrary(annotated);
 
+test('plain sizes and high resolution filter dimensions in both library search modes',()=>{
+  const items=[
+    {id:'small',name:'Metal 512',width:256,height:256},
+    {id:'square',name:'Metal',width:512,height:512},
+    {id:'wide',name:'Metal',width:512,height:256},
+    {id:'large',name:'Metal',width:1024,height:1024},
+    {id:'unknown',name:'Metal 512'},
+    {id:'zero',name:'Metal',width:0,height:0},
+    {id:'cloth',name:'Cloth',width:512,height:512},
+  ].map(item=>({...item,path:item.name+'.blp',sourcePath:item.name+'.blp',variant:'classic',kinds:['other'],tags:[item.id==='cloth'?'cloth':'metal']}));
+  const index=prepareTextureLibrary(items);
+  const cases=[['512',['square','wide','cloth']],['256',['small','wide']],['high resolution',['square','wide','large','cloth']],['HIGH RESOLUTION',['square','wide','large','cloth']],['metal 512',['square','wide']],['metal high resolution',['square','wide','large']],['256 high resolution',['wide']],['2048',[]]];
+  for(const [query,expected] of cases){
+    for(const result of [initialTextureLibraryResults(items,{query}),...[false,true].map(vibe=>searchTextureLibrary(index,{query,vibe}))]){
+      assert.deepEqual(result.items.map(item=>item.id).sort(),[...expected].sort(),query);
+      assert.equal(result.total,expected.length,query);
+      assert.deepEqual(result.unknown,[],query);
+    }
+  }
+  assert.equal(searchTextureLibrary(index,{query:'512',limit:1}).total,3);
+  assert.equal(searchTextureLibrary(index,{query:'512',limit:1}).hasMore,true);
+  assert.equal(searchTextureLibrary(index,{query:'512',variant:'custom'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'512',format:'dds'}).total,0);
+  for(const [query,expected] of [['256 or 512',['small','square','wide','cloth']],['metal without 512',['small','large','unknown','zero']],['512x256',['wide']]]){
+    assert.deepEqual(searchTextureLibrary(index,{query}).items.map(item=>item.id).sort(),expected.sort(),query);
+  }
+  for(const query of ['"Metal 512"','name:"Metal 512"','path:512.blp','Textures\\512.blp','512-metal']){
+    const result=searchTextureLibrary(index,{query,vibe:false});
+    assert.equal(result.items.some(item=>item.id==='square'),false,query+' stays literal');
+  }
+});
+
+test('size search matches real catalog dimensions and agrees before and after worker preparation',()=>{
+  for(const query of ['256','512','high resolution']){
+    const expected=annotated.filter(item=>query==='high resolution'?Math.max(item.width,item.height)>=512:item.width===Number(query)||item.height===Number(query));
+    assert.ok(expected.length);
+    for(const vibe of [false,true]){
+      const result=searchTextureLibrary(prepared,{query,vibe,limit:annotated.length});
+      assert.deepEqual(result.items.map(item=>item.id).sort(),expected.map(item=>item.id).sort());
+    }
+    assert.equal(initialTextureLibraryResults(annotated,{query}).total,expected.length);
+  }
+});
+
 test('first Library page matches completed empty search before indexing',()=>{
   for(const options of [
     {variant:'classic',vibe:true,limit:12},

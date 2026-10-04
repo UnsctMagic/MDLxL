@@ -66,9 +66,25 @@ function literalTextureLibraryResults(source,query,limit) {
   });
   return {items:items.slice(0,limit),total:items.length,meanings:[],unknown:[],notice:'',hasMore:items.length>limit};
 }
+function resolutionSearch(items,query) {
+  const sizes=[];let highResolution=false;
+  // Keep quoted names, field queries and native paths literal. Size words are
+  // constraints in both search modes, rather than filename substrings.
+  const remaining=String(query).replace(/(?:\S+:)?"[^"]*"|\S*[:\\/.]\S*|(?<!\S)high\s+resolution(?=\s|$)|\S+/gi,token=>{
+    if(/^high\s+resolution$/i.test(token)){highResolution=true;return '';}
+    if(/^\d+$/.test(token)){sizes.push(Number(token));return '';}
+    return token;
+  }).trim();
+  return {query:remaining,items:items.filter(item=>{
+    if(!sizes.length&&!highResolution)return true;
+    if(!(item.width>0&&item.height>0))return false;
+    return sizes.every(size=>item.width===size||item.height===size)&&(!highResolution||Math.max(item.width,item.height)>=512);
+  })};
+}
 /** Empty and literal searches work before the richer Vibe index is prepared. */
 export function initialTextureLibraryResults(items,{query='',folder='',variant='all',kind='all',format='all',limit=120}={}) {
-  const matches=items.filter(item=>(variant==='all'||item.variant===variant)&&(kind==='all'||item.kinds.includes(kind))&&textureFormatMatches(item,format)&&(item.source==='custom'?(!folder||folder==='Model folder'):folderContains(item.sourcePath,folder)));
+  const resolution=resolutionSearch(items,query);query=resolution.query;
+  const matches=resolution.items.filter(item=>(variant==='all'||item.variant===variant)&&(kind==='all'||item.kinds.includes(kind))&&textureFormatMatches(item,format)&&(item.source==='custom'?(!folder||folder==='Model folder'):folderContains(item.sourcePath,folder)));
   if(query.trim())return literalTextureLibraryResults(matches,query,limit);
   matches.sort((a,b)=>(b.priority||0)-(a.priority||0)||a.name.localeCompare(b.name));
   return {items:matches.slice(0,limit),total:matches.length,meanings:[],unknown:[],notice:'',hasMore:matches.length>limit};
@@ -92,7 +108,7 @@ function inspirationScore(item,definition) {
 export function searchTextureLibrary(prepared,{query='',vibe=true,folder='',variant='all',kind='all',format='all',limit=120}={}) {
   let source=prepared.filter(item=>(variant==='all'||item.variant===variant)&&(kind==='all'||item.kinds.includes(kind))&&textureFormatMatches(item,format)&&(item.source==='custom'?(!folder||folder==='Model folder'):folderContains(item.sourcePath,folder)));
   source.vocabulary=prepared.vocabulary;
-  if(!vibe)return literalTextureLibraryResults(source,query,limit);
+  if(!vibe){const resolution=resolutionSearch(source,query);return literalTextureLibraryResults(resolution.items,resolution.query,limit);}
   const q=norm(query);
   const descriptionQuery=russianTextureQuery(query),inspiration=inspirationFor(descriptionQuery);
   let searchQuery=inspiration?.remaining??descriptionQuery,notice=inspiration?'Native Warcraft textures suggested for '+inspiration.definition.name+' kitbashing.':'';

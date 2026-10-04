@@ -98,6 +98,7 @@ function scanQuery(input,knownWords){
   const exclude=!!(t.exclude||excluding||negateNext);
   if(/^\d+\s*[x×]\s*\d+$/.test(t.raw)){const [width,height]=t.raw.split(/[x×]/).map(Number);found.push({id:`size:${width}x${height}`,family:'size',label:`${width} × ${height}`,word:t.raw,width,height,exclude});negateNext=false;i++;continue;}
   if(t.field==='path'||t.field==='name'){found.push({id:'literal:'+t.raw,word:norm(t.raw),label:t.raw,family:'literal',literal:true,field:t.field,exact:true,exclude});negateNext=false;i++;continue;}
+  if(!t.quoted&&!t.field&&/^\d+$/.test(t.raw)){const pixels=Number(t.raw);found.push({id:`size:${pixels}`,family:'size',label:`${pixels}px side`,word:t.raw,pixels,exclude});negateNext=false;i++;continue;}
   let matched=null,consumed=1,original=t.raw,fixed=null;
   for(let n=Math.min(maxPhrase,flat.length-i);n>0;n--){const slice=flat.slice(i,i+n);if(slice.some((x,j)=>x.op||j>0&&(x.exclude||x.field||x.quoted)))continue;const phrase=words(slice.map(x=>x.raw).join(' '));if(lexicon.has(phrase)){matched=lexicon.get(phrase);consumed=n;original=phrase;break;}}
   if(!matched&&!t.quoted&&singleFillers.has(t.raw)){i++;continue;}
@@ -190,7 +191,7 @@ function nameTerm(t,p){
 }
 function namedOutcome(t,terms,options={}){
  const positive=terms.filter(p=>!p.exclude),excluded=terms.filter(p=>p.exclude);
- if(excluded.some(p=>testTerm(t,p,true).strength>0||nameTerm(t,p)))return null;
+ if(excluded.some(p=>testTerm(t,p,true).strength>0||(p.family!=='size'&&nameTerm(t,p))))return null;
  const characterRequest=options.kind==='units'||positive.some(p=>p.kind==='units');
  const forcedConstraint=p=>(p.field&&p.field!=='name')||['source','size','quality'].includes(p.family)||(characterRequest&&p.family==='material'&&bodyWords.has(p.word));
  const names=positive.filter(p=>!forcedConstraint(p)&&nameTerm(t,p));
@@ -221,7 +222,7 @@ function testTerm(t,p,allowRelated=false){
   const strength=body?.95:t.kinds.includes('icons')?.65:.72;
   return anchor?{strength,evidence:`Related native subject: ${t.name} (${p.label})`,related:true}:{strength:0};
  }
- if(p.family==='size')return {strength:(p.width?t.width===p.width&&t.height===p.height:p.size==='large'?Math.max(t.width,t.height)>=512:Math.max(t.width,t.height)<=128)?1:0,evidence:'Image dimensions'};
+ if(p.family==='size')return {strength:(t.width>0&&t.height>0&&(p.pixels!==undefined?t.width===p.pixels||t.height===p.pixels:p.width?t.width===p.width&&t.height===p.height:p.size==='large'?Math.max(t.width,t.height)>=512:Math.max(t.width,t.height)<=128))?1:0,evidence:'Image dimensions'};
  if(p.family==='quality')return {strength:(p.quality==='reviewed'?t.reviewed:t.regions?.length>0)?1:0,evidence:'Catalogue review'};
  if(p.literal)return {strength:literalMatch(t,p),evidence:p.field==='path'?'Native path':'Name or description'};
  const ev=t._traits.get(p.trait);if(ev&&(!ev.related||allowRelated))return ev;
@@ -232,7 +233,7 @@ function branchesOf(parsed){const branches=[[]];for(const p of parsed){if(p.op==
 const hard = p => ['material','source','context','size','quality','literal','object'].includes(p.family);
 function evaluate(t,terms){
  const positive=terms.filter(p=>!p.exclude),excluded=terms.filter(p=>p.exclude);
- if(excluded.some(p=>testTerm(t,p,true).strength>0||(!p.field&&nameTerm(t,p))))return null;
+ if(excluded.some(p=>testTerm(t,p,true).strength>0||(p.family!=='size'&&!p.field&&nameTerm(t,p))))return null;
  const matches=positive.map(p=>({term:p,...testTerm(t,p)}));
  const missing=matches.filter(m=>!m.strength);
  const all=missing.length===0;
