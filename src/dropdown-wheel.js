@@ -1,9 +1,9 @@
-/** One bounded step per wheel event; disabled options and groups are skipped. */
+/** One bounded step per wheel event; disabled options and action groups are skipped. */
 export function wheelOptionIndex(options, index, deltaY) {
   if (!deltaY) return index;
   const direction = deltaY > 0 ? 1 : -1;
   for (let next=index+direction; next>=0 && next<options.length; next+=direction) {
-    if (!options[next].disabled && !options[next].parentElement?.disabled) return next;
+    if (!options[next].disabled && !options[next].parentElement?.disabled && options[next].parentElement?.dataset?.wheelSkip === undefined) return next;
   }
   return index;
 }

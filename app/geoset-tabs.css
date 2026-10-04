@@ -1,0 +1,7 @@
+.geoset-tabs{min-width:0}
+.geoset-tab-select{display:block;width:100%;height:21px;margin:0 0 2px}
+.geoset-tab-box{position:relative}
+.geoset-tab-box:has(>.geoset-tab-eye)>.classic-geoset-list{padding-top:21px}
+.geoset-tab-box>.geoset-tab-eye{position:absolute;right:14px;top:2px;display:flex;align-items:center;justify-content:center;width:18px;height:18px;min-height:18px;padding:1px}
+.geoset-tabs .classic-modal-window{width:260px}
+.geoset-tabs .classic-modal-body input,.geoset-tabs .classic-modal-body select{width:100%}
