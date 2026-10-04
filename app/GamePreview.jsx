@@ -953,7 +953,8 @@ export default function GamePreview(inputProps) {
         drawCollisionSpheres(collisionCanvas.getContext('2d'),ownedModel,camera,native,canvas.width,canvas.height);
       } else if (collisionCanvas) { collisionCanvas.remove(); collisionCanvas=null; }
       const overlayOptions = { ...previewOverlayOptions(p.overlays, p.showNodes), preferences: p.preferences, workplane: p.workplane };
-      overlayOptions.selectableGeosets = p.visibleGeosets ?? p.selectableGeosets ?? [];
+      overlayOptions.selectableGeosets = p.selectableGeosets ?? [];
+      overlayOptions.visibleGeosets = p.visibleGeosets;
       overlayOptions.grid = false;
       overlayOptions.normals ||= !!p.showNormals;
       overlayOptions.selectionByGeoset = p.selectionByGeoset;
@@ -983,7 +984,9 @@ export default function GamePreview(inputProps) {
         if (hoverCanvas.width !== canvas.width) hoverCanvas.width = canvas.width;
         if (hoverCanvas.height !== canvas.height) hoverCanvas.height = canvas.height;
         const matrices=getPoseMatrices();
-        drawGeosetHighlight(hoverCanvas.getContext('2d'),hovered.Faces,skinGeoset(hovered,matrices),camera,canvas.width,canvas.height,viewportAppearanceOptions(p.preferences).geosetHighlight);
+        const highlight = viewportAppearanceOptions(p.preferences).geosetHighlight;
+        const referenceOnly = p.visibleGeosets?.has(p.hoveredGeoset) && !p.selectableGeosets?.has(p.hoveredGeoset);
+        drawGeosetHighlight(hoverCanvas.getContext('2d'),hovered.Faces,skinGeoset(hovered,matrices),camera,canvas.width,canvas.height,referenceOnly && highlight.type === 'wire-vertices' ? { ...highlight, type: 'wire' } : highlight);
       } else if (hoverCanvas) { hoverCanvas.remove(); hoverCanvas=null; }
       if (presentationGuides || overlayOptions.normals || overlayOptions.wires || overlayOptions.vertices || Object.values(p.selectionByGeoset || {}).some(ids => ids.length || ids.size)) {
         if (!geometryCanvas) { geometryCanvas = ownerDocument.createElement('canvas'); geometryCanvas.dataset.geometryOverlay = ''; geometryCanvas.style.cssText = 'position:absolute;z-index:20;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(geometryCanvas); }

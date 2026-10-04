@@ -751,7 +751,7 @@ export default function Viewport(inputProps) {
       const clipRadius = modelClipRadius(p.model, state.center, state.radius);
       grid.update(p.preferences, p.workplane, overlays.grid, overlays.axes, surface.clientWidth, surface.clientHeight, quad ? { camera, target: controls.target, settings: appearance.quadView.grid } : null);
       platform.update(p.preferences, state.center, state.radius, state.floor || 0);
-      const selectedMap = selections(p), active = new Set(p.visibleGeosets ?? editableGeosets(p));
+      const selectedMap = selections(p), editable = editableGeosets(p), active = new Set(p.visibleGeosets ?? editable);
       const selectionKey = `${JSON.stringify(selectedMap, (_, value) => value instanceof Set ? [...value] : value)}|${[...active].join(',')}|${JSON.stringify(p.hiddenVertices, (_, value) => value instanceof Set ? [...value] : value)}|${p.mode}|${p.sequenceIndex}|${p.transformMode}|${JSON.stringify(visual)}`;
       const rgbState = vertexRgbPreviewState(p.model, { enabled: p.rgbPreview, sequenceIndex: p.rgbPreview ? p.rgbPreviewSequenceIndex : p.sequenceIndex, frame: state.frame, globalTime: state.globalTime });
       const changed = state.dirty || state.nodes.some(node => node.Flags & 120) || p.playing || state.sampledFrame !== state.frame || state.sampledSequence !== p.sequenceIndex || (showMarkers && !state.sampledSkeleton) || state.sampledExplicitOverlays !== overlays.explicit;
@@ -779,11 +779,11 @@ export default function Viewport(inputProps) {
         const geosetAnim = state.geosetAnims.get(index);
         const alpha = p.sequenceIndex >= 0 ? sampleTrack(geosetAnim?.Alpha, state.frame, { ...animOptions, fallback: 1 }) : typeof geosetAnim?.Alpha === 'number' ? geosetAnim.Alpha : 1;
         entry.group.visible = hovered || (!hidden.has(index) && (alpha > .001 || p.mode !== 'textured'));
-        entry.hoverWire.visible = hovered; entry.hoverPoints.visible = hovered && appearance.geosetHighlight.type === 'wire-vertices';
+        entry.hoverWire.visible = hovered; entry.hoverPoints.visible = hovered && appearance.geosetHighlight.type === 'wire-vertices' && (!chosen || editable.has(index));
         const pureWireframe = p.mode === 'wireframe' || p.mode === 'vertices';
         const activeAppearance = chosen ? appearance.selectedGeoset : appearance.otherGeoset;
         const pointDepth = viewportPointDepth(pureWireframe, appearance.xrayVertices, p.mode === 'textured' && p.grabThrough === true);
-        const showPoints = overlays.vertices && chosen, showHiddenPoints = showPoints && pointDepth.showHidden;
+        const showPoints = overlays.vertices && editable.has(index), showHiddenPoints = showPoints && pointDepth.showHidden;
         entry.points.visible = entry.selectedPoints.visible = showPoints;
         entry.hiddenPoints.visible = entry.hiddenSelectedPoints.visible = showHiddenPoints;
         configurePointMaterial(entry.points.material, appearance.unselectedVertex, markerTexture(appearance.unselectedVertex.style));
