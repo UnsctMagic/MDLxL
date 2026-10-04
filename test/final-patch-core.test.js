@@ -51,4 +51,6 @@ test('EN/RU physical-key shortcuts use the same label without handling IME/AltGr
 });
 test('dropdown wheel stops at boundaries and skips disabled choices',()=>{
   const options=[{},{disabled:true},{}]; assert.equal(wheelOptionIndex(options,0,1),2); assert.equal(wheelOptionIndex(options,2,1),2); assert.equal(wheelOptionIndex(options,2,-1),0);
+  const actions = [{}, { parentElement: { dataset: { wheelSkip: '' } } }, {}];
+  assert.equal(wheelOptionIndex(actions, 0, 1), 2); assert.equal(wheelOptionIndex(actions, 2, -1), 0);
 });

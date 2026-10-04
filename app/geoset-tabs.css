@@ -1,12 +1,7 @@
-.geoset-tabs{margin:2px 0;min-width:0}
-.geoset-tab-strip{display:flex;gap:2px;min-width:0;align-items:center}
-.geoset-tab-strip>[role=tablist]{display:flex;gap:2px;overflow-x:auto;min-width:0;flex:1;padding-bottom:2px}
-.geoset-tab-strip button{padding:1px 4px;min-height:20px;flex-shrink:0;white-space:nowrap}
-.geoset-tab-strip [aria-selected=true]{font-weight:bold;background:var(--ui-selection-bg,#000080);color:var(--ui-selection-text,#fff)}
-.geoset-tab{display:flex;align-items:stretch;flex-shrink:0}
-.geoset-tab>[role=tab]{max-width:100px;overflow:hidden;text-overflow:ellipsis}
-.geoset-tab-strip .geoset-tab-eye{display:flex;align-items:center;padding:1px 3px}
-.geoset-tab-controls{display:flex;flex-direction:column;gap:3px;padding:3px 0}
-.geoset-tab-controls form{display:flex;gap:2px}
-.geoset-tab-controls input,.geoset-tab-controls select{width:100%;min-width:0}
-.geoset-tab-controls small{font-size:9px;line-height:12px}
+.geoset-tabs{min-width:0}
+.geoset-tab-select{display:block;width:100%;height:21px;margin:0 0 2px}
+.geoset-tab-box{position:relative}
+.geoset-tab-box:has(>.geoset-tab-eye)>.classic-geoset-list{padding-top:21px}
+.geoset-tab-box>.geoset-tab-eye{position:absolute;right:14px;top:2px;display:flex;align-items:center;justify-content:center;width:18px;height:18px;min-height:18px;padding:1px}
+.geoset-tabs .classic-modal-window{width:260px}
+.geoset-tabs .classic-modal-body input,.geoset-tabs .classic-modal-body select{width:100%}
