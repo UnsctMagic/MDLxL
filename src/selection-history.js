@@ -16,6 +16,7 @@ export function captureSelection(state, model) {
     selectable, selection: vertices(state.selection, true), hidden: vertices(state.hidden, false), activeGeoset,
     uvSet: Math.max(0, Math.min(index(state.uvSet) ? state.uvSet : 0, uvCount - 1)),
   };
+  if (state.visibleOnly) snapshot.visibleOnly = ids(state.visibleOnly, value => !!geosets[value] && !enabled.has(value));
   if (state.selectedNodeIds) {
     const nodes = new Set((model.Nodes || []).filter(Boolean).map(node => node.ObjectId));
     snapshot.selectedNodeIds = ids(state.selectedNodeIds, value => nodes.has(value));
@@ -27,6 +28,7 @@ export function captureSelection(state, model) {
 export function restoreSelection(snapshot, model) {
   const state = captureSelection(snapshot, model);
   return { ...state, selectable: new Set(state.selectable),
+    ...(state.visibleOnly ? { visibleOnly: new Set(state.visibleOnly) } : {}),
     selection: Object.fromEntries(Object.entries(state.selection).map(([gi, values]) => [gi, Array.from(values)])),
     hidden: Object.fromEntries(Object.entries(state.hidden).map(([gi, values]) => [gi, Array.from(values)])),
     ...(state.selectedNodeIds ? { selectedNodeIds: Array.from(state.selectedNodeIds) } : {}) };
@@ -39,8 +41,9 @@ export function validSelectionHistory(value) {
     && Object.entries(value).every(([gi, values]) => index(Number(gi)) && validIds(values));
   const validSnapshot = value => !!value && validIds(value.selectable) && validMap(value.selection) && validMap(value.hidden)
     && (value.activeGeoset === -1 || index(value.activeGeoset)) && index(value.uvSet)
+    && (value.visibleOnly === undefined || validIds(value.visibleOnly))
     && (value.selectedNodeIds === undefined || validIds(value.selectedNodeIds))
-    && onlyKeys(value, ['selectable', 'selection', 'hidden', 'activeGeoset', 'uvSet', 'selectedNodeIds']);
+    && onlyKeys(value, ['selectable', 'visibleOnly', 'selection', 'hidden', 'activeGeoset', 'uvSet', 'selectedNodeIds']);
   return value?.version === 1 && validSnapshot(value.before) && validSnapshot(value.after) && onlyKeys(value, ['version', 'before', 'after']);
 }
 

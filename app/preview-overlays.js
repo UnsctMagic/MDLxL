@@ -66,7 +66,7 @@ export function drawPreviewGeometryOverlay(context, geosets, camera, width, heig
   context.clearRect(0, 0, width * ratio, height * ratio); context.save(); context.scale(ratio, ratio);
   const visual = visualOptions(options.preferences), appearance = viewportAppearanceOptions(options.preferences);
   const eligible = options.selectableGeosets == null ? null : new Set(options.selectableGeosets);
-  const selected = eligible ?? new Set(Number.isInteger(options.selectedGeoset) ? [options.selectedGeoset] : []);
+  const selected = options.visibleGeosets == null ? eligible ?? new Set(Number.isInteger(options.selectedGeoset) ? [options.selectedGeoset] : []) : new Set(options.visibleGeosets);
   if (options.grid) for (const line of gridSegments(options.preferences, options.workplane, true, true)) {
     const segment = projectGridSegment(camera, width, height, line.a, line.b);
     if (!segment) continue;
