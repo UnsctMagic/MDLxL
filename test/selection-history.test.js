@@ -4,10 +4,27 @@ import { EditorDocument, createDemoDocument, deleteGeoset, duplicateGeoset } fro
 import { deleteVertices } from '../src/editor-commands.js';
 import { weldSelectedVertices } from '../src/classic-mesh.js';
 import { detachFaces } from '../src/mesh-tools.js';
-import { SelectionHistory, captureSelection, restoreSelection } from '../src/selection-history.js';
+import { SelectionHistory, captureSelection, restoreSelection, validSelectionHistory } from '../src/selection-history.js';
 
 const ui = (selection = { 0: [0, 1] }, options = {}) => ({
   selectable: new Set([0, 1, 2, 3, 4]), selection, hidden: {}, activeGeoset: 0, uvSet: 0, ...options,
+});
+
+test('visible-only geosets stay outside edit selection and survive undo, redo and recovery', () => {
+  const doc = createDemoDocument(), history = new SelectionHistory(doc);
+  const before = ui({ 0: [0, 1], 1: [0] }, { selectable: new Set([0, 1]), visibleOnly: new Set() });
+  const after = ui({ 1: [0] }, { selectable: new Set([1]), visibleOnly: new Set([0]), activeGeoset: 1 });
+  const original = doc.model.Geosets[0].Vertices.slice();
+  history.observe(before); history.observe(after);
+  assert.deepEqual(doc.model.Geosets[0].Vertices, original);
+  assert.equal(doc.dirty, false);
+  assert.deepEqual(history.travel('undo', after), before);
+  assert.deepEqual(history.travel('redo', before), after);
+  const recovered = captureSelection({ ...after, selection: { 0: [0], 1: [0] }, visibleOnly: new Set([0, 1, 99]) }, doc.model);
+  assert.deepEqual(Array.from(recovered.visibleOnly), [0]);
+  assert.deepEqual(Object.keys(recovered.selection), ['1']);
+  assert.deepEqual(restoreSelection(recovered, doc.model), after);
+  assert.equal(validSelectionHistory({ version: 1, before: captureSelection(before, doc.model), after: recovered }), true);
 });
 function edit(history, state, label, mutate, after = state) {
   const ticket = history.captureEdit(state);

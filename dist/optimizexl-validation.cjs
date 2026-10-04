@@ -5879,7 +5879,7 @@ function validSelectionHistory(value) {
   const validIds = (values) => values instanceof Uint32Array;
   const onlyKeys = (value2, keys) => Object.keys(value2).every((key) => keys.includes(key));
   const validMap = (value2) => !!value2 && typeof value2 === "object" && !Array.isArray(value2) && Object.entries(value2).every(([gi, values]) => index(Number(gi)) && validIds(values));
-  const validSnapshot = (value2) => !!value2 && validIds(value2.selectable) && validMap(value2.selection) && validMap(value2.hidden) && (value2.activeGeoset === -1 || index(value2.activeGeoset)) && index(value2.uvSet) && (value2.selectedNodeIds === void 0 || validIds(value2.selectedNodeIds)) && onlyKeys(value2, ["selectable", "selection", "hidden", "activeGeoset", "uvSet", "selectedNodeIds"]);
+  const validSnapshot = (value2) => !!value2 && validIds(value2.selectable) && validMap(value2.selection) && validMap(value2.hidden) && (value2.activeGeoset === -1 || index(value2.activeGeoset)) && index(value2.uvSet) && (value2.visibleOnly === void 0 || validIds(value2.visibleOnly)) && (value2.selectedNodeIds === void 0 || validIds(value2.selectedNodeIds)) && onlyKeys(value2, ["selectable", "visibleOnly", "selection", "hidden", "activeGeoset", "uvSet", "selectedNodeIds"]);
   return value?.version === 1 && validSnapshot(value.before) && validSnapshot(value.after) && onlyKeys(value, ["version", "before", "after"]);
 }
 
