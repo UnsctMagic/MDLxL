@@ -46,13 +46,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         const current = stack.pop(); if (!current) continue;
         if (current.memoizedProps?.model?.Geosets && current.memoizedProps?.hiddenGeosets) {
           const props = current.memoizedProps;
-          return { count: props.model.Geosets.length, hidden: [...props.hiddenGeosets], selectable: [...props.selectableGeosets], tabs: props.model._GeosetTabs || [] };
+          return { count: props.model.Geosets.length, hidden: [...props.hiddenGeosets], selectable: [...props.selectableGeosets], tabs: props.model._GeosetTabs || [], memberships: props.model.Geosets.map(geoset => geoset._GeosetTabId || null) };
         }
         stack.push(current.sibling, current.child);
       }
       throw Error('Viewport model props not found');
     });
-    const initial = await state(); assert.ok(initial.count >= 2);
+    const initial = await state(); assert.ok(initial.count >= 3);
     const create = async name => {
       await picker.selectOption('action:create'); await page.getByLabel('New geoset tab name').fill(name);
       await page.getByRole('button', { name: 'Create', exact: true }).click();
@@ -71,8 +71,27 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await picker.dispatchEvent('wheel', { deltaY: 100, cancelable: true });
     assert.equal(await picker.inputValue(), armorId);
     assert.equal(await page.getByRole('dialog').count(), 0);
+    await picker.selectOption('all');
+    await page.getByRole('checkbox', { name: 'Select geoset 2', exact: true }).click({ button: 'right' });
+    assert.deepEqual((await state()).selectable, [1]);
+    assert.equal(await page.getByRole('menuitemcheckbox', { name: 'Leave as visible', exact: true }).count(), 1);
+    await page.getByRole('menuitem', { name: 'Add to tab…', exact: true }).click();
+    const addDialog = page.getByRole('dialog', { name: 'Add to tab', exact: true });
+    await addDialog.getByRole('combobox', { name: 'Geoset tab', exact: true }).selectOption(bodyId);
+    await addDialog.getByRole('button', { name: 'Add', exact: true }).click();
+    assert.deepEqual((await state()).memberships, [bodyId, armorId, bodyId, ...Array(initial.count - 3).fill(null)]);
+    assert.deepEqual((await state()).selectable, [1]);
+    assert.equal(await page.getByRole('menu').count(), 0);
+    await page.keyboard.press('Control+z'); assert.equal((await state()).memberships[2], null);
+    await page.keyboard.press('Control+y'); assert.equal((await state()).memberships[2], bodyId);
+    await page.getByRole('button', { name: 'Animations', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Select geoset 2', exact: true }).click({ button: 'right' });
+    assert.equal(await page.getByRole('menuitemcheckbox', { name: 'Leave as visible', exact: true }).count(), 0);
+    await page.getByRole('menuitem', { name: 'Add to tab…', exact: true }).click();
+    await addDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Vertices', exact: true }).click();
     await picker.selectOption(bodyId);
-    await page.locator('[data-warmkey="geosetsAll"]').click(); assert.deepEqual((await state()).selectable, [0]);
+    await page.locator('[data-warmkey="geosetsAll"]').click(); assert.deepEqual((await state()).selectable, [0, 2]);
     const eyeInBox = await page.getByRole('button', { name: 'Show tab Body', exact: true }).evaluate(element => {
       const eye = element.getBoundingClientRect(), box = element.parentElement.getBoundingClientRect();
       return eye.left >= box.left && eye.right <= box.right && eye.top >= box.top && eye.bottom <= box.bottom;
@@ -83,7 +102,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual((await state()).selectable, []);
     assert.equal(await page.getByRole('checkbox', { name: 'Select geoset 0', exact: true }).isEnabled(), false);
     await picker.selectOption('all');
-    assert.deepEqual((await state()).hidden, [0]);
+    assert.deepEqual((await state()).hidden, [0, 2]);
     await picker.selectOption(bodyId);
     await page.getByRole('button', { name: 'Show tab Body', exact: true }).click();
     await picker.selectOption('all');
@@ -107,6 +126,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('tab', { name: 'ui-tabs.mdx', exact: true }).waitFor();
     assert.equal((await state()).tabs.length, 2);
     assert.ok((await state()).tabs.every(tab => tab.visible));
+    assert.equal((await state()).memberships[2], bodyId);
     await picker.selectOption(armorId);
     assert.equal(await page.getByRole('checkbox', { name: /^Select geoset/ }).count(), 1);
     await screenshot('reopened.png');
@@ -116,7 +136,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('dialog', { name: 'Move checked geosets', exact: true }).getByRole('button', { name: 'Move', exact: true }).click();
     assert.equal(await page.getByRole('checkbox', { name: /^Select geoset/ }).count(), 0);
     await picker.selectOption(bodyId);
-    assert.equal(await page.getByRole('checkbox', { name: /^Select geoset/ }).count(), 2);
+    assert.equal(await page.getByRole('checkbox', { name: /^Select geoset/ }).count(), 3);
     await picker.selectOption('action:rename');
     await page.getByLabel('Geoset tab name', { exact: true }).fill('Working body');
     await page.getByRole('button', { name: 'Rename', exact: true }).click();
@@ -126,7 +146,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.getByRole('checkbox', { name: /^Select geoset/ }).count(), initial.count);
     assert.ok(fs.readFileSync(copy).equals(original)); assert.ok(fs.readFileSync(fixture).equals(original));
     assert.deepEqual(errors, []);
-    console.log('Geoset tabs UI passed: single dropdown above box, view toggle inside box, dismissible actions, create, move, rename, delete, selection/visibility isolation, All tabs, unchanged sidebar/list size, worker MDL/MDX saves and MDX reopen; fixture unchanged.');
+    console.log('Geoset tabs UI passed: clicked-only right-click assignment in vertices/animations, undo/redo, single dropdown above box, view toggle inside box, dismissible actions, create, move, rename, delete, selection/visibility isolation, All tabs, unchanged sidebar/list size, worker MDL/MDX saves and MDX reopen; fixture unchanged.');
   } catch (error) {
     const page = await app.firstWindow();
     console.error('UI status:', await page.locator('.classic-status').innerText());
