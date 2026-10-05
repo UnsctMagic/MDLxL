@@ -117,6 +117,34 @@ export function skinGeoset(geoset, matrices, out = new Float32Array(geoset.Verti
   return out;
 }
 
+/** Linear skinning is one affine weighted matrix per vertex. Direct preview
+ * editing caches its inverse for the duration of a pointer gesture. */
+export function inverseGeosetSkinMatrix(geoset, vertex, matrices, out = new Matrix4()) {
+  const skin = geoset.SkinWeights, hd = skin?.length >= (vertex + 1) * 8;
+  const group = hd ? [skin[vertex * 8], skin[vertex * 8 + 1], skin[vertex * 8 + 2], skin[vertex * 8 + 3]] : geoset.Groups?.[geoset.VertexGroup?.[vertex]] || [];
+  const elements = new Array(16).fill(0), identity = new Matrix4().elements;
+  let total = 0;
+  for (let index = 0; index < group.length; index++) {
+    const weight = hd ? skin[vertex * 8 + 4 + index] / 255 : 1;
+    if (!weight) continue;
+    const source = matrices.get(group[index])?.elements || identity;
+    for (let component = 0; component < 16; component++) elements[component] += source[component] * weight;
+    total += weight;
+  }
+  if (!total) return out.identity();
+  for (let component = 0; component < 16; component++) elements[component] /= total;
+  out.fromArray(elements);
+  const determinant = out.determinant();
+  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12) return null;
+  return out.invert();
+}
+
+/** Convert one posed preview point back to the geoset's authored vertex space. */
+export function unskinGeosetPoint(geoset, vertex, matrices, point, out = new Vector3()) {
+  const inverse = inverseGeosetSkinMatrix(geoset, vertex, matrices);
+  return inverse ? out.copy(point).applyMatrix4(inverse) : null;
+}
+
 /** Keep authored split/smoothed normals while the skeleton deforms the mesh. */
 export function skinGeosetNormals(geoset, matrices, out = new Float32Array(geoset.Normals.length)) {
   const normalMatrices = new Map([...matrices].map(([id, matrix]) => [id, new Matrix3().getNormalMatrix(matrix).elements]));

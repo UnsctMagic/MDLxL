@@ -56,6 +56,11 @@ export function transformVertices(geoset,indices,translation=[0,0,0],scale=[1,1,
   }
   if(mirrored&&!singular){const selected=new Set(ids);for(let i=0;i<geoset.Faces.length;i+=3)if([0,1,2].every(a=>selected.has(geoset.Faces[i+a])))[geoset.Faces[i+1],geoset.Faces[i+2]]=[geoset.Faces[i+2],geoset.Faces[i+1]];}
 }
+export function setVertexPositions(geoset,indices,positions){
+  const ids=selectedIndices(geoset,indices), values=Array.from(positions||[]);
+  if(values.length!==ids.length*3||values.some(value=>!Number.isFinite(value)))throw new Error('Vertex positions need three finite values per selected vertex.');
+  ids.forEach((id,index)=>geoset.Vertices.set(values.slice(index*3,index*3+3),id*3));
+}
 export function deleteVertices(geoset,indices){
   const removed=new Set(selectedIndices(geoset,indices,{allowEmpty:true}));if(!removed.size)return;
   const oldCount=geoset.Vertices.length/3;const kept=Array.from({length:oldCount},(_,i)=>i).filter(i=>!removed.has(i));

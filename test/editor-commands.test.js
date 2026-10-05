@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { transformVertices, deleteVertices, bindVertices, addTriangle } from '../src/editor-commands.js';
+import { transformVertices, setVertexPositions, deleteVertices, bindVertices, addTriangle } from '../src/editor-commands.js';
 
 function fixture() {
   // Vertices 0 and 4 occupy the same point, but encode a UV/hard-normal seam.
@@ -76,6 +76,17 @@ test('an explicit zoom pivot keeps its anchor fixed while scaling other selected
   const g=fixture();
   transformVertices(g,[0,1],[0,0,0],[.5,.5,.5],[0,0,0],[0,0,0]);
   assert.deepEqual([...g.Vertices.slice(0,6)],[0,0,0,1,0,0]);
+});
+
+test('exact posed-edit positions update only their selected authored vertices',()=>{
+  const g=fixture(),before=structuredClone(g);
+  setVertexPositions(g,[1,3],[9,8,7,-4,-5,-6]);
+  assert.deepEqual([...g.Vertices.slice(3,6)],[9,8,7]);
+  assert.deepEqual([...g.Vertices.slice(9,12)],[-4,-5,-6]);
+  assert.deepEqual([...g.Vertices.slice(0,3)],[...before.Vertices.slice(0,3)]);
+  assert.deepEqual([...g.Vertices.slice(6,9)],[...before.Vertices.slice(6,9)]);
+  for(const key of ['Normals','Tangents','TVertices','Faces','VertexGroup','SkinWeights','Groups'])assert.deepEqual(g[key],before[key],key);
+  assert.throws(()=>setVertexPositions(g,[0],[1,2]),/three finite/);
 });
 
 test('delete preserves separate seam vertices and every parallel UV, tangent and skin attribute',()=>{
