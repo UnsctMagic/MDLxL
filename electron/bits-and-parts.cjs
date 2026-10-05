@@ -8,13 +8,13 @@ class BitsAndPartsLibrary {
     if (typeof name !== 'string' || !name.trim() || name.length > 120 || /[<>:"/\\|?*\x00-\x1f]/.test(name) || /[. ]$/.test(name) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)) throw Error('Choose a valid Bit filename.');
     const data = Buffer.from(bytes || []);
     if (!data.length || data.length > 128 * 1024 * 1024 || data.toString('ascii', 0, 4) !== 'MDLX') throw Error('Save a readable MDX Bit smaller than 128 MB.');
-    if (!Array.isArray(assets) || assets.some(asset => !/^MDLxL_Parts\\[a-f0-9]{64}\.(blp|dds|tga)$/i.test(asset?.name || ''))) throw Error('Collected Bit textures must be inside MDLxL_Parts.');
+    if (!Array.isArray(assets)) throw Error('Invalid collected Bit texture list.');
     await this.list();
     const id = name.trim() + '.mdx', file = path.join(this.directory, id);
     let handle;
     try { handle = await fs.open(file, 'wx'); }
     catch (error) { if (error.code === 'EEXIST') throw Error('A Bit with this name already exists. Choose another name.'); throw error; }
-    try { await saveForgeAssets(file, assets); await handle.writeFile(data); }
+    try { await saveForgeAssets(file, assets.map(asset => ({ ...asset, source: 'parts' }))); await handle.writeFile(data); }
     catch (error) { await handle.close(); await fs.unlink(file); throw error; }
     await handle.close();
     return { id, name: id, type: 'model' };
