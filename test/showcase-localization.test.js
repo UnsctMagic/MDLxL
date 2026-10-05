@@ -11,7 +11,7 @@ test('every Showcase label has complete language packs with intact data slots', 
     for (const [index, locale] of ['ru', 'es', 'zh'].entries()) {
       assert.ok(values[index].trim() && !values[index].includes('\ufffd'), source);
       assert.deepEqual(slots(values[index]), slots(source), `${locale}: ${source}`);
-      if (!['Color', 'Zoom'].includes(source) && !(locale === 'zh' && source === 'Hive BBCode {0}')) assert.notEqual(translate(source, locale), source, `${locale}: ${source}`);
+      if (!['Color', 'Zoom'].includes(source)) assert.notEqual(translate(source, locale), source, `${locale}: ${source}`);
     }
     assert.notEqual(translate(source, 'mordor'), source, source);
   }

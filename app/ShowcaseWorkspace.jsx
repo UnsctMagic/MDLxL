@@ -179,10 +179,10 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
   }
   useEffect(() => () => { if (media?.url) URL.revokeObjectURL(media.url); }, [media?.url]);
   const current = useRef();
-  current.current = {model,playlist,length,orbitSpeed,orbitDirection,orbitTiming:exportTarget==='hive'||mainPicture?'speed':orbitTiming,playing,previewOrbit,portrait,startAngle:orbitAngle};
+  current.current = {model,playlist,length,orbitSpeed,orbitDirection,orbitTiming:exportTarget==='low-size'||mainPicture?'speed':orbitTiming,playing,previewOrbit,portrait,startAngle:orbitAngle};
   const director = useMemo(() => createShowcaseDirector(() => current.current), []);
   const overflow = overflowEntries(playlist,length);
-  let exportError='';try{validateShowcaseExport(mainPicture?'hive-main':exportTarget,length,playlist);}catch(error){exportError=error.message;}
+  let exportError='';try{validateShowcaseExport(mainPicture?'low-size-main':exportTarget,length,playlist);}catch(error){exportError=error.message;}
   function chooseExportTarget(value){const next=exportTarget===value?null:value;setExportTarget(next);stopPreview();}
   function chooseMainPicture(){setMainPicture(value=>!value);stopPreview();setCropEditing(false);}
 
@@ -297,7 +297,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
       if(saved?.kind==='set'){
         if(!saved.recordings?.length||!saved.working)throw Error('This recording set is incomplete.');
         await applySetup(saved.working);recordingEdits.current.clear();recordingDraft.current=null;setRecordingList(structuredClone(saved.recordings));
-        setExportTarget(saved.exportTarget==='hive'?'hive':null);
+        setExportTarget(saved.exportTarget==='low-size'?'low-size':null);
       }else{
         const frame=builtin?cropPresetRect(previewSize.width,previewSize.height,SHOWCASE_CROP_PRESETS[builtin.cropPreset]):null;
         await applySetup(builtin?builtinSetup(builtin,frame):saved.setup);
@@ -415,8 +415,8 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
         </section>
         <section className={sectionClass('camera')} aria-label="Camera Control" hidden={portrait}>
           <header>{sectionToggle('camera','Camera Control')}<button hidden={!!collapsed.camera} disabled={!api} title="Fit the current pose through a complete orbit inside the crop" onClick={()=>{stopPreview();setCropEditing(false);api?.maximalZoom(selectedCrop);}}>Maximal Zoom</button></header>
-          {exportTarget!=='hive'&&!mainPicture&&<label>Timing<select aria-label="Orbit timing" value={orbitTiming} onChange={event=>setOrbitTiming(event.target.value)}><option value="speed">Speed</option><option value="circle">Complete Full Circle</option></select></label>}
-          {(exportTarget==='hive'||mainPicture||orbitTiming==='speed')&&<Slider label="Orbit speed" value={orbitSpeed} onChange={setOrbitSpeed}/>}
+          {exportTarget!=='low-size'&&!mainPicture&&<label>Timing<select aria-label="Orbit timing" value={orbitTiming} onChange={event=>setOrbitTiming(event.target.value)}><option value="speed">Speed</option><option value="circle">Complete Full Circle</option></select></label>}
+          {(exportTarget==='low-size'||mainPicture||orbitTiming==='speed')&&<Slider label="Orbit speed" value={orbitSpeed} onChange={setOrbitSpeed}/>}
           <div className="showcase-model-tools"><details className="showcase-align"><summary title="Align model within crop">Align model</summary><div className="showcase-align-menu"><div className="showcase-align-grid">{[0,1,2].flatMap(y=>[0,1,2].map(x=><button key={x+':'+y} title={['Top','Middle','Bottom'][y]+' '+['left','center','right'][x]} aria-label={'Place model '+['top','middle','bottom'][y]+' '+['left','center','right'][x]} disabled={!api} onClick={event=>{stopPreview();setCropEditing(false);api?.alignModel(selectedCrop,x,y);event.currentTarget.closest('details').open=false;}}>{[['↖','↑','↗'],['←','·','→'],['↙','↓','↘']][y][x]}</button>))}</div></div></details></div>
           <Slider label="Radius" value={orbitRadius} max={100} onChange={setOrbitRadius}/>
           <div className="showcase-orbit-direction"><small>Z axis · 0% spins in place</small><button title="Reverse orbit direction" aria-label="Reverse orbit direction" aria-pressed={orbitDirection===-1} onClick={()=>setOrbitDirection(value=>-value)}>{orbitDirection===1?'↶':'↷'}</button></div>
@@ -428,7 +428,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
           <header>{sectionToggle('crop','Crop size')}{!collapsed.crop&&<select aria-label="Crop size" value={cropPreset} onChange={event=>{const preset=event.target.value;if(preset==='free'){setCrop(selectedCrop);setCropEditing(true);}else setCropEditing(false);setCropPreset(preset);}}><option value="free">Free selection</option><option value="square">Square · 1:1</option><option value="classic">Classic · 4:3</option><option value="wide">Wide · 16:9</option><option value="portrait">Portrait · 3:4</option></select>}</header>
           <div className="showcase-crop-controls"><button disabled={!api} title={selectedCrop?'Center unit in crop; zoom out only if needed':'Center unit in viewport; zoom out only if needed'} onClick={()=>{stopPreview();setCropEditing(false);api?.centerModel(selectedCrop);}}>Center</button><button disabled={!api} onClick={()=>{stopPreview();setCropEditing(!cropEditing);}}>{cropEditing?'Done':selectedCrop?'Edit crop':'Crop'}</button>{selectedCrop&&<button onClick={()=>{setCrop(null);setCropPreset('free');setCropEditing(false);}}>Reset</button>}</div>
         </section>}
-        <button className="showcase-wide" aria-pressed={mainPicture} onClick={chooseMainPicture}>Hive Main Picture</button>
+        <button className="showcase-wide" aria-pressed={mainPicture} onClick={chooseMainPicture}>Low Size Main Picture</button>
         <ShowcaseLayerTools key={applyVersion} grid={grid} onGrid={setGrid} gridDensity={gridDensity} onGridDensity={setGridDensity} onAlign={alignText} length={length} layers={layers} onLayers={setLayers} activeId={activeLayer} onActive={setActiveLayer} onEditing={setLayersEditing} onStatus={onStatus}/>
         <section className={sectionClass('graphics')} aria-label="Graphics">
           <header>{sectionToggle('graphics','Graphics')}</header>
@@ -458,6 +458,6 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
         {cropEditing&&<div className="showcase-crop-hint">Drag to select the GIF area</div>}
       </div>}
     </section>
-    {animationDialog&&<AnimationDialog definitions={api?.effectDefinitions()} exportTarget={mainPicture?'hive-main':exportTarget} model={model} initial={animationDialog} portrait={portrait} onClose={()=>setAnimationDialog(null)} onSave={row=>{updatePlaylist(animationDialog.index<0?[...playlist,row]:playlist.map((item,index)=>index===animationDialog.index?row:item));setSelected(animationDialog.index<0?playlist.length:animationDialog.index);setAnimationDialog(null);}} onRemove={()=>{updatePlaylist(playlist.filter((_,index)=>index!==animationDialog.index));setSelected(Math.max(0,animationDialog.index-1));setAnimationDialog(null);}}/>}
+    {animationDialog&&<AnimationDialog definitions={api?.effectDefinitions()} exportTarget={mainPicture?'low-size-main':exportTarget} model={model} initial={animationDialog} portrait={portrait} onClose={()=>setAnimationDialog(null)} onSave={row=>{updatePlaylist(animationDialog.index<0?[...playlist,row]:playlist.map((item,index)=>index===animationDialog.index?row:item));setSelected(animationDialog.index<0?playlist.length:animationDialog.index);setAnimationDialog(null);}} onRemove={()=>{updatePlaylist(playlist.filter((_,index)=>index!==animationDialog.index));setSelected(Math.max(0,animationDialog.index-1));setAnimationDialog(null);}}/>}
   </div>;
 }

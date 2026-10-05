@@ -31,8 +31,8 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   }
   function stop() { if(running.current){running.current.stop=true;running.current.finish?.();} }
   async function record(job,take) {
-    const {length,crop,cropAspect,mainPicture,preferences,loop,modelName}=take;validateShowcaseExport(mainPicture?'hive-main':job.exportTarget,length);
-    const settings=normalizeCapture(showcaseExportPreferences(preferences,mainPicture?'hive-main':job.exportTarget).capture);
+    const {length,crop,cropAspect,mainPicture,preferences,loop,modelName}=take;validateShowcaseExport(mainPicture?'low-size-main':job.exportTarget,length);
+    const settings=normalizeCapture(showcaseExportPreferences(preferences,mainPicture?'low-size-main':job.exportTarget).capture);
     let worker,jobId;
     const api=job.api, timing=recordingTimeline(length,settings.fps), quality=CAPTURE_QUALITIES[settings.recordingQuality];
     try {
@@ -43,7 +43,7 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
       const context=canvas.getContext('2d',{willReadFrequently:true});
       let request;
       if(window.desktop){
-        ({jobId}=await window.desktop.beginPreviewRecording({width:canvas.width,height:canvas.height,quality:settings.recordingQuality,loop:!!loop,modelName,exportTarget:mainPicture?'hive-main':job.exportTarget||undefined}));
+        ({jobId}=await window.desktop.beginPreviewRecording({width:canvas.width,height:canvas.height,quality:settings.recordingQuality,loop:!!loop,modelName,exportTarget:mainPicture?'low-size-main':job.exportTarget||undefined}));
         request=message=>window.desktop.writePreviewRecordingFrame({jobId,...message});
       } else {
         worker=new Worker(new URL('./preview-gif.worker.js',import.meta.url),{type:'module'});
@@ -114,8 +114,8 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   async function start(){
     if(running.current||retained.current)return;
     try{
-      if(recordingList.length)for(const item of recordingList){const setup=item.setup,portrait=setup.mode==='portrait';validateShowcaseExport(setup.mainPicture?'hive-main':exportTarget,portrait?setup.portraitLength:setup.sequenceLength,portrait?setup.portraitPlaylist:setup.sequencePlaylist);}
-      else validateShowcaseExport(mainPicture?'hive-main':exportTarget,length);
+      if(recordingList.length)for(const item of recordingList){const setup=item.setup,portrait=setup.mode==='portrait';validateShowcaseExport(setup.mainPicture?'low-size-main':exportTarget,portrait?setup.portraitLength:setup.sequenceLength,portrait?setup.portraitPlaylist:setup.sequencePlaylist);}
+      else validateShowcaseExport(mainPicture?'low-size-main':exportTarget,length);
     }catch(error){setError(error.message);return;}
     // Snapshot the list once: editing or completing one row cannot alter later takes.
     const plan=recordingList.slice(),job={stop:false,promise:null,api:captureAPI,exportTarget};running.current=job;
@@ -160,8 +160,8 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   const stoppable=['starting','recording','finishing'].includes(state);
   return <div className="showcase-capture">
     <button className="showcase-record" disabled={!stoppable&&(state!=='idle'||!captureAPI||locked||(disabled&&!recordingList.length))} onClick={stoppable?stop:start}>{stoppable?'STOP':'RECORD'}</button>
-    <div className="showcase-export-target" role="group" aria-label="GIF destination"><button disabled={state!=='idle'||locked} aria-pressed={exportTarget==='hive'} onClick={()=>onExportTarget?.('hive')}>HIVE</button></div>
-    <small className="showcase-export-note">{mainPicture?'Hive Main Picture · 612 × 490 · 5s max · local GIF':exportTarget==='hive'?'Hive · 5s max · 30 FPS':'864 px max · ≤20 MiB · local GIF'}</small>
+    <div className="showcase-export-target" role="group" aria-label="GIF destination"><button disabled={state!=='idle'||locked} aria-pressed={exportTarget==='low-size'} onClick={()=>onExportTarget?.('low-size')}>Low Size</button></div>
+    <small className="showcase-export-note">{mainPicture?'Low Size Main Picture · 612 × 490 · 5s max · local GIF':exportTarget==='low-size'?'Low Size · 5s max · 30 FPS':'864 px max · ≤20 MiB · local GIF'}</small>
     {state!=='idle'&&<div className="showcase-capture-status" role="status">{state==='retry'?'Save needs retry':state==='saving'?'Saving…':<>{translate(batchLabel)}{translate(progress)}</>}</div>}
     {background.pending>0&&<div className="showcase-capture-status" role="status">Making GIFs… {background.pending}</div>}
     {state==='retry'&&<button onClick={retry}>Retry Save</button>}

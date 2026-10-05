@@ -489,10 +489,10 @@
     "Arrastra para seleccionar el área del GIF",
     "拖动选择 GIF 区域"
   ],
-  "Hive Main Picture": [
-    "Главное изображение Hive",
-    "Imagen principal de Hive",
-    "Hive 主图"
+  "Low Size Main Picture": [
+    "Главное изображение малого размера",
+    "Imagen principal de tamaño reducido",
+    "小尺寸主图"
   ],
   "Signature": [
     "Подпись",
@@ -844,15 +844,15 @@
     "Destino del GIF",
     "GIF 目标"
   ],
-  "Hive Main Picture · 612 × 490 · 5s max · local GIF": [
-    "Главное изображение Hive · 612 × 490 · до 5 с · локальный GIF",
-    "Imagen principal de Hive · 612 × 490 · máx. 5 s · GIF local",
-    "Hive 主图 · 612 × 490 · 最长 5 秒 · 本地 GIF"
+  "Low Size Main Picture · 612 × 490 · 5s max · local GIF": [
+    "Главное изображение малого размера · 612 × 490 · до 5 с · локальный GIF",
+    "Imagen principal de tamaño reducido · 612 × 490 · máx. 5 s · GIF local",
+    "小尺寸主图 · 612 × 490 · 最长 5 秒 · 本地 GIF"
   ],
-  "Hive · 5s max · 30 FPS": [
-    "Hive · до 5 с · 30 FPS",
-    "Hive · máx. 5 s · 30 FPS",
-    "Hive · 最长 5 秒 · 30 FPS"
+  "Low Size · 5s max · 30 FPS": [
+    "Малый размер · до 5 с · 30 FPS",
+    "Tamaño reducido · máx. 5 s · 30 FPS",
+    "小尺寸 · 最长 5 秒 · 30 FPS"
   ],
   "864 px max · ≤20 MiB · local GIF": [
     "До 864 пикс. · ≤20 МиБ · локальный GIF",
@@ -919,10 +919,10 @@
     "La grabación alcanzó el límite de almacenamiento.",
     "录制已达到存储上限。"
   ],
-  "Hive does not support GIF previews longer than 5 seconds.": [
-    "Hive не поддерживает GIF-превью длительностью более 5 секунд.",
-    "Hive no admite vistas previas GIF de más de 5 segundos.",
-    "Hive 不支持超过 5 秒的 GIF 预览。"
+  "Low Size GIF previews cannot be longer than 5 seconds.": [
+    "GIF-превью малого размера не могут быть длиннее 5 секунд.",
+    "Las vistas previas GIF de tamaño reducido no pueden durar más de 5 segundos.",
+    "小尺寸 GIF 预览不能超过 5 秒。"
   ],
   "The Showcase preview is still loading.": [
     "Предпросмотр витрины ещё загружается.",

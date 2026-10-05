@@ -7,10 +7,8 @@ const globalPeriod = (model, track) => model.GlobalSequences?.[track?.GlobalSeqI
 const localKeys = (track, sequence) => (track?.Keys || []).filter(key => key.Frame >= sequence.Interval[0] && key.Frame <= sequence.Interval[1]);
 
 // Showcase policy, inferred from Warcraft's authored sequence names/NonLooping
-// flag and Hive's emitter guidance. Channel/locomotion take precedence over Spell
-// or Attack in compound names (e.g. Spell Channel, Attack Walk Stand Spin).
-// https://www.hiveworkshop.com/threads/basic-animations.97548/
-// https://www.hiveworkshop.com/threads/particle-emitters-2.329335/
+// flag. Channel/locomotion take precedence over Spell or Attack in compound
+// names (e.g. Spell Channel, Attack Walk Stand Spin).
 export function finishesShowcaseEffects(sequence) {
   const words = new Set(String(sequence?.Name || '').toLowerCase().match(/[a-z]+/g) || []);
   if (['birth', 'death', 'morph', 'decay', 'dissipate'].some(word => words.has(word))) return true;
