@@ -5,7 +5,7 @@ import {remapShowcasePlaylist,remapShowcaseTake} from '../app/showcase-model.js'
 import {showcaseExportPreferences,validateShowcaseExport} from '../app/showcase-export.js';
 test('all showcase ratios use a uniform scale across viewport and output sizes',()=>{
  for(const [w,h] of [[1670,902],[834,612],[300,900]])for(const [preset,aspect] of Object.entries(SHOWCASE_CROP_PRESETS)){
-  const crop=cropPresetRect(w,h,aspect),output=recordingDimensions(w*2,h*2,crop,preset==='hiveMain'?612:1920,aspect);
+  const crop=cropPresetRect(w,h,aspect),output=recordingDimensions(w*2,h*2,crop,preset==='lowSizeMain'?612:1920,aspect);
   assert.ok(Math.abs(output.width/output.height-aspect)<.004);
   const fit=containRect(crop.width*w,crop.height*h,output.width,output.height);
   assert.ok(Math.abs(fit.width/(crop.width*w)-fit.height/(crop.height*h))<1e-10);
@@ -17,7 +17,7 @@ test('unselected profiles retain original quality, FPS and duration',()=>{
  const preferences={capture:{fps:50,recordingQuality:'high'}};
  assert.deepEqual(showcaseExportPreferences(preferences,null),preferences);
  assert.doesNotThrow(()=>validateShowcaseExport(null,30,[{seconds:30}]));
- assert.throws(()=>validateShowcaseExport('hive-main',6),/5 seconds/);
+ assert.throws(()=>validateShowcaseExport('low-size-main',6),/5 seconds/);
 });
 test('model replacement remaps by name, removes missing entries and retains every other setting',()=>{
  const a={Sequences:[{Name:'Stand'},{Name:'Walk'},{Name:'Portrait Talk'}]},b={Sequences:[{Name:'Portrait Talk'},{Name:'Stand'}]};

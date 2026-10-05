@@ -105,24 +105,24 @@ test('large invalid GIF is rejected by its contents without a renderer buffer', 
   await assert.rejects(validateGIFFile(file),/complete GIF/);
 });
 
-test('local GIFs use the former fixed 20 MiB budget at every quality and duration without changing Hive', () => {
+test('local GIFs use the former fixed 20 MiB budget at every quality and duration without changing Low Size', () => {
   for(const target of [undefined,null])for(const quality of ['low','medium','high'])for(const duration of [100,5000,10000,20000,60000]){
     assert.equal(gifSizeLimit(target,quality,duration),20*1024*1024);
   }
-  assert.equal(gifSizeLimit('hive','high',5000),22_500_000);
-  assert.equal(gifSizeLimit('hive-main','high',5000),Infinity);
+  assert.equal(gifSizeLimit('low-size','high',5000),22_500_000);
+  assert.equal(gifSizeLimit('low-size-main','high',5000),Infinity);
 });
 
 
-test('export profiles cap dimensions, preserve frame timing and reject Hive duration overflow', { skip: process.platform !== 'win32' }, async t => {
+test('export profiles cap dimensions, preserve frame timing and reject Low Size duration overflow', { skip: process.platform !== 'win32' }, async t => {
   const store=await fixture(t);
-  for(const [exportTarget,width,height,quality] of [['hive',800,800,'high'],[undefined,1000,500,'high'],[undefined,500,1000,'medium'],[undefined,720,360,'low']]){
+  for(const [exportTarget,width,height,quality] of [['low-size',800,800,'high'],[undefined,1000,500,'high'],[undefined,500,1000,'medium'],[undefined,720,360,'low']]){
     const {jobId}=await store.begin(1,{width,height,quality,loop:true,exportTarget});
     for(let i=0;i<3;i++)await store.frame(1,{jobId,width,height,time:i*1000/30,buffer:frame(i,width,height)});
     await store.finish(1,{jobId,time:100});
     const bytes=await fs.readFile(store.get(1,jobId).output);
     const w=bytes.readUInt16LE(6),h=bytes.readUInt16LE(8),decoded=inspectGIF(bytes);
-    if(exportTarget==='hive')assert.ok(w*h<=300000);
+    if(exportTarget==='low-size')assert.ok(w*h<=300000);
     else{
       assert.equal(Math.max(w,h),Math.min(864,Math.max(width,height)));
       assert.ok(Math.abs(w/h-width/height)<.005);
@@ -131,9 +131,9 @@ test('export profiles cap dimensions, preserve frame timing and reject Hive dura
     assert.equal(decoded.frames,3);assert.equal(decoded.delay,100);
     await store.save(1,jobId);
   }
-  const {jobId}=await store.begin(1,{width:16,height:8,quality:'high',loop:true,exportTarget:'hive'});
+  const {jobId}=await store.begin(1,{width:16,height:8,quality:'high',loop:true,exportTarget:'low-size'});
   await store.frame(1,{jobId,width:16,height:8,time:0,buffer:frame(0)});
-  await assert.rejects(store.finish(1,{jobId,time:5010}),/Hive does not support/);
+  await assert.rejects(store.finish(1,{jobId,time:5010}),/Low Size GIF previews cannot be longer/);
   assert.equal(store.jobs.has(jobId),false);
 });
 
