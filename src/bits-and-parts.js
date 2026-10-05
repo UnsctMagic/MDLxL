@@ -104,7 +104,7 @@ export function previewPart(source) {
 
 /** Whole-part import. Prepare on a clone so even callers outside EditorDocument
  * get all-or-nothing data changes; the UI wraps this in one undoable edit. */
-export function commitPart(target, source, { animations = null, texturePaths = {} } = {}) {
+export function commitPart(target, source, { animations = null } = {}) {
   if (!source?.Geosets?.length) throw Error('This model has no geosets to import.');
   if (source.Version !== target.Version) throw Error('BitsAndParts requires matching model formats. Convert a copy to the destination format first.');
   if (source.BindPoses?.length || target.BindPoses?.length) throw Error('Parts with bind-pose matrices require baking before import.');
@@ -126,8 +126,8 @@ export function commitPart(target, source, { animations = null, texturePaths = {
     if (id == null || id === -1) return id;
     if (!staged.Textures?.[id]) throw Error(`The part references missing texture ${id}.`);
     if (!maps.textures.has(id)) {
-      const texture = { ...staged.Textures[id], ...(texturePaths[id] ? { Image: texturePaths[id] } : {}) };
-      const index = next.Textures.findIndex(existing => partTextureKey(existing) === partTextureKey(texture));
+      const texture = { ...staged.Textures[id] };
+      const index = next.Textures.findIndex(existing => existing.Image === texture.Image && partTextureKey(existing) === partTextureKey(texture));
       maps.textures.set(id, index < 0 ? next.Textures.push(texture) - 1 : index);
     }
     return maps.textures.get(id);

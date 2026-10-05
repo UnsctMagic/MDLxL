@@ -4,7 +4,6 @@ import { openDocument, validateModel } from '../src/editor-document.js';
 import { collectPart, partPathKey, partTextureIndices, partTextureKey, previewPart } from '../src/bits-and-parts.js';
 import CollectBit from './CollectBit.jsx';
 import PartAnimations from './PartAnimations.jsx';
-import { encodeForgeTga } from '../src/forge.js';
 import './bits-and-parts.css';
 
 function FolderTree({ entries, selected, onSelect }) {
@@ -25,21 +24,12 @@ function browserBank(files) {
   return { ...root, models, assets };
 }
 
-async function portableAsset(asset) {
-  let bytes = new Uint8Array(asset.bytes), extension = asset.name.split('.').at(-1).toLowerCase();
-  if (bytes.length > 3 && bytes[0] === 68 && bytes[1] === 68 && bytes[2] === 83 && bytes[3] === 32) extension = 'dds';
+async function preparePartAsset(asset, name) {
+  const bytes = new Uint8Array(asset.bytes);
   const texture = await textureFromAsset(asset); // Decode before committing, including binary formats.
-  try {
-    if (!['blp', 'dds', 'tga'].includes(extension)) {
-      const source = texture.image;
-      if (source.data) bytes = encodeForgeTga({ width: source.width, height: source.height, data: source.data });
-      else { const canvas = document.createElement('canvas'); canvas.width = source.width; canvas.height = source.height; const context = canvas.getContext('2d'); context.drawImage(source, 0, 0); bytes = encodeForgeTga(context.getImageData(0, 0, canvas.width, canvas.height)); }
-      extension = 'tga';
-    }
-  } finally { texture.dispose(); }
+  texture.dispose();
   if (!bytes.length || bytes.length > 64 * 1024 * 1024) throw Error('Part textures must be smaller than 64 MB.');
-  const digest = await crypto.subtle.digest('SHA-256', bytes), hash = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
-  return { name: `MDLxL_Parts\\${hash}.${extension}`, bytes, source: 'parts' };
+  return { name, bytes, source: 'parts' };
 }
 
 export default function BitsAndParts({ model, preferences, selectionByGeoset, textureAssets = new Map(), teamColor = '#ff0000', onClose, onCommit }) {
@@ -79,22 +69,22 @@ export default function BitsAndParts({ model, preferences, selectionByGeoset, te
     const request = generation.current;
     setBusy(true); setError('');
     try {
-      const texturePaths = {}, portable = [];
+      const portable = [];
       for (const index of partTextureIndices(part.model)) {
         const texture = part.model.Textures[index];
-        if (texture.ReplaceableId || !texture.Image) continue;
-        if (model.Textures.some(existing => partTextureKey(existing) === partTextureKey(texture))) continue;
+        if (texture.ReplaceableId || !texture.Image || /\.w3mod:/i.test(texture.Image)) continue;
+        if (model.Textures.some(existing => existing.Image === texture.Image && partTextureKey(existing) === partTextureKey(texture))) continue;
         const asset = assets.get(partPathKey(texture.Image));
         if (!asset) throw Error(`Missing texture: ${texture.Image}. Place it beside the source part or configure its Warcraft data folder.`);
-        const prepared = await portableAsset(asset); texturePaths[index] = prepared.name; portable.push(prepared);
+        const prepared = await preparePartAsset(asset, texture.Image); portable.push(prepared);
       }
       if (generation.current !== request) return;
-      const result = await onCommit({ source: part.model, animations, texturePaths, assets: portable });
+      const result = await onCommit({ source: part.model, animations, assets: portable });
       if (generation.current === request && result !== false) onClose();
     } catch (error) { if (generation.current === request) setError(error.message); }
     finally { if (generation.current === request) setBusy(false); }
   };
-  if (collection) return <CollectBit source={collection} preferences={preferences} textureAssets={textureAssets} teamColor={teamColor} prepareAsset={portableAsset} onClose={() => setCollection(null)} onSaved={async entry => { setCollection(null); await refresh(); await choose(entry); }}/>;
+  if (collection) return <CollectBit source={collection} preferences={preferences} textureAssets={textureAssets} teamColor={teamColor} prepareAsset={preparePartAsset} onClose={() => setCollection(null)} onSaved={async entry => { setCollection(null); await refresh(); await choose(entry); }}/>;
   return <div className="parts-overlay" onKeyDown={event => { if (event.key === 'Escape' && !busy) { event.stopPropagation(); onClose(); } }}><section className="parts-dialog" role="dialog" aria-modal="true" aria-label="BitsAndParts" tabIndex={-1} ref={dialog}>
     <header><h2>BitsAndParts</h2><button disabled={busy || !window.desktop?.savePart || !Object.values(selectionByGeoset || {}).some(ids => ids.length)} onClick={collect}>Collect Bit</button><button onClick={onClose} disabled={busy} aria-label="Close BitsAndParts">✕</button></header>
     <div className="parts-body"><aside aria-label="Parts folders and files"><div className="parts-bank-tools"><strong>BitsAndParts</strong>{window.desktop?.listParts ? <><button disabled={busy} onClick={refresh}>Refresh</button><button onClick={() => window.desktop.openPartsFolder().catch(error => setError(error.message))}>Open folder</button></> : <button onClick={() => picker.current.click()}>Choose folder</button>}</div>

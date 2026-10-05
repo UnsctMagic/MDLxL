@@ -4,11 +4,11 @@ export function forgeTexturePaths(model){return [...new Map((model.Textures||[])
 /** The reserved relative path survives reopening, rescans and recovery. Source
  * tags alone are transient: native lookup also reads textures beside a model. */
 export function retainedForgeAssets(assets,model=null){
- const result=new Map(),add=(name,asset)=>{if(asset?.bytes?.byteLength)result.set(assetKey(name),{name,bytes:asset.bytes});};
+ const result=new Map(),add=(name,asset)=>{if(asset?.bytes?.byteLength)result.set(assetKey(name),{name,bytes:asset.bytes,...(asset.source==='parts'?{source:'parts'}:{})});};
  if(model){
-  for(const name of forgeTexturePaths(model)){const key=assetKey(name),asset=assets.get(key)||assets.get(key.split('\\').at(-1))||[...assets.values()].find(a=>assetKey(a.name)===key);add(name,asset);}
+  for(const texture of model.Textures||[]){const name=texture.Image,key=assetKey(name),asset=assets.get(key)||assets.get(key.split('\\').at(-1))||[...assets.values()].find(a=>assetKey(a.name)===key);if(isForgeAssetPath(name)||asset?.source==='parts')add(name,asset);}
  }else{
-  for(const asset of assets.values())if(asset.source==='forge'||isForgeAssetPath(asset.name))add(asset.name,asset);
+  for(const asset of assets.values())if(asset.source==='forge'||asset.source==='parts'||isForgeAssetPath(asset.name))add(asset.name,asset);
  }
  return [...result.values()];
 }

@@ -15,10 +15,10 @@ export default function CollectBit({ source, preferences, textureAssets, teamCol
       const model = collectedPartModel(source, { name, animations }), assets = [];
       for (const index of partTextureIndices(model)) {
         const texture = model.Textures[index];
-        if (texture.ReplaceableId || !texture.Image) continue;
+        if (texture.ReplaceableId || !texture.Image || /\.w3mod:/i.test(texture.Image)) continue;
         const asset = textureAssets.get(partPathKey(texture.Image));
         if (!asset) throw Error(`Missing texture: ${texture.Image}. Load it before collecting this Bit.`);
-        const prepared = await prepareAsset(asset); texture.Image = prepared.name;
+        const prepared = await prepareAsset(asset, texture.Image);
         if (!assets.some(existing => existing.name === prepared.name)) assets.push(prepared);
       }
       const issues = validateModel(model).filter(issue => issue.severity === 'error');

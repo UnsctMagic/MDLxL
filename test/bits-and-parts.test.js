@@ -61,10 +61,13 @@ test('library provisions exact folder, retains nested models and case variants, 
   await assert.rejects(library.read('../outside.mdl'), /inside/); await assert.rejects(library.read('notes.txt'), /MDL or MDX/);
   assert.equal((await library.list()).children.length, 3);
 });
-test('portable part textures participate in existing save and recovery retention', async t => {
+test('original part textures participate in existing save and recovery retention without changing names or bytes', async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-parts-save-')); t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const asset = { name: 'MDLxL_Parts\\hash.tga', bytes: new Uint8Array([1, 2, 3]), source: 'parts' }, model = { Textures: [{ Image: asset.name }] };
-  assert.equal(retainedForgeAssets(new Map([[asset.name.toLowerCase(), asset]]), model).length, 1);
-  await saveForgeAssets(path.join(directory, 'model.mdl'), [asset]); assert.deepEqual(new Uint8Array(await fs.readFile(path.join(directory, 'MDLxL_Parts', 'hash.tga'))), asset.bytes);
+  const asset = { name: 'Textures/My Bit/Original Skin.PNG', bytes: new Uint8Array([1, 2, 3]), source: 'parts' }, model = { Textures: [{ Image: asset.name }] };
+  const assets = new Map([[asset.name.toLowerCase().replaceAll('/', '\\'), asset]]);
+  assert.deepEqual(retainedForgeAssets(assets, model), [asset]);
+  assert.deepEqual(retainedForgeAssets(assets), [asset]);
+  await saveForgeAssets(path.join(directory, 'model.mdl'), retainedForgeAssets(assets, model)); assert.deepEqual(new Uint8Array(await fs.readFile(path.join(directory, asset.name))), asset.bytes);
+  await assert.rejects(saveForgeAssets(path.join(directory, 'model.mdl'), [{ ...asset, bytes: new Uint8Array([4]) }]), /different texture/);
   await assert.rejects(saveForgeAssets(path.join(directory, 'model.mdl'), [{ ...asset, name: 'MDLxL_Parts\\..\\outside.tga' }]), /supported filename/);
 });

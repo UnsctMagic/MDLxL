@@ -12,11 +12,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { sampleGeosetAnimation } = await import('../src/animation.js');
   const doc = createStarterDocument(), name = `Collected UI Bit ${Date.now()}`, fixture = path.join(output, 'source.mdx');
   const texture = encodeForgeTga({ width: 2, height: 2, data: new Uint8Array(16).fill(255) });
-  const expectedAsset = path.join(root, 'BitsAndParts', 'MDLxL_Parts', require('node:crypto').createHash('sha256').update(texture).digest('hex') + '.tga');
+  const texturePath = `Textures\\${name}\\Original Skin.TGA`;
+  const expectedAsset = path.join(root, 'BitsAndParts', texturePath);
   const assetExisted = fs.existsSync(expectedAsset);
-  fs.writeFileSync(path.join(output, 'white.tga'), texture);
+  fs.mkdirSync(path.join(output, path.dirname(texturePath)), { recursive: true });
+  fs.writeFileSync(path.join(output, texturePath), texture);
   doc.apply('Fixture', [], model => {
-    model.Textures[0].Image = 'white.tga';
+    model.Textures[0].Image = texturePath;
     for (let gi = 1; gi < 5; gi++) model.Geosets.push(structuredClone(model.Geosets[0]));
     for (let gi = 1; gi < 5; gi++) for (let vertex = 0; vertex < model.Geosets[gi].Vertices.length; vertex += 3) model.Geosets[gi].Vertices[vertex] += 90 * gi;
     model.Sequences = ['Stand', 'Walk', 'Attack'].map((Name, si) => ({ Name, Interval: new Uint32Array([1000 + si * 2000, 1900 + si * 2000]), MoveSpeed: 0, NonLooping: false, Rarity: 0, MinimumExtent: model.Info.MinimumExtent.slice(), MaximumExtent: model.Info.MaximumExtent.slice(), BoundsRadius: model.Info.BoundsRadius }));
@@ -55,7 +57,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // Partial patches and loose points are covered in bit-collection.test.js.
     await page.evaluate(() => bitTestState().props.onSelectionChange(Object.fromEntries(Array.from({ length: 5 }, (_, gi) => [gi, Array.from({ length: 8 }, (_, vi) => vi)]))));
     await page.waitForFunction(() => document.querySelector('.classic-counts')?.textContent.includes('Selected: 40'));
-    await page.waitForFunction(() => bitTestState().app.session.assets.has('white.tga'));
+    await page.waitForFunction(name => bitTestState().app.session.assets.has(name.toLowerCase()), texturePath);
     await page.locator('[data-warmkey="bitsAndParts"]').click();
     const cases = [null, [{ sequenceIndex: 1, name: 'Walking colors' }], [{ sequenceIndex: 0, name: 'Idle colors' }, { sequenceIndex: 2, name: 'Attack colors' }]];
     for (let ci = 0; ci < cases.length; ci++) {
@@ -91,6 +93,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.getByRole('dialog', { name: 'BitsAndParts', exact: true }).waitFor();
       await page.getByLabel('Preview animation', { exact: true }).waitFor();
       const collected = openDocument(fs.readFileSync(file), bitName + '.mdx');
+      assert.equal(collected.model.Textures[0].Image, texturePath);
       assert.deepEqual(collected.model.Geosets.map(geoset => geoset.Vertices.length / 3), [8, 8, 8, 8, 8]);
       assert.deepEqual(collected.model.Sequences.map(sequence => sequence.Name), chosen?.map(item => item.name) || ['Stand', 'Walk', 'Attack']);
       const sourceIndices = chosen?.map(item => item.sequenceIndex) || [0, 1, 2];
@@ -111,6 +114,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.getByRole('button', { name: 'Import whole part', exact: true }).click();
       await page.getByRole('dialog', { name: 'BitsAndParts', exact: true }).waitFor({ state: 'detached' });
       const imported = openDocument(new Uint8Array(await page.evaluate(() => Array.from(bitTestState().app.doc.serialize('mdx')))));
+      assert.equal(imported.model.Textures[0].Image, texturePath);
       assert.equal(imported.model.Geosets.length, 10);
       assert.deepEqual(imported.model.Sequences.slice(3).map(item => item.Name), collected.model.Sequences.map(item => 'Imported ' + item.Name));
       for (let si = 0; si < collected.model.Sequences.length; si++) for (let gi = 0; gi < 5; gi++) {
