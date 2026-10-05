@@ -14,7 +14,7 @@ export function cropBetween(start, end) {
   return { x, y, width: Math.abs(clamp(end.x) - clamp(start.x)), height: Math.abs(clamp(end.y) - clamp(start.y)) };
 }
 
-export const SHOWCASE_CROP_PRESETS = Object.freeze({ square: 1, classic: 4 / 3, wide: 16 / 9, portrait: 3 / 4, hiveMain: 612 / 490 });
+export const SHOWCASE_CROP_PRESETS = Object.freeze({ square: 1, classic: 4 / 3, wide: 16 / 9, portrait: 3 / 4, lowSizeMain: 612 / 490 });
 
 /** Center the chosen aspect inside the preview, leaving a little breathing room. */
 export function cropPresetRect(width, height, aspect) {
