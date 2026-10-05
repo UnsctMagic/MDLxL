@@ -61,7 +61,7 @@ import { SelectionHistory } from '../src/selection-history.js';
 import { correctNormalsXL } from '../src/normals-xl.js';
 import { EditorDocument, openDocument, importGeosets, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, deleteFreeVertices } from '../src/geoset-operations.js';
-import { transformVertices, deleteVertices, addTriangle } from '../src/editor-commands.js';
+import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
 import { detachFaces, extrudeFaces } from '../src/mesh-tools.js';
 import { applyMeshClipboardColors, captureMeshSelection } from '../src/mesh-clipboard.js';
 import { captureNodeSelection, pasteNodesToDummy } from '../src/node-clipboard.js';
@@ -844,7 +844,7 @@ export default function App() {
       setSelection(restored.selection); setHidden(restored.hidden); setSelectable(restored.selectable); setVisibleOnly(restored.visibleOnly || new Set()); setActiveGeoset(restored.activeGeoset); setUvSet(restored.uvSet); if(restored.selectedNodeIds)setSelectedNodeIds(restored.selectedNodeIds); setLiveUV(null); refresh(); say(redo ? 'Redo' : 'Undo');
     } catch (error) { refresh(); say(error.message, true); }
   };
-  const transform = payload => { if (restPose) { if (restrictions.translation && payload.translation?.some(value=>value!==0) || restrictions.rotation && payload.rotation?.some(value=>value!==0) || restrictions.scaling && payload.scale?.some(value=>value!==1)) return false; if(payload.translation)payload={...payload,translation:constrainMovementVector(payload.translation,{workplaneEnabled,workplane})}; } const picked = filterVertexSelection(payload.selections || validSelection, selectable, model); const result = edit('Transform vertices', ['Geosets'], m => { for (const [gi, ids] of Object.entries(picked)) if (ids.length) transformVertices(m.Geosets[gi], ids, payload.translation || [0, 0, 0], payload.scale || [1, 1, 1], payload.rotation || [0, 0, 0], payload.pivot || centroid, {allowSingularScale:payload.allowSingularScale===true}); }); return result; };
+  const transform = payload => { if (restPose) { if (restrictions.translation && payload.translation?.some(value=>value!==0) || restrictions.rotation && payload.rotation?.some(value=>value!==0) || restrictions.scaling && payload.scale?.some(value=>value!==1)) return false; if(payload.translation&&!payload.modelPositions)payload={...payload,translation:constrainMovementVector(payload.translation,{workplaneEnabled,workplane})}; } const picked = filterVertexSelection(payload.selections || validSelection, selectable, model); const result = edit('Transform vertices', ['Geosets'], m => { for (const [gi, ids] of Object.entries(picked)) if (ids.length) { const positions=payload.modelPositions?.[gi]; if(positions)setVertexPositions(m.Geosets[gi],ids,positions); else transformVertices(m.Geosets[gi], ids, payload.translation || [0, 0, 0], payload.scale || [1, 1, 1], payload.rotation || [0, 0, 0], payload.pivot || centroid, {allowSingularScale:payload.allowSingularScale===true}); } }); return result; };
   const beginNormalsXL = () => {
     if (!editable || mode !== 'vertices' || !selectionCount) return;
     setNormalsXL({ doc, revision: doc.revision, target: structuredClone(validSelection), references: [] });

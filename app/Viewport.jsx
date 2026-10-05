@@ -21,7 +21,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { vertexRgbPreviewState } from './vertex-rgb-preview.js';
 import { decodeBLP, getBLPImageData } from 'war3-model';
-import { advanceSequence, allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
+import { advanceSequence, allNodes, inverseGeosetSkinMatrix, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
 import { decodeDds } from '../src/dds.js';
 import { decodeBlp2 } from '../src/blp2.js';
 import { applySelection, dragScale, insideTriangle, marqueeContainsPoint, moveDragPoint, planeAxes } from './classic-gestures.js';
@@ -42,6 +42,8 @@ const normalizedPath = path => String(path || '').replaceAll('/', '\\').toLowerC
 const selectionArray = selection => Array.from(selection || []);
 const asBuffer = bytes => bytes instanceof ArrayBuffer ? bytes : bytes?.buffer?.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 const sameCompassAxes = (left, right) => left?.length === right?.length && left.every((axis, index) => axis.id === right[index].id && Math.abs(axis.x - right[index].x) < .001 && Math.abs(axis.y - right[index].y) < .001 && Math.abs(axis.depth - right[index].depth) < .001);
+const identityMatrix = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+const isIdentityMatrix = matrix => matrix.elements.every((value, index) => Math.abs(value - identityMatrix[index]) < 1e-10);
 // Decoding BLP/TGA/DDS and browser images dominates repeated preview startup.
 // Assets are immutable within a session, so retain CPU pixels/images while
 // each viewport still creates and owns its own disposable GPU texture.
@@ -463,6 +465,20 @@ export default function Viewport(inputProps) {
       const next = hit?.index ?? null;
       if (state.hoveredGeoset !== next) { state.hoveredGeoset = next; p.onHoverGeoset(next); }
     }
+    function applyPreviewPose(p, poseCamera) {
+      state.matrices = samplePreviewMatrices(p.model, state.frame, p.sequenceIndex, state.globalTime, poseCamera);
+      for (const entry of state.entries) {
+        if (!entry) continue;
+        const positions = entry.geometry.attributes.position;
+        skinGeoset(entry.geoset, state.matrices, positions.array);
+        positions.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
+        const normals = entry.geometry.attributes.normal;
+        if (entry.geoset.Normals?.length === positions.array.length) {
+          skinGeosetNormals(entry.geoset, state.matrices, normals.array);
+          normals.needsUpdate = true;
+        } else entry.geometry.computeVertexNormals();
+      }
+    }
     function editableGeosets(p) { return p.selectableGeosets == null ? new Set([p.selectedGeoset]) : new Set(p.selectableGeosets); }
     function selections(p) { return p.selectionByGeoset || { [p.selectedGeoset]: selectionArray(p.selectedVertices) }; }
     function screenPosition(value, rect) { const projected = value.clone().project(camera); return new THREE.Vector2((projected.x + 1) * rect.width / 2, (1 - projected.y) * rect.height / 2); }
@@ -528,13 +544,26 @@ export default function Viewport(inputProps) {
         }
       }
       if (p.onPickNormalReference || p.transformMode === 'select' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
-      const active = editableGeosets(p), selected = selections(p), snapshots = {}, selectedMap = {}, pivot = new THREE.Vector3(); let count = 0;
+      const posedEditing = state.nodes.some(node => node.Flags & 120);
+      if (posedEditing) applyPreviewPose(p, camera);
+      const active = editableGeosets(p), selected = selections(p), snapshots = {}, selectedMap = {}, poseInverses = {}, pivot = new THREE.Vector3(); let count = 0, posedSelection = false, poseInvertible = true;
       for (const [key, ids] of Object.entries(selected)) {
         const index = Number(key), entry = state.entries[index], invisible = new Set(p.hiddenVertices?.[key] || []);
         if (!active.has(index) || !entry?.group.visible) continue;
         const indices = selectionArray(ids).filter(i => Number.isInteger(i) && i >= 0 && i < entry.geometry.attributes.position.count && !invisible.has(i));
         if (!indices.length) continue;
         selectedMap[index] = indices; snapshots[index] = new Float32Array(entry.geometry.attributes.position.array);
+        if (posedEditing) {
+          const inverseCache = new Map(), skin = entry.geoset.SkinWeights;
+          const inverses = indices.map(vertex => {
+            const key = skin?.length >= (vertex + 1) * 8 ? `h:${Array.from(skin.subarray(vertex * 8, vertex * 8 + 8)).join(',')}` : `c:${entry.geoset.VertexGroup?.[vertex] ?? -1}`;
+            if (!inverseCache.has(key)) inverseCache.set(key, inverseGeosetSkinMatrix(entry.geoset, vertex, state.matrices));
+            return inverseCache.get(key);
+          });
+          if (inverses.some(matrix => !matrix)) poseInvertible = false;
+          else if (inverses.some(matrix => !isIdentityMatrix(matrix))) posedSelection = true;
+          poseInverses[index] = inverses;
+        }
         for (const i of indices) { pivot.add(new THREE.Vector3().fromArray(snapshots[index], i * 3)); count++; }
       }
       if (!count) { down.action = 'select'; return; }
@@ -543,7 +572,7 @@ export default function Viewport(inputProps) {
       if (anchorIndices?.includes(anchor.vertexIndex)) pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
       down.pivotScreen = screenPosition(pivot, start);
       const lockedPlane = quad && boundPane.workplane;
-      state.drag = { ...down, selections: selectedMap, snapshots, pivot, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null } };
+      state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null } };
     }
     function translateInPlane(start, end, drag, constrain) {
       if (!drag.workplaneEnabled) return screenPlaneTranslation(camera, drag.pivot, end.width, end.height, end.x - start.x, end.y - start.y, constrain);
@@ -607,6 +636,18 @@ export default function Viewport(inputProps) {
           position.setXYZ(index, vertex.x, vertex.y, vertex.z);
         }
         position.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
+      }
+      if (drag.action === 'translate' && drag.poseInverses) {
+        const modelPositions = {};
+        for (const [key, indices] of Object.entries(drag.selections)) {
+          const entry = state.entries[key], position = entry.geometry.attributes.position, inverses = drag.poseInverses[key], values = [];
+          for (let slot = 0; slot < indices.length; slot++) {
+            vertex.fromBufferAttribute(position, indices[slot]).applyMatrix4(inverses[slot]);
+            values.push(vertex.x, vertex.y, vertex.z);
+          }
+          modelPositions[key] = values;
+        }
+        payload.modelPositions = modelPositions;
       }
       drag.payload = payload; drag.moved = drag.action === 'translate' && quad ? Math.hypot(drag.move.point.x - down.x, drag.move.point.y - down.y) > 1 : Math.hypot(dx, dy) > 1;
       invalidate();
@@ -757,18 +798,7 @@ export default function Viewport(inputProps) {
       const changed = state.dirty || state.nodes.some(node => node.Flags & 120) || p.playing || state.sampledFrame !== state.frame || state.sampledSequence !== p.sequenceIndex || (showMarkers && !state.sampledSkeleton) || state.sampledExplicitOverlays !== overlays.explicit;
       const animOptions = { interval: p.model?.Sequences?.[p.sequenceIndex]?.Interval, globalSequences: p.model?.GlobalSequences, globalTime: state.globalTime };
       if (changed && p.model && !state.drag) {
-        state.matrices = samplePreviewMatrices(p.model, state.frame, p.sequenceIndex, state.globalTime, camera);
-        for (const entry of state.entries) {
-          if (!entry) continue;
-          const positions = entry.geometry.attributes.position;
-          skinGeoset(entry.geoset, state.matrices, positions.array);
-          positions.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
-          const normals = entry.geometry.attributes.normal;
-          if (entry.geoset.Normals?.length === positions.array.length) {
-            skinGeosetNormals(entry.geoset, state.matrices, normals.array);
-            normals.needsUpdate = true;
-          } else entry.geometry.computeVertexNormals();
-        }
+        applyPreviewPose(p, camera);
         state.sampledFrame = state.frame; state.sampledSequence = p.sequenceIndex; state.sampledSkeleton = showMarkers; state.sampledExplicitOverlays = overlays.explicit; state.dirty = false;
       }
       const hidden = p.hiddenGeosets instanceof Set ? p.hiddenGeosets : new Set(p.hiddenGeosets || []);

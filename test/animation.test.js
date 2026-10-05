@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Matrix4, Vector3 } from 'three';
-import { sampleTrack, sampleNodeMatrices, skinGeoset, skinGeosetNormals, advanceSequence } from '../src/animation.js';
+import { sampleTrack, sampleNodeMatrices, skinGeoset, skinGeosetNormals, unskinGeosetPoint, advanceSequence } from '../src/animation.js';
 
 const key = (Frame, Vector, extra = {}) => ({ Frame, Vector, ...extra });
 const track = (Keys, LineType = 1) => ({ Keys, LineType });
@@ -47,6 +47,15 @@ test('HD skin weights retain nonuniform influence', () => {
   const geo = { Vertices: new Float32Array([0, 0, 0]), SkinWeights: [0, 1, 0, 0, 204, 51, 0, 0] };
   const result = skinGeoset(geo, new Map([[0, new Matrix4().makeTranslation(10, 0, 0)], [1, new Matrix4().makeTranslation(0, 10, 0)]]));
   near(result[0], 8); near(result[1], 2);
+});
+test('posed preview points return to authored vertex space for direct editing', () => {
+  const matrix = new Matrix4().makeRotationZ(Math.PI / 2).setPosition(7, 11, 13);
+  const geo = { Vertices: new Float32Array([2, 3, 5]), VertexGroup: [0], Groups: [[4]] }, matrices = new Map([[4, matrix]]);
+  const posed = new Vector3().fromArray(skinGeoset(geo, matrices)).add(new Vector3(9, -4, 6));
+  const authored = unskinGeosetPoint(geo, 0, matrices, posed);
+  geo.Vertices.set(authored.toArray());
+  const roundTrip = skinGeoset(geo, matrices);
+  roundTrip.forEach((value, index) => near(value, posed.getComponent(index)));
 });
 test('nonlooping sequences stop; looping sequences preserve overshoot', () => {
   assert.equal(advanceSequence({ Interval: [100, 200], NonLooping: true }, 190, 35), 200);
