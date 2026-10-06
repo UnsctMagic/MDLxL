@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { createDemoDocument, openDocument, createNode, deleteNode, deleteGeoset, importGeosets } from '../src/editor-document.js';
+import { createDemoDocument, openDocument, createNode, deleteNode, deleteGeoset, importGeosets, EditorDocument } from '../src/editor-document.js';
 import { commitPart, partTextureIndices } from '../src/bits-and-parts.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
 import { bindVertices } from '../src/editor-commands.js';
@@ -11,7 +11,7 @@ import { Matrix4 } from 'three';
 import { uncoupleUVVertices } from '../src/uv-tools.js';
 import { analyzeOptimization, applyOptimization } from '../src/model-optimizer.js';
 import { parseMdx } from '../src/mdx-container.js';
-import { parseCompatibleMdx, generateCompatibleMdx } from '../src/mdx-compatibility.js';
+import { parseCompatibleMdx, generateCompatibleMdx, mdxRecords } from '../src/mdx-compatibility.js';
 
 const f = (...v) => Float32Array.from(v);
 const i32 = n => { const b=Buffer.alloc(4);b.writeInt32LE(n);return b; };
@@ -149,6 +149,39 @@ test('DILG survives conversion and references follow a geoset deletion',()=>{
 test('deep verification detects changed tangents, paths, pivots, bindings and omitted tracks',()=>{
   const a=load(fixture()).model;
   for(const mutate of [m=>{m.Textures[0].Image='wrong';},m=>{m.PivotPoints[0][0]=1;},m=>{m.Geosets[0].Groups[0][0]=123;},m=>{delete m.Bones[0].Rotation;},m=>{m.Bones[0].Translation.Keys[0].Vector[0]=1;}]){const b=structuredClone(a);mutate(b);assert.throws(()=>assertModelEquivalent(a,b),/Save verification failed/);}
+});
+
+test('independently authored MDX matrix streams preserve empty groups and later bone bindings',()=>{
+  for (const groups of [[[0],[],[1,0],[1]], [[],[],[0],[1]], [[0],[],[],[1],[]], [[],[]], []]) {
+    const source=alter(fixture(),'GEOS',p=>{
+      const records=mdxRecords(p,'GEOS'),b=records[0],start=b.indexOf(Buffer.from('MTGC')),mats=b.indexOf(Buffer.from('MATS'));
+      const end=mats+8+b.readUInt32LE(mats+4)*4;
+      const groupBytes=Buffer.concat([Buffer.from('MTGC'),i32(groups.length),...groups.map(g=>i32(g.length)),Buffer.from('MATS'),i32(groups.flat().length),...groups.flat().map(i32)]);
+      const first=Buffer.concat([b.subarray(0,start),groupBytes,b.subarray(end)]);first.writeUInt32LE(first.length);
+      const gndx=first.indexOf(Buffer.from('GNDX'));
+      for(let vertex=0;vertex<first.readUInt32LE(gndx+4);vertex++)first[gndx+8+vertex]=groups.length?vertex%groups.length:0;
+      return Buffer.concat([first,...records.slice(1)]);
+    });
+    if(!groups.length){assert.deepEqual(parseCompatibleMdx(source).Geosets[0].Groups,groups);continue;}
+    const d=load(source);assert.deepEqual(d.model.Geosets[0].Groups,groups);
+    assert.deepEqual(Buffer.from(d.serialize()),source,'unchanged source stays byte-exact');
+    // Exercise regenerated GEOS, subsequent saves, recovery, and both formats.
+    d.apply('move',['Geosets'],m=>{m.Geosets[0].Vertices[0]+=1;});
+    const before=structuredClone(d.model),history=d.historyStats;
+    for(const format of ['mdx','mdl']) {
+      const out=d.serialize(format),r=load(out);assertModelEquivalent(before,r.model);
+      assert.deepEqual(r.model.Geosets[0].Groups,groups);
+      const matrices=new Map([[0,new Matrix4().makeTranslation(10,0,0)],[1,new Matrix4().makeTranslation(0,20,0)]]);
+      assert.deepEqual(skinGeoset(r.model.Geosets[0],matrices),skinGeoset(before.Geosets[0],matrices));
+      r.apply('move again',['Geosets'],m=>{m.Geosets[0].Vertices[1]+=1;});
+      assertModelEquivalent(r.model,load(r.serialize()).model);
+    }
+    for(const compact of [false,true]) {
+      const recovered=EditorDocument.restoreRecoveryState(d.captureRecoveryState({compact}));
+      assertModelEquivalent(before,load(recovered.serialize('mdx')).model);
+    }
+    assert.deepEqual(d.model,before);assert.deepEqual(d.historyStats,history);
+  }
 });
 test('node flags and spline transforms round trip for every Classic node type',()=>{
   const d=createDemoDocument();
