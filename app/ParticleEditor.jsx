@@ -30,7 +30,7 @@ const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const TextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
 const pathKey=value=>String(value||'').replaceAll('/','\\').toLowerCase();
 const emptyAssets=new Map();
-function starterLab(){const recipe=createStarterRecipe();return {doc:particleRecipeDocument(recipe),recipe,assets:new Map([[pathKey(STARTER_TEXTURE),starterTextureAsset()]])};}
+function starterLab(){const recipe=createStarterRecipe();return {doc:particleRecipeDocument(recipe),recipe,key:'lab-'+crypto.randomUUID(),assets:new Map([[pathKey(STARTER_TEXTURE),starterTextureAsset()]])};}
 function labDraft(lab,mode){return stringifyParticleData({schema:'mdlxl-particle-draft',version:1,key:lab.key||lab.recipe.id,state:lab.doc.captureRecoveryState(),recipe:includeParticleAssets({...lab.recipe,native:lab.doc.model},lab.assets),mode});}
 async function keepLab(lab,mode,active=true){
   const data=labDraft(lab,mode);
@@ -169,7 +169,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     if(opening.current||!recoveryReady)return false;opening.current=true;cancel();loaded.current=true;
     try{
       await keepLab(lab,mode,false);
-      const key=recipe.workingId||recipe.id,saved=await window.desktop?.particleWorkingCopy?.({id:key}),draft=saved?parseParticleData(saved):null;
+      const key=recipe.workingId||'lab-'+crypto.randomUUID(),saved=recipe.workingId?await window.desktop?.particleWorkingCopy?.({id:key}):null,draft=saved?parseParticleData(saved):null;
       if(draft&&(draft.schema!=='mdlxl-particle-draft'||draft.version!==1))throw Error('Unsupported working effect.');
       const nextDoc=draft?EditorDocument.restoreRecoveryState(draft.state):particleRecipeDocument(recipe),nextRecipe=draft?{...draft.recipe,name:recipe.name}:recipe;
       const next={doc:nextDoc,recipe:nextRecipe,key,assets:await assetsFor({...nextRecipe,native:nextDoc.model})};
