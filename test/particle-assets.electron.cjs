@@ -44,5 +44,5 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   assert.deepEqual(new Uint8Array(await fs.readFile(path.join(out,...name.split('\\')))),incoming.bytes);assert.deepEqual(new Uint8Array(await fs.readFile(originalPicture)),existing.bytes);
   assert.deepEqual(errors,[]);console.log(JSON.stringify({out,name,emitters:2,ghost:true,picturesPreserved:true,undoRedo:true,savedAndReopened:true}));
  }catch(error){if(app){const page=await app.firstWindow();console.error((await page.locator('body').innerText()).slice(-1600));await page.screenshot({path:path.join(out,'failure.png')});}throw error;}
- finally{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+ finally{if(app)await app.close().catch(()=>{});}
 })().catch(error=>{console.error(error);process.exit(1);});
