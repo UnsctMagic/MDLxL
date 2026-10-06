@@ -50,12 +50,13 @@ function replaceablePixels(id, color, width, height) {
   return data;
 }
 
-/** Render every layer of the selected WC3 material into the tiled UV backdrop. */
+/** Render the selected WC3 material into the tiled UV backdrop without team color. */
 export async function renderUVMaterialTexture(model, materialID, assets, { teamColor = '#ff0303', time = 0, sequenceIndex = -1 } = {}) {
   const map = assets instanceof Map ? assets : new Map(Object.entries(assets || {}));
   const lookup = path => map.get(normalPath(path)) || map.get(normalPath(String(path || '').split(/[\\/]/).at(-1)));
   const layers = uvMaterialLayers(model, materialID, time, sequenceIndex), decoded = [], warnings = [];
   for (const entry of layers) {
+    if (entry.texture?.ReplaceableId === 1) continue;
     if (entry.texture?.ReplaceableId) { decoded.push({ ...entry, replaceable: entry.texture.ReplaceableId }); continue; }
     const asset = lookup(entry.texture?.Image);
     if (!asset) { warnings.push(`${entry.label} is not loaded`); continue; }
