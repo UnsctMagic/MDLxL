@@ -67,7 +67,7 @@ function normalizeVersionFields(model, target) {
 // src/editor-document.js
 var import_buffer10 = require("buffer");
 
-// ../../../../Documents/ChatGPT/MDLxL/node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
+// node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
 var TextureFlags = /* @__PURE__ */ (function(TextureFlags2) {
   TextureFlags2[TextureFlags2["WrapWidth"] = 1] = "WrapWidth";
   TextureFlags2[TextureFlags2["WrapHeight"] = 2] = "WrapHeight";
@@ -4908,6 +4908,7 @@ function parseCompatibleMdx(input) {
     if (c.tag === "GEOS") {
       const gs = mdxRecords(payload, "GEOS").map((b) => {
         const spans = geosetLayout(b, version), changes = [];
+        for (const tag of ["MTGC", "MATS"]) changes.push({ ...spans[tag], data: mdxChunk(tag, import_buffer2.Buffer.alloc(0)) });
         if (version >= 1400 && spans.SKIN) {
           const s = spans.SKIN, data = import_buffer2.Buffer.alloc(8 + s.count);
           b.copy(data, 0, s.start, s.start + 8);
@@ -4959,6 +4960,15 @@ function parseCompatibleMdx(input) {
   for (const event of model.EventObjects) event.EventTrack = Int32Array.from(event.EventTrack);
   for (const [i, b] of mdxRecords(originals.get("GEOS") || import_buffer2.Buffer.alloc(0), "GEOS").entries()) {
     const g = model.Geosets[i], s = geosetLayout(b, version);
+    const sizes = Array.from({ length: s.MTGC.count }, (_, j) => b.readUInt32LE(s.MTGC.start + 8 + j * 4));
+    if (sizes.reduce((total, size) => total + size, 0) !== s.MATS.count) throw new Error("Geoset matrix-group sizes do not match matrix indices.");
+    let matrix = s.MATS.start + 8;
+    g.Groups = sizes.map((size) => Array.from({ length: size }, () => {
+      const id = b.readInt32LE(matrix);
+      matrix += 4;
+      return id;
+    }));
+    g.TotalGroupsCount = s.MATS.count;
     g.PrimitiveTypes = Uint32Array.from({ length: s.PTYP.count }, (_, j) => b.readUInt32LE(s.PTYP.start + 8 + j * 4));
     g.PrimitiveCounts = Uint32Array.from({ length: s.PCNT.count }, (_, j) => b.readUInt32LE(s.PCNT.start + 8 + j * 4));
     g.SelectionFlags = b.readUInt32LE(s.selection);

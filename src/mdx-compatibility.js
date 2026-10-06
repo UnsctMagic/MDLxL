@@ -241,6 +241,10 @@ export function parseCompatibleMdx(input) {
     if (c.tag === 'GEOS') {
       const gs = mdxRecords(payload,'GEOS').map(b => {
         const spans = geosetLayout(b,version), changes = [];
+        // The dependency advances only one group when consuming a matrix ID.
+        // An empty group can then absorb the next group's first bone. Decode
+        // these streams from the original record below, including empty slots.
+        for (const tag of ['MTGC','MATS']) changes.push({...spans[tag],data:mdxChunk(tag,Buffer.alloc(0))});
         if (version >= 1400 && spans.SKIN) {
           const s = spans.SKIN, data = Buffer.alloc(8+s.count); b.copy(data,0,s.start,s.start+8);
           for (let i=0;i<s.count;i++) data[8+i] = b.readUInt16LE(s.start+8+i*2) & 255;
@@ -276,6 +280,11 @@ export function parseCompatibleMdx(input) {
   for (const event of model.EventObjects) event.EventTrack = Int32Array.from(event.EventTrack);
   for (const [i,b] of mdxRecords(originals.get('GEOS') || Buffer.alloc(0),'GEOS').entries()) {
     const g = model.Geosets[i], s = geosetLayout(b,version);
+    const sizes = Array.from({length:s.MTGC.count},(_,j)=>b.readUInt32LE(s.MTGC.start+8+j*4));
+    if (sizes.reduce((total,size)=>total+size,0) !== s.MATS.count) throw new Error('Geoset matrix-group sizes do not match matrix indices.');
+    let matrix = s.MATS.start+8;
+    g.Groups = sizes.map(size=>Array.from({length:size},()=>{const id=b.readInt32LE(matrix);matrix+=4;return id;}));
+    g.TotalGroupsCount = s.MATS.count;
     g.PrimitiveTypes = Uint32Array.from({length:s.PTYP.count},(_,j)=>b.readUInt32LE(s.PTYP.start+8+j*4));
     g.PrimitiveCounts = Uint32Array.from({length:s.PCNT.count},(_,j)=>b.readUInt32LE(s.PCNT.start+8+j*4));
     g.SelectionFlags = b.readUInt32LE(s.selection); g.Unselectable = !!(g.SelectionFlags & 4);
