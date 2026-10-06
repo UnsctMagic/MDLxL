@@ -6,7 +6,7 @@ import {encodeForgeTga} from '../src/forge.js';
 import {particlePictureCanvas} from './particle-picture-canvas.js';
 import {removeParticlePicture} from '../src/particle-picture.js';
 import {fitRibbonToPolygons,ribbonPolygonSelection} from '../src/particle-ribbon-fit.js';
-import {includeParticleAssets,embeddedParticleAssets,MAX_PARTICLE_PICTURE_BYTES} from '../src/particle-assets.js';
+import {includeParticleAssets,embeddedParticleAssets,prepareParticlePlacementAssets,MAX_PARTICLE_PICTURE_BYTES} from '../src/particle-assets.js';
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {EditorDocument,createNode,deleteNode} from '../src/editor-document.js';
 import {particleRecipeDocument,extractParticleRecipe,placeParticleRecipe,effectNodes} from '../src/particle-recipes.js';
@@ -52,6 +52,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const [emitterId,setEmitterId]=useState(selectedNodeId??0),[sequence,setSequence]=useState(Number.isInteger(selectedNodeId)?sequenceIndex:0);
   const [time,setTime]=useState(Number.isInteger(selectedNodeId)?previewFrame:800),[playing,setPlaying]=useState(true),[speed,setSpeed]=useState(.5),[loop,setLoop]=useState(true),[linked,setLinked]=useState(true),[fxSpeed,setFxSpeed]=useState(.5),[previewStatus,setPreviewStatus]=useState({busy:false}),[solo,setSolo]=useState(false);
   const [sweepRange,setSweepRange]=useState(null),[demo,setDemo]=useState(false),[placementError,setPlacementError]=useState('');
+  const [preparedPlacement,setPreparedPlacement]=useState(null);
   const [tick,setTick]=useState(0),[structure,setStructure]=useState(0),[message,setMessage]=useState(''),[snapshot,setSnapshot]=useState(null),[saveOpen,setSaveOpen]=useState(false),[name,setName]=useState('My effect'),[placement,setPlacement]=useState(null);
   const activeDoc=context==='Lab'?lab.doc:doc;
   useEffect(()=>{setMuted([]);setIngredients(null);},[activeDoc]);
@@ -140,13 +141,12 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   },[lab,lab.doc.revision,mode,tick,recoveryReady]);
   useEffect(()=>{if(context==='On model')sync();},[revision]);
   useEffect(()=>{const flush=event=>{const current=latest.current;if(current&&recoveryReady)event.detail.push(keepLab(current.lab,current.mode));};window.addEventListener('mdlxl-flush-particle-draft',flush);return()=>window.removeEventListener('mdlxl-flush-particle-draft',flush);},[recoveryReady]);
-  const checkPlacementPictures=(incoming=assets,target=textureAssets)=>{for(const [key,value]of incoming){const existing=target.get(key);if(existing?.bytes&&value.bytes&&(existing.bytes.length!==value.bytes.length||Array.from(value.bytes).some((b,i)=>b!==existing.bytes[i])))throw Error('A different picture with the same path is already in the target. Relink that picture in Lab before placing.');}};
   const initialPlacement=()=>{
     const sequence=doc.model.Sequences[sequenceIndex]?sequenceIndex:0,interval=doc.model.Sequences[sequence]?.Interval||[0,5000],parent=doc.model.Nodes[attachmentNodeId];
     return {parent:parent?String(parent.ObjectId):'',position:Array.from(parent?.PivotPoint||[0,0,0]),sequence,from:Math.max(interval[0],Math.min(interval[1],Math.round(previewFrame))),to:'',fit:true,motion:parent?'target':'source'};
   };
   const beginPlacement=()=>{cancel();setIngredients(null);try{
-    checkPlacementPictures();setLibrary(false);
+    setMessage('');setPlacementError('');setLibrary(false);
     setPlacement(initialPlacement());
   }catch(error){setMessage(error.message);}};
   const markedPolygons=useMemo(()=>doc?ribbonPolygonSelection(doc.model,selectedGeometry).polygons:0,[doc,revision,selectedGeometry]);
@@ -182,10 +182,10 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     if(adding==='ingredient'){
       if(opening.current||!recoveryReady)return false;opening.current=true;cancel();
       try{
-        const incoming=await assetsFor(recipe);checkPlacementPictures(incoming,assets);let result;
-        const accepted=apply('Add effect ingredient',target=>{result=placeParticleRecipe(target,recipe,{sourceInterval:Array.from(recipe.native.Sequences[recipe.defaultSequence||0]?.Interval||[0,5000]),targetInterval:Array.from(interval),fit:true});},['Nodes','PivotPoints','Textures','Materials','TextureAnims','GlobalSequences']);
+        const incoming=await assetsFor(recipe),prepared=await prepareParticlePlacementAssets(recipe,incoming,assets);let result;
+        const accepted=apply('Add effect ingredient',target=>{result=placeParticleRecipe(target,prepared.recipe,{sourceInterval:Array.from(recipe.native.Sequences[recipe.defaultSequence||0]?.Interval||[0,5000]),targetInterval:Array.from(interval),fit:true});},['Nodes','PivotPoints','Textures','Materials','TextureAnims','GlobalSequences']);
         if(accepted===false)return false;
-        setLab(old=>({...old,assets:new Map([...old.assets,...incoming])}));setEmitterId(result.ids[0]);setLibrary(false);setAdding(null);setStructure(v=>v+1);return true;
+        setLab(old=>({...old,assets:new Map([...old.assets,...prepared.assets])}));setEmitterId(result.ids[0]);setLibrary(false);setAdding(null);setStructure(v=>v+1);return true;
       }catch(error){setMessage(error.message);return false;}finally{opening.current=false;}
     }
     const accepted=await loadRecipe(recipe);if(accepted&&adding==='model')setPlacement(initialPlacement());if(accepted)setAdding(null);return accepted;
@@ -206,9 +206,8 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const add=()=>{cancel();setAdding(null);setIngredients(null);setTestView(null);setExamples(false);setNewOpen(v=>!v);};
   const place=()=>{
     try{
-      const incoming=placement.ribbon?new Map([[pathKey(STARTER_TEXTURE),starterTextureAsset()]]):assets;
-      checkPlacementPictures(incoming);
-      const recipe=placement.ribbon?.recipe||recipeNow();
+      if(!placementResources)return;
+      const {recipe,assets:incoming}=placementResources;
       let result;const mutate=target=>{result=placeTimedParticleRecipe(target,recipe,placement);};
       const accepted=edit?edit('Add particle effect',['Nodes','Textures','Materials','TextureAnims','GlobalSequences','PivotPoints'],mutate):doc.apply('Add particle effect',['Nodes','Textures','Materials','TextureAnims','GlobalSequences','PivotPoints'],mutate);
       if(accepted===false)return;
@@ -216,7 +215,14 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     }catch(error){setMessage(error.message);}
   };
   const placementRecipe=useMemo(()=>placement?.ribbon?.recipe||(placement?extractParticleRecipe(model,effectNodes(model).map(item=>item.node.ObjectId),{...lab.recipe,name:lab.recipe.name,defaultSequence:sequence}):null),[!!placement,placement?.ribbon,model,activeDoc.revision,sequence]);
-  const placementAssets=useMemo(()=>new Map([...textureAssets,...assets,...(placement?.ribbon?[[pathKey(STARTER_TEXTURE),starterTextureAsset()]]:[])]),[textureAssets,assets,placement?.ribbon]);
+  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([[pathKey(STARTER_TEXTURE),starterTextureAsset()]]):assets,[assets,placement?.ribbon]);
+  useEffect(()=>{
+    let live=true;setPreparedPlacement(null);
+    if(placementRecipe)prepareParticlePlacementAssets(placementRecipe,incomingPlacementAssets,textureAssets).then(prepared=>{if(live)setPreparedPlacement({...prepared,original:placementRecipe,incoming:incomingPlacementAssets,target:textureAssets});}).catch(error=>{if(live)setPlacementError(error.message);});
+    return()=>{live=false;};
+  },[placementRecipe,incomingPlacementAssets,textureAssets]);
+  const placementResources=preparedPlacement?.original===placementRecipe&&preparedPlacement?.incoming===incomingPlacementAssets&&preparedPlacement?.target===textureAssets?preparedPlacement:null;
+  const placementAssets=useMemo(()=>new Map([...textureAssets,...(placementResources?.assets||[])]),[textureAssets,placementResources]);
   const focusedRange=sweepRange&&sweepRange[0]>=start&&sweepRange[1]<=end?sweepRange:[start,Math.min(end,start+Math.max(1,(end-start)*.35))];
   const asset=assets.get(pathKey(working.Textures[emitter?.TextureID]?.Image));
   const movable = useMovableWindow(dialog);
@@ -235,7 +241,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       {saveOpen&&<div className="pe-action-strip">{context==='Lab'&&effectNodes(model).length>1&&<span>Whole effect · {effectNodes(model).length} ingredients</span>}<label>Preset name<input aria-label="Preset name" value={name} maxLength={120} onChange={e=>setName(e.target.value)}/></label><button onClick={save}>Save to My presets</button><button onClick={()=>setSaveOpen(false)}>Cancel</button></div>}
       <div className={'pe-body '+(mode==='Classic'?'pe-classic':'pe-clueless')+(library?' pe-browsing':'')}>
         <div className="pe-preview-pane">
-          <div className="pe-preview">{placement?<ParticlePlacementStage {...{doc,placement,teamColor}} recipe={placementRecipe} textureAssets={placementAssets} preferences={previewPreferences} onPosition={position=>setPlacement(p=>({...p,position}))} onEnd={to=>setPlacement(p=>({...p,to}))} onError={setPlacementError}/>:<><Suspense fallback={<span>Loading preview…</span>}><GamePreview suspended={library||pictureLibrary||examples||!!testView||!!ingredients} presentation="preview" model={preview} revision={0} particleAuthoring particleLiveModel={working} particleLiveRevision={tick} particleLiveField={lastField.current} particleSweepRange={tool==='Sweep'?focusedRange:undefined} playbackRange={tool==='Sweep'?focusedRange:undefined} particleLinked={linked} particleFxSpeed={(linked?speed:fxSpeed)*100} onParticleStatus={setPreviewStatus} particleSelectedId={emitterId} particleAnchorId={emitterId} onParticleStage={setSnapshot} onParticlePick={id=>{cancel();setEmitterId(id);if(context==='On model')onNodeChange?.(id);}} onCameraGestureChange={active=>{if(active)cancel();}} textureAssets={assets} modelPath={context==='On model'?modelPath:undefined} preferences={previewPreferences} teamColor={teamColor} sequenceIndex={sequence} time={frame} playing={playing} playbackSpeed={speed*100} loop={loop} onTimeChange={setTime} onPlayingChange={setPlaying} mode="textured" view="perspective" showParticles={true} showGrid={true} preserveCameraView onCaptureReady={previewReady} overlays={{bones:false,nodes:false,attachments:false,particles:false}}/></Suspense>{mode==='Clueless'&&!activeDoc.readOnly&&<ParticleStageTools {...{snapshot,tool,emitter,begin,change,finish,cancel,cancelVersion,lifeStage}} options={{frame,globalTime:previewStatus.global??frame,interval,globalSequences:model.GlobalSequences,family}}/>}{tool==='Sweep'&&<ParticleSweepOverlay snapshot={snapshot} frame={frame} onTime={value=>{setPlaying(false);setTime(value);}}/>}</>}
+          <div className="pe-preview">{placement?(placementResources?<ParticlePlacementStage {...{doc,placement,teamColor}} recipe={placementResources.recipe} textureAssets={placementAssets} preferences={previewPreferences} onPosition={position=>setPlacement(p=>({...p,position}))} onEnd={to=>setPlacement(p=>({...p,to}))} onError={setPlacementError}/>:<span>Preparing placement…</span>):<><Suspense fallback={<span>Loading preview…</span>}><GamePreview suspended={library||pictureLibrary||examples||!!testView||!!ingredients} presentation="preview" model={preview} revision={0} particleAuthoring particleLiveModel={working} particleLiveRevision={tick} particleLiveField={lastField.current} particleSweepRange={tool==='Sweep'?focusedRange:undefined} playbackRange={tool==='Sweep'?focusedRange:undefined} particleLinked={linked} particleFxSpeed={(linked?speed:fxSpeed)*100} onParticleStatus={setPreviewStatus} particleSelectedId={emitterId} particleAnchorId={emitterId} onParticleStage={setSnapshot} onParticlePick={id=>{cancel();setEmitterId(id);if(context==='On model')onNodeChange?.(id);}} onCameraGestureChange={active=>{if(active)cancel();}} textureAssets={assets} modelPath={context==='On model'?modelPath:undefined} preferences={previewPreferences} teamColor={teamColor} sequenceIndex={sequence} time={frame} playing={playing} playbackSpeed={speed*100} loop={loop} onTimeChange={setTime} onPlayingChange={setPlaying} mode="textured" view="perspective" showParticles={true} showGrid={true} preserveCameraView onCaptureReady={previewReady} overlays={{bones:false,nodes:false,attachments:false,particles:false}}/></Suspense>{mode==='Clueless'&&!activeDoc.readOnly&&<ParticleStageTools {...{snapshot,tool,emitter,begin,change,finish,cancel,cancelVersion,lifeStage}} options={{frame,globalTime:previewStatus.global??frame,interval,globalSequences:model.GlobalSequences,family}}/>}{tool==='Sweep'&&<ParticleSweepOverlay snapshot={snapshot} frame={frame} onTime={value=>{setPlaying(false);setTime(value);}}/>}</>}
           {ingredients&&<ParticleIngredients source={ingredients} {...{assets,preferences:previewPreferences,teamColor,mode,muted}} onMute={id=>setMuted(values=>values.includes(id)?values.filter(value=>value!==id):[...values,id])} onSelect={id=>{cancel();setEmitterId(id);if(context==='On model')onNodeChange?.(id);setIngredients(null);}} onClose={()=>setIngredients(null)}/>}
           {testView&&<ParticleTestView {...testView} assets={assets} preferences={preferences} onClose={()=>setTestView(null)}/>}
           {examples&&<ParticleExampleComparison preferences={preferences} onClose={()=>setExamples(false)} onChoose={recipe=>{setExamples(false);chooseRecipe(recipe);}}/>}
@@ -247,7 +253,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
           <select aria-label="Particle preview animation" value={sequence} onChange={e=>{cancel();const next=Number(e.target.value);setSequence(next);setTime(model.Sequences[next].Interval[0]);}}>{model.Sequences.map((clip,index)=><option key={index} value={index}>{clip.Name}</option>)}</select></>}
         </div>
         <fieldset className="pe-controls inspector-fields" disabled={activeDoc.readOnly||library||examples||!!testView||!!ingredients}>
-          {placement?<ParticlePlacementControls model={doc.model} placement={placement} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError}/>:
+          {placement?<ParticlePlacementControls model={doc.model} placement={placement} pending={!placementResources} onChange={setPlacement} onPlace={place} onCancel={()=>setPlacement(null)} error={placementError}/>:
           emitter?<>{family==='RibbonEmitters'?<><div className="pe-tool-tabs">{['Basics','Appearance','Sweep'].map(item=><button key={item} aria-pressed={tool===item} onClick={()=>setTool(item)}>{item}</button>)}</div>{tool!=='Sweep'&&<ParticleRibbonControls {...{model:working,emitter,frame,sequence,mode,tool,scope,setScope,begin,change,finish,cancel,update}} globalTime={previewStatus.global??frame}/>}</>:mode==='Classic'?<ParticleClassicControls {...{emitter,frame,sequence,update}} model={working} onImportTexture={importPicture} onTextureLibrary={()=>{cancel();setPictureLibrary(true);}} onChooseTexture={choosePicture} apply={(label,mutate,sections)=>apply(label,mutate,sections)}/>:<><div className="pe-tool-tabs">{['Basics','Shape','Life','Picture','Timing','Sweep'].map(item=><button key={item} aria-pressed={tool===item} onClick={()=>{cancel();setTool(item);}}>{item}</button>)}</div><ParticleCluelessControls onDemo={context==='Lab'?setDemo:undefined} demo={demo} teamColor={teamColor||'#ed3333'} {...{emitter,frame,sequence,tool,scope,setScope,asset,assets,preferences,update,patch,begin,change,finish,cancel,lifeStage,setLifeStage}} onImport={importPicture} onLibrary={()=>{cancel();setPictureLibrary(true);}} onChoosePicture={choosePicture} onRemovePicture={removePicture} onTeamPicture={teamPicture} model={working} globalTime={previewStatus.global??frame} onSeek={value=>{setPlaying(false);setTime(value);}}/></>}{tool==='Sweep'&&<ParticleSweepControls {...{emitter,begin,change,finish,cancel}} options={{frame,globalTime:previewStatus.global??frame,interval,globalSequences:model.GlobalSequences,family}} interval={interval} range={focusedRange} onRange={value=>{setSweepRange(value);setTime(value[0]);setSpeed(.25);setLoop(true);}} context={context} demo={demo} onDemo={setDemo} onWindow={()=>apply('Set effect emission window',m=>setParticleEmissionWindow(m[family].find(n=>n.ObjectId===emitterId),Array.from(interval),focusedRange))}/>}</>:<p>{selectedEffect?'This ingredient is preserved; its editing controls are not implemented yet.':'Choose an effect in the library.'}</p>}
         </fieldset>
       </div>
