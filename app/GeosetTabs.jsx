@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import GeosetListBox from './GeosetListBox.jsx';
 import { GEOSET_TABS_KEY, createGeosetTab, assignGeosetTab, deleteGeosetTab } from '../src/geoset-tabs.js';
 import './geoset-tabs.css';
 
@@ -46,10 +47,9 @@ export default function GeosetTabs({ model, active, onActive, selected, edit, di
         <option value="action:delete" disabled={disabled || !current}>Delete tab</option>
       </optgroup>
     </select>
-    <div className="geoset-tab-box">
+    <GeosetListBox overlay={current && <button className="geoset-tab-eye" aria-label={`Show tab ${current.name}`} aria-pressed={current.visible} disabled={disabled} title={current.visible ? `Hide ${current.name}` : `Show ${current.name}`} onClick={() => change('Set geoset tab visibility', currentModel => { currentModel[GEOSET_TABS_KEY].find(tab => tab.id === current.id).visible = !current.visible; })}>{current.visible ? <Eye size={12}/> : <EyeOff size={12}/>}</button>}>
       {children}
-      {current && <button className="geoset-tab-eye" aria-label={`Show tab ${current.name}`} aria-pressed={current.visible} disabled={disabled} title={current.visible ? `Hide ${current.name}` : `Show ${current.name}`} onClick={() => change('Set geoset tab visibility', currentModel => { currentModel[GEOSET_TABS_KEY].find(tab => tab.id === current.id).visible = !current.visible; })}>{current.visible ? <Eye size={12}/> : <EyeOff size={12}/>}</button>}
-    </div>
+    </GeosetListBox>
     {action && <div onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setAction(null); }} onContextMenu={event => event.stopPropagation()}>
       <Dialog title={title} onClose={() => setAction(null)} footer={<><button onClick={() => setAction(null)}>Cancel</button><button type="submit" form="geoset-tab-form" disabled={disabled || (action === 'move' ? !selected.size : !name.trim())}>{button}</button></>}>
         <form id="geoset-tab-form" onSubmit={submit}>
