@@ -1,0 +1,4 @@
+.update-overlay>.classic-modal-window{position:relative;z-index:1}
+.update-shredder-layer{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.update-shredder{position:absolute;left:0;top:0;width:144px;height:156px;visibility:hidden;pointer-events:none;will-change:transform}
+.update-shredder>div{width:100%;height:100%;background-repeat:no-repeat;transform:scaleX(var(--mirror,1))}
