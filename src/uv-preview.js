@@ -1,4 +1,5 @@
 import { sampleTrack } from './animation.js';
+import { materialPreset } from './material-presets.js';
 
 const normal = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 const copyUV = geoset => (geoset.TVertices || []).map(values => new Float32Array(values));
@@ -49,14 +50,22 @@ function replaceableLayer(model, layer) {
   return ids.length > 0 && ids.every(id => model.Textures[Math.round(id)]?.ReplaceableId);
 }
 
-// Texture replacement intentionally resets the ordinary material stack. A
-// sandwich of opaque, blended or animated image layers can otherwise keep the
-// old appearance above the newly selected texture. Procedural team-colour and
-// team-glow layers retain their authored settings; the user can reapply any
-// desired material preset after the replacement.
-function replaceTextureChain(model, material, textureID) {
-  const replaceable = (material.Layers || []).filter(layer => replaceableLayer(model, layer));
-  material.Layers = [...replaceable, { FilterMode: replaceable.length ? 1 : 0, Alpha: 1, Shading: 0, CoordId: 0, TextureID: textureID, TVertexAnimId: null }];
+// Replace every ordinary image reference, including animated texture IDs, while
+// retaining authored filters, shading, alpha and texture animation. A fixed
+// Color Tint pass and procedural layers keep their own texture assignments.
+function replaceTextureChain(model, materialID, material, textureID) {
+  const fixedTint = materialPreset(model, materialID).preset === 'Color Tint';
+  let replaced = false;
+  for (const [index, layer] of (material.Layers || []).entries()) {
+    if (!layerHasImage(model, layer) || fixedTint && index === 1) continue;
+    layer.TextureID = textureID;
+    replaced = true;
+  }
+  if (!replaced) {
+    material.Layers ||= [];
+    const replaceable = material.Layers.some(layer => replaceableLayer(model, layer));
+    material.Layers.push({ FilterMode: replaceable ? 1 : 0, Alpha: 1, Shading: 0, CoordId: 0, TextureID: textureID, TVertexAnimId: null });
+  }
 }
 
 // UV edits live in the normal undo history. Only the texture assignment is
@@ -122,7 +131,7 @@ export function applyUVPreviews(model, drafts) {
     const material = structuredClone(model.Materials[geoset.MaterialID] || {
       PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 0, Alpha: 1, Shading: 0, CoordId: 0 }],
     });
-    replaceTextureChain(model, material, textureID);
+    replaceTextureChain(model, geoset.MaterialID, material, textureID);
     // Checked geosets with the same replacement stay together. Other users of
     // the old material retain their texture and any animated texture track.
     geoset.MaterialID = model.Materials.length;
