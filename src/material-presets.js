@@ -1,6 +1,7 @@
 import { TEAM_COLORS } from './team-colors.js';
 
 export const MATERIAL_PRESETS = ['Team Color Overlay', 'Color Tint', 'Team Color'];
+export const MATERIAL_FILTER_MODES = ['None', 'Transparent', 'Alpha', 'Add', 'Add Alpha', 'Modulate', 'Modulate2x'];
 const normalize = path => String(path || '').replaceAll('/', '\\').toLowerCase();
 export const tintTexturePath = index => `ReplaceableTextures\\TeamColor\\TeamColor${String(index ?? 24).padStart(2, '0')}.blp`;
 const colorIndex = texture => TEAM_COLORS.findIndex(color => !texture?.ReplaceableId && normalize(texture?.Image) === normalize(tintTexturePath(color.index)));
@@ -16,6 +17,9 @@ export function materialPreset(model, materialID) {
     const tint = colorIndex(texture(model, layers[1]));
     if (tint >= 0) return { preset: 'Color Tint', tint };
   }
+  if (layers.length === 1 && texture(model, layers[0])?.Image && !texture(model, layers[0]).ReplaceableId) {
+    return { preset: MATERIAL_FILTER_MODES[layers[0].FilterMode ?? 0] || '', tint: 0 };
+  }
   return { preset: '', tint: 0 };
 }
 
@@ -24,10 +28,11 @@ function ensureTexture(model, definition) {
   return index >= 0 ? index : model.Textures.push(definition) - 1;
 }
 
-/** The armor stack from archer.mdx: opaque base, 5% additive color, modulated base. */
+/** Apply one image filter or the archer armor/team-color stack. */
 export function applyMaterialPreset(model, materialID, preset, tint = 0) {
   if (!preset) return false;
-  if (!MATERIAL_PRESETS.includes(preset)) throw Error('Unknown material preset.');
+  const filterMode = MATERIAL_FILTER_MODES.indexOf(preset);
+  if (!MATERIAL_PRESETS.includes(preset) && filterMode < 0) throw Error('Unknown material preset.');
   const material = model.Materials?.[materialID];
   if (!material) throw Error('Choose a material first.');
   const base = material.Layers.find(layer => {
@@ -35,7 +40,11 @@ export function applyMaterialPreset(model, materialID, preset, tint = 0) {
     const info = texture(model, layer);
     return info?.Image && !info.ReplaceableId && colorIndex(info) < 0;
   });
-  if (!base) throw Error('Choose a base texture for this material before applying an overlay.');
+  if (!base) throw Error('Choose a base texture for this material before applying a material preset.');
+  if (filterMode >= 0) {
+    material.Layers = [{ ...structuredClone(base), FilterMode: filterMode }];
+    return true;
+  }
   const color = TEAM_COLORS[tint];
   if (preset === 'Color Tint' && !color) throw Error('Choose an available tint color.');
   const textureID = ensureTexture(model, preset === 'Color Tint'

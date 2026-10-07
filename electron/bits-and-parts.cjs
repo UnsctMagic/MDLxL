@@ -29,7 +29,10 @@ class BitsAndPartsLibrary {
       for (const entry of entries) {
         if (entry.isSymbolicLink()) continue;
         const full = path.join(directory, entry.name), id = path.relative(this.directory, full).split(path.sep).join('/');
-        if (entry.isDirectory()) children.push({ id, name: entry.name, type: 'folder', children: await visit(full, depth + 1) });
+        if (entry.isDirectory()) {
+          const nested = await visit(full, depth + 1);
+          if (nested.length) children.push({ id, name: entry.name, type: 'folder', children: nested });
+        }
         else if (entry.isFile() && /\.(mdl|mdx)$/i.test(entry.name)) children.push({ id, name: entry.name, type: 'model' });
         if (++count > 10000) throw Error('BitsAndParts contains more than 10,000 entries. Split it into smaller libraries.');
       }

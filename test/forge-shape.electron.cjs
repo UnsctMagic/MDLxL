@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
-const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/forge-shape-v3-review');
+const root = path.resolve(__dirname, '..'), out = process.env.MDLXL_TEST_OUT || path.join(root, 'out/forge-shape-v3-review');
 const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'out/forge-shape-v3-native/MDLxL-win32-x64/MDLxL.exe');
 const setRange = (locator, value) => locator.evaluate((element, value) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(element, String(value)); element.dispatchEvent(new Event('input', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true })); }, value);
 const viewportModel = () => {

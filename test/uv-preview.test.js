@@ -8,6 +8,7 @@ import { extrudeFaces } from '../src/mesh-tools.js';
 import { deleteSelectedFaces, collapseVertices, uncoupleVertices, weldSelectedVertices } from '../src/classic-mesh.js';
 
 const asset = name => ({ name, bytes: new Uint8Array([1,2,3,4]) });
+const layerSettings=({_MdxDefaults,...layer})=>({...layer,Alpha:typeof layer.Alpha==='number'?Math.fround(layer.Alpha):layer.Alpha});
 test('temporary material only paints chosen geoset, retaining shared animated materials and source model', () => {
   const {model} = createDemoDocument();
   model.Geosets[1].MaterialID = model.Geosets[0].MaterialID;
@@ -266,7 +267,7 @@ test('preview eligibility follows checked geosets, rejects empty/mixed selection
   assert.deepEqual(drafts,{});assert.deepEqual(model,original);
 });
 
-test('temporary texture replacement affects only checked geosets, retains team colour and resets the image chain',()=>{
+test('temporary texture replacement affects only checked geosets, retains team colour and every image layer setting',()=>{
   const {model}=imageLayerDocument(),original=structuredClone(model);
   const drafts=beginUVPreview(model,{},[0,2],asset('Textures\\Rust.blp'),2);
   assert.deepEqual(Object.keys(drafts),['0','2']);assert.equal(drafts[0].layerIndex,undefined);
@@ -274,10 +275,12 @@ test('temporary texture replacement affects only checked geosets, retains team c
   assert.equal(preview.Geosets[0].MaterialID,preview.Geosets[2].MaterialID);
   for(const index of [0,2]){
     const layers=preview.Materials[preview.Geosets[index].MaterialID].Layers;
-    assert.equal(layers.length,2);
+    assert.equal(layers.length,3);
     assert.deepEqual(layers[0],original.Materials[0].Layers[0]);
-    assert.deepEqual(layers[1],{FilterMode:1,Alpha:1,Shading:0,CoordId:0,TextureID:preview.Textures.length-1,TVertexAnimId:null});
-    assert.equal(preview.Textures[layers[1].TextureID].Image,'Textures\\Rust.blp');
+    for(const i of [1,2]){
+      assert.deepEqual(layers[i],{...original.Materials[0].Layers[i],TextureID:preview.Textures.length-1});
+      assert.equal(preview.Textures[layers[i].TextureID].Image,'Textures\\Rust.blp');
+    }
   }
   assert.equal(preview.Geosets[1],model.Geosets[1]);assert.equal(preview.Geosets[1].MaterialID,0);
   assert.deepEqual(preview.Materials[0],original.Materials[0]);assert.deepEqual(model,original);
@@ -305,7 +308,7 @@ test('a replaceable-only material receives a new image layer instead of losing t
   assert.equal(chooseUVImageLayer(preview,0).path,'New.blp');
 });
 
-test('checked preview switches preserve UV edits through recovery and commit one clean image layer',()=>{
+test('checked preview switches preserve UV edits through recovery and commit the retained material settings',()=>{
   const doc=imageLayerDocument(),model=doc.model,original=structuredClone(model);
   let drafts=beginUVPreview(model,{},[0,2],asset('First.blp'),1);
   model.Geosets[0].TVertices[0][0]=.73;model.Geosets[2].TVertices[0][0]=.42;
@@ -321,12 +324,15 @@ test('checked preview switches preserve UV edits through recovery and commit one
   assert.equal(getUVPreviewSelection(model,[0,2]).enabled,true);
   for(const index of [0,2]){
     const layers=model.Materials[model.Geosets[index].MaterialID].Layers;
-    assert.equal(layers.length,2);assert.deepEqual(layers[0],original.Materials[0].Layers[0]);
-    assert.equal(model.Textures[layers[1].TextureID].Image,'Second.blp');
+    assert.equal(layers.length,3);assert.deepEqual(layers[0],original.Materials[0].Layers[0]);
+    for(const i of [1,2]){
+      assert.deepEqual(layerSettings(layers[i]),layerSettings({...original.Materials[0].Layers[i],TextureID:layers[i].TextureID}));
+      assert.equal(model.Textures[layers[i].TextureID].Image,'Second.blp');
+    }
   }
 });
 
-test('three-layer modular texture tracks are fully replaced while procedural layers survive',()=>{
+test('multi-layer animated texture IDs are replaced while all authored material settings survive',()=>{
   const doc=imageLayerDocument();doc.apply('Modular fixture',['Materials'],model=>{
     model.Materials[0].Layers[1].TextureID={LineType:0,GlobalSeqId:null,Keys:[
       {Frame:0,Vector:new Uint32Array([1])},{Frame:500,Vector:new Uint32Array([2])},
@@ -335,7 +341,14 @@ test('three-layer modular texture tracks are fully replaced while procedural lay
   });
   const model=doc.model;
   const original=structuredClone(model),before=doc.serialize('mdx'),drafts=beginUVPreview(model,{},[0],asset('Textures\\Clean.blp'));
-  const check=value=>{const layers=value.Materials[value.Geosets[0].MaterialID].Layers;assert.equal(layers.length,2);assert.equal(value.Textures[layers[0].TextureID].ReplaceableId,1);assert.equal(value.Textures[layers[1].TextureID].Image,'Textures\\Clean.blp');};
+  const check=value=>{
+    const layers=value.Materials[value.Geosets[0].MaterialID].Layers;
+    assert.equal(layers.length,4);assert.deepEqual(layers[0],original.Materials[0].Layers[0]);
+    for(const i of [1,2,3]){
+      assert.equal(value.Textures[layers[i].TextureID].Image,'Textures\\Clean.blp');
+      assert.deepEqual(layerSettings(layers[i]),layerSettings({...original.Materials[0].Layers[i],TextureID:layers[i].TextureID}));
+    }
+  };
   check(uvPreviewModel(model,drafts));assert.deepEqual(doc.serialize('mdx'),before);
   doc.apply('Replace modular chain',['Geosets','Materials','Textures'],value=>applyUVPreviews(value,drafts));check(model);
   assert.deepEqual(model.Materials[0].Layers,original.Materials[0].Layers);assert.equal(model.Geosets[1].MaterialID,0);

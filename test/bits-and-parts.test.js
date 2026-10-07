@@ -47,7 +47,7 @@ test('texture animations and global references remap without changing the source
   assert.equal(partTextureKey({ Image: 'Textures/White.blp' }), partTextureKey({ Image: 'textures\\white.BLP', Flags: 0, ReplaceableId: 0 }));
   assert.ok(partTextureIndices(source).length);
 });
-test('library provisions exact folder, retains nested models and case variants, filters nonmodels, and prevents escaping', async t => {
+test('library shows only MDL/MDX content in its original folders, filters asset-only folders, and prevents escaping', async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-parts-')); t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const library = new BitsAndPartsLibrary(path.join(directory, 'BitsAndParts'));
   assert.deepEqual((await library.list()).children, []);
@@ -55,8 +55,16 @@ test('library provisions exact folder, retains nested models and case variants, 
   const bytes = createDemoDocument().serialize();
   for (const name of ['sword.MDL', 'root.mdx', 'helms/helm.mdx', 'helms/horns/horn.mdl']) await fs.writeFile(path.join(library.directory, name), bytes);
   await fs.writeFile(path.join(library.directory, 'notes.txt'), 'ignore');
+  for (const folder of ['Textures/Collected UI Bit', 'UI/Glues/SinglePlayer/HumanCampaign3D', 'Units/Creeps/SkeletonOrc', 'helms/Textures']) {
+    await fs.mkdir(path.join(library.directory, folder), { recursive: true });
+    await fs.writeFile(path.join(library.directory, folder, 'skin.blp'), 'texture');
+  }
+  await fs.mkdir(path.join(library.directory, 'empty'), { recursive: true });
   const bank = await library.list(); assert.equal(bank.name, 'BitsAndParts'); assert.equal(bank.children.length, 3);
+  assert.deepEqual(bank.children.map(entry => entry.name), ['helms', 'root.mdx', 'sword.MDL']);
+  assert.deepEqual(bank.children[0].children.map(entry => entry.name), ['horns', 'helm.mdx']);
   assert.equal(bank.children[0].children[0].children[0].id, 'helms/horns/horn.mdl');
+  assert.equal(await fs.readFile(path.join(library.directory, 'Textures/Collected UI Bit/skin.blp'), 'utf8'), 'texture');
   assert.equal((await library.read('sword.MDL')).name, 'sword.MDL');
   await assert.rejects(library.read('../outside.mdl'), /inside/); await assert.rejects(library.read('notes.txt'), /MDL or MDX/);
   assert.equal((await library.list()).children.length, 3);

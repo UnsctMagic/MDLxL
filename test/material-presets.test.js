@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createDemoDocument,openDocument} from '../src/editor-document.js';
-import {applyMaterialPreset,materialPreset,tintTexturePath,setMaterialLayerTexture} from '../src/material-presets.js';
+import {applyMaterialPreset,materialPreset,tintTexturePath,setMaterialLayerTexture,MATERIAL_FILTER_MODES} from '../src/material-presets.js';
 import {TEAM_COLORS} from '../src/team-colors.js';
 import {beginUVPreview,uvPreviewModel,applyUVPreviews} from '../src/uv-preview.js';
 import {compositeMaterialPixels} from '../src/uv-material-compositor.js';
 const fixture=()=>{const doc=createDemoDocument();doc.apply('base',['Materials','Textures'],m=>{m.Textures.push({Image:'Armor.blp',ReplaceableId:0,Flags:3});m.Materials[0].Layers=[{TextureID:m.Textures.length-1,FilterMode:1,Shading:0,CoordId:0,Alpha:1,TVertexAnimId:null}];});return doc;};
+// MDX stores static alpha as float32 and adds parser-only defaults to tracks.
+const layerSettings=({_MdxDefaults,...layer})=>({...layer,Alpha:typeof layer.Alpha==='number'?Math.fround(layer.Alpha):layer.Alpha});
 
 test('overlay and fixed tint reproduce the archer armor settings and preserve unrelated data',()=>{
  const doc=fixture(),before=structuredClone(doc.model),base=doc.model.Materials[0].Layers[0].TextureID;
@@ -58,16 +60,52 @@ test('5% additive tint contributes 5% RGB while ignoring texture alpha',()=>{
  assert.deepEqual([...result],[110,100,100,255]);
 });
 
-test('replacing a preset base in UV resets the image chain through preview, save, reopen and undo',()=>{
- for(const preset of ['Team Color Overlay','Color Tint']){
+test('UV replacement preserves overlay, tint and team-color settings through preview, save, reopen and undo',()=>{
+ for(const preset of ['Team Color Overlay','Color Tint','Team Color']){
   const doc=fixture();doc.apply(preset,['Materials','Textures'],m=>applyMaterialPreset(m,0,preset,12));
-  const before=doc.serialize('mdx');
+  const original=structuredClone(doc.model.Materials[0]),before=doc.serialize('mdx');
   const drafts=beginUVPreview(doc.model,{},[0],{name:'Textures\\Replacement.blp',bytes:new Uint8Array([1])});
-  const check=m=>{const layers=m.Materials[m.Geosets[0].MaterialID].Layers,replacement=layers.at(-1);assert.equal(m.Textures[replacement.TextureID].Image,'Textures\\Replacement.blp');assert.deepEqual(replacement,{FilterMode:layers.length>1?1:0,Alpha:1,Shading:0,CoordId:0,TextureID:replacement.TextureID,TVertexAnimId:null});assert.equal(layers.length,preset==='Team Color Overlay'?2:1);if(layers.length===2)assert.equal(m.Textures[layers[0].TextureID].ReplaceableId,1);};
+  const check=m=>{
+   const materialID=m.Geosets[0].MaterialID,layers=m.Materials[materialID].Layers;
+   assert.equal(layers.length,original.Layers.length);assert.equal(materialPreset(m,materialID).preset,preset);
+   for(let i=0;i<layers.length;i++){
+    const retained=preset==='Team Color'?i===0:i===1;
+    if(retained)assert.deepEqual(layerSettings(layers[i]),layerSettings(original.Layers[i]));
+    else {assert.deepEqual(layerSettings(layers[i]),layerSettings({...original.Layers[i],TextureID:layers[i].TextureID}));assert.equal(m.Textures[layers[i].TextureID].Image,'Textures\\Replacement.blp');}
+   }
+  };
   check(uvPreviewModel(doc.model,drafts));assert.deepEqual(doc.serialize('mdx'),before);
   doc.apply('Replace base',['Materials','Textures','Geosets'],m=>applyUVPreviews(m,drafts));check(doc.model);
   const reopened=openDocument(doc.serialize('mdx'),'replacement.mdx').model;check(reopened);
   doc.undo();assert.deepEqual(doc.serialize('mdx'),before);doc.redo();check(doc.model);
+ }
+});
+test('each direct filter replaces team and tint stacks with only the base image and preserves layer settings',()=>{
+ for(const previous of ['Team Color','Team Color Overlay','Color Tint'])for(const [mode,preset] of MATERIAL_FILTER_MODES.entries()){
+  const doc=fixture(),index=previous==='Team Color'?1:0;
+  doc.apply('Previous material',['Materials','Textures'],m=>{
+   applyMaterialPreset(m,0,previous,12);
+   m.Materials[0].Layers[index].Alpha={LineType:1,GlobalSeqId:null,Keys:[{Frame:0,Vector:new Float32Array([.7])},{Frame:500,Vector:new Float32Array([.3])}]};
+  });
+  const base=structuredClone(doc.model.Materials[0].Layers[index]);
+  const before=doc.serialize('mdx'),textures=structuredClone(doc.model.Textures);
+  doc.apply(preset,['Materials','Textures'],m=>applyMaterialPreset(m,0,preset));
+  const check=m=>{assert.deepEqual(m.Materials[0].Layers.map(layerSettings),[layerSettings({...base,FilterMode:mode})]);assert.equal(materialPreset(m,0).preset,preset);assert.equal(m.Textures[m.Materials[0].Layers[0].TextureID].ReplaceableId,0);};
+  check(doc.model);assert.deepEqual(doc.model.Textures,textures);
+  check(openDocument(doc.serialize('mdx'),'filter.mdx').model);
+  doc.undo();assert.deepEqual(doc.serialize('mdx'),before);doc.redo();check(doc.model);
+ }
+});
+test('direct filters persist while a replacement is pending and after repeated replacements',()=>{
+ for(const [mode,preset] of MATERIAL_FILTER_MODES.entries()){
+  const doc=fixture();applyMaterialPreset(doc.model,0,'Team Color');
+  let drafts=beginUVPreview(doc.model,{},[0],{name:'First.blp',bytes:new Uint8Array([1])});
+  doc.apply(preset,['Materials','Textures'],m=>applyMaterialPreset(m,0,preset));
+  drafts=beginUVPreview(doc.model,drafts,[0],{name:'Second.blp',bytes:new Uint8Array([2])});
+  const check=m=>{const id=m.Geosets[0].MaterialID;assert.equal(materialPreset(m,id).preset,preset);assert.equal(m.Materials[id].Layers.length,1);assert.equal(m.Materials[id].Layers[0].FilterMode,mode);assert.equal(m.Textures[m.Materials[id].Layers[0].TextureID].Image,'Second.blp');};
+  check(uvPreviewModel(doc.model,drafts));
+  doc.apply('Save replacement',['Materials','Textures','Geosets'],m=>applyUVPreviews(m,drafts));check(doc.model);
+  check(openDocument(doc.serialize('mdx'),'replacement.mdx').model);
  }
 });
 test('manager changes to either base pass keep static and animated textures paired, without changing the tint',()=>{
