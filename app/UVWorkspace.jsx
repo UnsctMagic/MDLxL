@@ -90,7 +90,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
   const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false);
   const [projectionPreset, setProjectionPreset] = useState({ name: '', revision: 0 });
-  const [scrollSensitivity, setScrollSensitivity] = useState(1.0);
+  const [scrollSensitivity, setScrollSensitivity] = useState(1.3);
   const [materialPreview, setMaterialPreview] = useState(null), [materialError, setMaterialError] = useState('');
   const [sidePercent, setSidePercent] = useState(() => storedLayout(LAYOUT_KEYS.side, UV_SIDE_DEFAULT, clampUVSidePercent));
   const [previewPercent, setPreviewPercent] = useState(() => storedLayout(LAYOUT_KEYS.preview, UV_PREVIEW_DEFAULT, clampUVPreviewPercent));

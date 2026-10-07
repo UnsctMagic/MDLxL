@@ -39,14 +39,14 @@ const preferenceValue = selector => `(() => {
     const map = uv.getByLabel('UV coordinate editor');
     await map.waitFor({ timeout: 60000 });
     await uv.locator('.game-preview-root').waitFor({ timeout: 60000 });
-    assert.equal(await uv.evaluate(preferenceValue('[aria-label="UV coordinate editor"]')), 1);
-    assert.equal(await uv.evaluate(preferenceValue('.game-preview-root')), 1);
+    assert.equal(await uv.evaluate(preferenceValue('[aria-label="UV coordinate editor"]')), 1.3);
+    assert.equal(await uv.evaluate(preferenceValue('.game-preview-root')), 1.3);
 
     const bounds = await map.boundingBox();
     await uv.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     await uv.mouse.down({ button: 'right' });
     await uv.mouse.wheel(0, -100);
-    await uv.getByRole('status').filter({ hasText: 'Scroll sensitivity: 1.22×' }).waitFor();
+    await uv.getByRole('status').filter({ hasText: 'Scroll sensitivity: 1.59×' }).waitFor();
     await uv.mouse.up({ button: 'right' });
 
     const closed = uv.waitForEvent('close');
@@ -60,9 +60,9 @@ const preferenceValue = selector => `(() => {
     uv = await reopened; uv.setDefaultTimeout(15000);
     await uv.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
     await uv.locator('.game-preview-root').waitFor({ timeout: 60000 });
-    assert.equal(await uv.evaluate(preferenceValue('[aria-label="UV coordinate editor"]')), 1);
-    assert.equal(await uv.evaluate(preferenceValue('.game-preview-root')), 1);
-    console.log('PASS UV scroll sensitivity: starts at 1.0, stays UV-only, and resets after reopening');
+    assert.equal(await uv.evaluate(preferenceValue('[aria-label="UV coordinate editor"]')), 1.3);
+    assert.equal(await uv.evaluate(preferenceValue('.game-preview-root')), 1.3);
+    console.log('PASS UV scroll sensitivity: starts at 1.3, stays UV-only, and resets after reopening');
   } finally {
     await app.close();
   }
