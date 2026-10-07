@@ -63,6 +63,3 @@
 .classic-modules .vis-toggle>.module-icon-badge{left:4px;right:4px;bottom:4px;height:12px;color:#ff3df2}
 .classic-modules .vis-toggle[aria-pressed=true]>.module-icon-badge{top:4px;bottom:4px;height:auto;background:transparent;font-size:14px}
 :root[data-theme] .classic-modules>.toolbar-modules>.vis-toggle[aria-pressed=true]{border-style:solid;border-color:var(--ui-border);box-shadow:none;background:var(--ui-surface)}
-
-.official-website{display:block;margin-top:12px;font-size:11px;opacity:.7}.official-website a{color:var(--ui-link);text-decoration:none}.official-website a:hover{text-decoration:underline}.update-summary{padding-left:20px;max-height:240px;overflow:auto}.update-summary li{margin:6px 0}
-.classic-modal.update-overlay{z-index:1100}

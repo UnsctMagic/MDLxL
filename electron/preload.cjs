@@ -25,12 +25,6 @@ contextBridge.exposeInMainWorld('desktop', {
   },
   configure: payload => ipcRenderer.invoke('settings:configure',payload),
   getSettings: () => ipcRenderer.invoke('settings:get'),
-  updateStatus: () => ipcRenderer.invoke('updates:status'),
-  checkUpdates: () => ipcRenderer.invoke('updates:check'),
-  installUpdate: () => ipcRenderer.invoke('updates:install'),
-  revertUpdate: () => ipcRenderer.invoke('updates:revert'),
-  openLink: url => ipcRenderer.invoke('app:openLink',url),
-  onUpdateStatus: callback => {const listener=(_,status)=>callback(status);ipcRenderer.on('updates:status',listener);ipcRenderer.send('updates:startup');return ()=>ipcRenderer.removeListener('updates:status',listener);},
   close: () => ipcRenderer.send('app:close'),
   setMenuState: value => ipcRenderer.send('menu:state', value),
   onBeforeClose: callback => {
