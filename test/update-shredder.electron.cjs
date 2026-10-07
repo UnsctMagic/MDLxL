@@ -12,6 +12,8 @@ const root = path.resolve(__dirname, '..');
   const fixture = path.join(run, 'MDLxL-win32-x64');
   await fs.cp(packaged, fixture, { recursive: true });
   const entry = path.join(fixture, 'resources/app/electron/main.cjs');
+  const runtimeDist = path.join(fixture, 'resources/app/dist');
+  assert.equal((await fs.readdir(runtimeDist)).some(name => /shredder.*\.png$/i.test(name)), false, 'sprite sheets are embedded in the bundle');
   const bootstrap = `
     (()=>{
     const {app,BrowserWindow,dialog}=require('electron');
@@ -64,6 +66,7 @@ const root = path.resolve(__dirname, '..');
       await page.clock.runFor(3200);
       assert.equal(await bird.getAttribute('data-phase'),'peek');
       assert.equal(await bird.getAttribute('data-spot'),String(spot));
+      assert.match(await bird.locator('div').evaluate(node => node.style.backgroundImage), /^url\("?data:image\/png;base64,/, 'the visible sprite uses the embedded asset');
       assert.deepEqual(await box.boundingBox(),before,'the visitor takes no dialog space');
       assert.equal((await page.locator('.classic-sidebar').first().boundingBox()).width,sidebar.width);
       await capture(`peek-${spot}.png`);
@@ -92,8 +95,10 @@ const root = path.resolve(__dirname, '..');
       await page.clock.runFor(400);
       assert.equal(await bird.evaluate(node => node.style.visibility),'hidden','a click attempt makes him escape');
       await page.mouse.move(10,10);
-      await page.clock.runFor(2400);
+      await page.clock.runFor(900);
       assert.equal(await bird.getAttribute('data-phase'),'peek','he returns soon after dodging a click');
+      await page.clock.runFor(1200);
+      assert.equal(await page.evaluate(({x,y}) => !!document.elementFromPoint(x,y)?.closest('.update-shredder'), hit),true,'the quicker return is visibly exposed');
       await app.evaluate(() => shredderTest.updater.publish({state:'available'}));
       await page.locator('.update-shredder-layer').waitFor({state:'detached'});
     }

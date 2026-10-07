@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import sheet from './assets/update/0.png?inline';
+import wings from './assets/update/1.png?inline';
 import './UpdateShredder.css';
 
-const sheet = `${import.meta.env.BASE_URL}update-shredder.png`;
-const wings = `${import.meta.env.BASE_URL}update-shredder-flight.png`;
 const spots = [
   { x: .28, y: 0, nx: 0, ny: -1, turn: 0 },
   { x: 1, y: .24, nx: 1, ny: 0, turn: 90 },
@@ -25,7 +25,7 @@ export default function UpdateShredder({ status }) {
     const owner = box.ownerDocument.defaultView;
     const art = new owner.Image(), flightArt = new owner.Image();
     art.src = sheet; flightArt.src = wings;
-    let frame, phase = 'rest', spot, started = 0, duration = 0, peck = false;
+    let frame, phase = 'rest', spot, started = 0, duration = 0, reveal = 1600, peck = false;
     let next = owner.performance.now() + between(900, 1800), departed = false, point;
     const choose = now => {
       spot = spots[Math.floor(Math.random() * spots.length)];
@@ -71,7 +71,7 @@ export default function UpdateShredder({ status }) {
         } else {
           bird.style.setProperty('--mirror', 1);
           const exposure = phase === 'escape' ? 12 - 120 * ease(age / 360) :
-            -82 + 94 * ease(age / 1600) * (1 - ease((age - duration + 1600) / 1600));
+            -82 + 94 * ease(age / reveal) * (1 - ease((age - duration + 1600) / 1600));
           x += spot.nx * exposure; y += spot.ny * exposure;
           if (phase === 'escape') {
             x += spot.ny * 35 * ease(age / 360); y -= spot.nx * 35 * ease(age / 360);
@@ -88,7 +88,9 @@ export default function UpdateShredder({ status }) {
           else if (age >= 5200 && age < 7200) { row = 9; column = 4; }
           else column = Math.floor(age / 440) % 6;
           if (phase === 'escape' && age >= 360 || phase === 'peek' && age >= duration) {
-            next = now + (phase === 'escape' ? between(900, 2200) : between(7000, 14000));
+            const dodged = phase === 'escape';
+            next = now + (dodged ? between(350, 700) : between(7000, 14000));
+            reveal = dodged ? 1100 : 1600;
             phase = 'rest'; bird.style.visibility = 'hidden';
           }
         }
