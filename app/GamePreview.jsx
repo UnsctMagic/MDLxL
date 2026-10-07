@@ -876,6 +876,12 @@ export default function GamePreview(inputProps) {
         displayCamera = setShowcaseOrbitCamera(camera, turntableCamera, showcaseNext.angle,
           showcaseOrbitRadius(center, boundsSize, p.showcaseRadius), turntableRotation, turntableOffset);
       }
+      // Paused billboard previews may draw only once per orbit gesture. Supply
+      // this camera before evaluating bones, not after their matrices are built.
+      if (hasBillboardedNodes && !p.portraitMode) {
+        cameraQuaternion.copy(displayCamera.quaternion).multiply(billboardCameraCorrection);
+        native.setCamera(displayCamera.position.toArray(), cameraQuaternion.toArray());
+      }
       let poseSequence = selected;
       try {
         // Narrow particle/ribbon visibility windows must survive a slow frame.
