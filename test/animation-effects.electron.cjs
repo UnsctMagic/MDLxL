@@ -37,6 +37,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const app = await _electron.launch({ executablePath, args: packaged ? [fixture] : [root, fixture], cwd: root,
     env: { ...process.env, MDLXL_PROFILE: profile, MDLVIS_HEADLESS: '0' }, timeout: 60000 });
   const errors = [];
+  const screenshot = async name => {
+    const png = await app.evaluate(async ({ BrowserWindow }) =>
+      (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
+    await fs.writeFile(path.join(out, name), Buffer.from(png, 'base64'));
+  };
   let page;
   try {
     page = await app.firstWindow(); page.setDefaultTimeout(20000);
@@ -44,6 +49,18 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByText('Opened animation-effects.mdx', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
+    // Observe the actual GL marker draw, including unselected emitters that
+    // would otherwise leave the same single node-overlay canvas in the DOM.
+    await page.evaluate(() => {
+      const markerPrograms = new WeakMap(), original = WebGL2RenderingContext.prototype.drawArrays;
+      WebGL2RenderingContext.prototype.drawArrays = function (mode, first, count) {
+        const program = this.getParameter(this.CURRENT_PROGRAM);
+        if (program && !markerPrograms.has(program)) markerPrograms.set(program,
+          this.getAttachedShaders(program).some(shader => this.getShaderSource(shader).includes('out vec3 tint;')));
+        if (program && markerPrograms.get(program) && mode === this.TRIANGLES) window.markerTriangles = count;
+        return original.call(this, mode, first, count);
+      };
+    });
     const readRuntime = () => page.evaluate(() => {
       const el = document.querySelector('.game-preview-root');
       let fiber = el?.[Object.keys(el).find(key => key.startsWith('__reactFiber'))];
@@ -54,7 +71,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
           return { frame: native.getFrame(), ready: state.captureApi?.isReady,
             particles: native.particlesController.emitters.map(emitter => emitter.particles.filter(particle => particle.lifeSpan > 0).length),
             ribbons: native.ribbonsController.emitters.map(emitter => emitter.creationTimes.length),
-            nodes: el.querySelectorAll('[data-node-overlay]').length, geosets: native.model.Geosets.length };
+            nodes: el.querySelectorAll('[data-node-overlay]').length,
+            markerTriangles: el.querySelector('[data-node-overlay]') ? window.markerTriangles || 0 : 0,
+            camera: state.controls.object.position.toArray(), geosets: native.model.Geosets.length };
         }
       }
       return null;
@@ -72,33 +91,58 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const visible = await waitFor(state => state.particles[0] > 0 && state.ribbons[0] > 1, 'Particles and ribbon emit without selection');
     assert.equal(visible.nodes, 0); assert.equal(visible.geosets, doc.model.Geosets.length);
-    await page.screenshot({ path: path.join(out, 'animations-effects.png') });
+    await screenshot('animations-effects.png');
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
-    // A previously enabled display switch must not reintroduce pentagrams.
+    // The display switch must not show unselected emitter markers.
     await command('display:particles');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const toggled = await waitFor(state => state.particles[0] > 0 && state.ribbons[0] > 1, 'Effects survive the display switch');
     assert.equal(toggled.nodes, 0);
     await page.getByLabel('Select node Visible sparks', { exact: true }).check();
-    await page.screenshot({ path: path.join(out, 'animations-selected-emitter.png') });
-    assert.equal((await readRuntime()).nodes, 0, 'Selected emitters remain free of markers in Animations');
+    const selected = await waitFor(state => state.markerTriangles === 222 && state.particles[0] > 0 && state.ribbons[0] > 1,
+      'Only the selected particle emitter has a pentagram; both effects keep rendering');
+    await screenshot('animations-selected-emitter.png');
+    await page.getByLabel('Select node Visible ribbon', { exact: true }).check();
+    await waitFor(state => state.markerTriangles === 444, 'Both selected emitters have pentagrams');
+    await page.getByLabel('Select node Visible sparks', { exact: true }).uncheck();
+    await waitFor(state => state.markerTriangles === 222 && state.particles[0] > 0 && state.ribbons[0] > 1,
+      'Deselecting one emitter removes only its marker');
+    await screenshot('animations-selected-ribbon.png');
+    await page.getByLabel('Select node Visible ribbon', { exact: true }).uncheck();
+    await waitFor(state => state.nodes === 0 && state.particles[0] > 0 && state.ribbons[0] > 1,
+      'Deselecting all emitters removes all markers and leaves effects running');
+    await command('display:particles');
+    await page.getByLabel('Select node Visible sparks', { exact: true }).check();
+    await waitFor(state => state.markerTriangles === 222 && state.particles[0] > 0 && state.ribbons[0] > 1,
+      'Selected marker and authored effects also work with the display switch off');
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('1');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const hidden = await waitFor(state => state.frame > 3200 && state.particles[0] === 0 && state.ribbons[0] === 0, 'Authored hidden animation stays hidden');
-    await page.screenshot({ path: path.join(out, 'animations-authored-hidden.png') });
+    assert.equal(hidden.markerTriangles, 222, 'Selected marker remains visible even when the authored effect is hidden');
+    await screenshot('animations-authored-hidden.png');
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
+    await command('camera:rotate');
+    const cameraBefore = (await readRuntime()).camera, canvas = await page.locator('[data-clean-model-canvas]').boundingBox();
+    await page.mouse.move(canvas.x + canvas.width * .75, canvas.y + canvas.height * .75);
+    await page.mouse.down();
+    await page.mouse.move(canvas.x + canvas.width * .65, canvas.y + canvas.height * .65, { steps: 12 });
+    await page.mouse.up();
+    await waitFor(state => state.camera.some((value, i) => Math.abs(value - cameraBefore[i]) > 1), 'Normal mouse drag rotates the preview camera');
+    await command('camera:work');
+    await page.getByLabel('Select node Visible sparks', { exact: true }).uncheck();
+    await waitFor(state => state.nodes === 0, 'Hidden animation also clears the marker on deselection');
     assert.equal(await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width), sidebarWidth);
     await page.getByRole('button', { name: 'Movement', exact: true }).click();
     await command('display:particles');
-    await waitFor(state => state.nodes > 0, 'Movement retains emitter editing markers');
-    await page.screenshot({ path: path.join(out, 'movement-markers.png') });
+    await waitFor(state => state.markerTriangles === 444, 'Movement retains all emitter editing markers');
+    await screenshot('movement-markers.png');
     assert.deepEqual(await fs.readFile(fixture), bytes);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ passed: true, packaged, executablePath, out, visible, toggled, hidden, sidebarWidth,
+    console.log(JSON.stringify({ passed: true, packaged, executablePath, out, visible, toggled, selected, hidden, sidebarWidth,
       fixtureSha256: createHash('sha256').update(bytes).digest('hex') }));
   } catch (error) {
-    if (page) { await page.screenshot({ path: path.join(out, 'failure.png') }).catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1200)); }
+    if (page) { await screenshot('failure.png').catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1200)); }
     throw error;
   } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
