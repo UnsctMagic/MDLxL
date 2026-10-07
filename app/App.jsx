@@ -955,7 +955,7 @@ export default function App() {
     if(latest.current.session!==session || savingRef.current)return false;
     const result=edit('Forge item',['Geosets','Materials','Textures','Nodes','PivotPoints','GeosetAnims','Info'],m=>commitForge(m,mesh,{texturePath,trimColor}));
     if(result===false)return false;
-    await loadTextures([{...asset,name:texturePath}],session,{source:asset.source==='forge'?'forge':'library'});
+    if(asset) await loadTextures([{...asset,name:texturePath}],session,{source:asset.source==='forge'?'forge':'gameData'});
     if(result.extraAssets?.length) await loadTextures(result.extraAssets,session,{source:'forge'});
     if(mesh.geosets.length>1){const white={name:'Textures\\white.blp',bytes:new Uint8Array([0,0,2,0,0,0,0,0,0,0,0,0,1,0,1,0,32,40,255,255,255,255]),source:'forge-preview'};session.assets.set(normalize('Textures\\white.blp'),{...white,name:'white.tga'});}
     setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));

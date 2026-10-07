@@ -7,7 +7,6 @@ This packaged checkout restores the parser/save test dependencies in `pnpm-lock.
 - **war3-model 4.0.1**, 4eb0da and contributors — MIT. Model parsing/generation, BLP1 decoding and Warcraft rendering. [Project source](https://github.com/4eb0da/war3-model).
 - **mdx-m3-viewer 5.12.0**, ghostwolf and contributors — MIT. OptimizeXL runs its official MDLX sanity checker locally. The unmodified npm UMD build and complete license are in `public/vendor/hive-viewer-5.12.0.js` and `public/vendor/hive-viewer-LICENSE.txt`, copied into `dist/vendor/` in the desktop package. [Project source](https://github.com/flowtsohg/mdx-m3-viewer).
 - **Three.js 0.183.2**, three.js authors — MIT. Editing viewport, math, camera controls and texture loaders.
-- **threex.suzanne Suzanne mesh**, Jerome Etienne, 2013 — MIT. Forge's Monkey starter uses the mesh from [the source repository](https://github.com/jeromeetienne/threex.suzanne), triangulated and reduced offline with the existing meshoptimizer to four levels (192/384/576/768 triangles). Geometry and its source hash are in `src/forge-monkey.js`; the full license and pinned source link ship in `public/forge-shapes-LICENSE.txt`.
 - **React / React DOM 19.2.4**, Meta Platforms, Inc. and affiliates — MIT.
 - **Lucide React 0.577.0**, Lucide contributors — ISC; inherited Feather icons under MIT.
 - **buffer 6.0.3**, Feross Aboukhadijeh and contributors — MIT.

@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
-const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/forge-shape-v2-review');
-const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'out/forge-shape-v2-native/MDLxL-win32-x64/MDLxL.exe');
+const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/forge-shape-v3-review');
+const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'out/forge-shape-v3-native/MDLxL-win32-x64/MDLxL.exe');
 const setRange = (locator, value) => locator.evaluate((element, value) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(element, String(value)); element.dispatchEvent(new Event('input', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true })); }, value);
 const viewportModel = () => {
   const el = document.querySelector('[aria-label="3D model viewport"]'); let fiber = el[Object.keys(el).find(k => k.startsWith('__reactFiber'))]; let top = fiber; while (top.return) top = top.return; if (top.stateNode?.current !== top && fiber.alternate) fiber = fiber.alternate;
@@ -19,7 +19,7 @@ const previewModel = () => {
 };
 (async () => {
   fs.mkdirSync(out, { recursive: true });
-  const { createDemoDocument, openDocument } = await import('../src/editor-document.js'), { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES } = await import('../src/forge-primitives.js'), { commitForge, encodeForgeTga } = await import('../src/forge.js');
+  const { createDemoDocument, openDocument } = await import('../src/editor-document.js'), { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES, PRIMITIVE_TEXTURE } = await import('../src/forge-primitives.js'), { commitForge, encodeForgeTga } = await import('../src/forge.js');
   const doc = createDemoDocument(), mesh = buildForgePrimitive({ shape: 'Grid', width: 100, height: 100, complexity: 2 });
   const shieldResult = doc.apply('Shield fixture', [], model => commitForge(model, mesh, { texturePath: 'Textures\\white.blp' })), shieldGi = shieldResult.geosetIndices[0];
   const coarse = structuredClone(mesh), coarseG = coarse.geosets[0]; coarseG.Vertices = new Float32Array([-50,-50,0,50,-50,0,50,50,0,-50,50,0]); coarseG.Normals = new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1]); coarseG.TVertices = [new Float32Array([0,0,1,0,1,1,0,1])]; coarseG.Faces = new Uint16Array([0,1,2,0,2,3]);
@@ -37,27 +37,34 @@ const previewModel = () => {
     await page.locator('[data-warmkey="forge"]').click();
     await page.getByRole('tab', { name: 'Projector', exact: true }).waitFor(); assert.equal(await page.locator('.forge-modes').getByRole('tab').count(), 2); assert.equal(await page.getByRole('tab', { name: 'Projector', exact: true }).getAttribute('aria-selected'), 'true');
     assert.equal(await page.getByRole('button', { name: 'Pick geoset', exact: true }).count(), 0);
+    assert.equal(await page.locator('.forge-tools').count(), 0); await page.screenshot({ path: path.join(out, '02-projector-empty.png') });
     await page.getByRole('button', { name: 'Texture library', exact: true }).click(); await page.getByRole('dialog', { name: 'Material and Texture Library' }).waitFor(); await page.getByLabel('Close texture library').click();
     const pcImage = path.join(out, 'projector.tga'); fs.writeFileSync(pcImage, encodeForgeTga({ width: 8, height: 8, data: new Uint8Array(8 * 8 * 4).fill(255) }));
     await page.locator('.forge-source input[type=file]').setInputFiles(pcImage); await page.getByRole('button', { name: 'FORGE', exact: true }).waitFor(); await page.waitForFunction(() => !document.querySelector('.forge-dialog footer .forge-primary').disabled);
+    assert.equal(await page.locator('.forge-tools').count(), 0); await page.getByRole('button', { name: 'Cut out', exact: true }).click(); assert.equal(await page.locator('.forge-tools').count(), 1); await page.getByRole('button', { name: 'Cut out', exact: true }).click(); await page.getByLabel('Trim', { exact: true }).check(); assert.equal(await page.getByLabel('Offset', { exact: true }).count(), 1); await page.getByLabel('Trim', { exact: true }).uncheck();
+    await page.waitForFunction(() => !document.querySelector('.forge-dialog footer .forge-primary').disabled);
     await page.screenshot({ path: path.join(out, '02-projector.png') }); const projectorCounts = await page.locator('.forge-mesh .forge-counts').innerText();
     await page.getByRole('tab', { name: 'Shape', exact: true }).click(); console.log('Forge shape controls opened');
     assert.equal(await page.getByRole('button', { name: 'Load from PC', exact: true }).count(), 0); assert.equal(await page.getByRole('button', { name: 'Texture library', exact: true }).count(), 0);
-    assert.deepEqual(await page.getByRole('combobox', { name: 'Shape', exact: true }).locator('option').allTextContents(), FORGE_SHAPES);
+    assert.deepEqual(await page.locator('.forge-shape-gallery button').allTextContents(), FORGE_SHAPES);
+    await page.waitForFunction(() => { const el = document.querySelector('.forge-primitives .forge-preview-canvas'); let fiber = el[Object.keys(el).find(k => k.startsWith('__reactFiber'))]; for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.image?.width === 64 || fiber.alternate?.memoizedProps?.image?.width === 64) return true; return false; });
+    assert.equal(await page.locator('.forge-primitives aside').evaluate(el => { const slider = el.querySelector('[aria-label="Shape complexity"]'); return slider.getBoundingClientRect().bottom <= el.getBoundingClientRect().bottom; }), true, 'detail stays visible at 1280x800');
+    await page.screenshot({ path: path.join(out, '03-cube-portrait.png') });
+    assert.match(await page.locator('.forge-counts').innerText(), /36 vertices · 12 triangles/);
     let maxTriangles = 0;
     for (const shape of FORGE_SHAPES) {
-      await page.getByRole('combobox', { name: 'Shape', exact: true }).selectOption(shape);
-      if (shape === 'Plane') { assert.equal(await page.getByLabel('Shape complexity').count(), 0); continue; }
+      await page.getByRole('button', { name: shape, exact: true }).click();
+      if (shape === 'ThumperXL') { await page.screenshot({ path: path.join(out, '03-thumper-front.png') }); await page.getByRole('button', { name: 'Oblique', exact: true }).click(); await page.screenshot({ path: path.join(out, '03-thumper-oblique.png') }); }
+      if (shape === 'Plane' || shape === 'ThumperXL') { assert.equal(await page.getByLabel('Shape complexity').count(), 0); continue; }
       await setRange(page.getByLabel('Shape complexity'), 1); const low = await page.locator('.forge-primitives .forge-counts').innerText();
       await setRange(page.getByLabel('Shape complexity'), 4); const high = await page.locator('.forge-primitives .forge-counts').innerText(); assert.notEqual(low, high, shape);
       const triangles = Number(high.match(/· (\d+) triangles/)[1]); assert.ok(triangles < 800); maxTriangles = Math.max(maxTriangles, triangles);
-      if (shape === 'Monkey') { await page.getByLabel('Wireframe', { exact: true }).uncheck(); await page.screenshot({ path: path.join(out, '03-monkey.png') }); await page.getByLabel('Wireframe', { exact: true }).check(); }
     }
     await page.getByRole('tab', { name: 'Projector', exact: true }).click(); assert.equal(await page.locator('.forge-mesh .forge-counts').innerText(), projectorCounts, 'Projector draft survives mode switching');
     await page.getByRole('button', { name: 'FORGE', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' }); assert.equal((await page.evaluate(viewportModel)).length, original.length + 1);
     await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(viewportModel), original, 'Projector retains one-step undo');
     for (const shape of FLAT_FORGE_SHAPES) {
-      await page.locator('[data-warmkey="forge"]').click(); await page.getByRole('tab', { name: 'Shape', exact: true }).click(); await page.getByLabel('Shape', { exact: true }).selectOption(shape);
+      await page.locator('[data-warmkey="forge"]').click(); await page.getByRole('tab', { name: 'Shape', exact: true }).click(); await page.getByRole('button', { name: shape, exact: true }).click();
       await page.getByLabel('Shape thickness').fill('10');
       assert.equal(await page.getByLabel('Depth', { exact: true }).count(), 0); assert.deepEqual(await page.evaluate(viewportModel), original);
       await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
@@ -65,7 +72,7 @@ const previewModel = () => {
       await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(viewportModel), original, `${shape} thickness undoes together`);
     }
     await page.locator('[data-warmkey="forge"]').click(); await page.getByRole('tab', { name: 'Shape', exact: true }).click();
-    await page.getByLabel('Shape', { exact: true }).selectOption('Grid'); await page.getByLabel('Width', { exact: true }).fill('60'); await page.getByLabel('Height', { exact: true }).fill('100'); await page.getByLabel('Shape thickness').fill('10');
+    await page.getByRole('button', { name: 'Grid', exact: true }).click(); await page.getByLabel('Width', { exact: true }).fill('60'); await page.getByLabel('Height', { exact: true }).fill('100'); await page.getByLabel('Shape thickness').fill('10');
     await page.getByLabel('Checker', { exact: true }).check(); await page.screenshot({ path: path.join(out, '04-grid-thickness.png') });
     assert.deepEqual(await page.evaluate(viewportModel), original, 'preview cannot modify the model');
     await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
@@ -74,8 +81,16 @@ const previewModel = () => {
     await app.evaluate(({ dialog }, saved) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: saved }); }, saved);
     await page.keyboard.press('Control+Shift+s'); const saveButton = page.getByRole('button', { name: 'Save MDX…', exact: true }); await saveButton.click(); await saveButton.waitFor({ state: 'detached' });
     assert.ok(fs.existsSync(saved), 'native Save As creates the model'); const reopened = openDocument(fs.readFileSync(saved)); assert.equal(reopened.model.Geosets.length, added.length); assert.deepEqual(Array.from(reopened.model.Geosets.at(-1).Vertices), added.at(-1).vertices);
-    assert.ok(fs.existsSync(path.join(out, 'MDLxL_Forge/mdlxl-shape-white-v1.tga')), 'the generated shape texture is saved beside the model');
+    assert.ok(reopened.model.Textures.some(t => t.Image === PRIMITIVE_TEXTURE && t.Flags === 0), 'stock icon path and clamped sampling persist');
     await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(viewportModel), original, 'Add shape is one undo step');
+    await page.locator('[data-warmkey="forge"]').click(); await page.getByRole('tab', { name: 'Shape', exact: true }).click(); await page.getByRole('button', { name: 'ThumperXL', exact: true }).click();
+    await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
+    const thumper = (await page.evaluate(viewportModel)).at(-1); assert.equal(thumper.faces.length / 3, 272);
+    const thumperSaved = path.join(out, 'thumper-saved.mdx'); await app.evaluate(({ dialog }, saved) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: saved }); }, thumperSaved);
+    await page.keyboard.press('Control+Shift+s'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click(); await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'detached' });
+    const reopenedThumper = openDocument(fs.readFileSync(thumperSaved)); assert.deepEqual(Array.from(reopenedThumper.model.Geosets.at(-1).Vertices), thumper.vertices); assert.deepEqual(Array.from(reopenedThumper.model.Geosets.at(-1).TVertices[0]), thumper.uv[0]);
+    const { thumperImage, THUMPER_TEXTURE } = await import('../src/forge-thumper.js'); assert.deepEqual(fs.readFileSync(path.join(out, ...THUMPER_TEXTURE.split('\\'))), Buffer.from(encodeForgeTga(thumperImage())));
+    await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(viewportModel), original, 'Thumper adds and undoes as one operation');
     await page.locator('[data-warmkey="geosetsClear"]').click(); await page.getByLabel(`Select geoset ${shieldGi}`, { exact: true }).check();
     const shapeCommand = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'shape:bend'));
     await shapeCommand(); const dialog = page.getByRole('dialog', { name: 'Shape geosets' }); await dialog.waitFor();

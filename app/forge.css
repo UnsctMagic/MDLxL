@@ -8,3 +8,28 @@
 .forge-preview-views{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:4px}.forge-overlay .forge-preview-views button{background:#283646dd;font-size:11px;min-height:24px;padding:3px 7px}.forge-preview-heading{gap:8px;flex-wrap:wrap}
 .forge-modes{display:flex;gap:6px;padding-right:10px;border-right:1px solid #65717e}
 .forge-shape-body{min-height:0;overflow:hidden;height:min(62vh,600px)}.forge-shape-body>aside{box-sizing:border-box;overflow:auto}.forge-shape-body>aside>label{margin-bottom:10px}.forge-shape-body details{margin:10px 0;color:#c0cfdd}.forge-shape-body summary{cursor:pointer}.forge-shape-body details label{justify-content:space-between;margin:8px 0}.forge-pick-actions{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:11px}.forge-primitives>.forge-preview-canvas{min-height:250px}
+/* Visual starters and deliberate editing controls; keep the existing modal footprint. */
+.forge-start{min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;background:radial-gradient(ellipse at center,#344653,#222c36 70%)}
+.forge-start>svg{width:96px;height:78px;fill:none;stroke:#89b7d0;stroke-width:2;stroke-linejoin:round}
+.forge-start>div{display:flex;gap:10px}
+.forge-overlay [hidden]{display:none!important}
+.forge-overlay h2{margin:0}
+.forge-overlay button:focus-visible,.forge-overlay summary:focus-visible{outline:2px solid #f0c174;outline-offset:2px}
+.forge-trim{padding-top:3px;padding-bottom:5px}
+.forge-trim:has(>div){padding-top:8px;padding-bottom:8px}
+.forge-texture-details{color:#b9cbd8;font-size:12px}
+.forge-texture-details summary{cursor:pointer;margin-bottom:6px}
+.forge-shape-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:16px}
+.forge-overlay .forge-shape-gallery>button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px 1px 6px;min-width:0;background:#25313c;border-color:#566776;font-size:10px;line-height:12px}
+.forge-shape-gallery svg{width:58px;height:46px;max-width:100%;pointer-events:none}
+.forge-overlay .forge-shape-gallery>button:hover{background:#3a4d5e;border-color:#95bdcf}
+.forge-overlay .forge-shape-gallery>button.active{background:#1d4a62;border-color:#7fc9ec;box-shadow:inset 0 -2px #7fc9ec}
+.forge-dimensions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.forge-dimensions>label{flex-direction:column;align-items:flex-start;gap:4px;font-size:12px}
+.forge-dimensions input[type=number]{width:100%;box-sizing:border-box}
+.forge-shape-preview{display:flex;flex:1;min-width:0;flex-direction:column;padding:12px 12px 0}
+.forge-preview-switches{display:flex;gap:12px;font-size:12px}
+.forge-shape-preview>.forge-preview-canvas{flex:1;border:1px solid #53616e;min-height:180px}
+.forge-shape-preview>.forge-counts{min-height:0;margin:0;text-align:right}
+@media(max-width:850px){.forge-shape-gallery svg{height:39px}.forge-shape-body>aside{padding:10px}.forge-shape-preview{padding:10px 10px 0}.forge-preview-switches{gap:6px}.forge-start{min-height:260px}}
+@media(max-height:800px){.forge-shape-gallery svg{height:30px;width:42px}.forge-shape-gallery{gap:4px;margin-bottom:10px}.forge-dimensions{gap:6px;margin-bottom:8px}.forge-shape-body>aside>label{margin-bottom:6px}}
