@@ -24,6 +24,8 @@ const {BackgroundLibrary}=require('./preview-backgrounds.cjs');
 const {PaintTextureLibrary}=require('./paint-textures.cjs');
 const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
 const {modelPathsFromArguments}=require('./external-model-open.cjs');
+const {Updater,externalURL}=require('./updater.cjs');
+let updater, startupUpdateChecked=false;
 let bitsAndPartsLibrary;
 function getBitsAndPartsLibrary() { return bitsAndPartsLibrary ||= new BitsAndPartsLibrary(path.join(app.isPackaged ? path.dirname(process.execPath) : app.getAppPath(), 'BitsAndParts')); }
 let previewBackgroundLibrary;
@@ -324,6 +326,26 @@ const publicSettings=()=>({...settings,gameData:settings.gameData||null,gameData
 // A normal launch must not wait on every saved draft before starting the viewport.
 ipcMain.handle('app:initial',async()=>({settings:publicSettings(),model:initialModel,models:initialModels,recoveryPrompt,recovery:recoveryPrompt?(await recoveryStore.list()).filter(r=>r.dirty!==false):[]}));
 ipcMain.handle('settings:get',publicSettings);
+ipcMain.handle('updates:status',()=>updater?.status());
+ipcMain.handle('updates:check',event=>{if(event.sender!==win?.webContents)throw Error('Update checks require the main editor.');return updater.check(settings.preferences.language);});
+ipcMain.on('updates:startup',event=>{
+  if(event.sender!==win?.webContents||startupUpdateChecked)return;
+  startupUpdateChecked=true;
+  if(settings.preferences.checkUpdatesOnStartup&&!updater.status().error)void updater.check(settings.preferences.language);
+});
+ipcMain.handle('updates:install',async event=>{
+  if(event.sender!==win?.webContents)throw Error('Updates require the main editor.');
+  const result=await updater.prepare();
+  if(result.state==='ready'&&win&&!win.isDestroyed())win.close();
+  return updater.status();
+});
+ipcMain.handle('updates:revert',async event=>{
+  if(event.sender!==win?.webContents)throw Error('Updates require the main editor.');
+  const answer=await dialog.showMessageBox(win,{type:'question',title:'Revert to last version',message:'Revert to MDLxL '+updater.status().previousVersion+'?',detail:'Your settings, personal libraries, and saved files are kept.',buttons:['Revert and restart','Cancel'],defaultId:1,cancelId:1});
+  if(answer.response!==0)return updater.status();
+  const result=await updater.prepareRevert();if(result.state==='ready'&&win&&!win.isDestroyed())win.close();return updater.status();
+});
+ipcMain.handle('app:openLink',(_,url)=>{if(!externalURL(url))throw Error('Unsupported website link.');return shell.openExternal(url);});
 ipcMain.handle('settings:configure',(_,value)=>{
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))throw Error('Use the game data folder picker to change the asset folder.');
   return updateSettings(value);
@@ -355,7 +377,7 @@ function flushBeforeClose(current,discardedDirty=false){
     await settingsStore?.flush();
     if(!current.isDestroyed()){
       // Recheck a model edit made while an asynchronous settings write completed.
-      if(modelCloseState.dirty)closingWindows.delete(current);else readyToClose.add(current);
+      if(modelCloseState.dirty){closingWindows.delete(current);updater?.cancelClose();}else readyToClose.add(current);
       current.close();
     }
   };
@@ -365,7 +387,7 @@ function flushBeforeClose(current,discardedDirty=false){
       if(finished)return;finished=true;cleanup();closingWindows.delete(current);
       const answer=await dialog.showMessageBox(current,{type:'error',title:'Pending work could not be saved',message:'The editor could not finish saving before closing.',detail:String(payload.error).slice(0,500),buttons:['Keep editing','Close anyway'],defaultId:0,cancelId:0});
       if(answer.response===1&&!current.isDestroyed()){await settingsStore?.flush();if(!modelCloseState.dirty)readyToClose.add(current);current.close();}
-      else if(!current.isDestroyed()){modelCloseState={...modelCloseState,dirty:modelCloseState.dirty||discardedDirty};current.setDocumentEdited(modelCloseState.dirty);}
+      else if(!current.isDestroyed()){updater?.cancelClose();modelCloseState={...modelCloseState,dirty:modelCloseState.dirty||discardedDirty};current.setDocumentEdited(modelCloseState.dirty);}
       return;
     }
     await finish();
@@ -386,6 +408,7 @@ function saveBeforeClose(current){
     ipcMain.removeListener('app:saveBeforeCloseReady',acknowledge);
     savingBeforeCloseWindows.delete(current);
     if(payload.error){
+      updater?.cancelClose();
       dialog.showMessageBox(current,{type:'error',title:'Model could not be saved',message:'The model could not be saved before closing.',detail:String(payload.error).slice(0,500),buttons:['Keep editing'],defaultId:0,cancelId:0});
       return;
     }
@@ -393,7 +416,7 @@ function saveBeforeClose(current){
       modelCloseState={dirty:false,saved:true};
       current.setDocumentEdited(false);
       flushBeforeClose(current);
-    }
+    }else updater?.cancelClose();
   };
   ipcMain.on('app:saveBeforeCloseReady',acknowledge);
   current.webContents.send('app:saveBeforeClose',requestId);
@@ -431,6 +454,9 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   settingsStore=new SettingsStore(path.join(profile,'settings.json'),preferences.normalizePreferences);
   try{recents=JSON.parse(await fs.readFile(path.join(profile,'recent.json'),'utf8')).filter(x=>typeof x==='string').slice(0,12);}catch{}
   settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
+  updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>{if(win&&!win.isDestroyed())win.webContents.send('updates:status',status);}});
+  await updater.initialize();
+  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(process.env.MDLVIS_GAME_DATA)settings.gameData=process.env.MDLVIS_GAME_DATA;
   try{recoveryPrompt=await sessionJournal.begin();}catch(error){console.warn('Session journal: '+error.message);}
@@ -450,7 +476,7 @@ async function createWindow(bounds={}){
   current.webContents.on('did-create-window',child=>{child.setMenu(null);if(process.env.MDLVIS_HEADLESS!=='1')child.maximize();else child.webContents.setBackgroundThrottling(false);child.webContents.setWindowOpenHandler(()=>({action:'deny'}));child.webContents.on('will-navigate',event=>event.preventDefault());});
   win.webContents.on('will-navigate',(event,url)=>{if(url!==win.webContents.getURL())event.preventDefault();});
   refreshMenu();
-  win.on('close',event=>{if(current!==win||readyToClose.has(current))return;let discardedDirty=false;if(needsModelClosePrompt(modelCloseState)){event.preventDefault();const action=modelCloseAction(dialog.showMessageBoxSync(win,modelClosePrompt(modelCloseState)));if(action==='save'){saveBeforeClose(current);return;}if(action==='cancel')return;discardedDirty=modelCloseState.dirty;modelCloseState={...modelCloseState,dirty:false};current.setDocumentEdited(false);}event.preventDefault();flushBeforeClose(current,discardedDirty);});
+  win.on('close',event=>{if(current!==win||readyToClose.has(current))return;let discardedDirty=false;if(needsModelClosePrompt(modelCloseState)){event.preventDefault();const action=modelCloseAction(dialog.showMessageBoxSync(win,modelClosePrompt(modelCloseState)));if(action==='save'){saveBeforeClose(current);return;}if(action==='cancel'){updater?.cancelClose();return;}discardedDirty=modelCloseState.dirty;modelCloseState={...modelCloseState,dirty:false};current.setDocumentEdited(false);}event.preventDefault();flushBeforeClose(current,discardedDirty);});
   win.webContents.on('will-prevent-unload',event=>{if(!modelCloseState.dirty)event.preventDefault();});
   current.webContents.on('render-process-gone',async(_,details)=>{
     if(current!==win||current.isDestroyed())return;
@@ -472,6 +498,7 @@ async function createWindow(bounds={}){
   await current.loadFile(path.join(__dirname,'../dist/index.html'));
 }
 app.on('window-all-closed',async()=>{
+  await updater?.shutdown();
   await particleLibrary.close();
   textureDecoder=null;rejectThumbnailRequests('Editor closed.');await texturePreviews.close();
   await Promise.allSettled([settingsStore?.flush(),recoveryStore.flush(),...textureOperations,...captureOperations]);
@@ -480,5 +507,6 @@ app.on('window-all-closed',async()=>{
   // If the renderer crashed and the user closed its error dialog, keep the
   // journal for the next launch. A regular close/discard is deliberately quiet.
   if(!crashedWithEdits)await sessionJournal.close();
+  try{await updater?.launchInstaller();}catch(error){await dialog.showMessageBox({type:'error',title:'MDLxL update',message:'The update could not start. Your current version is unchanged.',detail:error.message,buttons:['OK']});updater?.cancelClose();}
   app.quit();
 });
