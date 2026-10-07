@@ -81,6 +81,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.waitForFunction(() => { const state = bitState('.parts-preview [aria-label="3D model viewport"]'); return state.viewport.entries[1].meshes.every(mesh => mesh.material.userData.geosetTint.value.toArray().join(',') === '0,1,0'); });
     };
     await begin();
+    const menu = page.locator('.parts-placement-menu');
+    assert.equal(await page.locator('.parts-placement-tools').count(), 0);
+    assert.equal(await menu.getAttribute('aria-label'), 'Quad placement mini-menu');
+    assert.equal(await menu.getByRole('radio').count(), 0);
+    const menuBounds = await menu.boundingBox(), previewBounds = await page.locator('.parts-preview').boundingBox();
+    assert.ok(menuBounds.width < 120 && menuBounds.x >= previewBounds.x && menuBounds.x + menuBounds.width <= previewBounds.x + previewBounds.width);
+    assert.deepEqual(await menu.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label'))), ['Quad View', 'Normal View', 'Move', 'Rotate', 'Scale', 'Zoom']);
     assert.equal(await page.getByText('Select animations and rename', { exact: true }).count(), 0);
     const chooseRgb = async (index, rgb) => {
       await page.getByLabel('RGB animation', { exact: true }).selectOption(String(index));
@@ -103,14 +110,32 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       return Array.from(state.props.model.Geosets[state.props.selectedGeoset].Vertices).some((value, index) => value !== old[index]);
     }, positioned);
     const moved = await incoming();
-    await page.locator('.parts-placement-tools').getByRole('button', { name: 'Rotate', exact: true }).click(); await drag(12, 0);
+    await menu.getByRole('button', { name: 'Rotate', exact: true }).click(); await drag(12, 0);
     await page.waitForFunction(old => { const state = bitState('.parts-preview [aria-label="3D model viewport"]'); return Array.from(state.props.model.Geosets[state.props.selectedGeoset].Vertices).some((value, index) => value !== old[index]); }, moved);
     const rotated = await incoming();
-    await page.locator('.parts-placement-tools').getByRole('button', { name: 'Scale', exact: true }).click(); await drag(12, 0);
+    await menu.getByRole('button', { name: 'Scale', exact: true }).click(); await drag(12, 0);
     await page.waitForFunction(old => { const state = bitState('.parts-preview [aria-label="3D model viewport"]'); return Array.from(state.props.model.Geosets[state.props.selectedGeoset].Vertices).some((value, index) => value !== old[index]); }, rotated);
+    const scaled = await incoming(), quadZoom = await page.evaluate(() => bitState('.parts-preview [aria-label="3D model viewport"]').viewport.camera.zoom);
+    await menu.getByRole('button', { name: 'Zoom', exact: true }).click(); await drag(0, 12);
+    await page.waitForFunction(old => bitState('.parts-preview [aria-label="3D model viewport"]').viewport.camera.zoom !== old, quadZoom);
+    assert.deepEqual(await incoming(), scaled);
     await page.getByRole('button', { name: 'Normal View', exact: true }).click();
     assert.equal(await page.getByRole('button', { name: 'Normal View', exact: true }).getAttribute('aria-pressed'), 'true');
-    await page.getByLabel('Placement view', { exact: true }).selectOption('front');
+    assert.equal(await menu.getAttribute('aria-label'), 'Normal placement mini-menu');
+    assert.equal(await menu.getByRole('radio').count(), 3);
+    await menu.getByRole('button', { name: 'Move', exact: true }).click();
+    for (const [plane, view, locked] of [['XY', 'top', 2], ['ZX', 'right', 1], ['YZ', 'front', 0]]) {
+      await page.getByLabel('Placement view', { exact: true }).selectOption(view);
+      await menu.getByRole('radio', { name: plane + ' placement plane', exact: true }).check();
+      const previous = await incoming(); await drag(12, 5);
+      await page.waitForFunction(old => { const state = bitState('.parts-preview [aria-label="3D model viewport"]'); return Array.from(state.props.model.Geosets[state.props.selectedGeoset].Vertices).some((value, index) => value !== old[index]); }, previous);
+      const next = await incoming();
+      assert.deepEqual(next.filter((_, index) => index % 3 === locked), previous.filter((_, index) => index % 3 === locked));
+    }
+    const normalMoved = await incoming(), normalZoom = await page.evaluate(() => bitState('.parts-preview [aria-label="3D model viewport"]').viewport.camera.zoom);
+    await menu.getByRole('button', { name: 'Zoom', exact: true }).click(); await drag(0, 12);
+    await page.waitForFunction(old => bitState('.parts-preview [aria-label="3D model viewport"]').viewport.camera.zoom !== old, normalZoom);
+    assert.deepEqual(await incoming(), normalMoved);
     await page.screenshot({ path: path.join(output, 'normal-placement.png') });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     assert.deepEqual(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))), before);
@@ -118,6 +143,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await chooseRgb(1, [0, 0, 1]);
     await page.getByRole('button', { name: 'Normal View', exact: true }).click();
     await page.getByLabel('Placement view', { exact: true }).selectOption('front');
+    await menu.getByRole('radio', { name: 'YZ placement plane', exact: true }).check();
     const normalBefore = await incoming();
     await drag(12, 0);
     await page.waitForFunction(old => { const state = bitState('.parts-preview [aria-label="3D model viewport"]'); return Array.from(state.props.model.Geosets[state.props.selectedGeoset].Vertices).some((value, index) => value !== old[index]); }, normalBefore);
@@ -140,7 +166,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.locator('[data-warmkey="undo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))), before);
     await page.locator('[data-warmkey="redo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))), Array.from(bytes));
     assert.ok(fs.readFileSync(fixture).equals(original)); assert.ok(fs.readFileSync(bitFile).equals(donorBytes)); assert.deepEqual(pageErrors, []);
-    fs.writeFileSync(path.join(output, 'verification.json'), JSON.stringify({ executable, passed: true, quadMoveRotateScale: true, normalViewMove: true, cancelUnchanged: true, undoRedo: true, textureCount: 1, materialCount: 1, bonesPreserved: true, sidebarWidth: sidebar }, null, 2));
-    console.log('PASS packaged Electron: button placement, old part absent, quad move/rotate/scale, normal view move, cancel, replacement, dependency reuse, bones, undo/redo, roundtrip and unchanged fixtures/sidebar.');
+    fs.writeFileSync(path.join(output, 'verification.json'), JSON.stringify({ executable, passed: true, miniMenu: true, quadMoveRotateScale: true, normalPlanes: ['XY', 'ZX', 'YZ'], quadAndNormalZoom: true, cancelUnchanged: true, undoRedo: true, textureCount: 1, materialCount: 1, bonesPreserved: true, sidebarWidth: sidebar }, null, 2));
+    console.log('PASS packaged Electron: compact in-preview menus, quad move/rotate/scale, normal XY/ZX/YZ plane locks, quad/normal zoom without geometry edits, cancel, replacement, dependency reuse, bones, undo/redo and unchanged fixtures/sidebar.');
   } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => {}); await app.close(); fs.unlinkSync(bitFile); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
