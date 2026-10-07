@@ -218,6 +218,7 @@ export default function Viewport(inputProps) {
   const texturesNeeded = graphics.textures && mode === 'textured';
 
   useEffect(() => {
+    const viewportHost = host.current;
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' }); }
     catch (cause) { setError(`The 3D viewport could not start: ${cause.message}. Model data and the other editors remain available.`); return; }
@@ -766,8 +767,8 @@ export default function Viewport(inputProps) {
       for (const pane of visible) {
         bindPane(pane);
         const { left, top, width, height } = pane.rect;
-        renderer.setViewport(left, host.current.clientHeight - top - height, width, height);
-        renderer.setScissor(left, host.current.clientHeight - top - height, width, height);
+        renderer.setViewport(left, viewportHost.clientHeight - top - height, width, height);
+        renderer.setScissor(left, viewportHost.clientHeight - top - height, width, height);
         if (renderPane(now, delta) === false) { bindPane(activePane); return false; }
       }
       bindPane(activePane);
@@ -777,7 +778,7 @@ export default function Viewport(inputProps) {
       const p = latest.current, renderGraphics = graphicsOptions(p.preferences), visual = visualOptions(p.preferences), appearance = viewportAppearanceOptions(p.preferences);
       const lighting = previewLighting(p.preferences); configurePreviewLights(ambient, key, lighting);
       surface.style.cursor = viewportCursor(p.cameraMode, p.rotationNormals ? 'rotateNormals' : p.transformMode, rotating);
-      const overlayHost = quad ? surface : host.current;
+      const overlayHost = quad ? surface : viewportHost;
       syncViewportBackground(appearance);
       ambient.visible = key.visible = renderGraphics.lighting;
       if (p.sequenceIndex !== state.sequenceIndex || !p.playing || !state.wasPlaying || (p.time !== state.lastExternalTime && Math.abs(p.time - (state.lastReportedFrame ?? -Infinity)) > 1)) state.frame = p.time || 0;
