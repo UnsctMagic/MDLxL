@@ -146,7 +146,7 @@ test('library saves original texture names and bytes, lists them, and preserves 
   await assert.rejects(library.save({ name: 'Bad asset', bytes, assets: [{ ...asset, name: '..\\outside.tga' }] }), /relative texture path/);
 });
 
-test('collection and import preserve exact source paths even beside equivalent destination spellings', () => {
+test('collection preserves source paths and import reuses equivalent destination textures', () => {
   const source = donor().model;
   source.Textures[0].Image = 'Textures/My Bit/Original Skin.PNG';
   const collected = collectPart(source, selection), saved = openDocument(serializeCollectedPart(collectedPartModel(collected, { name: 'Exact paths' })));
@@ -155,8 +155,9 @@ test('collection and import preserve exact source paths even beside equivalent d
   target.model.Textures[0].Image = existing;
   const result = target.apply('Import original path', [], model => commitPart(model, saved.model));
   assert.equal(target.model.Textures[0].Image, existing);
-  assert.equal(target.model.Textures[result.textureMap[0]].Image, source.Textures[0].Image);
-  assert.equal(openDocument(target.serialize('mdx')).model.Textures[result.textureMap[0]].Image, source.Textures[0].Image);
+  assert.equal(result.textureMap[0], 0);
+  assert.equal(target.model.Textures.length, 1);
+  assert.equal(openDocument(target.serialize('mdx')).model.Textures[result.textureMap[0]].Image, existing);
 });
 
 test('disabled dormant RGB and missing color records are preserved in MDX without enabling or creating tint', () => {

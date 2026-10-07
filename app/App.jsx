@@ -44,7 +44,7 @@ import { shapeGeosets, SHAPE_TOOLS } from '../src/shaping.js';
 import { retainedForgeAssets, forgeExportArchive, isForgeAssetPath, missingForgeAssetPaths } from '../src/forge-assets.js';
 import { applyMovementTransform, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
-import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, validateUVPreview, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
+import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
 import { applyMaterialPreset } from '../src/material-presets.js';
 import { setUVTextureWrapping, uncoupleUVVertices } from '../src/uv-tools.js';
 import './modules.css';
@@ -805,20 +805,15 @@ export default function App() {
       session.uvPreviews = beginUVPreview(model, session.uvPreviews, mode==='uv'?[activeGeoset]:[...selectable], asset, null);
       await loadTextures([asset], session, { source: 'library' });
       setDialog(null); selectMode('uv'); refresh();
-      say('Temporary texture loaded. Save keeps it; Revert restores the earlier UV layout.');
+      say('Temporary texture loaded. Save keeps it; Revert removes it and keeps your geometry and UV edits.');
     } catch (error) { say(error.message, true); }
   }
   function finishUVPreview(revert = false) {
+    if (savingRef.current) return;
     if (revert) {
-      try {
-        const pending = Object.values(session.uvPreviews);
-        for (const draft of pending) validateUVPreview(model, draft);
-        if (pending.every(draft => draft.originalUV.every((uv, i) => uv.length === model.Geosets[draft.geosetIndex].TVertices[i]?.length && uv.every((value, n) => value === model.Geosets[draft.geosetIndex].TVertices[i][n])))) {
-          session.uvPreviews = {}; setLiveUV(null); refresh(); say('Reverted temporary textures.'); return;
-        }
-      } catch (error) { say(error.message, true); return; }
+      revertUVPreviews(model, session.uvPreviews); session.uvPreviews = {}; setLiveUV(null); refresh(); say('Reverted temporary textures; geometry and UV edits kept.'); return;
     }
-    const result = edit(revert ? 'Revert UV texture previews' : 'Save UV texture previews', revert ? ['Geosets'] : ['Geosets','Textures','Materials'], m => revert ? revertUVPreviews(m, session.uvPreviews) : applyUVPreviews(m, session.uvPreviews));
+    const result = edit('Save UV texture previews', ['Geosets','Textures','Materials'], m => applyUVPreviews(m, session.uvPreviews));
     if (result !== false) { session.uvPreviews = {}; setLiveUV(null); refresh(); }
   }
   const importTextures = async () => { try { if (window.desktop) say(`Loaded ${await loadTextures(await window.desktop.textures())} textures.`); else textures.current.click(); } catch (error) { say(error.message, true); } };
@@ -839,7 +834,7 @@ export default function App() {
       // travelling back through that history so it can be repaired by Undo.
       if (validBefore) {
         try { validateUVPreviewGuard(doc.model, session.uvPreviews, guard); }
-        catch { selectionHistory.travel(redo ? 'undo' : 'redo', restored); refresh(); say('Save or Revert temporary UV textures before undoing a geometry structure change.'); return; }
+        catch { selectionHistory.travel(redo ? 'undo' : 'redo', restored); refresh(); say('Save or Revert temporary UV textures before undoing changes to their geoset targets.'); return; }
       }
       setSelection(restored.selection); setHidden(restored.hidden); setSelectable(restored.selectable); setVisibleOnly(restored.visibleOnly || new Set()); setActiveGeoset(restored.activeGeoset); setUvSet(restored.uvSet); if(restored.selectedNodeIds)setSelectedNodeIds(restored.selectedNodeIds); setLiveUV(null); refresh(); say(redo ? 'Redo' : 'Undo');
     } catch (error) { refresh(); say(error.message, true); }
@@ -980,16 +975,16 @@ export default function App() {
       setLiveUV(null); clearZoomAnchor(); say(`Geoset ${index + 1}: ${before} → ${after} triangles.`); return result;
     } catch (error) { say(error.message, true); return false; }
   }
-  async function importPart({source,animations,assets}) {
+  async function importPart({source,rgbSequence,assets,replacement}) {
     const {commitPart}=await import('../src/bits-and-parts.js');
     if(latest.current.session!==session || savingRef.current)return false;
     const target=session;
-    const result=edit('Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Info'],m=>commitPart(m,source,{animations}),{rethrow:true});
+    const result=edit(replacement?'Replace Part':'Import BitsAndParts',['Geosets','Materials','Textures','TextureAnims','GlobalSequences','Sequences','Nodes','PivotPoints','GeosetAnims','Gliders','Info'],m=>commitPart(m,source,{rgbSequence,replacement}),{rethrow:true});
     if(result===false)return false;
     await loadTextures(assets,target,{source:'parts'});
     if(latest.current.session!==target)return result;
-    setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
-    say('Part imported and attached to DummyBone.');return result;
+    if(replacement)setHidden({});setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds(result.boneIds);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
+    say(replacement?'Part replaced using its existing bone bindings.':'Part imported and attached to DummyBone.');return result;
   }
   commands.current = { 'paint:select':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'select'})), 'paint:draw':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'draw'})), open, recent:showRecent, openRecent, clearRecent, save: () => mode==='paint'?savePaintProject():save(), saveAs: () => mode==='paint'?savePaintProject():setDialog({type:'saveFormat'}), new: () => install(newSession(createStarterDocument(preferences.newModelVersion))), recovery: listRecovery, gameData, undo: () => undo(false), redo: () => undo(true), copy, paste: () => paste(), pasteSpecial: () => { if (clipboard.current?.kind !== 'nodes') { setAnchor(''); setDialog({ type: 'pasteSpecial' }); } }, selectAll, clear: () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'clear'})); if (normalsXL) { setNormalsXL(null); return; } if (mode === 'bones' && attachSourceIds.length) { setAttachSourceIds([]); return; } if (mode === 'vertices' && !window.dispatchEvent(new Event('mdlxl-cancel-gesture', { cancelable: true }))) return; if(mode==='uv')return uvAction('select-none');setSelectedNodeIds([]); setSelection({}); }, history: showHistory, grid: () => setShowGrid(v => !v), frame: toggleTextured, frameSelection: () => setViewRenderMode('solid'), fit: () => frame(false), fitSelection: () => frame(true), vertices: () => selectMode('vertices'), bones: () => {setMovementMode('select');selectMode('bones');}, uv: () => selectMode('uv'), paint: () => {setRenderMode('textured');setView('perspective');selectMode('paint');}, animation: () => selectAnimationPanel('movement'), animations: () => selectAnimationPanel('animations'), textureLibrary: () => openLibrary(), help: () => setDialog({ type: 'help' }), diagnostics: () => setDialog({ type: 'diagnostics' }), about: () => setDialog({ type: 'about' }), ...Object.fromEntries(resources.map(kind => [kind, () => setDialog({ type: 'resource', kind })])), ...Object.fromEntries(views.map(name => [name, () => setView(name)])) };
   Object.assign(commands.current, {
