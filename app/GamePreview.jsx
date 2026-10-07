@@ -1016,7 +1016,8 @@ export default function GamePreview(inputProps) {
         if (nodeCanvas.width !== canvas.width) nodeCanvas.width = canvas.width;
         if (nodeCanvas.height !== canvas.height) nodeCanvas.height = canvas.height;
         const width = canvas.clientWidth, height = canvas.clientHeight;
-        const projectedNodes = projectMovementNodes(markerModel, native.getFrame(), poseSequence, camera, width, height, globalClock, getPoseMatrices());
+        const projectedNodes = projectMovementNodes(markerModel, native.getFrame(), poseSequence, camera, width, height, globalClock, getPoseMatrices())
+          .filter(point => !p.cleanAnimationPreview || point.overlayKind !== 'particles' || p.selectedNodeIds?.includes(point.node.ObjectId));
         nodePoints = visibleMovementPoints(projectedNodes, overlayOptions);
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);

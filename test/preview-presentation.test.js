@@ -50,14 +50,14 @@ test('Animations keeps node picking and selection while disabling geometry trans
   assert.equal(preview.onNodeTransform, undefined);
 });
 
-test('Animations shows effects with no selection and keeps emitter markers hidden regardless of the display switch', () => {
+test('Animations shows effects independently of selection and enables only selected emitter markers regardless of the display switch', () => {
   const model = { ParticleEmitters2: [{ ObjectId: 4, Visibility: 0 }], RibbonEmitters: [{ ObjectId: 5, Visibility: 1 }] };
-  for (const particles of [false, true]) {
+  for (const particles of [false, true]) for (const selectedNodeIds of [[], [4], [4, 5]]) {
     const props = { presentation: 'preview', cleanAnimationPreview: true, model, sequenceIndex: 2, time: 1234, playing: true,
-      preferences: { graphics: { particles: false } }, overlays: { particles, bones: true }, showParticles: particles, selectedNodeIds: [] };
+      preferences: { graphics: { particles: false } }, overlays: { particles, bones: true }, showParticles: particles, selectedNodeIds };
     const before = structuredClone(props), preview = previewPresentationProps(props);
     assert.equal(preview.showParticles, true);
-    assert.equal(preview.overlays.particles, false);
+    assert.equal(preview.overlays.particles, selectedNodeIds.length > 0);
     assert.equal(preview.overlays.bones, true);
     for (const key of ['model', 'sequenceIndex', 'time', 'playing', 'selectedNodeIds']) assert.equal(preview[key], props[key]);
     assert.deepEqual(props, before, 'Authored visibility, preferences and display state stay unchanged');
