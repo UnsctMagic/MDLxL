@@ -8,7 +8,7 @@ import { previewSupportedShape, shapeGeosetsWithSupport } from '../src/shaping-s
 
 const setup = () => { const doc = createDemoDocument(), mesh = buildForgeMesh({ width: 16, height: 16, mask: new Uint8Array(256).fill(1), detail: 35, thickness: 1, trim: true }); const result = doc.apply('Forge', [], m => commitForge(m, mesh, { texturePath: 'test.tga' })); return { doc, indices: result.geosetIndices }; };
 test('a shield bends through its middle and folds at an exact selected vertex row in either direction', () => {
-  const mesh = buildForgePrimitive({ shape: 'Plane', complexity: 1, width: 100, height: 100 }), model = { Geosets: mesh.geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), source = model.Geosets[0].Vertices.slice();
+  const mesh = buildForgePrimitive({ shape: 'Grid', complexity: 1, width: 100, height: 100 }), model = { Geosets: mesh.geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), source = model.Geosets[0].Vertices.slice();
   for (const direction of [1, 2]) {
     const bent = previewShape(model, selection, { tool: 'Bend', axis: 0, direction, amount: 90, pivot: 'middle' }).Geosets[0].Vertices;
     for (let id = 0; id < source.length / 3; id++) if (source[id * 3] === 0) assert.ok(Math.abs(bent[id * 3] - source[id * 3]) < 1e-6);
@@ -19,7 +19,7 @@ test('a shield bends through its middle and folds at an exact selected vertex ro
   for (const pivot of ['start', 'end']) { const anchor = pivot === 'start' ? -50 : 50, bent = previewShape(model, selection, { tool: 'Bend', axis: 0, direction: 2, amount: 45, pivot }).Geosets[0].Vertices; for (let id = 0; id < source.length / 3; id++) if (source[id * 3] === anchor) assert.deepEqual(bent.slice(id * 3, id * 3 + 3), source.slice(id * 3, id * 3 + 3)); }
 });
 test('selected centers and local influence shape only the requested area and preserve rigging and UVs', () => {
-  const mesh = buildForgePrimitive({ shape: 'Plane', complexity: 4 }), model = { Geosets: mesh.geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), before = structuredClone(model);
+  const mesh = buildForgePrimitive({ shape: 'Grid', complexity: 4 }), model = { Geosets: mesh.geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), before = structuredClone(model);
   for (const tool of ['Bend', 'Warp', 'Dome', 'Wrap', 'Taper']) {
     const result = previewShape(model, selection, { tool, axis: tool === 'Dome' ? 2 : 0, direction: tool === 'Dome' ? 0 : 2, amount: 30, pivot: 'selected', origin: [0, 0, 0], radius: 30 }), source = before.Geosets[0], moved = result.Geosets[0];
     assert.notDeepEqual(moved.Vertices, source.Vertices, tool);
@@ -35,7 +35,7 @@ test('selection uses arbitrary checked geosets and only selected vertices when p
   const all = resolveShapeSelection(doc.model, new Set([0, 1])); assert.equal(all[0].length, doc.model.Geosets[0].Vertices.length / 3); assert.equal(all[1].length, doc.model.Geosets[1].Vertices.length / 3);
 });
 test('local shaping uses the chosen edge or vertex center, including depth on a solid', () => {
-  const model = { Geosets: buildForgePrimitive({ shape: 'Box', depth: 20 }).geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), source = model.Geosets[0].Vertices;
+  const model = { Geosets: buildForgePrimitive({ shape: 'Cube', depth: 20 }).geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), source = model.Geosets[0].Vertices;
   const dome = previewShape(model, selection, { tool: 'Dome', axis: 2, pivot: 'selected', origin: [0, 0, 10], amount: 5, radius: 15 }).Geosets[0].Vertices;
   assert.notDeepEqual(dome, source);
   for (let id = 0; id < source.length / 3; id++) if (source[id * 3 + 2] === -10) assert.deepEqual(dome.slice(id * 3, id * 3 + 3), source.slice(id * 3, id * 3 + 3));
