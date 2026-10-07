@@ -86,3 +86,27 @@ test('partial shaping keeps coincident UV and hard-normal seam copies together w
   shapeGeosets(doc.model,{[gi]:[copies[0],0,1,2]},{tool:'Dome',axis:2,amount:20});
   assert.ok(copies.every(id=>position(id)===position(copies[0])));assert.deepEqual(doc.model.Geosets[indices[0]].Vertices,untouched);
 });
+
+test('automatic support curves and folds coarse planes across their middle without setup', () => {
+  for (const width of [20, 60, 100]) for (const bendStyle of ['curve', 'fold']) {
+    const mesh = buildForgePrimitive({ shape: 'Plane', width, height: 100 }), model = { Geosets: mesh.geosets, Info: {}, Sequences: [] }, before = structuredClone(model), selection = resolveShapeSelection(model, [0]);
+    const options = { tool: 'Bend', axis: 0, direction: 2, amount: 60, pivot: 'middle', bendStyle, support: 'auto' };
+    const preview = previewSupportedShape(model, selection, options), g = preview.Geosets[0], z = Array.from(g.Vertices).filter((_, i) => i % 3 === 2);
+    assert.ok(Math.max(...z) - Math.min(...z) > width / 10, `${width} ${bendStyle} really curves`);
+    assert.ok(g.Faces.length / 3 <= 72); assert.ok(g.Vertices.some((v, i) => i % 3 === 0 && Math.abs(v) < .001), 'center row exists');
+    assert.deepEqual(model, before);
+    const reversed = previewSupportedShape(model, selection, { ...options, amount: -60 }).Geosets[0];
+    for (let i = 2; i < g.Vertices.length; i += 3) assert.ok(Math.abs(g.Vertices[i] + reversed.Vertices[i]) < .0001);
+    const reset = previewSupportedShape(model, selection, { ...options, amount: 0 }).Geosets[0];
+    for (const field of ['Vertices', 'Faces', 'TVertices']) assert.deepEqual(reset[field], model.Geosets[0][field], 'Reset retains original topology');
+    shapeGeosetsWithSupport(model, selection, options); assert.deepEqual(model.Geosets[0], g);
+  }
+});
+
+test('automatic support leaves dense surfaces and solid geometry topology intact', () => {
+  for (const shape of ['Grid', 'Cube']) {
+    const model = { Geosets: buildForgePrimitive({ shape, complexity: 4 }).geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]);
+    const g = previewSupportedShape(model, selection, { tool: 'Bend', axis: 0, direction: 2, amount: 60, pivot: 'middle', support: 'auto' }).Geosets[0];
+    assert.deepEqual(g.Faces, model.Geosets[0].Faces); assert.deepEqual(g.TVertices, model.Geosets[0].TVertices);
+  }
+});

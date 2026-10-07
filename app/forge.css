@@ -33,3 +33,21 @@
 .forge-shape-preview>.forge-counts{min-height:0;margin:0;text-align:right}
 @media(max-width:850px){.forge-shape-gallery svg{height:39px}.forge-shape-body>aside{padding:10px}.forge-shape-preview{padding:10px 10px 0}.forge-preview-switches{gap:6px}.forge-start{min-height:260px}}
 @media(max-height:800px){.forge-shape-gallery svg{height:30px;width:42px}.forge-shape-gallery{gap:4px;margin-bottom:10px}.forge-dimensions{gap:6px;margin-bottom:8px}.forge-shape-body>aside>label{margin-bottom:6px}}
+/* SHAPE keeps the common operation visible and precision controls optional. */
+.shaping-simple .forge-shape-body>aside{width:240px}
+.shaping-tools{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:20px}
+.forge-overlay .shaping-tools button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;font-size:11px}
+.shaping-tools svg{width:50px;height:36px;max-width:100%;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.shaping-caption{font-size:12px;color:#bdcbd6;margin:15px 0 6px}
+.shaping-segments{display:flex;gap:4px}
+.forge-overlay .shaping-segments button{flex:1;padding:5px 4px;font-size:11px}
+.shaping-simple .shaping-amount{margin-bottom:8px}
+.shaping-simple .forge-shape-body>aside>input[type=range]{margin-bottom:8px}
+.forge-overlay .shaping-reverse{font-size:11px;padding:3px 8px}
+.shaping-more{border-top:1px solid #53616e;padding-top:12px;margin-top:20px!important}
+.shaping-preview{display:flex;flex-direction:column;flex:1;min-width:0;padding:10px 10px 0}
+.shaping-preview-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px}
+.shaping-preview>.forge-preview-canvas{border:1px solid #53616e}
+.shaping-preview .forge-counts{text-align:right;min-height:0}
+.shaping-simple footer>button:first-child{margin-left:0;margin-right:auto}
+@media(max-height:800px){.shaping-tools{margin-bottom:12px}.shaping-tools svg{height:26px}.shaping-caption{margin-top:10px}.shaping-more{margin-top:12px!important;padding-top:10px}}
