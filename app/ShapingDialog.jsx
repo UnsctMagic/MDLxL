@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { previewShape, resolveShapeSelection, SHAPE_TOOLS } from '../src/shaping.js';
+import { resolveShapeSelection, SHAPE_TOOLS } from '../src/shaping.js';
+import { previewSupportedShape } from '../src/shaping-support.js';
 import ForgePreview from './ForgePreview.jsx';
 import './forge.css';
 
@@ -14,13 +15,14 @@ export default function ShapingDialog({ model, selectedGeosets, selectionByGeose
   }, [model, geosetIds, selectionByGeoset, initialTool]);
   const [tool, setTool] = useState(initialTool), [axis, setAxis] = useState(initialAxes[0]), [direction, setDirection] = useState(initialAxes[1]), [amount, setAmount] = useState(0), [wire, setWire] = useState(true), [message, setMessage] = useState('');
   const [picked, setPicked] = useState(selectionByGeoset), [picking, setPicking] = useState(false), [affect, setAffect] = useState(geosetIds.some(i => selectionByGeoset[i]?.length) ? 'selected' : 'all'), [pivot, setPivot] = useState(initialTool === 'Taper' ? 'start' : 'middle'), [bendStyle, setBendStyle] = useState('curve'), [local, setLocal] = useState(false), [radius, setRadius] = useState(50);
+  const [support, setSupport] = useState(0);
   const selection = useMemo(() => affect === 'all' ? resolveShapeSelection(model, geosetIds) : Object.fromEntries(geosetIds.filter(i => picked[i]?.length).map(i => [i, picked[i]])), [model, geosetIds, affect, picked]);
   const origin = useMemo(() => {
     const positions = new Map(); for (const gi of geosetIds) for (const id of picked[gi] || []) { const p = Array.from(model.Geosets[gi].Vertices.slice(id * 3, id * 3 + 3)); positions.set(p.join(','), p); }
     return positions.size ? [...positions.values()].reduce((sum, p) => sum.map((v, i) => v + p[i] / positions.size), [0, 0, 0]) : null;
   }, [model, geosetIds, picked]);
-  const options = useMemo(() => ({ tool, axis, direction, amount, pivot, bendStyle, radius: local ? radius : 0, ...(pivot === 'selected' ? { origin } : {}) }), [tool, axis, direction, amount, pivot, bendStyle, local, radius, origin]);
-  const preview = useMemo(() => { try { if (local && radius <= 0) throw Error('Choose a positive influence radius.'); const result = previewShape(model, selection, options); return { geosets: geosetIds.map(i => result.Geosets[i]) }; } catch (e) { return { error: e.message, geosets: geosetIds.map(i => model.Geosets[i]) }; } }, [model, selection, options, geosetIds, local, radius]);
+  const options = useMemo(() => ({ tool, axis, direction, amount, pivot, bendStyle, support: picking ? 0 : support, radius: local ? radius : 0, ...(pivot === 'selected' ? { origin } : {}) }), [tool, axis, direction, amount, pivot, bendStyle, support, picking, local, radius, origin]);
+  const preview = useMemo(() => { try { if (local && radius <= 0) throw Error('Choose a positive influence radius.'); const result = previewSupportedShape(model, selection, options); return { geosets: geosetIds.map(i => result.Geosets[i]) }; } catch (e) { return { error: e.message, geosets: geosetIds.map(i => model.Geosets[i]) }; } }, [model, selection, options, geosetIds, local, radius]);
   const apply = async () => { try { const result = await onApply(options, selection); if (result !== false) onClose(); } catch (e) { setMessage(e.message); } };
   const pick = (localIndex, id, add) => { const gi = geosetIds[localIndex]; setPicked(previous => { const ids = new Set(add ? previous[gi] || [] : []); if (add && ids.has(id)) ids.delete(id); else ids.add(id); return { ...(add ? previous : {}), [gi]: [...ids] }; }); setPivot('selected'); setAffect('all'); setMessage(''); };
   const range = tool === 'Taper' ? [-95, 200] : tool === 'Dome' ? [-100, 100] : tool === 'Bend' && bendStyle === 'fold' ? [-180, 180] : [-360, 360];
@@ -38,8 +40,9 @@ export default function ShapingDialog({ model, selectedGeosets, selectionByGeose
       <label>Affect<select aria-label="Affect" value={affect} onChange={e => setAffect(e.target.value)}><option value="all">Whole geosets</option><option value="selected">Selected vertices only</option></select></label>
       <label>{tool === 'Taper' ? 'Amount (%)' : tool === 'Dome' ? 'Height' : 'Angle (degrees)'}<input type="number" value={amount} onChange={e => setAmount(+e.target.value)}/></label><input type="range" min={range[0]} max={range[1]} value={amount} onChange={e => setAmount(+e.target.value)} aria-label="Shaping amount"/>
       <details><summary>Local influence</summary><label className="forge-check"><input type="checkbox" checked={local} onChange={e => setLocal(e.target.checked)}/>Only near center</label>{local && <label>Radius<input aria-label="Influence radius" type="number" min="0.01" value={radius} onChange={e => setRadius(+e.target.value)}/></label>}<p>Movement fades smoothly to zero outside this radius.</p></details>
+      <details><summary>More triangles</summary><p>For a shape with no middle vertices, add a few support rows. Uses the Forge projector grid. Whole geosets only.</p><input aria-label="Shaping support rows" type="range" min="0" max="4" step="1" value={support} disabled={affect !== 'all' || picking} onChange={e => setSupport(+e.target.value)}/><p>{support ? `Support ${support} / 4` : 'Original mesh'} · {preview.geosets.reduce((n, g) => n + g.Faces.length / 3, 0)} triangles</p></details>
       <label className="forge-check"><input type="checkbox" checked={wire} onChange={e => setWire(e.target.checked)}/>Wireframe</label><button onClick={() => setAmount(0)}>Reset preview</button>
-      <p>Preview first, then Apply. Cancel leaves the model untouched. One undo step. Curves need rows of vertices; Forge complexity adds these to new shapes.</p>{(preview.error || message) && <p role="alert" className="forge-error">{preview.error || message}</p>}
-    </aside><ForgePreview preferences={preferences} geosets={preview.geosets} wire={wire} initialView="largest" shapeHandle={picking ? null : { amount, onChange: value => setAmount(Math.round(Math.max(range[0], Math.min(range[1], value)))) }} vertexSelection={{ picking, byGeoset: geosetIds.map(i => picked[i] || []), onPick: pick, origin: pivot === 'selected' ? origin : null }}/></div>
+      <p>Preview first, then Apply. Cancel leaves the model untouched. One undo step. For a coarse shield, open More triangles.</p>{(preview.error || message) && <p role="alert" className="forge-error">{preview.error || message}</p>}
+    </aside><ForgePreview preferences={preferences} geosets={preview.geosets} wire={wire} initialView="largest" shapeHandle={picking ? null : { amount, onChange: value => setAmount(Math.round(Math.max(range[0], Math.min(range[1], value)))) }} vertexSelection={{ picking, byGeoset: geosetIds.map(i => support && !picking ? [] : picked[i] || []), onPick: pick, origin: pivot === 'selected' ? origin : null }}/></div>
     <footer><button onClick={onClose}>Cancel</button><button className="forge-primary" disabled={!!preview.error || amount === 0 || picking} onClick={apply}>Apply</button></footer></section></div>;
 }

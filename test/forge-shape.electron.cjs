@@ -22,6 +22,8 @@ const previewModel = () => {
   const { createDemoDocument, openDocument } = await import('../src/editor-document.js'), { buildForgePrimitive } = await import('../src/forge-primitives.js'), { commitForge } = await import('../src/forge.js');
   const doc = createDemoDocument(), mesh = buildForgePrimitive({ shape: 'Plane', width: 100, height: 100, complexity: 2 });
   const shieldResult = doc.apply('Shield fixture', [], model => commitForge(model, mesh, { texturePath: 'Textures\\white.blp' })), shieldGi = shieldResult.geosetIndices[0];
+  const coarse = structuredClone(mesh), coarseG = coarse.geosets[0]; coarseG.Vertices = new Float32Array([-50,-50,0,50,-50,0,50,50,0,-50,50,0]); coarseG.Normals = new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1]); coarseG.TVertices = [new Float32Array([0,0,1,0,1,1,0,1])]; coarseG.Faces = new Uint16Array([0,1,2,0,2,3]);
+  const coarseGi = doc.apply('Coarse shield fixture', [], model => commitForge(model, coarse, { texturePath: 'Textures\\white.blp' })).geosetIndices[0];
   const fixture = path.join(out, 'shield.mdx'); fs.writeFileSync(fixture, new Uint8Array(doc.serialize('mdx'))); const hash = () => crypto.createHash('sha256').update(fs.readFileSync(fixture)).digest('hex'), beforeHash = hash();
   const app = await _electron.launch({ executablePath: executable, args: ['--disable-backgrounding-occluded-windows', fixture], env: { ...process.env, MDLXL_PROFILE: path.join(out, `profile-${Date.now()}`) }, timeout: 60000 });
   const errors = [];
@@ -71,8 +73,15 @@ const previewModel = () => {
     await dialog.getByRole('button', { name: 'Apply', exact: true }).click(); await dialog.waitFor({ state: 'detached' });
     const applied = await page.evaluate(viewportModel); assert.deepEqual(applied[shieldGi].vertices, expected[0]); assert.deepEqual(applied[0], original[0]); assert.deepEqual(applied[shieldGi].uv, original[shieldGi].uv); assert.deepEqual(applied[shieldGi].faces, original[shieldGi].faces); assert.deepEqual(applied[shieldGi].groups, original[shieldGi].groups);
     await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(viewportModel), original);
+    await page.locator('[data-warmkey="geosetsClear"]').click(); await page.getByLabel(`Select geoset ${coarseGi}`, { exact: true }).check(); await shapeCommand(); await dialog.waitFor();
+    await dialog.getByLabel('Affect', { exact: true }).selectOption('all'); await dialog.getByLabel('Bend style').selectOption('fold'); await setRange(dialog.getByLabel('Shaping amount'), 90);
+    await dialog.locator('summary').filter({ hasText: 'More triangles' }).click(); await setRange(dialog.getByLabel('Shaping support rows'), 1); await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const supported = (await page.evaluate(previewModel))[0]; assert.ok(supported.length > 12); const depth = supported.filter((_, i) => i % 3 === 2); assert.ok(Math.max(...depth) - Math.min(...depth) > 20, 'four-corner shield gets a real bent middle');
+    await dialog.getByRole('button', { name: 'Oblique', exact: true }).click(); await dialog.getByLabel('Shaping support rows').scrollIntoViewIfNeeded(); await page.screenshot({ path: path.join(out, '05-coarse-shield-supported.png') });
+    await dialog.getByRole('button', { name: 'Apply', exact: true }).click(); await dialog.waitFor({ state: 'detached' }); assert.deepEqual((await page.evaluate(viewportModel))[coarseGi].vertices, supported);
+    await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(viewportModel), original, 'support and bend undo together');
     const afterSidebar = await page.locator('.classic-sidebar').first().boundingBox(); assert.equal(afterSidebar?.width, sidebar?.width); assert.equal(hash(), beforeHash);
-    assert.deepEqual(errors, []); fs.writeFileSync(path.join(out, 'verification.json'), JSON.stringify({ executable, fixtureSHA256: beforeHash, primitiveCount: 7, maxTriangles: 768, vertexPick: true, middleFold: true, cancelAndUndo: true, sidebarWidth: afterSidebar?.width, nativeSaveAs: true, generatedTextureSaved: true, rendererErrors: errors }, null, 2));
+    assert.deepEqual(errors, []); fs.writeFileSync(path.join(out, 'verification.json'), JSON.stringify({ executable, fixtureSHA256: beforeHash, primitiveCount: 7, maxTriangles: 768, vertexPick: true, middleFold: true, fourCornerShieldSupport: true, cancelAndUndo: true, sidebarWidth: afterSidebar?.width, nativeSaveAs: true, generatedTextureSaved: true, rendererErrors: errors }, null, 2));
     console.log('PASS packaged Forge shapes and SHAPE middle/selected-vertex folds, immutable preview, Cancel, Apply, undo, native Save As and texture persistence, UV/rig/face preservation and unchanged sidebar.');
   } catch (e) { const page = await app.firstWindow(); fs.writeFileSync(path.join(out, 'failure.txt'), await page.locator('body').innerText()); fs.writeFileSync(path.join(out, 'failure.html'), await page.content()); await page.screenshot({ path: path.join(out, 'failure.png') }); throw e; } finally { await app.evaluate(({ app }) => app.exit(0)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
