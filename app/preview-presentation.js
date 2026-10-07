@@ -15,8 +15,8 @@ export function previewPresentationProps(props) {
   const wires = previewMode === 'wireframe' || !!props.overlays?.wires;
   const grid = neutralBackground && (props.overlays?.grid ?? props.showGrid ?? true);
   const display = { ...CLEAN_DISPLAY, ...(props.overlays || {}), wires, vertices, grid, axes: grid && neutralBackground };
-  // Animations shows authored effects without their emitter editing markers.
-  if (props.cleanAnimationPreview) display.particles = false;
+  // Animations shows authored effects independently of selected emitter markers.
+  if (props.cleanAnimationPreview) display.particles = !!props.selectedNodeIds?.length;
   return {
     ...props, preferences: preferenceCache.get(original), mode: previewMode, shaded: true, rgbPreview: false, restPose: props.restPose ?? false,
     overlays: display, showGrid: grid, showAxes: grid && neutralBackground,
