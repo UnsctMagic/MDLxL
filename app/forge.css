@@ -51,3 +51,6 @@
 .shaping-preview .forge-counts{text-align:right;min-height:0}
 .shaping-simple footer>button:first-child{margin-left:0;margin-right:auto}
 @media(max-height:800px){.shaping-tools{margin-bottom:12px}.shaping-tools svg{height:26px}.shaping-caption{margin-top:10px}.shaping-more{margin-top:12px!important;padding-top:10px}}
+
+/* Glow Up occupies the existing Forge modal only. */
+.forge-glow>aside>label:has(select){display:flex;flex-direction:column;align-items:stretch;gap:5px}.forge-glow select{max-width:100%}.forge-glow input[type=number]{width:85px}.forge-glow-preview{display:flex;flex-direction:column;flex:1;min-width:0;padding:10px}.forge-glow-preview>.game-preview-root{flex:1;min-height:0}.forge-glow-preview .forge-preview-heading span{font-size:11px;color:#bdcbd6}
