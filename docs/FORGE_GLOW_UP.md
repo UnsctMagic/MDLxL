@@ -64,10 +64,14 @@ World Editor ability or an attached external effect.
 - Isolated packaged Electron test: no-selection guidance; selected vertices;
   dimensions and alpha controls; all types; preview/Cancel immutability; Add;
   one-step undo; native MDL/MDX Save As; unchanged 164px main sidebar.
-  Native bone matrices face two orbited camera angles with a stationary pivot;
+  Real left-button mouse drags rotate the camera in both directions; native
+  bone matrices follow those camera angles with a stationary pivot.
   0% and 100% intensity produce different rendered glow pixels. No renderer errors.
 - Native Warcraft III / World Editor and external model editors have not been
   exercised. Those remain separate compatibility acceptance checks.
 
 Local evidence: `out/glow-research/inspection.json`,
-`out/glow-research/verification.json`, and `out/glow-ui/`.
+`out/glow-research/verification.json`, `out/glow-ui/`, and
+`out/glow-rotation-ui/`. The mouse-drag regression test fails on the previous
+package, where the unsupported `cameraMode="camera"` left rotation unbound,
+and passes with `cameraMode="rotate"`.

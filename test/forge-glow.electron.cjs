@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
-const root = path.resolve(__dirname, '..'), out = path.join(root, 'out/glow-ui');
+const root = path.resolve(__dirname, '..'), out = process.env.MDLXL_TEST_OUT || path.join(root, 'out/glow-ui');
 const executable = process.env.MDLXL_TEST_EXE || path.join(root, 'out/glow-native/MDLxL-win32-x64/MDLxL.exe');
 const range = (locator, value) => locator.evaluate((el, value) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(value)); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, value);
 const readModel = (selector = '[aria-label="3D model viewport"]') => {
@@ -12,12 +12,11 @@ const readModel = (selector = '[aria-label="3D model viewport"]') => {
   for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Geosets) return JSON.parse(JSON.stringify(fiber.memoizedProps.model));
   throw Error('Model unavailable');
 };
-const previewRig = ({ position, check = false } = {}) => {
+const previewRig = ({ check = false } = {}) => {
   const el = document.querySelector('.forge-glow-preview .game-preview-root'); let fiber = el[Object.keys(el).find(k => k.startsWith('__reactFiber'))];
   for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
     const state = hook.memoizedState?.current;
     if (!state?.native || !state.controls) continue;
-    if (position) { state.controls.object.position.set(...position); state.controls.update(); }
     const native = state.native, bone = native.rendererData.model.Bones.at(-1), matrix = Array.from(native.rendererData.nodes[bone.ObjectId].matrix), camera = state.controls.object;
     if (check) { const facing = camera.matrixWorld.elements.slice(8, 11), normal = matrix.slice(0, 3); return Math.abs(normal.reduce((sum, v, i) => sum + v * facing[i], 0) / Math.hypot(...normal) / Math.hypot(...facing)) > .999; }
     return { matrix, pivot: Array.from(bone.PivotPoint), camera: Array.from(camera.matrixWorld.elements) };
@@ -58,8 +57,13 @@ const previewRig = ({ position, check = false } = {}) => {
     await range(page.getByLabel('Glow intensity', { exact: true }), 100); await settle(); const bright = await stage.screenshot({ path: path.join(out, 'alpha-100.png') });
     assert.notDeepEqual(dark, bright, 'intensity changes the rendered glow pixels');
     await range(page.getByLabel('Glow intensity', { exact: true }), 40); await settle();
-    for (const position of [[180, -180, 100], [-160, -100, 80]]) {
-      await page.evaluate(previewRig, { position }); await page.waitForFunction(previewRig, { check: true }, { timeout: 3000 }); const pose = await page.evaluate(previewRig);
+    const viewport = await page.locator('.forge-glow-preview canvas').first().boundingBox();
+    for (const [dx, dy] of [[95, 35], [-65, -55]]) {
+      const before = await page.evaluate(previewRig), x = viewport.x + viewport.width / 2, y = viewport.y + viewport.height / 2;
+      await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 12 }); await page.mouse.up();
+      await settle(); const after = await page.evaluate(previewRig);
+      assert.ok(after.camera.slice(0, 12).some((v, i) => Math.abs(v - before.camera[i]) > .01), 'left mouse drag rotates the preview camera');
+      await page.waitForFunction(previewRig, { check: true }, { timeout: 3000 }); const pose = await page.evaluate(previewRig);
       const normal = pose.matrix.slice(0, 3), facing = pose.camera.slice(8, 11), dot = normal.reduce((sum, v, i) => sum + v * facing[i], 0) / Math.hypot(...normal) / Math.hypot(...facing);
       assert.ok(Math.abs(dot) > .999, `packaged native billboard faces the orbited camera: ${JSON.stringify({ dot, normal, facing, pose })}`);
       assert.ok(pose.matrix.slice(12, 15).every(v => Math.abs(v) < .0001), 'centered origin pivot stays in place');
@@ -80,8 +84,8 @@ const previewRig = ({ position, check = false } = {}) => {
     }
     await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(readModel), base, 'one-step undo');
     const afterSidebar = await page.locator('.classic-sidebar').first().boundingBox(); assert.equal(afterSidebar.width, sidebar.width); assert.equal(hash(), beforeHash); assert.deepEqual(errors, []);
-    fs.writeFileSync(path.join(out, 'verification.json'), JSON.stringify({ executable, noSelectionGate: true, sizeSliders: true, alpha: .4, types: ['billboard', 'plane', 'lockX', 'lockY', 'lockZ'], independentPreview: true, cancel: true, oneStepUndo: true, saves: ['MDL', 'MDX'], sidebarWidth: sidebar.width, fixtureSHA256: beforeHash, rendererErrors: errors }, null, 2));
-    console.log('PASS packaged Glow Up: selection, types, dimensions, alpha, rig preservation, Cancel, Add, undo, MDL/MDX Save As, unchanged sidebar and fixture.');
+    fs.writeFileSync(path.join(out, 'verification.json'), JSON.stringify({ executable, mouseDragOrbit: true, billboardFollowsCamera: true, noSelectionGate: true, sizeSliders: true, alpha: .4, types: ['billboard', 'plane', 'lockX', 'lockY', 'lockZ'], independentPreview: true, cancel: true, oneStepUndo: true, saves: ['MDL', 'MDX'], sidebarWidth: sidebar.width, fixtureSHA256: beforeHash, rendererErrors: errors }, null, 2));
+    console.log('PASS packaged Glow Up: mouse-drag camera orbit, billboard facing, selection, types, dimensions, alpha, rig preservation, Cancel, Add, undo, MDL/MDX Save As, unchanged sidebar and fixture.');
   } catch (e) { const page = await app.firstWindow(); fs.writeFileSync(path.join(out, 'failure.txt'), await page.locator('body').innerText()); await page.screenshot({ path: path.join(out, 'failure.png') }); throw e; }
   finally { await app.evaluate(({ app }) => app.exit(0)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
