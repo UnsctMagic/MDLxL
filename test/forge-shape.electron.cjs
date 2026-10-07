@@ -36,7 +36,7 @@ const previewModel = () => {
     const original = await page.evaluate(viewportModel), sidebar = await page.locator('.classic-sidebar').first().boundingBox();
     await page.screenshot({ path: path.join(out, '01-default.png') });
     await page.locator('[data-warmkey="forge"]').click();
-    await page.getByRole('tab', { name: 'Projector', exact: true }).waitFor(); assert.equal(await page.locator('.forge-modes').getByRole('tab').count(), 2); assert.equal(await page.getByRole('tab', { name: 'Projector', exact: true }).getAttribute('aria-selected'), 'true');
+    await page.getByRole('tab', { name: 'Projector', exact: true }).waitFor(); assert.equal(await page.locator('.forge-modes').getByRole('tab').count(), 3); assert.equal(await page.getByRole('tab', { name: 'Projector', exact: true }).getAttribute('aria-selected'), 'true');
     assert.equal(await page.getByRole('button', { name: 'Pick geoset', exact: true }).count(), 0);
     assert.equal(await page.locator('.forge-tools').count(), 0); await page.screenshot({ path: path.join(out, '02-projector-empty.png') });
     await page.getByRole('button', { name: 'Texture library', exact: true }).click(); await page.getByRole('dialog', { name: 'Material and Texture Library' }).waitFor(); await page.getByLabel('Close texture library').click();

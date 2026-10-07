@@ -970,6 +970,14 @@ export default function App() {
     } catch (error) { say(error.message, true); }
   }
   function showHistory() { setHistoryMB(Math.round(doc.historyStats.budgetBytes / 1048576)); setHistorySteps(doc.historyStats.maxSteps); setDialog({ type: 'history' }); }
+  async function forgeGlow(settings) {
+    const { commitGlow } = await import('../src/forge-glow.js');
+    if (latest.current.session !== session || savingRef.current) return false;
+    const result = edit('Glow Up', ['Geosets', 'Materials', 'Textures', 'Bones', 'Nodes', 'PivotPoints', 'GeosetAnims', 'BindPoses', 'Info'], m => commitGlow(m, validSelection, settings));
+    if (result === false) return false;
+    setSelectable(new Set(result.geosetIndices)); setSelection({ [result.geosetIndices[0]]: [0, 1, 2, 3] }); setActiveGeoset(result.geosetIndices[0]); setSelectedNodeIds([result.boneId]); setRenderMode('textured'); setDialog(null);
+    say('Glow added with its own bone.'); return result;
+  }
   async function forgeItem({mesh,asset,texturePath,trimColor}) {
     const {commitForge}=await import('../src/forge.js');
     if(latest.current.session!==session || savingRef.current)return false;
@@ -1346,7 +1354,7 @@ export default function App() {
     <div className="classic-status" role="status"><span>{saving ? 'Saving…' : status}</span><span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'paint' ? paintMessage('paint.hint') : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations'}</span></div>
     {mode === 'uv' && window.desktop && uvWindow && <DetachedWindow childWindow={uvWindow} title="MDLxL — UV Wrapper" preferences={preferences} onClose={() => { uvWindowRef.current = null; setUVWindow(null); if (latest.current.mode === 'uv') selectMode('vertices'); }}>{uvWorkspace}{dialog?.host === 'uv' && textureLibraryDialog}</DetachedWindow>}
     {dialog?.type === 'portraitSetup' && <PortraitSetup model={model} missingCamera={dialog.missingCamera} missingSequence={dialog.missingSequence} sourceIndex={sequence >= 0 ? sequence : model.Sequences.length ? 0 : -1} disabled={doc.readOnly || saving} onCreate={completePortraitSetup} onSetCamera={setMissingPortraitCamera} onClose={() => setDialog(null)}/>}
-    {dialog?.type==='forge' && <Suspense fallback={<div className="classic-modal">Loading Forge…</div>}><Forge preferences={preferences} model={model} modelPath={session.path} onClose={()=>setDialog(null)} onCommit={forgeItem}/></Suspense>}
+    {dialog?.type==='forge' && <Suspense fallback={<div className="classic-modal">Loading Forge…</div>}><Forge selection={validSelection} textureAssets={session.assets} teamColor={teamColor} onCommitGlow={forgeGlow} preferences={preferences} model={model} modelPath={session.path} onClose={()=>setDialog(null)} onCommit={forgeItem}/></Suspense>}
     {dialog?.type==='bitsAndParts' && <Suspense fallback={<div className="classic-modal">Loading BitsAndParts…</div>}><BitsAndParts model={model} selectionByGeoset={mode === 'vertices' ? validSelection : null} preferences={preferences} textureAssets={session.assets} teamColor={teamColor} onClose={()=>setDialog(null)} onCommit={importPart}/></Suspense>}
     {dialog?.type==='particles' && <Suspense fallback={<div className="classic-modal">Loading Particle Editor…</div>}><ParticleEditor onPlacedAssets={assets=>{changeOverlay('particles',true);session.assets=new Map([...session.assets,...assets]);refresh();}} doc={doc} revision={doc.revision} edit={edit} refresh={refresh} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} selectedNodeId={dialog.nodeId} attachmentNodeId={dialog.attachmentId} selectedGeometry={dialog.selection} sequenceIndex={sequence} previewFrame={time} onClose={()=>setDialog(null)} onNodeChange={id=>setSelectedNodeIds(id==null?[]:[id])}/></Suspense>}
     {dialog?.type==='shape' && <Suspense fallback={<div className="classic-modal">Loading shaping tools…</div>}><ShapingDialog preferences={preferences} model={model} selectedGeosets={[...selectable]} selectionByGeoset={validSelection} initialTool={dialog.tool} onClose={()=>setDialog(null)} onApply={async(options,selection)=>{const {shapeGeosetsWithSupport}=await import('../src/shaping-support.js');return edit('Shape geosets',['Geosets','Info'],m=>shapeGeosetsWithSupport(m,selection,options));}}/></Suspense>}
