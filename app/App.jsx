@@ -44,7 +44,7 @@ import { SHAPE_TOOLS } from '../src/shaping.js';
 import { retainedForgeAssets, forgeExportArchive, isForgeAssetPath, missingForgeAssetPaths } from '../src/forge-assets.js';
 import { applyMovementTransform, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
-import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, validateUVPreview, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
+import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
 import { applyMaterialPreset } from '../src/material-presets.js';
 import { setUVTextureWrapping, uncoupleUVVertices } from '../src/uv-tools.js';
 import './modules.css';
@@ -805,20 +805,15 @@ export default function App() {
       session.uvPreviews = beginUVPreview(model, session.uvPreviews, mode==='uv'?[activeGeoset]:[...selectable], asset, null);
       await loadTextures([asset], session, { source: 'library' });
       setDialog(null); selectMode('uv'); refresh();
-      say('Temporary texture loaded. Save keeps it; Revert restores the earlier UV layout.');
+      say('Temporary texture loaded. Save keeps it; Revert removes it and keeps your geometry and UV edits.');
     } catch (error) { say(error.message, true); }
   }
   function finishUVPreview(revert = false) {
+    if (savingRef.current) return;
     if (revert) {
-      try {
-        const pending = Object.values(session.uvPreviews);
-        for (const draft of pending) validateUVPreview(model, draft);
-        if (pending.every(draft => draft.originalUV.every((uv, i) => uv.length === model.Geosets[draft.geosetIndex].TVertices[i]?.length && uv.every((value, n) => value === model.Geosets[draft.geosetIndex].TVertices[i][n])))) {
-          session.uvPreviews = {}; setLiveUV(null); refresh(); say('Reverted temporary textures.'); return;
-        }
-      } catch (error) { say(error.message, true); return; }
+      revertUVPreviews(model, session.uvPreviews); session.uvPreviews = {}; setLiveUV(null); refresh(); say('Reverted temporary textures; geometry and UV edits kept.'); return;
     }
-    const result = edit(revert ? 'Revert UV texture previews' : 'Save UV texture previews', revert ? ['Geosets'] : ['Geosets','Textures','Materials'], m => revert ? revertUVPreviews(m, session.uvPreviews) : applyUVPreviews(m, session.uvPreviews));
+    const result = edit('Save UV texture previews', ['Geosets','Textures','Materials'], m => applyUVPreviews(m, session.uvPreviews));
     if (result !== false) { session.uvPreviews = {}; setLiveUV(null); refresh(); }
   }
   const importTextures = async () => { try { if (window.desktop) say(`Loaded ${await loadTextures(await window.desktop.textures())} textures.`); else textures.current.click(); } catch (error) { say(error.message, true); } };
@@ -839,7 +834,7 @@ export default function App() {
       // travelling back through that history so it can be repaired by Undo.
       if (validBefore) {
         try { validateUVPreviewGuard(doc.model, session.uvPreviews, guard); }
-        catch { selectionHistory.travel(redo ? 'undo' : 'redo', restored); refresh(); say('Save or Revert temporary UV textures before undoing a geometry structure change.'); return; }
+        catch { selectionHistory.travel(redo ? 'undo' : 'redo', restored); refresh(); say('Save or Revert temporary UV textures before undoing changes to their geoset targets.'); return; }
       }
       setSelection(restored.selection); setHidden(restored.hidden); setSelectable(restored.selectable); setVisibleOnly(restored.visibleOnly || new Set()); setActiveGeoset(restored.activeGeoset); setUvSet(restored.uvSet); if(restored.selectedNodeIds)setSelectedNodeIds(restored.selectedNodeIds); setLiveUV(null); refresh(); say(redo ? 'Redo' : 'Undo');
     } catch (error) { refresh(); say(error.message, true); }
