@@ -10,6 +10,7 @@ import { BUILT_IN_VIEWPORT_PRESETS, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIE
 import { wireDashArray } from '../src/wire-pattern.js';
 import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS, treeAppearanceForTheme } from '../src/tree-appearance.js';
 import './settings.css';
+import { updateStatusText } from './UpdatePrompt.jsx';
 
 function AppearanceSection({ title, children }) {
   const [open, setOpen] = useState(true);
@@ -92,7 +93,7 @@ function AssetPreload({ modelPath }) {
   </section>;
 }
 
-export default function Settings({ preferences, onChange, onClose, catalog: suppliedCatalog, initialTab = 'mouse', gameDataPath = '', modelPath = null, onChooseGameData, onClearGameData }) {
+export default function Settings({ preferences, onChange, onClose, catalog: suppliedCatalog, initialTab = 'mouse', gameDataPath = '', modelPath = null, onChooseGameData, onClearGameData, updateStatus, onCheckUpdates, onRevertUpdate }) {
   const context = useWarmKeys(), catalog = suppliedCatalog || context.catalog;
   const prefs = normalizePreferences(preferences);
   const [tab, setTab] = useState(initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
@@ -197,6 +198,13 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
     <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['mouse', 'Mouse'], ['warmkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['configuration','Configuration'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-warmkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); setRecording(null); setMessage(''); }}>{label}</button>)}</div>
     <div className="classic-modal-body settings-body" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>
       {tab === 'mouse' && <div className="settings-page">
+        <h3>Updates</h3>
+        <Toggle id="updates:startup" label="Auto update" checked={prefs.checkUpdatesOnStartup} onChange={checkUpdatesOnStartup => commit({ checkUpdatesOnStartup })} description="Search for updates when MDLxL starts. Ask before downloading or installing."/>
+        <button data-warmkey="updates:check" disabled={!onCheckUpdates || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onCheckUpdates}>Search for updates</button>
+        <button data-warmkey="updates:revert" disabled={!onRevertUpdate || !updateStatus?.previousVersion || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onRevertUpdate}>Revert to last version</button>
+        {updateStatus?.previousVersion && <small>{`Previous version: ${updateStatus.previousVersion}`}</small>}
+        <p className="settings-hint" role="status">{updateStatusText(updateStatus)}</p>
+        {updateStatus?.error && updateStatus.state !== 'error' && <p role="alert">{updateStatus.error}</p>}
         <h3>Camera controls</h3><p>Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.</p>
         <div className="settings-inline-actions"><span>Preset:</span><button data-warmkey="mouse:preset:classic" onClick={() => commit(CAMERA_PRESETS.classic)}>Classic MDLVis</button><button data-warmkey="mouse:preset:orbit" onClick={() => commit(CAMERA_PRESETS.orbit)}>Orbit navigation</button></div>
         <div className="settings-graphics-grid">{[['right', 'Right mouse'], ['middle', 'Middle mouse']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select data-warmkey={`mouse:binding:${key}`} aria-label={`${label} camera action`} value={prefs.cameraBindings[key]} onChange={event => commit({ cameraBindings: { ...prefs.cameraBindings, [key]: event.target.value } })}>{(key === 'middle' ? [['toggle', 'Toggle rotation / work']] : []).concat([['pan', 'Pan'], ['rotate', 'Rotate'], ['zoom', 'Zoom'], ['none', 'No action']]).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}</div>
