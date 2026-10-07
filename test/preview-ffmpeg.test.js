@@ -41,6 +41,32 @@ async function fixture(t, options = {}) {
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   return new PreviewRecordingStore({ temporaryRoot: path.join(root,'frames'), destination: path.join(root,'Screenshots'), ...options });
 }
+
+test('recording uses the destination drive even when the system temporary drive is full', { skip: process.platform !== 'win32' }, async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-gif-drive-test-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const destination = path.join(root, 'Showcase Recordings');
+  const store = new PreviewRecordingStore({ destination });
+  const diskChecks = [];
+  t.mock.method(fs, 'statfs', async directory => {
+    diskChecks.push(directory);
+    return { bavail: directory.startsWith(destination + path.sep) ? 32 * 1024 ** 3 : 0, bsize: 1 };
+  });
+  const { jobId, storageBudget } = await store.begin(1, { width: 16, height: 8, quality: 'high', loop: true });
+  const job = store.get(1, jobId), directory = job.directory;
+  assert.equal(storageBudget, store.maxTempBytes);
+  assert.ok(directory.startsWith(destination + path.sep));
+  for (let i = 0; i < 30; i++) {
+    const result = await store.frame(1, { jobId, width: 16, height: 8, time: i * 1000 / 30, buffer: frame(i) });
+    assert.equal(result.accepted, true);
+  }
+  await store.finish(1, { jobId, time: 1000 });
+  const saved = await store.save(1, jobId);
+  assert.deepEqual(inspectGIF(await fs.readFile(saved.path)), { delay: 1000, frames: 30, loop: 0 });
+  assert.ok(diskChecks.length > 30);
+  assert.ok(diskChecks.every(directory => directory.startsWith(destination + path.sep)));
+  await assert.rejects(fs.access(directory));
+});
 test('GIF timing rounds cumulatively at every supported capture FPS and preserves holds', () => {
   for (const fps of [10,15,20,24,25,30,50]) {
     const frames = Array.from({length:fps},(_,i)=>({file:String(i),time:i*1000/fps}));

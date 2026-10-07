@@ -86,7 +86,7 @@ function runFFmpeg(executable, args, job) {
 }
 
 class PreviewRecordingStore {
-  constructor({ executable = path.join(__dirname, 'ffmpeg', 'ffmpeg.exe'), temporaryRoot = path.join(os.tmpdir(), 'MDLxL-recordings'), destination, maxTempBytes = MAX_TEMP_BYTES } = {}) {
+  constructor({ executable = path.join(__dirname, 'ffmpeg', 'ffmpeg.exe'), destination, temporaryRoot = destination ? path.join(destination, '.temporary') : path.join(os.tmpdir(), 'MDLxL-recordings'), maxTempBytes = MAX_TEMP_BYTES } = {}) {
     this.executable = executable; this.temporaryRoot = temporaryRoot; this.destination = destination;
     this.maxTempBytes = maxTempBytes; this.jobs = new Map(); this.starting = new Set();
     this.encodingQueue = Promise.resolve();
