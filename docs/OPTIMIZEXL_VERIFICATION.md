@@ -265,6 +265,8 @@ All 122 optimizer/model-optimizer tests and 57 compatibility tests pass. The iso
 
 Reproduce with `node --test test/model-optimizer.test.js test/optimizexl*.test.js`, `node test/optimizexl-format-models.mjs <private-model>` and `node test/optimizexl-format.electron.cjs`. The desktop test uses `MDLXL_FORMAT_MODEL`, `MDLXL_OPTIMIZEXL_EXE`, `MDLXL_PLAYWRIGHT_MODULE` and `MDLXL_OPTIMIZEXL_PROOF_ROOT`. User model bytes and generated review copies remain outside Git.
 
+For the PR handoff, concurrent main `10644470` (selected-emitter markers in Animations) was integrated into the feature branch. Conflicts were confined to generated assets, which were regenerated from the combined source. All 134 optimizer/shared-preview tests pass, and the separately repackaged combined executable repeats the complete 13-animation pose, rotation, playback, approval, save and Back proof. Evidence is under ignored `out/strigoi-proof/`; the user model and installed profile remain unchanged.
+
 ## Reproducing
 
 ### VoidWalker cubic cleanup and export verification
