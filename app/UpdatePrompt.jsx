@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import UpdateShredder from './UpdateShredder.jsx';
 
 export const WEBSITE = 'https://www.lowpolyworks.com/mdlxl';
 export function OfficialWebsite() {
@@ -20,6 +21,7 @@ export default function UpdatePrompt({ status, Dialog, onInstall, onClose }) {
   };
   if (!release) return null;
   return <Dialog overlayClass="update-overlay" onKeyDown={trapFocus} title="MDLxL update" onClose={busy ? () => {} : onClose} footer={<><button data-warmkey="update:install" disabled={busy || !status.canInstall} onClick={onInstall}>Update and restart</button><button data-warmkey="update:later" disabled={busy} onClick={onClose}>Later</button></>}>
+    <UpdateShredder status={status}/>
     <p><strong>{`MDLxL ${release.version} is available.`}</strong></p>
     <p>{`Installed version: ${status.currentVersion}`}</p>
     <ul className="update-summary" translate="no">{release.summary.map((line, index) => <li translate="no" key={index}>{line}</li>)}</ul>
