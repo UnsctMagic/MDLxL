@@ -33,6 +33,13 @@ test('primitive dimensions and placement apply before adding, and previews are i
   assert.ok(Array.from(rotated).filter((_, i) => i % 3 === 0).every(n => Math.abs(n) < 1e-5));
   for (const options of [{ complexity: 5 }, { width: 0 }, { rotation: [NaN, 0, 0] }, { shape: 'Bad' }]) assert.throws(() => buildForgePrimitive(options));
 });
+test('thin primitives keep useful grid spacing instead of excessive cuts through their thickness', () => {
+  for (const options of [{ shape: 'Box', width: 60, height: 100, depth: 10 }, { shape: 'Plane', width: 100, height: 10 }]) {
+    const mesh = buildForgePrimitive({ ...options, complexity: 4 }), g = mesh.geosets[0]; assert.ok(mesh.triangleCount < 220);
+    if (options.shape === 'Box') assert.equal(new Set(Array.from(g.Vertices).filter((_, i) => i % 3 === 2)).size, 2, 'thin side has a single cell through its depth');
+    for (let i = 0; i < g.Faces.length; i += 3) { const p = Array.from(g.Faces.slice(i, i + 3), id => Array.from(g.Vertices.slice(id * 3, id * 3 + 3))), lengths = p.map((v, k) => Math.hypot(...v.map((n, a) => n - p[(k + 1) % 3][a]))); const angles = lengths.map((v, k) => Math.acos(Math.max(-1, Math.min(1, (lengths[(k + 1) % 3] ** 2 + lengths[(k + 2) % 3] ** 2 - v * v) / (2 * lengths[(k + 1) % 3] * lengths[(k + 2) % 3])))) * 180 / Math.PI); assert.ok(Math.min(...angles) >= 30); }
+  }
+});
 test('each primitive commits through Forge, saves to MDL and MDX, and undoes as one operation', () => {
   for (const shape of FORGE_SHAPES) {
     const doc = createDemoDocument(), before = structuredClone(doc.model), mesh = buildForgePrimitive({ shape });

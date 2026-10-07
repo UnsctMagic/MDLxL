@@ -14,13 +14,15 @@ export function buildForgePrimitive(options = {}) {
   if (!Number.isFinite(tube) || tube < 5 || tube > 45) throw Error('Tube size must be between 5% and 45%.');
   for (const vector of [position, rotation]) if (!Array.isArray(vector) || vector.length !== 3 || vector.some(n => !Number.isFinite(n) || Math.abs(n) > 100000)) throw Error('Placement must contain three finite coordinates.');
   const cells = complexity * 2, sides = shape === 'Cone' ? 4 + complexity : 4 + complexity * 4;
+  const longest = Math.max(width, height, ...(['Plane', 'Disc'].includes(shape) ? [] : [depth]));
+  const divisions = size => Math.max(1, Math.min(cells, Math.round(cells * size / longest / 2) * 2));
   let geometry;
-  if (shape === 'Plane') geometry = new PlaneGeometry(1, 1, cells, cells);
+  if (shape === 'Plane') geometry = new PlaneGeometry(1, 1, divisions(width), divisions(height));
   else if (shape === 'Disc') geometry = new CircleGeometry(.5, sides);
-  else if (shape === 'Cylinder' || shape === 'Cone') geometry = new CylinderGeometry(shape === 'Cone' ? 0 : .5, .5, 1, sides, shape === 'Cone' ? 1 : cells);
+  else if (shape === 'Cylinder' || shape === 'Cone') geometry = new CylinderGeometry(shape === 'Cone' ? 0 : .5, .5, 1, sides, shape === 'Cone' ? 1 : divisions(height));
   else if (shape === 'Torus') geometry = new TorusGeometry(.5 - tube / 200, tube / 200, complexity + 4, sides);
   else {
-    geometry = new BoxGeometry(1, 1, 1, cells, cells, cells);
+    geometry = new BoxGeometry(1, 1, 1, divisions(width), divisions(height), divisions(depth));
     if (shape === 'Sphere') {
       const p = geometry.attributes.position, n = geometry.attributes.normal;
       for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), length = Math.hypot(x, y, z); p.setXYZ(i, x / length * .5, y / length * .5, z / length * .5); n.setXYZ(i, x / length, y / length, z / length); }
