@@ -84,7 +84,7 @@ test('invalid inputs cannot partially edit a document', () => {
   }
 });
 
-test('adding an SD glow to a weighted model retains skins, bind matrices and camera slots', () => {
+test('adding an SD glow to a weighted model retains skins and existing bind matrices', () => {
   const doc = createStarterDocument(), m = doc.model; m.Version = 1000;
   const g = m.Geosets[0]; g.SkinWeights = new Uint8Array(g.Vertices.length / 3 * 8);
   for (let v = 0; v < g.Vertices.length / 3; v++) g.SkinWeights.set([0, 0, 0, 0, 255, 0, 0, 0], v * 8);

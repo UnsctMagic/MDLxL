@@ -20,10 +20,10 @@ and texture bytes are not shipped with this feature.
 
 | Supplied example | Observed glow setup |
 | --- | --- |
-| Sally Whitemane HotS | Flat hero planes; `weapon_glow` is a Billboarded bone parented to `Bone_Staff`. Unshaded Additive material. |
-| Baron Rivendare living, all three variants | Flat ground glows and multiple Billboarded sword quads parented to `Sword`. Additive, generally Unshaded and TwoSided. |
-| Baron Rivendare Death Knight, all three variants | Separate ground and weapon geometry; weapon glow bones parent to `Bone Weapon` or `Sword`. Additive materials, authored visibility tracks. |
-| Thrall Shadowlands, both variants and missile | Flat ground planes; weapon mesh bones inherit billboarding from helper nodes beneath the axe hierarchy. The portrait backdrop also uses replaceable 2 with an opaque material, so texture ID alone does not identify a visible glow. |
+| Sally Whitemane HotS, Lumi | Flat hero planes; `weapon_glow` is a Billboarded bone parented to `Bone_Staff`. Unshaded Additive material. |
+| Baron Rivendare living, Sarsaparilla, all three variants | Flat ground glows and multiple Billboarded sword quads parented to `Sword`. Additive, generally Unshaded and TwoSided. |
+| Baron Rivendare Death Knight, Sarsaparilla / ddd deathknight, all three variants | Separate ground and weapon geometry; weapon glow bones parent to `Bone Weapon` or `Sword`. Additive materials, authored visibility tracks. |
+| Thrall Shadowlands, Lumi, both variants and missile | Flat ground planes; weapon mesh bones inherit billboarding from helper nodes beneath the axe hierarchy. The portrait backdrop also uses replaceable 2 with an opaque material, so texture ID alone does not identify a visible glow. |
 | Gnome Dragonrider, Direfury | Flat base glow and many Billboarded quads on weapons, wings and body. Two AddAlpha layers, including team glow and `Textures\\sun.blp`, with animated alpha. The supplied custom BLPs are body/fire textures, not the team-glow texture. |
 
 [Hive's weapon-glow discussion](https://www.hiveworkshop.com/threads/weapon-glow-questions.287743/)
@@ -52,16 +52,20 @@ World Editor ability or an attached external effect.
   insertion; the editor's serializer handles canonical exported node order.
 - The normal Forge modes and main editor sidebar footprint remain unchanged.
   Preview uses a private copy and the existing Warcraft renderer.
+- Paused non-portrait billboard previews receive the current camera before node
+  evaluation, avoiding a stale orientation when only one orbit frame is drawn.
 
 ## Verification
 
-- 52 focused Forge, bone, glow and preview tests; 57 compatibility tests.
+- 66 focused Forge, bone, glow, viewport and preview tests; 57 compatibility tests.
 - All 11 supplied MDX models: all five types, MDL and MDX save/reopen, parent,
   pivot/binding/material checks, original geometry/rig/sequence preservation,
   and undo (110 round trips). Input archive/model/BLP hashes retained.
 - Isolated packaged Electron test: no-selection guidance; selected vertices;
   dimensions and alpha controls; all types; preview/Cancel immutability; Add;
   one-step undo; native MDL/MDX Save As; unchanged 164px main sidebar.
+  Native bone matrices face two orbited camera angles with a stationary pivot;
+  0% and 100% intensity produce different rendered glow pixels. No renderer errors.
 - Native Warcraft III / World Editor and external model editors have not been
   exercised. Those remain separate compatibility acceptance checks.
 

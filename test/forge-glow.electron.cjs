@@ -12,6 +12,18 @@ const readModel = (selector = '[aria-label="3D model viewport"]') => {
   for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Geosets) return JSON.parse(JSON.stringify(fiber.memoizedProps.model));
   throw Error('Model unavailable');
 };
+const previewRig = ({ position, check = false } = {}) => {
+  const el = document.querySelector('.forge-glow-preview .game-preview-root'); let fiber = el[Object.keys(el).find(k => k.startsWith('__reactFiber'))];
+  for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+    const state = hook.memoizedState?.current;
+    if (!state?.native || !state.controls) continue;
+    if (position) { state.controls.object.position.set(...position); state.controls.update(); }
+    const native = state.native, bone = native.rendererData.model.Bones.at(-1), matrix = Array.from(native.rendererData.nodes[bone.ObjectId].matrix), camera = state.controls.object;
+    if (check) { const facing = camera.matrixWorld.elements.slice(8, 11), normal = matrix.slice(0, 3); return Math.abs(normal.reduce((sum, v, i) => sum + v * facing[i], 0) / Math.hypot(...normal) / Math.hypot(...facing)) > .999; }
+    return { matrix, pivot: Array.from(bone.PivotPoint), camera: Array.from(camera.matrixWorld.elements) };
+  }
+  throw Error('Native preview rig unavailable');
+};
 (async () => {
   fs.mkdirSync(out, { recursive: true });
   const { createStarterDocument } = await import('../src/starter-model.js');
@@ -46,6 +58,12 @@ const readModel = (selector = '[aria-label="3D model viewport"]') => {
     await range(page.getByLabel('Glow intensity', { exact: true }), 100); await settle(); const bright = await stage.screenshot({ path: path.join(out, 'alpha-100.png') });
     assert.notDeepEqual(dark, bright, 'intensity changes the rendered glow pixels');
     await range(page.getByLabel('Glow intensity', { exact: true }), 40); await settle();
+    for (const position of [[180, -180, 100], [-160, -100, 80]]) {
+      await page.evaluate(previewRig, { position }); await page.waitForFunction(previewRig, { check: true }, { timeout: 3000 }); const pose = await page.evaluate(previewRig);
+      const normal = pose.matrix.slice(0, 3), facing = pose.camera.slice(8, 11), dot = normal.reduce((sum, v, i) => sum + v * facing[i], 0) / Math.hypot(...normal) / Math.hypot(...facing);
+      assert.ok(Math.abs(dot) > .999, `packaged native billboard faces the orbited camera: ${JSON.stringify({ dot, normal, facing, pose })}`);
+      assert.ok(pose.matrix.slice(12, 15).every(v => Math.abs(v) < .0001), 'centered origin pivot stays in place');
+    }
     await page.screenshot({ path: path.join(out, '02-billboard.png') });
     await page.getByLabel('Glow type', { exact: true }).selectOption('plane'); await page.getByLabel('Glow plane', { exact: true }).selectOption('xy');
     await page.screenshot({ path: path.join(out, '03-flat.png') });
