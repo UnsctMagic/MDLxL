@@ -1,7 +1,6 @@
 import { sampleTrack } from './animation.js';
 
 const normal = value => String(value || '').replaceAll('/', '\\').toLowerCase();
-const copyUV = geoset => (geoset.TVertices || []).map(values => new Float32Array(values));
 
 export function getUVPreviewSelection(model, selection) {
   const indices = typeof selection === 'number' ? [selection] : Array.from(selection || []);
@@ -59,21 +58,20 @@ function replaceTextureChain(model, material, textureID) {
   material.Layers = [...replaceable, { FilterMode: replaceable.length ? 1 : 0, Alpha: 1, Shading: 0, CoordId: 0, TextureID: textureID, TVertexAnimId: null }];
 }
 
-// UV edits live in the normal undo history. Only the texture assignment is
-// provisional; the first UV snapshot survives subsequent texture choices.
+// Only the texture assignment is provisional. UV and geometry edits belong
+// to the document undo history and are preserved when the texture is reverted.
 export function beginUVPreview(model, drafts, selection, asset) {
   const checked = getUVPreviewSelection(model, selection);
   if (!checked.enabled) throw Error(checked.reason);
   if (!asset?.name || !asset.bytes?.byteLength) throw Error('Choose a readable texture.');
   const pending = checked.geosetIndices.map(geosetIndex => {
-    const geoset = model.Geosets[geosetIndex], previous = drafts[geosetIndex];
+    const previous = drafts[geosetIndex];
     if (previous) validateUVPreview(model, previous);
-    return { geosetIndex, geoset, previous };
+    return { geosetIndex };
   });
   const next = { ...drafts };
-  for (const {geosetIndex, geoset, previous} of pending) next[geosetIndex] = {
-    ...(previous || { geosetIndex, vertexCount: geoset.Vertices.length / 3,
-      originalUV: copyUV(geoset) }),
+  for (const {geosetIndex} of pending) next[geosetIndex] = {
+    geosetIndex,
     asset: { name: asset.name, bytes: new Uint8Array(asset.bytes), source: asset.source || 'library' },
   };
   return next;
@@ -81,16 +79,12 @@ export function beginUVPreview(model, drafts, selection, asset) {
 
 export function validateUVPreview(model, draft) {
   const geoset = model.Geosets[draft.geosetIndex];
-  if (!geoset || draft.geosetCount != null && model.Geosets.length !== draft.geosetCount ||
-      geoset.Vertices.length / 3 !== draft.vertexCount ||
-      geoset.TVertices.length !== draft.originalUV.length ||
-      geoset.TVertices.some((values, index) => values.length !== draft.originalUV[index].length))
-    throw Error(`Geoset ${draft.geosetIndex + 1} changed vertex or UV structure during texture preview. Undo that change before saving or reverting this preview.`);
+  if (!geoset) throw Error(`Geoset ${draft.geosetIndex + 1} no longer exists during texture preview.`);
   return geoset;
 }
 
-// Protect only the preview targets: faces, normals and other geosets do not
-// affect the saved vertex-to-UV correspondence. References stay session-local.
+// An index must still address the same preview target. Geometry and UV
+// streams may change freely; only the texture assignment is provisional.
 export function captureUVPreviewGuard(model, drafts) {
   return Object.keys(drafts || {}).length ? Object.values(drafts).map(draft => ({
     index: draft.geosetIndex, geoset: model.Geosets[draft.geosetIndex],
@@ -135,8 +129,9 @@ export function applyUVPreviews(model, drafts) {
 }
 
 export function revertUVPreviews(model, drafts) {
-  for (const draft of Object.values(drafts)) validateUVPreview(model, draft);
-  for (const draft of Object.values(drafts)) model.Geosets[draft.geosetIndex].TVertices = draft.originalUV.map(values => new Float32Array(values));
+  const count = Object.keys(drafts).length;
+  for (const index of Object.keys(drafts)) delete drafts[index];
+  return count;
 }
 
 export function uvPreviewModel(model, drafts, liveUV = null) {
@@ -146,8 +141,7 @@ export function uvPreviewModel(model, drafts, liveUV = null) {
   if (Object.keys(drafts).length) { preview.Textures = model.Textures.slice(); preview.Materials = model.Materials.slice(); }
   const validDrafts = {};
   for (const draft of Object.values(drafts)) {
-    // A changed vertex/UV structure cannot accept the earlier UV snapshot.
-    // Face edits do not change that correspondence and keep the preview live.
+    // The temporary material follows the live geometry, including topology edits.
     try { validateUVPreview(model, draft); } catch { continue; }
     preview.Geosets[draft.geosetIndex] = { ...model.Geosets[draft.geosetIndex] };
     validDrafts[draft.geosetIndex] = draft;
@@ -166,17 +160,11 @@ export function restoreUVPreviews(model, drafts) {
   for (const [index, draft] of Object.entries(drafts || {})) {
     if (!draft || !Number.isSafeInteger(draft.geosetIndex) || draft.geosetIndex < 0 ||
         draft.layerIndex != null && (!Number.isSafeInteger(draft.layerIndex) || draft.layerIndex < 0) ||
-        Number(index) !== draft.geosetIndex || !Number.isSafeInteger(draft.vertexCount) || draft.vertexCount < 0 ||
-        draft.geosetCount != null && (!Number.isSafeInteger(draft.geosetCount) || draft.geosetCount <= draft.geosetIndex) ||
-        !Array.isArray(draft.originalUV) || !draft.asset?.name || !(draft.asset.bytes instanceof Uint8Array) || !draft.asset.bytes.byteLength ||
-        draft.faces != null && (!(Array.isArray(draft.faces) || ArrayBuffer.isView(draft.faces)) || !Number.isSafeInteger(draft.faces.length) || draft.faces.length % 3 ||
-        Array.from(draft.faces).some(value => !Number.isSafeInteger(value) || value < 0 || value >= draft.vertexCount)))
+        Number(index) !== draft.geosetIndex || !draft.asset?.name || !(draft.asset.bytes instanceof Uint8Array) || !draft.asset.bytes.byteLength)
       throw Error('Invalid cached UV preview.');
-    if (draft.originalUV.some(values => !(Array.isArray(values) || ArrayBuffer.isView(values)) || values.length !== draft.vertexCount * 2 || Array.from(values).some(value => !Number.isFinite(value)))) throw Error('Invalid cached UV coordinates.');
-    // Old recovery can contain geometry edits made during a preview. Recover
-    // the document and snapshot together so Undo can repair that mismatch;
-    // applying/reverting and rendering still validate against the live mesh.
-    restored[index] = structuredClone(draft);
+    // Older recovery records may contain UV snapshots; they are no longer
+    // restored by Revert texture. The document retains their actual UV edits.
+    restored[index] = { geosetIndex: draft.geosetIndex, asset: structuredClone(draft.asset) };
   }
   return restored;
 }

@@ -92,9 +92,20 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Create triangle');
     const created = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     assert.ok(Object.keys(created.Geosets[0].Faces).length > Object.keys(edited.Geosets[0].Faces).length);
+    // Match the user's failed test: weld two selected vertices while unsaved.
+    await main.evaluate(() => ownerProps('[aria-label="3D model viewport"]', 'onSelectionChange').onSelectionChange({ 0: [0, 1] }));
+    await main.locator('[data-warmkey="Weld"]').click();
+    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Weld');
+    const welded = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
+    assert.ok(Object.keys(welded.Geosets[0].Vertices).length < Object.keys(created.Geosets[0].Vertices).length);
+    await main.locator('[data-warmkey="undo"]').click();
+    await main.waitForFunction(value => JSON.stringify(modelState()) === value, JSON.stringify(created));
+    await main.locator('[data-warmkey="redo"]').click();
+    await main.waitForFunction(value => JSON.stringify(modelState()) === value, JSON.stringify(welded));
     await main.locator('[data-warmkey="Uncouple"]').click();
-    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent.includes('changed vertex or UV structure'));
-    assert.deepEqual(JSON.parse(await main.evaluate(() => JSON.stringify(modelState()))), created, 'a vertex-count change on the preview target remains atomic');
+    await main.waitForFunction(() => document.querySelector('.classic-status span').textContent === 'Uncouple');
+    const topologyEdited = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
+    assert.ok(Object.keys(topologyEdited.Geosets[0].Vertices).length > Object.keys(welded.Geosets[0].Vertices).length);
     await openUV();
     assert.equal(await uv.evaluate(() => uvState().draftCount), 1);
     await uv.screenshot({ path: path.join(output, 'temporary-texture-after-vertex-edits.png') });
@@ -102,10 +113,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await uv.waitForFunction(() => uvState().draftCount === 0);
     await closeUV();
     const reverted = JSON.parse(await main.evaluate(() => JSON.stringify(modelState()))), originalModel = JSON.parse(baseline);
-    assert.deepEqual(reverted.Geosets[0].TVertices, originalModel.Geosets[0].TVertices);
-    assert.deepEqual(reverted.Geosets[0].Faces, created.Geosets[0].Faces);
-    assert.deepEqual(reverted.Geosets[0].Normals, created.Geosets[0].Normals);
-    assert.deepEqual(reverted.Geosets[0].Vertices, created.Geosets[0].Vertices);
+    assert.deepEqual(reverted.Geosets[0].TVertices, topologyEdited.Geosets[0].TVertices);
+    assert.equal(reverted.Geosets[0].MaterialID, originalModel.Geosets[0].MaterialID);
+    assert.deepEqual(reverted.Textures, originalModel.Textures);
+    assert.deepEqual(reverted.Geosets[0].Faces, topologyEdited.Geosets[0].Faces);
+    assert.deepEqual(reverted.Geosets[0].Normals, topologyEdited.Geosets[0].Normals);
+    assert.deepEqual(reverted.Geosets[0].Vertices, topologyEdited.Geosets[0].Vertices);
     assert.equal(await main.locator('.classic-sidebar').evaluate(e => getComputedStyle(e).width), sidebarWidth);
     // A second preview commits the new texture with the edited geometry intact.
     await openUV(); await replaceTexture(); await uv.getByRole('button', { name: 'Save texture', exact: true }).click();
@@ -121,11 +134,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const reopened = openDocument(fs.readFileSync(saved), 'saved.mdx');
     assert.ok(reopened.model.Textures.some(texture => texture.Image === 'PreviewEdit.png'));
     const savedGeometry = JSON.parse(JSON.stringify(reopened.model.Geosets[0]));
-    assert.deepEqual(savedGeometry.Faces, created.Geosets[0].Faces);
-    assert.deepEqual(savedGeometry.Normals, created.Geosets[0].Normals);
+    assert.deepEqual(savedGeometry.Faces, topologyEdited.Geosets[0].Faces);
+    assert.deepEqual(savedGeometry.Normals, topologyEdited.Geosets[0].Normals);
+    assert.deepEqual(savedGeometry.Vertices, topologyEdited.Geosets[0].Vertices);
+    assert.deepEqual(savedGeometry.TVertices, topologyEdited.Geosets[0].TVertices);
     assert.ok(fs.readFileSync(fixture).equals(original));
     await main.screenshot({ path: path.join(output, 'saved-vertex-edits.png') });
-    console.log('PASS packaged Electron: temporary texture, UV edit, Reverse normals, undo/redo, Delete/Create triangle, atomic vertex-count guard, Revert preserves geometry, Save texture and MDX reload, sidebar width and input file preserved');
+    console.log('PASS packaged Electron: temporary texture, UV edit, Reverse normals, undo/redo, Delete/Create triangle, Weld and Uncouple change vertex count, Revert preserves geometry and UV edits, Save texture and MDX reload, sidebar width and input file preserved');
   } catch (error) {
     console.error(error); if (uv && !uv.isClosed()) await uv.screenshot({ path: path.join(output, 'failure-uv.png') }).catch(() => {});
     const main = await app.firstWindow(); console.error(await main.locator('.classic-status').innerText());

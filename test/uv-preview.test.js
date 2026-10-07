@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { createDemoDocument, openDocument, EditorDocument, deleteGeoset } from '../src/editor-document.js';
 import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, validateUVPreview, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection, imageTextureLayers, chooseUVImageLayer } from '../src/uv-preview.js';
 
-import { deleteSelectedFaces, collapseVertices, uncoupleVertices } from '../src/classic-mesh.js';
+import { deleteVertices } from '../src/editor-commands.js';
+import { extrudeFaces } from '../src/mesh-tools.js';
+import { deleteSelectedFaces, collapseVertices, uncoupleVertices, weldSelectedVertices } from '../src/classic-mesh.js';
 
 const asset = name => ({ name, bytes: new Uint8Array([1,2,3,4]) });
 test('temporary material only paints chosen geoset, retaining shared animated materials and source model', () => {
@@ -18,15 +20,16 @@ test('temporary material only paints chosen geoset, retaining shared animated ma
   assert.equal(preview.Textures.at(-1).Image, 'Textures\\Rust.blp');
   assert.deepEqual(preview.Materials[original.Geosets[0].MaterialID], original.Materials[original.Geosets[0].MaterialID]);
 });
-test('switching temporary textures retains the first snapshot, and Revert restores every UV set only', () => {
-  const {model} = createDemoDocument(), originalUV = structuredClone(model.Geosets[0].TVertices);
+test('switching temporary textures and Revert preserve UV edits and the underlying material', () => {
+  const {model} = createDemoDocument();
   let drafts = beginUVPreview(model, {}, 0, asset('A.blp'));
   model.Geosets[0].TVertices[0][0] = 9;
   drafts = beginUVPreview(model, drafts, 0, asset('B.blp'));
   model.Info.Name = 'Unrelated edit';
   const originalMaterial = model.Geosets[0].MaterialID;
   revertUVPreviews(model, drafts);
-  assert.deepEqual(model.Geosets[0].TVertices, originalUV);
+  assert.equal(model.Geosets[0].TVertices[0][0], 9);
+  assert.deepEqual(drafts, {});
   assert.equal(model.Geosets[0].MaterialID, originalMaterial);
   assert.equal(model.Info.Name, 'Unrelated edit');
 });
@@ -61,9 +64,10 @@ test('staged model save leaves pending texture and UV recovery untouched when sa
   assert.equal(restored.model.Geosets[0].TVertices[0][0], Math.fround(.37));
   assert.deepEqual(drafts[0].asset.bytes, pending[0].asset.bytes);
   revertUVPreviews(restored.model, drafts);
-  assert.deepEqual(restored.model.Geosets[0].TVertices, original.Geosets[0].TVertices);
+  assert.equal(restored.model.Geosets[0].TVertices[0][0], Math.fround(.37));
+  assert.deepEqual(drafts, {});
 });
-test('live dragging changes only preview UV arrays and a vertex mismatch cannot overwrite UVs', () => {
+test('live dragging changes only preview UV arrays; a texture draft does not depend on the vertex count', () => {
   const {model} = createDemoDocument();
   const uv = new Float32Array(model.Geosets[0].TVertices[0]); uv[0] = 2;
   const preview = uvPreviewModel(model, {}, {geosetIndex:0,uvSet:0,values:uv});
@@ -71,11 +75,12 @@ test('live dragging changes only preview UV arrays and a vertex mismatch cannot 
   assert.notEqual(model.Geosets[0].TVertices[0][0], 2);
   assert.equal(preview.Geosets[1], model.Geosets[1]);
   const drafts = beginUVPreview(model, {}, 0, asset('Preview.blp'));
-  model.Geosets[0].Vertices = model.Geosets[0].Vertices.slice(3);
-  const materials = model.Materials.length;
-  assert.throws(() => applyUVPreviews(model, drafts), /changed .*structure/);
-  assert.throws(() => revertUVPreviews(model, drafts), /changed .*structure/);
-  assert.equal(model.Materials.length, materials);
+  uncoupleVertices(model.Geosets[0], [0]);
+  assert.equal(uvPreviewModel(model, drafts).Textures.at(-1).Image, 'Preview.blp');
+  const expected = structuredClone(model);
+  revertUVPreviews(model, drafts);
+  assert.deepEqual(model, expected);
+  assert.deepEqual(drafts, {});
 });
 test('a staged preview save has identical bytes and a clean target baseline after commit', () => {
   const doc = createDemoDocument(), pending = beginUVPreview(doc.model, {}, 0, asset('SavedPreview.blp'));
@@ -98,7 +103,7 @@ function guardedEdit(doc, pending, operation) {
   });
 }
 
-test('preview permits triangle edits and collapse; Revert restores UVs without reverting geometry', () => {
+test('preview permits triangle edits and collapse; Revert preserves UVs and geometry', () => {
   const doc = createDemoDocument(), original = structuredClone(doc.model.Geosets[0]);
   const pending = beginUVPreview(doc.model, {}, 0, asset('Preview.blp'));
   guardedEdit(doc, pending, model => {
@@ -122,13 +127,15 @@ test('preview permits triangle edits and collapse; Revert restores UVs without r
     assert.deepEqual(reopened.model.Geosets[0].TVertices, edited.TVertices);
     assert.equal(reopened.model.Textures.at(-1).Image, 'Preview.blp');
   }
-  guardedEdit(doc, pending, model => revertUVPreviews(model, pending));
-  assert.deepEqual(doc.model.Geosets[0].TVertices, original.TVertices);
+  const steps = doc.historyStats.undoSteps;
+  revertUVPreviews(doc.model, pending);
+  assert.equal(doc.historyStats.undoSteps, steps);
+  assert.deepEqual(doc.model.Geosets[0].TVertices, edited.TVertices);
   assert.deepEqual(doc.model.Geosets[0].Faces, edited.Faces);
   assert.deepEqual(doc.model.Geosets[0].Vertices, edited.Vertices);
   assert.deepEqual(doc.model.Geosets[0].Normals, edited.Normals);
-  doc.undo(); assert.deepEqual(doc.model.Geosets[0].TVertices, edited.TVertices);
-  doc.redo(); assert.deepEqual(doc.model.Geosets[0].TVertices, original.TVertices);
+  doc.undo(); assert.deepEqual(doc.model.Geosets[0], original);
+  doc.redo(); assert.deepEqual(doc.model.Geosets[0], edited);
 });
 
 test('preview allows changes to unrelated geosets and undo/redo of their insertion or deletion', () => {
@@ -147,12 +154,13 @@ test('preview allows changes to unrelated geosets and undo/redo of their inserti
   const restored = EditorDocument.restoreRecoveryState(doc.captureRecoveryState());
   const drafts = restoreUVPreviews(restored.model, pending);
   const unrelated = structuredClone(restored.model.Geosets[1]);
+  const expected = structuredClone(restored.model.Geosets[0]);
   revertUVPreviews(restored.model, drafts);
   assert.deepEqual(restored.model.Geosets[1], unrelated);
-  assert.deepEqual(restored.model.Geosets[0].TVertices, pending[0].originalUV);
+  assert.deepEqual(restored.model.Geosets[0], expected);
 });
 
-test('preview guard rejects replacing, removing or reindexing its target, and vertex/UV structure changes atomically', () => {
+test('preview guard only rejects replacing, removing or reindexing its target atomically', () => {
   const doc = createDemoDocument(), pending = beginUVPreview(doc.model, {}, 1, asset('Preview.blp'));
   const expected = structuredClone(doc.model), history = doc.historyStats.undoSteps;
   for (const operation of [
@@ -160,8 +168,6 @@ test('preview guard rejects replacing, removing or reindexing its target, and ve
     model => deleteGeoset(model, 1),
     model => deleteGeoset(model, 0),
     model => { [model.Geosets[0], model.Geosets[1]] = [model.Geosets[1], model.Geosets[0]]; },
-    model => uncoupleVertices(model.Geosets[1], [0]),
-    model => { model.Geosets[1].TVertices.push(model.Geosets[1].TVertices[0].slice()); },
   ]) {
     assert.throws(() => guardedEdit(doc, pending, operation), /Save or Revert|changed .*structure/);
     assert.deepEqual(doc.model, expected);
@@ -171,51 +177,61 @@ test('preview guard rejects replacing, removing or reindexing its target, and ve
   assert.doesNotThrow(() => validateUVPreviewGuard({ Geosets: [] }, {}));
 });
 
-test('recovery retains mismatched previews so recovered undo can restore their geometry', () => {
-  const doc = createDemoDocument(), pending = beginUVPreview(doc.model, {}, 0, asset('Preview.blp'));
-  doc.apply('Uncouple vertices', ['Geosets'], model => uncoupleVertices(model.Geosets[0], [0]));
-  const restored = EditorDocument.restoreRecoveryState(doc.captureRecoveryState());
-  const drafts = restoreUVPreviews(restored.model, pending);
-  assert.deepEqual(drafts, pending);
-  assert.notEqual(drafts[0].originalUV[0], pending[0].originalUV[0]);
-  assert.throws(() => applyUVPreviews(restored.model, drafts), /changed .*structure/);
-  assert.equal(uvPreviewModel(restored.model, drafts).Geosets[0], restored.model.Geosets[0]);
-  restored.undo();
-  assert.doesNotThrow(() => validateUVPreviewGuard(restored.model, drafts));
-  revertUVPreviews(restored.model, drafts);
-  assert.deepEqual(restored.model.Geosets[0].TVertices, pending[0].originalUV);
-});
-
-test('recovery retains a preview whose geoset was removed, including older drafts without count', () => {
-  const doc = createDemoDocument(), last = doc.model.Geosets.length - 1;
-  const pending = beginUVPreview(doc.model, {}, last, asset('Preview.blp'));
-  doc.apply('Delete geoset', ['Geosets', 'GeosetAnims'], model => deleteGeoset(model, last));
-  const restored = EditorDocument.restoreRecoveryState(doc.captureRecoveryState());
-  const drafts = restoreUVPreviews(restored.model, pending);
-  assert.throws(() => validateUVPreviewGuard(restored.model, drafts), /changed .*structure/);
-  restored.undo(); assert.doesNotThrow(() => validateUVPreviewGuard(restored.model, drafts));
-  drafts[last].geosetCount = restored.model.Geosets.length;
-  drafts[last].faces = restored.model.Geosets[last].Faces.slice();
-  const legacyWithCount = restoreUVPreviews(restored.model, drafts);
-  assert.doesNotThrow(() => validateUVPreviewGuard(restored.model, legacyWithCount));
-  delete drafts[last].geosetCount;
-  const legacy = restoreUVPreviews(restored.model, drafts);
-  assert.doesNotThrow(() => validateUVPreviewGuard(restored.model, legacy));
-});
-
-test('permissive recovery still rejects malformed snapshots, coordinates and texture bytes', () => {
-  const {model} = createDemoDocument(), pending = beginUVPreview(model, {}, 0, asset('Preview.blp'));
-  for (const corrupt of [
-    draft => { draft.geosetIndex = -1; },
-    draft => { draft.geosetCount = 0; },
-    draft => { draft.vertexCount = 1.5; },
-    draft => { draft.faces = [draft.vertexCount, 0, 0]; },
-    draft => { draft.originalUV[0][0] = NaN; },
-    draft => { draft.originalUV[0] = null; },
-    draft => { draft.asset.bytes = [1,2,3]; },
-    draft => { draft.layerIndex = -1; },
-    draft => { draft.layerIndex = 1.5; },
+test('Weld, Uncouple, Delete vertices and Extrude stay editable during texture preview, including undo/redo, Revert and save', () => {
+  for (const operation of [
+    g => weldSelectedVertices(g, [0, 1]),
+    g => uncoupleVertices(g, [0, 1]),
+    g => deleteVertices(g, [0]),
+    g => extrudeFaces(g, Array.from(g.Faces.slice(0, 3)), [0, 0, 10]),
   ]) {
+    const doc = createDemoDocument(), pending = beginUVPreview(doc.model, {}, 0, asset('Preview.blp'));
+    const original = structuredClone(doc.model);
+    guardedEdit(doc, pending, model => { model.Geosets[0].TVertices[0][0] = .31; operation(model.Geosets[0]); });
+    const edited = structuredClone(doc.model), guard = captureUVPreviewGuard(doc.model, pending);
+    assert.notEqual(edited.Geosets[0].Vertices.length, original.Geosets[0].Vertices.length);
+    assert.equal(uvPreviewModel(doc.model, pending).Textures.at(-1).Image, 'Preview.blp');
+    doc.undo(); validateUVPreviewGuard(doc.model, pending, guard); assert.deepEqual(doc.model, original);
+    doc.redo(); validateUVPreviewGuard(doc.model, pending, guard); assert.deepEqual(doc.model, edited);
+    const saved = EditorDocument.restoreRecoveryState(doc.captureRecoveryState());
+    const recovered = restoreUVPreviews(saved.model, structuredClone(pending));
+    saved.apply('Save preview', ['Geosets','Materials','Textures'], m => applyUVPreviews(m, recovered));
+    for (const format of ['mdl','mdx']) {
+      const reopened = openDocument(saved.serialize(format), 'edited.' + format);
+      for (const key of ['Vertices','Faces','TVertices','Normals','VertexGroup']) assert.deepEqual(reopened.model.Geosets[0][key], edited.Geosets[0][key]);
+      assert.equal(reopened.model.Textures.at(-1).Image, 'Preview.blp');
+    }
+    revertUVPreviews(doc.model, pending);
+    assert.deepEqual(doc.model, edited);
+    assert.deepEqual(pending, {});
+  }
+});
+
+test('older cached texture previews recover without restoring their stale UV snapshots', () => {
+  const doc = createDemoDocument(), original = structuredClone(doc.model.Geosets[0]);
+  const pending = beginUVPreview(doc.model, {}, 0, asset('Preview.blp'));
+  pending[0].vertexCount = original.Vertices.length / 3;
+  pending[0].geosetCount = doc.model.Geosets.length;
+  pending[0].faces = original.Faces.slice(); pending[0].originalUV = original.TVertices;
+  guardedEdit(doc, pending, model => uncoupleVertices(model.Geosets[0], [0]));
+  const restored = EditorDocument.restoreRecoveryState(doc.captureRecoveryState());
+  const drafts = restoreUVPreviews(restored.model, pending), edited = structuredClone(restored.model);
+  assert.deepEqual(drafts[0], {geosetIndex:0, asset:pending[0].asset});
+  assert.equal(uvPreviewModel(restored.model, drafts).Textures.at(-1).Image, 'Preview.blp');
+  revertUVPreviews(restored.model, drafts);
+  assert.deepEqual(restored.model, edited);
+});
+
+test('Revert texture can clear a removed target without touching its neighbor', () => {
+  const {model} = createDemoDocument(), pending = beginUVPreview(model, {}, 0, asset('Preview.blp'));
+  deleteGeoset(model, 0);
+  const expected = structuredClone(model);
+  revertUVPreviews(model, pending);
+  assert.deepEqual(model, expected); assert.deepEqual(pending, {});
+});
+
+test('recovery rejects malformed target indices and texture bytes', () => {
+  const {model} = createDemoDocument(), pending = beginUVPreview(model, {}, 0, asset('Preview.blp'));
+  for (const corrupt of [draft => { draft.geosetIndex = -1; }, draft => { draft.asset.bytes = [1,2,3]; }, draft => { draft.asset.name = ''; }]) {
     const broken = structuredClone(pending); corrupt(broken[0]);
     assert.throws(() => restoreUVPreviews(model, broken), /Invalid cached/);
   }
@@ -289,15 +305,15 @@ test('a replaceable-only material receives a new image layer instead of losing t
   assert.equal(chooseUVImageLayer(preview,0).path,'New.blp');
 });
 
-test('checked preview switches retain first UV snapshots through recovery and commit one clean image layer',()=>{
+test('checked preview switches preserve UV edits through recovery and commit one clean image layer',()=>{
   const doc=imageLayerDocument(),model=doc.model,original=structuredClone(model);
   let drafts=beginUVPreview(model,{},[0,2],asset('First.blp'),1);
   model.Geosets[0].TVertices[0][0]=.73;model.Geosets[2].TVertices[0][0]=.42;
   drafts=beginUVPreview(model,drafts,[0,2],asset('Second.blp'),2);
   const restored=restoreUVPreviews(model,structuredClone(drafts));
-  assert.equal(restored[0].layerIndex,undefined);assert.deepEqual(restored[0].originalUV,original.Geosets[0].TVertices);
-  const reverted=structuredClone(model);revertUVPreviews(reverted,restored);
-  for(const index of [0,2])assert.deepEqual(reverted.Geosets[index].TVertices,original.Geosets[index].TVertices);
+  assert.equal(restored[0].layerIndex,undefined);
+  const reverted=structuredClone(model);revertUVPreviews(reverted,structuredClone(restored));
+  for(const index of [0,2])assert.deepEqual(reverted.Geosets[index].TVertices,model.Geosets[index].TVertices);
   assert.deepEqual(reverted.Materials,original.Materials);assert.deepEqual(reverted.Textures,original.Textures);
   doc.apply('Save checked previews',['Geosets','Materials','Textures'],m=>applyUVPreviews(m,restored));
   assert.equal(model.Geosets[1].MaterialID,0);
