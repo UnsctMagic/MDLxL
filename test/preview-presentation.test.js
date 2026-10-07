@@ -50,6 +50,23 @@ test('Animations keeps node picking and selection while disabling geometry trans
   assert.equal(preview.onNodeTransform, undefined);
 });
 
+test('Animations shows effects with no selection and keeps emitter markers hidden regardless of the display switch', () => {
+  const model = { ParticleEmitters2: [{ ObjectId: 4, Visibility: 0 }], RibbonEmitters: [{ ObjectId: 5, Visibility: 1 }] };
+  for (const particles of [false, true]) {
+    const props = { presentation: 'preview', cleanAnimationPreview: true, model, sequenceIndex: 2, time: 1234, playing: true,
+      preferences: { graphics: { particles: false } }, overlays: { particles, bones: true }, showParticles: particles, selectedNodeIds: [] };
+    const before = structuredClone(props), preview = previewPresentationProps(props);
+    assert.equal(preview.showParticles, true);
+    assert.equal(preview.overlays.particles, false);
+    assert.equal(preview.overlays.bones, true);
+    for (const key of ['model', 'sequenceIndex', 'time', 'playing', 'selectedNodeIds']) assert.equal(preview[key], props[key]);
+    assert.deepEqual(props, before, 'Authored visibility, preferences and display state stay unchanged');
+    assert.equal(previewPresentationProps({ ...props, cleanAnimationPreview: false }).showParticles, particles, 'Other previews retain explicit effect visibility');
+    const editor = { ...props, presentation: 'editor' };
+    assert.equal(previewPresentationProps(editor), editor, 'Editing display controls stay unchanged');
+  }
+});
+
 test('clean is the preview overlay default; Highlight overrides All mesh even for empty selection',()=>{
   assert.deepEqual(previewOverlayGeometry(geosets(),{}),[]);
   assert.equal(previewOverlaySettings({allMesh:true,highlightSelection:true}).mode,'selection');
