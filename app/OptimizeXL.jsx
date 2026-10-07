@@ -7,6 +7,7 @@ import OptimizeXLFixSelection from './OptimizeXLFixSelection.jsx';
 import { previewPlaybackStep } from './game-preview-capture.js';
 import { GEOSET_REDUCTION_STAGES } from '../src/optimizexl-exclusions.js';
 import { viewportAppearanceOptions } from '../src/preferences.js';
+import { portraitSequenceIndices } from '../src/sequence-editor.js';
 import { bindDropdownWheel } from '../src/dropdown-wheel.js';
 import { openDocument } from '../src/editor-document.js';
 import { OptimizeXLSession } from '../src/optimizexl-session.js';
@@ -112,7 +113,7 @@ export default function OptimizeXL({doc,textureAssets,preferences,teamColor,onCl
   function back(){const step=session.back();if(step){relocateInspection(openDocument(session.accepted,'restored.mdx').model);refresh(v=>v+1);enter(step.stage,step.settings);}else enter('duplicates');}
   async function save(){setSaving(true);setError('');try{if(!window.desktop?.saveOptimizeXL)throw Error('Saving two protected copies requires the desktop app.');const result=await window.desktop.saveOptimizeXL(session.savePayload());if(result)setSaved(result);}catch(e){setError(e.message);}finally{setSaving(false);}}
   if(!session)return <div className="ox-root"><header><h1>OptimizeXL</h1><button onClick={onClose}>Close</button></header><p role="alert">{error}</p></div>;
-  const previewProps={pixelAligned:true,textureAssets,preferences:previewPreferences,teamColor,presentation:'preview',interactivePreview:showGeosets,hoveredGeoset,highlightSelection:showGeosets&&highlight&&highlightAppearance.viaView,onHoverGeoset:showGeosets?setViewHovered:undefined,overlays:{grid:false,axes:false,boneLines:false},showGrid:false,showAxes:false,playing:false,syncPlayback:true,playbackRunning:playing,playbackGlobalTime:globalTime,seekId,sequenceIndex:sequence,time,compareCamera:camera.current,preserveCameraView:true,cameraMode:'rotate',showCollisionSpheres:stage==='spheres'&&!finished,loop};
+  const previewProps={pixelAligned:true,textureAssets,preferences:previewPreferences,teamColor,presentation:'preview',interactivePreview:showGeosets,hoveredGeoset,highlightSelection:showGeosets&&highlight&&highlightAppearance.viaView,onHoverGeoset:showGeosets?setViewHovered:undefined,overlays:{grid:false,axes:false,boneLines:false},showGrid:false,showAxes:false,showParticles:true,portraitMode:portraitSequenceIndices(before).includes(sequence),portraitCameraIndex:0,portraitSnapRevision:sequence,playing:false,syncPlayback:true,playbackRunning:playing,playbackGlobalTime:globalTime,seekId,sequenceIndex:sequence,time,compareCamera:camera.current,preserveCameraView:true,cameraMode:'rotate',showCollisionSpheres:stage==='spheres'&&!finished,loop};
   const previewFrame=model=>time+(model.Sequences[sequence]?.Interval[0]||0)-interval[0];
   const updateSphere=(i,j,value)=>adjust('spheres',(settings.spheres||[]).map((s,k)=>k===i?s.map((v,l)=>l===j?value:v):s));
   return <div className="ox-root" ref={root} onKeyDown={event=>{event.stopPropagation();if(event.code==='Space'&&!['INPUT','SELECT','TEXTAREA','BUTTON'].includes(event.target.tagName)){event.preventDefault();setPlaying(v=>!v);}}}>

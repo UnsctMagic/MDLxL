@@ -58,6 +58,7 @@ EditorDocument exports an atomically remapped snapshot when live ObjectIds diffe
 - Findings remain reviewable and skippable; selected fixes can be previewed together. Only approved changes are saved.
 - Optimize New Copy writes the existing Before/After pair without overwriting the input. Nuclear does not introduce a third copy.
 - Collision overlays remain confined to Sphereomancer. Preserve the compact editor, synchronized camera/playback and existing controls.
+- Both review panes render authored particle/ribbon effects regardless of the editor's particle preference, respecting their visibility tracks. Portrait animations use the existing portrait camera/frame in both panes at corresponding local frames. Mouse navigation stays paired; entering and leaving Portrait preserves the full-model camera and visible frame dimensions.
 - Deliver on the feature branch with the attached PR. Push when asked; merge only with explicit authorization. The current teaching pass is left unmerged for the user's later merge with Showcase.
 
 Implementation and evidence: [OptimizeXL](OPTIMIZEXL.md), [verification log](OPTIMIZEXL_VERIFICATION.md), and `test/fixtures/optimizexl-flail-baseline.json`.

@@ -267,6 +267,16 @@ Reproduce with `node --test test/model-optimizer.test.js test/optimizexl*.test.j
 
 For the PR handoff, concurrent main `10644470` (selected-emitter markers in Animations) was integrated into the feature branch. Conflicts were confined to generated assets, which were regenerated from the combined source. All 134 optimizer/shared-preview tests pass, and the separately repackaged combined executable repeats the complete 13-animation pose, rotation, playback, approval, save and Back proof. Evidence is under ignored `out/strigoi-proof/`; the user model and installed profile remain unchanged.
 
+## Strigoi review follow-up: effects and paired Portrait frames
+
+The user accepted the repairs and reported missing effects and portrait framing in the comparison. OptimizeXL now explicitly enables authored effects in both panes independently of the editor's graphics particle preference. It uses the existing portrait-sequence detector and native camera/frame path for Portrait animations, retaining each model's corresponding local frame. No model records, optimizer rules, layout controls or saved preferences change in this follow-up. The three remaining Hive notices are similar-value facial keys, not unused bones; their authored motion remains preserved.
+
+Packaged testing exposed two additional comparison issues. The receiving portrait reapplied its native camera and broadcast it back, cancelling the other pane's mouse drag. The shared camera snapshot now carries portrait navigation state, and ignores snapshots from a pane that is still entering/leaving the other projection so each full-model backup stays intact. Separately, repeated portrait entry erased inline frame dimensions during the previous pixel-alignment effect's cleanup. Cleanup now retains dimensions already assigned by React for Portrait. A generated fixture reproduced the blank frame before this correction.
+
+`test/optimizexl-preview.electron.cjs` verifies both particle and ribbon emission without selected markers when the saved graphics preference is disabled; authored hidden effects stay hidden. Both native portrait cameras/frame images render, real mouse dragging stays paired through playback, another Portrait animation restores its authored camera, leaving restores the full-model camera, and repeated entry retains visible dimensions. The extended `test/optimizexl-format.electron.cjs` repeats all 13 native Strigoi start/mid/end pose comparisons, preview/approval/Before-and-After save/Back checks, paired portrait rotation and visible Breath emission after sequence relocation. Both generated and supplied inputs remain byte-identical. All 39 focused preview, portrait, frame and capture tests pass.
+
+Final packaged evidence is in ignored `out/strigoi-proof/preview-ui-1791409467351/` and `out/strigoi-proof/format-ui-1791409466193/`. The isolated executable is `out/strigoi-preview-package/MDLxL-win32-x64/MDLxL.exe`, with 540 runtime/assets and 55 locales verified. The earlier interactive test package and installed application were not replaced. Warcraft runtime playback and user acceptance of this preview follow-up remain unexercised.
+
 ## Reproducing
 
 ### VoidWalker cubic cleanup and export verification
