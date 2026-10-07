@@ -7,7 +7,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { verifyFFmpegBundle } = createRequire(import.meta.url)('../electron/ffmpeg-verification.cjs');
-const { MANIFEST, validateManifest } = createRequire(import.meta.url)('../electron/updater.cjs');
 const manifest = JSON.parse(await fs.readFile(path.join(source, 'package.json'), 'utf8'));
 const runtimeFolders = ['dist', 'electron', 'src'];
 const externalFolders = ['Backgrounds', 'BitsAndParts', 'Addons'];
@@ -192,9 +191,6 @@ async function main() {
     if (!localeCount) throw Error('Packaged Electron locales are missing.');
     if (await exists(path.join(expectedPackage, 'resources/app.asar'))) throw Error('ASAR must stay disabled for native helpers and portable profile storage.');
     for (const name of ['MDLxL.exe', 'LICENSE', 'LICENSES.chromium.html']) if (!await exists(path.join(expectedPackage, name))) throw Error(`Electron runtime file missing: ${name}`);
-    const updateFiles = Object.fromEntries(await Promise.all((await files(expectedPackage)).map(async file => [file.split(path.sep).join('/'), await hash(path.join(expectedPackage, file))])));
-    const updateManifest = validateManifest({ schema: 1, product: manifest.name, version: manifest.version, platform: 'win32', arch: 'x64', files: updateFiles }, manifest.version);
-    await fs.writeFile(path.join(expectedPackage, MANIFEST), JSON.stringify(updateManifest, null, 2) + '\n');
     console.log(JSON.stringify({ package: expectedPackage, verifiedRuntimeAndAssetFiles: verifiedFiles, preservedLocaleFiles: localeCount, redundantDependencyCopies: false, asar: false }, null, 2));
   } finally {
     const resolvedStage = await fs.realpath(stage);
