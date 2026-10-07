@@ -3,6 +3,10 @@
 ## UI: the spirit of VIS
 
 - Keep MDLxL simple and compact, in the spirit of MDLVis and the VIS button.
+- Every 3D preview must allow camera rotation with the normal mouse controls.
+  Never make a preview camera static or locked unless explicitly requested.
+  Verify rotation with actual mouse drags in the packaged app; moving the
+  camera programmatically does not verify the user's controls.
 - Implement the literal request in the existing workflow. Do not expand it into
   an unsolicited panel, dashboard, toolbar, menu redesign, or extra application.
 - Preserve existing sidebars, their widths, and their controls unless the user
