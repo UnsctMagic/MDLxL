@@ -1,0 +1,18 @@
+.smm-overlay{position:fixed;inset:0;z-index:2100;display:flex;align-items:center;justify-content:center;background:#0007;font:13px/1.4 system-ui,"Segoe UI",sans-serif;color:var(--ui-text)}
+.smm-window{display:flex;flex-direction:column;width:min(960px,calc(100vw - 32px));height:min(660px,calc(100vh - 32px));background:var(--ui-panel);border:1px solid var(--ui-border);border-radius:7px;box-shadow:0 12px 40px #0005;overflow:hidden}
+.smm-window header,.smm-window footer{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--ui-surface)}
+.smm-window header{justify-content:space-between;border-bottom:1px solid var(--ui-border)}
+.smm-window button,.smm-window select{font:inherit;border:1px solid var(--ui-border);border-radius:3px;color:var(--ui-text);background:var(--ui-surface);padding:4px 9px;cursor:pointer}
+.smm-window button:hover{background:var(--ui-hover)}
+.smm-window button[aria-pressed=true],.smm-window .smm-accept{background:var(--ui-selected);color:var(--ui-selected-text)}
+.smm-window :is(button,select,input):focus-visible{outline:2px solid var(--ui-link);outline-offset:2px}
+.smm-question{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;gap:12px}
+.smm-question>span{font-size:12px;color:var(--ui-muted)}
+.smm-previews{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:0 12px;flex:1;min-height:0}
+.smm-previews>section{display:flex;flex-direction:column;min-height:0;min-width:0;border:1px solid var(--ui-border);border-radius:3px;overflow:hidden}
+.smm-previews h2{font:inherit;font-weight:600;margin:0;padding:5px 8px;background:var(--ui-surface)}
+.smm-previews .game-preview-root{flex:1;min-height:0;height:100%}
+.smm-playback{display:flex;align-items:center;gap:8px;padding:8px 12px}
+.smm-playback select{width:170px;max-width:32%;height:28px;min-height:28px;line-height:normal;padding:2px 6px}.smm-playback input{flex:1;min-width:0;accent-color:var(--ui-link)}
+.smm-options{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:4px 12px 10px;max-height:92px;overflow:auto}
+.smm-window footer{border-top:1px solid var(--ui-border);justify-content:flex-end}.smm-window footer>span{flex:1;font-size:12px}
