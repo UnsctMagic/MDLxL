@@ -10,36 +10,50 @@ export function resolveShapeSelection(model, selectedGeosets, selectionByGeoset 
   return Object.fromEntries(picked.map(i => [i, hasVertices ? [...new Set(selectionByGeoset[i] || [])] : Array.from({ length: model.Geosets[i].Vertices.length / 3 }, (_, j) => j)]).filter(([, ids]) => ids.length));
 }
 function prepare(model, selection, options) {
-  const { tool = 'Bend', axis = 1, amount = 45 } = options;
+  const { tool = 'Bend', axis = 1, amount = 45, direction = (axis + 2) % 3, pivot = ['Wrap', 'Warp', 'Dome'].includes(tool) ? 'middle' : 'start', origin, bendStyle = 'curve', radius = 0 } = options;
   if (!SHAPE_TOOLS.includes(tool) || ![0, 1, 2].includes(axis) || !Number.isFinite(amount)) throw Error('Choose a shaping tool, axis and finite amount.');
   if (tool === 'Taper' && amount <= -100) throw Error('Taper must stay above -100% to avoid collapsing vertices.');
+  if (![0, 1, 2].includes(direction) || direction === axis) throw Error('Bend direction must differ from the length axis.');
+  if (!['start', 'middle', 'end', 'selected'].includes(pivot) || !['curve', 'fold'].includes(bendStyle)) throw Error('Choose a shaping center and bend style.');
+  if (origin && (!Array.isArray(origin) || origin.length !== 3 || origin.some(n => !Number.isFinite(n)))) throw Error('Choose a finite shaping center.');
+  if (pivot === 'selected' && !origin) throw Error('Select vertices for the shaping center.');
+  if (!Number.isFinite(radius) || radius < 0) throw Error('Influence radius must be zero or a positive number.');
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity]; let count = 0;
   for (const [gi, ids] of Object.entries(selection)) {
     const g = model.Geosets?.[gi]; if (!g) throw Error('The selected geoset no longer exists.');
     for (const id of ids) { if (!Number.isInteger(id) || id < 0 || id >= g.Vertices.length / 3) throw Error('Vertex selection is out of range.'); count++; for (let a = 0; a < 3; a++) { const value = g.Vertices[id * 3 + a]; min[a] = Math.min(min[a], value); max[a] = Math.max(max[a], value); } }
   }
   if (!count) throw Error('Select geosets or vertices to shape.');
-  const center = min.map((v, i) => (v + max[i]) / 2), span = max.map((v, i) => v - min[i]), u = (axis + 1) % 3, v = (axis + 2) % 3;
+  const center = origin || min.map((v, i) => (v + max[i]) / 2), span = max.map((v, i) => v - min[i]), v = direction, u = 3 - axis - v;
+  const anchor = pivot === 'start' ? min[axis] : pivot === 'end' ? max[axis] : center[axis];
   const angle = amount * Math.PI / 180;
   const map = p => {
     if (amount === 0) return [...p];
     const q = p.map((n, i) => n - center[i]), out = [...q], length = span[axis];
+    const distance = Math.hypot(...q.map((n, i) => i === axis ? p[i] - anchor : n));
+    if (radius && distance >= radius) return [...p];
     if (tool === 'Dome') {
-      const ru = span[u] / 2 || 1, rv = span[v] / 2 || 1, r2 = (q[u] / ru) ** 2 + (q[v] / rv) ** 2;
+      const ru = radius || span[u] / 2 || 1, rv = radius || span[v] / 2 || 1, r2 = (q[u] / ru) ** 2 + (q[v] / rv) ** 2;
       out[axis] += amount * Math.max(0, 1 - r2);
     } else {
       if (length < 1e-8) throw Error('The selection has no length on this axis. Choose another axis.');
-      if (tool === 'Taper') { const factor = 1 + amount / 100 * (p[axis] - min[axis]) / length; out[u] *= factor; out[v] *= factor; }
-      else if (tool === 'Warp') { const a = angle * q[axis] / length, c = Math.cos(a), s = Math.sin(a); out[u] = q[u] * c - q[v] * s; out[v] = q[u] * s + q[v] * c; }
+      if (tool === 'Taper') { const factor = 1 + amount / 100 * (p[axis] - anchor) / length; if (factor <= 0) throw Error('This taper collapses the opposite side. Reduce the amount.'); out[u] *= factor; out[v] *= factor; }
+      else if (tool === 'Warp') { const a = angle * (p[axis] - anchor) / length, c = Math.cos(a), s = Math.sin(a); out[u] = q[u] * c - q[v] * s; out[v] = q[u] * s + q[v] * c; }
       else {
-        const coordinate = tool === 'Bend' ? p[axis] - min[axis] : q[axis], a = angle * coordinate / length, radius = length / angle;
+        const coordinate = p[axis] - anchor, a = angle * coordinate / length, curveRadius = length / angle;
         // At zero curvature the limit is the original geometry. Bend anchors the
         // minimum edge; Wrap centers the arc. Local depth follows its rotation.
-        out[axis] = Math.sin(a) * (radius + q[v]) + (tool === 'Bend' ? min[axis] - center[axis] : 0);
-        out[v] = Math.cos(a) * (radius + q[v]) - radius;
+        if (tool === 'Bend' && bendStyle === 'fold') {
+          const fold = Math.sign(coordinate) * angle / (pivot === 'start' || pivot === 'end' ? 1 : 2), c = Math.cos(fold), s = Math.sin(fold);
+          out[axis] = coordinate * c + q[v] * s + anchor - center[axis]; out[v] = -coordinate * s + q[v] * c;
+        } else {
+          out[axis] = Math.sin(a) * (curveRadius + q[v]) + anchor - center[axis];
+          out[v] = Math.cos(a) * (curveRadius + q[v]) - curveRadius;
+        }
       }
     }
-    return out.map((n, i) => n + center[i]);
+    const t = radius ? distance / radius : 0, weight = (1 - t) ** 2 * (1 + 2 * t);
+    return out.map((n, i) => p[i] + (n + center[i] - p[i]) * weight);
   };
   return { map, count };
 }

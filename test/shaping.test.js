@@ -3,12 +3,59 @@ import assert from 'node:assert/strict';
 import { buildForgeMesh, commitForge } from '../src/forge.js';
 import { SHAPE_TOOLS, previewShape, resolveShapeSelection, shapeGeosets } from '../src/shaping.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
+import { buildForgePrimitive } from '../src/forge-primitives.js';
+import { previewSupportedShape, shapeGeosetsWithSupport } from '../src/shaping-support.js';
 
 const setup = () => { const doc = createDemoDocument(), mesh = buildForgeMesh({ width: 16, height: 16, mask: new Uint8Array(256).fill(1), detail: 35, thickness: 1, trim: true }); const result = doc.apply('Forge', [], m => commitForge(m, mesh, { texturePath: 'test.tga' })); return { doc, indices: result.geosetIndices }; };
+test('a shield bends through its middle and folds at an exact selected vertex row in either direction', () => {
+  const mesh = buildForgePrimitive({ shape: 'Grid', complexity: 2, width: 100, height: 100 }), model = { Geosets: mesh.geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), source = model.Geosets[0].Vertices.slice();
+  for (const direction of [1, 2]) {
+    const bent = previewShape(model, selection, { tool: 'Bend', axis: 0, direction, amount: 90, pivot: 'middle' }).Geosets[0].Vertices;
+    for (let id = 0; id < source.length / 3; id++) if (source[id * 3] === 0) assert.ok(Math.abs(bent[id * 3] - source[id * 3]) < 1e-6);
+    assert.notDeepEqual(bent, source); assert.deepEqual(model.Geosets[0].Vertices, source);
+  }
+  const folded = previewShape(model, selection, { tool: 'Bend', axis: 0, direction: 2, amount: 90, pivot: 'selected', origin: [0, 0, 0], bendStyle: 'fold' }).Geosets[0].Vertices;
+  for (let id = 0; id < source.length / 3; id++) { const x = source[id * 3]; assert.ok(Math.abs(folded[id * 3] - x / Math.sqrt(2)) < 1e-4); assert.ok(Math.abs(folded[id * 3 + 2] + Math.abs(x) / Math.sqrt(2)) < 1e-4); }
+  for (const pivot of ['start', 'end']) { const anchor = pivot === 'start' ? -50 : 50, bent = previewShape(model, selection, { tool: 'Bend', axis: 0, direction: 2, amount: 45, pivot }).Geosets[0].Vertices; for (let id = 0; id < source.length / 3; id++) if (source[id * 3] === anchor) assert.deepEqual(bent.slice(id * 3, id * 3 + 3), source.slice(id * 3, id * 3 + 3)); }
+});
+test('selected centers and local influence shape only the requested area and preserve rigging and UVs', () => {
+  const mesh = buildForgePrimitive({ shape: 'Grid', complexity: 4 }), model = { Geosets: mesh.geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), before = structuredClone(model);
+  for (const tool of ['Bend', 'Warp', 'Dome', 'Wrap', 'Taper']) {
+    const result = previewShape(model, selection, { tool, axis: tool === 'Dome' ? 2 : 0, direction: tool === 'Dome' ? 0 : 2, amount: 30, pivot: 'selected', origin: [0, 0, 0], radius: 30 }), source = before.Geosets[0], moved = result.Geosets[0];
+    assert.notDeepEqual(moved.Vertices, source.Vertices, tool);
+    for (let id = 0; id < source.Vertices.length / 3; id++) if (Math.hypot(...source.Vertices.slice(id * 3, id * 3 + 3)) >= 30) assert.deepEqual(moved.Vertices.slice(id * 3, id * 3 + 3), source.Vertices.slice(id * 3, id * 3 + 3));
+    assert.deepEqual(moved.TVertices, source.TVertices); assert.deepEqual(moved.Faces, source.Faces); assert.deepEqual(model, before);
+  }
+  assert.throws(() => previewShape(model, selection, { pivot: 'selected' }), /Select vertices/);
+  assert.throws(() => previewShape(model, selection, { axis: 0, direction: 0 }), /differ/);
+});
 test('selection uses arbitrary checked geosets and only selected vertices when present', () => {
   const { doc } = setup();
   const selected = resolveShapeSelection(doc.model, new Set([0, 1]), { 0: [0, 1] }); assert.deepEqual(selected, { 0: [0, 1] });
   const all = resolveShapeSelection(doc.model, new Set([0, 1])); assert.equal(all[0].length, doc.model.Geosets[0].Vertices.length / 3); assert.equal(all[1].length, doc.model.Geosets[1].Vertices.length / 3);
+});
+test('local shaping uses the chosen edge or vertex center, including depth on a solid', () => {
+  const model = { Geosets: buildForgePrimitive({ shape: 'Cube', complexity: 3, depth: 20 }).geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]), source = model.Geosets[0].Vertices;
+  const dome = previewShape(model, selection, { tool: 'Dome', axis: 2, pivot: 'selected', origin: [0, 0, 10], amount: 5, radius: 15 }).Geosets[0].Vertices;
+  assert.notDeepEqual(dome, source);
+  for (let id = 0; id < source.length / 3; id++) if (source[id * 3 + 2] === -10) assert.deepEqual(dome.slice(id * 3, id * 3 + 3), source.slice(id * 3, id * 3 + 3));
+  const bent = previewShape(model, selection, { tool: 'Bend', axis: 0, direction: 2, pivot: 'start', amount: 30, radius: 40 }).Geosets[0].Vertices;
+  assert.notDeepEqual(bent, source);
+  for (let id = 0; id < source.length / 3; id++) if (source[id * 3] >= 0) assert.deepEqual(bent.slice(id * 3, id * 3 + 3), source.slice(id * 3, id * 3 + 3));
+});
+test('optional Forge grid support bends a four-corner shield and preserves UV mapping, rigging, persistence and undo', () => {
+  const doc = createDemoDocument(), mesh = buildForgePrimitive({ shape: 'Plane' }), g = mesh.geosets[0];
+  g.Vertices = new Float32Array([-50, -50, 0, 50, -50, 0, 50, 50, 0, -50, 50, 0]); g.Normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]); g.TVertices = [new Float32Array([0, 0, 1, 0, 1, 1, 0, 1])]; g.Faces = new Uint16Array([0, 1, 2, 0, 2, 3]);
+  const { geosetIndices: [gi] } = doc.apply('Coarse shield', [], m => commitForge(m, mesh, { texturePath: 'Textures\\white.blp' })), before = structuredClone(doc.model), selection = resolveShapeSelection(doc.model, [gi]);
+  const options = { tool: 'Bend', axis: 0, direction: 2, amount: 90, pivot: 'middle', bendStyle: 'fold', support: 2 }, preview = previewSupportedShape(doc.model, selection, options), shaped = preview.Geosets[gi];
+  assert.deepEqual(doc.model, before); assert.ok(shaped.Faces.length > 6 && shaped.Faces.length <= 216);
+  const z = Array.from(shaped.Vertices).filter((_, i) => i % 3 === 2); assert.ok(Math.max(...z) - Math.min(...z) > 20, 'corners alone would remain flat; support must create a bent middle');
+  for (let id = 0; id < shaped.Vertices.length / 3; id++) { const u = shaped.TVertices[0][id * 2], v = shaped.TVertices[0][id * 2 + 1], x = u * 100 - 50; assert.ok(Math.abs(shaped.Vertices[id * 3] - x / Math.sqrt(2)) < 1e-4); assert.ok(Math.abs(shaped.Vertices[id * 3 + 1] - (v * 100 - 50)) < 1e-4); }
+  assert.deepEqual(shaped.Groups, before.Geosets[gi].Groups); assert.ok(shaped.VertexGroup.every(n => n === 0));
+  doc.apply('Bend with support', [], m => shapeGeosetsWithSupport(m, selection, options)); assert.deepEqual(doc.model.Geosets[gi].Vertices, shaped.Vertices);
+  for (const format of ['mdl', 'mdx']) assert.equal(openDocument(doc.serialize(format)).model.Geosets[gi].Faces.length, shaped.Faces.length);
+  doc.undo(); assert.deepEqual(doc.model, before);
+  assert.throws(() => shapeGeosetsWithSupport(doc.model, { [gi]: [0] }, options), /Whole geosets/); assert.deepEqual(doc.model, before);
 });
 test('all tools preview immutably, preserve UVs and rigging, and apply with undo', () => {
   for (const tool of SHAPE_TOOLS) {
@@ -38,4 +85,28 @@ test('partial shaping keeps coincident UV and hard-normal seam copies together w
   assert.ok(copies?.length>1);const untouched=doc.model.Geosets[indices[0]].Vertices.slice();
   shapeGeosets(doc.model,{[gi]:[copies[0],0,1,2]},{tool:'Dome',axis:2,amount:20});
   assert.ok(copies.every(id=>position(id)===position(copies[0])));assert.deepEqual(doc.model.Geosets[indices[0]].Vertices,untouched);
+});
+
+test('automatic support curves and folds coarse planes across their middle without setup', () => {
+  for (const width of [20, 60, 100]) for (const bendStyle of ['curve', 'fold']) {
+    const mesh = buildForgePrimitive({ shape: 'Plane', width, height: 100 }), model = { Geosets: mesh.geosets, Info: {}, Sequences: [] }, before = structuredClone(model), selection = resolveShapeSelection(model, [0]);
+    const options = { tool: 'Bend', axis: 0, direction: 2, amount: 60, pivot: 'middle', bendStyle, support: 'auto' };
+    const preview = previewSupportedShape(model, selection, options), g = preview.Geosets[0], z = Array.from(g.Vertices).filter((_, i) => i % 3 === 2);
+    assert.ok(Math.max(...z) - Math.min(...z) > width / 10, `${width} ${bendStyle} really curves`);
+    assert.ok(g.Faces.length / 3 <= 72); assert.ok(g.Vertices.some((v, i) => i % 3 === 0 && Math.abs(v) < .001), 'center row exists');
+    assert.deepEqual(model, before);
+    const reversed = previewSupportedShape(model, selection, { ...options, amount: -60 }).Geosets[0];
+    for (let i = 2; i < g.Vertices.length; i += 3) assert.ok(Math.abs(g.Vertices[i] + reversed.Vertices[i]) < .0001);
+    const reset = previewSupportedShape(model, selection, { ...options, amount: 0 }).Geosets[0];
+    for (const field of ['Vertices', 'Faces', 'TVertices']) assert.deepEqual(reset[field], model.Geosets[0][field], 'Reset retains original topology');
+    shapeGeosetsWithSupport(model, selection, options); assert.deepEqual(model.Geosets[0], g);
+  }
+});
+
+test('automatic support leaves dense surfaces and solid geometry topology intact', () => {
+  for (const shape of ['Grid', 'Cube']) {
+    const model = { Geosets: buildForgePrimitive({ shape, complexity: 4 }).geosets, Info: {}, Sequences: [] }, selection = resolveShapeSelection(model, [0]);
+    const g = previewSupportedShape(model, selection, { tool: 'Bend', axis: 0, direction: 2, amount: 60, pivot: 'middle', support: 'auto' }).Geosets[0];
+    assert.deepEqual(g.Faces, model.Geosets[0].Faces); assert.deepEqual(g.TVertices, model.Geosets[0].TVertices);
+  }
 });

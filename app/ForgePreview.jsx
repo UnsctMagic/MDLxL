@@ -5,10 +5,23 @@ import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting }
 import { cameraLeftLight } from './viewport-quality.js';
 import { visualOptions } from '../src/preferences.js';
 
-export default function ForgePreview({ geosets = [], image = null, wire = false, checker = false, trimColor = '#cca64d', shapeHandle = null, initialView = 'front', preferences }) {
+export default function ForgePreview({ geosets = [], image = null, wire = false, checker = false, trimColor = '#cca64d', surfaceColor = '#dddddd', shapeHandle = null, vertexSelection = null, initialView = 'front', viewAxes = null, preferences }) {
   const host = useRef(), state = useRef(), drag = useRef();
   const latest = useRef(preferences); latest.current = preferences;
+  const pickVertex = e => {
+    if (!vertexSelection?.picking || e.target.tagName !== 'CANVAS' || e.button !== 0) return;
+    e.stopPropagation(); e.preventDefault();
+    const s = state.current; if (!s) return; const rect = s.renderer.domElement.getBoundingClientRect(), point = new THREE.Vector3(); let best = null;
+    geosets.forEach((g, gi) => { for (let id = 0; id < g.Vertices.length / 3; id++) { point.fromArray(g.Vertices, id * 3).project(s.camera); if (point.z < -1 || point.z > 1) continue; const x = rect.left + (point.x + 1) * rect.width / 2, y = rect.top + (1 - point.y) * rect.height / 2, distance = Math.hypot(x - e.clientX, y - e.clientY); if (distance < 12 && (!best || distance < best.distance - .01 || Math.abs(distance - best.distance) < .01 && point.z < best.z)) best = { gi, id, distance, z: point.z }; } });
+    if (best) vertexSelection.onPick(best.gi, best.id, e.shiftKey);
+  };
   const viewFor = (view, box) => {
+    if (viewAxes) {
+      const direction = new THREE.Vector3(), up = new THREE.Vector3().setComponent(viewAxes.vertical, 1);
+      direction.setComponent(view === 'side' ? viewAxes.horizontal : viewAxes.depth, 1);
+      if (view === 'oblique') { direction.setComponent(viewAxes.horizontal, .35); direction.setComponent(viewAxes.vertical, .55); }
+      return { direction: direction.normalize(), up, fitted: true };
+    }
     if (view === 'largest') {
       const size = box.getSize(new THREE.Vector3());
       const axis = [[size.y * size.z, 'x'], [size.x * size.z, 'y'], [size.x * size.y, 'z']].sort((a, b) => b[0] - a[0])[0][1];
@@ -54,16 +67,22 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     if (map) { map.flipY = false; map.colorSpace = THREE.SRGBColorSpace; map.magFilter = THREE.LinearFilter; map.minFilter = THREE.LinearMipmapLinearFilter; map.generateMipmaps = true; map.anisotropy = Math.min(8, s.renderer.capabilities.getMaxAnisotropy()); map.needsUpdate = true; }
     geosets.forEach((g, i) => {
       const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(g.Vertices, 3)); geometry.setAttribute('normal', new THREE.BufferAttribute(g.Normals, 3)); if (g.TVertices?.[0]) geometry.setAttribute('uv', new THREE.BufferAttribute(g.TVertices[0], 2)); geometry.setIndex(new THREE.BufferAttribute(g.Faces, 1));
-      const material = new THREE.MeshPhongMaterial({ map: i === 0 || checker ? map : null, color: checker ? '#ffffff' : i === 0 ? map ? '#ffffff' : '#dddddd' : trimColor, side: THREE.DoubleSide, alphaTest: .1, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }); s.group.add(new THREE.Mesh(geometry, material));
+      const material = new THREE.MeshPhongMaterial({ map: i === 0 || checker ? map : null, color: checker ? '#ffffff' : i === 0 ? map ? '#ffffff' : surfaceColor : trimColor, side: THREE.DoubleSide, alphaTest: .1, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }); s.group.add(new THREE.Mesh(geometry, material));
       if (wire) { const wires = new THREE.LineSegments(new THREE.WireframeGeometry(geometry), new THREE.LineBasicMaterial({ color: 0xccedff, transparent: true, opacity: .58 })); s.group.add(wires); }
+      if (vertexSelection) {
+        const points = ids => new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(ids.flatMap(id => Array.from(g.Vertices.slice(id * 3, id * 3 + 3))), 3));
+        if (vertexSelection.picking) s.group.add(new THREE.Points(points(Array.from({ length: g.Vertices.length / 3 }, (_, id) => id)), new THREE.PointsMaterial({ color: '#89d8ff', size: 4, sizeAttenuation: false, depthTest: false })));
+        const ids = vertexSelection.byGeoset[i] || []; if (ids.length) s.group.add(new THREE.Points(points(ids), new THREE.PointsMaterial({ color: '#ffb951', size: 7, sizeAttenuation: false, depthTest: false })));
+      }
     });
+    if (vertexSelection?.origin) s.group.add(new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(vertexSelection.origin, 3)), new THREE.PointsMaterial({ color: '#fff278', size: 12, sizeAttenuation: false, depthTest: false })));
     if (geosets.length) {
       const box = new THREE.Box3().setFromObject(s.group), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length() || 100;
       s.camera.near = Math.max(.001, size / 1000); s.camera.far = size * 100; s.camera.updateProjectionMatrix();
       if (!s.fit) { const viewState = viewFor(initialView, box); s.controls.target.copy(center); s.camera.up.copy(viewState.up); s.camera.position.copy(center).addScaledVector(viewState.direction, distanceFor(viewState, box, size)); s.controls.update(); s.fit = true; }
     }
     s.render();
-  }, [geosets, image, wire, checker, trimColor, initialView]);
+  }, [geosets, image, wire, checker, trimColor, surfaceColor, initialView, vertexSelection]);
   useEffect(() => { state.current?.render(); }, [preferences]);
-  return <div ref={host} className="forge-preview-canvas" aria-label="3D mesh preview"><div className="forge-preview-views"><button onClick={() => fit('front')}>Front / fit</button><button onClick={() => fit('side')}>Side</button><button onClick={() => fit('oblique')}>Oblique</button></div>{shapeHandle && <button className="forge-shape-handle" title="Drag to shape" aria-label="Drag to shape" onPointerDown={e => { e.stopPropagation(); e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); drag.current = { y: e.clientY, amount: shapeHandle.amount }; }} onPointerMove={e => { if (drag.current) { e.stopPropagation(); shapeHandle.onChange(drag.current.amount + drag.current.y - e.clientY); } }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); shapeHandle.onChange(shapeHandle.amount + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)); } }}>↕</button>}</div>;
+  return <div ref={host} onPointerDownCapture={pickVertex} className="forge-preview-canvas" aria-label="3D mesh preview"><div className="forge-preview-views"><button onClick={() => fit('front')}>Front / fit</button><button onClick={() => fit('side')}>Side</button><button onClick={() => fit('oblique')}>Oblique</button></div>{shapeHandle && <button className="forge-shape-handle" title="Drag to shape" aria-label="Drag to shape" onPointerDown={e => { e.stopPropagation(); e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); drag.current = { y: e.clientY, amount: shapeHandle.amount }; }} onPointerMove={e => { if (drag.current) { e.stopPropagation(); shapeHandle.onChange(drag.current.amount + drag.current.y - e.clientY); } }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); shapeHandle.onChange(shapeHandle.amount + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)); } }}>↕</button>}</div>;
 }

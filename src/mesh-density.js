@@ -219,13 +219,14 @@ function componentReachedGridLimit(geoset, component) {
   return clusters(x) >= 7 || clusters(points.map(value => value[1])) >= 7;
 }
 
-function gridDimensions(component, level, projection) {
+function gridDimensions(component, level, projection, minimumSegments = 1) {
   const { lower, upper, innerLower, innerUpper, section, tolerance } = projection, hasLeft = innerLower - lower > tolerance, hasRight = upper - innerUpper > tolerance;
   const leftWidth = section(lower), rightWidth = section(upper), midpoint = section((innerLower + innerUpper) / 2);
   const width = Math.max(midpoint[1] - midpoint[0], tolerance), length = Math.max(innerUpper - innerLower, tolerance), desired = component.length * (level * 2 + 1);
   const collapsed = values => values[1] - values[0] <= width * .05;
   let best = null;
   for (let rows = 1; rows <= 6; rows++) for (let columns = 1; columns <= 6; columns++) {
+    if (rows < minimumSegments || columns < minimumSegments || minimumSegments > 1 && (rows % 2 || columns % 2)) continue;
     const triangles = 2 * rows * columns + (hasLeft ? (collapsed(leftWidth) ? rows : rows * 2) : 0) + (hasRight ? (collapsed(rightWidth) ? rows : rows * 2) : 0);
     const aspect = (length / columns) / (width / rows), score = Math.abs(triangles - desired) / desired * 2 + Math.abs(Math.log(Math.max(aspect, 1e-8)));
     if (!best || score < best.score - 1e-10 || Math.abs(score - best.score) <= 1e-10 && triangles < best.triangles) best = { rows, columns, triangles, score };
@@ -273,8 +274,8 @@ function sampledRecord(geoset, component, projection, target, groups) {
   };
 }
 
-function remeshComponent(geoset, component, level, groups) {
-  const boundary = componentBoundary(geoset, component), projection = componentProjection(geoset, component, boundary), dimensions = gridDimensions(component, level, projection);
+function remeshComponent(geoset, component, level, groups, minimumSegments) {
+  const boundary = componentBoundary(geoset, component), projection = componentProjection(geoset, component, boundary), dimensions = gridDimensions(component, level, projection, minimumSegments);
   const { lower, upper, innerLower, innerUpper, section, tolerance } = projection, columns = [];
   if (innerLower - lower > tolerance) columns.push(lower);
   for (let column = 0; column <= dimensions.columns; column++) columns.push(innerLower + (innerUpper - innerLower) * column / dimensions.columns);
@@ -315,7 +316,8 @@ function sourceRecord(geoset, index) {
   };
 }
 
-export function densifyGeoset(source, level) {
+export function densifyGeoset(source, level, { minimumSegments = 1 } = {}) {
+  if (![1, 2, 4].includes(minimumSegments)) throw Error('Grid support must use 1, 2 or 4 minimum segments.');
   validateGeoset(source);
   level = Math.max(0, Math.min(4, Math.round(level)));
   if (!level) return structuredClone(source);
@@ -323,7 +325,7 @@ export function densifyGeoset(source, level) {
   if (!active.size) return geoset;
   const components = triangleComponents(geoset, active), componentByTriangle = new Map(), remeshed = new Map();
   components.forEach((component, index) => component.forEach(triangle => componentByTriangle.set(triangle, index)));
-  components.forEach((component, index) => remeshed.set(index, remeshComponent(geoset, component, level, groups)));
+  components.forEach((component, index) => remeshed.set(index, remeshComponent(geoset, component, level, groups, minimumSegments)));
   const vertices = [], normals = [], vertexGroups = [], tangents = [], skins = [], uvs = (geoset.TVertices || []).map(() => []), faces = [], written = new Set();
   const append = record => {
     const index = vertices.length / 3; vertices.push(...record.position); faces.push(index);
