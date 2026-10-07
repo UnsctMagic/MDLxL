@@ -24,14 +24,17 @@ export function classifyHiveFindings(findings,proposals=[]){
       else if(message==='Unused object'){kind='unusedObject';owner='unused';}
     }else if(/^Missing opening track for /.test(message)){kind='openingTrack';owner='sanity';}
     else if(message==='Using a gravity animation.'){kind='gravity';owner='sanity';}
+    else if(message==='Interpolation type not set to None'){kind='visibilityInterpolation';owner='sanity';}
+    else if(/^This sequence starts before sequence \d+ "/.test(message)){kind='sequenceTimeline';owner='sanity';}
     const location=hiveTrackPath(f.path);
     const proposal=proposals.find(p=>p.kind==='splineResample'&&kind==='redundantTracks'&&location===p.path?.join('.')&&p.noticed.includes(frame))||proposals.find(p=>f.type!=='unused'&&/extent|radius/i.test(message)&&p.targets?.some(t=>(f.path||'').startsWith(t.hivePath))||
+      p.kind==='sequenceTimeline'&&kind==='sequenceTimeline'||
       p.kind==='gravity'&&location===`ParticleEmitters2.${p.emitter}.Gravity`||
       p.kind===kind&&location===p.path?.join('.')&&
       (kind==='openingTrack'?p.frame===frame:kind==='redundantTracks'?p.noticed.includes(frame):kind==='unusedLocalKeys'?p.frames.includes(frame):true));
     if(proposal){const manual=proposal.inspectionOnly||proposal.kind==='redundantTracks'&&!proposal.frames?.includes(frame);
       return {...f,kind,owner:'sanity',fixId:proposal.id,status:manual?'manual':'preview',
-        reason:manual?'Detected; its curve or domain requires manual review.':'Supported correction available.'};}
+        reason:manual?proposal.preservedTurns?.includes(frame)?'Similar values contain an authored turn; keep this key to preserve motion.':'Detected; its curve or domain requires manual review.':'Supported correction available.'};}
     if(kind==='unusedObject')return {...f,kind,owner,status:'stage',reason:'Review reference-based removal in Unused data; retained dependencies remain reported here.'};
     return {...f,kind,owner,status:'manual',reason:kind==='unsupported'?'Detected by Hive; no supported automatic correction.':'Detected; no safe automatic correction for this domain.'};
   });

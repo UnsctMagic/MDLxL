@@ -145,7 +145,13 @@ export default function GamePreview(inputProps) {
       Object.assign(stage.style,{left:`${Math.ceil(r.x*dpr-1e-6)/dpr-r.x}px`,top:`${Math.ceil(r.y*dpr-1e-6)/dpr-r.y}px`,right:'auto',bottom:'auto',width:`${Math.max(1,Math.floor(r.width*dpr)-1)/dpr}px`,height:`${Math.max(1,Math.floor(r.height*dpr)-1)/dpr}px`});
     };
     const observer=new owner.ResizeObserver(align);observer.observe(element);owner.addEventListener('resize',align);align();
-    return()=>{observer.disconnect();owner.removeEventListener('resize',align);for(const key of ['left','top','right','bottom','width','height'])stage.style[key]='';};
+    return()=>{
+      observer.disconnect();owner.removeEventListener('resize',align);
+      for(const key of ['left','top','right','bottom'])stage.style[key]='';
+      // React has already assigned the new portrait dimensions at cleanup.
+      // Keep them even when the same portrait size needs no state update.
+      if(!latest.current.portraitMode)for(const key of ['width','height'])stage.style[key]='';
+    };
   },[props.pixelAligned,props.portraitMode]);
   const timelineStart = sequenceIndex < 0 ? globalPreviewId !== null ? 0 : Number(props.timelineInterval?.[0]) : NaN;
   const timelineEnd = sequenceIndex < 0 ? globalPreviewId !== null ? model.GlobalSequences[globalPreviewId] : Number(props.timelineInterval?.[1]) : NaN;
@@ -299,8 +305,17 @@ export default function GamePreview(inputProps) {
       if (key !== projectionKey) { projectionKey = key; latest.current.onProjectionViewChange?.({ viewMatrix, projectionMatrix }); }
     };
     let syncingCamera = false, compareRegistered = false, collisionCanvas = null, externalSeek;
-    const snapshotCamera = () => ({ camera: camera === ortho ? 'ortho' : 'perspective', perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone() });
-    const receiveCamera = saved => { syncingCamera = true; camera = restorePreviewCamera(saved, perspective, ortho, controls); resize(); reportProjectionView(); invalidate(); syncingCamera = false; };
+    const snapshotCamera = () => ({ camera: camera === ortho ? 'ortho' : 'perspective', perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone(), portraitActive: state.portraitActive, portraitDetached: !!latest.current.portraitMode && state.cameraDetached });
+    const receiveCamera = saved => {
+      // Each pane owns its pre-portrait backup. Do not replace that view while
+      // its partner is already entering or leaving the portrait projection.
+      if (!!saved.portraitActive !== state.portraitActive) return;
+      syncingCamera = true;
+      // A paired portrait must keep a user's navigation too; otherwise its
+      // authored camera broadcasts back and cancels the other view's drag.
+      if (latest.current.portraitMode) state.cameraDetached = !!saved.portraitDetached;
+      camera = restorePreviewCamera(saved, perspective, ortho, controls); resize(); reportProjectionView(); invalidate(); syncingCamera = false;
+    };
     const cameraChanged = () => {
       latest.current.onCameraAnglesChange?.(editorCameraAngles(camera)); reportProjectionView(); invalidate();
       const bus = latest.current.compareCamera;
