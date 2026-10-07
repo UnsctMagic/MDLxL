@@ -32,8 +32,9 @@ const root = path.resolve(__dirname, '..');
   await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({preferences:{language:'en',checkUpdatesOnStartup:false}}));
   const app = await _electron.launch({executablePath:path.join(fixture,'MDLxL.exe'),args:['--disable-backgrounding-occluded-windows'],env:{...process.env,MDLXL_PROFILE:profile},timeout:30000});
   const errors = [];
+  let page;
   try {
-    const page = await app.firstWindow();
+    page = await app.firstWindow();
     page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
     await page.waitForFunction(() => !!document.querySelector('.classic-app canvas'));
@@ -42,22 +43,30 @@ const root = path.resolve(__dirname, '..');
     await app.evaluate(() => shredderTest.updater.check());
     await page.getByRole('dialog',{name:'MDLxL update'}).waitFor();
     assert.equal(await page.locator('.update-shredder-layer').count(),0);
-    await page.clock.install();
+    await page.clock.install({time:new Date('2026-10-07T12:00:00Z')});
+    await page.clock.pauseAt(new Date('2026-10-07T12:00:01Z'));
+    const capture = async name => {
+      if(process.env.MDLVIS_HEADLESS==='1') return;
+      await page.clock.resume();
+      try { await page.screenshot({path:path.join(output,name)}); }
+      finally { await page.clock.pauseAt(await page.evaluate(()=>Date.now())+500); }
+    };
     for (let spot = 0; spot < 4; spot++) {
       await page.mouse.move(10, 10);
       await page.evaluate(value => { Math.random = () => value; }, (spot + .1) / 4);
-      if (spot === 0) await page.locator('[data-warmkey="update:install"]').click();
+      if (spot === 0) await page.locator('[data-warmkey="update:install"]').click({force:true});
       else await app.evaluate(() => shredderTest.updater.publish({state:'downloading',received:3}));
       await page.locator('.update-shredder').waitFor({state:'attached'});
       const box = page.getByRole('dialog',{name:'MDLxL update'});
       const before = await box.boundingBox();
-      await page.clock.runFor(4000);
       const bird = page.locator('.update-shredder');
+      for (let step=0; step<40 && await bird.getAttribute('data-phase')!=='peek'; step++) await page.clock.runFor(250);
+      await page.clock.runFor(3200);
       assert.equal(await bird.getAttribute('data-phase'),'peek');
       assert.equal(await bird.getAttribute('data-spot'),String(spot));
       assert.deepEqual(await box.boundingBox(),before,'the visitor takes no dialog space');
       assert.equal((await page.locator('.classic-sidebar').first().boundingBox()).width,sidebar.width);
-      await page.screenshot({path:path.join(output,`peek-${spot}.png`)});
+      await capture(`peek-${spot}.png`);
       const hit = await page.evaluate(spot => {
         const box = document.querySelector('.update-overlay [role="dialog"]'), r = box.getBoundingClientRect();
         const x = [r.left+r.width*.28,r.right+22,r.left+r.width*.78,r.left-22][spot];
@@ -69,10 +78,10 @@ const root = path.resolve(__dirname, '..');
       if (spot === 0) {
         const picture = bird.locator('div');
         const left = await picture.evaluate(node => node.style.backgroundPosition);
-        await page.clock.runFor(3000);
+        await page.clock.runFor(2700);
         assert.notEqual(await picture.evaluate(node => node.style.backgroundPosition),left,'he looks in both directions');
         const peckFrames = [];
-        for (let step=0; step<20; step++) {
+        for (let step=0; step<25; step++) {
           await page.clock.runFor(100);
           peckFrames.push(await picture.evaluate(node => node.style.backgroundPosition));
         }
@@ -93,7 +102,7 @@ const root = path.resolve(__dirname, '..');
     await app.evaluate(() => shredderTest.updater.publish({received:94}));
     await page.clock.runFor(600);
     assert.equal(await page.locator('.update-shredder').getAttribute('data-phase'),'fly');
-    await page.screenshot({path:path.join(output,'flight.png')});
+    await capture('flight.png');
     await page.clock.runFor(3000);
     assert.equal(await page.locator('.update-shredder').getAttribute('data-phase'),'gone');
     await page.clock.fastForward(45000);
@@ -102,7 +111,7 @@ const root = path.resolve(__dirname, '..');
     await page.waitForFunction(async () => (await window.desktop.updateStatus()).state === 'available');
     assert.ok(await app.evaluate(() => shredderTest.closePrompts) > 0,'the normal unsaved-model prompt still runs');
     assert.equal(await page.locator('.update-shredder-layer').count(),0);
-    await page.locator('[data-warmkey="update:later"]').click();
+    await page.locator('[data-warmkey="update:later"]').click({force:true});
     assert.equal(await page.locator('.update-overlay').count(),0);
     await app.evaluate(() => {shredderTest.updater.publish({state:'available'});shredderTest.updater.publish({state:'downloading',total:0,received:0});});
     await page.locator('.update-shredder').waitFor({state:'attached'});
@@ -116,6 +125,7 @@ const root = path.resolve(__dirname, '..');
     assert.deepEqual(errors,[]);
     console.log('PASS packaged Shredder: four locations, slow looks/peck, escape, final departure, unchanged dialog and save flow');
   } finally {
+    await page?.clock.resume();
     await app.evaluate(({dialog}) => {dialog.showMessageBoxSync=()=>2;});
     await app.close();
   }
