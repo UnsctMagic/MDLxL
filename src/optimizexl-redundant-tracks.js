@@ -10,6 +10,15 @@ function redundant(keys,i) {
   return a?.length && a.length===b?.length && a.length===c?.length &&
     Math.max(distance(a,b),distance(a,c)) < .001;
 }
+// Similar values can describe a small authored turn. Preserve a strict local
+// extremum above Float32 roundoff, even when it fits the cleanup error budget.
+function authoredTurn(keys,i){
+  const a=keys[i-1].Vector,b=keys[i].Vector,c=keys[i+1].Vector;
+  return Array.from(b).some((v,j)=>{
+    const noise=8*2**-23*Math.max(1,Math.abs(a[j]),Math.abs(v),Math.abs(c[j]));
+    return v<Math.min(a[j],c[j])-noise||v>Math.max(a[j],c[j])+noise;
+  });
+}
 function safeCurve(baseline,candidate,property,interval,lo,hi) {
   const rotation=property==='Rotation',keys=baseline.Keys.filter(k=>k.Frame>=lo&&k.Frame<=hi);
   const width=keys[0]?.Vector?.length;
@@ -40,11 +49,12 @@ export function redundantTrackProposals(model,entries) {
       const [lo,hi]=domain.interval,keys=track.Keys.filter(k=>k.Frame>=lo&&k.Frame<=hi);
       const noticed=keys.filter((_,i)=>i>0&&i<keys.length-1&&redundant(keys,i)).map(k=>k.Frame);
       if(!noticed.length)continue;
+      const preservedTurns=keys.filter((_,i)=>i>0&&i<keys.length-1&&redundant(keys,i)&&authoredTurn(keys,i)).map(k=>k.Frame);
       const overlaps=!global&&model.Sequences.some((s,i)=>i!==domain.sequence&&s.Interval[0]<=hi&&s.Interval[1]>=lo);
       const baseline={...structuredClone(track),GlobalSeqId:null,Keys:structuredClone(keys)},candidate=structuredClone(baseline),frames=[];
       if(!overlaps&&keys.every((k,i)=>!i||k.Frame>keys[i-1].Frame)){
         for(let i=1;i<candidate.Keys.length-1;){
-          if(!redundant(candidate.Keys,i)){i++;continue;}
+          if(!redundant(candidate.Keys,i)||authoredTurn(candidate.Keys,i)){i++;continue;}
           const a=candidate.Keys[i-1],k=candidate.Keys[i],b=candidate.Keys[i+1];candidate.Keys.splice(i,1);
           if(safeCurve(baseline,candidate,path.at(-1),domain.interval,a.Frame,b.Frame)){
             frames.push(k.Frame);i=Math.max(1,i-1);
@@ -55,10 +65,10 @@ export function redundantTrackProposals(model,entries) {
       const remaining=noticed.filter(f=>!frames.includes(f));
       out.push({id:`redundant:${path.join('.')}:${global?'global'+domain.global:domain.sequence}`,kind:'redundantTracks',path,
         sequence:domain.sequence,frame:global?(model.Sequences[0]?.Interval[0]||0):noticed[0],globalSequence:global?domain.global:null,
-        frames,noticed,remaining,signature:json([track,domain.interval]),...(frames.length?{}:{inspectionOnly:true}),
+        frames,noticed,remaining,preservedTurns,signature:json([track,domain.interval]),...(frames.length?{}:{inspectionOnly:true}),
         label:`${name}: ${frames.length||noticed.length} redundant ${path.at(-1)} key${(frames.length||noticed.length)===1?'':'s'}`,
         detail:frames.length?`Remove ${frames.length} Hive-redundant keys after checking the surrounding curve against the original. ${remaining.length?`${remaining.length} other notices need manual review.`:'Keep the first and last keys and every other animation.'}`:
-          'Hive flags similar values, but overlapping animations, invalid controls or the intervening curve prevent this removal. Review manually.'});
+          'Hive flags similar values, but an authored turn, overlapping animations, invalid controls or the intervening curve prevent this removal. Review manually.'});
     }
   }
   return out;

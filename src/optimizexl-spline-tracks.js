@@ -25,7 +25,7 @@ export function splineTrackProposals(model,entries,existing){
     if(!['Bones','Helpers'].includes(path[0])||!['Translation','Rotation','Scaling'].includes(property)||
       ![2,3].includes(track.LineType)||!(track.GlobalSeqId==null||track.GlobalSeqId===-1||track.GlobalSeqId===0xffffffff))continue;
     const findings=existing.filter(f=>f.kind==='redundantTracks'&&f.path.join('.')===path.join('.'));
-    if(!findings.some(f=>f.remaining.length)||existing.some(f=>f.path?.join('.')===path.join('.')&&!f.inspectionOnly))continue;
+    if(!findings.some(f=>f.remaining.length)||findings.some(f=>f.preservedTurns?.length)||existing.some(f=>f.path?.join('.')===path.join('.')&&!f.inspectionOnly))continue;
     const spans=[];let valid=true;
     for(const f of findings){
       const interval=Array.from(model.Sequences[f.sequence].Interval),[lo,hi]=interval;
