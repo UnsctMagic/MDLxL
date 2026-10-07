@@ -15,6 +15,7 @@ import { unusedTrackProposals, applyUnusedTrack } from './optimizexl-unused-trac
 import { effectVisibilityProposals } from './optimizexl-effect-visibility.js';
 import { redundantTrackProposals, applyRedundantTrack } from './optimizexl-redundant-tracks.js';
 import { splineTrackProposals, applySplineTrack } from './optimizexl-spline-tracks.js';
+import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair } from './optimizexl-format.js';
 
 export const STAGES = [
   {id:'duplicates',name:'Duplicate data'}, {id:'animation',name:'Animation optimization'},
@@ -121,7 +122,7 @@ export function sanityProposals(m){const findings=boundsProposals(m);for(const [
  // Static gravity replaces its entire track. It owns that track's diagnostics;
  // do not also queue key-level corrections against data it removes.
  const owned=proposals.filter(p=>!p.path||!findings.some(owner=>owner.kind==='gravity'&&p.path.join('.')===`ParticleEmitters2.${owner.emitter}.Gravity`));
- return [...owned,...splineTrackProposals(m,tracks(m),owned)];}
+ return [...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...sequenceTimelineProposals(m,tracks(m))];}
 function applyRepair(m,fix,settings,evidenceModel=m){
  if(!fix)return;
  if(fix.kind==='batch'){
@@ -135,6 +136,13 @@ function applyRepair(m,fix,settings,evidenceModel=m){
   return;
  }
  if(fix.kind==='motion'){repairMotionIrregularity(m,fix,evidenceModel);return;}
+ if(fix.kind==='visibilityInterpolation'||fix.kind==='sequenceTimeline'){
+  const current=(fix.kind==='visibilityInterpolation'?visibilityInterpolationProposals:sequenceTimelineProposals)(evidenceModel,tracks(evidenceModel)).find(f=>f.id===fix.id);
+  if(!current||!same(current,fix))throw Error('This format finding changed. Select it again.');
+  // Timeline relocation runs last in the catalog. Prior key-level repairs
+  // retain ownership; relocate their retained records using baseline domains.
+  applyFormatRepair(m,current,tracks(m),evidenceModel);return;
+ }
  if(fix.kind==='snap'){repairSuspiciousSnap(m,fix,evidenceModel);return;}
  if(fix.kind==='motionContext'){repairContextMotion(m,fix,evidenceModel);return;}
  if(fix.kind==='openingTrack'){
