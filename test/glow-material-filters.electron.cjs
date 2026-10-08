@@ -86,6 +86,23 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     await uv.screenshot({ path: path.join(out, 'restored.png') });
     await uv.keyboard.press('Control+z'); await uv.waitForFunction(() => glowState().native?.Layers.every(layer => layer.FilterMode === 6));
     await uv.keyboard.press('Control+y'); await uv.waitForFunction(url => glowState().textureUrl === url, before.textureUrl);
+    // The user's recording switches through Team Color before returning.
+    await dropdown.selectOption('Add');
+    await uv.waitForFunction(() => glowState().native?.Layers.every(layer => layer.FilterMode === 3));
+    await dropdown.selectOption('Team Color');
+    await uv.waitForFunction(() => glowState().native?.Layers.length === 2 && glowState().native.Layers[0].FilterMode === 0);
+    const teamColor = await uv.evaluate(() => glowState().material);
+    await dropdown.selectOption('Add Alpha');
+    await uv.waitForFunction(url => glowState().native?.Layers.length === 2 && glowState().native.Layers.every(layer => layer.FilterMode === 4) && glowState().textureUrl === url, before.textureUrl);
+    assert.deepEqual((await uv.evaluate(() => glowState())).material, before.material);
+    await settle();
+    assert.deepEqual(await uv.locator('.uv-preview-canvas').screenshot(), originalPreview, 'Add -> Team Color -> Add Alpha restores the original 3D glow');
+    await uv.screenshot({ path: path.join(out, 'restored-through-team-color.png') });
+    await dropdown.selectOption('Team Color');
+    await uv.waitForFunction(() => glowState().native?.Layers[0].FilterMode === 0);
+    assert.deepEqual((await uv.evaluate(() => glowState())).material, teamColor, 'returning to Team Color restores that setting too');
+    await dropdown.selectOption('Add Alpha');
+    await uv.waitForFunction(url => glowState().textureUrl === url, before.textureUrl);
     const stage = uv.locator('.uv-preview-canvas canvas').first(), rect = await stage.boundingBox();
     const camera = (await uv.evaluate(() => glowState())).camera;
     await uv.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2); await uv.mouse.down();
@@ -101,7 +118,7 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     });
     assert.deepEqual(openDocument(Uint8Array.from(bytes), 'reopened.mdx').model.Materials[0], original);
     assert.equal(hash(input), beforeHash); assert.equal(hash(texture), textureHash);
-    console.log(JSON.stringify({ executable: exe, output: out, checks: ['all seven filters preserve two glow layers and 100% alpha', 'return to Add Alpha restores identical UV and 3D glow pixels without Undo', 'native renderer has both layers', 'undo/redo', 'mouse drag rotates live preview', 'MDX reopen', 'sidebar width unchanged', 'model and texture hashes unchanged'] }, null, 2));
+    console.log(JSON.stringify({ executable: exe, output: out, checks: ['all seven filters preserve two glow layers and 100% alpha', 'Add -> Team Color -> Add Alpha restores identical UV and 3D glow pixels without Undo', 'returning to Team Color restores its settings', 'native renderer has both layers', 'undo/redo', 'mouse drag rotates live preview', 'MDX reopen', 'sidebar width unchanged', 'model and texture hashes unchanged'] }, null, 2));
   } catch (error) {
     if (uv && !uv.isClosed()) await uv.screenshot({ path: path.join(out, 'failure.png') });
     throw error;

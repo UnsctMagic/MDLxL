@@ -6,6 +6,7 @@ const normalize = path => String(path || '').replaceAll('/', '\\').toLowerCase()
 export const tintTexturePath = index => `ReplaceableTextures\\TeamColor\\TeamColor${String(index ?? 24).padStart(2, '0')}.blp`;
 const colorIndex = texture => TEAM_COLORS.findIndex(color => !texture?.ReplaceableId && normalize(texture?.Image) === normalize(tintTexturePath(color.index)));
 const texture = (model, layer) => model.Textures?.[layer?.TextureID];
+const materialSettings = new WeakMap();
 
 export function materialPreset(model, materialID) {
   const layers = model.Materials?.[materialID]?.Layers || [];
@@ -42,6 +43,19 @@ export function applyMaterialPreset(model, materialID, preset, tint = 0) {
   };
   const base = material.Layers.find(isBase);
   if (!base) throw Error('Choose a base texture for this material before applying a material preset.');
+  const color = TEAM_COLORS[tint];
+  if (preset === 'Color Tint' && !color) throw Error('Choose an available tint color.');
+  const remembered = materialSettings.get(material) || { active: '', settings: new Map() };
+  const previous = materialPreset(model, materialID).preset || remembered.active;
+  const returning = previous !== preset && remembered.settings.get(preset);
+  if (previous && previous !== preset) remembered.settings.set(previous, structuredClone(material));
+  remembered.active = preset;
+  materialSettings.set(material, remembered);
+  if (returning) {
+    for (const key of Object.keys(material)) delete material[key];
+    Object.assign(material, structuredClone(returning));
+    return true;
+  }
   if (filterMode >= 0) {
     const layers = material.Layers;
     // Direct filters replace the generated team/tint stack, but an authored
@@ -54,8 +68,6 @@ export function applyMaterialPreset(model, materialID, preset, tint = 0) {
     else for (const layer of layers) if (isBase(layer)) layer.FilterMode = filterMode;
     return true;
   }
-  const color = TEAM_COLORS[tint];
-  if (preset === 'Color Tint' && !color) throw Error('Choose an available tint color.');
   const textureID = ensureTexture(model, preset === 'Color Tint'
     ? { Image: tintTexturePath(color.index), ReplaceableId: 0, Flags: 0 }
     : { Image: '', ReplaceableId: 1, Flags: 0 });
