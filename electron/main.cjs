@@ -1,4 +1,9 @@
 const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, nativeTheme } = require('electron');
+// Check before loading editor modules: another launch must not read a changing install.
+if (app.isPackaged && require('node:fs').existsSync(require('node:path').join(require('node:path').dirname(process.execPath), '.mdlxl-installing'))) {
+  app.exit(0);
+  return;
+}
 const APPLICATION_THEMES = require('../src/application-themes.json');
 const fs = require('node:fs/promises');
 const path = require('node:path');
@@ -42,7 +47,9 @@ const profile = process.env.MDLXL_PROFILE || path.resolve(__dirname,'../profile'
 app.setPath('userData',profile);
 const launchModelPaths=modelPathsFromArguments(process.argv.slice(1),process.cwd());
 const singleInstanceLock=app.requestSingleInstanceLock({modelPaths:launchModelPaths});
-if(!singleInstanceLock)app.quit();
+if(!singleInstanceLock) { app.exit(0); return; }
+// A launch can have passed the first check before the closing owner set the lock.
+if (app.isPackaged && require('node:fs').existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
 let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
 let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.resolve();
 let settingsStore,preferenceApi,commandCatalog;

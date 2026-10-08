@@ -10,7 +10,7 @@ const REPOSITORY = 'UnsctMagic/MDLxL';
 const MANIFEST = 'mdlxl-update-manifest.json';
 const PREVIOUS = '.mdlxl-previous';
 const PERSONAL = /^(?:Addons|Backgrounds|BitsAndParts|Textures)(?:\/|$)/i;
-const PROTECTED = /^(?:resources\/app\/profile|profile|Showcase Recordings|\.mdlxl-previous)(?:\/|$)/i;
+const PROTECTED = /^(?:\.mdlxl-installing|resources\/app\/profile|profile|Showcase Recordings|\.mdlxl-previous)(?:\/|$)/i;
 const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe');
 const digest = async file => crypto.createHash('sha256').update(await fs.readFile(file)).digest('hex');
 
@@ -276,9 +276,17 @@ class Updater {
   async shutdown() { if(!this.pending)this.abortController.abort();await Promise.allSettled([this.checking,this.preparing].filter(Boolean)); }
   async launchInstaller() {
     if (!this.pending || !this.prepared) return;
-    // Windows PowerShell can exit before -File when spawned with DETACHED_PROCESS.
-    // Start-Process gives the installer an independent hidden process instead.
-    await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'update-launch.ps1'), this.prepared.planFile], { windowsHide: true });
+    const lock = path.join(this.installRoot, '.mdlxl-installing');
+    // Retain Electron's single-instance lock until the installer acknowledges this
+    // installation lock. Desktop relaunches then exit before loading the editor.
+    await fs.mkdir(lock);
+    try {
+      await fs.writeFile(path.join(lock, 'owner.json'), JSON.stringify({ planFile: this.prepared.planFile, pid: process.pid }));
+      await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'update-launch.ps1'), this.prepared.planFile], { windowsHide: true });
+    } catch (error) {
+      await fs.rm(lock, { recursive: true, force: true });
+      throw error;
+    }
   }
 }
 module.exports = { Updater, WEBSITE, REPOSITORY, MANIFEST, PREVIOUS, newerVersion, releaseMetadata, summaryLines, externalURL, validateManifest, installPlan, listFiles, digest, extractArchive };

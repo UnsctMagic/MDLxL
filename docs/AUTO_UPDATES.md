@@ -45,6 +45,14 @@ finish and this MDLxL process exits, a local Windows helper applies the
 verified program files in the existing installation and restarts MDLxL.
 The installation location and existing shortcuts stay valid.
 
+The closing editor acquires an installation lock before handing off to the
+native installer and waits for its startup acknowledgement. New launches exit
+before loading editor modules while that lock is present. The installer replaces
+complete files atomically, verifies the resulting files and snapshot, drains
+launches of the replaced executable, then releases the lock and restarts. The
+lock also remains in place through rollback. It is never cleared over a failed
+rollback.
+
 The updater never writes into `resources/app/profile`. Existing Addons,
 Backgrounds, BitsAndParts and Textures files stay as they are; new shipped
 examples are added only to empty paths. Saved models, Showcase recordings,

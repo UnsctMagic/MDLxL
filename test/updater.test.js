@@ -66,7 +66,7 @@ test('offline checks report an error and notes failure still permits opening the
 });
 test('manifest validation rejects traversal, duplicates and profile payloads', async t => {
   const {next} = await fixture(t);
-  for(const relative of ['../personal.mdx','resources/app/profile/settings.json','PROFILE/settings.json','resources\\app\\bad','CON.txt','resources/app/main.cjs.','mdlxL.exe']) assert.throws(()=>validateManifest({...next,files:{...next.files,[relative]:'a'.repeat(64)}},next.version));
+  for(const relative of ['../personal.mdx','.mdlxl-installing/owner.json','resources/app/profile/settings.json','PROFILE/settings.json','resources\\app\\bad','CON.txt','resources/app/main.cjs.','mdlxL.exe']) assert.throws(()=>validateManifest({...next,files:{...next.files,[relative]:'a'.repeat(64)}},next.version));
 });
 test('installation preserves all profile, libraries, settings, saves and untracked files', async t => {
   const {directory,target,source,previous,next} = await fixture(t);
