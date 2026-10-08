@@ -504,7 +504,7 @@ export class EditorDocument {
       this._serializedStates.set(bytes, { model: clone(this.model), revision: this.revision });
       return bytes;
     };
-    if (impact.exact) return remember(this._original);
+    if (impact.exact && (this.readOnly || writeAnimationSpeed(this._original, format, this.model).equals(this._original))) return remember(this._original);
     if (!impact.conversion && !impact.changedSections.length) {
       const output = writeAnimationSpeed(writeGeosetTabs(this._original, format, this.model), format, this.model);
       nextStage('reparsingMs');

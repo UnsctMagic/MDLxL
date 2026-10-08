@@ -1,3 +1,5 @@
+import { clearEditorData } from '../src/editor-data.js';
+
 const pending = new WeakMap();
 
 /** Run the existing verified serializer in a worker, just like GIF export.
@@ -20,6 +22,10 @@ export function prepareModelSaveAsync(doc, format = doc.format, name = doc.name,
         doc.lastSaveTimings = data.timings;
         if (data.error) { reject(new Error(data.error)); return; }
         doc.rememberSerializedSnapshot(data.bytes, snapshot.model, snapshot.revision);
+        if (data.withoutEditorData) {
+          const cleaned = structuredClone(snapshot.model); clearEditorData(cleaned);
+          doc.rememberSerializedSnapshot(data.withoutEditorData, cleaned, snapshot.revision);
+        }
         resolve(data);
       };
       worker.postMessage({ snapshot, format, name });

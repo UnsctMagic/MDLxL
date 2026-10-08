@@ -73,7 +73,7 @@ export function isGeosetTabsChunk(bytes, chunk) {
   return chunk.tag === GEOSET_TABS_CHUNK && Buffer.from(bytes).subarray(chunk.payloadOffset, chunk.payloadOffset + prefix.length).toString('utf8') === prefix;
 }
 
-function metadataRecords(bytes, format, container) {
+export function geosetTabsRecords(bytes, format, container) {
   if (format === 'mdl') return (container || parseMdl(bytes)).tokens
     .filter(token => token.kind === 'line-comment' && token.raw.toString('utf8').startsWith(prefix))
     .map(token => ({ start: token.start, end: token.end + (bytes[token.end] === 13 ? (bytes[token.end + 1] === 10 ? 2 : 1) : bytes[token.end] === 10 ? 1 : 0), text: token.raw.toString('utf8') }));
@@ -82,7 +82,7 @@ function metadataRecords(bytes, format, container) {
 }
 
 export function readGeosetTabs(input, format, model, container) {
-  const bytes = Buffer.from(input), records = metadataRecords(bytes, format, container);
+  const bytes = Buffer.from(input), records = geosetTabsRecords(bytes, format, container);
   const diagnostics = [];
   for (const record of records) {
     let data;
@@ -101,7 +101,7 @@ export function readGeosetTabs(input, format, model, container) {
 }
 
 export function writeGeosetTabs(input, format, model) {
-  const bytes = Buffer.from(input), parts = [], records = metadataRecords(bytes, format).filter(validRecord);
+  const bytes = Buffer.from(input), parts = [], records = geosetTabsRecords(bytes, format).filter(validRecord);
   let cursor = 0;
   for (const record of records) { parts.push(bytes.subarray(cursor, record.start)); cursor = record.end; }
   parts.push(bytes.subarray(cursor));

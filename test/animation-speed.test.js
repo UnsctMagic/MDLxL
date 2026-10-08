@@ -124,7 +124,9 @@ test('malformed comments are reported and preserved, and metadata-only saves pre
   doc.apply('Uncheck', [], model => setAnimationSpeedChecked(model, 0, false));
   const bytes = Buffer.from(doc.serialize());
   assert.ok(bytes.includes(malformed));
-  assert.equal(animationSpeedChecked(openDocument(bytes, 'saved.mdl').model.Sequences[0]), false);
+  // Choosing master participants alone must not write a timing baseline.
+  assert.deepEqual(bytes, malformed);
+  assert.equal(animationSpeedData(openDocument(bytes, 'saved.mdl').model), null);
 });
 
 test('negative local key and event times remain signed, and cubic values and tangents survive speed changes', () => {

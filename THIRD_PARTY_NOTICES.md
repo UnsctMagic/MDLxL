@@ -7,12 +7,35 @@ This packaged checkout restores the parser/save test dependencies in `pnpm-lock.
 - **war3-model 4.0.1**, 4eb0da and contributors — MIT. Model parsing/generation, BLP1 decoding and Warcraft rendering. [Project source](https://github.com/4eb0da/war3-model).
 - **mdx-m3-viewer 5.12.0**, ghostwolf and contributors — MIT. OptimizeXL runs its official MDLX sanity checker locally. The unmodified npm UMD build and complete license are in `public/vendor/hive-viewer-5.12.0.js` and `public/vendor/hive-viewer-LICENSE.txt`, copied into `dist/vendor/` in the desktop package. [Project source](https://github.com/flowtsohg/mdx-m3-viewer).
 - **Three.js 0.183.2**, three.js authors — MIT. Editing viewport, math, camera controls and texture loaders.
+- **fflate 0.8.2**, Arjun Barrett — MIT. The unmodified module supplied with Three.js compresses original animation timing records. [Source and license](https://github.com/101arrowz/fflate/tree/v0.8.2).
 - **React / React DOM 19.2.4**, Meta Platforms, Inc. and affiliates — MIT.
 - **Lucide React 0.577.0**, Lucide contributors — ISC; inherited Feather icons under MIT.
 - **buffer 6.0.3**, Feross Aboukhadijeh and contributors — MIT.
 - **gl-matrix 3.3.0**, Brandon Jones, Colin MacKenzie IV and contributors — MIT.
 - **Electron 40.8.0**, Electron contributors — MIT. Chromium's component notices accompany its runtime.
 - **Vite 7.3.1** and **esbuild** — MIT; build/development tools.
+
+## fflate license
+
+MIT License
+
+Copyright (c) 2023 Arjun Barrett
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Original MDLVis assets
 

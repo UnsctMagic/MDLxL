@@ -6,7 +6,7 @@ import {
 import { setSequenceOptions } from '../src/animation.js';
 import { clampAlphaPercentText } from '../src/animation-controller-inputs.js';
 import { wheelOptionIndex } from '../src/dropdown-wheel.js';
-import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
+import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked, rememberOriginalTiming, setRememberOriginalTiming } from '../src/animation-speed.js';
 import SidebarSection from './SidebarSection.jsx';
 import {
   createGlobalSequence, createSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
@@ -280,6 +280,7 @@ export default function AnimationController({
   const visibleChecked = Number.isFinite(alphaNumber) && alphaNumber > 0;
   const mixedOrPartial = alpha === '' || Number.isFinite(alphaNumber) && alphaNumber !== 0 && alphaNumber !== 100;
   const currentValue = globalDomain ? `global:${globalSeqId}` : sequenceIndex;
+  const rememberTimingControl = <label className="ac-remember-timing" title="Save original timing so you can return to 100% after reopening. Uncheck to save only the current animation timing."><input type="checkbox" checked={rememberOriginalTiming(model)} disabled={disabled} onChange={event => commit('Remember original animation timing', [ANIMATION_SPEED_KEY], current => setRememberOriginalTiming(current, event.target.checked), '')}/>Remember Original Timing</label>;
   return <section className="animation-controller" aria-label="Animations toolbox">
     <SidebarSection title="Current Sequence"><label className="ac-current"><span className="ac-sequence-combo"><input ref={sequenceNameInput} aria-label="Animation sequence name" className={globalDomain ? 'global-sequence-value' : ''} value={sequenceNameText} disabled={!sequence} readOnly={globalDomain || !sequence} onWheel={wheelSequence} onChange={event => setSequenceNameText(event.target.value)} onBlur={commitSequenceName} onKeyDown={enterBlurs}/><select ref={sequenceSelect} data-warmkey="animationSequence" aria-label="Choose animation sequence" value={currentValue} onChange={event => onTimelineChange?.(event.target.value)} title="Choose animation sequence">
       <option value={-1}>All line</option>
@@ -294,6 +295,7 @@ export default function AnimationController({
       <label className="ac-rarity">Rarity =<input aria-label="Sequence rarity" type="number" min="1" max="40" step="1" disabled={noLocalSequence || !(sequence?.Rarity > 0)} value={sequence?.Rarity > 0 ? sequence.Rarity : ''} onChange={event => { if (event.target.value !== '') changeSequence({ rarity: Number(event.target.value) }); }}/></label>
       <SpeedSlider label="Animation Actual Speed" value={animationSpeed(sequence)} disabled={noLocalSequence} onChange={percent => changeActualSpeed(sequenceIndex, percent)}/>
       <button disabled={disabled || !model.Sequences?.length} onClick={() => { setError(''); setSpeedMenu(true); }}>Adjust All Speed</button>
+      {rememberTimingControl}
       <label title="Enable the sequence MoveSpeed ground-speed value."><input type="checkbox" checked={moveApplied} disabled={noLocalSequence} onChange={event => toggleMoveSpeed(event.target.checked)}/>Apply Move Speed</label>
       {moveApplied && <label className="ac-move-speed">Speed=<input aria-label="Sequence move speed" type="number" min="0.001" step="any" disabled={noLocalSequence} value={moveSpeedText} onChange={event => setMoveSpeedText(event.target.value)} onBlur={commitMoveSpeed} onKeyDown={enterBlurs}/></label>}
     </div>
@@ -318,6 +320,7 @@ export default function AnimationController({
     {error && !speedMenu && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
     {speedMenu && <Dialog title="Adjust All Speed" onClose={() => setSpeedMenu(false)} overlayClass="ac-speed-menu" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setSpeedMenu(false); }}>
       <SpeedSlider label="Master Controller" value={animationMasterSpeed(model)} disabled={disabled} onChange={percent => changeActualSpeed(null, percent)}/>
+      {rememberTimingControl}
       <div className="ac-speed-list">{(model.Sequences || []).map((item, index) => <div className="ac-speed-row" key={index}>
         <label className="ac-speed-name"><input type="checkbox" aria-label={`Include ${item.Name} in Master Controller`} checked={animationSpeedChecked(item)} disabled={disabled} onChange={event => commit('Select animation for Master Controller', ['Sequences', ANIMATION_SPEED_KEY], current => setAnimationSpeedChecked(current, index, event.target.checked), '')}/><span translate="no">{item.Name}</span></label>
         <SpeedSlider label={`${item.Name} speed`} value={animationSpeed(item)} disabled={disabled} onChange={percent => changeActualSpeed(index, percent)}/>

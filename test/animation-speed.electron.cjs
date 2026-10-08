@@ -9,6 +9,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { createDemoDocument, openDocument } = await import('../src/editor-document.js');
   const { createSequenceFromCurrent } = await import('../src/sequence-editor.js');
   const { animationSpeedData, setAnimationActualSpeed } = await import('../src/animation-speed.js');
+  const { removeEditorData } = await import('../src/editor-data.js');
   const doc = createDemoDocument();
   doc.apply('Two animations', [], model => { createSequenceFromCurrent(model, 0); model.Sequences[1].Name = 'Walk'; });
   const baseline = doc.model.Bones[0].Translation.Keys.map(key => key.Frame);
@@ -31,9 +32,17 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const width = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     const slider = page.getByRole('slider', { name: 'Animation Actual Speed', exact: true });
     assert.equal(await slider.inputValue(), '100'); assert.equal(await slider.getAttribute('min'), '1'); assert.equal(await slider.getAttribute('max'), '300');
+    const rememberTiming = page.getByRole('region', { name: 'Animations toolbox', exact: true }).getByRole('checkbox', { name: 'Remember Original Timing', exact: true });
+    assert.equal(await rememberTiming.isChecked(), true);
     assert.equal(await page.getByRole('dialog').count(), 0);
     const placement = await slider.evaluate(el => ({ afterRarity: el.closest('label').previousElementSibling.classList.contains('ac-rarity'), nextButton: el.closest('label').nextElementSibling.textContent }));
     assert.equal(placement.afterRarity, true); assert.equal(placement.nextButton, 'Adjust All Speed');
+    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/unused.' + options.filters[0].extensions[0] }); }, out);
+    await page.keyboard.press('Control+Shift+s');
+    await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
+    assert.equal(await page.getByRole('dialog', { name: 'Save model', exact: true }).count(), 0);
+    assert.deepEqual(await fs.readFile(path.join(out, 'unused.mdx')), Buffer.from(original));
     const setRange = async (range, value) => { await range.fill(String(value)); await page.waitForTimeout(150); };
     const readRuntime = () => page.evaluate(() => {
       const el = document.querySelector('.game-preview-root');
@@ -63,6 +72,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const menu = page.getByRole('dialog', { name: 'Adjust All Speed', exact: true });
     const master = menu.getByRole('slider', { name: 'Master Controller', exact: true });
     assert.equal(await master.inputValue(), '100');
+    assert.equal(await menu.getByRole('checkbox', { name: 'Remember Original Timing', exact: true }).isChecked(), true);
     assert.ok(await menu.getByLabel('Include Stand in Master Controller', { exact: true }).isChecked());
     assert.ok(await menu.getByLabel('Include Walk in Master Controller', { exact: true }).isChecked());
     await menu.getByLabel('Include Walk in Master Controller', { exact: true }).uncheck();
@@ -77,6 +87,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for (const format of ['mdx', 'mdl']) {
       await page.keyboard.press('Control+Shift+s');
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
+      const saveOptions = page.getByRole('dialog', { name: 'Save model', exact: true });
+      await saveOptions.waitFor();
+      assert.equal(await saveOptions.getByRole('checkbox', { name: /Remove all MDLxL editor data/ }).isChecked(), false);
+      await screenshot('save-options-' + format + '.png');
+      await saveOptions.getByRole('button', { name: 'Save', exact: true }).click();
       await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'hidden' });
       const saved = openDocument(await fs.readFile(path.join(out, 'saved.' + format)), 'saved.' + format);
       assert.equal(saved.readOnly, false);
@@ -97,6 +112,52 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.keyboard.press('Escape');
       await waitFor(state => JSON.stringify(state.translation) === JSON.stringify(baseline), 'UI restores original frames after ' + format + ' reopen');
     }
+    // The checkbox affects persistence, while the running model keeps its
+    // adjusted timing. Both controls share the same document-level setting.
+    await setRange(slider, 50);
+    await rememberTiming.uncheck();
+    await page.getByRole('button', { name: 'Adjust All Speed', exact: true }).click();
+    assert.equal(await menu.getByRole('checkbox', { name: 'Remember Original Timing', exact: true }).isChecked(), false);
+    await menu.getByRole('button', { name: 'Close', exact: true }).click();
+    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/not-remembered.' + options.filters[0].extensions[0] }); }, out);
+    await page.keyboard.press('Control+Shift+s');
+    await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
+    const notRemembered = openDocument(await fs.readFile(path.join(out, 'not-remembered.mdx')), 'not-remembered.mdx');
+    assert.equal(animationSpeedData(notRemembered.model), null);
+    assert.equal(notRemembered.model.Sequences[0].Interval[1], 4000);
+    assert.equal(await slider.inputValue(), '50');
+    await rememberTiming.check();
+
+    for (const format of ['mdx', 'mdl']) {
+      await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/stripped.' + options.filters[0].extensions[0] }); }, out);
+      await page.keyboard.press('Control+Shift+s');
+      await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
+      const saveOptions = page.getByRole('dialog', { name: 'Save model', exact: true });
+      await saveOptions.waitFor();
+      await saveOptions.getByRole('checkbox', { name: /Remove all MDLxL editor data/ }).check();
+      // Cancel must preserve the checkbox, original timing and live playback.
+      await saveOptions.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.getByRole('dialog', { name: 'Save as', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(await rememberTiming.isChecked(), true);
+      assert.equal(await slider.inputValue(), '50');
+      const before = await readRuntime();
+      await page.keyboard.press('Control+Shift+s');
+      await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
+      await saveOptions.getByRole('checkbox', { name: /Remove all MDLxL editor data/ }).check();
+      await saveOptions.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
+      const strippedBytes = await fs.readFile(path.join(out, 'stripped.' + format)), stripped = openDocument(strippedBytes, 'stripped.' + format);
+      assert.equal(removeEditorData(strippedBytes, format).removedBytes, 0);
+      assert.equal(animationSpeedData(stripped.model), null);
+      assert.deepEqual(Array.from(stripped.model.Sequences[0].Interval), before.interval);
+      assert.deepEqual(stripped.model.Bones[0].Translation.Keys.map(key => key.Frame), before.translation);
+      assert.equal(await rememberTiming.isChecked(), false);
+      assert.equal(await slider.inputValue(), '100');
+      await page.keyboard.press('Control+z');
+      assert.equal(await rememberTiming.isChecked(), true);
+      assert.equal(await slider.inputValue(), '50');
+    }
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'camera:rotate'));
     await page.waitForTimeout(150);
     const cameraBefore = (await readRuntime()).camera, canvas = await page.locator('[data-clean-model-canvas]').boundingBox();
@@ -105,7 +166,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const rotated = await waitFor(state => state.camera.some((value, i) => Math.abs(value - cameraBefore[i]) > 1), 'Normal mouse drag rotates preview');
     await screenshot('reopened-and-rotated.png');
     assert.deepEqual(await fs.readFile(fixture), Buffer.from(original)); assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ passed: true, packaged, executablePath, out, sidebarWidth: width, playing, cameraBefore, cameraAfter: rotated.camera, originalFrames: baseline, rendererErrors: errors }));
+    const result = { passed: true, packaged, executablePath, out, sidebarWidth: width, playing, cameraBefore, cameraAfter: rotated.camera, originalFrames: baseline, rendererErrors: errors };
+    await fs.writeFile(path.join(out, 'result.json'), JSON.stringify(result));
+    console.log(JSON.stringify(result));
   } catch (error) {
     if (page) { await screenshot('failure.png').catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1400)); }
     throw error;

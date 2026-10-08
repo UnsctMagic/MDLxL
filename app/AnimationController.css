@@ -50,3 +50,4 @@
 .ac-speed-row .ac-actual-speed>span{justify-content:flex-end}
 .ac-speed-row .ac-actual-speed>span{font-size:0}
 .ac-speed-row .ac-actual-speed output{font-size:11px}
+.ac-remember-timing{display:flex!important;align-items:center;gap:3px;font-size:10px;line-height:1.2}

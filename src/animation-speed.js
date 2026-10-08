@@ -1,15 +1,19 @@
 import { Buffer } from 'buffer';
 import { parseMdl } from './mdl-lossless.js';
 import { parseMdx } from './mdx-container.js';
+import { gzipSync, gunzipSync } from 'three/addons/libs/fflate.module.js';
 
 export const ANIMATION_SPEED_KEY = '_AnimationSpeed';
 export const ANIMATION_SPEED_FRAME = '_AnimationSpeedFrame';
 export const ANIMATION_SPEED_EVENTS = '_AnimationSpeedEvents';
-export const ANIMATION_SPEED_TAG = 'MDLXL_ANIMATION_SPEED_V1:6324b9ab-c97d-4884-bffa-a623adc41438';
+export const ANIMATION_SPEED_LEGACY_TAG = 'MDLXL_ANIMATION_SPEED_V1:6324b9ab-c97d-4884-bffa-a623adc41438';
+export const ANIMATION_SPEED_TAG = 'MDLXL_ANIMATION_SPEED_V2:6324b9ab-c97d-4884-bffa-a623adc41438';
 export const ANIMATION_SPEED_CHUNK = 'XLAS';
 export const ANIMATION_SPEED_SECTIONS = ['Sequences', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras', ANIMATION_SPEED_KEY];
 const privateKeys = new Set([ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS]);
 const prefix = `// ${ANIMATION_SPEED_TAG} `;
+const legacyPrefix = `// ${ANIMATION_SPEED_LEGACY_TAG} `;
+const prefixes = [prefix, legacyPrefix];
 const MAX_FRAME = 0x7fffffff;
 const MIN_FRAME = -0x80000000;
 const percentValid = value => Number.isInteger(value) && value >= 1 && value <= 300;
@@ -19,6 +23,18 @@ const global = value => Number.isInteger(value.GlobalSeqId) && value.GlobalSeqId
 export function animationSpeed(sequence) { return sequence?.[ANIMATION_SPEED_KEY]?.percent ?? 100; }
 export function animationSpeedChecked(sequence) { return sequence?.[ANIMATION_SPEED_KEY]?.checked !== false; }
 export function animationMasterSpeed(model) { return model[ANIMATION_SPEED_KEY]?.master ?? 100; }
+export function rememberOriginalTiming(model) { return model[ANIMATION_SPEED_KEY]?.rememberOriginal !== false; }
+export function setRememberOriginalTiming(model, remember) {
+  (model[ANIMATION_SPEED_KEY] ||= {}).rememberOriginal = !!remember;
+}
+
+export function forgetAnimationSpeed(model) {
+  const { tracks, events } = timingRecords(model);
+  for (const { value } of tracks) for (const key of value.Keys) delete key[ANIMATION_SPEED_FRAME];
+  for (const { value } of events) delete value[ANIMATION_SPEED_EVENTS];
+  for (const sequence of model.Sequences || []) delete sequence[ANIMATION_SPEED_KEY];
+  model[ANIMATION_SPEED_KEY] = { rememberOriginal: false };
+}
 
 // Visit native records once, avoiding the Nodes aliases and editor annotations.
 function timingRecords(model) {
@@ -61,8 +77,8 @@ function rangesFor(model) {
 
 function ensureBaseline(model) {
   const ranges = rangesFor(model);
-  for (const { sequence, original } of ranges) sequence[ANIMATION_SPEED_KEY] ||= { originalInterval: original, percent: 100, checked: true };
-  model[ANIMATION_SPEED_KEY] ||= { master: 100 };
+  for (const { sequence, original } of ranges) sequence[ANIMATION_SPEED_KEY] = { originalInterval: original, percent: 100, checked: true, ...sequence[ANIMATION_SPEED_KEY] };
+  (model[ANIMATION_SPEED_KEY] ||= {}).master ??= 100;
   return ranges;
 }
 
@@ -85,8 +101,7 @@ function originalFrames(frames, stored, ranges) {
 
 export function setAnimationSpeedChecked(model, index, checked) {
   if (!model.Sequences?.[index]) throw new Error('Select an animation before adjusting speed.');
-  ensureBaseline(model);
-  model.Sequences[index][ANIMATION_SPEED_KEY].checked = !!checked;
+  (model.Sequences[index][ANIMATION_SPEED_KEY] ||= {}).checked = !!checked;
 }
 
 /** Change real native intervals, every local channel, and local event frames.
@@ -96,6 +111,10 @@ export function setAnimationSpeedChecked(model, index, checked) {
 export function setAnimationActualSpeed(model, index, percent) {
   if (!percentValid(percent)) throw new Error('Animation speed must be a whole percent from 1 to 300.');
   if (index !== null && !model.Sequences?.[index]) throw new Error('Select an animation before adjusting speed.');
+  if (!(model.Sequences || []).some((sequence, i) => (index === null ? animationSpeedChecked(sequence) : i === index) && animationSpeed(sequence) !== percent)) {
+    if (index === null && model.Sequences?.some(sequence => sequence[ANIMATION_SPEED_KEY]?.originalInterval)) (model[ANIMATION_SPEED_KEY] ||= {}).master = percent;
+    return;
+  }
   const ranges = rangesFor(model), records = timingRecords(model);
   const next = ranges.map(range => ({ ...range, current: [...range.current] }));
   let shift = 0;
@@ -143,12 +162,12 @@ export function setAnimationActualSpeed(model, index, percent) {
 }
 
 export function animationSpeedData(model) {
-  if (!model[ANIMATION_SPEED_KEY] && !(model.Sequences || []).some(sequence => sequence[ANIMATION_SPEED_KEY])) return null;
+  if (!rememberOriginalTiming(model) || !(model.Sequences || []).some(sequence => sequence[ANIMATION_SPEED_KEY]?.originalInterval)) return null;
   const { tracks, events } = timingRecords(model), ranges = rangesFor(model);
   const framesData = (frames, stored) => originalFrames(frames, stored, ranges).map((originalFrame, i) => ({ originalFrame, frame: frames[i] }));
   return {
     master: animationMasterSpeed(model),
-    sequences: (model.Sequences || []).map(sequence => sequence[ANIMATION_SPEED_KEY] || null),
+    sequences: (model.Sequences || []).map(sequence => sequence[ANIMATION_SPEED_KEY]?.originalInterval ? sequence[ANIMATION_SPEED_KEY] : null),
     tracks: tracks.map(({ path, value }) => ({ path, frames: framesData(value.Keys.map(key => key.Frame), value.Keys.map(key => key[ANIMATION_SPEED_FRAME])) })),
     events: events.map(({ path, value }) => ({ path, frames: framesData(Array.from(value.EventTrack), value[ANIMATION_SPEED_EVENTS]) })),
   };
@@ -161,19 +180,26 @@ function validData(data) {
 }
 
 export function isAnimationSpeedChunk(bytes, chunk) {
-  return chunk.tag === ANIMATION_SPEED_CHUNK && Buffer.from(bytes).subarray(chunk.payloadOffset, chunk.payloadOffset + prefix.length).toString('utf8') === prefix;
+  return chunk.tag === ANIMATION_SPEED_CHUNK && prefixes.includes(Buffer.from(bytes).subarray(chunk.payloadOffset, chunk.payloadOffset + prefix.length).toString('utf8'));
 }
 
-function commentRecords(bytes, format, container) {
-  if (format === 'mdl') return (container || parseMdl(bytes)).tokens.filter(token => token.kind === 'line-comment' && token.raw.toString('utf8').startsWith(prefix)).map(token => ({ start: token.start, end: token.end + (bytes[token.end] === 13 ? (bytes[token.end + 1] === 10 ? 2 : 1) : bytes[token.end] === 10 ? 1 : 0), text: token.raw.toString('utf8') }));
-  return (container || parseMdx(bytes)).chunks.filter(chunk => isAnimationSpeedChunk(bytes, chunk)).map(chunk => ({ start: chunk.offset, end: chunk.payloadOffset + chunk.declaredSize, text: bytes.subarray(chunk.payloadOffset, chunk.payloadOffset + chunk.declaredSize).toString('utf8') }));
+export function animationSpeedRecords(bytes, format, container) {
+  if (format === 'mdl') return (container || parseMdl(bytes)).tokens.filter(token => token.kind === 'line-comment' && prefixes.some(tag => token.raw.toString('utf8').startsWith(tag))).map(token => ({ start: token.start, end: token.end + (bytes[token.end] === 13 ? (bytes[token.end + 1] === 10 ? 2 : 1) : bytes[token.end] === 10 ? 1 : 0), payload: token.raw }));
+  return (container || parseMdx(bytes)).chunks.filter(chunk => isAnimationSpeedChunk(bytes, chunk)).map(chunk => ({ start: chunk.offset, end: chunk.payloadOffset + chunk.declaredSize, payload: bytes.subarray(chunk.payloadOffset, chunk.payloadOffset + chunk.declaredSize) }));
+}
+
+function decodeRecord(record, format) {
+  const payload = Buffer.from(record.payload);
+  if (payload.subarray(0, legacyPrefix.length).toString('utf8') === legacyPrefix) return JSON.parse(payload.subarray(legacyPrefix.length).toString('utf8'));
+  const compressed = format === 'mdl' ? Buffer.from(payload.subarray(prefix.length).toString('utf8').trim(), 'base64') : payload.subarray(prefix.length);
+  return JSON.parse(Buffer.from(gunzipSync(compressed)).toString('utf8'));
 }
 
 export function readAnimationSpeed(input, format, model, container) {
   const diagnostics = [], bytes = Buffer.from(input);
-  for (const record of commentRecords(bytes, format, container)) {
+  for (const record of animationSpeedRecords(bytes, format, container)) {
     let data;
-    try { data = JSON.parse(record.text.slice(prefix.length)); } catch { /* Report the malformed annotation below and preserve its bytes. */ }
+    try { data = decodeRecord(record, format); } catch { /* Report the malformed annotation below and preserve its bytes. */ }
     if (!validData(data)) {
       diagnostics.push({ severity: 'warning', code: 'ANIMATION_SPEED_METADATA', message: 'The MDLxL animation speed comment is invalid; its source bytes are retained.' });
       continue;
@@ -199,16 +225,17 @@ export function readAnimationSpeed(input, format, model, container) {
 export function writeAnimationSpeed(input, format, model) {
   const bytes = Buffer.from(input), parts = [];
   let cursor = 0;
-  for (const record of commentRecords(bytes, format)) {
+  for (const record of animationSpeedRecords(bytes, format)) {
     let valid = false;
-    try { valid = validData(JSON.parse(record.text.slice(prefix.length))); } catch { /* Malformed source annotations remain byte-for-byte intact. */ }
+    try { valid = validData(decodeRecord(record, format)); } catch { /* Malformed source annotations remain byte-for-byte intact. */ }
     if (!valid) continue;
     parts.push(bytes.subarray(cursor, record.start)); cursor = record.end;
   }
   parts.push(bytes.subarray(cursor));
   const body = Buffer.concat(parts), data = animationSpeedData(model);
   if (!data) return body;
-  const text = Buffer.from(prefix + JSON.stringify(data) + '\n', 'utf8');
+  const compressed = Buffer.from(gzipSync(Buffer.from(JSON.stringify(data), 'utf8'), { level: 9, mtime: 0 }));
+  const text = format === 'mdl' ? Buffer.from(prefix + compressed.toString('base64') + '\n', 'utf8') : Buffer.concat([Buffer.from(prefix), compressed]);
   if (format === 'mdl') {
     const bom = body.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])) ? 3 : 0;
     return Buffer.concat([body.subarray(0, bom), text, body.subarray(bom)]);
