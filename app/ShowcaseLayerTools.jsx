@@ -6,15 +6,13 @@ import './showcase-fonts.css';
 import ShowcaseNumber from './ShowcaseNumber.jsx';
 import { formatTextRange, replaceRichText, textStyleAt } from './showcase-rich-text.js';
 
-export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,onEditing,onStatus,length=10,grid,onGrid,gridDensity,onGridDensity,onAlign}) {
-  const [signaturesOpen,setSignaturesOpen]=useState(false),[textOpen,setTextOpen]=useState(false),[presets,setPresets]=useState([]),[presetName,setPresetName]=useState('');
-  const input=useRef(null),urls=useRef(new Set()),beforeEdit=useRef(null);
+export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,onEditing,onStatus,length=10,grid,onGrid,gridDensity,onGridDensity,onAlign,presets,onPresets,onAssetURL,onPresetBusy}) {
+  const [signaturesOpen,setSignaturesOpen]=useState(false),[textOpen,setTextOpen]=useState(false),[presetName,setPresetName]=useState('');
+  const input=useRef(null),beforeEdit=useRef(null);
   const [selection,setSelection]=useState({id:null,start:0,end:0});
   const active=layers.find(layer=>layer.id===activeId),images=layers.filter(layer=>layer.kind==='image'),texts=layers.filter(layer=>layer.kind==='text');
-  useEffect(()=>{let live=true;listSignaturePresets().then(rows=>{if(live)setPresets(rows);}).catch(error=>onStatus?.('Could not load signature presets: '+error.message,true));return()=>{live=false;};},[]);
   useEffect(()=>{onEditing(signaturesOpen||textOpen);},[signaturesOpen,textOpen,onEditing]);
   useEffect(()=>{setPresetName(active?.kind==='image'?active.name.replace(/\.[^.]+$/,''):'');},[activeId]);
-  useEffect(()=>()=>{for(const url of urls.current)URL.revokeObjectURL(url);},[]);
   const range=selection.id===activeId?selection:{start:0,end:0};
   const format=active?.kind==='text'?textStyleAt(active,range.start):active;
   const selectText=event=>{const node=event.currentTarget;setSelection({id:activeId,start:node.selectionStart,end:node.selectionEnd});};
@@ -22,7 +20,7 @@ export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,on
   const keepHighlight=event=>{if(event.target.closest('button')&&range.end>range.start)event.preventDefault();};
   const update=patch=>onLayers(layers.map(layer=>layer.id===activeId?{...layer,...patch}:layer));
   function addImage(blob,name,type,presetId=null,rect){
-    const id=crypto.randomUUID(),url=URL.createObjectURL(blob);urls.current.add(url);
+    const id=crypto.randomUUID(),url=URL.createObjectURL(blob);onAssetURL(url);
     return {id,kind:'image',blob,name,type,url,presetId,opacity:1,rect:rect||{x:.12+(images.length%4)*.06,y:.68-(images.length%4)*.06,width:.28,height:.2}};
   }
   function choose(event){
@@ -36,7 +34,7 @@ export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,on
     onLayers([...layers,layer]);onActive(layer.id);setTextOpen(true);setSignaturesOpen(false);
   }
   function remove(){
-    if(!active)return;if(active.url){URL.revokeObjectURL(active.url);urls.current.delete(active.url);}
+    if(!active)return;
     const next=layers.filter(layer=>layer.id!==activeId);onLayers(next);onActive(next.filter(layer=>layer.kind===active.kind).at(-1)?.id||null);
   }
   function reorder(direction){
@@ -46,12 +44,14 @@ export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,on
   function select(id,kind){onActive(id);setSignaturesOpen(kind==='image');setTextOpen(kind==='text');}
   async function savePreset(){
     if(active?.kind!=='image')return;
+    onPresetBusy(true);
     try{const preset={id:active.presetId||crypto.randomUUID(),name:presetName.trim()||active.name,type:active.type,blob:active.blob,rect:active.rect,opacity:active.opacity};
-      await saveSignaturePreset(preset);update({presetId:preset.id});setPresets(await listSignaturePresets());onStatus?.('Signature preset saved.');
-    }catch(error){onStatus?.('Could not save signature preset: '+error.message,true);}
+      await saveSignaturePreset(preset);update({presetId:preset.id});onPresets(await listSignaturePresets());onStatus?.('Signature preset saved.');
+    }catch(error){onStatus?.('Could not save signature preset: '+error.message,true);}finally{onPresetBusy(false);}
   }
   async function deletePreset(){
-    try{await deleteSignaturePreset(active.presetId);update({presetId:null});setPresets(await listSignaturePresets());}catch(error){onStatus?.('Could not remove signature preset: '+error.message,true);}
+    onPresetBusy(true);
+    try{await deleteSignaturePreset(active.presetId);update({presetId:null});onPresets(await listSignaturePresets());}catch(error){onStatus?.('Could not remove signature preset: '+error.message,true);}finally{onPresetBusy(false);}
   }
   function layerList(rows,kind){return rows.length>0&&<ol className="showcase-layer-list" aria-label={kind==='image'?'Signatures':'Text layers'}>{rows.map((layer,index)=><li key={layer.id}><button aria-pressed={activeId===layer.id} onClick={()=>select(layer.id,kind)}>{kind==='image'&&<img src={layer.url} alt=""/>}<span translate="no">{kind==='text'?layer.text||translate('Empty text'):layer.name}</span><small>{index+1}</small></button></li>)}</ol>;}
   function actions(){return <div className="showcase-layer-actions"><button title="Send backward" aria-label="Send layer backward" disabled={layers[0]?.id===activeId} onClick={()=>reorder(-1)}>↓</button><button title="Bring forward" aria-label="Bring layer forward" disabled={layers.at(-1)?.id===activeId} onClick={()=>reorder(1)}>↑</button><button onClick={remove}>Remove</button></div>;}
@@ -63,7 +63,7 @@ export default function ShowcaseLayerTools({layers,onLayers,activeId,onActive,on
         {layerList(images,'image')}
         <select className="showcase-wide" aria-label="Signature presets" value="" onChange={event=>{const preset=presets.find(row=>row.id===event.target.value);if(preset){const layer=addImage(preset.blob,preset.name,preset.type,preset.id,preset.rect);layer.opacity=preset.opacity??1;onLayers([...layers,layer]);onActive(layer.id);}}}><option value="">Add preset…</option>{presets.map(preset=><option translate="no" key={preset.id} value={preset.id}>{preset.name}</option>)}</select>
         {active?.kind==='image'&&<><small>Drag to place · corner to resize</small><label>Opacity<input aria-label="Signature opacity" type="range" min="0" max="100" value={Math.round(active.opacity*100)} onChange={event=>update({opacity:Number(event.target.value)/100})}/></label>
-          <input className="showcase-wide" aria-label="Signature preset name" value={presetName} onChange={event=>setPresetName(event.target.value)} placeholder="Preset name"/>
+          <input className="showcase-wide" data-showcase-native-undo="" aria-label="Signature preset name" value={presetName} onChange={event=>setPresetName(event.target.value)} placeholder="Preset name"/>
           <div className="showcase-layer-actions"><button onClick={savePreset}>Save preset</button>{active.presetId&&<button onClick={deletePreset}>Delete preset</button>}</div>{actions()}</>}
       </>}
     </section>
