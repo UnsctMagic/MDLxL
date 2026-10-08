@@ -683,6 +683,10 @@ export default function Viewport(inputProps) {
         return;
       }
       // Every render mode stays editable; textured mode can reject vertices hidden by the surface.
+      if (p.onSelectParts) {
+        p.onSelectParts({ start, end, camera, grabThrough: p.grabThrough, mode: p.mode });
+        return;
+      }
       if (p.vertexSelection !== false) {
         const editable = editableGeosets(p), previousSelection = selections(p), found = {}, screen = new THREE.Vector3(), marqueeRadius = Math.max(3, visualOptions(p.preferences).vertexSize / 2); let closest = 5, nearest = null;
         const visibleOnly = p.mode === 'textured' && p.grabThrough === false;
@@ -751,7 +755,7 @@ export default function Viewport(inputProps) {
     };
     // WarmKeys consumes Escape before viewport key listeners. Its Clear command
     // gives an in-progress drag first refusal through this cancelable event.
-    const cancelCommand = event => { if ((quad||state.nodeDrag) && down) { cancelGesture(); event.preventDefault(); } };
+    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); } };
     const contextMenu = event => event.preventDefault();
     const pointerLeave = () => { if (!down) clearHoveredGeoset(); };
     bindInput(singlePane);
@@ -1053,6 +1057,7 @@ export default function Viewport(inputProps) {
   useEffect(() => { if (props.quadView && props.viewRequest) runtime.current?.setView(props.viewRequest.view); }, [props.viewRequest]);
   useEffect(() => { if (props.cameraAnglesRequest) runtime.current?.setCameraAngles(props.cameraAnglesRequest); }, [props.cameraAnglesRequest]);
   useEffect(() => { runtime.current?.refreshCursor(); }, [cameraMode, transformMode, props.rotationNormals]);
+  useEffect(() => { if (props.frameRequest) runtime.current?.fit(props.frameRequest.selection === true); }, [props.frameRequest]);
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, showGrid, props.overlays?.grid, props.preferences?.grid]);

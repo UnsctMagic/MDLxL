@@ -99,6 +99,7 @@ export function forgeShapeEdges(shape) {
 
 export function forgeSelectionVertices(shape, selected = [], mode = 'Faces') {
   if (!selected.length) return [];
+  if (mode === 'Vertices') return selected.filter(id => Number.isInteger(id) && shape.vertices[id]);
   if (mode === 'Shape') return [...new Set(shape.faces.flatMap(f => f.triangles.flatMap(t => t.vertices)))];
   if (mode === 'Edges') { const edges = forgeShapeEdges(shape); return [...new Set(selected.flatMap(key => edges.get(key) || []))]; }
   return [...new Set(shape.faces.filter(f => selected.includes(f.id)).flatMap(f => f.triangles.flatMap(t => t.vertices)))];
@@ -177,13 +178,13 @@ export function transformForgeSelection(source, selected, mode, { translation = 
 }
 
 export function forgeShapeMesh(shape) {
-  const vertices = [], normals = [], uv = [], faceIds = [];
+  const vertices = [], normals = [], uv = [], faceIds = [], vertexIds = [];
   for (const face of shape.faces) for (const t of face.triangles) {
     const n = unit(triangleNormal(shape, t.vertices));
-    for (let k = 0; k < 3; k++) { vertices.push(...shape.vertices[t.vertices[k]]); normals.push(...(t.normals?.slice(k * 3, k * 3 + 3) || n)); uv.push(...t.uv.slice(k * 2, k * 2 + 2)); }
+    for (let k = 0; k < 3; k++) { vertices.push(...shape.vertices[t.vertices[k]]); vertexIds.push(t.vertices[k]); normals.push(...(t.normals?.slice(k * 3, k * 3 + 3) || n)); uv.push(...t.uv.slice(k * 2, k * 2 + 2)); }
     faceIds.push(face.id);
   }
   if (vertices.length / 3 > 65536) throw Error('This shape exceeds Warcraft III’s vertex limit.');
   const g = { Vertices: new Float32Array(vertices), Normals: new Float32Array(normals), TVertices: [new Float32Array(uv)], Faces: Uint16Array.from({ length: vertices.length / 3 }, (_, i) => i) };
-  return { geosets: [g], vertexCount: vertices.length / 3, triangleCount: faceIds.length, faceIds };
+  return { geosets: [g], vertexCount: vertices.length / 3, triangleCount: faceIds.length, faceIds, vertexIds };
 }
