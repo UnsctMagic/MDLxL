@@ -30,4 +30,17 @@ export const COMMANDS = coreWarmKeyDefaults([
   ...group('Modules', [['paint','Citadel Paint']]),
   ...group('Citadel Paint', [['paint:select','Select geoset or light'],['paint:draw','Paint / draw']]),
   ...group('Bones', [['bone:detach','Detach from parent bone','D'],['bone:detachVertices','Detach selected vertices from bone','V']]),
-]).map(action=>action.id.startsWith('paint:')?{...action,scope:'paint'}:action);
+  ...group('MDLxL FORGE', [
+    ['forge:shape:add','Forge: Add shape','Shift+A'],
+    ['forge:shape:mode:Shape','Forge: Shape control points','Alt+1'],
+    ['forge:shape:mode:Faces','Forge: Face control points','Alt+2'],
+    ['forge:shape:mode:Edges','Forge: Edge control points','Alt+3'],
+    ['forge:shape:mode:Vertices','Forge: Vertex control points','Alt+4'],
+    ['forge:shape:extrude','Forge: Extrude','E'],
+    ['forge:shape:inset','Forge: Inset','I'],
+    ['forge:shape:effects','Forge: Shape tools','Shift+S'],
+    ['forge:shape:duplicate','Forge: Duplicate shape','Shift+D'],
+    ['forge:shape:commit','Forge: Commit shape','Enter'],
+    ['forge:shape:add-model','Forge: Add to model','Ctrl+Enter'],
+  ]),
+]).map(action=>action.id.startsWith('paint:')?{...action,scope:'paint'}:action.id.startsWith('forge:')?{...action,scope:'dialog'}:action);

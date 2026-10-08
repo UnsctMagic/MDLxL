@@ -78,11 +78,12 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
         // aria-keyshortcuts describes simultaneous keys, not three-character sequences.
         element.setAttribute('aria-keyshortcuts', keys.filter(key => !warmKeyCode(key)).map(key => key.replaceAll('Ctrl', 'Control').replaceAll('Plus', '+')).join(' '));
         element.setAttribute('data-warmkey-shortcuts', keys.join(' / '));
-        const title = [element.getAttribute('data-warmkey-base-title'), keys.map(hotkeyBadge).filter(Boolean).length ? `Hotkey: ${keys.map(hotkeyBadge).filter(Boolean).join(' / ')}` : ''].filter(Boolean).join('\n');
+        const forgeHint = id.startsWith('forge:');
+        const title = [element.getAttribute('data-warmkey-base-title'), forgeHint && keys.length ? `Hotkey: ${keys.map(formatChord).join(' / ')}` : keys.map(hotkeyBadge).filter(Boolean).length ? `Hotkey: ${keys.map(hotkeyBadge).filter(Boolean).join(' / ')}` : ''].filter(Boolean).join('\n');
         element.setAttribute('title', title); element.setAttribute('data-warmkey-tooltip', title);
         if (element.tagName !== 'BUTTON' || element.getAttribute('data-warmkey-badges') === 'false') continue;
         let badge = element.querySelector(':scope > [data-warmkey-badge]');
-        const text = keys.length ? hotkeyBadge(keys[0]) || formatChord(keys[0]) : '';
+        const text = keys.length ? (forgeHint ? warmKeyCode(keys[0]) : '') || hotkeyBadge(keys[0]) || formatChord(keys[0]) : '';
         if (!text) { if (badge) badge.remove(); element.classList.remove('warmkey-control'); continue; }
         element.classList.add('warmkey-control');
         if (!badge) { badge = element.ownerDocument.createElement('span'); badge.className = 'warmkey-badge'; badge.dataset.warmkeyBadge = ''; badge.setAttribute('aria-hidden', 'true'); element.appendChild(badge); }
@@ -122,7 +123,7 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
       const matching = actions.filter(action => bindings[action.id]?.includes(chord));
       // Reject malformed persisted duplicate bindings instead of picking an arbitrary command.
       if (matching.length !== 1) return false;
-      const action = matching[0]; if (!canHandleHotkeyEvent(event, action)) return false;
+      const action = matching[0];
       const ownerDocument = event.target?.ownerDocument || document;
       const roots = controlRoots().filter(element => element.ownerDocument === ownerDocument);
       // A main application modal also blocks controls in the detached editor.
@@ -131,6 +132,9 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
       if (available.length && available.every(element => !enabled(element))) return false;
       const targets = available.filter(enabled);
       const target = targets.find(element => modal ? modal.contains(element) : !element.closest('[role="dialog"][aria-modal="true"]'));
+      // A dialog's local button owns its availability (and its own history).
+      // The main document may have nothing to undo while Forge has edits.
+      if (!canHandleHotkeyEvent(event, modal && target ? { ...action, enabled: true } : action)) return false;
       const canRun = (typeof action.run === 'function' || typeof dispatch === 'function' && !action.contextual) && (modal ? action.allowInModal === true || action.scope === modalScope : !action.scope || action.scope === scope || action.scope === 'global');
       if (!target && !canRun) return false;
       consume(event);
@@ -191,6 +195,7 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
 
 /** Optional explicit badge for controls outside the discovery root. */
 export function WarmKeyBadge({ actionId }) {
-  const { shortcuts } = useWarmKeys(); const keys = shortcuts[actionId] || []; const label = keys.map(hotkeyBadge).find(Boolean);
-  return label ? <span className="warmkey-badge" data-warmkey-badge="" aria-hidden="true" title={keys.map(formatChord).join(' / ')}>{label}</span> : null;
+  const { shortcuts } = useWarmKeys(); const keys = shortcuts[actionId] || [], forge = actionId.startsWith('forge:');
+  const label = forge && keys.length ? warmKeyCode(keys[0]) || hotkeyBadge(keys[0]) || formatChord(keys[0]) : keys.map(hotkeyBadge).find(Boolean);
+  return label ? <span className={'warmkey-badge'+(forge?' forge-key':'')} data-warmkey-badge="" aria-hidden="true" title={keys.map(formatChord).join(' / ')}>{label}</span> : null;
 }

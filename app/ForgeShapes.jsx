@@ -1,9 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Vector3 } from 'three';
+import { transformVertices } from '../src/editor-commands.js';
 import { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES, PRIMITIVE_DEFAULTS, PRIMITIVE_TEXTURE } from '../src/forge-primitives.js';
 import { thumperImage, THUMPER_TEXTURE, THUMPER_COLORS } from '../src/forge-thumper.js';
-import { textureFromAsset } from './Viewport.jsx';
 import { encodeForgeTga } from '../src/forge.js';
-import ForgePreview from './ForgePreview.jsx';
+import ForgeEditor from './ForgeEditor.jsx';
+import ShapingDialog from './ShapingDialog.jsx';
+import { WarmKeyBadge } from './WarmKeys.jsx';
+import { SURFACE_COLORS, forgeModelingOverlay } from './forge-surface-colors.js';
+import { forgePartsFromVertices, forgeVertexSelection, pickForgeParts } from './forge-viewport-selection.js';
+import { createForgeShape, forgeShapeMesh, forgeSelectionVertices, forgeSelectionCenter, forgeSelectionNormal, extrudeForgeFaces, insetForgeFaces } from '../src/forge-shape-editing.js';
 
 // Small, static previews use the same geometry as the shape being added.
 function ShapeThumbnail({ shape }) {
@@ -25,48 +31,117 @@ function ShapeThumbnail({ shape }) {
       const [a, b, c] = points, u = b.map((v, i) => v - a[i]), v = c.map((n, i) => n - a[i]);
       const normal = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
       const shade = 48 + 22 * Math.abs((normal[0] * -.3 + normal[1] * -.6 + normal[2] * .7) / (Math.hypot(...normal) || 1));
-      return { points: points.map(p => [32 + (p[0] - (minX + maxX) / 2) * scale, 26 + (p[1] - (minY + maxY) / 2) * scale].join(',')).join(' '), fill: shape === 'ThumperXL' ? points.color : 'hsl(202 35% ' + shade + '%)' };
+      return { points: points.map(p => [32 + (p[0] - (minX + maxX) / 2) * scale, 26 + (p[1] - (minY + maxY) / 2) * scale].join(',')).join(' '), fill: shape === 'ThumperXL' ? points.color : 'hsl(0 0% ' + shade + '%)' };
     });
   }, [shape]);
-  return <svg viewBox="0 0 64 52" aria-hidden="true">{faces.map((face, i) => <polygon key={i} points={face.points} fill={face.fill} stroke="#203646" strokeWidth=".35" strokeLinejoin="round"/>)}</svg>;
+  return <svg viewBox="0 0 64 52" aria-hidden="true">{faces.map((face, i) => <polygon key={i} points={face.points} fill={face.fill} stroke="#444" strokeWidth=".35" strokeLinejoin="round"/>)}</svg>;
 }
 
-export default function ForgeShapes({ modelPath, preferences, onClose, onCommit, onBusyChange }) {
-  const [settings, setSettings] = useState(PRIMITIVE_DEFAULTS), [wire, setWire] = useState(false), [checker, setChecker] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const [stock, setStock] = useState(null), [textureError, setTextureError] = useState('');
-  const helmet = useMemo(thumperImage, []), isThumper = settings.shape === 'ThumperXL';
+
+export default function ForgeShapes({ modelPath, preferences, editorState, onClose, onCommit, onBusyChange }) {
+  const [settings, setSettings] = useState(PRIMITIVE_DEFAULTS), [palette, setPalette] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [stock, setStock] = useState(null), [draft, setDraft] = useState({ shapes: [], selection: {}, mode: 'Shape' });
+  const [historySize, setHistorySize] = useState([0, 0]), [frame, setFrame] = useState(0), [toolRequest, requestTool] = useState(null), [shaping, setShaping] = useState(false);
+  const history = useRef([]), future = useRef([]), clipboard = useRef([]), nextId = useRef(1), viewBasis = useRef({ up: [0, 0, 1], normal: [0, -1, 0] });
+  const helmet = useMemo(thumperImage, []);
   useEffect(() => {
     let active = true;
     (async () => {
-      try {
-        const records = await window.desktop?.resolveTextures({ path: modelPath, names: [PRIMITIVE_TEXTURE] });
-        const asset = records?.find(record => record.bytes);
-        if (!asset) throw Error('BTNTemp preview needs Warcraft III textures. Set your game folder in Settings.');
-        const texture = await textureFromAsset(asset);
-        try { if (active) setStock({ asset, image: { width: texture.image.width, height: texture.image.height, data: new Uint8Array(texture.image.data) } }); }
-        finally { texture.dispose(); }
-      } catch (e) { if (active) setTextureError(e.message); }
-    })();
+      const records = await window.desktop?.resolveTextures({ path: modelPath, names: [PRIMITIVE_TEXTURE] });
+      const asset = records?.find(record => record.bytes);
+      if (asset && active) setStock(asset);
+    })().catch(e => { if (active) setError(e.message); });
     return () => { active = false; };
   }, [modelPath]);
+  const record = before => { history.current.push(before); if (history.current.length > 80) history.current.shift(); future.current = []; setHistorySize([history.current.length, 0]); };
+  const change = next => { record(draft); setDraft(next); setError(''); };
+  const undo = redo => { const from = redo ? future.current : history.current, to = redo ? history.current : future.current, previous = from.pop(); if (!previous) return; to.push(draft); setDraft(previous); setError(''); setHistorySize([history.current.length, future.current.length]); };
   const setting = (key, value) => setSettings(s => ({ ...s, [key]: value }));
-  const preview = useMemo(() => { try { return { mesh: buildForgePrimitive(settings) }; } catch (e) { return { error: e.message }; } }, [settings]);
-  const add = async () => {
+  const entries = useMemo(() => draft.shapes.map(shape => ({ shape, mesh: forgeShapeMesh(shape) })), [draft.shapes]);
+  const surfaceColors = useMemo(() => entries.map((_, i) => SURFACE_COLORS[i % SURFACE_COLORS.length]), [entries]);
+  const modelingOverlay = useMemo(() => entries.map(({ shape, mesh }) => forgeModelingOverlay(shape, mesh, draft.selection[shape.id], draft.mode)), [entries, draft.selection, draft.mode]);
+  const model = useMemo(() => ({ Version: 800, Info: { Name: 'Forge' }, Nodes: [], Bones: [], PivotPoints: [], Sequences: [], GlobalSequences: [], GeosetAnims: [], TextureAnims: [], Textures: [{ Image: PRIMITIVE_TEXTURE }, { Image: THUMPER_TEXTURE }], Materials: [0, 1].map(TextureID => ({ Layers: [{ TextureID, Alpha: 1, Shading: 16 }] })), Geosets: entries.map(({shape, mesh}) => ({ ...mesh.geosets[0], MaterialID: shape.texturePath === THUMPER_TEXTURE ? 1 : 0 })) }), [entries]);
+  const textureAssets = useMemo(() => new Map([[PRIMITIVE_TEXTURE, stock], [THUMPER_TEXTURE, { name: THUMPER_TEXTURE, bytes: encodeForgeTga(helmet) }]]), [stock, helmet]);
+  const selection = useMemo(() => forgeVertexSelection(entries, draft.selection, draft.mode), [entries, draft.selection, draft.mode]);
+  const selected = draft.shapes.filter(s => draft.selection[s.id]?.length), count = Object.values(draft.selection).reduce((n, ids) => n + ids.length, 0);
+  const chooseMode = mode => {
+    const selectedVertices = forgeVertexSelection(entries, draft.selection, draft.mode);
+    setDraft({ ...draft, mode, selection: forgePartsFromVertices(entries, selectedVertices, mode) });
+    requestTool({ tool: 'select' });
+  };
+  const onSelectionChange = next => setDraft({ ...draft, selection: forgePartsFromVertices(entries, next, draft.mode) });
+  const transform = payload => {
+    try {
+      const shapes = draft.shapes.map((shape, gi) => {
+        const ids = [...new Set((payload.selections?.[gi] || selection[gi] || []).map(i => entries[gi].mesh.vertexIds[i]))];
+        if (!ids.length) return shape;
+        const mesh = structuredClone(entries[gi].mesh.geosets[0]), affected = new Set(ids);
+        const indices = entries[gi].mesh.vertexIds.flatMap((id, index) => affected.has(id) ? [index] : []);
+        transformVertices(mesh, indices, payload.translation, payload.scale, payload.rotation, payload.pivot || forgeSelectionCenter(draft.shapes, draft.selection, draft.mode), {allowSingularScale:payload.allowSingularScale===true});
+        const next = structuredClone(shape); next.committed = false;
+        entries[gi].mesh.vertexIds.forEach((id, index) => { if (affected.has(id)) next.vertices[id] = Array.from(mesh.Vertices.slice(index*3,index*3+3)); });
+        for (const face of next.faces) if (face.vertices.some(id=>affected.has(id))) face.triangles.forEach(t=>{t.normals=undefined;});
+        return next;
+      });
+      change({ ...draft, shapes });
+    } catch (e) { setError(e.message); }
+  };
+  const besideOffset = points => {
+    const right = new Vector3(...viewBasis.current.up).cross(new Vector3(...viewBasis.current.normal)).normalize().toArray(), project = p => p.reduce((n, v, a) => n + v * right[a], 0);
+    const bounds = points.reduce(([min, max], p) => [Math.min(min, project(p)), Math.max(max, project(p))], [Infinity, -Infinity]);
+    const edge = draft.shapes.reduce((max, s) => s.vertices.reduce((max, p) => Math.max(max, project(p)), max), -Infinity);
+    return right.map(n => n * (edge - bounds[0] + Math.max(10, (bounds[1] - bounds[0]) * .15)));
+  };
+  const addShape = name => {
+    try {
+      let shape = createForgeShape(buildForgePrimitive({ ...settings, shape: name, zUp: true }), { id: nextId.current++, name, texturePath: name === 'ThumperXL' ? THUMPER_TEXTURE : PRIMITIVE_TEXTURE });
+      if (draft.shapes.length) { const delta = besideOffset(shape.vertices); shape = { ...shape, vertices: shape.vertices.map(p => p.map((n, a) => n + delta[a])) }; }
+      change({ shapes: [...draft.shapes, shape], selection: { [shape.id]: ['shape'] }, mode: 'Shape' }); setPalette(false); requestTool({tool:'translate'}); setFrame(n => n + 1);
+    } catch (e) { setError(e.message); }
+  };
+  const duplicate = (originals = selected) => {
+    if (!originals.length) return;
+    const delta = besideOffset(originals.flatMap(s => s.vertices)), copies = originals.map(s => ({ ...structuredClone(s), id: nextId.current++, committed: false, vertices: s.vertices.map(p => p.map((n, a) => n + delta[a])) }));
+    change({ shapes: [...draft.shapes, ...copies], mode: 'Shape', selection: Object.fromEntries(copies.map(s => [s.id, ['shape']])) }); requestTool({tool:'translate'}); setFrame(n => n + 1);
+  };
+  const remove = () => {
+    const shapes = draft.shapes.flatMap(shape => {
+      const ids = draft.selection[shape.id]; if (!ids?.length) return [shape]; if (draft.mode === 'Shape') return [];
+      const vertices = new Set(forgeSelectionVertices(shape, ids, draft.mode));
+      const faces = shape.faces.filter(face => draft.mode === 'Faces' ? !ids.includes(face.id) : !face.vertices.some(id => vertices.has(id)));
+      return faces.length ? [{ ...shape, faces, committed: false }] : [];
+    });
+    change({ ...draft, shapes, selection: {} });
+  };
+  const faceOperation = kind => {
+    try {
+      const selection = Object.fromEntries(draft.shapes.map(s => { const ids = new Set(forgeSelectionVertices(s, draft.selection[s.id], draft.mode)); return [s.id, s.faces.filter(f => f.vertices.every(id => ids.has(id))).map(f => f.id)]; }));
+      const shapes = draft.shapes.map(shape => {
+        const ids = selection[shape.id]; if (!ids.length) return shape;
+        const points = forgeSelectionVertices(shape, ids, 'Faces').map(id => shape.vertices[id]), size = Math.max(1, ...[0,1,2].map(a => Math.max(...points.map(p => p[a])) - Math.min(...points.map(p => p[a]))));
+        return { ...(kind === 'Extrude' ? extrudeForgeFaces(shape, ids, forgeSelectionNormal([shape], { [shape.id]: ids }).map(n => n * 10)) : insetForgeFaces(shape, ids, size * .08)), committed: false };
+      });
+      change({ ...draft, shapes, selection, mode: 'Faces' }); requestTool({tool:'translate'});
+    } catch (e) { setError(e.message); }
+  };
+  const faceCount = draft.shapes.reduce((n, s) => { const ids = new Set(forgeSelectionVertices(s, draft.selection[s.id], draft.mode)); return n + s.faces.filter(f => f.vertices.every(id => ids.has(id))).length; }, 0);
+  const addToModel = async () => {
     setBusy(true); onBusyChange(true); setError('');
     try {
-      const texturePath = isThumper ? THUMPER_TEXTURE : PRIMITIVE_TEXTURE;
-      const asset = isThumper ? { name: texturePath, source: 'forge', bytes: encodeForgeTga(helmet) } : stock?.asset;
-      const result = await onCommit({ mesh: preview.mesh, asset, texturePath }); if (result !== false) onClose();
+      const items = draft.shapes.map(shape => ({ mesh: forgeShapeMesh(shape), texturePath: shape.texturePath, asset: shape.texturePath === THUMPER_TEXTURE ? { name: THUMPER_TEXTURE, source: 'forge', bytes: encodeForgeTga(helmet) } : stock }));
+      if (await onCommit({ items }) !== false) onClose();
     } catch (e) { setError(e.message); } finally { setBusy(false); onBusyChange(false); }
   };
-  return <><div className="forge-shape-body forge-primitives"><aside>
-    <div className="forge-shape-gallery" role="group" aria-label="Shape">{FORGE_SHAPES.map(shape => <button key={shape} aria-label={shape} aria-pressed={settings.shape === shape} className={settings.shape === shape ? 'active' : ''} onClick={() => setting('shape', shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div><div className="forge-dimensions">
-    {['width', 'height', ...(FLAT_FORGE_SHAPES.includes(settings.shape) ? [] : ['depth'])].map(key => <label key={key}>{key[0].toUpperCase() + key.slice(1)}<input aria-label={key[0].toUpperCase() + key.slice(1)} type="number" min="0.01" max="100000" value={settings[key]} onChange={e => setting(key, +e.target.value)}/></label>)}
-    {FLAT_FORGE_SHAPES.includes(settings.shape) && <label>Thickness<input aria-label="Shape thickness" type="number" min="0" max="100000" step="0.5" value={settings.thickness} onChange={e => setting('thickness', +e.target.value)}/></label>}
-    {settings.shape === 'Torus' && <label>Thickness (%)<input aria-label="Tube thickness" type="number" min="5" max="45" value={settings.tube} onChange={e => setting('tube', +e.target.value)}/></label>}
-    </div>{settings.shape !== 'Plane' && !isThumper && <><label>Detail<strong>{settings.complexity} / 4</strong></label><input aria-label="Shape complexity" type="range" min="1" max="4" step="1" value={settings.complexity} onChange={e => setting('complexity', +e.target.value)}/></>}
-    <details><summary>Placement</summary>{['position', 'rotation'].map(key => <div key={key}><p>{key === 'position' ? 'Position' : 'Rotation (degrees)'}</p>{['X', 'Y', 'Z'].map((axis, i) => <label key={axis}>{axis}<input aria-label={`Shape ${key} ${axis}`} type="number" value={settings[key][i]} onChange={e => setting(key, settings[key].map((n, j) => j === i ? +e.target.value : n))}/></label>)}</div>)}</details>
-  </aside><div className="forge-shape-preview"><div className="forge-preview-heading"><h3>{settings.shape}</h3><div className="forge-preview-switches"><label className="forge-check"><input type="checkbox" checked={wire} onChange={e => setWire(e.target.checked)}/>Wireframe</label><label className="forge-check"><input type="checkbox" checked={checker} onChange={e => setChecker(e.target.checked)}/>Checker</label></div></div><ForgePreview key={settings.shape} image={isThumper ? helmet : stock?.image} preferences={preferences} geosets={preview.mesh?.geosets || []} wire={wire} checker={checker} initialView={isThumper ? 'front' : 'oblique'}/><div className="forge-counts" aria-live="polite">{preview.mesh && `${preview.mesh.vertexCount} vertices · ${preview.mesh.triangleCount} triangles`}</div></div></div>
-  {!isThumper && textureError && <div role="status" className="forge-error">{textureError}</div>}
-  {(error || preview.error) && <div role="alert" className="forge-error">{error || preview.error}</div>}<footer><button disabled={busy} onClick={onClose}>Cancel</button><button className="forge-primary" disabled={busy || !preview.mesh} onClick={add}>{busy ? 'Working…' : 'Add shape'}</button></footer></>;
+  const paletteUI = <div className="forge-add-menu" role="group" aria-label="Add shape"><div className="forge-shape-gallery">{FORGE_SHAPES.map(shape => <button data-warmkey={'forge:shape:primitive:'+shape} key={shape} aria-label={shape} title={'Add '+shape} onClick={() => addShape(shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div><div className="forge-dimensions">{['width','height','depth'].map(key => <label key={key}>{key[0].toUpperCase()+key.slice(1)}<WarmKeyBadge actionId={'forge:shape:parameter:'+key}/><input data-warmkey={'forge:shape:parameter:'+key} aria-label={key[0].toUpperCase()+key.slice(1)} type="number" min=".01" value={settings[key]} onChange={e => setting(key,+e.target.value)}/></label>)}</div><label>Detail<WarmKeyBadge actionId="forge:shape:parameter:detail"/><input data-warmkey="forge:shape:parameter:detail" aria-label="Shape complexity" type="range" min="1" max="4" value={settings.complexity} onChange={e => setting('complexity',+e.target.value)}/>{settings.complexity}</label><details><summary data-warmkey="forge:shape:thickness">Thickness<WarmKeyBadge actionId="forge:shape:thickness"/></summary><label>Flat shapes<WarmKeyBadge actionId="forge:shape:parameter:thickness"/><input data-warmkey="forge:shape:parameter:thickness" aria-label="Shape thickness" type="number" min="0" step=".5" value={settings.thickness} onChange={e => setting('thickness',+e.target.value)}/></label><label>Torus (%)<WarmKeyBadge actionId="forge:shape:parameter:tube"/><input data-warmkey="forge:shape:parameter:tube" aria-label="Tube thickness" type="number" min="5" max="45" value={settings.tube} onChange={e => setting('tube',+e.target.value)}/></label></details></div>;
+  return <div className="forge-shape-workspace" data-warmkey-category="MDLxL FORGE">
+    <ForgeEditor model={model} preferences={preferences} editorState={editorState} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} selection={selection} onSelectionChange={onSelectionChange} onSelectParts={draft.mode === 'Vertices' ? undefined : event => setDraft({ ...draft, selection: pickForgeParts(entries, draft.selection, draft.mode, event) })} onTransform={transform} onView={(up, normal) => {viewBasis.current={up,normal};}} frame={frame} toolRequest={toolRequest} textureAssets={textureAssets}
+      onUndo={() => undo(false)} onRedo={() => undo(true)} canUndo={historySize[0]>0} canRedo={historySize[1]>0} onDelete={remove} duplicateAction="forge:shape:duplicate" onDuplicate={() => duplicate()} onCopy={() => {clipboard.current=structuredClone(selected);}} onPaste={() => duplicate(clipboard.current)} canCopy={selected.length>0}
+      toolbar={<div className="forge-add-control"><button data-warmkey="forge:shape:add" aria-label="Add shape" aria-expanded={palette} onClick={() => setPalette(!palette)}>Add shape</button>{palette && paletteUI}</div>}
+      controlPoints={<><span>Control<br/>points</span><div className="forge-selection-scope" role="group" aria-label="Control points">{[['Shape','Shape','M4 7 12 3 20 7 20 17 12 21 4 17Z M4 7 12 11 20 7 M12 11V21'],['Faces','Face','M4 7 12 3 20 7 12 11Z M4 7V17L12 21V11 M12 21 20 17V7'],['Edges','Edge','M4 18 20 6 M4 15V21 M20 3V9'],['Vertices','Vertex','M5 5H19V19H5Z']].map(([mode,label,path]) => <button data-warmkey={'forge:shape:mode:'+mode} aria-label={label} key={mode} title={'Edit '+label.toLowerCase()+' control points'} aria-pressed={draft.mode===mode} className={draft.mode===mode?'active':''} onClick={() => chooseMode(mode)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={path}/>{mode==='Vertices' && [[5,5],[19,5],[5,19],[19,19]].map(([x,y])=><circle key={x+','+y} cx={x} cy={y} r="2.5"/>)}</svg>{label}</button>)}</div></>}
+      operations={<div className="forge-shape-operations"><button data-warmkey="forge:shape:extrude" aria-label="Extrude" disabled={!faceCount || draft.mode==='Shape'} title="Extrude 10 units, then move" onClick={() => faceOperation('Extrude')}>Extrude</button><button data-warmkey="forge:shape:inset" aria-label="Inset" disabled={!faceCount || draft.mode==='Shape'} onClick={() => faceOperation('Inset')}>Inset</button><button data-warmkey="forge:shape:effects" aria-label="Shape…" disabled={!count} onClick={() => setShaping(true)}>Shape…</button></div>}
+      sidebar={<><div className="forge-section-title">Shapes</div><div className="forge-draft-shapes" role="group" aria-label="Forge shapes">{draft.shapes.map(shape => <button key={shape.id} aria-label={'Edit '+shape.name+' '+shape.id} className={draft.selection[shape.id]?.length?'active':''} onClick={e => {setDraft({...draft,mode:'Shape',selection:{...(e.shiftKey?draft.selection:{}),[shape.id]:['shape']}});}}>{shape.name} {shape.id}</button>)}</div></>}
+      status={error || (count ? count+' '+(draft.mode==='Shape'?'shape(s)':draft.mode.toLowerCase())+' selected' : 'Add a shape · select and edit with the vertex editor controls')}/>
+    <footer><button data-warmkey="forge:shape:cancel" aria-label="Cancel" disabled={busy} onClick={onClose}>Cancel</button><button data-warmkey="forge:shape:commit" aria-label="Commit shape" disabled={!draft.shapes.length || busy} onClick={() => {setDraft({...draft,selection:{},shapes:draft.shapes.map(s=>({...s,committed:true}))});requestTool({tool:'select'});setError('Shape committed · Add another shape or continue editing');}}>Commit shape</button><button data-warmkey="forge:shape:add-model" aria-label="Add to model" className="forge-primary" disabled={!draft.shapes.length || busy} onClick={addToModel}>{busy?'Working…':'Add to model'}</button></footer>
+    {shaping && <ShapingDialog model={model} preferences={preferences} editorState={editorState} surfaceColors={surfaceColors} selectedGeosets={entries.flatMap((e,i)=>draft.selection[e.shape.id]?.length?[i]:[])} selectionByGeoset={selection} onClose={() => setShaping(false)} onApplyModel={result => {change({...draft,shapes:entries.map(({shape},i)=>!draft.selection[shape.id]?.length?shape:createForgeShape({geosets:[result.Geosets[i]]},{id:shape.id,name:shape.name,texturePath:shape.texturePath})),selection:{},mode:'Shape'});setShaping(false);}}/>}
+  </div>;
 }

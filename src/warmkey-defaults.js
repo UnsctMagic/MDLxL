@@ -33,7 +33,7 @@ function hashId(id) { let value = 2166136261; for (let i = 0; i < id.length; i++
 export function contextualWarmKeyDefaults(actions, reservedKeys = []) {
   const used = new Set(actions.filter(action => !action.contextual).flatMap(action => action.defaultKeys || []).map(warmKeyCode).filter(Boolean));
   const assigned = new Map();
-  const contextual = actions.filter(action => action.contextual).slice().sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const contextual = actions.filter(action => action.contextual && !action.id.startsWith('forge:')).slice().sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   for (const action of contextual) {
     const code = action.defaultCode;
     if (validContextCode(code) && !used.has(code)) { assigned.set(action.id, code); used.add(code); }
@@ -51,7 +51,7 @@ export function contextualWarmKeyDefaults(actions, reservedKeys = []) {
     if (!code) throw new Error('The contextual Hotkeys code range is full.');
     assigned.set(action.id, code); used.add(code);
   }
-  return actions.map(action => action.contextual ? { ...action, defaultCode: assigned.get(action.id), defaultKeys: [warmKeySequence(assigned.get(action.id))] } : action);
+  return actions.map(action => action.contextual && action.id.startsWith('forge:') ? { ...action, defaultCode: undefined, defaultKeys: [] } : action.contextual ? { ...action, defaultCode: assigned.get(action.id), defaultKeys: [warmKeySequence(assigned.get(action.id))] } : action);
 }
 
 const isLeader = event => event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey && (event.key === ' ' || event.key === 'Space' || event.code === 'Space');

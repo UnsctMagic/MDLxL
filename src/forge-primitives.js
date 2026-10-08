@@ -31,7 +31,7 @@ function fullIconPerTriangle(source) {
  * become closed solids; thickness 0 retains a single front surface.
  */
 export function buildForgePrimitive(options = {}) {
-  const { shape, complexity, width, height, depth, thickness, tube, position, rotation } = { ...PRIMITIVE_DEFAULTS, ...options };
+  const { shape, complexity, width, height, depth, thickness, tube, position, rotation, zUp = false } = { ...PRIMITIVE_DEFAULTS, ...options };
   if (!FORGE_SHAPES.includes(shape)) throw Error('Choose a shape.');
   if (!Number.isInteger(complexity) || complexity < 1 || complexity > 4) throw Error('Complexity must be between 1 and 4.');
   if ([width, height, depth].some(n => !Number.isFinite(n) || n < .01 || n > 100000)) throw Error('Dimensions must be between 0.01 and 100000.');
@@ -64,6 +64,7 @@ export function buildForgePrimitive(options = {}) {
   }
   if (shape !== 'ThumperXL') geometry = fullIconPerTriangle(geometry);
   geometry.scale(width, height, flat ? thickness || 1 : depth);
+  if (zUp) geometry.rotateX(Math.PI / 2);
   geometry.applyQuaternion(new Quaternion().setFromEuler(new Euler(...rotation.map(n => n * Math.PI / 180), 'XYZ')));
   geometry.translate(...position);
   const g = { Vertices: geometry.attributes.position.array.slice(), Normals: geometry.attributes.normal.array.slice(), TVertices: [geometry.attributes.uv.array.slice()], Faces: geometry.index ? new Uint16Array(geometry.index.array) : Uint16Array.from({ length: geometry.attributes.position.count }, (_, i) => i) };
