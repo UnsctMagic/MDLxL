@@ -319,6 +319,7 @@ export default function GamePreview(inputProps) {
     };
     const cameraChanged = () => {
       latest.current.onCameraAnglesChange?.(editorCameraAngles(camera)); reportProjectionView(); invalidate();
+      if(latest.current.showcase)latest.current.onShowcaseViewChange?.();
       const bus = latest.current.compareCamera;
       if (bus && compareRegistered && !syncingCamera) { bus.saved = snapshotCamera(); for (const receive of bus.listeners) if (receive !== receiveCamera) receive(bus.saved); }
     };
@@ -648,7 +649,7 @@ export default function GamePreview(inputProps) {
       const x=crop?crop.x+crop.width/2:.5,y=crop?crop.y+crop.height/2:.5;
       if(p.portraitMode){
         // Reframe the authored portrait projection; its animated camera stays owned by the model.
-        portraitFraming.set(x-.5,y-.5);invalidate();return;
+        portraitFraming.set(x-.5,y-.5);invalidate();latest.current.onShowcaseViewChange?.();return;
       }
       // The unit is anchored to its own Z rotation axis, not the outline of
       // its weapon, glow, particles, or current animation pose. Use the fixed
@@ -1099,10 +1100,10 @@ export default function GamePreview(inputProps) {
     state.captureApi = {
       get isReady() { return !disposed && texturesReady && (!particleAuthor || particleAuthor.simulation && !particleAuthor.status.busy) && eventPreview.isReady && backgroundState.current.status === 'ready' && layerAPI.current?.isReady !== false && (!portraitHasFrame(latest.current) || portraitFrame.current.status !== 'loading'); },
       cameraView() { return state.cameraView(); },
-      showcaseView() { return {camera:state.cameraView(),anchor:[0,0,center.z],radius,portraitFraming:portraitFraming.toArray()}; },
+      showcaseView() { return {camera:state.cameraView(),anchor:[0,0,center.z],radius,portraitFraming:portraitFraming.toArray(),detached:state.cameraDetached}; },
       restoreShowcaseView(saved) {
         portraitFraming.fromArray(saved.portraitFraming||[0,0]);
-        if(latest.current.portraitMode){state.cameraDetached=false;invalidate();return;}
+        if(latest.current.portraitMode&&!saved.detached){state.cameraDetached=false;invalidate();return;}
         const origin=saved.anchor||[0,0,center.z],scale=radius/(saved.radius||radius),anchor=[0,0,center.z];
         const view={...saved.camera,position:saved.camera.position.map((v,i)=>anchor[i]+(v-origin[i])*scale),target:saved.camera.target.map((v,i)=>anchor[i]+(v-origin[i])*scale)};
         camera=perspective;controls.object=camera;state.cameraDetached=true;

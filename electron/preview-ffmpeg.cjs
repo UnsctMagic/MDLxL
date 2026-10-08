@@ -169,7 +169,6 @@ class PreviewRecordingStore {
     await job.queue;
     if (job.encoder) { await job.encoder.terminate(); job.encoder = null; }
     const timing = timeline(job.frames, time);
-    if(['low-size','low-size-main'].includes(job.exportTarget)&&timing.duration>5000)throw Error('Low Size GIF previews cannot be longer than 5 seconds.');
     const manifest = entries => 'ffconcat version 1.0\n' + entries.map(entry => `file '${entry.file}'\noption framerate 100\nduration ${(entry.ticks / 100).toFixed(2)}\n`).join('');
     await fs.writeFile(path.join(job.directory, 'frames.ffconcat'), manifest(timing.entries), { flag: 'wx' });
     const input = name => ['-f','concat','-safe','0','-i',name];

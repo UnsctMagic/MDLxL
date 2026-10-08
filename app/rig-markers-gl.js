@@ -65,18 +65,23 @@ export function rigMarkerVisible(point, options, highlights) {
   return !!options[kind] || kind === 'bones' && !!options.focusedBoneMarkers && !!highlights.get(point.node.ObjectId);
 }
 
+export function rigMarkerSize(point, shape, options = {}) {
+  const size = visualOptions(options.preferences).helperSize * 1.5, screenSize = point.unitsPerPixel * size;
+  if (!shape.billboard || options.vanilla) return screenSize;
+  const modelSize = options.modelRadius == null ? screenSize * 1.5 : options.modelRadius * .035 * size / 9;
+  // Keep circled symbols readable when zoomed out, with the existing close-up cap.
+  return Math.max(screenSize * 1.1, Math.min(screenSize * 1.5, modelSize));
+}
+
 /** Actual world-space polyhedra, shared by the editor and Warcraft GL contexts. */
 export function rigMarkerGeometry(nodes, selectedIds, options = {}) {
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point])), highlights = boneHighlightColors(nodes, selectedIds);
-  const triangles = [], edges = [], emphasizedEdges = [], size = visualOptions(options.preferences).helperSize * 3 / 2;
+  const triangles = [], edges = [], emphasizedEdges = [];
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
     const { shape, color } = markerStyle(point, byId, options.preferences, highlights, options.vanilla), baseColor = new Color(color);
     const edgeRgb = baseColor.clone().convertLinearToSRGB().toArray();
-    const screenSize = point.unitsPerPixel * size;
-    const markerSize = shape.billboard && !options.vanilla
-      ? Math.min(screenSize * 1.5, options.modelRadius == null ? screenSize * 1.5 : options.modelRadius * .035 * size / 9)
-      : screenSize;
+    const markerSize = rigMarkerSize(point, shape, options);
     const points = shape.vertices.map(vertex => new Vector3(...vertex).multiplyScalar(markerSize).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world));
     const seen = new Set();
     for (const face of shape.faces) {

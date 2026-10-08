@@ -10,7 +10,7 @@ test('Move grabs the selected overlapping marker while Select still cycles the s
  assert.equal(pickMovementNode(points,20,30,[1],13,true).node.ObjectId,1);
 });
 
-test('circled symbols shrink with the model when zooming out and have a screen-size ceiling',()=>{
+test('circled symbols retain readable sizes when zooming out and have a close-up ceiling',()=>{
  const camera=new OrthographicCamera(-200,200,200,-200,.1,1000);camera.position.set(0,0,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
  const point={node:{ObjectId:0},overlayKind:'sounds',visible:true,world:new Vector3(),rotation:new Quaternion(),billboardRotation:camera.quaternion};
  const width=zoom=>{
@@ -19,7 +19,8 @@ test('circled symbols shrink with the model when zooming out and have a screen-s
   for(let i=0;i<geometry.triangles.length;i+=6)xs.push(new Vector3().fromArray(geometry.triangles,i).project(camera).x*400);
   return Math.max(...xs)-Math.min(...xs);
  };
- assert.ok(Math.abs(width(.25)/width(1)-.25)<.001);
+ assert.ok(width(.025)>=20);assert.ok(width(.25)>=20);
+ assert.ok(width(2)>width(.25));
  assert.ok(width(10)<29);assert.ok(Math.abs(width(10)-width(20))<.001);
 });
 test('emitters use a camera-facing pentagram ring with normal marker alternatives',()=>{

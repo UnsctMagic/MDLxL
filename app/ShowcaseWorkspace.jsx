@@ -1,4 +1,4 @@
-import React, { lazy, useEffect, useMemo, useRef, useState, useCallback, Suspense } from 'react';
+import React, { lazy, useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, Suspense } from 'react';
 import AnimationPreviewTools from './AnimationPreviewTools.jsx';
 import { cropBetween, cropPresetRect, SHOWCASE_CROP_PRESETS } from './showcase-crop.js';
 import { createShowcaseDirector, overflowEntries, SHOWCASE_QUALITY } from './showcase-director.js';
@@ -7,11 +7,14 @@ import './showcase.css';
 import { translate } from '../src/localization.js';
 import { flushSync } from 'react-dom';
 import { SHOWCASE_PRESETS, builtinSetup, listShowcasePresets, saveShowcasePreset, snapshotShowcase, hydrateShowcase } from './showcase-presets.js';
-import { validateShowcaseExport } from './showcase-export.js';
+import { ShowcaseHistory } from './showcase-history.js';
+import { chordFromEvent } from '../src/preferences.js';
 import { moveDragPoint } from './classic-gestures.js';
 import { loopEffectTiming, timeShowcasePlaylist, showcaseEmitters } from './showcase-effects.js';
 import { remapShowcasePlaylist, remapShowcaseTake, snapshotShowcaseModel, hydrateShowcaseModel } from './showcase-model.js';
 import { alignShowcaseText } from './showcase-text.js';
+import { listSignaturePresets, saveSignaturePreset, deleteSignaturePreset } from './showcase-signature.js';
+import { deleteShowcasePreset } from './showcase-presets.js';
 
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 const SHOWCASE_COLORS = [
@@ -37,10 +40,10 @@ function ExtraTimeField({value,onChange,base,label='Extra Time'}) {
 function Slider({ label, value, onChange, min = 0, max = 200 }) {
   return <label className="showcase-slider">{label}<input aria-label={label} type="range" min={min} max={max} value={value} onChange={event => onChange(Number(event.target.value))}/><output>{value}%</output></label>;
 }
-function Dialog({ title, children, onClose, onSubmit, footer }) {
+function Dialog({ title, children, onClose, onSubmit, footer, onPointerDown, onPointerUp }) {
   const element = useRef(null);
   useEffect(() => { element.current.showModal(); }, []);
-  return <dialog className="classic-modal-window showcase-dialog" ref={element} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }}>
+  return <dialog className="classic-modal-window showcase-dialog" ref={element} aria-label={title} onPointerDownCapture={onPointerDown} onPointerUpCapture={onPointerUp} onCancel={event => { event.preventDefault(); onClose(); }}>
     <header>{title}<button aria-label="Close dialog" onClick={onClose}>×</button></header>
     <form onSubmit={event => { event.preventDefault(); onSubmit?.(); }}>
       <div className="classic-modal-body">{children}</div>
@@ -51,14 +54,21 @@ function Dialog({ title, children, onClose, onSubmit, footer }) {
 function AnimationDialog({ model, initial, portrait, exportTarget, definitions, onSave, onRemove, onClose }) {
   const duration=(row,loops=row.durationLoops??1)=>loopEffectTiming(model,row.sequence,loops,row.speed>0?row.speed:1,0,definitions,row.disabledEmitters).seconds;
   const [draft,setDraft]=useState(()=>({...initial,durationLoops:initial.durationLoops??1,extraTime:Math.max(0,Number(initial.extraTime)||0)})),[error,setError]=useState('');
+  const history=useRef(new ShowcaseHistory()),draftRef=useRef(draft);draftRef.current=draft;
+  useLayoutEffect(()=>{history.current.observe({draft});},[draft]);
+  useEffect(()=>{
+    const key=event=>{const input=event.detail;if(!(input.ctrlKey||input.metaKey)||input.altKey)return;const name=chordFromEvent(input).split('+').at(-1).toLowerCase();if(name!=='z'&&name!=='y')return;
+      event.preventDefault();input.preventDefault();input.stopImmediatePropagation();history.current.observe({draft:draftRef.current});
+      const saved=history.current.travel(name==='y'||input.shiftKey);if(saved)setDraft(saved.draft);};
+    window.addEventListener('mdlxl-showcase-key',key);return()=>window.removeEventListener('mdlxl-showcase-key',key);
+  },[]);
   const sequence=model.Sequences[draft.sequence],base=duration(draft),emitters=showcaseEmitters(model),disabled=new Set(draft.disabledEmitters || []);
   const naturalSeconds=Math.max(0,(sequence?.Interval?.[1]||0)-(sequence?.Interval?.[0]||0))/1000;
   const change=patch=>setDraft(row=>({...row,...patch}));
-  return <Dialog title={initial.editing ? 'Edit animation' : 'Add animation'} onClose={onClose} onSubmit={() => {
+  return <Dialog title={initial.editing ? 'Edit animation' : 'Add animation'} onPointerDown={event=>{history.current.end();history.current.begin(event.target);}} onPointerUp={()=>setTimeout(()=>history.current.end(),0)} onClose={onClose} onSubmit={() => {
     const durationLoops=Number(draft.durationLoops);
     if(!Number.isSafeInteger(durationLoops)||durationLoops<1){setError('Enter a whole number of loops, at least 1.');return;}
     const extraTime=Math.max(0,Number(draft.extraTime)||0),seconds=Math.round((base+extraTime)*100)/100;
-    try{validateShowcaseExport(exportTarget,seconds);}catch(error){setError(error.message);return;}
     onSave({sequence:draft.sequence,seconds,speed:draft.speed,loop:true,useDuration:true,durationLoops,extraTime,disabledEmitters:[...disabled]});
   }} footer={initial.editing && <button type="button" onClick={onRemove}>Remove</button>}>
     <label>Animation<select aria-label="Animation" value={draft.sequence} onChange={event => change({sequence:Number(event.target.value)})}>{model.Sequences.map((row,index)=>isPortrait(row)===portrait?<option translate="no" key={index} value={index}>{row.Name}</option>:null)}</select></label>
@@ -68,7 +78,7 @@ function AnimationDialog({ model, initial, portrait, exportTarget, definitions, 
   </Dialog>;
 }
 
-export default function ShowcaseWorkspace({ model: inputModel, modelName: inputModelName, modelPath: inputModelPath, revision: inputRevision, textureAssets: inputTextureAssets, preferences, teamColor, sessionId: inputSessionId, background, backgroundLibrary, onBackground, onStatus, active=true, onLoadModel }) {
+export default function ShowcaseWorkspace({ model: inputModel, modelName: inputModelName, modelPath: inputModelPath, revision: inputRevision, textureAssets: inputTextureAssets, preferences, teamColor, sessionId: inputSessionId, background, backgroundLibrary, onBackground, onStatus, active=true, onLoadModel, onHistoryState }) {
   const [recordingModel,setRecordingModel]=useState(null);
   useEffect(()=>()=>{for(const asset of new Set(recordingModel?.textureAssets.values()||[]))if(asset.url)URL.revokeObjectURL(asset.url);},[recordingModel]);
   const incomingModel=useRef({sessionId:inputSessionId,revision:inputRevision});
@@ -113,6 +123,10 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
   const [presets,setPresets]=useState([]),[presetDialog,setPresetDialog]=useState(null),[presetName,setPresetName]=useState(''),[presetId,setPresetId]=useState(SHOWCASE_PRESETS[0].id),[setupBusy,setSetupBusy]=useState(false);
   const [presetKind,setPresetKind]=useState('layout'),[presetEditing,setPresetEditing]=useState(null),[presetError,setPresetError]=useState('');
   const [recordingList,setRecordingList]=useState([]),[backgroundAsset,setBackgroundAsset]=useState(null),[applyVersion,setApplyVersion]=useState(0);
+  const [signaturePresets,setSignaturePresets]=useState([]),[presetsReady,setPresetsReady]=useState(false);
+  const [historyReadyAPI,setHistoryReadyAPI]=useState(null);
+  const history=useRef(new ShowcaseHistory()),historyRestoring=useRef(false),historyState=useRef(null),historyActions=useRef(null),wheelEnd=useRef(null);
+  const [,setViewRevision]=useState(0);
   const [editingRecording,setEditingRecording]=useState(null),recordingDraft=useRef(null),recordingEdits=useRef(new Map());
   const draggedRecording=useRef(null),[recordingDrop,setRecordingDrop]=useState(null);
   const recordingPlan=recordingList.map(take=>recordingEdits.current.get(take.id)||take);
@@ -129,12 +143,14 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     else modelView.current=null;
     setSelected(0);stopPreview();setAnimationDialog(null);
   }else previousModel.current.model=model;
-  useEffect(()=>{if(!api)return;let live=true;api.whenReady().then(()=>{if(!live)return;const definitions=api.effectDefinitions();
+  useEffect(()=>{if(!api)return;let live=true;api.whenReady().then(async()=>{await new Promise(requestAnimationFrame);if(!live)return;const definitions=api.effectDefinitions();
     setSequencePlaylist(rows=>timeShowcasePlaylist(model,rows,definitions));setPortraitPlaylist(rows=>timeShowcasePlaylist(model,rows,definitions));
+    setHistoryReadyAPI(api);
   }).catch(error=>{if(live&&apiRef.current===api)onStatus?.(error.message,true);});return()=>{live=false;};},[api,sessionId]);
   useEffect(()=>{if(!active)stopPreview();},[active]);
   useEffect(()=>{const pending=modelView.current;if(!pending||!api||api===pending.previousAPI)return;modelView.current=null;if(pending.view)api.restoreShowcaseView(pending.view);},[api,sessionId]);
   useEffect(()=>{let live=true;listShowcasePresets().then(rows=>{if(live)setPresets(rows);}).catch(error=>onStatus?.('Could not load Showcase presets: '+error.message,true));return()=>{live=false;};},[]);
+  useEffect(()=>{let live=true;listSignaturePresets().then(rows=>{if(live){setSignaturePresets(rows);setPresetsReady(true);}}).catch(error=>onStatus?.(error.message,true));return()=>{live=false;};},[]);
   useEffect(()=>()=>{for(const url of setupURLs.current)URL.revokeObjectURL(url);pendingApply.current?.reject(Error('Showcase closed while loading a setup.'));pendingApply.current=null;},[]);
   useEffect(()=>{if(layersEditing){setCropEditing(false);stopPreview();}},[layersEditing]);
   function saveColor(index) {
@@ -177,12 +193,11 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     else { setCropPreset(cropDrag.current.previousPreset); setCrop(cropDrag.current.previous); }
     cropDrag.current = null;
   }
-  useEffect(() => () => { if (media?.url) URL.revokeObjectURL(media.url); }, [media?.url]);
+  // Media and signature URLs remain valid while undo history can restore them.
   const current = useRef();
   current.current = {model,playlist,length,orbitSpeed,orbitDirection,orbitTiming:exportTarget==='low-size'||mainPicture?'speed':orbitTiming,playing,previewOrbit,portrait,startAngle:orbitAngle};
   const director = useMemo(() => createShowcaseDirector(() => current.current), []);
   const overflow = overflowEntries(playlist,length);
-  let exportError='';try{validateShowcaseExport(mainPicture?'low-size-main':exportTarget,length,playlist);}catch(error){exportError=error.message;}
   function chooseExportTarget(value){const next=exportTarget===value?null:value;setExportTarget(next);stopPreview();}
   function chooseMainPicture(){setMainPicture(value=>!value);stopPreview();setCropEditing(false);}
 
@@ -211,7 +226,8 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     if (!file) return;
     if (file.type.startsWith('audio/') || /\.wav$/i.test(file.name)) { onStatus?.('WAV contains audio only. Choose an image or a video with a picture track.',true); return; }
     const video = file.type.startsWith('video/') || /\.(mp4|m4v|mov|webm|ogv|mkv|avi|wmv)$/i.test(file.name);
-    setMedia({blob:file,url:URL.createObjectURL(file),type:video ? file.type || 'video/mp4' : file.type || (/\.gif$/i.test(file.name)?'image/gif':'image/png'),name:file.name});
+    const url=URL.createObjectURL(file);setupURLs.current.add(url);
+    setMedia({blob:file,url,type:video ? file.type || 'video/mp4' : file.type || (/\.gif$/i.test(file.name)?'image/gif':'image/png'),name:file.name});
     setVideoDuration(0); setTrim({start:0,end:0});
   }
   const backgroundUrl = portrait ? '' : backgroundMode === 'folder' ? backgroundAsset?.url || backgroundLibrary.url : backgroundMode === 'media' ? media?.url : '';
@@ -230,10 +246,10 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
   }
   function applySetup(snapshot){
     return new Promise((resolve,reject)=>{
-      const previousURLs=[...setupURLs.current],setup=hydrateShowcase(snapshot,setupURLs.current);
+      const setup=hydrateShowcase(snapshot,setupURLs.current);
       const modelSource=setup.modelSource?hydrateShowcaseModel(setup.modelSource,new Set()):null;
       const targetModel=modelSource?.model||model,definitions=modelSource?undefined:apiRef.current?.effectDefinitions();
-      pendingApply.current={setup,resolve,reject,previousURLs,previousAPI:apiRef.current,modelSource};
+      pendingApply.current={setup,resolve,reject,previousAPI:apiRef.current,modelSource};
       flushSync(()=>{
         if(modelSource)setRecordingModel(modelSource);
         stopPreview();setCropEditing(false);setMainPicture(!!setup.mainPicture);setMode(setup.mode);setSequenceExtraTime(Math.max(0,Number(setup.sequenceExtraTime)||0));setPortraitExtraTime(Math.max(0,Number(setup.portraitExtraTime)||0));
@@ -255,7 +271,6 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
       if(pending.setup.layout)api.maximalZoom(pending.setup.layout);
       api.invalidate();await new Promise(requestAnimationFrame);if(cancelled)return;
       await api.whenReady();if(cancelled||apiRef.current!==api)return;
-      for(const url of pending.previousURLs){URL.revokeObjectURL(url);setupURLs.current.delete(url);}
       pendingApply.current=null;pending.resolve({...captureSettings.current,api});
     })().catch(error=>{if(!cancelled&&pendingApply.current===pending){pendingApply.current=null;pending.reject(error);}});
     return()=>{cancelled=true;};
@@ -368,7 +383,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     setRecordingDrop(current=>current?.id===id&&current.after===after?current:{id,after});
   }
   function dropRecording(event,id){
-    event.preventDefault();const moved=draggedRecording.current;
+    event.preventDefault();event.stopPropagation();const moved=draggedRecording.current;
     const rect=event.currentTarget.getBoundingClientRect(),after=event.clientY>rect.top+rect.height/2;
     draggedRecording.current=null;setRecordingDrop(null);
     if(!moved||moved===id||busy||setupBusy)return;
@@ -384,10 +399,89 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
       const rect=await alignShowcaseText(layer,x,y,framedPortrait?null:selectedCrop,width,height);setLayers(rows=>rows.map(row=>row.id===id?{...row,rect}:row));
     }catch(error){onStatus?.(error.message,true);}
   }
-  return <div className="showcase-workspace">
+  const historySource=useMemo(()=>({model,modelName,modelPath,revision,sessionId,textureAssets,preserved:null}),[model,modelName,modelPath,revision,sessionId,textureAssets]);
+  const historyBackground=useMemo(()=>{
+    if(backgroundMode!=='folder'||!backgroundUrl)return null;
+    return {id:backgroundAsset?.id||background,name:backgroundAsset?.name||backgroundLibrary.items.find(row=>row.id===background)?.label||background,type:backgroundType,
+      preserved:backgroundAsset?.blob?Promise.resolve({blob:backgroundAsset.blob}):fetch(backgroundUrl).then(async response=>{if(!response.ok)throw Error('Could not preserve background media.');return {blob:await response.blob()};}).catch(error=>({error}))};
+  },[backgroundMode,backgroundUrl,backgroundType,background,backgroundAsset]);
+  const historyEdits=useMemo(()=>new Map(recordingEdits.current),[editingRecording,recordingList,applyVersion]);
+  historyState.current={source:historySource,backgroundResource:historyBackground,view:api?.showcaseView(),mode,sequencePlaylist,portraitPlaylist,sequenceExtraTime,portraitExtraTime,
+    orbitSpeed,orbitDirection,orbitTiming,orbitRadius,orbitAngle,light,quality,fps,backgroundMode,color,savedColors,media,videoDuration,trim,background,backgroundAsset,
+    crop,cropPreset,cropEditing,layers,activeLayer,portraitZoom,portraitFrameEnabled,grid,gridDensity,exportTarget,mainPicture,selected,collapsed,
+    recordingList,editingRecording,recordingDraft:recordingDraft.current,recordingEdits:historyEdits,presets,signaturePresets,presetEditing};
+  function reportHistory(){
+    const state={undo:history.current.undo.length>0,redo:history.current.redo.length>0};
+    onHistoryState?.(state);
+  }
+  useLayoutEffect(()=>{
+    if(busy||setupBusy||historyRestoring.current||!presetsReady||api!==historyReadyAPI||modelView.current)return;
+    if((!history.current.present||history.current.present.source.sessionId!==sessionId)&&!api?.isReady)return;
+    // Freeze textures once per model, before loading another model can release
+    // its live URLs. Ordinary setup edits retain this same immutable snapshot.
+    historySource.preserved ||= snapshotShowcaseModel(historySource).catch(error=>({error}));
+    if(history.current.observe(historyState.current))reportHistory();
+  });
+  async function restorePresets(before,after,save,remove){
+    for(const row of before)if(!after.some(next=>next.id===row.id))await remove(row.id);
+    for(const row of after)if(!before.includes(row))await save(row);
+  }
+  async function travelHistory(redo=false){
+    if(busy||setupBusy||historyRestoring.current)return;
+    historyState.current.source.preserved ||= snapshotShowcaseModel(historyState.current.source).catch(error=>({error}));
+    history.current.observe(historyState.current);
+    const before=history.current.present,saved=history.current.travel(redo);if(!saved)return;
+    historyRestoring.current=true;setSetupBusy(true);
+    try{
+      await restorePresets(before.presets,saved.presets,saveShowcasePreset,deleteShowcasePreset);
+      await restorePresets(before.signaturePresets,saved.signaturePresets,saveSignaturePreset,deleteSignaturePreset);
+      let restoredBackground=saved.backgroundAsset;
+      if(saved.backgroundResource){const resource=await saved.backgroundResource.preserved;if(resource.error)throw resource.error;
+        const url=URL.createObjectURL(resource.blob);setupURLs.current.add(url);restoredBackground={id:saved.backgroundResource.id,name:saved.backgroundResource.name,type:saved.backgroundResource.type,blob:resource.blob,url};}
+      if(saved.source.sessionId!==sessionId||saved.source.revision!==revision){
+        const preserved=await saved.source.preserved;if(preserved.error)throw preserved.error;
+        const setup={...saved};delete setup.source;delete setup.backgroundResource;
+        await applySetup({...setup,modelSource:preserved,backgroundAsset:restoredBackground});
+      }
+      flushSync(()=>{
+        stopPreview();setMode(saved.mode);setSequencePlaylist(saved.sequencePlaylist);setPortraitPlaylist(saved.portraitPlaylist);setSequenceExtraTime(saved.sequenceExtraTime);setPortraitExtraTime(saved.portraitExtraTime);
+        setOrbitSpeed(saved.orbitSpeed);setOrbitDirection(saved.orbitDirection);setOrbitTiming(saved.orbitTiming);setOrbitRadius(saved.orbitRadius);setOrbitAngle(saved.orbitAngle);setLight(saved.light);setQuality(saved.quality);setFPS(saved.fps);
+        setBackgroundMode(saved.backgroundMode);setColor(saved.color);setSavedColors(saved.savedColors);setMedia(saved.media);setVideoDuration(saved.videoDuration);setTrim(saved.trim);onBackground(saved.background);setBackgroundAsset(restoredBackground);
+        setCrop(saved.crop);setCropPreset(saved.cropPreset);setCropEditing(saved.cropEditing);setLayers(saved.layers);setActiveLayer(saved.activeLayer);setPortraitZoom(saved.portraitZoom);setPortraitFrameEnabled(saved.portraitFrameEnabled);setGrid(saved.grid);setGridDensity(saved.gridDensity);
+        setExportTarget(saved.exportTarget);setMainPicture(saved.mainPicture);setSelected(saved.selected);setCollapsed(saved.collapsed);setRecordingList(saved.recordingList);setEditingRecording(saved.editingRecording);
+        recordingDraft.current=saved.recordingDraft;recordingEdits.current=new Map(saved.recordingEdits);setPresets(saved.presets);setSignaturePresets(saved.signaturePresets);setPresetEditing(saved.presetEditing);
+      });
+      await new Promise(requestAnimationFrame);await apiRef.current?.whenReady();
+      apiRef.current?.restoreShowcaseView(saved.view);director.reset(saved.view?.camera,apiRef.current?.modelCenter());apiRef.current?.invalidate();
+      await new Promise(requestAnimationFrame);await apiRef.current?.whenReady();
+      onStatus?.(redo?'Redo':'Undo');
+    }catch(error){history.current.travel(!redo);onStatus?.(error.message,true);}
+    finally{
+      flushSync(()=>setSetupBusy(false));history.current.observe(historyState.current,false);historyRestoring.current=false;reportHistory();
+    }
+  }
+  historyActions.current={travel:travelHistory,active,busy,setupBusy,animationDialog,presetDialog};
+  useEffect(()=>{
+    const key=event=>{const input=event.detail,state=historyActions.current;if(!state.active||state.animationDialog||state.presetDialog||!(input.ctrlKey||input.metaKey)||input.altKey)return;
+      const modal=document.querySelector('dialog[open],[aria-modal="true"],.classic-modal');if(modal&&!modal.closest('.showcase-workspace'))return;
+      if(input.target?.closest('[data-showcase-native-undo]'))return;
+      const name=chordFromEvent(input).split('+').at(-1).toLowerCase();if(name!=='z'&&name!=='y')return;event.preventDefault();input.preventDefault();input.stopImmediatePropagation();state.travel(name==='y'||input.shiftKey);};
+    const command=event=>{if(historyActions.current.active)historyActions.current.travel(event.detail==='redo');};
+    window.addEventListener('mdlxl-showcase-key',key);window.addEventListener('mdlxl-showcase-command',command);
+    return()=>{clearTimeout(wheelEnd.current);window.removeEventListener('mdlxl-showcase-key',key);window.removeEventListener('mdlxl-showcase-command',command);};
+  },[]);
+  const viewChanged=useCallback(()=>{if(!historyRestoring.current&&!current.current.playing&&!current.current.previewOrbit)setViewRevision(value=>value+1);},[]);
+  function beginHistoryGesture(event){
+    if(event.target.closest('dialog'))return;
+    history.current.end();history.current.observe(historyState.current);history.current.begin(event.target);
+  }
+  function endHistoryGesture(){history.current.end();}
+  function historyWheel(){
+    history.current.begin('wheel');clearTimeout(wheelEnd.current);wheelEnd.current=setTimeout(endHistoryGesture,250);
+  }
+  return <div className="showcase-workspace" onPointerDownCapture={beginHistoryGesture} onPointerUpCapture={()=>setTimeout(endHistoryGesture,0)} onPointerCancelCapture={()=>setTimeout(endHistoryGesture,0)} onFocusCapture={event=>{if(event.target.matches('textarea,input:not([type=checkbox]):not([type=file]):not([type=radio])'))history.current.begin(event.target);}} onBlurCapture={event=>{if(history.current.group?.id===event.target)endHistoryGesture();}} onWheelCapture={historyWheel}>
     <aside className="showcase-sidebar" aria-label="Showcase controls">
-      <AnimationPreviewTools exportTarget={exportTarget} onExportTarget={chooseExportTarget} mainPicture={mainPicture} cropAspect={framedPortrait?undefined:mainPicture?612/490:SHOWCASE_CROP_PRESETS[cropPreset]} active={active} sessionId={inputSessionId} modelName={modelName} captureAPI={api} preferences={localPreferences} loop length={length} crop={framedPortrait?null:selectedCrop} locked={setupBusy||!!editingRecording} recordingList={recordingPlan} prepareTake={take=>applySetup(take.setup)} onTakeComplete={removeRecording} beforeBatch={async()=>{batchRestore.current=await captureSetup(true);}} afterBatch={async()=>{const saved=batchRestore.current;batchRestore.current=null;if(saved)await applySetup(saved);}} disabled={!!exportError || setupBusy || overflow.some(Boolean) || !playlist.length || portrait && cameraIndex < 0 || !portrait && backgroundMode === 'folder' && !backgroundAsset && backgroundLibrary.loading} onStatus={onStatus} onBusy={value=>{setBusy(value);if(value)stopPreview();}}/>
-      {exportError&&<div className="showcase-error" role="alert">{exportError}</div>}
+      <AnimationPreviewTools exportTarget={exportTarget} onExportTarget={chooseExportTarget} mainPicture={mainPicture} cropAspect={framedPortrait?undefined:mainPicture?612/490:SHOWCASE_CROP_PRESETS[cropPreset]} active={active} sessionId={inputSessionId} modelName={modelName} captureAPI={api} preferences={localPreferences} loop length={length} crop={framedPortrait?null:selectedCrop} locked={setupBusy||!!editingRecording} recordingList={recordingPlan} prepareTake={take=>applySetup(take.setup)} onTakeComplete={removeRecording} beforeBatch={async()=>{batchRestore.current=await captureSetup(true);}} afterBatch={async()=>{const saved=batchRestore.current;batchRestore.current=null;if(saved)await applySetup(saved);}} disabled={setupBusy || overflow.some(Boolean) || !playlist.length || portrait && cameraIndex < 0 || !portrait && backgroundMode === 'folder' && !backgroundAsset && backgroundLibrary.loading} onStatus={onStatus} onBusy={value=>{setBusy(value);if(value)stopPreview();}}/>
       <fieldset disabled={busy||setupBusy} className="showcase-fields">
         <div className="showcase-model-file"><button title={editingRecording?'Replace this recording’s model':'Load Showcase model'} onClick={()=>window.desktop?loadModel():modelInput.current.click()}>Load model</button><small title={modelPath||modelName}>{modelName}</small></div>
         <input ref={modelInput} type="file" accept=".mdl,.mdx" hidden onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)loadModel(file);}}/>
@@ -429,7 +523,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
           <div className="showcase-crop-controls"><button disabled={!api} title={selectedCrop?'Center unit in crop; zoom out only if needed':'Center unit in viewport; zoom out only if needed'} onClick={()=>{stopPreview();setCropEditing(false);api?.centerModel(selectedCrop);}}>Center</button><button disabled={!api} onClick={()=>{stopPreview();setCropEditing(!cropEditing);}}>{cropEditing?'Done':selectedCrop?'Edit crop':'Crop'}</button>{selectedCrop&&<button onClick={()=>{setCrop(null);setCropPreset('free');setCropEditing(false);}}>Reset</button>}</div>
         </section>}
         <button className="showcase-wide" aria-pressed={mainPicture} onClick={chooseMainPicture}>Low Size Main Picture</button>
-        <ShowcaseLayerTools key={applyVersion} grid={grid} onGrid={setGrid} gridDensity={gridDensity} onGridDensity={setGridDensity} onAlign={alignText} length={length} layers={layers} onLayers={setLayers} activeId={activeLayer} onActive={setActiveLayer} onEditing={setLayersEditing} onStatus={onStatus}/>
+        <ShowcaseLayerTools onPresetBusy={setSetupBusy} presets={signaturePresets} onPresets={setSignaturePresets} onAssetURL={url=>setupURLs.current.add(url)} key={applyVersion} grid={grid} onGrid={setGrid} gridDensity={gridDensity} onGridDensity={setGridDensity} onAlign={alignText} length={length} layers={layers} onLayers={setLayers} activeId={activeLayer} onActive={setActiveLayer} onEditing={setLayersEditing} onStatus={onStatus}/>
         <section className={sectionClass('graphics')} aria-label="Graphics">
           <header>{sectionToggle('graphics','Graphics')}</header>
           <label>Quality<select aria-label="Graphics quality" value={quality} onChange={event=>setQuality(event.target.value)}><option value="low">Low</option><option value="medium">Medium</option><option value="high">Highest</option></select></label>
@@ -452,7 +546,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
         {presetError&&<div className="showcase-error" role="alert">{presetError}</div>}
       </fieldset>
     </Dialog>}
-    <section ref={previewRef} className={`showcase-preview${framedPortrait?" portrait":portrait?" portrait-frameless":""}`} aria-label="Showcase preview" style={framedPortrait?{"--portrait-zoom":portraitZoom/125,backgroundColor:color}:portrait?{backgroundColor:"#000000"}:undefined} inert={busy || setupBusy || undefined}><Suspense fallback={<div className="classic-empty-view">Loading model preview…</div>}><GamePreview suspended={!active} showcase={director} presentation="preview" previewMode="textured" mode="textured" overlays={CLEAN} showGrid={false} showAxes={false} showParticles playing={false} sequenceIndex={0} time={model.Sequences?.[0]?.Interval?.[0]||0} model={model} revision={revision} modelPath={modelPath} textureAssets={textureAssets} preferences={localPreferences} teamColor={teamColor} view="perspective" cameraMode="rotate" showcaseLight={light} showcaseCrop={framedPortrait?null:selectedCrop} showcaseRadius={orbitRadius} showcasePortraitMode={portrait} showcasePortraitFrame={portraitFrameEnabled&&!mainPicture} showcasePortraitZoom={portraitZoom} portraitCameraIndex={cameraIndex} showcaseGrid={grid&&!busy} showcaseGridDensity={gridDensity} showcaseLayers={layers} showcaseLayerEditing={layersEditing&&!cropEditing} showcaseActiveLayer={activeLayer} onShowcaseLayerSelect={setActiveLayer} onShowcaseLayerChange={(id,patch)=>setLayers(values=>values.map(layer=>layer.id===id?{...layer,...patch}:layer))} onShowcaseLayerError={message=>onStatus?.(message,true)} onCaptureReady={captureReady} backgroundUrl={backgroundUrl} backgroundType={backgroundType} backgroundTrim={trim} onBackgroundMetadata={setVideoDuration} preserveCameraView showcasePlaying={playing&&active} showcaseConfig={[playlist,length,previewOrbit,orbitSpeed,orbitDirection,orbitTiming,exportTarget,mainPicture,orbitRadius,orbitAngle,light,portrait,portraitZoom,portraitFrameEnabled]}/></Suspense>
+    <section ref={previewRef} className={`showcase-preview${framedPortrait?" portrait":portrait?" portrait-frameless":""}`} aria-label="Showcase preview" style={framedPortrait?{"--portrait-zoom":portraitZoom/125,backgroundColor:color}:portrait?{backgroundColor:"#000000"}:undefined} inert={busy || setupBusy || undefined}><Suspense fallback={<div className="classic-empty-view">Loading model preview…</div>}><GamePreview suspended={!active} showcase={director} presentation="preview" previewMode="textured" mode="textured" overlays={CLEAN} showGrid={false} showAxes={false} showParticles playing={false} sequenceIndex={0} time={model.Sequences?.[0]?.Interval?.[0]||0} model={model} revision={revision} modelPath={modelPath} textureAssets={textureAssets} preferences={localPreferences} teamColor={teamColor} view="perspective" cameraMode="rotate" showcaseLight={light} showcaseCrop={framedPortrait?null:selectedCrop} showcaseRadius={orbitRadius} showcasePortraitMode={portrait} showcasePortraitFrame={portraitFrameEnabled&&!mainPicture} showcasePortraitZoom={portraitZoom} portraitCameraIndex={cameraIndex} showcaseGrid={grid&&!busy} showcaseGridDensity={gridDensity} showcaseLayers={layers} showcaseLayerEditing={layersEditing&&!cropEditing} showcaseActiveLayer={activeLayer} onShowcaseLayerSelect={setActiveLayer} onShowcaseLayerChange={(id,patch)=>setLayers(values=>values.map(layer=>layer.id===id?{...layer,...patch}:layer))} onShowcaseLayerError={message=>onStatus?.(message,true)} onShowcaseViewChange={viewChanged} onCaptureReady={captureReady} backgroundUrl={backgroundUrl} backgroundType={backgroundType} backgroundTrim={trim} onBackgroundMetadata={setVideoDuration} preserveCameraView showcasePlaying={playing&&active} showcaseConfig={[playlist,length,previewOrbit,orbitSpeed,orbitDirection,orbitTiming,exportTarget,mainPicture,orbitRadius,orbitAngle,light,portrait,portraitZoom,portraitFrameEnabled]}/></Suspense>
       {!framedPortrait&&(cropEditing||selectedCrop)&&<div className={'showcase-crop-overlay'+(cropEditing?' editing':'')} aria-label="Crop area" onPointerDown={cropEditing?startCrop:undefined} onPointerMove={cropEditing?moveCrop:undefined} onPointerUp={cropEditing?finishCrop:undefined} onPointerCancel={cropEditing?finishCrop:undefined}>
         <div className="showcase-crop-selection" style={{left:(selectedCrop?.x||0)*100+'%',top:(selectedCrop?.y||0)*100+'%',width:(selectedCrop?.width??1)*100+'%',height:(selectedCrop?.height??1)*100+'%'}}/>
         {cropEditing&&<div className="showcase-crop-hint">Drag to select the GIF area</div>}

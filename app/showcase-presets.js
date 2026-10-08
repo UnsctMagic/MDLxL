@@ -5,6 +5,7 @@ async function transaction(mode,operation){
 }
 export const listShowcasePresets=()=>transaction('readonly',store=>store.getAll());
 export const saveShowcasePreset=preset=>transaction('readwrite',store=>store.put(preset));
+export const deleteShowcasePreset=id=>transaction('readwrite',store=>store.delete(id));
 
 const text=(text,rect,size=28,extra={})=>({kind:'text',text,rect,size,font:'cinzeldecorative',color:'#eee4ce',color2:'#c6a46c',color3:'#7895b2',outlineColor:'#141920',rotation:0,fadeInStart:0,fadeInLength:0,fadeOutStart:9,fadeOutLength:0,effect:'solid',bold:false,italic:false,underline:false,outline:true,opacity:1,...extra});
 export const SHOWCASE_PRESETS=[

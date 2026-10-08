@@ -36,14 +36,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const blood={Name:'TEST',file:'NodePreviewTest',Scale:24,Rows:1,Columns:1,BlendMode:0,Lifespan:.2,Decay:120,UVLifespanStart:0,UVLifespanEnd:0,UVDecayStart:0,UVDecayEnd:0,StartR:255,StartG:0,StartB:20,StartA:255,MiddleR:255,MiddleG:0,MiddleB:20,MiddleA:200,EndR:255,EndG:0,EndB:20,EndA:0};
   await write('Splats\\SplatData.slk',slk(blood));await write('Splats\\UberSplatData.slk',slk({...blood,BirthTime:.2,PauseTime:.2,Decay:.4}));
   const blp=Buffer.alloc(148+16*16*4);blp.write('BLP2');blp.writeUInt32LE(1,4);blp[8]=3;blp[9]=8;blp.writeUInt32LE(16,12);blp.writeUInt32LE(16,16);blp.writeUInt32LE(148,20);blp.writeUInt32LE(1024,84);for(let i=148;i<blp.length;i+=4){blp[i]=blp[i+1]=blp[i+2]=255;blp[i+3]=200;}await write('ReplaceableTextures\\Splats\\NodePreviewTest.blp',blp);
-  await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{particles:false,maxFps:30},emitterMarker:'pentagram'}}));
+  await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{particles:false,maxFps:30,pauseWhenHidden:false},emitterMarker:'pentagram'}}));
   const executablePath=process.env.MDLXL_ELECTRON_PATH||path.join(root,'node_modules/electron/dist/electron.exe'),packaged=!!process.env.MDLXL_ELECTRON_PATH;
-  const app=await _electron.launch({executablePath,args:packaged?[fixture]:[root,fixture],cwd:root,env:{...process.env,MDLXL_PROFILE:profile,MDLVIS_HEADLESS:'0'},timeout:60000});
+  const app=await _electron.launch({executablePath,args:['--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--disable-background-timer-throttling','--mute-audio',...(packaged?[fixture]:[root,fixture])],cwd:root,env:{...process.env,MDLXL_PROFILE:profile,MDLVIS_HEADLESS:'1'},timeout:60000});
   let page;const errors=[];
-  const screenshot=async name=>{const png=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));await fs.writeFile(path.join(out,name),Buffer.from(png,'base64'));};
+  const grab=clip=>app.evaluate(async({BrowserWindow},clip)=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage(clip||undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64'),clip);
+  const screenshot=async name=>fs.writeFile(path.join(out,name),Buffer.from(await grab(),'base64'));
   try{
     page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
-    await app.evaluate(({BrowserWindow})=>{BrowserWindow.getAllWindows()[0].setSize(1700,1050);BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false);});
+    await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];if(win.isVisible())throw Error('Test window must remain hidden');win.setSize(1700,1050);win.webContents.setBackgroundThrottling(false);});
+    await page.addInitScript(()=>{window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),16);window.cancelAnimationFrame=clearTimeout;});await page.reload();
     await page.getByText('Opened node-controls.mdx',{exact:true}).waitFor();
     await page.evaluate(()=>{window.testAudio=[];const play=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(...args){const record={audio:this,decoded:false,ended:false};this.addEventListener('playing',()=>{record.decoded=this.duration>0&&!this.error;},{once:true});this.addEventListener('ended',()=>{record.ended=true;},{once:true});window.testAudio.push(record);return play.apply(this,args);};});
     const command=id=>app.evaluate(({BrowserWindow},id)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',id),id);
@@ -58,6 +60,48 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const quick=page.getByRole('group',{name:'Quick display'});
     const absent=async names=>{for(const name of names)assert.equal(await quick.getByLabel(name,{exact:true}).count(),0,name+' is absent');};
     const installDecalProbe=async()=>{await read();await page.evaluate(()=>{const state=window.testRuntime,events=state.eventPreview;if(events.testProbe)return;events.testProbe=true;const render=events.render,gl=state.native.gl;events.render=function(options){const draw=gl.drawArrays;let count=0;gl.drawArrays=function(...args){count++;return draw.apply(this,args);};try{return render.call(this,options);}finally{gl.drawArrays=draw;state.testDecalDraws=count;}};});};
+    if(process.env.MDLXL_NODE_ZOOM_PROOF){
+      const {PNG}=require('C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pngjs');
+      await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1920,1040));
+      await page.getByRole('button',{name:'Movement',exact:true}).click();await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');await wait(s=>s.ready,'Zoom proof ready');
+      for(const name of ['Emitters','Events','Sounds','Attachment','Focused Skeleton'])await quick.getByLabel(name,{exact:true}).check();
+      await page.getByRole('button',{name:'Fit',exact:true}).click();await page.waitForTimeout(120);
+      const layout=()=>page.evaluate(ids=>{
+        const state=window.testRuntime,camera=state.controls.object,rect=document.querySelector('[data-clean-model-canvas]').getBoundingClientRect(),vector=camera.position.clone();
+        const nodes=Object.fromEntries(Object.entries(ids).map(([name,id])=>{vector.fromArray(state.native.model.Nodes[id].PivotPoint).project(camera);return[name,{x:rect.x+(vector.x+1)*rect.width/2,y:rect.y+(1-vector.y)*rect.height/2}];}));
+        const ys=[];for(const geoset of state.native.model.Geosets)for(let i=0;i<geoset.Vertices.length;i+=3){vector.fromArray(geoset.Vertices,i).project(camera);ys.push((1-vector.y)*rect.height/2);}
+        return {nodes,modelHeight:Math.max(...ys)-Math.min(...ys),zoom:camera.zoom,canvas:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+      },ids);
+      await read();let fitted=await layout();const box=fitted.canvas;await page.mouse.move(box.x+box.width*.8,box.y+box.height*.6);
+      let far=fitted;for(let i=0;i<45&&far.modelHeight>130;i++){await page.mouse.wheel(0,70);await page.waitForTimeout(60);far=await layout();}
+      assert.ok(far.modelHeight>=90&&far.modelHeight<=130,'Reproduce the reported small-model zoom');assert.ok(far.zoom<fitted.zoom,'Normal mouse wheel zooms out');
+      const colors={particle:[76,255,89],ribbon:[32,201,255],attachment:[255,57,207],sound:[255,229,43],blood:[255,23,77],foot:[35,255,177],uber:[255,57,184]};
+      const capture=async(name)=>{
+        await page.waitForTimeout(220);
+        const current=await layout(),png=Buffer.from(await grab(),'base64'),image=PNG.sync.read(png),metrics={};await fs.writeFile(path.join(out,name+'.png'),png);
+        for(const [kind,p] of Object.entries(current.nodes)){
+          const rgb=colors[kind],xs=[],ys=[],search=name==='zoom-close'?64:16;
+          for(let y=Math.max(0,Math.floor(p.y)-search);y<Math.min(image.height,p.y+search+1);y++)for(let x=Math.max(0,Math.floor(p.x)-search);x<Math.min(image.width,p.x+search+1);x++){
+            const offset=(y*image.width+x)*4;if(rgb.every((value,i)=>Math.abs(image.data[offset+i]-value)<=12)){xs.push(x);ys.push(y);}
+          }
+          metrics[kind]={width:xs.length?Math.max(...xs)-Math.min(...xs)+1:0,height:ys.length?Math.max(...ys)-Math.min(...ys)+1:0,pixels:xs.length};
+        }
+        const points=Object.values(current.nodes),left=Math.max(0,Math.floor(Math.min(...points.map(p=>p.x)))-30),top=Math.max(0,Math.floor(Math.min(...points.map(p=>p.y)))-30),right=Math.min(image.width,Math.ceil(Math.max(...points.map(p=>p.x)))+30),bottom=Math.min(image.height,Math.ceil(Math.max(...points.map(p=>p.y)))+30);
+        await fs.writeFile(path.join(out,name+'-symbols.png'),Buffer.from(await grab({x:left,y:top,width:right-left,height:bottom-top}),'base64'));
+        return {...current,metrics};
+      };
+      const farProof=await capture('zoom-far');
+      if(process.env.MDLXL_NODE_ZOOM_PROOF!=='before')for(const [kind,metric] of Object.entries(farProof.metrics)){assert.ok(metric.width>=18&&metric.height>=18,kind+' remains readable in the rendered screenshot: '+JSON.stringify(metric));assert.ok(metric.width<=30&&metric.height<=30,kind+' stays compact');assert.ok(metric.pixels>=45,kind+' retains visible symbol detail');}
+      let close=far;for(let i=0;i<60&&close.modelHeight<600;i++){await page.mouse.wheel(0,-70);await page.waitForTimeout(60);close=await layout();}
+      assert.ok(close.zoom>far.zoom,'Normal mouse wheel zooms back in');const closeProof=await capture('zoom-close');for(const [kind,metric] of Object.entries(closeProof.metrics)){assert.ok(metric.width>=18&&metric.height>=18,kind+' renders at close zoom');assert.ok(metric.width<=30&&metric.height<=30,kind+' retains the close-up size cap');}
+      if(process.env.MDLXL_NODE_ZOOM_PROOF!=='before'){
+        await page.mouse.move(box.x+box.width*.8,box.y+box.height*.6);for(let i=0;i<60&&(await layout()).modelHeight>130;i++){await page.mouse.wheel(0,70);await page.waitForTimeout(60);}const current=await layout(),p=current.nodes.particle;
+        await page.mouse.click(p.x+8,p.y,{button:'right'});await wait(s=>s.pulse&&s.particles[0]>0,'Zoomed-out symbol remains clickable');await wait(s=>!s.pulse&&s.particles[0]===0,'Zoomed-out preview cleans up');
+        const sound=current.nodes.sound;await page.mouse.click(sound.x+8,sound.y);assert.equal(await page.getByLabel('Movement bone or node',{exact:true}).inputValue(),String(ids.sound),'Left click still selects the visible symbol');
+      }
+      assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible()),false);assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);
+      const proof={passed:true,hidden:true,out,far:farProof,close:closeProof};await fs.writeFile(path.join(out,'zoom-proof.json'),JSON.stringify(proof,null,2));console.log(JSON.stringify(proof));return;
+    }
     await absent(['Bones','Nodes','Emitters','Events','Sounds','Attachment']);
     assert.equal(await page.locator('[data-node-overlay]').count(),0,'Vertices has no rig markers');
     await screenshot('vertices-default.png');
@@ -97,20 +141,20 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button',{name:'Vertices',exact:true}).click();await absent(['Bones','Nodes','Emitters','Events','Sounds','Attachment']);assert.equal(await page.locator('[data-node-overlay]').count(),0,'Returning to Vertices hides selected rig markers');
     await command('camera:work');
     assert.equal(await page.locator('.classic-sidebar [data-warmkey="Delete vertices"]').isDisabled(),true,'Vertices cannot delete the retained hidden rig selection');for(const input of await page.locator('.classic-coordinates input').all())assert.equal(await input.isDisabled(),true,'Vertex coordinates cannot move hidden rig selections');
-    await app.evaluate(({BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];window.unmaximize();window.setSize(1086,760);});
+    await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1086,760));
     await page.getByRole('button',{name:'Movement',exact:true}).click();await wait(s=>s.ready,'Narrow Movement ready');
     for(const name of ['Emitters','Events','Sounds']){const control=quick.getByLabel(name,{exact:true});await control.scrollIntoViewIfNeeded();assert.equal(await control.evaluate(input=>{const r=input.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===input;}),true,name+' remains reachable in narrow window');await control.check();await control.uncheck();}
     await screenshot('movement-narrow-controls.png');
-    await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].maximize());
+    await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1920,1040));
     const xlChecks=await Promise.all(['Emitters','Events','Sounds'].map(name=>quick.getByLabel(name,{exact:true}).isChecked()));await read();await page.evaluate(()=>window.testVISNative=window.testRuntime.native);
     await page.locator('.vis-toggle').click();await page.locator('.classic-app[data-vis-ui]').waitFor();await absent(['Events','Sounds']);assert.equal(await quick.getByLabel('Nodes',{exact:true}).count(),1);assert.equal(await quick.getByLabel('Emitters',{exact:true}).isChecked(),false);
-    const nativeView=await app.evaluate(({Menu})=>Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu.items.map(item=>item.label));assert.ok(nativeView.includes('Nodes'));assert.ok(!nativeView.includes('Events')&&!nativeView.includes('Sounds'));
+    const nativeView=await app.evaluate(async({Menu})=>{const end=Date.now()+5000;let labels;do{labels=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu.items.map(item=>item.label);if(labels.includes('Nodes')&&!labels.includes('Events')&&!labels.includes('Sounds'))return labels;await new Promise(resolve=>setTimeout(resolve,20));}while(Date.now()<end);return labels;});assert.ok(nativeView.includes('Nodes'));assert.ok(!nativeView.includes('Events')&&!nativeView.includes('Sounds'));
     await quick.getByLabel('Bones',{exact:true}).check();await quick.getByLabel('Nodes',{exact:true}).check();await quick.getByLabel('Emitters',{exact:true}).check();await quick.getByLabel('Attachment',{exact:true}).check();await wait(s=>s.nodes>0,'VIS original markers');await screenshot('vis-movement-symbols.png');
     await clickNode(ids.particle);await page.waitForTimeout(650);assert.equal((await read()).pulse,false,'VIS right click retains original camera behavior');assert.deepEqual((await read()).particles,[0]);
     const visCameraBefore=(await read()).camera,visCanvas=await page.locator('[data-clean-model-canvas]').boundingBox();await page.mouse.move(visCanvas.x+visCanvas.width*.8,visCanvas.y+visCanvas.height*.65);await page.mouse.down({button:'right'});await page.mouse.move(visCanvas.x+visCanvas.width*.68,visCanvas.y+visCanvas.height*.52,{steps:12});await page.mouse.up({button:'right'});await wait(s=>s.camera.some((v,i)=>Math.abs(v-visCameraBefore[i])>1),'VIS normal mouse rotation');
     await page.locator('.vis-toggle').click();await page.locator('.classic-app:not([data-vis-ui])').waitFor();await absent(['Nodes']);assert.deepEqual(await Promise.all(['Emitters','Events','Sounds'].map(name=>quick.getByLabel(name,{exact:true}).isChecked())),xlChecks,'XL category choices are restored');await read();assert.equal(await page.evaluate(()=>window.testRuntime.native===window.testVISNative),true,'VIS toggle preserves the live model and timeline');
     await page.locator('.vis-toggle').click();assert.equal(await quick.getByLabel('Nodes',{exact:true}).isChecked(),true,'VIS choices are retained separately');await page.locator('.vis-toggle').click();
-    assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);
+    assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible()),false,'All desktop verification stays hidden');assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);
     console.log(JSON.stringify({passed:true,packaged,executablePath,out,ids,fixtureSha256:createHash('sha256').update(bytes).digest('hex')}));
   }catch(error){if(page){await screenshot('failure.png').catch(()=>{});console.error((await page.locator('body').innerText()).slice(-1800));}throw error;}
   finally{if(process.env.MDLXL_KEEP_TEST!=='1')await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}

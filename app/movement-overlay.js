@@ -3,7 +3,7 @@ import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { visualOptions } from '../src/preferences.js';
-import { boneHighlightColors, markerStyle, rigMarkerVisible } from './rig-markers-gl.js';
+import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
 import { drawPixelLine } from './pixel-lines.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
@@ -119,13 +119,13 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
       width: appearance ? 6 : 3, ratio,
     });
   }
-  const size = visualOptions(options.preferences).helperSize * 1.5;
   context.save(); context.setTransform(1, 0, 0, 1, 0, 0); context.globalCompositeOperation = 'destination-out';
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
     const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla).shape;
+    const size = rigMarkerSize(point, shape, options);
     const hull = convexHull(shape.vertices.map(vertex => {
-      const p = new Vector3(...vertex).multiplyScalar(point.unitsPerPixel * size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world).project(camera);
+      const p = new Vector3(...vertex).multiplyScalar(size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world).project(camera);
       return { x: (p.x + 1) * width * ratio / 2, y: (1 - p.y) * height * ratio / 2 };
     }));
     if (hull.length < 3) continue;

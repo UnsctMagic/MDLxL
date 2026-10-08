@@ -34,6 +34,44 @@ export function zoomEditorCamera(camera, zoom) {
  * dollies perspective cameras into the mesh, distorting close work and losing
  * depth precision. Override its two zoom hooks so mouse/touch/key zoom agree. */
 export class EditorCameraControls extends OrbitControls {
+  connect(element) {
+    super.connect(element);
+    this._cancelPointerGesture ||= event => {
+      if (event.type === 'blur' || this._pointers.includes(event.pointerId) &&
+          !this.domElement.hasPointerCapture(event.pointerId)) this.cancelPointerGesture();
+    };
+    this._recoverMouseGesture ||= event => {
+      if (event.pointerType === 'mouse' && this._pointers.includes(event.pointerId) &&
+          (event.type === 'pointerdown' || event.buttons === 0)) this.cancelPointerGesture();
+    };
+    element.addEventListener('lostpointercapture', this._cancelPointerGesture);
+    element.addEventListener('pointerdown', this._recoverMouseGesture, true);
+    element.ownerDocument.addEventListener('pointermove', this._recoverMouseGesture, true);
+    element.ownerDocument.defaultView.addEventListener('blur', this._cancelPointerGesture);
+  }
+  disconnect() {
+    const element = this.domElement;
+    if (element) {
+      this.cancelPointerGesture();
+      element.removeEventListener('lostpointercapture', this._cancelPointerGesture);
+      element.removeEventListener('pointerdown', this._recoverMouseGesture, true);
+      element.ownerDocument.removeEventListener('pointermove', this._recoverMouseGesture, true);
+      element.ownerDocument.defaultView.removeEventListener('blur', this._cancelPointerGesture);
+    }
+    super.disconnect();
+  }
+  cancelPointerGesture() {
+    // OrbitControls only finishes on pointerup/cancel. An interrupted mouse
+    // release can leave the pointer tracked and every later press ignored.
+    const pointers = [...this._pointers];
+    this._pointers.length = 0; this._pointerPositions = {}; this.state = -1;
+    this.screenDrag = null;
+    const element = this.domElement;
+    element.ownerDocument.removeEventListener('pointermove', this._onPointerMove);
+    element.ownerDocument.removeEventListener('pointerup', this._onPointerUp);
+    for (const id of pointers) if (element.hasPointerCapture(id)) element.releasePointerCapture(id);
+    if (pointers.length) this.dispatchEvent({ type: 'end' });
+  }
   update(deltaTime) {
     if (this.keepWorldUp?.()) {
       this.object.up.set(0,0,1);
