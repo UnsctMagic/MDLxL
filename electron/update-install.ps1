@@ -34,12 +34,6 @@ try {
         $owner = Get-Process -Id $plan.pid -ErrorAction SilentlyContinue
         if ($owner -and $owner.Path -ne $plan.executable) { throw 'Update process identity changed.' }
         if ($owner) { $owner.WaitForExit() }
-        # Electron's renderer/GPU processes can outlive the main process and keep
-        # the executable mapped. Wait for this installation's remaining processes.
-        $processName = [IO.Path]::GetFileNameWithoutExtension($plan.executable)
-        foreach ($process in (Get-Process -Name $processName -ErrorAction SilentlyContinue)) {
-            if ($process.Path -eq $plan.executable) { $process.WaitForExit() }
-        }
     }
     # Recheck every destination after the editor has flushed and exited.
     foreach ($operation in $plan.operations) {
@@ -57,6 +51,14 @@ try {
         $null = SafePath $target '.mdlxl-previous/snapshot.json'
         $retained = Get-Content -LiteralPath (Join-Path $previous 'snapshot.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($retained.schema -ne 1 -or $retained.product -ne 'mdlxl') { throw 'Invalid previous version snapshot.' }
+    }
+    # File verification can take several seconds. A desktop launch during that
+    # time can lock the EXE again, so check immediately before replacing files.
+    if ($plan.pid -gt 0) {
+        $processName = [IO.Path]::GetFileNameWithoutExtension($plan.executable)
+        foreach ($process in (Get-Process -Name $processName -ErrorAction SilentlyContinue)) {
+            if ($process.Path -eq $plan.executable) { $process.WaitForExit() }
+        }
     }
     foreach ($operation in $plan.operations) {
         $destination = SafePath $target $operation.relative
