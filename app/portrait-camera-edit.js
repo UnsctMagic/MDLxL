@@ -1,4 +1,5 @@
 import { recalculateExtents } from '../src/editor-document.js';
+import { recalculatePortraitExtents } from '../src/portrait-extents.js';
 import { updateModelCameraFromView } from './portrait-view.js';
 
 /** The single authoring operation: create the first camera, or replace the
@@ -15,5 +16,6 @@ export function setCameraFromCurrentView(model, cameraIndex, view, frame = 0, se
   // camera-roll keys are present. Portrait orientation belongs to the model rig.
   delete model.Cameras[index].Rotation;
   recalculateExtents(model);
+  recalculatePortraitExtents(model);
   return index;
 }

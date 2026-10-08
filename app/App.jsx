@@ -8,6 +8,7 @@ import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '.
 import Addons from './Addons.jsx';
 import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
+import { recalculatePortraitExtents } from '../src/portrait-extents.js';
 import { attachToBone, changeVertexBinding, createRigNode, deleteRigNode, detachFromBone, renameRigNode, setBoneBillboarded } from '../src/bone-tools.js';
 import { builtinTextureAssets } from '../src/builtin-textures.js';
 const BitsAndParts = lazy(() => import('./BitsAndParts.jsx'));
@@ -339,7 +340,14 @@ export default function App() {
     if (savingRef.current) return false;
     try {
       const ticket = selectionHistory.captureEdit(selectionState), guard = captureUVPreviewGuard(doc.model, session.uvPreviews);
-      const result = doc.apply(label, sections, m => { const value = operation(m); validateUVPreviewGuard(m, session.uvPreviews, guard); return value; });
+      const result = doc.apply(label, sections, m => {
+        const value = operation(m);
+        // Numeric fields, timeline edits and mouse drags share this commit.
+        // Temporary drag poses never pay for a complete animation sweep.
+        if (portraitModeActive && sections.includes('Nodes')) recalculatePortraitExtents(m);
+        validateUVPreviewGuard(m, session.uvPreviews, guard);
+        return value;
+      });
       selectionHistory.recordEdit(ticket, selectionState); refresh(); if (result !== false) say(label); return result;
     } catch (error) { refresh(); say(error.message, true); if(options.rethrow)throw error; return false; }
   };
