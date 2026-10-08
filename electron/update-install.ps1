@@ -10,12 +10,33 @@ $previous = Join-Path $target '.mdlxl-previous'
 $oldSnapshot = Join-Path $stage 'old-snapshot'
 $snapshotMoved = $false
 $snapshotWritten = $false
+$lock = Join-Path $target '.mdlxl-installing'
+$ownsLock = $false
 function FileHash($file) {
     if (!(Test-Path -LiteralPath $file)) { return $null }
     $stream = [IO.File]::OpenRead($file)
     $algorithm = [Security.Cryptography.SHA256]::Create()
     try { return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
     finally { $stream.Dispose(); $algorithm.Dispose() }
+}
+function ReplaceFile($from, $to) {
+    # Publish complete files atomically, including the EXE and startup modules.
+    # A relaunch that is exiting through the startup guard may briefly hold the EXE.
+    $temporary = Join-Path (Split-Path -Parent $to) ([IO.Path]::GetRandomFileName())
+    [IO.File]::Copy($from, $temporary, $false)
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    try {
+        while ($true) {
+            try {
+                if (Test-Path -LiteralPath $to) { [IO.File]::Replace($temporary, $to, [NullString]::Value) }
+                else { [IO.File]::Move($temporary, $to) }
+                return
+            } catch [IO.IOException] {
+                if ([DateTime]::UtcNow -ge $deadline) { throw }
+                Start-Sleep -Milliseconds 100
+            }
+        }
+    } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary } }
 }
 function SafePath($root, $relative) {
     if (!$relative -or $relative -match '(^|/)(\.|\.\.)(/|$)|[\\:\x00-\x1f<>"|?*]' -or $relative -match '^(resources/app/profile|profile|Showcase Recordings)(/|$)') { throw 'Invalid installation path.' }
@@ -31,6 +52,11 @@ function SafePath($root, $relative) {
 try {
     if (!$source.StartsWith($stage + '\', [StringComparison]::OrdinalIgnoreCase) -or $target -eq [IO.Path]::GetPathRoot($target)) { throw 'Invalid update roots.' }
     if ($plan.pid -gt 0) {
+        $null = SafePath $target '.mdlxl-installing/owner.json'
+        $lockOwner = Get-Content -LiteralPath (Join-Path $lock 'owner.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($lockOwner.planFile -ne $PlanFile -or $lockOwner.pid -ne $plan.pid) { throw 'Update installation lock changed.' }
+        $ownsLock = $true
+        [IO.File]::WriteAllText((Join-Path $stage 'installer-ready'), [string]$PID)
         $owner = Get-Process -Id $plan.pid -ErrorAction SilentlyContinue
         if ($owner -and $owner.Path -ne $plan.executable) { throw 'Update process identity changed.' }
         if ($owner) { $owner.WaitForExit() }
@@ -70,7 +96,7 @@ try {
         $changed.Add($operation)
         if ($operation.hash) {
             [IO.Directory]::CreateDirectory((Split-Path -Parent $destination)) | Out-Null
-            Copy-Item -LiteralPath (SafePath $source $operation.relative) -Destination $destination -Force
+            ReplaceFile (SafePath $source $operation.relative) $destination
             if ((FileHash $destination) -ne $operation.hash) { throw 'Installed update verification failed.' }
         } else { Remove-Item -LiteralPath $destination }
     }
@@ -95,14 +121,24 @@ try {
         $destination = SafePath $target $operation.relative
         if ($operation.before) {
             # A rejected copy may leave the destination unchanged and still locked.
-            if ((FileHash $destination) -ne $operation.before) { Copy-Item -LiteralPath (SafePath $backup $operation.relative) -Destination $destination -Force }
+            if ((FileHash $destination) -ne $operation.before) { ReplaceFile (SafePath $backup $operation.relative) $destination }
+            if ((FileHash $destination) -ne $operation.before) { throw 'Rollback verification failed; installation remains locked.' }
         }
         elseif (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination }
     }
     [IO.Directory]::CreateDirectory($plan.profile) | Out-Null
     [IO.File]::WriteAllText($plan.result, (@{ok = $false; error = $failure} | ConvertTo-Json -Compress))
 }
-if ($plan.pid -gt 0) {
+# Drain launches that loaded the old executable before it was replaced. They must
+# finish the startup guard before the lock is released and the new app is started.
+if ($ownsLock) {
+    foreach ($process in (Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($plan.executable)) -ErrorAction SilentlyContinue)) {
+        if ($process.Path -eq $plan.executable) { $process.WaitForExit() }
+    }
+}
+# Release only after installation or verified rollback, never over partial files.
+if ($ownsLock) { Remove-Item -LiteralPath $lock -Recurse -Force }
+if ($plan.pid -gt 0 -and $ownsLock) {
     $env:MDLXL_PROFILE = $plan.profile
     Start-Process -FilePath $plan.executable -WorkingDirectory $target -WindowStyle Hidden
 }
