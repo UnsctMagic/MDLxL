@@ -6,19 +6,24 @@ import { previewOverlayGeometry, previewOverlaySettings } from './preview-presen
 import { wireDashArray } from '../src/wire-pattern.js';
 import { createPixelLineBatch, drawPixelLine } from './pixel-lines.js';
 
-export function previewOverlayOptions(overlays, showNodes = false) {
+export function previewOverlayOptions(overlays, showNodes = false, editorMode, vanilla = false) {
   const markers = !!showNodes;
+  const grouped = !vanilla && overlays?.events !== undefined;
+  const effectSymbols = vanilla || editorMode !== 'animations' || !!overlays?.nodes;
   const focusedBoneLines = !!overlays?.focusedSkeleton;
   return {
-    bones: overlays?.bones ?? markers, nodes: overlays?.nodes ?? markers,
-    attachments: overlays?.attachments ?? markers, particles: overlays?.particles ?? markers,
+    bones: overlays?.bones ?? markers, nodes: grouped ? false : overlays?.nodes ?? markers,
+    attachments: overlays?.attachments ?? markers, particles: !!(overlays?.particles ?? markers) && effectSymbols,
+    ribbons: !!(overlays?.particles ?? markers) && effectSymbols,
+    sounds: !!(grouped?overlays.sounds:overlays?.sounds??overlays?.nodes??markers) && effectSymbols,
+    events: !!(grouped?overlays.events:overlays?.events??overlays?.nodes??markers) && effectSymbols,
     boneLines: focusedBoneLines || (overlays?.skeleton ?? overlays?.boneLines ?? true), focusedBoneLines, focusedBoneMarkers: focusedBoneLines,
     wires: overlays?.wires ?? false, vertices: overlays?.vertices ?? false, grid: overlays?.grid ?? false,
     normals: overlays?.normals ?? false, selectedVerticesOnly: overlays?.selectedVerticesOnly ?? false,
   };
 }
 
-export function movementNodeCategories(model) {
+export function movementNodeCategories(model, vanilla = false) {
   const categories = new Map();
   for (const node of model.Bones || []) categories.set(node.ObjectId, 'bones');
   // MDLVis treats Helpers as part of the editable bone hierarchy. This is
@@ -27,7 +32,13 @@ export function movementNodeCategories(model) {
   // nodes stored in the Bone chunk.
   for (const node of model.Helpers || []) categories.set(node.ObjectId, 'bones');
   for (const node of model.Attachments || []) categories.set(node.ObjectId, 'attachments');
-  for (const collection of ['ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'RibbonEmitters']) for (const node of model[collection] || []) categories.set(node.ObjectId, 'particles');
+  for (const collection of ['ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns']) for (const node of model[collection] || []) categories.set(node.ObjectId, 'particles');
+  for (const node of model.RibbonEmitters || []) categories.set(node.ObjectId, vanilla?'particles':'ribbons');
+  for (const node of vanilla ? [] : model.EventObjects || []) {
+    const type = node.Name?.slice(0, 3).toUpperCase();
+    if (type === 'SND') categories.set(node.ObjectId, 'sounds');
+    else if (['SPL','UBR','FPT'].includes(type)) categories.set(node.ObjectId, 'events');
+  }
   return categories;
 }
 

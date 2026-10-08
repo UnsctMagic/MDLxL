@@ -1,12 +1,12 @@
 export const EDITOR_DISPLAY_MODES = Object.freeze(['vertices', 'bones', 'movement', 'animations']);
 
-export function defaultEditorDisplay() {
-  const base = { shaded: true, vertices: true, bones: false, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, wires: false, normals: false, grid: false, cameras: false };
+export function defaultEditorDisplay(vanilla = false) {
+  const base = { shaded: true, vertices: true, bones: false, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
   return {
     vertices: { ...base },
     bones: { ...base },
-    movement: { ...base },
-    animations: { ...base, shaded: false, vertices: false },
+    movement: { ...base, ...(!vanilla && {particles:true}) },
+    animations: { ...base, shaded: false, vertices: false, ...(!vanilla && {particles:true,sounds:true,events:true}) },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };

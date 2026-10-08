@@ -1,5 +1,6 @@
 import { Color, Matrix4, Vector3 } from 'three';
 import { visualOptions } from '../src/preferences.js';
+import { NODE_SYMBOLS, NODE_SYMBOL_COLORS } from './node-marker-symbols.js';
 
 const CUBE = { vertices: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]], faces: [[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]] };
 const TETRA = { vertices: [[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]], faces: [[0,2,1],[0,1,3],[0,3,2],[1,2,3]] };
@@ -41,13 +42,15 @@ export function boneHighlightColors(nodes, selectedIds) {
   return colors;
 }
 
-export function markerStyle(point, byId, preferences, highlightColors = new Map()) {
+export function markerStyle(point, byId, preferences, highlightColors = new Map(), vanilla = false) {
   const visual = visualOptions(preferences), highlighted = highlightColors.get(point.node.ObjectId);
+  const symbolKind = point.overlayKind === 'events' ? ({SPL:'blood',FPT:'foot',UBR:'uber'}[point.node.Name?.slice(0,3).toUpperCase()]) : point.overlayKind;
+  if (!vanilla && NODE_SYMBOL_COLORS[symbolKind]) return { shape:NODE_SYMBOLS[symbolKind], color:highlighted || NODE_SYMBOL_COLORS[symbolKind] };
   if (point.overlayKind === 'attachments') {
     const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
     return { shape: TETRA, color: highlighted || (hasParentBone ? visual.node : '#6666e5') };
   }
-  if (point.overlayKind === 'particles') return { shape: preferences?.emitterMarker==='tetrahedron'?TETRA:preferences?.emitterMarker==='cube'?CUBE:PENTAGRAM, color: highlighted || visual.particle };
+  if (point.overlayKind === 'particles' || vanilla && point.overlayKind === 'ribbons') return { shape: vanilla?TETRA:preferences?.emitterMarker==='tetrahedron'?TETRA:preferences?.emitterMarker==='cube'?CUBE:PENTAGRAM, color: highlighted || visual.particle };
   if (point.overlayKind === 'bones') {
     const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
     return { shape: CUBE, color: highlighted || (hasParentBone ? '#4cff59' : '#4cb259') };
@@ -62,15 +65,24 @@ export function rigMarkerVisible(point, options, highlights) {
   return !!options[kind] || kind === 'bones' && !!options.focusedBoneMarkers && !!highlights.get(point.node.ObjectId);
 }
 
+export function rigMarkerSize(point, shape, options = {}) {
+  const size = visualOptions(options.preferences).helperSize * 1.5, screenSize = point.unitsPerPixel * size;
+  if (!shape.billboard || options.vanilla) return screenSize;
+  const modelSize = options.modelRadius == null ? screenSize * 1.5 : options.modelRadius * .035 * size / 9;
+  // Keep circled symbols readable when zoomed out, with the existing close-up cap.
+  return Math.max(screenSize * 1.1, Math.min(screenSize * 1.5, modelSize));
+}
+
 /** Actual world-space polyhedra, shared by the editor and Warcraft GL contexts. */
 export function rigMarkerGeometry(nodes, selectedIds, options = {}) {
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point])), highlights = boneHighlightColors(nodes, selectedIds);
-  const triangles = [], edges = [], emphasizedEdges = [], size = visualOptions(options.preferences).helperSize * 3 / 2;
+  const triangles = [], edges = [], emphasizedEdges = [];
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
-    const { shape, color } = markerStyle(point, byId, options.preferences, highlights), baseColor = new Color(color);
+    const { shape, color } = markerStyle(point, byId, options.preferences, highlights, options.vanilla), baseColor = new Color(color);
     const edgeRgb = baseColor.clone().convertLinearToSRGB().toArray();
-    const points = shape.vertices.map(vertex => new Vector3(...vertex).multiplyScalar(point.unitsPerPixel * size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world));
+    const markerSize = rigMarkerSize(point, shape, options);
+    const points = shape.vertices.map(vertex => new Vector3(...vertex).multiplyScalar(markerSize).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world));
     const seen = new Set();
     for (const face of shape.faces) {
       // Face illumination stays in model space while the camera moves.

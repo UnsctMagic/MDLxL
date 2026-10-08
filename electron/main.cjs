@@ -195,7 +195,7 @@ ipcMain.on('model:dirty',(_,value)=>{modelCloseState=normalizeModelCloseState(va
 ipcMain.on('menu:state',(event,value)=>{
   if(event.sender!==win?.webContents||typeof value?.readOnly!=='boolean'||typeof value?.saving!=='boolean')return;
   const checks=normalizeMenuChecks(value.checks);
-  const next={readOnly:value.readOnly,saving:value.saving,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,checks};
+  const next={readOnly:value.readOnly,saving:value.saving,uvEnabled:value.uvEnabled===true,viewMode:value.viewMode,vanilla:value.vanilla===true,checks};
   if(JSON.stringify(nativeEditorState)===JSON.stringify(next))return;
   nativeEditorState=next;
   if(commandCatalog)refreshMenu();

@@ -20,7 +20,7 @@
 .classic-app .classic-toolbar .classic-tool{width:24px;min-width:24px}
 .classic-app .classic-toolbar-group{margin-right:1px}
 .classic-app .classic-toolbar .toolbar-team-color{margin-left:2px;margin-right:2px}
-.editor-modules .quick-display{border:0;padding:0 2px;min-height:22px;min-width:0;gap:2px;flex:0 1 auto;flex-wrap:nowrap;background:transparent;font-size:10px}
+.editor-modules .quick-display{border:0;padding:0 2px;min-height:22px;min-width:0;gap:2px;flex:0 0 auto;flex-wrap:nowrap;background:transparent;font-size:10px}
 .editor-modules .quick-display-options{display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden;white-space:nowrap}
 .editor-modules .quick-display-options label{gap:2px;font-size:9.5px}
 .editor-modules .quick-display-actions{display:flex;align-items:center;gap:3px;flex:0 0 auto;margin-left:auto}
@@ -29,8 +29,8 @@
 .classic-app .classic-toolbar .language-trigger{padding-left:3px;padding-right:3px;font-size:10px}
 .classic-app .editor-modules .quick-display button{min-width:0;height:21px;min-height:21px;padding:0 5px}
 .classic-app .classic-toolbar .toolbar-visibility button{min-width:38px;height:23px;min-height:23px;padding:0 6px}
-/* Vis trims only the top presentation. Menus/hotkeys and the Animation portrait
-   toolbar stay available, and no renderer or editor state is remounted. */
+/* Compact VIS presentation keeps menus/hotkeys and the Animation portrait
+   toolbar available without occupying more editor space. */
 .classic-app[data-vis-ui]>.classic-modules>:not(.toolbar-modules):not(.editor-modules),
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules>button,
 .classic-app[data-vis-ui]>.classic-modules>.toolbar-modules>:not(.vis-toggle),

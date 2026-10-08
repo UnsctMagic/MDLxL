@@ -6,11 +6,14 @@ export function viewportOverlayOptions(props) {
   const markers = !!props.showSkeleton;
   return {
     explicit,
-    bones: explicit ? !!overlays.bones : markers,
-    nodes: explicit ? !!overlays.nodes : markers,
-    attachments: explicit ? !!overlays.attachments : markers,
-    particles: explicit ? !!overlays.particles : markers,
-    boneLines: explicit ? !!(overlays.skeleton ?? overlays.boneLines) : markers,
+    bones: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.bones : markers,
+    nodes: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.nodes : markers,
+    attachments: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.attachments : markers,
+    particles: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.particles : markers,
+    ribbons: props.editorDisplayMode !== 'vertices' && (explicit ? !!overlays.particles : markers),
+    sounds: props.editorDisplayMode !== 'vertices' && !!overlays.sounds,
+    events: props.editorDisplayMode !== 'vertices' && !!overlays.events,
+    boneLines: props.editorDisplayMode === 'vertices' ? false : explicit ? !!(overlays.skeleton ?? overlays.boneLines) : markers,
     wires: explicit ? !!overlays.wires : props.mode === 'wireframe' || props.mode === 'vertices',
     vertices: explicit ? !!overlays.vertices : props.mode === 'vertices' || !!props.showVertices,
     grid: explicit ? !!overlays.grid : !!props.showGrid,
@@ -20,7 +23,7 @@ export function viewportOverlayOptions(props) {
 
 export function viewportNodeLayout(model, nodes) {
   const kinds = movementNodeCategories(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));
-  const groups = { bones: [], nodes: [], attachments: [], particles: [] }, allLinks = [], boneLinks = [];
+  const groups = { bones: [], nodes: [], attachments: [], particles: [], ribbons: [], sounds: [], events: [] }, allLinks = [], boneLinks = [];
   for (const node of nodes) {
     const kind = kinds.get(node.ObjectId) || 'nodes';
     groups[kind].push(node);

@@ -3,17 +3,17 @@ import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { visualOptions } from '../src/preferences.js';
-import { boneHighlightColors, markerStyle, rigMarkerVisible } from './rig-markers-gl.js';
+import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
 import { drawPixelLine } from './pixel-lines.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
 const AXES = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 const WORKPLANE_NORMALS = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
 export const MOVEMENT_GIZMO_SCALE = 1;
-export function projectMovementNodes(model, frame, sequenceIndex, camera, width, height, globalTime = frame, suppliedMatrices) {
+export function projectMovementNodes(model, frame, sequenceIndex, camera, width, height, globalTime = frame, suppliedMatrices, vanilla = false) {
   const matrices = suppliedMatrices || samplePreviewMatrices(model, frame, sequenceIndex, globalTime, camera);
   const lightIds = new Set((model.Lights || []).map(node => node.ObjectId));
-  const categories = movementNodeCategories(model);
+  const categories = movementNodeCategories(model,vanilla);
   return allNodes(model).map(node => {
     const world = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[node.ObjectId] || [0, 0, 0]);
     const matrix = matrices.get(node.ObjectId); if (matrix) world.applyMatrix4(matrix);
@@ -119,13 +119,13 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
       width: appearance ? 6 : 3, ratio,
     });
   }
-  const size = visualOptions(options.preferences).helperSize * 1.5;
   context.save(); context.setTransform(1, 0, 0, 1, 0, 0); context.globalCompositeOperation = 'destination-out';
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
-    const shape = markerStyle(point, byId, options.preferences, highlights).shape;
+    const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla).shape;
+    const size = rigMarkerSize(point, shape, options);
     const hull = convexHull(shape.vertices.map(vertex => {
-      const p = new Vector3(...vertex).multiplyScalar(point.unitsPerPixel * size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world).project(camera);
+      const p = new Vector3(...vertex).multiplyScalar(size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world).project(camera);
       return { x: (p.x + 1) * width * ratio / 2, y: (1 - p.y) * height * ratio / 2 };
     }));
     if (hull.length < 3) continue;
@@ -174,7 +174,7 @@ export function boneConnectionEndpoints(parent, child) {
 export function movementMarkerRadius(point, helperSize = 6) {
   if (point?.tetrahedron?.length) return Math.max(helperSize * 1.5, ...point.tetrahedron.map(vertex => Math.hypot(vertex.x - point.x, vertex.y - point.y))) + 1;
   // GL cubes and tetrahedrons share corners at (+/-1,+/-1,+/-1).
-  if (point?.overlayKind === 'bones' || point?.helperNode || point?.overlayKind === 'attachments' || point?.overlayKind === 'particles' || point?.eventNode) return helperSize * 1.5 * Math.sqrt(3) + 2;
+  if (point?.overlayKind === 'bones' || point?.helperNode || point?.overlayKind === 'attachments' || point?.overlayKind === 'particles' || point?.overlayKind === 'ribbons' || point?.eventNode) return helperSize * 1.5 * Math.sqrt(3) + 2;
   return Math.max(5, helperSize) + 1;
 }
 
