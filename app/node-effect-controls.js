@@ -15,27 +15,34 @@ export function installNodeEffectControls(native, getOptions, invalidate, now = 
     const update = controller.updateEmitter;
     originals.push([controller,update]);
     controller.updateEmitter = function(emitter, delta) {
-      const options = getOptions(), until = pulses.get(emitter.props.ObjectId), testing = until > now();
-      if (until && !testing) { pulses.delete(emitter.props.ObjectId); clear(emitter); }
+      const options = getOptions(), pulse = pulses.get(emitter.props.ObjectId), testing = !!pulse;
       if (!(options[kind] ?? true) && !testing) { clear(emitter); return; }
       if (!testing) return update.call(this,emitter,delta);
       const props = emitter.props, saved = { Visibility:props.Visibility, EmissionRate:props.EmissionRate, Squirt:props.Squirt };
       const interval = native.model.Sequences?.[native.getSequence()]?.Interval;
       const rate = sampleTrack(props.EmissionRate,native.getFrame(),{ interval,globalSequences:native.model.GlobalSequences,fallback:0 });
-      props.Visibility = 1;
-      props.EmissionRate = Math.max(Number(rate?.[0] ?? rate) || 0, ...((saved.EmissionRate?.Keys || []).map(key => Number(key.Vector?.[0]) || 0)));
+      const amount = Math.max(Number(rate?.[0] ?? rate) || 0, ...((saved.EmissionRate?.Keys || []).map(key => Number(key.Vector?.[0]) || 0)));
+      const emitting = now() < pulse.until && !pulse.burst;
+      props.Visibility = emitting ? 1 : 0;
+      props.EmissionRate = emitting && !saved.Squirt ? amount : 0;
+      if (emitting && saved.Squirt) { emitter.emission = amount * 1000; pulse.burst = true; }
       props.Squirt = false;
       try { return update.call(this,emitter,delta); }
-      finally { Object.assign(props,saved); }
+      finally {
+        Object.assign(props,saved);
+        if ((!emitting || pulse.burst) && !(emitter.particles?.length || emitter.creationTimes?.length)) {
+          pulses.delete(props.ObjectId); clear(emitter);
+        }
+      }
     };
   }
   return {
     trigger(id) {
       const emitter = controllers.flatMap(([,controller]) => controller?.emitters || []).find(emitter => emitter.props.ObjectId === id);
       if (!emitter) return false;
-      clear(emitter); pulses.set(id,now()+500); invalidate?.(); return true;
+      clear(emitter); pulses.set(id,{until:now()+500,burst:false}); invalidate?.(); return true;
     },
-    // Keep scheduling until an update consumes expired tests and clears them.
+    // Stop emitting after one burst, then let the native particles/trail expire.
     get active() { return pulses.size > 0; },
     cancelTests() { pulses.clear(); for(const [,controller] of controllers)for(const emitter of controller?.emitters||[])clear(emitter); invalidate?.(); },
     advancePaused(delta) {

@@ -160,7 +160,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
     trigger(id, frame, sequenceIndex, globalTime) {
       const event = model.EventObjects?.find(event => event.ObjectId === id), definition = definitions.get(event?.Name);
       if (!definition || !['SPL','UBR'].includes(definition.type)) return false;
-      tests.set(id,{ key:`test:${id}:${performance.now()}`, event, definition, triggerFrame:frame, poseFrame:frame, sequenceIndex, globalTime, started:performance.now(), duration:Math.min(1000,definition.lifeSpanMs) });
+      tests.set(id,{ key:`test:${id}:${performance.now()}`, event, definition, triggerFrame:frame, poseFrame:frame, sequenceIndex, globalTime, started:performance.now(), duration:definition.lifeSpanMs });
       invalidate?.(); return true;
     },
     // Expiration must render one final clean frame, even at a low frame cap.
@@ -175,7 +175,7 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
       for (const [id,test] of tests) {
         const elapsed = performance.now()-test.started;
         if (elapsed >= test.duration) tests.delete(id);
-        else active.push({...test,ageMs:elapsed/test.duration*test.definition.lifeSpanMs,manual:true});
+        else active.push({...test,ageMs:elapsed,manual:true});
       }
       const keys = new Set(active.map(item => item.key));
       for (const [key, state] of instances) if (!keys.has(key)) { if (state.native) destroyRenderer(state.native); if (state.vao) gl.deleteVertexArray(state.vao); instances.delete(key); }

@@ -14,25 +14,25 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     model.Sequences[0].Interval=new Uint32Array([0,2000]);
     const texture=model.Textures.push({Image:starterTextureAsset().name,ReplaceableId:0,Flags:0})-1;
     const particle=createNode(model,'ParticleEmitter2');ids.particle=particle.ObjectId;
-    Object.assign(particle,{Name:'Test sparks',TextureID:texture,Visibility:1,EmissionRate:60,LifeSpan:.3,Speed:40,ParticleScaling:new Float32Array([5,9,0]),SegmentColor:Array.from({length:3},()=>new Float32Array([1,.3,.05]))});particle.PivotPoint.set([80,0,155]);
+    Object.assign(particle,{Name:'Test sparks',TextureID:texture,Visibility:1,EmissionRate:60,LifeSpan:2.4,Speed:40,ParticleScaling:new Float32Array([5,9,0]),SegmentColor:Array.from({length:3},()=>new Float32Array([1,.3,.05]))});particle.PivotPoint.set([80,0,155]);
     const material=model.Materials.push({PriorityPlane:0,RenderMode:0,Layers:[{FilterMode:4,Shading:17,TextureID:texture,CoordId:0,Alpha:1}]})-1;
     const ribbon=createNode(model,'RibbonEmitter');ids.ribbon=ribbon.ObjectId;
-    Object.assign(ribbon,{Name:'Test ribbon',MaterialID:material,Visibility:1,EmissionRate:60,LifeSpan:.3,HeightAbove:7,HeightBelow:7,Translation:{LineType:1,GlobalSeqId:null,Keys:[[0,0],[1000,60],[2000,0]].map(([Frame,x])=>({Frame,Vector:new Float32Array([x,0,0])}))}});
+    Object.assign(ribbon,{Name:'Test ribbon',MaterialID:material,Visibility:1,EmissionRate:60,LifeSpan:2.4,HeightAbove:7,HeightBelow:7,Translation:{LineType:1,GlobalSeqId:null,Keys:[[0,0],[1000,60],[2000,0]].map(([Frame,x])=>({Frame,Vector:new Float32Array([x,0,0])}))}});
     ribbon.PivotPoint.set([-80,0,150]);
-    const attachment=createNode(model,'Attachment');ids.attachment=attachment.ObjectId;attachment.Name='Test fork';attachment.PivotPoint.set([-85,0,65]);
+    const attachment=createNode(model,'Attachment');ids.attachment=attachment.ObjectId;attachment.Name='Test fist';attachment.PivotPoint.set([-85,0,65]);
     for(const [kind,Name,x,z] of [['sound','SNDxTEST',85,65],['blood','SPLxTEST',-45,0],['foot','FPTxTEST',0,0],['uber','UBRxTEST',45,0]]){
       const event=createNode(model,'EventObject');ids[kind]=event.ObjectId;event.Name=Name;event.EventTrack=new Uint32Array([100,1100]);event.PivotPoint.set([x,0,z]);
     }
   });
   const fixture=path.join(out,'node-controls.mdx'),bytes=Buffer.from(doc.serialize('mdx'));await fs.writeFile(fixture,bytes);
   const saved=openDocument(bytes,fixture).model;
-  for(const [kind,Name] of Object.entries({particle:'Test sparks',ribbon:'Test ribbon',attachment:'Test fork',sound:'SNDxTEST',blood:'SPLxTEST',foot:'FPTxTEST',uber:'UBRxTEST'}))ids[kind]=saved.Nodes.find(node=>node?.Name===Name).ObjectId;
+  for(const [kind,Name] of Object.entries({particle:'Test sparks',ribbon:'Test ribbon',attachment:'Test fist',sound:'SNDxTEST',blood:'SPLxTEST',foot:'FPTxTEST',uber:'UBRxTEST'}))ids[kind]=saved.Nodes.find(node=>node?.Name===Name).ObjectId;
   const write=async(name,data)=>{const file=path.join(out,...name.split('\\'));await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,data);};
   const texture=starterTextureAsset();await write(texture.name,texture.bytes);
   const slk=row=>'ID;PWXL;N;E\n'+Object.keys(row).map((name,i)=>`C;X${i+1};Y1;K"${name}"`).join('\n')+'\n'+Object.values(row).map((value,i)=>`C;X${i+1};Y2;K${typeof value==='string'?JSON.stringify(value):value}`).join('\n')+'\nE';
   await write('UI\\SoundInfo\\AnimLookups.slk',slk({Name:'TEST',SoundLabel:'TestSound'}));
   await write('UI\\SoundInfo\\AnimSounds.slk',slk({Name:'TestSound',DirectoryBase:'Sounds',FileNames:'test.wav'}));
-  const wav=Buffer.alloc(44+8820);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(22050,24);wav.writeUInt32LE(44100,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(wav.length-44,40);for(let i=0;i<4410;i++)wav.writeInt16LE(Math.round(Math.sin(i/22050*440*Math.PI*2)*5000),44+i*2);await write('Sounds\\test.wav',wav);
+  const samples=Math.round(22050*2.2),wav=Buffer.alloc(44+samples*2);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(22050,24);wav.writeUInt32LE(44100,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(wav.length-44,40);for(let i=0;i<samples;i++)wav.writeInt16LE(Math.round(Math.sin(i/22050*440*Math.PI*2)*5000),44+i*2);await write('Sounds\\test.wav',wav);
   const blood={Name:'TEST',file:'NodePreviewTest',Scale:24,Rows:1,Columns:1,BlendMode:0,Lifespan:.2,Decay:120,UVLifespanStart:0,UVLifespanEnd:0,UVDecayStart:0,UVDecayEnd:0,StartR:255,StartG:0,StartB:20,StartA:255,MiddleR:255,MiddleG:0,MiddleB:20,MiddleA:200,EndR:255,EndG:0,EndB:20,EndA:0};
   await write('Splats\\SplatData.slk',slk(blood));await write('Splats\\UberSplatData.slk',slk({...blood,BirthTime:.2,PauseTime:.2,Decay:.4}));
   const blp=Buffer.alloc(148+16*16*4);blp.write('BLP2');blp.writeUInt32LE(1,4);blp[8]=3;blp[9]=8;blp.writeUInt32LE(16,12);blp.writeUInt32LE(16,16);blp.writeUInt32LE(148,20);blp.writeUInt32LE(1024,84);for(let i=148;i<blp.length;i+=4){blp[i]=blp[i+1]=blp[i+2]=255;blp[i+3]=200;}await write('ReplaceableTextures\\Splats\\NodePreviewTest.blp',blp);
@@ -112,10 +112,31 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await wait(s=>s.nodes>0,'Bones symbols');await installDecalProbe();
     assert.deepEqual((await read()).particles,[0]);assert.deepEqual((await read()).ribbons,[0]);
     await screenshot('bones-symbols.png');const frame=(await read()).frame;
-    await clickNode(ids.particle);await wait(s=>s.particles[0]>0&&s.pulse,'Particle right click fires');await screenshot('bones-particle-test.png');await wait(s=>s.particles[0]===0&&!s.pulse,'Particle test cleans up');assert.equal((await read()).frame,frame);
-    await clickNode(ids.ribbon);await wait(s=>s.ribbons[0]>1&&s.pulse,'Ribbon right click fires');await wait(s=>s.ribbons[0]===0&&!s.pulse,'Ribbon test cleans up');assert.equal((await read()).frame,frame);
-    const audioBefore=(await read()).audio.length;await clickNode(ids.sound);await wait(s=>s.audio.length===audioBefore+1&&s.audio.at(-1).decoded,'Sound right click decodes and plays once');await wait(s=>s.audio.at(-1).ended&&s.audio.at(-1).paused&&!s.audio.at(-1).src,'Sound ends and releases playback');
-    for(const id of [ids.blood,ids.foot,ids.uber]){const started=Date.now();await clickNode(id);await wait(s=>s.decal&&s.decals>0,'Decal manual cycle draws');await screenshot('bones-decal-'+id+'.png');await wait(s=>!s.decal&&s.decals===0,'Decal clears its rendered instances');assert.ok(Date.now()-started<1800,'Long authored event preview cleans within one second');await screenshot('bones-decal-clean-'+id+'.png');}
+    await clickNode(ids.particle);await wait(s=>s.particles[0]>0&&s.pulse,'Particle right click fires');await screenshot('bones-particle-test.png');await page.waitForTimeout(650);assert.ok((await read()).particles[0]>0,'Particles complete their lifespan after emission stops');await wait(s=>s.particles[0]===0&&!s.pulse,'Particle test cleans up');assert.equal((await read()).frame,frame);
+    await page.evaluate(()=>{
+      const props=window.testRuntime.native.particlesController.emitters[0].props;
+      window.testParticleProps={Visibility:props.Visibility,EmissionRate:props.EmissionRate,Squirt:props.Squirt};
+      Object.assign(props,{Visibility:0,Squirt:true,EmissionRate:{LineType:0,GlobalSeqId:null,Keys:[{Frame:0,Vector:new Float32Array([12])}]}});
+    });
+    await clickNode(ids.particle);await wait(s=>s.particles[0]===12&&s.pulse,'Authored squirt emits exactly one complete burst');
+    await page.waitForTimeout(650);assert.equal((await read()).particles[0],12,'Squirt does not repeat while its particles are alive');
+    await wait(s=>s.particles[0]===0&&!s.pulse,'Squirt particles finish and clean up');
+    assert.equal(await page.evaluate(()=>{const props=window.testRuntime.native.particlesController.emitters[0].props;return props.Squirt&&props.Visibility===0&&props.EmissionRate.Keys[0].Vector[0]===12;}),true,'Manual burst preserves the authored properties');
+    await page.evaluate(()=>Object.assign(window.testRuntime.native.particlesController.emitters[0].props,window.testParticleProps));
+    await clickNode(ids.ribbon);await wait(s=>s.ribbons[0]>1&&s.pulse,'Ribbon right click fires');await page.waitForTimeout(650);assert.ok((await read()).ribbons[0]>0,'Ribbon tail survives the old cutoff');await wait(s=>s.ribbons[0]===0&&!s.pulse,'Ribbon test cleans up');assert.equal((await read()).frame,frame);
+    const audioBefore=(await read()).audio.length;await clickNode(ids.sound);await wait(s=>s.audio.length===audioBefore+1&&s.audio.at(-1).decoded,'Sound right click decodes and plays once');await page.waitForTimeout(1200);assert.ok(!(await read()).audio.at(-1).ended&&!(await read()).audio.at(-1).paused,'The full sound continues past one second');await wait(s=>s.audio.at(-1).ended&&s.audio.at(-1).paused&&!s.audio.at(-1).src,'Sound ends and releases playback');
+    await page.evaluate(()=>{const now=performance.now.bind(performance);window.testEventClockOffset=0;performance.now=()=>now()+window.testEventClockOffset;});
+    for(const id of [ids.blood,ids.foot,ids.uber]){
+      await clickNode(id);await wait(s=>s.decal&&s.decals>0,'Decal manual cycle draws');await screenshot('bones-decal-'+id+'.png');
+      const duration=await page.evaluate(id=>window.testRuntime.eventPreview.definitions.get(window.testRuntime.native.model.Nodes[id].Name).lifeSpanMs,id);
+      if(duration>2000){
+        await page.waitForTimeout(1200);assert.ok((await read()).decal&&(await read()).decals>0,'Long authored decal is not cut off at one second');
+        // Advance only the test clock to the final authored decay stage.
+        await page.evaluate(ms=>{window.testEventClockOffset+=ms;},duration-2000);await wait(s=>s.decal&&s.decals>0,'Decal still draws before its authored end');
+        await page.evaluate(()=>{window.testEventClockOffset+=2000;});
+      }
+      await wait(s=>!s.decal&&s.decals===0,'Decal clears after its full authored lifetime');await screenshot('bones-decal-clean-'+id+'.png');
+    }
     await clickNode(ids.attachment,'left');await command('Nodes');await page.getByRole('dialog',{name:'Node Manager',exact:true}).waitFor();assert.equal(await page.locator('.re-tree-row.re-selected').getAttribute('data-node-id'),String(ids.attachment));await page.getByRole('button',{name:'Close',exact:true}).last().click();
     for(const name of ['Emitters','Events','Sounds']){await quick.getByLabel(name,{exact:true}).uncheck();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);}
     await page.getByRole('button',{name:'Movement',exact:true}).click();

@@ -25,19 +25,27 @@ test('ribbons and event types keep distinct symbols within shared controls',()=>
   for(const kind of ['ribbons','sounds'])assert.ok(markerStyle({node:{ObjectId:0},overlayKind:kind},new Map(),{}).shape.billboard);
 });
 
-test('manual emission lasts 500ms, works when disabled and restores authored tracks',()=>{
+test('a manual squirt emits once and completes its lifetime while disabled, preserving authored tracks',()=>{
   let clock=0, enabled=false;
   const props={ObjectId:1,Visibility:0,EmissionRate:{Keys:[{Frame:0,Vector:new Float32Array([40])}]},Squirt:true}, before=structuredClone(props);
   const emitter={props,particles:[],emission:0,squirtFrame:-1};
-  const controller={emitters:[emitter],updateEmitter(item,delta){item.particles.push({visibility:item.props.Visibility,rate:item.props.EmissionRate,delta});},update(delta){for(const item of this.emitters)this.updateEmitter(item,delta);}};
+  const calls=[];
+  const controller={emitters:[emitter],updateEmitter(item,delta){
+    calls.push({visibility:item.props.Visibility,rate:item.props.EmissionRate,emission:item.emission});
+    if(item.props.Visibility&&item.emission>0){item.particles.push({life:2000});item.emission=0;}
+    for(const particle of item.particles)particle.life-=delta;
+    item.particles=item.particles.filter(particle=>particle.life>0);
+  },update(delta){for(const item of this.emitters)this.updateEmitter(item,delta);}};
   const native={particlesController:controller,model:{Sequences:[{Interval:[0,1000]}]},getSequence:()=>0,getFrame:()=>0};
   const controls=installNodeEffectControls(native,()=>({particles:enabled}),()=>{},()=>clock);
   controller.update(20);assert.equal(emitter.particles.length,0);
   assert.equal(controls.trigger(1),true);controls.advancePaused(20);
-  assert.equal(emitter.particles[0].visibility,1);assert.equal(emitter.particles[0].rate,40);
-  assert.deepEqual(props,before);clock=499;assert.equal(controls.active,true);
-  clock=501;controller.update(0);assert.equal(controls.active,false);assert.equal(emitter.particles.length,0);
-  enabled=true;controller.update(20);assert.equal(emitter.particles[0].visibility,0);
+  assert.deepEqual(calls.at(-1),{visibility:1,rate:0,emission:40000});
+  clock=20;controls.advancePaused(20);assert.equal(emitter.particles.length,1,'The squirt is not emitted twice');
+  assert.deepEqual(props,before);clock=501;controller.update(0);
+  assert.equal(controls.active,true);assert.equal(emitter.particles.length,1,'Existing particles survive the old cutoff');
+  clock=2001;controls.advancePaused(1980);assert.equal(controls.active,false);assert.equal(emitter.particles.length,0);
+  enabled=true;controller.update(20);assert.equal(calls.at(-1).visibility,0);assert.equal(calls.at(-1).rate,props.EmissionRate);
   assert.deepEqual(props,before);controls.dispose();
 });
 
