@@ -27,4 +27,3 @@ for($n=0;$n -lt 35;$n++){
 @{cycle=$Cycle;lockSeenAt=$started;ownerPid=$owner.pid;attempts=$attempts} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $Root ($Cycle+'-relaunch.json')) -Encoding utf8
 if(!($attempts.Count -gt 0) -or @($attempts|Where-Object{!$_.exited -or $_.windows.Count -gt 0}).Count -gt 0){throw 'A relaunch did not exit cleanly without an editor window'}
 Write-Output ('PASS '+$Cycle+' relaunches: '+$attempts.Count)
-
