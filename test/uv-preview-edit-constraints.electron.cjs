@@ -20,6 +20,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const main = await app.firstWindow(); main.setDefaultTimeout(15000);
     await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) { w.webContents.setBackgroundThrottling(false); w.setPosition(-3000, 0); w.showInactive(); } });
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
+    await main.getByLabel('3D model viewport', { exact: true }).waitFor({ timeout: 60000 });
     const installHelpers = page => page.evaluate(() => {
       window.ownerProps = (selector, key) => {
         const element = document.querySelector(selector); if (!element) throw Error('Missing ' + selector);
@@ -70,7 +71,26 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await uv.getByRole('button', { name: 'Revert texture', exact: true }).waitFor();
     };
     await openUV(); await replaceTexture();
+    await uv.locator('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]').waitFor();
+    await uv.evaluate(() => {
+      window.previewCanvasBeforeUVEdit = document.querySelector('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]');
+      window.previewRevisionBeforeUVEdit = uvState().revision;
+    });
     await uv.evaluate(() => { const p = uvState(), values = p.model.Geosets[0].TVertices[0].slice(); values[0] += .2; p.onUVChanges([{ geosetIndex: 0, uvSet: 0, values }]); });
+    await uv.waitForFunction(() => uvState().revision > window.previewRevisionBeforeUVEdit);
+    await uv.waitForTimeout(250);
+    assert.equal(await uv.evaluate(() => window.previewCanvasBeforeUVEdit === document.querySelector('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]')), true,
+      'A UV edit with a temporary texture must keep the live preview canvas mounted');
+    const previewCanvas = uv.locator('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]');
+    const beforeCameraDrag = await previewCanvas.screenshot();
+    const bounds = await previewCanvas.boundingBox();
+    const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    await uv.mouse.move(center.x, center.y);
+    await uv.mouse.down();
+    await uv.mouse.move(center.x + 65, center.y + 35, { steps: 8 });
+    await uv.mouse.up();
+    await uv.waitForTimeout(150);
+    assert.notDeepEqual(await previewCanvas.screenshot(), beforeCameraDrag, 'The live preview must rotate through a normal mouse drag');
     await closeUV();
     const before = JSON.parse(await main.evaluate(() => JSON.stringify(modelState())));
     await main.locator('[data-warmkey="Reverse normals"]').click();
@@ -140,7 +160,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(savedGeometry.TVertices, topologyEdited.Geosets[0].TVertices);
     assert.ok(fs.readFileSync(fixture).equals(original));
     await main.screenshot({ path: path.join(output, 'saved-vertex-edits.png') });
-    console.log('PASS packaged Electron: temporary texture, UV edit, Reverse normals, undo/redo, Delete/Create triangle, Weld and Uncouple change vertex count, Revert preserves geometry and UV edits, Save texture and MDX reload, sidebar width and input file preserved');
+    console.log('PASS packaged Electron: temporary texture UV edit keeps live preview canvas, mouse drag rotates preview, vertex edits and undo/redo preserve UV and geometry, Save texture and MDX reload, sidebar width and input file preserved');
   } catch (error) {
     console.error(error); if (uv && !uv.isClosed()) await uv.screenshot({ path: path.join(output, 'failure-uv.png') }).catch(() => {});
     const main = await app.firstWindow(); console.error(await main.locator('.classic-status').innerText());

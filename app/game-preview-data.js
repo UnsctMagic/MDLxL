@@ -1,8 +1,14 @@
-// A UV drag is a shallow model overlay. Its geometry, materials and nodes retain
-// their references, so only the existing texture-coordinate buffers need upload.
-export function isUVOnlyPreviewChange(before, after) {
+// A UV drag changes only texture coordinates. The document may recreate its
+// Nodes index and a temporary texture may recreate resource arrays on commit.
+export function isUVOnlyPreviewChange(before, after, stableResourceRevision = false) {
   if (!before || !after || before === after || before.Geosets?.length !== after.Geosets?.length) return before === after;
-  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) if (key !== 'Geosets' && before[key] !== after[key]) return false;
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (key === 'Geosets' || before[key] === after[key]) continue;
+    if (stableResourceRevision && (key === 'Materials' || key === 'Textures')) continue;
+    if (key === 'Nodes' && before.Nodes?.length === after.Nodes?.length &&
+      before.Nodes?.every((node, i) => node === after.Nodes[i]) && after.Nodes?.every((node, i) => node === before.Nodes[i])) continue;
+    return false;
+  }
   for (let i = 0; i < before.Geosets.length; i++) {
     const left = before.Geosets[i], right = after.Geosets[i];
     if (!left || !right || left.TVertices?.length !== right.TVertices?.length) return false;

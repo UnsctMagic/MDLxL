@@ -316,6 +316,12 @@ test('UV fast path accepts UV overlays and rejects topology, material, and node 
   overlay.Geosets[0].TVertices[0][0] += .1;
   assert.equal(isUVOnlyPreviewChange(model, overlay), true);
   assert.equal(isUVOnlyPreviewChange(model, { ...overlay, Materials: [...model.Materials] }), false);
+  assert.equal(isUVOnlyPreviewChange(model, { ...overlay, Materials: [...model.Materials], Textures: [...model.Textures] }, true), true);
+  assert.equal(isUVOnlyPreviewChange(model, { ...overlay, Nodes: [...model.Nodes] }, true), true);
+  assert.equal(isUVOnlyPreviewChange(model, { ...overlay, Nodes: [({ ObjectId: 0 })] }, true), false);
+  const sparseNodes = Array(3); sparseNodes[2] = { ObjectId: 2 };
+  assert.equal(isUVOnlyPreviewChange({ ...model, Nodes: sparseNodes }, { ...overlay, Nodes: [({ ObjectId: 0 }), , sparseNodes[2]] }, true), false);
+  assert.equal(isUVOnlyPreviewChange(model, { ...overlay, Materials: [...model.Materials], Bones: [...model.Bones] }, true), false);
   assert.equal(isUVOnlyPreviewChange(model, { ...overlay, Geosets: overlay.Geosets.map((geo, i) => i ? geo : { ...geo, Faces: new Uint16Array(geo.Faces) }) }), false);
   assert.equal(isUVOnlyPreviewChange(model, { ...overlay, Bones: [...model.Bones] }), false);
 });
