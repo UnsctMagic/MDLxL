@@ -55,11 +55,61 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     });
     const wait=async(predicate,label)=>{const end=Date.now()+20000;while(Date.now()<end){const state=await read();if(state&&predicate(state))return state;await page.waitForTimeout(30);}throw Error(label+': '+JSON.stringify(await read()));};
     const clickNode=async(id,button='right')=>{
-      await read();const point=await page.evaluate(id=>{const state=window.testRuntime,camera=state.controls.object,node=state.native.model.Nodes[id],v=camera.position.clone().fromArray(node.PivotPoint||state.native.model.PivotPoints[id]),mat=state.native.rendererData.nodes[id]?.matrix;if(mat)v.applyMatrix4(camera.matrixWorld.clone().fromArray(mat));v.project(camera);const canvas=document.querySelector('[data-clean-model-canvas]'),rect=canvas.getBoundingClientRect();return{x:rect.x+(v.x+1)*rect.width/2,y:rect.y+(1-v.y)*rect.height/2};},id);console.log(JSON.stringify({click:id,button,point}));await page.mouse.click(point.x,point.y,{button});
+      await read();const point=await page.evaluate(id=>{const state=window.testRuntime,camera=state.controls.object,node=state.native.model.Nodes[id],v=camera.position.clone().fromArray(node.PivotPoint||state.native.model.PivotPoints[id]),mat=state.native.rendererData.nodes[id]?.matrix;if(mat)v.applyMatrix4(camera.matrixWorld.clone().fromArray(mat));v.project(camera);const canvas=document.querySelector('[data-clean-model-canvas]'),rect=canvas.getBoundingClientRect();return{x:rect.x+(v.x+1)*rect.width/2,y:rect.y+(1-v.y)*rect.height/2};},id);console.log(JSON.stringify({click:id,button,point}));await page.mouse.click(point.x,point.y,{button});return point;
     };
     const quick=page.getByRole('group',{name:'Quick display'});
     const absent=async names=>{for(const name of names)assert.equal(await quick.getByLabel(name,{exact:true}).count(),0,name+' is absent');};
     const installDecalProbe=async()=>{await read();await page.evaluate(()=>{const state=window.testRuntime,events=state.eventPreview;if(events.testProbe)return;events.testProbe=true;const render=events.render,gl=state.native.gl;events.render=function(options){const draw=gl.drawArrays;let count=0;gl.drawArrays=function(...args){count++;return draw.apply(this,args);};try{return render.call(this,options);}finally{gl.drawArrays=draw;state.testDecalDraws=count;}};});};
+    if(process.env.MDLXL_NODE_DECAL_PROOF){
+      const {PNG}=require('C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pngjs');
+      await page.getByRole('button',{name:'Movement',exact:true}).click();
+      await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');
+      await quick.getByLabel('Events',{exact:true}).check();await wait(s=>s.ready,'Decal proof ready');
+      await page.getByRole('button',{name:'Fit',exact:true}).click();await installDecalProbe();
+      const observations=[];
+      const stainPixels=(baseline,image,point)=>{
+        let count=0;
+        // Sample the left interior of the ground decal, away from symbols,
+        // axes and the red demo mesh that Animations renders solid.
+        for(let y=Math.floor(point.y)-8;y<=point.y+8;y++)for(let x=Math.floor(point.x)-60;x<=point.x-30;x++){
+          const offset=(y*image.width+x)*4;
+          if(image.data[offset]>image.data[offset+1]+3&&[0,1,2].reduce((sum,c)=>sum+Math.abs(image.data[offset+c]-baseline.data[offset+c]),0)>6)count++;
+        }
+        return count;
+      };
+      const seek=async frame=>{const input=page.getByLabel('Current animation frame',{exact:true});await input.fill(String(frame));await input.press('Enter');await wait(s=>s.frame===frame,'Paused decal frame');};
+      for(const mode of process.env.MDLXL_NODE_DECAL_PROOF==='before'?['Movement']:['Movement','Animations']){
+      await page.getByRole('button',{name:mode,exact:true}).click();await wait(s=>s.ready,'Decal editor ready');await installDecalProbe();
+      if(mode==='Animations')await quick.getByLabel('Nodes',{exact:true}).check();
+      for(const id of [ids.blood,ids.foot,ids.uber]){
+        await seek(0);await page.evaluate(()=>window.testRuntime.eventPreview.cancelTests());
+        await wait(s=>s.decals===0,'Before one-shot decal');
+        await page.waitForTimeout(200);
+        const before=PNG.sync.read(Buffer.from(await grab(),'base64'));
+        const point=await clickNode(id);await wait(s=>s.decal&&s.decals>0,'Manual decal draws');
+        await page.waitForTimeout(120);const paintedStainPixels=stainPixels(before,PNG.sync.read(Buffer.from(await grab(),'base64')),point);
+        assert.ok(paintedStainPixels>0,'The pixel sample sees the actual playing decal');
+        await page.waitForTimeout(1300);const state=await read(),after=PNG.sync.read(Buffer.from(await grab(),'base64')),remainingStainPixels=stainPixels(before,after,point);
+        observations.push({mode,id,frame:state.frame,manual:state.decal,draws:state.decals,paintedStainPixels,remainingStainPixels});
+        if(process.env.MDLXL_NODE_DECAL_PROOF!=='before')assert.ok(!state.decal&&state.decals===0,'One visual cycle removes its decal without accelerating the test clock: '+JSON.stringify(state));
+        if(process.env.MDLXL_NODE_DECAL_PROOF!=='before')assert.equal(remainingStainPixels,0,'The displayed frame contains no remaining stain pixels');
+        await screenshot(mode+'-decal-once-'+id+'.png');
+      }
+      for(const id of process.env.MDLXL_NODE_DECAL_PROOF==='before'?[ids.uber]:[ids.blood,ids.foot,ids.uber]){
+      await page.evaluate(()=>window.testRuntime.eventPreview.cancelTests());await seek(300);
+      await wait(s=>s.decals===3,'Paused timeline displays three authored decals');
+      await clickNode(id);await wait(s=>s.decal,'Manual preview starts on paused authored decal');
+      if(process.env.MDLXL_NODE_DECAL_PROOF!=='before')assert.equal((await read()).decals,3,'Manual preview replaces the matching authored decal');
+      await page.waitForTimeout(1300);const paused=await read();observations.push({mode,id,pausedAfterPreview:true,manual:paused.decal,draws:paused.decals});
+      if(process.env.MDLXL_NODE_DECAL_PROOF!=='before')assert.equal(paused.decals,2,'Completed manual decal is not re-created by the frozen event key');
+      await screenshot(mode+'-decal-paused-after-'+id+'.png');
+      await seek(301);await wait(s=>s.decals===3,'Moving the timeline restores normal authored events');
+      }
+      }
+      assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible()),false);
+      assert.deepEqual(await fs.readFile(fixture),bytes);assert.deepEqual(errors,[]);
+      const proof={passed:true,hidden:true,out,observations};await fs.writeFile(path.join(out,'decal-proof.json'),JSON.stringify(proof,null,2));console.log(JSON.stringify(proof));return;
+    }
     if(process.env.MDLXL_NODE_ZOOM_PROOF){
       const {PNG}=require('C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pngjs');
       await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1920,1040));
@@ -125,17 +175,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.evaluate(()=>Object.assign(window.testRuntime.native.particlesController.emitters[0].props,window.testParticleProps));
     await clickNode(ids.ribbon);await wait(s=>s.ribbons[0]>1&&s.pulse,'Ribbon right click fires');await page.waitForTimeout(650);assert.ok((await read()).ribbons[0]>0,'Ribbon tail survives the old cutoff');await wait(s=>s.ribbons[0]===0&&!s.pulse,'Ribbon test cleans up');assert.equal((await read()).frame,frame);
     const audioBefore=(await read()).audio.length;await clickNode(ids.sound);await wait(s=>s.audio.length===audioBefore+1&&s.audio.at(-1).decoded,'Sound right click decodes and plays once');await page.waitForTimeout(1200);assert.ok(!(await read()).audio.at(-1).ended&&!(await read()).audio.at(-1).paused,'The full sound continues past one second');await wait(s=>s.audio.at(-1).ended&&s.audio.at(-1).paused&&!s.audio.at(-1).src,'Sound ends and releases playback');
-    await page.evaluate(()=>{const now=performance.now.bind(performance);window.testEventClockOffset=0;performance.now=()=>now()+window.testEventClockOffset;});
     for(const id of [ids.blood,ids.foot,ids.uber]){
+      const started=Date.now();
       await clickNode(id);await wait(s=>s.decal&&s.decals>0,'Decal manual cycle draws');await screenshot('bones-decal-'+id+'.png');
-      const duration=await page.evaluate(id=>window.testRuntime.eventPreview.definitions.get(window.testRuntime.native.model.Nodes[id].Name).lifeSpanMs,id);
-      if(duration>2000){
-        await page.waitForTimeout(1200);assert.ok((await read()).decal&&(await read()).decals>0,'Long authored decal is not cut off at one second');
-        // Advance only the test clock to the final authored decay stage.
-        await page.evaluate(ms=>{window.testEventClockOffset+=ms;},duration-2000);await wait(s=>s.decal&&s.decals>0,'Decal still draws before its authored end');
-        await page.evaluate(()=>{window.testEventClockOffset+=2000;});
-      }
-      await wait(s=>!s.decal&&s.decals===0,'Decal clears after its full authored lifetime');await screenshot('bones-decal-clean-'+id+'.png');
+      await wait(s=>!s.decal&&s.decals===0,'One visual decal cycle cleans up');assert.ok(Date.now()-started<1800,'Right-click does not leave a long-lived stain');await screenshot('bones-decal-clean-'+id+'.png');
     }
     await clickNode(ids.attachment,'left');await command('Nodes');await page.getByRole('dialog',{name:'Node Manager',exact:true}).waitFor();assert.equal(await page.locator('.re-tree-row.re-selected').getAttribute('data-node-id'),String(ids.attachment));await page.getByRole('button',{name:'Close',exact:true}).last().click();
     for(const name of ['Emitters','Events','Sounds']){await quick.getByLabel(name,{exact:true}).uncheck();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);}
