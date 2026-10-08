@@ -52,6 +52,14 @@ try {
         $retained = Get-Content -LiteralPath (Join-Path $previous 'snapshot.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($retained.schema -ne 1 -or $retained.product -ne 'mdlxl') { throw 'Invalid previous version snapshot.' }
     }
+    # File verification can take several seconds. A desktop launch during that
+    # time can lock the EXE again, so check immediately before replacing files.
+    if ($plan.pid -gt 0) {
+        $processName = [IO.Path]::GetFileNameWithoutExtension($plan.executable)
+        foreach ($process in (Get-Process -Name $processName -ErrorAction SilentlyContinue)) {
+            if ($process.Path -eq $plan.executable) { $process.WaitForExit() }
+        }
+    }
     foreach ($operation in $plan.operations) {
         $destination = SafePath $target $operation.relative
         if ($operation.before) {
@@ -85,7 +93,10 @@ try {
     for ($index = $changed.Count - 1; $index -ge 0; $index--) {
         $operation = $changed[$index]
         $destination = SafePath $target $operation.relative
-        if ($operation.before) { Copy-Item -LiteralPath (SafePath $backup $operation.relative) -Destination $destination -Force }
+        if ($operation.before) {
+            # A rejected copy may leave the destination unchanged and still locked.
+            if ((FileHash $destination) -ne $operation.before) { Copy-Item -LiteralPath (SafePath $backup $operation.relative) -Destination $destination -Force }
+        }
         elseif (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination }
     }
     [IO.Directory]::CreateDirectory($plan.profile) | Out-Null
