@@ -1,5 +1,6 @@
 import { recalculateExtents } from './editor-document.js';
 import { sampleTrack } from './animation.js';
+import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, animationSpeed } from './animation-speed.js';
 
 const MAX_FRAME = 0x7fffffff;
 const isTrack = value => value && Array.isArray(value.Keys);
@@ -93,13 +94,30 @@ export function createSequenceFromCurrent(model, sourceIndex) {
   const index = createSequence(model, Math.max(1, end - start));
   const targetStart = model.Sequences[index].Interval[0], offset = targetStart - start;
   model.Sequences[index] = { ...structuredClone(source), Name: name, Interval: intervalLike(source.Interval, targetStart, end + offset) };
+  if (source[ANIMATION_SPEED_KEY]) {
+    // The copy is independently reversible to the source's original duration.
+    const ordered = model.Sequences.slice(0, index).filter(sequence => sequence.Interval[0] < targetStart);
+    const shift = ordered.reduce((sum, sequence) => {
+      const original = sequence[ANIMATION_SPEED_KEY]?.originalInterval;
+      return sum + (original ? sequence.Interval[1] - sequence.Interval[0] - (original[1] - original[0]) : 0);
+    }, 0);
+    const original = source[ANIMATION_SPEED_KEY].originalInterval, originalStart = targetStart - shift;
+    model.Sequences[index][ANIMATION_SPEED_KEY] = { ...source[ANIMATION_SPEED_KEY], originalInterval: [originalStart, originalStart + original[1] - original[0]] };
+  }
   for (const geoset of model.Geosets || []) {
     if (geoset.Anims?.[sourceIndex]) geoset.Anims[index] = structuredClone(geoset.Anims[sourceIndex]);
   }
   visitModel(model, {
     track(track) {
       if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
-      const copies = track.Keys.filter(key => key.Frame >= start && key.Frame <= end).map(key => ({ ...structuredClone(key), Frame: key.Frame + offset }));
+      const copies = track.Keys.filter(key => key.Frame >= start && key.Frame <= end).map(key => {
+        const copy = { ...structuredClone(key), Frame: key.Frame + offset };
+        if (source[ANIMATION_SPEED_KEY]) {
+          const original = key[ANIMATION_SPEED_FRAME]?.frame === key.Frame ? key[ANIMATION_SPEED_FRAME].originalFrame : source[ANIMATION_SPEED_KEY].originalInterval[0] + (key.Frame - start) * animationSpeed(source) / 100;
+          copy[ANIMATION_SPEED_FRAME] = { originalFrame: model.Sequences[index][ANIMATION_SPEED_KEY].originalInterval[0] + original - source[ANIMATION_SPEED_KEY].originalInterval[0], frame: copy.Frame };
+        }
+        return copy;
+      });
       track.Keys.push(...copies);
       track.Keys.sort((a, b) => a.Frame - b.Frame);
     },

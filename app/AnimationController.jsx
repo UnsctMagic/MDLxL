@@ -6,6 +6,7 @@ import {
 import { setSequenceOptions } from '../src/animation.js';
 import { clampAlphaPercentText } from '../src/animation-controller-inputs.js';
 import { wheelOptionIndex } from '../src/dropdown-wheel.js';
+import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
 import SidebarSection from './SidebarSection.jsx';
 import {
   createGlobalSequence, createSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
@@ -26,12 +27,17 @@ function commonValue(model, targets, time, sequenceIndex, globalSeqId = null) {
 
 const enterBlurs = event => { if (event.key === 'Enter') event.currentTarget.blur(); };
 
+function SpeedSlider({ label, value, disabled, onChange }) {
+  return <label className="ac-actual-speed"><span>{label}<output>{value}%</output></span><input aria-label={label} type="range" min="1" max="300" step="1" value={value} disabled={disabled} onChange={event => onChange(Number(event.target.value))}/></label>;
+}
+
 /** Screenshot-faithful Animations toolbox. Movement remains in its own tab. */
 export default function AnimationController({
   model, revision = 0, sequenceIndex = -1, globalSeqId = null, time = 0,
   selectedGeosets = [], selectedNodeIds = [], materialVisibility = null, onEdit, onSeek, onTimelineChange,
-  disabled = false,
+  disabled = false, Dialog,
 }) {
+  const [speedMenu, setSpeedMenu] = useState(false);
   const [notice, setNotice] = useState(''), [error, setError] = useState('');
   const [moveSpeedDrafts, setMoveSpeedDrafts] = useState({});
   const sequenceNameInput = useRef(null), sequenceSelect = useRef(null);
@@ -110,6 +116,15 @@ export default function AnimationController({
 
   function changeSequence(patch) {
     commit('Edit animation sequence properties', ['Sequences'], current => setSequenceOptions(current, sequenceIndex, patch), 'Sequence properties updated.');
+  }
+
+  function changeActualSpeed(index, percent) {
+    const interval = model.Sequences?.[sequenceIndex]?.Interval;
+    const progress = interval ? Math.max(0, Math.min(1, (time - interval[0]) / Math.max(1, interval[1] - interval[0]))) : 0;
+    if (commit('Adjust animation actual speed', ANIMATION_SPEED_SECTIONS, current => setAnimationActualSpeed(current, index, percent), '')) {
+      const updated = model.Sequences?.[sequenceIndex]?.Interval;
+      if (updated) onSeek?.(updated[0] + Math.round(progress * (updated[1] - updated[0])));
+    }
   }
 
   function commitInterval() {
@@ -277,6 +292,8 @@ export default function AnimationController({
       <label><input type="checkbox" checked={!!sequence && !sequence.NonLooping} disabled={noLocalSequence} onChange={event => changeSequence({ nonLooping: !event.target.checked })}/>Loop</label>
       <label><input type="checkbox" checked={(sequence?.Rarity || 0) > 0} disabled={noLocalSequence} onChange={event => changeSequence({ rarity: event.target.checked ? 1 : 0 })}/>Use Rarity</label>
       <label className="ac-rarity">Rarity =<input aria-label="Sequence rarity" type="number" min="1" max="40" step="1" disabled={noLocalSequence || !(sequence?.Rarity > 0)} value={sequence?.Rarity > 0 ? sequence.Rarity : ''} onChange={event => { if (event.target.value !== '') changeSequence({ rarity: Number(event.target.value) }); }}/></label>
+      <SpeedSlider label="Animation Actual Speed" value={animationSpeed(sequence)} disabled={noLocalSequence} onChange={percent => changeActualSpeed(sequenceIndex, percent)}/>
+      <button disabled={disabled || !model.Sequences?.length} onClick={() => { setError(''); setSpeedMenu(true); }}>Adjust All Speed</button>
       <label title="Enable the sequence MoveSpeed ground-speed value."><input type="checkbox" checked={moveApplied} disabled={noLocalSequence} onChange={event => toggleMoveSpeed(event.target.checked)}/>Apply Move Speed</label>
       {moveApplied && <label className="ac-move-speed">Speed=<input aria-label="Sequence move speed" type="number" min="0.001" step="any" disabled={noLocalSequence} value={moveSpeedText} onChange={event => setMoveSpeedText(event.target.value)} onBlur={commitMoveSpeed} onKeyDown={enterBlurs}/></label>}
     </div>
@@ -298,6 +315,14 @@ export default function AnimationController({
     <button disabled={nodeSelection || noLocalSequence || !geosetIds.length} onClick={() => bakeRgb(false)}>Bake Sequence RGB</button>
     <button disabled={nodeSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length} onClick={() => bakeRgb(true)}>Bake All RGB</button>
     </SidebarSection>
-    {error && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
+    {error && !speedMenu && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
+    {speedMenu && <Dialog title="Adjust All Speed" onClose={() => setSpeedMenu(false)} overlayClass="ac-speed-menu" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setSpeedMenu(false); }}>
+      <SpeedSlider label="Master Controller" value={animationMasterSpeed(model)} disabled={disabled} onChange={percent => changeActualSpeed(null, percent)}/>
+      <div className="ac-speed-list">{(model.Sequences || []).map((item, index) => <div className="ac-speed-row" key={index}>
+        <label className="ac-speed-name"><input type="checkbox" aria-label={`Include ${item.Name} in Master Controller`} checked={animationSpeedChecked(item)} disabled={disabled} onChange={event => commit('Select animation for Master Controller', ['Sequences', ANIMATION_SPEED_KEY], current => setAnimationSpeedChecked(current, index, event.target.checked), '')}/><span translate="no">{item.Name}</span></label>
+        <SpeedSlider label={`${item.Name} speed`} value={animationSpeed(item)} disabled={disabled} onChange={percent => changeActualSpeed(index, percent)}/>
+      </div>)}</div>
+      {error && <p className="ac-error" role="alert">{error}</p>}
+    </Dialog>}
   </section>;
 }
