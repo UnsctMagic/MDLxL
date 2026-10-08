@@ -19,14 +19,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const ribbon=createNode(model,'RibbonEmitter');ids.ribbon=ribbon.ObjectId;
     Object.assign(ribbon,{Name:'Test ribbon',MaterialID:material,Visibility:1,EmissionRate:60,LifeSpan:2.4,HeightAbove:7,HeightBelow:7,Translation:{LineType:1,GlobalSeqId:null,Keys:[[0,0],[1000,60],[2000,0]].map(([Frame,x])=>({Frame,Vector:new Float32Array([x,0,0])}))}});
     ribbon.PivotPoint.set([-80,0,150]);
-    const attachment=createNode(model,'Attachment');ids.attachment=attachment.ObjectId;attachment.Name='Test fist';attachment.PivotPoint.set([-85,0,65]);
+    const attachment=createNode(model,'Attachment');ids.attachment=attachment.ObjectId;attachment.Name='Test palm';attachment.PivotPoint.set([-85,0,65]);
     for(const [kind,Name,x,z] of [['sound','SNDxTEST',85,65],['blood','SPLxTEST',-45,0],['foot','FPTxTEST',0,0],['uber','UBRxTEST',45,0]]){
       const event=createNode(model,'EventObject');ids[kind]=event.ObjectId;event.Name=Name;event.EventTrack=new Uint32Array([100,1100]);event.PivotPoint.set([x,0,z]);
     }
   });
   const fixture=path.join(out,'node-controls.mdx'),bytes=Buffer.from(doc.serialize('mdx'));await fs.writeFile(fixture,bytes);
   const saved=openDocument(bytes,fixture).model;
-  for(const [kind,Name] of Object.entries({particle:'Test sparks',ribbon:'Test ribbon',attachment:'Test fist',sound:'SNDxTEST',blood:'SPLxTEST',foot:'FPTxTEST',uber:'UBRxTEST'}))ids[kind]=saved.Nodes.find(node=>node?.Name===Name).ObjectId;
+  for(const [kind,Name] of Object.entries({particle:'Test sparks',ribbon:'Test ribbon',attachment:'Test palm',sound:'SNDxTEST',blood:'SPLxTEST',foot:'FPTxTEST',uber:'UBRxTEST'}))ids[kind]=saved.Nodes.find(node=>node?.Name===Name).ObjectId;
   const write=async(name,data)=>{const file=path.join(out,...name.split('\\'));await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,data);};
   const texture=starterTextureAsset();await write(texture.name,texture.bytes);
   const slk=row=>'ID;PWXL;N;E\n'+Object.keys(row).map((name,i)=>`C;X${i+1};Y1;K"${name}"`).join('\n')+'\n'+Object.values(row).map((value,i)=>`C;X${i+1};Y2;K${typeof value==='string'?JSON.stringify(value):value}`).join('\n')+'\nE';

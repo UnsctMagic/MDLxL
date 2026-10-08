@@ -26,12 +26,23 @@ const dropOutline = () => new Path().moveTo(50,18)
   .bezierCurveTo(61,81,70,72,70,57).bezierCurveTo(70,44,56,30,50,18);
 
 export const NODE_SYMBOLS = {
-  attachments: symbol((path,line) => {
-    // Closed fist points left; the wrist and forearm extend to the right.
-    path([[-.73,.43],[-.54,.51],[-.2,.51],[.02,.27],[.76,.27],[.76,-.27],[.03,-.27],[-.13,-.46],[-.39,-.46],[-.53,-.32],[-.71,-.32],[-.79,-.2],[-.79,.28],[-.73,.43]],.13);
-    path([[-.23,.15],[-.43,.08],[-.51,-.08],[-.43,-.23],[-.18,-.27]],.12);
-    line([-.77,.22],[-.54,.22],.11);
-    line([-.79,-.02],[-.6,-.02],.11);
+  attachments: symbol((path,line,fill,dot) => {
+    // Selected raised palm, adapted from Lucide Hand (ISC). Full Lucide and
+    // Feather copyright/permission notices ship in LICENSES.bundled.txt.
+    const contours = [
+      new Path().moveTo(18,11).lineTo(18,6).absarc(16,6,2,0,-Math.PI,true),
+      new Path().moveTo(14,10).lineTo(14,4).absarc(12,4,2,0,-Math.PI,true).lineTo(10,6),
+      new Path().moveTo(10,10.5).lineTo(10,6).absarc(8,6,2,0,-Math.PI,true).lineTo(6,14),
+      new Path().moveTo(18,8).absarc(20,8,2,Math.PI,Math.PI*2,false).lineTo(22,14)
+        .absarc(14,14,8,0,Math.PI/2,false).lineTo(12,22)
+        .bezierCurveTo(9.2,22,7.5,21.14,6.01,19.66).lineTo(2.41,16.06)
+        .absarc(3.825,14.65,2,Math.PI*.75,Math.PI*1.75,false).lineTo(7,15),
+    ];
+    const width=1.45*3.1/46;
+    for(const contour of contours) {
+      const points=contour.getPoints(8).map(({x,y})=>[(12+x*3.1-50)/46,(50-12-y*3.1)/46]);
+      path(points,width);for(const [x,y] of points)dot(x,y,width/2);
+    }
   }),
   ribbons: symbol((path,line,fill,dot) => {
     const curl = markerPoints(new Path().moveTo(27,24)
