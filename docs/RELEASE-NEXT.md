@@ -1,3 +1,3 @@
 # Next release — unreleased changes
 
-No additional changes are queued after 0.20.1.
+- Extended Forge shape controls.

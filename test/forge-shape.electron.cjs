@@ -68,7 +68,7 @@ const previewModel = () => {
       await page.locator('[data-warmkey="forge"]').click(); await page.getByRole('tab', { name: 'Shape', exact: true }).click(); await page.getByRole('button', { name: shape, exact: true }).click();
       await page.getByLabel('Shape thickness').fill('10');
       assert.equal(await page.getByLabel('Depth', { exact: true }).count(), 0); assert.deepEqual(await page.evaluate(viewportModel), original);
-      await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
+      await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.getByRole('button', { name: 'Add to model', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
       const thick = (await page.evaluate(viewportModel)).at(-1), z = thick.vertices.filter((_, i) => i % 3 === 2); assert.ok(Math.abs(Math.min(...z) + 5) < 1e-5 && Math.abs(Math.max(...z) - 5) < 1e-5, `${shape} thickness commits`);
       await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(viewportModel), original, `${shape} thickness undoes together`);
     }
@@ -76,7 +76,7 @@ const previewModel = () => {
     await page.getByRole('button', { name: 'Grid', exact: true }).click(); await page.getByLabel('Width', { exact: true }).fill('60'); await page.getByLabel('Height', { exact: true }).fill('100'); await page.getByLabel('Shape thickness').fill('10');
     await page.getByLabel('Checker', { exact: true }).check(); await page.screenshot({ path: path.join(out, '04-grid-thickness.png') });
     assert.deepEqual(await page.evaluate(viewportModel), original, 'preview cannot modify the model');
-    await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.getByRole('button', { name: 'Add to model', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
     console.log('Forge Add shape applied'); const added = await page.evaluate(viewportModel); assert.equal(added.length, original.length + 1); assert.ok(added.at(-1).uv[0].length); assert.ok(added.at(-1).groups.length);
     const saved = path.join(out, 'shapes-saved.mdx');
     await app.evaluate(({ dialog }, saved) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: saved }); }, saved);
@@ -85,7 +85,7 @@ const previewModel = () => {
     assert.ok(reopened.model.Textures.some(t => t.Image === PRIMITIVE_TEXTURE && t.Flags === 0), 'stock icon path and clamped sampling persist');
     await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(viewportModel), original, 'Add shape is one undo step');
     await page.locator('[data-warmkey="forge"]').click(); await page.getByRole('tab', { name: 'Shape', exact: true }).click(); await page.getByRole('button', { name: 'ThumperXL', exact: true }).click();
-    await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'Add shape', exact: true }).click(); await page.getByRole('button', { name: 'Add to model', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
     const thumper = (await page.evaluate(viewportModel)).at(-1); assert.equal(thumper.faces.length / 3, 272);
     const thumperSaved = path.join(out, 'thumper-saved.mdx'); await app.evaluate(({ dialog }, saved) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: saved }); }, thumperSaved);
     await page.keyboard.press('Control+Shift+s'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click(); await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'detached' });

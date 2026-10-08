@@ -998,14 +998,18 @@ export default function App() {
     setSelectable(new Set(result.geosetIndices)); setSelection({ [result.geosetIndices[0]]: [0, 1, 2, 3] }); setActiveGeoset(result.geosetIndices[0]); setSelectedNodeIds([result.boneId]); setRenderMode('textured'); setDialog(null);
     say('Glow added with its own bone.'); return result;
   }
-  async function forgeItem({mesh,asset,texturePath,trimColor}) {
+  async function forgeItem({mesh,asset,texturePath,trimColor,items}) {
     const {commitForge}=await import('../src/forge.js');
     if(latest.current.session!==session || savingRef.current)return false;
-    const result=edit('Forge item',['Geosets','Materials','Textures','Nodes','PivotPoints','GeosetAnims','Info'],m=>commitForge(m,mesh,{texturePath,trimColor}));
+    const drafts=items||[{mesh,asset,texturePath,trimColor}];
+    const result=edit('Forge item',['Geosets','Materials','Textures','Nodes','PivotPoints','GeosetAnims','Info'],m=>{
+      const added=drafts.map(d=>commitForge(m,d.mesh,{texturePath:d.texturePath,trimColor:d.trimColor}));
+      return {...added[0],geosetIndices:added.flatMap(r=>r.geosetIndices),extraAssets:added.flatMap(r=>r.extraAssets)};
+    });
     if(result===false)return false;
-    if(asset) await loadTextures([{...asset,name:texturePath}],session,{source:asset.source==='forge'?'forge':'gameData'});
+    for(const draft of drafts)if(draft.asset) await loadTextures([{...draft.asset,name:draft.texturePath}],session,{source:draft.asset.source==='forge'?'forge':'gameData'});
     if(result.extraAssets?.length) await loadTextures(result.extraAssets,session,{source:'forge'});
-    if(mesh.geosets.length>1){const white={name:'Textures\\white.blp',bytes:new Uint8Array([0,0,2,0,0,0,0,0,0,0,0,0,1,0,1,0,32,40,255,255,255,255]),source:'forge-preview'};session.assets.set(normalize('Textures\\white.blp'),{...white,name:'white.tga'});}
+    if(drafts.some(d=>d.mesh.geosets.length>1)){const white={name:'Textures\\white.blp',bytes:new Uint8Array([0,0,2,0,0,0,0,0,0,0,0,0,1,0,1,0,32,40,255,255,255,255]),source:'forge-preview'};session.assets.set(normalize('Textures\\white.blp'),{...white,name:'white.tga'});}
     setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
     say('Forge item created and attached to DummyBone.');return result;
   }
