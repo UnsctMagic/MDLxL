@@ -2,8 +2,6 @@ import ParticleIngredients from './ParticleIngredients.jsx';
 import ParticleTestView from './ParticleTestView.jsx';
 import ParticleExampleComparison from './ParticleExampleComparison.jsx';
 import {activeParticleSample} from '../src/particle-sampling.js';
-import {encodeForgeTga} from '../src/forge.js';
-import {particlePictureCanvas} from './particle-picture-canvas.js';
 import {removeParticlePicture} from '../src/particle-picture.js';
 import {fitRibbonToPolygons,ribbonPolygonSelection} from '../src/particle-ribbon-fit.js';
 import {includeParticleAssets,embeddedParticleAssets,prepareParticlePlacementAssets,MAX_PARTICLE_PICTURE_BYTES} from '../src/particle-assets.js';
@@ -108,15 +106,14 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     setStructure(v=>v+1);
   };
   const usePicture=async asset=>{
-      let bytes=new Uint8Array(asset.bytes);
+      const bytes=new Uint8Array(asset.bytes);
       if(bytes.byteLength>MAX_PARTICLE_PICTURE_BYTES)throw Error('Choose a picture smaller than 4 MiB for a portable preset.');
-      let extension=String(asset.name||asset.path||'').split('.').at(-1).toLowerCase();if(!['png','blp','dds','tga','jpg','jpeg','webp'].includes(extension))throw Error('Unsupported picture type.');
-      if(!['blp','dds','tga'].includes(extension)){const canvas=await particlePictureCanvas(asset);bytes=encodeForgeTga(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height));extension='tga';if(bytes.byteLength>MAX_PARTICLE_PICTURE_BYTES)throw Error('The decoded picture is too large. Use a picture up to 1024 × 1024.');}
-      const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join(''),name='MDLxL_Forge\\Particle_'+hash.slice(0,32)+'.'+extension;
-      const nextAsset={name,bytes,origin:'particle-custom'};
+      const name=asset.name||asset.path;
+      if(!/\.(blp|dds|tga)$/i.test(name||''))throw Error('Choose a .blp, .dds or .tga picture to keep its original texture path.');
+      const nextAsset={...asset,name,bytes,...(asset.libraryKey&&asset.source!=='custom'?{}:{origin:'particle-custom',source:'parts'})};
       if(latest.current.activeDoc!==activeDoc||latest.current.emitterId!==emitterId)return;
       cancel();const result=apply('Choose particle picture',m=>{let index=m.Textures.findIndex(t=>t.Image===name);if(index<0)index=m.Textures.push({Image:name,ReplaceableId:0,Flags:0})-1;const emitter=m.ParticleEmitters2.find(n=>n.ObjectId===emitterId);emitter.TextureID=index;emitter.ReplaceableId=0;},['Nodes','Textures']);
-      if(result===false)return;const next=new Map(assets);next.set(pathKey(name),nextAsset);if(context==='Lab')setLab(old=>({...old,assets:next}));else onPlacedAssets?.(next);setStructure(v=>v+1);
+      if(result===false)return;const next=new Map(assets);if(!next.has(pathKey(name)))next.set(pathKey(name),nextAsset);if(context==='Lab')setLab(old=>({...old,assets:next}));else onPlacedAssets?.(next);setStructure(v=>v+1);
   };
   const importPicture=async()=>{
     try{const list=await window.desktop.textures();if(list?.length)await usePicture(list[0]);}catch(error){setMessage(error.message);}
