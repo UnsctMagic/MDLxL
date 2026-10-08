@@ -118,10 +118,14 @@ export default function GamePreview(inputProps) {
   const backgroundState = useRef({ url: null, status: 'ready', image: null, promise: Promise.resolve() });
   const layerComposite = useRef(null);
   const cameraMemory = useRef(null);
-  const rendererSource = useRef({ input: null, build: null });
+  const rendererSource = useRef({ input: null, build: null, revision: null });
   if (rendererSource.current.input !== model) {
-    if (!isUVOnlyPreviewChange(rendererSource.current.input, model)) rendererSource.current.build = model;
+    // UV Wrapper fingerprints material and texture contents. A temporary
+    // texture can create new arrays on every UV edit without changing either.
+    const stableResourceRevision = typeof revision === 'string' && props.uvRevision !== undefined && rendererSource.current.revision === revision;
+    if (!isUVOnlyPreviewChange(rendererSource.current.input, model, stableResourceRevision)) rendererSource.current.build = model;
     rendererSource.current.input = model;
+    rendererSource.current.revision = revision;
   }
   const rendererModel = rendererSource.current.build;
   const rendererRevisionState = useRef({ seen: revision, stable: revision });
