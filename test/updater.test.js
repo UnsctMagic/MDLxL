@@ -35,6 +35,19 @@ test('startup update checks are opt-in and versions compare numerically', () => 
   for (const field of ['prerelease','draft']) assert.equal(releaseMetadata({...metadata(),[field]:true}, '0.18.8'),null);
   assert.equal(releaseMetadata(metadata('0.18.8'), '0.18.8'),null);
 });
+test('0.21.1 offers the 0.21.2 full portable ZIP without downloading it during the check', async () => {
+  const release = metadata('0.21.2'), requested = [];
+  const updater = new Updater({ currentVersion: '0.21.1', packaged: true, fetcher: async url => {
+    requested.push(url);
+    return new Response(url.includes('/releases/latest') ? JSON.stringify(release) : '- EMTR and UV hotfix.');
+  } });
+  const offered = await updater.check('en');
+  assert.equal(offered.state, 'available');
+  assert.equal(offered.release.version, '0.21.2');
+  assert.equal(updater.release.asset.name, 'MDLxL-0.21.2-win32-x64.zip');
+  assert.equal(requested.some(url => url.endsWith('.zip')), false);
+  assert.equal(releaseMetadata(release, '0.21.2'), null);
+});
 test('release links use the existing three logs and reject arbitrary targets', () => {
   assert.deepEqual(Object.keys(releaseMetadata(metadata(),'0.18.8').notes),['en','ru','zh']);
   assert.deepEqual(summaryLines('# Update\n- **One** [change](https://example.com)\n- Second\nDownload now'),['One change','Second']);
