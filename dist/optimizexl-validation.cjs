@@ -65,9 +65,9 @@ function normalizeVersionFields(model, target) {
 }
 
 // src/editor-document.js
-var import_buffer10 = require("buffer");
+var import_buffer11 = require("buffer");
 
-// ../../../../Documents/ChatGPT/MDLxL/node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
+// ../../9848/MDLxL/node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
 var TextureFlags = /* @__PURE__ */ (function(TextureFlags2) {
   TextureFlags2[TextureFlags2["WrapWidth"] = 1] = "WrapWidth";
   TextureFlags2[TextureFlags2["WrapHeight"] = 2] = "WrapHeight";
@@ -309,12 +309,12 @@ function parseArrayOrSingleItem(state, arr) {
   return arr;
 }
 function parseObject(state) {
-  let prefix2 = null;
+  let prefix3 = null;
   const obj = {};
   if (state.char() !== "{") {
-    prefix2 = parseString(state);
-    if (prefix2 === null) prefix2 = parseNumber(state);
-    if (prefix2 === null) throwError(state, "expected string or number");
+    prefix3 = parseString(state);
+    if (prefix3 === null) prefix3 = parseNumber(state);
+    if (prefix3 === null) throwError(state, "expected string or number");
   }
   strictParseSymbol(state, "{");
   while (state.char() !== "}") {
@@ -329,7 +329,7 @@ function parseObject(state) {
     parseSymbol(state, ",");
   }
   strictParseSymbol(state, "}");
-  return [prefix2, obj];
+  return [prefix3, obj];
 }
 function parseVersion$1(state, model) {
   const [_unused, obj] = parseObject(state);
@@ -4645,7 +4645,7 @@ function mdxRecords(payload, tag) {
 }
 function readTrack(b, at, width = 1, integer = false) {
   if (at + 16 > b.length) throw new Error("Truncated animation header.");
-  const count = b.readUInt32LE(at + 4), LineType2 = b.readUInt32LE(at + 8), global = b.readInt32LE(at + 12);
+  const count = b.readUInt32LE(at + 4), LineType2 = b.readUInt32LE(at + 8), global2 = b.readInt32LE(at + 12);
   if (LineType2 > 3) throw new Error("Invalid animation interpolation.");
   const size = 16 + count * (4 + width * 4 * (LineType2 >= 2 ? 3 : 1));
   if (at + size > b.length) throw new Error("Truncated animation keys.");
@@ -4664,7 +4664,7 @@ function readTrack(b, at, width = 1, integer = false) {
     }
     Keys.push(key);
   }
-  return { track: { LineType: LineType2, GlobalSeqId: global < 0 ? null : global, Keys }, size };
+  return { track: { LineType: LineType2, GlobalSeqId: global2 < 0 ? null : global2, Keys }, size };
 }
 function writeTrack(tag, track, integer = false) {
   if (!track?.Keys) return import_buffer2.Buffer.alloc(0);
@@ -5572,8 +5572,8 @@ function finishCompatibleMdl(input, model) {
       if (typeof value === "number" || typeof value === "string" || ArrayBuffer.isView(value) || value.Keys) {
         const reverse = ["Color", "AmbColor"].includes(key) && m.name !== "ParticleEmitterPopcorn";
         const baseline = o._MdxDefaults?.[key];
-        const prefix2 = value.Keys && baseline != null ? mdlProperty(key, baseline, reverse, true) + "\n" : "";
-        edits.push({ start: c.start, end: c.end, text: prefix2 + mdlProperty(m.name === "Geoset" && key === "Name" ? "LevelOfDetailName" : key, value, reverse, c.isStatic) });
+        const prefix3 = value.Keys && baseline != null ? mdlProperty(key, baseline, reverse, true) + "\n" : "";
+        edits.push({ start: c.start, end: c.end, text: prefix3 + mdlProperty(m.name === "Geoset" && key === "Name" ? "LevelOfDetailName" : key, value, reverse, c.isStatic) });
       }
     }
     for (const key of extensionFields) if (o[key] != null && !represented.has(key) && key !== "ShadowCasting" && model.Version >= (fieldVersions[key] || 0)) {
@@ -5627,9 +5627,9 @@ function formatGeneratedMdl(input) {
     const header = bytes.subarray(member.start, member.open.start).toString("utf8").trim();
     const suffix = bytes.subarray(member.close.end, member.end).toString("utf8").trim();
     const inline = member.name === "DontInherit" || !["VertexGroup", "EventTrack", "GlobalSequences"].includes(member.name) && member.children.length > 0 && member.children.every((child) => !child.children && child.header.every(numeric));
-    const prefix2 = header ? header + " " : "";
-    if (inline) return indent + prefix2 + "{ " + member.children.map((child) => render(child, 0)).join(" ") + " }" + suffix;
-    return indent + prefix2 + "{\n" + member.children.map((child) => render(child, depth + 1)).join("\n") + (member.children.length ? "\n" : "") + indent + "}" + suffix;
+    const prefix3 = header ? header + " " : "";
+    if (inline) return indent + prefix3 + "{ " + member.children.map((child) => render(child, 0)).join(" ") + " }" + suffix;
+    return indent + prefix3 + "{\n" + member.children.map((child) => render(child, depth + 1)).join("\n") + (member.children.length ? "\n" : "") + indent + "}" + suffix;
   }
   return import_buffer4.Buffer.from(members.map((member) => render(member, 0)).join("\n") + "\n");
 }
@@ -5749,7 +5749,7 @@ function geosetColorExportIssues(animations, format) {
 }
 
 // src/save-equivalence.js
-var ignored = /* @__PURE__ */ new Set(["_GeosetTabId", "Nodes", "PivotPoint", "TotalGroupsCount", "NumGeosets", "NumGeosetAnims", "NumBones", "NumHelpers", "NumLights", "NumAttachments", "NumEvents", "NumParticleEmitters", "NumParticleEmitters2", "NumRibbonEmitters"]);
+var ignored = /* @__PURE__ */ new Set(["_GeosetTabId", "_AnimationSpeed", "_AnimationSpeedFrame", "_AnimationSpeedEvents", "Nodes", "PivotPoint", "TotalGroupsCount", "NumGeosets", "NumGeosetAnims", "NumBones", "NumHelpers", "NumLights", "NumAttachments", "NumEvents", "NumParticleEmitters", "NumParticleEmitters2", "NumRibbonEmitters"]);
 var defaults = { AnimationFile: "", Path: "", PriorityPlane: 0, Gravity: 0, SyncPoint: 0, Flags: 0, SelectionFlags: 0, Variant: 0, Shader: "", Name: "", LevelOfDetail: 0, Alpha: 1, EmissiveGain: 1, FresnelOpacity: 0, FresnelTeamColor: 0, ShaderTypeId: 0, ShadowIntensity: 0, ShadowCasting: 0, ShadowCastingStart: 0, ShadowCastingEnd: 0, QuadraticFalloff: 5e-4, LinearFalloff: 0, Damping: 1e-5, _MdxTextureId: 0 };
 var equalNumber = (a, b) => Object.is(a, b) || Object.is(Math.fround(a), Math.fround(b));
 var integerFields = /* @__PURE__ */ new Set(["Version", "Frame", "Flags", "RenderMode", "Shading", "SelectionFlags", "SyncPoint", "ObjectId", "Parent", "GeosetId", "GeosetAnimId", "MaterialID", "TextureID", "NormalTextureID", "ORMTextureID", "EmissiveTextureID", "TeamColorTextureID", "ReflectionsTextureID", "TextureSlot", "TVertexAnimId", "CoordId", "GlobalSeqId", "LineType", "AttachmentID", "ReplaceableId", "FilterMode", "LightType", "Shape", "Rows", "Columns", "PriorityPlane", "SelectionGroup", "LevelOfDetail", "ShaderTypeId", "Variant", "BlendTime", "_MdxTextureId"]);
@@ -5869,12 +5869,12 @@ function normalizeGeosetTabs(model) {
 function isGeosetTabsChunk(bytes, chunk) {
   return chunk.tag === GEOSET_TABS_CHUNK && import_buffer5.Buffer.from(bytes).subarray(chunk.payloadOffset, chunk.payloadOffset + prefix.length).toString("utf8") === prefix;
 }
-function metadataRecords(bytes, format, container) {
+function geosetTabsRecords(bytes, format, container) {
   if (format === "mdl") return (container || parseMdl(bytes)).tokens.filter((token2) => token2.kind === "line-comment" && token2.raw.toString("utf8").startsWith(prefix)).map((token2) => ({ start: token2.start, end: token2.end + (bytes[token2.end] === 13 ? bytes[token2.end + 1] === 10 ? 2 : 1 : bytes[token2.end] === 10 ? 1 : 0), text: token2.raw.toString("utf8") }));
   return (container || parseMdx(bytes)).chunks.filter((chunk) => isGeosetTabsChunk(bytes, chunk)).map((chunk) => ({ start: chunk.offset, end: chunk.payloadOffset + chunk.declaredSize, text: bytes.subarray(chunk.payloadOffset, chunk.payloadOffset + chunk.declaredSize).toString("utf8") }));
 }
 function readGeosetTabs(input, format, model, container) {
-  const bytes = import_buffer5.Buffer.from(input), records = metadataRecords(bytes, format, container);
+  const bytes = import_buffer5.Buffer.from(input), records = geosetTabsRecords(bytes, format, container);
   const diagnostics = [];
   for (const record of records) {
     let data;
@@ -5896,7 +5896,7 @@ function readGeosetTabs(input, format, model, container) {
   return diagnostics;
 }
 function writeGeosetTabs(input, format, model) {
-  const bytes = import_buffer5.Buffer.from(input), parts = [], records = metadataRecords(bytes, format).filter(validRecord);
+  const bytes = import_buffer5.Buffer.from(input), parts = [], records = geosetTabsRecords(bytes, format).filter(validRecord);
   let cursor = 0;
   for (const record of records) {
     parts.push(bytes.subarray(cursor, record.start));
@@ -5918,7 +5918,7 @@ function writeGeosetTabs(input, format, model) {
 }
 
 // src/record-preservation.js
-var fingerprint = (value) => JSON.stringify(value, (key, v) => key === "PivotPoint" || key === GEOSET_TAB_KEY ? void 0 : ArrayBuffer.isView(v) ? Array.from(v) : typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
+var fingerprint = (value) => JSON.stringify(value, (key, v) => key === "PivotPoint" || key === GEOSET_TAB_KEY || ["_AnimationSpeed", "_AnimationSpeedFrame", "_AnimationSpeedEvents"].includes(key) ? void 0 : ArrayBuffer.isView(v) ? Array.from(v) : typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
 var recordTags = /* @__PURE__ */ new Set(["SEQS", "TEXS", "MTLS", "TXAN", "GEOS", "GEOA", "BONE", "HELP", "ATCH", "LITE", "PREM", "PRE2", "RIBB", "CORN", "CAMS", "CLID", "EVTS", "PIVT", "GLBS"]);
 function matches(before, after) {
   const pool = /* @__PURE__ */ new Map();
@@ -6427,6 +6427,926 @@ function convertMdxGeosetColorTracks(animations = []) {
   });
 }
 
+// src/animation-speed.js
+var import_buffer10 = require("buffer");
+
+// ../../9848/MDLxL/node_modules/.pnpm/three@0.183.2/node_modules/three/examples/jsm/libs/fflate.module.js
+var u8 = Uint8Array;
+var u16 = Uint16Array;
+var i32 = Int32Array;
+var fleb = new u8([
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  1,
+  1,
+  2,
+  2,
+  2,
+  2,
+  3,
+  3,
+  3,
+  3,
+  4,
+  4,
+  4,
+  4,
+  5,
+  5,
+  5,
+  5,
+  0,
+  /* unused */
+  0,
+  0,
+  /* impossible */
+  0
+]);
+var fdeb = new u8([
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  2,
+  2,
+  3,
+  3,
+  4,
+  4,
+  5,
+  5,
+  6,
+  6,
+  7,
+  7,
+  8,
+  8,
+  9,
+  9,
+  10,
+  10,
+  11,
+  11,
+  12,
+  12,
+  13,
+  13,
+  /* unused */
+  0,
+  0
+]);
+var clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
+var freb = function(eb, start) {
+  var b = new u16(31);
+  for (var i = 0; i < 31; ++i) {
+    b[i] = start += 1 << eb[i - 1];
+  }
+  var r = new i32(b[30]);
+  for (var i = 1; i < 30; ++i) {
+    for (var j = b[i]; j < b[i + 1]; ++j) {
+      r[j] = j - b[i] << 5 | i;
+    }
+  }
+  return { b, r };
+};
+var _a = freb(fleb, 2);
+var fl = _a.b;
+var revfl = _a.r;
+fl[28] = 258, revfl[258] = 28;
+var _b = freb(fdeb, 0);
+var fd = _b.b;
+var revfd = _b.r;
+var rev = new u16(32768);
+for (i = 0; i < 32768; ++i) {
+  x = (i & 43690) >> 1 | (i & 21845) << 1;
+  x = (x & 52428) >> 2 | (x & 13107) << 2;
+  x = (x & 61680) >> 4 | (x & 3855) << 4;
+  rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
+}
+var x;
+var i;
+var hMap = (function(cd, mb, r) {
+  var s = cd.length;
+  var i = 0;
+  var l = new u16(mb);
+  for (; i < s; ++i) {
+    if (cd[i])
+      ++l[cd[i] - 1];
+  }
+  var le = new u16(mb);
+  for (i = 1; i < mb; ++i) {
+    le[i] = le[i - 1] + l[i - 1] << 1;
+  }
+  var co;
+  if (r) {
+    co = new u16(1 << mb);
+    var rvb = 15 - mb;
+    for (i = 0; i < s; ++i) {
+      if (cd[i]) {
+        var sv = i << 4 | cd[i];
+        var r_1 = mb - cd[i];
+        var v = le[cd[i] - 1]++ << r_1;
+        for (var m = v | (1 << r_1) - 1; v <= m; ++v) {
+          co[rev[v] >> rvb] = sv;
+        }
+      }
+    }
+  } else {
+    co = new u16(s);
+    for (i = 0; i < s; ++i) {
+      if (cd[i]) {
+        co[i] = rev[le[cd[i] - 1]++] >> 15 - cd[i];
+      }
+    }
+  }
+  return co;
+});
+var flt = new u8(288);
+for (i = 0; i < 144; ++i)
+  flt[i] = 8;
+var i;
+for (i = 144; i < 256; ++i)
+  flt[i] = 9;
+var i;
+for (i = 256; i < 280; ++i)
+  flt[i] = 7;
+var i;
+for (i = 280; i < 288; ++i)
+  flt[i] = 8;
+var i;
+var fdt = new u8(32);
+for (i = 0; i < 32; ++i)
+  fdt[i] = 5;
+var i;
+var flm = /* @__PURE__ */ hMap(flt, 9, 0);
+var flrm = /* @__PURE__ */ hMap(flt, 9, 1);
+var fdm = /* @__PURE__ */ hMap(fdt, 5, 0);
+var fdrm = /* @__PURE__ */ hMap(fdt, 5, 1);
+var max = function(a) {
+  var m = a[0];
+  for (var i = 1; i < a.length; ++i) {
+    if (a[i] > m)
+      m = a[i];
+  }
+  return m;
+};
+var bits = function(d, p, m) {
+  var o = p / 8 | 0;
+  return (d[o] | d[o + 1] << 8) >> (p & 7) & m;
+};
+var bits16 = function(d, p) {
+  var o = p / 8 | 0;
+  return (d[o] | d[o + 1] << 8 | d[o + 2] << 16) >> (p & 7);
+};
+var shft = function(p) {
+  return (p + 7) / 8 | 0;
+};
+var slc = function(v, s, e) {
+  if (s == null || s < 0)
+    s = 0;
+  if (e == null || e > v.length)
+    e = v.length;
+  return new u8(v.subarray(s, e));
+};
+var ec = [
+  "unexpected EOF",
+  "invalid block type",
+  "invalid length/literal",
+  "invalid distance",
+  "stream finished",
+  "no stream handler",
+  ,
+  "no callback",
+  "invalid UTF-8 data",
+  "extra field too long",
+  "date not in range 1980-2099",
+  "filename too long",
+  "stream finishing",
+  "invalid zip data"
+  // determined by unknown compression method
+];
+var err = function(ind, msg, nt) {
+  var e = new Error(msg || ec[ind]);
+  e.code = ind;
+  if (Error.captureStackTrace)
+    Error.captureStackTrace(e, err);
+  if (!nt)
+    throw e;
+  return e;
+};
+var inflt = function(dat, st, buf, dict) {
+  var sl = dat.length, dl = dict ? dict.length : 0;
+  if (!sl || st.f && !st.l)
+    return buf || new u8(0);
+  var noBuf = !buf;
+  var resize = noBuf || st.i != 2;
+  var noSt = st.i;
+  if (noBuf)
+    buf = new u8(sl * 3);
+  var cbuf = function(l2) {
+    var bl = buf.length;
+    if (l2 > bl) {
+      var nbuf = new u8(Math.max(bl * 2, l2));
+      nbuf.set(buf);
+      buf = nbuf;
+    }
+  };
+  var final = st.f || 0, pos = st.p || 0, bt = st.b || 0, lm = st.l, dm = st.d, lbt = st.m, dbt = st.n;
+  var tbts = sl * 8;
+  do {
+    if (!lm) {
+      final = bits(dat, pos, 1);
+      var type = bits(dat, pos + 1, 3);
+      pos += 3;
+      if (!type) {
+        var s = shft(pos) + 4, l = dat[s - 4] | dat[s - 3] << 8, t = s + l;
+        if (t > sl) {
+          if (noSt)
+            err(0);
+          break;
+        }
+        if (resize)
+          cbuf(bt + l);
+        buf.set(dat.subarray(s, t), bt);
+        st.b = bt += l, st.p = pos = t * 8, st.f = final;
+        continue;
+      } else if (type == 1)
+        lm = flrm, dm = fdrm, lbt = 9, dbt = 5;
+      else if (type == 2) {
+        var hLit = bits(dat, pos, 31) + 257, hcLen = bits(dat, pos + 10, 15) + 4;
+        var tl = hLit + bits(dat, pos + 5, 31) + 1;
+        pos += 14;
+        var ldt = new u8(tl);
+        var clt = new u8(19);
+        for (var i = 0; i < hcLen; ++i) {
+          clt[clim[i]] = bits(dat, pos + i * 3, 7);
+        }
+        pos += hcLen * 3;
+        var clb = max(clt), clbmsk = (1 << clb) - 1;
+        var clm = hMap(clt, clb, 1);
+        for (var i = 0; i < tl; ) {
+          var r = clm[bits(dat, pos, clbmsk)];
+          pos += r & 15;
+          var s = r >> 4;
+          if (s < 16) {
+            ldt[i++] = s;
+          } else {
+            var c = 0, n = 0;
+            if (s == 16)
+              n = 3 + bits(dat, pos, 3), pos += 2, c = ldt[i - 1];
+            else if (s == 17)
+              n = 3 + bits(dat, pos, 7), pos += 3;
+            else if (s == 18)
+              n = 11 + bits(dat, pos, 127), pos += 7;
+            while (n--)
+              ldt[i++] = c;
+          }
+        }
+        var lt = ldt.subarray(0, hLit), dt = ldt.subarray(hLit);
+        lbt = max(lt);
+        dbt = max(dt);
+        lm = hMap(lt, lbt, 1);
+        dm = hMap(dt, dbt, 1);
+      } else
+        err(1);
+      if (pos > tbts) {
+        if (noSt)
+          err(0);
+        break;
+      }
+    }
+    if (resize)
+      cbuf(bt + 131072);
+    var lms = (1 << lbt) - 1, dms = (1 << dbt) - 1;
+    var lpos = pos;
+    for (; ; lpos = pos) {
+      var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
+      pos += c & 15;
+      if (pos > tbts) {
+        if (noSt)
+          err(0);
+        break;
+      }
+      if (!c)
+        err(2);
+      if (sym < 256)
+        buf[bt++] = sym;
+      else if (sym == 256) {
+        lpos = pos, lm = null;
+        break;
+      } else {
+        var add = sym - 254;
+        if (sym > 264) {
+          var i = sym - 257, b = fleb[i];
+          add = bits(dat, pos, (1 << b) - 1) + fl[i];
+          pos += b;
+        }
+        var d = dm[bits16(dat, pos) & dms], dsym = d >> 4;
+        if (!d)
+          err(3);
+        pos += d & 15;
+        var dt = fd[dsym];
+        if (dsym > 3) {
+          var b = fdeb[dsym];
+          dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
+        }
+        if (pos > tbts) {
+          if (noSt)
+            err(0);
+          break;
+        }
+        if (resize)
+          cbuf(bt + 131072);
+        var end = bt + add;
+        if (bt < dt) {
+          var shift = dl - dt, dend = Math.min(dt, end);
+          if (shift + bt < 0)
+            err(3);
+          for (; bt < dend; ++bt)
+            buf[bt] = dict[shift + bt];
+        }
+        for (; bt < end; ++bt)
+          buf[bt] = buf[bt - dt];
+      }
+    }
+    st.l = lm, st.p = lpos, st.b = bt, st.f = final;
+    if (lm)
+      final = 1, st.m = lbt, st.d = dm, st.n = dbt;
+  } while (!final);
+  return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
+};
+var wbits = function(d, p, v) {
+  v <<= p & 7;
+  var o = p / 8 | 0;
+  d[o] |= v;
+  d[o + 1] |= v >> 8;
+};
+var wbits16 = function(d, p, v) {
+  v <<= p & 7;
+  var o = p / 8 | 0;
+  d[o] |= v;
+  d[o + 1] |= v >> 8;
+  d[o + 2] |= v >> 16;
+};
+var hTree = function(d, mb) {
+  var t = [];
+  for (var i = 0; i < d.length; ++i) {
+    if (d[i])
+      t.push({ s: i, f: d[i] });
+  }
+  var s = t.length;
+  var t2 = t.slice();
+  if (!s)
+    return { t: et, l: 0 };
+  if (s == 1) {
+    var v = new u8(t[0].s + 1);
+    v[t[0].s] = 1;
+    return { t: v, l: 1 };
+  }
+  t.sort(function(a, b) {
+    return a.f - b.f;
+  });
+  t.push({ s: -1, f: 25001 });
+  var l = t[0], r = t[1], i0 = 0, i1 = 1, i2 = 2;
+  t[0] = { s: -1, f: l.f + r.f, l, r };
+  while (i1 != s - 1) {
+    l = t[t[i0].f < t[i2].f ? i0++ : i2++];
+    r = t[i0 != i1 && t[i0].f < t[i2].f ? i0++ : i2++];
+    t[i1++] = { s: -1, f: l.f + r.f, l, r };
+  }
+  var maxSym = t2[0].s;
+  for (var i = 1; i < s; ++i) {
+    if (t2[i].s > maxSym)
+      maxSym = t2[i].s;
+  }
+  var tr = new u16(maxSym + 1);
+  var mbt = ln(t[i1 - 1], tr, 0);
+  if (mbt > mb) {
+    var i = 0, dt = 0;
+    var lft = mbt - mb, cst = 1 << lft;
+    t2.sort(function(a, b) {
+      return tr[b.s] - tr[a.s] || a.f - b.f;
+    });
+    for (; i < s; ++i) {
+      var i2_1 = t2[i].s;
+      if (tr[i2_1] > mb) {
+        dt += cst - (1 << mbt - tr[i2_1]);
+        tr[i2_1] = mb;
+      } else
+        break;
+    }
+    dt >>= lft;
+    while (dt > 0) {
+      var i2_2 = t2[i].s;
+      if (tr[i2_2] < mb)
+        dt -= 1 << mb - tr[i2_2]++ - 1;
+      else
+        ++i;
+    }
+    for (; i >= 0 && dt; --i) {
+      var i2_3 = t2[i].s;
+      if (tr[i2_3] == mb) {
+        --tr[i2_3];
+        ++dt;
+      }
+    }
+    mbt = mb;
+  }
+  return { t: new u8(tr), l: mbt };
+};
+var ln = function(n, l, d) {
+  return n.s == -1 ? Math.max(ln(n.l, l, d + 1), ln(n.r, l, d + 1)) : l[n.s] = d;
+};
+var lc = function(c) {
+  var s = c.length;
+  while (s && !c[--s])
+    ;
+  var cl = new u16(++s);
+  var cli = 0, cln = c[0], cls = 1;
+  var w = function(v) {
+    cl[cli++] = v;
+  };
+  for (var i = 1; i <= s; ++i) {
+    if (c[i] == cln && i != s)
+      ++cls;
+    else {
+      if (!cln && cls > 2) {
+        for (; cls > 138; cls -= 138)
+          w(32754);
+        if (cls > 2) {
+          w(cls > 10 ? cls - 11 << 5 | 28690 : cls - 3 << 5 | 12305);
+          cls = 0;
+        }
+      } else if (cls > 3) {
+        w(cln), --cls;
+        for (; cls > 6; cls -= 6)
+          w(8304);
+        if (cls > 2)
+          w(cls - 3 << 5 | 8208), cls = 0;
+      }
+      while (cls--)
+        w(cln);
+      cls = 1;
+      cln = c[i];
+    }
+  }
+  return { c: cl.subarray(0, cli), n: s };
+};
+var clen = function(cf, cl) {
+  var l = 0;
+  for (var i = 0; i < cl.length; ++i)
+    l += cf[i] * cl[i];
+  return l;
+};
+var wfblk = function(out, pos, dat) {
+  var s = dat.length;
+  var o = shft(pos + 2);
+  out[o] = s & 255;
+  out[o + 1] = s >> 8;
+  out[o + 2] = out[o] ^ 255;
+  out[o + 3] = out[o + 1] ^ 255;
+  for (var i = 0; i < s; ++i)
+    out[o + i + 4] = dat[i];
+  return (o + 4 + s) * 8;
+};
+var wblk = function(dat, out, final, syms, lf, df, eb, li, bs, bl, p) {
+  wbits(out, p++, final);
+  ++lf[256];
+  var _a2 = hTree(lf, 15), dlt = _a2.t, mlb = _a2.l;
+  var _b2 = hTree(df, 15), ddt = _b2.t, mdb = _b2.l;
+  var _c = lc(dlt), lclt = _c.c, nlc = _c.n;
+  var _d = lc(ddt), lcdt = _d.c, ndc = _d.n;
+  var lcfreq = new u16(19);
+  for (var i = 0; i < lclt.length; ++i)
+    ++lcfreq[lclt[i] & 31];
+  for (var i = 0; i < lcdt.length; ++i)
+    ++lcfreq[lcdt[i] & 31];
+  var _e = hTree(lcfreq, 7), lct = _e.t, mlcb = _e.l;
+  var nlcc = 19;
+  for (; nlcc > 4 && !lct[clim[nlcc - 1]]; --nlcc)
+    ;
+  var flen = bl + 5 << 3;
+  var ftlen = clen(lf, flt) + clen(df, fdt) + eb;
+  var dtlen = clen(lf, dlt) + clen(df, ddt) + eb + 14 + 3 * nlcc + clen(lcfreq, lct) + 2 * lcfreq[16] + 3 * lcfreq[17] + 7 * lcfreq[18];
+  if (bs >= 0 && flen <= ftlen && flen <= dtlen)
+    return wfblk(out, p, dat.subarray(bs, bs + bl));
+  var lm, ll, dm, dl;
+  wbits(out, p, 1 + (dtlen < ftlen)), p += 2;
+  if (dtlen < ftlen) {
+    lm = hMap(dlt, mlb, 0), ll = dlt, dm = hMap(ddt, mdb, 0), dl = ddt;
+    var llm = hMap(lct, mlcb, 0);
+    wbits(out, p, nlc - 257);
+    wbits(out, p + 5, ndc - 1);
+    wbits(out, p + 10, nlcc - 4);
+    p += 14;
+    for (var i = 0; i < nlcc; ++i)
+      wbits(out, p + 3 * i, lct[clim[i]]);
+    p += 3 * nlcc;
+    var lcts = [lclt, lcdt];
+    for (var it = 0; it < 2; ++it) {
+      var clct = lcts[it];
+      for (var i = 0; i < clct.length; ++i) {
+        var len2 = clct[i] & 31;
+        wbits(out, p, llm[len2]), p += lct[len2];
+        if (len2 > 15)
+          wbits(out, p, clct[i] >> 5 & 127), p += clct[i] >> 12;
+      }
+    }
+  } else {
+    lm = flm, ll = flt, dm = fdm, dl = fdt;
+  }
+  for (var i = 0; i < li; ++i) {
+    var sym = syms[i];
+    if (sym > 255) {
+      var len2 = sym >> 18 & 31;
+      wbits16(out, p, lm[len2 + 257]), p += ll[len2 + 257];
+      if (len2 > 7)
+        wbits(out, p, sym >> 23 & 31), p += fleb[len2];
+      var dst = sym & 31;
+      wbits16(out, p, dm[dst]), p += dl[dst];
+      if (dst > 3)
+        wbits16(out, p, sym >> 5 & 8191), p += fdeb[dst];
+    } else {
+      wbits16(out, p, lm[sym]), p += ll[sym];
+    }
+  }
+  wbits16(out, p, lm[256]);
+  return p + ll[256];
+};
+var deo = /* @__PURE__ */ new i32([65540, 131080, 131088, 131104, 262176, 1048704, 1048832, 2114560, 2117632]);
+var et = /* @__PURE__ */ new u8(0);
+var dflt = function(dat, lvl, plvl, pre, post, st) {
+  var s = st.z || dat.length;
+  var o = new u8(pre + s + 5 * (1 + Math.ceil(s / 7e3)) + post);
+  var w = o.subarray(pre, o.length - post);
+  var lst = st.l;
+  var pos = (st.r || 0) & 7;
+  if (lvl) {
+    if (pos)
+      w[0] = st.r >> 3;
+    var opt = deo[lvl - 1];
+    var n = opt >> 13, c = opt & 8191;
+    var msk_1 = (1 << plvl) - 1;
+    var prev = st.p || new u16(32768), head = st.h || new u16(msk_1 + 1);
+    var bs1_1 = Math.ceil(plvl / 3), bs2_1 = 2 * bs1_1;
+    var hsh = function(i2) {
+      return (dat[i2] ^ dat[i2 + 1] << bs1_1 ^ dat[i2 + 2] << bs2_1) & msk_1;
+    };
+    var syms = new i32(25e3);
+    var lf = new u16(288), df = new u16(32);
+    var lc_1 = 0, eb = 0, i = st.i || 0, li = 0, wi = st.w || 0, bs = 0;
+    for (; i + 2 < s; ++i) {
+      var hv = hsh(i);
+      var imod = i & 32767, pimod = head[hv];
+      prev[imod] = pimod;
+      head[hv] = imod;
+      if (wi <= i) {
+        var rem = s - i;
+        if ((lc_1 > 7e3 || li > 24576) && (rem > 423 || !lst)) {
+          pos = wblk(dat, w, 0, syms, lf, df, eb, li, bs, i - bs, pos);
+          li = lc_1 = eb = 0, bs = i;
+          for (var j = 0; j < 286; ++j)
+            lf[j] = 0;
+          for (var j = 0; j < 30; ++j)
+            df[j] = 0;
+        }
+        var l = 2, d = 0, ch_1 = c, dif = imod - pimod & 32767;
+        if (rem > 2 && hv == hsh(i - dif)) {
+          var maxn = Math.min(n, rem) - 1;
+          var maxd = Math.min(32767, i);
+          var ml = Math.min(258, rem);
+          while (dif <= maxd && --ch_1 && imod != pimod) {
+            if (dat[i + l] == dat[i + l - dif]) {
+              var nl = 0;
+              for (; nl < ml && dat[i + nl] == dat[i + nl - dif]; ++nl)
+                ;
+              if (nl > l) {
+                l = nl, d = dif;
+                if (nl > maxn)
+                  break;
+                var mmd = Math.min(dif, nl - 2);
+                var md = 0;
+                for (var j = 0; j < mmd; ++j) {
+                  var ti = i - dif + j & 32767;
+                  var pti = prev[ti];
+                  var cd = ti - pti & 32767;
+                  if (cd > md)
+                    md = cd, pimod = ti;
+                }
+              }
+            }
+            imod = pimod, pimod = prev[imod];
+            dif += imod - pimod & 32767;
+          }
+        }
+        if (d) {
+          syms[li++] = 268435456 | revfl[l] << 18 | revfd[d];
+          var lin = revfl[l] & 31, din = revfd[d] & 31;
+          eb += fleb[lin] + fdeb[din];
+          ++lf[257 + lin];
+          ++df[din];
+          wi = i + l;
+          ++lc_1;
+        } else {
+          syms[li++] = dat[i];
+          ++lf[dat[i]];
+        }
+      }
+    }
+    for (i = Math.max(i, wi); i < s; ++i) {
+      syms[li++] = dat[i];
+      ++lf[dat[i]];
+    }
+    pos = wblk(dat, w, lst, syms, lf, df, eb, li, bs, i - bs, pos);
+    if (!lst) {
+      st.r = pos & 7 | w[pos / 8 | 0] << 3;
+      pos -= 7;
+      st.h = head, st.p = prev, st.i = i, st.w = wi;
+    }
+  } else {
+    for (var i = st.w || 0; i < s + lst; i += 65535) {
+      var e = i + 65535;
+      if (e >= s) {
+        w[pos / 8 | 0] = lst;
+        e = s;
+      }
+      pos = wfblk(w, pos + 1, dat.subarray(i, e));
+    }
+    st.i = s;
+  }
+  return slc(o, 0, pre + shft(pos) + post);
+};
+var crct = /* @__PURE__ */ (function() {
+  var t = new Int32Array(256);
+  for (var i = 0; i < 256; ++i) {
+    var c = i, k = 9;
+    while (--k)
+      c = (c & 1 && -306674912) ^ c >>> 1;
+    t[i] = c;
+  }
+  return t;
+})();
+var crc = function() {
+  var c = -1;
+  return {
+    p: function(d) {
+      var cr = c;
+      for (var i = 0; i < d.length; ++i)
+        cr = crct[cr & 255 ^ d[i]] ^ cr >>> 8;
+      c = cr;
+    },
+    d: function() {
+      return ~c;
+    }
+  };
+};
+var dopt = function(dat, opt, pre, post, st) {
+  if (!st) {
+    st = { l: 1 };
+    if (opt.dictionary) {
+      var dict = opt.dictionary.subarray(-32768);
+      var newDat = new u8(dict.length + dat.length);
+      newDat.set(dict);
+      newDat.set(dat, dict.length);
+      dat = newDat;
+      st.w = dict.length;
+    }
+  }
+  return dflt(dat, opt.level == null ? 6 : opt.level, opt.mem == null ? st.l ? Math.ceil(Math.max(8, Math.min(13, Math.log(dat.length))) * 1.5) : 20 : 12 + opt.mem, pre, post, st);
+};
+var wbytes = function(d, b, v) {
+  for (; v; ++b)
+    d[b] = v, v >>>= 8;
+};
+var gzh = function(c, o) {
+  var fn = o.filename;
+  c[0] = 31, c[1] = 139, c[2] = 8, c[8] = o.level < 2 ? 4 : o.level == 9 ? 2 : 0, c[9] = 3;
+  if (o.mtime != 0)
+    wbytes(c, 4, Math.floor(new Date(o.mtime || Date.now()) / 1e3));
+  if (fn) {
+    c[3] = 8;
+    for (var i = 0; i <= fn.length; ++i)
+      c[i + 10] = fn.charCodeAt(i);
+  }
+};
+var gzs = function(d) {
+  if (d[0] != 31 || d[1] != 139 || d[2] != 8)
+    err(6, "invalid gzip data");
+  var flg = d[3];
+  var st = 10;
+  if (flg & 4)
+    st += (d[10] | d[11] << 8) + 2;
+  for (var zs = (flg >> 3 & 1) + (flg >> 4 & 1); zs > 0; zs -= !d[st++])
+    ;
+  return st + (flg & 2);
+};
+var gzl = function(d) {
+  var l = d.length;
+  return (d[l - 4] | d[l - 3] << 8 | d[l - 2] << 16 | d[l - 1] << 24) >>> 0;
+};
+var gzhl = function(o) {
+  return 10 + (o.filename ? o.filename.length + 1 : 0);
+};
+function gzipSync(data, opts) {
+  if (!opts)
+    opts = {};
+  var c = crc(), l = data.length;
+  c.p(data);
+  var d = dopt(data, opts, gzhl(opts), 8), s = d.length;
+  return gzh(d, opts), wbytes(d, s - 8, c.d()), wbytes(d, s - 4, l), d;
+}
+function gunzipSync(data, opts) {
+  var st = gzs(data);
+  if (st + 8 > data.length)
+    err(6, "invalid gzip data");
+  return inflt(data.subarray(st, -8), { i: 2 }, opts && opts.out || new u8(gzl(data)), opts && opts.dictionary);
+}
+var td = typeof TextDecoder != "undefined" && /* @__PURE__ */ new TextDecoder();
+var tds = 0;
+try {
+  td.decode(et, { stream: true });
+  tds = 1;
+} catch (e) {
+}
+
+// src/animation-speed.js
+var ANIMATION_SPEED_KEY = "_AnimationSpeed";
+var ANIMATION_SPEED_FRAME = "_AnimationSpeedFrame";
+var ANIMATION_SPEED_EVENTS = "_AnimationSpeedEvents";
+var ANIMATION_SPEED_LEGACY_TAG = "MDLXL_ANIMATION_SPEED_V1:6324b9ab-c97d-4884-bffa-a623adc41438";
+var ANIMATION_SPEED_TAG = "MDLXL_ANIMATION_SPEED_V2:6324b9ab-c97d-4884-bffa-a623adc41438";
+var ANIMATION_SPEED_CHUNK = "XLAS";
+var privateKeys = /* @__PURE__ */ new Set([ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS]);
+var prefix2 = `// ${ANIMATION_SPEED_TAG} `;
+var legacyPrefix = `// ${ANIMATION_SPEED_LEGACY_TAG} `;
+var prefixes = [prefix2, legacyPrefix];
+var MAX_FRAME = 2147483647;
+var MIN_FRAME = -2147483648;
+var percentValid = (value) => Number.isInteger(value) && value >= 1 && value <= 300;
+var intervalValid = (value) => Array.isArray(value) && value.length === 2 && value.every((frame) => Number.isInteger(frame) && frame >= 0 && frame <= MAX_FRAME) && value[1] >= value[0];
+var global = (value) => Number.isInteger(value.GlobalSeqId) && value.GlobalSeqId >= 0;
+function animationMasterSpeed(model) {
+  return model[ANIMATION_SPEED_KEY]?.master ?? 100;
+}
+function rememberOriginalTiming(model) {
+  return model[ANIMATION_SPEED_KEY]?.rememberOriginal !== false;
+}
+function timingRecords(model) {
+  const tracks = [], events = [], seen = /* @__PURE__ */ new Set();
+  function visit(value, path) {
+    if (!value || typeof value !== "object" || ArrayBuffer.isView(value) || seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value.Keys)) {
+      if (!global(value)) tracks.push({ value, path });
+      return;
+    }
+    if (value.EventTrack && !global(value)) events.push({ value, path });
+    for (const [key, child] of Object.entries(value)) {
+      if (privateKeys.has(key) || key === "Nodes" || key === "EventTrack") continue;
+      visit(child, [...path, Array.isArray(value) ? Number(key) : key]);
+    }
+  }
+  visit(model, []);
+  return { tracks, events };
+}
+function mapFrame(frame, ranges, inverse = false) {
+  let shift = 0;
+  for (const range of ranges) {
+    const from = inverse ? range.current : range.original, to = inverse ? range.original : range.current;
+    if (frame < from[0]) break;
+    if (frame <= from[1]) return to[0] + (from[1] === from[0] ? 0 : (frame - from[0]) / (from[1] - from[0]) * (to[1] - to[0]));
+    shift = to[1] - from[1];
+  }
+  return frame + shift;
+}
+function rangesFor(model) {
+  const sequences = (model.Sequences || []).map((sequence, index2) => ({ sequence, index: index2 })).sort((a, b) => a.sequence.Interval[0] - b.sequence.Interval[0]);
+  let shift = 0;
+  return sequences.map(({ sequence, index: index2 }) => {
+    const current = Array.from(sequence.Interval);
+    const original = sequence[ANIMATION_SPEED_KEY]?.originalInterval || [current[0] - shift, current[1] - shift];
+    shift = current[1] - original[1];
+    return { sequence, index: index2, original, current };
+  });
+}
+function originalFrames(frames, stored, ranges) {
+  const unused = [...stored || []], byFrame = /* @__PURE__ */ new Map();
+  unused.forEach((item, i) => {
+    if (!item) return;
+    if (!byFrame.has(item.frame)) byFrame.set(item.frame, { indices: [], cursor: 0 });
+    byFrame.get(item.frame).indices.push(i);
+  });
+  return frames.map((frame, i) => {
+    const candidates = byFrame.get(frame);
+    while (candidates && candidates.cursor < candidates.indices.length && !unused[candidates.indices[candidates.cursor]]) candidates.cursor++;
+    const match = unused[i]?.frame === frame ? i : candidates?.indices[candidates.cursor] ?? -1;
+    const previous = match < 0 ? null : unused[match];
+    if (match >= 0) unused[match] = null;
+    return previous ? previous.originalFrame : mapFrame(frame, ranges, true);
+  });
+}
+function animationSpeedData(model) {
+  if (!rememberOriginalTiming(model) || !(model.Sequences || []).some((sequence) => sequence[ANIMATION_SPEED_KEY]?.originalInterval)) return null;
+  const { tracks, events } = timingRecords(model), ranges = rangesFor(model);
+  const framesData = (frames, stored) => originalFrames(frames, stored, ranges).map((originalFrame, i) => ({ originalFrame, frame: frames[i] }));
+  return {
+    master: animationMasterSpeed(model),
+    sequences: (model.Sequences || []).map((sequence) => sequence[ANIMATION_SPEED_KEY]?.originalInterval ? sequence[ANIMATION_SPEED_KEY] : null),
+    tracks: tracks.map(({ path, value }) => ({ path, frames: framesData(value.Keys.map((key) => key.Frame), value.Keys.map((key) => key[ANIMATION_SPEED_FRAME])) })),
+    events: events.map(({ path, value }) => ({ path, frames: framesData(Array.from(value.EventTrack), value[ANIMATION_SPEED_EVENTS]) }))
+  };
+}
+function validData2(data) {
+  const frameValid = (item) => item === null || item && Number.isFinite(item.originalFrame) && item.originalFrame >= MIN_FRAME && item.originalFrame <= MAX_FRAME && Number.isInteger(item.frame) && item.frame >= MIN_FRAME && item.frame <= MAX_FRAME;
+  const recordsValid = (records) => Array.isArray(records) && records.every((record) => Array.isArray(record?.path) && record.path.length && record.path.every((key) => typeof key === "string" && !["__proto__", "constructor", "prototype"].includes(key) || Number.isInteger(key) && key >= 0) && Array.isArray(record.frames) && record.frames.every(frameValid));
+  return data && percentValid(data.master) && Array.isArray(data.sequences) && data.sequences.every((sequence) => sequence === null || sequence && percentValid(sequence.percent) && typeof sequence.checked === "boolean" && intervalValid(sequence.originalInterval)) && recordsValid(data.tracks) && recordsValid(data.events);
+}
+function isAnimationSpeedChunk(bytes, chunk) {
+  return chunk.tag === ANIMATION_SPEED_CHUNK && prefixes.includes(import_buffer10.Buffer.from(bytes).subarray(chunk.payloadOffset, chunk.payloadOffset + prefix2.length).toString("utf8"));
+}
+function animationSpeedRecords(bytes, format, container) {
+  if (format === "mdl") return (container || parseMdl(bytes)).tokens.filter((token2) => token2.kind === "line-comment" && prefixes.some((tag) => token2.raw.toString("utf8").startsWith(tag))).map((token2) => ({ start: token2.start, end: token2.end + (bytes[token2.end] === 13 ? bytes[token2.end + 1] === 10 ? 2 : 1 : bytes[token2.end] === 10 ? 1 : 0), payload: token2.raw }));
+  return (container || parseMdx(bytes)).chunks.filter((chunk) => isAnimationSpeedChunk(bytes, chunk)).map((chunk) => ({ start: chunk.offset, end: chunk.payloadOffset + chunk.declaredSize, payload: bytes.subarray(chunk.payloadOffset, chunk.payloadOffset + chunk.declaredSize) }));
+}
+function decodeRecord(record, format) {
+  const payload = import_buffer10.Buffer.from(record.payload);
+  if (payload.subarray(0, legacyPrefix.length).toString("utf8") === legacyPrefix) return JSON.parse(payload.subarray(legacyPrefix.length).toString("utf8"));
+  const compressed = format === "mdl" ? import_buffer10.Buffer.from(payload.subarray(prefix2.length).toString("utf8").trim(), "base64") : payload.subarray(prefix2.length);
+  return JSON.parse(import_buffer10.Buffer.from(gunzipSync(compressed)).toString("utf8"));
+}
+function readAnimationSpeed(input, format, model, container) {
+  const diagnostics = [], bytes = import_buffer10.Buffer.from(input);
+  for (const record of animationSpeedRecords(bytes, format, container)) {
+    let data;
+    try {
+      data = decodeRecord(record, format);
+    } catch {
+    }
+    if (!validData2(data)) {
+      diagnostics.push({ severity: "warning", code: "ANIMATION_SPEED_METADATA", message: "The MDLxL animation speed comment is invalid; its source bytes are retained." });
+      continue;
+    }
+    const { tracks, events } = timingRecords(model);
+    const find = (records, path) => records.find((record2) => JSON.stringify(record2.path) === JSON.stringify(path))?.value;
+    const resolvedTracks = data.tracks.map((record2) => ({ ...record2, value: find(tracks, record2.path) }));
+    const resolvedEvents = data.events.map((record2) => ({ ...record2, value: find(events, record2.path) }));
+    if (data.sequences.length !== model.Sequences.length || resolvedTracks.some((record2) => !record2.value || record2.frames.length !== record2.value.Keys.length || record2.frames.some((frame, i) => frame && frame.frame !== record2.value.Keys[i].Frame)) || resolvedEvents.some((record2) => !record2.value || record2.frames.length !== record2.value.EventTrack.length || record2.frames.some((frame, i) => !frame || frame.frame !== record2.value.EventTrack[i]))) {
+      diagnostics.push({ severity: "warning", code: "ANIMATION_SPEED_METADATA", message: "The MDLxL animation speed comment is invalid; its source bytes are retained." });
+      continue;
+    }
+    model[ANIMATION_SPEED_KEY] = { master: data.master };
+    model.Sequences.forEach((sequence, i) => {
+      if (data.sequences[i]) sequence[ANIMATION_SPEED_KEY] = data.sequences[i];
+      else delete sequence[ANIMATION_SPEED_KEY];
+    });
+    for (const { value } of tracks) for (const key of value.Keys) delete key[ANIMATION_SPEED_FRAME];
+    for (const record2 of resolvedTracks) record2.value.Keys.forEach((key, i) => {
+      if (record2.frames[i]) key[ANIMATION_SPEED_FRAME] = record2.frames[i];
+    });
+    for (const { value } of events) delete value[ANIMATION_SPEED_EVENTS];
+    for (const record2 of resolvedEvents) record2.value[ANIMATION_SPEED_EVENTS] = record2.frames;
+  }
+  return diagnostics;
+}
+function writeAnimationSpeed(input, format, model) {
+  const bytes = import_buffer10.Buffer.from(input), parts = [];
+  let cursor = 0;
+  for (const record of animationSpeedRecords(bytes, format)) {
+    let valid = false;
+    try {
+      valid = validData2(decodeRecord(record, format));
+    } catch {
+    }
+    if (!valid) continue;
+    parts.push(bytes.subarray(cursor, record.start));
+    cursor = record.end;
+  }
+  parts.push(bytes.subarray(cursor));
+  const body = import_buffer10.Buffer.concat(parts), data = animationSpeedData(model);
+  if (!data) return body;
+  const compressed = import_buffer10.Buffer.from(gzipSync(import_buffer10.Buffer.from(JSON.stringify(data), "utf8"), { level: 9, mtime: 0 }));
+  const text = format === "mdl" ? import_buffer10.Buffer.from(prefix2 + compressed.toString("base64") + "\n", "utf8") : import_buffer10.Buffer.concat([import_buffer10.Buffer.from(prefix2), compressed]);
+  if (format === "mdl") {
+    const bom = body.subarray(0, 3).equals(import_buffer10.Buffer.from([239, 187, 191])) ? 3 : 0;
+    return import_buffer10.Buffer.concat([body.subarray(0, bom), text, body.subarray(bom)]);
+  }
+  const header = import_buffer10.Buffer.alloc(8);
+  header.write(ANIMATION_SPEED_CHUNK, "ascii");
+  header.writeUInt32LE(text.length, 4);
+  const end = body.length - parseMdx(body).trailingBytes.length;
+  return import_buffer10.Buffer.concat([body.subarray(0, end), header, text, body.subarray(end)]);
+}
+
 // src/editor-document.js
 var V3 = (x = 0, y = 0, z = 0) => new Float32Array([x, y, z]);
 var clone = (value) => structuredClone(value);
@@ -6463,14 +7383,14 @@ var MDL_TO_KEY = Object.fromEntries(Object.entries(SECTION_TYPES).map(([k, v]) =
 var TEXTURE_SLOTS2 = ["TextureID", "NormalTextureID", "ORMTextureID", "EmissiveTextureID", "TeamColorTextureID", "ReflectionsTextureID"];
 var nodeCollections = (model) => Object.values(NODE_TYPES).flatMap(([key]) => model[key] || []);
 var fingerprint2 = (value) => JSON.stringify(value, (key, val) => {
-  if (key === GEOSET_TAB_KEY) return void 0;
+  if ([GEOSET_TAB_KEY, ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS].includes(key)) return void 0;
   if (ArrayBuffer.isView(val)) return { $type: val.constructor.name, $data: Array.from(val) };
   if (typeof val === "number" && !Number.isFinite(val)) return { $number: String(val) };
   return val;
 });
 var nodeCollectionKeys = new Set(Object.values(NODE_TYPES).map(([key]) => key));
 var ignoreHistoryAlias = (path) => path[0] === "Nodes" || path.length === 3 && nodeCollectionKeys.has(path[0]) && path[2] === "PivotPoint";
-var ignoreSerializationAlias = (path) => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === "Geosets" && path[2] === GEOSET_TAB_KEY;
+var ignoreSerializationAlias = (path) => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === "Geosets" && path[2] === GEOSET_TAB_KEY || path.some((key) => [ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS].includes(key));
 var pickSections = (model, keys) => Object.fromEntries([...keys].filter((key) => key !== "Nodes").map((key) => [key, model[key]]));
 function emptyModel(version = 800, name = "Untitled") {
   const model = {
@@ -6482,7 +7402,7 @@ function emptyModel(version = 800, name = "Untitled") {
   return model;
 }
 function scanMdlSections(input) {
-  const bytes = import_buffer10.Buffer.from(input);
+  const bytes = import_buffer11.Buffer.from(input);
   const sections = [];
   let start = -1, name = "", depth = 0, i = 0;
   while (i < bytes.length) {
@@ -6491,7 +7411,7 @@ function scanMdlSections(input) {
       i += 2;
       while (i < bytes.length && bytes[i] !== 10 && bytes[i] !== 13) i++;
     } else if (c === 47 && bytes[i + 1] === 42) {
-      const end = bytes.indexOf(import_buffer10.Buffer.from("*/"), i + 2);
+      const end = bytes.indexOf(import_buffer11.Buffer.from("*/"), i + 2);
       if (end < 0) throw new Error("Unterminated MDL block comment.");
       i = end + 2;
     } else if (c === 34) {
@@ -6633,7 +7553,7 @@ function normalizeModel(model, previous) {
 function surgicalMdl(original, sections, generated, keys) {
   const fresh = scanMdlSections(generated);
   const replacements = /* @__PURE__ */ new Map();
-  for (const key of keys) replacements.set(key, import_buffer10.Buffer.concat(fresh.filter((s) => s.key === key).flatMap((s) => [generated.subarray(s.start, s.end), import_buffer10.Buffer.from("\n")])));
+  for (const key of keys) replacements.set(key, import_buffer11.Buffer.concat(fresh.filter((s) => s.key === key).flatMap((s) => [generated.subarray(s.start, s.end), import_buffer11.Buffer.from("\n")])));
   const parts = [];
   const inserted = /* @__PURE__ */ new Set();
   let cursor = 0;
@@ -6647,8 +7567,8 @@ function surgicalMdl(original, sections, generated, keys) {
     cursor = section.end;
   }
   parts.push(original.subarray(cursor));
-  for (const [key, bytes] of replacements) if (!inserted.has(key) && bytes.length) parts.push(import_buffer10.Buffer.from("\n"), bytes);
-  const output = import_buffer10.Buffer.concat(parts);
+  for (const [key, bytes] of replacements) if (!inserted.has(key) && bytes.length) parts.push(import_buffer11.Buffer.from("\n"), bytes);
+  const output = import_buffer11.Buffer.concat(parts);
   return orderMdlNodes(output);
 }
 function orderMdlNodes(output) {
@@ -6662,13 +7582,13 @@ function orderMdlNodes(output) {
     cursor = section.end;
   });
   reordered.push(output.subarray(cursor));
-  return import_buffer10.Buffer.concat(reordered);
+  return import_buffer11.Buffer.concat(reordered);
 }
 function surgicalMdx(original, container, generated, keys) {
   const fresh = parseMdx(generated);
   if (fresh.hasErrors) throw new Error("Generated MDX has an invalid chunk structure.");
   const tags = new Set(keys.map((key) => SECTION_TYPES[key][1]));
-  const replacements = new Map([...tags].map((tag) => [tag, import_buffer10.Buffer.concat(fresh.chunks.filter((chunk) => chunk.tag === tag).map((chunk) => generated.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize)))]));
+  const replacements = new Map([...tags].map((tag) => [tag, import_buffer11.Buffer.concat(fresh.chunks.filter((chunk) => chunk.tag === tag).map((chunk) => generated.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize)))]));
   const inserted = /* @__PURE__ */ new Set();
   const parts = [original.subarray(0, 4)];
   for (const chunk of container.chunks) {
@@ -6680,7 +7600,7 @@ function surgicalMdx(original, container, generated, keys) {
   }
   for (const [tag, bytes] of replacements) if (!inserted.has(tag)) parts.push(bytes);
   parts.push(container.trailingBytes);
-  return import_buffer10.Buffer.concat(parts);
+  return import_buffer11.Buffer.concat(parts);
 }
 var EditorDocument = class _EditorDocument {
   constructor(input, name = "Untitled.mdl", options = {}) {
@@ -6701,6 +7621,7 @@ var EditorDocument = class _EditorDocument {
         }
         normalizeModel(this.model);
         this._sourceWarnings.push(...readGeosetTabs(this._original, this.format, this.model, this._container));
+        this._sourceWarnings.push(...readAnimationSpeed(this._original, this.format, this.model, this._container));
       } catch (error) {
         this.readOnly = true;
         this._sourceErrors.push({ severity: "error", code: "SEMANTIC_DECODE_FAILED", message: `Editing unavailable: ${error.message}. The original file can still be copied exactly.` });
@@ -6713,7 +7634,7 @@ var EditorDocument = class _EditorDocument {
     this._recoverySavedChanges = [];
   }
   _loadSource(input) {
-    this._original = typeof input === "string" ? import_buffer10.Buffer.from(input, "utf8") : import_buffer10.Buffer.from(input instanceof ArrayBuffer ? new Uint8Array(input) : input);
+    this._original = typeof input === "string" ? import_buffer11.Buffer.from(input, "utf8") : import_buffer11.Buffer.from(input instanceof ArrayBuffer ? new Uint8Array(input) : input);
     this.format = this._original.subarray(0, 4).toString("ascii") === "MDLX" ? "mdx" : "mdl";
     this._container = this.format === "mdx" ? parseMdx(this._original) : parseMdl(this._original);
     this.version = this._container.version;
@@ -6751,8 +7672,11 @@ var EditorDocument = class _EditorDocument {
   get _tabsChanged() {
     return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model));
   }
+  get _speedChanged() {
+    return JSON.stringify(animationSpeedData(this._savedModel)) !== JSON.stringify(animationSpeedData(this.model));
+  }
   get dirty() {
-    return this._changedKeys().length > 0 || this._tabsChanged;
+    return this._changedKeys().length > 0 || this._tabsChanged || this._speedChanged;
   }
   get canUndo() {
     return this._historyStore.stats.undoSteps > 0;
@@ -6782,7 +7706,7 @@ var EditorDocument = class _EditorDocument {
   }
   _unknownSections() {
     const known = new Set(Object.values(SECTION_TYPES).map((s) => s[1]));
-    return this.format === "mdx" ? [...new Set(this._container.chunks.filter((c) => !known.has(c.tag) && !isGeosetTabsChunk(this._original, c)).map((c) => c.tag))] : [...new Set(this._sections.filter((s) => !s.key).map((s) => s.name))];
+    return this.format === "mdx" ? [...new Set(this._container.chunks.filter((c) => !known.has(c.tag) && !isGeosetTabsChunk(this._original, c) && !isAnimationSpeedChunk(this._original, c)).map((c) => c.tag))] : [...new Set(this._sections.filter((s) => !s.key).map((s) => s.name))];
   }
   convertVersion(target) {
     if (this.readOnly) throw new Error("This document is read-only.");
@@ -6957,7 +7881,7 @@ var EditorDocument = class _EditorDocument {
     warnings.push(...stringIssues);
     const unknown = this._unknownSections();
     if (conversion && unknown.length) warnings.push(`Cannot convert unrecognized source data: ${unknown.join(", ")}.`);
-    return { format, conversion, exact: !conversion && changed.length === 0 && !this._tabsChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === "Info" ? "Model" : key), preservedUnknown: unknown, warnings, canSave: ["mdl", "mdx"].includes(format) && (!this.readOnly || !conversion && !changed.length && !this._tabsChanged) && !stringIssues.length && !(conversion && unknown.length) };
+    return { format, conversion, exact: !conversion && changed.length === 0 && !this._tabsChanged && !this._speedChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === "Info" ? "Model" : key), preservedUnknown: unknown, warnings, canSave: ["mdl", "mdx"].includes(format) && (!this.readOnly || !conversion && !changed.length && !this._tabsChanged && !this._speedChanged) && !stringIssues.length && !(conversion && unknown.length) };
   }
   serialize(format = this.format, { timings = {} } = {}) {
     Object.assign(timings, { serializationMs: 0, reparsingMs: 0, verificationMs: 0, errorFormattingMs: 0 });
@@ -6977,13 +7901,14 @@ var EditorDocument = class _EditorDocument {
         this._serializedStates.set(bytes, { model: clone(this.model), revision: this.revision });
         return bytes;
       };
-      if (impact.exact) return remember(this._original);
+      if (impact.exact && (this.readOnly || writeAnimationSpeed(this._original, format, this.model).equals(this._original))) return remember(this._original);
       if (!impact.conversion && !impact.changedSections.length) {
-        const output2 = writeGeosetTabs(this._original, format, this.model);
+        const output2 = writeAnimationSpeed(writeGeosetTabs(this._original, format, this.model), format, this.model);
         nextStage("reparsingMs");
         const reopened2 = openDocument(output2, `validation.${format}`);
         nextStage("verificationMs");
         if (reopened2.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened2.model))) throw new Error("Save verification failed: geoset tab metadata did not reopen.");
+        if (JSON.stringify(animationSpeedData(this.model)) !== JSON.stringify(animationSpeedData(reopened2.model))) throw new Error("Save verification failed: animation speed metadata did not reopen.");
         return remember(output2);
       }
       let saveModel = this.model;
@@ -6999,14 +7924,14 @@ var EditorDocument = class _EditorDocument {
       const animations = prepareGeosetAnimationColors(saveModel.GeosetAnims, format);
       const exportModel = format === "mdl" ? { ...saveModel, ParticleEmitterPopcorns: prepareMdlPopcornColors(saveModel.ParticleEmitterPopcorns), GeosetAnims: animations } : { ...saveModel, GeosetAnims: convertMdxGeosetColorTracks(animations), BindPoses: saveModel.BindPoses?.length ? saveModel.BindPoses : void 0 };
       const mdlModel = format === "mdl" ? { ...exportModel, Geosets: exportModel.Geosets.map((g) => ({ ...g, TVertices: g.TVertices.length ? g.TVertices : [new Float32Array()] })), CollisionShapes: exportModel.CollisionShapes.map((n) => [1, 3].includes(n.Shape) ? { ...n, Shape: 0 } : n) } : null;
-      let generated = format === "mdl" ? finishCompatibleMdl(import_buffer10.Buffer.from(emptyFaceGroups(generate(mdlModel)), "utf8"), { ...saveModel, GeosetAnims: animations }) : import_buffer10.Buffer.from(generateCompatibleMdx(exportModel));
+      let generated = format === "mdl" ? finishCompatibleMdl(import_buffer11.Buffer.from(emptyFaceGroups(generate(mdlModel)), "utf8"), { ...saveModel, GeosetAnims: animations }) : import_buffer11.Buffer.from(generateCompatibleMdx(exportModel));
       if (format === "mdl") generated = writeMdlUVSets(generated, scanMdlSections(generated), exportModel);
       generated = format === "mdl" ? writeMdlEventGlobalSequences(generated, scanMdlSections(generated), exportModel) : writeMdxEventGlobalSequences(generated, exportModel);
       if (format === "mdl") generated = orderMdlNodes(formatGeneratedMdl(generated));
       const sourceModel = this._recoverySavedChanges.length ? openDocument(this._original, this.name).model : this._savedModel;
       if (!impact.conversion) generated = format === "mdx" ? preserveMdxRecords(this._original, generated, sourceModel, saveModel, SECTION_TYPES) : preserveMdlRecords(this._original, generated, sourceModel, saveModel, SECTION_TYPES);
       const keys = saveModel !== this.model || this._recoverySavedChanges.length ? Object.keys(SECTION_TYPES).filter((key) => fingerprint2(sourceModel[key]) !== fingerprint2(saveModel[key])) : this._changedKeys();
-      const output = writeGeosetTabs(impact.conversion ? generated : format === "mdl" ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys), format, saveModel);
+      const output = writeAnimationSpeed(writeGeosetTabs(impact.conversion ? generated : format === "mdl" ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys), format, saveModel), format, saveModel);
       nextStage("reparsingMs");
       const reopened = openDocument(output, `validation.${format}`);
       nextStage("verificationMs");
@@ -7017,6 +7942,7 @@ var EditorDocument = class _EditorDocument {
       if (reopened.version !== this.version) throw new Error("Save verification failed: model version changed.");
       assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings });
       if (JSON.stringify(geosetTabsData(saveModel)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error("Save verification failed: geoset tab metadata changed.");
+      if (JSON.stringify(animationSpeedData(saveModel)) !== JSON.stringify(animationSpeedData(reopened.model))) throw new Error("Save verification failed: animation speed metadata changed.");
       for (const key of Object.keys(SECTION_TYPES)) if (Array.isArray(this.model[key]) && this.model[key].length !== reopened.model[key]?.length) throw new Error(`Save verification failed: ${key} count changed during serialization.`);
       for (let index2 = 0; index2 < this.model.Geosets.length; index2++) if (this.model.Geosets[index2].TVertices.length !== reopened.model.Geosets[index2].TVertices.length) throw new Error(`Save verification failed: Geoset ${index2} UV set count changed during serialization.`);
       const existingErrors = new Set(validateModel(this.model).filter((d) => d.severity === "error").map((d) => `${d.code}:${d.path}`));
@@ -7224,3 +8150,13 @@ function validateOptimizeXLCopies(payload) {
 0 && (module.exports = {
   validateOptimizeXLCopies
 });
+/*! Bundled license information:
+
+three/examples/jsm/libs/fflate.module.js:
+  (*!
+  fflate - fast JavaScript compression/decompression
+  <https://101arrowz.github.io/fflate>
+  Licensed under MIT. https://github.com/101arrowz/fflate/blob/master/LICENSE
+  version 0.8.2
+  *)
+*/

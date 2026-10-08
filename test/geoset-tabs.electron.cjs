@@ -118,6 +118,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for (const format of ['mdx', 'mdl']) {
       await page.keyboard.press('Control+Shift+s');
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
+      await page.waitForFunction(() => document.querySelector('[role="dialog"][aria-label="Save model"]') || !document.querySelector('[role="dialog"][aria-label="Save as"]'));
+      const saveOptions = page.getByRole('dialog', { name: 'Save model', exact: true });
+      if (await saveOptions.isVisible()) await saveOptions.getByRole('button', { name: 'Save', exact: true }).click();
       await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'hidden' });
       assert.ok(fs.existsSync(path.join(out, 'ui-tabs.' + format)));
     }

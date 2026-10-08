@@ -75,6 +75,8 @@ import { TEAM_COLORS } from '../src/team-colors.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { bindDropdownWheel } from '../src/dropdown-wheel.js';
 import { prepareModelSaveAsync } from './model-save.js';
+import { clearEditorData, EDITOR_DATA_SECTIONS } from '../src/editor-data.js';
+import SaveEditorData from './SaveEditorData.jsx';
 import { sampleTrack } from '../src/animation.js';
 import { buildPaintExportArtifact, buildPaintProjectArtifact } from '../src/paint-export.js';
 import { markPaintProjectSaved, restorePaintProject, travelPaintHistory } from '../src/paint-project.js';
@@ -239,6 +241,7 @@ export default function App() {
   const showGrid = overlays.grid, setShowGrid = value => changeOverlay('grid', value), showVertices = overlays.vertices, setShowVertices = value => changeOverlay('vertices', value);
   const portraitOverlays = { ...panelOverlays, grid: false, cameras: false };
   const [liveUV, setLiveUV] = useState(null), [saving, setSaving] = useState(false);
+  const [saveDataChoice, setSaveDataChoice] = useState(null);
   const savingRef = useRef(false);
   const liveMovementRevision = useRef(-1);
   const [recoveries, setRecoveries] = useState([]), [historyMB, setHistoryMB] = useState(512), [historySteps, setHistorySteps] = useState(10000), [anchor, setAnchor] = useState(''), [normalAngle, setNormalAngle] = useState(90), [gameDataPath, setGameDataPath] = useState('');
@@ -731,15 +734,26 @@ export default function App() {
         await loadTextures(records, target, { source: 'forge' });
       }
       if (missingForgeAssetPaths(target.assets, staged.model).length) throw Error('A Forge texture is missing. Load the model beside its MDLxL_Forge folder, or import the missing texture before saving.');
-      const {format,bytes,name} = await prepareModelSaveAsync(staged,requestedFormat,target.doc.name);
+      const prepared = await prepareModelSaveAsync(staged,requestedFormat,target.doc.name);
+      let removeData = false;
+      if (prepared.editorDataBytes > 512) {
+        removeData = await new Promise(resolve => setSaveDataChoice({ name: prepared.name, bytes: prepared.editorDataBytes, resolve }));
+        if (removeData === null) return false;
+      }
+      const { format, name } = prepared, bytes = removeData ? prepared.withoutEditorData : prepared.bytes;
       let savedName = name;
       if (window.desktop) { const result = await window.desktop.save({ bytes, name, path: target.path, format, saveAs:saveAs||format!==target.doc.format, forgeAssets:retainedForgeAssets(target.assets,staged.model) }); if (!result) return false; target.path = result.path; savedName = result.name; say(`Saved ${result.name}`); }
       else { const forgeAssets=retainedForgeAssets(target.assets,staged.model), blob=forgeAssets.length?forgeExportArchive(name,bytes,forgeAssets):new Blob([bytes]); const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = forgeAssets.length?name.replace(/\.(mdl|mdx)$/i,'')+'.zip':name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); say(`Downloaded ${name}`); }
       if (staged !== target.doc) target.doc.apply('Save UV texture previews', ['Geosets', 'Textures', 'Materials'], m => applyUVPreviews(m, pending));
+      if (removeData && !target.doc.readOnly) target.doc.apply('Remove MDLxL editor data', EDITOR_DATA_SECTIONS, clearEditorData);
       // Keep the target document's semantic serialization snapshot. Re-parsing
       // a staged document's bytes can differ in harmless object key order and
       // incorrectly leave an otherwise identical saved texture list dirty.
-      if (staged !== target.doc) target.doc.rememberSerializedSnapshot(bytes, staged.model);
+      if (staged !== target.doc) {
+        const savedModel = structuredClone(staged.model);
+        if (removeData) clearEditorData(savedModel);
+        target.doc.rememberSerializedSnapshot(bytes, savedModel);
+      }
       target.uvPreviews = {}; target.doc.markSaved(bytes, savedName);
       try { await rememberMotionSave(target, bytes, target.path, savedName); }
       catch (error) { say(`Model saved; Motion Inspector decisions could not follow this save: ${error.message}`, true); }
@@ -1343,7 +1357,7 @@ export default function App() {
       {mode === 'animation' && !cameraRotating && <Suspense fallback={<p>Loading controller…</p>}>
 
         {animationPanel === 'movement' ? !cameraRotating && <MovementController onOpenEmitter={openParticles} restPose={restPose} selectionByGeoset={validSelection} workplaneEnabled={workplaneEnabled} onWorkplaneEnabled={setWorkplaneEnabled} workplane={workplane} onWorkplane={setWorkplane} restrictions={restrictions} onRestrictions={setRestrictions} multiple={multipleNodes} onMultiple={setMultipleNodes} onVertexTransform={transform} globalSeqId={restPose ? null : globalSeqId} onTimelineChange={selectTimeline} highlightKeyframes={highlightKeyframes} onHighlightKeyframes={setHighlightKeyframes} highlightChain={highlightChain} onHighlightChain={changeHighlightChain} preferences={preferences} disabled={doc.readOnly || saving} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onEdit={edit} onSeek={setTime} onSequenceChange={selectSequence} playing={playing} onPlayingChange={setPlaying} transformMode={movementMode} onTransformMode={value => setWorkTool(value==='move'?'translate':value)} transformSpace={movementSpace} rotateOnOwnAxis={rotateOnOwnAxis} onTransformSpace={setMovementSpace} onRotateOnOwnAxis={setRotateOnOwnAxis} showNodes={showNodes} onShowNodes={setShowNodes} showParticles={preferences.graphics.particles} onShowParticles={showParticlePreview} onOpenNodeManager={openNodeManager} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
-          <AnimationController materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
+          <AnimationController Dialog={Dialog} materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
           {geosetPicker}
           <AnimationNodes model={model} revision={doc.revision} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{setMaterialVisibility(null);setSelectedNodeIds(ids);}}/>
 
@@ -1362,7 +1376,8 @@ export default function App() {
     {dialog?.type==='bitsAndParts' && <Suspense fallback={<div className="classic-modal">Loading BitsAndParts…</div>}><BitsAndParts model={model} selectionByGeoset={mode === 'vertices' ? validSelection : null} preferences={preferences} textureAssets={session.assets} teamColor={teamColor} onClose={()=>setDialog(null)} onCommit={importPart}/></Suspense>}
     {dialog?.type==='particles' && <Suspense fallback={<div className="classic-modal">Loading Particle Editor…</div>}><ParticleEditor onPlacedAssets={assets=>{changeOverlay('particles',true);session.assets=new Map([...session.assets,...assets]);refresh();}} doc={doc} revision={doc.revision} edit={edit} refresh={refresh} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} selectedNodeId={dialog.nodeId} attachmentNodeId={dialog.attachmentId} selectedGeometry={dialog.selection} sequenceIndex={sequence} previewFrame={time} onClose={()=>setDialog(null)} onNodeChange={id=>setSelectedNodeIds(id==null?[]:[id])}/></Suspense>}
     {dialog?.type==='shape' && <Suspense fallback={<div className="classic-modal">Loading shaping tools…</div>}><ShapingDialog preferences={preferences} model={model} selectedGeosets={[...selectable]} selectionByGeoset={validSelection} initialTool={dialog.tool} onClose={()=>setDialog(null)} onApply={async(options,selection)=>{const {shapeGeosetsWithSupport}=await import('../src/shaping-support.js');return edit('Shape geosets',['Geosets','Info'],m=>shapeGeosetsWithSupport(m,selection,options));}}/></Suspense>}
-    {dialog?.type==='saveFormat' && <Dialog title="Save as" onClose={()=>setDialog(null)} footer={<><button disabled={saving} onClick={async()=>{if(await save(true,'mdx'))setDialog(null);}}>Save MDX…</button><button disabled={saving} onClick={async()=>{if(await save(true,'mdl'))setDialog(null);}}>Save MDL…</button><button disabled={saving} onClick={()=>setDialog(null)}>Cancel</button></>}><p>Model version: {model.Version}</p><p>MDX saves the binary model. MDL saves editable text. Both preserve supported model data; unsupported conversion is blocked before writing.</p></Dialog>}
+    {dialog?.type==='saveFormat' && !saveDataChoice && <Dialog title="Save as" onClose={()=>setDialog(null)} footer={<><button disabled={saving} onClick={async()=>{if(await save(true,'mdx'))setDialog(null);}}>Save MDX…</button><button disabled={saving} onClick={async()=>{if(await save(true,'mdl'))setDialog(null);}}>Save MDL…</button><button disabled={saving} onClick={()=>setDialog(null)}>Cancel</button></>}><p>Model version: {model.Version}</p><p>MDX saves the binary model. MDL saves editable text. Both preserve supported model data; unsupported conversion is blocked before writing.</p></Dialog>}
+    {saveDataChoice && <SaveEditorData Dialog={Dialog} name={saveDataChoice.name} bytes={saveDataChoice.bytes} onChoose={value => { saveDataChoice.resolve(value); setSaveDataChoice(null); }}/>}
     {dialog?.type === 'recent' && <Dialog title="Recent Files" onClose={()=>setDialog(null)} footer={<><button disabled={!recentFiles.length} onClick={clearRecent}>Clear History</button><button onClick={()=>setDialog(null)}>Close</button></>}>{recentFiles.length ? recentFiles.map(path=><button key={path} title={path} onClick={()=>{setDialog(null);openRecent(path);}} style={{display:'block',width:'100%',textAlign:'left',overflowWrap:'anywhere'}}>{path}</button>) : <p>No recent files.</p>}</Dialog>}
     {context && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - (Number.isInteger(context.geosetIndex) ? 140 : 110)) }}>{[...(Number.isInteger(context.geosetIndex) ? [['Add to tab…', () => setDialog({ type: 'geosetTab', geosetIndex: context.geosetIndex, tabId: (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === geosetTab) ? geosetTab : model[GEOSET_TABS_KEY]?.[0]?.id })]] : []), ...(leaveVisibleAvailable && Number.isInteger(context.geosetIndex) ? [['Leave as visible', () => leaveGeosetVisible(context.geosetIndex)]] : []), ['Select all geosets', () => chooseSets(new Set(tabVisibleGeosets))], ['Clear geosets', () => chooseSets(new Set())], ['Invert geosets', () => chooseSets(new Set([...tabVisibleGeosets].filter(index => !selectable.has(index))))], ['Show all vertices', () => setHidden({})]].map(([label, run]) => <button data-warmkey={({'Select all geosets':'geosetsAll','Clear geosets':'geosetsClear','Invert geosets':'geosetsInvert','Show all vertices':'show'})[label]} role={label === 'Leave as visible' ? 'menuitemcheckbox' : 'menuitem'} aria-checked={label === 'Leave as visible' ? visibleOnly.has(context.geosetIndex) : undefined} disabled={label === 'Add to tab…' && (doc.readOnly || saving || !model[GEOSET_TABS_KEY]?.length)} key={label} onClick={run}>{label}</button>)}</div>}
     {dialog?.type === 'geosetTab' && <div className="geoset-tabs" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setDialog(null); }}><Dialog title="Add to tab" onClose={() => setDialog(null)} footer={<><button onClick={() => setDialog(null)}>Cancel</button><button disabled={doc.readOnly || saving || !dialog.tabId} onClick={() => { if (edit('Assign geoset tab', [GEOSET_TABS_KEY, 'Geosets'], current => assignGeosetTab(current, [dialog.geosetIndex], dialog.tabId)) !== false) setDialog(null); }}>Add</button></>}><select autoFocus aria-label="Geoset tab" value={dialog.tabId || ''} onChange={event => setDialog(previous => ({ ...previous, tabId: event.target.value }))}>{(model[GEOSET_TABS_KEY] || []).map(tab => <option key={tab.id} value={tab.id}>{tab.name}</option>)}</select></Dialog></div>}
