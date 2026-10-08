@@ -140,7 +140,7 @@ test('local GIFs use the former fixed 20 MiB budget at every quality and duratio
 });
 
 
-test('export profiles cap dimensions, preserve frame timing and reject Low Size duration overflow', { skip: process.platform !== 'win32' }, async t => {
+test('export profiles cap dimensions and preserve frame timing beyond five seconds', { skip: process.platform !== 'win32' }, async t => {
   const store=await fixture(t);
   for(const [exportTarget,width,height,quality] of [['low-size',800,800,'high'],[undefined,1000,500,'high'],[undefined,500,1000,'medium'],[undefined,720,360,'low']]){
     const {jobId}=await store.begin(1,{width,height,quality,loop:true,exportTarget});
@@ -157,10 +157,15 @@ test('export profiles cap dimensions, preserve frame timing and reject Low Size 
     assert.equal(decoded.frames,3);assert.equal(decoded.delay,100);
     await store.save(1,jobId);
   }
-  const {jobId}=await store.begin(1,{width:16,height:8,quality:'high',loop:true,exportTarget:'low-size'});
-  await store.frame(1,{jobId,width:16,height:8,time:0,buffer:frame(0)});
-  await assert.rejects(store.finish(1,{jobId,time:5010}),/Low Size GIF previews cannot be longer/);
-  assert.equal(store.jobs.has(jobId),false);
+  for(const exportTarget of ['low-size','low-size-main']){
+    const {jobId}=await store.begin(1,{width:16,height:8,quality:'low',loop:true,exportTarget});
+    await store.frame(1,{jobId,width:16,height:8,time:0,buffer:frame(0)});
+    await store.frame(1,{jobId,width:16,height:8,time:6000,buffer:frame(1)});
+    await store.finish(1,{jobId,time:7010});
+    const saved=await store.save(1,jobId);
+    assert.deepEqual(inspectGIF(await fs.readFile(saved.path)),{delay:7010,frames:2,loop:0});
+    assert.equal(store.jobs.has(jobId),false);
+  }
 });
 
 test('complex local GIF fits 20 MiB while keeping every frame, duration and loop', { skip: process.platform !== 'win32' }, async t => {

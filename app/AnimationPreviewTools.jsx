@@ -2,7 +2,7 @@ import { translate } from '../src/localization.js';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { CAPTURE_QUALITIES, normalizeCapture } from '../src/capture-settings.js';
 import { recordingTimeline } from './showcase-timeline.js';
-import { validateShowcaseExport, showcaseExportPreferences } from './showcase-export.js';
+import { showcaseExportPreferences } from './showcase-export.js';
 import { queueRecording, subscribeRecordings, recordingQueueSnapshot, retryRecordingSaves } from './preview-recording-queue.js';
 
 export default function AnimationPreviewTools({ active, sessionId, captureAPI, modelName, loop, length, crop, disabled, onStatus, onBusy, preferences, locked=false,recordingList=[],prepareTake,onTakeComplete,beforeBatch,afterBatch,exportTarget=null,onExportTarget,cropAspect,mainPicture=false }) {
@@ -31,7 +31,7 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   }
   function stop() { if(running.current){running.current.stop=true;running.current.finish?.();} }
   async function record(job,take) {
-    const {length,crop,cropAspect,mainPicture,preferences,loop,modelName}=take;validateShowcaseExport(mainPicture?'low-size-main':job.exportTarget,length);
+    const {length,crop,cropAspect,mainPicture,preferences,loop,modelName}=take;
     const settings=normalizeCapture(showcaseExportPreferences(preferences,mainPicture?'low-size-main':job.exportTarget).capture);
     let worker,jobId;
     const api=job.api, timing=recordingTimeline(length,settings.fps), quality=CAPTURE_QUALITIES[settings.recordingQuality];
@@ -72,6 +72,7 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
         api.beginRecording({live:true,duration:timing.duration,onFrame});
         timer=setTimeout(job.finish,Math.max(0,timing.duration-(performance.now()-started)));
       });
+      if(job.stop)return;
       status('finishing');
       let pendingFrame;
       async function acceptFrame(){
@@ -81,8 +82,10 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
         if(outcome.result.limit)throw Error(outcome.result.reason||'Recording reached the storage limit.');
       }
       for(let index=0;timing.time(index)<duration;index++){
+        if(job.stop){await acceptFrame();return;}
         const time=timing.time(index);
         await api.seekRecordingFrame(time);
+        if(job.stop){await acceptFrame();return;}
         api.copyVisibleFrame(canvas,crop);
         const pixels=context.getImageData(0,0,canvas.width,canvas.height);
         // Render the next frame while the previous frame is written losslessly.
@@ -92,7 +95,9 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
         if(mounted.current && index%5===0)setProgress('Capturing GIF frames… '+Math.min(100,Math.round(time/duration*100))+'%');
       }
       await acceptFrame();
+      if(job.stop)return;
       await api.seekRecordingFrame(duration);
+      if(job.stop)return;
       if(mounted.current)setProgress('Creating GIF…');
       const end=Math.max(20,duration);
       let result;
@@ -102,7 +107,7 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
         // preview immediately; its next take must never share this cleanup.
         jobId=null;return;
       } else {
-        const encoded=await request({type:'finish',time:end});status('saving');
+        const encoded=await request({type:'finish',time:end});if(job.stop)return;status('saving');
         result=await save({format:'gif',bytes:encoded.bytes,modelName});
       }
       if(!retained.current)latest.current.onStatus?.(result?'Saved '+result.path:'Saved recording');
@@ -113,10 +118,6 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   }
   async function start(){
     if(running.current||retained.current)return;
-    try{
-      if(recordingList.length)for(const item of recordingList){const setup=item.setup,portrait=setup.mode==='portrait';validateShowcaseExport(setup.mainPicture?'low-size-main':exportTarget,portrait?setup.portraitLength:setup.sequenceLength,portrait?setup.portraitPlaylist:setup.sequencePlaylist);}
-      else validateShowcaseExport(mainPicture?'low-size-main':exportTarget,length);
-    }catch(error){setError(error.message);return;}
     // Snapshot the list once: editing or completing one row cannot alter later takes.
     const plan=recordingList.slice(),job={stop:false,promise:null,api:captureAPI,exportTarget};running.current=job;
     setError('');setProgress('Preparing…');status('starting');
@@ -161,7 +162,7 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   return <div className="showcase-capture">
     <button className="showcase-record" disabled={!stoppable&&(state!=='idle'||!captureAPI||locked||(disabled&&!recordingList.length))} onClick={stoppable?stop:start}>{stoppable?'STOP':'RECORD'}</button>
     <div className="showcase-export-target" role="group" aria-label="GIF destination"><button disabled={state!=='idle'||locked} aria-pressed={exportTarget==='low-size'} onClick={()=>onExportTarget?.('low-size')}>Low Size</button></div>
-    <small className="showcase-export-note">{mainPicture?'Low Size Main Picture · 612 × 490 · 5s max · local GIF':exportTarget==='low-size'?'Low Size · 5s max · 30 FPS':'864 px max · ≤20 MiB · local GIF'}</small>
+    <small className="showcase-export-note">{mainPicture?'Low Size Main Picture · 612 × 490 · local GIF':exportTarget==='low-size'?'Low Size · 30 FPS':'864 px max · ≤20 MiB · local GIF'}</small>
     {state!=='idle'&&<div className="showcase-capture-status" role="status">{state==='retry'?'Save needs retry':state==='saving'?'Saving…':<>{translate(batchLabel)}{translate(progress)}</>}</div>}
     {background.pending>0&&<div className="showcase-capture-status" role="status">Making GIFs… {background.pending}</div>}
     {state==='retry'&&<button onClick={retry}>Retry Save</button>}
