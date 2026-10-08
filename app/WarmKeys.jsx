@@ -122,7 +122,7 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
       const matching = actions.filter(action => bindings[action.id]?.includes(chord));
       // Reject malformed persisted duplicate bindings instead of picking an arbitrary command.
       if (matching.length !== 1) return false;
-      const action = matching[0]; if (!canHandleHotkeyEvent(event, action)) return false;
+      const action = matching[0];
       const ownerDocument = event.target?.ownerDocument || document;
       const roots = controlRoots().filter(element => element.ownerDocument === ownerDocument);
       // A main application modal also blocks controls in the detached editor.
@@ -131,6 +131,9 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
       if (available.length && available.every(element => !enabled(element))) return false;
       const targets = available.filter(enabled);
       const target = targets.find(element => modal ? modal.contains(element) : !element.closest('[role="dialog"][aria-modal="true"]'));
+      // A dialog's local button owns its availability (and its own history).
+      // The main document may have nothing to undo while Forge has edits.
+      if (!canHandleHotkeyEvent(event, modal && target ? { ...action, enabled: true } : action)) return false;
       const canRun = (typeof action.run === 'function' || typeof dispatch === 'function' && !action.contextual) && (modal ? action.allowInModal === true || action.scope === modalScope : !action.scope || action.scope === scope || action.scope === 'global');
       if (!target && !canRun) return false;
       consume(event);

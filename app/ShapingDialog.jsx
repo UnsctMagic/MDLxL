@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { resolveShapeSelection, previewShape } from '../src/shaping.js';
 import { prepareShapeSupport } from '../src/shaping-support.js';
 import ForgeEditor from './ForgeEditor.jsx';
+import { SURFACE_COLORS } from './forge-surface-colors.js';
 import { transformVertices } from '../src/editor-commands.js';
 import './forge.css';
 
@@ -13,7 +14,7 @@ const TOOLS = [
   ['Roll', 'Wrap', 'curve', 'M52 32 C14 51 4 5 32 8 C53 10 46 33 28 27'],
   ['Taper', 'Taper', 'curve', 'M22 9 L42 9 L56 37 L8 37 Z'],
 ];
-export default function ShapingDialog({ model, selectedGeosets, selectionByGeoset = {}, initialTool = 'Bend', preferences, editorState, onClose, onApply, onApplyModel }) {
+export default function ShapingDialog({ model, selectedGeosets, selectionByGeoset = {}, initialTool = 'Bend', preferences, editorState, surfaceColors = SURFACE_COLORS, faceShades, onClose, onApply, onApplyModel }) {
   const [working, setWorking] = useState(model), [history, setHistory] = useState([]), [future, setFuture] = useState([]);
   const geosetIds = useMemo(() => selectedGeosets.filter(i => model.Geosets[i]), [model, selectedGeosets]);
   const frame = useMemo(() => {
@@ -53,6 +54,8 @@ export default function ShapingDialog({ model, selectedGeosets, selectionByGeose
 
   const shown = original ? model : preview.model;
   const previewModel = useMemo(() => ({ ...shown, Geosets: geosetIds.map(i => shown.Geosets[i]) }), [shown, geosetIds]);
+  const previewColors = useMemo(() => geosetIds.map(i => surfaceColors[i % surfaceColors.length]), [surfaceColors, geosetIds]);
+  const previewShades = useMemo(() => geosetIds.map(i => faceShades?.[i]), [faceShades, geosetIds]);
   const localSelection = Object.fromEntries(geosetIds.map((gi,i)=>[i,(picked[gi]||[]).filter(id=>id<previewModel.Geosets[i].Vertices.length/3)]));
   const select = next => { if (Object.entries(next).some(([i,ids])=>ids.some(id=>id>=working.Geosets[geosetIds[i]].Vertices.length/3))) {remember();setWorking(shown);setAmount(0);} setPicked(Object.fromEntries(geosetIds.map((gi,i)=>[gi,next[i]||[]]))); setMessage(''); };
   const snapshot = () => ({ working, picked, amount, tool, axis, direction, pivot, bendStyle, local, radius, support, affect });
@@ -68,8 +71,8 @@ export default function ShapingDialog({ model, selectedGeosets, selectionByGeose
       remember();setWorking(next);setAmount(0);setOriginal(false);setMessage('');
     } catch(e) { setMessage(e.message); }
   };
-  return <div className="forge-overlay"><section className="forge-shape-dialog shaping-simple" role="dialog" aria-modal="true" data-warmkey-scope="dialog" aria-label="Shape geosets"><header><img src="./classic/wc3-forge.gif" alt=""/><h2>MDLxL FORGE · SHAPE</h2><button onClick={onClose} aria-label="Close shaping tools">×</button></header>
-    <ForgeEditor model={previewModel} preferences={preferences} editorState={editorState} selection={localSelection} onSelectionChange={select} onTransform={transform} onUndo={()=>restore(false)} onRedo={()=>restore(true)} canUndo={history.length>0} canRedo={future.length>0} toolbar={<button aria-pressed={original} className={original?'active':''} onClick={()=>setOriginal(!original)}>Original</button>}
+  return <div className="forge-overlay shaping-overlay"><section className="forge-shape-dialog shaping-simple" role="dialog" aria-modal="true" data-warmkey-scope="dialog" aria-label="Shape geosets"><header><img src="./classic/wc3-forge.gif" alt=""/><h2>MDLxL FORGE · SHAPE</h2><button onClick={onClose} aria-label="Close shaping tools">×</button></header>
+    <ForgeEditor model={previewModel} preferences={preferences} editorState={editorState} surfaceColors={previewColors} faceShades={previewShades} selection={localSelection} onSelectionChange={select} onTransform={transform} onUndo={()=>restore(false)} onRedo={()=>restore(true)} canUndo={history.length>0} canRedo={future.length>0} toolbar={<button aria-pressed={original} className={original?'active':''} onClick={()=>setOriginal(!original)}>Original</button>}
       sidebar={<div className="forge-effect-controls">      <div className="shaping-tools" role="group" aria-label="Shape effect">{TOOLS.map(([label, next, style, path]) => <button key={label} className={tool === next && bendStyle === style ? 'active' : ''} aria-pressed={tool === next && bendStyle === style} onClick={() => chooseTool(next, style)}><svg viewBox="0 0 64 46" aria-hidden="true"><path d={path}/></svg>{label}</button>)}</div>
       <label className="shaping-amount">Amount<input aria-label="Amount" type="number" min={range[0]} max={range[1]} value={amount} onChange={e => changeAmount(+e.target.value)}/></label>
       <input type="range" min={range[0]} max={range[1]} step="0.5" value={amount} onChange={e => changeAmount(+e.target.value)} aria-label="Shaping amount"/>

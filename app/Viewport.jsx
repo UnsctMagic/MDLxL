@@ -846,7 +846,9 @@ export default function Viewport(inputProps) {
           const textured = p.mode === 'textured' && renderGraphics.textures;
           const map = !textured || textureInfo?.ReplaceableId === 1 ? null : textureInfo?.ReplaceableId === 2 ? state.teamGlow : state.textures.get(textureIndex) || state.checker;
           if (material.map !== map) { material.map = map; material.needsUpdate = true; }
-          material.color.set(textured ? textureInfo?.ReplaceableId === 1 || textureInfo?.ReplaceableId === 2 ? p.teamColor : 0xffffff : p.rgbPreview ? 0xffffff : COLORS[index % COLORS.length]);
+          material.color.set(textured ? textureInfo?.ReplaceableId === 1 || textureInfo?.ReplaceableId === 2 ? p.teamColor : 0xffffff : p.rgbPreview ? 0xffffff : p.surfaceColors?.[index] ?? COLORS[index % COLORS.length]);
+          const vertexColors = !textured && !!mesh.geometry.attributes.color;
+          if (material.vertexColors !== vertexColors) { material.vertexColors = vertexColors; material.needsUpdate = true; }
           material.userData.geosetTint.value.set(1, 1, 1);
           if ((p.rgbPreview || p.presentation === 'preview') && !pureWireframe) {
             const sampled = sampleGeosetAnimation(p.model, index, rgbState.frame, rgbState.sequenceIndex, rgbState.globalTime);
@@ -977,15 +979,18 @@ export default function Viewport(inputProps) {
       const geoset = model.Geosets[index], group = new THREE.Group(), geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(geoset.Vertices), 3).setUsage(THREE.DynamicDrawUsage));
       geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(geoset.Faces), 1));
+      const shades = props.faceShades?.[index];
+      if (shades?.length === geoset.Vertices.length) geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(shades), 3));
       if (geoset.Normals?.length === geoset.Vertices.length) geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(geoset.Normals), 3)); else geometry.computeVertexNormals();
       const layers = model.Materials?.[geoset.MaterialID]?.Layers?.length ? model.Materials[geoset.MaterialID].Layers : [{ TextureID: 0, Alpha: 1, Shading: 16 }];
       const meshes = [];
       for (let layerIndex = 0; layerIndex < layers.length; layerIndex++) {
         const layer = layers[layerIndex], layerGeometry = layerIndex === 0 ? geometry : new THREE.BufferGeometry();
-        if (layerIndex) { layerGeometry.setAttribute('position', geometry.attributes.position); layerGeometry.setAttribute('normal', geometry.attributes.normal); layerGeometry.setIndex(geometry.index); }
+        if (layerIndex) { layerGeometry.setAttribute('position', geometry.attributes.position); layerGeometry.setAttribute('normal', geometry.attributes.normal); if (geometry.attributes.color) layerGeometry.setAttribute('color', geometry.attributes.color); layerGeometry.setIndex(geometry.index); }
         const uv = geoset.TVertices?.[layer.CoordId || 0] || geoset.TVertices?.[0];
         layerGeometry.setAttribute('uv', new THREE.BufferAttribute(uv?.length ? new Float32Array(uv) : new Float32Array(geoset.Vertices.length / 3 * 2), 2));
         const material = layerMaterial(layer, shaded && graphics.lighting); material.polygonOffset = false;
+        material.flatShading = !!props.faceShades;
         // Match the animation renderer: coverage requires a multisampled canvas.
         // On a single-sample canvas it leaks fractional alpha as white cutout edges.
         material.alphaToCoverage = layer.FilterMode === 1 && !!state.renderer.getContext().getContextAttributes()?.antialias;
@@ -1018,7 +1023,7 @@ export default function Viewport(inputProps) {
       const saved = cameraMemory.current || latest.current.cameraHandoff?.current;
       if (saved && (latest.current.quadView || saved.view === latest.current.view || latest.current.cameraHandoff?.current === saved)) { if (latest.current.quadView) state.setView(saved.view); state.perspective.copy(saved.perspective); state.ortho.copy(saved.ortho); state.controls.target.copy(saved.target); if (saved.center) state.center.copy(saved.center); if (saved.radius) state.radius=saved.radius; state.resize(); state.controls.update(); }
     }
-  }, [model, revision, shaded, graphics.lighting, graphics.antialias]);
+  }, [model, revision, shaded, graphics.lighting, graphics.antialias, props.faceShades]);
 
   useEffect(() => {
     const state = runtime.current; if (!state) return;
