@@ -83,6 +83,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const menu = page.getByRole('dialog', { name: 'Adjust All Speed', exact: true });
     const warning = menu.locator('.ac-speed-warning');
     assert.match(await warning.innerText(), /MDLxL preserves original timing.*another editor may remove this data/);
+    assert.equal(await warning.evaluate(el => getComputedStyle(el).color), 'rgb(208, 0, 0)');
     assert.equal(await warning.evaluate(el => el.nextElementSibling.querySelector('input')?.getAttribute('aria-label')), 'Master Controller');
     const master = menu.getByRole('slider', { name: 'Master Controller', exact: true });
     assert.equal(await master.inputValue(), '100');
