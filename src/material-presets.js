@@ -17,7 +17,7 @@ export function materialPreset(model, materialID) {
     const tint = colorIndex(texture(model, layers[1]));
     if (tint >= 0) return { preset: 'Color Tint', tint };
   }
-  if (layers.length === 1 && texture(model, layers[0])?.Image && !texture(model, layers[0]).ReplaceableId) {
+  if (layers.length && layers.every(layer => texture(model, layer)?.Image && !texture(model, layer).ReplaceableId && (layer.FilterMode ?? 0) === (layers[0].FilterMode ?? 0))) {
     return { preset: MATERIAL_FILTER_MODES[layers[0].FilterMode ?? 0] || '', tint: 0 };
   }
   return { preset: '', tint: 0 };
@@ -35,14 +35,23 @@ export function applyMaterialPreset(model, materialID, preset, tint = 0) {
   if (!MATERIAL_PRESETS.includes(preset) && filterMode < 0) throw Error('Unknown material preset.');
   const material = model.Materials?.[materialID];
   if (!material) throw Error('Choose a material first.');
-  const base = material.Layers.find(layer => {
+  const isBase = layer => {
     if (typeof layer.TextureID !== 'number') return !!layer.TextureID?.Keys;
     const info = texture(model, layer);
     return info?.Image && !info.ReplaceableId && colorIndex(info) < 0;
-  });
+  };
+  const base = material.Layers.find(isBase);
   if (!base) throw Error('Choose a base texture for this material before applying a material preset.');
   if (filterMode >= 0) {
-    material.Layers = [{ ...structuredClone(base), FilterMode: filterMode }];
+    const layers = material.Layers;
+    // Direct filters replace the generated team/tint stack, but an authored
+    // image stack (including repeated glow passes) keeps every layer.
+    const teamStack = layers.length === 2 && texture(model, layers[0])?.ReplaceableId === 1 && layers[0].FilterMode === 0 && layers[1].FilterMode === 2;
+    const tintStack = layers.length === 3 && layers[0].FilterMode === 0 && layers[1].FilterMode === 3 && layers[2].FilterMode === 5 &&
+      JSON.stringify(layers[0].TextureID) === JSON.stringify(layers[2].TextureID) &&
+      (texture(model, layers[1])?.ReplaceableId === 1 || colorIndex(texture(model, layers[1])) >= 0);
+    if (teamStack || tintStack) material.Layers = [{ ...structuredClone(base), FilterMode: filterMode }];
+    else for (const layer of layers) if (isBase(layer)) layer.FilterMode = filterMode;
     return true;
   }
   const color = TEAM_COLORS[tint];
