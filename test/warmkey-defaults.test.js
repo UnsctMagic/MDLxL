@@ -43,6 +43,23 @@ test('new contextual codes avoid custom assignments; corrupted duplicate saved c
   assert.notEqual(repaired[0].defaultKeys[0], repaired[1].defaultKeys[0]);
 });
 
+test('Forge contextual controls drop generated codes but remain available for custom hotkeys', () => {
+  const actions = contextualWarmKeyDefaults([
+    ...COMMANDS,
+    { id: 'forge:shape:add:Cube', contextual: true, defaultCode: 'ISG', defaultKeys: [warmKeySequence('ISG')] },
+    { id: 'forge:effect:tool:Dome', contextual: true, defaultCode: 'WKY' },
+    { id: 'paint:custom:control', contextual: true, defaultCode: 'BCD' },
+  ]);
+  const bindings = effectiveBindings(actions, {});
+  assert.deepEqual(bindings['forge:shape:add:Cube'], []);
+  assert.deepEqual(bindings['forge:effect:tool:Dome'], []);
+  assert.deepEqual(bindings['paint:custom:control'], [warmKeySequence('BCD')]);
+  assert.deepEqual(bindings['forge:shape:extrude'], ['E']);
+  const assigned = assignHotkey({}, actions, 'forge:shape:add:Cube', 'F8');
+  assert.equal(assigned.ok, true);
+  assert.deepEqual(effectiveBindings(actions, assigned.hotkeys)['forge:shape:add:Cube'], ['F8']);
+});
+
 test('sequence normalization, persistence and assignment conflicts share the same canonical identity', () => {
   assert.equal(normalizeWarmKeySequence('alt + control + space > a09'), 'Ctrl+Alt+Space > A09');
   assert.equal(normalizeChord('Ctrl+Alt+Space > xyz'), 'Ctrl+Alt+Space > XYZ');
