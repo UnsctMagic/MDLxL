@@ -4,7 +4,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
  const root=process.cwd(),out=path.join(root,'out','particle-prototype','picture-'+Date.now()),profile=path.join(out,'profile');await fs.mkdir(profile,{recursive:true});
  let app;const errors=[];
  try{
-  app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
+  app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',...(process.env.MDLXL_ELECTRON_PATH?[]:[root])],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
   const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1100,760);w.setPosition(-3000,0);w.showInactive();});
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).waitFor();
@@ -12,8 +12,11 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await editor.getByRole('button',{name:'New',exact:true}).click();await page.getByRole('button',{name:'Soft sparks',exact:true}).click();await page.locator('.pe-library').waitFor({state:'hidden'});
   await editor.getByRole('button',{name:'Picture',exact:true}).click();await page.getByRole('button',{name:'Pause',exact:true}).click();
   const read=()=>page.evaluate(()=>{const el=document.querySelector('.pe-window');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState;if(v?.doc?.model&&v?.recipe)return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps};}throw Error('Lab missing');});
-  const runtime=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.native&&v?.controls){const p=v.native.particlesController.emitters[0];return {texture:p.props.TextureID,replaceable:p.props.ReplaceableId,images:v.native.model.Textures.map(t=>t.Image),count:p.particles.length};}}return null;});
+  const runtime=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.native&&v?.controls){const p=v.native.particlesController.emitters[0];return {texture:p.props.TextureID,replaceable:p.props.ReplaceableId,images:v.native.model.Textures.map(t=>t.Image),count:p.particles.length,camera:v.controls.object.position.toArray()};}}return null;});
   const original=await read();
+  const cameraBefore=(await runtime()).camera,canvas=page.locator('.pe-preview .game-preview-root canvas').first(),box=await canvas.boundingBox();
+  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+70,box.y+box.height/2+35,{steps:8});await page.mouse.up();
+  const cameraAfter=(await runtime()).camera;assert.ok(cameraAfter.some((value,index)=>Math.abs(value-cameraBefore[index])>0.001),'The normal mouse drag rotates the EMTR preview camera');
   await page.locator('.pe-picture-actions').getByRole('button',{name:'Team color',exact:true}).click();
   await page.locator('.pe-picture-actions').getByRole('button',{name:'Team glow',exact:true}).click();
   assert.equal((await read()).model.Textures.length,3);
@@ -31,15 +34,23 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.getByLabel('Search textures',{exact:true}).fill('GenericGlow64');
   const tile=page.locator('.tl-tile').filter({hasText:/GenericGlow64/i}).first();await tile.waitFor({timeout:60000});await tile.click();
   const use=page.getByRole('button',{name:'Use picture',exact:true});await use.waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('.tl-actions button')].some(b=>b.textContent==='Use picture'&&!b.disabled),null,{timeout:60000});
+  const nativePath=await library.locator('.tl-details > code').first().innerText();
   await page.screenshot({path:path.join(out,'library.png')});await use.click();await library.waitFor({state:'hidden'});
-  const imported=await read(),picture=imported.model.Textures.at(-1);assert.match(picture.Image,/MDLxL_Forge\\Particle_[a-f0-9]{32}\.(blp|dds|tga)$/);assert.equal(imported.model.ParticleEmitters2[0].ReplaceableId,0);assert.equal(imported.model.ParticleEmitters2[0].TextureID,1);
+  const imported=await read(),picture=imported.model.Textures.at(-1);assert.equal(picture.Image,nativePath);assert.equal(imported.model.ParticleEmitters2[0].ReplaceableId,0);assert.equal(imported.model.ParticleEmitters2[0].TextureID,1);
   await page.waitForFunction(()=>!document.querySelector('.pe-window .re-status')?.textContent.includes('Updating effect'));
   assert.equal((await runtime()).images[1],picture.Image);assert.ok((await runtime()).count>0);
   await page.screenshot({path:path.join(out,'picture.png')});
   await editor.getByRole('button',{name:'Save preset',exact:true}).click();await page.getByLabel('Preset name',{exact:true}).fill('Library picture proof');await page.getByRole('button',{name:'Save to My presets',exact:true}).click();await page.getByText('Saved Library picture proof',{exact:true}).waitFor();
-  const names=await fs.readdir(path.join(profile,'particles','mine'));const saved=JSON.parse(await fs.readFile(path.join(profile,'particles','mine',names.find(n=>n.endsWith('.json'))),'utf8'));assert.equal(saved.embeddedAssets.length,1);assert.equal(saved.embeddedAssets[0].path,picture.Image);assert.ok(saved.embeddedAssets[0].data.length>0);
+  const names=await fs.readdir(path.join(profile,'particles','mine'));const saved=JSON.parse(await fs.readFile(path.join(profile,'particles','mine',names.find(n=>n.endsWith('.json'))),'utf8'));assert.equal(saved.native.Textures[0].Image,nativePath);assert.equal(saved.embeddedAssets.length,0);
   await editor.getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await read()).model,original.model,'One undo removes the library picture and reference together');
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,out,checks:'Actual CASC texture library import, portable picture, native preview, team color/glow removal, switching back and undo'}));
+  const customName='OriginalSpark.tga',customFile=path.join(out,customName),{starterTextureAsset}=await import('../src/particle-starters.js');await fs.writeFile(customFile,starterTextureAsset().bytes);
+  await app.evaluate(({dialog},file)=>{global.__originalOpen=dialog.showOpenDialog;dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},customFile);
+  await page.getByRole('button',{name:'Load picture…',exact:true}).click();await app.evaluate(({dialog})=>{dialog.showOpenDialog=global.__originalOpen;delete global.__originalOpen;});
+  assert.equal((await read()).model.Textures.at(-1).Image,customName);
+  await editor.getByRole('button',{name:'Save preset',exact:true}).click();await page.getByLabel('Preset name',{exact:true}).fill('Original picture proof');await page.getByRole('button',{name:'Save to My presets',exact:true}).click();await page.getByText('Saved Original picture proof',{exact:true}).waitFor();
+  const personal=await Promise.all((await fs.readdir(path.join(profile,'particles','mine'))).filter(name=>name.endsWith('.json')).map(async name=>JSON.parse(await fs.readFile(path.join(profile,'particles','mine',name),'utf8'))));
+  const custom=personal.find(item=>item.name==='Original picture proof');assert.equal(custom.native.Textures[0].Image,customName);assert.equal(custom.embeddedAssets[0].path,customName);
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,out,checks:'Native and custom picture paths, preset storage, preview rotation by mouse drag, team color/glow removal, and undo'}));
  }catch(error){if(app){const page=await app.firstWindow();console.error((await page.locator('body').innerText()).slice(-1800));await page.screenshot({path:path.join(out,'failure.png')});}throw error;}
  finally{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
 })().catch(error=>{console.error(error);process.exit(1);});

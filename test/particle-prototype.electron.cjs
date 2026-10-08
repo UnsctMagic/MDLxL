@@ -197,14 +197,14 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await readLab()).model,beforeTeam.model);
     if(!await page.getByRole('button',{name:'Load picture…',exact:true}).isVisible())await page.getByText('Choose picture',{exact:true}).click();
     await page.getByRole('button',{name:'Load picture…',exact:true}).click();
-    await page.waitForFunction(()=>{let f=document.querySelector('.pe-window')[Object.keys(document.querySelector('.pe-window')).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.doc?.model?.Textures.some(t=>/Particle_[a-f0-9]{32}/.test(t.Image)))return true;});
+    await page.waitForFunction(()=>{let f=document.querySelector('.pe-window')[Object.keys(document.querySelector('.pe-window')).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.doc?.model?.Textures.some(t=>t.Image==='own-picture.tga'))return true;});
     await app.evaluate(({dialog})=>{dialog.showOpenDialog=global.__particleOpen;delete global.__particleOpen;});
     await page.locator('.pe-window').getByRole('button',{name:'Save preset',exact:true}).click();
     await page.getByLabel('Preset name',{exact:true}).fill('Portable picture sparks');
     await page.getByRole('button',{name:'Save to My presets',exact:true}).click();
     await page.getByText('Saved Portable picture sparks',{exact:true}).waitFor();
     const personal=fs.readdirSync(path.join(testLibrary,'mine')).map(f=>f.endsWith('.json')?JSON.parse(fs.readFileSync(path.join(testLibrary,'mine',f),'utf8')):null).find(r=>r?.name==='Portable picture sparks');
-    assert.equal(personal.embeddedAssets.length,1);assert.ok(personal.embeddedAssets[0].data.length>0);
+    assert.equal(personal.native.Textures.at(-1).Image,'own-picture.tga');assert.equal(personal.embeddedAssets.length,1);assert.equal(personal.embeddedAssets[0].path,'own-picture.tga');assert.ok(personal.embeddedAssets[0].data.length>0);
     console.log('Native blend comparisons, bounded grid correction and portable custom-picture save passed');
     await page.getByRole('button',{name:'Basics',exact:true}).click();
     await page.locator('.pe-window').getByRole('button',{name:'Library',exact:true}).click();
