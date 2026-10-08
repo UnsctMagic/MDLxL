@@ -2,6 +2,7 @@
 
 The previous version had an updater problem. This release is a fresh full download of MDLxL and includes a repaired updater for future releases. Download and extract the complete package from Low Polyworks.
 
+- 🔴 DIRECT DOWNLOAD REQUIRED: Download and extract the complete package from www.lowpolyworks.com/mdlxl. A bug in older versions makes in-app installation unreliable. This download includes the repaired updater for future updates.
 - Prevents an old editor session from opening while an update is being installed.
 - Preserves settings, personal libraries, saved files, and one previous version for reversion.
 - Includes extended Forge shape controls and Glow Up.

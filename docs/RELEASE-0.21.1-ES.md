@@ -2,6 +2,7 @@
 
 La versión anterior tenía un problema con el actualizador. Esta versión se ofrece como una nueva descarga completa de MDLxL e incluye un actualizador reparado para futuras versiones. Descarga y extrae el paquete completo desde Low Polyworks.
 
+- 🔴 DESCARGA DIRECTA NECESARIA: Descarga y extrae el paquete completo desde www.lowpolyworks.com/mdlxl. Un error en versiones anteriores hace que la instalación desde el programa no sea fiable. Este paquete incluye el actualizador reparado para futuras actualizaciones.
 - Impide que se abra una sesión antigua del editor mientras se instala una actualización.
 - Conserva los ajustes, las bibliotecas personales, los archivos guardados y una versión anterior para restaurarla.
 - Incluye controles de formas de Forge ampliados y Glow Up.
