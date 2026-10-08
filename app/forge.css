@@ -60,6 +60,11 @@
 .forge-draft-shapes i{display:inline-block;width:9px;height:9px;margin-right:5px;border:1px solid var(--ui-border)}
 .forge-edit-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-bottom:12px}
 .forge-edit-tools button:last-child{grid-column:1/-1}
+.forge-selection-scope,.forge-transform-direction,.forge-object-actions{display:flex;gap:4px;margin-bottom:10px}
+.forge-selection-scope button,.forge-transform-direction button{flex:1;padding:2px 3px;font-size:11px}
+.forge-selection-size{margin:0 0 8px!important;font-size:11px!important;font-variant-numeric:tabular-nums}
+.forge-object-actions{margin-top:12px}
+.forge-add-palette .forge-shape-gallery{margin-top:8px}
 .forge-live-adjustment{margin-bottom:12px}
 .forge-live-adjustment>span{display:block;margin-bottom:6px;color:var(--ui-muted)}
 .forge-live-adjustment>div{display:flex;align-items:center;gap:5px}

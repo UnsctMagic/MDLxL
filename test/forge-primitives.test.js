@@ -5,6 +5,16 @@ import { thumperImage, THUMPER_TEXTURE } from '../src/forge-thumper.js';
 import { commitForge } from '../src/forge.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 
+test('Forge editor starters use Z-up height and preserve corner UVs', () => {
+  const options = { width: 240, height: 140, depth: 160, position: [10, 20, 30] }, original = buildForgePrimitive(options).geosets[0], editor = buildForgePrimitive({ ...options, zUp: true }).geosets[0];
+  const bounds = [0, 1, 2].map(axis => { const values = Array.from(editor.Vertices).filter((_, i) => i % 3 === axis); return [Math.min(...values), Math.max(...values)]; });
+  assert.deepEqual(bounds, [[-110, 130], [-60, 100], [-40, 100]]);
+  assert.deepEqual(editor.TVertices, original.TVertices);
+  assert.deepEqual(editor.Faces, original.Faces);
+  const plane = buildForgePrimitive({ shape: 'Plane', zUp: true }).geosets[0];
+  assert.ok(Array.from(plane.Normals).filter((_, i) => i % 3 === 1).every(n => Math.abs(n + 1) < 1e-6), 'flat shapes face the editor front view');
+});
+
 test('all primitives stay modest, have usable UV triangles and regular geometry at every complexity', () => {
   for (const shape of FORGE_SHAPES) {
     let previous = 0;

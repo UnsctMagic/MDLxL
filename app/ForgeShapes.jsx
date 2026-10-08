@@ -5,7 +5,7 @@ import { thumperImage, THUMPER_TEXTURE, THUMPER_COLORS } from '../src/forge-thum
 import { textureFromAsset } from './Viewport.jsx';
 import { encodeForgeTga } from '../src/forge.js';
 import ForgePreview, { forgeShapeColor } from './ForgePreview.jsx';
-import { createForgeShape, forgeShapeMesh, forgeFaceNormal, forgeSelectionCenter, forgeSelectionNormal, transformForgeSelection, extrudeForgeFaces, insetForgeFaces } from '../src/forge-shape-editing.js';
+import { createForgeShape, forgeShapeMesh, forgeFaceNormal, forgeEdgeKey, forgeSelectionVertices, forgeSelectionCenter, forgeSelectionNormal, transformForgeSelection, extrudeForgeFaces, insetForgeFaces } from '../src/forge-shape-editing.js';
 const SHAPE_AXES = { horizontal: 0, vertical: 2, depth: 1, depthSign: -1 };
 
 // Small, static previews use the same geometry as the shape being added.
@@ -37,9 +37,10 @@ function ShapeThumbnail({ shape }) {
 export default function ForgeShapes({ modelPath, preferences, onClose, onCommit, onBusyChange }) {
   const [settings, setSettings] = useState(PRIMITIVE_DEFAULTS), [wire, setWire] = useState(false), [checker, setChecker] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [stock, setStock] = useState(null), [textureError, setTextureError] = useState('');
-  const [draft, setDraft] = useState({ shapes: [], selection: {}, mode: 'Shape' }), [phase, setPhase] = useState('create'), [tool, setTool] = useState('Move');
+  const [draft, setDraft] = useState({ shapes: [], selection: {}, mode: 'Shape' }), [tool, setTool] = useState('Move'), [axis, setAxis] = useState('View'), [frame, setFrame] = useState(0);
   const [adjustment, setAdjustment] = useState(0), [historySize, setHistorySize] = useState([0, 0]);
-  const current = useRef(draft), history = useRef([]), future = useRef([]), gesture = useRef(), nextId = useRef(1); current.current = draft;
+  const current = useRef(draft), history = useRef([]), future = useRef([]), gesture = useRef(), nextId = useRef(1), viewBasis = useRef({ up: [0, 0, 1], normal: [0, -1, 0] }); current.current = draft;
+  const phase = draft.shapes.length ? 'edit' : 'create';
   const helmet = useMemo(thumperImage, []), isThumper = settings.shape === 'ThumperXL';
   useEffect(() => {
     let active = true;
@@ -56,12 +57,12 @@ export default function ForgeShapes({ modelPath, preferences, onClose, onCommit,
     return () => { active = false; };
   }, [modelPath]);
   const setting = (key, value) => setSettings(s => ({ ...s, [key]: value }));
-  const preview = useMemo(() => { try { return { mesh: buildForgePrimitive(settings) }; } catch (e) { return { error: e.message }; } }, [settings]);
+  const preview = useMemo(() => { try { return { mesh: buildForgePrimitive({ ...settings, zUp: true }) }; } catch (e) { return { error: e.message }; } }, [settings]);
   const record = before => { history.current.push(before); if (history.current.length > 80) history.current.shift(); future.current = []; setHistorySize([history.current.length, 0]); };
   const update = next => { current.current = next; setDraft(next); };
   const undo = redo => {
     const from = redo ? future.current : history.current, to = redo ? history.current : future.current, previous = from.pop();
-    if (!previous) return; to.push(current.current); update(previous); setPhase(previous.shapes.length ? 'edit' : 'create'); setError(''); setHistorySize([history.current.length, future.current.length]);
+    if (!previous) return; to.push(current.current); update(previous); setError(''); setHistorySize([history.current.length, future.current.length]);
   };
   const readySelection = (before, value) => {
     const active = before.shapes.filter(s => before.selection[s.id]?.length), shapes = active.length ? active : before.shapes.slice(-1);
@@ -74,13 +75,24 @@ export default function ForgeShapes({ modelPath, preferences, onClose, onCommit,
     }
     return active.length ? before : { ...before, mode: 'Shape', selection: { [shapes[0].id]: ['shape'] } };
   };
-  const chooseTool = value => { update(readySelection(current.current, value)); setTool(value); setAdjustment(0); setError(''); };
+  const chooseTool = value => { update(readySelection(current.current, value)); setTool(value); setAxis(value === 'Scale' ? 'All' : 'View'); setAdjustment(0); setError(''); };
+  const chooseMode = mode => {
+    const before = current.current, active = before.shapes.filter(s => before.selection[s.id]?.length), shapes = active.length ? active : before.shapes.slice(-1);
+    const selection = Object.fromEntries(shapes.map(shape => {
+      if (mode === 'Shape') return [shape.id, ['shape']];
+      const face = [...shape.faces].sort((a, b) => forgeFaceNormal(shape, b)[2] - forgeFaceNormal(shape, a)[2])[0];
+      return [shape.id, [mode === 'Faces' ? face.id : forgeEdgeKey(face.vertices[0], face.vertices[1])]];
+    }));
+    update({ ...before, mode, selection });
+    if (mode !== 'Faces' && ['Extrude', 'Inset'].includes(tool)) chooseTool('Move');
+    setError('');
+  };
   const onPick = (id, part, add, mode = 'Faces') => {
     if (!id) return current.current;
     const before = current.current, keep = add && before.mode === mode, selected = keep ? [...(before.selection[id] || [])] : [];
     if (add && selected.includes(part)) selected.splice(selected.indexOf(part), 1); else selected.push(part);
     const next = { ...before, mode, selection: { ...(keep ? before.selection : {}), [id]: selected } };
-    update(next); setPhase('edit'); setError(''); return next;
+    update(next); setError(''); return next;
   };
   const operate = (before, values) => ({ ...before, shapes: before.shapes.map(shape => {
     const selected = before.selection[shape.id]; if (!selected?.length) return shape;
@@ -101,29 +113,56 @@ export default function ForgeShapes({ modelPath, preferences, onClose, onCommit,
   const cancel = () => { const before = gesture.current; gesture.current = null; if (before) update(before); setAdjustment(0); setError(''); };
   const adjust = value => {
     if (!gesture.current) begin();
-    const before = gesture.current, center = forgeSelectionCenter(before.shapes, before.selection, before.mode), points = before.shapes.filter(s => before.selection[s.id]?.length).flatMap(s => s.vertices);
+    const before = gesture.current, center = forgeSelectionCenter(before.shapes, before.selection, before.mode), points = before.shapes.flatMap(s => forgeSelectionVertices(s, before.selection[s.id], before.mode).map(id => s.vertices[id]));
     const size = Math.max(1, ...[0, 1, 2].map(a => { const bounds = points.reduce(([min, max], p) => [Math.min(min, p[a]), Math.max(max, p[a])], [Infinity, -Infinity]); return bounds[1] - bounds[0]; })), values = { center };
-    if (tool === 'Move') values.translation = [0, 0, value * size / 100];
+    if (tool === 'Move') values.translation = (typeof axis === 'number' ? [0, 1, 2].map(a => a === axis ? 1 : 0) : viewBasis.current.up).map(n => n * value * size / 100);
     if (tool === 'Extrude') values.translation = forgeSelectionNormal(before.shapes, before.selection).map(n => n * value * size / 100);
     if (tool === 'Inset') values.inset = value * size / 400;
-    if (tool === 'Scale') values.scale = [1, 1, 1].map(() => 2 ** (value / 50));
-    if (tool === 'Rotate') values.quaternion = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), value * Math.PI / 180).toArray();
+    if (tool === 'Scale') values.scale = [0, 1, 2].map(a => typeof axis !== 'number' || a === axis ? 2 ** (value / 50) : 1);
+    if (tool === 'Rotate') values.quaternion = new Quaternion().setFromAxisAngle(new Vector3(...(typeof axis === 'number' ? [0, 1, 2].map(a => a === axis ? 1 : 0) : viewBasis.current.normal)), value * Math.PI / 180).toArray();
     setAdjustment(value); transform(values);
   };
-  const addShape = () => {
-    if (phase !== 'create') { setPhase('create'); setError(''); return; }
+  const besideOffset = (points, shapes) => {
+    const right = new Vector3(...viewBasis.current.up).cross(new Vector3(...viewBasis.current.normal)).normalize().toArray(), project = p => p.reduce((n, v, a) => n + v * right[a], 0);
+    const bounds = points.reduce(([min, max], p) => [Math.min(min, project(p)), Math.max(max, project(p))], [Infinity, -Infinity]), edge = shapes.reduce((max, s) => s.vertices.reduce((max, p) => Math.max(max, project(p)), max), -Infinity);
+    return right.map(n => n * (edge - bounds[0] + Math.max(10, (bounds[1] - bounds[0]) * .15)));
+  };
+  const placeAlongside = (shape, before) => {
+    if (!before.shapes.length) return shape;
+    const center = forgeSelectionCenter(before.shapes, before.selection, before.mode), shapeCenter = forgeSelectionCenter([shape], { [shape.id]: ['shape'] }, 'Shape');
+    const aligned = shape.vertices.map(p => p.map((n, a) => n + center[a] - shapeCenter[a])), delta = besideOffset(aligned, before.shapes);
+    return { ...shape, vertices: aligned.map(p => p.map((n, a) => n + delta[a])) };
+  };
+  const addShape = name => {
     try {
-      const shape = createForgeShape(preview.mesh, { id: nextId.current++, name: settings.shape, texturePath: isThumper ? THUMPER_TEXTURE : PRIMITIVE_TEXTURE });
-      record(current.current); update({ shapes: [...draft.shapes, shape], selection: { [shape.id]: ['shape'] }, mode: 'Shape' }); setPhase('edit'); chooseTool('Move'); setError('');
+      const shapeName = typeof name === 'string' ? name : settings.shape, before = current.current, mesh = buildForgePrimitive({ ...settings, shape: shapeName, zUp: true });
+      const shape = placeAlongside(createForgeShape(mesh, { id: nextId.current++, name: shapeName, texturePath: shapeName === 'ThumperXL' ? THUMPER_TEXTURE : PRIMITIVE_TEXTURE }), before);
+      setting('shape', shapeName); record(before); update({ shapes: [...before.shapes, shape], selection: { [shape.id]: ['shape'] }, mode: 'Shape' }); chooseTool('Move'); setFrame(n => n + 1); setError('');
     } catch (e) { setError(e.message); }
+  };
+  const duplicate = () => {
+    const before = current.current, originals = before.shapes.filter(s => before.selection[s.id]?.length); if (!originals.length) return;
+    const delta = besideOffset(originals.flatMap(s => s.vertices), before.shapes), copies = originals.map(original => ({ ...structuredClone(original), id: nextId.current++, committed: false, vertices: original.vertices.map(p => p.map((n, a) => n + delta[a])) })), shapes = [...before.shapes, ...copies];
+    record(before); update({ shapes, mode: 'Shape', selection: Object.fromEntries(copies.map(s => [s.id, ['shape']])) }); chooseTool('Move'); setFrame(n => n + 1);
+  };
+  const remove = () => {
+    const before = current.current, shapes = before.shapes.flatMap(shape => {
+      const selected = before.selection[shape.id]; if (!selected?.length) return [shape]; if (before.mode === 'Shape') return [];
+      const faces = shape.faces.filter(face => before.mode === 'Faces' ? !selected.includes(face.id) : !face.vertices.some((id, i) => selected.includes(forgeEdgeKey(id, face.vertices[(i + 1) % face.vertices.length]))));
+      return faces.length ? [{ ...shape, faces, committed: false }] : [];
+    });
+    if (shapes.length === before.shapes.length && shapes.every((s, i) => s === before.shapes[i])) return;
+    record(before); update({ shapes, mode: 'Shape', selection: shapes.length ? { [shapes.at(-1).id]: ['shape'] } : {} }); chooseTool('Move');
   };
   const commit = () => { update({ ...draft, shapes: draft.shapes.map(s => ({ ...s, committed: true })) }); setError(''); };
   const entries = useMemo(() => {
-    const shapes = [...draft.shapes]; if (phase === 'create' && preview.mesh) shapes.push(createForgeShape(preview.mesh, { id: 0, name: settings.shape }));
+    const shapes = [...draft.shapes]; if (!shapes.length && preview.mesh) shapes.push(createForgeShape(preview.mesh, { id: 0, name: settings.shape }));
     return shapes.map(shape => { const mesh = forgeShapeMesh(shape); return { shape, geoset: mesh.geosets[0], faceIds: mesh.faceIds }; });
   }, [draft.shapes, phase, preview.mesh]);
   const geosets = useMemo(() => entries.map(e => e.geoset), [entries]);
   const pickedCount = Object.values(draft.selection).reduce((n, ids) => n + ids.length, 0);
+  const selectedSize = [0, 1, 2].map(a => { const points = draft.shapes.flatMap(s => forgeSelectionVertices(s, draft.selection[s.id], draft.mode).map(id => s.vertices[id][a])); return points.length ? points.reduce((max, n) => Math.max(max, n), -Infinity) - points.reduce((min, n) => Math.min(min, n), Infinity) : 0; });
+  const gallery = <div className="forge-shape-gallery" role="group" aria-label="Shape">{FORGE_SHAPES.map(shape => <button key={shape} aria-label={shape} title={`Add ${shape}`} onClick={() => addShape(shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div>;
   const keys = e => {
     if (gesture.current) return;
     if ((e.ctrlKey || e.metaKey) && ['z', 'y'].includes(e.key.toLowerCase()) && (e.target.type === 'range' || !['INPUT', 'TEXTAREA'].includes(e.target.tagName))) { e.preventDefault(); e.stopPropagation(); undo(e.key.toLowerCase() === 'y' || e.shiftKey); return; }
@@ -139,20 +178,25 @@ export default function ForgeShapes({ modelPath, preferences, onClose, onCommit,
     } catch (e) { setError(e.message); } finally { setBusy(false); onBusyChange(false); }
   };
   return <div className="forge-shape-workspace" onKeyDown={keys}><div className="forge-shape-body forge-primitives"><aside>
-    {!!draft.shapes.length && <div className="forge-draft-shapes" role="group" aria-label="Forge shapes">{draft.shapes.map(shape => <button key={shape.id} className={draft.selection[shape.id]?.length ? 'active' : ''} aria-label={`Edit ${shape.name} ${shape.id}`} onClick={e => { const before = current.current; update({ ...before, mode: 'Shape', selection: { ...(e.shiftKey && before.mode === 'Shape' ? before.selection : {}), [shape.id]: ['shape'] } }); setPhase('edit'); chooseTool(['Extrude', 'Inset'].includes(tool) ? 'Move' : tool); }}><i style={{ background: forgeShapeColor(shape.id) }}/>{shape.name} {shape.id}{!shape.committed && <span> •</span>}</button>)}</div>}
+    {!!draft.shapes.length && <div className="forge-draft-shapes" role="group" aria-label="Forge shapes">{draft.shapes.map(shape => <button key={shape.id} className={draft.selection[shape.id]?.length ? 'active' : ''} aria-label={`Edit ${shape.name} ${shape.id}`} onClick={e => { const before = current.current; update({ ...before, mode: 'Shape', selection: { ...(e.shiftKey && before.mode === 'Shape' ? before.selection : {}), [shape.id]: ['shape'] } }); chooseTool(['Extrude', 'Inset'].includes(tool) ? 'Move' : tool); }}><i style={{ background: forgeShapeColor(shape.id) }}/>{shape.name} {shape.id}{!shape.committed && <span> •</span>}</button>)}</div>}
     {phase === 'create' ? <>
-    <div className="forge-shape-gallery" role="group" aria-label="Shape">{FORGE_SHAPES.map(shape => <button key={shape} aria-label={shape} aria-pressed={settings.shape === shape} className={settings.shape === shape ? 'active' : ''} onClick={() => setting('shape', shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div><div className="forge-dimensions">
+    {gallery}<div className="forge-dimensions">
     {['width', 'height', ...(FLAT_FORGE_SHAPES.includes(settings.shape) ? [] : ['depth'])].map(key => <label key={key}>{key[0].toUpperCase() + key.slice(1)}<input aria-label={key[0].toUpperCase() + key.slice(1)} type="number" min="0.01" max="100000" value={settings[key]} onChange={e => setting(key, +e.target.value)}/></label>)}
     {FLAT_FORGE_SHAPES.includes(settings.shape) && <label>Thickness<input aria-label="Shape thickness" type="number" min="0" max="100000" step="0.5" value={settings.thickness} onChange={e => setting('thickness', +e.target.value)}/></label>}
     {settings.shape === 'Torus' && <label>Thickness (%)<input aria-label="Tube thickness" type="number" min="5" max="45" value={settings.tube} onChange={e => setting('tube', +e.target.value)}/></label>}
     </div>{settings.shape !== 'Plane' && !isThumper && <><label>Detail<strong>{settings.complexity} / 4</strong></label><input aria-label="Shape complexity" type="range" min="1" max="4" step="1" value={settings.complexity} onChange={e => setting('complexity', +e.target.value)}/></>}
     <details><summary>Placement</summary>{['position', 'rotation'].map(key => <div key={key}><p>{key === 'position' ? 'Position' : 'Rotation (degrees)'}</p>{['X', 'Y', 'Z'].map((axis, i) => <label key={axis}>{axis}<input aria-label={`Shape ${key} ${axis}`} type="number" value={settings[key][i]} onChange={e => setting(key, settings[key].map((n, j) => j === i ? +e.target.value : n))}/></label>)}</div>)}</details></> : phase === 'edit' ? <>
+    <div className="forge-selection-scope" role="group" aria-label="Work on">{[['Shape', 'Whole'], ['Faces', 'Face'], ['Edges', 'Edge']].map(([mode, label]) => <button key={mode} className={draft.mode === mode ? 'active' : ''} aria-pressed={draft.mode === mode} onClick={() => chooseMode(mode)}>{label}</button>)}</div>
     <div className="forge-edit-tools" role="group" aria-label="Shape controls">{['Move', 'Scale', 'Rotate', 'Extrude', 'Inset'].map((value, i) => <button key={value} title={`${value} (${['G', 'S', 'R', 'E', 'I'][i]}) · drag the shape or the slider`} aria-pressed={tool === value} className={tool === value ? 'active' : ''} onClick={() => chooseTool(value)}>{value}</button>)}</div>
+    {!['Extrude', 'Inset'].includes(tool) && <div className="forge-transform-direction" role="group" aria-label="Direction">{[[tool === 'Scale' ? 'All' : 'View', tool === 'Scale' ? 'All' : 'Free'], [0, 'Width'], [1, 'Depth'], [2, 'Height']].map(([value, label]) => <button key={value} className={axis === value ? 'active' : ''} aria-pressed={axis === value} onClick={() => { setAxis(value); setAdjustment(0); }}>{label}</button>)}</div>}
     <div className="forge-live-adjustment"><span>{tool} · {draft.mode === 'Shape' ? 'whole shape' : draft.mode === 'Edges' ? 'edge' : pickedCount > 1 ? `${pickedCount} faces` : 'face'}</span><div><button aria-label={`Less ${tool.toLowerCase()}`} onClick={() => { begin(); adjust(-10); end(); }}>−</button><input aria-label="Shape adjustment" type="range" min="-100" max="100" value={adjustment} onPointerDown={begin} onChange={e => adjust(+e.target.value)} onPointerUp={end} onPointerCancel={cancel} onBlur={() => gesture.current && end()} onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); } }} onKeyUp={end}/><button aria-label={`More ${tool.toLowerCase()}`} onClick={() => { begin(); adjust(10); end(); }}>+</button></div></div>
-    <p className="forge-hint">Drag to {tool.toLowerCase()}. Click a face or edge to work on it.<br/>Shift adds to selection. Alt-drag rotates the view.</p>
+    <p className="forge-selection-size" title="Width × depth × height">{selectedSize.map(n => Math.round(n * 10) / 10).join(' × ')}</p>
+    <p className="forge-hint">Drag to {tool.toLowerCase()} the selection. Middle click switches camera rotation.<br/>Shift-click adds to selection.</p>
+    <div className="forge-object-actions"><button onClick={duplicate} title="Duplicate selected shapes">Duplicate</button><button onClick={remove} title="Delete selection">Delete</button></div>
+    <details className="forge-add-palette"><summary>Add a different shape</summary>{gallery}</details>
     </> : null}
     {!!draft.shapes.length && <div className="forge-edit-history"><button disabled={!historySize[0]} onClick={() => undo(false)}>Undo</button><button disabled={!historySize[1]} onClick={() => undo(true)}>Redo</button></div>}
-  </aside><div className="forge-shape-preview"><div className="forge-preview-heading"><h3>{phase === 'create' ? settings.shape : 'Shapes'}</h3><div className="forge-preview-switches"><label className="forge-check"><input type="checkbox" checked={wire} onChange={e => setWire(e.target.checked)}/>Wireframe</label><label className="forge-check"><input type="checkbox" checked={checker} onChange={e => setChecker(e.target.checked)}/>Checker</label></div></div><ForgePreview preferences={preferences} geosets={geosets} image={phase === 'create' ? isThumper ? helmet : stock?.image : null} wire={wire} checker={checker} initialView="oblique" viewAxes={SHAPE_AXES} meshEditing={{ entries, shapes: draft.shapes, selection: draft.selection, mode: draft.mode, tool, onPick, onBegin: begin, onTransform: transform, onEnd: end, onCancel: cancel }}/><div className="forge-counts" aria-live="polite">{entries.reduce((n, e) => n + e.geoset.Vertices.length / 3, 0)} vertices · {entries.reduce((n, e) => n + e.geoset.Faces.length / 3, 0)} triangles</div></div></div>
+  </aside><div className="forge-shape-preview"><div className="forge-preview-heading"><h3>{phase === 'create' ? settings.shape : 'Shapes'}</h3><div className="forge-preview-switches"><label className="forge-check"><input type="checkbox" checked={wire} onChange={e => setWire(e.target.checked)}/>Wireframe</label><label className="forge-check"><input type="checkbox" checked={checker} onChange={e => setChecker(e.target.checked)}/>Checker</label></div></div><ForgePreview preferences={preferences} geosets={geosets} image={phase === 'create' ? isThumper ? helmet : stock?.image : null} wire={wire} checker={checker} initialView="oblique" viewAxes={SHAPE_AXES} meshEditing={{ entries, shapes: draft.shapes, selection: draft.selection, mode: draft.mode, tool, axis, frame, onView: (up, normal) => { viewBasis.current = { up, normal }; }, onPick, onBegin: begin, onTransform: transform, onEnd: end, onCancel: cancel }}/><div className="forge-counts" aria-live="polite">{entries.reduce((n, e) => n + e.geoset.Vertices.length / 3, 0)} vertices · {entries.reduce((n, e) => n + e.geoset.Faces.length / 3, 0)} triangles</div></div></div>
   {!isThumper && phase === 'create' && textureError && <div role="status" className="forge-error">{textureError}</div>}
   {(error || phase === 'create' && preview.error) && <div role="alert" className="forge-error">{error || preview.error}</div>}<footer><button disabled={busy} onClick={onClose}>Cancel</button>{phase === 'edit' && <button disabled={busy} onClick={commit}>Commit</button>}<button disabled={busy || phase === 'create' && !preview.mesh} onClick={addShape}>Add shape</button><button className="forge-primary" disabled={busy || !draft.shapes.length} onClick={addToModel}>{busy ? 'Working…' : 'Add to model'}</button></footer></div>;
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { EditorCameraControls, preserveShiftCameraAction } from './editor-camera-controls.js';
 import { forgeShapeEdges, forgeSelectionCenter, forgeSelectionNormal } from '../src/forge-shape-editing.js';
-import { screenPlaneTranslation } from './viewport-math.js';
+import { orthographicHalfHeight, screenPlaneTranslation } from './viewport-math.js';
 import { bindScrollSensitivity, pointerSensitivityValue } from './viewport-performance.js';
 import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { cameraLeftLight } from './viewport-quality.js';
@@ -22,8 +22,9 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     if (!hit) return;
     const shape = current.shapes.find(shape => shape.id === hit.object.userData.shapeId);
     if (!shape) return;
-    let part = hit.object.userData.faceIds[hit.faceIndex], mode = 'Faces';
-    if (!['Extrude', 'Inset'].includes(current.tool)) {
+    let part = hit.object.userData.faceIds[hit.faceIndex], mode = current.mode;
+    if (mode === 'Shape') return { id: shape.id, part: 'shape', mode };
+    if (mode === 'Edges') {
       const face = shape.faces.find(f => f.id === part), candidates = [...forgeShapeEdges({ ...shape, faces: [face] })]; let best = Infinity;
       let edge;
       for (const [key, ids] of candidates) {
@@ -31,7 +32,8 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
         const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((e.clientX - a[0]) * dx + (e.clientY - a[1]) * dy) / (dx * dx + dy * dy || 1))), distance = Math.hypot(e.clientX - a[0] - t * dx, e.clientY - a[1] - t * dy);
         if (distance < best) { best = distance; edge = key; }
       }
-      if (best < 7) { part = edge; mode = 'Edges'; }
+      if (best > 10) return;
+      part = edge;
     }
     return { id: shape.id, part, mode };
   };
@@ -46,6 +48,7 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     if (viewAxes) {
       const direction = new THREE.Vector3(), up = new THREE.Vector3().setComponent(viewAxes.vertical, 1);
       direction.setComponent(view === 'side' ? viewAxes.horizontal : viewAxes.depth, view === 'side' ? 1 : viewAxes.depthSign ?? 1);
+      if (view === 'top') { direction.setComponent(viewAxes.depth, -.001); direction.setComponent(viewAxes.vertical, 1); }
       if (view === 'oblique') { direction.setComponent(viewAxes.horizontal, .35); direction.setComponent(viewAxes.vertical, .55); }
       return { direction: direction.normalize(), up, fitted: true };
     }
@@ -63,20 +66,21 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     const size = box.getSize(new THREE.Vector3()), rect = host.current?.getBoundingClientRect(), aspect = Math.max(.1, rect?.width / Math.max(1, rect?.height) || 1), tangent = Math.tan(THREE.MathUtils.degToRad(38 / 2));
     const span = axis => Math.abs(axis.x) * size.x + Math.abs(axis.y) * size.y + Math.abs(axis.z) * size.z;
     const right = new THREE.Vector3().crossVectors(viewState.direction, viewState.up).normalize();
-    return span(viewState.direction) / 2 + Math.max(span(right) / (2 * tangent * aspect), span(viewState.up) / (2 * tangent)) * 1.15;
+    const screenUp = new THREE.Vector3().crossVectors(right, viewState.direction).normalize();
+    return span(viewState.direction) / 2 + Math.max(span(right) / (2 * tangent * aspect), span(screenUp) / (2 * tangent)) * 1.15;
   };
-  const fit = (view = 'front') => { const s = state.current; if (!s || !s.group.children.length) return; const box = new THREE.Box3().setFromObject(s.group), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length() || 100, viewState = viewFor(view, box); s.controls.target.copy(center); s.camera.up.copy(viewState.up); s.camera.zoom = 1; s.camera.updateProjectionMatrix(); s.camera.position.copy(center).addScaledVector(viewState.direction, distanceFor(viewState, box, size)); s.controls.update(); s.render(); };
+  const fit = (view = state.current?.view || initialView) => { const s = state.current; if (!s || !s.group.children.length) return; const box = new THREE.Box3().setFromObject(s.group), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length() || 100, viewState = viewFor(view, box); s.view = view; s.controls.target.copy(center); s.camera.up.copy(viewState.up); s.camera.zoom = 1; if (s.camera.isOrthographicCamera) { const aspect = host.current.clientWidth / host.current.clientHeight, half = orthographicHalfHeight(size / 2, aspect); s.camera.top = half; s.camera.bottom = -half; s.camera.right = half * aspect; s.camera.left = -s.camera.right; } s.camera.updateProjectionMatrix(); s.camera.position.copy(center).addScaledVector(viewState.direction, distanceFor(viewState, box, size)); s.controls.update(); s.render(); };
   useEffect(() => {
     const scene = new THREE.Scene(); scene.background = new THREE.Color('#182028');
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); } catch { return; }
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
-    const camera = new THREE.PerspectiveCamera(38, 1, .01, 10000); camera.up.set(0, 1, 0);
+    const camera = editing.current ? new THREE.OrthographicCamera(-100, 100, 100, -100, .01, 10000) : new THREE.PerspectiveCamera(38, 1, .01, 10000); camera.up.set(0, 1, 0);
     if (editing.current) renderer.domElement.tabIndex = 0;
     host.current.appendChild(renderer.domElement); const controls = new EditorCameraControls(camera, renderer.domElement); controls.enableDamping = false;
     const ambient = new THREE.HemisphereLight(0xffffff, 0x505864, 2); scene.add(ambient); const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(100, 150, 200); scene.add(light, light.target);
     const group = new THREE.Group(); scene.add(group);
-    const render = () => { const config = previewLighting(latest.current); configurePreviewLights(ambient, light, config); light.position.copy(cameraLeftLight(camera, controls.target, Math.max(1, camera.position.distanceTo(controls.target))).position); light.target.position.copy(controls.target); scene.background.set(visualOptions(latest.current).background); group.traverse(object => { if (object.material) applyPreviewMaterialLighting(object.material, config); }); renderer.render(scene, camera); };
+    const render = () => { const config = previewLighting(latest.current); configurePreviewLights(ambient, light, config); light.position.copy(cameraLeftLight(camera, controls.target, Math.max(1, camera.position.distanceTo(controls.target))).position); light.target.position.copy(controls.target); scene.background.set(visualOptions(latest.current).background); group.traverse(object => { if (object.material) applyPreviewMaterialLighting(object.material, config); }); editing.current?.onView?.(new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).toArray(), camera.getWorldDirection(new THREE.Vector3()).negate().toArray()); renderer.render(scene, camera); };
     controls.addEventListener('change', render);
     state.current = { scene, renderer, camera, controls, group, render, fit: false, rotateMode: false };
     const finishGesture = (e, canceled = false) => {
@@ -84,7 +88,6 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
       meshDrag.current = null;
       if (!start.pickOnly) {
         if (canceled) editing.current?.onCancel(); else editing.current?.onEnd();
-        if (!canceled && !start.moved && start.whole) editing.current?.onPick(start.hit.id, start.hit.part, false, start.hit.mode);
       }
       if (renderer.domElement.hasPointerCapture(start.pointerId)) renderer.domElement.releasePointerCapture(start.pointerId);
       controls.enabled = true; e.preventDefault?.(); e.stopImmediatePropagation?.();
@@ -97,12 +100,14 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
       controls.enabled = true; controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(latest.current?.pointerSensitivity) * (e.shiftKey ? latest.current?.fineSensitivity ?? .2 : 1);
       controls.mouseButtons.RIGHT = preserveShiftCameraAction(action(binding.right), e); controls.mouseButtons.MIDDLE = preserveShiftCameraAction(action(binding.middle), e); controls.mouseButtons.LEFT = preserveShiftCameraAction(THREE.MOUSE.ROTATE, e);
       if (!current || e.button !== 0 || e.altKey || state.current.rotateMode) return;
-      const hit = pickPart(e, state.current, current); if (!hit) return;
+      const hit = pickPart(e, state.current, current), selectedAlready = Object.values(current.selection).some(ids => ids.length);
+      if (!hit && !selectedAlready) return;
       renderer.domElement.focus({ preventScroll: true }); controls.enabled = false; e.preventDefault(); e.stopImmediatePropagation();
-      const whole = !e.shiftKey && current.mode === 'Shape' && current.selection[hit.id]?.length && !['Extrude', 'Inset'].includes(current.tool), keep = !e.shiftKey && current.mode === hit.mode && current.selection[hit.id]?.includes(hit.part);
-      const selected = whole || keep ? current : current.onPick(hit.id, hit.part, e.shiftKey, hit.mode);
+      const keep = !hit || !e.shiftKey && current.selection[hit.id]?.includes(hit.part);
+      if (e.shiftKey && !hit) { controls.enabled = true; return; }
+      const selected = keep ? current : current.onPick(hit.id, hit.part, e.shiftKey, hit.mode);
       const center = new THREE.Vector3(...forgeSelectionCenter(selected.shapes, selected.selection, selected.mode)), normal = new THREE.Vector3(...forgeSelectionNormal(selected.shapes, selected.selection));
-      meshDrag.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, center, normal, hit, whole, pickOnly: e.shiftKey, moved: false, tool: current.tool, sensitivity: controls.rotateSpeed };
+      meshDrag.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, center, normal, pickOnly: e.shiftKey, moved: false, tool: current.tool, axis: current.axis, sensitivity: controls.rotateSpeed };
       renderer.domElement.setPointerCapture(e.pointerId); if (!e.shiftKey) current.onBegin();
     };
     const pointerMove = e => {
@@ -110,9 +115,15 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
       const dx = (e.clientX - start.x) * start.sensitivity, dy = (e.clientY - start.y) * start.sensitivity;
       if (!start.moved && Math.hypot(dx, dy) < 3) return; start.moved = true;
       const rect = renderer.domElement.getBoundingClientRect(), values = { center: start.center.toArray() }, units = screenPlaneTranslation(camera, start.center, rect.width, rect.height, 0, -1).length();
-      if (start.tool === 'Move') values.translation = screenPlaneTranslation(camera, start.center, rect.width, rect.height, dx, dy).toArray();
-      if (start.tool === 'Scale') values.scale = [1, 1, 1].map(() => Math.exp((dx - dy) / 100));
-      if (start.tool === 'Rotate') values.quaternion = new THREE.Quaternion().setFromAxisAngle(camera.getWorldDirection(new THREE.Vector3()).negate(), (dx - dy) * Math.PI / 180).toArray();
+      if (start.tool === 'Move') {
+        if (typeof start.axis !== 'number') values.translation = screenPlaneTranslation(camera, start.center, rect.width, rect.height, dx, dy).toArray();
+        else {
+          const axis = new THREE.Vector3().setComponent(start.axis, 1), a = start.center.clone().project(camera), b = start.center.clone().add(axis).project(camera), ax = (b.x - a.x) * rect.width / 2, ay = -(b.y - a.y) * rect.height / 2, length = ax * ax + ay * ay;
+          values.translation = axis.multiplyScalar(length * units * units > .05 ? (dx * ax + dy * ay) / length : (dx - dy) * units).toArray();
+        }
+      }
+      if (start.tool === 'Scale') values.scale = [0, 1, 2].map(axis => typeof start.axis !== 'number' || start.axis === axis ? Math.exp((dx - dy) / 100) : 1);
+      if (start.tool === 'Rotate') values.quaternion = new THREE.Quaternion().setFromAxisAngle(typeof start.axis === 'number' ? new THREE.Vector3().setComponent(start.axis, 1) : camera.getWorldDirection(new THREE.Vector3()).negate(), (dx - dy) * Math.PI / 180).toArray();
       if (start.tool === 'Inset') values.inset = (dx - dy) * units / 4;
       if (start.tool === 'Extrude') {
         const a = start.center.clone().project(camera), b = start.center.clone().add(start.normal).project(camera), ax = (b.x - a.x) * rect.width / 2, ay = -(b.y - a.y) * rect.height / 2, length = ax * ax + ay * ay;
@@ -125,7 +136,7 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     renderer.domElement.addEventListener('pointerdown', pointerDown, true); renderer.domElement.addEventListener('pointermove', pointerMove, true); renderer.domElement.addEventListener('pointerup', pointerUp, true); renderer.domElement.addEventListener('pointercancel', cancelGesture); renderer.domElement.addEventListener('contextmenu', contextMenu);
     window.addEventListener('keydown', cancelGesture, true); window.addEventListener('blur', cancelGesture);
     const element = host.current;
-    const observer = new ResizeObserver(() => { if (host.current !== element || !element.isConnected) return; const { width, height } = element.getBoundingClientRect(); if (!width || !height) return; renderer.setSize(width, height); camera.aspect = width / height; camera.updateProjectionMatrix(); render(); }); observer.observe(element);
+    const observer = new ResizeObserver(() => { if (host.current !== element || !element.isConnected) return; const { width, height } = element.getBoundingClientRect(); if (!width || !height) return; renderer.setSize(width, height); camera.aspect = width / height; if (camera.isOrthographicCamera) { camera.right = camera.top * camera.aspect; camera.left = -camera.right; } camera.updateProjectionMatrix(); render(); }); observer.observe(element);
     return () => { window.removeEventListener('keydown', cancelGesture, true); window.removeEventListener('blur', cancelGesture); unbindScroll(); renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove, true); renderer.domElement.removeEventListener('pointerup', pointerUp, true); renderer.domElement.removeEventListener('pointercancel', cancelGesture); renderer.domElement.removeEventListener('contextmenu', contextMenu); observer.disconnect(); controls.dispose(); group.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } }); renderer.dispose(); renderer.domElement.remove(); state.current = null; };
   }, []);
   useEffect(() => {
@@ -171,10 +182,10 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     if (geosets.length) {
       const box = new THREE.Box3().setFromObject(s.group), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length() || 100;
       s.camera.near = Math.max(.001, size / 1000); s.camera.far = size * 100; s.camera.updateProjectionMatrix();
-      if (!s.fit) { const viewState = viewFor(initialView, box); s.controls.target.copy(center); s.camera.up.copy(viewState.up); s.camera.position.copy(center).addScaledVector(viewState.direction, distanceFor(viewState, box, size)); s.controls.update(); s.fit = true; }
+      if (!s.fit || meshEditing && s.frame !== meshEditing.frame) { s.view ||= initialView; fit(s.view); s.fit = true; s.frame = meshEditing?.frame; }
     }
     s.render();
   }, [geosets, image, wire, checker, trimColor, surfaceColor, initialView, vertexSelection, meshEditing]);
   useEffect(() => { state.current?.render(); }, [preferences]);
-  return <div ref={host} onPointerDownCapture={pickVertex} className="forge-preview-canvas" aria-label="3D mesh preview"><div className="forge-preview-views"><button onClick={() => fit('front')}>Front / fit</button><button onClick={() => fit('side')}>Side</button><button onClick={() => fit('oblique')}>Oblique</button></div>{shapeHandle && <button className="forge-shape-handle" title="Drag to shape" aria-label="Drag to shape" onPointerDown={e => { e.stopPropagation(); e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); drag.current = { y: e.clientY, amount: shapeHandle.amount }; }} onPointerMove={e => { if (drag.current) { e.stopPropagation(); shapeHandle.onChange(drag.current.amount + drag.current.y - e.clientY); } }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); shapeHandle.onChange(shapeHandle.amount + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)); } }}>↕</button>}</div>;
+  return <div ref={host} onPointerDownCapture={pickVertex} className="forge-preview-canvas" aria-label="3D mesh preview"><div className="forge-preview-views"><button onClick={() => fit('front')}>Front / fit</button><button onClick={() => fit('side')}>Side</button>{viewAxes && <button onClick={() => fit('top')}>Top</button>}<button onClick={() => fit('oblique')}>Oblique</button>{meshEditing && <button onClick={() => fit()}>Fit</button>}</div>{shapeHandle && <button className="forge-shape-handle" title="Drag to shape" aria-label="Drag to shape" onPointerDown={e => { e.stopPropagation(); e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); drag.current = { y: e.clientY, amount: shapeHandle.amount }; }} onPointerMove={e => { if (drag.current) { e.stopPropagation(); shapeHandle.onChange(drag.current.amount + drag.current.y - e.clientY); } }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); shapeHandle.onChange(shapeHandle.amount + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)); } }}>↕</button>}</div>;
 }
