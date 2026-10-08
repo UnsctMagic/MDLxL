@@ -12,9 +12,9 @@ test('View menu follows each editor and keeps Skeleton independent',()=>{
   const bindings=effectiveBindings(COMMANDS,{normals:['H']});
   const expected={
     vertices:['Shadows','Vertices','Normals','Wireframe Overlay','Grid','Clear'],
-    bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Attachment','Grid','Clear'],
-    movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Attachment','Grid','Clear'],
-    animations:['Bones','Skeleton','Focused Skeleton','Nodes','Particles','Wireframe','Grid','Clear'],
+    bones:['Shadows','Vertices','Bones','Skeleton','Emitters','Events','Sounds','Attachment','Grid','Clear'],
+    movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Emitters','Events','Sounds','Attachment','Grid','Clear'],
+    animations:['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear'],
   };
   for(const [viewMode,labels] of Object.entries(expected)){
     const menus=buildMenuTemplate(bindings,id=>actions.push(id),'win32',[],x=>x,{checks,viewMode,uvEnabled:false});
@@ -31,6 +31,11 @@ test('View menu follows each editor and keeps Skeleton independent',()=>{
     }
   }
   assert.deepEqual(actions,['display:skeleton','clearDisplay']);
+});
+
+test('VIS native View menu restores the original controls in every editor',()=>{
+ const expected={vertices:['Shadows','Vertices','Nodes','Emitters','Normals','Wireframe Overlay','Grid','Clear'],bones:['Shadows','Vertices','Bones','Skeleton','Nodes','Emitters','Attachment','Grid','Clear'],movement:['Shadows','Vertices','Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Attachment','Grid','Clear'],animations:['Bones','Skeleton','Focused Skeleton','Nodes','Particles','Wireframe','Grid','Clear']};
+ for(const [viewMode,labels]of Object.entries(expected))assert.deepEqual(buildMenuTemplate({},()=>{},'win32',[],x=>x,{viewMode,vanilla:true}).find(menu=>menu.label==='View').submenu.map(row=>row.label),labels);
 });
 test('Frames is removed and all frame operations remain in Edit; UV entry follows actual eligibility',()=>{
   const actions=[];

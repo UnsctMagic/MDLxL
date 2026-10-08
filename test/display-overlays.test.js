@@ -3,12 +3,16 @@ import assert from 'node:assert/strict';
 import { clearQuickDisplay, defaultEditorDisplay, setEditorDisplay } from '../src/display-overlays.js';
 import { previewOverlayOptions } from '../app/preview-overlays.js';
 
-test('startup selects only Shadows and Vertices where those options exist', () => {
+test('Movement enables only Emitters; Animations enables all effect categories and hides symbols', () => {
   const state = defaultEditorDisplay();
-  for (const mode of ['vertices', 'bones', 'movement']) {
+  for (const mode of ['vertices', 'bones']) {
     assert.deepEqual(Object.entries(state[mode]).filter(([, enabled]) => enabled).map(([key]) => key), ['shaded', 'vertices']);
   }
-  assert.ok(Object.values(state.animations).every(enabled => !enabled));
+  assert.equal(state.movement.nodes,false);
+  assert.equal(state.animations.nodes,false);
+  for(const key of ['particles','sounds','events']) {
+    assert.equal(state.movement[key],key==='particles',key);assert.equal(state.animations[key],true,key);
+  }
 });
 
 test('display switches belong to their respective editor', () => {
@@ -24,11 +28,11 @@ test('display switches belong to their respective editor', () => {
   assert.deepEqual(initial, defaultEditorDisplay());
 });
 
-test('Bones and Skeleton independently control markers and connecting lines', () => {
+test('Bone markers and Skeleton retain independent controls', () => {
   const defaults = defaultEditorDisplay().bones;
   assert.deepEqual(
-    [previewOverlayOptions({ ...defaults, bones: true }).bones, previewOverlayOptions({ ...defaults, bones: true }).boneLines],
-    [true, false],
+    [previewOverlayOptions({ ...defaults, nodes: true }).bones, previewOverlayOptions({ ...defaults, nodes: true }).boneLines],
+    [false, false],
   );
   assert.deepEqual(
     [previewOverlayOptions({ ...defaults, skeleton: true }).bones, previewOverlayOptions({ ...defaults, skeleton: true }).boneLines],
@@ -57,4 +61,16 @@ test('Clear turns off only the active editor options', () => {
   assert.ok(Object.values(cleared.bones).every(enabled => !enabled));
   assert.deepEqual(cleared.vertices, state.vertices);
   assert.deepEqual(cleared.movement, state.movement);
+});
+
+test('VIS retains the original independent Nodes, Emitters and Attachment display flags',()=>{
+ const state=defaultEditorDisplay(true);
+ for(const mode of ['vertices','bones','movement','animations']){
+  assert.equal(state[mode].particles,false);assert.equal(state[mode].nodes,false);
+  assert.equal(state[mode].events,undefined);assert.equal(state[mode].sounds,undefined);
+ }
+ const nodes=previewOverlayOptions({...state.movement,nodes:true},false,'movement',true);
+ assert.equal(nodes.nodes,true);assert.equal(nodes.particles,false);assert.equal(nodes.bones,false);
+ const emitters=previewOverlayOptions({...state.animations,particles:true},false,'animations',true);
+ assert.equal(emitters.particles,true);assert.equal(emitters.nodes,false);
 });

@@ -31,6 +31,8 @@ import { createGLPreviewBackground } from './game-preview-background-gl.js';
 import { createAnimatedPreviewBackground } from './animated-preview-background.js';
 import { createVideoPreviewBackground } from './video-preview-background.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, previewOverlayOptions, visibleMovementPoints } from './preview-overlays.js';
+import { installNodeEffectControls } from './node-effect-controls.js';
+import { createEventSoundPreview } from './event-sound-preview.js';
 import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
 
@@ -260,7 +262,6 @@ export default function GamePreview(inputProps) {
     const hasBillboardedNodes = allNodes(ownedModel).some(node => (node.Flags || 0) & 120);
     // Only the renderer's private clone changes; saved model data remains intact.
     const particlesEnabled = props.showParticles ?? graphics.particles;
-    if (!particlesEnabled) { ownedModel.ParticleEmitters = []; ownedModel.ParticleEmitters2 = []; ownedModel.ParticleEmitterPopcorns = []; ownedModel.RibbonEmitters = []; }
     if (!graphics.lighting) for (const material of ownedModel.Materials || []) for (const layer of material.Layers || []) layer.Shading = (layer.Shading || 0) | 1;
     if (!ownedModel.Sequences.length) ownedModel.Sequences = [{ Name: 'Static', Interval: new Uint32Array([0, 1000]), NonLooping: true }];
     // An editor-wide reel spans gaps and multiple saved sequences. This range
@@ -367,6 +368,16 @@ export default function GamePreview(inputProps) {
       const work = (p.cameraMode ?? 'work') === 'work' && !event.altKey;
       const portraitCameraDrag = portraitBlankDragRotatesCamera(p, event);
       const pickable = nodePoints;
+      if (!p.vanilla && event.button === 2) {
+        const rect = canvas.getBoundingClientRect(), picked = pickMovementNode(pickable,event.clientX-rect.left,event.clientY-rect.top);
+        if (picked && ['particles','ribbons','sounds','events'].includes(picked.overlayKind)) {
+          const id = picked.node.ObjectId;
+          if (picked.overlayKind === 'sounds') void soundPreview.play(id);
+          else if (picked.overlayKind === 'events') eventPreview.trigger(id,native.getFrame(),movementSequence(p,native.getFrame()),globalClock);
+          else nodeEffects.trigger(id);
+          invalidate(); event.preventDefault(); event.stopImmediatePropagation(); return;
+        }
+      }
       if (event.button === 0 && p.attachSourceIds?.length) {
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
         attachPointer = { x, y };
@@ -758,7 +769,14 @@ export default function GamePreview(inputProps) {
     const normalized = new Map([...assets].map(([path, asset]) => [pathKey(path), asset]));
     const failures = []; let missing = 0;
     setEventWarnings([]);
-    const eventPreview = createEventPreview({ gl, model:particlesEnabled ? ownedModel : { ...ownedModel, EventObjects:[] }, modelPath:props.modelPath, textureAssets, textureFromAsset, invalidate, onWarnings:setEventWarnings });
+    const eventPreview = createEventPreview({ gl, model:ownedModel, modelPath:props.modelPath, textureAssets, textureFromAsset, invalidate, onWarnings:setEventWarnings });
+    const soundPreview = createEventSoundPreview({ model:ownedModel, modelPath:props.modelPath, onWarning:message => setEventWarnings(previous => [...previous,message]) });
+    const nodeEffects = installNodeEffectControls(native,() => {
+      const p=latest.current, grouped=p.overlays?.events!==undefined;
+      const enabled=!p.vanilla && p.editorDisplayMode==='bones' ? false : !p.vanilla && grouped?p.overlays.particles:p.showParticles??graphics.particles;
+      return {particles:enabled,ribbons:enabled};
+    },invalidate);
+    Object.assign(state,{nodeEffects,eventPreview,soundPreview});
     if (particlesEnabled && (ownedModel.ParticleEmitters?.length || ownedModel.ParticleEmitterPopcorns?.length)) failures.push('Sprite particles and ribbons are previewed. External model / Popcorn effects are preserved but need a Warcraft effects renderer.');
     let texturesReady = false;
     const jobs = ownedModel.Textures.map(async (info,textureId) => {
@@ -914,6 +932,8 @@ export default function GamePreview(inputProps) {
         poseSequence = useAuthoredSequenceInterval(native.getFrame());
         if (poseSequence !== selected) updateNative(0);
         applyRestPoseMatrices(native.rendererData, p.restPose);
+        if (dt === 0 && !captureOnly) nodeEffects.advancePaused(delta);
+        soundPreview.update({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playing:!!p.playing && !p.restPose, seek:sequenceChanged || userSeek },p.overlays?.sounds ?? false);
         if (p.isolatedGeosets && (sequenceChanged || userSeek)) {
           const matrices = new Map((native.rendererData.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
           bounds.makeEmpty();
@@ -964,7 +984,11 @@ export default function GamePreview(inputProps) {
           }
         }
         finally { gl.colorMask(true, true, true, true); }
-        if (!wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, camera:displayCamera, teamColor:p.teamColor });
+        if (wireframe && !p.vanilla) {
+          native.particlesController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
+          native.ribbonsController?.render(displayCamera.matrixWorldInverse.elements,displayCamera.projectionMatrix.elements);
+        }
+        if (!p.vanilla || !wireframe) eventPreview.render({ frame:native.getFrame(), sequenceIndex:poseSequence, globalTime:globalClock, playback:p.showcase?showcaseSample:undefined, camera:displayCamera, teamColor:p.teamColor, bloodSteps:p.vanilla ? true : p.editorDisplayMode==='bones' ? false : p.overlays?.events ?? particlesEnabled, spawn:p.vanilla || particlesEnabled });
         if (!captureOnly && !p.portraitMode) presentation.draw(camera, p.preferences, p.workplane, false, center, radius, bounds.min.z, { platformOnly: true });
       } catch (cause) { setError(`Warcraft preview error: ${cause.message}`); return false; }
       if (!captureOnly) {
@@ -973,7 +997,7 @@ export default function GamePreview(inputProps) {
         collisionCanvas.width=canvas.width; collisionCanvas.height=canvas.height;
         drawCollisionSpheres(collisionCanvas.getContext('2d'),ownedModel,camera,native,canvas.width,canvas.height);
       } else if (collisionCanvas) { collisionCanvas.remove(); collisionCanvas=null; }
-      const overlayOptions = { ...previewOverlayOptions(p.overlays, p.showNodes), preferences: p.preferences, workplane: p.workplane };
+      const overlayOptions = { ...previewOverlayOptions(p.overlays, p.showNodes, p.editorDisplayMode, p.vanilla), vanilla:p.vanilla, preferences: p.preferences, workplane: p.workplane };
       overlayOptions.selectableGeosets = p.selectableGeosets ?? [];
       overlayOptions.visibleGeosets = p.visibleGeosets;
       overlayOptions.grid = false;
@@ -1023,7 +1047,7 @@ export default function GamePreview(inputProps) {
         drawModelCameraOverlay(cameraCanvas.getContext('2d'), ownedModel, camera, canvas.clientWidth, canvas.clientHeight, canvas.width / Math.max(1, canvas.clientWidth), native.getFrame(), poseSequence, globalClock, radius, visualOptions(p.preferences).node, p.portraitMode ? PORTRAIT_ASPECT : 4 / 3);
       } else if (cameraCanvas) { cameraCanvas.remove(); cameraCanvas = null; }
       const selectedControls = !!p.onNodeTransform && !!p.selectedNodeIds?.length && ['move', 'rotate', 'scale'].includes(p.transformMode);
-      if (overlayOptions.bones || overlayOptions.boneLines || overlayOptions.nodes || overlayOptions.attachments || overlayOptions.particles || selectedControls) {
+      if (overlayOptions.bones || overlayOptions.boneLines || overlayOptions.nodes || overlayOptions.attachments || overlayOptions.particles || overlayOptions.ribbons || overlayOptions.sounds || overlayOptions.events || selectedControls) {
         if (!connectorCanvas) { connectorCanvas = ownerDocument.createElement('canvas'); connectorCanvas.dataset.connectorOverlay = ''; connectorCanvas.style.cssText = 'position:absolute;z-index:15;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(connectorCanvas); }
         if (connectorCanvas.width !== canvas.width) connectorCanvas.width = canvas.width;
         if (connectorCanvas.height !== canvas.height) connectorCanvas.height = canvas.height;
@@ -1031,8 +1055,8 @@ export default function GamePreview(inputProps) {
         if (nodeCanvas.width !== canvas.width) nodeCanvas.width = canvas.width;
         if (nodeCanvas.height !== canvas.height) nodeCanvas.height = canvas.height;
         const width = canvas.clientWidth, height = canvas.clientHeight;
-        const projectedNodes = projectMovementNodes(markerModel, native.getFrame(), poseSequence, camera, width, height, globalClock, getPoseMatrices())
-          .filter(point => !p.cleanAnimationPreview || point.overlayKind !== 'particles' || p.selectedNodeIds?.includes(point.node.ObjectId));
+        const projectedNodes = projectMovementNodes(markerModel, native.getFrame(), poseSequence, camera, width, height, globalClock, getPoseMatrices(),p.vanilla)
+          .filter(point=>!p.vanilla || !p.cleanAnimationPreview || point.overlayKind!=='particles' || p.selectedNodeIds?.includes(point.node.ObjectId));
         nodePoints = visibleMovementPoints(projectedNodes, overlayOptions);
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
@@ -1047,7 +1071,7 @@ export default function GamePreview(inputProps) {
           }
         }
         nodeHandles = p.onNodeTransform && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !movementRestricted(handleMode, p.restrictions) && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
-        const markerOptions = { ...overlayOptions, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
+        const markerOptions = { ...overlayOptions, modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
         drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
@@ -1062,7 +1086,7 @@ export default function GamePreview(inputProps) {
     const contextLost = event => { event.preventDefault(); scheduler?.dispose(); setError('The graphics context was lost. Reopen this preview to restore it.'); };
     scheduler = state.scheduler = createRenderScheduler({ render,
       continuous: () => {
-        return !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || latest.current.playing && !latest.current.restPose && !playbackStopped;
+        return nodeEffects.active || eventPreview.active || !!latest.current.showcase?.playing || !!latest.current.attachSourceIds?.length || latest.current.playing && !latest.current.restPose && !playbackStopped;
       },
       // Electron may report an owned about:blank window as hidden during focus
       // transfer. Only the main-document preview uses hidden-tab suspension;
@@ -1195,9 +1219,9 @@ export default function GamePreview(inputProps) {
         : { camera:camera === ortho ? 'ortho' : 'perspective', view:state.appliedView, perspective:perspective.clone(), ortho:ortho.clone(), target:controls.target.clone() };
       if (latest.current.cameraHandoff) latest.current.cameraHandoff.current = cameraMemory.current;
       compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
-      disposed = true; canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
-  }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.antialias, graphics.anisotropy, graphics.textureFiltering, graphics.particles, props.showParticles, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
+  }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.antialias, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
   useEffect(() => {
     const current = runtime.current;
@@ -1212,6 +1236,7 @@ export default function GamePreview(inputProps) {
   useEffect(() => { if(runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view]);
   useEffect(() => { if (props.cameraPresetRequest?.name) runtime.current?.setCameraPreset(props.cameraPresetRequest.name); }, [props.cameraPresetRequest?.revision]);
   useEffect(() => { runtime.current?.refreshCursor(); }, [props.cameraMode, props.transformMode, props.showcaseCrop]);
+  useEffect(() => { const state=runtime.current;state?.nodeEffects.cancelTests();state?.eventPreview.cancelTests();state?.soundPreview.stop();state?.scheduler.sync(); }, [props.vanilla]);
   useEffect(() => { if (props.cameraAnglesRequest) runtime.current?.setCameraAngles(props.cameraAnglesRequest); }, [props.cameraAnglesRequest]);
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);

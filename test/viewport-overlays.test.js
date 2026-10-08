@@ -35,9 +35,16 @@ test('all node types receive the correct independent overlay and helpers partici
   assert.deepEqual(layout.groups.bones.map(n=>n.ObjectId),[0,1,2]);
   assert.deepEqual(layout.groups.nodes.map(n=>n.ObjectId),[3,5,6]);
   assert.deepEqual(layout.groups.attachments.map(n=>n.ObjectId),[4]);
-  assert.deepEqual(layout.groups.particles.map(n=>n.ObjectId),[7,8,9,10]);
+  assert.deepEqual(layout.groups.particles.map(n=>n.ObjectId),[7,8,9]);
+  assert.deepEqual(layout.groups.ribbons.map(n=>n.ObjectId),[10]);
   assert.deepEqual(layout.boneLinks.map(n=>n.ObjectId),[0,1,0,2]);
   assert.equal(layout.allLinks.length,10);
+});
+
+test('the vertex editor suppresses every rig and effect overlay, including stale enabled flags', () => {
+  const options=viewportOverlayOptions({editorDisplayMode:'vertices',showSkeleton:true,overlays:{bones:true,nodes:true,attachments:true,particles:true,sounds:true,events:true,skeleton:true,vertices:true}});
+  for(const kind of ['bones','nodes','attachments','particles','ribbons','sounds','events','boneLines'])assert.equal(options[kind],false,kind);
+  assert.equal(options.vertices,true);
 });
 
 test('marker positions use bind pivots and animated parent transforms without mutating source nodes', () => {

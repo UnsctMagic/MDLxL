@@ -78,7 +78,7 @@ void main(){color=texture(image,uv)*tint; if(color.a<.001)discard;}`);
  * from the authored timeline, with per-instance effects reset when rewinding. */
 export function createEventPreview({ gl, model, modelPath, textureAssets, textureFromAsset, invalidate, onWarnings, desktop = window.desktop }) {
   let disposed = false, loaded = false, decals;
-  const definitions = new Map(), resources = new Map(), instances = new Map(), textures = new Set(), warnings = [];
+  const definitions = new Map(), resources = new Map(), instances = new Map(), textures = new Set(), warnings = [], tests = new Map();
   const assets = new Map([...(textureAssets instanceof Map ? textureAssets : new Map(Object.entries(textureAssets || {})))].map(([name, asset]) => [pathKey(name), asset]));
   const warn = message => { warnings.push(message); if (!disposed) onWarnings?.([...warnings]); };
   async function resolve(names) {
@@ -157,17 +157,33 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
   }
   return {
     ready, definitions, get isReady() { return loaded; },
-    render({ frame, sequenceIndex, globalTime, playback, camera, teamColor }) {
+    trigger(id, frame, sequenceIndex, globalTime) {
+      const event = model.EventObjects?.find(event => event.ObjectId === id), definition = definitions.get(event?.Name);
+      if (!definition || !['SPL','UBR'].includes(definition.type)) return false;
+      tests.set(id,{ key:`test:${id}:${performance.now()}`, event, definition, triggerFrame:frame, poseFrame:frame, sequenceIndex, globalTime, started:performance.now(), duration:Math.min(1000,definition.lifeSpanMs) });
+      invalidate?.(); return true;
+    },
+    // Expiration must render one final clean frame, even at a low frame cap.
+    get active() { return tests.size > 0; },
+    cancelTests() { tests.clear(); invalidate?.(); },
+    render({ frame, sequenceIndex, globalTime, playback, camera, teamColor, bloodSteps = true, spawn = true }) {
       if (disposed || !loaded) return;
       const restore = preserveGLState(gl);
       try {
-      const active = activeEventInstances(model, definitions, { frame, sequenceIndex, globalTime, playback, maxInstances:64 }), keys = new Set(active.map(item => item.key));
+      const active = activeEventInstances(model, definitions, { frame, sequenceIndex, globalTime, playback, maxInstances:64 })
+        .filter(item => item.definition.type === 'SPN' ? spawn : bloodSteps);
+      for (const [id,test] of tests) {
+        const elapsed = performance.now()-test.started;
+        if (elapsed >= test.duration) tests.delete(id);
+        else active.push({...test,ageMs:elapsed/test.duration*test.definition.lifeSpanMs,manual:true});
+      }
+      const keys = new Set(active.map(item => item.key));
       for (const [key, state] of instances) if (!keys.has(key)) { if (state.native) destroyRenderer(state.native); if (state.vao) gl.deleteVertexArray(state.vao); instances.delete(key); }
       for (const item of active) {
         const resource = resources.get(pathKey(item.definition.resourcePath)); if (!resource) continue;
         let state = instances.get(item.key);
         if (!state) {
-          state = { world:worldAtTrigger(item,frame,sequenceIndex,globalTime), age:-1 }; instances.set(item.key,state);
+          state = { world:worldAtTrigger(item,item.manual ? item.poseFrame+item.ageMs : frame,item.manual ? item.sequenceIndex : sequenceIndex,item.manual ? item.globalTime+item.ageMs : globalTime), age:-1 }; instances.set(item.key,state);
           if (resource.source) {
             try {
               state.vao = gl.createVertexArray(); gl.bindVertexArray(state.vao);
@@ -196,6 +212,6 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
       }
       } finally { restore(); }
     },
-    dispose() { disposed = true; for (const state of instances.values()) { if (state.native) destroyRenderer(state.native); if (state.vao) gl.deleteVertexArray(state.vao); } instances.clear(); decals?.dispose(); for (const texture of textures) gl.deleteTexture(texture); textures.clear(); },
+    dispose() { disposed = true; tests.clear(); for (const state of instances.values()) { if (state.native) destroyRenderer(state.native); if (state.vao) gl.deleteVertexArray(state.vao); } instances.clear(); decals?.dispose(); for (const texture of textures) gl.deleteTexture(texture); textures.clear(); },
   };
 }
