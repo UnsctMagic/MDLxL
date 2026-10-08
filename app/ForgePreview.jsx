@@ -1,44 +1,39 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { EditorCameraControls, preserveShiftCameraAction } from './editor-camera-controls.js';
 import { forgeShapeEdges, forgeSelectionCenter, forgeSelectionNormal } from '../src/forge-shape-editing.js';
+import { screenPlaneTranslation } from './viewport-math.js';
+import { bindScrollSensitivity, pointerSensitivityValue } from './viewport-performance.js';
 import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { cameraLeftLight } from './viewport-quality.js';
-import { visualOptions } from '../src/preferences.js';
+import { visualOptions, cameraBindings } from '../src/preferences.js';
+
+export const forgeShapeColor = id => ['#a9b6c1', '#8caca8', '#b9aa94', '#939bb5', '#b499a6', '#9eac8b'][(Math.max(1, id) - 1) % 6];
 
 export default function ForgePreview({ geosets = [], image = null, wire = false, checker = false, trimColor = '#cca64d', surfaceColor = '#dddddd', shapeHandle = null, vertexSelection = null, meshEditing = null, initialView = 'front', viewAxes = null, preferences }) {
   const host = useRef(), state = useRef(), drag = useRef();
   const latest = useRef(preferences); latest.current = preferences;
   const editing = useRef(meshEditing); editing.current = meshEditing;
-  const pickStart = useRef();
-  const startPick = e => {
-    if (!meshEditing || e.target.tagName !== 'CANVAS' || e.button !== 0 || state.current?.gizmo.axis) return;
-    e.target.focus({ preventScroll: true });
-    pickStart.current = [e.clientX, e.clientY];
-  };
-  const finishPick = e => {
-    const start = pickStart.current; pickStart.current = null;
-    const s = state.current;
-    if (!start || !s || Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 4 || s.gizmo.dragging) return;
+  const meshDrag = useRef();
+  const pickPart = (e, s, current) => {
     const rect = s.renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2((e.clientX - rect.left) / rect.width * 2 - 1, 1 - (e.clientY - rect.top) / rect.height * 2), s.camera);
     const hit = ray.intersectObjects(s.group.children.filter(o => o.isMesh && o.userData.shapeId), false)[0];
-    if (!hit) { if (!e.shiftKey) meshEditing.onPick(null); return; }
-    const shape = meshEditing.shapes.find(shape => shape.id === hit.object.userData.shapeId);
+    if (!hit) return;
+    const shape = current.shapes.find(shape => shape.id === hit.object.userData.shapeId);
     if (!shape) return;
-    let part = hit.object.userData.faceIds[hit.faceIndex];
-    if (meshEditing.mode === 'Shape') part = 'shape';
-    if (meshEditing.mode === 'Edges') {
+    let part = hit.object.userData.faceIds[hit.faceIndex], mode = 'Faces';
+    if (!['Extrude', 'Inset'].includes(current.tool)) {
       const face = shape.faces.find(f => f.id === part), candidates = [...forgeShapeEdges({ ...shape, faces: [face] })]; let best = Infinity;
+      let edge;
       for (const [key, ids] of candidates) {
         const [a, b] = ids.map(id => { const p = new THREE.Vector3(...shape.vertices[id]).project(s.camera); return [rect.left + (p.x + 1) * rect.width / 2, rect.top + (1 - p.y) * rect.height / 2]; });
         const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((e.clientX - a[0]) * dx + (e.clientY - a[1]) * dy) / (dx * dx + dy * dy || 1))), distance = Math.hypot(e.clientX - a[0] - t * dx, e.clientY - a[1] - t * dy);
-        if (distance < best) { best = distance; part = key; }
+        if (distance < best) { best = distance; edge = key; }
       }
-      if (best > 12) return;
+      if (best < 7) { part = edge; mode = 'Edges'; }
     }
-    meshEditing.onPick(shape.id, part, e.shiftKey);
+    return { id: shape.id, part, mode };
   };
   const pickVertex = e => {
     if (!vertexSelection?.picking || e.target.tagName !== 'CANVAS' || e.button !== 0) return;
@@ -50,7 +45,7 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
   const viewFor = (view, box) => {
     if (viewAxes) {
       const direction = new THREE.Vector3(), up = new THREE.Vector3().setComponent(viewAxes.vertical, 1);
-      direction.setComponent(view === 'side' ? viewAxes.horizontal : viewAxes.depth, 1);
+      direction.setComponent(view === 'side' ? viewAxes.horizontal : viewAxes.depth, view === 'side' ? 1 : viewAxes.depthSign ?? 1);
       if (view === 'oblique') { direction.setComponent(viewAxes.horizontal, .35); direction.setComponent(viewAxes.vertical, .55); }
       return { direction: direction.normalize(), up, fitted: true };
     }
@@ -70,7 +65,7 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     const right = new THREE.Vector3().crossVectors(viewState.direction, viewState.up).normalize();
     return span(viewState.direction) / 2 + Math.max(span(right) / (2 * tangent * aspect), span(viewState.up) / (2 * tangent)) * 1.15;
   };
-  const fit = (view = 'front') => { const s = state.current; if (!s || !s.group.children.length) return; const box = new THREE.Box3().setFromObject(s.group), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length() || 100, viewState = viewFor(view, box); s.controls.target.copy(center); s.camera.up.copy(viewState.up); s.camera.position.copy(center).addScaledVector(viewState.direction, distanceFor(viewState, box, size)); s.controls.update(); s.render(); };
+  const fit = (view = 'front') => { const s = state.current; if (!s || !s.group.children.length) return; const box = new THREE.Box3().setFromObject(s.group), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length() || 100, viewState = viewFor(view, box); s.controls.target.copy(center); s.camera.up.copy(viewState.up); s.camera.zoom = 1; s.camera.updateProjectionMatrix(); s.camera.position.copy(center).addScaledVector(viewState.direction, distanceFor(viewState, box, size)); s.controls.update(); s.render(); };
   useEffect(() => {
     const scene = new THREE.Scene(); scene.background = new THREE.Color('#182028');
     let renderer;
@@ -78,36 +73,60 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
     const camera = new THREE.PerspectiveCamera(38, 1, .01, 10000); camera.up.set(0, 1, 0);
     if (editing.current) renderer.domElement.tabIndex = 0;
-    host.current.appendChild(renderer.domElement); const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = false;
+    host.current.appendChild(renderer.domElement); const controls = new EditorCameraControls(camera, renderer.domElement); controls.enableDamping = false;
     const ambient = new THREE.HemisphereLight(0xffffff, 0x505864, 2); scene.add(ambient); const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(100, 150, 200); scene.add(light, light.target);
     const group = new THREE.Group(); scene.add(group);
-    const pivot = new THREE.Object3D(); scene.add(pivot);
-    const gizmo = new TransformControls(camera, renderer.domElement); gizmo.enabled = false; gizmo.setSize(.8); scene.add(gizmo.getHelper());
     const render = () => { const config = previewLighting(latest.current); configurePreviewLights(ambient, light, config); light.position.copy(cameraLeftLight(camera, controls.target, Math.max(1, camera.position.distanceTo(controls.target))).position); light.target.position.copy(controls.target); scene.background.set(visualOptions(latest.current).background); group.traverse(object => { if (object.material) applyPreviewMaterialLighting(object.material, config); }); renderer.render(scene, camera); };
     controls.addEventListener('change', render);
-    gizmo.addEventListener('change', render);
-    gizmo.addEventListener('dragging-changed', e => { controls.enabled = !e.value; });
-    gizmo.addEventListener('mouseDown', () => {
-      pickStart.current = null;
-      const current = editing.current; if (!current) return;
-      state.current.gizmoStart = { center: pivot.position.clone(), quaternion: pivot.quaternion.clone(), tool: current.tool };
-      current.onBegin();
-    });
-    gizmo.addEventListener('objectChange', () => {
-      const current = editing.current, start = state.current?.gizmoStart; if (!current || !start) return;
-      const delta = pivot.position.clone().sub(start.center);
-      current.onTransform({ translation: delta.toArray(), scale: pivot.scale.toArray(), quaternion: pivot.quaternion.clone().multiply(start.quaternion.clone().invert()).toArray(), center: start.center.toArray(), inset: delta.dot(new THREE.Vector3(1, 0, 0).applyQuaternion(start.quaternion)) });
-    });
-    gizmo.addEventListener('mouseUp', () => { editing.current?.onEnd(); if (state.current) state.current.gizmoStart = null; });
-    const cancelGesture = e => {
-      if (!gizmo.dragging || e.type === 'keydown' && e.key !== 'Escape') return;
-      e.preventDefault(); e.stopPropagation(); editing.current?.onCancel(); gizmo.reset(); gizmo.pointerUp(null); controls.enabled = true; render();
+    state.current = { scene, renderer, camera, controls, group, render, fit: false, rotateMode: false };
+    const finishGesture = (e, canceled = false) => {
+      const start = meshDrag.current; if (!start) return;
+      meshDrag.current = null;
+      if (!start.pickOnly) {
+        if (canceled) editing.current?.onCancel(); else editing.current?.onEnd();
+        if (!canceled && !start.moved && start.whole) editing.current?.onPick(start.hit.id, start.hit.part, false, start.hit.mode);
+      }
+      if (renderer.domElement.hasPointerCapture(start.pointerId)) renderer.domElement.releasePointerCapture(start.pointerId);
+      controls.enabled = true; e.preventDefault?.(); e.stopImmediatePropagation?.();
     };
-    window.addEventListener('keydown', cancelGesture, true); renderer.domElement.addEventListener('pointercancel', cancelGesture); window.addEventListener('blur', cancelGesture);
+    const cancelGesture = e => { if (e.type !== 'keydown' || e.key === 'Escape') finishGesture(e, true); };
+    const unbindScroll = bindScrollSensitivity(renderer.domElement, { getPreferences: () => latest.current, onWheel: (event, value) => { controls.zoomSpeed = value; }, onCameraModeToggle: () => { state.current.rotateMode = !state.current.rotateMode; renderer.domElement.style.cursor = state.current.rotateMode ? 'grab' : 'default'; }, onPointerAdjustment: event => finishGesture(event, true) });
+    const pointerDown = e => {
+      if (meshDrag.current) return;
+      const current = editing.current, binding = cameraBindings(latest.current), action = value => value === 'rotate' ? THREE.MOUSE.ROTATE : value === 'pan' ? THREE.MOUSE.PAN : value === 'zoom' ? THREE.MOUSE.DOLLY : null;
+      controls.enabled = true; controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(latest.current?.pointerSensitivity) * (e.shiftKey ? latest.current?.fineSensitivity ?? .2 : 1);
+      controls.mouseButtons.RIGHT = preserveShiftCameraAction(action(binding.right), e); controls.mouseButtons.MIDDLE = preserveShiftCameraAction(action(binding.middle), e); controls.mouseButtons.LEFT = preserveShiftCameraAction(THREE.MOUSE.ROTATE, e);
+      if (!current || e.button !== 0 || e.altKey || state.current.rotateMode) return;
+      const hit = pickPart(e, state.current, current); if (!hit) return;
+      renderer.domElement.focus({ preventScroll: true }); controls.enabled = false; e.preventDefault(); e.stopImmediatePropagation();
+      const whole = !e.shiftKey && current.mode === 'Shape' && current.selection[hit.id]?.length && !['Extrude', 'Inset'].includes(current.tool), keep = !e.shiftKey && current.mode === hit.mode && current.selection[hit.id]?.includes(hit.part);
+      const selected = whole || keep ? current : current.onPick(hit.id, hit.part, e.shiftKey, hit.mode);
+      const center = new THREE.Vector3(...forgeSelectionCenter(selected.shapes, selected.selection, selected.mode)), normal = new THREE.Vector3(...forgeSelectionNormal(selected.shapes, selected.selection));
+      meshDrag.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, center, normal, hit, whole, pickOnly: e.shiftKey, moved: false, tool: current.tool, sensitivity: controls.rotateSpeed };
+      renderer.domElement.setPointerCapture(e.pointerId); if (!e.shiftKey) current.onBegin();
+    };
+    const pointerMove = e => {
+      const start = meshDrag.current; if (!start || start.pickOnly) return;
+      const dx = (e.clientX - start.x) * start.sensitivity, dy = (e.clientY - start.y) * start.sensitivity;
+      if (!start.moved && Math.hypot(dx, dy) < 3) return; start.moved = true;
+      const rect = renderer.domElement.getBoundingClientRect(), values = { center: start.center.toArray() }, units = screenPlaneTranslation(camera, start.center, rect.width, rect.height, 0, -1).length();
+      if (start.tool === 'Move') values.translation = screenPlaneTranslation(camera, start.center, rect.width, rect.height, dx, dy).toArray();
+      if (start.tool === 'Scale') values.scale = [1, 1, 1].map(() => Math.exp((dx - dy) / 100));
+      if (start.tool === 'Rotate') values.quaternion = new THREE.Quaternion().setFromAxisAngle(camera.getWorldDirection(new THREE.Vector3()).negate(), (dx - dy) * Math.PI / 180).toArray();
+      if (start.tool === 'Inset') values.inset = (dx - dy) * units / 4;
+      if (start.tool === 'Extrude') {
+        const a = start.center.clone().project(camera), b = start.center.clone().add(start.normal).project(camera), ax = (b.x - a.x) * rect.width / 2, ay = -(b.y - a.y) * rect.height / 2, length = ax * ax + ay * ay;
+        const amount = length * units * units > .05 ? (dx * ax + dy * ay) / length : (dx - dy) * units;
+        values.translation = start.normal.clone().multiplyScalar(amount).toArray();
+      }
+      editing.current?.onTransform(values); e.preventDefault(); e.stopImmediatePropagation();
+    };
+    const pointerUp = e => finishGesture(e), contextMenu = e => e.preventDefault();
+    renderer.domElement.addEventListener('pointerdown', pointerDown, true); renderer.domElement.addEventListener('pointermove', pointerMove, true); renderer.domElement.addEventListener('pointerup', pointerUp, true); renderer.domElement.addEventListener('pointercancel', cancelGesture); renderer.domElement.addEventListener('contextmenu', contextMenu);
+    window.addEventListener('keydown', cancelGesture, true); window.addEventListener('blur', cancelGesture);
     const element = host.current;
     const observer = new ResizeObserver(() => { if (host.current !== element || !element.isConnected) return; const { width, height } = element.getBoundingClientRect(); if (!width || !height) return; renderer.setSize(width, height); camera.aspect = width / height; camera.updateProjectionMatrix(); render(); }); observer.observe(element);
-    state.current = { scene, renderer, camera, controls, group, render, pivot, gizmo, fit: false };
-    return () => { window.removeEventListener('keydown', cancelGesture, true); window.removeEventListener('blur', cancelGesture); renderer.domElement.removeEventListener('pointercancel', cancelGesture); observer.disconnect(); controls.dispose(); gizmo.dispose(); group.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } }); renderer.dispose(); renderer.domElement.remove(); state.current = null; };
+    return () => { window.removeEventListener('keydown', cancelGesture, true); window.removeEventListener('blur', cancelGesture); unbindScroll(); renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove, true); renderer.domElement.removeEventListener('pointerup', pointerUp, true); renderer.domElement.removeEventListener('pointercancel', cancelGesture); renderer.domElement.removeEventListener('contextmenu', contextMenu); observer.disconnect(); controls.dispose(); group.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } }); renderer.dispose(); renderer.domElement.remove(); state.current = null; };
   }, []);
   useEffect(() => {
     const s = state.current; if (!s) return;
@@ -125,7 +144,7 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
       if (shape) {
         const selected = meshEditing.selection[shape.id] || [], colors = [];
         for (const faceId of entry.faceIds) {
-          const picked = meshEditing.mode === 'Shape' ? selected.length : meshEditing.mode === 'Faces' && selected.includes(faceId), color = shape.id === 0 && image ? new THREE.Color('#ffffff') : picked ? new THREE.Color('#ffc46b') : new THREE.Color().setHSL((.55 + (Math.max(1, shape.id) - 1) * .21) % 1, .38, .52 + (faceId % 3) * .025);
+          const picked = meshEditing.mode === 'Shape' ? selected.length : meshEditing.mode === 'Faces' && selected.includes(faceId), color = shape.id === 0 && image ? new THREE.Color('#ffffff') : picked ? new THREE.Color('#ffc46b') : new THREE.Color(forgeShapeColor(shape.id)).offsetHSL(0, 0, (faceId % 3) * .025);
           for (let k = 0; k < 3; k++) colors.push(color.r, color.g, color.b);
         }
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); geometry.computeVertexNormals();
@@ -156,20 +175,6 @@ export default function ForgePreview({ geosets = [], image = null, wire = false,
     }
     s.render();
   }, [geosets, image, wire, checker, trimColor, surfaceColor, initialView, vertexSelection, meshEditing]);
-  useEffect(() => {
-    const s = state.current; if (!s || s.gizmo.dragging) return;
-    const current = meshEditing, selected = current && Object.values(current.selection).some(ids => ids.length), faceTool = current && ['Extrude', 'Inset'].includes(current.tool);
-    s.gizmo.enabled = !!selected && (!faceTool || current.mode === 'Faces');
-    if (!s.gizmo.enabled) { s.gizmo.detach(); s.render(); return; }
-    s.pivot.position.fromArray(forgeSelectionCenter(current.shapes, current.selection, current.mode)); s.pivot.scale.set(1, 1, 1); s.pivot.quaternion.identity();
-    s.gizmo.setMode(current.tool === 'Scale' ? 'scale' : current.tool === 'Rotate' ? 'rotate' : 'translate'); s.gizmo.setSpace('world'); s.gizmo.showX = s.gizmo.showY = s.gizmo.showZ = true;
-    if (current.tool === 'Inset') {
-      const normal = new THREE.Vector3(...forgeSelectionNormal(current.shapes, current.selection));
-      if (normal.lengthSq() > .1) s.pivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-      s.gizmo.setSpace('local'); s.gizmo.showY = s.gizmo.showZ = false;
-    }
-    s.gizmo.attach(s.pivot); s.render();
-  }, [meshEditing, geosets]);
   useEffect(() => { state.current?.render(); }, [preferences]);
-  return <div ref={host} onPointerDownCapture={e => { pickVertex(e); startPick(e); }} onPointerUpCapture={finishPick} onPointerCancel={() => { pickStart.current = null; }} className="forge-preview-canvas" aria-label="3D mesh preview"><div className="forge-preview-views"><button onClick={() => fit('front')}>Front / fit</button><button onClick={() => fit('side')}>Side</button><button onClick={() => fit('oblique')}>Oblique</button></div>{shapeHandle && <button className="forge-shape-handle" title="Drag to shape" aria-label="Drag to shape" onPointerDown={e => { e.stopPropagation(); e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); drag.current = { y: e.clientY, amount: shapeHandle.amount }; }} onPointerMove={e => { if (drag.current) { e.stopPropagation(); shapeHandle.onChange(drag.current.amount + drag.current.y - e.clientY); } }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); shapeHandle.onChange(shapeHandle.amount + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)); } }}>↕</button>}</div>;
+  return <div ref={host} onPointerDownCapture={pickVertex} className="forge-preview-canvas" aria-label="3D mesh preview"><div className="forge-preview-views"><button onClick={() => fit('front')}>Front / fit</button><button onClick={() => fit('side')}>Side</button><button onClick={() => fit('oblique')}>Oblique</button></div>{shapeHandle && <button className="forge-shape-handle" title="Drag to shape" aria-label="Drag to shape" onPointerDown={e => { e.stopPropagation(); e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); drag.current = { y: e.clientY, amount: shapeHandle.amount }; }} onPointerMove={e => { if (drag.current) { e.stopPropagation(); shapeHandle.onChange(drag.current.amount + drag.current.y - e.clientY); } }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); shapeHandle.onChange(shapeHandle.amount + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)); } }}>↕</button>}</div>;
 }
