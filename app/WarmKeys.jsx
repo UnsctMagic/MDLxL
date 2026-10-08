@@ -78,11 +78,12 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
         // aria-keyshortcuts describes simultaneous keys, not three-character sequences.
         element.setAttribute('aria-keyshortcuts', keys.filter(key => !warmKeyCode(key)).map(key => key.replaceAll('Ctrl', 'Control').replaceAll('Plus', '+')).join(' '));
         element.setAttribute('data-warmkey-shortcuts', keys.join(' / '));
-        const title = [element.getAttribute('data-warmkey-base-title'), keys.map(hotkeyBadge).filter(Boolean).length ? `Hotkey: ${keys.map(hotkeyBadge).filter(Boolean).join(' / ')}` : ''].filter(Boolean).join('\n');
+        const forgeHint = id.startsWith('forge:');
+        const title = [element.getAttribute('data-warmkey-base-title'), forgeHint && keys.length ? `Hotkey: ${keys.map(formatChord).join(' / ')}` : keys.map(hotkeyBadge).filter(Boolean).length ? `Hotkey: ${keys.map(hotkeyBadge).filter(Boolean).join(' / ')}` : ''].filter(Boolean).join('\n');
         element.setAttribute('title', title); element.setAttribute('data-warmkey-tooltip', title);
         if (element.tagName !== 'BUTTON' || element.getAttribute('data-warmkey-badges') === 'false') continue;
         let badge = element.querySelector(':scope > [data-warmkey-badge]');
-        const text = keys.length ? hotkeyBadge(keys[0]) || formatChord(keys[0]) : '';
+        const text = keys.length ? (forgeHint ? warmKeyCode(keys[0]) : '') || hotkeyBadge(keys[0]) || formatChord(keys[0]) : '';
         if (!text) { if (badge) badge.remove(); element.classList.remove('warmkey-control'); continue; }
         element.classList.add('warmkey-control');
         if (!badge) { badge = element.ownerDocument.createElement('span'); badge.className = 'warmkey-badge'; badge.dataset.warmkeyBadge = ''; badge.setAttribute('aria-hidden', 'true'); element.appendChild(badge); }
@@ -194,6 +195,7 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
 
 /** Optional explicit badge for controls outside the discovery root. */
 export function WarmKeyBadge({ actionId }) {
-  const { shortcuts } = useWarmKeys(); const keys = shortcuts[actionId] || []; const label = keys.map(hotkeyBadge).find(Boolean);
-  return label ? <span className="warmkey-badge" data-warmkey-badge="" aria-hidden="true" title={keys.map(formatChord).join(' / ')}>{label}</span> : null;
+  const { shortcuts } = useWarmKeys(); const keys = shortcuts[actionId] || [], forge = actionId.startsWith('forge:');
+  const label = forge && keys.length ? warmKeyCode(keys[0]) || hotkeyBadge(keys[0]) || formatChord(keys[0]) : keys.map(hotkeyBadge).find(Boolean);
+  return label ? <span className={'warmkey-badge'+(forge?' forge-key':'')} data-warmkey-badge="" aria-hidden="true" title={keys.map(formatChord).join(' / ')}>{label}</span> : null;
 }

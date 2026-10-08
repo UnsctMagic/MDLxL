@@ -174,12 +174,13 @@ function uniqueEdges(faces) {
 
 function updateWideWireGeometry(entry) {
   if (!entry?.wireGeometry || !entry.edgeIndices) return;
-  const source = entry.geometry.attributes.position.array, positions = new Float32Array(entry.edgeIndices.length * 3);
+  const source = entry.geometry.attributes.position.array, positions = new Float32Array(Math.max(6, entry.edgeIndices.length * 3));
   for (let edge = 0; edge < entry.edgeIndices.length; edge++) {
     const vertex = entry.edgeIndices[edge], target = edge * 3, from = vertex * 3;
     positions[target] = source[from]; positions[target + 1] = source[from + 1]; positions[target + 2] = source[from + 2];
   }
   entry.wireGeometry.setPositions(positions); entry.wire.computeLineDistances();
+  if (entry.selectedWire) updateWideWireGeometry({ geometry: entry.geometry, edgeIndices: entry.selectedEdgeIndices || [], wireGeometry: entry.selectedWire.geometry, wire: entry.selectedWire });
 }
 
 function configureWideLine(material, appearance, width, height, hiddenOpacity = 1) {
@@ -818,16 +819,21 @@ export default function Viewport(inputProps) {
         const pureWireframe = p.mode === 'wireframe' || p.mode === 'vertices';
         const activeAppearance = chosen ? appearance.selectedGeoset : appearance.otherGeoset;
         const pointDepth = viewportPointDepth(pureWireframe, appearance.xrayVertices, p.mode === 'textured' && p.grabThrough === true);
-        const showPoints = overlays.vertices && editable.has(index), showHiddenPoints = showPoints && pointDepth.showHidden;
+        const editOverlay = p.modelingOverlay?.[index];
+        const showPoints = overlays.vertices && editable.has(index) && (!editOverlay || editOverlay.mode === 'Vertices'), showHiddenPoints = showPoints && pointDepth.showHidden;
         entry.points.visible = entry.selectedPoints.visible = showPoints;
         entry.hiddenPoints.visible = entry.hiddenSelectedPoints.visible = showHiddenPoints;
         configurePointMaterial(entry.points.material, appearance.unselectedVertex, markerTexture(appearance.unselectedVertex.style));
         configurePointMaterial(entry.hiddenPoints.material, appearance.unselectedVertex, markerTexture(appearance.unselectedVertex.style));
         configurePointMaterial(entry.selectedPoints.material, appearance.selectedVertex, markerTexture(appearance.selectedVertex.style));
         configurePointMaterial(entry.hiddenSelectedPoints.material, appearance.selectedVertex, markerTexture(appearance.selectedVertex.style));
+        if (editOverlay) {
+          entry.points.material.color.set(0x222222); entry.hiddenPoints.material.color.set(0x222222);
+          entry.selectedPoints.material.color.set(0xff9a22); entry.hiddenSelectedPoints.material.color.set(0xff9a22);
+        }
         entry.points.material.depthTest = entry.selectedPoints.material.depthTest = pointDepth.depthTest;
         entry.hiddenPoints.material.depthTest = entry.hiddenSelectedPoints.material.depthTest = true;
-        entry.wire.visible = pureWireframe || overlays.wires;
+        entry.wire.visible = !!editOverlay || pureWireframe || overlays.wires;
         entry.hiddenWire.visible = pureWireframe && visual.occludedOpacity > 0 && activeAppearance.opacity > 0;
         // Textured/solid General View already produces the correct depth from
         // its real materials, including alpha-tested holes and translucent
@@ -836,6 +842,17 @@ export default function Viewport(inputProps) {
         entry.depth.visible = needsSolidDepthPrepass(p.mode);
         configureWideLine(entry.wire.material, activeAppearance, surface.clientWidth, surface.clientHeight);
         configureWideLine(entry.hiddenWire.material, activeAppearance, surface.clientWidth, surface.clientHeight, visual.occludedOpacity);
+        if (editOverlay) {
+          configureWideLine(entry.wire.material, { color: '#303030', thickness: 1, opacity: .7, style: 'solid' }, surface.clientWidth, surface.clientHeight);
+          configureWideLine(entry.selectedWire.material, { color: '#ff9a22', thickness: 1.7, opacity: 1, style: 'solid' }, surface.clientWidth, surface.clientHeight);
+          entry.selectedWire.visible = editOverlay.selectedEdgeIndices.length > 0;
+          entry.selectedSurface.visible = !pureWireframe && editOverlay.selectedFaceIndices.length > 0;
+          if (entry.appliedOverlay !== editOverlay) {
+            entry.selectedEdgeIndices = editOverlay.selectedEdgeIndices;
+            entry.selectedSurface.geometry.setIndex(editOverlay.selectedFaceIndices);
+            updateWideWireGeometry(entry); entry.appliedOverlay = editOverlay;
+          }
+        }
         configureGeosetHighlightMaterial(entry.hoverWire.material, entry.hoverPoints.material, appearance.geosetHighlight);
         for (let layerIndex = 0; layerIndex < entry.meshes.length; layerIndex++) {
           const mesh = entry.meshes[layerIndex], material = mesh.material, layer = entry.layers[layerIndex];
@@ -847,8 +864,6 @@ export default function Viewport(inputProps) {
           const map = !textured || textureInfo?.ReplaceableId === 1 ? null : textureInfo?.ReplaceableId === 2 ? state.teamGlow : state.textures.get(textureIndex) || state.checker;
           if (material.map !== map) { material.map = map; material.needsUpdate = true; }
           material.color.set(textured ? textureInfo?.ReplaceableId === 1 || textureInfo?.ReplaceableId === 2 ? p.teamColor : 0xffffff : p.rgbPreview ? 0xffffff : p.surfaceColors?.[index] ?? COLORS[index % COLORS.length]);
-          const vertexColors = !textured && !!mesh.geometry.attributes.color;
-          if (material.vertexColors !== vertexColors) { material.vertexColors = vertexColors; material.needsUpdate = true; }
           material.userData.geosetTint.value.set(1, 1, 1);
           if ((p.rgbPreview || p.presentation === 'preview') && !pureWireframe) {
             const sampled = sampleGeosetAnimation(p.model, index, rgbState.frame, rgbState.sequenceIndex, rgbState.globalTime);
@@ -979,25 +994,23 @@ export default function Viewport(inputProps) {
       const geoset = model.Geosets[index], group = new THREE.Group(), geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(geoset.Vertices), 3).setUsage(THREE.DynamicDrawUsage));
       geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(geoset.Faces), 1));
-      const shades = props.faceShades?.[index];
-      if (shades?.length === geoset.Vertices.length) geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(shades), 3));
       if (geoset.Normals?.length === geoset.Vertices.length) geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(geoset.Normals), 3)); else geometry.computeVertexNormals();
       const layers = model.Materials?.[geoset.MaterialID]?.Layers?.length ? model.Materials[geoset.MaterialID].Layers : [{ TextureID: 0, Alpha: 1, Shading: 16 }];
       const meshes = [];
       for (let layerIndex = 0; layerIndex < layers.length; layerIndex++) {
         const layer = layers[layerIndex], layerGeometry = layerIndex === 0 ? geometry : new THREE.BufferGeometry();
-        if (layerIndex) { layerGeometry.setAttribute('position', geometry.attributes.position); layerGeometry.setAttribute('normal', geometry.attributes.normal); if (geometry.attributes.color) layerGeometry.setAttribute('color', geometry.attributes.color); layerGeometry.setIndex(geometry.index); }
+        if (layerIndex) { layerGeometry.setAttribute('position', geometry.attributes.position); layerGeometry.setAttribute('normal', geometry.attributes.normal); layerGeometry.setIndex(geometry.index); }
         const uv = geoset.TVertices?.[layer.CoordId || 0] || geoset.TVertices?.[0];
         layerGeometry.setAttribute('uv', new THREE.BufferAttribute(uv?.length ? new Float32Array(uv) : new Float32Array(geoset.Vertices.length / 3 * 2), 2));
         const material = layerMaterial(layer, shaded && graphics.lighting); material.polygonOffset = false;
-        material.flatShading = !!props.faceShades;
+        material.flatShading = !!props.modelingOverlay;
         // Match the animation renderer: coverage requires a multisampled canvas.
         // On a single-sample canvas it leaks fractional alpha as white cutout edges.
         material.alphaToCoverage = layer.FilterMode === 1 && !!state.renderer.getContext().getContextAttributes()?.antialias;
         const mesh = new THREE.Mesh(layerGeometry, material); mesh.userData.geosetIndex = index; mesh.userData.baseUV = new Float32Array(layerGeometry.attributes.uv.array); mesh.renderOrder = index * 16 + layerIndex; mesh.frustumCulled = false; group.add(mesh); meshes.push(mesh);
       }
       const depth = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })); depth.renderOrder = -1; depth.frustumCulled = false; group.add(depth);
-      const edgeIndices = uniqueEdges(geoset.Faces), wireGeometry = new LineSegmentsGeometry();
+      const edgeIndices = props.modelingOverlay?.[index]?.edgeIndices || uniqueEdges(geoset.Faces), wireGeometry = new LineSegmentsGeometry();
       const wire = new LineSegments2(wireGeometry, new LineMaterial({ color: 0xffffff, linewidth: 1, transparent: true, opacity: 1, depthTest: true, depthWrite: false })); wire.renderOrder = 10000; wire.frustumCulled = false; wire.userData.overlay = 'wires'; group.add(wire);
       const hiddenWire = new LineSegments2(wireGeometry, new LineMaterial({ color: 0xffffff, linewidth: 1, transparent: true, opacity: .35, depthTest: true, depthFunc: THREE.GreaterDepth, depthWrite: false })); hiddenWire.renderOrder = 9999; hiddenWire.frustumCulled = false; group.add(hiddenWire);
       const pointGeometry = new THREE.BufferGeometry(); pointGeometry.setAttribute('position', geometry.attributes.position);
@@ -1014,7 +1027,13 @@ export default function Viewport(inputProps) {
       const hoverGeometry = new THREE.BufferGeometry(); hoverGeometry.setAttribute('position', geometry.attributes.position);
       const hoverPoints = new THREE.Points(hoverGeometry, new THREE.PointsMaterial({ color: 0x39ff14, size: 6, sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true }));
       hoverPoints.renderOrder = 13001; hoverPoints.frustumCulled = false; hoverPoints.visible = false; group.add(hoverPoints);
-      state.modelGroup.add(group); state.entries[index] = { geoset, group, geometry, meshes, layers, depth, edgeIndices, wireGeometry, wire, hiddenWire, points, hiddenPoints, selectedPoints, hiddenSelectedPoints, hoverWire, hoverPoints };
+      let selectedWire, selectedSurface;
+      if (props.modelingOverlay) {
+        selectedWire = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: 0xff9a22, linewidth: 1.7, depthTest: true, depthWrite: false })); selectedWire.renderOrder = 10001; selectedWire.frustumCulled = false; group.add(selectedWire);
+        const selectedGeometry = new THREE.BufferGeometry(); selectedGeometry.setAttribute('position', geometry.attributes.position); selectedGeometry.setIndex([]);
+        selectedSurface = new THREE.Mesh(selectedGeometry, new THREE.MeshBasicMaterial({ color: 0xff9a22, opacity: .22, transparent: true, side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })); selectedSurface.renderOrder = 9998; selectedSurface.frustumCulled = false; group.add(selectedSurface);
+      }
+      state.modelGroup.add(group); state.entries[index] = { geoset, group, geometry, meshes, layers, depth, edgeIndices, wireGeometry, wire, hiddenWire, points, hiddenPoints, selectedPoints, hiddenSelectedPoints, hoverWire, hoverPoints, selectedWire, selectedSurface };
       updateWideWireGeometry(state.entries[index]);
     }
     const signature = `${model.Info?.Name}|${model.Geosets?.map(g => g.Vertices.length).join(',')}`;
@@ -1023,7 +1042,7 @@ export default function Viewport(inputProps) {
       const saved = cameraMemory.current || latest.current.cameraHandoff?.current;
       if (saved && (latest.current.quadView || saved.view === latest.current.view || latest.current.cameraHandoff?.current === saved)) { if (latest.current.quadView) state.setView(saved.view); state.perspective.copy(saved.perspective); state.ortho.copy(saved.ortho); state.controls.target.copy(saved.target); if (saved.center) state.center.copy(saved.center); if (saved.radius) state.radius=saved.radius; state.resize(); state.controls.update(); }
     }
-  }, [model, revision, shaded, graphics.lighting, graphics.antialias, props.faceShades]);
+  }, [model, revision, shaded, graphics.lighting, graphics.antialias, !!props.modelingOverlay]);
 
   useEffect(() => {
     const state = runtime.current; if (!state) return;
@@ -1066,7 +1085,7 @@ export default function Viewport(inputProps) {
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, showGrid, props.overlays?.grid, props.preferences?.grid]);
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.presentation, props.previewMode, props.previewOverlay, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
   return <div className="viewport" style={{ position: 'relative', width: '100%', height: '100%', minHeight: props.presentation === 'preview' ? 0 : 180, background: '#ccc', overflow: 'hidden' }}>
     <div ref={host} tabIndex={0} aria-label="3D model viewport" style={{ position: 'absolute', inset: 0, outline: 'none', cursor: viewportCursor(cameraMode, transformMode) }} />
     {!props.quadView && props.showOrientationCompass !== false && props.presentation !== 'preview' && <div className="viewport-orientation-compass" aria-label="View orientation" title="View orientation — click an axis to snap the camera" style={{ position: 'absolute', top: 31, left: 4, width: 82, height: 82, zIndex: 3, filter: 'drop-shadow(0 1px 2px #0008)' }}>

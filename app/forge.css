@@ -133,6 +133,16 @@
 :root .forge-overlay .forge-control-points .forge-selection-scope button.active { color:#fff!important;background:#48402d!important;border:2px solid #dba334;box-shadow:inset 0 0 0 1px #fff5; }
 .forge-control-points svg { width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round; }
 .forge-control-points circle { fill:currentColor; }
+.forge-shape-workspace button[data-warmkey^="forge:"],.shaping-simple button[data-warmkey^="forge:"],.forge-effect-controls button[data-warmkey] { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px; }
+.forge-shape-workspace button[data-warmkey^="forge:"]>.warmkey-badge,.shaping-simple button[data-warmkey^="forge:"]>.warmkey-badge,.forge-effect-controls button[data-warmkey]>.warmkey-badge { visibility:visible;position:static;display:block;font:600 9px/11px monospace;color:#25843a;background:#e5f4df;border:1px solid #39824655;border-radius:2px;padding:0 2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:none; }
+.forge-shape-workspace button[data-warmkey^="forge:"]:disabled>.warmkey-badge,.shaping-simple button[data-warmkey^="forge:"]:disabled>.warmkey-badge { visibility:visible;opacity:.5; }
+.forge-shape-operations button { min-height:36px; }
+.forge-control-points .forge-selection-scope button { min-height:64px; }
+.forge-add-control>button { flex-direction:row!important;min-height:25px; }
+.forge-shape-workspace footer button { flex-direction:row!important; }
+.forge-effect-controls .shaping-segments button { min-width:0; }
+.forge-effect-controls .warmkey-badge[data-long-hint=true] { max-width:100%; }
+.forge-overlay .forge-key { visibility:visible;position:static;font:600 9px/11px monospace;color:#25843a;background:#e5f4df;border:1px solid #39824655;border-radius:2px;padding:0 2px;max-width:65px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:none; }
 .shaping-overlay { background:#0006; }
 .shaping-overlay>.forge-shape-dialog { width:min(1120px,92vw);height:min(760px,86vh);border:1px solid var(--ui-border);box-shadow:0 5px 24px #0007; }
 .shaping-simple .forge-editor-sidebar { width:240px;min-width:240px;flex-basis:240px; }
