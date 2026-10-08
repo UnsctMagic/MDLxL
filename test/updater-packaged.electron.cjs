@@ -12,6 +12,8 @@ async function waitFor(check,timeout=30000){const end=Date.now()+timeout;while(D
   await fs.mkdir(output,{recursive:true});const fixture=await fs.mkdtemp(path.join(output,'run-'));
   const target=path.join(fixture,'installed'),future=path.join(fixture,'future'),source=path.join(future,'MDLxL-win32-x64');
   await fs.cp(process.env.MDLXL_TEST_PACKAGE||path.join(root,'out/updater-package/MDLxL-win32-x64'),target,{recursive:true});
+  // Exercise the repository's installer in the disposable packaged fixture.
+  await fs.copyFile(path.join(root,'electron/update-install.ps1'),path.join(target,'resources/app/electron/update-install.ps1'));
   // Only these disposable fixture copies expose a debug port after the restart.
   const entry=path.join(target,'resources/app/electron/main.cjs');await fs.writeFile(entry,`require('electron').app.commandLine.appendSwitch('remote-debugging-port','0');
 require('electron').dialog.showMessageBox=async()=>({response:0});require('electron').dialog.showMessageBoxSync=()=>2;
@@ -23,12 +25,14 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
  return new Response('- Verified portable update.');
 };
 `+await fs.readFile(entry,'utf8'));
-  const baseline=JSON.parse(await fs.readFile(path.join(target,MANIFEST),'utf8'));baseline.files['resources/app/electron/main.cjs']=await digest(entry);await fs.writeFile(path.join(target,MANIFEST),JSON.stringify(baseline));
+  const baseline=JSON.parse(await fs.readFile(path.join(target,MANIFEST),'utf8'));baseline.files['resources/app/electron/main.cjs']=await digest(entry);baseline.files['resources/app/electron/update-install.ps1']=await digest(path.join(target,'resources/app/electron/update-install.ps1'));await fs.writeFile(path.join(target,MANIFEST),JSON.stringify(baseline));
   await fs.cp(target,source,{recursive:true});
   const current=JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version;
   const version=current.split('.').map((part,index)=>index===2?Number(part)+1:part).join('.'), info=JSON.parse(await fs.readFile(path.join(source,'resources/app/package.json'),'utf8'));info.version=version;await fs.writeFile(path.join(source,'resources/app/package.json'),JSON.stringify(info));
-  const manifest=JSON.parse(await fs.readFile(path.join(source,MANIFEST),'utf8'));manifest.version=version;manifest.files['resources/app/package.json']=await digest(path.join(source,'resources/app/package.json'));await fs.writeFile(path.join(source,MANIFEST),JSON.stringify(manifest));
-  const profile=path.join(target,'resources/app/profile');await fs.mkdir(profile,{recursive:true});await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({preferences:{checkUpdatesOnStartup:false}}));await fs.writeFile(path.join(profile,'personal-save.mdx'),'immutable personal model');
+  // Keep a valid PE image but force a real running-executable replacement.
+  await fs.appendFile(path.join(source,'MDLxL.exe'),'MDLxL updater lifecycle test');
+  const manifest=JSON.parse(await fs.readFile(path.join(source,MANIFEST),'utf8'));manifest.version=version;manifest.files['MDLxL.exe']=await digest(path.join(source,'MDLxL.exe'));manifest.files['resources/app/package.json']=await digest(path.join(source,'resources/app/package.json'));await fs.writeFile(path.join(source,MANIFEST),JSON.stringify(manifest));
+  const profile=path.join(target,'resources/app/profile');await fs.mkdir(profile,{recursive:true});await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({preferences:{checkUpdatesOnStartup:true}}));await fs.writeFile(path.join(profile,'personal-save.mdx'),'immutable personal model');
   const archive=path.join(fixture,'future.zip'),zipper=path.join(fixture,'zip.ps1');
   await fs.writeFile(zipper,'param($Source,$Archive)\nAdd-Type -AssemblyName System.IO.Compression.FileSystem\n[IO.Compression.ZipFile]::CreateFromDirectory($Source,$Archive,[IO.Compression.CompressionLevel]::Fastest,$false)\n');
   await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',zipper,future,archive],{windowsHide:true});
@@ -46,6 +50,8 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
   const updatedBrowser=await connect();ownedBrowser=updatedBrowser;const page=await waitFor(()=>updatedBrowser.contexts()[0]?.pages()[0]);await page.waitForFunction(()=>!!window.desktop?.updateStatus);
   const status=await waitFor(async()=>{const value=await page.evaluate(()=>window.desktop.updateStatus());return value.currentVersion===version?value:false;});
   assert.equal(status.previousVersion,current);assert.equal(status.canInstall,true);
+  await waitFor(async()=>(await page.evaluate(()=>window.desktop.updateStatus())).state==='current');
+  assert.equal(await page.locator('[data-warmkey="update:install"]').count(),0,'No repeat update prompt after the restarted version checks the same release');
   await page.locator('.settings-window').waitFor();assert.equal(await page.locator('[data-warmkey="updates:revert"]').isEnabled(),true);
   const closing=page.waitForEvent('close');
   await page.locator('[data-warmkey="updates:revert"]').dispatchEvent('click');

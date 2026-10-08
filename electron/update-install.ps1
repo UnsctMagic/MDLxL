@@ -34,6 +34,12 @@ try {
         $owner = Get-Process -Id $plan.pid -ErrorAction SilentlyContinue
         if ($owner -and $owner.Path -ne $plan.executable) { throw 'Update process identity changed.' }
         if ($owner) { $owner.WaitForExit() }
+        # Electron's renderer/GPU processes can outlive the main process and keep
+        # the executable mapped. Wait for this installation's remaining processes.
+        $processName = [IO.Path]::GetFileNameWithoutExtension($plan.executable)
+        foreach ($process in (Get-Process -Name $processName -ErrorAction SilentlyContinue)) {
+            if ($process.Path -eq $plan.executable) { $process.WaitForExit() }
+        }
     }
     # Recheck every destination after the editor has flushed and exited.
     foreach ($operation in $plan.operations) {
@@ -85,7 +91,10 @@ try {
     for ($index = $changed.Count - 1; $index -ge 0; $index--) {
         $operation = $changed[$index]
         $destination = SafePath $target $operation.relative
-        if ($operation.before) { Copy-Item -LiteralPath (SafePath $backup $operation.relative) -Destination $destination -Force }
+        if ($operation.before) {
+            # A rejected copy may leave the destination unchanged and still locked.
+            if ((FileHash $destination) -ne $operation.before) { Copy-Item -LiteralPath (SafePath $backup $operation.relative) -Destination $destination -Force }
+        }
         elseif (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination }
     }
     [IO.Directory]::CreateDirectory($plan.profile) | Out-Null
