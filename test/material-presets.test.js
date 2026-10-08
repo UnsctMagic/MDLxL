@@ -80,9 +80,10 @@ test('UV replacement preserves overlay, tint and team-color settings through pre
   doc.undo();assert.deepEqual(doc.serialize('mdx'),before);doc.redo();check(doc.model);
  }
 });
-test('each direct filter replaces team and tint stacks with only the base image and preserves layer settings',()=>{
+test('new direct filters preserve base settings and a returning filter restores its previous settings',()=>{
  for(const previous of ['Team Color','Team Color Overlay','Color Tint'])for(const [mode,preset] of MATERIAL_FILTER_MODES.entries()){
   const doc=fixture(),index=previous==='Team Color'?1:0;
+  const remembered=structuredClone(doc.model.Materials[0].Layers[0]);
   doc.apply('Previous material',['Materials','Textures'],m=>{
    applyMaterialPreset(m,0,previous,12);
    m.Materials[0].Layers[index].Alpha={LineType:1,GlobalSeqId:null,Keys:[{Frame:0,Vector:new Float32Array([.7])},{Frame:500,Vector:new Float32Array([.3])}]};
@@ -90,7 +91,8 @@ test('each direct filter replaces team and tint stacks with only the base image 
   const base=structuredClone(doc.model.Materials[0].Layers[index]);
   const before=doc.serialize('mdx'),textures=structuredClone(doc.model.Textures);
   doc.apply(preset,['Materials','Textures'],m=>applyMaterialPreset(m,0,preset));
-  const check=m=>{assert.deepEqual(m.Materials[0].Layers.map(layerSettings),[layerSettings({...base,FilterMode:mode})]);assert.equal(materialPreset(m,0).preset,preset);assert.equal(m.Textures[m.Materials[0].Layers[0].TextureID].ReplaceableId,0);};
+  const expected=preset==='Transparent'?remembered:{...base,FilterMode:mode};
+  const check=m=>{assert.deepEqual(m.Materials[0].Layers.map(layerSettings),[layerSettings(expected)]);assert.equal(materialPreset(m,0).preset,preset);assert.equal(m.Textures[m.Materials[0].Layers[0].TextureID].ReplaceableId,0);};
   check(doc.model);assert.deepEqual(doc.model.Textures,textures);
   check(openDocument(doc.serialize('mdx'),'filter.mdx').model);
   doc.undo();assert.deepEqual(doc.serialize('mdx'),before);doc.redo();check(doc.model);
@@ -107,6 +109,62 @@ test('direct filters persist while a replacement is pending and after repeated r
   doc.apply('Save replacement',['Materials','Textures','Geosets'],m=>applyUVPreviews(m,drafts));check(doc.model);
   check(openDocument(doc.serialize('mdx'),'replacement.mdx').model);
  }
+});
+
+test('changing a two-pass glow to Add and back restores its full brightness without Undo',()=>{
+ const doc=fixture();doc.apply('Authored glow',['Materials'],m=>{
+  const layer={...m.Materials[0].Layers[0],FilterMode:4,Shading:49};
+  m.Materials[0].Layers=[structuredClone(layer),structuredClone(layer)];
+ });
+ const before=doc.serialize('mdx'),original=structuredClone(doc.model),layers=original.Materials[0].Layers;
+ const pixels=new Uint8ClampedArray([100,20,100,128]);
+ const render=m=>compositeMaterialPixels(m.Materials[0].Layers.map(layer=>({pixels,filterMode:layer.FilterMode,alpha:layer.Alpha})),1,1);
+ const brightness=render(original);
+ assert.equal(materialPreset(doc.model,0).preset,'Add Alpha');
+ doc.apply('Add',['Materials','Textures'],m=>applyMaterialPreset(m,0,'Add'));
+ assert.deepEqual(doc.model.Materials[0].Layers,layers.map(layer=>({...layer,FilterMode:3})));
+ assert.equal(materialPreset(doc.model,0).preset,'Add');
+ doc.apply('Add Alpha',['Materials','Textures'],m=>applyMaterialPreset(m,0,'Add Alpha'));
+ assert.deepEqual(doc.model,original);assert.deepEqual(render(doc.model),brightness);assert.deepEqual(doc.serialize('mdx'),before);
+ assert.deepEqual(render(openDocument(doc.serialize('mdx'),'glow.mdx').model),brightness);
+ doc.undo();assert.equal(doc.model.Materials[0].Layers.length,2);assert.equal(materialPreset(doc.model,0).preset,'Add');
+ doc.redo();assert.deepEqual(doc.serialize('mdx'),before);
+});
+
+test('direct filters retain authored image layers, animation settings and procedural glow layers',()=>{
+ const doc=fixture();doc.apply('Authored stack',['Materials','Textures','TextureAnims'],m=>{
+  m.Textures.push({Image:'',ReplaceableId:2,Flags:0});
+  m.TextureAnims.push({});
+  const base=m.Materials[0].Layers[0];
+  m.Materials[0].Layers=[{...base,FilterMode:4,Shading:49},{...base,FilterMode:4,Shading:145,CoordId:1,TVertexAnimId:0,
+   TextureID:{LineType:0,GlobalSeqId:null,Keys:[{Frame:0,Vector:new Uint32Array([base.TextureID])}]},
+   Alpha:{LineType:1,GlobalSeqId:null,Keys:[{Frame:0,Vector:new Float32Array([.7])},{Frame:500,Vector:new Float32Array([.3])}]}},
+   {...base,TextureID:m.Textures.length-1,FilterMode:3}];
+ });
+ const original=structuredClone(doc.model);
+ for(const [mode,preset] of MATERIAL_FILTER_MODES.entries()){
+  applyMaterialPreset(doc.model,0,preset);
+  const expected=structuredClone(original);expected.Materials[0].Layers[0].FilterMode=mode;expected.Materials[0].Layers[1].FilterMode=mode;
+  assert.deepEqual(doc.model,expected,preset);
+ }
+});
+
+test('returning to a previous setting restores its last complete material configuration',()=>{
+ const doc=fixture();doc.apply('Authored glow',['Materials'],m=>{
+  const layer={...m.Materials[0].Layers[0],FilterMode:4,Shading:49};
+  m.Materials[0].Layers=[structuredClone(layer),structuredClone(layer)];
+ });
+ const original=structuredClone(doc.model.Materials[0]);
+ for(const preset of ['Add','Team Color','Add Alpha'])doc.apply(preset,['Materials','Textures'],m=>applyMaterialPreset(m,0,preset));
+ assert.deepEqual(doc.model.Materials[0],original);
+ doc.apply('Color Tint',['Materials','Textures'],m=>applyMaterialPreset(m,0,'Color Tint',12));
+ doc.apply('Edit tint',['Materials'],m=>{m.Materials[0].PriorityPlane=7;m.Materials[0].Layers[1].Alpha=.3;});
+ const tinted=structuredClone(doc.model.Materials[0]);
+ doc.apply('Add',['Materials','Textures'],m=>applyMaterialPreset(m,0,'Add'));
+ doc.apply('Color Tint',['Materials','Textures'],m=>applyMaterialPreset(m,0,'Color Tint'));
+ assert.deepEqual(doc.model.Materials[0],tinted);
+ doc.undo();assert.equal(materialPreset(doc.model,0).preset,'Add');doc.redo();assert.deepEqual(doc.model.Materials[0],tinted);
+ assert.deepEqual(openDocument(doc.serialize('mdx'),'restored.mdx').model.Materials[0].Layers.map(layerSettings),tinted.Layers.map(layerSettings));
 });
 test('manager changes to either base pass keep static and animated textures paired, without changing the tint',()=>{
  const doc=fixture();applyMaterialPreset(doc.model,0,'Color Tint',12);const mat=doc.model.Materials[0],middle=structuredClone(mat.Layers[1]);

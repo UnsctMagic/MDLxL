@@ -6,6 +6,7 @@ const normalize = path => String(path || '').replaceAll('/', '\\').toLowerCase()
 export const tintTexturePath = index => `ReplaceableTextures\\TeamColor\\TeamColor${String(index ?? 24).padStart(2, '0')}.blp`;
 const colorIndex = texture => TEAM_COLORS.findIndex(color => !texture?.ReplaceableId && normalize(texture?.Image) === normalize(tintTexturePath(color.index)));
 const texture = (model, layer) => model.Textures?.[layer?.TextureID];
+const materialSettings = new WeakMap();
 
 export function materialPreset(model, materialID) {
   const layers = model.Materials?.[materialID]?.Layers || [];
@@ -17,7 +18,7 @@ export function materialPreset(model, materialID) {
     const tint = colorIndex(texture(model, layers[1]));
     if (tint >= 0) return { preset: 'Color Tint', tint };
   }
-  if (layers.length === 1 && texture(model, layers[0])?.Image && !texture(model, layers[0]).ReplaceableId) {
+  if (layers.length && layers.every(layer => texture(model, layer)?.Image && !texture(model, layer).ReplaceableId && (layer.FilterMode ?? 0) === (layers[0].FilterMode ?? 0))) {
     return { preset: MATERIAL_FILTER_MODES[layers[0].FilterMode ?? 0] || '', tint: 0 };
   }
   return { preset: '', tint: 0 };
@@ -35,18 +36,38 @@ export function applyMaterialPreset(model, materialID, preset, tint = 0) {
   if (!MATERIAL_PRESETS.includes(preset) && filterMode < 0) throw Error('Unknown material preset.');
   const material = model.Materials?.[materialID];
   if (!material) throw Error('Choose a material first.');
-  const base = material.Layers.find(layer => {
+  const isBase = layer => {
     if (typeof layer.TextureID !== 'number') return !!layer.TextureID?.Keys;
     const info = texture(model, layer);
     return info?.Image && !info.ReplaceableId && colorIndex(info) < 0;
-  });
+  };
+  const base = material.Layers.find(isBase);
   if (!base) throw Error('Choose a base texture for this material before applying a material preset.');
-  if (filterMode >= 0) {
-    material.Layers = [{ ...structuredClone(base), FilterMode: filterMode }];
-    return true;
-  }
   const color = TEAM_COLORS[tint];
   if (preset === 'Color Tint' && !color) throw Error('Choose an available tint color.');
+  const remembered = materialSettings.get(material) || { active: '', settings: new Map() };
+  const previous = materialPreset(model, materialID).preset || remembered.active;
+  const returning = previous !== preset && remembered.settings.get(preset);
+  if (previous && previous !== preset) remembered.settings.set(previous, structuredClone(material));
+  remembered.active = preset;
+  materialSettings.set(material, remembered);
+  if (returning) {
+    for (const key of Object.keys(material)) delete material[key];
+    Object.assign(material, structuredClone(returning));
+    return true;
+  }
+  if (filterMode >= 0) {
+    const layers = material.Layers;
+    // Direct filters replace the generated team/tint stack, but an authored
+    // image stack (including repeated glow passes) keeps every layer.
+    const teamStack = layers.length === 2 && texture(model, layers[0])?.ReplaceableId === 1 && layers[0].FilterMode === 0 && layers[1].FilterMode === 2;
+    const tintStack = layers.length === 3 && layers[0].FilterMode === 0 && layers[1].FilterMode === 3 && layers[2].FilterMode === 5 &&
+      JSON.stringify(layers[0].TextureID) === JSON.stringify(layers[2].TextureID) &&
+      (texture(model, layers[1])?.ReplaceableId === 1 || colorIndex(texture(model, layers[1])) >= 0);
+    if (teamStack || tintStack) material.Layers = [{ ...structuredClone(base), FilterMode: filterMode }];
+    else for (const layer of layers) if (isBase(layer)) layer.FilterMode = filterMode;
+    return true;
+  }
   const textureID = ensureTexture(model, preset === 'Color Tint'
     ? { Image: tintTexturePath(color.index), ReplaceableId: 0, Flags: 0 }
     : { Image: '', ReplaceableId: 1, Flags: 0 });
