@@ -734,7 +734,7 @@ export default function App() {
       if (missingForgeAssetPaths(target.assets, staged.model).length) throw Error('A Forge texture is missing. Load the model beside its MDLxL_Forge folder, or import the missing texture before saving.');
       const prepared = await prepareModelSaveAsync(staged,requestedFormat,target.doc.name);
       let removeData = false;
-      if (prepared.editorDataBytes) {
+      if (prepared.editorDataBytes > 512) {
         removeData = await new Promise(resolve => setSaveDataChoice({ name: prepared.name, bytes: prepared.editorDataBytes, resolve }));
         if (removeData === null) return false;
       }

@@ -10,8 +10,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { createSequenceFromCurrent } = await import('../src/sequence-editor.js');
   const { animationSpeedData, setAnimationActualSpeed } = await import('../src/animation-speed.js');
   const { removeEditorData } = await import('../src/editor-data.js');
+  const { createGeosetTab } = await import('../src/geoset-tabs.js');
+  const { prepareModelSave } = await import('../src/save-target.js');
   const doc = createDemoDocument();
-  doc.apply('Two animations', [], model => { createSequenceFromCurrent(model, 0); model.Sequences[1].Name = 'Walk'; });
+  doc.apply('Two animations', [], model => {
+    // Enough real timing samples to exercise the >0.5 KB save choice.
+    const rotation = model.Bones[0].Rotation;
+    for (let i = 1; i <= 80; i++) {
+      const Frame = i * 20;
+      if (!rotation.Keys.some(key => key.Frame === Frame)) rotation.Keys.push({ Frame, Vector: new Float32Array([0, 0, 0, 1]) });
+    }
+    rotation.Keys.sort((a, b) => a.Frame - b.Frame);
+    createSequenceFromCurrent(model, 0); model.Sequences[1].Name = 'Walk';
+  });
   const baseline = doc.model.Bones[0].Translation.Keys.map(key => key.Frame);
   const fixture = path.join(out, 'speed-fixture.mdx'), original = doc.serialize('mdx'); await fs.writeFile(fixture, original);
   const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
@@ -70,6 +81,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual((await readRuntime()).translation, baseline);
     await page.getByRole('button', { name: 'Adjust All Speed', exact: true }).click();
     const menu = page.getByRole('dialog', { name: 'Adjust All Speed', exact: true });
+    const warning = menu.locator('.ac-speed-warning');
+    assert.match(await warning.innerText(), /MDLxL preserves original timing.*another editor may remove this data/);
+    assert.equal(await warning.evaluate(el => el.nextElementSibling.querySelector('input')?.getAttribute('aria-label')), 'Master Controller');
     const master = menu.getByRole('slider', { name: 'Master Controller', exact: true });
     assert.equal(await master.inputValue(), '100');
     assert.equal(await menu.getByRole('checkbox', { name: 'Remember Original Timing', exact: true }).isChecked(), true);
@@ -158,6 +172,37 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.equal(await rememberTiming.isChecked(), true);
       assert.equal(await slider.inputValue(), '50');
     }
+    for (const format of ['mdx', 'mdl']) for (const size of [511, 512, 513]) {
+      const boundary = createDemoDocument();
+      boundary.apply('Boundary annotation', [], model => createGeosetTab(model, 'X', [0], 'boundary'));
+      const overhead = prepareModelSave(boundary, format).editorDataBytes;
+      boundary.apply('Exact annotation size', [], model => { model._GeosetTabs[0].name = 'X'.repeat(size - overhead + 1); });
+      const prepared = prepareModelSave(boundary, format);
+      assert.equal(prepared.editorDataBytes, size);
+      const input = path.join(out, `boundary-${size}.${format}`), output = path.join(out, `boundary-${size}-saved.${format}`);
+      await fs.writeFile(input, prepared.bytes);
+      await app.evaluate(({ dialog }, paths) => {
+        dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.input] });
+        dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.output });
+      }, { input, output });
+      await page.keyboard.press('Control+o');
+      await page.getByRole('tab', { name: path.basename(input), exact: true }).waitFor();
+      await page.keyboard.press('Control+Shift+s');
+      await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
+      const options = page.getByRole('dialog', { name: 'Save model', exact: true });
+      if (size > 512) {
+        await options.waitFor();
+        assert.equal(await options.getByRole('checkbox').locator('..').getAttribute('title'), '513 bytes');
+        await options.getByRole('button', { name: 'Save', exact: true }).click();
+      }
+      await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
+      assert.equal(await options.count(), 0);
+      assert.deepEqual(await fs.readFile(output), Buffer.from(prepared.bytes));
+      assert.deepEqual(await fs.readFile(input), Buffer.from(prepared.bytes));
+    }
+    await page.getByRole('button', { name: 'Animations', exact: true }).click();
+    await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
+    await waitFor(state => state.ready, 'Animation preview ready after opening boundary fixtures');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'camera:rotate'));
     await page.waitForTimeout(150);
     const cameraBefore = (await readRuntime()).camera, canvas = await page.locator('[data-clean-model-canvas]').boundingBox();

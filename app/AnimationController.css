@@ -43,6 +43,7 @@
 .ac-actual-speed input[type=range]{width:100%;min-width:0;margin:0;height:18px;padding:0}
 .ac-speed-menu .classic-modal-window{width:360px;max-width:calc(100vw - 24px)}
 .ac-speed-menu .classic-modal-body{display:flex;flex-direction:column;gap:8px}
+.ac-speed-warning{margin:0;font-size:10px;line-height:1.3}
 .ac-speed-list{max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:7px}
 .ac-speed-row{min-width:0;padding-top:5px;border-top:1px solid var(--ui-border,#aaa)}
 .ac-speed-name{display:flex;align-items:center;gap:3px}

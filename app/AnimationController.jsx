@@ -319,6 +319,7 @@ export default function AnimationController({
     </SidebarSection>
     {error && !speedMenu && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
     {speedMenu && <Dialog title="Adjust All Speed" onClose={() => setSpeedMenu(false)} overlayClass="ac-speed-menu" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setSpeedMenu(false); }}>
+      <p className="ac-speed-warning">MDLxL preserves original timing while Remember Original Timing is enabled. Saving in another editor may remove this data.</p>
       <SpeedSlider label="Master Controller" value={animationMasterSpeed(model)} disabled={disabled} onChange={percent => changeActualSpeed(null, percent)}/>
       {rememberTimingControl}
       <div className="ac-speed-list">{(model.Sequences || []).map((item, index) => <div className="ac-speed-row" key={index}>
