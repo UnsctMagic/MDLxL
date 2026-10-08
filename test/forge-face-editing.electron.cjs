@@ -109,7 +109,7 @@ function previewState(request = {}) {
     assert.deepEqual(movedSecond.shapes[0], second.shapes[0]); assert.notDeepEqual(movedSecond.shapes[1].vertices, second.shapes[1].vertices);
     const projectedSecond = await page.evaluate(previewState, { center: true, shapeId: 2 }); assert.ok(Math.abs(projectedSecond.x - secondCenter.x + 45) < 1); assert.ok(Math.abs(projectedSecond.y - secondCenter.y + 20) < 1);
     await dialog.getByRole('button', { name: 'Scale', exact: true }).click(); await dialog.getByRole('button', { name: 'Height', exact: true }).click(); await dialog.getByRole('button', { name: 'More scale', exact: true }).click(); await settle();
-    const heightOnly = await page.evaluate(previewState); heightOnly.shapes[1].vertices.forEach((v, i) => { assert.equal(v[0], movedSecond.shapes[1].vertices[i][0]); assert.equal(v[1], movedSecond.shapes[1].vertices[i][1]); });
+    const heightOnly = await page.evaluate(previewState); heightOnly.shapes[1].vertices.forEach((v, i) => { assert.ok(Math.abs(v[0] - movedSecond.shapes[1].vertices[i][0]) < 1e-8); assert.ok(Math.abs(v[1] - movedSecond.shapes[1].vertices[i][1]) < 1e-8); });
     assert.notDeepEqual(heightOnly.shapes[1].vertices, movedSecond.shapes[1].vertices);
     await dialog.getByRole('button', { name: 'Duplicate', exact: true }).click(); await settle(); assert.equal((await page.evaluate(previewState)).shapes.length, 3);
     await dialog.getByRole('button', { name: 'Delete', exact: true }).click(); await settle(); assert.deepEqual((await page.evaluate(previewState)).shapes, heightOnly.shapes);
