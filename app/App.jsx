@@ -61,13 +61,13 @@ import { COMMANDS } from '../src/commands.js';
 import VIEW_MENU from '../src/view-menu.json';
 import { SelectionHistory } from '../src/selection-history.js';
 import { correctNormalsXL } from '../src/normals-xl.js';
-import { EditorDocument, openDocument, importGeosets, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
+import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, deleteFreeVertices } from '../src/geoset-operations.js';
 import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
 import { detachFaces, extrudeFaces } from '../src/mesh-tools.js';
-import { applyMeshClipboardColors, captureMeshSelection } from '../src/mesh-clipboard.js';
-import { captureNodeSelection, pasteNodesToDummy } from '../src/node-clipboard.js';
-import { ensureDummyBone } from '../src/dummy-bone.js';
+import { captureMeshSelection } from '../src/mesh-clipboard.js';
+import { captureNodeSelection } from '../src/node-clipboard.js';
+import { prepareClipboardPaste } from '../src/clipboard-paste.js';
 import { captureUVSelection } from '../src/uv-selection.js';
 import { collapseVertices, weldSelectedVertices, uncoupleVertices, deleteSelectedFaces, averageSelectedNormals } from '../src/classic-mesh.js';
 import { allGeosets, chooseGeosets, initialGeosetSelection, filterVertexSelection } from '../src/classic-selection.js';
@@ -938,22 +938,20 @@ export default function App() {
     clipboard.current = { ...captured, sourceDocument: doc, assets: new Map(session.assets) };
     say(`Copied ${captured.vertexCount} vertices and ${captured.triangleCount} triangles.`); refresh();
   }
-  function paste(parent, special = false) {
+  function paste(parent, special = false, fix = false, pasteSource = clipboard.current) {
     if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'paste'}));
     if (mode === 'animation') return timelineCommands.current.paste?.();
-    if (!clipboard.current || doc.readOnly) return;
-    const source = clipboard.current;
+    if (!pasteSource || doc.readOnly) return;
+    const source = pasteSource;
+    const prepared = prepareClipboardPaste(model, source, { parent, special, sameModel: source.sourceDocument === doc, targetGeoset: activeGeoset });
+    if (prepared.repairs.length && !fix) { setDialog({ type: 'pasteRepair', source, parent, special, repairs: prepared.repairs }); return; }
+    const commit = model => { Object.assign(model, prepared.model); return prepared.result; };
     if (source.kind === 'nodes') {
-      const result = edit('Paste nodes', ['Nodes', 'PivotPoints', 'Materials', 'Textures', 'TextureAnims', 'GlobalSequences', 'Info'], model => pasteNodesToDummy(model, source));
+      const result = edit('Paste nodes', ['Nodes', 'PivotPoints', 'Materials', 'Textures', 'TextureAnims', 'GlobalSequences', 'BindPoses', 'Info'], commit);
       if (result !== false) { session.assets = new Map([...source.assets, ...session.assets]); setSelectedNodeIds(result.nodeIds); setSelection({}); setDialog(null); say(`Pasted ${result.nodeIds.length} node${result.nodeIds.length === 1 ? '' : 's'} on DummyBone.`); refresh(); }
       return;
     }
-    const result = edit('Paste geosets', ['Geosets', 'Materials', 'Textures', 'Nodes', 'PivotPoints', 'GeosetAnims', 'GlobalSequences', 'TextureAnims'], m => {
-      if (special) return importGeosets(m, source.model, source.indices, parent, { sameModel: source.sourceDocument === doc, targetGeoset: activeGeoset });
-      const weighted = source.indices.some(index => source.model.Geosets[index]?.SkinWeights?.length), dummy = ensureDummyBone(m, { weighted });
-      const pasted = importGeosets(m, source.model, source.indices, null, { rigidNode: dummy.ObjectId });
-      applyMeshClipboardColors(m, pasted.geosetMap, source.rgbByGeoset); return pasted;
-    });
+    const result = edit('Paste geosets', ['Geosets', 'Materials', 'Textures', 'Nodes', 'PivotPoints', 'GeosetAnims', 'GlobalSequences', 'TextureAnims', 'BindPoses'], commit);
     if (result !== false) { session.assets = new Map([...source.assets, ...session.assets]); setSelectedNodeIds([]); setSelectable(new Set(result.geosetIndices)); setSelection(result.selection || Object.fromEntries(result.geosetIndices.map(gi => [gi, Array.from({ length: doc.model.Geosets[gi].Vertices.length / 3 }, (_, i) => i)]))); setActiveGeoset(result.geosetIndices[0] ?? 0); setDialog(null); say(result.warnings?.join(' ') || 'Pasted geosets.'); refresh(); }
   }
   const hide = () => { setHidden(previous => { const next = { ...previous }; for (const [gi, ids] of Object.entries(validSelection)) next[gi] = [...new Set([...(next[gi] || []), ...ids])]; return next; }); setSelection({}); };
@@ -1385,6 +1383,7 @@ export default function App() {
     {dialog?.type === 'history' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Undo settings" onClose={() => setDialog(null)} footer={<><button data-warmkey="app:action:6" onClick={async () => { try { const options = { budgetBytes: Math.round(historyMB * 1048576), maxSteps: historySteps }; if (!Number.isInteger(historyMB) || historyMB < 64 || historyMB > 4096 || !Number.isInteger(historySteps) || historySteps < 10 || historySteps > 100000) throw new Error("Use 64–4096 MB and 10–100000 steps."); await window.desktop?.configure?.({ historyBudgetBytes: options.budgetBytes, historyMaxSteps: options.maxSteps }); doc.configureHistory(options); settings.current = { ...settings.current, historyBudgetBytes: options.budgetBytes, historyMaxSteps: options.maxSteps }; setDialog(null); refresh(); } catch (error) { say(error.message, true); } }}>Apply</button><button data-warmkey="app:action:7" onClick={() => setDialog(null)}>Close</button></>}><label>Memory limit (MB) <input data-warmkey="app:field:1" aria-label="Undo memory limit MB" type="number" min="64" max="4096" step="1" value={historyMB} onChange={event => setHistoryMB(Number(event.target.value))}/></label><label>Maximum steps <input data-warmkey="app:field:2" aria-label="Maximum undo steps" type="number" min="10" max="100000" step="1" value={historySteps} onChange={event => setHistorySteps(Number(event.target.value))}/></label><p>{doc.historyStats.undoSteps} undo / {doc.historyStats.redoSteps} redo · {(doc.historyStats.usedBytes / 1048576).toFixed(1)} MB used.</p><p>Oldest steps are discarded when a limit is reached. Recovery includes the retained history.</p></Dialog>}
     {dialog?.type === 'recovery' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Recovery" onClose={() => setDialog(null)}>{recoveries.length ? recoveries.map(item => <button data-warmkey={`restore:${item.id}`} key={item.id} onClick={() => restoreRecovery(item)}>{item.name || item.id} · {item.date ? new Date(item.date).toLocaleString() : 'Saved draft'}</button>) : <p>No recovery drafts.</p>}</Dialog>}
     {dialog?.type === 'pasteSpecial' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Special paste" onClose={() => setDialog(null)} footer={<><button data-warmkey="app:action:9" onClick={() => paste(anchor === '' ? null : Number(anchor), true)}>Paste</button><button data-warmkey="app:action:10" onClick={() => setDialog(null)}>Close</button></>}><label>Parent for imported roots <select data-warmkey="app:field:3" value={anchor} onChange={event => setAnchor(event.target.value)}><option value="">Preserve donor roots</option>{model.Bones.map(node => <option key={node.ObjectId} value={node.ObjectId}>{node.Name}</option>)}</select></label><p>Copies geosets and their dependencies. Animation keys retain their donor frame times.</p></Dialog>}
+    {dialog?.type === 'pasteRepair' && <Dialog title="Fix paste" onClose={() => setDialog(null)} footer={<><button onClick={() => paste(dialog.parent, dialog.special, true, dialog.source)}>Fix and paste</button><button onClick={() => setDialog(null)}>Cancel</button></>}><p>To finish pasting:</p><ul>{dialog.repairs.map(repair => <li key={repair}>{repair}</li>)}</ul><p>The repair and pasted objects can be undone together.</p></Dialog>}
     {dialog?.type === 'normalRotate' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Rotate normals" onClose={() => setDialog(null)} footer={<><button data-warmkey="app:action:11" onClick={() => { if (Number.isFinite(normalAngle)) { meshAction('Rotate normals'); setDialog(null); } }}>Apply</button><button data-warmkey="app:action:12" onClick={() => setDialog(null)}>Close</button></>}><label>Angle around workplane normal (degrees) <input data-warmkey="app:field:4" type="number" step="any" value={normalAngle} onChange={event => setNormalAngle(Number(event.target.value))}/></label></Dialog>}
     {dialog?.type === 'diagnostics' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Model diagnostics" onClose={() => setDialog(null)}>{doc.diagnostics.length ? doc.diagnostics.map((item, i) => <p key={i}><b>{item.severity}: </b>{item.message}</p>) : <p>No model diagnostics.</p>}</Dialog>}
     {dialog?.type === 'help' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="MDLxL help" onClose={() => setDialog(null)}><p>Default Hotkeys (customize in Settings): F1 vertices · F2 selected UV maps · F3 Movement. Bones edits the unanimated rig. Animations edits visibility and RGB; BAKE applies current visibility and RGB across the selected animation; ALL applies them across every animation. Bake Text applies edited text tracks. A select · M/Q move · R rotate · Z scale. W switches between work and camera rotation. F toggles Textured View on and off; S selects Surface. Wireframe remains available beside the view direction. Use View / Fit to frame the model.</p><p>Geoset checkboxes control which meshes can be selected. Only checkboxes change selection; Shift checks a range. All, Clear and Invert act on the geoset list. Hide/Show affects editor visibility only.</p><p>T creates a triangle from three selected points. U uncouples, C collapses and B welds points. Welding retains the last selected vertex's UVs and binding. Copy remains available after opening another model.</p><p>Windows opens the material, texture and node managers. Changes can be undone. Untouched saves preserve original bytes; edited sections regenerate through the codec.</p><OfficialWebsite/></Dialog>}
