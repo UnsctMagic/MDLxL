@@ -10,10 +10,10 @@ function PartIcon({ part }) {
   const paths = poseSymbols[part] || poseSymbols.Object;
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[0]} fill="currentColor"/><path d={paths[1]} fill="none" stroke="var(--ui-panel, #d4d0c8)" strokeWidth="1.8"/></svg>;
 }
-function SetupWindow({ onClose, children }) {
+function SetupWindow({ onClose, title, children }) {
   const ref = useRef(null), movable = useMovableWindow(ref);
   return <div ref={ref} style={movable.style} className="pose-setup" role="dialog" aria-modal="false" aria-label="POSE setup">
-    <header {...movable.handleProps}><strong>Handles</strong><button aria-label="Close POSE setup" onClick={onClose}>×</button></header>{children}
+    <header {...movable.handleProps}><strong>{title}</strong><button aria-label="Close POSE setup" onClick={onClose}>×</button></header>{children}
   </div>;
 }
 const limbParts = new Set(['Hand', 'Foot', 'Hoof', 'Wing', 'Chain']);
@@ -75,12 +75,13 @@ export default function PoseControls({ model, revision, config, onChange, onSele
     ...(config.nodes || []).filter(id => id !== config.body && !config.chains.some(chain => chain.end === id)).map(id => ({ part: poseRole(model, config, id), id, target: { kind: 'node', id } })),
     ...config.chains.map(chain => ({ part: chain.label || (chain.kind === 'leg' ? 'Foot' : 'Hand'), id: chain.end, chain, target: { kind: 'endpoint', key: chain.key } })) ];
   const edit = item => {
+    setOpen('setup');
     let path = [], problem = '';
     if (item.chain) { try { path = poseChainIds(poseChainBetween(model, item.chain.root, item.chain.end)); } catch (cause) { path = poseChainIds(item.chain); problem = cause.message; } }
     setEditor({ part: item.part, root: item.chain?.root ?? null, end: item.id, excluded: path.filter(id => !poseChainIds(item.chain).includes(id)), original: item.target, manualRoot: true });
     setSlot('end'); setError(problem); onChange({ ...config, target: item.target, picking: item.part, inspectIds: path.length ? path : [item.id] });
   };
-  const showSetup = () => { setOpen(true); const item = mappings.find(item => sameTarget(item.target, config.target)); if (item) edit(item); };
+  const showSetup = () => { setOpen('setup'); const item = mappings.find(item => sameTarget(item.target, config.target)); if (item) edit(item); };
   const enable = () => {
     let next = { ...config, enabled: !config.enabled, target: null, picking: null, inspectIds: [] };
     if (next.enabled && !config.initialized) next = { ...next, ...suggestPoseRig(model, frame, sequence), initialized: true };
@@ -127,19 +128,19 @@ export default function PoseControls({ model, revision, config, onChange, onSele
   return <div className="pose-controls" ref={anchor} data-pose-revision={revision}>
     <button type="button" aria-label="POSE" aria-pressed={config.enabled} disabled={disabled} title="Pose with Move, Rotate and Scale" onClick={enable}>POSE</button>
     {config.enabled && <>
-      <button type="button" aria-label="POSE setup" aria-expanded={open} disabled={disabled} onClick={() => open ? close() : showSetup()}>Setup…</button>
-      {active && config.target?.kind === 'endpoint' && <button type="button" aria-label={active.kind === 'leg' ? 'Pin selected foot' : 'Pin selected hand'} aria-pressed={config.pins.includes(active.key)} disabled={disabled} title="Keep this hand or foot in place" onClick={pin}>{config.pins.includes(active.key) ? 'Pinned' : 'Pin'}</button>}
+      <button type="button" aria-label="Add POSE handle" aria-expanded={open === 'add'} disabled={disabled} onClick={() => { back(); setOpen('add'); }}>Add</button>
+      <button type="button" aria-label="POSE setup" aria-expanded={open === 'setup'} disabled={disabled} onClick={() => open === 'setup' ? close() : showSetup()}>Setup</button>
+      {active && active.kind !== 'leg' && config.target?.kind === 'endpoint' && <button type="button" aria-label={active.kind === 'leg' ? 'Pin selected foot' : 'Pin selected hand'} aria-pressed={config.pins.includes(active.key)} disabled={disabled} title="Keep this hand or foot in place" onClick={pin}>{config.pins.includes(active.key) ? 'Pinned' : 'Pin'}</button>}
     </>}
-    {open && config.enabled && <SetupWindow onClose={close}>
+    {open && config.enabled && <SetupWindow onClose={close} title={open === 'add' ? 'Add handle' : 'Setup'}>
       {editor ? <>
-        <div className="pose-edit-heading"><button onClick={back}>‹ Handles</button><PartIcon part={part}/><strong>{part}</strong></div>
+        <div className="pose-edit-heading"><button onClick={back}>{open === 'add' ? 'Back' : 'Handles'}</button><PartIcon part={part}/><strong>{part}</strong></div>
         <p>{editor.end == null ? 'Click the bone you want to grab.' : draft ? 'Ready. The connected bones are highlighted.' : 'Choose the bones in the view.'}</p>
-        <button className="pose-use-selected" aria-label="Pick endpoint" onClick={() => pickSlot('end')}>{names.get(editor.end) || 'Pick a bone�'}</button>
+        <button className="pose-use-selected" aria-label="Pick endpoint" onClick={() => pickSlot('end')}>{names.get(editor.end) || 'Pick a bone...'}</button>
         {selectedNodeIds.length === 1 && editor[slot] !== selectedNodeIds[0] && <button className="pose-use-selected" onClick={() => pick(selectedNodeIds[0])}>Use selected bone</button>}
         <details className="pose-adjust"><summary>{isChain ? 'Adjust chain' : 'Change bone'}</summary>
         <div className="pose-bounds">{(isChain ? ['root','end'] : ['end']).map(key => <button key={key} aria-label={`Pick ${isChain ? key === 'root' ? 'Start' : 'End' : 'Bone'}`} aria-pressed={slot === key} onClick={() => pickSlot(key)}><b>{isChain ? key === 'root' ? 'Start' : 'End' : 'Bone'}</b><span>{names.get(editor[key]) || 'Click a bone…'}</span></button>)}</div>
         <p className="pose-pick-prompt">Picking {isChain ? slot === 'root' ? 'Start' : 'End' : 'Bone'} · click again to cycle overlaps.</p>
-        {selectedNodeIds.length === 1 && editor[slot] !== selectedNodeIds[0] && <button className="pose-use-selected" onClick={() => pick(selectedNodeIds[0])}>Use selected bone</button>}
         {path.length > 2 && <><p>Bending joints</p><div className="pose-chain" aria-label="Bending joints">{path.slice(1,-1).map(id => <label key={id} title={names.get(id)}><input type="checkbox" aria-label={`Use joint ${names.get(id)}`} checked={!editor.excluded.includes(id)} onChange={() => setEditor(previous => ({ ...previous, excluded: previous.excluded.includes(id) ? previous.excluded.filter(value => value !== id) : [...previous.excluded,id] }))}/><span>{names.get(id)}</span></label>)}</div></>}
         </details>
         {hint && <p role="status" className="pose-setup-hint">{hint}</p>}
@@ -147,11 +148,12 @@ export default function PoseControls({ model, revision, config, onChange, onSele
         {conflict && !repair && <button onClick={() => edit(mappings.find(item => item.chain?.key === conflict.key))}>Edit {names.get(conflict.end)}</button>}
         <div className="pose-actions"><button disabled={!draft || disabled} onClick={save}>{editor.original ? 'Save changes' : isChain && config.chains.some(chain => chain.end === draft?.end) ? 'Replace handle' : 'Add handle'}</button><button onClick={back}>Cancel</button></div>
         {editor.original && <button className="pose-remove" onClick={remove}>Remove handle</button>}
-      </> : <>
+      </> : open === 'add' ? <>
+        <div className="pose-parts">{['Hand','Foot','Hoof','Wing','Head','Chest','Pelvis','Body','Tail','Object'].map(role => <button key={role} title={role} aria-label={`Map ${role}`} onClick={() => choose(role)}><PartIcon part={role}/><span>{role}</span></button>)}</div>
         <button className="pose-new-chain" onClick={() => choose('Chain')}>+ New bone chain</button>
-        <details><summary>Other handle types</summary><div className="pose-parts">{['Hand','Foot','Hoof','Wing','Head','Chest','Pelvis','Body','Tail','Object'].map(role => <button key={role} title={role} aria-label={`Map ${role}`} onClick={() => choose(role)}><PartIcon part={role}/><span>{role}</span></button>)}</div></details>
-        <details><summary>Edit existing handles</summary>
-        <div className="pose-mapped" aria-label="Mapped handles">{mappings.map(item => <button key={`${item.target.kind}:${item.id}`} title={`${item.part}: ${names.get(item.id)}`} aria-label={`Edit ${item.part}: ${names.get(item.id)}`} onClick={() => edit(item)}><PartIcon part={item.part}/><span><b>{item.part}</b><small>{names.get(item.id)}</small></span></button>)}</div></details>
+      </> : <>
+        {!mappings.length && <p>No handles yet.</p>}
+        <div className="pose-mapped" aria-label="Mapped handles">{mappings.map(item => <button key={`${item.target.kind}:${item.id}`} title={`${item.part}: ${names.get(item.id)}`} aria-label={`Edit ${item.part}: ${names.get(item.id)}`} onClick={() => edit(item)}><PartIcon part={item.part}/><span><b>{item.part}</b><small>{names.get(item.id)}</small></span></button>)}</div>
       </>}
       {error && <p role="alert">{error}</p>}
     </SetupWindow>}

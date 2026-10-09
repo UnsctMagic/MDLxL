@@ -134,7 +134,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(config.chains.length,knight?8:4);assert.equal(config.chains.filter(c=>c.label==='Hoof').length,knight?4:0);
     if(!knight){
       await page.getByRole('button',{name:'POSE setup',exact:true}).click();assert.equal(await page.locator('.pose-setup select').count(),0);
-      await page.getByText('Other handle types',{exact:true}).click();await page.getByRole('button',{name:'Map Hand',exact:true}).click();await pickBone(0);assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false);assert.equal(await page.getByRole('button',{name:'Reload editor',exact:true}).count(),0);
+      await page.getByRole('button',{name:'Add POSE handle',exact:true}).click();await page.getByRole('button',{name:'Map Hand',exact:true}).click();await pickBone(0);assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false);assert.equal(await page.getByRole('button',{name:'Reload editor',exact:true}).count(),0);
       await pickBone(38);assert.equal(await page.getByRole('button',{name:'Replace handle',exact:true}).isEnabled(),true);assert.deepEqual(await page.evaluate(()=>poseProbe().props.poseConfig.inspectIds),[36,37,38]);await shot('02-pick-hand');
       await page.getByRole('button',{name:'Replace handle',exact:true}).click();await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();assert.deepEqual((await snap()).model,initial.model);assert.equal((await snap()).undo,initial.undo);
       await page.getByRole('button',{name:'POSE setup',exact:true}).click();

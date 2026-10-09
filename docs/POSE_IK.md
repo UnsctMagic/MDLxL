@@ -49,7 +49,7 @@ wheel zoom, axis gizmos, XY/ZX/YZ workplanes and Shift constraints remain availa
 Select a native bone marker for ordinary Move, Rotate and Scale with POSE
 enabled. The Object picker remains the standard Movement bone selector.
 
-Open **Setup** and choose **New bone chain**, then click the bone you want to
+Open **Add** for the new handle symbols, or choose **New bone chain**. Click the bone you want to
 move. The connected limb is suggested and highlighted. Click **Add handle**.
 Repeated clicks cycle overlapping bones and refresh the suggestion.
 
@@ -63,10 +63,15 @@ to start each chain on its own branch. Review the highlighted chain, then save;
 both mappings update together. Cancel changes neither. Unresolvable overlaps
 remain editable and identify the existing handle.
 
-**Other handle types** opens the Hand, Foot, Hoof, Wing and single-bone symbols.
-**Edit existing handles** opens the named list. Setup on a selected handle opens
-its editor directly. Retarget, remove and all detailed controls remain available.
-Setup changes mappings only, never animation keys or native bone parenting.
+**Add** opens the handle symbols directly and stays ready for another handle after
+saving. **Setup** only lists or edits existing handles. Opening Setup with a
+selected handle goes directly to its editor. Retarget, remove and all detailed
+joint choices remain available. Setup writes no animation keys or bone parenting.
+
+Click a foot or hoof handle to reveal **Pin** next to it in the viewport. Clicking
+Pin toggles it to Pinned; click again to release it. The button follows the
+selected foot during camera movement and disappears when another control is
+selected. Hand pinning remains beside the Movement controls.
 
 Setup stays open while you pick or turn the camera. Drag its title bar if it
 covers a bone. Escape or the close button ends picking and restores the previous

@@ -582,3 +582,27 @@ and Kurgan setup walkthroughs were rerun successfully on assisted-verified after
 that refinement. The final candidate source/dist comparison is 462 files with
 zero mismatches. Original WAG SHA256 is
 2164e7f72d9256d095ef3ef9cac15c8955e48e86062c4e3e9cee87144f32b9ca.
+
+
+## Direct Add / existing-only Setup and nearby Pin (2026-10-10)
+
+User recording MDLxL_Oxn3El3EKS.mp4 was sampled locally. Camera rotation unmounted
+MovementController in App.jsx, which discarded PoseControls window/draft state.
+Movement remains mounted during rotation; other camera behavior is retained.
+Add now opens the new-handle symbols directly and remains ready after saving.
+Setup only edits existing mappings. Pin for a selected foot/hoof is a small
+viewport button beside that handle; it uses the existing session pin state.
+
+`out/pose-add-setup-ui-pass/result.json` passed five packaged mouse workflow
+checks with zero page errors: two hooves and pelvis added consecutively, Alt-mouse
+rotation while the pelvis draft remains open during and after the gesture,
+existing-only Setup, nearby Pin toggle on both hooves with no keys/history,
+button disappearance on pelvis selection, actual posing and exact Undo, camera
+rotation and unchanged sidebar width. Screenshots were visually inspected.
+The original WAG hash is unchanged. Production build and complete packaging
+passed; candidate is D:/MDLxL-Tests/pose-add-setup-ready/MDLxL-win32-x64/MDLxL.exe.
+Native computer-use helper initialization failed (kernel asset path); the
+packaged Electron mouse harness supplied the input evidence. React lifecycle,
+latest callback refs and overlay removal were reviewed with the React skill.
+The full source and Footman suites were not repeated for this UI-only pass;
+prior results remain associated with their documented build boundaries.
