@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { allNodes, sampleTrack } from '../src/animation.js';
-import { applyMovementPose, applyMovementTransform } from '../src/movement.js';
-import { poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, suggestPoseBody, suggestPoseChain, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
+import { applyMovementPose, applyMovementTransform, sampleMovement } from '../src/movement.js';
+import { poseAffectedPins, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
@@ -147,22 +147,87 @@ test('body mapping follows hierarchy, and one/two simultaneous pins preserve fee
   }
 });
 
-test('body unreachable either leg rejects the whole solve, restrictions prevent all writes', () => {
-  const m = fixture(), before = structuredClone(m); assert.throws(() => solvePoseBody(m, 0, [leg1, leg2].map(chain => ({ chain })), 500, 0, [0, 0, 100]), /out of reach/); assert.deepEqual(m, before);
+test('direct scale and translation preserve native cubic handles, other keys and controller ownership', () => {
+  for (const [property, oldValue, value] of [['Scaling', [2, 3, 4], [4, 6, 8]], ['Translation', [2, 3, 4], [3, 5, 7]]]) for (const line of [2, 3]) {
+    const m = fixture(), prior = track([50, oldValue], [500, oldValue], [1500, oldValue], [2500, oldValue]);
+    prior.LineType = line; for (const key of prior.Keys) { key.InTan = new Float32Array([1, 2, 3]); key.OutTan = new Float32Array([4, 5, 6]); }
+    m.Bones[0][property] = prior; const before = structuredClone(prior);
+    applyMovementPose(m, [{id:0, property, value}], 500, 0);
+    const after = m.Bones[0][property]; assert.equal(after.LineType, line); assert.deepEqual(after.Keys.filter(key=>key.Frame!==500),before.Keys.filter(key=>key.Frame!==500));
+    for (const tangent of ['InTan','OutTan']) vectorNear(Array.from(after.Keys[1][tangent]), Array.from(before.Keys[1][tangent], (component,i)=>property==='Scaling'?component*2:line===3?component+value[i]-oldValue[i]:component));
+    const unchanged=structuredClone(m); assert.throws(()=>applyMovementPose(m,[{id:0,property,value:oldValue}],500,0,{[property==='Scaling'?'scaling':'translation']:true}),/restricted/); assert.deepEqual(m,unchanged);
+    m.Bones[0][property].GlobalSeqId=0; m.GlobalSequences=[1000]; assert.throws(()=>applyMovementPose(m,[{id:0,property,value:oldValue}],500,0),/global/);
+  }
+});
+
+test('body reaches the boundary without a rollback, restrictions prevent all writes', () => {
+  const m = fixture(), before = structuredClone(m), pins = [leg1, leg2].map(chain => ({ chain }));
+  const limited = solvePoseBody(m, 0, pins, 500, 0, [0, 0, 100]); assert.ok(limited.limited); assert.ok(limited.fraction > 0 && limited.fraction < 1); assert.deepEqual(m, before);
+  const bounded = structuredClone(m); apply(bounded, limited);
+  for (const chain of [leg1, leg2]) vectorNear(samplePoseChain(bounded, chain, 500, 0).end.toArray(), samplePoseChain(m, chain, 500, 0).end.toArray());
+  const further = solvePoseBody(m, 0, pins, 500, 0, [0, 0, 200]); near(further.fraction * 200, limited.fraction * 100, 1e-5);
   const result = solvePoseBody(m, 0, [leg1, leg2].map(chain => ({ chain })), 500, 0, [.5, 0, -.5]);
   for (const restriction of [{ translation: true }, { rotation: true }]) { assert.throws(() => applyMovementPose(m, result.changes, 500, 0, restriction), /restricted/); assert.deepEqual(m, before); }
   const zero = solvePoseBody(m, 0, [leg1, leg2].map(chain => ({ chain })), 500, 0, [0, 0, 0]); assert.equal(apply(m, zero), 0);
 });
 
-test('display scopes native channels and hidden/invalid handles cannot intercept; real pivot centers stay pickable', () => {
+test('handle centres and labels select POSE consistently; disabled and invalid controls cannot intercept', () => {
   const m = fixture(), config = { enabled: true, chains: [chain, leg1, leg2], body: 0, pins: ['l', 'r'], target: { kind: 'body' } };
   assert.deepEqual(poseTrackScope(config, { kind: 'endpoint', key: 'a' }, 'rotate'), [{ id: 3, property: 'Rotation' }]);
   assert.equal(poseTrackScope(config, config.target, 'move').length, 7);
   const camera = new PerspectiveCamera(42, 1, .1, 1000); camera.position.set(50, -100, 60); camera.lookAt(0, 0, 10); camera.updateMatrixWorld();
   const handles = projectPoseHandles(m, config, 500, 0, camera, 600, 600), hand = handles.find(h => h.key === 'a');
-  assert.equal(pickPoseHandle([hand], hand.x, hand.y), null); assert.equal(pickPoseHandle([hand], hand.x + 13, hand.y), hand);
+  assert.equal(pickPoseHandle([hand], hand.x, hand.y), hand); assert.equal(pickPoseHandle([hand], hand.x + 13, hand.y), hand);
+  assert.equal(pickPoseHandle([hand], hand.x + 24, hand.y), hand);
   assert.deepEqual(projectPoseHandles(m, { ...config, enabled: false }, 500, 0, camera, 600, 600), []);
   m.Bones[2].Parent = 0; assert.ok(!projectPoseHandles(m, config, 500, 0, camera, 600, 600).some(h => h.key === 'a'));
+});
+
+test('rig suggestions recognize actual named limbs and isolate bad candidates without changing a model', () => {
+  const m = fixture(); m.Bones[0].Name = 'Root'; m.Bones[1].Name = 'Chest'; m.Bones[3].Name = 'Wrist.L'; m.Bones[6].Name = 'Foot_L'; m.Bones[9].Name = 'Ankle.R';
+  const before = structuredClone(m), suggested = suggestPoseRig(m, 500, 0);
+  assert.deepEqual(m, before); assert.deepEqual(suggested.chains.map(c => [c.end, c.kind]), [[3, 'arm'], [6, 'leg'], [9, 'leg']]); assert.equal(suggested.body, 0); assert.ok(suggested.nodes.includes(1));
+  m.Bones[0].Name = 'Hand'; const invalid = suggestPoseRig(m, 500, 0); assert.ok(invalid.unavailable.some(item => item.id === 0)); assert.equal(invalid.chains.length, 3);
+  const wrist = m.Bones.splice(3, 1)[0]; m.Attachments = [wrist]; assert.doesNotThrow(() => validatePoseChain(m, chain));
+  const pose = samplePoseChain(m, chain, 500, 0), result = solvePoseLimb(m, chain, 500, 0, pose.end.clone().add(new Vector3(-1, 0, 0))); apply(m, result); vectorNear(samplePoseChain(m, chain, 500, 0).end.toArray(), result.pose.end.toArray());
+});
+
+test('nearby body and chest labels remain separately selectable at their authored pivots', () => {
+  const m=fixture(); m.Bones[1].PivotPoint=m.Bones[0].PivotPoint.slice();
+  const camera=new PerspectiveCamera(42,1,.1,1000); camera.position.set(50,-100,60); camera.lookAt(0,0,10); camera.updateMatrixWorld();
+  const handles=projectPoseHandles(m,{enabled:true,chains:[],pins:[],body:0,nodes:[1]},500,0,camera,600,600), body=handles.find(handle=>handle.kind==='body'), chest=handles.find(handle=>handle.id===1);
+  assert.equal(body.x,chest.x); assert.equal(body.y,chest.y); assert.ok(Math.abs(body.labelY-chest.labelY)>=16);
+  for(const handle of [body,chest])assert.equal(pickPoseHandle(handles,handle.labelX+3,handle.labelY),handle);
+});
+
+test('direct object Move/Rotate/Scale need no limb setup and use ordinary Movement transforms', () => {
+  for (const [mode, values] of [['move', [2, -1, 3]], ['rotate', [0, 0, 15]], ['scale', [1.1, 1.1, 1.1]]]) {
+    const m = fixture(), before = structuredClone(m), expected = structuredClone(m), change = { mode, values, space: 'world' };
+    applyMovementTransform(expected, [0], 500, 0, change); const result = solvePoseNode(m, 0, [], 500, 0, change); assert.deepEqual(m, before); apply(m, result);
+    vectorNear(sampleMovement(m,m.Bones[0],{move:'Translation',rotate:'Rotation',scale:'Scaling'}[mode],500,0), sampleMovement(expected,expected.Bones[0],{move:'Translation',rotate:'Rotation',scale:'Scaling'}[mode],500,0), 1e-6);
+  }
+  assert.doesNotThrow(() => validatePoseBody(fixture(), 0, []));
+});
+
+test('body Rotate/Scale compensate feet together, and upper-body controls compensate a pinned hand', () => {
+  for (const change of [{ mode: 'rotate', space: 'world', values: [0, 0, 12] }, { mode: 'scale', space: 'local', values: [1.03, 1.03, 1.03] }]) {
+    const m = fixture(), poses = [leg1,leg2].map(c => samplePoseChain(m,c,500,0)), before=structuredClone(m), result=solvePoseNode(m,0,[leg1,leg2].map(chain=>({chain})),500,0,change);
+    assert.deepEqual(m,before); assert.ok(result.changes.length); apply(m,result);
+    [leg1,leg2].forEach((c,i)=>{const after=samplePoseChain(m,c,500,0);vectorNear(after.end.toArray(),poses[i].end.toArray());near(Math.abs(after.rotations[2].dot(poses[i].rotations[2])),1,1e-7);});
+  }
+  const m=fixture(), config={chains:[chain,leg1,leg2],pins:['a','l','r']}; assert.deepEqual(poseAffectedPins(m,config,1),[chain]);
+  const pose=samplePoseChain(m,chain,500,0); apply(m,solvePoseNode(m,1,[{chain}],500,0,{mode:'move',space:'world',values:[.3,0,0]})); vectorNear(samplePoseChain(m,chain,500,0).end.toArray(),pose.end.toArray());
+});
+
+test('body translation stops at the first inner reach boundary and retains a valid folded limb', () => {
+  const m=fixture(); m.Bones[4].PivotPoint=[0,-3,10];m.Bones[5].PivotPoint=[0,-3,0];m.Bones[6].PivotPoint=[0,-3,-2];
+  const pose=samplePoseChain(m,leg1,500,0), result=solvePoseBody(m,0,[{chain:leg1}],500,0,[0,0,-25]); assert.ok(result.limited); near(result.fraction,.16,1e-5); apply(m,result);
+  const after=samplePoseChain(m,leg1,500,0); vectorNear(after.end.toArray(),pose.end.toArray());vectorNear(after.lengths,pose.lengths);assert.ok(after.root.distanceTo(after.end)>=8-1e-5);
+});
+
+test('native Footman suggestions include both hands, both feet and the shared whole-body root', {skip:!fs.existsSync('out/pose/Footman.mdx')}, () => {
+  const m=openDocument(fs.readFileSync('out/pose/Footman.mdx'),'Footman.mdx').model, rig=suggestPoseRig(m,500,0);
+  assert.deepEqual(rig.chains.map(c=>c.end).sort((a,b)=>a-b),[29,32,38,42]);assert.equal(rig.body,25);assert.ok(rig.nodes.includes(39)&&rig.nodes.includes(33)&&rig.nodes.includes(26));
 });
 
 test('Knight SD arm native solve, atomic Undo/Redo and MDX reopen preserve all other data/chunks', () => {

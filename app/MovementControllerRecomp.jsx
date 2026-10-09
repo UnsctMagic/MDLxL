@@ -3,11 +3,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { allNodes } from '../src/animation.js';
 import { nodeKind } from '../src/editor-commands.js';
 import {
-  applyMovementTransform, constrainMovementVector, deleteMovementControllers,
+  applyMovementPose, applyMovementTransform, constrainMovementVector, deleteMovementControllers,
   movementControllerType, movementPlaneAxis, movementProperties, movementRestricted,
   setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve,
 } from '../src/movement.js';
 import { movementSelectionSummary } from '../src/movement-selection.js';
+import { poseAffectedPins, samplePoseChain, solvePoseLimb, solvePoseNode } from '../src/pose-ik.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { HELPER_LIST_COLOR, rigNodeListGroups, rigNodeListKind } from '../src/rig-node-order.js';
 import { visualOptions } from '../src/preferences.js';
@@ -73,7 +74,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
   const summary = useMemo(() => movementSelectionSummary(model, selectedNodeIds, selectionByGeoset, { time: frame, sequenceIndex: editSequenceIndex, restPose }), [model, revision, selectedNodeIds, selectionByGeoset, frame, editSequenceIndex, restPose]);
   const editableNodes = !disabled && !globalDomain && selected.length > 0 && (restPose || editSequenceIndex >= 0);
   const poseTarget = !restPose && poseConfig?.enabled && poseConfig.target;
-  const blocked = mode => poseTarget && mode !== 'select' ? mode === 'scale' || poseTarget.kind === 'body' && mode === 'rotate' || movementRestricted(poseTarget.kind === 'body' ? 'move' : 'rotate', restrictions) : movementRestricted(mode, restrictions) || restPose && mode !== 'move' && mode !== 'select';
+  const blocked = mode => poseTarget && mode !== 'select' ? poseTarget.kind === 'bend' && mode !== 'move' || movementRestricted(poseTarget.kind === 'endpoint' && mode === 'move' || poseTarget.kind === 'bend' ? 'rotate' : mode, restrictions) : movementRestricted(mode, restrictions) || restPose && mode !== 'move' && mode !== 'select';
   const normalAxis = workplaneEnabled ? movementPlaneAxis(workplane) : -1;
   const controllerMode = movementProperties[transformMode] ? transformMode : null;
   const controllerProperty = controllerMode ? movementProperties[controllerMode] : null;
@@ -97,9 +98,21 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
     } catch (cause) { setError(cause.message); return false; }
   };
   const options = { restPose, rotateOnOwnAxis, workplaneEnabled, workplane, restrictions };
-  const transform = (current, change) => controlModel && ['move', 'rotate'].includes(change.mode)
-    ? applyPortraitModelTransform(current, selectedNodeIds, frame, editSequenceIndex, change)
-    : applyMovementTransform(current, selectedNodeIds, frame, editSequenceIndex, change);
+  const transform = (current, change) => {
+    if (poseTarget && selected.length === 1) {
+      const chain = poseConfig.chains.find(item => item.key === poseTarget.key);
+      const id = poseTarget.kind === 'body' ? poseConfig.body : poseTarget.kind === 'node' ? poseTarget.id : chain?.end;
+      let result;
+      if (chain && change.mode === 'move') {
+        const pose = samplePoseChain(current, chain, frame, editSequenceIndex);
+        result = solvePoseLimb(current, chain, frame, editSequenceIndex, pose.end.clone().add({ x: change.values[0], y: change.values[1], z: change.values[2] }));
+      } else result = solvePoseNode(current, id, poseAffectedPins(current, poseConfig, id).map(chain => ({ chain })), frame, editSequenceIndex, change);
+      return applyMovementPose(current, result.changes, frame, editSequenceIndex, restrictions);
+    }
+    return controlModel && ['move', 'rotate'].includes(change.mode)
+      ? applyPortraitModelTransform(current, selectedNodeIds, frame, editSequenceIndex, change)
+      : applyMovementTransform(current, selectedNodeIds, frame, editSequenceIndex, change);
+  };
   const commitPosition = (index, value) => {
     if (!summary.center || blocked('move')) return;
     const translation = [0, 0, 0]; translation[index] = value - summary.center[index];
@@ -170,10 +183,10 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
       <button type="button" data-warmkey="bone:detachVertices" title="Detach Vertices (V)" aria-label="Detach Vertices" disabled={disabled || !canBind} onClick={onDetachVertices}><BoneToolIcon kind="detachVertices"/></button>
     </div> : <div className="movement-tools" role="group" aria-label="Movement tool">{['select', 'move', 'rotate', 'scale'].map(mode => <button key={mode} type="button" data-warmkey={mode === 'move' ? 'translate' : mode} title={modeTitle(mode)} aria-label={modeTitle(mode)} aria-pressed={transformMode === mode} disabled={mode !== 'select' && (disabled || blocked(mode))} onClick={() => { if (!blocked(mode)) onTransformMode?.(mode); }}><ModernIcon name={icons[mode]}/></button>)}</div>}
       {!restPose && <label className="movement-check movement-own-axis" title="Keep the selected bone's visible mesh centered while rotating; this also authors a Translation key."><input type="checkbox" checked={rotateOnOwnAxis} onChange={event => onRotateOnOwnAxis?.(event.target.checked)}/>Rotate on Own Axis</label>}
-      {!restPose && !portraitMode && poseConfig && <PoseControls model={model} revision={revision} config={poseConfig} onChange={onPoseChange} onSelect={onPoseSelect} selectedNodeIds={selectedNodeIds} frame={frame} sequence={editSequenceIndex} disabled={disabled || globalDomain || editSequenceIndex < 0}/>}
+      {!restPose && !portraitMode && poseConfig && <PoseControls model={model} revision={revision} config={poseConfig} onChange={onPoseChange} onSelect={onPoseSelect} selectedNodeIds={selectedNodeIds} frame={frame} sequence={editSequenceIndex} disabled={disabled}/>}
     </SidebarSection>
     {!restPose && <SidebarSection title="Restrictions"><div className="movement-restrictions" role="group" aria-label="Transform restrictions"><strong>Restrict:</strong>{lockNames.map(name => <label className="movement-check" key={name}><input type="checkbox" checked={!!restrictions[name.toLowerCase()]} onChange={event => onRestrictions?.({ ...restrictions, [name.toLowerCase()]: event.target.checked })}/>{name}</label>)}<button disabled={!lockNames.some(name => restrictions[name.toLowerCase()])} onClick={() => onRestrictions?.({ translation: false, rotation: false, scaling: false })}>Release Restrictions</button></div></SidebarSection>}
-    {!restPose && <SidebarSection title="Controller"><section className="movement-controller-type" aria-label="Movement controller type"><div translate="no">{selectedName}</div><div>{controllerProperty || 'Select a transform tool'}</div><fieldset disabled={disabled || globalDomain || !!poseTarget || !selected.length || !controllerMode}><legend>Controller type</legend>{controllerOptions.map(([label, lineType]) => <label key={lineType}><input type="radio" name="movement-controller-type" checked={controllerType === lineType} onChange={() => changeController(lineType)}/>{label}</label>)}</fieldset>{controllerType >= 2 && <button onClick={() => setCurveOpen(true)}>Curve Properties…</button>}<label className="movement-check"><input type="checkbox" checked={highlightKeyframes} onChange={event => onHighlightKeyframes?.(event.target.checked)}/>Highlight KF</label><label className="movement-check"><input type="checkbox" checked={highlightChain} onChange={event => onHighlightChain?.(event.target.checked)}/>Highlight Chain</label><button className="movement-delete-controller" disabled={disabled || globalDomain || !selected.length} onClick={() => run(sequenceIndex < 0 ? 'Delete all movement controllers' : 'Delete movement controllers in sequence', current => deleteMovementControllers(current, selectedNodeIds, sequenceIndex))}>Delete Controller</button></section></SidebarSection>}
+    {!restPose && <SidebarSection title="Controller"><section className="movement-controller-type" aria-label="Movement controller type"><div translate="no">{selectedName}</div><div>{controllerProperty || 'Select a transform tool'}</div><fieldset disabled={disabled || globalDomain || !!poseTarget && !['node', 'body'].includes(poseTarget.kind) || !selected.length || !controllerMode}><legend>Controller type</legend>{controllerOptions.map(([label, lineType]) => <label key={lineType}><input type="radio" name="movement-controller-type" checked={controllerType === lineType} onChange={() => changeController(lineType)}/>{label}</label>)}</fieldset>{controllerType >= 2 && <button onClick={() => setCurveOpen(true)}>Curve Properties…</button>}<label className="movement-check"><input type="checkbox" checked={highlightKeyframes} onChange={event => onHighlightKeyframes?.(event.target.checked)}/>Highlight KF</label><label className="movement-check"><input type="checkbox" checked={highlightChain} onChange={event => onHighlightChain?.(event.target.checked)}/>Highlight Chain</label><button className="movement-delete-controller" disabled={disabled || globalDomain || !selected.length} onClick={() => run(sequenceIndex < 0 ? 'Delete all movement controllers' : 'Delete movement controllers in sequence', current => deleteMovementControllers(current, selectedNodeIds, sequenceIndex))}>Delete Controller</button></section></SidebarSection>}
     {selected.length > 0 && !restPose && editSequenceIndex < 0 && sequenceIndex >= 0 && <p className="movement-hint">Choose an animation to edit movement.</p>}{error && <p role="alert">{error}</p>}
     {curveOpen && controllerType >= 2 && <div className="movement-curve-dialog" role="dialog" aria-modal="false" aria-label="Curve Properties"><header><strong>Curve Properties</strong><button aria-label="Close Curve Properties" onClick={() => setCurveOpen(false)}>×</button></header><div className="movement-curve-graph"><svg viewBox="0 0 100 54" aria-label="Interpolation curve"><line className="curve-axis" x1="50" y1="3" x2="50" y2="51"/><path d={curvePath(curve)}/>{controllerType === 3 && <><line className="curve-handle" x1="8" y1="47" x2="30" y2="32"/><line className="curve-handle" x1="92" y1="11" x2="70" y2="26"/><circle cx="30" cy="32" r="2"/><circle cx="70" cy="26" r="2"/></>}</svg></div>{controllerType === 2 ? <div className="movement-curve-fields">{[['tension', 'Tension:'], ['continuity', 'Continuity:'], ['bias', 'Bias:']].map(([name, label]) => <label key={name}>{label}<input type="number" min="-1" max="1" step="0.05" value={curve[name]} onChange={event => setCurve(previous => ({ ...previous, [name]: Number(event.target.value) }))} onBlur={() => commitCurve(curve)}/></label>)}</div> : <div className="movement-bezier-fields"><p>Edit the selected keyframe's tangent handles.</p><label>Incoming tangent:<input aria-label="Incoming Bezier tangent" value={incoming} onChange={event => setIncoming(event.target.value)}/></label><label>Outgoing tangent:<input aria-label="Outgoing Bezier tangent" value={outgoing} onChange={event => setOutgoing(event.target.value)}/></label><button disabled={!selectedKey} onClick={commitBezier}>Apply Handles</button></div>}</div>}
   </section>;

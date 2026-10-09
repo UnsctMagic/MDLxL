@@ -1,9 +1,10 @@
 import { Quaternion, Vector3 } from 'three';
 import { allNodes } from '../src/animation.js';
-import { samplePoseChain, validatePoseBody } from '../src/pose-ik.js';
+import { poseAffectedPins, poseNodeRole, samplePoseChain } from '../src/pose-ik.js';
+import { samplePreviewMatrices } from './preview-pose.js';
 
-export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame) {
-  if (!config?.enabled || sequence < 0) return [];
+export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes) {
+  if (!config?.enabled) return [];
   const handles = [], target = config.target;
   const project = (world, fields) => {
     const screen = world.clone().project(camera);
@@ -26,30 +27,50 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
       }
     } catch { /* Invalid session mappings have no visible or pickable handle. */ }
   }
-  if (config.body != null) {
-    try {
-      const legs = config.chains.filter(chain => chain.kind === 'leg'), node = validatePoseBody(model, config.body, legs);
-      const any = config.chains.find(chain => chain.kind === 'leg'), pose = samplePoseChain(model, any, frame, sequence, globalTime);
-      const matrix = pose.matrices.get(node.ObjectId), world = new Vector3().fromArray(node.PivotPoint || model.PivotPoints[node.ObjectId]).applyMatrix4(matrix), rotation = new Quaternion();
-      matrix.decompose(new Vector3(), rotation, new Vector3());
-      const selected = target?.kind === 'body', paths = selected ? legs.map(chain => { const limb = samplePoseChain(model, chain, frame, sequence, globalTime); return [world, limb.root, limb.middle, limb.end].map(point => project(point, {})); }) : [];
-      handles.push(project(world, { kind: 'body', rotation, selected, paths, label: 'Body' }));
-    } catch { /* Hierarchy edits suspend body controls until mappings are valid. */ }
+  const matrices = samplePreviewMatrices(model, frame, sequence, globalTime, camera);
+  for (const node of allNodes(model)) {
+    if (handles.some(handle => handle.chain?.end === node.ObjectId)) continue;
+    const body = node.ObjectId === config.body, selected = body ? target?.kind === 'body' : target?.kind === 'node' && target.id === node.ObjectId;
+    const quiet = !body && !selected && !(config.nodes || []).includes(node.ObjectId);
+    if (quiet && visibleNodes && !visibleNodes.has(node.ObjectId)) continue;
+    const matrix = matrices.get(node.ObjectId), pivot = node.PivotPoint || model.PivotPoints?.[node.ObjectId];
+    if (!matrix || !pivot) continue;
+    const world = new Vector3().fromArray(pivot).applyMatrix4(matrix), rotation = new Quaternion(); matrix.decompose(new Vector3(), rotation, new Vector3());
+    if (!world.toArray().every(Number.isFinite)) continue;
+    const paths = [];
+    if (selected) for (const chain of poseAffectedPins(model, config, node.ObjectId)) {
+      try { const limb = samplePoseChain(model, chain, frame, sequence, globalTime); paths.push([world, limb.root, limb.middle, limb.end].map(point => project(point, {}))); } catch { /* Only this constraint is unavailable. The direct control remains usable. */ }
+    }
+    handles.push(project(world, { kind: body ? 'body' : 'node', id: node.ObjectId, rotation, selected, paths, quiet, label: body ? 'Body' : poseNodeRole(node) }));
+  }
+  // Nearby body/chest/pelvis pivots can overlap. Keep their labels separately
+  // clickable while retaining the actual joint positions and compact overlay.
+  const labels = [];
+  for (const handle of handles.filter(handle => handle.visible && !handle.quiet)) {
+    handle.labelX = handle.x + 20;
+    handle.labelWidth = `${handle.label}${handle.pinned ? ' · PIN' : ''}`.length * 7;
+    let offset = 0, attempt = 0;
+    while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
+    handle.labelY = handle.y + offset; labels.push(handle);
   }
   return handles;
 }
 
 export function pickPoseHandle(handles, x, y) {
-  return handles.filter(handle => handle.visible).slice().sort((a, b) => Number(b.selected) - Number(a.selected)).find(handle => {
+  const visible = handles.filter(handle => handle.visible);
+  const label = visible.find(handle => !handle.quiet && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
+  if (label) return label;
+  const hits = visible.filter(handle => {
     const distance = Math.hypot(x - handle.x, y - handle.y);
-    return handle.kind === 'bend' ? distance <= 10 : distance >= 7 && distance <= 19;
-  }) || null;
+    return distance <= (handle.quiet ? 6 : handle.kind === 'bend' ? 10 : 19);
+  });
+  return hits.sort((a, b) => Number(a.quiet) - Number(b.quiet) || Math.hypot(x - a.x, y - a.y) - Math.hypot(x - b.x, y - b.y) || Number(b.selected) - Number(a.selected))[0] || null;
 }
 
 export function drawPoseOverlay(context, handles, ratio = 1) {
   context.save(); context.scale(ratio, ratio);
   for (const handle of handles) {
-    if (!handle.visible) continue;
+    if (!handle.visible || handle.quiet) continue;
     const color = handle.pinned ? '#ffbd59' : handle.selected ? '#fff58b' : '#71eee4';
     for (const path of handle.paths || [handle.joints || []]) if (path.length && path.every(joint => joint.visible)) {
       context.beginPath(); path.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); });
@@ -61,12 +82,14 @@ export function drawPoseOverlay(context, handles, ratio = 1) {
     context.beginPath();
     if (handle.kind === 'body') { context.moveTo(handle.x, handle.y - 17); context.lineTo(handle.x + 17, handle.y); context.lineTo(handle.x, handle.y + 17); context.lineTo(handle.x - 17, handle.y); context.closePath(); }
     else if (handle.kind === 'bend') context.arc(handle.x, handle.y, 7, 0, Math.PI * 2);
-    else if (handle.chain.kind === 'leg') context.rect(handle.x - 13, handle.y - 13, 26, 26);
+    else if (handle.chain?.kind === 'leg' || handle.kind === 'node') context.rect(handle.x - 13, handle.y - 13, 26, 26);
     else context.arc(handle.x, handle.y, 13, 0, Math.PI * 2);
     context.lineWidth = 5; context.strokeStyle = '#102431'; context.stroke(); context.lineWidth = 2; context.strokeStyle = color; context.stroke();
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'left'; context.textBaseline = 'middle'; context.lineWidth = 3; context.strokeStyle = '#102431';
     const label = `${handle.label}${handle.pinned ? ' · PIN' : ''}`;
-    context.strokeText(label, handle.x + 20, handle.y); context.fillStyle = color; context.fillText(label, handle.x + 20, handle.y);
+    const labelX = handle.labelX ?? handle.x + 20, labelY = handle.labelY ?? handle.y;
+    if (Math.abs(labelY - handle.y) > 1) { context.beginPath(); context.moveTo(handle.x + 15, handle.y); context.lineTo(labelX - 2, labelY); context.lineWidth = 1; context.strokeStyle = color; context.stroke(); }
+    context.lineWidth = 3; context.strokeStyle = '#102431'; context.strokeText(label, labelX, labelY); context.fillStyle = color; context.fillText(label, labelX, labelY);
   }
   context.restore();
 }

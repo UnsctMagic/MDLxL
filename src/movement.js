@@ -267,11 +267,11 @@ export function prepareMovementPose(model, changes, time, sequenceIndex, restric
   const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), seen = new Set(), prepared = [];
   for (const change of changes) {
     const node = byId.get(change.id), property = change.property;
-    if (!node || !['Rotation', 'Translation'].includes(property)) throw new Error('POSE target or native channel is missing.');
+    if (!node || !Object.values(movementProperties).includes(property)) throw new Error('POSE target or native channel is missing.');
     const stamp = `${change.id}:${property}`;
     if (seen.has(stamp)) throw new Error('POSE chains cannot write the same channel twice.');
     seen.add(stamp);
-    if (movementRestricted(property === 'Rotation' ? 'rotate' : 'move', restrictions)) throw new Error(`${property} is restricted.`);
+    if (movementRestricted(Object.keys(movementProperties).find(mode => movementProperties[mode] === property), restrictions)) throw new Error(`${property} is restricted.`);
     const prior = node[property];
     if (Number.isInteger(prior?.GlobalSeqId) && prior.GlobalSeqId >= 0) throw new Error('POSE cannot change a global controller. Choose a local transform track.');
     let values = Array.from(change.value || []);
@@ -294,9 +294,10 @@ export function prepareMovementPose(model, changes, time, sequenceIndex, restric
     if (prior !== undefined) staged[property] = structuredClone(prior);
     const old = prior?.Keys?.find(key => key.Frame === time)?.Vector || sampled;
     const delta = property === 'Rotation' ? new Quaternion().fromArray(values).multiply(new Quaternion().fromArray(old).normalize().invert()) : null;
-    writeKey(model, staged, property, time, sequenceIndex, values, tangent => property === 'Rotation'
+    writeKey(model, staged, property, time, sequenceIndex, values, (tangent, lineType) => property === 'Rotation'
       ? delta.clone().multiply(new Quaternion().fromArray(tangent)).toArray()
-      : Array.from(tangent));
+      : property === 'Scaling' ? Array.from(tangent, (value, i) => value * (old[i] === 0 ? 1 : values[i] / old[i]))
+      : lineType === 3 ? Array.from(tangent, (value, i) => value + values[i] - old[i]) : Array.from(tangent));
     prepared.push({ id: change.id, property, track: staged[property] });
   }
   return prepared;

@@ -10,4 +10,6 @@
 .pose-setup button { font-size: 11px; min-height: 22px; padding: 2px 5px; }
 .pose-mapping { display: flex; gap: 3px; margin-top: 4px; }
 .pose-mapping button:first-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pose-error, .pose-setup [role="alert"] { color: #ffb793; }
+.pose-custom { margin-top: 7px; }
+.pose-custom summary { cursor: pointer; }
+.pose-error, .pose-setup [role="alert"] { color: var(--ui-error, #a32913); }

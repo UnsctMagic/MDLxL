@@ -25,7 +25,7 @@ import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, pickPoseHandle, projectPoseHandles } from './pose-overlay.js';
-import { posePreviewModel, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, turnPoseEndpoint, validatePoseBody } from '../src/pose-ik.js';
+import { poseAffectedPins, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
@@ -366,8 +366,8 @@ export default function GamePreview(inputProps) {
       const sequences = p.model.Sequences || [];
       return sequences[p.sequenceIndex] ? p.sequenceIndex : sequences.findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
     };
-    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends]);
-    const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key]);
+    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.nodes]);
+    const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id]);
     const poseContextValid = (gesture, p) => gesture.model === (p.poseDocumentModel || p.model) && gesture.previewModel === p.model && gesture.revision === p.revision &&
       (Math.round(p.time) === gesture.inputTime || Math.round(p.time) === gesture.frame) && gesture.inputSequence === p.sequenceIndex &&
       gesture.tool === p.transformMode && gesture.space === p.transformSpace && gesture.cameraMode === p.cameraMode && !p.restPose && !p.suspended && !!p.onPoseCommit &&
@@ -375,34 +375,34 @@ export default function GamePreview(inputProps) {
       gesture.workplaneEnabled === !!p.workplaneEnabled && gesture.workplane === p.workplane && JSON.stringify(p.restrictions) === gesture.restrictionsStamp;
     const beginPoseGesture = (event, p, x, y, rect) => {
       if (!p.poseConfig?.enabled || p.restPose || !p.onPoseCommit || p.attachSourceIds?.length) return false;
-      // Preserve the real marker's center even if another handle ring overlaps.
-      if (pickMovementNode(nodePoints, x, y, p.selectedNodeIds, 6)) return false;
-      const picked = pickPoseHandle(poseHandles, x, y), active = poseHandles.find(handle => handle.selected), realPicked = pickMovementNode(nodePoints, x, y);
-      const axis = !picked && !p.workplaneEnabled && active ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
+      const active = poseHandles.find(handle => handle.selected), realPicked = pickMovementNode(nodePoints, x, y);
+      // The visible axis tip belongs to the selected control, even when a
+      // different object's marker happens to sit beneath it.
+      const tip = !p.workplaneEnabled && active && p.transformMode !== 'select' ? pickMovementHandle(nodeHandles, x, y, 'move') : null;
+      const picked = tip ? null : pickPoseHandle(poseHandles, x, y);
+      const axis = tip || (!picked && !p.workplaneEnabled && active ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null);
       const handle = picked || (axis || p.workplaneEnabled && active && !realPicked ? active : null);
       if (!handle) return false;
-      const target = { kind: handle.kind, ...(handle.key ? { key: handle.key } : {}) };
+      const target = { kind: handle.kind, ...(handle.key ? { key: handle.key } : {}), ...(handle.kind === 'node' ? { id: handle.id } : {}) };
       if (picked) p.onPoseSelect?.(target);
-      if (p.transformMode === 'select' || !['move', 'rotate'].includes(p.transformMode)) {
-        if (p.transformMode === 'scale') setGestureLabel('POSE handles cannot Resize. Select the real bone in Object.');
+      if (p.transformMode === 'select' || !['move', 'rotate', 'scale'].includes(p.transformMode)) {
         event.preventDefault(); event.stopImmediatePropagation(); return true;
       }
       try {
-        if (handle.kind === 'body' && p.transformMode !== 'move') throw new Error('Body handles use Move. Select the real body bone for Rotate.');
+        if (handle.kind === 'bend' && p.transformMode !== 'move') throw new Error('Use Move to steer Bend.');
         const frame = Math.round(native.getFrame()), sequence = movementSequence(p, frame), baseline = posePreviewModel(ownedModel);
         // The renderer's private All-line interval is never a saved sequence.
         if (timelineSequenceIndex >= 0) baseline.Sequences = baseline.Sequences.slice(0, timelineSequenceIndex);
-        const config = p.poseConfig, scope = poseTrackScope(config, target, handle.kind === 'bend' ? 'move' : p.transformMode);
+        const config = p.poseConfig, scope = poseTrackScope(config, target, handle.kind === 'bend' ? 'move' : p.transformMode, baseline);
         const byId = new Map(allNodes(baseline).map(node => [node.ObjectId, node])), snapshots = new Map();
-        if (handle.kind === 'body') validatePoseBody(baseline, config.body, config.chains.filter(chain => chain.kind === 'leg'));
-        else samplePoseChain(baseline, handle.chain, frame, sequence, globalClock);
-        const currentChanges = scope.map(item => ({ ...item, value: sampleTrack(byId.get(item.id)?.[item.property], frame, { interval: baseline.Sequences[sequence]?.Interval, globalSequences: baseline.GlobalSequences, globalTime: globalClock, fallback: item.property === 'Rotation' ? [0, 0, 0, 1] : [0, 0, 0], quaternion: item.property === 'Rotation' }) }));
+        if (handle.chain) samplePoseChain(baseline, handle.chain, frame, sequence, globalClock);
+        const currentChanges = scope.map(item => ({ ...item, value: sampleTrack(byId.get(item.id)?.[item.property], frame, { interval: baseline.Sequences[sequence]?.Interval, globalSequences: baseline.GlobalSequences, globalTime: globalClock, fallback: item.property === 'Rotation' ? [0, 0, 0, 1] : item.property === 'Scaling' ? [1, 1, 1] : [0, 0, 0], quaternion: item.property === 'Rotation' }) }));
         prepareMovementPose(baseline, currentChanges, frame, sequence, p.restrictions);
         for (const { id } of scope) if (!snapshots.has(id)) { const node = byId.get(id); snapshots.set(id, structuredClone({ Translation: node.Translation, Rotation: node.Rotation, Scaling: node.Scaling, PivotPoint: node.PivotPoint })); }
         const gesture = { pose: true, id: event.pointerId, x, y, target, baseline, config, configStamp: poseStamp(config), inputTime: Math.round(p.time), inputSequence: p.sequenceIndex,
           model: p.poseDocumentModel || p.model, previewModel: p.model, revision: p.revision, tool: p.transformMode, space: p.transformSpace, cameraMode: p.cameraMode, mode: handle.kind === 'bend' ? 'move' : p.transformMode, handle: axis || movementWorkplaneHandle(p.workplane || 'xy', handle.unitsPerPixel),
           camera: camera.clone(), origin: handle.world.clone(), snapshots, frame, sequence, globalTime: globalClock, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane,
-          restrictionsStamp: JSON.stringify(p.restrictions), moved: false, changes: null };
+          restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
         if (p.workplaneEnabled) {
           const axes = p.workplane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(p.workplane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
@@ -415,7 +415,7 @@ export default function GamePreview(inputProps) {
       event.preventDefault(); event.stopImmediatePropagation(); invalidate(); return true;
     };
     const previewPoseGesture = (gesture, event, p, rect, dx, dy) => {
-      restoreGestureTracks(gesture); gesture.changes = null; gesture.bends = null; posedGeometryCache = null;
+      restoreGestureTracks(gesture); posedGeometryCache = null;
       if (!poseContextValid(gesture, p)) { gesture.adjusted = true; return; }
       try {
         const sensitivity = pointerSensitivityValue(p.preferences?.pointerSensitivity);
@@ -426,17 +426,25 @@ export default function GamePreview(inputProps) {
           if (event.shiftKey) amount = Math.round(amount);
           offset = new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], amount);
         }
-        if (gesture.mode === 'move' && offset.lengthSq() < 1e-20) { setGestureLabel(''); return; }
+        if (gesture.mode === 'move' && offset.lengthSq() < 1e-20) { gesture.changes = []; gesture.bends = []; setGestureLabel(''); return; }
         let result;
-        if (gesture.target.kind === 'body') {
-          const pins = gesture.config.chains.filter(chain => chain.kind === 'leg' && gesture.config.pins.includes(chain.key)).map(chain => ({ chain, bendLocal: gesture.config.bends?.[chain.key] }));
-          result = solvePoseBody(gesture.baseline, gesture.config.body, pins, gesture.frame, gesture.sequence, offset, gesture.globalTime);
+        if (gesture.target.kind === 'body' || gesture.target.kind === 'node' || gesture.mode === 'scale') {
+          const id = gesture.target.kind === 'body' ? gesture.config.body : gesture.target.kind === 'node' ? gesture.target.id : gesture.config.chains.find(chain => chain.key === gesture.target.key).end;
+          const pins = poseAffectedPins(gesture.baseline, gesture.config, id).map(chain => ({ chain, bendLocal: gesture.config.bends?.[chain.key] }));
+          let values = offset.toArray();
+          if (gesture.mode === 'rotate') {
+            let degrees = movementDragAmount(gesture.handle, dx, dy, 'rotate', sensitivity); if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
+            if (degrees === 0) { gesture.changes = []; gesture.bends = []; setGestureLabel(''); return; }
+            const normal = gesture.handle.axis === 'XYZ' ? gesture.camera.getWorldDirection(new THREE.Vector3()) : new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], 1);
+            values = normal.multiplyScalar(degrees).toArray();
+          } else if (gesture.mode === 'scale') values = gesture.handle.free || gesture.workplaneEnabled ? movementFreeScaleValues(dx, dy, { sensitivity, workplaneEnabled: gesture.workplaneEnabled, workplane: gesture.workplane, shiftKey: event.shiftKey }) : ['X', 'Y', 'Z'].map(axis => axis === gesture.handle.axis ? movementDragAmount(gesture.handle, dx, dy, 'scale', sensitivity) : 1);
+          result = solvePoseNode(gesture.baseline, id, pins, gesture.frame, gesture.sequence, { mode: gesture.mode, space: gesture.mode === 'move' ? 'world' : gesture.space, values, rotateOnOwnAxis: gesture.rotateOnOwnAxis, restrictions: p.restrictions }, gesture.globalTime);
         } else {
           const chain = gesture.config.chains.find(chain => chain.key === gesture.target.key), pose = samplePoseChain(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.globalTime);
           if (gesture.mode === 'rotate') {
             let degrees = movementDragAmount(gesture.handle, dx, dy, 'rotate', sensitivity);
             if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
-            if (degrees === 0) { setGestureLabel(''); return; }
+            if (degrees === 0) { gesture.changes = []; gesture.bends = []; setGestureLabel(''); return; }
             const normal = gesture.workplaneEnabled || gesture.handle.axis !== 'XYZ' && !gesture.handle.free ? new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], 1) : gesture.camera.getWorldDirection(new THREE.Vector3());
             if (!gesture.workplaneEnabled && p.transformSpace === 'local' && gesture.handle.axis !== 'XYZ' && !gesture.handle.free) normal.applyQuaternion(pose.rotations[2]);
             result = turnPoseEndpoint(gesture.baseline, chain, gesture.frame, gesture.sequence, new THREE.Quaternion().setFromAxisAngle(normal.normalize(), degrees * Math.PI / 180).toArray(), gesture.globalTime);
@@ -449,8 +457,12 @@ export default function GamePreview(inputProps) {
         const count = applyMovementPose(writable, result.changes, gesture.frame, gesture.sequence, p.restrictions);
         gesture.changes = count ? result.changes : [];
         gesture.bends = result.bends;
-        setGestureLabel(result.clamped ? 'Limb reach limit' : `${gesture.target.kind === 'body' ? 'Body Move' : gesture.target.kind === 'bend' ? 'Bend' : gesture.mode === 'rotate' ? 'Turn' : 'Limb Move'}`);
-      } catch (cause) { restoreGestureTracks(gesture); setGestureLabel(cause.message); }
+        setGestureLabel(result.limited || result.clamped ? 'Reach limit' : `${gesture.target.kind === 'body' ? 'Body' : gesture.target.kind === 'node' ? 'Object' : gesture.target.kind === 'bend' ? 'Bend' : gesture.mode === 'rotate' ? 'Turn' : 'Limb Move'}`);
+      } catch (cause) {
+        restoreGestureTracks(gesture);
+        if (gesture.changes?.length) applyMovementPose({ ...ownedModel, Sequences: gesture.baseline.Sequences }, gesture.changes, gesture.frame, gesture.sequence, p.restrictions);
+        setGestureLabel(cause.message);
+      }
     };
     const pointerDown = event => {
       canvas.focus();
@@ -641,7 +653,7 @@ export default function GamePreview(inputProps) {
         else {
           try {
             const result = latest.current.onPoseCommit?.({ model: gesture.model, revision: gesture.revision, frame: gesture.frame, sequence: gesture.sequence, inputSequence: gesture.inputSequence, changes: gesture.changes, bends: gesture.bends,
-              label: gesture.target.kind === 'body' ? 'POSE body Move' : gesture.target.kind === 'bend' ? 'POSE Bend' : gesture.mode === 'rotate' ? 'POSE Turn' : 'POSE limb Move' });
+              label: gesture.target.kind === 'bend' ? 'POSE Bend' : `POSE ${gesture.target.kind === 'body' ? 'Body' : gesture.target.kind === 'node' ? 'Object' : 'Limb'} ${gesture.mode[0].toUpperCase() + gesture.mode.slice(1)}` });
             if (result === false) restoreGestureTracks(gesture);
           } catch (cause) { restoreGestureTracks(gesture); setGestureLabel(cause.message); }
         }
@@ -682,9 +694,15 @@ export default function GamePreview(inputProps) {
       if (selectionGesture?.uv) finishNodeGesture({ pointerId: selectionGesture.id, type: 'pointercancel', preventDefault() {}, stopImmediatePropagation() {} });
     };
     const previewWindowBlur = () => { previewSelectHeld = false; controls.screenDrag=null; endShowcaseCursor(); if (nodeGesture?.pose) finishNodeGesture({ pointerId: nodeGesture.id, type: 'pointercancel', preventDefault() {}, stopImmediatePropagation() {} }); };
+    const cancelPoseCommand = event => {
+      if (!nodeGesture?.pose) return;
+      event.preventDefault();
+      finishNodeGesture({ pointerId: nodeGesture.id, type: 'pointercancel', preventDefault() {}, stopImmediatePropagation() {} });
+    };
     ownerWindow.addEventListener('keydown', previewKeyDown, true);
     ownerWindow.addEventListener('keyup', previewKeyUp, true);
     ownerWindow.addEventListener('blur', previewWindowBlur);
+    ownerWindow.addEventListener('mdlxl-cancel-gesture', cancelPoseCommand);
     let viewHoveredGeoset = null;
     const hoverGeoset = event => {
       const p = latest.current;
@@ -1177,7 +1195,7 @@ export default function GamePreview(inputProps) {
         nodePoints = visibleMovementPoints(projectedNodes, overlayOptions);
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
-        poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock) : [];
+        poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId))) : [];
         const activePose = poseHandles.find(handle => handle.selected);
         const active = activePose || nodePoints.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         const handleMode = p.transformMode || 'rotate', workplaneHidesHandles = p.workplaneEnabled && ['move', 'rotate', 'scale'].includes(handleMode);
@@ -1189,7 +1207,7 @@ export default function GamePreview(inputProps) {
             handleAnchor = { ...active, world: ownCenter.center, x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
           }
         }
-        const handleRestricted = activePose ? handleMode === 'scale' || activePose.kind === 'body' && handleMode !== 'move' || movementRestricted(activePose.kind === 'body' ? 'move' : 'rotate', p.restrictions) : movementRestricted(handleMode, p.restrictions);
+        const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode !== 'move' || movementRestricted(activePose.kind === 'endpoint' && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
         nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
         const markerOptions = { ...overlayOptions, modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
@@ -1348,7 +1366,7 @@ export default function GamePreview(inputProps) {
       compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelPoseCapture);
-      disposed = true; canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPoseCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.antialias, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
