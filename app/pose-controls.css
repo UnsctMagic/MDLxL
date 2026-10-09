@@ -2,27 +2,34 @@
 .pose-controls > button { padding: 2px 5px; min-height: 22px; font-size: 11px; }
 .pose-controls > button[aria-pressed="true"] { background: #21465a; color: #9ff5ef; }
 .pose-target { font-size: 11px; color: #9ff5ef; }
-.pose-setup { position: fixed; z-index: 110; right: 174px; top: 118px; width: 224px; max-height: 65vh; overflow: auto; background: var(--ui-panel, #d4d0c8); border: 2px outset #eee; box-shadow: 2px 2px 4px #0008; padding: 7px; color: var(--ui-text, #111); font-size: 11px; }
+.pose-setup { position: fixed; z-index: 110; right: 174px; top: 118px; width: 260px; max-height: 70vh; overflow: auto; background: var(--ui-panel, #d4d0c8); border: 2px outset #eee; box-shadow: 2px 2px 4px #0008; padding: 7px; color: var(--ui-text, #111); font-size: 11px; }
 .pose-setup header { display: flex; align-items: center; justify-content: space-between; }
-.pose-setup p { margin: 6px 0; line-height: 1.35; }
-.pose-setup label { display: flex; justify-content: space-between; align-items: center; gap: 4px; margin: 4px 0; }
-.pose-setup select { width: 155px; min-width: 0; }
-.pose-setup button { font-size: 11px; min-height: 22px; padding: 2px 5px; }
-.pose-mapping { display: flex; gap: 3px; margin-top: 4px; }
-.pose-mapping button:first-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pose-custom { margin-top: 7px; }
-.pose-custom summary { cursor: pointer; }
+.pose-setup p { margin: 7px 0; line-height: 1.35; }
+.pose-setup button { font-size: 11px; min-height: 24px; padding: 3px 5px; }
 .pose-error, .pose-setup [role="alert"] { color: var(--ui-error, #a32913); }
-
-.pose-parts, .pose-mapped { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 8px 0; }
-.pose-parts button, .pose-mapped button { height: 38px; display: grid; place-items: center; color: #147773; }
-.pose-parts button[aria-pressed="true"], .pose-mapped button[aria-pressed="true"] { background: #21465a; color: #9ff5ef; }
-.pose-parts svg, .pose-mapped svg, .pose-parts img, .pose-mapped img { width: 25px; height: 25px; object-fit: contain; }
-.pose-chain { display: flex; justify-content: space-around; margin: 12px 6px; background: linear-gradient(transparent 45%, #777 45% 55%, transparent 55%); color: #777; }
-.pose-chain button { border-radius: 50%; background: var(--ui-panel, #d4d0c8); padding: 0 3px; border: 0; min-height: 18px; }
-.pose-chain button[aria-pressed="true"] { outline: 1px solid #147773; }
-.pose-chain [data-filled="true"] { color: #147773; }
-.pose-pick-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pose-actions { display: flex; gap: 5px; }
+.pose-parts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 8px 0; }
+.pose-parts button { display: flex; flex-direction: column; align-items: center; gap: 3px; color: #147773; }
+.pose-parts span { color: var(--ui-text, #111); }
+.pose-setup svg, .pose-setup img { width: 24px; height: 24px; object-fit: contain; flex-shrink: 0; }
+.pose-new-chain { width: 100%; margin-top: 8px; font-weight: bold; }
+.pose-mapped { display: flex; flex-direction: column; gap: 3px; max-height: 190px; overflow: auto; }
+.pose-setup .pose-mapped button { flex: 0 0 auto; min-height: 38px; height: auto; line-height: 14px; display: flex; gap: 7px; align-items: center; text-align: left; color: #147773; }
+.pose-mapped button > span { min-width: 0; color: var(--ui-text, #111); }
+.pose-mapped b, .pose-mapped small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pose-mapped small { font-size: 11px; }
+.pose-edit-heading { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.pose-edit-heading button { margin-right: auto; }
+.pose-edit-heading svg { color: #147773; }
+.pose-bounds { display: grid; gap: 5px; }
+.pose-setup .pose-bounds button { display: flex; align-items: center; gap: 8px; text-align: left; min-height: 34px; }
+.pose-bounds b { flex: 0 0 34px; }
+.pose-bounds span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pose-bounds button[aria-pressed="true"] { background: #21465a; color: #9ff5ef; }
+.pose-pick-prompt { color: var(--ui-text, #111); }
+.pose-chain { max-height: 132px; overflow: auto; border-left: 2px solid #147773; margin: 5px 0 9px 5px; padding-left: 7px; }
+.pose-chain label { display: flex; align-items: center; gap: 5px; min-height: 25px; }
+.pose-chain span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pose-chain input { margin: 0; }
+.pose-actions { display: flex; gap: 5px; margin-top: 9px; }
 .pose-actions button:first-child { flex: 1; }
-.pose-joints, .pose-remove { margin-top: 8px; }
+.pose-remove { margin-top: 8px; }

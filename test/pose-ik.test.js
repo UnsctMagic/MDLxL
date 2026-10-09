@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { applyMovementPose, applyMovementTransform, sampleMovement } from '../src/movement.js';
-import { poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
+import { poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
@@ -468,4 +468,22 @@ test('a selected controller symbol keeps its drag when another handle label cros
   assert.equal(pickPoseHandle([hand,body],65,40,{kind:'body'},[],true),body);
   assert.equal(pickPoseHandle([hand,body],75,40,{kind:'body'},[],true),hand,'label remains clickable outside the selected symbol');
   assert.equal(pickPoseHandle([hand,body],50,40,null,[],false),body,'a crossing label cannot intercept a controller symbol');
+});
+
+
+test('manual Start/End chains retain any number of native links and selected bending joints', () => {
+  const m = fixture(), before = structuredClone(m);
+  const full = poseChainBetween(m, 0, 3);
+  assert.deepEqual(full.joints, [0,1,2,3]);
+  const selected = poseChainBetween(m, 0, 3, [1]);
+  assert.deepEqual(selected.joints, [0,2,3]);
+  const pose = samplePoseChain(m, selected, 500, 0);
+  const result = solvePoseLimb(m, selected, 500, 0, pose.end.clone().add(new Vector3(-1,0,-1)));
+  assert.ok(result.changes.length); assert.ok(!result.changes.some(change => change.id === 1));
+  assert.deepEqual(m,before,'setup and preview never edit the model');
+  assert.throws(() => poseChainBetween(m, 0, 3, [1,2]), /at least one bending joint/);
+  assert.throws(() => poseChainBetween(m, 4, 3), /same bone branch/);
+  assert.throws(() => poseChainBetween(m, 3, 0), /same bone branch/);
+  assert.throws(() => poseChainBetween(m, null, 3), /both Start and End/);
+  m.Bones[1].Parent=3; assert.throws(() => poseChainBetween(m, 0, 3), /same bone branch/);
 });

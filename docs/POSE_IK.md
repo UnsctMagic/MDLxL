@@ -49,17 +49,28 @@ wheel zoom, axis gizmos, XY/ZX/YZ workplanes and Shift constraints remain availa
 Select a native bone marker for ordinary Move, Rotate and Scale with POSE
 enabled. The Object picker remains the standard Movement bone selector.
 
-For a new handle, open **Setup…**, choose a part symbol and click its bone in the
-viewport. Repeated clicks cycle overlapping bones as in Movement. The proposed
-chain is highlighted on the model. **Add handle** confirms it; an invalid choice
-only disables that button. Pick another bone without restarting setup or losing
-the other handles. **Object** adds a direct control for another native node.
+Open **Setup…** to edit the selected handle, or choose a handle from the named
+list. **Start** and **End** show the actual bones. Click either field, then pick
+its bone in the Movement viewport; repeated clicks cycle overlapping bones.
+The existing Object picker and **Use selected bone** also use the current
+Movement selection.
 
-**Pick joints** exposes three dots for a custom shoulder/hip, elbow/knee and
-hand/foot. Pick through the ordinary viewport selection, then use **Next joint**.
-Click a dot to correct it. Cycling overlapping bones stays within the active dot.
-No bone-name dropdowns or permanent panels are added. Escape or closing Setup
-ends picking and restores the existing bone display.
+**New bone chain** lets you choose both ends yourself. The existing hierarchy
+fills in the joints between them, with no three-joint limit. **Bending joints**
+shows those intermediate bones by name; uncheck a joint if it should simply
+follow its parent instead of receiving an IK rotation. Keep at least one bend.
+The highlighted path shows the selected chain on the model. **Add handle** or
+**Save changes** applies the mapping; it creates no animation keys.
+
+For quick setup, choose Hand, Foot, Hoof or Wing and click the end bone. The
+suggested Start and all intermediate joints remain editable. Other part symbols
+map a single control. Existing handles can be retargeted or removed from their
+editor. Cancel keeps the previous mapping. An invalid choice shows its reason
+beside the picks and leaves them editable; it never restarts the editor.
+
+Setup stays open while you pick or turn the camera. Drag its title bar if it
+covers a bone. Escape or the close button ends picking and restores the previous
+bone display. Sidebar widths and the normal Movement layout stay unchanged.
 
 Horse-and-rider recognition maps full multi-joint hoof chains, both rider hands,
 boots and upper bodies. Native head/hand references identify unnamed anatomical
@@ -104,7 +115,7 @@ Bones retains the rest rig. POSE is absent from Bones and Portrait editing.
 
 ## Supported boundary
 
-Limb IK supports rigid SD two-link and longer hoof chains; upper-body handles
+Limb IK supports rigid SD two-link and longer connected chains; upper-body handles
 follow the actual spine/neck hierarchy. Both require positive uniform scale.
 Quantized SD quaternion roundoff is measured separately from authored scale.
 Recognition is structural and heuristic; unusual rigs can still need manual picks.

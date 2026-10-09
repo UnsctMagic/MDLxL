@@ -39,6 +39,25 @@ export function validatePoseChain(model, chain) {
   return ids.map(id => byId.get(id));
 }
 
+/** Build a user-picked chain along the existing hierarchy; excluded helpers
+ * still inherit normally but do not receive their own IK rotation keys. */
+export function poseChainBetween(model, root, end, excluded = []) {
+  if (root == null || end == null) throw new Error('Choose both Start and End.');
+  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), path = [], seen = new Set();
+  let node = byId.get(end);
+  while (node && !seen.has(node.ObjectId)) {
+    path.unshift(node.ObjectId); seen.add(node.ObjectId);
+    if (node.ObjectId === root) break;
+    node = byId.get(node.Parent);
+  }
+  if (path[0] !== root) throw new Error('Start must be above End in the same bone branch.');
+  const joints = path.filter(id => id === root || id === end || !excluded.includes(id));
+  if (joints.length < 3) throw new Error('Keep at least one bending joint between Start and End.');
+  const chain = { root, middle: joints[1], end, joints };
+  validatePoseChain(model, chain);
+  return chain;
+}
+
 export function suggestPoseChain(model, endpoint) {
   const nodes = allNodes(model), byId = new Map(nodes.map(node => [node.ObjectId, node])), end = byId.get(endpoint);
   let middle = byId.get(end?.Parent), root = byId.get(middle?.Parent);

@@ -452,3 +452,67 @@ Models, texture files, test profiles and screenshots remain ignored local eviden
 The primary checkout and user's open editors/profiles remain untouched. The build
 is an unshipped candidate on PR #154, version 0.21.2, awaiting user testing and
 merge authorization. No merge or release was performed.
+
+
+## Editable custom chain setup (2026-10-09)
+
+The previous three-dot picker hid manual control, limited direct setup to three
+joints, and presented mapped handles without a useful editing path. Setup now
+opens the selected mapping for editing, identifies handles by role and bone name,
+and provides explicit Start/End picks plus the intermediate bending joints.
+New bone chain follows the existing hierarchy without an artificial length limit.
+Intermediate helpers can be excluded from IK rotation while retaining native
+inheritance. No rig is reparented. Invalid bounds and empty bends stay local and
+editable. Retargeting replaces the old mapping and clears stale endpoint state;
+same-end edits retain pin state. Cancel and Remove affect only the chosen mapping.
+
+The existing viewport picker, overlap cycling and Movement Object selection own
+bone selection. Setup also offers Use selected bone, remains open during normal
+camera input, and uses the existing movable-window hook so its title can be dragged
+away from a bone. The floating editor is 260 px wide; the sidebar is unchanged.
+No permanent panel is added. The accepted solver, automatic recognition, native
+animation writer and model serialization are unchanged.
+
+Source evidence: `out/pose-setup-source.log`, **57/57 passed**, no skips. The new
+manual-chain check covers a four-joint path, optional helper rotation, a real limb
+solve, invalid/cyclic/different-branch picks and an unchanged input model. The
+existing Footman, nine Chaos Knight variants and four complex models still pass.
+
+The initial packaged setup walkthrough passed all four functional checks. Visual
+inspection then found flex compression in the named handle list; only the row
+sizing was corrected before the final build. Final mouse/layout verification passed in
+`out/pose-setup-final-ui/result.json`: **4 workflow checks**, zero page errors. The legacy Footman script was updated to return to
+the Handles list before adding another mapping, since Setup now opens the selected
+handle directly for editing.
+
+
+The final setup walkthrough uses the Kurgan Warlord's four-joint arm. Actual mouse
+picks create a chain, correct an unrelated Start, edit optional bending joints,
+retarget the End and restore it, cancel a draft, remove one handle, and recreate
+it from scratch. It checks unchanged other mappings, pin preservation on same-end
+edits, removal of stale endpoint pins, no model/history changes during setup,
+restoration of the previous bone display, normal camera rotation while picking,
+and moving the setup window away from the rig. The resulting custom handle is
+actually dragged; its native edit and exact Undo/Redo are verified. Rendered row
+bounds confirm both the role and bone name fit without overlap. Maximum native
+preview/evaluator matrix difference was 0.000005068.
+
+Final executable: `D:/MDLxL-Tests/pose-setup-final/MDLxL-win32-x64/MDLxL.exe`.
+Packaging verified 551 runtime/assets and 55 locales. All 462 packaged source and
+bundle files match the working source byte-for-byte, with zero mismatches:
+`out/pose-setup-package-proof.json`.
+Index SHA256: `407f718f20498adf5e51cd32ec83c56b27accc755adbefc05352c0af60170c70`.
+The original Kurgan fixture hash is unchanged. The user's open test, models and
+profiles were not replaced; no visible test window was opened. Version remains
+0.21.2, unshipped and unmerged on PR #154.
+
+
+`out/pose-setup-final-footman/result.json` passed all **26 packaged regression
+checks**, zero page errors, on the same final build. It exercises first-use invalid
+selection, the Movement Object picker, normal bone editing, pins, cancellation,
+restrictions, camera rotation/zoom, connected body/head/chest posing, MDL/MDX save
+and actual reopen. Three mouse-authored jump poses at 500/850/1200 ms retained root
+heights 40.40107/91.32011/40.05215; native playback advanced to about 800 ms before
+save/reopen. No user model, texture, profile or currently open editor was modified.
+This validates the editor workflows; user acceptance of the interaction remains
+pending, and no Warcraft in-game playback was performed in this setup pass.
