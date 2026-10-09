@@ -368,7 +368,7 @@ export default function GamePreview(inputProps) {
       const sequences = p.model.Sequences || [];
       return sequences[p.sequenceIndex] ? p.sequenceIndex : sequences.findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
     };
-    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.picking]);
+    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
     const poseContextValid = (gesture, p) => gesture.model === (p.poseDocumentModel || p.model) && gesture.previewModel === p.model && gesture.revision === p.revision &&
       (Math.round(p.time) === gesture.inputTime || Math.round(p.time) === gesture.frame) && gesture.inputSequence === p.sequenceIndex &&

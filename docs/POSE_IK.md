@@ -1,8 +1,9 @@
 # Posing in Movement
 
 POSE uses the existing Movement tools and sidebar. Enable it once to get the
-hands, feet, hooves and main body controls recognized from anatomy names,
-native references, hierarchy and skinned geometry. Setup is optional for ordinary named rigs.
+hands, feet, hooves, wings, tail and main body controls recognized from anatomy names,
+native references, hierarchy and skinned geometry. Setup is optional for recognized
+rigs, including joints named through their native attachment references.
 
 ## Start posing
 
@@ -122,3 +123,19 @@ This is a posing controller; balancing, physics, anatomical limits, contact
 baking, automatic animation generation and rig repair are outside its scope.
 
 See [verification evidence](POSE_IK_VERIFICATION.md).
+
+## Complex SD rigs
+
+Body follows the authored whole-body driver rather than an arm junction. This
+keeps a robe or skirt attached when its bones branch below the chest. Head and
+chest handles use anatomical joints instead of separately named mesh pivots.
+Long limbs retain their real intermediate joints; they are not shortened to fit
+a three-joint template.
+
+Mounted rigs with an explicit saddle/seat anchor can carry a separately animated
+rider. Moving or bending the mount applies the seat's change to the rider using
+native keys. The rider keeps its own body and limb grips. Dragon wings and tails
+use their own symbols, also available in the same click-a-bone Setup palette.
+Original hierarchy, skin weights, pivots, texture paths and existing animations
+are never rewritten by recognition. Setup mappings still belong to the editor
+session, so unusual rigs can be mapped through the same visual workflow.

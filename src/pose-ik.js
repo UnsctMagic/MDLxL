@@ -57,19 +57,28 @@ export function suggestPoseChain(model, endpoint) {
     while (node && /(?:leg[0-9]*|calf|shin|knee|thigh)(?:$|[ _.-])/i.test(node.Name)) { joints.unshift(node.ObjectId); node = byId.get(node.Parent); }
     if (joints.length >= 3) chain = { root: joints[0], middle: joints[1], end: endpoint, joints, label: 'Hoof' };
   }
+  if (!chain.joints) {
+    const upper = ancestors.find(node => /(?:arm1|upperarm|thigh|leg1)(?:$|[ _.-])/i.test(node.Name));
+    if (upper && upper !== root) {
+      const links = ancestors.slice(0, ancestors.indexOf(upper) + 1).reverse().map(node => node.ObjectId).concat(endpoint);
+      if (links.length > 3) chain = { ...chain, root: links[0], middle: links[1], joints: links };
+    }
+  }
   validatePoseChain(model, chain); return chain;
 }
 
 export function poseNodeRole(node) {
   const name = String(node?.Name || '').toLowerCase();
+  if (/chain|rein|guard|camera|overhead/.test(name)) return node?.Name || 'Object';
   if (/(?:^|[\s_.-])(?:hand|wrist)(?=$|[\s_0-9.\-])/.test(name)) return 'Hand';
   if (/hoof/.test(name)) return 'Hoof';
   if (/(?:^|[\s_.-])(?:foot|ankle)(?=$|[\s_0-9.\-])/.test(name)) return 'Foot';
-  if (/pelvis|hips?/.test(name)) return 'Pelvis';
+  if (/(?:pelvis|hips?)(?=$|[\s_0-9.\-])/.test(name)) return 'Pelvis';
   if (/chest|thorax/.test(name)) return 'Chest';
   if (/neck/.test(name)) return 'Neck';
   if (/head/.test(name)) return 'Head';
   if (/spine/.test(name)) return 'Spine';
+  if (/(?:^|[\s_.-])tail(?=$|[\s_0-9.\-])/.test(name)) return 'Tail';
   if (/(?:root|body|abdomen)(?=$|[\s_0-9.\-])/.test(name)) return 'Body';
   return node?.Name || 'Object';
 }
@@ -81,12 +90,29 @@ export const poseRole = (model, config, id) => config.roles?.[id] || poseNodeRol
 export function suggestPoseRig(model, frame, sequence) {
   const nodes = allNodes(model), transforms = transformNodes(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));
   const joints = new Set(transforms.map(node => node.ObjectId)), chains = [], unavailable = [];
-  const roles = {};
-  for (const ref of nodes.filter(node => !joints.has(node.ObjectId) && ['Head', 'Hand'].includes(poseNodeRole(node)))) {
-    const parent = byId.get(ref.Parent), above = byId.get(parent?.Parent), role = poseNodeRole(ref);
-    if (parent && joints.has(parent.ObjectId) && (role === 'Head' && poseNodeRole(above) === 'Chest' || role === 'Hand' && /(?:arm2|forearm)(?:$|[ _.-])/i.test(above?.Name || ''))) roles[parent.ObjectId] = role;
+  const roles = {}, children = new Map();
+  for (const node of transforms) { const siblings = children.get(node.Parent) || []; siblings.push(node); children.set(node.Parent, siblings); }
+  const rootOf = node => { const seen = new Set(); while (byId.has(node?.Parent) && !seen.has(node.ObjectId)) { seen.add(node.ObjectId); node = byId.get(node.Parent); } return node?.ObjectId; };
+  // Native attachment references often name an otherwise anonymous rig. Prefer
+  // its real joint, not the offset attachment (or a mesh's arbitrary pivot).
+  for (const ref of model.Attachments || []) {
+    const role = poseNodeRole(ref), parent = byId.get(ref.Parent);
+    if (!parent || !joints.has(parent.ObjectId) || !['Head', 'Hand', 'Foot'].includes(role)) continue;
+    if (['Head', 'Hand', 'Foot', 'Hoof'].includes(poseNodeRole(parent))) continue;
+    if (role === 'Head') {
+      if (poseNodeRole(byId.get(parent.Parent)) === 'Chest' || !transforms.some(node => rootOf(node) === rootOf(parent) && poseNodeRole(node) === 'Head')) roles[parent.ObjectId] = role;
+      continue;
+    }
+    if (/(?:arm2|forearm|leg2|leg3|calf|shin|knee)(?:$|[ _.-])/i.test(parent.Name)) continue;
+    // Keep an already named wrist/ankle in this branch. A ref can be mounted on
+    // a forearm or weapon rather than on the anatomical end joint.
+    if (transforms.some(node => rootOf(node) === rootOf(parent) && (poseNodeRole(node) === role || role === 'Foot' && poseNodeRole(node) === 'Hoof') && (descendantOf(model, node.ObjectId, parent.ObjectId) || descendantOf(model, parent.ObjectId, node.ObjectId)))) continue;
+    const distance = node => v3(node.PivotPoint).distanceTo(v3(ref.PivotPoint));
+    const next = (children.get(parent.ObjectId) || []).filter(node => (children.get(node.ObjectId) || []).length).sort((a,b) => distance(a) - distance(b))[0];
+    const end = next && distance(next) < distance(parent) * .7 ? next : parent;
+    roles[end.ObjectId] = role;
   }
-  const roleOf = node => roles[node.ObjectId] || poseNodeRole(node);
+  const roleOf = node => roles[node?.ObjectId] || poseNodeRole(node);
   const candidates = nodes.filter(node => ['Hand', 'Foot', 'Hoof'].includes(roleOf(node)))
     .sort((a, b) => Number(joints.has(b.ObjectId)) - Number(joints.has(a.ObjectId)));
   // A rider's boots may have generic mesh names. Locate the lowest descendant
@@ -109,19 +135,82 @@ export function suggestPoseRig(model, frame, sequence) {
       chains.push(chain);
     } catch (cause) { unavailable.push({ id: node.ObjectId, reason: cause.message }); }
   }
-  const bodies = transforms.filter(node => poseNodeRole(node) === 'Body' && !/death|portrait/i.test(node.Name));
-  let body = null, followers = {};
-  if (chains.length) { try { body = suggestPoseBody(model, chains); } catch { /* Mounted actors may have separate animation roots. */ } }
-  if (body == null) body = bodies.sort((a, b) => chains.filter(c => descendantOf(model, c.root, b.ObjectId)).length - chains.filter(c => descendantOf(model, c.root, a.ObjectId)).length)[0]?.ObjectId ?? null;
-  if (body == null) body = transforms.find(node => poseNodeRole(node) === 'Pelvis')?.ObjectId ?? null;
-  const bodyNode = byId.get(body);
-  if (bodyNode && /horse|mount/i.test(bodyNode.Name)) {
-    const carried = transforms.filter(node => node.ObjectId !== body && node.Parent === bodyNode.Parent && /horse|mount/i.test(node.Name) && poseNodeRole(node) === 'Body' && v3(node.PivotPoint).distanceTo(v3(bodyNode.PivotPoint)) < 1e-3 &&
-      bodies.some(rider => rider.ObjectId !== body && descendantOf(model, rider.ObjectId, node.ObjectId)));
-    if (carried.length) followers[body] = carried.map(node => node.ObjectId);
+  const bodies = transforms.filter(node => roleOf(node) === 'Body' && !/death|portrait/i.test(node.Name));
+  const groups = new Map();
+  for (const chain of chains) { const key = rootOf(byId.get(chain.root)), group = groups.get(key) || []; group.push(chain); groups.set(key, group); }
+  const actors = [];
+  for (const limbs of groups.values()) {
+    let body;
+    try { body = suggestPoseBody(model, limbs); } catch { continue; }
+    // The arm junction is a chest, not a whole-body translation root. Ascend
+    // to the authored body driver so skirts, robes and spine travel together.
+    let ancestor = byId.get(body);
+    while (ancestor) { if (bodies.includes(ancestor)) { body = ancestor.ObjectId; break; } ancestor = byId.get(ancestor.Parent); }
+    roles[body] = 'Body';
+    const arms = limbs.filter(chain => chain.kind === 'arm');
+    if (arms.length >= 2) {
+      try { const chest = suggestPoseBody(model, arms); if (chest !== body && !['Body','Pelvis'].includes(roleOf(byId.get(chest)))) roles[chest] = 'Chest'; } catch { /* Separate shoulders remain native bones. */ }
+    }
+    const positions = limbs.flatMap(chain => poseChainIds(chain).map(id => v3(byId.get(id).PivotPoint)));
+    const lo = new Vector3(Infinity,Infinity,Infinity), hi = lo.clone().negate(); positions.forEach(p => { lo.min(p); hi.max(p); });
+    actors.push({ body, limbs, span: lo.distanceTo(hi) });
   }
-  const controls = transforms.filter(node => ['Head', 'Neck', 'Chest', 'Spine', 'Pelvis', 'Body'].includes(roleOf(node)) && !/death|portrait/i.test(node.Name)).map(node => node.ObjectId).filter(id => id !== body);
-  return { chains, body, nodes: controls, roles, followers, unavailable };
+  // Numbered SD helper rigs may have an extra ankle or upper limb. Continue
+  // through those actual links up to the body's branching joint, rather than
+  // silently dropping the first segment to force a two-bone template.
+  for (const chain of chains) {
+    const links = poseChainIds(chain).slice(); let parent = byId.get(byId.get(links[0])?.Parent);
+    while (parent && /^(?:bone|helper)(?:[ _-]*any)?[ _-]*[0-9]+$/i.test(parent.Name) && !['Body','Pelvis','Chest'].includes(roleOf(parent))) { links.unshift(parent.ObjectId); parent = byId.get(parent.Parent); }
+    if (links.length !== poseChainIds(chain).length) {
+      const extended = { ...chain, root: links[0], middle: links[1], joints: links };
+      try { validatePoseChain(model,extended); if (model.Sequences?.[sequence]) samplePoseChain(model,extended,frame,sequence); Object.assign(chain,extended); } catch { /* Keep the already validated endpoint chain. */ }
+    }
+  }
+  actors.sort((a,b) => b.span - a.span);
+  const body = actors[0]?.body ?? bodies[0]?.ObjectId ?? transforms.find(node => roleOf(node) === 'Pelvis')?.ObjectId ?? null;
+  const followers = {}, carriers = {}, bodyNode = byId.get(body);
+  if (bodyNode) {
+    // Explicit seat/saddle anchors connect separately animated riders without
+    // reparenting, changing skin weights, or rewriting their authored keys.
+    const seats = transforms.filter(node => /(?:saddle|seat).*anchor|anchor.*(?:saddle|seat)/i.test(node.Name) && descendantOf(model,node.ObjectId,body));
+    for (const actor of actors.slice(1)) {
+      const rider = byId.get(actor.body);
+      const seat = seats.slice().sort((a,b) => v3(a.PivotPoint).distanceTo(v3(rider.PivotPoint)) - v3(b.PivotPoint).distanceTo(v3(rider.PivotPoint)))[0];
+      if (seat && actor.limbs.length >= 2) carriers[actor.body] = seat.ObjectId;
+    }
+    if (/horse|mount/i.test(bodyNode.Name)) {
+      const carried = transforms.filter(node => node.ObjectId !== body && node.Parent === bodyNode.Parent && /horse|mount/i.test(node.Name) && poseNodeRole(node) === 'Body' && v3(node.PivotPoint).distanceTo(v3(bodyNode.PivotPoint)) < 1e-3 &&
+        bodies.some(rider => rider.ObjectId !== body && descendantOf(model, rider.ObjectId, node.ObjectId)));
+      if (carried.length) followers[body] = carried.map(node => node.ObjectId);
+    }
+    // Detached reins are authored independently like the rider. Carry those
+    // explicit accessories with the seat; unrelated effects/debris stay alone.
+    if (Object.keys(carriers).length) for (const node of transforms) if (!byId.has(node.Parent) && /^(?:chain|reins?)[ _.-]/i.test(node.Name)) carriers[node.ObjectId] = seats[0].ObjectId;
+  }
+  for (const actor of actors) {
+    const armEnds = actor.limbs.filter(chain => chain.kind === 'arm');
+    for (const chain of armEnds) {
+      const end = byId.get(chain.end), peers = children.get(end.Parent) || [];
+      if (peers.filter(peer => v3(peer.PivotPoint).distanceTo(v3(end.PivotPoint)) < .01).length >= 3) chain.label = 'Wing';
+    }
+    // A long, unbranched rear spine opposite the chest is a tail. Skin child
+    // pivots are ignored; helpers with their own joints define the articulation.
+    const chest = transforms.find(node => roleOf(node) === 'Chest' && descendantOf(model,node.ObjectId,actor.body));
+    if (!chest) continue;
+    const origin = v3(byId.get(actor.body).PivotPoint), forward = v3(chest.PivotPoint).sub(origin);
+    for (const first of children.get(actor.body) || []) {
+      if (poseNodeRole(first) !== first.Name || actor.limbs.some(chain => descendantOf(model,chain.end,first.ObjectId))) continue;
+      const tail = [first]; let next = first;
+      while (true) { const links = (children.get(next.ObjectId) || []).filter(node => (children.get(node.ObjectId) || []).length && !/mesh|object/i.test(node.Name)); if (links.length !== 1) break; next = links[0]; tail.push(next); }
+      if (tail.length >= 3 && v3(next.PivotPoint).sub(origin).dot(forward) < 0) roles[next.ObjectId] = 'Tail';
+    }
+  }
+  const controls = transforms.filter(node => ['Head','Neck','Chest','Spine','Pelvis','Body','Tail'].includes(roleOf(node)) && !/death|portrait/i.test(node.Name))
+    // One anatomical head can own a separately named mesh with an arbitrary
+    // pivot. Expose the controlling joint, not a second tearing mesh handle.
+    .filter(node => !(roleOf(node) === 'Head' && roleOf(byId.get(node.Parent) || {}) === 'Head'))
+    .map(node => node.ObjectId).filter(id => id !== body);
+  return { chains, body, nodes: controls, roles, followers, carriers, unavailable };
 }
 
 function rigidRotation(matrix) {
@@ -356,7 +445,7 @@ export function poseAffectedPins(model, config, id) {
   return config.chains.filter(chain => config.pins.includes(chain.key) && chain.end !== id && descendantOf(model, chain.end, id));
 }
 
-const upperBodyRoles = new Set(['Spine', 'Chest', 'Neck', 'Head']);
+const upperBodyRoles = new Set(['Spine', 'Chest', 'Neck', 'Head', 'Tail']);
 
 /** A handle grips the part, while its native marker remains at the joint.
  * Use the existing skin centroid reader, including SD mesh children below a
@@ -394,6 +483,7 @@ export function poseNodeControl(model, config, target, mode = 'move') {
       if (upperBodyRoles.has(poseRole(model, config, joint.ObjectId)) || joint.ObjectId === id) { joints.unshift(...pending); pending.length = 0; }
       visited.add(joint.ObjectId); joint = byId.get(joint.Parent);
     }
+    if (joint && (joint.ObjectId === config.body || ['Body','Pelvis'].includes(poseRole(model,config,joint.ObjectId)))) joints.unshift(...pending);
   }
   let driver = joints[0] ?? id;
   if (poseRole(model, config, id) === 'Pelvis') {
@@ -403,9 +493,17 @@ export function poseNodeControl(model, config, target, mode = 'move') {
       parent = byId.get(parent.Parent);
     }
   }
-  const followers = config.followers?.[driver] || [];
+  if (poseRole(model, config, id) === 'Pelvis' && config.carriers?.[driver] != null) { joints.push(id); driver = id; }
+  const followers = [...(config.followers?.[driver] || [])], carriers = config.carriers || {};
+  for (let added = true; added;) {
+    added = false;
+    for (const [key, anchor] of Object.entries(carriers)) {
+      const follower = Number(key);
+      if (follower !== driver && !followers.includes(follower) && [driver,...followers].some(root => descendantOf(model,anchor,root))) { followers.push(follower); added = true; }
+    }
+  }
   const heads = (config.nodes || []).filter(head => head !== id && poseRole(model, config, head) === 'Head' && [driver, ...followers].some(root => descendantOf(model, head, root)));
-  return { joints, heads, driver, followers };
+  return { joints, heads, driver, followers, carriers };
 }
 
 export function poseControlPoint(model, config, id, matrices) {
@@ -517,16 +615,18 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
     const copy = posePreviewModel(model), target = allNodes(copy).find(item => item.ObjectId === id);
     if (grip) {
       const goal = grip.clone().applyMatrix4(initialMatrices.get(id)).addScaledVector(offset, fraction);
-      solveConnectedOnClone(copy, control.joints, grip, goal, frame, sequence, globalTime); return copy;
+      solveConnectedOnClone(copy, control.joints, grip, goal, frame, sequence, globalTime);
+    } else {
+      // Ordinary Movement owns these tracks in-place; detach just its channels.
+      for (const channel of Object.values(movementProperties)) if (target[channel]) target[channel] = structuredClone(target[channel]);
+      const scaled = values.map(value => change.mode === 'scale' ? 1 + (value - 1) * fraction : value * fraction);
+      applyMovementTransform(copy, [id], frame, sequence, { ...change, values: scaled });
     }
-    // Ordinary Movement owns these tracks in-place; detach just its channels.
-    for (const channel of Object.values(movementProperties)) if (target[channel]) target[channel] = structuredClone(target[channel]);
-    const scaled = values.map(value => change.mode === 'scale' ? 1 + (value - 1) * fraction : value * fraction);
-    applyMovementTransform(copy, [id], frame, sequence, { ...change, values: scaled });
     if (followers.length) {
-      const before = sampled(model, frame, sequence, globalTime), after = sampled(copy, frame, sequence, globalTime);
-      const delta = after.get(id).clone().multiply(before.get(id).clone().invert());
+      const before = sampled(model, frame, sequence, globalTime);
       for (const follower of followers) {
+        const anchor = control.carriers?.[follower] ?? id, after = sampled(copy, frame, sequence, globalTime);
+        const delta = after.get(anchor).clone().multiply(before.get(anchor).clone().invert());
         const carried = allNodes(copy).find(node => node.ObjectId === follower);
         for (const channel of ['Translation', 'Rotation']) if (carried[channel]) carried[channel] = structuredClone(carried[channel]);
         const origin = point(model, carried, before), goal = origin.clone().applyMatrix4(delta);
@@ -595,7 +695,8 @@ export function poseTrackScope(config, target, mode, model) {
   if (target.kind === 'body' || target.kind === 'node') {
     const id = target.kind === 'body' ? config.body : target.id;
     const control = model ? poseNodeControl(model, config, target, mode) : { joints: [], heads: [] };
-    const direct = control.joints.length ? control.joints.map(id => ({ id, property: 'Rotation' })) : [{ id: control.driver ?? id, property: movementProperties[mode] || 'Translation' }, ...(control.followers || []).flatMap(id => ['Translation', 'Rotation'].map(property => ({ id, property })))];
+    const direct = control.joints.length ? control.joints.map(id => ({ id, property: 'Rotation' })) : [{ id: control.driver ?? id, property: movementProperties[mode] || 'Translation' },  ];
+    direct.push(...(control.followers || []).flatMap(id => ['Translation','Rotation'].map(property => ({ id, property }))));
     const pins = model ? poseNodeConstraints(model, config, id, mode, target).map(item => item.chain) : config.chains.filter(chain => config.pins.includes(chain.key));
     return [...new Map([...direct, ...control.heads.map(id => ({ id, property: 'Rotation' })), ...pins.flatMap(chain => poseChainIds(chain).map(id => ({ id, property: 'Rotation' })))].map(item => [`${item.id}:${item.property}`, item])).values()];
   }

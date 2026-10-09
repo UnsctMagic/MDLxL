@@ -9,7 +9,7 @@ function PartIcon({ part }) {
   const paths = poseSymbols[part] || poseSymbols.Object;
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[0]} fill="currentColor"/><path d={paths[1]} fill="none" stroke="var(--ui-panel, #d4d0c8)" strokeWidth="1.8"/></svg>;
 }
-const limbParts = new Set(['Hand', 'Foot', 'Hoof']);
+const limbParts = new Set(['Hand', 'Foot', 'Hoof', 'Wing']);
 
 export default function PoseControls({ model, revision, config, onChange, onSelect, selectedNodeIds, frame, sequence, disabled }) {
   const [open, setOpen] = useState(false), [part, setPart] = useState(null), [picked, setPicked] = useState([]), [manual, setManual] = useState(false), [step, setStep] = useState(0), [error, setError] = useState('');
@@ -35,7 +35,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
     try {
       if (limbParts.has(part)) {
         if (!manual || picked.length === 3) {
-          draft = { ...(manual ? { root: picked[0], middle: picked[1], end: picked[2] } : suggestPoseChain(model, picked[0])), kind: part === 'Hand' ? 'arm' : 'leg', ...(part === 'Hoof' ? { label: 'Hoof' } : {}) };
+          draft = { ...(manual ? { root: picked[0], middle: picked[1], end: picked[2] } : suggestPoseChain(model, picked[0])), kind: ['Hand','Wing'].includes(part) ? 'arm' : 'leg', ...(['Hoof','Wing'].includes(part) ? { label: part } : {}) };
           validatePoseChain(model, draft); if (model.Sequences?.[sequence]) samplePoseChain(model, draft, frame, sequence);
           if (config.chains.some(chain => chain.end !== draft.end && poseChainIds(chain).some(id => poseChainIds(draft).includes(id)))) throw new Error('That joint already belongs to another handle.');
         }
@@ -85,7 +85,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
     {open && config.enabled && <div className="pose-setup" role="dialog" aria-modal="false" aria-label="POSE setup">
       <header><strong>Handles</strong><button aria-label="Close POSE setup" onClick={close}>×</button></header>
       <p>Choose a symbol, then click its bone.</p>
-      <div className="pose-parts">{['Hand','Foot','Hoof','Head','Chest','Pelvis','Body','Object'].map(role => <button key={role} title={role} aria-label={`Map ${role}`} aria-pressed={part === role} onClick={() => choose(role)}><PartIcon part={role}/></button>)}</div>
+      <div className="pose-parts">{['Hand','Foot','Hoof','Wing','Head','Chest','Pelvis','Body','Tail','Object'].map(role => <button key={role} title={role} aria-label={`Map ${role}`} aria-pressed={part === role} onClick={() => choose(role)}><PartIcon part={role}/></button>)}</div>
       {part && <div className="pose-pick">
         <p>{manual ? ['Click the shoulder / hip.', 'Click the elbow / knee.', 'Click the hand / foot.', 'Check the highlighted joints.'][step] : `Click the ${part.toLowerCase()} bone in the view.`}</p>
         <div className="pose-chain" aria-label="Picked bones">{(limbParts.has(part) ? [0,1,2] : [0]).map((_,i) => <button type="button" key={i} title={names.get(inspected[i])} aria-label={['Pick shoulder or hip','Pick elbow or knee','Pick hand or foot'][i]} aria-pressed={manual && step === i} disabled={!manual} onClick={() => setStep(i)} data-filled={inspected[i] != null}>●</button>)}</div>

@@ -352,3 +352,103 @@ Assets hash: `11816f9fab1ade2a83976d3557e97511777c40e4d2ef9e79e773b27e20b7a149`.
 Original models, textures, open editors, profiles and the primary `codex/model-tabs`
 checkout were not modified. This remains an unshipped test candidate on PR #154;
 no release/version bump or merge was performed.
+
+
+## Complex SD bodies, riders, wings and tails (2026-10-09)
+
+The Necrarch distortion came from recognizing its arm junction as Body. Moving
+that junction left the lower robe behind. Recognition now ascends to the authored
+whole-body driver, infers the chest separately, and uses native attachment
+references to locate anonymous wrist, ankle and head joints. Connected upper-body
+motion includes intervening anonymous spine/neck joints. The immutable blended
+robe test checks the actual skinned vertices, not just bone positions.
+
+The Vampire Dragon retains both four-joint legs, recognizes its wings and tail,
+and carries its separately rooted rider and reins through the authored saddle
+anchor. Chest bending and body movement both use the seat's actual matrix change.
+The rider pelvis bends at its seat. Kurgan retains shoulder/bicep links in both
+arms. Great Unclean One exposes the controlling head joint instead of the duplicate
+mesh pivot. These rules use hierarchy, references, anatomy names and geometry;
+there are no model filenames or fixed object IDs in runtime recognition.
+
+All changes remain within POSE recognition, connected solving, gesture snapshots
+and two additional symbols in the existing Setup palette. Native markers retain
+ordinary Movement transforms. Sidebar widths, overlap cycling, Trollface palette,
+track ownership and one-gesture history behavior remain unchanged. No rig repair,
+reparenting, skin-weight edits or texture-path rewrites are performed.
+
+Source evidence: `out/pose-complex-source-final.log`, **56/56 passed**, no skips.
+This includes all 50 prior POSE/mounted tests and six complex-rig tests. The four
+local models exercise every inferred control at three frames, connected geometry,
+carrier placement, native channel snapshots, Undo/Redo and MDX roundtrips. Two
+portable synthetic tests cover the robe and seat behavior without local assets.
+All nine Chaos Knight variants remain in the accepted source regression.
+Compatibility: `out/pose-complex-compatibility.log`, **57/57 passed**.
+`out/pose-complex-sequences.json` additionally checks **33 authored poses** across
+Stand, Walk, Attack and alternate sequences: no solve failures or missing limbs.
+The broader Movement suite was not repeated in this pass; its three previously
+recorded baseline failures above are not claimed fixed.
+
+Packaged mouse/keyboard evidence on the final build:
+
+- `out/pose-complex-final-necrarch/result.json`: **8 drags, 3 workflow checks**,
+  zero page errors.
+- `out/pose-complex-final-unclean/result.json`: **10 drags, 3 workflow checks**,
+  zero page errors.
+- `out/pose-complex-final-kurgan/result.json`: **11 drags, 3 workflow checks**,
+  zero page errors.
+- Dragon: `out/pose-complex-ready-dragon/progress.json` records **19 drags**,
+  each with connected preview and exact Undo/Redo. Its full walk also reached
+  native playback, camera rotation and a successful save. The final comparison
+  exposed signed-zero loss in the test's JSON snapshot, not in the MDX: all 62
+  differences reproduced as `-0` becoming `0` in JSON. Evidence is in
+  `out/pose-dragon-save-snapshot-audit.json`. The snapshot now preserves signed
+  zero. A focused packaged proof on the exact saved 19-drag pose then passed:
+  `out/pose-complex-dragon-save-proof/result.json`, **3 workflow checks**, zero
+  page errors, exact native values on open/save/reopen, and existing editor data
+  retained through the normal Save model prompt. Product serialization and its
+  strict comparison were not changed or relaxed.
+- `out/pose-complex-final-regression/result.json`: all **26 original packaged
+  Footman checks** passed with zero page errors. This includes pins, cancel,
+  restrictions, normal FK/Scale, mouse camera controls, MDL/MDX save/reopen, and
+  mouse-authored crouch/takeoff/landing with native playback.
+
+The complex-model walkthrough uses actual clicks and drags for whole-body
+movement, a repeated jump/return, every inferred part and limb, and exact Undo/Redo
+for each gesture. It also checks hover labels, the visual Setup palette, native
+playback, ordinary right-mouse camera rotation, sidebar width, MDX save/reopen and
+unchanged fixture hashes. Only native file-dialog destinations are stubbed.
+Read-only probes inspect model, renderer and history state; no pose is injected
+through a test API. Test windows and profiles are isolated from the user's editor.
+
+The Necrarch already has differences between the untouched native renderer and
+CPU matrices, mainly on independent bats (maximum 0.68761; robe joint about
+0.0366). The per-node comparison records that baseline and rejects additional
+preview disagreement above baseline + 0.004. The body-drag audit measured an added
+maximum error about 2.4e-7 and no added bat error. This pass does not fix or conceal
+that existing evaluator discrepancy. Other final maximum errors are 0.00003737
+(Unclean), 0.00001629 (Kurgan), and 0.00008153 (Dragon).
+This is packaged editor evidence, not Warcraft in-game playback or independent
+human acceptance of the feel.
+
+Final executable: `D:/MDLxL-Tests/pose-complex-ready/MDLxL-win32-x64/MDLxL.exe`.
+Packaging verified **551 runtime/assets and 55 locales**. All **462** packaged
+source/bundle files match the tested source, with zero mismatches, recorded in
+`out/pose-complex-package-proof.json`.
+Index SHA256: `2b53bccf008c91f8ae68a7dcb68075ed9717b93615757c23e3baca5387b6a73e`.
+Assets SHA256: `e8e5c4bcd95e0fe31408fa677e610e000358f42e1e9d842077f8c10be157c2d2`.
+
+Original model SHA256 values (all unchanged, with byte-identical test copies):
+
+| Model | SHA256 |
+| --- | --- |
+| WH_VC_NecrarchLord3.mdx | df905372b3a3eb7d864eab40f914839a901293faee499336affe49dfc3fd5dc5 |
+| Current_VampireDragon.mdx (Desktop/WIP) | 53382ca34f9c9c0f8ee3a09ec8e5669a390390af9d4ca112531530a901d7004f |
+| WH_DOC_GreatUncleanOneNewV2.mdx | 8717b78f7f373cf434447bd0c72d1dd9ec97bbc075dacd31f35a48f136b55de7 |
+| WH_WOC_KurganWarlord3.mdx | 73a0ebe1ae66b47ee490c8af828a40bae98771a360b850d1dff772c8a45e2737 |
+
+Exact Warcraft textures were resolved locally; no substitutes were downloaded.
+Models, texture files, test profiles and screenshots remain ignored local evidence.
+The primary checkout and user's open editors/profiles remain untouched. The build
+is an unshipped candidate on PR #154, version 0.21.2, awaiting user testing and
+merge authorization. No merge or release was performed.
