@@ -68,7 +68,7 @@ saving. **Setup** only lists or edits existing handles. Opening Setup with a
 selected handle goes directly to its editor. Retarget, remove and all detailed
 joint choices remain available. Setup writes no animation keys or bone parenting.
 
-Click a foot or hoof handle to reveal **Pin** next to it in the viewport. Clicking
+Click a hand, foot or hoof handle to reveal **Pin** next to it in the viewport. Clicking
 Pin toggles it to Pinned; click again to release it. The button follows the
 selected foot during camera movement and disappears when another control is
 selected. Hand pinning remains beside the Movement controls.
@@ -155,3 +155,7 @@ use their own symbols, also available in the same click-a-bone Setup palette.
 Original hierarchy, skin weights, pivots, texture paths and existing animations
 are never rewritten by recognition. Setup mappings still belong to the editor
 session, so unusual rigs can be mapped through the same visual workflow.
+
+The crosshair button beside Setup controls blocker pings. Red means enabled
+(the default); click it to turn it black and disable pings. It does not release
+pins or change the pose.

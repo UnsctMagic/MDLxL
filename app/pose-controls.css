@@ -37,3 +37,9 @@
 .pose-setup summary { cursor: pointer; padding: 7px 0; }
 .pose-adjust .pose-bounds { margin-top: 4px; }
 .pose-use-selected { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pose-controls > .pose-crosshair { padding: 2px 4px; line-height: 0; color: #000; }
+.pose-controls > .pose-crosshair[aria-pressed="true"] { color: #ff3030; background: var(--ui-panel, #d4d0c8); }
+.pose-crosshair svg { color: #000; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+.pose-crosshair[aria-pressed="true"] svg { color: #ff3030; }

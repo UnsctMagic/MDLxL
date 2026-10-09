@@ -152,12 +152,23 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         await pin.click();await settle();assert.ok(!(await configNow()).pins.includes('limb:'+id));await assertMappingOnly();
       }
       if (process.env.MDLXL_POSE_BLOCKER) {
+        const crosshair=page.getByRole('button',{name:'Blocker crosshair',exact:true});
+        assert.equal(await crosshair.getAttribute('aria-pressed'),'true');assert.equal(await crosshair.locator('svg').evaluate(e=>getComputedStyle(e).color),'rgb(255, 48, 48)');
+        assert.equal(await page.locator('.pose-controls [data-pose-pin], .pose-controls [aria-label^="Pin selected"]').count(),0);
+        await shot('05-default-red-toggle');
+
         await selectHandle('endpoint',27);await page.getByRole('button',{name:'Pin selected foot',exact:true}).click();await settle();
         await selectHandle('node',2);await tool('Move');const h=await handleFor('node',2),b=await viewportBox(),before=await snap();
         await page.mouse.move(b.x+h.x,b.y+h.y);await page.mouse.down();await page.mouse.move(b.x+h.x,b.y+h.y-500,{steps:8});await settle();
         const blockers=await page.locator('[data-node-overlay]').getAttribute('data-pose-blockers');
         assert.deepEqual(JSON.parse(blockers),[{kind:'endpoint',key:'limb:27'}],'only the pinned hoof blocking this move is pinged');
         assert.deepEqual(await snap(),before,'ping adds no document or history changes');await shot('05-red-blocker-crosshair');
+        if(process.env.MDLXL_POSE_CROSSHAIR_TOGGLE) {
+          await crosshair.press('Space');await settle();assert.equal(await crosshair.getAttribute('aria-pressed'),'false');assert.equal(await crosshair.locator('svg').evaluate(e=>getComputedStyle(e).color),'rgb(0, 0, 0)');
+          assert.deepEqual(JSON.parse(await page.locator('[data-node-overlay]').getAttribute('data-pose-blockers')),[]);assert.deepEqual(await snap(),before);await shot('06-black-toggle-no-ping');
+          await crosshair.press('Space');await settle();assert.equal(await crosshair.getAttribute('aria-pressed'),'true');
+        }
+
         await page.mouse.up();await menu('undo');await settle();assert.deepEqual((await snap()).model,initial.model);
         await page.waitForTimeout(1350);assert.deepEqual(JSON.parse(await page.locator('[data-node-overlay]').getAttribute('data-pose-blockers')),[],'ping fades away');
         await selectHandle('endpoint',27);await page.getByRole('button',{name:'Pin selected foot',exact:true}).click();await settle();
@@ -165,6 +176,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       }
       await selectHandle('node',2);assert.equal(await page.locator('[data-pose-pin]').count(),0);
       await grab('endpoint',27,10,-8);assert.ok((await snap()).revision>initial.revision);await menu('undo');await settle();assert.deepEqual((await snap()).model,initial.model);
+      if(process.env.MDLXL_POSE_CROSSHAIR_TOGGLE) {
+        await page.getByRole('button',{name:'Add POSE handle',exact:true}).click();await page.getByRole('button',{name:'Map Hand',exact:true}).click();await pickBone(25);await page.getByRole('button',{name:'Add handle',exact:true}).click();await closeSetup();
+        await selectHandle('endpoint',25);const hand=await handleFor('endpoint',25),box=await viewportBox(),pin=page.getByRole('button',{name:'Pin selected hand',exact:true}),rect=await pin.boundingBox();
+        assert.ok(Math.abs(rect.x-(box.x+hand.x))<70 && Math.abs(rect.y-(box.y+hand.y))<50);assert.equal(await page.locator('.pose-controls [aria-label="Pin selected hand"]').count(),0);
+        await pin.click();await settle();assert.ok((await configNow()).pins.includes('limb:25'));await assertMappingOnly();await shot('07-pin-beside-hand');await pin.click();await settle();
+        assert.equal((await configNow()).crosshair,true);results.checks.push('Crosshair defaults red/on, toggles black/off without keys or history, and hand Pin is beside its native handle rather than in sidebar');
+      }
       assert.equal(await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width),sidebar);
       results.checks.push('Add opens all new handle types directly; two hooves and pelvis added consecutively with actual bone clicks', 'Alt-mouse rotation keeps the Add window and picked pelvis draft mounted during and after the gesture', 'Setup contains only existing handles and their editing controls', 'Pin follows the selected hoof in the viewport, toggles without keys/history, and disappears on pelvis selection', 'Native posing, exact Undo, camera rotation and sidebar width remain valid');
       assert.equal(hash(fixture),fixtureHash);assert.deepEqual(errors,[]);results.errors=errors;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));return;

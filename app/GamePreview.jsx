@@ -631,7 +631,7 @@ export default function GamePreview(inputProps) {
         transform(ownedModel, nodeGesture.ids, nodeGesture.frame, nodeGesture.sequence, { mode: nodeGesture.mode, space: nodeGesture.space, rotateOnOwnAxis: nodeGesture.rotateOnOwnAxis, axis: nodeGesture.handle.axis, amount: nodeGesture.amount, values: nodeGesture.values, restPose: nodeGesture.restPose, workplaneEnabled: nodeGesture.mode === 'scale' ? nodeGesture.scaleConstrained : nodeGesture.workplaneEnabled, workplane: nodeGesture.workplane, restrictions: p.restrictions });
         if (!nodeGesture.restPose) p.onNodePosePreview?.(motionPose(ownedModel, nodeGesture.ids.at(-1), ({ move: 'Translation', rotate: 'Rotation', scale: 'Scaling' })[nodeGesture.mode], nodeGesture.frame, nodeGesture.sequence));
         const axisLabel = nodeGesture.freeScaleDrag && nodeGesture.scaleConstrained ? String(nodeGesture.workplane).toUpperCase().replace('XZ', 'ZX') : nodeGesture.handle.axis;
-        setGestureLabel(`${nodeGesture.mode[0].toUpperCase() + nodeGesture.mode.slice(1)} ${axisLabel}: ${nodeGesture.amount.toFixed(2)}${nodeGesture.mode === 'rotate' ? '°' : nodeGesture.mode === 'scale' ? '×' : ''}`);
+        setGestureLabel(`${nodeGesture.mode[0].toUpperCase() + nodeGesture.mode.slice(1)} ${axisLabel}: ${nodeGesture.amount.toFixed(2)}${nodeGesture.mode === 'rotate' ? 'Â°' : nodeGesture.mode === 'scale' ? 'Ã—' : ''}`);
       } catch (cause) { restoreGestureTracks(nodeGesture); setGestureLabel(cause.message); }
       canvas.style.cursor = viewportCursor('work', nodeGesture.mode); invalidate();
     };
@@ -960,7 +960,7 @@ export default function GamePreview(inputProps) {
       } catch (cause) { failures.push(`${info.Image}: ${cause.message}`); }
       finally { texture?.dispose(); if (!disposed) invalidate(); }
     });
-    const texturePromise = Promise.all(jobs).then(() => { texturesReady = true; if (!disposed) setWarnings([...(missing ? [`${missing} textures unresolved · load the model's texture files`] : []), ...failures]); });
+    const texturePromise = Promise.all(jobs).then(() => { texturesReady = true; if (!disposed) setWarnings([...(missing ? [`${missing} textures unresolved Â· load the model's texture files`] : []), ...failures]); });
     let reportAt = performance.now(), activeSequence = -99, externalFrame, reportedFrame, lastPlaying = false, globalClock = 0, playbackStopped = false;
     let showcaseSample, recordingSink = null;
     const color = new THREE.Color(), cameraQuaternion = new THREE.Quaternion();
@@ -1217,8 +1217,8 @@ export default function GamePreview(inputProps) {
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
         poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId))) : [];
-        const foot = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && handle.selected && handle.kind === 'endpoint' && handle.chain.kind === 'leg');
-        if (foot && p.onPosePin && !p.suspended) {
+        const limb = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && handle.selected && handle.kind === 'endpoint');
+        if (limb && p.onPosePin && !p.suspended) {
           if (!pinButton) {
             pinButton = ownerDocument.createElement('button'); pinButton.dataset.posePin = '';
             pinButton.style.cssText = 'position:absolute;z-index:70;pointer-events:auto;font:11px Tahoma,sans-serif;padding:2px 5px;min-height:22px';
@@ -1226,10 +1226,10 @@ export default function GamePreview(inputProps) {
             pinButton.addEventListener('click', event => { event.stopPropagation(); const current = latest.current; if (pinButton?.dataset.key) current.onPosePin?.(pinButton.dataset.key, Math.round(native.getFrame()), movementSequence(current, native.getFrame())); });
             host.current.appendChild(pinButton);
           }
-          pinButton.dataset.key = foot.key; pinButton.setAttribute('aria-label', 'Pin selected foot');
-          pinButton.setAttribute('aria-pressed', String(foot.pinned)); pinButton.textContent = foot.pinned ? 'Pinned' : 'Pin';
-          pinButton.style.left = `${Math.max(0, Math.min(width - 58, foot.x + 22))}px`;
-          pinButton.style.top = `${Math.max(0, Math.min(height - 24, foot.y + 20))}px`;
+          pinButton.dataset.key = limb.key; pinButton.setAttribute('aria-label', limb.chain.kind === 'leg' ? 'Pin selected foot' : 'Pin selected hand');
+          pinButton.setAttribute('aria-pressed', String(limb.pinned)); pinButton.textContent = limb.pinned ? 'Pinned' : 'Pin';
+          pinButton.style.left = `${Math.max(0, Math.min(width - 58, limb.x + 22))}px`;
+          pinButton.style.top = `${Math.max(0, Math.min(height - 24, limb.y + 20))}px`;
         } else if (pinButton) { pinButton.remove(); pinButton = null; }
 
         for (const handle of poseHandles) handle.hovered = poseTargetStamp(poseHandleTarget(handle)) === poseHoverTarget;
@@ -1251,7 +1251,7 @@ export default function GamePreview(inputProps) {
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
         drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
         const pingAge = posePing ? ownerWindow.performance.now() - posePing.started : 1200;
-        const ping = poseVisible && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
+        const ping = poseVisible && p.poseConfig.crosshair !== false && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
         nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);
         drawPoseOverlay(nodeCanvas.getContext('2d'), p.poseConfig?.picking ? [] : poseHandles, canvas.width / Math.max(1, width), ping && { targets: ping.targets, age: pingAge });
         if (ping) invalidate();
@@ -1445,7 +1445,7 @@ export default function GamePreview(inputProps) {
       {framed && frame.status === 'ready' && <img className="portrait-human-frame" src={frame.url} alt="" aria-hidden="true" data-frame-version={portraitFrameVersion}/>}
       {props.showcase && <ShowcaseLayers ref={layerAPI} grid={props.showcaseGrid} gridDensity={props.showcaseGridDensity} crop={props.showcaseCrop} layers={props.showcaseLayers} activeId={props.showcaseActiveLayer} editing={props.showcaseLayerEditing} onSelect={props.onShowcaseLayerSelect} onChange={props.onShowcaseLayerChange} onError={props.onShowcaseLayerError} onInvalidate={()=>runtime.current?.scheduler.invalidate()}/>}
       {portrait && !hasCamera && <div className="portrait-message" role="status">Create or select a camera to view the portrait</div>}
-      {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
+      {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III dataâ€¦</div>}
       {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status">{frame.error}</div>}
     </div>
     {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}

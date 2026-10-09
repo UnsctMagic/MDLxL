@@ -24,7 +24,6 @@ export default function PoseControls({ model, revision, config, onChange, onSele
   const anchor = useRef(null), names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name || 'Bone']));
   const latest = useRef({ config, onChange }); latest.current = { config, onChange };
   useEffect(() => () => { const { config, onChange } = latest.current; if (config.picking) onChange({ ...config, picking: null, inspectIds: [] }); }, []);
-  const active = config.chains.find(chain => chain.key === config.target?.key);
   const back = () => { setEditor(null); setError(''); onChange({ ...config, picking: null, inspectIds: [] }); };
   const close = () => { setOpen(false); back(); };
   useEffect(() => {
@@ -116,13 +115,6 @@ export default function PoseControls({ model, revision, config, onChange, onSele
     if (!repair) return;
     setEditor(previous => ({ ...previous, root: repair.draft.root, excluded: poseChainIds(poseChainBetween(model, repair.draft.root, repair.draft.end)).filter(id => !poseChainIds(repair.draft).includes(id)), replacements: repair.replacements, manualRoot: true }));
   };
-  const pin = () => {
-    try {
-      samplePoseChain(model, active, frame, sequence);
-      const targets = { ...config.targets }; delete targets[active.key];
-      onChange({ ...config, targets, pins: config.pins.includes(active.key) ? config.pins.filter(key => key !== active.key) : [...config.pins, active.key] });
-    } catch { setError('Choose another frame for this pin.'); }
-  };
   const remove = () => { onChange({ ...without(config, editor.original), picking: null, inspectIds: [] }); setEditor(null); setError(''); };
   const pickSlot = key => { setSlot(key); onChange({ ...config, picking: part }); };
   return <div className="pose-controls" ref={anchor} data-pose-revision={revision}>
@@ -130,7 +122,9 @@ export default function PoseControls({ model, revision, config, onChange, onSele
     {config.enabled && <>
       <button type="button" aria-label="Add POSE handle" aria-expanded={open === 'add'} disabled={disabled} onClick={() => { back(); setOpen('add'); }}>Add</button>
       <button type="button" aria-label="POSE setup" aria-expanded={open === 'setup'} disabled={disabled} onClick={() => open === 'setup' ? close() : showSetup()}>Setup</button>
-      {active && active.kind !== 'leg' && config.target?.kind === 'endpoint' && <button type="button" aria-label={active.kind === 'leg' ? 'Pin selected foot' : 'Pin selected hand'} aria-pressed={config.pins.includes(active.key)} disabled={disabled} title="Keep this hand or foot in place" onClick={pin}>{config.pins.includes(active.key) ? 'Pinned' : 'Pin'}</button>}
+      <button type="button" className="pose-crosshair" aria-label="Blocker crosshair" aria-pressed={config.crosshair !== false} disabled={disabled} title="Show the handle blocking a move" onClick={() => onChange({ ...config, crosshair: config.crosshair === false })}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v7m0 8v7M1 12h7m8 0h7"/></svg>
+      </button>
     </>}
     {open && config.enabled && <SetupWindow onClose={close} title={open === 'add' ? 'Add handle' : 'Setup'}>
       {editor ? <>

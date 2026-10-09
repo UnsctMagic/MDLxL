@@ -625,3 +625,23 @@ pings only hoof 27. Screenshot, isolated preview/history, fade-out, exact Undo,
 normal posing, Add/Setup/Pin and actual Alt-mouse camera rotation are checked.
 Original WAG bytes remain unchanged. No native Warcraft playback was exercised.
 Candidate: D:/MDLxL-Tests/pose-blocker-final/MDLxL-win32-x64/MDLxL.exe.
+
+
+## Crosshair toggle and handle Pin placement (2026-10-10)
+
+The remaining hand Pin moved from the sidebar to the existing projected-endpoint
+button used for feet/hooves. Its sidebar spot is now a compact crosshair toggle:
+red/on by default and black/off when disabled. It controls only blocker feedback,
+preserving pins, pose solving, setup drafts and document history. Session-only
+config stores crosshair=false when disabled; unspecified defaults to enabled.
+
+out/pose-crosshair-toggle-ready-ui/result.json passes seven packaged workflow
+checks with no page errors. Actual WAG hand chain 11/18/25 is added with mouse
+bone selection and its nearby Pin toggles without keys/history. Keyboard Space
+on the crosshair button during a captured pelvis drag verifies red/on and
+black/off, suppression of an active ping, and re-enabling. Screenshots were
+visually inspected. Earlier Add/Setup, hoof Pin, isolated drag preview, exact
+Undo, fade-out, normal posing, unchanged sidebar width and actual Alt-mouse
+camera rotation also pass. WAG original bytes remain unchanged. No native
+Warcraft gameplay or new solver regression suite was exercised for this UI pass.
+Candidate: D:/MDLxL-Tests/pose-crosshair-toggle-ready/MDLxL-win32-x64/MDLxL.exe.
