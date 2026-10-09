@@ -86,6 +86,42 @@ export function suggestPoseChain(model, endpoint) {
   validatePoseChain(model, chain); return chain;
 }
 
+/** Extend an endpoint suggestion through its unbranched limb, stopping at the
+ * first shared body joint. Uses native links and authored articulation. */
+export function suggestPickedPoseChain(model, endpoint) {
+  const chain = suggestPoseChain(model, endpoint), nodes = transformNodes(model);
+  const byId = new Map(nodes.map(node => [node.ObjectId, node]));
+  const children = new Map();
+  for (const node of nodes) { const list = children.get(node.Parent) || []; list.push(node); children.set(node.Parent, list); }
+  const links = poseChainIds(chain).slice(), seen = new Set(links);
+  let parent = byId.get(byId.get(links[0])?.Parent);
+  while (parent && !seen.has(parent.ObjectId)) {
+    const branches = (children.get(parent.ObjectId) || []).filter(node => node.Rotation?.Keys?.length || children.get(node.ObjectId)?.length);
+    if (branches.length !== 1 || ['Body','Pelvis','Chest'].includes(poseNodeRole(parent))) break;
+    links.unshift(parent.ObjectId); seen.add(parent.ObjectId); parent = byId.get(parent.Parent);
+  }
+  const result = { ...chain, root: links[0], middle: links[1], joints: links };
+  validatePoseChain(model, result); return result;
+}
+
+/** Offer a repair for chains started at a common pelvis/body. Never silently
+ * alter an existing handle, and never treat overlapping bend joints as safe. */
+export function separatePoseChains(model, draft, existing) {
+  const overlaps = existing.filter(chain => poseChainIds(chain).some(id => poseChainIds(draft).includes(id)));
+  if (!overlaps.length) return null;
+  const chains = [draft, ...overlaps], count = new Map();
+  for (const chain of chains) for (const id of poseChainIds(chain)) count.set(id, (count.get(id) || 0) + 1);
+  try {
+    const trimmed = chains.map(chain => {
+      const ids = poseChainIds(chain), start = ids.findIndex(id => count.get(id) === 1), joints = ids.slice(start);
+      if (start < 0 || joints.length < 3 || joints.some(id => count.get(id) > 1)) throw new Error('No separate limb');
+      const result = { ...chain, root: joints[0], middle: joints[1], joints };
+      validatePoseChain(model, result); return result;
+    });
+    return { draft: trimmed[0], replacements: trimmed.slice(1) };
+  } catch { return null; }
+}
+
 export function poseNodeRole(node) {
   const name = String(node?.Name || '').toLowerCase();
   if (/chain|rein|guard|camera|overhead/.test(name)) return node?.Name || 'Object';

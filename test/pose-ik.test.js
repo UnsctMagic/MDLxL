@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { applyMovementPose, applyMovementTransform, sampleMovement } from '../src/movement.js';
-import { poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
+import { suggestPickedPoseChain, separatePoseChains, poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
@@ -486,4 +486,24 @@ test('manual Start/End chains retain any number of native links and selected ben
   assert.throws(() => poseChainBetween(m, 3, 0), /same bone branch/);
   assert.throws(() => poseChainBetween(m, null, 3), /both Start and End/);
   m.Bones[1].Parent=3; assert.throws(() => poseChainBetween(m, 0, 3), /same bone branch/);
+});
+
+
+test('endpoint assistance follows unnamed articulated limbs and offers a nonmutating shared-body repair', { skip: !fs.existsSync('C:/Users/PC/Desktop/WAG.mdx') }, () => {
+  const path = 'C:/Users/PC/Desktop/WAG.mdx';
+  const model = openDocument(fs.readFileSync(path), 'WAG.mdx').model, original = structuredClone(model);
+  const left = suggestPickedPoseChain(model, 27), right = suggestPickedPoseChain(model, 28);
+  assert.deepEqual(left.joints, [35,42,21,27]);
+  assert.deepEqual(right.joints, [36,14,22,28]);
+  const broadLeft = { ...poseChainBetween(model,2,27), key:'limb:27', kind:'leg' };
+  const broadRight = { ...poseChainBetween(model,2,28), key:'limb:28', kind:'leg' };
+  const existing = structuredClone(broadLeft), repair = separatePoseChains(model,broadRight,[broadLeft]);
+  assert.deepEqual(repair.draft.joints,right.joints);
+  assert.deepEqual(repair.replacements[0].joints,left.joints);
+  assert.equal(repair.replacements[0].key,'limb:27');
+  assert.deepEqual(broadLeft,existing);
+  const selective = separatePoseChains(model,poseChainBetween(model,2,28,[14]),[broadLeft]);
+  assert.deepEqual(selective.draft.joints,[36,22,28]);
+  assert.equal(separatePoseChains(model,broadLeft,[broadLeft]),null);
+  assert.deepEqual(model,original);
 });

@@ -535,3 +535,50 @@ and 55 locales. All 462 packaged source/bundle files match the combined source:
 `out/pose-setup-integrated-proof.json`.
 Index SHA256: `507e450499f0f979fb5be8adcca5895ad11d015fde333d7bbdf470879c331f6c`.
 The feature PR remains unmerged and the candidate has not been opened visibly.
+
+
+## Assisted chain setup (2026-10-10)
+
+The follow-up reduces the unopened Setup view to New bone chain plus closed
+Other handle types / Edit existing handles sections. New chains pick the end
+first and infer the native unbranched limb. Adjust chain retains explicit Start,
+End and bend inclusion; explicit starts do not get replaced by later suggestions.
+Cycling endpoint picks refreshes an automatic start. Shared body starts offer a
+reviewable Use separate limbs correction, applied to both mappings only on save.
+No bone parenting, skinning, animation tracks, profiles or sidebar widths change.
+
+Evidence:
+- `out/pose-assisted-source.log`: 58/58 POSE source checks, zero failures/skips.
+- `out/pose-assisted-verified-wag/result.json`: two packaged workflow checks using
+  actual viewport bone clicks on a copy of WAG. Rear endpoints 27 and 28 suggest
+  native paths 35/42/21/27 and 36/14/22/28. Reproducing the shared pelvis start at
+  node 2 offers and applies the two-chain correction. Both handles deform native
+  geometry independently, with exact Undo and one edit per drag. Actual right
+  mouse camera rotation works. Setup creates no model/history changes.
+- `out/pose-assisted-verified-kurgan/result.json`: four packaged manual-edit checks
+  including retargeting, bend exclusions, pins, Cancel/Remove, camera input,
+  movable Setup and exact Undo/Redo. No page errors in either walkthrough.
+- `out/pose-assisted-verified-package.log`: complete package, 551 runtime/assets
+  and 55 locales. Test executable is in D:/MDLxL-Tests/pose-assisted-verified.
+- Screenshots of the quiet default, endpoint suggestion and offered correction
+  were visually inspected. All original models remain unchanged.
+
+Recognition diagnosis is separate from this setup change. The current recognizer
+uses names, hierarchy, attachments and limited geometry. It does not compare
+motion across animation sequences. Gnome rider's T1-T4 tail lies beneath a nested
+hip instead of the inferred actor root, outside the current tail rule. WAG's
+anonymous horse legs and concatenated person-hand names are missed. Black Knight
+has all four hooves in Stand; scanning 65 poses found the rear-right hoof rejected
+at Walk frames 333 and 900 by the sampled rigid-transform check. Decay also has
+rejected transforms. These are observed limitations, not fixes claimed here.
+Geometry/motion-based semantic inference and arbitrary scaled/sheared IK remain
+unimplemented. No Warcraft in-game playback or subjective human acceptance claim.
+
+The complete Footman regression also passed 26/26 packaged checks with no page
+errors in `out/pose-assisted-final-footman/result.json`, including native MDL/MDX
+save/reopen and three-frame keyed jump playback. That run used the assisted-final
+build immediately before the bend-exclusion preservation refinement; both WAG
+and Kurgan setup walkthroughs were rerun successfully on assisted-verified after
+that refinement. The final candidate source/dist comparison is 462 files with
+zero mismatches. Original WAG SHA256 is
+2164e7f72d9256d095ef3ef9cac15c8955e48e86062c4e3e9cee87144f32b9ca.

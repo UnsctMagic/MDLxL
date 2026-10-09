@@ -33,3 +33,7 @@
 .pose-actions { display: flex; gap: 5px; margin-top: 9px; }
 .pose-actions button:first-child { flex: 1; }
 .pose-remove { margin-top: 8px; }
+
+.pose-setup summary { cursor: pointer; padding: 7px 0; }
+.pose-adjust .pose-bounds { margin-top: 4px; }
+.pose-use-selected { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

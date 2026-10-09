@@ -125,15 +125,41 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await tool('Select');await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();
     const initial=await snap(),baseline=await configNow(),sidebar=await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width);
     const names=new Map(allNodes(initial.model).map(node=>[node.ObjectId,node.Name]));
-    const setup=()=>page.getByRole('button',{name:'POSE setup',exact:true}).click();
+    const setup=async()=>{await page.getByRole('button',{name:'POSE setup',exact:true}).click();if(await page.locator('.pose-adjust').count())await page.getByText('Adjust chain',{exact:true}).click();};
     const closeSetup=()=>page.getByRole('button',{name:'Close POSE setup',exact:true}).click();
-    const bound=key=>page.getByRole('button',{name:'Pick '+key,exact:true}).click();
+    const adjust=async()=>{if(!await page.locator('.pose-adjust').evaluate(e=>e.open))await page.getByText('Adjust chain',{exact:true}).click();};
+    const bound=async key=>{await adjust();await page.getByRole('button',{name:'Pick '+key,exact:true}).click();};
     const save=()=>page.getByRole('button',{name:'Save changes',exact:true}).click();
     const assertMappingOnly=async()=>{const state=await snap();assert.deepEqual(state.model,initial.model);assert.equal(state.undo,initial.undo);};
+    if (process.env.MDLXL_POSE_WAG) {
+      await setup();await shot('01-quiet-setup');
+      assert.equal(await page.getByRole('button',{name:'Map Hoof',exact:true}).isVisible(),false);
+      await page.getByRole('button',{name:'+ New bone chain',exact:true}).click();await pickBone(27);
+      assert.deepEqual((await configNow()).inspectIds,[35,42,21,27]);
+      assert.equal(await page.getByRole('button',{name:'Pick Start',exact:true}).isVisible(),false);
+      await shot('02-suggested-rear-leg');
+      await pickBone(28);assert.deepEqual((await configNow()).inspectIds,[36,14,22,28]);await pickBone(27);assert.deepEqual((await configNow()).inspectIds,[35,42,21,27]);
+      await bound('Start');await pickBone(2);await page.getByRole('button',{name:'Add handle',exact:true}).click();
+      await page.getByRole('button',{name:'+ New bone chain',exact:true}).click();await pickBone(28);
+      assert.deepEqual((await configNow()).inspectIds,[36,14,22,28]);
+      await bound('Start');await pickBone(2);assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false);
+      await shot('03-shared-start-assistance');await page.getByRole('button',{name:'Use separate limbs',exact:true}).click();
+      await page.getByRole('button',{name:'Add handle',exact:true}).click();await closeSetup();
+      assert.deepEqual((await configNow()).chains.map(c=>c.joints),[[35,42,21,27],[36,14,22,28]]);await assertMappingOnly();
+      results.checks.push('WAG rear hooves are suggested from native branches; shared pelvis repair saves two independent chains through real bone clicks');
+      const cameraBefore=await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()),box=await viewportBox();
+      await page.mouse.move(box.x+box.width*.2,box.y+box.height*.65);await page.mouse.down({button:'right'});await page.mouse.move(box.x+box.width*.2+40,box.y+box.height*.65+15,{steps:6});await page.mouse.up({button:'right'});await settle();
+      assert.notDeepEqual(await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()),cameraBefore);
+      for(const id of [27,28]) {await grab('endpoint',id,10,-8);const posed=await snap();assert.ok(posed.revision>initial.revision);await menu('undo');await settle();assert.deepEqual((await snap()).model,initial.model);}
+      await shot('04-two-rear-hooves');assert.equal(hash(fixture),fixtureHash);assert.deepEqual(errors,[]);
+      results.checks.push('Both rear hoof handles independently pose and Undo exactly; actual camera rotation works; source and setup history remain unchanged');
+      results.errors=errors;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));return;
+    }
     await shot('01-default');await setup();await shot('02-handles');
+    await page.getByText('Edit existing handles',{exact:true}).click();
     assert.ok(await page.locator('.pose-mapped button').evaluateAll(buttons=>buttons.every(button=>button.clientHeight>=32&&button.scrollHeight<=button.clientHeight+1)),'handle rows fit their icon, role and bone name');
     assert.equal(await page.locator('.pose-setup select').count(),0);
-    await page.getByRole('button',{name:'Map Hand',exact:true}).click();await pickBone(20);
+    await page.getByText('Other handle types',{exact:true}).click();await page.getByRole('button',{name:'Map Hand',exact:true}).click();await pickBone(20);
     assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false);
     await pickBone(16);assert.deepEqual((await configNow()).inspectIds,[12,13,14,16]);
     await bound('Start');await pickBone(9);assert.match(await page.locator('.pose-setup [role=status]').textContent(),/same bone branch/);
@@ -154,9 +180,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     results.checks.push('Existing handles reopen for editing; bending joints and End are editable, pins survive same-end edits, and retargeting removes stale mappings');
     await setup();await bound('Start');await pickBone(9);await page.getByRole('button',{name:'Cancel',exact:true}).click();
     assert.deepEqual((await configNow()).chains.find(c=>c.end===16).joints,[12,13,14,16]);
-    await page.getByRole('button',{name:'Edit Hand: '+names.get(16),exact:true}).click();await page.getByRole('button',{name:'Remove handle',exact:true}).click();
+    await page.getByText('Edit existing handles',{exact:true}).click();await page.getByRole('button',{name:'Edit Hand: '+names.get(16),exact:true}).click();await page.getByRole('button',{name:'Remove handle',exact:true}).click();
     assert.equal((await configNow()).chains.length,baseline.chains.length-1);
-    await page.getByRole('button',{name:'+ New bone chain',exact:true}).click();await pickBone(12);await bound('End');await pickBone(16);
+    await page.getByRole('button',{name:'+ New bone chain',exact:true}).click();await pickBone(16);
     await shot('04-new-chain');assert.deepEqual((await configNow()).inspectIds,[12,13,14,16]);
     const panel=await page.locator('.pose-setup').boundingBox();await page.mouse.move(panel.x+70,panel.y+12);await page.mouse.down();await page.mouse.move(panel.x-250,panel.y+32,{steps:6});await page.mouse.up();await settle();
     assert.ok((await page.locator('.pose-setup').boundingBox()).x<panel.x-100,'Setup can move away from bones');

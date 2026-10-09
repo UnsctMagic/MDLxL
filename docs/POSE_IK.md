@@ -49,24 +49,24 @@ wheel zoom, axis gizmos, XY/ZX/YZ workplanes and Shift constraints remain availa
 Select a native bone marker for ordinary Move, Rotate and Scale with POSE
 enabled. The Object picker remains the standard Movement bone selector.
 
-Open **Setup…** to edit the selected handle, or choose a handle from the named
-list. **Start** and **End** show the actual bones. Click either field, then pick
-its bone in the Movement viewport; repeated clicks cycle overlapping bones.
-The existing Object picker and **Use selected bone** also use the current
-Movement selection.
+Open **Setup** and choose **New bone chain**, then click the bone you want to
+move. The connected limb is suggested and highlighted. Click **Add handle**.
+Repeated clicks cycle overlapping bones and refresh the suggestion.
 
-**New bone chain** lets you choose both ends yourself. The existing hierarchy
-fills in the joints between them, with no three-joint limit. **Bending joints**
-shows those intermediate bones by name; uncheck a joint if it should simply
-follow its parent instead of receiving an IK rotation. Keep at least one bend.
-The highlighted path shows the selected chain on the model. **Add handle** or
-**Save changes** applies the mapping; it creates no animation keys.
+**Adjust chain** reveals Start, End and all intermediate bending joints. Click a
+field, then its bone in the Movement viewport. The existing Object picker and
+**Use selected bone** also work. There is no three-joint limit; uncheck a bend
+if it should only follow its parent. Explicit Start choices remain yours.
 
-For quick setup, choose Hand, Foot, Hoof or Wing and click the end bone. The
-suggested Start and all intermediate joints remain editable. Other part symbols
-map a single control. Existing handles can be retargeted or removed from their
-editor. Cancel keeps the previous mapping. An invalid choice shows its reason
-beside the picks and leaves them editable; it never restarts the editor.
+If two chains start at the same body/pelvis joint, **Use separate limbs** offers
+to start each chain on its own branch. Review the highlighted chain, then save;
+both mappings update together. Cancel changes neither. Unresolvable overlaps
+remain editable and identify the existing handle.
+
+**Other handle types** opens the Hand, Foot, Hoof, Wing and single-bone symbols.
+**Edit existing handles** opens the named list. Setup on a selected handle opens
+its editor directly. Retarget, remove and all detailed controls remain available.
+Setup changes mappings only, never animation keys or native bone parenting.
 
 Setup stays open while you pick or turn the camera. Drag its title bar if it
 covers a bone. Escape or the close button ends picking and restores the previous
