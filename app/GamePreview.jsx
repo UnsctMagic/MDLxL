@@ -234,7 +234,7 @@ export default function GamePreview(inputProps) {
     host.current.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: graphicsOptions(latest.current.preferences).antialias, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let pinButton, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
+    let posePing = null, pinButton, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
@@ -422,6 +422,11 @@ export default function GamePreview(inputProps) {
       } catch (cause) { setGestureLabel(cause.message); controls.enabled = true; }
       event.preventDefault(); event.stopImmediatePropagation(); invalidate(); return true;
     };
+    const pingPoseBlockers = targets => {
+      if (!targets.length) return;
+      const identity = JSON.stringify(targets), now = ownerWindow.performance.now();
+      if (posePing?.identity !== identity || now - posePing.started > 1200) posePing = { identity, targets, started: now };
+    };
     const previewPoseGesture = (gesture, event, p, rect, dx, dy) => {
       restoreGestureTracks(gesture); posedGeometryCache = null;
       if (!poseContextValid(gesture, p)) { gesture.adjusted = true; return; }
@@ -465,10 +470,13 @@ export default function GamePreview(inputProps) {
         const count = applyMovementPose(writable, result.changes, gesture.frame, gesture.sequence, p.restrictions);
         gesture.changes = count ? result.changes : [];
         gesture.bends = result.bends; gesture.targets = result.targets;
+        const blockers = result.blockingKeys?.length ? result.blockingKeys.map(key => ({ kind: 'endpoint', key })) : result.clamped ? [gesture.target] : [];
+        pingPoseBlockers(blockers);
         setGestureLabel(result.limited || result.clamped ? 'Reach limit' : `${gesture.target.kind === 'body' ? 'Body' : gesture.target.kind === 'node' ? 'Object' : gesture.target.kind === 'bend' ? 'Bend' : gesture.mode === 'rotate' ? 'Turn' : 'Limb Move'}`);
       } catch (cause) {
         restoreGestureTracks(gesture);
         if (gesture.changes?.length) applyMovementPose({ ...ownedModel, Sequences: gesture.baseline.Sequences }, gesture.changes, gesture.frame, gesture.sequence, p.restrictions);
+        pingPoseBlockers((cause.blockingKeys || []).map(key => ({ kind: 'endpoint', key })));
         setGestureLabel(cause.message);
       }
     };
@@ -1242,7 +1250,11 @@ export default function GamePreview(inputProps) {
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
         drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
-        drawPoseOverlay(nodeCanvas.getContext('2d'), p.poseConfig?.picking ? [] : poseHandles, canvas.width / Math.max(1, width));
+        const pingAge = posePing ? ownerWindow.performance.now() - posePing.started : 1200;
+        const ping = poseVisible && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
+        nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);
+        drawPoseOverlay(nodeCanvas.getContext('2d'), p.poseConfig?.picking ? [] : poseHandles, canvas.width / Math.max(1, width), ping && { targets: ping.targets, age: pingAge });
+        if (ping) invalidate();
         if (poseVisible && p.poseConfig.inspectIds?.length) {
           const context = nodeCanvas.getContext('2d'), ratio = canvas.width / Math.max(1, width); context.save(); context.scale(ratio, ratio);
           const joints = p.poseConfig.inspectIds.map(id => projectedNodes.find(point => point.node.ObjectId === id)).filter(point => point?.visible);

@@ -606,3 +606,22 @@ packaged Electron mouse harness supplied the input evidence. React lifecycle,
 latest callback refs and overlay removal were reviewed with the React skill.
 The full source and Footman suites were not repeated for this UI-only pass;
 prior results remain associated with their documented build boundaries.
+
+
+## Red blocker crosshair (2026-10-10)
+
+The existing reach limiter now reports the pinned endpoint(s) which constrain
+its valid movement prefix. Linear limits retain the original fraction math;
+nonlinear limits identify the failing pins immediately beyond the boundary.
+Pin-retention rejections also identify their offending endpoint. Direct limb
+reach limits ping the dragged limb. The existing overlay draws a red crosshair
+with a dark outline, pulses for 1.2 seconds and fades; no extra panel, selection,
+keys or document history are introduced.
+
+41/41 pose source checks pass, including single and simultaneous blocking pins.
+Packaged mouse proof: out/pose-blocker-final-ui/result.json. WAG rear hoof 27
+is explicitly pinned, hoof 28 remains free, and a pelvis drag exceeding reach
+pings only hoof 27. Screenshot, isolated preview/history, fade-out, exact Undo,
+normal posing, Add/Setup/Pin and actual Alt-mouse camera rotation are checked.
+Original WAG bytes remain unchanged. No native Warcraft playback was exercised.
+Candidate: D:/MDLxL-Tests/pose-blocker-final/MDLxL-win32-x64/MDLxL.exe.

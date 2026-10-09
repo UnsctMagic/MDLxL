@@ -695,14 +695,17 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
     const pose = samplePoseChain(copy, pin.chain, frame, sequence, globalTime), distance = pose.root.distanceTo(pin.position);
     return distance <= reachBounds(pose)[1] + pose.tolerance * .1 && distance >= reachBounds(pose)[0] - pose.tolerance * .1;
   });
-  let fraction = 1, copy = transformed(1);
+  let fraction = 1, copy = transformed(1), blockingKeys = [];
   if (fixed.length) {
     let linear = change.mode === 'move' && !grip;
     const poses = fixed.map(pin => samplePoseChain(copy, pin.chain, frame, sequence, globalTime));
     linear &&= poses.every((pose, i) => pose.lengths.every((length, j) => Math.abs(length - fixed[i].pose.lengths[j]) < pose.tolerance));
     if (linear) for (let i = 0; i < fixed.length; i++) {
       const pin = fixed[i], delta = poses[i].root.clone().sub(pin.pose.root);
-      fraction = Math.min(fraction, reachFraction(pin.pose.root.clone().sub(pin.position), delta, ...reachBounds(pin.pose)));
+      const boundary = reachFraction(pin.pose.root.clone().sub(pin.position), delta, ...reachBounds(pin.pose));
+      if (boundary < fraction - 1e-7) { fraction = boundary; blockingKeys = [pin.chain.key]; }
+      else if (boundary < 1 && Math.abs(boundary - fraction) <= 1e-7) blockingKeys.push(pin.chain.key);
+      fraction = Math.min(fraction, boundary);
     }
     else {
       // Rotated/scaled ancestry follows the existing transform, not a linear
@@ -713,7 +716,13 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
         if (!reachable(next === 1 ? copy : transformed(next))) {
           let low = previous, high = next;
           for (let iteration = 0; iteration < 20; iteration++) { const middle = (low + high) / 2; if (reachable(transformed(middle))) low = middle; else high = middle; }
-          fraction = low; break;
+          fraction = low;
+          const beyond = transformed(high);
+          blockingKeys = fixed.filter(pin => {
+            const pose = samplePoseChain(beyond, pin.chain, frame, sequence, globalTime), distance = pose.root.distanceTo(pin.position), [inner, outer] = reachBounds(pose);
+            return distance > outer + pose.tolerance * .1 || distance < inner - pose.tolerance * .1;
+          }).map(pin => pin.chain.key);
+          break;
         }
         previous = next;
       }
@@ -725,13 +734,15 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
   for (const id of followers) for (const property of ['Translation', 'Rotation']) changes.push({ id, property, value: sampleMovement(copy, byId.get(id), property, frame, sequence) });
   if (change.rotateOnOwnAxis && change.mode === 'rotate') changes.push({ id, property: 'Translation', value: sampleMovement(copy, target, 'Translation', frame, sequence) });
   for (const pin of captured) {
-    const result = solveChainOnClone(copy, pin.chain, frame, sequence, pin.position, { orientation: pin.orientation, bendMemory: pin.bendLocal && v3(pin.bendLocal).applyQuaternion(pin.pose.rotations[0]), strict: pin.pinned, globalTime });
+    let result;
+    try { result = solveChainOnClone(copy, pin.chain, frame, sequence, pin.position, { orientation: pin.orientation, bendMemory: pin.bendLocal && v3(pin.bendLocal).applyQuaternion(pin.pose.rotations[0]), strict: pin.pinned, globalTime }); }
+    catch (cause) { if (pin.pinned) cause.blockingKeys = [pin.chain.key]; throw cause; }
     changes.push(...result.changes); bends.push({ key: pin.chain.key, local: v3(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() });
   }
   for (const head of headRotations) changes.push(setWorldRotation(copy, byId.get(head.id), head.rotation, sampled(copy, frame, sequence, globalTime), frame, sequence, globalTime));
   for (const pin of fixed) {
     const after = samplePoseChain(copy, pin.chain, frame, sequence, globalTime);
-    if (after.end.distanceTo(pin.position) > pin.pose.tolerance * 4 || 1 - Math.abs(after.rotations[2].dot(new Quaternion().fromArray(pin.orientation))) > 1e-7) throw new Error('This transform cannot retain the pins.');
+    if (after.end.distanceTo(pin.position) > pin.pose.tolerance * 4 || 1 - Math.abs(after.rotations[2].dot(new Quaternion().fromArray(pin.orientation))) > 1e-7) throw Object.assign(new Error('This transform cannot retain the pins.'), { blockingKeys: [pin.chain.key] });
   }
   const targets = captured.filter(pin => !pin.pinned).map(pin => {
     const pose = samplePoseChain(copy, pin.chain, frame, sequence, globalTime);
@@ -742,7 +753,7 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
   const unique = [...new Map(changes.map(item => [`${item.id}:${item.property}`, item])).values()];
   // Validate ownership against the original tracks, after all compensations.
   const prepared = prepareMovementPose(model, unique, frame, sequence, change.restrictions);
-  return { changes: unique.filter(item => prepared.some(track => track.id === item.id && track.property === item.property)), bends, targets, limited: fraction < 1, fraction };
+  return { changes: unique.filter(item => prepared.some(track => track.id === item.id && track.property === item.property)), bends, targets, limited: fraction < 1, fraction, blockingKeys };
 }
 
 export function poseTrackScope(config, target, mode, model) {

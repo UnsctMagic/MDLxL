@@ -113,7 +113,7 @@ export function pickPoseHandle(handles, x, y, target = null, nodes = null, prefe
   return pickMovementNode(points, x, y, target ? [identity(target)] : [], 19, preferSelected, true)?.handle || null;
 }
 
-export function drawPoseOverlay(context, handles, ratio = 1) {
+export function drawPoseOverlay(context, handles, ratio = 1, ping = null) {
   context.save(); context.scale(ratio, ratio);
   // Keep the selected symbol above overlapping controllers.
   for (const handle of [...handles.filter(handle => !handle.selected && !handle.hovered), ...handles.filter(handle => !handle.selected && handle.hovered), ...handles.filter(handle => handle.selected)]) {
@@ -156,6 +156,17 @@ export function drawPoseOverlay(context, handles, ratio = 1) {
     const labelX = handle.labelX ?? handle.x + 20, labelY = handle.labelY ?? handle.y;
     if (Math.abs(labelY - handle.y) > 1) { context.beginPath(); context.moveTo(handle.x + 15, handle.y); context.lineTo(labelX - 2, labelY); context.lineWidth = 1; context.strokeStyle = color; context.stroke(); }
     context.lineWidth = 3; context.strokeStyle = '#102431'; context.strokeText(label, labelX, labelY); context.fillStyle = color; context.fillText(label, labelX, labelY);
+  }
+  if (ping) for (const handle of handles.filter(handle => handle.visible && ping.targets.some(target => identity(target) === identity(handle)))) {
+    const radius = 27 + 5 * Math.sin(ping.age / 75), x = handle.x, y = handle.y;
+    context.globalAlpha = Math.min(1, (1200 - ping.age) / 200);
+    context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      context.moveTo(x + dx * (radius - 7), y + dy * (radius - 7));
+      context.lineTo(x + dx * (radius + 11), y + dy * (radius + 11));
+    }
+    context.strokeStyle = '#180000'; context.lineWidth = 6; context.stroke();
+    context.strokeStyle = '#ff3030'; context.lineWidth = 3; context.stroke();
   }
   context.restore();
 }

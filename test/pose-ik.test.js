@@ -162,7 +162,7 @@ test('direct scale and translation preserve native cubic handles, other keys and
 
 test('body reaches the boundary without a rollback, restrictions prevent all writes', () => {
   const m = fixture(), before = structuredClone(m), pins = [leg1, leg2].map(chain => ({ chain }));
-  const limited = solvePoseBody(m, 0, pins, 500, 0, [0, 0, 100]); assert.ok(limited.limited); assert.ok(limited.fraction > 0 && limited.fraction < 1); assert.deepEqual(m, before);
+  const limited = solvePoseBody(m, 0, pins, 500, 0, [0, 0, 100]); assert.ok(limited.limited); assert.deepEqual(limited.blockingKeys.sort(), ['l', 'r']); assert.ok(limited.fraction > 0 && limited.fraction < 1); assert.deepEqual(m, before);
   const bounded = structuredClone(m); apply(bounded, limited);
   for (const chain of [leg1, leg2]) vectorNear(samplePoseChain(bounded, chain, 500, 0).end.toArray(), samplePoseChain(m, chain, 500, 0).end.toArray());
   const further = solvePoseBody(m, 0, pins, 500, 0, [0, 0, 200]); near(further.fraction * 200, limited.fraction * 100, 1e-5);
@@ -220,7 +220,7 @@ test('automatic targets permit complete ancestor turns while explicit pins alone
   const turn={mode:'rotate',space:'world',values:[0,170,0]}, result=solvePoseNode(m,0,poseNodeConstraints(m,config,0,'rotate'),500,0,turn);
   const posed=structuredClone(m), ordinary=structuredClone(m);apply(posed,result);applyMovementTransform(ordinary,[0],500,0,turn);
   vectorNear(sampleMovement(posed,posed.Bones[0],'Rotation',500,0),sampleMovement(ordinary,ordinary.Bones[0],'Rotation',500,0));assert.equal(result.fraction,1);
-  config.pins=['l'];const mixed=solvePoseNode(m,0,poseNodeConstraints(m,config,0),500,0,{mode:'move',space:'world',values:[0,0,25]});assert.ok(mixed.limited);apply(m,mixed);
+  config.pins=['l'];const mixed=solvePoseNode(m,0,poseNodeConstraints(m,config,0),500,0,{mode:'move',space:'world',values:[0,0,25]});assert.ok(mixed.limited);assert.deepEqual(mixed.blockingKeys,['l']);apply(m,mixed);
   vectorNear(samplePoseChain(m,leg1,500,0).end.toArray(),samplePoseChain(before,leg1,500,0).end.toArray());
 });
 

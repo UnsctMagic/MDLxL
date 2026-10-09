@@ -151,6 +151,18 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         await pin.click();await settle();assert.ok((await configNow()).pins.includes('limb:'+id));assert.equal(await pin.getAttribute('aria-pressed'),'true');await shot('04-pin-next-to-hoof-'+id);
         await pin.click();await settle();assert.ok(!(await configNow()).pins.includes('limb:'+id));await assertMappingOnly();
       }
+      if (process.env.MDLXL_POSE_BLOCKER) {
+        await selectHandle('endpoint',27);await page.getByRole('button',{name:'Pin selected foot',exact:true}).click();await settle();
+        await selectHandle('node',2);await tool('Move');const h=await handleFor('node',2),b=await viewportBox(),before=await snap();
+        await page.mouse.move(b.x+h.x,b.y+h.y);await page.mouse.down();await page.mouse.move(b.x+h.x,b.y+h.y-500,{steps:8});await settle();
+        const blockers=await page.locator('[data-node-overlay]').getAttribute('data-pose-blockers');
+        assert.deepEqual(JSON.parse(blockers),[{kind:'endpoint',key:'limb:27'}],'only the pinned hoof blocking this move is pinged');
+        assert.deepEqual(await snap(),before,'ping adds no document or history changes');await shot('05-red-blocker-crosshair');
+        await page.mouse.up();await menu('undo');await settle();assert.deepEqual((await snap()).model,initial.model);
+        await page.waitForTimeout(1350);assert.deepEqual(JSON.parse(await page.locator('[data-node-overlay]').getAttribute('data-pose-blockers')),[],'ping fades away');
+        await selectHandle('endpoint',27);await page.getByRole('button',{name:'Pin selected foot',exact:true}).click();await settle();
+        results.checks.push('Dragging pelvis beyond pinned hoof reach pings only that hoof in red; feedback fades and introduces no history edit');
+      }
       await selectHandle('node',2);assert.equal(await page.locator('[data-pose-pin]').count(),0);
       await grab('endpoint',27,10,-8);assert.ok((await snap()).revision>initial.revision);await menu('undo');await settle();assert.deepEqual((await snap()).model,initial.model);
       assert.equal(await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width),sidebar);
