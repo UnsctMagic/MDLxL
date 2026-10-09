@@ -261,6 +261,27 @@ export default function Viewport(inputProps) {
     const singlePane = { id: 'single', surface, perspective, ortho, camera, controls, grid, view: latest.current.view, center: state.center, radius: state.radius };
     const panes = [singlePane];
     let boundPane = singlePane, activePane = singlePane, quad = false;
+    // Read the live camera and rendered positions without moving either camera.
+    const visitorAPI = {
+      projectPosition(position) {
+        const pane = activePane, rect = pane.surface.getBoundingClientRect();
+        const point = new THREE.Vector3(...position).project(pane.camera);
+        if (!rect.width || !rect.height || ![point.x, point.y, point.z].every(Number.isFinite) || Math.abs(point.x) > .95 || Math.abs(point.y) > .95 || Math.abs(point.z) > 1) return null;
+        return { x: rect.left + (point.x + 1) * rect.width / 2, y: rect.top + (1 - point.y) * rect.height / 2 };
+      },
+      pickVertex() {
+        const entries = state.entries.map((entry, geosetIndex) => ({ entry, geosetIndex })).filter(({ entry }) => entry?.group.visible && entry.geometry.attributes.position.count);
+        for (let attempt = 0; attempt < 40 && entries.length; attempt++) {
+          const { entry, geosetIndex } = entries[Math.floor(Math.random() * entries.length)], position = entry.geometry.attributes.position;
+          const vertexIndex = Math.floor(Math.random() * position.count);
+          if (latest.current.hiddenVertices?.[geosetIndex]?.includes(vertexIndex)) continue;
+          const point = visitorAPI.projectPosition([position.getX(vertexIndex), position.getY(vertexIndex), position.getZ(vertexIndex)]);
+          if (point) return { ...point, geosetIndex, vertexIndex };
+        }
+        return null;
+      },
+    };
+    if (latest.current.shredderViewport) latest.current.shredderViewport.current = visitorAPI;
     // Only camera/input/overlay state is per pane. Scene, geometry, selection,
     // drag snapshots, textures and the document commit path stay shared.
     function savePane() {
@@ -970,6 +991,7 @@ export default function Viewport(inputProps) {
     state.scheduler.invalidate();
     return () => {
       savePane();
+      if (latest.current.shredderViewport?.current === visitorAPI) latest.current.shredderViewport.current = null;
       const remember = pane => ({ id: pane.id, view: pane.view, perspective: pane.perspective.clone(), ortho: pane.ortho.clone(), target: pane.controls.target.clone(), center: pane.center.clone(), radius: pane.radius });
       cameraMemory.current = { ...remember(singlePane), panes: panes.slice(1).map(remember) };
       if (latest.current.cameraHandoff) {

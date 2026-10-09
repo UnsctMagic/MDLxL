@@ -16,8 +16,9 @@ import { chinese, mordor, spanish } from './locales/short-ui-locales.js';
 import { broadChinese, broadMordor, broadSpanish } from './locales/broad-ui-locales.js';
 import { release015Chinese, release015Russian, release015Spanish } from './locales/v015-ui-locales.js';
 import { currentRussian, currentSpanish, currentChinese } from './locales/current-ui-locales.js';
+import { shredderRussian, shredderSpanish, shredderChinese } from './locales/shredder-ui-locales.js';
 
-export const russian = Object.freeze({ ...currentRussian, ...paintRussian, ...showcaseLocale(0), ...core, ...editor, ...engine, ...additions, ...forge, ...descriptors, ...materials, ...previewCache, ...optimizer, ...reviewedRussian, ...release015Russian });
+export const russian = Object.freeze({ ...currentRussian, ...paintRussian, ...showcaseLocale(0), ...core, ...editor, ...engine, ...additions, ...forge, ...descriptors, ...materials, ...previewCache, ...optimizer, ...reviewedRussian, ...release015Russian, ...shredderRussian });
 export const LANGUAGES = Object.freeze([
   Object.freeze({ id: 'en', label: 'English', nativeLabel: 'English' }),
   Object.freeze({ id: 'ru', label: 'Russian', nativeLabel: 'Русский' }),
@@ -45,8 +46,8 @@ const mordorKeys = Object.freeze({ ...russian, ...reviewedSpanish, ...mordor, ..
 const blackSpeech = Object.freeze({ ...Object.fromEntries(Object.keys(mordorKeys).map(key => [key, blackSpeechCipher(key)])), 'Image/Video': blackSpeechCipher('Image') + '/' + blackSpeechCipher('Video') });
 const dictionaries = Object.freeze({
   ru: russian,
-  es: Object.freeze({ ...currentSpanish, ...paintSpanish, ...showcaseLocale(1), ...spanish, ...broadSpanish, ...reviewedSpanish, ...release015Spanish }),
-  zh: Object.freeze({ ...currentChinese, ...paintChinese, ...showcaseLocale(2), ...chinese, ...broadChinese, ...release015Chinese }),
+  es: Object.freeze({ ...currentSpanish, ...paintSpanish, ...showcaseLocale(1), ...spanish, ...broadSpanish, ...reviewedSpanish, ...release015Spanish, ...shredderSpanish }),
+  zh: Object.freeze({ ...currentChinese, ...paintChinese, ...showcaseLocale(2), ...chinese, ...broadChinese, ...release015Chinese, ...shredderChinese }),
   mordor: blackSpeech,
 });
 let language = 'en';
