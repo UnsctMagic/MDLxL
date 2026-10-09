@@ -1115,6 +1115,9 @@ export default function GamePreview(inputProps) {
         const wireframe = !captureOnly && (p.mode === 'wireframe' || p.mode === 'vertices');
         if (wireframe) gl.colorMask(false, false, false, false);
         try {
+          // Rig markers use GREATER for occluded edges. Model rendering owns
+          // its depth state even when a capture omits the scene guides.
+          gl.depthFunc(gl.LEQUAL);
           native.render(displayCamera.matrixWorldInverse.elements, displayCamera.projectionMatrix.elements, { wireframe: false, useEnvironmentMap: p.shaded !== false && graphics.lighting });
           if(p.onParticleStage){
             // A paused view may draw only once after a seek, edit or camera change.
