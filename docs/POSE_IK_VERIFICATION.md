@@ -1,6 +1,9 @@
 # POSE implementation and verification
 
-Base: online `main` at `1e1d4c93398cdca7b8d74c73cbabbcd6fb28150a` (0.21.2).
+Original base: online `main` at `1e1d4c93398cdca7b8d74c73cbabbcd6fb28150a` (0.21.2).
+Current-main integration: `a73f104824e02a976894151e50c671a33b46234d`.
+Sources merged cleanly; generated bundle conflicts were resolved by rebuilding
+from source. Main's paste/geoset changes were retained without source edits.
 Feature branch: `codex/pose-ik`, PR #148. Dependencies and release version are
 unchanged. This is an unshipped test candidate, not an installed upgrade.
 
@@ -73,7 +76,7 @@ is asserted. Knight MDX and both Footman formats have preservation coverage.
 
 ## Packaged mouse acceptance
 
-Candidate: `out/pose-v3-package/MDLxL-win32-x64/MDLxL.exe`, Electron 40.8.0,
+Candidate: `out/pose-v3-main-package/MDLxL-win32-x64/MDLxL.exe`, Electron 40.8.0,
 built `dist`, separate disposable `MDLXL_PROFILE` per run. Tests use actual
 Playwright mouse drags and UI commands in an off-screen packaged window.
 The user's earlier open test applications and personal profiles are untouched.
@@ -110,7 +113,7 @@ the native mesh; direct reference controls must move their actual native matrix.
 Acceptance tolerances are 0.004 model units for matrix/pin position comparisons
 and 0.000001 for orientation dot error. The solver verifies tighter scale-aware
 bounds before commit. Exact measurements, executable/index/aggregate asset
-hashes and immutable texture hashes are in `out/pose-v3-ui/result.json`.
+hashes and immutable texture hashes are in `out/pose-v3-main-ui/result.json`.
 
 Preservation checks compare all semantics outside explicitly permitted native
 transform channels, untouched animation/gap keys inside those channels, and
@@ -119,8 +122,12 @@ byte-identical. Vertices, normals, UVs, topology, pivots, hierarchy, skin/bind
 data, resources, material/texture paths, visibility/RGB and other animations
 including Portrait remain unchanged. Edited complete files necessarily differ.
 
-Local evidence: `out/pose-v3-ui/result.json`, screenshots `01-default.png`
+Local evidence: `out/pose-v3-main-ui/result.json`, screenshots `01-default.png`
 through `09-controller-symbols.png`, and `posed.mdx` / `posed.mdl`.
+The same flow also passed before current-main integration in `out/pose-v3-ui`.
+The visible manual test uses that retained `out/pose-v3-package` build and a fresh
+`out/pose-v3-manual/Footman_POSE_Test_3.mdx` copy. Its running profile is separate
+from disposable acceptance profiles and is not replaced during integration.
 
 ## Checks and limits
 
@@ -131,16 +138,21 @@ through `09-controller-symbols.png`, and `posed.mdx` / `posed.mdl`.
   removed checkbox, minimized defaults and unchanged other section defaults;
   its two unrelated failures match the existing clean-main baseline.
 - Compatibility suite: 57 passed.
-- Source regression run: 1391 tests, 1367 passed, 22 failed, 2 skipped. Failure
-  identities exactly match the clean-main baseline: 21 existing assertions and
-  the existing synchronous keyframe-timeline worker hang. All other workers
-  completed; only that verified task-owned worker was stopped. No new failure.
+- Current-main source regression run: 1422 tests, 1399 passed, 21 failed, 2
+  skipped. No new failure identities relative to the original clean-main
+  baseline: 20 existing assertions and the existing synchronous keyframe-timeline
+  worker hang remain. Main's accepted HD anchor changes replace the former
+  failing capacity/bind-pose test with two passing repair/preservation tests.
+  All other workers completed; only the verified task-owned hanging worker was
+  stopped. Before integration: 1391 tests, 1367 passed, 22 failed, 2 skipped,
+  exactly matching the original baseline failure identities.
 - Production build and runtime/license/package checks passed. The packaged
   acceptance above passed without page errors; final measurements are retained
   in its result file.
 
-Source outputs: `baseline-source.log`, `out/pose-v3-source.log` and
-`out/pose-v3-regression-comparison.json`. Existing codec/version/binding/UI
+Source outputs: `baseline-source.log`, `out/pose-v3-main-source.log` and
+`out/pose-v3-main-regression-comparison.json`; the original v3 comparison is
+retained in `out/pose-v3-regression-comparison.json`. Existing codec/version/binding/UI
 failures were not edited to make POSE look green.
 
 IK remains limited to rigid two-link ancestry with positive uniform scale and

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 import { gather, updateBounds } from '../src/mesh-tools.js';
-import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, deleteFreeVertices } from '../src/geoset-operations.js';
+import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
 
 test('merging animated extents accepts omitted optional radii without losing bounds', () => {
   const model = createDemoDocument().model, original = model.Geosets[0];
@@ -265,4 +265,130 @@ test('merge resolves equivalent texture records but keeps team color, RGB and vi
     assert.equal(reopened.model.Geosets.length, 9);
     assert.equal(reopened.model.Bones[0].GeosetId, 0);
   }
+});
+
+test('merge review exposes full RGB and visibility tracks, applies independent choices, and undoes as one edit', () => {
+  const doc = createDemoDocument();
+  doc.apply('Prepare conflicts', [], model => {
+    const index = model.Geosets.push(structuredClone(model.Geosets[0])) - 1;
+    const track = (rgb, interpolation) => ({ LineType: interpolation, GlobalSeqId: null, Keys: [
+      { Frame: 0, Vector: Float32Array.from(rgb) }, { Frame: 500, Vector: Float32Array.from(rgb.map(value => value / 2)) },
+    ] });
+    model.GeosetAnims[0].Color = track([1, 0, 0], 1);
+    model.GeosetAnims[0].Alpha = track([1], 0);
+    model.GeosetAnims[0]._MdxDefaults = { Color: Float32Array.of(1, 0, 0), Alpha: 1 };
+    const anim = { ...structuredClone(model.GeosetAnims[0]), GeosetId: index };
+    anim.Color = track([0, 0, 1], 1); anim.Alpha = track([1], 1);
+    anim._MdxDefaults.Color = Float32Array.of(0, 0, 1); anim._MdxDefaults.Alpha = 0.5;
+    model.GeosetAnims.push(anim);
+    model.Bones[0].GeosetId = index; model.Bones[0].GeosetAnimId = model.GeosetAnims.length - 1;
+  });
+  const before = structuredClone(doc.model), selected = { 0: [0], 5: [0] };
+  const review = geosetMergeConflicts(doc.model, selected);
+  assert.deepEqual(doc.model, before, 'review is read-only');
+  assert.deepEqual(review.conflicts.map(conflict => conflict.kind), ['rgb', 'visibility']);
+  assert.ok(review.conflicts[0].options[0].detail.includes('frame 0'));
+  assert.throws(() => mergeSimilarGeosets(doc.model, selected, {}), /Choose a resolution/);
+  assert.deepEqual(doc.model, before, 'missing choices cannot mutate the model');
+  const choices = Object.fromEntries(review.conflicts.map(conflict => [conflict.id, conflict.kind === 'rgb' ? '5' : '0']));
+  const result = doc.apply('Merge resolved', [], model => mergeSimilarGeosets(model, selected, choices));
+  assert.equal(result.merged, 1);
+  assert.deepEqual(doc.model.GeosetAnims[0].Color, before.GeosetAnims[5].Color);
+  assert.deepEqual(doc.model.GeosetAnims[0].Alpha, before.GeosetAnims[0].Alpha);
+  assert.deepEqual(doc.model.GeosetAnims[0]._MdxDefaults.Color, before.GeosetAnims[5]._MdxDefaults.Color);
+  assert.equal(doc.model.GeosetAnims[0]._MdxDefaults.Alpha, 1);
+  assert.deepEqual(doc.model.Geosets[1], before.Geosets[1], 'unselected geometry stays intact');
+  assert.equal(doc.model.Bones[0].GeosetId, 0); assert.equal(doc.model.Bones[0].GeosetAnimId, 0);
+  for (const format of ['mdx', 'mdl']) assert.equal(openDocument(doc.serialize(format), `resolved.${format}`).model.Geosets.length, 5);
+  const merged = structuredClone(doc.model);
+  assert.equal(doc.undo(), true); assert.deepEqual(doc.model, before);
+  assert.equal(doc.redo(), true); assert.deepEqual(doc.model, merged);
+});
+
+test('different or missing materials have no conflict resolutions', () => {
+  const model = createDemoDocument().model;
+  model.Geosets[1].MaterialID = model.Materials.push({ ...structuredClone(model.Materials[0]), PriorityPlane: 99 }) - 1;
+  assert.equal(geosetMergeConflicts(model, { 0: [0], 1: [0] }).groups.length, 0);
+  model.Geosets[1].MaterialID = 999;
+  assert.equal(geosetMergeConflicts(model, { 0: [0], 1: [0] }).groups.length, 0);
+  assert.equal(mergeSimilarGeosets(model, { 0: [0], 1: [0] }, {}), false);
+  assert.equal(geosetMergeConflicts(model, { 0: [0] }).groups.length, 0);
+});
+
+test('stream and metadata resolutions preserve existing UVs and combine animation bounds', () => {
+  for (const uvChoice of ['keep', 'trim']) {
+    const model = createDemoDocument().model, original = structuredClone(model.Geosets[0]);
+    const copy = structuredClone(original), count = copy.Vertices.length / 3;
+    copy.TVertices.push(new Float32Array(count * 2).fill(0.75));
+    copy.Tangents = new Float32Array(count * 4); copy.SkinWeights = new Uint8Array(count * 8);
+    copy.SelectionGroup = 3;
+    copy.Anims.push({ BoundsRadius: 10, MinimumExtent: Float32Array.of(-10,-10,-10), MaximumExtent: Float32Array.of(10,10,10) });
+    model.Geosets.push(copy); model.GeosetAnims.push({ ...structuredClone(model.GeosetAnims[0]), GeosetId: 5 });
+    const review = geosetMergeConflicts(model, { 0: [0], 5: [0] });
+    const choices = Object.fromEntries(review.conflicts.map(conflict => [conflict.id, conflict.kind === 'uv' ? uvChoice : conflict.options[0].value]));
+    assert.equal(mergeSimilarGeosets(model, { 0: [0], 5: [0] }, choices).merged, 1);
+    const merged = model.Geosets[0];
+    assert.equal(merged.TVertices.length, uvChoice === 'keep' ? 2 : 1);
+    assert.deepEqual(Array.from(merged.TVertices[0]), [...original.TVertices[0], ...copy.TVertices[0]]);
+    if (uvChoice === 'keep') assert.deepEqual(Array.from(merged.TVertices[1]), [...original.TVertices[0], ...copy.TVertices[1]]);
+    assert.equal(merged.Tangents, undefined); assert.equal(merged.SkinWeights, undefined);
+    assert.deepEqual(merged.Anims.at(-1), copy.Anims.at(-1));
+    assert.equal(merged.SelectionGroup, original.SelectionGroup);
+  }
+});
+
+test('animation record count choices remap bone references, including a donor without animation records', () => {
+  for (const sourceIndex of [0, 5]) {
+    const doc = createDemoDocument();
+    doc.apply('Prepare missing animation', [], model => {
+      model.Geosets.push(structuredClone(model.Geosets[0]));
+      model.Bones[0].GeosetId = 0; model.Bones[0].GeosetAnimId = 0;
+    });
+    const selected = { 0: [0], 5: [0] }, review = geosetMergeConflicts(doc.model, selected);
+    const choices = Object.fromEntries(review.conflicts.map(conflict => [conflict.id, String(sourceIndex)]));
+    assert.equal(doc.apply('Resolve records', [], model => mergeSimilarGeosets(model, selected, choices)).merged, 1);
+    assert.equal(doc.model.GeosetAnims.filter(anim => anim.GeosetId === 0).length, sourceIndex === 0 ? 1 : 0);
+    assert.equal(doc.model.Bones[0].GeosetAnimId, sourceIndex === 0 ? 4 : null);
+    for (const format of ['mdx', 'mdl']) assert.equal(openDocument(doc.serialize(format), `records.${format}`).model.Geosets.length, 5);
+  }
+});
+
+test('same-material format limits are explained and a failed resolution keeps the entire model intact', () => {
+  const model = createDemoDocument().model;
+  model.Geosets.push(structuredClone(model.Geosets[0]));
+  model.GeosetAnims.push({ ...structuredClone(model.GeosetAnims[0]), GeosetId: 5 });
+  model.Geosets[5].Vertices = new Float32Array(65536 * 3);
+  const before = structuredClone(model), selected = { 0: [0], 5: [0] }, review = geosetMergeConflicts(model, selected);
+  assert.equal(review.conflicts.at(-1).kind, 'limits');
+  assert.equal(mergeSimilarGeosets(model, selected, Object.fromEntries(review.conflicts.map(conflict => [conflict.id, conflict.options[0].value]))), false);
+  assert.deepEqual(model, before);
+});
+
+test('UV resolution explicitly fills a mesh with no UV sets and keeps the donor UV coordinates', () => {
+  const model = createDemoDocument().model;
+  model.Geosets.push(structuredClone(model.Geosets[0]));
+  model.GeosetAnims.push({ ...structuredClone(model.GeosetAnims[0]), GeosetId: 5 });
+  const donorUV = model.Geosets[5].TVertices[0].slice(), leftCount = model.Geosets[0].Vertices.length / 3;
+  model.Geosets[0].TVertices = [];
+  const selected = { 0: [0], 5: [0] }, review = geosetMergeConflicts(model, selected);
+  const choices = Object.fromEntries(review.conflicts.map(conflict => [conflict.id, conflict.options[0].value]));
+  assert.equal(mergeSimilarGeosets(model, selected, choices).merged, 1);
+  assert.deepEqual(model.Geosets[0].TVertices[0].slice(0, leftCount * 2), new Float32Array(leftCount * 2));
+  assert.deepEqual(model.Geosets[0].TVertices[0].slice(leftCount * 2), donorUV);
+});
+
+test('partial merges leave the settings of geosets kept separate by format limits intact', () => {
+  const model = createDemoDocument().model;
+  for (const index of [5, 6]) {
+    model.Geosets.push(structuredClone(model.Geosets[0]));
+    model.GeosetAnims.push({ ...structuredClone(model.GeosetAnims[0]), GeosetId: index, Color: Float32Array.of(0.2, 0.3, 0.4) });
+  }
+  model.Geosets[0].Vertices = new Float32Array(65536 * 3);
+  const before = structuredClone(model), selected = { 0: [0], 5: [0], 6: [0] };
+  const review = geosetMergeConflicts(model, selected);
+  const choices = Object.fromEntries(review.conflicts.map(conflict => [conflict.id, conflict.options[0].value]));
+  assert.equal(mergeSimilarGeosets(model, selected, choices).merged, 1);
+  assert.deepEqual(model.Geosets[0], before.Geosets[0]);
+  assert.deepEqual(model.GeosetAnims[0], before.GeosetAnims[0]);
+  assert.deepEqual(model.GeosetAnims.find(anim => anim.GeosetId === 5).Color, before.GeosetAnims[0].Color);
 });

@@ -53,9 +53,20 @@ test('tangent handedness follows the full original-image UV orientation on both 
     assert.ok(t[0]>.99,'U increases along +X');assert.ok(bitangent[1]<-.99,'V increases down the original image, along -Y');
   }
 });
-test('HD anchor IDs beyond byte capacity and new bind-pose nodes fail without partial document edits', () => {
-  const doc=fixture(1100,true,true);doc.apply('Give anchor a high object ID',[],m=>{const bone=m.Bones.find(b=>b.Name==='DummyBone');bone.ObjectId=256;m.PivotPoints[256]=bone.PivotPoint;});const before=doc.serialize();
-  assert.throws(()=>doc.apply('Forge HD',[],m=>commitForge(m,mesh(),{texturePath:'piece.tga'})),/0 to 255/);assert.deepEqual(doc.serialize(),before);
+test('new bind-pose anchors are added with identity matrices while existing poses and undo are preserved', () => {
   const missing=fixture(1100,true,true);missing.apply('Rename anchor',[],m=>{m.Bones.find(b=>b.Name==='DummyBone').Name='Existing';});const original=missing.serialize();
-  assert.throws(()=>missing.apply('Forge HD',[],m=>commitForge(m,mesh(),{texturePath:'piece.tga'})),/bind-pose/);assert.deepEqual(missing.serialize(),original);
+  const existingPoses=new Map(missing.model.Nodes.filter(Boolean).map(node=>[node.Name,structuredClone(missing.model.BindPoses[0].Matrices[node.ObjectId])]));
+  const result=missing.apply('Forge HD',[],m=>commitForge(m,mesh(),{texturePath:'piece.tga'}));
+  assert.deepEqual(missing.model.BindPoses[0].Matrices[result.boneId],identity());
+  for(const node of missing.model.Nodes.filter(node=>node?.Name!=='DummyBone'))assert.deepEqual(missing.model.BindPoses[0].Matrices[node.ObjectId],existingPoses.get(node.Name));
+  for(const format of ['mdl','mdx'])assert.deepEqual(validateModel(openDocument(missing.serialize(format)).model).filter(d=>d.severity==='error'),[]);
+  missing.undo();assert.deepEqual(missing.serialize(),original);
+});
+
+test('a stale high-ID HD anchor is repaired before writing byte-sized skin indices', () => {
+  const doc=fixture(1100,true,true);
+  doc.apply('Give anchor a high object ID',[],model=>{const bone=model.Bones.find(node=>node.Name==='DummyBone');bone.ObjectId=256;model.PivotPoints[256]=bone.PivotPoint;});
+  const result=doc.apply('Forge HD',[],model=>commitForge(model,mesh(),{texturePath:'piece.tga'}));
+  assert.ok(result.boneId<=255);
+  for(const format of ['mdl','mdx'])assert.deepEqual(validateModel(openDocument(doc.serialize(format)).model).filter(d=>d.severity==='error'),[]);
 });
