@@ -29,6 +29,7 @@ function visible(element) {
 }
 function activeDialog(root) { return [...root.querySelectorAll('[role="dialog"][aria-modal="true"]')].filter(visible).at(-1); }
 function enabled(element) { return !element.disabled && element.getAttribute('aria-disabled') !== 'true' && !element.closest('fieldset[disabled]'); }
+const reportUsage = (id, source, target) => window.dispatchEvent(new CustomEvent('mdlxl-warmkey-use', { detail: { id, source, target } }));
 
 function actionMetadata(element, id) {
   const title = element.hasAttribute('data-warmkey-base-title') ? element.getAttribute('data-warmkey-base-title') : element.getAttribute('title');
@@ -65,6 +66,15 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
   }, [revision]);
   useEffect(() => {
     let queued = false, disposed = false;
+    const observedRoots = new Set();
+    const manualUsage = event => {
+      // Shortcut .click(), keyboard activation, and React effects are not mouse use.
+      if (!event.isTrusted || event.detail <= 0 || event.button !== 0) return;
+      const element = event.target?.closest?.('[data-warmkey]') || event.target?.closest?.('label')?.querySelector('[data-warmkey]');
+      if (!element || !enabled(element) || !visible(element) || isTextEditingTarget(element)) return;
+      const id = controlActionId(element);
+      if (id) reportUsage(id, 'mouse', element);
+    };
     const discover = () => {
       queued = false; if (disposed || !root.current) return;
       let changed = false;
@@ -96,7 +106,12 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
     const observer = new MutationObserver(schedule);
     const observeRoots = () => {
       observer.disconnect();
-      for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-warmkey', 'data-warmkey-prefix', 'data-warmkey-scope', 'data-warmkey-label', 'data-warmkey-category'] });
+      for (const element of observedRoots) element.removeEventListener('click', manualUsage, true);
+      observedRoots.clear();
+      for (const element of controlRoots()) {
+        observedRoots.add(element); element.addEventListener('click', manualUsage, true);
+        observer.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-warmkey', 'data-warmkey-prefix', 'data-warmkey-scope', 'data-warmkey-label', 'data-warmkey-category'] });
+      }
     };
     const registerRoot = event => {
       const element = event.detail?.root;
@@ -108,7 +123,7 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
     window.dispatchEvent(new CustomEvent('mdlxl-hotkeys-ready'));
     root.current.__refreshWarmKeys = discover;
     discover();
-    return () => { disposed = true; observer.disconnect(); window.removeEventListener('mdlxl-detached-root', registerRoot); detachedRoots.current.clear(); if (root.current) delete root.current.__refreshWarmKeys; };
+    return () => { disposed = true; observer.disconnect(); for (const element of observedRoots) element.removeEventListener('click', manualUsage, true); window.removeEventListener('mdlxl-detached-root', registerRoot); detachedRoots.current.clear(); if (root.current) delete root.current.__refreshWarmKeys; };
   }, []);
   // Command enablement changes during playback; only actual binding changes need a DOM scan.
   useEffect(() => { root.current?.__refreshWarmKeys?.(); }, [shortcutSignature]);
@@ -142,6 +157,7 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
         if (target.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), textarea, select, [contenteditable="true"]')) { target.focus(); if (target.matches('input[type="text"], input:not([type]), textarea')) target.select?.(); }
         else { target.focus({ preventScroll: true }); target.click(); }
       } else if (typeof action.run === 'function') action.run(event); else dispatch(action.id, event);
+      reportUsage(action.id, 'shortcut', target);
       return true;
     };
     const keydown = event => {

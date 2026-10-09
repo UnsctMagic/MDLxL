@@ -198,6 +198,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
     <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['mouse', 'Mouse'], ['warmkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['configuration','Configuration'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-warmkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); setRecording(null); setMessage(''); }}>{label}</button>)}</div>
     <div className="classic-modal-body settings-body" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>
       {tab === 'mouse' && <div className="settings-page">
+        <Toggle id="shredder" label="Shredder" checked={prefs.shredderEnabled} onChange={shredderEnabled => commit({ shredderEnabled })} description="Shortcut helper. Mordor gives him real, undoable vertex attacks."/>
         <h3>Updates</h3>
         <Toggle id="updates:startup" label="Auto update" checked={prefs.checkUpdatesOnStartup} onChange={checkUpdatesOnStartup => commit({ checkUpdatesOnStartup })} description="Search for updates when MDLxL starts. Ask before downloading or installing."/>
         <button data-warmkey="updates:check" disabled={!onCheckUpdates || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onCheckUpdates}>Search for updates</button>
