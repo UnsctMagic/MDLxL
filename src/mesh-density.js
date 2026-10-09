@@ -255,13 +255,17 @@ function sampledRecord(geoset, component, projection, target, groups) {
   if (!match) throw Error('This surface folds over itself in the grid view. Separate it into a simpler surface and try again.');
   const factors = match.factors.map(value => Math.max(0, value)), total = factors.reduce((sum, value) => sum + value, 0) || 1;
   factors.forEach((value, index) => { factors[index] = value / total; });
+  return interpolatedRecord(geoset, match.indices, factors, groups);
+}
+
+function interpolatedRecord(geoset, indices, factors, groups) {
   const interpolate = (array, width, normalize = false) => {
-    const values = Array.from({ length: width }, (_, componentIndex) => match.indices.reduce((sum, sourceIndex, index) => sum + array[sourceIndex * width + componentIndex] * factors[index], 0));
+    const values = Array.from({ length: width }, (_, componentIndex) => indices.reduce((sum, sourceIndex, index) => sum + array[sourceIndex * width + componentIndex] * factors[index], 0));
     return normalize ? normal(values) : values;
   };
   let vertexGroup = null;
   if (geoset.VertexGroup?.length) {
-    const used = match.indices.filter((_, index) => factors[index] > 1e-8);
+    const used = indices.filter((_, index) => factors[index] > 1e-8);
     vertexGroup = geoset.VertexGroup[used[0]];
     for (const index of used.slice(1)) vertexGroup = addClassicGroup(groups, vertexGroup, geoset.VertexGroup[index]);
   }
@@ -270,7 +274,7 @@ function sampledRecord(geoset, component, projection, target, groups) {
   return {
     position: interpolate(geoset.Vertices, 3), normal: geoset.Normals?.length ? interpolate(geoset.Normals, 3, true) : null,
     uvs: (geoset.TVertices || []).map(stream => interpolate(stream, 2)), vertexGroup, tangent,
-    skin: geoset.SkinWeights?.length ? blendSkin(geoset.SkinWeights, match.indices, factors) : null,
+    skin: geoset.SkinWeights?.length ? blendSkin(geoset.SkinWeights, indices, factors) : null,
   };
 }
 
@@ -357,21 +361,77 @@ export function densifyGeoset(source, level, { minimumSegments = 1 } = {}) {
   return geoset;
 }
 
-export function maximumDensityAmount(source) {
-  validateGeoset(source);
-  try {
-    let maximum = 0, previous = source.Faces.length;
-    for (let level = 1; level <= 4; level++) {
-      const faces = densifyGeoset(source, level).Faces.length;
-      if (faces !== previous) maximum = level * 25;
-      previous = faces;
-    }
-    return maximum;
-  } catch {
-    // Keep the control available; the normal preview pass reports the exact
-    // unsupported-surface reason instead of crashing the Forge dialog.
-    return 100;
+export function selectedDensityTriangles(source, selectedVertices) {
+  const selected = selectedVertices === undefined ? null : new Set(selectedVertices), triangles = [];
+  for (let offset = 0; offset < source.Faces.length; offset += 3) {
+    if (!selected || [0, 1, 2].every(corner => selected.has(source.Faces[offset + corner]))) triangles.push(offset / 3);
   }
+  return triangles;
+}
+
+// Subdivide each selected face in its own barycentric domain. Indexed edges
+// share new vertices; separate authored seam records remain separate.
+export function subdivideGeoset(source, level, { selectedVertices } = {}) {
+  validateGeoset(source);
+  level = Math.max(0, Math.min(4, Math.round(level)));
+  const geoset = structuredClone(source);
+  if (!level) return geoset;
+  const active = new Set(selectedDensityTriangles(source, selectedVertices));
+  if (!active.size) return geoset;
+  const segments = level + 1, cache = new Map(), groups = geoset.Groups || [];
+  const vertices = Array.from(source.Vertices), normals = Array.from(source.Normals || []), vertexGroups = Array.from(source.VertexGroup || []);
+  const tangents = Array.from(source.Tangents || []), skins = Array.from(source.SkinWeights || []), uvs = (source.TVertices || []).map(uv => Array.from(uv)), faces = [];
+  const at = (indices, row, column) => {
+    const weights = [segments - row - column, row, column];
+    const used = indices.map((index, corner) => [index, weights[corner]]).filter(([, weight]) => weight > 0).sort((a, b) => a[0] - b[0]);
+    if (used.length === 1) return used[0][0];
+    const key = used.map(entry => entry.join(':')).join('|');
+    if (cache.has(key)) return cache.get(key);
+    const index = vertices.length / 3;
+    if (index >= 65536) throw Error('This density exceeds Warcraft III\'s 65,536-vertex limit for one geoset.');
+    const record = interpolatedRecord(source, indices, weights.map(value => value / segments), groups);
+    vertices.push(...record.position);
+    if (record.normal) normals.push(...record.normal);
+    if (record.vertexGroup !== null) vertexGroups.push(record.vertexGroup);
+    if (record.tangent) tangents.push(...record.tangent);
+    if (record.skin) skins.push(...record.skin);
+    record.uvs.forEach((values, channel) => uvs[channel].push(...values));
+    cache.set(key, index); return index;
+  };
+  for (let triangle = 0; triangle < source.Faces.length / 3; triangle++) {
+    const indices = Array.from(source.Faces.slice(triangle * 3, triangle * 3 + 3));
+    if (!active.has(triangle)) { faces.push(...indices); continue; }
+    for (let row = 0; row < segments; row++) for (let column = 0; column < segments - row; column++) {
+      faces.push(at(indices, row, column), at(indices, row + 1, column), at(indices, row, column + 1));
+      if (row + column < segments - 1) faces.push(at(indices, row + 1, column), at(indices, row + 1, column + 1), at(indices, row, column + 1));
+    }
+  }
+  geoset.Vertices = new source.Vertices.constructor(vertices);
+  for (const [name, values] of [['Normals', normals], ['VertexGroup', vertexGroups], ['Tangents', tangents], ['SkinWeights', skins]]) {
+    if (source[name]?.length) geoset[name] = new source[name].constructor(values);
+  }
+  geoset.TVertices = uvs.map((values, channel) => new source.TVertices[channel].constructor(values));
+  geoset.Groups = groups;
+  if ('TotalGroupsCount' in geoset) geoset.TotalGroupsCount = groups.reduce((sum, group) => sum + group.length, 0);
+  geoset.Faces = new source.Faces.constructor(faces); updatePrimitiveCounts(geoset);
+  return geoset;
+}
+
+export function maximumDensityAmount(source, options = {}) {
+  const count = validateGeoset(source), triangles = selectedDensityTriangles(source, options.selectedVertices), edges = new Set(), interiors = new Set();
+  if (!triangles.length) return 0;
+  for (const triangle of triangles) {
+    const indices = Array.from(source.Faces.slice(triangle * 3, triangle * 3 + 3));
+    interiors.add([...indices].sort((a, b) => a - b).join(','));
+    for (let corner = 0; corner < 3; corner++) edges.add([indices[corner], indices[(corner + 1) % 3]].sort((a, b) => a - b).join(','));
+  }
+  // Count indexed edge and face samples without rebuilding the preview.
+  let maximum = 0;
+  for (let level = 1; level <= 4; level++) {
+    const segments = level + 1, added = edges.size * (segments - 1) + interiors.size * (segments - 1) * (segments - 2) / 2;
+    if (count + added <= 65536) maximum = level * 25;
+  }
+  return maximum;
 }
 
 function bindingKey(geoset, index) {
@@ -441,7 +501,7 @@ function compactGeoset(source, faces) {
   return geoset;
 }
 
-export async function reduceGeosetDensity(source, targetTriangles) {
+export async function reduceGeosetDensity(source, targetTriangles, { preserveVertices = false } = {}) {
   validateGeoset(source);
   const simplifier = await prepareMeshDensity(), initial = source.Faces.length / 3;
   targetTriangles = Math.max(1, Math.min(initial, Math.round(targetTriangles)));
@@ -453,15 +513,32 @@ export async function reduceGeosetDensity(source, targetTriangles) {
     if (faces.length >= targetTriangles * 3) break;
     requested += Math.max(margin, targetTriangles * 3 - faces.length); margin *= 2; faces = welded; error = 0;
   }
-  const result = faces.length === source.Faces.length && welded.every((value, index) => value === source.Faces[index]) ? structuredClone(source) : compactGeoset(source, faces);
+  const result = preserveVertices || faces.length === source.Faces.length && welded.every((value, index) => value === source.Faces[index]) ? structuredClone(source) : compactGeoset(source, faces);
+  if (preserveVertices) { result.Faces = new source.Faces.constructor(faces); updatePrimitiveCounts(result); }
   result._densityError = error;
   return result;
 }
 
-export async function changeGeosetDensity(source, amount) {
-  const verticesBefore = validateGeoset(source), trianglesBefore = source.Faces.length / 3, normalized = clampAmount(amount), target = densityTargetTriangles(trianglesBefore, normalized);
-  const geoset = normalized > 0 ? densifyGeoset(source, Math.ceil(normalized / 25)) : normalized < 0 ? await reduceGeosetDensity(source, target) : structuredClone(source);
+export async function changeGeosetDensity(source, amount, options = {}) {
+  const verticesBefore = validateGeoset(source), trianglesBefore = source.Faces.length / 3, normalized = clampAmount(amount);
+  const triangles = selectedDensityTriangles(source, options.selectedVertices), selectedFaces = new Set(triangles);
+  const target = trianglesBefore - triangles.length + densityTargetTriangles(triangles.length, normalized);
+  let geoset;
+  if (normalized > 0) geoset = subdivideGeoset(source, Math.ceil(normalized / 25), options);
+  else if (normalized < 0 && triangles.length && options.selectedVertices !== undefined) {
+    const subset = { ...source, Faces: new source.Faces.constructor(triangles.flatMap(triangle => Array.from(source.Faces.slice(triangle * 3, triangle * 3 + 3)))) };
+    const reduced = await reduceGeosetDensity(subset, densityTargetTriangles(triangles.length, normalized), { preserveVertices: true });
+    const faces = [];
+    for (let triangle = 0; triangle < trianglesBefore; triangle++) {
+      if (triangle === triangles[0]) for (const index of reduced.Faces) faces.push(index);
+      if (!selectedFaces.has(triangle)) faces.push(...source.Faces.slice(triangle * 3, triangle * 3 + 3));
+    }
+    geoset = structuredClone(source); geoset.Faces = new source.Faces.constructor(faces); updatePrimitiveCounts(geoset);
+    geoset._densityError = reduced._densityError;
+  } else geoset = normalized < 0 && triangles.length ? await reduceGeosetDensity(source, target) : structuredClone(source);
   const densityError = geoset._densityError || 0; delete geoset._densityError;
   const trianglesAfter = geoset.Faces.length / 3;
-  return { amount: normalized, geoset, verticesBefore, verticesAfter: geoset.Vertices.length / 3, trianglesBefore, trianglesAfter, targetTriangles: normalized > 0 ? trianglesAfter : target, constrained: normalized < 0 && trianglesAfter > target, densityError };
+  const referenced = new Set(geoset.Faces);
+  const selection = options.selectedVertices === undefined ? Array.from({ length: geoset.Vertices.length / 3 }, (_, index) => index) : [...new Set([...options.selectedVertices, ...Array.from({ length: Math.max(0, geoset.Vertices.length / 3 - verticesBefore) }, (_, index) => verticesBefore + index)])].filter(index => referenced.has(index));
+  return { amount: normalized, geoset, selectedVertices: selection, verticesBefore, verticesAfter: geoset.Vertices.length / 3, trianglesBefore, trianglesAfter, targetTriangles: normalized > 0 ? trianglesAfter : target, constrained: normalized < 0 && trianglesAfter > target, densityError };
 }
