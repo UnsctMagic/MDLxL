@@ -12,7 +12,9 @@ const run = promisify(execFile);
 const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe');
 const metadata = (version = '0.19.0') => ({ tag_name: `v${version}`, name: 'MDLxL', html_url: `https://github.com/UnsctMagic/MDLxL/releases/tag/v${version}`, body: '[English](https://github.com/UnsctMagic/MDLxL/blob/v0.19.0/docs/RELEASE-0.19.0.md)\n[Русский](https://github.com/UnsctMagic/MDLxL/blob/v0.19.0/docs/RELEASE-0.19.0-RU.md)\n[简体中文](https://github.com/UnsctMagic/MDLxL/blob/v0.19.0/docs/RELEASE-0.19.0-ZH-CN.md)', assets: [{ name: `MDLxL-${version}-win32-x64.zip`, browser_download_url: `https://github.com/UnsctMagic/MDLxL/releases/download/v${version}/MDLxL-${version}-win32-x64.zip` }] });
 async function fixture(t) {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-update-test-'));
+  // Windows runner temp paths may use casing/short-name aliases. The fixture
+  // represents an ordinary installed folder, so use its canonical disk path.
+  const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-update-test-')));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const target = path.join(directory, 'installed-Русский-中文'), source = path.join(directory, 'new');
   async function pack(root, version) {
