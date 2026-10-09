@@ -8,7 +8,7 @@ import {
   setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve,
 } from '../src/movement.js';
 import { movementSelectionSummary } from '../src/movement-selection.js';
-import { poseAffectedPins, samplePoseChain, solvePoseLimb, solvePoseNode } from '../src/pose-ik.js';
+import { withPoseResult, poseNodeConstraints, samplePoseChain, solvePoseLimb, solvePoseNode } from '../src/pose-ik.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { HELPER_LIST_COLOR, rigNodeListGroups, rigNodeListKind } from '../src/rig-node-order.js';
 import { visualOptions } from '../src/preferences.js';
@@ -84,9 +84,10 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
   useEffect(() => { setValues(transformMode === 'scale' ? [1, 1, 1] : [0, 0, 0]); setError(''); }, [transformMode, restPose]);
   useEffect(() => { setIncoming(vectorText(selectedKey?.InTan || selectedKey?.Vector)); setOutgoing(vectorText(selectedKey?.OutTan || selectedKey?.Vector)); }, [selectedKey, revision, controllerType]);
 
+  const poseResult = useRef(null);
   const run = (label, mutate) => {
     if (disabled || globalDomain) return false;
-    setError(''); onPlayingChange?.(false);
+    setError(''); onPlayingChange?.(false); poseResult.current = null;
     try {
       let cause;
       const result = onEdit?.(label, restPose ? ['Nodes', 'PivotPoints'] : ['Nodes'], current => { try { return mutate(current); } catch (failure) { cause = failure; throw failure; } });
@@ -94,6 +95,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
       // The document returns false for a valid no-op (for example, changing
       // T/C/B on a single constant key). Only thrown validation failures are errors.
       if (result === false) return true;
+      if (poseResult.current) onPoseChange?.(withPoseResult(poseConfig, poseResult.current));
       return true;
     } catch (cause) { setError(cause.message); return false; }
   };
@@ -106,8 +108,10 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
       if (chain && change.mode === 'move') {
         const pose = samplePoseChain(current, chain, frame, editSequenceIndex);
         result = solvePoseLimb(current, chain, frame, editSequenceIndex, pose.end.clone().add({ x: change.values[0], y: change.values[1], z: change.values[2] }));
-      } else result = solvePoseNode(current, id, poseAffectedPins(current, poseConfig, id).map(chain => ({ chain })), frame, editSequenceIndex, change);
-      return applyMovementPose(current, result.changes, frame, editSequenceIndex, restrictions);
+      } else result = solvePoseNode(current, id, poseNodeConstraints(current, poseConfig, id, change.mode), frame, editSequenceIndex, change);
+      const applied = applyMovementPose(current, result.changes, frame, editSequenceIndex, restrictions);
+      if (applied) poseResult.current = result;
+      return applied;
     }
     return controlModel && ['move', 'rotate'].includes(change.mode)
       ? applyPortraitModelTransform(current, selectedNodeIds, frame, editSequenceIndex, change)

@@ -4,8 +4,9 @@ Original base: online `main` at `1e1d4c93398cdca7b8d74c73cbabbcd6fb28150a` (0.21
 Current-main integration: `a73f104824e02a976894151e50c671a33b46234d`.
 Sources merged cleanly; generated bundle conflicts were resolved by rebuilding
 from source. Main's paste/geoset changes were retained without source edits.
-Feature branch: `codex/pose-ik`, PR #148. Dependencies and release version are
-unchanged. This is an unshipped test candidate, not an installed upgrade.
+The initial POSE feature and Trollface refinement were merged through PR #148.
+The automatic ancestor compensation described below is on `codex/pose-auto-ik`.
+Dependencies and release version remain unchanged; this is a test candidate.
 
 ## User workflow corrections
 
@@ -35,10 +36,15 @@ backings over bone markers. Controller and Restrictions start minimized through
 their existing headers. Rotate on Own Axis is removed from Movement. The
 existing sidebar width, other section defaults and camera controls remain unchanged.
 
-Pins can hold hands and feet. Moving any ancestor compensates its affected,
-disjoint pinned limbs together. Translation stops at the first inner/outer
-reach boundary. Rotate/Scale follow the native transform and locate the first
-reach boundary by sampled bracketing and bisection. The sampled native pose is
+Moving or rotating an ancestor automatically compensates its mapped, disjoint
+limbs. Automatic targets yield at limb reach while the ancestor continues moving.
+Their requested position/orientation survives repeated drags at the same pose;
+matching sampled joint positions, rotations, frame, sequence and mapping prevents
+stale goals after direct FK/endpoint edits or timeline changes. Mouse and numeric
+Movement edits share this session result. Pin toggles rebase that endpoint.
+Explicit pins can hold hands and feet firmly. Only these pins limit Translation
+at the first inner/outer reach boundary, or Rotate/Scale by sampled bracketing
+and bisection. Scale otherwise uses ordinary Movement behavior. The sampled native pose is
 verified before any write. A failed intermediate preview retains the last
 valid preview instead of resetting the gesture. No stretching or rig repair is
 used to satisfy an IK target; deliberate Scale still scales the native model.
@@ -147,6 +153,48 @@ Alt+mouse rotation passed in `out/pose-trollface-color/result.json`; its screens
 show the selected icon above overlapping handles. No page errors occurred.
 The full solver/source suites were not repeated for this color-only change.
 
+## Automatic ancestor posing (2026-10-09)
+
+The user requested the body/limb freedom shown in the WhiteoutFlakes Auto IK
+video and the Hive tutorials [Happy Animating with IK](https://www.hiveworkshop.com/threads/happy-animating-with-ik.256580/)
+and [In-depth Animation Tutorial](https://www.hiveworkshop.com/threads/in-depth-animation-tutorial-3ds-max.123520/).
+The relevant workflow is body/root motion with independent hand/foot goals,
+orientation preservation, knee/elbow steering, and native keyed poses. Tutorial
+instructions about rebuilding skins, removing imported animations or replacing
+controllers belong to that 3ds Max/NeoDex workflow and are not applied to MDLxL.
+
+- POSE enables automatic Move/Rotate compensation for complete limbs below the
+  selected ancestor. Direct edits to a limb's own joints remain ordinary FK.
+- Reaching a soft goal never caps the body. The two-link solution finds the
+  closest reachable endpoint without changing bone lengths or skinning.
+- Automatic goals remain available after release/re-grab, so a lifted body can
+  return to its original foot targets. A changed native pose rebases the goal;
+  session targets never enter MDX/MDL or add history on their own.
+- The focused packaged proof uses ordinary mouse drags on native Footman:
+  crouch, rise above reach, release/re-grab/lower, pelvis and chest controls,
+  and complete Undo/Redo. Both feet return to their earlier positions.
+- Three keyed poses at 500, 850 and 1200 ms use Body plus the foot controllers
+  for crouch/landing placement. Measured hip heights were 40.40, 91.32 and 40.05.
+  Timeline scrubbing and actual Play/Stop were exercised; MDX save and real
+  packaged reopen retained the native model. The result is a test animation,
+  not an automatically generated jump or a replacement for the user's model.
+- Focused source checks: 33/33 POSE tests passed. Combined Movement, component,
+  selection and marker checks: 102/105 passed. The three failures match the
+  existing baseline: inline RGB on All line, active-editor display options,
+  and rest-pose pivot serialization. Compatibility checks: 57/57 passed.
+
+Candidate: `out/pose-auto-package/MDLxL-win32-x64/MDLxL.exe`.
+Full packaged evidence: `out/pose-auto-ui-final/result.json` (25 checks) and
+screenshots. This includes ordinary Alt+mouse camera rotation and wheel zoom,
+explicit pins, overlap cycling, cancellations, native preview matrices, Undo/Redo,
+MDL/MDX saves and actual reopen, plus the new automatic posing sequence.
+Numeric coordinate parity passed separately in `out/pose-auto-numeric-ui/result.json`.
+The narrower first proof is retained in `out/pose-auto-focused-ui/result.json`.
+The original Footman/texture hashes remain unchanged. The measured native
+preview matrix error was below 0.000029; no page errors occurred. Production
+build and the package runtime/license checks passed. Full source-suite results
+below belong to the earlier integration run, not a rerun of that entire suite.
+
 ## Checks and limits
 
 - Focused POSE/selection-history/Movement/marker checks: 79 passed, including immutable Knight,
@@ -177,5 +225,5 @@ IK remains limited to rigid two-link ancestry with positive uniform scale and
 editable local tracks. Invalid/global/shared tracks reject locally. Direct
 controls retain ordinary Movement behavior. No balancing, physics, contact
 baking or automatic animation generation is supplied. Warcraft III gameplay
-and Retera interoperability were not exercised. Merge and release remain
-unauthorized; the candidate and evidence are retained for manual testing.
+and Retera interoperability were not exercised. The automatic-posing follow-up awaits user acceptance and merge authorization;
+no release or installed upgrade was performed.

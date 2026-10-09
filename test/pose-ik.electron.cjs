@@ -274,6 +274,57 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.equal(await page.getByRole('button', { name: 'POSE', exact: true }).count(), 0); assert.deepEqual(await snap(), beforeBones);
     }
     await shot('07-bones-rest'); results.checks.push('Bones retains its unanimated rest matrices in wireframe and textured views, with POSE absent');
+    // Start from the immutable source again for the reference video's free-body workflow.
+    await page.locator('.model-tab.active .model-tab-close').click(); await settle();
+    await app.evaluate(({dialog},fixture)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[fixture]});},fixture);await menu('open');await settle();
+    await menu('animation');await page.getByLabel('Movement current sequence').selectOption('0');await time.fill('500');await time.press('Enter');
+    await page.getByLabel('View direction',{exact:true}).selectOption('front');await page.getByLabel('Render mode',{exact:true}).selectOption('textured');
+    await page.getByLabel('Workplane',{exact:true}).uncheck();await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();
+    const automatic=await page.evaluate(()=>poseProbe().props.poseConfig), autoLegs=automatic.chains.filter(c=>c.kind==='leg');
+    assert.deepEqual(automatic.pins,[]);assert.equal(autoLegs.length,2);const autoBefore=await snap(), autoPoses=autoLegs.map(c=>samplePoseChain(autoBefore.model,c,500,0));
+    await selectHandle('body');await tool('Move');await drag('body',null,0,24);const crouch=await snap();
+    for(let i=0;i<autoLegs.length;i++){const p=samplePoseChain(crouch.model,autoLegs[i],500,0);assert.ok(p.root.z<autoPoses[i].root.z-2);assert.ok(p.end.distanceTo(autoPoses[i].end)<.004);assert.ok(p.middle.distanceTo(autoPoses[i].middle)>1);}
+    await shot('10-auto-crouch');await menu('undo');await settle();assert.deepEqual((await snap()).model,autoBefore.model);await menu('redo');await settle();assert.deepEqual((await snap()).model,crouch.model);await menu('undo');await settle();
+    await drag('body',null,0,-180);const airborne=await snap();
+    for(let i=0;i<autoLegs.length;i++){const p=samplePoseChain(airborne.model,autoLegs[i],500,0);assert.ok(p.root.z>autoPoses[i].root.z+20,'body rises beyond leg reach');assert.ok(p.end.z>autoPoses[i].end.z+5,'feet leave the ground');assert.ok(Math.abs(p.root.distanceTo(p.end)-p.lengths[0]-p.lengths[1])<.004);assert.ok(1-Math.abs(p.rotations[2].dot(autoPoses[i].rotations[2]))<1e-6);}
+    await shot('11-auto-airborne');await drag('body',null,0,20);const lowered=await snap();
+        for(const c of autoLegs){const p=samplePoseChain(lowered.model,c,500,0);assert.ok(p.end.z<samplePoseChain(airborne.model,c,500,0).end.z-2,'feet descend toward their original goals after re-grabbing');}
+    await drag('body',null,0,160);const returned=await snap();
+    for(let i=0;i<autoLegs.length;i++){const p=samplePoseChain(returned.model,autoLegs[i],500,0);assert.ok(p.end.distanceTo(autoPoses[i].end)<.004,'feet return to their ground goals');assert.ok(p.root.distanceTo(p.end)<p.lengths[0]+p.lengths[1]-.1,'knees bend again after reaching the ground');}
+    for(let i=0;i<3;i++){await menu('undo');await settle();}assert.deepEqual((await snap()).model,autoBefore.model);
+    // Pelvis and chest use the same body-to-limb compensation; direct FK remains available.
+    await selectHandle('node',26);await tool('Move');await drag('node',26,0,12);const pelvisPose=await snap();
+    for(let i=0;i<autoLegs.length;i++)assert.ok(samplePoseChain(pelvisPose.model,autoLegs[i],500,0).end.distanceTo(autoPoses[i].end)<.004);
+    await menu('undo');await settle();await page.getByLabel('Movement bone or node').selectOption('33');await tool('Move');
+    const armPoses=automatic.chains.filter(c=>c.kind==='arm').map(c=>({chain:c,pose:samplePoseChain(autoBefore.model,c,500,0)}));await drag('node',33,0,2);
+    for(const {chain,pose} of armPoses)assert.ok(samplePoseChain((await snap()).model,chain,500,0).end.distanceTo(pose.end)<.004);
+    await menu('undo');await settle();assert.deepEqual((await snap()).model,autoBefore.model);
+    results.checks.push('Automatic Body/Pelvis crouching, unrestricted airborne body drag, stable endpoint orientation, bend recovery, chest/hand compensation and atomic Undo/Redo work by mouse with zero pins');
+    // Author three ordinary native poses, scrub them, and save/reopen the resulting animation.
+    const jumpFrames=[500,850,1200];
+    for(const [i,frame] of jumpFrames.entries()) {
+      await time.fill(String(frame));await time.press('Enter');await settle();await selectHandle('body');await tool('Move');
+      const h=await handleFor('body'), b=await viewportBox(), data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON(),sensitivity:poseProbe().props.preferences?.pointerSensitivity}));
+      const camera=new ObjectLoader().parse(data.camera);camera.updateMatrixWorld(true);
+      const currentRoot=samplePoseChain((await snap()).model,autoLegs[0],frame,0).root.z, goalRoot=samplePoseChain(original,autoLegs[0],frame,0).root.z+(i===1?45:-7);
+      const origin=h.world.clone().project(camera), goal=h.world.clone();goal.z+=goalRoot-currentRoot;goal.project(camera);
+      const sensitivity=pointerSensitivityValue(data.sensitivity);
+      await drag('body',null,(goal.x-origin.x)*b.width/2/sensitivity,-(goal.y-origin.y)*b.height/2/sensitivity);
+      if(i!==1)for(const c of autoLegs){
+        await selectHandle('endpoint',c.end);await tool('Move');const foot=await handleFor('endpoint',c.end);
+        const from=foot.world.clone().project(camera), to=samplePoseChain(original,c,frame,0).end.clone().project(camera);
+        await drag('endpoint',c.end,(to.x-from.x)*b.width/2/sensitivity,-(to.y-from.y)*b.height/2/sensitivity);
+        assert.ok(Math.abs(samplePoseChain((await snap()).model,c,frame,0).end.z-samplePoseChain(original,c,frame,0).end.z)<.5,'foot controller places the crouch/landing contact');
+      }
+    }
+    const jumpModel=(await snap()).model, jumpHeights=[];
+    for(const frame of jumpFrames){await time.fill(String(frame));await time.press('Enter');await settle();jumpHeights.push(samplePoseChain(jumpModel,autoLegs[0],frame,0).root.z);const shown=await page.evaluate(()=>{const {runtime}=poseProbe();return {frame:runtime.native.getFrame(),matrices:runtime.native.rendererData.nodes.filter(Boolean).map(n=>[n.node.ObjectId,Array.from(n.matrix)])};});assert.equal(shown.frame,frame);const evaluated=samplePreviewMatrices(jumpModel,frame,0,frame,new ObjectLoader().parse(await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON())));for(const [id,matrix] of shown.matrices)if(evaluated.has(id))assert.ok(Math.max(...matrix.map((v,i)=>Math.abs(v-evaluated.get(id).elements[i])))<.004);}
+    assert.ok(jumpHeights[1]>jumpHeights[0]+20&&jumpHeights[1]>jumpHeights[2]+20,JSON.stringify(jumpHeights));
+    await time.fill('500');await time.press('Enter');await page.getByRole('button',{name:'Play',exact:true}).click();await page.waitForTimeout(300);const playbackFrame=await page.evaluate(()=>poseProbe().runtime.native.getFrame());await page.getByRole('button',{name:'Stop',exact:true}).click();assert.ok(playbackFrame>500,'native jump animation plays');await settle();
+    const jumpDest=path.join(out,'automatic-jump.mdx');await app.evaluate(({dialog},dest)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:dest});},jumpDest);await menu('saveAs');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
+    const jumpSaved=openDocument(fs.readFileSync(jumpDest),'automatic-jump.mdx');assertModelEquivalent(jumpModel,jumpSaved.model);assertModelEquivalent(strip(original),strip(jumpSaved.model));
+    await page.locator('.model-tab.active .model-tab-close').click();await settle();await app.evaluate(({dialog},dest)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[dest]});},jumpDest);await menu('open');await settle();await menu('animation');await page.getByLabel('Movement current sequence').selectOption('0');await time.fill('850');await time.press('Enter');await settle();assertModelEquivalent(jumpModel,(await snap()).model);await shot('12-reopened-jump');
+    results.automaticJump={frames:jumpFrames,rootHeights:jumpHeights,saved:jumpDest,playbackFrame};results.checks.push('A crouch/takeoff/landing sequence is authored through mouse drags at three frames, scrubs and plays with native matrices, saves as MDX and reopens in the packaged editor');
     assert.equal(hash(fixture), fixtureHash); for (const [name, expected] of Object.entries(results.textureHashes)) assert.equal(hash(path.join(out, 'Textures', name)), expected);
     assert.deepEqual(errors, []); results.errors = errors; fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify(results, null, 2)); console.log(JSON.stringify(results, null, 2));
   } catch (error) { await (await app.firstWindow()).screenshot({ path: path.join(out, 'failure.png') }); throw error; }

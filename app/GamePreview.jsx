@@ -25,7 +25,7 @@ import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, projectPoseHandles } from './pose-overlay.js';
-import { poseAffectedPins, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
+import { poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
@@ -368,7 +368,7 @@ export default function GamePreview(inputProps) {
       const sequences = p.model.Sequences || [];
       return sequences[p.sequenceIndex] ? p.sequenceIndex : sequences.findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
     };
-    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.nodes]);
+    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
     const poseContextValid = (gesture, p) => gesture.model === (p.poseDocumentModel || p.model) && gesture.previewModel === p.model && gesture.revision === p.revision &&
       (Math.round(p.time) === gesture.inputTime || Math.round(p.time) === gesture.frame) && gesture.inputSequence === p.sequenceIndex &&
@@ -433,7 +433,7 @@ export default function GamePreview(inputProps) {
         let result;
         if (gesture.target.kind === 'body' || gesture.target.kind === 'node' || gesture.mode === 'scale') {
           const id = gesture.target.kind === 'body' ? gesture.config.body : gesture.target.kind === 'node' ? gesture.target.id : gesture.config.chains.find(chain => chain.key === gesture.target.key).end;
-          const pins = poseAffectedPins(gesture.baseline, gesture.config, id).map(chain => ({ chain, bendLocal: gesture.config.bends?.[chain.key] }));
+          const pins = poseNodeConstraints(gesture.baseline, gesture.config, id, gesture.mode);
           let values = offset.toArray();
           if (gesture.mode === 'rotate') {
             let degrees = movementDragAmount(gesture.handle, dx, dy, 'rotate', sensitivity); if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
@@ -459,7 +459,7 @@ export default function GamePreview(inputProps) {
         const writable = { ...ownedModel, Sequences: gesture.baseline.Sequences };
         const count = applyMovementPose(writable, result.changes, gesture.frame, gesture.sequence, p.restrictions);
         gesture.changes = count ? result.changes : [];
-        gesture.bends = result.bends;
+        gesture.bends = result.bends; gesture.targets = result.targets;
         setGestureLabel(result.limited || result.clamped ? 'Reach limit' : `${gesture.target.kind === 'body' ? 'Body' : gesture.target.kind === 'node' ? 'Object' : gesture.target.kind === 'bend' ? 'Bend' : gesture.mode === 'rotate' ? 'Turn' : 'Limb Move'}`);
       } catch (cause) {
         restoreGestureTracks(gesture);
@@ -656,7 +656,7 @@ export default function GamePreview(inputProps) {
         if (event.type === 'pointercancel' || event.type === 'lostpointercapture' || !gesture.moved || gesture.adjusted || !gesture.changes?.length || !valid) restoreGestureTracks(gesture);
         else {
           try {
-            const result = latest.current.onPoseCommit?.({ model: gesture.model, revision: gesture.revision, frame: gesture.frame, sequence: gesture.sequence, inputSequence: gesture.inputSequence, changes: gesture.changes, bends: gesture.bends,
+            const result = latest.current.onPoseCommit?.({ model: gesture.model, revision: gesture.revision, frame: gesture.frame, sequence: gesture.sequence, inputSequence: gesture.inputSequence, changes: gesture.changes, bends: gesture.bends, targets: gesture.targets,
               label: gesture.target.kind === 'bend' ? 'POSE Bend' : `POSE ${gesture.target.kind === 'body' ? 'Body' : gesture.target.kind === 'node' ? 'Object' : 'Limb'} ${gesture.mode[0].toUpperCase() + gesture.mode.slice(1)}` });
             if (result === false) restoreGestureTracks(gesture);
           } catch (cause) { restoreGestureTracks(gesture); setGestureLabel(cause.message); }

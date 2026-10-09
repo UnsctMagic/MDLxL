@@ -53,9 +53,10 @@ export default function PoseControls({ model, revision, config, onChange, onSele
   const select = target => { onChange({ ...config, target }); onSelect?.(target); };
   const remove = key => onChange({ ...config, chains: config.chains.filter(chain => chain.key !== key), pins: config.pins.filter(pin => pin !== key), target: config.target?.key === key ? null : config.target });
   const pin = () => run(() => {
-    if (config.pins.includes(active.key)) { onChange({ ...config, pins: config.pins.filter(key => key !== active.key) }); return; }
+    const targets = { ...config.targets }; delete targets[active.key];
+    if (config.pins.includes(active.key)) { onChange({ ...config, targets, pins: config.pins.filter(key => key !== active.key) }); return; }
     samplePoseChain(model, active, frame, sequence);
-    onChange({ ...config, pins: [...config.pins, active.key] });
+    onChange({ ...config, targets, pins: [...config.pins, active.key] });
   });
   let invalid = '';
   try { for (const chain of config.chains) { validatePoseChain(model, chain); if (open) samplePoseChain(model, chain, frame, sequence); } if (config.body != null) validatePoseBody(model, config.body, legs); } catch (cause) { invalid = cause.message; }
@@ -86,7 +87,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
         <div className="pose-mapping"><button onClick={() => run(() => setBody(suggestPoseBody(model, config.chains)))}>Suggest body</button><button onClick={setBodyMapping}>Confirm body</button></div>
         {config.body != null && <button disabled={!!invalid} onClick={() => select({ kind: 'body' })}>Select body handle</button>}
       </details>
-      <p>Pin a hand or foot to hold it while moving other controls. Release it with Pinned. Drag Bend to steer an elbow / knee.</p>
+      <p>Move Body, Pelvis or Chest to pose their limbs automatically. Hands and feet stay in place while reachable, then follow the body. Pin keeps a hand or foot fixed; release it with Pinned. Drag Bend to steer an elbow / knee.</p>
       {(error || invalid) && <p role="alert">{error || invalid}</p>}
     </div>}
     {!open && error && <span role="alert" className="pose-error">{error}</span>}

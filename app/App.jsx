@@ -45,7 +45,7 @@ import { rememberMotionSave } from '../src/motion-decisions.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { retainedForgeAssets, forgeExportArchive, isForgeAssetPath, missingForgeAssetPaths } from '../src/forge-assets.js';
 import { applyMovementTransform, applyMovementPose, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
-import { poseTrackScope } from '../src/pose-ik.js';
+import { withPoseResult, poseTrackScope } from '../src/pose-ik.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
 import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
 import { applyMaterialPreset } from '../src/material-presets.js';
@@ -545,7 +545,7 @@ export default function App() {
     const result = edit(payload.label, ['Nodes'], current => applyMovementPose(current, payload.changes, payload.frame, payload.sequence, restrictions), { rethrow: true });
     if (result !== false) {
       liveMovementRevision.current = doc.revision;
-      if (result && payload.bends?.length) changePose({ ...session.pose, bends: { ...session.pose?.bends, ...Object.fromEntries(payload.bends.filter(bend => bend.key).map(bend => [bend.key, bend.local])) } });
+      if (result && payload.bends?.length) changePose(withPoseResult(session.pose, payload));
     }
     return result;
   };

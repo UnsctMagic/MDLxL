@@ -12,12 +12,15 @@ hierarchy. Setup is optional for ordinary named rigs.
 2. Click a handle's symbol or label. Use the existing **Move**, **Rotate** or
    **Scale** tool. Move a hand or foot to bend its limb; Rotate turns its
    endpoint. Drag **Bend** with Move to steer the elbow or knee.
-3. Select a hand or foot and click **Pin** when it should stay in place. The
-   handle turns orange and shows **PIN**. Click **Pinned** to release it.
-4. Move, Rotate or Scale **Body**, or move another ancestor such as **Chest** or
-   **Pelvis**. Affected pinned limbs compensate together. Unpinned limbs follow
-   their native hierarchy. An oversized drag stops at the reachable boundary
-   and shows **Reach limit**, retaining the valid movement.
+3. Move or Rotate **Body**, **Pelvis** or **Chest**. Mapped limbs compensate
+   automatically, keeping their hands/feet in place and oriented while reachable.
+   Lower the body to bend the knees. Raise it farther to straighten the legs and
+   lift the feet; the body keeps following your drag. Drag a hand or foot directly
+   whenever you want to place it elsewhere.
+4. Select a hand or foot and click **Pin** only when it must stay fixed. The
+   handle turns orange and shows **PIN**. Explicit pins can limit ancestor motion
+   at **Reach limit**. Click **Pinned** to return to automatic compensation.
+   Scale retains ordinary Movement behavior, with explicit pins compensated.
 
 Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on dark
 backings so they remain identifiable over bone markers. Whole-body control uses
@@ -53,9 +56,12 @@ the editor and other controls remain usable.
 
 ## Edits, history and saving
 
-Each gesture starts from the current sampled pose. Pins hold the endpoint pose
-captured at that gesture's start. Deliberately moving a pinned endpoint moves it;
-scrubbing or editing an animation rebases the next gesture to the new pose.
+Each gesture starts from the current sampled pose. Automatic targets retain
+their requested endpoint pose across repeated ancestor drags, even beyond reach:
+raise the body, release, grab it again and lower it to bring the feet back.
+Direct bone/endpoint edits, a different frame or a changed pose rebase targets
+from the native animation. Explicit pins capture the current endpoint pose;
+deliberately moving a pinned endpoint moves it.
 Pins do not maintain contacts between frames or run during playback.
 
 A drag previews on the renderer's private clone. Release commits one complete
@@ -66,7 +72,7 @@ back to the starting grip creates no key or Undo step.
 
 Hand/foot Move and Bend write native Rotation keys. Rotate writes endpoint
 Rotation. Direct Body/object tools write the corresponding Translation,
-Rotation or Scaling channel plus affected pinned limbs' Rotation channels.
+Rotation or Scaling channel plus compensated limbs' Rotation channels.
 Highlight KF shows these native channels. Existing controller and key editing
 continues to use explicitly selected real nodes and channels.
 
