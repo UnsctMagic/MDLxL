@@ -44,7 +44,8 @@ const singleFillers = new Set([...FILLER,'am','looking','look','looks','colored'
 const maxPhrase = Math.max(...[...lexicon.keys()].map(k=>k.split(' ').length));
 const vocabulary = unique([...lexicon.keys()].filter(k=>!k.includes(' ')&&k.length>=4));
 const correctionCaches = new WeakMap();
-const bodyWords = new Set(['human','humans','orc','orcs','elf','elves','nightelf','bloodelf','undead','dwarf','dwarves','demon','demons','troll','trolls','naga','tauren','draenei','ogre','ogres']);
+const prefixCaches = new WeakMap();
+const bodyWords = new Set(['human','humans','orc','orcs','elf','elves','nightelf','night elf','night elves','bloodelf','blood elf','blood elves','undead','dwarf','dwarves','demon','demons','troll','trolls','naga','tauren','draenei','ogre','ogres']);
 const colorMap = {'gold-color':'gold'};
 const conditionTag = {rusty:['rust'],bloody:['blood'],mossy:[],bark:['bark'],banner:['banner'],hair:['hair'],face:['face'],eye:['eye'],rune:['rune'],emblem:['emblem'],gem:['gem','crystal'],planks:['wood'],roof:['roof','straw']};
 const impliedTraits = {rusty:['old','weathered'],weathered:['old'],worn:['old'],tarnished:['old'],rotten:['old'],blighted:[],torn:['damaged'],frayed:['worn'],broken:['damaged'],cracked:['damaged'],scratched:['worn'],dented:['damaged'],burnt:['damaged'],mossy:[],ancient:['old']};
@@ -58,7 +59,8 @@ export function distance(a,b){
  for(let i=1;i<=a.length;i++){const cur=[i];for(let j=1;j<=b.length;j++){cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])cur[j]=Math.min(cur[j],prevPrev[j-2]+1);}prevPrev=prev;prev=cur;}return prev[b.length];
 }
 function correction(word,knownWords){
- if(REWRITES[word])return REWRITES[word];if(word.length<4||knownWords?.has(word)||lexicon.has(word))return null;
+ if(knownWords?.has(word)||lexicon.has(word))return null;
+ if(REWRITES[word])return REWRITES[word];if(word.length<4)return null;
  let cache=knownWords&&correctionCaches.get(knownWords);
  if(!cache&&knownWords){cache=new Map();correctionCaches.set(knownWords,cache);}
  if(cache?.has(word))return cache.get(word);
@@ -74,6 +76,25 @@ function correction(word,knownWords){
  if(concepts.length>1&&preferred){const names=candidates.filter(x=>preferred.has(x));if(names.length===1){candidates=names;concepts=names;}}
  const answer=best<=max&&concepts.length===1?candidates.sort((a,b)=>a.length-b.length)[0]:null;
  cache?.set(word,answer);return answer;
+}
+function prefixInterpretation(word,knownWords){
+ if(word.length<3)return null;
+ let cache=knownWords&&prefixCaches.get(knownWords);
+ if(!cache&&knownWords){cache=new Map();prefixCaches.set(knownWords,cache);}
+ if(cache?.has(word))return cache.get(word);
+ const candidates=unique([...vocabulary,...(knownWords?.nameWords||[])]).filter(candidate=>candidate.startsWith(word));
+ const meanings=unique(candidates.map(candidate=>lexicon.get(candidate)).filter(Boolean));
+ const ids=unique(meanings.map(meaning=>meaning.id));
+ const answer=candidates.length?{definition:ids.length===1?meanings[0]:null}:null;
+ cache?.set(word,answer);return answer;
+}
+function compositionalPhrase(phrase,definition){
+ const parts=phrase.split(' ');
+ for(let i=1;i<parts.length;i++){
+  const modifier=lexicon.get(parts.slice(0,i).join(' ')),subject=lexicon.get(parts.slice(i).join(' '));
+  if(modifier&&['color','condition','surface'].includes(modifier.family)&&subject?.id===definition.id)return true;
+ }
+ return false;
 }
 const exactFile = input => /(?:\\|\.(?:blp|tga|png|mdx)\b|^(?:textures|units|buildings|doodads|ui|terrainart|replaceabletextures|abilities|objects|environment|sharedmodels)\/)/i.test(input)&&!/^\w+:/.test(input.trim().replace(/^[a-z]:[\\/]/i,''));
 function scanQuery(input,knownWords){
@@ -98,44 +119,90 @@ function scanQuery(input,knownWords){
   const exclude=!!(t.exclude||excluding||negateNext);
   if(/^\d+\s*[x×]\s*\d+$/.test(t.raw)){const [width,height]=t.raw.split(/[x×]/).map(Number);found.push({id:`size:${width}x${height}`,family:'size',label:`${width} × ${height}`,word:t.raw,width,height,exclude});negateNext=false;i++;continue;}
   if(t.field==='path'||t.field==='name'){found.push({id:'literal:'+t.raw,word:norm(t.raw),label:t.raw,family:'literal',literal:true,field:t.field,exact:true,exclude});negateNext=false;i++;continue;}
+  if(t.quoted&&!t.field){found.push({id:'literal:'+norm(t.raw),word:norm(t.raw),label:t.raw,family:'literal',literal:true,exact:true,exclude});negateNext=false;i++;continue;}
   if(!t.quoted&&!t.field&&/^\d+$/.test(t.raw)){const pixels=Number(t.raw);found.push({id:`size:${pixels}`,family:'size',label:`${pixels}px side`,word:t.raw,pixels,exclude});negateNext=false;i++;continue;}
-  let matched=null,consumed=1,original=t.raw,fixed=null;
-  for(let n=Math.min(maxPhrase,flat.length-i);n>0;n--){const slice=flat.slice(i,i+n);if(slice.some((x,j)=>x.op||j>0&&(x.exclude||x.field||x.quoted)))continue;const phrase=words(slice.map(x=>x.raw).join(' '));if(lexicon.has(phrase)){matched=lexicon.get(phrase);consumed=n;original=phrase;break;}}
+  let matched=null,consumed=1,original=t.raw,fixed=null,prefix=null;
+  for(let n=Math.min(maxPhrase,flat.length-i);n>0;n--){const slice=flat.slice(i,i+n);if(slice.some((x,j)=>x.op||j>0&&(x.exclude||x.field||x.quoted)))continue;const phrase=words(slice.map(x=>x.raw).join(' '));if(lexicon.has(phrase)){const definition=lexicon.get(phrase);if(!t.quoted&&!t.field&&compositionalPhrase(phrase,definition))continue;matched=definition;consumed=n;original=phrase;break;}}
   if(!matched&&!t.quoted&&singleFillers.has(t.raw)){i++;continue;}
-  if(!matched&&!t.quoted){fixed=correction(t.raw,knownWords);if(fixed){matched=lexicon.get(words(fixed));if(!matched&&fixed.includes(' ')){flat.splice(i,1,...fixed.split(' ').map(w=>({raw:w,exclude})));continue;}}}
+  if(!matched&&!t.quoted){prefix=prefixInterpretation(t.raw,knownWords);if(prefix?.definition)matched=prefix.definition;
+   if(!prefix){fixed=correction(t.raw,knownWords);if(fixed){matched=lexicon.get(words(fixed));if(!matched&&fixed.includes(' ')){flat.splice(i,1,...fixed.split(' ').map(w=>({raw:w,exclude})));continue;}}}}
   if(!matched&&singleFillers.has(t.raw)){i++;continue;}
   if(matched){let d={...matched};if(t.field==='color'||t.field==='colour'){const col=DESCRIPTORS.find(x=>x.family==='color'&&(x.id===t.raw||x.words.includes(t.raw)||t.raw==='gold'&&x.id==='gold-color'||t.raw==='silver'&&x.id==='gray'));if(col)d={...col,trait:col.id,id:'trait:'+col.id};}
-   found.push({...d,word:original,field:t.field,exclude,correction:fixed&&fixed!==original?{from:original,to:fixed}:null});
+   found.push({...d,word:original,field:t.field,exclude,prefix:!!prefix,correction:fixed&&fixed!==original?{from:original,to:fixed}:null});
    if(d.also)found.push({...d.also,word:d.also.label.toLowerCase(),exclude});
-  }else found.push({id:'literal:'+norm(fixed||t.raw),word:norm(fixed||t.raw),label:fixed||t.raw,family:'literal',literal:true,exact:!!t.quoted,exclude,unknown:!knownWords?.has(fixed||t.raw),correction:fixed?{from:t.raw,to:fixed}:null});
+  }else found.push({id:'literal:'+norm(fixed||t.raw),word:norm(fixed||t.raw),label:fixed||t.raw,family:'literal',literal:true,exact:!!t.quoted,exclude,prefix:!!prefix,unknown:!prefix&&!knownWords?.has(fixed||t.raw),correction:fixed?{from:t.raw,to:fixed}:null});
   negateNext=false;i+=consumed;
  }
  return found;
 }
-export function parseQuery(input,knownWords){
+export function parseQuery(input,knownWords,options={}){
  const parsed=scanQuery(input,knownWords);
- // A faction next to an explicit non-character source means that source's faction.
- const nonBody=parsed.some(p=>!p.exclude&&(p.kind&&['buildings','ui','doodads','terrain','icons'].includes(p.kind)||['ship','boat','banner'].includes(p.trait)));
- for(const p of parsed){if(nonBody&&bodyWords.has(p.word)){p.family='context';p.context='faction';p.scope=[p.word.replace(/s$/,'')];p.label=(p.word[0].toUpperCase()+p.word.slice(1))+' source context';delete p.tags;}
-  if(['nightelf','night elf','night elves'].includes(p.word))p.scope=['nightelf','night elf','purple elf'];
-  if(['bloodelf','blood elf','blood elves'].includes(p.word))p.scope=['bloodelf','blood elf','blood elf'];
- }
  // Adjacent alternatives of one facet: (red OR blue) fabric. Whole clauses remain OR branches.
  const merged=[];
  for(let i=0;i<parsed.length;i++){const p=parsed[i];if(p.op==='or'&&merged.length&&parsed[i+1]&&!parsed[i+1].op){const left=merged.at(-1),right=parsed[i+1];const fam=left.options?.[0]?.family||left.family;
    if((fam===right.family||left.exclude&&right.exclude)&&left.exclude===right.exclude){const options=[...(left.options||[left]),right];merged[merged.length-1]={id:options.map(x=>x.id).join('|'),word:options.map(x=>x.word).join(' or '),label:options.map(x=>x.label).join(' or '),family:fam,options,exclude:left.exclude};i++;continue;}}
   merged.push(p);
  }
+ // Interpret faction + source within its own OR clause, including multiword factions.
+ for(const branch of branchesOf(merged))for(const term of branch){
+  const sourceKinds=unique([options.kind,...branch.filter(p=>!p.exclude).flatMap(p=>(p.options||[p]).map(option=>option.kind))].filter(kind=>kind&&kind!=='all'));
+  const factionRequest=sourceKinds.length||branch.some(p=>!p.exclude&&['ship','boat','banner'].includes(p.trait));
+  for(const p of term.options||[term]){
+   const factionWord=bodyWords.has(p.word)||p.tags?.length===1&&p.tags[0].endsWith('-body')&&!p.word.includes(' ');
+   if((factionRequest||p.field==='context')&&factionWord&&p.field!=='material'){
+    const faction=p.tags?.[0]?.replace(/-body$/,'')||p.word.replace(/s$/,'');
+    p.family='context';p.context='faction';p.scope=faction==='elf'?['elf','nightelf','bloodelf','night elf','blood elf']:[faction];p.sourceKinds=sourceKinds;p.label=(p.word[0].toUpperCase()+p.word.slice(1))+' source context';delete p.tags;
+   }
+   if(['nightelf','night elf','night elves'].includes(p.word))p.scope=['nightelf','night elf','purple elf'];
+   if(['bloodelf','blood elf','blood elves'].includes(p.word))p.scope=['bloodelf','blood elf'];
+  }
+  if(term.options){term.family=term.options[0].family;term.label=term.options.map(p=>p.label).join(' or ');}
+ }
  const seen=new Set();return merged.filter(p=>{if(p.op==='or'){seen.clear();return true;}const key=p.id+':'+p.exclude;if(seen.has(key))return false;seen.add(key);return true;});
 }
 function positiveNotes(notes){
  return String(notes||'').split(/[.;]/).filter(s=>!/(?:campaign footman offers|\b(?:see|use|try) (?:the |a )?(?:other|campaign)|\bcounterpart\b|\belsewhere\b)/i.test(s)).map(s=>s.split(/\b(?:no|not|without|rather than|instead of)\b/i)[0]).join('. ');
+}
+function nativeSource(value){
+ const segments=String(value||'').toLowerCase().replaceAll('\\','/').split(':').at(-1).split('/');
+ const kind={units:'units',buildings:'buildings',doodads:'doodads',terrainart:'terrain',pathtextures:'terrain',abilities:'effects',ui:'ui'}[segments[0]];
+ return {kind:segments[0]==='replaceabletextures'&&/commandbuttons/.test(segments[1])?'icons':kind,faction:['units','buildings'].includes(kind)?segments[1]:null,subject:segments.at(-1).replace(/\.[^.]+$/,'')};
+}
+const effectTags=new Set([...GROUPS.find(group=>group.id==='effects').tags,'rune','water','team-color']);
+const structureTags=new Set([...GROUPS.find(group=>group.id==='wood').tags,...GROUPS.find(group=>group.id==='stone').tags]);
+function namedSource(t,kind){
+ return t._sources.some(source=>source.kind===kind&&source.subject.length>=4&&[t._name,t._leaf].some(name=>{
+  const compact=name.replaceAll(' ','');return compact.includes(source.subject)&&source.subject.length/compact.length>=.8;
+ }));
+}
+function sourceMatch(t,kind){
+ // Referenced-by is not the texture's subject: smoke on a building is still smoke.
+ if(['units','buildings','doodads'].includes(kind)&&t._effectOnly)return 0;
+ if(t._origin.kind===kind)return 1;
+ if(!t.kinds.includes(kind))return 0;
+ if(!['units','buildings','doodads'].includes(kind)&&t._contextKind===kind)return .95;
+ if(kind==='effects'&&t._effectOnly)return .95;
+ if(namedSource(t,kind))return .95;
+ // A usage-derived category alone is weak evidence for a small generic component.
+ const subjectSurface=t.tags.some(tag=>tag!=='pattern'&&!effectTags.has(tag));
+ const sheet=t.width>=128&&t.height>=128;
+ if(t._primaryKind===kind&&(subjectSurface&&!t._smallComponent||sheet))return .9;
+ if(kind==='buildings'&&!t._smallComponent&&t.tags.some(tag=>structureTags.has(tag))&&t._sources.some(source=>source.kind===kind))return .65;
+ if(kind==='doodads'&&!t._smallComponent&&subjectSurface&&t._sources.some(source=>source.kind===kind))return .65;
+ return t.kinds.length===1&&!t._sources.length?.8:0;
 }
 export function prepare(items){
  const allWords=new Set(),nameWords=new Set();
  const prepared=items.map(t=>{
   const own=words([t.name,t.path,t.context,...(t.races||[])].join(' ')),note=words(positiveNotes(t.notes)),models=words((t.models||[]).join(' '));
   const item={...t,_text:norm([t.name,t.path,...(t.tags||[]),...(t.races||[]),...(t.models||[]),t.notes||''].join(' ')),_own:own,_note:note,_models:models,_name:words(t.name),_leaf:words(String(t.path||'').split(/[\\/]/).at(-1).replace(/\.[^.]+$/,'')),_path:norm(t.path),_tags:new Set(t.tags||[]),_traits:new Map(),_words:new Set((own+' '+note).split(' ').filter(Boolean))};
+  item._origin=nativeSource(t.sourcePath||t.path);
+  item._sources=(t.models||[]).map(nativeSource);
+  item._contextKind=Object.entries(KINDS).find(([kind,label])=>kind!=='all'&&(words(t.context).startsWith(words(label))||words(t.context).startsWith(kind.replace(/s$/,''))))?.[0];
+  item._primaryKind=item._origin.kind||item._contextKind;
+  const body=t.tags?.some(tag=>tag.endsWith('-body')||['skin','face','fur','scales','feathers','chitin'].includes(tag));
+  item._smallComponent=!item._origin.kind&&!body&&t.width>0&&t.height>0&&Math.max(t.width,t.height)<=64;
+  item._effectOnly=!!t.tags?.length&&t.tags.every(tag=>effectTags.has(tag))||item._smallComponent&&!!t.alpha||/replaceabletextures[\\/](?:weather|splats|shadows)[\\/]/i.test(t.path);
   for(const w of (item._name+' '+item._leaf).split(' '))if(w.length>=3&&!/^\d+$/.test(w))nameWords.add(w);
   for(const name of [item._name,item._leaf]){const compact=name.replace(/ /g,'');if(compact.length>=5)nameWords.add(compact);}
   const reviewedEvidence=t.searchHints?.evidence?.find(e=>e.type==='reviewed-image')?.text||t.searchHints?.evidence?.[0]?.text||'Reviewed description';
@@ -179,6 +246,7 @@ function literalMatch(t,p){
 function nameTerm(t,p){
  if(p.options)return Math.max(0,...p.options.map(option=>nameTerm(t,option)));
  if(p.field&&p.field!=='name')return 0;
+ if(p.literal&&p.exact&&!literalMatch(t,p))return 0;
  const needle=words(p.correction?.to||p.word),targets=[t._name,t._leaf];
  if(!needle)return 0;
  if(targets.includes(needle))return 4;
@@ -191,19 +259,39 @@ function nameTerm(t,p){
 }
 function namedOutcome(t,terms,options={}){
  const positive=terms.filter(p=>!p.exclude),excluded=terms.filter(p=>p.exclude);
+ if(positive.some(p=>p.literal&&p.exact&&!literalMatch(t,p)))return null;
  if(excluded.some(p=>testTerm(t,p,true).strength>0||(p.family!=='size'&&nameTerm(t,p))))return null;
- const characterRequest=options.kind==='units'||positive.some(p=>p.kind==='units');
- const forcedConstraint=p=>(p.field&&p.field!=='name')||['source','size','quality'].includes(p.family)||(characterRequest&&p.family==='material'&&bodyWords.has(p.word));
+ const fullPhrase=words(positive.map(p=>p.correction?.to||p.word).join(' '));
+ const naturalPhrase=words(options.query);
+ const wholeName=[t._name,t._leaf].some(name=>name===fullPhrase||name===naturalPhrase);
+ const namePrefix=positive.some(p=>p.prefix)&&[t._name,t._leaf].some(name=>name.startsWith(fullPhrase)||naturalPhrase&&name.startsWith(naturalPhrase));
+ // Natural-language aliases may not veto a complete native name (or its typed prefix).
+ if((wholeName||namePrefix)&&positive.every(p=>(!p.field||p.field==='name')&&!['size','quality'].includes(p.family))){
+  return {all:true,ratio:1,relevance:40*positive.length,nameRank:wholeName?4:3.5,nameMatch:wholeName?'Exact name':'Name starts with your search',regionColor:false,matched:[{label:'Native filename',family:'literal',evidence:t.path}],missing:[],related:[]};
+ }
+ const forcedConstraint=p=>(p.field&&p.field!=='name')||['source','size','quality'].includes(p.family)||p.context==='faction'||p.options?.some(option=>option.context==='faction')||(!wholeName&&positive.length>1&&['color','condition','surface'].includes(p.family));
  const names=positive.filter(p=>!forcedConstraint(p)&&nameTerm(t,p));
  const constraints=positive.filter(p=>!names.includes(p));
  if(!names.length||constraints.some(p=>!testTerm(t,p).strength)||names.some(p=>!nameTerm(t,p)||(p.field==='name'&&!literalMatch(t,p))))return null;
  const phrase=words(names.map(p=>p.correction?.to||p.word).join(' '));
- const rank=names.length===1?nameTerm(t,names[0]):[t._name,t._leaf].includes(phrase)?4:[t._name,t._leaf].some(s=>contains(s,phrase))?3:2;
- return {all:true,ratio:1,relevance:40*names.length,nameRank:rank,nameMatch:rank===4?'Exact name':'Name contains your search',regionColor:false,matched:[{label:'Native filename',family:'literal',evidence:t.path},...constraints.map(p=>({label:p.label,family:p.family,evidence:testTerm(t,p).evidence}))],missing:[],related:[]};
+ let rank=names.length===1?nameTerm(t,names[0]):[t._name,t._leaf].includes(phrase)?4:[t._name,t._leaf].some(s=>contains(s,phrase))?3:2;
+ if(positive.some(p=>p.prefix)&&[t._name,t._leaf].some(name=>name.startsWith(fullPhrase)))rank=Math.max(rank,3.5);
+ return {all:true,ratio:1,relevance:40*names.length+constraints.reduce((score,p)=>score+20*testTerm(t,p).strength,0),nameRank:rank,nameMatch:rank===4?'Exact name':'Name contains your search',regionColor:false,matched:[{label:'Native filename',family:'literal',evidence:t.path},...constraints.map(p=>({label:p.label,family:p.family,evidence:testTerm(t,p).evidence}))],missing:[],related:[]};
 }
 function contextMatch(t,p){
  const scopes=p.scope||[p.context];let source=t._own+' '+t._models;
- if(p.context==='faction')return scopes.some(x=>contains(source,x)||source.includes('/'+x+'/'))?1:0;
+ if(p.context==='faction'){
+  const factionMatches=faction=>scopes.some(scope=>words(faction).replaceAll(' ','')===scope.replaceAll(' ',''));
+  const ownFaction=scopes.some(scope=>contains(t._own,scope))||(t.races||[]).some(factionMatches);
+  if(p.sourceKinds?.length)return Math.max(0,...p.sourceKinds.map(kind=>{
+   const strength=sourceMatch(t,kind);if(!strength)return 0;
+   if(t._origin.kind===kind&&factionMatches(t._origin.faction))return strength;
+   if(scopes.some(scope=>contains(t._name,scope)||contains(t._leaf,scope)))return strength;
+   // Keep the faction and category on the same source, rather than pooling unrelated models.
+   return ownFaction&&(t._sources.some(origin=>origin.kind===kind&&factionMatches(origin.faction))||t._primaryKind===kind&&!t._sources.length)?strength:0;
+  }));
+  return ownFaction?1:0;
+ }
  if(p.context==='forest')return /\b(forest|ashenvale|felwood|lordaeron|tree|trees|woods|woodland)\b/.test(source)?1:0;
  if(p.context==='desert')return /\b(desert|barrens)\b/.test(source)?1:0;
  if(p.context==='swamp')return /\b(swamp|marsh|bog|sunken ruins)\b/.test(source)?1:0;
@@ -211,7 +299,7 @@ function contextMatch(t,p){
 }
 function testTerm(t,p,allowRelated=false){
  if(p.options){let best={strength:0};for(const option of p.options){const m=testTerm(t,option,allowRelated);if(m.strength>best.strength)best=m;}return best;}
- if(p.family==='source')return {strength:t.kinds.includes(p.kind)?1:0,evidence:'Native source'};
+ if(p.family==='source')return {strength:sourceMatch(t,p.kind),evidence:'Texture subject / native source'};
  if(p.family==='material')return {strength:p.tags.some(tag=>t._tags.has(tag))&&(!p.scope||p.scope.some(s=>(t._own+' '+t._models+' '+t._note).includes(s)))?1:0,evidence:'Material tags'};
  if(p.family==='context')return {strength:contextMatch(t,p),evidence:'Native path / source context'};
  if(p.family==='inspiration'){
@@ -240,7 +328,7 @@ function evaluate(t,terms){
  if(!all&&missing.some(m=>hard(m.term)))return null;
  const related=missing.map(m=>({...m,...testTerm(t,m.term,true)}));
  // A subjective/fantasy idea needs a real connection, even when its accompanying material matches.
- if(related.some(m=>m.term.requireEvidence&&!m.strength))return null;
+ if(related.some(m=>!m.strength))return null;
  // With only descriptive words, require actual evidence for one of them or a documented related trait.
  if(!all&&!matches.some(m=>m.strength)&&!related.some(m=>m.strength))return null;
  const weights={condition:28,color:22,surface:25,object:32,literal:40,material:22,context:25,source:12,size:10,quality:10};
@@ -262,7 +350,7 @@ function suggestionsFor(parsed){
 }
 export function searchDetailed(items,options={}){
  const {query='',group='',tag='',saved=[],sort='useful',includeClose=true}=options;
- const parsed=parseQuery(query,items.vocabulary),branches=branchesOf(parsed),groupTags=GROUPS.find(g=>g.id===group)?.tags,savedSet=new Set(saved);
+ const parsed=parseQuery(query,items.vocabulary,options),branches=branchesOf(parsed),groupTags=GROUPS.find(g=>g.id===group)?.tags,savedSet=new Set(saved);
  const exact=[],close=[];
  for(const t of items){if(!baseFilter(t,options,groupTags,savedSet))continue;
   const outcomes=branches.length?branches.flatMap(b=>[namedOutcome(t,b,options),evaluate(t,b)]).filter(Boolean):[{all:true,relevance:0,ratio:1,matched:[],missing:[]}];

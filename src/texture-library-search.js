@@ -117,7 +117,7 @@ export function searchTextureLibrary(prepared,{query='',vibe=true,folder='',vari
     searchQuery=searchQuery.replace(/\bugly\b/gi,'weathered').replace(/\bnails?\b/gi,'metal');
     notice='Metal, spikes and fasteners that may suit a nail. Check the sheet before using it.';
   }
-  const result=searchDetailed(source,{query:searchQuery,includeClose:true});
+  const result=searchDetailed(source,{query:searchQuery,kind,includeClose:true});
   let items=result.items;
   if(inspiration) {
     items=items.map(item=>({item,match:inspirationScore(item,inspiration.definition)})).filter(row=>row.match).sort((a,b)=>b.match.score-a.match.score+(b.item._match?.score-a.item._match?.score)*.01).map(({item,match})=>({...item,_match:{...item._match,type:'inspiration',inspiration:inspiration.definition.name,reason:match.reason}}));
