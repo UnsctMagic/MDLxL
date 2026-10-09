@@ -62,7 +62,8 @@ import VIEW_MENU from '../src/view-menu.json';
 import { SelectionHistory } from '../src/selection-history.js';
 import { correctNormalsXL } from '../src/normals-xl.js';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
-import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, deleteFreeVertices } from '../src/geoset-operations.js';
+import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
+import './geoset-merge.css';
 import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
 import { detachFaces, extrudeFaces } from '../src/mesh-tools.js';
 import { captureMeshSelection } from '../src/mesh-clipboard.js';
@@ -1181,7 +1182,7 @@ export default function App() {
     let result;
     try { result = edit(label, sections, operation, { rethrow: true }); }
     catch { return; }
-    if (result === false) { say('No geosets share compatible materials and RGB.'); return; }
+    if (result === false) { say('No geosets share compatible materials and RGB.'); return false; }
     const remapVertices = previous => {
       const next = {};
       for (const [oldIndex, vertices] of Object.entries(previous)) {
@@ -1196,6 +1197,24 @@ export default function App() {
     setVisibleOnly(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
     setActiveGeoset(previous => result.oldToNew[previous] ?? -1); setUvSet(0); clearZoomAnchor();
     say(`Merged ${result.merged} geosets.`);
+    return result;
+  };
+  const mergeSelectedGeosets = () => {
+    const review = geosetMergeConflicts(model, validSelection);
+    if (!review.groups.length) { say('No geosets share compatible materials and RGB.'); return; }
+    if (review.conflicts.length) {
+      setDialog({ type: 'mergeGeosets', review, selection: structuredClone(validSelection), resolutions: {}, doc, revision: doc.revision });
+      return;
+    }
+    changeGeosetStructure('Merge geosets', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Info'], current => mergeSimilarGeosets(current, validSelection));
+  };
+  const resolveGeosetMerge = () => {
+    if (dialog.doc !== doc || dialog.revision !== doc.revision) { setDialog(null); say('The model changed. Select the geosets and merge again.'); return; }
+    const result = changeGeosetStructure('Merge geosets', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Info'], current => mergeSimilarGeosets(current, dialog.selection, dialog.resolutions));
+    if (result !== undefined) {
+      setDialog(null);
+      if (result === false) say('Selected geosets exceed the model format limits and were kept separate.');
+    }
   };
   const separateSelectedGeosets = nuclear => {
     const label = nuclear ? 'Nuclear Seperation' : 'Seperate by Loose parts';
@@ -1359,7 +1378,7 @@ export default function App() {
 
         </>}
       </Suspense>}
-      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(true)}>Nuclear Seperation</button><button disabled={!editable || !selectionCount} onClick={() => changeGeosetStructure('Merge geosets', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Info'], current => mergeSimilarGeosets(current, validSelection))}>Merge Geosets</button><button disabled={!editable || !selectionCount || !!normalsXL} onClick={beginNormalsXL}>NormalsXL</button><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button></div>}
+      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(true)}>Nuclear Seperation</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button><button disabled={!editable || !selectionCount || !!normalsXL} onClick={beginNormalsXL}>NormalsXL</button><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button></div>}
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
       {(mode !== 'animation' || animationPanel === 'movement' || cameraRotating) && geosetPicker}
       {rigWorkspace && bindingPanel}
@@ -1376,6 +1395,20 @@ export default function App() {
     {saveDataChoice && <SaveEditorData Dialog={Dialog} name={saveDataChoice.name} bytes={saveDataChoice.bytes} onChoose={value => { saveDataChoice.resolve(value); setSaveDataChoice(null); }}/>}
     {dialog?.type === 'recent' && <Dialog title="Recent Files" onClose={()=>setDialog(null)} footer={<><button disabled={!recentFiles.length} onClick={clearRecent}>Clear History</button><button onClick={()=>setDialog(null)}>Close</button></>}>{recentFiles.length ? recentFiles.map(path=><button key={path} title={path} onClick={()=>{setDialog(null);openRecent(path);}} style={{display:'block',width:'100%',textAlign:'left',overflowWrap:'anywhere'}}>{path}</button>) : <p>No recent files.</p>}</Dialog>}
     {context && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - (Number.isInteger(context.geosetIndex) ? 140 : 110)) }}>{[...(Number.isInteger(context.geosetIndex) ? [['Add to tab…', () => setDialog({ type: 'geosetTab', geosetIndex: context.geosetIndex, tabId: (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === geosetTab) ? geosetTab : model[GEOSET_TABS_KEY]?.[0]?.id })]] : []), ...(leaveVisibleAvailable && Number.isInteger(context.geosetIndex) ? [['Leave as visible', () => leaveGeosetVisible(context.geosetIndex)]] : []), ['Select all geosets', () => chooseSets(new Set(tabVisibleGeosets))], ['Clear geosets', () => chooseSets(new Set())], ['Invert geosets', () => chooseSets(new Set([...tabVisibleGeosets].filter(index => !selectable.has(index))))], ['Show all vertices', () => setHidden({})]].map(([label, run]) => <button data-warmkey={({'Select all geosets':'geosetsAll','Clear geosets':'geosetsClear','Invert geosets':'geosetsInvert','Show all vertices':'show'})[label]} role={label === 'Leave as visible' ? 'menuitemcheckbox' : 'menuitem'} aria-checked={label === 'Leave as visible' ? visibleOnly.has(context.geosetIndex) : undefined} disabled={label === 'Add to tab…' && (doc.readOnly || saving || !model[GEOSET_TABS_KEY]?.length)} key={label} onClick={run}>{label}</button>)}</div>}
+    {dialog?.type === 'mergeGeosets' && <Dialog title="Merge Geosets" overlayClass="geoset-merge-dialog" onClose={() => setDialog(null)} onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setDialog(null); }} footer={<><button onClick={() => setDialog(null)}>Cancel</button><button disabled={!editable || dialog.review.conflicts.some(conflict => !dialog.resolutions[conflict.id])} onClick={resolveGeosetMerge}>Merge</button></>}>
+      <p>Choose how to resolve the conflicts. Chosen settings apply to the merged mesh.</p>
+      {dialog.review.groups.filter(group => group.conflicts.length).map(group => <fieldset className="geoset-merge-group" key={group.id}>
+        <legend>Geosets {group.indices.map(index => index + 1).join(', ')} · Material {group.materialId + 1}</legend>
+        {group.conflicts.map((conflict, index) => <label className="geoset-merge-conflict" key={conflict.id}>
+          <b>{conflict.label}</b>
+          {conflict.options.map(option => <span className="geoset-merge-detail" key={option.value}>{option.label}: {option.detail}</span>)}
+          <select autoFocus={index === 0 && group === dialog.review.groups.find(item => item.conflicts.length)} aria-label={`${conflict.label} resolution for geosets ${group.indices.map(id => id + 1).join(', ')}`} value={dialog.resolutions[conflict.id] || ''} onChange={event => { const value = event.target.value; setDialog(previous => ({ ...previous, resolutions: { ...previous.resolutions, [conflict.id]: value } })); }}>
+            <option value="">Choose resolution…</option>
+            {conflict.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>)}
+      </fieldset>)}
+    </Dialog>}
     {dialog?.type === 'geosetTab' && <div className="geoset-tabs" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setDialog(null); }}><Dialog title="Add to tab" onClose={() => setDialog(null)} footer={<><button onClick={() => setDialog(null)}>Cancel</button><button disabled={doc.readOnly || saving || !dialog.tabId} onClick={() => { if (edit('Assign geoset tab', [GEOSET_TABS_KEY, 'Geosets'], current => assignGeosetTab(current, [dialog.geosetIndex], dialog.tabId)) !== false) setDialog(null); }}>Add</button></>}><select autoFocus aria-label="Geoset tab" value={dialog.tabId || ''} onChange={event => setDialog(previous => ({ ...previous, tabId: event.target.value }))}>{(model[GEOSET_TABS_KEY] || []).map(tab => <option key={tab.id} value={tab.id}>{tab.name}</option>)}</select></Dialog></div>}
     {dialog?.type === 'resource' && <div><Suspense fallback={<div className="classic-modal"><div className="classic-modal-window">Loading resource editor…</div></div>}><ResourceEditor onEditVisibility={({kind,index,layer})=>{setDialog(null);selectAnimationPanel('animations');setMaterialVisibility(kind==='Materials'?{kind:'material',id:index,layer,property:'Alpha'}:null);setSelectedNodeIds(kind==='Nodes'?[index]:[]);if(kind==='Geosets'||kind==='GeosetAnims'){const id=kind==='Geosets'?index:model.GeosetAnims[index].GeosetId;setSelectable(new Set([id]));setActiveGeoset(id);}}} modelPath={session.path} onKindChange={kind => setDialog(previous => ({ ...previous, kind }))} onUndo={() => undo(false)} onRedo={() => undo(true)} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} sequenceIndex={sequence} onSequenceChange={selectSequence} onSeek={value => { setPlaying(false); setTime(value); }} onOpenParticleEditor={openParticles} onViewCamera={(camera,index) => { const evaluated=evaluateModelCamera(model,camera,time,sequence,time); setView('perspective'); setDialog(null); if(evaluated)requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('mdlxl-view-camera',{detail:evaluated}))); }} selectedNodeId={selectedNodeIds.at(-1)} previewFrame={time} onNodeChange={id => setSelectedNodeIds([id])} onWarmKeys={()=>setSettingsTab('warmkeys')} kind={dialog.kind} doc={doc} edit={edit} refresh={refresh} onClose={() => setDialog(null)} onImportTexture={() => openLibrary()} onTextureFolder={selectManagerTextureFiles} selectionByGeoset={validSelection} activeGeoset={activeGeoset} onGeosetChange={index => { setSelectable(previous => new Set([...previous, index])); setActiveGeoset(index); setUvSet(0); }} onVerticesChange={(index, ids) => { if (!doc.model.Geosets[index]) return; setSelection(previous => ({ ...previous, [index]: ids })); setSelectable(previous => new Set([...previous, index])); setActiveGeoset(index); setHidden(previous => ({ ...previous, [index]: [] })); }} onSelectionClear={index => { if (index === undefined) { setSelection({}); setHidden({}); setSelectable(allGeosets(doc.model.Geosets.length)); setActiveGeoset(previous => Math.min(previous, doc.model.Geosets.length - 1)); } else { setSelection(previous => { const next = { ...previous }; delete next[index]; return next; }); setHidden(previous => ({ ...previous, [index]: [] })); } }}/></Suspense></div>}
     {dialog?.type === 'library' && dialog.host !== 'uv' && textureLibraryDialog}
