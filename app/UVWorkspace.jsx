@@ -2,6 +2,7 @@ import MaterialProperties from './MaterialProperties.jsx';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import UVEditor from './UVEditor.jsx';
 import MeshDensitySlider from './MeshDensitySlider.jsx';
+import { selectedDensityTriangles } from '../src/mesh-density.js';
 import { combineSelectedUVGeosets, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
 import { MousePointer2, Hand, RotateCw, Maximize2, FlipHorizontal2, FlipVertical2, Unlink2, FoldHorizontal } from 'lucide-react';
 import { uvToolState } from '../src/uv-tool-state.js';
@@ -99,19 +100,23 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const projectionView = useRef(null), workspaceBody = useRef(null), sidePanel = useRef(null), header = useRef(null);
   const activePreviewPercent = previewPercent;
   const baseMaterialModel = suppliedMaterialModel || sourceModel, basePreviewModel = suppliedPreviewModel || sourceModel;
-  const suppliedGeosets = Object.keys(suppliedEligibleSelection).filter(index => suppliedEligibleSelection[index]?.length).map(Number);
-  const densityIndex = suppliedEligibleSelection[activeGeoset]?.length ? activeGeoset : suppliedGeosets[0] ?? -1;
-  const densityGeoset = densityOpen && densityResult?.geoset && densityIndex >= 0 ? densityResult.geoset : null;
+  const densitySelectionKey = JSON.stringify(suppliedSelectionByGeoset), densityEligibilityKey = JSON.stringify(suppliedEligibleSelection);
+  const densityTargets = useMemo(() => Object.entries(suppliedSelectionByGeoset).map(([index, ids]) => {
+    const eligible = new Set(suppliedEligibleSelection[index]);
+    return { index: Number(index), geoset: sourceModel.Geosets[index], selectedVertices: unique(ids).filter(id => eligible.has(id)) };
+  }).filter(target => target.geoset && selectedDensityTriangles(target.geoset, target.selectedVertices).length), [sourceModel, revision, densitySelectionKey, densityEligibilityKey]);
+  const densityChanges = densityOpen ? densityResult?.changes : null;
   const replaceDensityGeoset = source => {
-    if (!source || !densityGeoset) return source;
-    const next = { ...source, Geosets: source.Geosets.slice() }; next.Geosets[densityIndex] = densityGeoset; return next;
+    if (!source || !densityChanges) return source;
+    const next = { ...source, Geosets: source.Geosets.slice() };
+    for (const change of densityChanges) next.Geosets[change.index] = change.geoset;
+    return next;
   };
-  const model = useMemo(() => replaceDensityGeoset(sourceModel), [sourceModel, densityGeoset, densityIndex]);
-  const materialModel = useMemo(() => replaceDensityGeoset(baseMaterialModel), [baseMaterialModel, densityGeoset, densityIndex]);
-  const previewModel = useMemo(() => replaceDensityGeoset(basePreviewModel), [basePreviewModel, densityGeoset, densityIndex]);
-  const densityVertices = densityGeoset ? Array.from({ length: densityGeoset.Vertices.length / 3 }, (_, index) => index) : null;
-  const eligibleSelection = densityVertices ? { [densityIndex]: densityVertices } : suppliedEligibleSelection;
-  const selectionByGeoset = densityVertices ? { [densityIndex]: densityVertices } : suppliedSelectionByGeoset;
+  const model = useMemo(() => replaceDensityGeoset(sourceModel), [sourceModel, densityChanges]);
+  const materialModel = useMemo(() => replaceDensityGeoset(baseMaterialModel), [baseMaterialModel, densityChanges]);
+  const previewModel = useMemo(() => replaceDensityGeoset(basePreviewModel), [basePreviewModel, densityChanges]);
+  const eligibleSelection = densityChanges ? { ...suppliedEligibleSelection, ...Object.fromEntries(densityChanges.map(change => [change.index, unique([...(suppliedEligibleSelection[change.index] || []), ...change.selectedVertices])])) } : suppliedEligibleSelection;
+  const selectionByGeoset = densityChanges ? { ...suppliedSelectionByGeoset, ...Object.fromEntries(densityChanges.map(change => [change.index, change.selectedVertices])) } : suppliedSelectionByGeoset;
   const editingLocked = readOnly || densityOpen;
   const selectionKey = JSON.stringify(selectionByGeoset), eligibilityKey = JSON.stringify(eligibleSelection);
   const previewDomain = useMemo(() => previewMeshDomain(model), [model, revision]);
@@ -120,7 +125,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const imageLayers = (current?.layers || []).filter(({ texture }) => texture && !texture.ReplaceableId && texture.Image?.trim());
   const wrappingEnabled = imageLayers.length > 0 && imageLayers.every(({ texture }) => (texture.Flags & 3) === 3);
   // UV drags keep the renderer alive; material and texture changes must reload it.
-  const previewWrappingRevision = JSON.stringify({ materials: previewModel?.Materials, textures: previewModel?.Textures, density: densityGeoset?.Faces?.length || 0 });
+  const previewWrappingRevision = JSON.stringify({ materials: previewModel?.Materials, textures: previewModel?.Textures, density: densityChanges?.map(change => [change.index, change.geoset.Faces.length]) || [] });
 
   useEffect(() => { setDensityOpen(false); setDensityValue(0); setDensityResult(null); }, [revision]);
 
@@ -233,7 +238,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
         <button type="button" disabled={editingLocked || !onWrappingChange || !imageLayers.length}
           title="Toggle Wrap U and Wrap V for this material's image textures. Applies to all uses of these textures."
           onClick={() => onWrappingChange?.([...new Set(imageLayers.map(layer => layer.textureID))], !wrappingEnabled)}>{wrappingEnabled ? 'Disable Wrapping' : 'Enable Wrapping'}</button>
-        <button type="button" aria-haspopup="dialog" aria-expanded={densityOpen} disabled={readOnly || densityIndex < 0 || !onDensityApply} title="Make the active geoset's UV triangles more or less dense" onClick={() => { setDensityOpen(value => !value); setDensityValue(0); setDensityResult(null); }}>Triangles</button>
+        <button type="button" aria-haspopup="dialog" aria-expanded={densityOpen} disabled={readOnly || !densityTargets.length || !onDensityApply} title="Make selected UV triangles more or less dense" onClick={() => { setDensityOpen(value => !value); setDensityValue(0); setDensityResult(null); }}>Triangles</button>
         <label className="uv-view-limit" title="Maximum texture tiles visible while zooming out"><span>View</span><input aria-label="UV map tile limit" type="number" min={MIN_UV_VIEW_TILE_LIMIT} max={MAX_UV_VIEW_TILE_LIMIT} step="1" value={viewTileLimit} onChange={event => changeViewTileLimit(event.target.value)}/><output>×{viewTileLimit}</output></label>
       </UVGridControls></div>
       <div className="uv-header-divider" aria-hidden="true"/>
@@ -243,7 +248,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
     {(materialError || materialPreview?.warnings?.length > 0) && <div className="uv-workspace-warning" role="status">{materialError || materialPreview.warnings.join(' · ')}</div>}
     <div ref={workspaceBody} className="uv-workspace-body" style={{ '--uv-side-width': `${sidePercent}%`, '--uv-right-header-height': `${rightHeaderHeight}px` }}>
       <section className="uv-map-pane" aria-label="UV texture map">
-        {densityOpen && <div className="uv-density-popup" role="dialog" aria-modal="false" aria-label="Triangle density"><strong>Geoset {densityIndex + 1} triangle density</strong><MeshDensitySlider compact geoset={sourceModel.Geosets[densityIndex]} value={densityValue} onChange={value => { setDensityValue(value); setDensityResult(null); }} onResult={setDensityResult}/><div><button onClick={() => { setDensityOpen(false); setDensityValue(0); setDensityResult(null); }}>Cancel</button><button className="primary" disabled={!densityValue || !densityResult || densityResult.trianglesAfter === densityResult.trianglesBefore} onClick={() => { const next = densityResult.geoset; setDensityOpen(false); setDensityValue(0); setDensityResult(null); onDensityApply(densityIndex, next); }}>Apply</button></div></div>}
+        {densityOpen && <div className="uv-density-popup" role="dialog" aria-modal="false" aria-label="Triangle density"><strong>{densityTargets.length === 1 ? `Geoset ${densityTargets[0].index + 1} triangle density` : 'Triangle density'}</strong><MeshDensitySlider compact targets={densityTargets} value={densityValue} onChange={value => { setDensityValue(value); setDensityResult(null); }} onResult={setDensityResult}/><div><button onClick={() => { setDensityOpen(false); setDensityValue(0); setDensityResult(null); }}>Cancel</button><button className="primary" disabled={!densityValue || !densityResult || densityResult.trianglesAfter === densityResult.trianglesBefore} onClick={() => { const changes = densityResult.changes; setDensityOpen(false); setDensityValue(0); setDensityResult(null); onDensityApply(changes); }}>Apply</button></div></div>}
         {combined?.eligibleVertices.length ? <UVEditor key="selected-geosets" geoset={combined.geoset} uvSet={0} revision={revision} textureUrl={materialPreview?.url} textureSize={materialPreview ? [materialPreview.width, materialPreview.height] : undefined} textureWrapping={!imageLayers.length || wrappingEnabled} viewTileLimit={viewTileLimit}
           eligibleVertices={combined.eligibleVertices} selectedVertices={combined.selectedVertices} transformMode={uvTool} cameraMode="work" preferences={uvPreferences} onSensitivityChange={setScrollSensitivity} suspended={editingLocked} axis={axis}
           uvGrid={uvGrid} snapTextureFrame={display.snapTextureFrame} showTextureFrame={display.textureFrame} textureFrameColor={preferences?.visuals?.uvSelection}
