@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {translate} from '../src/localization.js';
+import './load-locales.js';
 import {paintRussian,paintSpanish,paintChinese,paintSources} from '../src/locales/paint-ui-locales.js';
 import {readFileSync} from 'node:fs';
 const slots=s=>[...new Set(s.match(/\{\d+\}/g)||[])].sort();

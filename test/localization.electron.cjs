@@ -5,7 +5,8 @@ const path = require('node:path');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
-  const { translate } = await import('../src/localization.js');
+  const { translate, loadLanguage } = await import('../src/localization.js');
+  await Promise.all(['ru', 'es', 'zh', 'mordor'].map(loadLanguage));
   const { createStarterDocument } = await import('../src/starter-model.js');
   const { createNode } = await import('../src/editor-document.js');
   const output = path.resolve('out/localization/electron');
@@ -27,16 +28,17 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     fs.mkdirSync(profile, { recursive: true });
     fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { language } }));
     const app = await _electron.launch({
-      executablePath: process.env.MDLXL_ELECTRON_PATH || path.resolve('node_modules/electron/dist/electron.exe'),
-      args: ['--disable-backgrounding-occluded-windows', process.cwd(), file],
+      executablePath: process.env.MDLXL_TEST_EXE || process.env.MDLXL_ELECTRON_PATH || path.resolve('node_modules/electron/dist/electron.exe'),
+      args: ['--disable-backgrounding-occluded-windows', ...(process.env.MDLXL_TEST_EXE ? [] : [process.cwd()]), file],
       env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: profile }, timeout: 60000,
     });
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => failures.push(error.message));
     await app.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];
-      window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive();
+      window.webContents.setBackgroundThrottling(false);
     });
+    assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().every(window => !window.isVisible())), true, 'language checks stay hidden');
     return { app, page };
   }
   const sendMenu = (app, command) => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), command);
@@ -44,6 +46,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   try {
     await page.locator('.language-trigger').waitFor();
     await page.getByLabel('Select geoset 0', { exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => performance.getEntriesByType('resource').some(entry => /\/(ru|es|zh|mordor|current-ui-locales|broad-ui-locales|short-ui-locales|paint-ui-locales|v015-ui-locales)-[^/]+\.js/.test(entry.name))), false, 'English startup does not fetch language chunks');
     await page.evaluate(() => {
       window.testDocument = () => {
         const root = document.querySelector('.classic-app');
@@ -79,7 +82,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.equal(await page.evaluate(() => JSON.stringify(testDocument().model)), before, `${locale}: language must not mutate the model`);
       assert.deepEqual(await page.locator('.classic-sidebar').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width)), widths);
       if (locale !== 'en') {
-        await page.screenshot({ path: path.join(output, `${locale}-editor.png`) });
         await sendMenu(app, 'particles');
         const dialog = page.getByRole('dialog', { name: translate('Particle Editor', locale), exact: true });
         await dialog.waitFor();
@@ -94,7 +96,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         await dialog.locator('[data-particle-rotation] input[type="number"]').first().focus();
         assert.equal(await transport.textContent(), translate('Play', locale));
         assert.equal(await dialog.locator('[data-particle-rotation]').count(), 1);
-        await page.screenshot({ path: path.join(output, `${locale}-particles.png`) });
         await dialog.getByRole('button', { name: translate('Close Particle Editor', locale), exact: true }).click();
         await dialog.waitFor({ state: 'hidden' });
         assert.equal(await page.evaluate(() => JSON.stringify(testDocument().model)), before);
@@ -102,6 +103,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     }
   } finally { await app.close(); }
 
+  for (const locale of ['ru', 'es', 'zh', 'mordor']) {
+    const { app: coldApp, page: coldPage } = await launch(fixture, locale);
+    try {
+      await coldPage.getByLabel(translate('Select geoset 0', locale), { exact: true }).waitFor();
+      assert.equal(await coldPage.evaluate(() => document.documentElement.lang), locale);
+      assert.equal(await coldApp.evaluate(({ Menu }) => Menu.getApplicationMenu().items[0].label), translate('&File', locale));
+    } finally { await coldApp.close(); }
+  }
   for (const locale of ['ru', 'es']) {
     const { app: repairApp, page: repairPage } = await launch(repairFixture, locale);
     try {
@@ -111,12 +120,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.equal(await repairPage.evaluate(() => document.activeElement?.dataset.geosetTint), '0', `${locale}: tint review focuses the localized field`);
       await dialog.locator('[data-geoset-tint="0"]').selectOption('0');
       assert.equal(await dialog.getByRole('button', { name: translate('Back up & repair', locale), exact: true }).isEnabled(), true);
-      await repairPage.screenshot({ path: path.join(output, `${locale}-repair.png`) });
     } finally { await repairApp.close(); }
   }
   assert.deepEqual(fs.readFileSync(fixture), original);
   assert.deepEqual(fs.readFileSync(repairFixture), repairOriginal);
   assert.deepEqual(failures, [], 'No renderer exceptions');
-  console.log('PASS: seven language switches, translated native menus, unchanged model data/sidebar widths, particle controls in Russian, Spanish, Chinese and Mordor, and tint-conflict focus in Russian and Spanish.');
-  console.log(`Screenshots: ${output}`);
+  console.log('PASS: English startup without locale requests; four translated cold starts; seven language switches; translated native menus; unchanged model data/sidebar widths; particle controls in every translated language; tint-conflict focus in Russian and Spanish. All windows stayed hidden.');
+  console.log(`Fixtures and isolated profiles: ${output}`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

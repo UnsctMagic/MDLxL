@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { translate } from '../src/localization.js';
+import './load-locales.js';
 import { currentSources, currentRussian, currentSpanish, currentChinese } from '../src/locales/current-ui-locales.js';
 const slots=text=>[...new Set(text.match(/\{\d+\}/g)||[])].sort();
 test('newer UI and update controls have entries in all three translated languages',()=>{

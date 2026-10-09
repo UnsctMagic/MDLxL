@@ -1,23 +1,14 @@
-import {paintRussian,paintSpanish,paintChinese} from './locales/paint-ui-locales.js';
-import showcase from './locales/showcase.json' with { type: 'json' };
-const showcaseLocale = index => Object.fromEntries(Object.entries(showcase).map(([key, values]) => [key, values[index]]));
-import core from './locales/ru-core.json' with { type: 'json' };
-import editor from './locales/ru-editor.json' with { type: 'json' };
-import engine from './locales/ru-engine.json' with { type: 'json' };
-import additions from './locales/ru-additions.json' with { type: 'json' };
-import forge from './locales/ru-forge.json' with { type: 'json' };
-import descriptors from './locales/ru-descriptors.json' with { type: 'json' };
-import materials from './locales/ru-materials.json' with { type: 'json' };
-import previewCache from './locales/ru-preview-cache.json' with { type: 'json' };
-import optimizer from './locales/ru-optimizer.json' with { type: 'json' };
-import reviewedRussian from './locales/ru-reviewed.json' with { type: 'json' };
-import reviewedSpanish from './locales/es-reviewed.json' with { type: 'json' };
-import { chinese, mordor, spanish } from './locales/short-ui-locales.js';
-import { broadChinese, broadMordor, broadSpanish } from './locales/broad-ui-locales.js';
-import { release015Chinese, release015Russian, release015Spanish } from './locales/v015-ui-locales.js';
-import { currentRussian, currentSpanish, currentChinese } from './locales/current-ui-locales.js';
-
-export const russian = Object.freeze({ ...currentRussian, ...paintRussian, ...showcaseLocale(0), ...core, ...editor, ...engine, ...additions, ...forge, ...descriptors, ...materials, ...previewCache, ...optimizer, ...reviewedRussian, ...release015Russian });
+// Load a non-English pack before rendering or switching to that language.
+// English startup does not import or construct any translation catalogs.
+const loaders = {
+  ru: () => import('./locales/ru.js'),
+  es: () => import('./locales/es.js'),
+  zh: () => import('./locales/zh.js'),
+  mordor: () => import('./locales/mordor.js'),
+};
+const dictionaries = {}, loading = new Map();
+export let russian;
+let blackSpeechCipher;
 export const LANGUAGES = Object.freeze([
   Object.freeze({ id: 'en', label: 'English', nativeLabel: 'English' }),
   Object.freeze({ id: 'ru', label: 'Russian', nativeLabel: 'Русский' }),
@@ -25,32 +16,19 @@ export const LANGUAGES = Object.freeze([
   Object.freeze({ id: 'zh', label: 'Chinese', nativeLabel: '中文' }),
   Object.freeze({ id: 'mordor', label: 'The Language of Mordor', nativeLabel: 'The Language of Mordor' }),
 ]);
-// Tolkien published only a small Black Speech corpus. Mordor mode is therefore
-// deliberately a non-semantic Black Speech cipher for interface prose: it
-// keeps the joke consistently unreadable without falsely presenting invented
-// sentences as canonical Tolkien text.
-const blackSpeechWords = Object.freeze(['ash', 'nazg', 'durb', 'atulûk', 'gimb', 'krimp', 'burzum', 'ishi', 'agh', 'ghâsh', 'snaga', 'uruk', 'lugbúrz', 'nazgûl']);
-// Keep recognizable formats, axes, shortcuts, and file paths useful in joke mode.
-const blackSpeechLiterals = new Set(['MDLxL','MDLVis','MdlVis','Warcraft','III','RGB','UV','XYZ','XYZW','XY','XZ','ZX','YZ','DPI','MDL','MDX','BLP','DDS','DXT','PNG','JPG','JPEG','GIF','WebP','BMP','CASC','MPQ','JSON','API','UTF','Ctrl','Alt','Shift','Win','Enter','Escape','Delete','Backspace','Tab','Space','Page','Up','Down','Home','End','MB','MiB','KB','KiB','ID','IDs','GPU','FPS','ms','px']);
-function blackSpeechCipher(text) {
-  if (/^[A-Za-z]:[\\/]/.test(text)) return text;
-  return text.replace(/(?:[\w.-]+[\\/])+[\w.-]+|\b[\w-]+\.(?:mdl|mdx|blp|dds|png|jpe?g|gif|webp|bmp|json|zip|txt|wav|mp3|w3x|w3m)\b|[A-Za-z]{2,}/gi, word => {
-    if (/[\\/.]/.test(word) || blackSpeechLiterals.has(word)) return word;
-    let hash = 0;
-    for (const letter of word.toLowerCase()) hash = (hash * 31 + letter.charCodeAt(0)) >>> 0;
-    return blackSpeechWords[hash % blackSpeechWords.length];
-  });
-}
-const mordorKeys = Object.freeze({ ...russian, ...reviewedSpanish, ...mordor, ...broadMordor });
-const blackSpeech = Object.freeze({ ...Object.fromEntries(Object.keys(mordorKeys).map(key => [key, blackSpeechCipher(key)])), 'Image/Video': blackSpeechCipher('Image') + '/' + blackSpeechCipher('Video') });
-const dictionaries = Object.freeze({
-  ru: russian,
-  es: Object.freeze({ ...currentSpanish, ...paintSpanish, ...showcaseLocale(1), ...spanish, ...broadSpanish, ...reviewedSpanish, ...release015Spanish }),
-  zh: Object.freeze({ ...currentChinese, ...paintChinese, ...showcaseLocale(2), ...chinese, ...broadChinese, ...release015Chinese }),
-  mordor: blackSpeech,
-});
 let language = 'en';
 export function isLanguage(value) { return LANGUAGES.some(item => item.id === value); }
+export function loadLanguage(value) {
+  const locale = isLanguage(value) ? value : 'en';
+  if (locale === 'en') return Promise.resolve();
+  if (!loading.has(locale)) loading.set(locale, loaders[locale]().then(module => {
+    dictionaries[locale] = module.default;
+    if (locale === 'ru') russian = module.default;
+    if (locale === 'mordor') blackSpeechCipher = module.blackSpeechCipher;
+    return module.default;
+  }).catch(error => { loading.delete(locale); throw error; }));
+  return loading.get(locale);
+}
 export function setLanguage(value) { language = isLanguage(value) ? value : 'en'; }
 export function getLanguage() { return language; }
 const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
