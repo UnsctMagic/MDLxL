@@ -516,3 +516,22 @@ heights 40.40107/91.32011/40.05215; native playback advanced to about 800 ms bef
 save/reopen. No user model, texture, profile or currently open editor was modified.
 This validates the editor workflows; user acceptance of the interaction remains
 pending, and no Warcraft in-game playback was performed in this setup pass.
+
+
+A concurrent texture-search merge advanced main to `53a49794` during handoff.
+Its generated bundle conflicts were resolved by merging the source and rebuilding
+Vite, never by hand-merging hashed assets. The POSE/Movement source matches
+`f5561a44` exactly, and the incoming texture-search source matches main exactly.
+Combined source validation: `out/pose-setup-integrated-source.log`, **90/90 passed**
+(57 POSE plus 33 texture-library checks), no skips.
+
+The final integrated candidate is
+`D:/MDLxL-Tests/pose-setup-integrated/MDLxL-win32-x64/MDLxL.exe`.
+Its complete setup mouse walkthrough passed all **4 checks**, zero page errors:
+`out/pose-setup-integrated-ui/result.json`. The 26-check Footman result above
+covers the identical POSE/Movement source; that full walkthrough was not repeated
+for the unrelated texture-search integration. Packaging again verified 551 files
+and 55 locales. All 462 packaged source/bundle files match the combined source:
+`out/pose-setup-integrated-proof.json`.
+Index SHA256: `507e450499f0f979fb5be8adcca5895ad11d015fde333d7bbdf470879c331f6c`.
+The feature PR remains unmerged and the candidate has not been opened visibly.

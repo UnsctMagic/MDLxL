@@ -115,7 +115,7 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
     if(!query.trim()||!vibe){requestId.current=++searchSerial;setSearching(false);return;}
     const id=++searchSerial;requestId.current=id;requestOptions.current=options;
     const cached=librarySessions.result(modelPath,catalog?.signature,options);if(cached){setResult(cached);setSearching(false);return;}
-    setSearching(true);const timer=setTimeout(()=>worker.current?.postMessage({type:'search',id,signature:catalog?.signature,options}),query?100:0);return()=>clearTimeout(timer);
+    setSearching(true);const timer=setTimeout(()=>worker.current?.postMessage({type:'search',id,signature:catalog?.signature,options}),35);return()=>clearTimeout(timer);
   },[ready,catalog?.signature,modelPath,query,vibe,folder,variant,kind,format,limit]);
   useEffect(()=>{
     let active=true;setSelectedAsset(null);setSelectedImage(null);setSelectionError('');setMessage('');if(!selected)return;

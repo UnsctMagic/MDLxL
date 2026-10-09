@@ -12,6 +12,12 @@ function textureVariant(sourcePath) {
   if (/(?:^|[\\/:])_hd\.w3mod:|(?:^|[\\/])hd\.w3addon[\\/]/.test(source)) return 'reforged';
   return source.startsWith('war3.w3mod:') ? 'classic' : 'unknown';
 }
+function nativeKinds(sourcePath) {
+  const logical=normalized(sourcePath).split(':').at(-1);
+  if(/^replaceabletextures\\(?:commandbuttons|commandbuttonsdisabled)\\/.test(logical))return ['icons'];
+  const kind={units:'units',buildings:'buildings',doodads:'doodads',terrainart:'terrain',pathtextures:'terrain',abilities:'effects',ui:'ui'}[logical.split('\\')[0]];
+  return [kind||'other'];
+}
 
 /** No model data is opened here. Custom textures are listed only beside an already-open model. */
 class TextureLibrary {
@@ -52,7 +58,7 @@ class TextureLibrary {
           const annotation = classic ? metadata.get(imageKey(logical)) : null;
           const leaf = logical.split(/[\\:]/).at(-1), nativeId = normalized(sourcePath);
           const variant = textureVariant(sourcePath);
-          native.push({...annotation,id:'native:' + hash(nativeId),name:annotation?.name || title(leaf.replace(/\.[^.]+$/,'')),path:annotation?.path || logical,lookupName:sourcePath,sourcePath,sourceKey:source.key,sourceFolder:source.folder,folder:sourcePath.slice(0,sourcePath.length-leaf.length).replace(/[\\:]$/,''),source:'native',variant,cacheKey:hash(source.key+'|'+nativeId),kinds:annotation?.kinds || (/(?:^|\\)replaceabletextures\\commandbuttons/i.test(sourcePath)?['icons']:['other']),tags:annotation?.tags || [],models:annotation?.models || [],races:annotation?.races || [],available:true});
+          native.push({...annotation,id:'native:' + hash(nativeId),name:annotation?.name || title(leaf.replace(/\.[^.]+$/,'')),path:annotation?.path || logical,lookupName:sourcePath,sourcePath,sourceKey:source.key,sourceFolder:source.folder,folder:sourcePath.slice(0,sourcePath.length-leaf.length).replace(/[\\:]$/,''),source:'native',variant,cacheKey:hash(source.key+'|'+nativeId),kinds:annotation?.kinds || nativeKinds(sourcePath),tags:annotation?.tags || [],models:annotation?.models || [],races:annotation?.races || [],available:true});
         }
         native.sort((a,b)=>(b.priority||0)-(a.priority||0)||a.sourcePath.localeCompare(b.sourcePath));
         this.native.set(source.key,native);
