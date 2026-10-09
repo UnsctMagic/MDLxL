@@ -66,7 +66,7 @@ const root = path.resolve(__dirname, '..');
         await page.waitForFunction(() => !!document.querySelector('[aria-label="3D model viewport"] canvas'));
         assert.deepEqual(await app.evaluate(() => ({ lists: startupTest.lists, discoveries: startupTest.discoveries })), { lists: 0, discoveries: 0 });
         assert.equal(await page.locator('[role="dialog"]').count(), 0);
-        assert.equal(await page.locator('.pressed-keys-tool img').getAttribute('src'), './classic/pasbtn-magical-sentry.png');
+        assert.equal(await page.locator('.pressed-keys-tool img').getAttribute('src'), './classic/btn-magical-sentry.png');
         const grid = page.locator('[data-warmkey="grid"]');
         const checked = await grid.isChecked();
         await grid.dispatchEvent('click');

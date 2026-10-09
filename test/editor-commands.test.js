@@ -120,7 +120,7 @@ test('invalid selections reject all mesh commands without partial mutation',()=>
 test('binding validates bone and byte capacity before appending groups or overwriting weights',()=>{
   for(const boneId of [-1,.5,3,256]){
     const g=fixture();const before=structuredClone(g);
-    assert.throws(()=>bindVertices({Bones:[{ObjectId:0},{ObjectId:256}]},g,[0,1],boneId),/bone|8-bit/);
+    assert.throws(()=>bindVertices({Bones:[{ObjectId:0},{ObjectId:256}]},g,[0,1],boneId),/bone|8-bit/i);
     assert.deepEqual(g,before);
   }
   const g=fixture();const before=structuredClone(g);

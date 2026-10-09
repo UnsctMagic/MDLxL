@@ -184,8 +184,8 @@ test('cubic tracks, global association and tangent arrays survive retiming and b
 });
 
 test('supported visibility and RGB node families roundtrip through both codecs, including Reforged popcorn', () => {
-  const source = Buffer.from(createDemoDocument().serialize('mdl')).toString().replace(/FormatVersion\s+800/, 'FormatVersion 1000');
-  const doc = openDocument(source, 'supported-families.mdl'), ids = [];
+  const doc = createDemoDocument(), ids = [];
+  doc.convertVersion(1000);
   doc.apply('Fixture node families', ['Nodes'], model => {
     for (const kind of ['Helper', 'Attachment', 'Light', 'ParticleEmitter', 'ParticleEmitter2', 'RibbonEmitter', 'ParticleEmitterPopcorn']) ids.push(createNode(model, kind).ObjectId);
   });
@@ -196,8 +196,10 @@ test('supported visibility and RGB node families roundtrip through both codecs, 
   for (const format of ['mdl', 'mdx']) {
     const reopened = openDocument(doc.serialize(format), `families.${format}`);
     assert.equal(reopened.readOnly, false);
+    const restored = timelineScope(reopened.model, { scope: 'all', domain });
     for (const target of targets) {
-      const key = timelineReadTrack(reopened.model, target)?.Keys?.find(item => item.Frame === frame);
+      const actual = restored.find(item => item.kind === target.kind && item.label === target.label && item.property === target.property);
+      const key = timelineReadTrack(reopened.model, actual)?.Keys?.find(item => item.Frame === frame);
       assert.ok(key, `${format}: missing ${target.label} ${target.property}`); close(key.Vector, values[target.trackId]);
     }
   }
@@ -220,8 +222,8 @@ test('copy to another animation retains unrelated keys and uses the selected ran
 });
 
 test('Popcorn MDL rotation repair retains quaternion W, cubic tangent W, global metadata and untouched input bytes', () => {
-  const base = Buffer.from(createDemoDocument().serialize('mdl')).toString().replace(/FormatVersion\s+800/, 'FormatVersion 1000');
-  const doc = openDocument(base, 'popcorn-cubic.mdl'); let id;
+  const doc = createDemoDocument(); let id;
+  doc.convertVersion(1000);
   doc.apply('Fixture global popcorn rotation', ['Nodes', 'GlobalSequences'], model => {
     const node = createNode(model, 'ParticleEmitterPopcorn'); id = node.ObjectId;
     model.GlobalSequences = [600]; node.Rotation = track([key(0, [0, 0, .6, .8], true), key(600, [0, 0, .8, .6], true)], 3, 0);
@@ -229,7 +231,9 @@ test('Popcorn MDL rotation repair retains quaternion W, cubic tangent W, global 
   const target = find(doc.model, id, 'Rotation'), expected = structuredClone(timelineReadTrack(doc.model, target));
   for (const format of ['mdl', 'mdx']) {
     const bytes = doc.serialize(format), reopened = openDocument(bytes, `popcorn.${format}`);
-    assert.equal(reopened.readOnly, false); assert.deepEqual(timelineReadTrack(reopened.model, target), expected);
+    assert.equal(reopened.readOnly, false);
+    const restored = find(reopened.model, reopened.model.ParticleEmitterPopcorns[0].ObjectId, 'Rotation');
+    assert.deepEqual(timelineReadTrack(reopened.model, restored), expected);
     assert.deepEqual(Buffer.from(reopened.serialize()), Buffer.from(bytes));
   }
 });
@@ -240,6 +244,7 @@ test('Popcorn RGB uses the literal RGB order in authored MDL and retains cubic c
   close(doc.model.ParticleEmitterPopcorns[0].Color, [.2, .4, .7]);
   doc.apply('Cubic popcorn RGB', ['Nodes'], model => { model.ParticleEmitterPopcorns[0].Color = track([key(0, [.2, .4, .7], true), key(100, [.7, .4, .2], true)], 3); });
   const expected = structuredClone(doc.model.ParticleEmitterPopcorns[0].Color);
-  const text = Buffer.from(doc.serialize('mdl')).toString(); assert.match(text, /0:\s*\{\s*0\.2,\s*0\.4,\s*0\.7\s*\}/);
+  const text = Buffer.from(doc.serialize('mdl')).toString(), literal = /0:\s*\{([^}]+)\}/.exec(text);
+  assert.ok(literal); close(literal[1].split(',').map(Number), [.2, .4, .7]);
   for (const format of ['mdl', 'mdx']) assert.deepEqual(openDocument(doc.serialize(format), `rgb.${format}`).model.ParticleEmitterPopcorns[0].Color, expected);
 });

@@ -38,16 +38,17 @@ test('unchecked Vertices workplane drags in the camera plane without a fixed wor
   const offset=screenPlaneTranslation(c,pivot,400,400,30,20);
   assert.ok(Math.abs(offset.dot(c.getWorldDirection(new Vector3())))<1e-10);assert.ok(Math.abs(offset.z)>1);assert.deepEqual(pivot,before);
 });
-test('HD10 typed markers contain real cube/tetra vertices and preserve node pivots',()=>{
+test('classic HD10 typed markers contain real cube/tetra vertices and preserve node pivots',()=>{
   const model=renderFixture('rig'),before=structuredClone(model),nodes=projectMovementNodes(model,0,-1,camera(),400,400),byId=new Map(nodes.map(p=>[p.node.ObjectId,p]));
-  assert.equal(markerStyle(byId.get(3),byId).shape.vertices.length,8);
-  assert.equal(markerStyle(byId.get(4),byId).shape.vertices.length,4);
-  assert.equal(markerStyle(byId.get(4),byId).color,'#b2b2ff');
-  assert.equal(markerStyle(byId.get(5),byId).color,'#ff9800');
-  assert.equal(markerStyle(byId.get(6),byId).color,'#4cff59');
-  assert.equal(markerStyle(byId.get(4),byId,{visuals:{node:'#123456'}}).color,'#123456');
-  assert.equal(markerStyle(byId.get(6),byId,{visuals:{particle:'#654321'}}).color,'#654321');
-  const buffers=rigMarkerGeometry(nodes,[],{bones:true,nodes:true,attachments:true,particles:true});
+  const style=(id,preferences)=>markerStyle(byId.get(id),byId,preferences,new Map(),true);
+  assert.equal(style(3).shape.vertices.length,8);
+  assert.equal(style(4).shape.vertices.length,4);
+  assert.equal(style(4).color,'#b2b2ff');
+  assert.equal(style(5).color,'#ff9800');
+  assert.equal(style(6).color,'#4cff59');
+  assert.equal(style(4,{visuals:{node:'#123456'}}).color,'#123456');
+  assert.equal(style(6,{visuals:{particle:'#654321'}}).color,'#654321');
+  const buffers=rigMarkerGeometry(nodes,[],{bones:true,nodes:true,attachments:true,particles:true,vanilla:true});
   assert.ok(buffers.triangles.length>0&&buffers.edges.length>0);
   const z=new Set(Array.from(buffers.triangles).filter((_,i)=>i%6===2));assert.ok(z.size>2);
   assert.deepEqual(model,before);
@@ -56,7 +57,17 @@ test('Helper roots are ordinary green bones for hierarchy highlighting while ref
   const model={Bones:[{ObjectId:1,Name:'Bone_Pelvis',Parent:0,PivotPoint:[0,0,4]}],Helpers:[{ObjectId:0,Name:'Bone_Root',PivotPoint:[0,0,0]}],Attachments:[{ObjectId:2,Parent:1,PivotPoint:[0,0,8]}],EventObjects:[{ObjectId:3,Parent:1,PivotPoint:[0,0,10]}],Geosets:[],Sequences:[],GlobalSequences:[],PivotPoints:[]};
   const points=projectMovementNodes(model,0,-1,camera(),400,400),byId=new Map(points.map(point=>[point.node.ObjectId,point])),colors=boneHighlightColors(points,[1]);
   assert.equal(points.find(point=>point.node.ObjectId===0).overlayKind,'bones');assert.equal(colors.get(0),'#000000');assert.equal(colors.get(1),'#ff0000');
-  assert.equal(markerStyle(byId.get(0),byId).color,'#4cb259');assert.equal(markerStyle(byId.get(2),byId).color,'#b2b2ff');assert.equal(markerStyle(byId.get(3),byId).color,'#ff9800');
+  assert.equal(markerStyle(byId.get(0),byId).color,'#4cb259');assert.equal(markerStyle(byId.get(2),byId,undefined,new Map(),true).color,'#b2b2ff');assert.equal(markerStyle(byId.get(3),byId).color,'#ff9800');
+});
+
+test('modern attachment markers use the approved pink billboard symbol without changing pivots',()=>{
+  const model=renderFixture('rig'),before=structuredClone(model),points=projectMovementNodes(model,0,-1,camera(),400,400),byId=new Map(points.map(point=>[point.node.ObjectId,point]));
+  const marker=markerStyle(byId.get(4),byId);
+  assert.equal(marker.color,'#ff39cf');assert.equal(marker.shape.billboard,true);
+  assert.ok(marker.shape.faces.length>0);
+  assert.ok(marker.shape.vertices.every(point=>point.every(Number.isFinite)&&point[2]===0));
+  assert.ok(rigMarkerGeometry(points,[],{attachments:true}).triangles.length>0);
+  assert.deepEqual(model,before);
 });
 test('rig marker lighting stays fixed when only the camera moves',()=>{
   const model=renderFixture('rig'),front=camera(),side=camera();

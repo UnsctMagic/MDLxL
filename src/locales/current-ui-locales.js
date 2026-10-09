@@ -1,6 +1,18 @@
 // Additive translations for features introduced after the earlier UI packs.
 // Existing community Chinese entries remain in their original catalogs.
 const rows = [
+  ['Events','События','Eventos','事件'],
+  ['Forge: Add shape','Forge: Добавить фигуру','Forge: Añadir forma','Forge：添加形状'],
+  ['Forge: Shape control points','Forge: Контрольные точки фигуры','Forge: Puntos de control de forma','Forge：形状控制点'],
+  ['Forge: Face control points','Forge: Контрольные точки граней','Forge: Puntos de control de caras','Forge：面控制点'],
+  ['Forge: Edge control points','Forge: Контрольные точки рёбер','Forge: Puntos de control de aristas','Forge：边控制点'],
+  ['Forge: Vertex control points','Forge: Контрольные точки вершин','Forge: Puntos de control de vértices','Forge：顶点控制点'],
+  ['Forge: Extrude','Forge: Выдавить','Forge: Extruir','Forge：挤出'],
+  ['Forge: Inset','Forge: Отступ внутрь','Forge: Insertar hacia dentro','Forge：内插'],
+  ['Forge: Shape tools','Forge: Инструменты фигуры','Forge: Herramientas de forma','Forge：形状工具'],
+  ['Forge: Duplicate shape','Forge: Дублировать фигуру','Forge: Duplicar forma','Forge：复制形状'],
+  ['Forge: Commit shape','Forge: Применить фигуру','Forge: Aplicar forma','Forge：应用形状'],
+  ['Forge: Add to model','Forge: Добавить в модель','Forge: Añadir al modelo','Forge：添加到模型'],
   ['Updates','Обновления','Actualizaciones','更新'],
   ['Auto update','Автообновление','Actualización automática','自动更新'],
   ['Search for updates','Проверить обновления','Buscar actualizaciones','检查更新'],
