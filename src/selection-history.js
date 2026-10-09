@@ -84,13 +84,13 @@ export class SelectionHistory {
     if (!entry || this.doc._historyStore.undoEntries.at(-1) !== entry) return false;
     return this.doc._historyStore.setSelection(entry, { ...entry.selection, after: captureSelection(state, this.doc.model) });
   }
-  observe(state) {
+  observe(state, { record = true } = {}) {
     const after = captureSelection(state, this.doc.model);
     if (!this.observed) { this.observed = after; this.observedRevision = this.doc.revision; return false; }
     const before = this.observed, changed = JSON.stringify(before) !== JSON.stringify(after);
     if (this.pending) {
       this.settle(state);
-    } else if (changed) {
+    } else if (changed && record) {
       const store = this.doc._historyStore;
       if (this.doc.revision === this.observedRevision) {
         const entry = store.prepare({ label: 'Change selection', sections: [], changes: [] });
