@@ -6,6 +6,7 @@ import os from 'node:os';
 import {createRequire} from 'node:module';
 import {prepareTextureLibrary,searchTextureLibrary,initialTextureLibraryResults,folderContains,textureFolderTree} from '../src/texture-library-search.js';
 import {russianTextureQuery} from '../src/texture-library/russian-query.mjs';
+import {parseQuery} from '../src/texture-library/phrase-search.mjs';
 const require=createRequire(import.meta.url);
 const {TextureLibrary,previewCatalog}=require('../electron/texture-library.cjs');
 const {CascTextures}=require('../electron/casc.cjs');
@@ -84,16 +85,225 @@ test('first Library page matches completed empty search before indexing',()=>{
   assert.equal(previewCatalog({signature:'custom',items:[{id:'custom',name:'Custom',path:'custom.png',variant:'custom'}]}).variant,'all');
 });
 
-test('vibe rusty chain mail finds usable mail panels and labels missing rust',()=>{
-  const result=searchTextureLibrary(prepared,{query:'rusty chain mail'});
+test('vibe keeps mail searchable without silently dropping a requested rust condition',()=>{
+  assert.equal(searchTextureLibrary(prepared,{query:'rusty chain mail'}).total,0);
+  const result=searchTextureLibrary(prepared,{query:'chain mail'});
   assert.ok(result.items.length);assert.match(result.items[0].name,/Human Campaign Footman/);
-  assert.ok(result.items[0]._match.missing.some(word=>/rust/i.test(word)));
   assert.ok(result.items.every(item=>item.tags.includes('chain')));
+});
+
+test('faction building searches return the real building sheets before shared components',()=>{
+  const expected={
+    undead:['Creepy Altar Of Dark','Creepy Necropolis','Creepy Sacrificial Pit','Gargoyle Spire','Graveyard','New Creepy Scary Crypt','New Crypt','New Temple Of The Damned','Tomb Of Relics','Undead Shipyard','Bone Yard Creepy','Slaughter House','New Zigguratscarycreepytex'],
+    human:['Altar Of Kings','Arcane Sanctum','Arcane Vault','New Blacksmith','Town Hall Castle Keep','Garrison'],
+    orc:['Altarof Storms','Beastiary','Great Hall','Stronghold','Voodoo Lounge','Watchtower','Base','Orc Barraks'],
+    'night elf':['Ancient Of Lore','Ancient Of War1','Ancient Protector','Hunter\'s Hall','Moon Well','Treeof Life','Night Elf Base'],
+  };
+  for(const [faction,names] of Object.entries(expected)){
+    const result=searchTextureLibrary(prepared,{query:faction+' building',limit:1000});
+    for(const name of names)assert.ok(result.items.some(item=>item.name===name),faction+': '+name);
+    assert.ok(result.items.slice(0,10).every(item=>item.path.startsWith('Buildings\\')),faction+' first page');
+    assert.ok(result.items.every(item=>!/Cloud|Glow|Dust|Shockwave|Ribbon|Particle|Ghost|Smug/.test(item.name)),faction+' excludes effects');
+  }
+  const undead=searchTextureLibrary(prepared,{query:'undead building',limit:1000});
+  assert.equal(undead.items.some(item=>item.name==='Doodads0'),false,'undead spell references cannot turn a shared prop atlas into an undead building');
+  for(const query of ['undead buildings','undead structure','undead structures','здания нежити'])assert.deepEqual(searchTextureLibrary(prepared,{query,limit:1000}).items.map(item=>item.id),undead.items.map(item=>item.id),query);
+  assert.deepEqual(searchTextureLibrary(prepared,{query:'undead',kind:'buildings',limit:1000}).items.map(item=>item.id).sort(),undead.items.map(item=>item.id).sort());
+});
+
+test('source and faction stay together across aliases and OR clauses',()=>{
+  const ids=query=>searchTextureLibrary(prepared,{query,limit:10000}).items.map(item=>item.id).sort();
+  assert.deepEqual(ids('human or undead buildings'),[...new Set([...ids('human buildings'),...ids('undead buildings')])].sort());
+  assert.deepEqual(ids('human units or undead buildings'),[...new Set([...ids('human units'),...ids('undead buildings')])].sort());
+  assert.deepEqual(ids('night elf building'),ids('nightelf buildings'));
+  assert.deepEqual(ids('night elves buildings'),ids('nightelf buildings'));
+  assert.ok(ids('blood elf units').length,'multiword faction must not be gated by body-material tags');
+});
+
+test('a reused texture must match the requested faction within the requested category',()=>{
+  const index=prepareTextureLibrary([
+    {id:'building',name:'Fortress',path:'Buildings\\Undead\\Fortress\\Fortress.blp',kinds:['buildings'],tags:['stone']},
+    {id:'pooled',name:'Mixed Stone',path:'Textures\\MixedStone.blp',kinds:['buildings','effects'],tags:['stone'],races:['human','undead'],models:['buildings\\human\\fortress\\fortress.mdx','abilities\\spells\\undead\\stone\\stone.mdx']},
+    {id:'smoke',name:'Smoke',path:'Textures\\Smoke.blp',kinds:['buildings','effects'],tags:['smoke'],races:['undead'],models:['buildings\\undead\\fortress\\fortress.mdx']},
+  ].map(item=>({...item,source:'native',sourcePath:item.path,variant:'classic'})));
+  assert.deepEqual(searchTextureLibrary(index,{query:'undead building'}).items.map(item=>item.id),['building']);
+  assert.ok(searchTextureLibrary(index,{query:'human stone building'}).items.some(item=>item.id==='pooled'));
+  assert.deepEqual(searchTextureLibrary(index,{query:'undead effects smoke'}).items.map(item=>item.id),[],'a building reference is not an undead spell source');
+  assert.deepEqual(searchTextureLibrary(index,{query:'Smoke'}).items.map(item=>item.id),['smoke'],'effect remains accessible by its actual name');
+});
+
+test('descriptive words require evidence while complete native names remain searchable',()=>{
+  const index=prepareTextureLibrary([
+    {id:'blue',name:'Blue Cloth',tags:['cloth'],searchIndex:{version:4,traits:[['blue',1,'=review']] }},
+    {id:'plain',name:'Plain Cloth',tags:['cloth'],searchIndex:{version:4,traits:[]}},
+    {id:'red-body',name:'Red Creature',tags:['cloth'],searchIndex:{version:4,traits:[]}},
+    {id:'named',name:'Red Cloth',tags:[],searchIndex:{version:4,traits:[]}},
+  ].map(item=>({...item,path:'Textures\\'+item.name.replaceAll(' ','')+'.blp',sourcePath:item.name+'.blp',source:'native',variant:'classic',kinds:['units']})));
+  assert.deepEqual(searchTextureLibrary(index,{query:'blue cloth'}).items.map(item=>item.id),['blue']);
+  assert.deepEqual(searchTextureLibrary(index,{query:'red cloth'}).items.map(item=>item.id),['named']);
+  assert.equal(searchTextureLibrary(index,{query:'blue rusty cloth'}).total,0,'matching blue does not excuse missing rust');
+  assert.equal(searchTextureLibrary(index,{query:'purple cloth'}).total,0,'a matching material does not excuse missing colour');
+  assert.deepEqual(searchTextureLibrary(index,{query:'name:"Red Creature"'}).items.map(item=>item.id),['red-body']);
+});
+
+test('prefix retrieval precedes typo correction for arbitrary native names',()=>{
+  const index=prepareTextureLibrary([
+    {id:'prefix',name:'Varnolith',path:'Textures\\Varnolith.blp'},
+    {id:'nearby',name:'Barn',path:'Textures\\Barn.blp'},
+    {id:'literal',name:'Fabrick',path:'Textures\\Fabrick.blp'},
+  ].map(item=>({...item,source:'native',sourcePath:item.path,variant:'classic',kinds:['other'],tags:[]})));
+  const parsed=parseQuery('varn',index.vocabulary);
+  assert.equal(parsed[0].correction,null,'do not turn a valid prefix into the nearby word barn');
+  assert.deepEqual(searchTextureLibrary(index,{query:'varn'}).items.map(item=>item.id),['prefix']);
+  assert.deepEqual(searchTextureLibrary(index,{query:'Fabrick'}).items.map(item=>item.id),['literal'],'an existing native spelling wins over an alias rewrite');
+  assert.equal(searchTextureLibrary(index,{query:'"varn"'}).total,0,'quoted text does not expand prefixes');
+  assert.deepEqual(searchTextureLibrary(index,{query:'"varn" or Barn'}).items.map(item=>item.id),['nearby'],'OR keeps quoted alternatives literal');
+});
+
+test('native names remain retrievable even when aliases describe a different category',()=>{
+  const items=[
+    {id:'name',name:'Blue Building',path:'Textures\\BlueBuilding.blp',kinds:['units'],tags:[]},
+    {id:'body',name:'Night Elf Body',path:'Textures\\NightElfBody.blp',kinds:['other'],tags:[]},
+  ].map(item=>({...item,source:'native',sourcePath:item.path,variant:'classic'}));
+  const index=prepareTextureLibrary(items);
+  assert.deepEqual(searchTextureLibrary(index,{query:'Blue Building'}).items.map(item=>item.id),['name']);
+  assert.deepEqual(searchTextureLibrary(index,{query:'Blue Bui'}).items.map(item=>item.id),['name']);
+  assert.equal(searchTextureLibrary(index,{query:'blue source:buildings'}).total,0,'explicit semantic fields still constrain results');
+  const sample=annotated.filter(item=>item.reviewed&&!/\d/.test(item.name));
+  for(let i=0;i<sample.length;i+=Math.max(1,Math.floor(sample.length/180))){
+    const item=sample[i],result=searchTextureLibrary(prepared,{query:item.name,limit:10000});
+    assert.ok(result.items.some(row=>row.id===item.id),item.name+' cannot be hidden by descriptive aliases');
+  }
+});
+
+test('short material, colour and category words use the same general matcher',()=>{
+  for(const [short,full] of [['purp cloth','purple cloth'],['blu cloth','blue cloth'],['met','metal'],['orc bui','orc buildings'],['hum bui','human buildings'],['undead stru','undead structures']]){
+    const abbreviated=searchTextureLibrary(prepared,{query:short,limit:10000}),complete=searchTextureLibrary(prepared,{query:full,limit:10000});
+    assert.ok(complete.total,full);
+    const shortIds=new Set(abbreviated.items.map(item=>item.id));
+    assert.ok(complete.items.every(item=>shortIds.has(item.id)),short+' preserves all complete-word matches');
+    for(const item of abbreviated.items.filter(item=>!complete.items.some(full=>full.id===item.id))){
+      assert.ok(short.split(' ').some(word=>word.length>=2&&[item._name,item._leaf].some(name=>name.split(' ').some(token=>token.startsWith(word)))),short+' additional results need native prefix evidence: '+item.name);
+    }
+    assert.deepEqual(abbreviated.unknown,[],short);
+  }
+});
+
+test('compound subject aliases cannot swallow separately meaningful colour constraints',()=>{
+  const named=annotated.filter(item=>/^(?:Red|Blue|Black|Green|Azure|Bronze) Dragon$/.test(item.name));
+  for(const item of named){
+    const parsed=parseQuery(item.name,prepared.vocabulary);
+    const modifier=parseQuery(item.name.split(' ')[0],prepared.vocabulary)[0];
+    if(modifier.family!=='color')continue;
+    assert.ok(parsed.some(term=>term.trait===modifier.trait),item.name+' retains its colour');
+    const query=item.name.split(' ').join(' and ');
+    assert.deepEqual(searchTextureLibrary(prepared,{query:item.name,limit:10000}).items.map(row=>row.id).sort(),searchTextureLibrary(prepared,{query,limit:10000}).items.map(row=>row.id).sort(),item.name);
+  }
+  const abbreviated=searchTextureLibrary(prepared,{query:'red drag',limit:10000});
+  assert.equal(abbreviated.items[0].name,'Red Dragon');
+  assert.ok(abbreviated.items.some(item=>item.name==='Dragon Sea Turtle'));
+  assert.ok(abbreviated.items.every(item=>item._traits.get('red')?.strength||/\bred\b/i.test(item.name)),'every candidate still has colour evidence');
+  assert.equal(abbreviated.items.some(item=>item.name==='Azure Dragon'),false);
+  const quoted=searchTextureLibrary(prepared,{query:'"red dragon"',limit:10000});
+  assert.ok(quoted.items.every(item=>/red dragon/i.test(item.name)),'quoted native subjects remain literal');
+});
+
+test('catalogue-derived fragmented and reordered names remain retrievable across categories',()=>{
+  const sample=prepared.filter(item=>item.reviewed&&!/\d/.test(item.name));
+  for(let i=0;i<sample.length;i+=Math.ceil(sample.length/110)){
+    const item=sample[i],tokens=item._name.split(' ').filter(word=>word.length>=4);
+    if(!tokens.length)continue;
+    const queries=[...Array.from([2,3],length=>tokens.map(word=>word.slice(0,length)).join(' ')),...(tokens.length>1?[tokens.toReversed().join(' ')]:[])];
+    for(const query of queries){
+      if(query.split(' ').some(word=>['no','not','or','without','except','with','but','plus','including','excluding','exclude','minus'].includes(word)))continue;
+      assert.ok(searchTextureLibrary(prepared,{query,limit:10000}).items.some(row=>row.id===item.id),query+' retrieves '+item.name);
+    }
+  }
+  const subjects=prepared.filter(item=>item.reviewed&&item._origin.faction&&item._origin.faction!=='other');
+  for(let i=0;i<subjects.length;i+=Math.ceil(subjects.length/100)){
+    const item=subjects[i],word=item._name.split(' ').find(word=>word.length>=4&&!item._origin.faction.includes(word));
+    if(!word)continue;
+    for(const length of [2,3,word.length]){
+      const query=item._origin.faction+' '+word.slice(0,length);
+      assert.ok(searchTextureLibrary(prepared,{query,limit:10000}).items.some(row=>row.id===item.id),query+' retrieves '+item.name);
+    }
+  }
+});
+
+test('compound native words split only at complete known words and preserve literal operators',()=>{
+  const index=prepareTextureLibrary([
+    {id:'compound',name:'Quartzhatchet',path:'Units\\Orc\\Quartzhatchet\\Quartzhatchet.blp',tags:[]},
+    {id:'quartz',name:'Quartz',path:'Textures\\Quartz.blp',tags:[]},
+    {id:'lookalike',name:'Quartzsmith',path:'Units\\Human\\Quartzsmith\\Quartzsmith.blp',tags:[]},
+    {id:'otherelf',name:'Moon Mage',path:'Units\\BloodElf\\MoonMage\\MoonMage.blp',tags:['elf-body']},
+    {id:'effect',name:'Mist',path:'ReplaceableTextures\\Weather\\Mist.blp',tags:[],races:['orc']},
+  ].map(item=>({...item,source:'native',sourcePath:item.path,variant:'classic',kinds:['units']})));
+  assert.equal(searchTextureLibrary(index,{query:'orc ha'}).items[0].id,'compound');
+  assert.equal(searchTextureLibrary(index,{query:'qu ha'}).items[0].id,'compound');
+  assert.equal(searchTextureLibrary(index,{query:'ha qu'}).items[0].id,'compound');
+  assert.equal(searchTextureLibrary(index,{query:'"Quartzhatchet"'}).items[0].id,'compound');
+  assert.equal(searchTextureLibrary(index,{query:'"qu ha"'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'orc wea'}).total,0,'a generic weather folder does not make mist an Orc subject');
+  assert.equal(searchTextureLibrary(index,{query:'nightelf moon'}).total,0,'generic elf skin tags do not assign a specific elf faction');
+  assert.equal(searchTextureLibrary(index,{query:'orc hatchet without quartz'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'qu ha',folder:'Units\\Human'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'qu ha',variant:'reforged'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'qu ha',format:'dds'}).total,0);
+});
+
+test('query result limits preserve totals and source cache changes do not mix filters',()=>{
+  const all=searchTextureLibrary(prepared,{query:'metal',limit:10000});
+  const limited=searchTextureLibrary(prepared,{query:'metal',limit:2});
+  assert.deepEqual(limited.items.map(item=>item.id),all.items.slice(0,2).map(item=>item.id));
+  assert.equal(limited.total,all.total);assert.equal(limited.hasMore,true);
+  for(const kind of ['buildings','units','icons','doodads','ui','terrain','effects','other','all']){
+    const found=searchTextureLibrary(prepared,{query:'',kind,limit:10000});
+    assert.equal(found.total,annotated.filter(item=>kind==='all'||item.kinds.includes(kind)).length);
+  }
+  assert.equal(searchTextureLibrary(prepared,{query:'metal',limit:2}).total,all.total,'evicting a filtered source cannot lose matches');
+  const before=initialTextureLibraryResults(annotated,{query:'Footman',variant:'classic'});
+  initialTextureLibraryResults(annotated,{query:'',folder:'war3.w3mod:Buildings'});
+  assert.deepEqual(initialTextureLibraryResults(annotated,{query:'Footman',variant:'classic'}),before);
+  const changed=[...annotated,{...annotated[0],id:'new-name',name:'Fresh Native Name'}];
+  assert.ok(initialTextureLibraryResults(changed,{query:'Fresh Native Name'}).items.some(item=>item.id==='new-name'));
+});
+
+test('ambiguous descriptor prefixes retain grounded alternatives and every accompanying word',()=>{
+  const index=prepareTextureLibrary([
+    {id:'armour',name:'Sentry',path:'Units\\Orc\\Sentry\\Sentry.blp',tags:['plate']},
+    {id:'cloth',name:'Sentry Tunic',path:'Units\\Orc\\Sentry\\SentryTunic.blp',tags:['cloth']},
+    {id:'clean',name:'Clean Stone',path:'Units\\Orc\\Sentry\\CleanStone.blp',tags:['stone'],searchIndex:{version:4,traits:[['clean',1,'=review']]}},
+    {id:'human',name:'Sentry Tunic',path:'Units\\Human\\Sentry\\SentryTunic.blp',tags:['cloth']},
+    {id:'substring',name:'Environment',path:'Textures\\Environment.blp',tags:[]},
+  ].map(item=>({...item,source:'native',sourcePath:item.path,variant:'classic',kinds:['units']})));
+  for(const full of ['armour','cloth','clean']){
+    const completed=searchTextureLibrary(index,{query:'orc '+full,limit:10000});
+    assert.ok(completed.total,full);
+    for(const length of [2,3]){
+      const fragment=searchTextureLibrary(index,{query:'orc '+full.slice(0,length),limit:10000});
+      assert.ok(completed.items.every(item=>fragment.items.some(row=>row.id===item.id)),full+' valid abbreviations');
+      assert.ok(fragment.items.every(item=>item.id!=='human'),'Orc context remains required');
+    }
+  }
+  assert.equal(searchTextureLibrary(index,{query:'iron'}).items.some(item=>item.id==='substring'),false,'letters inside an unrelated word are not native identity evidence');
+  assert.equal(searchTextureLibrary(index,{query:'color:blue material:cloth'}).total,0,'explicit fields retain their meaning');
+  assert.equal(searchTextureLibrary(index,{query:'orc material:cloth without plate'}).items[0].id,'cloth');
+});
+
+test('incomplete subjects do not borrow broad inspiration or incidental effect factions',()=>{
+  const building=searchTextureLibrary(prepared,{query:'human arc',limit:10000});
+  assert.ok(building.items.some(item=>item.name==='Arcane Sanctum'));
+  assert.ok(building.items.every(item=>!['Cloud Single','Generic Glow64'].includes(item.name)));
+  assert.equal(searchTextureLibrary(prepared,{query:'nightelf an',limit:10000}).items.some(item=>item.name==='Clouds32 anim'&&item.path.startsWith('Textures\\')),false);
+  assert.equal(searchTextureLibrary(prepared,{query:'red drag',limit:10000}).items.some(item=>item.name==='Snake Ward Red'),false,'a broad reptile inspiration is not evidence for a typed dragon subject');
+  const rough=searchTextureLibrary(prepared,{query:'orc ar',limit:10000});
+  assert.ok(rough.items.some(item=>item.name==='Grunt'),'concrete armour evidence is still available while typing');
 });
 test('Russian descriptions use the same reviewed texture results as English, retaining original names and paths',()=>{
   for(const [russian,english] of [['ржавая кольчуга','rusty chainmail'],['Нургл','Nurgle'],['Мордор','Mordor'],['синяя ткань','blue cloth'],['металл без крови','metal without blood']]){
     const translated=searchTextureLibrary(prepared,{query:russian}),original=searchTextureLibrary(prepared,{query:english});
-    assert.ok(original.items.length,russian);assert.deepEqual(translated.items.map(item=>item.id),original.items.map(item=>item.id),russian);
+    if(english==='rusty chainmail')assert.equal(original.total,0);else assert.ok(original.items.length,russian);
+    assert.deepEqual(translated.items.map(item=>item.id),original.items.map(item=>item.id),russian);
     assert.deepEqual(translated.items.map(item=>[item.name,item.path]),original.items.map(item=>[item.name,item.path]));
   }
   assert.equal(searchTextureLibrary(prepared,{query:'несуществующаяабракадабра'}).total,0,'unknown Cyrillic must not become an empty query');
@@ -159,6 +369,28 @@ test('library joins only native paths which exist, and never borrows SD appearan
   const sd=result.items.find(i=>i.variant==='classic'),hd=result.items.find(i=>i.variant==='reforged');
   assert.equal(sd.path,'Textures\\Footman.blp');assert.equal(sd.lookupName,'war3.w3mod:textures\\footman.dds');assert.ok(sd.tags.includes('plate'));
   assert.equal(hd.notes,undefined);assert.deepEqual(hd.tags,[]);
+});
+test('unannotated native categories stay searchable across installed variants without borrowing appearance',async()=>{
+  const names=[
+    'war3.w3mod:_hd.w3mod:buildings\\undead\\necropolis\\necropolis_diffuse.dds',
+    'war3.w3mod:_de.w3mod:buildings\\nightelf\\moonwell\\moonwell_diffuse.dds',
+    'war3.w3mod:buildings\\orc\\newshed\\newshed.dds',
+    'war3.w3mod:_hd.w3mod:units\\human\\newknight\\newknight_diffuse.dds',
+    'war3.w3mod:_de.w3mod:replaceabletextures\\commandbuttonsdisabled\\disbtnnew.dds',
+  ];
+  const library=new TextureLibrary({casc:{list:async()=>({sources:[{folder:'game',key:'new-build',names}],errors:[]})}});
+  const result=await library.catalog();
+  assert.deepEqual(names.map(name=>result.items.find(item=>item.sourcePath===name).kinds),[['buildings'],['buildings'],['buildings'],['units'],['icons']]);
+  const index=prepareTextureLibrary(result.items);
+  for(const [query,variant,nativePath,kind] of [['undead building','reforged',names[0],'buildings'],['night elf building','forsaken-kingdom',names[1],'buildings'],['orc building','classic',names[2],'buildings'],['human units','reforged',names[3],'units']]){
+    const found=searchTextureLibrary(index,{query,variant,kind});
+    assert.equal(found.total,1,query);
+    assert.equal(found.items[0].lookupName,nativePath);
+    assert.equal(found.items[0].sourcePath,nativePath);
+    assert.deepEqual(found.items[0].tags,[]);
+    assert.equal(found.items[0].notes,undefined);
+  }
+  assert.equal(searchTextureLibrary(index,{query:'rusty undead building',variant:'reforged'}).total,0);
 });
 test('library labels installed Classic, Reforged, and Forsaken Kingdom sources independently',async()=>{
   const names=[
