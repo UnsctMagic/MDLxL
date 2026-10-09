@@ -39,6 +39,7 @@ function ReplaceFile($from, $to) {
     } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary } }
 }
 function SafePath($root, $relative) {
+    $root = [IO.Path]::GetFullPath($root).TrimEnd('\')
     if (!$relative -or $relative -match '(^|/)(\.|\.\.)(/|$)|[\\:\x00-\x1f<>"|?*]' -or $relative -match '^(resources/app/profile|profile|Showcase Recordings)(/|$)') { throw 'Invalid installation path.' }
     $full = [IO.Path]::GetFullPath([IO.Path]::Combine($root, $relative))
     if (!$full.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Installation path escapes its root.' }

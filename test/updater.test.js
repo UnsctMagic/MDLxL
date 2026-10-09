@@ -142,7 +142,11 @@ test('two updates retain exactly one previous version and offline revert restore
     const updater=new Updater({currentVersion,installRoot:target,profile,packaged:true,fetcher:async url=>new Response(url.endsWith('.zip')?'data':url.includes('api.github')?JSON.stringify(release):'- Program update'),extract:async(_,destination)=>fs.cp(source,path.join(destination,'MDLxL-win32-x64'),{recursive:true})});
     await updater.initialize();await updater.check();await updater.prepare();
     assert.equal(updater.status().state,'ready',updater.status().error);
-    const plan=JSON.parse(await fs.readFile(updater.prepared.planFile,'utf8'));plan.pid=0;await fs.writeFile(updater.prepared.planFile,JSON.stringify(plan));
+    const plan=JSON.parse(await fs.readFile(updater.prepared.planFile,'utf8'));plan.pid=0;
+    // A harmless dot segment, like a Windows short-name alias, is normalized
+    // by GetFullPath. The snapshot root and its children must normalize alike.
+    plan.snapshotRoot=path.dirname(plan.snapshotRoot)+path.sep+'.'+path.sep+path.basename(plan.snapshotRoot);
+    await fs.writeFile(updater.prepared.planFile,JSON.stringify(plan));
     await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(updater.prepared.stage,'install.ps1'),updater.prepared.planFile],{windowsHide:true});
     const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));assert.equal(result.ok,true,result.error);
   }
