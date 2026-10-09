@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDemoDocument, createNode, deleteNode, openDocument, EditorDocument } from '../src/editor-document.js';
 import { canonicalizeSerializedNodeOrder, serializedNodes } from '../src/node-id-order.js';
-import { formatGeneratedMdl, mdlMembers } from '../src/mdl-compatibility.js';
+import { finishCompatibleMdl, formatGeneratedMdl, mdlMembers } from '../src/mdl-compatibility.js';
+import { generateMDL } from 'war3-model';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
@@ -28,6 +29,38 @@ function verify(doc, format) {
   }
   return bytes;
 }
+
+test('legacy emitter Visibility stays outside Particle and survives MDL/MDX saves', () => {
+  const animated = { LineType: 1, GlobalSeqId: null, Keys: [{ Frame: 0, Vector: f(.25) }, { Frame: 100, Vector: f(1) }] };
+  for (const visibility of [0, .25, animated]) {
+    const doc = createDemoDocument();
+    doc.apply('Animate legacy emitter', ['Nodes'], model => {
+      const node = createNode(model, 'ParticleEmitter');
+      node.Visibility = structuredClone(visibility);
+      node.Path = 'Particles\\OwnedSpark.mdl';
+      node.LifeSpan = structuredClone(animated);
+      node.InitVelocity = 1.5;
+      node.Flags |= 8;
+    });
+    // Assert the payload boundary before asking the upstream parser to reopen
+    // it: a misplaced Visibility block makes that parser loop indefinitely.
+    const generated = finishCompatibleMdl(Buffer.from(generateMDL(doc.model)), doc.model);
+    const emitter = mdlMembers(generated).members.find(member => member.name === 'ParticleEmitter');
+    const particle = emitter.children.find(member => member.name === 'Particle');
+    assert.deepEqual(particle.children.map(member => member.name).sort(), ['InitVelocity', 'LifeSpan', 'Path']);
+    assert.equal(emitter.children.filter(member => member.name === 'Visibility').length, 1);
+    for (const format of ['mdl', 'mdx']) {
+      const bytes = verify(doc, format), reopened = openDocument(bytes, `emitter.${format}`);
+      const expected = doc.model.ParticleEmitters[0], actual = reopened.model.ParticleEmitters[0];
+      for (const key of ['Path', 'LifeSpan', 'InitVelocity']) assert.deepEqual(actual[key], expected[key]);
+      if (typeof expected.Visibility === 'number') {
+        const values = typeof actual.Visibility === 'number' ? [actual.Visibility] : actual.Visibility.Keys.map(key => key.Vector[0]);
+        assert.ok(values.every(value => value === expected.Visibility));
+      } else assert.deepEqual(actual.Visibility, expected.Visibility);
+      assert.deepEqual(Buffer.from(reopened.serialize(format)), Buffer.from(bytes));
+    }
+  }
+});
 
 for (const format of ['mdx', 'mdl']) test(`${format}: every Classic node family survives repeated saves, async edits, recovery and undo`, () => {
   const doc = openDocument(createDemoDocument().serialize(format), `base.${format}`);

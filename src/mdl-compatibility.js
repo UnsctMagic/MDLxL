@@ -196,6 +196,9 @@ export function mdlProperty(name,value,reverse=false,isStatic=false) {
 export function finishCompatibleMdl(input,model) {
   const tree=mdlMembers(input),edits=[];
   owners(tree.members,model,(m,o)=>{
+    // Particle owns only its payload. Visibility and node flags belong to the
+    // enclosing emitter; duplicating them here stalls the upstream reader.
+    if(m.name==='Particle')o={Path:o.Path,LifeSpan:o.LifeSpan,InitVelocity:o.InitVelocity};
     const extra=[];let uv=0;
     if(m.name==='PivotPoints') {
       edits.push({start:m.open.end,end:m.close.start,text:'\n'+o.map(v=>tuple(v)+',').join('\n')+'\n'});return;
