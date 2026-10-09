@@ -180,7 +180,11 @@ test('short material, colour and category words use the same general matcher',()
   for(const [short,full] of [['purp cloth','purple cloth'],['blu cloth','blue cloth'],['met','metal'],['orc bui','orc buildings'],['hum bui','human buildings'],['undead stru','undead structures']]){
     const abbreviated=searchTextureLibrary(prepared,{query:short,limit:10000}),complete=searchTextureLibrary(prepared,{query:full,limit:10000});
     assert.ok(complete.total,full);
-    assert.deepEqual(abbreviated.items.map(item=>item.id).sort(),complete.items.map(item=>item.id).sort(),short);
+    const shortIds=new Set(abbreviated.items.map(item=>item.id));
+    assert.ok(complete.items.every(item=>shortIds.has(item.id)),short+' preserves all complete-word matches');
+    for(const item of abbreviated.items.filter(item=>!complete.items.some(full=>full.id===item.id))){
+      assert.ok(short.split(' ').some(word=>word.length>=2&&[item._name,item._leaf].some(name=>name.split(' ').some(token=>token.startsWith(word)))),short+' additional results need native prefix evidence: '+item.name);
+    }
     assert.deepEqual(abbreviated.unknown,[],short);
   }
 });
@@ -202,6 +206,98 @@ test('compound subject aliases cannot swallow separately meaningful colour const
   assert.equal(abbreviated.items.some(item=>item.name==='Azure Dragon'),false);
   const quoted=searchTextureLibrary(prepared,{query:'"red dragon"',limit:10000});
   assert.ok(quoted.items.every(item=>/red dragon/i.test(item.name)),'quoted native subjects remain literal');
+});
+
+test('catalogue-derived fragmented and reordered names remain retrievable across categories',()=>{
+  const sample=prepared.filter(item=>item.reviewed&&!/\d/.test(item.name));
+  for(let i=0;i<sample.length;i+=Math.ceil(sample.length/110)){
+    const item=sample[i],tokens=item._name.split(' ').filter(word=>word.length>=4);
+    if(!tokens.length)continue;
+    const queries=[...Array.from([2,3],length=>tokens.map(word=>word.slice(0,length)).join(' ')),...(tokens.length>1?[tokens.toReversed().join(' ')]:[])];
+    for(const query of queries){
+      if(query.split(' ').some(word=>['no','not','or','without','except','with','but','plus','including','excluding','exclude','minus'].includes(word)))continue;
+      assert.ok(searchTextureLibrary(prepared,{query,limit:10000}).items.some(row=>row.id===item.id),query+' retrieves '+item.name);
+    }
+  }
+  const subjects=prepared.filter(item=>item.reviewed&&item._origin.faction&&item._origin.faction!=='other');
+  for(let i=0;i<subjects.length;i+=Math.ceil(subjects.length/100)){
+    const item=subjects[i],word=item._name.split(' ').find(word=>word.length>=4&&!item._origin.faction.includes(word));
+    if(!word)continue;
+    for(const length of [2,3,word.length]){
+      const query=item._origin.faction+' '+word.slice(0,length);
+      assert.ok(searchTextureLibrary(prepared,{query,limit:10000}).items.some(row=>row.id===item.id),query+' retrieves '+item.name);
+    }
+  }
+});
+
+test('compound native words split only at complete known words and preserve literal operators',()=>{
+  const index=prepareTextureLibrary([
+    {id:'compound',name:'Quartzhatchet',path:'Units\\Orc\\Quartzhatchet\\Quartzhatchet.blp',tags:[]},
+    {id:'quartz',name:'Quartz',path:'Textures\\Quartz.blp',tags:[]},
+    {id:'lookalike',name:'Quartzsmith',path:'Units\\Human\\Quartzsmith\\Quartzsmith.blp',tags:[]},
+    {id:'otherelf',name:'Moon Mage',path:'Units\\BloodElf\\MoonMage\\MoonMage.blp',tags:['elf-body']},
+    {id:'effect',name:'Mist',path:'ReplaceableTextures\\Weather\\Mist.blp',tags:[],races:['orc']},
+  ].map(item=>({...item,source:'native',sourcePath:item.path,variant:'classic',kinds:['units']})));
+  assert.equal(searchTextureLibrary(index,{query:'orc ha'}).items[0].id,'compound');
+  assert.equal(searchTextureLibrary(index,{query:'qu ha'}).items[0].id,'compound');
+  assert.equal(searchTextureLibrary(index,{query:'ha qu'}).items[0].id,'compound');
+  assert.equal(searchTextureLibrary(index,{query:'"Quartzhatchet"'}).items[0].id,'compound');
+  assert.equal(searchTextureLibrary(index,{query:'"qu ha"'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'orc wea'}).total,0,'a generic weather folder does not make mist an Orc subject');
+  assert.equal(searchTextureLibrary(index,{query:'nightelf moon'}).total,0,'generic elf skin tags do not assign a specific elf faction');
+  assert.equal(searchTextureLibrary(index,{query:'orc hatchet without quartz'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'qu ha',folder:'Units\\Human'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'qu ha',variant:'reforged'}).total,0);
+  assert.equal(searchTextureLibrary(index,{query:'qu ha',format:'dds'}).total,0);
+});
+
+test('query result limits preserve totals and source cache changes do not mix filters',()=>{
+  const all=searchTextureLibrary(prepared,{query:'metal',limit:10000});
+  const limited=searchTextureLibrary(prepared,{query:'metal',limit:2});
+  assert.deepEqual(limited.items.map(item=>item.id),all.items.slice(0,2).map(item=>item.id));
+  assert.equal(limited.total,all.total);assert.equal(limited.hasMore,true);
+  for(const kind of ['buildings','units','icons','doodads','ui','terrain','effects','other','all']){
+    const found=searchTextureLibrary(prepared,{query:'',kind,limit:10000});
+    assert.equal(found.total,annotated.filter(item=>kind==='all'||item.kinds.includes(kind)).length);
+  }
+  assert.equal(searchTextureLibrary(prepared,{query:'metal',limit:2}).total,all.total,'evicting a filtered source cannot lose matches');
+  const before=initialTextureLibraryResults(annotated,{query:'Footman',variant:'classic'});
+  initialTextureLibraryResults(annotated,{query:'',folder:'war3.w3mod:Buildings'});
+  assert.deepEqual(initialTextureLibraryResults(annotated,{query:'Footman',variant:'classic'}),before);
+  const changed=[...annotated,{...annotated[0],id:'new-name',name:'Fresh Native Name'}];
+  assert.ok(initialTextureLibraryResults(changed,{query:'Fresh Native Name'}).items.some(item=>item.id==='new-name'));
+});
+
+test('ambiguous descriptor prefixes retain grounded alternatives and every accompanying word',()=>{
+  const index=prepareTextureLibrary([
+    {id:'armour',name:'Sentry',path:'Units\\Orc\\Sentry\\Sentry.blp',tags:['plate']},
+    {id:'cloth',name:'Sentry Tunic',path:'Units\\Orc\\Sentry\\SentryTunic.blp',tags:['cloth']},
+    {id:'clean',name:'Clean Stone',path:'Units\\Orc\\Sentry\\CleanStone.blp',tags:['stone'],searchIndex:{version:4,traits:[['clean',1,'=review']]}},
+    {id:'human',name:'Sentry Tunic',path:'Units\\Human\\Sentry\\SentryTunic.blp',tags:['cloth']},
+    {id:'substring',name:'Environment',path:'Textures\\Environment.blp',tags:[]},
+  ].map(item=>({...item,source:'native',sourcePath:item.path,variant:'classic',kinds:['units']})));
+  for(const full of ['armour','cloth','clean']){
+    const completed=searchTextureLibrary(index,{query:'orc '+full,limit:10000});
+    assert.ok(completed.total,full);
+    for(const length of [2,3]){
+      const fragment=searchTextureLibrary(index,{query:'orc '+full.slice(0,length),limit:10000});
+      assert.ok(completed.items.every(item=>fragment.items.some(row=>row.id===item.id)),full+' valid abbreviations');
+      assert.ok(fragment.items.every(item=>item.id!=='human'),'Orc context remains required');
+    }
+  }
+  assert.equal(searchTextureLibrary(index,{query:'iron'}).items.some(item=>item.id==='substring'),false,'letters inside an unrelated word are not native identity evidence');
+  assert.equal(searchTextureLibrary(index,{query:'color:blue material:cloth'}).total,0,'explicit fields retain their meaning');
+  assert.equal(searchTextureLibrary(index,{query:'orc material:cloth without plate'}).items[0].id,'cloth');
+});
+
+test('incomplete subjects do not borrow broad inspiration or incidental effect factions',()=>{
+  const building=searchTextureLibrary(prepared,{query:'human arc',limit:10000});
+  assert.ok(building.items.some(item=>item.name==='Arcane Sanctum'));
+  assert.ok(building.items.every(item=>!['Cloud Single','Generic Glow64'].includes(item.name)));
+  assert.equal(searchTextureLibrary(prepared,{query:'nightelf an',limit:10000}).items.some(item=>item.name==='Clouds32 anim'&&item.path.startsWith('Textures\\')),false);
+  assert.equal(searchTextureLibrary(prepared,{query:'red drag',limit:10000}).items.some(item=>item.name==='Snake Ward Red'),false,'a broad reptile inspiration is not evidence for a typed dragon subject');
+  const rough=searchTextureLibrary(prepared,{query:'orc ar',limit:10000});
+  assert.ok(rough.items.some(item=>item.name==='Grunt'),'concrete armour evidence is still available while typing');
 });
 test('Russian descriptions use the same reviewed texture results as English, retaining original names and paths',()=>{
   for(const [russian,english] of [['ржавая кольчуга','rusty chainmail'],['Нургл','Nurgle'],['Мордор','Mordor'],['синяя ткань','blue cloth'],['металл без крови','metal without blood']]){
