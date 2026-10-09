@@ -14,6 +14,7 @@ const tipLine = 'You keep clicking {0}. Try {1}.';
 const reminderLine = 'Still clicking {0}? One hand, {1}. Caw!';
 const complaint = 'You are wasting my time! I have better things to do than stand here being ignored.';
 const attackLine = "By Morgoth's crown, this vertex is mine!";
+const spriteArt = { perch: `url("${sheet}")`, flight: `url("${wings}")` };
 
 function Speech({ speech, language }) {
   const line = translate(speech.line, language);
@@ -46,7 +47,7 @@ export function ShredderWarning({ message, onProceed, onCancel }) {
 /** An entirely click-through visitor. Only onAttack is allowed to edit anything. */
 export default function Shredder({ enabled, language, blocked, contextKey, prepareAttack, onAttack }) {
   const { catalog, shortcuts } = useWarmKeys();
-  const bird = useRef(null), balloon = useRef(null), layer = useRef(null), latest = useRef({});
+  const bird = useRef(null), balloon = useRef(null), layer = useRef(null), latest = useRef({}), coaching = useRef(null);
   const [speech, setSpeech] = useState(null);
   latest.current = { catalog, shortcuts, language, blocked, contextKey, prepareAttack, onAttack };
   const mordor = language === 'mordor';
@@ -60,14 +61,15 @@ export default function Shredder({ enabled, language, blocked, contextKey, prepa
 
   useEffect(() => {
     setSpeech(null);
-    if (!enabled) return;
+    if (!enabled) { coaching.current = null; return; }
     const sprite = bird.current, bubble = balloon.current, host = layer.current;
-    const coach = new ShredderCoach(), pointers = new Set();
+    const coach = coaching.current ||= new ShredderCoach(), pointers = new Set();
     let frame, phase = 'perch', started = performance.now(), lastFrame = -Infinity, lastInput = started;
     let nextAttack = started + 12000, attacksLeft = 0, plan = null, committed = false;
     let currentContext = latest.current.contextKey, paused = false;
     let point = { x: innerWidth - 32, y: innerHeight - 24 }, origin = { ...point }, mouse = { x: innerWidth / 2, y: innerHeight / 2 };
     let currentSpeech = null;
+    let previousArt = '', previousCell = '';
     const speak = value => { currentSpeech = value; setSpeech(value); };
     const reset = now => { phase = 'perch'; plan = null; attacksLeft = 0; nextAttack = now + 12000; speak(null); };
     const used = event => {
@@ -157,11 +159,15 @@ export default function Shredder({ enabled, language, blocked, contextKey, prepa
       sprite.style.transform = `translate(${point.x - 32}px, ${point.y - 60}px) rotate(${turn}deg)`;
       const picture = sprite.firstElementChild;
       if (flying) { row = Math.floor(now / 100) % 8 >= 4 ? 1 : 0; column = Math.floor(now / 100) % 4; }
-      picture.style.backgroundImage = `url("${flying ? wings : sheet}")`;
-      picture.style.width = flying ? '108px' : '64px'; picture.style.height = flying ? '108px' : '69.33px';
-      picture.style.margin = flying ? '-20px -22px' : '0';
-      picture.style.backgroundSize = flying ? '400% 200%' : '800% 1100%';
-      picture.style.backgroundPosition = `${column * (flying ? -108 : -64)}px ${row * (flying ? -108 : -69.33)}px`;
+      const art = flying ? 'flight' : 'perch', cell = `${art}:${row}:${column}`;
+      // Embedded sheets are large: assign/parse their data URL only on takeoff or landing.
+      if (art !== previousArt) {
+        picture.style.backgroundImage = spriteArt[art]; previousArt = art;
+        picture.style.width = flying ? '108px' : '64px'; picture.style.height = flying ? '108px' : '69.33px';
+        picture.style.margin = flying ? '-20px -22px' : '0';
+        picture.style.backgroundSize = flying ? '400% 200%' : '800% 1100%';
+      }
+      if (cell !== previousCell) { picture.style.backgroundPosition = `${column * (flying ? -108 : -64)}px ${row * (flying ? -108 : -69.33)}px`; previousCell = cell; }
       picture.style.transform = `scaleX(${flying && point.x < origin.x ? -1 : 1})`;
       if (bubble) {
         bubble.style.left = `${Math.max(8, Math.min(innerWidth - bubble.offsetWidth - 8, point.x - bubble.offsetWidth + 24))}px`;

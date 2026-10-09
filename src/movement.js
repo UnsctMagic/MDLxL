@@ -259,6 +259,57 @@ function writeKey(model, node, property, time, sequenceIndex, values, transformT
   node[property] = track;
 }
 
+/** Prepare exact native pose keys without touching the live model. All tracks
+ * are validated before any is installed, including interval boundary seeds. */
+export function prepareMovementPose(model, changes, time, sequenceIndex, restrictions = {}) {
+  const interval = model.Sequences?.[sequenceIndex]?.Interval;
+  if (!interval || !Number.isInteger(time) || time < interval[0] || time > interval[1]) throw new Error('POSE needs a whole millisecond inside an animation.');
+  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), seen = new Set(), prepared = [];
+  for (const change of changes) {
+    const node = byId.get(change.id), property = change.property;
+    if (!node || !Object.values(movementProperties).includes(property)) throw new Error('POSE target or native channel is missing.');
+    const stamp = `${change.id}:${property}`;
+    if (seen.has(stamp)) throw new Error('POSE chains cannot write the same channel twice.');
+    seen.add(stamp);
+    if (movementRestricted(Object.keys(movementProperties).find(mode => movementProperties[mode] === property), restrictions)) throw new Error(`${property} is restricted.`);
+    const prior = node[property];
+    if (Number.isInteger(prior?.GlobalSeqId) && prior.GlobalSeqId >= 0) throw new Error('POSE cannot change a global controller. Choose a local transform track.');
+    let values = Array.from(change.value || []);
+    if (values.length !== (property === 'Rotation' ? 4 : 3) || values.some(value => !Number.isFinite(value) || Math.abs(value) > 3.4028234663852886e38)) throw new Error('POSE produced an invalid native transform.');
+    const sampled = sampleMovement(model, node, property, time, sequenceIndex);
+    if (property === 'Rotation') {
+      if (Math.hypot(...values) < 1e-12) throw new Error('POSE produced a zero quaternion.');
+      const q = new Quaternion().fromArray(values).normalize(), reference = new Quaternion().fromArray(sampled).normalize();
+      if (1 - Math.abs(q.dot(reference)) < 1e-12) continue;
+      const stored = prior?.Keys?.find(key => key.Frame === time)?.Vector || sampled;
+      if (q.dot(new Quaternion().fromArray(stored)) < 0) q.set(-q.x, -q.y, -q.z, -q.w);
+      values = q.toArray();
+    } else if (values.every((value, i) => Math.abs(value - sampled[i]) <= 1e-8)) continue;
+    if (prior && !prior.Keys && Array.from(prior).some((value, i) => value !== defaults[property][i])) throw new Error('A static transform cannot become a local POSE track without changing other animations.');
+    if (prior?.Keys && (![0, 1, 2, 3].includes(prior.LineType) || prior.Keys.some(key => !Number.isInteger(key.Frame) || key.Vector?.length !== values.length || Array.from(key.Vector).some(value => !Number.isFinite(value)) || prior.LineType >= 2 && ['InTan', 'OutTan'].some(tangent => key[tangent]?.length !== values.length || Array.from(key[tangent] || []).some(value => !Number.isFinite(value)))))) throw new Error('The existing transform controller is malformed.');
+    const seeded = !prior?.Keys?.some(key => key.Frame >= interval[0] && key.Frame <= interval[1]);
+    const timestamps = seeded ? [...new Set([time, ...interval])] : [time];
+    if (model.Sequences.some((sequence, index) => index !== sequenceIndex && sequence.Interval && timestamps.some(frame => frame >= sequence.Interval[0] && frame <= sequence.Interval[1]))) throw new Error('POSE would change a timestamp shared by another animation.');
+    const staged = { ...node };
+    if (prior !== undefined) staged[property] = structuredClone(prior);
+    const old = prior?.Keys?.find(key => key.Frame === time)?.Vector || sampled;
+    const delta = property === 'Rotation' ? new Quaternion().fromArray(values).multiply(new Quaternion().fromArray(old).normalize().invert()) : null;
+    writeKey(model, staged, property, time, sequenceIndex, values, (tangent, lineType) => property === 'Rotation'
+      ? delta.clone().multiply(new Quaternion().fromArray(tangent)).toArray()
+      : property === 'Scaling' ? Array.from(tangent, (value, i) => value * (old[i] === 0 ? 1 : values[i] / old[i]))
+      : lineType === 3 ? Array.from(tangent, (value, i) => value + values[i] - old[i]) : Array.from(tangent));
+    prepared.push({ id: change.id, property, track: staged[property] });
+  }
+  return prepared;
+}
+
+export function applyMovementPose(model, changes, time, sequenceIndex, restrictions = {}) {
+  const prepared = prepareMovementPose(model, changes, time, sequenceIndex, restrictions);
+  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node]));
+  for (const { id, property, track } of prepared) byId.get(id)[property] = track;
+  return prepared.length;
+}
+
 /** Apply an incremental XYZ transform at the selected frame, never a pivot edit. */
 export function applyMovementTransform(model, ids, time, sequenceIndex, change = {}) {
   if (change.restPose) return applyRestPoseTransform(model, ids, change);

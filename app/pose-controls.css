@@ -1,0 +1,15 @@
+.pose-controls { position: relative; display: flex; gap: 3px; align-items: center; flex-wrap: wrap; margin-top: 3px; }
+.pose-controls > button { padding: 2px 5px; min-height: 22px; font-size: 11px; }
+.pose-controls > button[aria-pressed="true"] { background: #21465a; color: #9ff5ef; }
+.pose-target { font-size: 11px; color: #9ff5ef; }
+.pose-setup { position: fixed; z-index: 110; right: 174px; top: 118px; width: 254px; max-height: 65vh; overflow: auto; background: var(--ui-panel, #d4d0c8); border: 2px outset #eee; box-shadow: 2px 2px 4px #0008; padding: 7px; color: var(--ui-text, #111); font-size: 11px; }
+.pose-setup header { display: flex; align-items: center; justify-content: space-between; }
+.pose-setup p { margin: 6px 0; line-height: 1.35; }
+.pose-setup label { display: flex; justify-content: space-between; align-items: center; gap: 4px; margin: 4px 0; }
+.pose-setup select { width: 155px; min-width: 0; }
+.pose-setup button { font-size: 11px; min-height: 22px; padding: 2px 5px; }
+.pose-mapping { display: flex; gap: 3px; margin-top: 4px; }
+.pose-mapping button:first-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pose-custom { margin-top: 7px; }
+.pose-custom summary { cursor: pointer; }
+.pose-error, .pose-setup [role="alert"] { color: var(--ui-error, #a32913); }

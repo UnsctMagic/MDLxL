@@ -10,7 +10,7 @@ import './KeyframeTimeline.css';
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 /** The original compact reel: time selection, with authoring in the controllers. */
-export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, globalSeqId = null, time = 0, selectedNodeIds = [], selectedGeosets = [], activeController = 'rotate', highlightKeyframes = true, highlightChain = false, playbackSpeed = 100, onPlaybackSpeedChange, playing = false, onPlayingChange, onEdit, onSeek, onCommands, onStatus, disabled = false, restrictions = {}, motionFindings = [], motionActive = null, motionControls = null, onMotionFinding, onKeyClick, children }) {
+export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, globalSeqId = null, time = 0, selectedNodeIds = [], selectedGeosets = [], activeController = 'rotate', highlightKeyframes = true, highlightChain = false, poseScope = null, playbackSpeed = 100, onPlaybackSpeedChange, playing = false, onPlayingChange, onEdit, onSeek, onCommands, onStatus, disabled = false, restrictions = {}, motionFindings = [], motionActive = null, motionControls = null, onMotionFinding, onKeyClick, children }) {
   const [range, setRange] = useState(null), [context, setContext] = useState(null), [draftTime, setDraftTime] = useState('0'), [draftSpeed, setDraftSpeed] = useState(String(playbackSpeed));
   const [keySelection, setKeySelection] = useState(null);
   const [, refreshClipboard] = useState(0);
@@ -37,9 +37,14 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     const keys = domain ? timelineKeys(model, targets, domain) : [];
     const copyKeysInDomain = domain ? timelineKeys(model, copyTargets, domain) : [];
     // Highlight KF shows the keys that the active Movement scope can edit.
-    const timeSet = new Set(highlightKeyframes ? keys.map(key => key.frame) : domain ? animationMarkerTimes(model, domain, tracks) : []);
+    // Virtual controls reveal the actual Rotation/Translation channels only.
+    // Copy/delete/controller edits keep their explicit real-node selection;
+    // highlighting a chain never silently becomes a multi-track edit.
+    const displayTargets = poseScope && domain ? tracks.filter(track => track.kind === 'node' && track.globalSeqId === domain.globalSeqId && poseScope.some(item => item.id === track.id && item.property === track.property)) : null;
+    const displayKeys = displayTargets ? timelineKeys(model, displayTargets, domain) : keys;
+    const timeSet = new Set(highlightKeyframes ? displayKeys.map(key => key.frame) : domain ? animationMarkerTimes(model, domain, tracks) : []);
     return { targets, copyTargets, poseTargets, keys, copyKeysInDomain, times: [...timeSet].sort((a, b) => a - b), timeSet };
-  }, [model, revision, tracks, domain, selectionStamp, activeController, highlightKeyframes]);
+  }, [model, revision, tracks, domain, selectionStamp, activeController, highlightKeyframes, JSON.stringify(poseScope)]);
   const frame = domain ? Math.round(clamp(time, domain.start, domain.end)) : 0;
   const span = Math.max(1, (domain?.end || 0) - (domain?.start || 0));
   const percent = value => (value - (domain?.start || 0)) / span * 100;

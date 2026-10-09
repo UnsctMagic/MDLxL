@@ -34,6 +34,20 @@ function edit(history, state, label, mutate, after = state) {
   return result;
 }
 
+test('virtual pose selection rebases real-node selection without a transition undo entry', () => {
+  const doc = createDemoDocument(), history = new SelectionHistory(doc);
+  const nodes = (doc.model.Nodes || []).filter(Boolean).map(node => node.ObjectId);
+  const initial = ui({}, { selectedNodeIds: [] }), real = ui({}, { selectedNodeIds: nodes.slice(0, 1) });
+  history.observe(initial); history.observe(real);
+  const depth = doc.historyStats.undoSteps;
+  history.observe(initial, { record: false });
+  assert.equal(doc.historyStats.undoSteps, depth);
+  assert.deepEqual(history.observed.selectedNodeIds, new Uint32Array());
+  assert.equal(doc.dirty, false);
+  history.observe(real);
+  if (nodes.length) assert.equal(doc.historyStats.undoSteps, depth + 1, 'ordinary bone selection still records');
+});
+
 test('transform and property undo/redo preserve selection, visibility and independent subsequent picks', () => {
   const doc = createDemoDocument(), history = new SelectionHistory(doc);
   const initial = ui({ 0: [0, 1], 3: [2, 4] }, { hidden: { 1: [3] }, activeGeoset: 3 });
