@@ -241,7 +241,7 @@ test('handle centres and labels select POSE consistently; disabled and invalid c
   const camera = new PerspectiveCamera(42, 1, .1, 1000); camera.position.set(50, -100, 60); camera.lookAt(0, 0, 10); camera.updateMatrixWorld();
   const handles = projectPoseHandles(m, config, 500, 0, camera, 600, 600), hand = handles.find(h => h.key === 'a');
   assert.equal(pickPoseHandle([hand], hand.x, hand.y), hand); assert.equal(pickPoseHandle([hand], hand.x + 13, hand.y), hand);
-  assert.equal(pickPoseHandle([hand], hand.x + 24, hand.y), hand);
+  assert.equal(pickPoseHandle([hand], hand.x + 24, hand.y), null, 'hidden label has no hit area'); hand.hovered=true; assert.equal(pickPoseHandle([hand], hand.x + 24, hand.y), hand);
   assert.deepEqual(projectPoseHandles(m, { ...config, enabled: false }, 500, 0, camera, 600, 600), []);
   m.Bones[2].Parent = 0; assert.ok(!projectPoseHandles(m, config, 500, 0, camera, 600, 600).some(h => h.key === 'a'));
 });
@@ -260,7 +260,7 @@ test('nearby body and chest labels remain separately selectable at their authore
   const camera=new PerspectiveCamera(42,1,.1,1000); camera.position.set(50,-100,60); camera.lookAt(0,0,10); camera.updateMatrixWorld();
   const handles=projectPoseHandles(m,{enabled:true,chains:[],pins:[],body:0,nodes:[1]},500,0,camera,600,600), body=handles.find(handle=>handle.kind==='body'), chest=handles.find(handle=>handle.id===1);
   assert.equal(body.x,chest.x); assert.equal(body.y,chest.y); assert.ok(Math.abs(body.labelY-chest.labelY)>=16);
-  for(const handle of [body,chest])assert.equal(pickPoseHandle(handles,handle.labelX+3,handle.labelY),handle);
+  for(const handle of [body,chest]) { handle.hovered=true; assert.equal(pickPoseHandle([body,chest],handle.labelX+3,handle.labelY),handle); }
 });
 
 test('overlapping handles and native markers share one complete selection cycle, while a drag keeps its selected object', () => {
@@ -270,7 +270,7 @@ test('overlapping handles and native markers share one complete selection cycle,
   for(let step=0;step<4;step++){const hit=pickPoseHandle([hand,head],30,40,target,nodes);target=poseHandleTarget(hit);visited.push(target);assert.deepEqual(poseHandleTarget(pickPoseHandle([hand,head],30,40,target,nodes,true)),target);}
   assert.deepEqual(visited,[{kind:'endpoint',key:'arm'},{kind:'node',id:3,marker:true},{kind:'node',id:8,marker:true},{kind:'node',id:5}]);
   assert.equal(pickPoseHandle([hand,head],30,40,target,nodes),hand);
-  assert.equal(pickPoseHandle([hand,head],hand.x+22,hand.y,target,nodes),hand,'a label selects its named handle directly');
+  hand.hovered=true; assert.equal(pickPoseHandle([hand,head],hand.x+22,hand.y,target,nodes),head,'a visible symbol wins over a crossing label'); assert.equal(pickPoseHandle([hand,head],hand.x+30,hand.y,target,nodes),hand,'a visible label remains clickable outside symbols');
   assert.equal(pickPoseHandle([{...hand,visible:false}],30,40,null,[]),null,'hidden controls never enter the cycle');
 });
 
@@ -463,9 +463,9 @@ test('upper-body native keys survive history and MDL/MDX animation round trips w
 
 
 test('a selected controller symbol keeps its drag when another handle label crosses it', () => {
-  const body={kind:'body',label:'Body',x:50,y:40,visible:true}, hand={kind:'endpoint',key:'arm',label:'Hand',x:20,y:40,labelX:40,labelY:40,labelWidth:40,visible:true};
+  const body={kind:'body',label:'Body',x:50,y:40,visible:true}, hand={kind:'endpoint',key:'arm',label:'Hand',hovered:true,x:20,y:40,labelX:40,labelY:40,labelWidth:40,visible:true};
   assert.equal(pickPoseHandle([hand,body],50,40,{kind:'body'},[],true),body);
   assert.equal(pickPoseHandle([hand,body],65,40,{kind:'body'},[],true),body);
   assert.equal(pickPoseHandle([hand,body],75,40,{kind:'body'},[],true),hand,'label remains clickable outside the selected symbol');
-  assert.equal(pickPoseHandle([hand,body],50,40,null,[],false),hand,'unselected label still selects its named control');
+  assert.equal(pickPoseHandle([hand,body],50,40,null,[],false),body,'a crossing label cannot intercept a controller symbol');
 });

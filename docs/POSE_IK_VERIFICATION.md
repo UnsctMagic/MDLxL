@@ -281,3 +281,74 @@ Final assets hash: `73bf121fdbf67557196bd2933e62248433218ab8686aca1069d8ffa20dd8
 The test model and saved animation are ignored local evidence, not repository
 assets. The user's running editor and profiles were not replaced. The candidate
 awaits user testing and merge authorization on PR #154.
+
+
+## Connected pelvis, mounted rigs and visual setup (2026-10-09)
+
+The Footman pelvis previously translated only its lower-body branch, leaving the
+sibling chest behind. Its handle now writes the shared body driver. Native bone
+markers retain deliberate FK. Mounted recognition uses anatomy names, references,
+hierarchy and skin centres to find four full hoof chains, two rider boots and two
+hands. The rider follows the mount's separate carrier root without reparenting.
+No model filenames or fixed object IDs enter runtime recognition.
+
+Setup is a compact symbol palette and the existing Movement bone picker. An end
+bone previews its chain; explicit custom joints use three selectable dots. Clicks
+cycle overlapping bones within the active dot. Bad picks disable Add locally.
+No bone dropdowns remain in Setup. Existing sidebar dimensions and closed sections
+are unchanged. Labels appear only on selection/hover, avoid neighboring symbols,
+and clear when leaving the viewport, including with bone markers hidden.
+
+Source validation: `out/pose-ragdoll-final-source.log`, **50/50 passed**. This
+includes all nine unmodified local `WH_WOC_Knight*.mdx` reference copies (Khorne,
+Nurgle, Slaanesh, Tzeentch and Undivided variants), all eight controls per model,
+connected parent-child distances, both heads, native writer scope, three frames,
+Undo/Redo, MDX roundtrip and unchanged source hashes. The portable synthetic mounted
+rig test runs without those local assets. Its jump/re-grab/landing check prevents
+straight hoof chains from losing their bend or returning toward stale goals.
+The overlay-only follow-up also passed all 39 existing pose tests.
+
+Affected Movement suite: 110 tests, 107 passed. Three established baseline failures
+remain: `Animations exposes inline RGB fields on All line`, `quick display shows
+only the active editor options without Reveal`, and rest-pose pivot ordering in
+`rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, and retain
+authored animation/skin/BPOS`. Compatibility: **57/57 passed**.
+
+Packaged mouse/keyboard evidence:
+
+- `out/pose-ragdoll-acceptance-full-ui/result.json`: **26 checks**,
+  zero page errors. Pins, cancellation, no-op gestures, restrictions, ordinary FK,
+  controls/display, camera rotation/zoom, MDL/MDX save/reopen, and a three-pose jump
+  with native playback. This preceded only the final hover-label rendering polish.
+- `out/pose-ragdoll-ready-footman-ui/result.json`: **4 workflow checks,
+  5 drags**, zero page errors, on the final build. Textured view,
+  symbol plus actual viewport bone selection, invalid root selection, explicit
+  custom joint picking, XY pelvis movement matching the supplied GIF, connected
+  jump/return, head/chest posing, camera rotation and native MDX save/reopen.
+- `out/pose-ragdoll-ready-knight-ui/result.json`: **3 workflow checks,
+  15 drags**, zero page errors, on the final build. Textured
+  Undivided Chaos Knight with connected pelvis, horse/rider jump and return, all
+  eight limb drags, both heads and chests, camera rotation and MDX save/reopen.
+- Final native preview matrix errors were at most
+  `4.582651662587978e-06` (Footman) and `8.208085915839547e-06` (Knight).
+  The Knight's already-hidden zero-scale weapon and its reference (77/93) are
+  excluded from invertible-matrix comparisons; their existing zero scale is
+  preserved. Visible skeletal transforms are compared directly with the native
+  renderer. All nine variants have source/model checks; the full mounted mouse
+  walkthrough uses the Undivided Sword variant.
+
+The Windows computer-use helper could not initialize (`failed to write kernel
+assets`). Mouse and keyboard acceptance ran in hidden packaged Electron windows
+through Playwright. Read-only probes inspect native state; posing and mapping
+use actual UI input. This is not a claim of independent human enjoyment or
+Warcraft in-game playback; those remain for user acceptance.
+
+Final package: `out/pose-ragdoll-ready/MDLxL-win32-x64/MDLxL.exe`.
+Packaging verified 551 runtime/assets and 55 locales; all 462 packaged
+source/bundle files match the source byte-for-byte, with no mismatches.
+Index hash: `0903a395ef451b7c00a4db825d8296ec1517f2415c1bc8f1cbb3ef62acdc817e`.
+Assets hash: `11816f9fab1ade2a83976d3557e97511777c40e4d2ef9e79e773b27e20b7a149`.
+
+Original models, textures, open editors, profiles and the primary `codex/model-tabs`
+checkout were not modified. This remains an unshipped test candidate on PR #154;
+no release/version bump or merge was performed.

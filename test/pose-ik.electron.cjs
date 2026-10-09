@@ -53,17 +53,21 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const viewportBox = () => page.locator('[data-clean-model-canvas]').boundingBox();
     async function handles() {
       const data = await page.evaluate(() => { const { runtime, props } = poseProbe(), canvas = document.querySelector('[data-clean-model-canvas]'); return { model: poseSnapshot().model, config: props.poseConfig, frame: runtime.native.getFrame(), sequence: props.sequenceIndex, camera: runtime.controls.object.toJSON(), width: canvas.clientWidth, height: canvas.clientHeight }; });
-      const camera = new ObjectLoader().parse(data.camera); camera.updateMatrixWorld(true);
+      const camera = new ObjectLoader().parse(data.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
       return projectPoseHandles(data.model, data.config, data.frame, data.sequence, camera, data.width, data.height);
     }
     async function handleFor(kind, endpoint) { const points = await handles(); const result = points.find(handle => !handle.marker && handle.kind === kind && (endpoint == null || (kind === 'node' ? handle.id : handle.chain?.end) === endpoint)); assert.ok(result?.visible, `Visible ${kind} ${endpoint}`); return result; }
     const historyDepth = () => page.evaluate(() => poseProbe().session.doc.historyStats.undoSteps);
-    async function selectHandle(kind, endpoint) { const depth = await historyDepth(); await tool('Select'); const h = await handleFor(kind, endpoint), b = await viewportBox(); await page.mouse.click(b.x + h.labelX + 3, b.y + h.labelY); await settle(); assert.equal(await historyDepth(), depth, 'virtual selection creates no undo step'); }
+    async function selectHandle(kind, endpoint) {
+      const depth=await historyDepth();await tool('Select');const h=await handleFor(kind,endpoint),b=await viewportBox();
+      for(let i=0;i<45;i++){const target=await page.evaluate(()=>poseProbe().props.poseConfig.target);if(target?.kind===kind&&!target.marker&&(kind==='node'?target.id===h.id:!h.key||target.key===h.key)){assert.equal(await historyDepth(),depth);return;}await page.mouse.click(b.x+h.x,b.y+h.y);await settle();}
+      throw Error('Cannot select '+kind+' '+endpoint);
+    }
     async function drag(kind, endpoint, dx, dy, cancel = false) {
       let handle = await handleFor(kind, endpoint);
       const selected = await page.evaluate(() => poseProbe().props.poseConfig.target);
       if (selected?.kind !== kind || selected.marker || (kind === 'node' ? selected.id !== handle.id : handle.key && selected.key !== handle.key)) {
-        const box = await viewportBox(); await page.mouse.click(box.x + handle.labelX + 3, box.y + handle.labelY); await settle(); handle = await handleFor(kind, endpoint);
+        const mode=await page.evaluate(()=>poseProbe().props.transformMode);await selectHandle(kind,endpoint);await tool(mode[0].toUpperCase()+mode.slice(1));handle=await handleFor(kind,endpoint);
       }
       const before = await snap(), depth = await historyDepth();
       const h = handle, b = await viewportBox(), x = b.x + h.x, y = b.y + h.y;
@@ -72,7 +76,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const preview = await page.evaluate(() => { const { runtime, props } = poseProbe(); return { model: JSON.parse(JSON.stringify(runtime.native.model, (_key, value) => ArrayBuffer.isView(value) ? Array.from(value) : value)), matrices: runtime.native.rendererData.nodes.filter(Boolean).map(node => [node.node.ObjectId, Array.from(node.matrix)]), camera: runtime.controls.object.toJSON(), sequence: props.sequenceIndex, frame: runtime.native.getFrame(), status: document.querySelector('.game-preview-root [role=status]')?.textContent }; });
       let meshMoved = false;
       if (preview.status && !/restricted|out of reach|cannot|invalid|unsupported|failed/i.test(preview.status)) {
-        const camera = new ObjectLoader().parse(preview.camera); camera.updateMatrixWorld(true);
+        const camera = new ObjectLoader().parse(preview.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
         const matrices = samplePreviewMatrices(preview.model, preview.frame, preview.sequence, preview.frame, camera);
         const differences = preview.matrices.filter(([id]) => matrices.has(id)).map(([id, native]) => ({ id, error: Math.max(...native.map((value, i) => Math.abs(value - matrices.get(id).elements[i]))) })).filter(item => item.error >= .004);
         results.previewMatrixMaxError = Math.max(results.previewMatrixMaxError || 0, ...preview.matrices.filter(([id]) => matrices.has(id)).flatMap(([id, native]) => native.map((value, i) => Math.abs(value - matrices.get(id).elements[i]))));
@@ -85,15 +89,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.equal(await historyDepth(), depth + (changed ? 1 : 0), 'one effective drag is one complete undo action');
       if (changed && !meshMoved) {
         assert.equal(kind,'node','an effective limb gesture deforms the actual preview mesh');
-        const camera=new ObjectLoader().parse(preview.camera);camera.updateMatrixWorld(true);const old=samplePreviewMatrices(before.model,preview.frame,preview.sequence,preview.frame,camera).get(endpoint);
+        const camera=new ObjectLoader().parse(preview.camera);camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);const old=samplePreviewMatrices(before.model,preview.frame,preview.sequence,preview.frame,camera).get(endpoint);
         const target=preview.matrices.find(([id])=>id===endpoint)?.[1];assert.ok(target?.some((value,i)=>Math.abs(value-old.elements[i])>1e-5),'a direct reference control moves its actual native matrix');
       } return during;
     }
     async function add(end, kind = 'arm') {
-      await page.getByLabel('Movement bone or node').selectOption(String(end)); await page.getByRole('button', { name: 'POSE setup', exact: true }).click();
-      await page.getByText('Custom limb…', {exact:true}).click(); await page.getByRole('button',{name:'Suggest selected chain',exact:true}).click();
-      await page.getByLabel('POSE limb kind').selectOption(kind); await page.getByRole('button', { name: 'Add handle', exact: true }).click();
-      await page.getByRole('button', { name: 'Close POSE setup', exact: true }).click(); await settle();
+      await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByRole('button',{name:kind==='leg'?'Map Foot':'Map Hand',exact:true}).click();
+      await page.getByLabel('Movement bone or node').selectOption(String(end));await settle();await page.getByRole('button',{name:/^(Add|Replace) handle$/}).click();await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();await settle();
     }
     const initial = await snap(), sidebarWidth = await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width);
     const section = title => page.locator('details.sidebar-section').filter({ has: page.locator('summary').filter({ hasText: new RegExp('^' + title + '$') }) });
@@ -108,17 +110,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Movement bone or node').selectOption('0');
     await page.getByRole('button', { name: 'POSE', exact: true }).click();
     const recognized = await page.evaluate(() => poseProbe().props.poseConfig); assert.deepEqual(recognized.chains.map(chain=>chain.end).sort((a,b)=>a-b),[29,32,38,42]); assert.equal(recognized.body,25);
-    await page.getByRole('button',{name:'POSE setup',exact:true}).click(); await page.getByText('Custom limb…',{exact:true}).click();
-    await page.getByRole('button',{name:'Suggest selected chain',exact:true}).click(); assert.match(await page.getByRole('alert').textContent(),/distinct/);
-    assert.equal(await page.getByRole('button',{name:'Reload editor',exact:true}).count(),0); assert.deepEqual(await page.getByLabel('POSE root').inputValue(),'');
+    await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByRole('button',{name:'Map Hand',exact:true}).click();await page.getByLabel('Movement bone or node').selectOption('0');await settle();
+    assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false);assert.equal(await page.getByRole('button',{name:'Reload editor',exact:true}).count(),0);assert.equal(await page.locator('.pose-setup select').count(),0);
     await page.getByLabel('Movement bone or node').selectOption('39'); assert.equal(await page.getByRole('dialog',{name:'POSE setup',exact:true}).count(),1,'Object picker keeps Setup open');
     await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();
     for (const [kind,id] of [['body',null],['node',33],['node',26],['node',39]]) {
       await tool('Select'); const handle=await handleFor(kind,id), box=await viewportBox(), depth=await historyDepth();
-      await page.mouse.click(box.x+handle.labelX+3,box.y+handle.labelY);await settle();
+      await selectHandle(kind,id);
       const target=await page.evaluate(()=>poseProbe().props.poseConfig.target);assert.equal(target.kind,kind);if(id!=null)assert.equal(target.id,id);assert.equal(await historyDepth(),depth);
     }
-    results.checks.push('First-use root selection never crashes; one POSE click recognizes both hands/feet, head/chest/pelvis and whole-body root; Object picker does not dismiss Setup; overlapping body/chest/pelvis labels are independently clickable');
+    results.checks.push('First-use root selection never crashes; one POSE click recognizes both hands/feet, head/chest/pelvis and whole-body root; Object picker does not dismiss Setup; overlapping body/chest/pelvis symbols remain independently selectable');
     await page.getByRole('checkbox', { name: 'Bones', exact: true }).check(); await selectHandle('body');
     const cycleBefore = await snap(), cycleDepth = await historyDepth(), center = await handleFor('body'), cycleBox = await viewportBox();
     const cycleKey = target => `${target.kind}:${target.id ?? target.key ?? ''}:${!!target.marker}`;
@@ -138,7 +139,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.notEqual(cycleKey(await page.evaluate(() => poseProbe().props.poseConfig.target)), startKey, 'a Move-tool click also cycles after release');
     assert.deepEqual(await snap(), cycleBefore); assert.equal(await historyDepth(), cycleDepth);
     await selectHandle('endpoint', 38); await shot('09-controller-symbols');
-    results.checks.push('Actual repeated clicks cycle through overlapping handles and real bones in Select and Move without authoring keys or undo; named labels choose a control directly');
+    results.checks.push('Actual repeated clicks cycle through overlapping handles and real bones in Select and Move without authoring keys or undo; selected and hovered labels identify a control');
     await page.getByRole('checkbox', { name: 'Bones', exact: true }).uncheck();
     await add(38); assert.deepEqual(await snap(), initial, 'setup has no keys/history');
     await page.getByLabel('Workplane', { exact: true }).uncheck(); await tool('Move');
@@ -152,7 +153,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await menu('undo'); await settle();
     assert.deepEqual((await snap()).model, fk.model, 'ordinary Resize remains independent and restores exactly'); results.checks.push('Ordinary bone Resize with POSE visible, positive uniform ancestor scale, and exact Resize Undo');
     await page.getByLabel('Movement bone or node').selectOption('33'); await tool('Scale'); const beforeUnsupported = await snap(); await page.getByLabel('X coordinate', { exact: true }).fill('1.03'); await page.getByLabel('X coordinate', { exact: true }).press('Enter'); await settle();
-    await page.getByLabel('Movement bone or node').selectOption(''); await page.getByRole('button', { name: 'POSE setup', exact: true }).click(); assert.match(await page.getByRole('alert').textContent(), /uniform|shear/i); await page.getByRole('button', { name: 'Close POSE setup', exact: true }).click();
+    await page.getByLabel('Movement bone or node').selectOption(''); await page.getByRole('button', { name: 'POSE setup', exact: true }).click(); await page.getByRole('button',{name:'Map Hand',exact:true}).click();await page.getByLabel('Movement bone or node').selectOption('38');await settle();assert.match(await page.locator('.pose-setup [role=status]').textContent(),/uneven scale/i);assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false); await page.getByRole('button', { name: 'Close POSE setup', exact: true }).click();
     for (let index = 0; index < 2; index++) { await menu('undo'); await settle(); } assert.deepEqual((await snap()).model, beforeUnsupported.model); results.checks.push('Setup explains an unsupported nonuniform ancestor after an ordinary bone edit');
     await selectHandle('endpoint', 38); const beforeNoOp = await snap(); await tool('Move'); await drag('endpoint', 38, 0, 0); assert.deepEqual(await snap(), beforeNoOp, 'returning to IK does not author or snap');
     await selectHandle('endpoint', 38); await tool('Move');
@@ -161,7 +162,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await drag('endpoint', 38, 6, -6); const hybrid = await snap(); assert.equal(hybrid.undo, fk.undo + 1); results.checks.push('IK → ordinary chest Rotate with POSE visible → IK has no transition keys or stale target');
     await tool('Rotate'); await drag('endpoint', 38, 10, 0); const turn = await snap(); assert.equal(turn.undo, hybrid.undo + 1); await tool('Move'); await drag('bend', 38, 12, -6); const bend = await snap(); assert.equal(bend.undo, turn.undo + 1); await shot('03-turn-bend');
     await add(29, 'leg'); await add(32, 'leg'); await tool('Move'); await drag('endpoint', 29, 0, -5); const leg = await snap(); assert.equal(leg.undo, bend.undo + 1);
-    await page.getByRole('button', { name: 'POSE setup', exact: true }).click(); await page.getByText('Body node…',{exact:true}).click(); await page.getByRole('button', { name: 'Suggest body', exact: true }).click(); await page.getByRole('button', { name: 'Confirm body', exact: true }).click(); assert.equal(await page.getByLabel('POSE body node').inputValue(), '25'); await page.getByRole('button', { name: 'Close POSE setup', exact: true }).click();
+    await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByRole('button',{name:'Map Body',exact:true}).click();await page.getByLabel('Movement bone or node').selectOption('25');await settle();await page.getByRole('button',{name:'Add handle',exact:true}).click();await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();
     const legs = [{ root: 27, middle: 28, end: 29 }, { root: 30, middle: 31, end: 32 }];
     async function pinnedBody(feet) {
       const before = await snap(), poses = feet.map(c => samplePoseChain(before.model, c, 500, 0)); await selectHandle('body'); await tool('Move');
@@ -181,7 +182,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await menu('undo'); await settle(); assert.deepEqual((await snap()).model, body.before.model); await menu('redo'); await settle(); assert.deepEqual((await snap()).model, body.after.model); results.checks.push('Reach clamping retains the valid pose without jumping back; Escape and atomic body Undo/Redo retain the complete pose');
     const beforePinToggle = await snap(); await selectHandle('endpoint', 29); await page.getByRole('button', { name: 'Pin selected foot', exact: true }).click(); assert.equal((await page.evaluate(() => poseProbe().props.poseConfig.pins)).length, 1); await page.getByRole('button', { name: 'Pin selected foot', exact: true }).click(); assert.equal((await page.evaluate(() => poseProbe().props.poseConfig.pins)).length, 2); assert.deepEqual(await snap(), beforePinToggle); results.checks.push('Explicit pin release/re-pin changes only session state');
     for(const name of ['Move','Rotate','Scale']) {await page.getByLabel('Movement bone or node').selectOption('39');await tool(name);const before=await snap();await drag('node',39,6,-3);assert.equal((await snap()).undo,before.undo+1,'head '+name+' is an ordinary atomic control');}
-    await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByLabel('POSE object').selectOption('43');await page.getByRole('button',{name:'Add object handle',exact:true}).click();await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();
+    await page.getByRole('button',{name:'POSE setup',exact:true}).click();await page.getByRole('button',{name:'Map Object',exact:true}).click();await page.getByLabel('Movement bone or node').selectOption('43');await settle();await page.getByRole('button',{name:'Add handle',exact:true}).click();await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();
     await tool('Move');const beforeReference=await snap();await drag('node',43,3,-2);await menu('undo');await settle();assert.deepEqual((await snap()).model,beforeReference.model,'an arbitrary attachment handle undoes exactly');
     await selectHandle('body');await tool('Rotate');const beforeRotate=await snap();await drag('body',null,5,0);const afterRotate=await snap();assert.equal(afterRotate.undo,beforeRotate.undo+1);for(const c of legs)assert.ok(samplePoseChain(afterRotate.model,c,500,0).end.distanceTo(samplePoseChain(beforeRotate.model,c,500,0).end)<.004);
     await tool('Scale');const beforeScale=await snap();await drag('body',null,4,0);const afterScale=await snap();assert.equal(afterScale.undo,beforeScale.undo+1);for(const c of legs)assert.ok(samplePoseChain(afterScale.model,c,500,0).end.distanceTo(samplePoseChain(beforeScale.model,c,500,0).end)<.004,'body Scale retains planted feet');
@@ -225,7 +226,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.getByLabel('View direction', { exact: true }).selectOption(view); await settle();
       await page.getByRole('radio', { name: plane, exact: true }).check();
       const before = await snap(), h = await handleFor('endpoint', 38), data = await page.evaluate(() => ({ camera: poseProbe().runtime.controls.object.toJSON(), sensitivity: poseProbe().props.preferences?.pointerSensitivity })), b = await viewportBox();
-      const camera = new ObjectLoader().parse(data.camera); camera.updateMatrixWorld(true); const axes = plane === 'XY' ? [0, 1] : plane === 'ZX' ? [0, 2] : [1, 2], origin = h.world.clone().project(camera);
+      const camera = new ObjectLoader().parse(data.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true); const axes = plane === 'XY' ? [0, 1] : plane === 'ZX' ? [0, 2] : [1, 2], origin = h.world.clone().project(camera);
       const basis = axes.map(axis => { const end = h.world.clone(); end.setComponent(axis, end.getComponent(axis) + 1); end.project(camera); return [(end.x - origin.x) * b.width / 2, (origin.y - end.y) * b.height / 2]; });
       const scale = pointerSensitivityValue(data.sensitivity), offset = projectedPlaneTranslation(plane.toLowerCase(), basis, -4 * scale, -3 * scale, shift);
       const expected = solvePoseLimb(before.model, h.chain, 500, 0, h.world.clone().add({ x: offset[0], y: offset[1], z: offset[2] }));
@@ -326,7 +327,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for(const [i,frame] of jumpFrames.entries()) {
       await time.fill(String(frame));await time.press('Enter');await settle();await selectHandle('body');await tool('Move');
       const h=await handleFor('body'), b=await viewportBox(), data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON(),sensitivity:poseProbe().props.preferences?.pointerSensitivity}));
-      const camera=new ObjectLoader().parse(data.camera);camera.updateMatrixWorld(true);
+      const camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
       const currentRoot=samplePoseChain((await snap()).model,autoLegs[0],frame,0).root.z, goalRoot=samplePoseChain(original,autoLegs[0],frame,0).root.z+(i===1?45:-7);
       const origin=h.world.clone().project(camera), goal=h.world.clone();goal.z+=goalRoot-currentRoot;goal.project(camera);
       const sensitivity=pointerSensitivityValue(data.sensitivity);

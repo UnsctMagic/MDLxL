@@ -206,10 +206,11 @@ export default function App() {
   const poseConfig = session.pose || { enabled: false, chains: [], body: null, pins: [], target: null };
   const poseSelectionOnly = useRef(false);
   const changePose = value => { session.pose = value; setTick(tick => tick + 1); };
-  const selectPose = target => { poseSelectionOnly.current = true; setSelectedNodeIdsState(target?.kind === 'node' ? [target.id] : target?.kind === 'body' ? [session.pose.body] : []); changePose({ ...(session.pose || poseConfig), target }); };
+  const selectPose = target => { poseSelectionOnly.current = true; setSelectedNodeIdsState(target?.kind === 'node' ? [target.id] : target?.kind === 'body' ? [session.pose.body] : []); changePose({ ...(session.pose || poseConfig), target, ...(session.pose?.picking ? { pickSerial: (session.pose.pickSerial || 0) + 1 } : {}) }); };
   const setSelectedNodeIds = value => {
     if (session.pose?.enabled && value.length === 1) {
       const id = value[0], chain = session.pose.chains.find(item => item.end === id);
+      if (session.pose.picking) { poseSelectionOnly.current = true; session.pose = { ...session.pose, pickSerial: (session.pose.pickSerial || 0) + 1 }; }
       session.pose = { ...session.pose, target: chain ? { kind: 'endpoint', key: chain.key } : id === session.pose.body ? { kind: 'body' } : { kind: 'node', id } };
     } else if (session.pose?.target) session.pose = { ...session.pose, target: null };
     setSelectedNodeIdsState(value);

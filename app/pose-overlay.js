@@ -1,18 +1,20 @@
 import { Quaternion, Vector3 } from 'three';
 import { allNodes } from '../src/animation.js';
-import { poseControlPoint, poseAffectedPins, poseNodeRole, samplePoseChain } from '../src/pose-ik.js';
+import { poseControlPoint, poseAffectedPins, poseNodeRole, poseRole, samplePoseChain } from '../src/pose-ik.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { pickMovementNode } from './movement-overlay.js';
 
-const symbols = {
+export const poseSymbols = {
   Hand: ['M7 22L4 17L1 13Q0 11 2 10Q3 10 5 12L6 13V4Q6 2 8 2Q10 2 10 4V10V2Q10 0 12 0Q14 0 14 2V10V3Q14 1 16 1Q18 1 18 3V11V6Q18 4 20 4Q22 4 22 6V15Q22 19 18 22Z', 'M9 16H18'],
   Foot: ['M4 2H13V12L17 15H21Q23 15 23 18V21H2V17L4 12Z', 'M4 6H13M2 18H23'],
+  Hoof: ['M6 2H18L17 12L22 19V22H2V19L7 12Z', 'M7 13H17M12 14V22'],
   Head: ['M3 20V10Q3 2 12 2Q21 2 21 10V20L15 23H9Z', 'M5 10H19L17 14H7ZM12 14V20'],
   Chest: ['M3 3L8 1L12 5L16 1L21 3L18 9L19 21L12 23L5 21L6 9Z', 'M7 7L12 10L17 7M12 10V19'],
   Body: ['M12 1A3 3 0 1 1 12 7A3 3 0 1 1 12 1ZM7 9H17L22 15L19 17L16 13V17L18 23H14L12 18L10 23H6L8 17V13L5 17L2 15Z', ''],
   Spine: ['M9 1H15V4H18V7H15V10H18V13H15V16H18V19H15V23H9V19H6V16H9V13H6V10H9V7H6V4H9Z', 'M9 7H15M9 13H15M9 19H15'],
   Object: ['M12 2L22 12L12 22L2 12Z', 'M9 9H15V15H9Z'],
 };
+const symbols = poseSymbols;
 const symbolPaths = new Map();
 const pelvisSymbols = new Map();
 let pelvisFace;
@@ -41,7 +43,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   for (const chain of config.chains) {
     try {
       const pose = samplePoseChain(model, chain, frame, sequence, globalTime), selected = target?.key === chain.key;
-      handles.push(project(pose.end, { kind: 'endpoint', key: chain.key, chain, rotation: pose.rotations[2], selected: selected && target.kind === 'endpoint', joints: selected ? [pose.root, pose.middle, pose.end].map(world => project(world, {})) : [], pinned: config.pins.includes(chain.key), label: chain.kind === 'leg' ? 'Foot' : 'Hand' }));
+      handles.push(project(pose.end, { kind: 'endpoint', key: chain.key, chain, rotation: pose.rotations[2], selected: selected && target.kind === 'endpoint', joints: selected ? pose.points.map(world => project(world, {})) : [], pinned: config.pins.includes(chain.key), label: chain.label || (chain.kind === 'leg' ? 'Foot' : 'Hand') }));
       if (selected) {
         const direction = pose.end.clone().sub(pose.root).normalize(), bend = pose.middle.clone().sub(pose.root);
         bend.addScaledVector(direction, -bend.dot(direction));
@@ -68,7 +70,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
     if (selected) for (const chain of poseAffectedPins(model, config, node.ObjectId)) {
       try { const limb = samplePoseChain(model, chain, frame, sequence, globalTime); paths.push([world, limb.root, limb.middle, limb.end].map(point => project(point, {}))); } catch { /* Only this constraint is unavailable. The direct control remains usable. */ }
     }
-    handles.push(project(world, { kind: body ? 'body' : 'node', id: node.ObjectId, rotation, selected, paths, quiet, label: body ? 'Body' : poseNodeRole(node) }));
+    handles.push(project(world, { kind: body ? 'body' : 'node', id: node.ObjectId, rotation, selected, paths, quiet, label: body ? 'Body' : poseRole(model, config, node.ObjectId) }));
   }
   if (target?.kind === 'node' && target.marker) {
     const node = allNodes(model).find(node => node.ObjectId === target.id), matrix = matrices.get(target.id), pivot = node?.PivotPoint || model.PivotPoints?.[target.id];
@@ -84,7 +86,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
     handle.labelX = handle.x + 20;
     handle.labelWidth = `${handle.label}${handle.pinned ? ' · PIN' : ''}`.length * 7;
     let offset = 0, attempt = 0;
-    while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
+    while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth) || handles.some(other => other.visible && !other.quiet && Math.abs(other.y - (handle.y + offset)) < 26 && handle.labelX < other.x + 19 && other.x - 19 < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
     handle.labelY = handle.y + offset; labels.push(handle);
   }
   return handles;
@@ -96,13 +98,13 @@ export function pickPoseHandle(handles, x, y, target = null, nodes = null, prefe
   // draggable face must therefore win over a label crossing that face.
   const selected = preferSelected && target && visible.find(handle => identity(handle) === identity(target));
   if (selected && Math.hypot(x - selected.x, y - selected.y) <= (selected.kind === 'bend' ? 10 : 19)) return selected;
-  const label = visible.find(handle => !handle.quiet && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
-  if (label) return label;
+  const label = visible.find(handle => !handle.quiet && (handle.selected || handle.hovered) && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
   const candidates = [...visible, ...(nodes || []).map(point => ({ ...point, kind: 'node', id: point.node.ObjectId, marker: true, quiet: true }))];
   const hits = candidates.filter(handle => handle.visible).filter(handle => {
     const distance = Math.hypot(x - handle.x, y - handle.y);
     return distance <= (handle.quiet ? 13 : handle.kind === 'bend' ? 10 : 19);
   });
+  if (!hits.length) return label || null;
   // Share Movement's selection cycle, with each real marker and virtual handle
   // retaining its own identity. Every object covering this click participates.
   const points = hits.map(handle => ({ ...handle, node: { ObjectId: identity(handle) }, handle }));
@@ -112,7 +114,7 @@ export function pickPoseHandle(handles, x, y, target = null, nodes = null, prefe
 export function drawPoseOverlay(context, handles, ratio = 1) {
   context.save(); context.scale(ratio, ratio);
   // Keep the selected symbol above overlapping controllers.
-  for (const handle of [...handles.filter(handle => !handle.selected), ...handles.filter(handle => handle.selected)]) {
+  for (const handle of [...handles.filter(handle => !handle.selected && !handle.hovered), ...handles.filter(handle => !handle.selected && handle.hovered), ...handles.filter(handle => handle.selected)]) {
     if (!handle.visible || handle.quiet) continue;
     const color = handle.pinned ? '#ffbd59' : handle.selected ? '#fff58b' : '#71eee4';
     for (const path of handle.paths || [handle.joints || []]) if (path.length && path.every(joint => joint.visible)) {
@@ -146,6 +148,7 @@ export function drawPoseOverlay(context, handles, ratio = 1) {
       context.save(); context.translate(handle.x - 12, handle.y - 12); context.fillStyle = color; context.fill(shape);
       context.strokeStyle = '#102431'; context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.stroke(detail); context.restore();
     }
+    if (!handle.selected && !handle.hovered) continue;
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'left'; context.textBaseline = 'middle'; context.lineWidth = 3; context.strokeStyle = '#102431';
     const label = `${handle.label}${handle.pinned ? ' · PIN' : ''}`;
     const labelX = handle.labelX ?? handle.x + 20, labelY = handle.labelY ?? handle.y;
