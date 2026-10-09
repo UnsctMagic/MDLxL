@@ -216,12 +216,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const project = () => {
     const view = projectionView.current; if (!view || editingLocked || !selectedCount(allSelected)) return;
     try {
-      const changes = Object.entries(allSelected).filter(([, ids]) => ids.length).map(([index, ids]) => {
-        const uvSet = materialEntries.find(entry => entry.geosetIndices.includes(Number(index)))?.coordId ?? 0;
-        return { geosetIndex: Number(index), uvSet,
-          values: projectUVFromView(model.Geosets[index], ids, view.viewMatrix, view.projectionMatrix, model.Geosets[index].TVertices[uvSet]) };
-      });
-      onUVChanges?.(changes, 'Project UVs from model view');
+      applyCombined(projectUVFromView(combined.geoset, combined.selectedVertices, view.viewMatrix, view.projectionMatrix), false, 'Project UVs from model view');
     } catch (cause) { setMaterialError(cause.message); }
   };
   const chooseProjectionPreset = name => { if (name) setProjectionPreset(previous => ({ name, revision: previous.revision + 1 })); };
