@@ -39,11 +39,12 @@ test('actual Movement component renders normal and Portrait mode without excepti
     assert.doesNotMatch(html,/Portrait Camera|Set Current View|>Create<\/button>/);
   }
 });
-test('Movement places Rotate on Own Axis before Restrict and reflects its checked state',()=>{
+test('Movement removes Own Axis and starts Restrictions and Controller minimized',()=>{
   const model=fixture(), selectedNodeIds=[model.Bones[0].ObjectId];
   const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds,time:0,rotateOnOwnAxis:true}));
-  assert.ok(html.indexOf('Rotate on Own Axis') < html.indexOf('Restrict:'));
-  assert.match(html,/type="checkbox" checked=""\/>Rotate on Own Axis/);
+  assert.doesNotMatch(html,/Rotate on Own Axis/);
+  for(const title of ['Restrictions','Controller']) assert.match(html,new RegExp(`<details class="sidebar-section"><summary>${title}<\\/summary>`));
+  for(const title of ['Current Sequence','Object','Workplane','Tools']) assert.match(html,new RegExp(`<details class="sidebar-section" open=""><summary>${title}<\\/summary>`));
 });
 test('Movement places Highlight Chain directly under Highlight KF and exposes collapsible groups',()=>{
   const model=fixture(), selectedNodeIds=[model.Bones[0].ObjectId];

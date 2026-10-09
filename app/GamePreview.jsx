@@ -24,7 +24,7 @@ import { applyMovementPose, applyMovementTransform, movementRestricted, prepareM
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
-import { drawPoseOverlay, pickPoseHandle, projectPoseHandles } from './pose-overlay.js';
+import { drawPoseOverlay, pickPoseHandle, poseHandleTarget, projectPoseHandles } from './pose-overlay.js';
 import { poseAffectedPins, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
@@ -367,7 +367,7 @@ export default function GamePreview(inputProps) {
       return sequences[p.sequenceIndex] ? p.sequenceIndex : sequences.findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
     };
     const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.nodes]);
-    const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id]);
+    const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
     const poseContextValid = (gesture, p) => gesture.model === (p.poseDocumentModel || p.model) && gesture.previewModel === p.model && gesture.revision === p.revision &&
       (Math.round(p.time) === gesture.inputTime || Math.round(p.time) === gesture.frame) && gesture.inputSequence === p.sequenceIndex &&
       gesture.tool === p.transformMode && gesture.space === p.transformSpace && gesture.cameraMode === p.cameraMode && !p.restPose && !p.suspended && !!p.onPoseCommit &&
@@ -379,11 +379,12 @@ export default function GamePreview(inputProps) {
       // The visible axis tip belongs to the selected control, even when a
       // different object's marker happens to sit beneath it.
       const tip = !p.workplaneEnabled && active && p.transformMode !== 'select' ? pickMovementHandle(nodeHandles, x, y, 'move') : null;
-      const picked = tip ? null : pickPoseHandle(poseHandles, x, y);
+      const picked = tip ? null : pickPoseHandle(poseHandles, x, y, p.poseConfig.target, nodePoints, p.transformMode !== 'select');
       const axis = tip || (!picked && !p.workplaneEnabled && active ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null);
       const handle = picked || (axis || p.workplaneEnabled && active && !realPicked ? active : null);
       if (!handle) return false;
-      const target = { kind: handle.kind, ...(handle.key ? { key: handle.key } : {}), ...(handle.kind === 'node' ? { id: handle.id } : {}) };
+      const target = poseHandleTarget(handle);
+      const next = picked && poseTargetStamp(target) === poseTargetStamp(p.poseConfig.target) ? pickPoseHandle(poseHandles, x, y, p.poseConfig.target, nodePoints) : null;
       if (picked) p.onPoseSelect?.(target);
       if (p.transformMode === 'select' || !['move', 'rotate', 'scale'].includes(p.transformMode)) {
         event.preventDefault(); event.stopImmediatePropagation(); return true;
@@ -402,7 +403,7 @@ export default function GamePreview(inputProps) {
         const gesture = { pose: true, id: event.pointerId, x, y, target, baseline, config, configStamp: poseStamp(config), inputTime: Math.round(p.time), inputSequence: p.sequenceIndex,
           model: p.poseDocumentModel || p.model, previewModel: p.model, revision: p.revision, tool: p.transformMode, space: p.transformSpace, cameraMode: p.cameraMode, mode: handle.kind === 'bend' ? 'move' : p.transformMode, handle: axis || movementWorkplaneHandle(p.workplane || 'xy', handle.unitsPerPixel),
           camera: camera.clone(), origin: handle.world.clone(), snapshots, frame, sequence, globalTime: globalClock, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane,
-          restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null };
+          restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
         if (p.workplaneEnabled) {
           const axes = p.workplane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(p.workplane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
@@ -583,7 +584,7 @@ export default function GamePreview(inputProps) {
         const pickable = nodePoints;
         if (!pickable.length || rotating || (p.cameraMode ?? 'work') !== 'work') { canvas.style.cursor = cursorFor(p); return; }
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
-        const overHandle = pickPoseHandle(poseHandles, x, y) || pickMovementHandle(nodeHandles, x, y, p.transformMode);
+        const overHandle = (p.poseConfig?.enabled ? pickPoseHandle(poseHandles, x, y, p.poseConfig.target, nodePoints, true) : null) || pickMovementHandle(nodeHandles, x, y, p.transformMode);
         canvas.style.cursor = overHandle || p.workplaneEnabled && ['move', 'rotate', 'scale'].includes(p.transformMode) || p.transformMode === 'scale' && p.selectedNodeIds?.length ? viewportCursor('work', p.transformMode) : pickMovementNode(pickable, x, y) ? 'pointer' : viewportCursor(p.cameraMode, p.transformMode);
         return;
       }
@@ -649,7 +650,8 @@ export default function GamePreview(inputProps) {
       latest.current.onNodePosePreview?.(null);
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
       if (gesture.pose) {
-        if (event.type === 'pointercancel' || event.type === 'lostpointercapture' || !gesture.moved || gesture.adjusted || !gesture.changes?.length || !poseContextValid(gesture, latest.current)) restoreGestureTracks(gesture);
+        const valid = poseContextValid(gesture, latest.current);
+        if (event.type === 'pointercancel' || event.type === 'lostpointercapture' || !gesture.moved || gesture.adjusted || !gesture.changes?.length || !valid) restoreGestureTracks(gesture);
         else {
           try {
             const result = latest.current.onPoseCommit?.({ model: gesture.model, revision: gesture.revision, frame: gesture.frame, sequence: gesture.sequence, inputSequence: gesture.inputSequence, changes: gesture.changes, bends: gesture.bends,
@@ -657,6 +659,7 @@ export default function GamePreview(inputProps) {
             if (result === false) restoreGestureTracks(gesture);
           } catch (cause) { restoreGestureTracks(gesture); setGestureLabel(cause.message); }
         }
+        if (event.type === 'pointerup' && !gesture.moved && !gesture.adjusted && valid && gesture.clickTarget) latest.current.onPoseSelect?.(gesture.clickTarget);
         invalidate(); return;
       }
       if (event.type === 'pointercancel' || !gesture.moved || gesture.adjusted || movementRestricted(gesture.mode, latest.current.restrictions)) restoreGestureTracks(gesture);

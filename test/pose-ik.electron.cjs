@@ -56,12 +56,17 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const camera = new ObjectLoader().parse(data.camera); camera.updateMatrixWorld(true);
       return projectPoseHandles(data.model, data.config, data.frame, data.sequence, camera, data.width, data.height);
     }
-    async function handleFor(kind, endpoint) { const points = await handles(); const result = points.find(handle => handle.kind === kind && (endpoint == null || (kind === 'node' ? handle.id : handle.chain?.end) === endpoint)); assert.ok(result?.visible, `Visible ${kind} ${endpoint}`); return result; }
+    async function handleFor(kind, endpoint) { const points = await handles(); const result = points.find(handle => !handle.marker && handle.kind === kind && (endpoint == null || (kind === 'node' ? handle.id : handle.chain?.end) === endpoint)); assert.ok(result?.visible, `Visible ${kind} ${endpoint}`); return result; }
     const historyDepth = () => page.evaluate(() => poseProbe().session.doc.historyStats.undoSteps);
-    async function selectHandle(kind, endpoint) { const depth = await historyDepth(); await tool('Select'); const h = await handleFor(kind, endpoint), b = await viewportBox(); await page.mouse.click(b.x + h.x, b.y + h.y); await settle(); assert.equal(await historyDepth(), depth, 'virtual selection creates no undo step'); }
+    async function selectHandle(kind, endpoint) { const depth = await historyDepth(); await tool('Select'); const h = await handleFor(kind, endpoint), b = await viewportBox(); await page.mouse.click(b.x + h.labelX + 3, b.y + h.labelY); await settle(); assert.equal(await historyDepth(), depth, 'virtual selection creates no undo step'); }
     async function drag(kind, endpoint, dx, dy, cancel = false) {
+      let handle = await handleFor(kind, endpoint);
+      const selected = await page.evaluate(() => poseProbe().props.poseConfig.target);
+      if (selected?.kind !== kind || selected.marker || (kind === 'node' ? selected.id !== handle.id : handle.key && selected.key !== handle.key)) {
+        const box = await viewportBox(); await page.mouse.click(box.x + handle.labelX + 3, box.y + handle.labelY); await settle(); handle = await handleFor(kind, endpoint);
+      }
       const before = await snap(), depth = await historyDepth();
-      const h = await handleFor(kind, endpoint), b = await viewportBox(), x = b.x + h.x, y = b.y + h.y;
+      const h = handle, b = await viewportBox(), x = b.x + h.x, y = b.y + h.y;
       await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 8 }); await settle();
       const during = await snap(); assert.deepEqual(during, before, 'every pointer preview is isolated'); assert.equal(await historyDepth(), depth);
       const preview = await page.evaluate(() => { const { runtime, props } = poseProbe(); return { model: JSON.parse(JSON.stringify(runtime.native.model, (_key, value) => ArrayBuffer.isView(value) ? Array.from(value) : value)), matrices: runtime.native.rendererData.nodes.filter(Boolean).map(node => [node.node.ObjectId, Array.from(node.matrix)]), camera: runtime.controls.object.toJSON(), sequence: props.sequenceIndex, frame: runtime.native.getFrame(), status: document.querySelector('.game-preview-root [role=status]')?.textContent }; });
@@ -91,6 +96,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.getByRole('button', { name: 'Close POSE setup', exact: true }).click(); await settle();
     }
     const initial = await snap(), sidebarWidth = await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width);
+    const section = title => page.locator('details.sidebar-section').filter({ has: page.locator('summary').filter({ hasText: new RegExp('^' + title + '$') }) });
+    for (const title of ['Controller', 'Restrictions']) {
+      assert.equal(await section(title).evaluate(element => element.open), false, title + ' starts as a compact header');
+      await section(title).locator('summary').click(); assert.equal(await section(title).evaluate(element => element.open), true);
+      await section(title).locator('summary').click(); assert.equal(await section(title).evaluate(element => element.open), false);
+    }
+    assert.equal(await page.getByRole('checkbox', { name: 'Rotate on Own Axis', exact: true }).count(), 0);
+    results.checks.push('Own Axis tool is absent; Controller and Restrictions start minimized and open/close through their existing headers');
     assert.equal(await page.getByRole('dialog', { name: 'POSE setup', exact: true }).count(), 0); await shot('01-default');
     await page.getByLabel('Movement bone or node').selectOption('0');
     await page.getByRole('button', { name: 'POSE', exact: true }).click();
@@ -106,6 +119,27 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const target=await page.evaluate(()=>poseProbe().props.poseConfig.target);assert.equal(target.kind,kind);if(id!=null)assert.equal(target.id,id);assert.equal(await historyDepth(),depth);
     }
     results.checks.push('First-use root selection never crashes; one POSE click recognizes both hands/feet, head/chest/pelvis and whole-body root; Object picker does not dismiss Setup; overlapping body/chest/pelvis labels are independently clickable');
+    await page.getByRole('checkbox', { name: 'Bones', exact: true }).check(); await selectHandle('body');
+    const cycleBefore = await snap(), cycleDepth = await historyDepth(), center = await handleFor('body'), cycleBox = await viewportBox();
+    const cycleKey = target => `${target.kind}:${target.id ?? target.key ?? ''}:${!!target.marker}`;
+    const startKey = cycleKey(await page.evaluate(() => poseProbe().props.poseConfig.target)), stack = [];
+    for (let index = 0; index < 40; index++) {
+      await page.mouse.click(cycleBox.x + center.x, cycleBox.y + center.y); await settle();
+      const target = await page.evaluate(() => poseProbe().props.poseConfig.target); stack.push(target);
+      if (cycleKey(target) === startKey) break;
+    }
+    assert.equal(cycleKey(stack.at(-1)), startKey, 'overlap cycle wraps to the first handle');
+    assert.ok(stack.filter(target => !target.marker).length >= 2, 'overlapping virtual handles participate');
+    assert.ok(stack.filter(target => target.marker).length >= 2, 'overlapping real bones participate');
+    assert.equal(new Set(stack.map(cycleKey)).size, stack.length, 'each overlapping object is visited once');
+    assert.deepEqual(await snap(), cycleBefore); assert.equal(await historyDepth(), cycleDepth);
+    results.overlapCycle = stack;
+    await tool('Move'); await page.mouse.click(cycleBox.x + center.x, cycleBox.y + center.y); await settle();
+    assert.notEqual(cycleKey(await page.evaluate(() => poseProbe().props.poseConfig.target)), startKey, 'a Move-tool click also cycles after release');
+    assert.deepEqual(await snap(), cycleBefore); assert.equal(await historyDepth(), cycleDepth);
+    await selectHandle('endpoint', 38); await shot('09-controller-symbols');
+    results.checks.push('Actual repeated clicks cycle through overlapping handles and real bones in Select and Move without authoring keys or undo; named labels choose a control directly');
+    await page.getByRole('checkbox', { name: 'Bones', exact: true }).uncheck();
     await add(38); assert.deepEqual(await snap(), initial, 'setup has no keys/history');
     await page.getByLabel('Workplane', { exact: true }).uncheck(); await tool('Move');
     const preview = await drag('endpoint', 38, -18, -12); assert.deepEqual(preview, initial, 'pointer preview leaves canonical data, dirty state and history untouched');
@@ -121,6 +155,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Movement bone or node').selectOption(''); await page.getByRole('button', { name: 'POSE setup', exact: true }).click(); assert.match(await page.getByRole('alert').textContent(), /uniform|shear/i); await page.getByRole('button', { name: 'Close POSE setup', exact: true }).click();
     for (let index = 0; index < 2; index++) { await menu('undo'); await settle(); } assert.deepEqual((await snap()).model, beforeUnsupported.model); results.checks.push('Setup explains an unsupported nonuniform ancestor after an ordinary bone edit');
     await selectHandle('endpoint', 38); const beforeNoOp = await snap(); await tool('Move'); await drag('endpoint', 38, 0, 0); assert.deepEqual(await snap(), beforeNoOp, 'returning to IK does not author or snap');
+    await selectHandle('endpoint', 38); await tool('Move');
     const noOpHandle = await handleFor('endpoint', 38), noOpBox = await viewportBox(), noOpDepth = await historyDepth(), noOpX = noOpBox.x + noOpHandle.x + 13, noOpY = noOpBox.y + noOpHandle.y;
     await page.mouse.move(noOpX, noOpY); await page.mouse.down(); await page.mouse.move(noOpX - 6, noOpY - 6, { steps: 5 }); await settle(); await page.mouse.move(noOpX, noOpY, { steps: 5 }); await settle(); await page.mouse.up(); await settle(); assert.deepEqual(await snap(), beforeNoOp); assert.equal(await historyDepth(), noOpDepth, 'dragging back to the grip is a no-op');
     await drag('endpoint', 38, 6, -6); const hybrid = await snap(); assert.equal(hybrid.undo, fk.undo + 1); results.checks.push('IK → ordinary chest Rotate with POSE visible → IK has no transition keys or stale target');
@@ -197,10 +232,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       if (shift) await page.keyboard.down('Shift'); await drag('endpoint', 38, -4, -3); if (shift) await page.keyboard.up('Shift'); const after = samplePoseChain((await snap()).model, h.chain, 500, 0); assert.ok(after.end.distanceTo(expected.pose.end) < .004, plane + ' follows ordinary projected workplane');
     }
     await page.getByLabel('Workplane', { exact: true }).uncheck();
+    await section('Restrictions').locator('summary').click();
     await page.getByRole('checkbox', { name: 'Translation', exact: true }).check(); const translationLocked = await snap(); await drag('endpoint', 38, 4, -3); assert.equal((await snap()).undo, translationLocked.undo + 1, 'Translation lock permits limb rotation-only Move');
     await page.getByRole('checkbox', { name: 'Rotation', exact: true }).check(); const rotationLocked = await snap(); await drag('endpoint', 38, 4, -3); assert.deepEqual(await snap(), rotationLocked);
     await page.getByRole('checkbox', { name: 'Rotation', exact: true }).uncheck(); const bodyLocked = await snap(); await selectHandle('body'); assert.ok(await page.getByRole('group', { name: 'Movement tool', exact: true }).getByRole('button', { name: 'Move', exact: true }).isDisabled()); assert.deepEqual(await snap(), bodyLocked);
     await page.getByRole('checkbox', { name: 'Translation', exact: true }).uncheck(); results.checks.push('Textured preview, XY/ZX/YZ workplanes, edge-on views, Shift constraints, and native Rotation/Translation restrictions use existing Movement behavior');
+    await section('Restrictions').locator('summary').click();
     const cameraBefore = await page.evaluate(() => poseProbe().runtime.controls.object.position.toArray()), b = await viewportBox();
     await page.keyboard.down('Alt'); await page.mouse.move(b.x + b.width * .22, b.y + b.height * .3); await page.mouse.down(); await page.mouse.move(b.x + b.width * .22 + 60, b.y + b.height * .3 + 25, { steps: 10 }); await page.mouse.up(); await page.keyboard.up('Alt'); await settle();
     const cameraAfter = await page.evaluate(() => poseProbe().runtime.controls.object.position.toArray()); assert.notDeepEqual(cameraAfter, cameraBefore); assert.equal(await page.evaluate(() => poseProbe().runtime.controls.enabled), true); results.checks.push('Actual Alt+mouse camera rotation works with POSE enabled after cancelled body gestures');

@@ -9,7 +9,7 @@ hierarchy. Setup is optional for ordinary named rigs.
 1. Open **Movement (F3)**, choose an animation and frame, then click **POSE** in
    **Tools**. Recognized hands, feet, Body, Chest, Pelvis and Head appear in the
    view where the model provides them.
-2. Click a handle's center or label. Use the existing **Move**, **Rotate** or
+2. Click a handle's symbol or label. Use the existing **Move**, **Rotate** or
    **Scale** tool. Move a hand or foot to bend its limb; Rotate turns its
    endpoint. Drag **Bend** with Move to steer the elbow or knee.
 3. Select a hand or foot and click **Pin** when it should stay in place. The
@@ -19,9 +19,16 @@ hierarchy. Setup is optional for ordinary named rigs.
    their native hierarchy. An oversized drag stops at the reachable boundary
    and shows **Reach limit**, retaining the valid movement.
 
-Nearby Body, Chest and Pelvis pivots keep separately clickable labels. Normal
-Alt+mouse camera rotation, wheel zoom, axis gizmos, XY/ZX/YZ workplanes and Shift
-constraints remain available.
+Handles use hand, boot, helmet, chest plate and pelvis plate symbols on dark
+backings so they remain identifiable over bone markers. Whole-body control uses
+a person symbol. Repeated clicks cycle through all handles and visible bones
+under the pointer, including with Move, Rotate or Scale active. Dragging keeps
+the currently grabbed object; labels select their named control directly.
+Nearby Body, Chest and Pelvis pivots keep separately clickable labels.
+
+**Controller** and **Restrictions** start minimized; click their existing headers
+to open them. **Rotate on Own Axis** is removed. Normal Alt+mouse camera rotation,
+wheel zoom, axis gizmos, XY/ZX/YZ workplanes and Shift constraints remain available.
 
 ## Other objects and unusual rigs
 

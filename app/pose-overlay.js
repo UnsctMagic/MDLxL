@@ -2,6 +2,24 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes } from '../src/animation.js';
 import { poseAffectedPins, poseNodeRole, samplePoseChain } from '../src/pose-ik.js';
 import { samplePreviewMatrices } from './preview-pose.js';
+import { pickMovementNode } from './movement-overlay.js';
+
+const symbols = {
+  Hand: ['M7 22L4 17L1 13Q0 11 2 10Q3 10 5 12L6 13V4Q6 2 8 2Q10 2 10 4V10V2Q10 0 12 0Q14 0 14 2V10V3Q14 1 16 1Q18 1 18 3V11V6Q18 4 20 4Q22 4 22 6V15Q22 19 18 22Z', 'M9 16H18'],
+  Foot: ['M4 2H13V12L17 15H21Q23 15 23 18V21H2V17L4 12Z', 'M4 6H13M2 18H23'],
+  Head: ['M3 20V10Q3 2 12 2Q21 2 21 10V20L15 23H9Z', 'M5 10H19L17 14H7ZM12 14V20'],
+  Chest: ['M3 3L8 1L12 5L16 1L21 3L18 9L19 21L12 23L5 21L6 9Z', 'M7 7L12 10L17 7M12 10V19'],
+  Pelvis: ['M2 4H22V10L18 21H14L12 14L10 21H6L2 10Z', 'M3 8H21M12 8V13'],
+  Body: ['M12 1A3 3 0 1 1 12 7A3 3 0 1 1 12 1ZM7 9H17L22 15L19 17L16 13V17L18 23H14L12 18L10 23H6L8 17V13L5 17L2 15Z', ''],
+  Spine: ['M9 1H15V4H18V7H15V10H18V13H15V16H18V19H15V23H9V19H6V16H9V13H6V10H9V7H6V4H9Z', 'M9 7H15M9 13H15M9 19H15'],
+  Object: ['M12 2L22 12L12 22L2 12Z', 'M9 9H15V15H9Z'],
+};
+const symbolPaths = new Map();
+
+export function poseHandleTarget(handle) {
+  return { kind: handle.kind, ...(handle.key ? { key: handle.key } : {}), ...(handle.kind === 'node' ? { id: handle.id } : {}), ...(handle.marker ? { marker: true } : {}) };
+}
+const identity = handle => `${handle.kind}:${handle.kind === 'body' ? '' : handle.key ?? handle.id ?? ''}:${handle.marker ? 'marker' : 'control'}`;
 
 export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes) {
   if (!config?.enabled) return [];
@@ -30,7 +48,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   const matrices = samplePreviewMatrices(model, frame, sequence, globalTime, camera);
   for (const node of allNodes(model)) {
     if (handles.some(handle => handle.chain?.end === node.ObjectId)) continue;
-    const body = node.ObjectId === config.body, selected = body ? target?.kind === 'body' : target?.kind === 'node' && target.id === node.ObjectId;
+    const body = node.ObjectId === config.body, selected = body ? target?.kind === 'body' : target?.kind === 'node' && !target.marker && target.id === node.ObjectId;
     const quiet = !body && !selected && !(config.nodes || []).includes(node.ObjectId);
     if (quiet && visibleNodes && !visibleNodes.has(node.ObjectId)) continue;
     const matrix = matrices.get(node.ObjectId), pivot = node.PivotPoint || model.PivotPoints?.[node.ObjectId];
@@ -42,6 +60,13 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
       try { const limb = samplePoseChain(model, chain, frame, sequence, globalTime); paths.push([world, limb.root, limb.middle, limb.end].map(point => project(point, {}))); } catch { /* Only this constraint is unavailable. The direct control remains usable. */ }
     }
     handles.push(project(world, { kind: body ? 'body' : 'node', id: node.ObjectId, rotation, selected, paths, quiet, label: body ? 'Body' : poseNodeRole(node) }));
+  }
+  if (target?.kind === 'node' && target.marker) {
+    const node = allNodes(model).find(node => node.ObjectId === target.id), matrix = matrices.get(target.id), pivot = node?.PivotPoint || model.PivotPoints?.[target.id];
+    if (matrix && pivot) {
+      const world = new Vector3().fromArray(pivot).applyMatrix4(matrix), rotation = new Quaternion(); matrix.decompose(new Vector3(), rotation, new Vector3());
+      handles.push(project(world, { kind: 'node', id: target.id, marker: true, quiet: true, selected: true, rotation, label: node.Name || 'Object' }));
+    }
   }
   // Nearby body/chest/pelvis pivots can overlap. Keep their labels separately
   // clickable while retaining the actual joint positions and compact overlay.
@@ -56,15 +81,19 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   return handles;
 }
 
-export function pickPoseHandle(handles, x, y) {
-  const visible = handles.filter(handle => handle.visible);
+export function pickPoseHandle(handles, x, y, target = null, nodes = null, preferSelected = false) {
+  const visible = handles.filter(handle => handle.visible && (!nodes || !handle.quiet));
   const label = visible.find(handle => !handle.quiet && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
   if (label) return label;
-  const hits = visible.filter(handle => {
+  const candidates = [...visible, ...(nodes || []).map(point => ({ ...point, kind: 'node', id: point.node.ObjectId, marker: true, quiet: true }))];
+  const hits = candidates.filter(handle => handle.visible).filter(handle => {
     const distance = Math.hypot(x - handle.x, y - handle.y);
-    return distance <= (handle.quiet ? 6 : handle.kind === 'bend' ? 10 : 19);
+    return distance <= (handle.quiet ? 13 : handle.kind === 'bend' ? 10 : 19);
   });
-  return hits.sort((a, b) => Number(a.quiet) - Number(b.quiet) || Math.hypot(x - a.x, y - a.y) - Math.hypot(x - b.x, y - b.y) || Number(b.selected) - Number(a.selected))[0] || null;
+  // Share Movement's selection cycle, with each real marker and virtual handle
+  // retaining its own identity. Every object covering this click participates.
+  const points = hits.map(handle => ({ ...handle, node: { ObjectId: identity(handle) }, handle }));
+  return pickMovementNode(points, x, y, target ? [identity(target)] : [], 19, preferSelected, true)?.handle || null;
 }
 
 export function drawPoseOverlay(context, handles, ratio = 1) {
@@ -80,11 +109,17 @@ export function drawPoseOverlay(context, handles, ratio = 1) {
       context.beginPath(); context.setLineDash([3, 3]); context.moveTo(handle.joint.x, handle.joint.y); context.lineTo(handle.x, handle.y); context.strokeStyle = color; context.lineWidth = 1; context.stroke(); context.setLineDash([]);
     }
     context.beginPath();
-    if (handle.kind === 'body') { context.moveTo(handle.x, handle.y - 17); context.lineTo(handle.x + 17, handle.y); context.lineTo(handle.x, handle.y + 17); context.lineTo(handle.x - 17, handle.y); context.closePath(); }
-    else if (handle.kind === 'bend') context.arc(handle.x, handle.y, 7, 0, Math.PI * 2);
-    else if (handle.chain?.kind === 'leg' || handle.kind === 'node') context.rect(handle.x - 13, handle.y - 13, 26, 26);
-    else context.arc(handle.x, handle.y, 13, 0, Math.PI * 2);
-    context.lineWidth = 5; context.strokeStyle = '#102431'; context.stroke(); context.lineWidth = 2; context.strokeStyle = color; context.stroke();
+    if (handle.kind === 'body') { context.moveTo(handle.x, handle.y - 18); context.lineTo(handle.x + 18, handle.y); context.lineTo(handle.x, handle.y + 18); context.lineTo(handle.x - 18, handle.y); context.closePath(); }
+    else context.arc(handle.x, handle.y, handle.kind === 'bend' ? 7 : 17, 0, Math.PI * 2);
+    context.fillStyle = '#102431'; context.fill(); context.lineWidth = 1.5; context.strokeStyle = color; context.stroke();
+    if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
+    else {
+      const name = symbols[handle.label] ? handle.label : handle.label === 'Neck' ? 'Head' : 'Object';
+      if (!symbolPaths.has(name)) symbolPaths.set(name, symbols[name].map(path => new Path2D(path)));
+      const [shape, detail] = symbolPaths.get(name);
+      context.save(); context.translate(handle.x - 12, handle.y - 12); context.fillStyle = color; context.fill(shape);
+      context.strokeStyle = '#102431'; context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.stroke(detail); context.restore();
+    }
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'left'; context.textBaseline = 'middle'; context.lineWidth = 3; context.strokeStyle = '#102431';
     const label = `${handle.label}${handle.pinned ? ' · PIN' : ''}`;
     const labelX = handle.labelX ?? handle.x + 20, labelY = handle.labelY ?? handle.y;

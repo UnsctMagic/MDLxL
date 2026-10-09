@@ -10,7 +10,7 @@ import { createNode, openDocument } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
-import { pickPoseHandle, projectPoseHandles } from '../app/pose-overlay.js';
+import { pickPoseHandle, poseHandleTarget, projectPoseHandles } from '../app/pose-overlay.js';
 
 const chain = { root: 1, middle: 2, end: 3, kind: 'arm', key: 'a' }, leg1 = { root: 4, middle: 5, end: 6, kind: 'leg', key: 'l' }, leg2 = { root: 7, middle: 8, end: 9, kind: 'leg', key: 'r' };
 const q = (axis, angle) => new Quaternion().setFromAxisAngle(new Vector3(...axis).normalize(), angle).toArray();
@@ -198,6 +198,25 @@ test('nearby body and chest labels remain separately selectable at their authore
   const handles=projectPoseHandles(m,{enabled:true,chains:[],pins:[],body:0,nodes:[1]},500,0,camera,600,600), body=handles.find(handle=>handle.kind==='body'), chest=handles.find(handle=>handle.id===1);
   assert.equal(body.x,chest.x); assert.equal(body.y,chest.y); assert.ok(Math.abs(body.labelY-chest.labelY)>=16);
   for(const handle of [body,chest])assert.equal(pickPoseHandle(handles,handle.labelX+3,handle.labelY),handle);
+});
+
+test('overlapping handles and native markers share one complete selection cycle, while a drag keeps its selected object', () => {
+  const hand={kind:'endpoint',key:'arm',label:'Hand',x:30,y:40,visible:true}, head={kind:'node',id:5,label:'Head',x:34,y:40,visible:true};
+  const nodes=[{node:{ObjectId:3},x:30,y:40,visible:true},{node:{ObjectId:8},x:32,y:40,visible:true},{node:{ObjectId:9},x:90,y:40,visible:true}];
+  let target=null;const visited=[];
+  for(let step=0;step<4;step++){const hit=pickPoseHandle([hand,head],30,40,target,nodes);target=poseHandleTarget(hit);visited.push(target);assert.deepEqual(poseHandleTarget(pickPoseHandle([hand,head],30,40,target,nodes,true)),target);}
+  assert.deepEqual(visited,[{kind:'endpoint',key:'arm'},{kind:'node',id:3,marker:true},{kind:'node',id:8,marker:true},{kind:'node',id:5}]);
+  assert.equal(pickPoseHandle([hand,head],30,40,target,nodes),hand);
+  assert.equal(pickPoseHandle([hand,head],hand.x+22,hand.y,target,nodes),hand,'a label selects its named handle directly');
+  assert.equal(pickPoseHandle([{...hand,visible:false}],30,40,null,[]),null,'hidden controls never enter the cycle');
+});
+
+test('a bone under a hand control retains a separate selected marker and native channel scope', () => {
+  const m=fixture(),camera=new PerspectiveCamera(42,1,.1,1000);camera.position.set(50,-100,60);camera.lookAt(0,0,10);camera.updateMatrixWorld();
+  const config={enabled:true,chains:[chain],pins:[],body:0,nodes:[],target:{kind:'node',id:3,marker:true}};
+  const handles=projectPoseHandles(m,config,500,0,camera,600,600),active=handles.filter(handle=>handle.selected);
+  assert.equal(active.length,1);assert.equal(active[0].marker,true);assert.equal(active[0].quiet,true);assert.equal(active[0].id,3);
+  assert.equal(handles.find(handle=>handle.kind==='endpoint').selected,false);assert.deepEqual(poseTrackScope(config,config.target,'move',m),[{id:3,property:'Translation'}]);
 });
 
 test('direct object Move/Rotate/Scale need no limb setup and use ordinary Movement transforms', () => {

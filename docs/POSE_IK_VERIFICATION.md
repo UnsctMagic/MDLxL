@@ -19,10 +19,18 @@ custom three-joint mapping remains available in a collapsed section.
 
 Direct controls reuse ordinary Movement Move/Rotate/Scale for every native node.
 Body/chest/pelvis/head controls retain real-node identity, while a labeled handle
-can be added for any other node. Centers and labels select the same control.
+can be added for any other node. Repeated clicks cycle through all visible
+handles and real markers covering the pointer through the existing Movement
+picker, including while a transform tool is active. Dragging retains the grabbed
+object. A native marker and its virtual control retain separate selection
+identities; a marker selection receives its real-node transform gizmo without
+drawing an extra virtual symbol. Named labels select their control directly.
 Overlapping labels are placed near their pivots on separate rows; a visible
 axis tip controls the selected object even if another marker lies beneath it.
-The existing sidebar width and normal camera controls remain unchanged.
+Hand, boot, helmet, chest/pelvis plate and whole-body vector symbols have dark
+backings over bone markers. Controller and Restrictions start minimized through
+their existing headers. Rotate on Own Axis is removed from Movement. The
+existing sidebar width, other section defaults and camera controls remain unchanged.
 
 Pins can hold hands and feet. Moving any ancestor compensates its affected,
 disjoint pinned limbs together. Translation stops at the first inner/outer
@@ -65,10 +73,10 @@ is asserted. Knight MDX and both Footman formats have preservation coverage.
 
 ## Packaged mouse acceptance
 
-Candidate: `out/pose-v2-package/MDLxL-win32-x64/MDLxL.exe`, Electron 40.8.0,
+Candidate: `out/pose-v3-package/MDLxL-win32-x64/MDLxL.exe`, Electron 40.8.0,
 built `dist`, separate disposable `MDLXL_PROFILE` per run. Tests use actual
 Playwright mouse drags and UI commands in an off-screen packaged window.
-The user's open first-pass test application and personal profile are untouched.
+The user's earlier open test applications and personal profiles are untouched.
 
 `test/pose-ik.electron.cjs` exercises a continuous flow:
 
@@ -76,6 +84,11 @@ The user's open first-pass test application and personal profile are untouched.
   local Setup message, no Reload editor, and no native keys/history. One POSE
   click recognizes both hands/feet and the whole-body root. Body/chest/pelvis
   labels are independently clickable. Object selection keeps Setup open.
+- Controller/Restrictions are initially minimized, their existing headers open
+  and close normally, and the removed Own Axis checkbox is absent. Actual clicks
+  cycle through overlapping real bones and virtual controls in Select and Move,
+  wrap without repeating objects, and create no native edit or history step.
+  Symbol visibility is captured with the native bone overlay enabled.
 - Hand Move/Turn/Bend, leg Move, ordinary chest Rotate/Scale, no-op clicks and
   returning to the grip, and FK/IK transitions preserve the current pose.
 - One/two planted feet, body Move/Rotate/Scale, all four limbs pinned together,
@@ -97,7 +110,7 @@ the native mesh; direct reference controls must move their actual native matrix.
 Acceptance tolerances are 0.004 model units for matrix/pin position comparisons
 and 0.000001 for orientation dot error. The solver verifies tighter scale-aware
 bounds before commit. Exact measurements, executable/index/aggregate asset
-hashes and immutable texture hashes are in `out/pose-v2-ui/result.json`.
+hashes and immutable texture hashes are in `out/pose-v3-ui/result.json`.
 
 Preservation checks compare all semantics outside explicitly permitted native
 transform channels, untouched animation/gap keys inside those channels, and
@@ -106,16 +119,19 @@ byte-identical. Vertices, normals, UVs, topology, pivots, hierarchy, skin/bind
 data, resources, material/texture paths, visibility/RGB and other animations
 including Portrait remain unchanged. Edited complete files necessarily differ.
 
-Local evidence: `out/pose-v2-ui/result.json`, screenshots `01-default.png`
-through `08-whole-body-controllers.png`, and `posed.mdx` / `posed.mdl`.
+Local evidence: `out/pose-v3-ui/result.json`, screenshots `01-default.png`
+through `09-controller-symbols.png`, and `posed.mdx` / `posed.mdl`.
 
 ## Checks and limits
 
-- Focused POSE/selection-history checks: 40 passed, including immutable Knight,
+- Focused POSE/selection-history/Movement/marker checks: 79 passed, including immutable Knight,
   local native Footman, reach boundaries, all direct tools, pinned ancestors,
-  cubic native handles and overlapping-label selection.
+  cubic native handles, shared marker/handle cycling, native-marker transform
+  selection and overlapping-label selection. The component check confirms the
+  removed checkbox, minimized defaults and unchanged other section defaults;
+  its two unrelated failures match the existing clean-main baseline.
 - Compatibility suite: 57 passed.
-- Source regression run: 1389 tests, 1365 passed, 22 failed, 2 skipped. Failure
+- Source regression run: 1391 tests, 1367 passed, 22 failed, 2 skipped. Failure
   identities exactly match the clean-main baseline: 21 existing assertions and
   the existing synchronous keyframe-timeline worker hang. All other workers
   completed; only that verified task-owned worker was stopped. No new failure.
@@ -123,8 +139,8 @@ through `08-whole-body-controllers.png`, and `posed.mdx` / `posed.mdl`.
   acceptance above passed without page errors; final measurements are retained
   in its result file.
 
-Source outputs: `baseline-source.log`, `out/pose-v2-source-final.log` and
-`out/pose-v2-regression-comparison.json`. Existing codec/version/binding/UI
+Source outputs: `baseline-source.log`, `out/pose-v3-source.log` and
+`out/pose-v3-regression-comparison.json`. Existing codec/version/binding/UI
 failures were not edited to make POSE look green.
 
 IK remains limited to rigid two-link ancestry with positive uniform scale and
