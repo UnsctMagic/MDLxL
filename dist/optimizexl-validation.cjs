@@ -67,7 +67,7 @@ function normalizeVersionFields(model, target) {
 // src/editor-document.js
 var import_buffer11 = require("buffer");
 
-// ../../../../../ChatGPT/MDLxL/node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
+// node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
 var TextureFlags = /* @__PURE__ */ (function(TextureFlags2) {
   TextureFlags2[TextureFlags2["WrapWidth"] = 1] = "WrapWidth";
   TextureFlags2[TextureFlags2["WrapHeight"] = 2] = "WrapHeight";
@@ -6431,7 +6431,7 @@ function convertMdxGeosetColorTracks(animations = []) {
 // src/animation-speed.js
 var import_buffer10 = require("buffer");
 
-// ../../../../../ChatGPT/MDLxL/node_modules/.pnpm/three@0.183.2/node_modules/three/examples/jsm/libs/fflate.module.js
+// node_modules/.pnpm/three@0.183.2/node_modules/three/examples/jsm/libs/fflate.module.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
 var i32 = Int32Array;
