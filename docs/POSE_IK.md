@@ -19,7 +19,7 @@ hierarchy. Setup is optional for ordinary named rigs.
    their native hierarchy. An oversized drag stops at the reachable boundary
    and shows **Reach limit**, retaining the valid movement.
 
-Handles use hand, boot, helmet, chest plate and pelvis plate symbols on dark
+Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on dark
 backings so they remain identifiable over bone markers. Whole-body control uses
 a person symbol. Repeated clicks cycle through all handles and visible bones
 under the pointer, including with Move, Rotate or Scale active. Dragging keeps

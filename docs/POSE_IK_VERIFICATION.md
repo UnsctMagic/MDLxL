@@ -30,7 +30,7 @@ identities; a marker selection receives its real-node transform gizmo without
 drawing an extra virtual symbol. Named labels select their control directly.
 Overlapping labels are placed near their pivots on separate rows; a visible
 axis tip controls the selected object even if another marker lies beneath it.
-Hand, boot, helmet, chest/pelvis plate and whole-body vector symbols have dark
+Hand, boot, helmet, chest plate, Trollface pelvis and whole-body symbols have dark
 backings over bone markers. Controller and Restrictions start minimized through
 their existing headers. Rotate on Own Axis is removed from Movement. The
 existing sidebar width, other section defaults and camera controls remain unchanged.
@@ -128,6 +128,16 @@ The same flow also passed before current-main integration in `out/pose-v3-ui`.
 The visible manual test uses that retained `out/pose-v3-package` build and a fresh
 `out/pose-v3-manual/Footman_POSE_Test_3.mdx` copy. Its running profile is separate
 from disposable acceptance profiles and is not replaced during integration.
+
+Pelvis icon follow-up: `out/pose-v4-package/MDLxL-win32-x64/MDLxL.exe` uses
+the user's selected black-and-white Trollface reference, prepared with the built-in
+image tool and stored as `app/pose-trollface.png` (96 x 96, 15,070 bytes).
+The selected symbol draws above overlapping controls. Packaged evidence in
+`out/pose-trollface/result.json`, `pelvis-in-editor.png` and `pelvis-closeup.png`
+confirms the actual image draw, unchanged Pelvis label/native node 26 selection,
+unchanged model data, normal Alt+mouse camera rotation and no page errors.
+This rendering-only follow-up uses the existing full regression results below;
+the full solver/source suites were not repeated for the icon change.
 
 ## Checks and limits
 

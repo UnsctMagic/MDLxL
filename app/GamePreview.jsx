@@ -24,7 +24,7 @@ import { applyMovementPose, applyMovementTransform, movementRestricted, prepareM
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
-import { drawPoseOverlay, pickPoseHandle, poseHandleTarget, projectPoseHandles } from './pose-overlay.js';
+import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, projectPoseHandles } from './pose-overlay.js';
 import { poseAffectedPins, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
@@ -163,6 +163,8 @@ export default function GamePreview(inputProps) {
   },[props.pixelAligned,props.portraitMode]);
   const timelineStart = sequenceIndex < 0 ? globalPreviewId !== null ? 0 : Number(props.timelineInterval?.[0]) : NaN;
   const timelineEnd = sequenceIndex < 0 ? globalPreviewId !== null ? model.GlobalSequences[globalPreviewId] : Number(props.timelineInterval?.[1]) : NaN;
+
+  useEffect(() => loadPoseSymbols(() => runtime.current?.scheduler.invalidate()), []);
 
   useEffect(() => {
     if (!portraitHasFrame(props) || !root.current) return;

@@ -9,12 +9,20 @@ const symbols = {
   Foot: ['M4 2H13V12L17 15H21Q23 15 23 18V21H2V17L4 12Z', 'M4 6H13M2 18H23'],
   Head: ['M3 20V10Q3 2 12 2Q21 2 21 10V20L15 23H9Z', 'M5 10H19L17 14H7ZM12 14V20'],
   Chest: ['M3 3L8 1L12 5L16 1L21 3L18 9L19 21L12 23L5 21L6 9Z', 'M7 7L12 10L17 7M12 10V19'],
-  Pelvis: ['M2 4H22V10L18 21H14L12 14L10 21H6L2 10Z', 'M3 8H21M12 8V13'],
   Body: ['M12 1A3 3 0 1 1 12 7A3 3 0 1 1 12 1ZM7 9H17L22 15L19 17L16 13V17L18 23H14L12 18L10 23H6L8 17V13L5 17L2 15Z', ''],
   Spine: ['M9 1H15V4H18V7H15V10H18V13H15V16H18V19H15V23H9V19H6V16H9V13H6V10H9V7H6V4H9Z', 'M9 7H15M9 13H15M9 19H15'],
   Object: ['M12 2L22 12L12 22L2 12Z', 'M9 9H15V15H9Z'],
 };
 const symbolPaths = new Map();
+let pelvisFace;
+
+export function loadPoseSymbols(onLoad) {
+  pelvisFace ||= new Image();
+  if (pelvisFace.complete && pelvisFace.naturalWidth) { onLoad(); return () => {}; }
+  pelvisFace.addEventListener('load', onLoad, { once: true });
+  if (!pelvisFace.src) pelvisFace.src = new URL('./pose-trollface.png', import.meta.url).href;
+  return () => pelvisFace.removeEventListener('load', onLoad);
+}
 
 export function poseHandleTarget(handle) {
   return { kind: handle.kind, ...(handle.key ? { key: handle.key } : {}), ...(handle.kind === 'node' ? { id: handle.id } : {}), ...(handle.marker ? { marker: true } : {}) };
@@ -98,7 +106,8 @@ export function pickPoseHandle(handles, x, y, target = null, nodes = null, prefe
 
 export function drawPoseOverlay(context, handles, ratio = 1) {
   context.save(); context.scale(ratio, ratio);
-  for (const handle of handles) {
+  // Keep the selected symbol above overlapping controllers.
+  for (const handle of [...handles.filter(handle => !handle.selected), ...handles.filter(handle => handle.selected)]) {
     if (!handle.visible || handle.quiet) continue;
     const color = handle.pinned ? '#ffbd59' : handle.selected ? '#fff58b' : '#71eee4';
     for (const path of handle.paths || [handle.joints || []]) if (path.length && path.every(joint => joint.visible)) {
@@ -113,6 +122,9 @@ export function drawPoseOverlay(context, handles, ratio = 1) {
     else context.arc(handle.x, handle.y, handle.kind === 'bend' ? 7 : 17, 0, Math.PI * 2);
     context.fillStyle = '#102431'; context.fill(); context.lineWidth = 1.5; context.strokeStyle = color; context.stroke();
     if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
+    else if (handle.label === 'Pelvis') {
+      if (pelvisFace?.complete && pelvisFace.naturalWidth) context.drawImage(pelvisFace, handle.x - 16, handle.y - 16, 32, 32);
+    }
     else {
       const name = symbols[handle.label] ? handle.label : handle.label === 'Neck' ? 'Head' : 'Object';
       if (!symbolPaths.has(name)) symbolPaths.set(name, symbols[name].map(path => new Path2D(path)));
