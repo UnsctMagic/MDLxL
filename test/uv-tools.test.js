@@ -91,6 +91,28 @@ test('material compositor combines opaque team colour and alpha image layers and
   assert.deepEqual([...compositeMaterialPixels([{ pixels: new Uint8ClampedArray([64,64,64,255]), filterMode: 0, alpha: 1 }, { pixels: new Uint8ClampedArray([255,128,64,255]), filterMode: 6, alpha: 1 }], 1, 1)], [128,64,32,255]);
 });
 
+for (const texture of ['first.blp', 'second.blp']) test(`combined projection keeps geoset placement with ${texture === 'first.blp' ? 'matching' : 'different'} textures and UV sets`, () => {
+  const first = geoset(0, 0), second = geoset(1, 1);
+  second.TVertices.push(new Float32Array([.2,.3, .4,.5, .6,.7, .8,.9]));
+  const model = { Geosets: [first, second, geoset(5)], Materials: [{ Layers: [{ TextureID: 0, CoordId: 0 }] }, { Layers: [{ TextureID: 1, CoordId: 1 }] }], Textures: [{ Image: 'first.blp' }, { Image: texture }] };
+  const original = structuredClone(model), domain = { 0: [0,1,2], 1: [0,1,2] }, selected = { 0: [0,1], 1: [0,1] };
+  const canvas = combineSelectedUVGeosets(model, domain, selected, relevantUVMaterials(model, domain));
+  const identity = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+  const values = projectUVFromView(canvas.geoset, canvas.selectedVertices, identity, identity);
+  const changes = splitSelectedUVGeosets(model, canvas.refs, values), [a, b] = changes.map(change => change.values);
+  assert.deepEqual(changes.map(change => [change.geosetIndex, change.uvSet]), [[0,0],[1,1]]);
+  assert.ok(Math.abs(a[2] - b[0]) < 1e-6 && Math.abs(a[3] - b[1]) < 1e-6, 'the shared 3D edge stays joined in UV space');
+  assert.ok(Math.abs(b[2] - a[0] - 1) < 1e-6, 'the combined width retains the parts model-space spacing');
+  assert.ok(Math.abs((a[0] + a[2] + b[0] + b[2]) / 4 - .4) < 1e-6, 'one shared center anchors the whole selection');
+  assert.ok(Math.abs((a[1] + a[3] + b[1] + b[3]) / 4 - .2) < 1e-6);
+  for (const change of changes) assert.deepEqual(change.values.slice(4), original.Geosets[change.geosetIndex].TVertices[change.uvSet].slice(4), 'unselected UVs stay unchanged');
+  const pan = identity.slice(); pan[12] = .6; pan[13] = -.4;
+  assert.deepEqual(projectUVFromView(canvas.geoset, canvas.selectedVertices, pan, identity), values, 'panning leaves the whole projection anchored');
+  for (const change of changes) model.Geosets[change.geosetIndex].TVertices[change.uvSet] = change.values;
+  model.Geosets[0].TVertices[0] = original.Geosets[0].TVertices[0]; model.Geosets[1].TVertices[1] = original.Geosets[1].TVertices[1];
+  assert.deepEqual(model, original, 'materials, geometry, rigging, other geosets and inactive UV sets are preserved');
+});
+
 
 test('selected geosets of different materials stay on one canvas and edits return to their own UV sets', () => {
   const first = geoset(0, 0), second = geoset(2, 1);
