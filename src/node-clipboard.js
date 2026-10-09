@@ -1,6 +1,7 @@
 import { createNode, NODE_TYPES } from './editor-document.js';
 import { ensureDummyBone } from './dummy-bone.js';
 import { canonicalizeSerializedNodeOrder } from './node-id-order.js';
+import { adaptPasteFormat } from './paste-format.js';
 
 const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
 const clone = value => structuredClone(value);
@@ -16,9 +17,8 @@ export function captureNodeSelection(model, selectedNodeIds = []) {
 /** Copy exactly the selected nodes. Selected parent/child relationships survive;
  * roots are attached to the destination's validated shared DummyBone. */
 export function pasteNodesToDummy(target, clipboard) {
-  const source = clipboard?.model, selected = new Set(clipboard?.nodeIds || []);
+  const source = clipboard?.model && adaptPasteFormat(clipboard.model, target.Version), selected = new Set(clipboard?.nodeIds || []);
   if (!source || !selected.size) throw Error('Copy one or more nodes before pasting.');
-  if (source.Version !== target.Version) throw Error('Node paste requires matching model formats. Convert a copy to the destination format first.');
   for (const id of selected) if (!source.Nodes?.[id] || !nodeType(source, id)) throw Error(`Copied node ${id} no longer exists.`);
   const dummy = ensureDummyBone(target);
   target.Textures ||= []; target.Materials ||= []; target.TextureAnims ||= []; target.GlobalSequences ||= [];
@@ -81,6 +81,7 @@ export function pasteNodesToDummy(target, clipboard) {
     const newId = created.ObjectId, attachmentId = created.AttachmentID;
     Object.assign(created, clone(original), { ObjectId: newId, Parent: selected.has(original.Parent) ? createdNodes.get(original.Parent).ObjectId : dummy.ObjectId, Name: uniqueName(original.Name) });
     created.PivotPoint = clone(source.PivotPoints?.[old] || original.PivotPoint || new Float32Array(3)); target.PivotPoints[newId] = created.PivotPoint;
+    for (const [index, pose] of (target.BindPoses || []).entries()) if (source.BindPoses?.[index]?.Matrices?.[old]) pose.Matrices[newId] = clone(source.BindPoses[index].Matrices[old]);
     if (type === 'Attachment') created.AttachmentID = attachmentId;
     if (type === 'Bone') { created.GeosetId = null; created.GeosetAnimId = null; }
     if (type === 'ParticleEmitter2') created.TextureID = textureRef(created.TextureID);

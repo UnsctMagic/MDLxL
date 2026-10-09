@@ -66,6 +66,19 @@ test('node permutation retains skin weights, camera bind poses and unused pivots
   assert.deepEqual(model.PivotPoints.at(-1), f(101, 102, 103));
 });
 
+test('new nodes extend bind poses before cameras and retain every existing node matrix', () => {
+  const model = createDemoDocument().model;
+  model.Cameras = [{ Name: 'Portrait' }];
+  const camera = f(1, 0, 0, 0, 1, 0, 0, 0, 1, 77, 88, 99);
+  const originals = new Map(model.Nodes.filter(Boolean).map(node => [node, f(1, 0, 0, 0, 1, 0, 0, 0, 1, node.ObjectId, 2, 3)]));
+  model.BindPoses = [{ Matrices: [...originals.values(), camera] }];
+  const added = createNode(model, 'Bone');
+  canonicalizeSerializedNodeOrder(model);
+  for (const [node, matrix] of originals) assert.deepEqual(model.BindPoses[0].Matrices[node.ObjectId], matrix);
+  assert.deepEqual(model.BindPoses[0].Matrices[added.ObjectId], f(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0));
+  assert.equal(model.BindPoses[0].Matrices.at(-1), camera);
+});
+
 test('MDL layout keeps strings literal and distinguishes tuples from numeric list blocks', () => {
   const text = 'Model "path { literal }" { AnimationFile "folder\\end\\", } GlobalSequences 2 { Duration 100, Duration 200, } Geoset { VertexGroup { 0, 1, } Faces 1 3 { Triangles { { 0, 1, 2 }, } } }';
   const formatted = formatGeneratedMdl(text).toString();
