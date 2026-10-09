@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import sheet from './assets/update/0.png?inline';
-import wings from './assets/update/1.png?inline';
+import sheet from './assets/update/0.png?url';
+import wings from './assets/update/1.png?url';
 import './UpdateShredder.css';
 
 const spots = [
