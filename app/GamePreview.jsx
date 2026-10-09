@@ -17,7 +17,7 @@ import { showcaseOrbitRadius, setShowcaseOrbitCamera, showcaseFraming } from './
 import { cropPixels, containRect, recordingDimensions } from './showcase-crop.js';
 import { textureFromAsset } from './Viewport.jsx';
 import { drawGeosetHighlight } from './geoset-highlight.js';
-import { allNodes, localSequenceAtFrame, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
+import { allNodes, inverseGeosetSkinMatrix, localSequenceAtFrame, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
 import { isolateGlobalSequence } from '../src/global-sequence-preview.js';
 import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
@@ -1247,6 +1247,30 @@ export default function GamePreview(inputProps) {
       cancel: cancelPreviewFrame,
     });
     state.captureApi = {
+      shredder: {
+        projectPosition(position, target) {
+          if (disposed || !native) return null;
+          const rect = canvas.getBoundingClientRect(), point = new THREE.Vector3(...position);
+          if (target) {
+            const matrices = new Map((native.rendererData?.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
+            const inverse = inverseGeosetSkinMatrix(ownedModel.Geosets[target.geosetIndex], target.vertexIndex, matrices);
+            if (!inverse) return null;
+            point.applyMatrix4(inverse.invert());
+          }
+          point.project(camera);
+          if (!rect.width || !rect.height || ![point.x, point.y, point.z].every(Number.isFinite) || Math.abs(point.x) > .95 || Math.abs(point.y) > .95 || Math.abs(point.z) > 1) return null;
+          return { x: rect.left + (point.x + 1) * rect.width / 2, y: rect.top + (1 - point.y) * rect.height / 2 };
+        },
+        pickVertex() {
+          if (disposed || !native || nodeGesture || selectionGesture) return null;
+          for (let attempt = 0; attempt < 40 && posedGeosets.length; attempt++) {
+            const geo = posedGeosets[Math.floor(Math.random() * posedGeosets.length)], vertexIndex = Math.floor(Math.random() * geo.vertices.length / 3);
+            const point = state.captureApi.shredder.projectPosition(Array.from(geo.vertices.slice(vertexIndex * 3, vertexIndex * 3 + 3)));
+            if (point) return { ...point, geosetIndex: geo.index, vertexIndex };
+          }
+          return null;
+        },
+      },
       get isReady() { return !disposed && texturesReady && (!particleAuthor || particleAuthor.simulation && !particleAuthor.status.busy) && eventPreview.isReady && backgroundState.current.status === 'ready' && layerAPI.current?.isReady !== false && (!portraitHasFrame(latest.current) || portraitFrame.current.status !== 'loading'); },
       cameraView() { return state.cameraView(); },
       showcaseView() { return {camera:state.cameraView(),anchor:[0,0,center.z],radius,portraitFraming:portraitFraming.toArray(),detached:state.cameraDetached}; },

@@ -57,7 +57,7 @@ const Settings = lazy(() => import('./Settings.jsx'));
 import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { WarmKeysProvider } from './WarmKeys.jsx';
-import Shredder, { ShredderWarning } from './Shredder.jsx';
+import Shredder, { ShredderTool, ShredderWarning } from './Shredder.jsx';
 import { shredderMordorWarning } from '../src/shredder-coach.js';
 import { currentShredderAttack, prepareShredderAttack, moveShredderVertex } from '../src/shredder-chaos.js';
 import { normalizePreferences } from '../src/preferences.js';
@@ -366,13 +366,17 @@ export default function App() {
     } catch (error) { refresh(); say(error.message, true); if(options.rethrow)throw error; return false; }
   };
   const shredderCanAttack = () => preferencesRef.current.shredderEnabled && preferencesRef.current.language === 'mordor' &&
-    mode === 'vertices' && !doc.readOnly && !savingRef.current && !dialog && !settingsTab && !shredderWarning && !hasUVPreview && !hasTrackDrafts;
+    ['vertices', 'bones', 'animation'].includes(mode) && !doc.readOnly && !savingRef.current && !dialog && !settingsTab && !shredderWarning && !hasUVPreview && !hasTrackDrafts;
   const prepareShredderModelAttack = () => {
     if (!shredderCanAttack()) return null;
-    const viewport = shredderViewport.current, target = viewport?.pickVertex();
-    const plan = prepareShredderAttack(doc, target);
-    const to = plan && viewport.projectPosition(plan.position);
-    return to ? { ...plan, from: target, to } : null;
+    const viewport = mode === 'vertices' ? shredderViewport.current : captureAPI?.shredder;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const target = viewport?.pickVertex();
+      if (!target) return null;
+      const plan = prepareShredderAttack(doc, target), to = plan && viewport.projectPosition(plan.position, target);
+      if (to && Math.hypot(to.x - target.x, to.y - target.y) > 10) return { ...plan, from: target, to };
+    }
+    return null;
   };
   const commitShredderModelAttack = plan => {
     if (!shredderCanAttack() || !currentShredderAttack(doc, plan)) return false;
@@ -1387,7 +1391,7 @@ export default function App() {
       </div>
       <div className="module-divider" aria-hidden="true"/>
       <div className="model-tabs" role="tablist" aria-label="Open models">{sessions.map(item => <div className={`model-tab${item === session ? ' active' : ''}`} key={item.id}><button type="button" role="tab" aria-selected={item === session} title={item.path || item.doc.name} onClick={() => activateSession(item)}><span className="model-tab-dirty" aria-hidden="true">{sessionDirty(item) ? '●' : ''}</span><span>{item.doc.name}</span></button><button type="button" className="model-tab-close" aria-label={`Close ${item.doc.name}`} title={`Close ${item.doc.name}`} onClick={event=>{event.stopPropagation();requestCloseSession(item);}}>×</button></div>)}</div>
-      <div className="classic-toolbar-group toolbar-modules"><Tool action="textureLibrary" className="library-tool" icon="wc3-library" badge="LIBR" title="Material and Texture Library" onClick={() => openLibrary()}/><Tool action="forge" className="forge-tool" icon="wc3-forge.gif" badge="FRG" title="Forge" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'forge'})}/><Tool action="bitsAndParts" className="bits-tool" icon="wc3-bits-and-parts" badge="BITZ" title="BitsAndParts / Clockwork" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'bitsAndParts'})}/><Tool action="optimizeModel" className="optimizer-tool" icon="wc3-gather-gold" badge="OPXL" title="OptimizeXL" disabled={!commandEnabled('optimizeModel')} onClick={openOptimizeXL}/><Tool action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>} title="Emitter Editor" disabled={!commandEnabled('particles')} onClick={()=>openParticles()}/><PressedKeysTool icon={pressedKeysIcon} active={preferences.showPressedKeys} onClick={()=>commands.current.pressedKeys()}/><Tool className="vis-toggle" icon={visUI ? 'wc3-xl' : 'wc3-vis'} badge={visUI ? 'XL' : 'VIS'} title={visUI ? 'XL' : 'VIS'} active={visUI} onClick={() => setVisUI(value => !value)}/></div>
+      <div className="classic-toolbar-group toolbar-modules"><Tool action="textureLibrary" className="library-tool" icon="wc3-library" badge="LIBR" title="Material and Texture Library" onClick={() => openLibrary()}/><Tool action="forge" className="forge-tool" icon="wc3-forge.gif" badge="FRG" title="Forge" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'forge'})}/><Tool action="bitsAndParts" className="bits-tool" icon="wc3-bits-and-parts" badge="BITZ" title="BitsAndParts / Clockwork" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'bitsAndParts'})}/><Tool action="optimizeModel" className="optimizer-tool" icon="wc3-gather-gold" badge="OPXL" title="OptimizeXL" disabled={!commandEnabled('optimizeModel')} onClick={openOptimizeXL}/><Tool action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>} title="Emitter Editor" disabled={!commandEnabled('particles')} onClick={()=>openParticles()}/><PressedKeysTool icon={pressedKeysIcon} active={preferences.showPressedKeys} onClick={()=>commands.current.pressedKeys()}/><ShredderTool active={preferences.shredderEnabled} onClick={()=>requestPreferences(previous=>({...previous,shredderEnabled:!previous.shredderEnabled}))}/><Tool className="vis-toggle" icon={visUI ? 'wc3-xl' : 'wc3-vis'} badge={visUI ? 'XL' : 'VIS'} title={visUI ? 'XL' : 'VIS'} active={visUI} onClick={() => setVisUI(value => !value)}/></div>
     </div>
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement'} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} onSetView={updatePortraitCamera} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">

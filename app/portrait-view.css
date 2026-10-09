@@ -33,7 +33,7 @@
    toolbar available without occupying more editor space. */
 .classic-app[data-vis-ui]>.classic-modules>:not(.toolbar-modules):not(.editor-modules),
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules>button,
-.classic-app[data-vis-ui]>.classic-modules>.toolbar-modules>:not(.vis-toggle),
+.classic-app[data-vis-ui]>.classic-modules>.toolbar-modules>:not(.vis-toggle):not(.shredder-tool),
 .classic-app[data-vis-ui]>.classic-toolbar :is(.toolbar-modules,.addon-menu,.language-switch,[data-warmkey="new"],[data-warmkey="redo"],[data-warmkey="copy"],[data-warmkey="paste"],[data-warmkey="convertVersion"]),
 .classic-app[data-vis-ui] .classic-view-label>:not(:first-child){display:none}
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules{grid-row:1/-1;align-self:center}

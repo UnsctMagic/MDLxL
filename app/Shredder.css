@@ -1,15 +1,22 @@
 .shredder-layer{position:fixed;inset:0;overflow:hidden;pointer-events:none!important;z-index:80;font:12px/1.4 Tahoma,Arial,sans-serif}
-.shredder-layer *{pointer-events:none!important}
+.shredder-layer *{pointer-events:none}
 .shredder-sprite{position:absolute;left:0;top:0;width:64px;height:69.33px;will-change:transform}
 .shredder-picture{background-repeat:no-repeat;width:64px;height:69.33px}
+.shredder-handle{position:absolute;left:14px;top:15px;width:37px;height:49px;pointer-events:auto!important;cursor:grab;touch-action:none;user-select:none}
+.shredder-sprite[data-dragging=true] .shredder-handle{cursor:grabbing}
+.shredder-sprite[data-drag-disabled=true] .shredder-handle{pointer-events:none!important}
+.shredder-layer[data-mordor=true] .shredder-sprite{width:112px;height:112px}
+.shredder-layer[data-mordor=true] .shredder-handle{left:26px;top:8px;width:63px;height:94px}
 .shredder-balloon{position:absolute;width:240px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:9px 12px;background:var(--ui-field,#fffbea);color:var(--ui-text,#262018);border:1px solid var(--ui-border,#706456);border-radius:14px;box-shadow:0 2px 5px #0003}
 .shredder-balloon[hidden]{display:none}
 .shredder-balloon:after{content:'';position:absolute;right:25px;bottom:-7px;width:12px;height:12px;background:inherit;border-right:1px solid var(--ui-border,#706456);border-bottom:1px solid var(--ui-border,#706456);transform:rotate(45deg)}
 .shredder-balloon kbd{display:inline-block;margin:0 2px;padding:1px 4px;border:1px solid var(--ui-border,#706456);border-radius:3px;font-weight:bold;color:var(--ui-text,#262018)}
 [data-shredder-hint]{outline:2px dotted #bd8128!important;outline-offset:2px}
-.shredder-crown{position:absolute;width:31px;height:23px;left:17px;top:0;filter:drop-shadow(0 0 2px #ffd97e)}
 .shredder-carried-vertex{display:none;position:absolute;left:41px;top:48px;width:7px;height:7px;background:#ff3535;border:1px solid #fff;transform:rotate(45deg);box-shadow:0 0 5px #f33}
 .shredder-sprite[data-carrying=true] .shredder-carried-vertex{display:block}
+.shredder-layer[data-mordor=true] .shredder-carried-vertex{left:76px;top:76px;width:9px;height:9px}
+.shredder-tool-art{display:block;width:40px;height:43.33px;background-size:800% 1100%;background-position:0 0;background-repeat:no-repeat}
+.classic-modules .shredder-tool .module-icon-badge{color:#dce9ff;font-size:10px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
 .shredder-layer[lang=mordor] .shredder-balloon{font-family:MDLxL-Mordor,serif;letter-spacing:.035em}
 .shredder-warning-overlay{z-index:1150!important}
 .shredder-warning{width:min(390px,calc(100vw - 32px))!important}

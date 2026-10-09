@@ -27,27 +27,50 @@ export function easyShortcutForAction(id, bindings) {
     .sort((a, b) => a.split('+').length - b.split('+').length || a.length - b.length)[0] || '';
 }
 
-export const SHREDDER_TIMING = Object.freeze({ repetitionWindow: 45000, tipCooldown: 60000, tipDuration: 9000, tantrumDuration: 7000 });
+export const SHREDDER_TIMING = Object.freeze({ repetitionWindow: 30000, tipCooldown: 4500, reminderDelay: 1800, tipDuration: 6000, tantrumDuration: 7000, recovery: 18000, idleAdvice: 18000 });
 
 /** Advice counts actual mouse uses, and only displayed advice can be ignored. */
 export class ShredderCoach {
-  constructor() { this.records = new Map(); this.lastSpeech = -Infinity; this.tantrumUsed = false; }
+  constructor() { this.records = new Map(); this.lastSpeech = -Infinity; this.lastMouse = -Infinity; this.mouseCount = 0; this.attention = null; this.tantrumUsed = false; this.restUntil = 0; }
+  offer({ id, key, label }, now, proactive = false) {
+    if (!key || now < this.restUntil) return null;
+    const record = this.records.get(id) || { count: 0, tips: 0, lastUse: now, key };
+    record.count = 0; record.tips++; this.records.set(id, record);
+    this.lastSpeech = now; this.lastMouse = now; this.mouseCount = 0;
+    this.attention = { id, key, label, ignored: 0, reminders: 0, started: now };
+    return { kind: 'tip', id, label, key, reminder: record.tips > 1, proactive };
+  }
   use({ id, source, key, label }, now) {
-    if (source === 'shortcut') { this.records.delete(id); return { kind: 'learned', id }; }
-    if (source !== 'mouse' || !key) return null;
+    if (source === 'shortcut') {
+      const taught = this.records.get(id)?.tips || this.attention?.id === id;
+      this.records.delete(id); this.attention = null; this.mouseCount = 0;
+      if (taught) { this.lastSpeech = now; return { kind: 'learned', id, key, label }; }
+      return null;
+    }
+    if (source !== 'mouse' || now < this.restUntil) return null;
+    if (now - this.lastMouse > SHREDDER_TIMING.repetitionWindow) { this.mouseCount = 0; this.attention = null; }
+    this.lastMouse = now;
+    const attention = this.attention;
+    if (attention) {
+      attention.ignored++;
+      if (!this.tantrumUsed && attention.ignored >= 7 && attention.reminders && now - attention.started >= 4000) {
+        this.tantrumUsed = true; this.lastSpeech = now; this.restUntil = now + SHREDDER_TIMING.tantrumDuration + SHREDDER_TIMING.recovery;
+        return { kind: 'tantrum', id: attention.id, label: attention.label, key: attention.key };
+      }
+      if (attention.ignored >= 3 && !attention.reminders && now - this.lastSpeech >= SHREDDER_TIMING.reminderDelay) {
+        attention.reminders++; this.lastSpeech = now;
+        return { kind: 'tip', id: attention.id, label: attention.label, key: attention.key, reminder: true };
+      }
+    }
+    if (!key) return null;
     let record = this.records.get(id);
     if (!record || record.key !== key) record = { count: 0, tips: 0, lastUse: now, key };
     if (now - record.lastUse > SHREDDER_TIMING.repetitionWindow) record.count = 0;
-    record.lastUse = now; record.count++; this.records.set(id, record);
-    if (record.count < 3 || now - this.lastSpeech < SHREDDER_TIMING.tipCooldown) return null;
-    record.count = 0; this.lastSpeech = now;
-    if (record.tips >= 3) {
-      if (this.tantrumUsed) return null;
-      this.tantrumUsed = true;
-      return { kind: 'tantrum', id };
-    }
-    record.tips++;
-    return { kind: 'tip', id, label, key, reminder: record.tips > 1 };
+    record.lastUse = now; record.count++; this.mouseCount++; this.records.set(id, record);
+    if (record.count < 2 && this.mouseCount < 4 || now - this.lastSpeech < SHREDDER_TIMING.tipCooldown) return null;
+    // Finish reacting to ignored advice before moving on to another tool.
+    if (attention && !this.tantrumUsed && attention.ignored < 7) return null;
+    return this.offer({ id, label, key }, now);
   }
 }
 

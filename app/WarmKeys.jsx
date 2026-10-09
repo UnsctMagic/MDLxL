@@ -70,7 +70,7 @@ export function WarmKeysProvider({ preferences, catalog = [], activeScope = 'edi
     const manualUsage = event => {
       // Shortcut .click(), keyboard activation, and React effects are not mouse use.
       if (!event.isTrusted || event.detail <= 0 || event.button !== 0) return;
-      const element = event.target?.closest?.('[data-warmkey]');
+      const element = event.target?.closest?.('[data-warmkey]') || event.target?.closest?.('label')?.querySelector('[data-warmkey]');
       if (!element || !enabled(element) || !visible(element) || isTextEditingTarget(element)) return;
       const id = controlActionId(element);
       if (id) reportUsage(id, 'mouse', element);
