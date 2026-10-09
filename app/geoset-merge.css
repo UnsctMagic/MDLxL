@@ -1,0 +1,7 @@
+.geoset-merge-dialog .classic-modal-window{width:390px}
+.geoset-merge-dialog .classic-modal-body{padding:9px;max-height:65vh}
+.geoset-merge-dialog p{margin:0 0 7px}
+.geoset-merge-group{margin:7px 0;padding:7px;border:1px solid var(--ui-border,#aaa);min-width:0}
+.geoset-merge-conflict{display:flex;flex-direction:column;gap:4px;margin:6px 0 10px}
+.geoset-merge-conflict select{width:100%}
+.geoset-merge-detail{display:block;font-size:10px;overflow-wrap:anywhere}
