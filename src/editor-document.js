@@ -176,7 +176,8 @@ function normalizeModel(model, previous) {
   for (const node of model.Lights) { node.QuadraticFalloff ??= 0.0005; node.LinearFalloff ??= 0; node.Damping ??= 0.00001; }
   for (const [i, geoset] of model.Geosets.entries()) {
     if (previous && fingerprint(previous.Geosets[i]?.Faces) !== fingerprint(geoset.Faces) && geoset.PrimitiveCounts && Array.from(geoset.PrimitiveCounts).reduce((sum,n)=>sum+n,0) !== geoset.Faces.length) {
-      geoset.PrimitiveTypes = Uint32Array.of(4); geoset.PrimitiveCounts = Uint32Array.of(geoset.Faces.length);
+      geoset.PrimitiveTypes = geoset.Faces.length ? Uint32Array.of(4) : new Uint32Array();
+      geoset.PrimitiveCounts = geoset.Faces.length ? Uint32Array.of(geoset.Faces.length) : new Uint32Array();
     }
   }
   // The MDL writer omits these zero-valued emitter fields. Its parser leaves
