@@ -13,7 +13,12 @@ const root = path.resolve(__dirname, '..');
   await fs.cp(packaged, fixture, { recursive: true });
   const entry = path.join(fixture, 'resources/app/electron/main.cjs');
   const runtimeDist = path.join(fixture, 'resources/app/dist');
-  assert.equal((await fs.readdir(runtimeDist)).some(name => /shredder.*\.png$/i.test(name)), false, 'sprite sheets are embedded in the bundle');
+  const emitted = await fs.readdir(path.join(runtimeDist,'assets'));
+  for (const name of ['0','1']) {
+    const file = emitted.find(file => file.startsWith(name+'-') && file.endsWith('.png'));
+    assert.ok(file, 'sprite sheet is emitted as a PNG asset');
+    assert.deepEqual(await fs.readFile(path.join(runtimeDist,'assets',file)),await fs.readFile(path.join(root,'app/assets/update',name+'.png')),'sprite bytes stay unchanged');
+  }
   const bootstrap = `
     (()=>{
     const {app,BrowserWindow,dialog}=require('electron');
@@ -66,7 +71,14 @@ const root = path.resolve(__dirname, '..');
       await page.clock.runFor(3200);
       assert.equal(await bird.getAttribute('data-phase'),'peek');
       assert.equal(await bird.getAttribute('data-spot'),String(spot));
-      assert.match(await bird.locator('div').evaluate(node => node.style.backgroundImage), /^url\("?data:image\/png;base64,/, 'the visible sprite uses the embedded asset');
+      const sprite = await bird.locator('div').evaluate(async node => {
+        const url = node.style.backgroundImage.slice(4,-1).replace(/^['"]|['"]$/g,'');
+        const image = new Image(); image.src = new URL(url,document.baseURI).href;
+        await image.decode();
+        return { url:image.src, width:image.naturalWidth, height:image.naturalHeight };
+      });
+      assert.match(sprite.url, /\/assets\/0-[^/]+\.png$/, 'the visible sprite loads the emitted asset');
+      assert.ok(sprite.width > 0 && sprite.height > 0);
       assert.deepEqual(await box.boundingBox(),before,'the visitor takes no dialog space');
       assert.equal((await page.locator('.classic-sidebar').first().boundingBox()).width,sidebar.width);
       await capture(`peek-${spot}.png`);

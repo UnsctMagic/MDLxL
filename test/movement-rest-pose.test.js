@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Quaternion, Vector3 } from 'three';
-import { generateMDL } from 'war3-model';
 import { allNodes, sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { applyMovementTransform, applyRestPoseTransform, constrainMovementVector, movementPlaneAxis, movementRestricted } from '../src/movement.js';
 import { movementChildVertexCount, movementSelectionSummary } from '../src/movement-selection.js';
 import { createDemoDocument, createNode, NODE_TYPES, openDocument } from '../src/editor-document.js';
 import { directlyBoundBoneIds } from '../src/binding-inspection.js';
+import { canonicalizeSerializedNodeOrder } from '../src/node-id-order.js';
 
 const nearVector = (actual, expected) => Array.from(actual).forEach((v, i) => assert.ok(Math.abs(v - expected[i]) < 1e-4, `${actual} != ${expected}`));
 const key = value => ({ LineType: 1, Keys: [{ Frame: 100, Vector: new Float32Array(value) }] });
@@ -62,13 +62,16 @@ test('perpendicular-only workplane moves author no keys or pivots and do not mod
 });
 
 test('rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, and retain authored animation/skin/BPOS', () => {
-  const source = structuredClone(createDemoDocument().model); source.Version = 1000;
-  for (const type of Object.keys(NODE_TYPES)) createNode(source, type);
-  source.BindPoses = [{ Matrices: Array.from({ length: source.Nodes.length }, (_, i) => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, i, i + 1, i + 2])) }];
-  const doc = openDocument(generateMDL(source)), original = structuredClone(doc.model), ids = allNodes(doc.model).map(node => node.ObjectId);
+  const source = createDemoDocument(); source.convertVersion(1000);
+  source.apply('Prepare all node families', [], model => {
+    for (const type of Object.keys(NODE_TYPES)) createNode(model, type);
+    model.BindPoses = [{ Matrices: Array.from({ length: model.Nodes.length }, (_, i) => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, i, i + 1, i + 2])) }];
+  });
+  const doc = openDocument(source.serialize('mdl')), original = structuredClone(doc.model), ids = allNodes(doc.model).map(node => node.ObjectId);
   const skins = doc.model.Geosets.map(geo => skinGeoset(geo, sampleNodeMatrices(doc.model, 999, -1)));
   doc.apply('Move rig pivots', ['Nodes', 'PivotPoints'], model => applyMovementTransform(model, ids, 777, 0, { restPose: true, mode: 'move', values: [12, 8, -3] }));
   const authored = structuredClone(doc.model);
+  const exported = structuredClone(authored); canonicalizeSerializedNodeOrder(exported, { preserveUnusedPivots: true });
   for (const node of allNodes(doc.model)) {
     const prior = allNodes(original).find(other => other.ObjectId === node.ObjectId);
     nearVector(node.PivotPoint, Array.from(prior.PivotPoint, (v, i) => v + [12, 8, -3][i]));
@@ -79,10 +82,10 @@ test('rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, a
   doc.model.Geosets.forEach((geo, i) => assert.deepEqual(skinGeoset(geo, sampleNodeMatrices(doc.model, 777, -1)), skins[i]));
   for (const format of ['mdl', 'mdx']) {
     const reopened = openDocument(doc.serialize(format), `rest-pose.${format}`);
-    assert.deepEqual(reopened.model.PivotPoints, authored.PivotPoints);
-    assert.deepEqual(reopened.model.BindPoses, original.BindPoses);
+    assert.deepEqual(reopened.model.PivotPoints, exported.PivotPoints);
+    assert.deepEqual(reopened.model.BindPoses, exported.BindPoses);
     for (const node of allNodes(reopened.model)) {
-      const prior = allNodes(original).find(other => other.ObjectId === node.ObjectId);
+      const prior = allNodes(exported).find(other => other.ObjectId === node.ObjectId);
       for (const property of ['Translation', 'Rotation', 'Scaling', 'EventTrack']) assert.deepEqual(node[property], prior[property]);
     }
   }

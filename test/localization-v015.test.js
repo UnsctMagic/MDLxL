@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { translate } from '../src/localization.js';
+import './load-locales.js';
 import { release015Chinese, release015Russian, release015Sources, release015Spanish } from '../src/locales/v015-ui-locales.js';
 
 const packs = { ru: release015Russian, es: release015Spanish, zh: release015Chinese };

@@ -29,7 +29,7 @@ test('UV opts into restoring its user view before fit, without replaying old pro
   const uv=readFileSync(new URL('../app/UVWorkspace.jsx',import.meta.url),'utf8');
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
   assert.match(uv,/<GamePreview[^>]*preserveCameraView=\{true\}/);
-  assert.match(preview,/if \(saved && latest.current.preserveCameraView\) \{\s*camera = restorePreviewCamera/);
+  assert.match(preview,/if \(saved && \(latest.current.preserveCameraView \|\| latest.current.cameraHandoff\?\.current === saved\)\) \{\s*camera = restorePreviewCamera/);
   assert.match(preview,/camera:camera === ortho \? 'ortho' : 'perspective'/);
   assert.match(preview,/\[props.cameraPresetRequest\?\.revision\]/);
   assert.match(uv,/<GamePreview[^>]*revision=\{previewWrappingRevision\}[^>]*preserveCameraView=\{true\}/,'UV-only commits keep the renderer; texture sampling changes rebuild with the saved camera');
@@ -39,6 +39,6 @@ test('team label stays absent and geosets fill down columns',()=>{
   const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
   const css=readFileSync(new URL('../app/styles.css',import.meta.url),'utf8');
   assert.doesNotMatch(app,/className="team-picker">Team color/);
-  assert.match(app,/'--geoset-rows': Math.max\(1, Math.ceil\(model.Geosets.length \/ 4\)\)/);
+  assert.match(app,/'--geoset-rows': Math.max\(1, Math.ceil\(tabGeosets.size \/ 4\)\)/);
   assert.match(css,/classic-geoset-list\{display:grid;grid-auto-flow:column/);
 });

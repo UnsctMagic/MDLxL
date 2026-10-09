@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { russian, translate, setLanguage } from '../src/localization.js';
+import './load-locales.js';
 import reviewedSpanish from '../src/locales/es-reviewed.json' with { type: 'json' };
 import { chinese } from '../src/locales/short-ui-locales.js';
 import { broadChinese } from '../src/locales/broad-ui-locales.js';

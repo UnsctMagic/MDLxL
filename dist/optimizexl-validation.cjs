@@ -67,7 +67,7 @@ function normalizeVersionFields(model, target) {
 // src/editor-document.js
 var import_buffer11 = require("buffer");
 
-// ../../../../Documents/ChatGPT/MDLxL/node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
+// node_modules/.pnpm/war3-model@4.0.1/node_modules/war3-model/dist/es/war3-model.mjs
 var TextureFlags = /* @__PURE__ */ (function(TextureFlags2) {
   TextureFlags2[TextureFlags2["WrapWidth"] = 1] = "WrapWidth";
   TextureFlags2[TextureFlags2["WrapHeight"] = 2] = "WrapHeight";
@@ -5519,6 +5519,7 @@ ${rows.join("\n")}
 function finishCompatibleMdl(input, model) {
   const tree = mdlMembers(input), edits = [];
   owners(tree.members, model, (m, o) => {
+    if (m.name === "Particle") o = { Path: o.Path, LifeSpan: o.LifeSpan, InitVelocity: o.InitVelocity };
     const extra = [];
     let uv = 0;
     if (m.name === "PivotPoints") {
@@ -6430,7 +6431,7 @@ function convertMdxGeosetColorTracks(animations = []) {
 // src/animation-speed.js
 var import_buffer10 = require("buffer");
 
-// ../../../../Documents/ChatGPT/MDLxL/node_modules/.pnpm/three@0.183.2/node_modules/three/examples/jsm/libs/fflate.module.js
+// node_modules/.pnpm/three@0.183.2/node_modules/three/examples/jsm/libs/fflate.module.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
 var i32 = Int32Array;
@@ -7516,8 +7517,8 @@ function normalizeModel(model, previous) {
   }
   for (const [i, geoset] of model.Geosets.entries()) {
     if (previous && fingerprint2(previous.Geosets[i]?.Faces) !== fingerprint2(geoset.Faces) && geoset.PrimitiveCounts && Array.from(geoset.PrimitiveCounts).reduce((sum2, n) => sum2 + n, 0) !== geoset.Faces.length) {
-      geoset.PrimitiveTypes = Uint32Array.of(4);
-      geoset.PrimitiveCounts = Uint32Array.of(geoset.Faces.length);
+      geoset.PrimitiveTypes = geoset.Faces.length ? Uint32Array.of(4) : new Uint32Array();
+      geoset.PrimitiveCounts = geoset.Faces.length ? Uint32Array.of(geoset.Faces.length) : new Uint32Array();
     }
   }
   for (const node of model.ParticleEmitters2) for (const field of ["TailLength", "Time", "LifeSpan", "PriorityPlane", "ReplaceableId", "Rows", "Columns"]) node[field] ??= 0;
@@ -7662,18 +7663,20 @@ var EditorDocument = class _EditorDocument {
   }
   _changedKeys() {
     const candidates = this._candidateKeys();
-    if (this._changeCache?.revision !== this.revision) {
+    if (this._changeCache?.revision !== this.revision || this._changeCache.savedModel !== this._savedModel) {
       const changes = createChanges(pickSections(this._savedModel, candidates), pickSections(this.model, candidates), { ignore: ignoreSerializationAlias });
       this._dirtyCandidates = new Set(changes.map((change) => change.path[0]));
-      this._changeCache = { revision: this.revision, keys: [...new Set(changes.map((change) => change.path[0]).filter((key) => key in SECTION_TYPES))] };
+      this._changeCache = { revision: this.revision, savedModel: this._savedModel, keys: [...new Set(changes.map((change) => change.path[0]).filter((key) => key in SECTION_TYPES))] };
     }
     return this._changeCache.keys;
   }
   get _tabsChanged() {
-    return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model));
+    this._changedKeys();
+    return this._changeCache.tabs ??= JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model));
   }
   get _speedChanged() {
-    return JSON.stringify(animationSpeedData(this._savedModel)) !== JSON.stringify(animationSpeedData(this.model));
+    this._changedKeys();
+    return this._changeCache.speed ??= JSON.stringify(animationSpeedData(this._savedModel)) !== JSON.stringify(animationSpeedData(this.model));
   }
   get dirty() {
     return this._changedKeys().length > 0 || this._tabsChanged || this._speedChanged;

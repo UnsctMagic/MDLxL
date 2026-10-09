@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import showcase from '../src/locales/showcase.json' with { type: 'json' };
 import { translate, setLanguage } from '../src/localization.js';
+import './load-locales.js';
 import { localizedCreateElement } from '../app/localized-element.js';
 
 test('every Showcase label has complete language packs with intact data slots', () => {

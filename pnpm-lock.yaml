@@ -36,6 +36,9 @@ importers:
       electron:
         specifier: 40.8.0
         version: 40.8.0
+      esbuild:
+        specifier: 0.27.7
+        version: 0.27.7
       vite:
         specifier: 7.3.1
         version: 7.3.1(@types/node@24.13.3)

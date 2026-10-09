@@ -23,7 +23,8 @@ async function run(){
   const b=(name)=>page.getByRole('button',{name,exact:true}),key=async k=>{await page.locator('[aria-label="3D model viewport"]').focus();await page.keyboard.press(k);await settle();};
   const region=()=>page.evaluate(()=>{const r=audit().viewport.paintRegion;return r?.byGeoset?[...r.byGeoset].map(([g,f])=>[g,f.size]):[];}),shield=await page.evaluate(()=>pointFor([14.75,-29,52.26])),sword=await page.evaluate(()=>pointFor([54.9762,20.8331,59.2066]));
 
-  const {translate}=await import('../src/localization.js'),seen=new Set();
+  const {translate,loadLanguage}=await import('../src/localization.js'),seen=new Set();
+  await Promise.all(['ru','es','zh','mordor'].map(loadLanguage));
   const collect=async()=>{for(const t of await page.locator('.paint-workspace').evaluate(e=>{const walk=document.createTreeWalker(e,NodeFilter.SHOW_TEXT);const text=[];while(walk.nextNode()){const n=walk.currentNode;if(n.parentElement?.closest('kbd,code,pre,[translate="no"]'))continue;if(n.parentElement?.getClientRects().length&&n.textContent.trim())text.push(n.textContent.trim());}return text;}))seen.add(t);};
   async function language(locale){await page.locator('.language-trigger').click();await page.getByRole('option',{name:({en:'English',ru:'Russian',es:'Spanish',zh:'Chinese',mordor:'The Language of Mordor'})[locale],exact:true}).click();await settle();}
   for(const locale of ['en','ru','es','zh','mordor']){

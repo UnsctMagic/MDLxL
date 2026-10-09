@@ -4,6 +4,7 @@ import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { BUILD_ONLY_ELECTRON_FILES, runtimeSourceFiles } from './runtime-source.mjs';
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { verifyFFmpegBundle } = createRequire(import.meta.url)('../electron/ffmpeg-verification.cjs');
@@ -52,6 +53,11 @@ async function dependencyDirectory(name, from) {
   throw Error(`Install dependency ${name} before packaging.`);
 }
 
+let sourceClosure;
+function desktopSources() {
+  return sourceClosure ||= files(path.join(source, 'electron')).then(electronFiles => runtimeSourceFiles(source, electronFiles));
+}
+
 // The renderer already bundles these packages. Retain their complete license
 // texts, including transitive dependencies, without shipping their source trees.
 async function bundledLicenses() {
@@ -85,7 +91,11 @@ async function bundledLicenses() {
 
 async function makeStage(stage) {
   if (!await exists(path.join(source, 'dist', 'index.html'))) throw Error('Run npm run build before packaging.');
-  for (const folder of runtimeFolders) await fs.cp(path.join(source, folder), path.join(stage, folder), { recursive: true });
+  for (const folder of runtimeFolders.filter(folder => folder !== 'src')) await fs.cp(path.join(source, folder), path.join(stage, folder), { recursive: true, filter: file => !BUILD_ONLY_ELECTRON_FILES.includes(path.relative(path.join(source, 'electron'), file).split(path.sep).join('/')) });
+  for (const relative of await desktopSources()) {
+    await fs.mkdir(path.dirname(path.join(stage, relative)), { recursive: true });
+    await fs.copyFile(path.join(source, relative), path.join(stage, relative));
+  }
   const runtimeManifest = Object.fromEntries(['name', 'version', 'private', 'type', 'description', 'main', 'productName'].filter(key => key in manifest).map(key => [key, manifest[key]]));
   await fs.writeFile(path.join(stage, 'package.json'), JSON.stringify(runtimeManifest, null, 2) + '\n');
   await fs.copyFile(path.join(source, 'README.md'), path.join(stage, 'README.md'));
@@ -98,6 +108,9 @@ async function makeStage(stage) {
 }
 
 async function verifyStage(stage) {
+  const expectedSource = await desktopSources(), actualSource = (await files(path.join(stage, 'src'))).map(file => 'src/' + file.split(path.sep).join('/'));
+  if (JSON.stringify(expectedSource) !== JSON.stringify(actualSource)) throw Error('The portable source tree differs from the Electron import closure.');
+  for (const file of BUILD_ONLY_ELECTRON_FILES) if (await exists(path.join(stage, 'electron', file))) throw Error(`Build-only Electron source was packaged: ${file}`);
   const validationBundle=path.join(stage,'dist','optimizexl-validation.cjs');
   if(!await exists(validationBundle))throw Error('Build the portable OptimizeXL save validator before packaging.');
   if(typeof createRequire(import.meta.url)(validationBundle).validateOptimizeXLCopies!=='function')throw Error('The bundled OptimizeXL save validator could not be loaded.');

@@ -55,6 +55,7 @@ let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.re
 let settingsStore,preferenceApi,commandCatalog;
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
+let loadLanguage;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
 const particleLibrary=new ParticleLibrary({directory:path.join(profile,'particles'),discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),onProgress:status=>{if(win&&!win.isDestroyed())win.webContents.send('particles:progress',status);}});
 ipcMain.handle('particles:workingCopy',(_,payload)=>particleLibrary.workingCopy(payload));
@@ -361,7 +362,10 @@ ipcMain.on('app:close',event=>{if(win&&!win.isDestroyed()&&event.sender===win.we
 async function updateSettings(value){
   const previousHotkeys=JSON.stringify(settings.preferences?.hotkeys);
   const previousLanguage=settings.preferences?.language;
-  settings=await settingsStore.configure(value);
+  const nextSettings=await settingsStore.configure(value);
+  await loadLanguage(nextSettings.preferences.language);
+  if(settingsStore.settings!==nextSettings)return publicSettings();
+  settings=nextSettings;
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))texturePreviews.cancel();
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(JSON.stringify(settings.preferences.hotkeys)!==previousHotkeys || previousLanguage!==settings.preferences.language)refreshMenu();
@@ -447,6 +451,7 @@ ipcMain.handle('texture:folder',async(_,requested)=>{
 if(singleInstanceLock)app.whenReady().then(async()=>{
   const [preferences,commands,localization]=await Promise.all([import('../src/preferences.js'),import('../src/commands.js'),import('../src/localization.js')]);
   translateText=localization.translate;
+  loadLanguage=localization.loadLanguage;
   // Localize native dialog presentation while retaining paths, extensions and IDs.
   for(const method of ['showOpenDialog','showSaveDialog','showMessageBox','showMessageBoxSync']){
     const original=dialog[method].bind(dialog);
@@ -461,6 +466,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   settingsStore=new SettingsStore(path.join(profile,'settings.json'),preferences.normalizePreferences);
   try{recents=JSON.parse(await fs.readFile(path.join(profile,'recent.json'),'utf8')).filter(x=>typeof x==='string').slice(0,12);}catch{}
   settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
+  await loadLanguage(settings.preferences.language);
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>{if(win&&!win.isDestroyed())win.webContents.send('updates:status',status);}});
   await updater.initialize();
   try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}

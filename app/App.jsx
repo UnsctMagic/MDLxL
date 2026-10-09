@@ -24,7 +24,7 @@ import LanguageSwitch from './LanguageSwitch.jsx';
 import UpdatePrompt, { OfficialWebsite } from './UpdatePrompt.jsx';
 import useUpdates from './useUpdates.js';
 import { Tool, Coordinate, CameraTools, TransformTools, WorkplaneControls } from './EditorControls.jsx';
-import { setLanguage, translate } from '../src/localization.js';
+import { loadLanguage, setLanguage, translate } from '../src/localization.js';
 import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 const ResourceEditor = lazy(() => import('./ResourceEditors.jsx'));
@@ -139,9 +139,9 @@ function Dialog({ title, children, footer, onClose, onWarmKeys, overlayClass = '
   return <div className={`classic-modal ${overlayClass}`} onKeyDown={onKeyDown}><section data-warmkey-scope="dialog" data-warmkey-prefix={title} ref={windowRef} style={movable.style} className="classic-modal-window" role="dialog" aria-modal="true" aria-label={title}><header {...movable.handleProps}><span>{title}</span><div>{onWarmKeys && <button data-warmkey="warmkeys" aria-label="Hotkeys for this dialog" onClick={onWarmKeys}>Keys</button>}<button data-warmkey="close" aria-label={`Close ${title}`} onClick={onClose}>×</button></div></header><div className="classic-modal-body">{children}</div><footer>{footer || <button data-warmkey="app:action:1" onClick={onClose}>Close</button>}</footer></section></div>;
 }
 
-export default function App() {
+export default function App({ initialPreferences }) {
   useEffect(() => installTextureLibraryDecoder(window.desktop), []);
-  const [preferences, setPreferences] = useState(() => { try { return normalizePreferences(JSON.parse(localStorage.getItem('mdlvis-preferences') || '{}')); } catch { return normalizePreferences({}); } });
+  const [preferences, setPreferences] = useState(() => normalizePreferences(initialPreferences));
   setLanguage(preferences.language);
   const updates = useUpdates();
   useEffect(()=>{document.documentElement.lang=preferences.language;},[preferences.language]);
@@ -155,6 +155,14 @@ export default function App() {
   const preferencesRef = useRef(preferences); preferencesRef.current = preferences;
   const savedPreferences = useRef(null), preferencesTimer = useRef(), saveBeforeCloseRef = useRef(async () => false), modelOpenQueue = useRef(Promise.resolve());
   function changePreferences(next) { const value = normalizePreferences(typeof next === 'function' ? next(preferencesRef.current) : next); preferencesRef.current = value; setPreferences(value); }
+  const languageRequest = useRef(0);
+  async function changeLanguage(language) {
+    const request = ++languageRequest.current;
+    try {
+      await loadLanguage(language);
+      if (request === languageRequest.current) changePreferences(previous => ({ ...previous, language }));
+    } catch (error) { if (request === languageRequest.current) say(error.message, true); }
+  }
   const changeSensitivity = value => changePreferences({ ...preferencesRef.current, scrollSensitivity: value });
   const changePointerSensitivity = value => changePreferences({ ...preferencesRef.current, pointerSensitivity: value });
   const toggleWheelMode = mode => changePreferences(previous => ({ ...previous, wheelMode: previous.wheelMode === mode ? 'rotate' : mode }));
@@ -1145,7 +1153,7 @@ export default function App() {
   const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,normals:overlays.normals};
   useEffect(()=>{window.desktop?.setMenuState?.({readOnly:doc.readOnly,saving,viewMode:displayMode,vanilla:visUI,checks:menuChecks,uvEnabled:commandEnabled('uv')});},[doc.readOnly,saving,displayMode,visUI,JSON.stringify(menuChecks),selectionCount,activeGeoset]);
   useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || latest.current.dialog?.type === 'resource' && ['undo','redo'].includes(action) || (!latest.current.dialog && !latest.current.settingsTab)) runLatest.current(action); }), []);
-  useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); const persisted=normalizePreferences(settings.current.preferences || preferencesRef.current); savedPreferences.current=JSON.stringify(persisted); changePreferences(persisted); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
+  useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); const persisted=normalizePreferences(settings.current.preferences || preferencesRef.current); await loadLanguage(persisted.language); savedPreferences.current=JSON.stringify(persisted); changePreferences(persisted); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
   useEffect(() => window.desktop?.onExternalModels?.(records => { queueModelRecords(records).catch(error=>say(error.message,true)); }), []);
   const hasUnsavedWork=doc.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges;
   const hasAnyUnsavedWork=sessions.some(sessionDirty);
@@ -1195,8 +1203,8 @@ export default function App() {
   const highlightedFromSelection = !cleanView && preferences.highlightSelection && highlightAppearance.viaSelection ? selectionHoveredGeoset : null;
   const inputStrength = <div className="compact-input-strength" aria-label="Input strengths" title="Adjust in Settings → Mouse, or use the existing input hotkeys"><span className={adjustingInput?.kind === 'pointer' ? 'adjusting' : ''}>DPI {preferences.pointerSensitivity}×</span><span className={adjustingInput?.kind === 'scroll' ? 'adjusting' : ''}>Scroll {preferences.scrollSensitivity}×</span></div>;
   const grabThroughToggle = <label className="check grabthrough-option"><input aria-label="Grabthrough" type="checkbox" checked={grabThrough} onChange={event => setGrabThrough(event.target.checked)}/>Grabthrough</label>;
-  const displayedGeosets = new Set([...selectable, ...visibleOnly].filter(index => tabVisibleGeosets.has(index)));
-  const hiddenGeosets = new Set([...allGeosets(model.Geosets.length)].filter(index => !tabVisibleGeosets.has(index) || !showAllGeosets && !displayedGeosets.has(index)));
+  const displayedGeosets = useMemo(() => new Set([...selectable, ...visibleOnly].filter(index => tabVisibleGeosets.has(index))), [selectable, visibleOnly, tabVisibleGeosets]);
+  const hiddenGeosets = useMemo(() => new Set([...allGeosets(model.Geosets.length)].filter(index => !tabVisibleGeosets.has(index) || !showAllGeosets && !displayedGeosets.has(index))), [model.Geosets.length, tabVisibleGeosets, showAllGeosets, displayedGeosets]);
   const leaveVisibleAvailable = mode === 'vertices' || mode === 'bones' || mode === 'animation' && animationPanel === 'movement';
   const geosetPicker = <SidebarSection title="Geosets" className="classic-geosets" onContextMenu={event => { event.preventDefault(); setContext({ x: event.clientX, y: event.clientY }); }}><div className="geoset-options"><label className="check"><input data-warmkey="showAllGeosets" aria-label="Show all geosets" type="checkbox" checked={showAllGeosets} onChange={event => setShowAllGeosets(event.target.checked)}/>Show all</label><label className="check"><input data-warmkey="highlightSelection" aria-label={geosetHighlightLabel} type="checkbox" checked={preferences.highlightSelection} onChange={event => changePreferences(previous => ({ ...previous, highlightSelection: event.target.checked }))}/>{geosetHighlightLabel}</label></div><div className="classic-selection-actions"><button data-warmkey="geosetsAll" onClick={() => chooseSets(new Set(tabVisibleGeosets))}>All</button><button data-warmkey="geosetsClear" onClick={() => chooseSets(new Set())}>Clear</button><button data-warmkey="geosetsInvert" onClick={() => chooseSets(new Set([...tabVisibleGeosets].filter(index => !selectable.has(index))))}>Invert</button></div><GeosetTabs key={session.id} model={model} active={geosetTab} onActive={selectGeosetTab} selected={selectable} edit={edit} disabled={doc.readOnly || saving} Dialog={Dialog}><div className="classic-geoset-list" style={{ '--geoset-rows': Math.max(1, Math.ceil(tabGeosets.size / 4)) }} role="listbox" aria-label="Geosets" aria-multiselectable="true">{[...tabGeosets].map(i => <div key={i} className={`geoset-row${activeGeoset === i ? ' selected' : ''}${!cleanView && preferences.highlightSelection && highlightAppearance.viaView && viewHoveredGeoset === i ? ' hovered' : ''}`} role="option" aria-selected={selectable.has(i)} title={visibleOnly.has(i) ? 'Leave as visible' : undefined} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); setContext({ x: event.clientX, y: event.clientY, geosetIndex: i }); }} ><span className="geoset-hover-target" onMouseEnter={() => setSelectionHoveredGeoset(i)} onMouseLeave={() => setSelectionHoveredGeoset(null)}><input data-warmkey={`geoset:${i}`} type="checkbox" aria-label={`Select geoset ${i}`} checked={selectable.has(i)} disabled={!tabVisibleGeosets.has(i)} onChange={event => chooseSet(i, event, event.target.checked)}/><span style={{ whiteSpace: 'nowrap' }}>{i + 1}{visibleOnly.has(i) && <span style={{ fontSize: 7, marginLeft: 1 }} aria-label={`Geoset ${i} left visible`}>◉</span>}</span></span></div>)}</div></GeosetTabs></SidebarSection>;
   const changeGeosetStructure = (label, sections, operation) => {
@@ -1349,7 +1357,7 @@ export default function App() {
       <button data-warmkey="convertVersion" title="Convert between MDX800 and MDX1000; unsupported data blocks conversion" disabled={doc.readOnly||saving} onClick={()=>commands.current.convertVersion()}>MDX{model.Version} ⇄</button>
       <div className="classic-toolbar-group toolbar-team-color"><label className="team-picker"><select data-warmkey="teamColor" aria-label="Team color" value={teamColor} style={{backgroundColor:teamColor,color:neutralTextColor(teamColor)}} onChange={event => { setTeamColor(event.target.value); setRenderMode('textured'); }}>{teamColors.map(([name,color]) => <option key={color} value={color} style={{backgroundColor:color,color:neutralTextColor(color)}}>{name}</option>)}</select></label></div>
       {inputStrength}
-      <LanguageSwitch language={preferences.language} onChange={language=>changePreferences(previous=>({...previous,language}))}/>
+      <LanguageSwitch language={preferences.language} onChange={changeLanguage}/>
     </div>
     <div className="classic-modules" role="group" aria-label="Editors and open models">
       <div className="editor-modules" role="group" aria-label="Editor modules">

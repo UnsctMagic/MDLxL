@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {translate,setLanguage} from '../src/localization.js';
+import './load-locales.js';
 import {localizedCreateElement} from '../app/localized-element.js';
 import {DESCRIPTORS,CONTEXTS} from '../src/texture-library/search-language.mjs';
 import {EXTRA_CONTEXTS} from '../src/texture-library/ultra-vocabulary.mjs';

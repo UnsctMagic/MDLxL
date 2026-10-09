@@ -13,8 +13,9 @@ const {buildSync}=require(path.resolve('node_modules/esbuild'));
   const page=await app.firstWindow();page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setPosition(-3000,0);w.showInactive();});
   await page.locator('.classic-app').waitFor();await page.getByLabel('Select geoset 0',{exact:true}).waitFor();
-  const bundle=buildSync({stdin:{contents:"export {translate} from './src/localization.js'; export {applyApplicationTheme} from './app/theme.js'; export {default as themes} from './src/application-themes.json';",resolveDir:root},bundle:true,format:'iife',globalName:'uiAudit',write:false}).outputFiles[0].text;
+  const bundle=buildSync({stdin:{contents:"export {translate,loadLanguage} from './src/localization.js'; export {applyApplicationTheme} from './app/theme.js'; export {default as themes} from './src/application-themes.json';",resolveDir:root},bundle:true,format:'iife',globalName:'uiAudit',write:false}).outputFiles[0].text;
   await page.evaluate(bundle);
+  await page.evaluate(()=>Promise.all(['ru','es','zh','mordor'].map(uiAudit.loadLanguage)));
   await page.evaluate(()=>{
    window.auditText=new Set();
    window.scanUI=()=>{

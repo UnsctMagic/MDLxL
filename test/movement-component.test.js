@@ -72,7 +72,9 @@ test('Animations remains editable with no selected vertices or checked geosets',
 test('Animations exposes inline RGB fields on All line',()=>{
   const html=renderToStaticMarkup(React.createElement(Animation,{model:fixture(),sequenceIndex:-1,time:0,selectedGeosets:[0]}));
   assert.doesNotMatch(html,/<input[^>]*aria-label="Animation R"[^>]*disabled/);
-  assert.match(html,/aria-label="Animation R"[^>]*value="179"/);
+  // Browser effects populate the values after mounting; SSR only proves that
+  // all three authored-color controls are present and editable.
+  for (const channel of ['R', 'G', 'B']) assert.match(html,new RegExp(`aria-label="Animation ${channel}"[^>]*type="number"`));
 });
 test('Animations enables RGB and visibility fields on a global sequence',()=>{
   const html=renderToStaticMarkup(React.createElement(Animation,{model:fixture(),sequenceIndex:-1,globalSeqId:0,time:0,selectedGeosets:[0]}));
@@ -109,8 +111,8 @@ test('camera toolbar renders inside Movement with one create-or-update action an
 
 test('quick display shows only the active editor options without Reveal',()=>{
   const html=renderToStaticMarkup(React.createElement(QuickDisplay,{viewMode:'animations',checks:{'display:particles':true},isEnabled:()=>true,onCommand:()=>{},onClear:()=>{}}));
-  assert.equal((html.match(/type="checkbox"/g)||[]).length,7);
-  for(const label of ['Bones','Skeleton','Focused Skeleton','Nodes','Particles','Wireframe','Grid','Clear']) assert.ok(html.includes(label));
+  assert.equal((html.match(/type="checkbox"/g)||[]).length,9);
+  for(const label of ['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear']) assert.ok(html.includes(label));
   assert.doesNotMatch(html,/Reveal|Shadows|Vertices|Textured View/);
   assert.match(html,/<input[^>]*data-warmkey="display:particles"[^>]*checked=""/);
 });

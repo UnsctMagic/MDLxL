@@ -176,7 +176,8 @@ function normalizeModel(model, previous) {
   for (const node of model.Lights) { node.QuadraticFalloff ??= 0.0005; node.LinearFalloff ??= 0; node.Damping ??= 0.00001; }
   for (const [i, geoset] of model.Geosets.entries()) {
     if (previous && fingerprint(previous.Geosets[i]?.Faces) !== fingerprint(geoset.Faces) && geoset.PrimitiveCounts && Array.from(geoset.PrimitiveCounts).reduce((sum,n)=>sum+n,0) !== geoset.Faces.length) {
-      geoset.PrimitiveTypes = Uint32Array.of(4); geoset.PrimitiveCounts = Uint32Array.of(geoset.Faces.length);
+      geoset.PrimitiveTypes = geoset.Faces.length ? Uint32Array.of(4) : new Uint32Array();
+      geoset.PrimitiveCounts = geoset.Faces.length ? Uint32Array.of(geoset.Faces.length) : new Uint32Array();
     }
   }
   // The MDL writer omits these zero-valued emitter fields. Its parser leaves
@@ -301,17 +302,23 @@ export class EditorDocument {
   }
   _changedKeys() {
     const candidates = this._candidateKeys();
-    if (this._changeCache?.revision !== this.revision) {
+    if (this._changeCache?.revision !== this.revision || this._changeCache.savedModel !== this._savedModel) {
       const changes = createChanges(pickSections(this._savedModel, candidates), pickSections(this.model, candidates), { ignore: ignoreSerializationAlias });
       // Once compared, clean sections need no further scans until a real edit
       // touches them. This also handles staged and restored saved baselines.
       this._dirtyCandidates = new Set(changes.map(change => change.path[0]));
-      this._changeCache = { revision: this.revision, keys: [...new Set(changes.map(change => change.path[0]).filter(key => key in SECTION_TYPES))] };
+      this._changeCache = { revision: this.revision, savedModel: this._savedModel, keys: [...new Set(changes.map(change => change.path[0]).filter(key => key in SECTION_TYPES))] };
     }
     return this._changeCache.keys;
   }
-  get _tabsChanged() { return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model)); }
-  get _speedChanged() { return JSON.stringify(animationSpeedData(this._savedModel)) !== JSON.stringify(animationSpeedData(this.model)); }
+  get _tabsChanged() {
+    this._changedKeys();
+    return this._changeCache.tabs ??= JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model));
+  }
+  get _speedChanged() {
+    this._changedKeys();
+    return this._changeCache.speed ??= JSON.stringify(animationSpeedData(this._savedModel)) !== JSON.stringify(animationSpeedData(this.model));
+  }
   get dirty() { return this._changedKeys().length > 0 || this._tabsChanged || this._speedChanged; }
   get canUndo() { return this._historyStore.stats.undoSteps > 0; }
   get canRedo() { return this._historyStore.stats.redoSteps > 0; }

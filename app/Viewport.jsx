@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { EditorCameraControls, zoomEditorCamera, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles } from './editor-camera-controls.js';
 import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
@@ -35,7 +35,7 @@ import { createViewportGrid } from './viewport-grid.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
 import { backgroundImageRect } from '../src/viewport-appearance.js';
 import { QUAD_VIEWS, viewWorkplane, viewportRects } from './quad-view.js';
-import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
+import { viewportPointDepth, viewportPointIndices, viewportSelectionKey } from './viewport-point-selection.js';
 
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 const normalizedPath = path => String(path || '').replaceAll('/', '\\').toLowerCase();
@@ -210,6 +210,7 @@ export default function Viewport(inputProps) {
   const { model, revision = 0, selectedGeoset = 0, selectedVertices = [], hiddenGeosets, mode = 'vertices', shaded = true, showSkeleton = false, showGrid = true, view = 'front', cameraMode = 'work', workplane = 'xy', transformMode = 'select', sequenceIndex = -1, time = 0, playing = false, teamColor = '#ff0000', textureAssets } = props;
   const host = useRef(null), runtime = useRef(null), latest = useRef(props);
   latest.current = { ...props, selectedGeoset, selectedVertices, mode, showSkeleton, showGrid, view, cameraMode, workplane, transformMode, sequenceIndex, time, playing, teamColor };
+  latest.current.selectionKey = useMemo(() => viewportSelectionKey(latest.current, visualOptions(props.preferences), true), [props.selectionByGeoset, props.selectionByGeoset ? null : selectedVertices, selectedGeoset, props.visibleGeosets, props.selectableGeosets, props.hiddenVertices, mode, sequenceIndex, transformMode, props.preferences, model, revision]);
   const [error, setError] = useState(''), [textureMessage, setTextureMessage] = useState(''), [backgroundMessage, setBackgroundMessage] = useState(''), [box, setBox] = useState(null);
   const [compassAxes, setCompassAxes] = useState(() => projectCompassAxes());
   const [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
@@ -799,7 +800,7 @@ export default function Viewport(inputProps) {
       grid.update(p.preferences, p.workplane, overlays.grid, overlays.axes, surface.clientWidth, surface.clientHeight, quad ? { camera, target: controls.target, settings: appearance.quadView.grid } : null);
       platform.update(p.preferences, state.center, state.radius, state.floor || 0);
       const selectedMap = selections(p), editable = editableGeosets(p), active = new Set(p.visibleGeosets ?? editable);
-      const selectionKey = `${JSON.stringify(selectedMap, (_, value) => value instanceof Set ? [...value] : value)}|${[...active].join(',')}|${JSON.stringify(p.hiddenVertices, (_, value) => value instanceof Set ? [...value] : value)}|${p.mode}|${p.sequenceIndex}|${p.transformMode}|${JSON.stringify(visual)}`;
+      const selectionKey = p.selectionKey;
       const rgbState = vertexRgbPreviewState(p.model, { enabled: p.rgbPreview, sequenceIndex: p.rgbPreview ? p.rgbPreviewSequenceIndex : p.sequenceIndex, frame: state.frame, globalTime: state.globalTime });
       const changed = state.dirty || state.nodes.some(node => node.Flags & 120) || p.playing || state.sampledFrame !== state.frame || state.sampledSequence !== p.sequenceIndex || (showMarkers && !state.sampledSkeleton) || state.sampledExplicitOverlays !== overlays.explicit;
       const animOptions = { interval: p.model?.Sequences?.[p.sequenceIndex]?.Interval, globalSequences: p.model?.GlobalSequences, globalTime: state.globalTime };

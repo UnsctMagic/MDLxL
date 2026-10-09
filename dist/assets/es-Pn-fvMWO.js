@@ -1,0 +1,1 @@
+import{r as e,p as r,c as i,s as p}from"./current-ui-locales-ClHY6-6W.js";import{r as t}from"./es-reviewed-CuQC4P4K.js";import{b as n,s as o}from"./broad-ui-locales-CPoE476O.js";const f=Object.freeze({...i,...r,...Object.fromEntries(Object.entries(p).map(([s,a])=>[s,a[1]])),...o,...n,...t,...e});export{f as default};

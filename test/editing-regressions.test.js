@@ -13,10 +13,14 @@ test('last triangle can be deleted independently of a loose vertex, with undo an
     const loose=Array.from(g.Vertices.slice(9));
     doc.apply('Delete triangle vertices',['Geosets'], m=>deleteVertices(m.Geosets[0],[0,1,2]));
     assert.equal(doc.model.Geosets[0].Faces.length,0);
+    assert.equal(doc.model.Geosets[0].PrimitiveTypes.length,0);
+    assert.equal(doc.model.Geosets[0].PrimitiveCounts.length,0);
     assert.deepEqual(Array.from(doc.model.Geosets[0].Vertices),loose);
     const reopened=openDocument(doc.serialize(format),'loose.'+format);
     assert.deepEqual(Array.from(reopened.model.Geosets[0].Vertices),loose);
     assert.equal(reopened.model.Geosets[0].Faces.length,0);
+    assert.equal(reopened.model.Geosets[0].PrimitiveTypes.length,0);
+    assert.equal(reopened.model.Geosets[0].PrimitiveCounts.length,0);
     doc.undo(); assert.equal(doc.model.Geosets[0].Faces.length,3);
     doc.redo(); assert.equal(doc.model.Geosets[0].Faces.length,0);
   }
@@ -27,6 +31,13 @@ test('deleting the final face preserves all vertices for later editing', () => {
   assert.equal(doc.model.Geosets[0].Faces.length,0); assert.deepEqual(doc.model.Geosets[0].Vertices,before);
   doc.apply('Move loose point',['Geosets'],m=>transformVertices(m.Geosets[0],[0],[2,0,0]));
   assert.equal(doc.model.Geosets[0].Vertices[0],before[0]+2);
+  for(const format of ['mdl','mdx']) {
+    const reopened=openDocument(doc.serialize(format),'loose-points.'+format);
+    assert.deepEqual(reopened.model.Geosets[0].Vertices,doc.model.Geosets[0].Vertices);
+    assert.equal(reopened.model.Geosets[0].Faces.length,0);
+    assert.equal(reopened.model.Geosets[0].PrimitiveTypes.length,0);
+    assert.equal(reopened.model.Geosets[0].PrimitiveCounts.length,0);
+  }
 });
 test('uncoupled face moves independently of every formerly shared face', () => {
   const g=createDemoDocument().model.Geosets[0];
