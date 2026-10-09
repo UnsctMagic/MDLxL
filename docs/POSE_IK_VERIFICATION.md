@@ -139,6 +139,14 @@ unchanged model data, normal Alt+mouse camera rotation and no page errors.
 This rendering-only follow-up uses the existing full regression results below;
 the full solver/source suites were not repeated for the icon change.
 
+Color follow-up: `out/pose-v5-package/MDLxL-win32-x64/MDLxL.exe` tints the
+unchanged Trollface asset with the existing handle color, using cached canvas
+multiply/mask compositing. Normal cyan and selected yellow pixel samples,
+transparent surroundings, unchanged native node/model selection and actual
+Alt+mouse rotation passed in `out/pose-trollface-color/result.json`; its screenshots
+show the selected icon above overlapping handles. No page errors occurred.
+The full solver/source suites were not repeated for this color-only change.
+
 ## Checks and limits
 
 - Focused POSE/selection-history/Movement/marker checks: 79 passed, including immutable Knight,

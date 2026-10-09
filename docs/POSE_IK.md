@@ -21,7 +21,8 @@ hierarchy. Setup is optional for ordinary named rigs.
 
 Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on dark
 backings so they remain identifiable over bone markers. Whole-body control uses
-a person symbol. Repeated clicks cycle through all handles and visible bones
+a person symbol. The Trollface uses the same cyan fill and yellow selection
+highlight as other handles. Repeated clicks cycle through all handles and visible bones
 under the pointer, including with Move, Rotate or Scale active. Dragging keeps
 the currently grabbed object; labels select their named control directly.
 Nearby Body, Chest and Pelvis pivots keep separately clickable labels.

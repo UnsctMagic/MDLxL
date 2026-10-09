@@ -14,6 +14,7 @@ const symbols = {
   Object: ['M12 2L22 12L12 22L2 12Z', 'M9 9H15V15H9Z'],
 };
 const symbolPaths = new Map();
+const pelvisSymbols = new Map();
 let pelvisFace;
 
 export function loadPoseSymbols(onLoad) {
@@ -123,7 +124,16 @@ export function drawPoseOverlay(context, handles, ratio = 1) {
     context.fillStyle = '#102431'; context.fill(); context.lineWidth = 1.5; context.strokeStyle = color; context.stroke();
     if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
     else if (handle.label === 'Pelvis') {
-      if (pelvisFace?.complete && pelvisFace.naturalWidth) context.drawImage(pelvisFace, handle.x - 16, handle.y - 16, 32, 32);
+      if (pelvisFace?.complete && pelvisFace.naturalWidth) {
+        if (!pelvisSymbols.has(color)) {
+          const icon = document.createElement('canvas'); icon.width = pelvisFace.naturalWidth; icon.height = pelvisFace.naturalHeight;
+          const tint = icon.getContext('2d'); tint.drawImage(pelvisFace, 0, 0);
+          tint.globalCompositeOperation = 'multiply'; tint.fillStyle = color; tint.fillRect(0, 0, icon.width, icon.height);
+          tint.globalCompositeOperation = 'destination-in'; tint.drawImage(pelvisFace, 0, 0); tint.globalCompositeOperation = 'source-over';
+          pelvisSymbols.set(color, icon);
+        }
+        context.drawImage(pelvisSymbols.get(color), handle.x - 16, handle.y - 16, 32, 32);
+      }
     }
     else {
       const name = symbols[handle.label] ? handle.label : handle.label === 'Neck' ? 'Head' : 'Object';
