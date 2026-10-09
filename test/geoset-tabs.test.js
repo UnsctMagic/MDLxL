@@ -12,6 +12,25 @@ const nativeChunks = bytes => parseMdx(bytes).chunks.filter(chunk => chunk.tag !
 const tabs = doc => geosetTabsData(doc.model);
 const group = (doc, name = 'Armor', indices = [0]) => doc.apply('Create tab', [GEOSET_TABS_KEY, 'Geosets'], model => createGeosetTab(model, name, indices));
 
+test('warm dirty checks follow tab edits, saved baselines and staged model replacement', () => {
+  const doc = createDemoDocument();
+  assert.equal(doc.dirty, false); assert.equal(doc.dirty, false);
+  group(doc); assert.equal(doc.dirty, true); assert.equal(doc.dirty, true);
+  const saved = doc.serialize('mdx');
+  const id = doc.model[GEOSET_TABS_KEY][0].id;
+  doc.apply('Rename during save', [GEOSET_TABS_KEY], model => { model[GEOSET_TABS_KEY][0].name = 'Changed'; });
+  doc.markSaved(saved); assert.equal(doc.dirty, true);
+  doc.undo(); assert.equal(doc.dirty, false); doc.redo(); assert.equal(doc.dirty, true);
+  const recovered = EditorDocument.restoreRecoveryState(doc.captureRecoveryState({ compact: true }));
+  assert.equal(recovered.dirty, true); recovered.undo(); assert.equal(recovered.dirty, false);
+  const staged = EditorDocument.restoreRecoveryState(doc.captureRecoveryState({ includeHistory: false }));
+  staged.markSaved(staged.serialize('mdx')); assert.equal(staged.dirty, false);
+  staged.model = structuredClone(staged.model);
+  staged.model[GEOSET_TABS_KEY].find(tab => tab.id === id).name = 'Staged';
+  assert.equal(staged.dirty, true);
+  assert.deepEqual(staged.saveImpact().changedSections, []);
+});
+
 for (const format of ['mdl', 'mdx']) {
   test(`${format}: tab-only save preserves native model bytes and an independent parser accepts it`, () => {
     const original = createDemoDocument().serialize(format), doc = openDocument(original, `demo.${format}`);
