@@ -21,7 +21,7 @@ Invalid candidates are isolated. Footman's native hand reference supplies its
 missing wrist endpoint. Setup stays open when using the Object picker or view;
 custom three-joint mapping remains available in a collapsed section.
 
-Direct controls reuse ordinary Movement Move/Rotate/Scale for every native node.
+Native markers reuse ordinary Movement Move/Rotate/Scale for every native node.
 Body/chest/pelvis/head controls retain real-node identity, while a labeled handle
 can be added for any other node. Repeated clicks cycle through all visible
 handles and real markers covering the pointer through the existing Movement
@@ -221,9 +221,63 @@ Source outputs: `baseline-source.log`, `out/pose-v3-main-source.log` and
 retained in `out/pose-v3-regression-comparison.json`. Existing codec/version/binding/UI
 failures were not edited to make POSE look green.
 
-IK remains limited to rigid two-link ancestry with positive uniform scale and
+Limb IK uses rigid two-link ancestry; connected upper-body IK uses native
+spine/neck links. Both require positive uniform scale and
 editable local tracks. Invalid/global/shared tracks reject locally. Direct
 controls retain ordinary Movement behavior. No balancing, physics, contact
 baking or automatic animation generation is supplied. Warcraft III gameplay
 and Retera interoperability were not exercised. The automatic-posing follow-up awaits user acceptance and merge authorization;
 no release or installed upgrade was performed.
+
+
+## Connected upper body follow-up
+
+Head/Chest Move previously authored native Translation directly. That let their
+pivots detach from their parents. Named upper-body controls now grip the part
+above the pivot using the existing skin-centroid reader (including mesh children
+under SD helpers). Damped rotational solving shares Head Move through the
+available Chest/Spine/Neck/Head ancestry. Anonymous intervening helpers retain
+their links; Body/Pelvis remain the foundation and keep their accepted movement.
+No pivot, hierarchy, skin, scale or local translation is changed by this solve.
+Chest/ancestor handles carry the head but retain its world facing, matching the
+head orientation constraint described in the IK tutorial. Native bone markers
+keep ordinary Movement, including deliberate translation and scale.
+
+Only existing controls are used. Mouse and numeric inputs share the solver;
+numeric positions refer to the visible grip, and Highlight KF/Controller expose
+its actual Rotation channels. Explicit hand pins constrain the shared torso
+solve. Rotation restrictions apply to connected Move. Session IK still commits
+one native transaction and does not introduce playback controllers.
+
+Source evidence: `out/pose-connected-source.log` (39 POSE checks passed), covering
+large/small Head/Chest drags, all parent-child lengths, multiple spine/neck joints,
+FK transitions, pin reach, native track scope, Undo/Redo, and three keyed poses
+saved/reopened through both MDL and MDX with intermediate-frame sampling.
+A selected symbol wins over crossing labels when a drag begins, matching its
+foreground drawing order. The regression reproduces a hand label crossing Body
+in an upper-body pose and verifies that Body retains the drag.
+
+Affected Movement checks: 107 tests, 104 passed. The same three baseline failures
+remain: inline RGB fields on All line, quick display options, and rest-pose pivot
+ordering. Compatibility: 57/57 passed. Final production build and packaging
+verified 550 runtime/asset files and 55 locales. All 461 packaged source/bundle
+files match the working source and generated output. The immutable Footman and
+both exact Warcraft texture hashes remain unchanged.
+
+
+Final packaged acceptance: `out/pose-connected-final-ui/result.json`, **26 checks
+passed, zero page errors**, using
+`out/pose-connected-final-package/MDLxL-win32-x64/MDLxL.exe`.
+This includes actual Head/Chest mouse drags, numeric head coordinates, native
+head-marker FK selection, cancel/Undo/Redo, head facing during chest motion,
+existing four-limb pins and automatic body posing, mouse camera rotation/zoom,
+compact default UI, MDL/MDX saving, and actual MDX reopen.
+The three mouse-authored jump/upper-body poses at 500/850/1200 ms had leg-root
+heights 40.40107/91.32011/40.05215. Playback advanced from 500 to 820 ms. Maximum
+native preview/evaluator matrix difference was 0.00001806.
+
+Final index hash: `95309f263cc6d05e2e73a23ac973ab055f8320c157d669ec12dcfb4b0d116479`.
+Final assets hash: `73bf121fdbf67557196bd2933e62248433218ab8686aca1069d8ffa20dd8f86a`.
+The test model and saved animation are ignored local evidence, not repository
+assets. The user's running editor and profiles were not replaced. The candidate
+awaits user testing and merge authorization on PR #154.

@@ -1,6 +1,7 @@
 import { Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
-import { applyMovementTransform, movementParentMatrix, movementProperties, prepareMovementPose, sampleMovement } from './movement.js';
+import { movementBoneVertexCenter } from './movement-selection.js';
+import { constrainMovementVector, applyMovementTransform, movementParentMatrix, movementProperties, prepareMovementPose, sampleMovement } from './movement.js';
 
 // POSE controls are editor-session identities. Only the resulting native keys
 // pass through Movement's transactional writer; no controller enters the rig.
@@ -250,9 +251,87 @@ export function poseAffectedPins(model, config, id) {
   return config.chains.filter(chain => config.pins.includes(chain.key) && chain.end !== id && descendantOf(model, chain.end, id));
 }
 
+const upperBodyRoles = new Set(['Spine', 'Chest', 'Neck', 'Head']);
+
+/** A handle grips the part, while its native marker remains at the joint.
+ * Use the existing skin centroid reader, including SD mesh children below a
+ * helper. The grip is a fixed model-space point, never a new rig node. */
+export function poseControlGrip(model, id) {
+  const nodes = allNodes(model), node = nodes.find(node => node.ObjectId === id);
+  const pivot = v3(node.PivotPoint || model.PivotPoints[id]), identity = new Map();
+  const centers = [node, ...nodes.filter(child => child.Parent === id && !upperBodyRoles.has(poseNodeRole(child)))]
+    .map(child => movementBoneVertexCenter(model, child.ObjectId, identity)?.center).filter(Boolean);
+  if (centers.length) {
+    const center = centers.reduce((sum, center) => sum.add(center), new Vector3()).divideScalar(centers.length);
+    if (center.distanceToSquared(pivot) > 1e-8) return center;
+  }
+  const child = nodes.find(child => child.Parent === id && upperBodyRoles.has(poseNodeRole(child)));
+  if (child) {
+    const toward = v3(child.PivotPoint || model.PivotPoints[child.ObjectId]);
+    if (toward.distanceToSquared(pivot) > 1e-8) return pivot.clone().lerp(toward, .5);
+  }
+  const parent = nodes.find(parent => parent.ObjectId === node.Parent);
+  const direction = parent ? pivot.clone().sub(v3(parent.PivotPoint || model.PivotPoints[parent.ObjectId])).multiplyScalar(.5) : new Vector3(0, 0, 1);
+  if (direction.lengthSq() < 1e-8) direction.set(0, 0, 1);
+  return pivot.add(direction);
+}
+
+export function poseNodeControl(model, config, target, mode = 'move') {
+  const id = target?.kind === 'body' ? config.body : target?.id, nodes = allNodes(model), byId = new Map(nodes.map(node => [node.ObjectId, node]));
+  const node = byId.get(id), joints = [];
+  if (!node || target?.marker || !['move', 'rotate'].includes(mode)) return { joints, heads: [] };
+  if (mode === 'move' && id !== config.body && (config.nodes || []).includes(id) && upperBodyRoles.has(poseNodeRole(node))) {
+    const transforms = new Set(transformNodes(model).map(node => node.ObjectId)), visited = new Set();
+    let joint = node; const pending = [];
+    const limbJoints = new Set(config.chains.flatMap(chain => [chain.root, chain.middle, chain.end]));
+    while (joint && joint.ObjectId !== config.body && transforms.has(joint.ObjectId) && !visited.has(joint.ObjectId) && !limbJoints.has(joint.ObjectId) && !['Body', 'Pelvis'].includes(poseNodeRole(joint))) {
+      pending.unshift(joint.ObjectId);
+      if (upperBodyRoles.has(poseNodeRole(joint))) { joints.unshift(...pending); pending.length = 0; }
+      visited.add(joint.ObjectId); joint = byId.get(joint.Parent);
+    }
+  }
+  const driver = joints[0] ?? id;
+  const heads = (config.nodes || []).filter(head => head !== id && poseNodeRole(byId.get(head)) === 'Head' && descendantOf(model, head, driver));
+  return { joints, heads };
+}
+
+export function poseControlPoint(model, config, id, matrices) {
+  const node = allNodes(model).find(node => node.ObjectId === id);
+  const grip = id !== config.body && upperBodyRoles.has(poseNodeRole(node)) && (config.nodes || []).includes(id);
+  return (grip ? poseControlGrip(model, id) : v3(node.PivotPoint || model.PivotPoints[id])).applyMatrix4(matrices.get(id));
+}
+
+// Solve only rotations on the existing upper-body links. Damped coordinate
+// descent shares a drag through the neck/spine without translating a joint or
+// imposing anatomical angle limits. Geometry iterations stay off the model;
+// the final rotations go through the same native adapter as limb IK.
+function solveConnectedOnClone(model, joints, grip, target, frame, sequence, globalTime) {
+  const byId = hierarchy(model, joints), matrices = sampled(model, frame, sequence, globalTime);
+  const nodes = joints.map(id => byId.get(id)), points = nodes.map(node => point(model, node, matrices));
+  points.push(grip.clone().applyMatrix4(matrices.get(joints.at(-1))));
+  const start = points.map(point => point.clone()), rotations = nodes.map(node => rigidRotation(matrices.get(node.ObjectId)));
+  const tolerance = Math.max(1e-6, points.slice(1).reduce((sum, point, i) => sum + point.distanceTo(points[i]), 0) * 2e-5);
+  if (points.at(-1).distanceTo(target) <= tolerance * .01) return;
+  for (let iteration = 0; iteration < 32; iteration++) {
+    for (let i = joints.length - 1; i >= 0; i--) {
+      const from = points.at(-1).clone().sub(points[i]), to = target.clone().sub(points[i]);
+      if (from.lengthSq() < 1e-16 || to.lengthSq() < 1e-16) continue;
+      const swing = new Quaternion().slerp(new Quaternion().setFromUnitVectors(from.normalize(), to.normalize()), .65);
+      for (let j = i + 1; j < points.length; j++) points[j].sub(points[i]).applyQuaternion(swing).add(points[i]);
+      for (let j = i; j < rotations.length; j++) rotations[j].premultiply(swing).normalize();
+    }
+    if (points.at(-1).distanceTo(target) < tolerance) break;
+  }
+  for (let i = 0; i < nodes.length; i++) setWorldRotation(model, nodes[i], rotations[i], sampled(model, frame, sequence, globalTime), frame, sequence, globalTime);
+  const after = sampled(model, frame, sequence, globalTime), actual = nodes.map(node => point(model, node, after));
+  actual.push(grip.clone().applyMatrix4(after.get(joints.at(-1))));
+  if (actual.some((point, i) => point.distanceTo(points[i]) > tolerance * 8) || actual.slice(1).some((point, i) => Math.abs(point.distanceTo(actual[i]) - start[i + 1].distanceTo(start[i])) > tolerance * 8)) throw new Error('This upper-body hierarchy cannot preserve connected motion.');
+}
+
 // Automatic targets belong to ancestors of a complete limb. Selecting a limb's
 // own joints still permits ordinary FK; explicit pins retain their constraint.
-export function poseNodeConstraints(model, config, id, mode = 'move') {
+export function poseNodeConstraints(model, config, id, mode = 'move', target = config.target) {
+  id = poseNodeControl(model, config, target, mode).joints[0] ?? id;
   const pinned = new Set(poseAffectedPins(model, config, id).map(chain => chain.key));
   return config.chains.filter(chain => pinned.has(chain.key) ||
     ['move', 'rotate'].includes(mode) && chain.root !== id && descendantOf(model, chain.root, id))
@@ -294,7 +373,14 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
   if (!node || !property) throw new Error('Select an object and a Movement tool.');
   const values = change.values || ['X', 'Y', 'Z'].map(axis => axis === change.axis ? change.amount : change.mode === 'scale' ? 1 : 0);
   if (values.length !== 3 || !finite(values)) throw new Error('Enter finite X, Y, and Z values.');
-  const used = new Set(), captured = constraints.filter(pin => pin.chain.end !== id && descendantOf(model, pin.chain.end, id)).map(pin => {
+  const control = change.control || { joints: [], heads: [] }, driver = control.joints[0] ?? id;
+  const initialMatrices = control.joints.length || control.heads.length ? sampled(model, frame, sequence, globalTime) : null;
+  const grip = control.joints.length ? poseControlGrip(model, id) : null;
+  let offset = v3(values);
+  if (grip && change.space === 'local') offset.applyQuaternion(rigidRotation(initialMatrices.get(id)));
+  offset.fromArray(constrainMovementVector(offset.toArray(), change));
+  const headRotations = control.heads.map(id => ({ id, rotation: rigidRotation(initialMatrices.get(id)) }));
+  const used = new Set(), captured = constraints.filter(pin => pin.chain.end !== driver && descendantOf(model, pin.chain.end, driver)).map(pin => {
     for (const joint of [pin.chain.root, pin.chain.middle, pin.chain.end]) { if (used.has(joint)) throw new Error('Limb controls must have separate joint chains.'); used.add(joint); }
     const pose = samplePoseChain(model, pin.chain, frame, sequence, globalTime);
     const target = pin.pinned === false && matchesPoseTarget(pin.target, pin.chain, pose, frame, sequence) ? pin.target : null;
@@ -303,6 +389,10 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
   const fixed = captured.filter(pin => pin.pinned);
   const transformed = fraction => {
     const copy = posePreviewModel(model), target = allNodes(copy).find(item => item.ObjectId === id);
+    if (grip) {
+      const goal = grip.clone().applyMatrix4(initialMatrices.get(id)).addScaledVector(offset, fraction);
+      solveConnectedOnClone(copy, control.joints, grip, goal, frame, sequence, globalTime); return copy;
+    }
     // Ordinary Movement owns these tracks in-place; detach just its channels.
     for (const channel of Object.values(movementProperties)) if (target[channel]) target[channel] = structuredClone(target[channel]);
     const scaled = values.map(value => change.mode === 'scale' ? 1 + (value - 1) * fraction : value * fraction);
@@ -314,7 +404,7 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
   });
   let fraction = 1, copy = transformed(1);
   if (fixed.length) {
-    let linear = change.mode === 'move';
+    let linear = change.mode === 'move' && !grip;
     const poses = fixed.map(pin => samplePoseChain(copy, pin.chain, frame, sequence, globalTime));
     linear &&= poses.every((pose, i) => pose.lengths.every((length, j) => Math.abs(length - fixed[i].pose.lengths[j]) < pose.tolerance));
     if (linear) for (let i = 0; i < fixed.length; i++) {
@@ -337,12 +427,14 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
     }
     if (fraction < 1) copy = transformed(Math.max(0, fraction * (1 - 1e-7)));
   }
-  const target = allNodes(copy).find(item => item.ObjectId === id), changes = [{ id, property, value: sampleMovement(copy, target, property, frame, sequence) }], bends = [];
+  const byId = new Map(allNodes(copy).map(node => [node.ObjectId, node])), target = byId.get(id);
+  const changes = grip ? control.joints.map(id => ({ id, property: 'Rotation', value: sampleMovement(copy, byId.get(id), 'Rotation', frame, sequence) })) : [{ id, property, value: sampleMovement(copy, target, property, frame, sequence) }], bends = [];
   if (change.rotateOnOwnAxis && change.mode === 'rotate') changes.push({ id, property: 'Translation', value: sampleMovement(copy, target, 'Translation', frame, sequence) });
   for (const pin of captured) {
     const result = solveChainOnClone(copy, pin.chain, frame, sequence, pin.position, { orientation: pin.orientation, bendMemory: pin.bendLocal && v3(pin.bendLocal).applyQuaternion(pin.pose.rotations[0]), strict: pin.pinned, globalTime });
     changes.push(...result.changes); bends.push({ key: pin.chain.key, local: v3(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() });
   }
+  for (const head of headRotations) changes.push(setWorldRotation(copy, byId.get(head.id), head.rotation, sampled(copy, frame, sequence, globalTime), frame, sequence, globalTime));
   for (const pin of fixed) {
     const after = samplePoseChain(copy, pin.chain, frame, sequence, globalTime);
     if (after.end.distanceTo(pin.position) > pin.pose.tolerance * 4 || 1 - Math.abs(after.rotations[2].dot(new Quaternion().fromArray(pin.orientation))) > 1e-7) throw new Error('This transform cannot retain the pins.');
@@ -363,8 +455,10 @@ export function poseTrackScope(config, target, mode, model) {
   if (!target) return [];
   if (target.kind === 'body' || target.kind === 'node') {
     const id = target.kind === 'body' ? config.body : target.id;
-    const pins = model ? poseNodeConstraints(model, config, id, mode).map(item => item.chain) : config.chains.filter(chain => config.pins.includes(chain.key));
-    return [...new Map([{ id, property: movementProperties[mode] || 'Translation' }, ...pins.flatMap(chain => [chain.root, chain.middle, chain.end].map(id => ({ id, property: 'Rotation' })))].map(item => [`${item.id}:${item.property}`, item])).values()];
+    const control = model ? poseNodeControl(model, config, target, mode) : { joints: [], heads: [] };
+    const direct = control.joints.length ? control.joints.map(id => ({ id, property: 'Rotation' })) : [{ id, property: movementProperties[mode] || 'Translation' }];
+    const pins = model ? poseNodeConstraints(model, config, id, mode, target).map(item => item.chain) : config.chains.filter(chain => config.pins.includes(chain.key));
+    return [...new Map([...direct, ...control.heads.map(id => ({ id, property: 'Rotation' })), ...pins.flatMap(chain => [chain.root, chain.middle, chain.end].map(id => ({ id, property: 'Rotation' })))].map(item => [`${item.id}:${item.property}`, item])).values()];
   }
   const chain = config.chains.find(item => item.key === target.key);
   if (chain && mode === 'scale') return [{ id: chain.end, property: 'Scaling' }];

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
-import { allNodes, sampleTrack } from '../src/animation.js';
+import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { applyMovementPose, applyMovementTransform, sampleMovement } from '../src/movement.js';
-import { withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
+import { poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
@@ -364,4 +364,108 @@ test('one body operation is atomic history, including absent tracks restored by 
   assert.ok(clean.undo()); assert.deepEqual(clean.model, before); assert.equal(clean.undo(), false); assert.ok(clean.redo()); assert.deepEqual(clean.model, after);
   for (const format of ['mdx', 'mdl']) { const reopened = openDocument(clean.serialize(format), `body.${format}`); for (const c of [leg1, leg2]) { const original = samplePoseChain(before, c, 500, 0), saved = samplePoseChain(reopened.model, c, 500, 0); vectorNear(saved.end.toArray(), original.end.toArray()); near(Math.abs(saved.rotations[2].dot(original.rotations[2])), 1, 1e-6); } }
   const failed = structuredClone(clean.model); assert.throws(() => clean.apply('Failed body', ['Nodes'], m => { const bad = [...result.changes, { id: 9, property: 'Translation', value: [NaN, 0, 0] }]; applyMovementPose(m, bad, 500, 0); })); assert.deepEqual(clean.model, failed); assert.ok(clean.undo()); assert.deepEqual(clean.model, before);
+});
+
+
+function connectedEdit(model, config, id, values, mode = 'move', frame = 500) {
+  const target = { kind: id === config.body ? 'body' : 'node', id };
+  return solvePoseNode(model, id, poseNodeConstraints(model, config, id, mode, target), frame, 0,
+    { mode, space: 'world', values, control: poseNodeControl(model, config, target, mode) });
+}
+function jointPoints(model, frame = 500) {
+  const matrices = sampleNodeMatrices(model, frame, 0, frame);
+  return new Map(allNodes(model).map(node => [node.ObjectId, new Vector3(...(node.PivotPoint || model.PivotPoints[node.ObjectId])).applyMatrix4(matrices.get(node.ObjectId))]));
+}
+function connectedLengths(model, frame = 500) {
+  const points = jointPoints(model, frame);
+  return allNodes(model).filter(node => points.has(node.Parent)).map(node => points.get(node.ObjectId).distanceTo(points.get(node.Parent)));
+}
+
+test('Head and Chest grips bend connected SD joints instead of translating parts away', { skip: !fs.existsSync(nativeFixture) }, () => {
+  const source = openDocument(fs.readFileSync(nativeFixture), 'Footman.mdx').model, config = { ...suggestPoseRig(source, 500, 0), pins: [] };
+  for (const id of [33, 39]) for (const values of [[0, 3, 0], [4, -2, 1], [100, -80, 100]]) {
+    const model = structuredClone(source), before = structuredClone(model), lengths = connectedLengths(model);
+    const matrices = sampleNodeMatrices(model, 500, 0, 500), grip = poseControlPoint(model, config, id, matrices);
+    assert.ok(grip.distanceTo(jointPoints(model).get(id)) > 1, 'grip lies on the visible part above its joint');
+    const result = connectedEdit(model, config, id, values);
+    assert.deepEqual(model, before); assert.ok(result.changes.length > 0);
+    assert.ok(result.changes.every(change => change.property === 'Rotation'));
+    apply(model, result); vectorNear(connectedLengths(model), lengths, .003);
+    assert.ok(poseControlPoint(model, config, id, sampleNodeMatrices(model, 500, 0, 500)).distanceTo(grip) > .01);
+    for (const node of allNodes(model)) {
+      const old = allNodes(before).find(old => old.ObjectId === node.ObjectId);
+      assert.deepEqual(node.Translation, old.Translation); assert.deepEqual(node.Scaling, old.Scaling); assert.deepEqual(node.PivotPoint, old.PivotPoint); assert.equal(node.Parent, old.Parent);
+    }
+    if (id === 39) assert.ok(result.changes.some(change => change.id === 33), 'head drag shares motion with the chest');
+    else {
+      const after = sampleNodeMatrices(model, 500, 0, 500), orientation = matrix => new Quaternion().setFromRotationMatrix(matrix).normalize();
+      near(Math.abs(orientation(after.get(39)).dot(orientation(matrices.get(39)))), 1, 1e-6);
+      assert.ok(jointPoints(model).get(39).distanceTo(jointPoints(before).get(39)) > .01, 'head follows chest position while keeping facing');
+    }
+  }
+});
+
+test('connected Head Move has native rotation scope and raw head markers keep normal translation', { skip: !fs.existsSync(nativeFixture) }, () => {
+  const model = openDocument(fs.readFileSync(nativeFixture), 'Footman.mdx').model, config = { ...suggestPoseRig(model, 500, 0), pins: [] }, target = { kind: 'node', id: 39 };
+  const scope = poseTrackScope(config, target, 'move', model), ids = scope.map(item => item.id);
+  assert.ok(ids.includes(33) && ids.includes(39) && ids.includes(36) && ids.includes(34));
+  assert.ok(scope.every(item => item.property === 'Rotation'));
+  assert.deepEqual(poseTrackScope(config, { ...target, marker: true }, 'move', model), [{ id: 39, property: 'Translation' }]);
+  assert.deepEqual(connectedEdit(model, config, 39, [0, 0, 0]).changes, []);
+  assert.throws(() => { const result = connectedEdit(model, config, 39, [0, 3, 0]); applyMovementPose(model, result.changes, 500, 0, { rotation: true }); }, /restricted/);
+  const before = structuredClone(model); applyMovementTransform(model, [39], 500, 0, { mode: 'move', space: 'world', values: [0, 1, 0] });
+  const direct = structuredClone(model); assert.notDeepEqual(direct, before);
+  assert.deepEqual(connectedEdit(model, config, 39, [0, 0, 0]).changes, [], 'returning from FK never restores an old head target');
+});
+
+test('multiple spine and neck joints share a head drag with continuous, fixed-length motion', () => {
+  const model = fixture();
+  for (const [id, name, parent, pivot] of [[10, 'Spine', 0, [0,0,12]], [11, 'Chest', 10, [0,0,17]], [12, 'Neck', 11, [0,0,22]], [13, 'Head', 12, [0,0,24]]]) {
+    model.Bones.push({ ObjectId:id, Name:name, Parent:parent, PivotPoint:pivot, Flags:256 }); model.PivotPoints[id] = pivot;
+  }
+  const config = { body:0, nodes:[10,11,12,13], chains:[], pins:[] }, lengths = connectedLengths(model);
+  assert.deepEqual(poseNodeControl(model, config, { kind:'node', id:13 }).joints, [10,11,12,13]);
+  assert.deepEqual(poseNodeControl(model, { ...config, nodes:[] }, { kind:'node', id:13 }).joints, [], 'unmapped nodes retain ordinary controls');
+  model.Bones.push({ObjectId:14,Name:'Helper01',Parent:11,PivotPoint:[0,0,19],Flags:256});model.PivotPoints[14]=[0,0,19];model.Bones.find(node=>node.ObjectId===12).Parent=14;
+  assert.deepEqual(poseNodeControl(model,config,{kind:'node',id:13}).joints,[10,11,14,12,13]);
+  const helperLengths=connectedLengths(model);
+  let previous = null;
+  for (let i=0;i<=40;i++) {
+    const copy=structuredClone(model), result=connectedEdit(copy,config,13,[i*.1,0,0]); apply(copy,result);
+    vectorNear(connectedLengths(copy),helperLengths,1e-4);
+    const points=jointPoints(copy); if(previous) for(const id of [10,11,12,13]) assert.ok(points.get(id).distanceTo(previous.get(id))<.4,'small mouse steps do not flip the torso'); previous=points;
+  }
+});
+
+test('upper-body explicit hand pins remain reachable without releasing or stretching', { skip: !fs.existsSync(nativeFixture) }, () => {
+  const model = openDocument(fs.readFileSync(nativeFixture), 'Footman.mdx').model, config = { ...suggestPoseRig(model, 500, 0), pins: [] };
+  config.pins=config.chains.filter(chain=>chain.kind==='arm').map(chain=>chain.key);
+  const hands=config.chains.filter(chain=>chain.kind==='arm').map(chain=>({chain,pose:samplePoseChain(model,chain,500,0)}));
+  apply(model,connectedEdit(model,config,39,[0,35,0]));
+  for(const {chain,pose} of hands) { const after=samplePoseChain(model,chain,500,0);vectorNear(after.end.toArray(),pose.end.toArray(),.003);vectorNear(after.lengths,pose.lengths,.003); }
+});
+
+test('upper-body native keys survive history and MDL/MDX animation round trips with intact rig', { skip: !fs.existsSync(nativeFixture) }, () => {
+  const doc=openDocument(fs.readFileSync(nativeFixture),'Footman.mdx'), original=structuredClone(doc.model), config={...suggestPoseRig(doc.model,500,0),pins:[]};
+  const allowed=new Set();
+  for(const [frame,id,values] of [[500,39,[0,4,0]],[850,33,[3,-2,0]],[1200,39,[-2,0,2]]]) {
+    const result=connectedEdit(doc.model,config,id,values,'move',frame); result.changes.forEach(change=>allowed.add(change.id));
+    doc.apply('Connected upper body',['Nodes'],model=>applyMovementPose(model,result.changes,frame,0));
+  }
+  const edited=structuredClone(doc.model); assert.ok(doc.undo());assert.ok(doc.redo());assert.deepEqual(doc.model,edited);
+  const strip=model=>{const copy=structuredClone(model);for(const key of ['Nodes','Bones','Helpers','Attachments'])for(const node of copy[key]||[])if(node&&allowed.has(node.ObjectId))delete node.Rotation;return copy;};
+  assert.deepEqual(strip(edited),strip(original));
+  for(const format of ['mdl','mdx']) {
+    const reopened=openDocument(doc.serialize(format),'connected.'+format);assertModelEquivalent(edited,reopened.model);assertModelEquivalent(strip(original),strip(reopened.model));
+    for(const frame of [500,675,850,1025,1200])vectorNear(connectedLengths(reopened.model,frame),connectedLengths(original,frame),.004);
+  }
+});
+
+
+test('a selected controller symbol keeps its drag when another handle label crosses it', () => {
+  const body={kind:'body',label:'Body',x:50,y:40,visible:true}, hand={kind:'endpoint',key:'arm',label:'Hand',x:20,y:40,labelX:40,labelY:40,labelWidth:40,visible:true};
+  assert.equal(pickPoseHandle([hand,body],50,40,{kind:'body'},[],true),body);
+  assert.equal(pickPoseHandle([hand,body],65,40,{kind:'body'},[],true),body);
+  assert.equal(pickPoseHandle([hand,body],75,40,{kind:'body'},[],true),hand,'label remains clickable outside the selected symbol');
+  assert.equal(pickPoseHandle([hand,body],50,40,null,[],false),hand,'unselected label still selects its named control');
 });

@@ -3,11 +3,11 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
-  const { ObjectLoader } = await import('three');
+  const { ObjectLoader, Vector3, Quaternion } = await import('three');
   const { projectPoseHandles } = await import('../app/pose-overlay.js');
   const { samplePoseChain, solvePoseLimb } = await import('../src/pose-ik.js');
   const { openDocument } = await import('../src/editor-document.js');
-  const { allNodes, skinGeoset } = await import('../src/animation.js');
+  const { allNodes, sampleNodeMatrices, skinGeoset } = await import('../src/animation.js');
   const { samplePreviewMatrices } = await import('../app/preview-pose.js');
   const { assertModelEquivalent } = await import('../src/save-equivalence.js');
   const { parseMdx } = await import('../src/mdx-container.js');
@@ -300,6 +300,27 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for(const {chain,pose} of armPoses)assert.ok(samplePoseChain((await snap()).model,chain,500,0).end.distanceTo(pose.end)<.004);
     await menu('undo');await settle();assert.deepEqual((await snap()).model,autoBefore.model);
     results.checks.push('Automatic Body/Pelvis crouching, unrestricted airborne body drag, stable endpoint orientation, bend recovery, chest/hand compensation and atomic Undo/Redo work by mouse with zero pins');
+    // Connected upper-body grips must never author joint translations.
+    const pointsAt=(model,frame=500)=>{const matrices=sampleNodeMatrices(model,frame,0,frame);return new Map(allNodes(model).map(node=>[node.ObjectId,new Vector3(...node.PivotPoint).applyMatrix4(matrices.get(node.ObjectId))]));};
+    const assertConnected=(before,after,frame=500)=>{const a=pointsAt(before,frame),b=pointsAt(after,frame);for(const node of allNodes(after)){if(!b.has(node.Parent))continue;assert.ok(Math.abs(a.get(node.ObjectId).distanceTo(a.get(node.Parent))-b.get(node.ObjectId).distanceTo(b.get(node.Parent)))<.004,'joint '+node.ObjectId+' stays attached');const old=allNodes(before).find(old=>old.ObjectId===node.ObjectId);assert.deepEqual(node.Translation,old.Translation);assert.deepEqual(node.Scaling,old.Scaling);}};
+    for(const id of [33,39]) {
+      await selectHandle('node',id);await tool('Move');const before=await snap();await drag('node',id,24,-8);const after=await snap();assert.equal(after.undo,before.undo+1);assertConnected(before.model,after.model);
+      assert.notDeepEqual(allNodes(after.model).find(n=>n.ObjectId===33).Rotation,allNodes(before.model).find(n=>n.ObjectId===33).Rotation,'head/chest grip moves the torso');
+      if(id===33){const qa=new Quaternion().setFromRotationMatrix(sampleNodeMatrices(before.model,500,0,500).get(39)).normalize(),qb=new Quaternion().setFromRotationMatrix(sampleNodeMatrices(after.model,500,0,500).get(39)).normalize();assert.ok(1-Math.abs(qa.dot(qb))<1e-6,'chest bend preserves head facing');}
+      await shot(id===33?'13-connected-chest':'14-connected-head');await menu('undo');await settle();assert.deepEqual((await snap()).model,before.model);await menu('redo');await settle();assert.deepEqual((await snap()).model,after.model);await menu('undo');await settle();
+      const beforeCancel=await snap();await drag('node',id,-20,6,true);assert.deepEqual(await snap(),beforeCancel);
+    }
+    await selectHandle('node',39);await tool('Move');const numericBefore=await snap(), coordinate=page.getByLabel('Y coordinate',{exact:true}), oldY=Number(await coordinate.inputValue());
+    await coordinate.fill(String(oldY+2));await coordinate.press('Enter');await settle();const numericAfter=await snap();assert.equal(numericAfter.undo,numericBefore.undo+1);assertConnected(numericBefore.model,numericAfter.model);await menu('undo');await settle();assert.deepEqual((await snap()).model,numericBefore.model);
+    // Native marker selection retains MDLvis translation, then a handle starts
+    // its next solve from that edited pose, without an old controller target.
+    await page.getByRole('checkbox',{name:'Bones',exact:true}).check();await tool('Select');
+    const markerCamera=new ObjectLoader().parse(await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()));markerCamera.updateMatrixWorld(true);const marker=pointsAt((await snap()).model).get(39).project(markerCamera),markerBox=await viewportBox();
+    for(let i=0;i<24;i++){await page.mouse.click(markerBox.x+(marker.x+1)*markerBox.width/2,markerBox.y+(1-marker.y)*markerBox.height/2);await settle();const t=await page.evaluate(()=>poseProbe().props.poseConfig.target);if(t?.marker&&t.id===39)break;}
+    assert.deepEqual(await page.evaluate(()=>poseProbe().props.poseConfig.target),{kind:'node',id:39,marker:true});await tool('Move');
+    const markerBefore=await snap(), x=page.getByLabel('X coordinate',{exact:true}),oldX=Number(await x.inputValue());await x.fill(String(oldX+1));await x.press('Enter');await settle();const markerAfter=await snap();assert.notDeepEqual(allNodes(markerAfter.model).find(n=>n.ObjectId===39).Translation,allNodes(markerBefore.model).find(n=>n.ObjectId===39).Translation);
+    await selectHandle('node',39);await tool('Move');await drag('node',39,5,-2);const resumed=await snap();assertConnected(markerAfter.model,resumed.model);await menu('undo');await settle();assert.deepEqual((await snap()).model,markerAfter.model);await menu('undo');await settle();assert.deepEqual((await snap()).model,autoBefore.model);
+    results.checks.push('Head/Chest mouse grips and numeric coordinates rotate connected joints, retain all native translations/scales, compensate head facing, cancel/Undo/Redo atomically and resume after actual native-marker FK editing');
     // Author three ordinary native poses, scrub them, and save/reopen the resulting animation.
     const jumpFrames=[500,850,1200];
     for(const [i,frame] of jumpFrames.entries()) {
@@ -310,6 +331,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const origin=h.world.clone().project(camera), goal=h.world.clone();goal.z+=goalRoot-currentRoot;goal.project(camera);
       const sensitivity=pointerSensitivityValue(data.sensitivity);
       await drag('body',null,(goal.x-origin.x)*b.width/2/sensitivity,-(goal.y-origin.y)*b.height/2/sensitivity);
+      const rootAfterBody=samplePoseChain((await snap()).model,autoLegs[0],frame,0).root.z;console.log(JSON.stringify({frame,currentRoot,goalRoot,rootAfterBody,target:await page.evaluate(()=>poseProbe().props.poseConfig.target),status:await page.locator('.game-preview-root [role=status]').textContent().catch(()=>null)}));assert.ok(Math.abs(rootAfterBody-goalRoot)<.5,'body follows requested height at '+frame);
+      await selectHandle('node',i===1?39:33);await tool('Move');const upperBefore=(await snap()).model;await drag('node',i===1?39:33,i===1?12:-8,-3);assertConnected(upperBefore,(await snap()).model,frame);
       if(i!==1)for(const c of autoLegs){
         await selectHandle('endpoint',c.end);await tool('Move');const foot=await handleFor('endpoint',c.end);
         const from=foot.world.clone().project(camera), to=samplePoseChain(original,c,frame,0).end.clone().project(camera);
@@ -324,7 +347,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const jumpDest=path.join(out,'automatic-jump.mdx');await app.evaluate(({dialog},dest)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:dest});},jumpDest);await menu('saveAs');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
     const jumpSaved=openDocument(fs.readFileSync(jumpDest),'automatic-jump.mdx');assertModelEquivalent(jumpModel,jumpSaved.model);assertModelEquivalent(strip(original),strip(jumpSaved.model));
     await page.locator('.model-tab.active .model-tab-close').click();await settle();await app.evaluate(({dialog},dest)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[dest]});},jumpDest);await menu('open');await settle();await menu('animation');await page.getByLabel('Movement current sequence').selectOption('0');await time.fill('850');await time.press('Enter');await settle();assertModelEquivalent(jumpModel,(await snap()).model);await shot('12-reopened-jump');
-    results.automaticJump={frames:jumpFrames,rootHeights:jumpHeights,saved:jumpDest,playbackFrame};results.checks.push('A crouch/takeoff/landing sequence is authored through mouse drags at three frames, scrubs and plays with native matrices, saves as MDX and reopens in the packaged editor');
+    results.automaticJump={frames:jumpFrames,rootHeights:jumpHeights,saved:jumpDest,playbackFrame};results.checks.push('A crouch/takeoff/landing sequence with connected Head/Chest poses is authored through mouse drags at three frames, scrubs and plays with native matrices, saves as MDX and reopens in the packaged editor');
     assert.equal(hash(fixture), fixtureHash); for (const [name, expected] of Object.entries(results.textureHashes)) assert.equal(hash(path.join(out, 'Textures', name)), expected);
     assert.deepEqual(errors, []); results.errors = errors; fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify(results, null, 2)); console.log(JSON.stringify(results, null, 2));
   } catch (error) { await (await app.firstWindow()).screenshot({ path: path.join(out, 'failure.png') }); throw error; }

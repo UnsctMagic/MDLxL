@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from 'three';
 import { allNodes } from '../src/animation.js';
-import { poseAffectedPins, poseNodeRole, samplePoseChain } from '../src/pose-ik.js';
+import { poseControlPoint, poseAffectedPins, poseNodeRole, samplePoseChain } from '../src/pose-ik.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { pickMovementNode } from './movement-overlay.js';
 
@@ -62,7 +62,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
     if (quiet && visibleNodes && !visibleNodes.has(node.ObjectId)) continue;
     const matrix = matrices.get(node.ObjectId), pivot = node.PivotPoint || model.PivotPoints?.[node.ObjectId];
     if (!matrix || !pivot) continue;
-    const world = new Vector3().fromArray(pivot).applyMatrix4(matrix), rotation = new Quaternion(); matrix.decompose(new Vector3(), rotation, new Vector3());
+    const world = poseControlPoint(model, config, node.ObjectId, matrices), rotation = new Quaternion(); matrix.decompose(new Vector3(), rotation, new Vector3());
     if (!world.toArray().every(Number.isFinite)) continue;
     const paths = [];
     if (selected) for (const chain of poseAffectedPins(model, config, node.ObjectId)) {
@@ -92,6 +92,10 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
 
 export function pickPoseHandle(handles, x, y, target = null, nodes = null, preferSelected = false) {
   const visible = handles.filter(handle => handle.visible && (!nodes || !handle.quiet));
+  // The selected symbol is drawn last, over other controls' labels. Its
+  // draggable face must therefore win over a label crossing that face.
+  const selected = preferSelected && target && visible.find(handle => identity(handle) === identity(target));
+  if (selected && Math.hypot(x - selected.x, y - selected.y) <= (selected.kind === 'bend' ? 10 : 19)) return selected;
   const label = visible.find(handle => !handle.quiet && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
   if (label) return label;
   const candidates = [...visible, ...(nodes || []).map(point => ({ ...point, kind: 'node', id: point.node.ObjectId, marker: true, quiet: true }))];

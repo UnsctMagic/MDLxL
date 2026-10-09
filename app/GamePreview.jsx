@@ -25,7 +25,7 @@ import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, projectPoseHandles } from './pose-overlay.js';
-import { poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
+import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
@@ -433,7 +433,7 @@ export default function GamePreview(inputProps) {
         let result;
         if (gesture.target.kind === 'body' || gesture.target.kind === 'node' || gesture.mode === 'scale') {
           const id = gesture.target.kind === 'body' ? gesture.config.body : gesture.target.kind === 'node' ? gesture.target.id : gesture.config.chains.find(chain => chain.key === gesture.target.key).end;
-          const pins = poseNodeConstraints(gesture.baseline, gesture.config, id, gesture.mode);
+          const pins = poseNodeConstraints(gesture.baseline, gesture.config, id, gesture.mode, gesture.target);
           let values = offset.toArray();
           if (gesture.mode === 'rotate') {
             let degrees = movementDragAmount(gesture.handle, dx, dy, 'rotate', sensitivity); if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
@@ -441,7 +441,7 @@ export default function GamePreview(inputProps) {
             const normal = gesture.handle.axis === 'XYZ' ? gesture.camera.getWorldDirection(new THREE.Vector3()) : new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], 1);
             values = normal.multiplyScalar(degrees).toArray();
           } else if (gesture.mode === 'scale') values = gesture.handle.free || gesture.workplaneEnabled ? movementFreeScaleValues(dx, dy, { sensitivity, workplaneEnabled: gesture.workplaneEnabled, workplane: gesture.workplane, shiftKey: event.shiftKey }) : ['X', 'Y', 'Z'].map(axis => axis === gesture.handle.axis ? movementDragAmount(gesture.handle, dx, dy, 'scale', sensitivity) : 1);
-          result = solvePoseNode(gesture.baseline, id, pins, gesture.frame, gesture.sequence, { mode: gesture.mode, space: gesture.mode === 'move' ? 'world' : gesture.space, values, rotateOnOwnAxis: gesture.rotateOnOwnAxis, restrictions: p.restrictions }, gesture.globalTime);
+          result = solvePoseNode(gesture.baseline, id, pins, gesture.frame, gesture.sequence, { control: poseNodeControl(gesture.baseline, gesture.config, gesture.target, gesture.mode), mode: gesture.mode, space: gesture.mode === 'move' ? 'world' : gesture.space, values, rotateOnOwnAxis: gesture.rotateOnOwnAxis, restrictions: p.restrictions }, gesture.globalTime);
         } else {
           const chain = gesture.config.chains.find(chain => chain.key === gesture.target.key), pose = samplePoseChain(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.globalTime);
           if (gesture.mode === 'rotate') {
@@ -1212,7 +1212,7 @@ export default function GamePreview(inputProps) {
             handleAnchor = { ...active, world: ownCenter.center, x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
           }
         }
-        const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode !== 'move' || movementRestricted(activePose.kind === 'endpoint' && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
+        const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode !== 'move' || movementRestricted((activePose.kind === 'endpoint' || poseNodeControl(markerModel, p.poseConfig, poseHandleTarget(activePose), handleMode).joints.length > 0) && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
         nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
         const markerOptions = { ...overlayOptions, modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
