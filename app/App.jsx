@@ -952,7 +952,7 @@ export default function App() {
       return;
     }
     const result = edit('Paste geosets', ['Geosets', 'Materials', 'Textures', 'Nodes', 'PivotPoints', 'GeosetAnims', 'GlobalSequences', 'TextureAnims', 'BindPoses'], commit);
-    if (result !== false) { session.assets = new Map([...source.assets, ...session.assets]); setSelectedNodeIds([]); setSelectable(new Set(result.geosetIndices)); setSelection(result.selection || Object.fromEntries(result.geosetIndices.map(gi => [gi, Array.from({ length: doc.model.Geosets[gi].Vertices.length / 3 }, (_, i) => i)]))); setActiveGeoset(result.geosetIndices[0] ?? 0); setDialog(null); say(result.warnings?.join(' ') || 'Pasted geosets.'); refresh(); }
+    if (result !== false) { session.assets = new Map([...source.assets, ...session.assets]); setSelectedNodeIds([]); setSelectable(new Set(result.geosetIndices)); setSelection(result.selection || Object.fromEntries(result.geosetIndices.map(gi => [gi, Array.from({ length: doc.model.Geosets[gi].Vertices.length / 3 }, (_, i) => i)]))); setActiveGeoset(result.geosetIndices[0] ?? 0); setDialog(null); say('Pasted geosets.'); refresh(); }
   }
   const hide = () => { setHidden(previous => { const next = { ...previous }; for (const [gi, ids] of Object.entries(validSelection)) next[gi] = [...new Set([...(next[gi] || []), ...ids])]; return next; }); setSelection({}); };
   async function listRecovery() { try { const items = window.desktop?.listRecovery ? await window.desktop.listRecovery() : await browserRecovery('list'); setRecoveries((items || []).map(({ state, ...item }) => ({ ...item, name: item.name || state?.name }))); setDialog({ type: 'recovery' }); } catch (error) { say(error.message, true); } }
