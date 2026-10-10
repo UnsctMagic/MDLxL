@@ -82,7 +82,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const before=await snap(), g=await gizmo(pose), id=pose?config.body:g.active.node.ObjectId, from=await position(id);box=await viewportBox();console.log(pose?'POSE':'Bone',label,'pick',pickMovementHandle(g.handles,point.x,point.y,'move')?.axis);
       await page.mouse.move(box.x+point.x,box.y+point.y);await page.mouse.down();
       const picked=pickMovementHandle(g.handles,point.x,point.y,'move');
-      if(picked){await settle();const axis=picked.plane?({xy:'X',xz:'Y',yz:'Z'})[picked.plane]:picked.axis,rgb=({X:[255,102,119],Y:[85,255,119],Z:[85,187,255]})[axis];
+      if(picked){await settle();const axis=picked.plane?({xy:'Y',xz:'X',yz:'Z'})[picked.plane]:picked.axis,rgb=({X:[255,102,119],Y:[85,255,119],Z:[85,187,255]})[axis];
         const neon=await page.locator('[data-node-overlay]').evaluate((canvas,rgb)=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let count=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>40&&rgb.every((v,j)=>Math.abs(v-pixels[i+j])<=2))count++;return count;},rgb);
         assert.ok(neon>0,(pose?'POSE ':'Bone ')+label+' glows in its own neon color immediately on press');
         if(label==='X shaft middle'||label==='XY square')await shot((pose?'pose':'bone')+'-'+picked.axis+'-neon-active');

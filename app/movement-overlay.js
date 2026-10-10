@@ -8,7 +8,7 @@ import { drawPixelLine } from './pixel-lines.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
 const NEON_COLORS = { X: '#ff6677', Y: '#55ff77', Z: '#55bbff' };
-const PLANE_COLORS = { xy: 'X', xz: 'Y', yz: 'Z' };
+const PLANE_COLORS = { xy: 'Y', xz: 'X', yz: 'Z' };
 const AXES = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 const WORKPLANE_NORMALS = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
 export const MOVEMENT_GIZMO_SCALE = 1;

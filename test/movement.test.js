@@ -440,9 +440,9 @@ test('Move size follows distant model scale and cannot exceed the reference size
   }
 });
 
-test('Move plane colors match the red/blue association shown by the user', () => {
+test('Move plane squares use the requested swapped red/green colors', () => {
   const camera=new PerspectiveCamera(40,1,.1,1000);camera.up.set(0,0,1);camera.position.set(100,-140,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
   const handles=movementAxisHandles({world:new Vector3(),x:200,y:200,visible:true},camera,400,400,200,'world','move');
-  const expected={xy:'X',xz:'Y',yz:'Z'};
+  const expected={xy:'Y',xz:'X',yz:'Z'};
   for(const pad of handles.filter(h=>h.plane))assert.equal(pad.color,handles.find(h=>h.axis===expected[pad.plane]).color);
 });
