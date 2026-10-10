@@ -179,3 +179,9 @@ stable across clip boundaries; unsupported transforms can still prevent an IK
 solve at an individual frame. Entirely unnamed static or asymmetric branches may
 still need Add. Separate roots without an authored carrier remain independently
 controlled; for example the chariot and horse retain their own body controls.
+
+An imported mesh endpoint can have a pivot far from its visible foot or hand.
+For those rigid SD endpoints, recognition places the grip on vertices owned
+solely by that mesh. Posing keeps the grip in place with native endpoint
+Translation/Rotation keys; the authored pivot and skin weights stay intact.
+Setup preserves that grip while editing the same endpoint.

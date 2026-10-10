@@ -6,6 +6,7 @@ import { movementBoneVertexCenter } from './movement-selection.js';
 export function poseRecognitionEvidence(model) {
   const nodes = [...(model.Bones || []), ...(model.Helpers || [])], byId = new Map(nodes.map(node => [node.ObjectId, node]));
   const children = new Map(), profiles = new Map();
+  const rigidSkinModel = { ...model, Geosets: (model.Geosets || []).filter(geo => !geo.SkinWeights?.length).map(geo => ({ ...geo, Groups: (geo.Groups || []).map(ids => ids.length === 1 ? ids : []) })) };
   for (const node of nodes) { const list = children.get(node.Parent) || []; list.push(node); children.set(node.Parent, list); }
   for (const node of nodes) {
     let swing = 0, clips = 0;
@@ -17,7 +18,7 @@ export function poseRecognitionEvidence(model) {
       if (Number.isFinite(angle)) { swing = Math.max(swing, angle); if (angle > .01) clips++; }
     }
     const skin = movementBoneVertexCenter(model, node.ObjectId, new Map());
-    profiles.set(node.ObjectId, { swing, clips, skin: skin?.center || null });
+    profiles.set(node.ObjectId, { swing, clips, skin: skin?.center || null, rigidSkin: movementBoneVertexCenter(rigidSkinModel, node.ObjectId, new Map())?.center || null });
   }
   const descendants = id => {
     const result = [], pending = [...(children.get(id) || [])], seen = new Set([id]);

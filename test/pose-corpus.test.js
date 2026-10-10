@@ -3,17 +3,17 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {Vector3} from 'three';
+import {Vector3,Quaternion} from 'three';
 import {openDocument} from '../src/editor-document.js';
 import {allNodes} from '../src/animation.js';
 import {applyMovementPose} from '../src/movement.js';
 import {assertModelEquivalent} from '../src/save-equivalence.js';
-import {suggestPoseRig,poseRole,poseChainIds,poseNodeControl,poseNodeConstraints,samplePoseChain,solvePoseLimb,solvePoseNode} from '../src/pose-ik.js';
+import {suggestPoseRig,poseRole,poseChainIds,poseNodeControl,poseNodeConstraints,samplePoseChain,solvePoseLimb,solvePoseNode,turnPoseEndpoint,poseTrackScope} from '../src/pose-ik.js';
 const manifestPath=process.env.MDLXL_POSE_CORPUS || 'out/pose-corpus-fixtures/manifest.json';
 const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath)):null;
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const find=leaf=>manifest.models.find(item=>path.basename(item.path)===leaf);
-const mapping=rig=>({body:rig.body,chains:rig.chains.map(c=>[c.kind,c.label,poseChainIds(c)]),nodes:rig.nodes,roles:rig.roles});
+const mapping=rig=>({body:rig.body,chains:rig.chains.map(c=>[c.kind,c.label,poseChainIds(c),c.grip]),nodes:rig.nodes,roles:rig.roles});
 const strip=model=>{const copy=structuredClone(model);for(const node of allNodes(copy))for(const property of ['Translation','Rotation','Scaling'])delete node[property];return copy;};
 const report=[];
 for(const item of manifest?.models || []) test(`corpus: ${item.entry}`,()=>{
@@ -35,7 +35,7 @@ test('corpus expected anatomical corrections and false-positive exclusions',{ski
  ({model,rig}=rigFor('Mindflayer.mdx'));assert.equal(rig.chains.filter(c=>c.label==='Chain').length,8);assert.deepEqual(rig.chains.filter(c=>!c.label).map(c=>c.end).sort((a,b)=>a-b),[79,80]);
  ({model,rig}=rigFor('AnetheronV2.mdx'));assert.deepEqual(rig.nodes.filter(id=>poseRole(model,rig,id)==='Wing'),[28,29]);
  ({model,rig}=rigFor('FelOrcSalamanderRiderV2.mdx'));assert.ok(rig.chains.some(c=>c.end===92));assert.ok(!rig.chains.some(c=>c.root===89));assert.ok(!rig.nodes.includes(44));
- ({model,rig}=rigFor('NazgrelV2.mdx'));assert.equal(rig.chains.length,8);assert.ok(rig.chains.some(c=>c.end===12));assert.ok(rig.chains.some(c=>c.end===75));
+ ({model,rig}=rigFor('NazgrelV2.mdx'));assert.equal(rig.chains.length,8);assert.ok(rig.chains.some(c=>c.end===12&&c.grip));assert.ok(rig.chains.some(c=>c.end===75));
  ({model,rig}=rigFor('ScourgeBattleship.mdx'));assert.equal(rig.chains.length,0);assert.equal(rig.nodes.length,0);assert.equal(rig.body,8);
  ({model,rig}=rigFor('FelOrcSalamanderRiderAxeMissileV2.mdx'));assert.equal(rig.chains.length,0);
  ({model,rig}=rigFor('tiefling_of_darkfang2.mdx'));assert.ok(!rig.nodes.some(id=>/^Geo_Tail/.test(allNodes(model).find(n=>n.ObjectId===id).Name)));assert.deepEqual(rig.nodes.filter(id=>poseRole(model,rig,id)==='Tail'),[57]);
@@ -47,3 +47,13 @@ test('anonymous paired articulation uses motion and skin without names or source
  for(const shift of [13,907]){const {model,ends}=make(shift),before=structuredClone(model),rig=suggestPoseRig(model,0,0);assert.deepEqual(rig.chains.map(c=>c.end),ends);assert.ok(rig.chains.every(c=>c.kind==='leg'));assert.deepEqual(model,before);for(const n of model.Bones)n.Rotation.Keys.forEach(k=>k.Vector=[0,0,0,1]);assert.equal(suggestPoseRig(model,0,0).chains.length,0,'rigid props without articulation are not inferred as legs');}
 });
 test('original corpus archives and loose models remain byte-identical',{skip:!manifest},()=>{for(const item of manifest.sources)assert.equal(hash(fs.readFileSync(item.path)),item.sha256,item.path);fs.mkdirSync('out',{recursive:true});fs.writeFileSync('out/pose-corpus-regression-report.json',JSON.stringify(report,null,2));});
+
+test('displaced rigid mesh grip stays on its geometry during move, turn and ancestor pin compensation',()=>{
+ const model={Bones:[{ObjectId:0,Name:'Body',Parent:null,PivotPoint:[0,0,10],Flags:256},{ObjectId:1,Name:'Upper',Parent:0,PivotPoint:[0,0,10],Flags:256},{ObjectId:2,Name:'Lower',Parent:1,PivotPoint:[4,0,8],Flags:256},{ObjectId:3,Name:'footmesh',Parent:2,PivotPoint:[0,0,40],Flags:256}],Helpers:[],Sequences:[{Name:'clip',Interval:[0,1000]}],GlobalSequences:[],Geosets:[],Attachments:[]};model.PivotPoints=model.Bones.map(n=>n.PivotPoint);
+ const chain={root:1,middle:2,end:3,kind:'leg',key:'leg',grip:[7,0,3]},config={body:0,chains:[chain],nodes:[],pins:['leg']},before=structuredClone(model),frame=100,pose=samplePoseChain(model,chain,frame,0),goal=pose.end.clone().add(new Vector3(-.5,0,.5));
+ let result=solvePoseLimb(model,chain,frame,0,goal);assert.deepEqual(model,before);assert.ok(result.changes.some(c=>c.id===3&&c.property==='Translation'));const moved=structuredClone(model);applyMovementPose(moved,result.changes,frame,0);let after=samplePoseChain(moved,chain,frame,0);assert.ok(after.end.distanceTo(goal)<1e-5);after.lengths.forEach((n,i)=>assert.ok(Math.abs(n-pose.lengths[i])<1e-5));assert.deepEqual(moved.Bones.map(n=>n.PivotPoint),before.Bones.map(n=>n.PivotPoint));const movedBefore=structuredClone(moved);solvePoseLimb(moved,chain,frame,0,goal.clone().add(new Vector3(.1,0,.1)));assert.deepEqual(moved,movedBefore,'existing compensation track is detached during preview');
+ result=turnPoseEndpoint(model,chain,frame,0,new Quaternion().setFromAxisAngle(new Vector3(0,1,0),.4).toArray());const turned=structuredClone(model);applyMovementPose(turned,result.changes,frame,0);after=samplePoseChain(turned,chain,frame,0);assert.ok(after.end.distanceTo(pose.end)<1e-5);assert.ok(after.rotations[2].angleTo(pose.rotations[2])>.3);
+ result=solvePoseNode(model,0,poseNodeConstraints(model,config,0,'move',{kind:'body'}),frame,0,{mode:'move',space:'world',values:[.1,0,.1],control:poseNodeControl(model,config,{kind:'body'},'move')});const pinned=structuredClone(model);applyMovementPose(pinned,result.changes,frame,0);assert.ok(samplePoseChain(pinned,chain,frame,0).end.distanceTo(pose.end)<1e-5);
+ for(const target of [{kind:'body'},{kind:'endpoint',key:'leg'}])assert.ok(poseTrackScope(config,target,'move',model).some(t=>t.id===3&&t.property==='Translation'));
+ model.Bones[3].Translation={LineType:1,GlobalSeqId:0,Keys:[{Frame:0,Vector:[0,0,0]},{Frame:1000,Vector:[1,0,0]}]};model.GlobalSequences=[1000];assert.throws(()=>solvePoseLimb(model,chain,frame,0,goal),/global/i);
+});

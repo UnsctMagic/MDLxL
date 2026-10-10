@@ -680,9 +680,9 @@ Observed corrections:
 - The earlier HeroGnomeDragonrider reference additionally identifies tail 50
   beneath the nested dragon hip (direct source mapping check).
 
-96/96 source checks passed in out/pose-corpus-final-tests3.log: the prior 58 checks
+97/97 source checks passed in out/pose-corpus-acceptance-tests.log: the prior 58 checks
 (Footman, nine Chaos Knights, four complex references and synthetic regressions)
-plus 38 new corpus/generalization checks. Each of the 35 models retains an
+plus 39 new corpus/generalization checks. Each of the 35 models retains an
 identical mapping at the start/end of every authored clip. A nameless synthetic
 rig with unrelated IDs checks geometry/motion inference; removing its actual
 rotation variation prevents rigid props from being inferred as limbs.
@@ -698,3 +698,51 @@ manual Add. Scale/shear restrictions on solving remain; stable recognition is no
 a guarantee that every frame can be posed. No Warcraft in-game playback or
 subjective user acceptance is claimed. Existing Add/Setup, pins, crosshair toggle,
 overlap selection and ordinary Movement bone editing remain unchanged.
+
+
+Visual acceptance found one issue that source reachability checks alone missed:
+Nazgrel's rightfoot mesh is directly below the shin but has a mesh origin near
+the torso. A reusable geometry grip now uses vertices owned solely by the rigid
+SD endpoint, ignoring blended shin vertices. It appears at the actual boot.
+Endpoint rotation is compensated through prepareMovementPose/native Translation;
+no rig pivot is moved or reparented. Both two-link and extended solves, endpoint
+turning, pin compensation and native channel scope use the grip. The synthetic
+regression verifies turning without grip drift, connected lengths, repeated
+preview isolation with existing Translation keys, and rejection of global tracks.
+Setup saves preserve an existing grip if the endpoint is unchanged.
+
+The integrated build completed packaged mouse walkthroughs for WAG, Mindflayer,
+Anetheron, Nazgrel, Salamander rider and Scourge Battleship. Results/screenshots:
+out/pose-corpus-integrated-ui/<model>/result.json. All mapped handles respond;
+preview stays isolated, each effective drag is one history entry, Undo/Redo is
+exact, native save/reopen is equivalent, and the sidebar width is unchanged.
+The original harness's right-mouse check proved panning, not rotation; it has been
+corrected to Alt-left-drag and an orientation assertion. A separate real WAG
+Alt-drag proof in out/pose-corpus-camera/result.json measured 1.083 radians of
+orientation change with model/revision unchanged.
+
+Mindflayer has pre-existing duplicate geoset-animation owners, which the normal
+import gate blocks from Movement editing. Its source tests use the untouched
+original; its mouse walkthrough uses a disposable copy repaired through the
+normal Back up & repair dialog. Exact skeleton, pivots, skin, geometry and mapping
+were compared before/after; original source SHA256 is unchanged. This pass does
+not change that separate import gate or claim the original opens without it.
+Local archive/Warcraft textures were used as authored; WAG's belialsmouth.blp
+could not be resolved and was not replaced with another image.
+
+
+Final acceptance: 76 real handle drags across the six integrated-model mouse
+walkthroughs, with zero page errors. After the geometry-grip correction, WAG's
+14 drags passed again in out/pose-corpus-grip-ui/WAG/result.json. Nazgrel's 16 drags,
+Setup edit/save retaining the grip, actual Alt-mouse orientation change and native
+MDX save/reopen all pass in out/pose-corpus-tested-ui/NazgrelV2/result.json. Final
+screenshots were inspected. The final Setup correction resolves the original
+chain by its target key; the target record itself is not a chain object.
+
+Final candidate: D:/MDLxL-Tests/pose-corpus-tested/MDLxL-win32-x64/MDLxL.exe.
+Production packaging verifies 551 runtime/assets and 55 locales; all 462 shipped
+src/dist files match the worktree, with zero mismatches. Original 16 sources and
+35 fixture hashes remain unchanged (out/pose-corpus-tested-package-proof.json).
+Current main was integrated into the feature branch; source merged cleanly and
+generated bundle conflicts were resolved by a normal Vite rebuild. Version stays
+0.21.2 for this unshipped test candidate. PR merge awaits user authorization.

@@ -56,6 +56,8 @@ export default function PoseControls({ model, revision, config, onChange, onSele
         if (editor.root != null && editor.end != null) {
           path = poseChainIds(poseChainBetween(model, editor.root, editor.end));
           draft = { ...poseChainBetween(model, editor.root, editor.end, editor.excluded), kind: ['Foot','Hoof'].includes(part) ? 'leg' : 'arm', ...(['Hoof','Wing','Chain'].includes(part) ? { label: part } : {}) };
+          const originalChain = config.chains.find(chain => chain.key === editor.original?.key);
+          if (originalChain?.end === editor.end && originalChain.grip) draft.grip = originalChain.grip;
           if (model.Sequences?.[sequence]) samplePoseChain(model, draft, frame, sequence);
           const otherChains = config.chains.filter(chain => !editor.replacements?.some(item => item.key === chain.key));
           conflict = otherChains.find(chain => chain.key !== editor.original?.key && chain.end !== draft.end && poseChainIds(chain).some(id => poseChainIds(draft).includes(id)));
