@@ -1,5 +1,6 @@
 import { recalculateExtents } from './editor-document.js';
 import { sampleTrack } from './animation.js';
+import { recalculatePortraitExtents } from './portrait-extents.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, animationSpeed } from './animation-speed.js';
 
 const MAX_FRAME = 0x7fffffff;
@@ -183,6 +184,7 @@ export function createPortraitSequence(model, duration, sourceIndex = -1) {
     track.Keys.push(...fitted.values());
     track.Keys.sort((a, b) => a.Frame - b.Frame);
   }
+  recalculatePortraitExtents(model, [index]);
   return index;
 }
 

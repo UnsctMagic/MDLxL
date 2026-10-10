@@ -22,13 +22,18 @@ function finish(b){
  const pad=Math.max(1,...b.max.map((v,i)=>v-b.min[i]))*1e-5;
  return {MinimumExtent:new Float32Array(b.min.map(v=>v-pad)),MaximumExtent:new Float32Array(b.max.map(v=>v+pad)),BoundsRadius:Math.fround(Math.hypot(...b.max.map((v,i)=>(v-b.min[i])/2+pad)))};
 }
-export function repairBounds(model,fix){
+export function repairBounds(model,fix,{includeGlobalKeys=false}={}){
  const renderer=new ModelRenderer(structuredClone(model)),cache=new Map();
  function animated(sequence){
   if(cache.has(sequence))return cache.get(sequence);
   const s=model.Sequences[sequence];if(!s)throw Error('The invalid extent has no matching animation.');
   const [lo,hi]=s.Interval,frames=new Set([lo,hi]),boxes=model.Geosets.map(box);
   for(const node of allNodes(model))for(const property of ['Translation','Rotation','Scaling'])for(const k of node[property]?.Keys||[])if(k.Frame>=lo&&k.Frame<=hi)frames.add(k.Frame);
+  if(includeGlobalKeys)for(const node of allNodes(model))for(const property of ['Translation','Rotation','Scaling']){
+   const track=node[property],duration=model.GlobalSequences[track?.GlobalSeqId];
+   if(!(duration>0))continue;
+   for(const key of track.Keys||[])for(let offset=key.Frame;offset<=hi-lo;offset+=duration)if(offset>=0)frames.add(lo+offset);
+  }
   // Include all authored poses plus regular subframes; never substitute bind
   // bounds for a moving sequence (the Footman Decay Bone box is a sentinel).
   const steps=Math.max(1,Math.ceil((hi-lo)/33));for(let i=0;i<=steps;i++)frames.add(lo+(hi-lo)*i/steps);
