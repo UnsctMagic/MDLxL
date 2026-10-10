@@ -100,12 +100,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const initial = await snap(), sidebarWidth = await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width);
     const section = title => page.locator('details.sidebar-section').filter({ has: page.locator('summary').filter({ hasText: new RegExp('^' + title + '$') }) });
     for (const title of ['Controller', 'Restrictions']) {
-      assert.equal(await section(title).evaluate(element => element.open), false, title + ' starts as a compact header');
-      await section(title).locator('summary').click(); assert.equal(await section(title).evaluate(element => element.open), true);
-      await section(title).locator('summary').click(); assert.equal(await section(title).evaluate(element => element.open), false);
+      const initiallyOpen = title === 'Controller';
+      assert.equal(await section(title).evaluate(element => element.open), initiallyOpen, title + ' starts in its default state');
+      await section(title).locator('summary').click(); assert.equal(await section(title).evaluate(element => element.open), !initiallyOpen);
+      await section(title).locator('summary').click(); assert.equal(await section(title).evaluate(element => element.open), initiallyOpen);
     }
     assert.equal(await page.getByRole('checkbox', { name: 'Rotate on Own Axis', exact: true }).count(), 0);
-    results.checks.push('Own Axis tool is absent; Controller and Restrictions start minimized and open/close through their existing headers');
+    results.checks.push('Own Axis tool is absent; Controller starts expanded and Restrictions minimized; both toggle through their existing headers');
     assert.equal(await page.getByRole('dialog', { name: 'POSE setup', exact: true }).count(), 0); await shot('01-default');
     await page.getByLabel('Movement bone or node').selectOption('0');
     await page.getByRole('button', { name: 'POSE', exact: true }).click();
