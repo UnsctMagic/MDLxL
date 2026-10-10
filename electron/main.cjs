@@ -13,7 +13,8 @@ const {SettingsStore}=require('./settings.cjs');
 const {buildMenuTemplate,normalizeMenuChecks}=require('./menu.cjs');
 const {GameDataDiscovery,selectedGameDataSources}=require('./game-data.cjs');
 const {TextureResolver,IMAGE_EXTENSIONS}=require('./texture-resolver.cjs');
-const {CascTextures}=require('./casc.cjs');
+const {CascTextures,CascReader}=require('./casc.cjs');
+const {Mpq}=require('./mpq.cjs');
 const {ParticleLibrary}=require('./particle-library.cjs');
 const {resolveParticleSourceAssets,resolveParticleSourceContext}=require('./particle-source.cjs');
 const {HUMAN_PORTRAIT_RESOURCES,validateHumanPortraitResources}=require('./human-portrait-frame.cjs');
@@ -271,7 +272,8 @@ async function resolveTextures(payload, extensions){
   const selectedFolder=settings.gameData;
   const discovered=await gameDataDiscovery.discover({explicitFolder:selectedFolder,modelFolders:[root,...[...openedPaths].map(file=>path.dirname(file))].filter(Boolean)});
   const selected=selectedGameDataSources(discovered,selectedFolder);
-  return textureResolver.resolve(payload.names,{folders:[root,...selected.folders].filter(Boolean),archives:selected.archives,cascFolders:(discovered.cascFolders||[]).filter(folder=>selected.folders.includes(folder)),fallbackCascFolders:(discovered.cascFolders||[]).filter(folder=>!selected.folders.includes(folder)),fallbackFolders:discovered.folders.filter(folder=>!selected.folders.includes(folder)),fallbackArchives:discovered.archives.filter(file=>!selected.archives.includes(file))},extensions);
+  const custom=discovered.customSources||{archives:[],cascFolders:[]};
+  return textureResolver.resolve(payload.names,{modelFolders:[root].filter(Boolean),customArchives:custom.archives,customCascFolders:custom.cascFolders,folders:[root,...selected.folders].filter(Boolean),archives:selected.archives,cascFolders:(discovered.cascFolders||[]).filter(folder=>selected.folders.includes(folder)),fallbackCascFolders:(discovered.cascFolders||[]).filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackFolders:discovered.folders.filter(folder=>!selected.folders.includes(folder)&&!custom.cascFolders.includes(folder)),fallbackArchives:discovered.archives.filter(file=>!selected.archives.includes(file)&&!custom.archives.includes(file))},extensions);
 }
 ipcMain.handle('texture:resolve',(_,payload)=>{const operation=resolveTextures(payload);textureOperations.add(operation);operation.finally(()=>textureOperations.delete(operation)).catch(()=>{});return operation;});
 // Event previews use the same installed-game lookup and cache as textures.
@@ -287,8 +289,9 @@ async function textureLibraryContext(payload){
     const discovered=await gameDataDiscovery.discover({explicitFolder:chosen,modelFolders:modelPath?[path.dirname(modelPath)]:[]});
     const selected=selectedGameDataSources(discovered,chosen);
     const folders=discovered.cascFolders||[];
+    const custom=discovered.customSources?.cascFolders||[];
     const resolver=textureResolver;
-    const catalog=await textureLibrary.catalog({modelPath,cascFolders:[...folders.filter(folder=>selected.folders.includes(folder)),...folders.filter(folder=>!selected.folders.includes(folder))]});
+    const catalog=await textureLibrary.catalog({modelPath,cascFolders:[...custom,...folders.filter(folder=>selected.folders.includes(folder)&&!custom.includes(folder)),...folders.filter(folder=>!selected.folders.includes(folder)&&!custom.includes(folder))]});
     texturePreviews.register(catalog.items);
     return {catalog,readAsset:async item=>({name:item.lookupName,bytes:item.source==='native'?await resolver.casc.readSnapshot(item.lookupName,item.sourceFolder,item.sourceKey):await resolver.loose(item.lookupName,modelPath?[path.dirname(modelPath)]:[])}),decode:decodeThumbnail};
 }
@@ -318,17 +321,43 @@ ipcMain.handle('settings:gameData',async()=>{
   return updateSettings({gameData:answer.filePaths[0]});
 });
 ipcMain.handle('settings:clearGameData',()=>updateSettings({gameData:null}));
+ipcMain.handle('settings:addGameDataSource',async(_,kind)=>{
+  if(!['casc','mpq'].includes(kind))throw Error('Choose CASC or MPQ.');
+  const answer=await dialog.showOpenDialog(win,kind==='casc'
+    ? {title:'Choose a custom CASC storage folder',buttonLabel:'Use this folder',properties:['openDirectory']}
+    : {title:'Choose custom MPQ archives',buttonLabel:'Use these archives',filters:[{name:'MPQ archives',extensions:['mpq']}],properties:['openFile','multiSelections']});
+  if(answer.canceled||!answer.filePaths.length)return null;
+  const sources=answer.filePaths.map(file=>({kind,path:path.resolve(file)}));
+  for(const source of sources){
+    if(kind==='mpq'){
+      const reader=await Mpq.open(source.path);await reader.close();
+    }else{
+      const build=await fs.stat(path.join(source.path,'.build.info')).catch(()=>null),data=await fs.stat(path.join(source.path,'Data')).catch(()=>null);
+      if(!build?.isFile()||!data?.isDirectory())throw Error('Choose the CASC storage folder containing .build.info and Data.');
+      const reader=new CascReader(source.path,__dirname);
+      try{await reader.ready;}finally{reader.close();}
+    }
+  }
+  return updateSettings({gameDataSources:[...(settings.gameDataSources||[]),...sources]});
+});
+ipcMain.handle('settings:removeGameDataSource',(_,file)=>{
+  if(typeof file!=='string')throw Error('Choose a saved custom archive.');
+  return updateSettings({gameDataSources:(settings.gameDataSources||[]).filter(source=>source.path!==file)});
+});
 ipcMain.handle('settings:rescanGameData',async()=>{
   texturePreviews.cancel();await texturePreviews.settle();
   const result=await gameDataDiscovery.discover({explicitFolder:settings.gameData,modelFolders:[...openedPaths].map(file=>path.dirname(file)),force:true});
-  const previous=textureResolver;textureResolver=createTextureResolver();textureLibrary=new TextureLibrary({casc:textureResolver.casc});
-  await Promise.allSettled([...textureOperations]);await previous.close();
+  await resetTextureSources();
   return result;
 });
+async function resetTextureSources(){
+  const previous=textureResolver;textureResolver=createTextureResolver();textureLibrary=new TextureLibrary({casc:textureResolver.casc});
+  await Promise.allSettled([...textureOperations]);await previous.close();
+}
 ipcMain.handle('recovery:write',(_,payload)=>recoveryStore.write(payload));
 ipcMain.handle('recovery:list',()=>recoveryStore.list());
 ipcMain.handle('recovery:read',async(_,id)=>{const payload=await recoveryStore.read(id);if(typeof payload.path==='string'&&/\.(mdl|mdx)$/i.test(payload.path)){try{if((await fs.stat(payload.path)).isFile())openedPaths.add(path.resolve(payload.path));}catch{}}return payload;});
-const publicSettings=()=>({...settings,gameData:settings.gameData||null,gameDataDiscovery:gameDataDiscovery?.result});
+const publicSettings=()=>({...settings,gameData:settings.gameData||null,gameDataSources:settings.gameDataSources||[],gameDataDiscovery:gameDataDiscovery?.result});
 // Historical drafts are only needed for a crash prompt or the Recovery command.
 // A normal launch must not wait on every saved draft before starting the viewport.
 ipcMain.handle('app:initial',async()=>({settings:publicSettings(),model:initialModel,models:initialModels,recoveryPrompt,recovery:recoveryPrompt?(await recoveryStore.list()).filter(r=>r.dirty!==false):[]}));
@@ -354,7 +383,7 @@ ipcMain.handle('updates:revert',async event=>{
 });
 ipcMain.handle('app:openLink',(_,url)=>{if(!externalURL(url))throw Error('Unsupported website link.');return shell.openExternal(url);});
 ipcMain.handle('settings:configure',(_,value)=>{
-  if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))throw Error('Use the game data folder picker to change the asset folder.');
+  if(value&&['gameData','gameDataSources'].some(key=>Object.prototype.hasOwnProperty.call(value,key)))throw Error('Use the game data pickers to change asset sources.');
   return updateSettings(value);
 });
 ipcMain.on('app:close',event=>{if(win&&!win.isDestroyed()&&event.sender===win.webContents)win.close();});
@@ -363,6 +392,9 @@ async function updateSettings(value){
   const previousLanguage=settings.preferences?.language;
   settings=await settingsStore.configure(value);
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))texturePreviews.cancel();
+  if(value&&Object.prototype.hasOwnProperty.call(value,'gameDataSources')){
+    texturePreviews.cancel();await texturePreviews.settle();await resetTextureSources();
+  }
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(JSON.stringify(settings.preferences.hotkeys)!==previousHotkeys || previousLanguage!==settings.preferences.language)refreshMenu();
   return publicSettings();
@@ -467,7 +499,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(process.env.MDLVIS_GAME_DATA)settings.gameData=process.env.MDLVIS_GAME_DATA;
   try{recoveryPrompt=await sessionJournal.begin();}catch(error){console.warn('Session journal: '+error.message);}
-  gameDataDiscovery=new GameDataDiscovery({cacheFile:path.join(profile,'game-data-discovery.json'),appFolders:[path.dirname(process.execPath),app.getAppPath()]});
+  gameDataDiscovery=new GameDataDiscovery({cacheFile:path.join(profile,'game-data-discovery.json'),appFolders:[path.dirname(process.execPath),app.getAppPath()],customSources:()=>settings.gameDataSources||[]});
   for(const file of launchModelPaths)try{initialModels.push(await readModel(file));}catch(e){console.error(e.message);}
   initialModel=initialModels[0]||null;
   // Discover game data only when textures are requested or the user rescans.

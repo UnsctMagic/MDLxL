@@ -24,8 +24,8 @@ function isInsideFolder(candidate, folder) {
 function selectedGameDataSources(result, folder) {
   if (typeof folder !== 'string' || !folder) return { folder: null, folders: [], archives: [] };
   const root = path.resolve(folder);
-  const folders = unique([root, ...(result?.folders || []).filter(candidate => isInsideFolder(candidate, root))]);
-  const archives = unique((result?.archives || []).filter(candidate => isInsideFolder(candidate, root))).sort(archiveSort);
+  const folders = unique([root, ...(result?.folders || []).filter(candidate => isInsideFolder(candidate, root) && !result?.customSources?.cascFolders.includes(candidate))]);
+  const archives = unique((result?.archives || []).filter(candidate => isInsideFolder(candidate, root) && !result?.customSources?.archives.includes(candidate))).sort(archiveSort);
   return { folder: root, folders, archives };
 }
 
@@ -76,8 +76,8 @@ async function beforeDeadline(operation, deadline) {
 }
 
 class GameDataDiscovery {
-  constructor({ cacheFile, appFolders = [], env = process.env, registry = registryGameFolders, drives = fixedDriveRoots, maxDirectories = 700, maxMilliseconds = 6500, readdir = (...args) => fs.readdir(...args) } = {}) {
-    Object.assign(this, { cacheFile, appFolders, env, registry, drives, maxDirectories, maxMilliseconds, readdir });
+  constructor({ cacheFile, appFolders = [], customSources = () => [], env = process.env, registry = registryGameFolders, drives = fixedDriveRoots, maxDirectories = 700, maxMilliseconds = 6500, readdir = (...args) => fs.readdir(...args) } = {}) {
+    Object.assign(this, { cacheFile, appFolders, customSources, env, registry, drives, maxDirectories, maxMilliseconds, readdir });
     this.result = { folders: [], archives: [], searchedAt: null, truncated: false, directoriesChecked: 0 };
     this.pending = null;
     this.requestKey = null;
@@ -86,14 +86,19 @@ class GameDataDiscovery {
   }
   async discover({ explicitFolder, modelFolders = [], force = false } = {}) {
     const hints = unique([explicitFolder, ...modelFolders]);
-    const requestKey = JSON.stringify([explicitFolder ? path.resolve(explicitFolder).toLowerCase() : null, hints.map(folder => folder.toLowerCase()).sort()]);
+    const sources = this.customSources();
+    const custom = { archives: unique(sources.filter(source => source.kind === 'mpq').map(source => source.path)), cascFolders: unique(sources.filter(source => source.kind === 'casc').map(source => source.path)) };
+    const requestKey = JSON.stringify([explicitFolder ? path.resolve(explicitFolder).toLowerCase() : null, hints.map(folder => folder.toLowerCase()).sort(), custom]);
     if (this.pending) {
       await this.pending;
       if (!force && requestKey === this.requestKey) return this.result;
     }
     if (!force && requestKey === this.requestKey) return this.result;
     this.requestKey = requestKey;
-    this.pending = this.search(hints, explicitFolder, force).then(result => { this.result = result; this.generation++; return result; });
+    this.pending = this.search(hints, explicitFolder, force).then(result => {
+      this.result = { ...result, folders: unique([...custom.cascFolders, ...result.folders]), archives: unique([...custom.archives, ...result.archives]), cascFolders: unique([...custom.cascFolders, ...(result.cascFolders || [])]), customSources: custom };
+      this.generation++; return this.result;
+    });
     try { return await this.pending; } finally { this.pending = null; }
   }
   async search(hints, explicitFolder, force) {

@@ -63,9 +63,10 @@ class TextureResolver {
     }
     return bytes;
   }
-  async resolve(names, { folders = [], archives = [], fallbackFolders = [], fallbackArchives = [], cascFolders = [], fallbackCascFolders = [] } = {}, extensions = IMAGE_EXTENSIONS) {
+  async resolve(names, { folders = [], archives = [], fallbackFolders = [], fallbackArchives = [], cascFolders = [], fallbackCascFolders = [], modelFolders = [], customArchives = [], customCascFolders = [] } = {}, extensions = IMAGE_EXTENSIONS) {
     if (!Array.isArray(names)) throw Error('Missing texture paths.');
     const sources = [{ folders: unique(folders), archives: unique(archives), cascFolders }, { folders: unique(fallbackFolders), archives: unique(fallbackArchives), cascFolders: fallbackCascFolders }];
+    if (customArchives.length || customCascFolders.length) sources.unshift({ folders: unique(modelFolders), archives: unique(customArchives), cascFolders: unique(customCascFolders) });
     const found = [];
     for (const name of [...new Set(names)].slice(0, 4096)) {
       if (typeof name !== 'string' || !name || name.includes('\0') || !extensions.includes(path.extname(name).slice(1).toLowerCase())) continue;
