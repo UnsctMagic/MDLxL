@@ -87,7 +87,7 @@ import { enumeratePaintTargets, installFreshPaintLayer, paintTargetsForGeoset } 
 import { paintMessage } from '../src/paint-messages.js';
 import { decodePaintImage } from './paint-raster.js';
 import VIS_VIEW_MENU from '../src/vis-view-menu.json';
-import { clearQuickDisplay, defaultEditorDisplay, setEditorDisplay } from '../src/display-overlays.js';
+import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay } from '../src/display-overlays.js';
 import { evaluateModelCamera } from './portrait-view.js';
 import { setCameraFromCurrentView } from './portrait-camera-edit.js';
 import PortraitToolbar from './PortraitToolbar.jsx';
@@ -167,7 +167,7 @@ export default function App() {
   const [sessions, setSessions] = useState(() => [session]);
   const [tick, setTick] = useState(0), [status, setStatus] = useState('Ready');
   const [repairReceipt, setRepairReceipt] = useState(null);
-  const [mode, setMode] = useState('vertices'), [cameraMode, setCameraMode] = useState('work'), [view, setStoredView] = useState('orthographic'), [portraitView, setPortraitView] = useState('perspective'), [workplane, setWorkplane] = useState('xy');
+  const [mode, setMode] = useState('vertices'), [cameraMode, setCameraMode] = useState('work'), [view, setStoredView] = useState('orthographic'), [portraitView, setPortraitView] = useState('perspective'), [storedWorkplane, setStoredWorkplane] = useState('xy');
   const [adjustingInput, setAdjustingInput] = useState(null);
   // VIS switches display controls while retaining editing and portrait state.
   const [visUI, setVisUI] = useState(false);
@@ -206,7 +206,7 @@ export default function App() {
   const [animationPanel, setAnimationPanel] = useState('movement'), [selectedNodeIds, setSelectedNodeIdsState] = useState([]), [movementMode, setMovementMode] = useState('select'), [movementSpace, setMovementSpace] = useState('local'), [showNodes, setShowNodes] = useState(true);
   const poseConfig = session.pose || { enabled: false, chains: [], body: null, pins: [], target: null };
   const poseSelectionOnly = useRef(false);
-  const changePose = value => { session.pose = value; setTick(tick => tick + 1); };
+  const changePose = value => { if (value.enabled) session.poseView ||= poseView; session.pose = value; setTick(tick => tick + 1); };
   const pinPose = (key, frame, sequence) => {
     const config = session.pose || poseConfig, chain = config.chains.find(item => item.key === key);
     if (!chain || doc.readOnly || saving) return;
@@ -229,7 +229,7 @@ export default function App() {
   if (cameraSessionId.current !== session.id) { cameraSessionId.current = session.id; cameraHandoff.current = null; }
   const portraitModeActive = portraitEnabled && mode === 'animation';
   const cameraRotating = cameraMode === 'rotate' && !lockedVertexPlane || cameraGesture;
-  const [workplaneEnabled, setWorkplaneEnabled] = useState(true), [multipleNodes, setMultipleNodes] = useState(false);
+  const [storedWorkplaneEnabled, setStoredWorkplaneEnabled] = useState(true), [multipleNodes, setMultipleNodes] = useState(false);
   const [restrictions, setRestrictions] = useState({translation:false,rotation:false,scaling:false});
   const rigWorkspace = mode === 'bones' || mode === 'animation' && animationPanel === 'movement';
   const restPose = mode === 'bones', cleanAnimationPreview = mode === 'animation' && animationPanel === 'animations';
@@ -244,9 +244,20 @@ export default function App() {
   const [background, setBackground] = useState(() => localStorage.getItem('mdlvis-preview-background') || '');
   const [xlCleanViews, setXLCleanViews] = useState({}), [visCleanViews, setVISCleanViews] = useState({});
   const [xlOverlayModes, setXLOverlayModes] = useState(defaultEditorDisplay), [visOverlayModes, setVISOverlayModes] = useState(()=>defaultEditorDisplay(true));
-  const cleanViews=visUI?visCleanViews:xlCleanViews, setCleanViews=visUI?setVISCleanViews:setXLCleanViews;
-  const overlayModes=visUI?visOverlayModes:xlOverlayModes, setOverlayModes=visUI?setVISOverlayModes:setXLOverlayModes;
+  const normalCleanViews = visUI ? visCleanViews : xlCleanViews, setNormalCleanViews = visUI ? setVISCleanViews : setXLCleanViews;
+  const normalOverlayModes = visUI ? visOverlayModes : xlOverlayModes, setNormalOverlayModes = visUI ? setVISOverlayModes : setXLOverlayModes;
   const displayMode = mode === 'animation' ? animationPanel : mode;
+  const poseViewActive = mode === 'animation' && animationPanel === 'movement' && poseConfig.enabled;
+  const poseView = session.poseView || { overlays: defaultPoseDisplay(normalOverlayModes.movement), cleanView: false, workplaneEnabled: false, workplane: storedWorkplane };
+  const changePoseView = patch => { session.poseView = { ...(session.poseView || poseView), ...patch }; setTick(tick => tick + 1); };
+  const cleanViews = poseViewActive ? { ...normalCleanViews, [mode]: poseView.cleanView } : normalCleanViews;
+  const overlayModes = poseViewActive ? { ...normalOverlayModes, [displayMode]: poseView.overlays } : normalOverlayModes;
+  const setCleanViews = next => poseViewActive ? changePoseView({ cleanView: (typeof next === 'function' ? next(cleanViews) : next)[mode] }) : setNormalCleanViews(next);
+  const setOverlayModes = next => poseViewActive ? changePoseView({ overlays: (typeof next === 'function' ? next(overlayModes) : next)[displayMode] }) : setNormalOverlayModes(next);
+  const workplaneEnabled = poseViewActive ? poseView.workplaneEnabled : storedWorkplaneEnabled;
+  const workplane = poseViewActive ? poseView.workplane : storedWorkplane;
+  const setWorkplaneEnabled = next => poseViewActive ? changePoseView({ workplaneEnabled: typeof next === 'function' ? next(workplaneEnabled) : next }) : setStoredWorkplaneEnabled(next);
+  const setWorkplane = next => poseViewActive ? changePoseView({ workplane: typeof next === 'function' ? next(workplane) : next }) : setStoredWorkplane(next);
   const cleanView = !!cleanViews[mode], storedOverlays = mode === 'showcase' ? {} : cleanView ? Object.fromEntries(Object.keys(overlayModes[displayMode]).map(key => [key, false])) : overlayModes[displayMode];
   const overlays = storedOverlays.cameras ? { ...storedOverlays, cameras: false } : storedOverlays;
   const panelOverlays = overlays;

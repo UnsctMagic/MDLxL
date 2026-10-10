@@ -24,7 +24,7 @@ import { applyMovementPose, applyMovementTransform, movementRestricted, prepareM
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
-import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, projectPoseHandles } from './pose-overlay.js';
+import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, poseSkeletonHighlights, projectPoseHandles } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
@@ -1250,12 +1250,12 @@ export default function GamePreview(inputProps) {
           }
         }
         const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode !== 'move' || movementRestricted((activePose.kind === 'endpoint' || poseNodeControl(markerModel, p.poseConfig, poseHandleTarget(activePose), handleMode).joints.length > 0) && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
-        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode, poseHandles) : [];
+        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
         if (pinButton && limb) {
           const position = movementPinPosition(limb, nodeHandles, width, height, pinButton.offsetWidth, pinButton.offsetHeight, poseHandles);
           pinButton.style.left = `${position.x}px`; pinButton.style.top = `${position.y}px`;
         }
-        const markerOptions = { ...overlayOptions, modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
+        const markerOptions = { ...overlayOptions, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
         drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });

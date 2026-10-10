@@ -881,3 +881,44 @@ Verification:
 Candidate: D:/MDLxL-Tests/pose-move-gizmo-spaced/MDLxL-win32-x64/MDLxL.exe.
 Packaging verifies 551 runtime/assets and 55 locales. Unshipped 0.21.2 candidate;
 no release or merge is included.
+
+## Fixed plane squares and separate POSE display settings - 2026-10-10
+
+The user's follow-up rejects automatic square relocation. This supersedes the
+adaptive pad placement above: each square is fixed between its displayed axis
+pair, centred at half their lengths, with sides half each corresponding arrow.
+Nearby grips and mouse proximity never relocate it. Edge-on planes remain hidden.
+The existing world-plane solver, arrow shaft picking, direct drag and Pin remain.
+
+POSE has its own session display choices. First entry disables Workplane,
+Vertices, Bones, Skeleton, Nodes, Attachment, Emitters, events/sounds, wire and
+normal overlays; it enables Focused Skeleton. Existing controls still toggle
+these options. Workplane plane and enabled state, display flags and clean-view
+choice remain separate from ordinary Movement. Turning POSE off restores the
+normal choices; re-entry remembers the user's POSE changes for that model session.
+Nothing is written into model data or canonical preference defaults. Surface
+render mode, camera, grid, sidebar, Add/Setup chain selection and native history
+remain in the existing workflow.
+
+Focused POSE skeleton uses the selected chain's actual joints, excluding sibling
+and endpoint child branches. Native bone/polyhedron symbols stay hidden unless
+Bones is toggled on; manual Add/Setup selection still exposes its bone targets.
+
+Verification:
+- 96 focused source checks pass (Movement, viewport, POSE, display settings and
+  limb highlights). Half-length geometry stays fixed with nearby grips.
+- Packaged rider walkthrough passes 8 groups: clean first entry, squares/focused
+  limb at 3 real mouse-rotated views, all existing toggles, exact normal restoration,
+  independent customized POSE re-entry and leaving/returning to Movement. Colored
+  limb pixels are present, no model edits/history entries or source-byte changes,
+  unchanged sidebar width, no open setup panel, zero page errors.
+- Packaged Footman passes 32 mouse checks: POSE and FK arrow start/middle/tips,
+  all 3 plane drags, direct drag, exact native Undo/Redo, POSE Escape, FK pointercancel,
+  camera rotation and Pin placement/toggle at 3 views. Existing native FK Escape
+  limitation documented above was not changed.
+- Evidence: out/pose-fixed-view-ui/result.json and pose-fixed-squares-limb-0.png
+  through -2.png; out/pose-fixed-square-drags-ui/result.json; logs and screenshots
+  inspected in the rebuilt packaged editor.
+
+Candidate: D:/MDLxL-Tests/pose-fixed-squares-view/MDLxL-win32-x64/MDLxL.exe.
+551 runtime/assets and 55 locales verified. Unshipped 0.21.2; no release/merge.

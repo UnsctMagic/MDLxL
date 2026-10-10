@@ -1,8 +1,9 @@
 import { Quaternion, Vector3 } from 'three';
 import { allNodes } from '../src/animation.js';
-import { createPoseSample, poseControlPoint, poseAffectedPins, poseNodeRole, poseRole, samplePoseChain } from '../src/pose-ik.js';
+import { createPoseSample, poseChainIds, poseNodeControl, poseControlPoint, poseAffectedPins, poseNodeRole, poseRole, samplePoseChain } from '../src/pose-ik.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { pickMovementNode } from './movement-overlay.js';
+import { boneHighlightColors } from './rig-markers-gl.js';
 
 export const poseSymbols = {
   Hand: ['M7 22L4 17L1 13Q0 11 2 10Q3 10 5 12L6 13V4Q6 2 8 2Q10 2 10 4V10V2Q10 0 12 0Q14 0 14 2V10V3Q14 1 16 1Q18 1 18 3V11V6Q18 4 20 4Q22 4 22 6V15Q22 19 18 22Z', 'M9 16H18'],
@@ -171,4 +172,18 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null) {
     context.strokeStyle = '#ff3030'; context.lineWidth = 3; context.stroke();
   }
   context.restore();
+}
+
+// Keep limb focus on its actual joints, without lighting unrelated branches.
+export function poseSkeletonHighlights(points, model, config) {
+  const target = config.target;
+  if (!target) return new Map();
+  const chain = config.chains.find(chain => chain.key === target.key);
+  const id = target.kind === 'body' ? config.body : target.id;
+  const joints = chain ? poseChainIds(chain) : poseNodeControl(model, config, target).joints;
+  if (!joints.length) return boneHighlightColors(points, [id]);
+  const colors = new Map(joints.map((id, i) => [id, i ? '#ffff00' : '#ff0000']));
+  const parent = points.find(point => point.node.ObjectId === joints[0])?.node.Parent;
+  if (parent != null && !colors.has(parent)) colors.set(parent, '#000000');
+  return colors;
 }

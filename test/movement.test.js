@@ -410,12 +410,18 @@ test('Move arrows have room around the central grip and Pin clears the shaft and
 });
 
 
-test('plane pads move into clear gaps instead of hiding a neighbouring controller', () => {
+test('plane pads stay fixed between their arrows with half-length sides', () => {
   const camera = new PerspectiveCamera(40,1,.1,1000);camera.up.set(0,0,1);camera.position.set(100,-140,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
   const active={world:new Vector3(),x:200,y:200,visible:true};
-  const initial=movementAxisHandles(active,camera,400,400,50,'world','move').find(handle=>handle.plane==='yz');
-  const neighbour={x:initial.x,y:initial.y,visible:true};
-  const adjusted=movementAxisHandles(active,camera,400,400,50,'world','move',[neighbour]).find(handle=>handle.plane==='yz');
-  const xs=adjusted.polygon.map(point=>point.x),ys=adjusted.polygon.map(point=>point.y);
-  assert.ok(Math.hypot(Math.max(Math.min(...xs)-neighbour.x,0,neighbour.x-Math.max(...xs)),Math.max(Math.min(...ys)-neighbour.y,0,neighbour.y-Math.max(...ys)))>=24);
+  const handles=movementAxisHandles(active,camera,400,400,50,'world','move');
+  for (const pad of handles.filter(handle=>handle.plane)) {
+    const [a,b]=pad.axis.split('').map(axis=>handles.find(handle=>handle.axis===axis));
+    assert.equal(pad.x,active.x+(a.dx+b.dx)/2);assert.equal(pad.y,active.y+(a.dy+b.dy)/2);
+    assert.ok(Math.abs(Math.hypot(pad.polygon[1].x-pad.polygon[0].x,pad.polygon[1].y-pad.polygon[0].y)-Math.hypot(a.dx,a.dy)/2)<1e-8);
+    assert.ok(Math.abs(Math.hypot(pad.polygon[2].x-pad.polygon[1].x,pad.polygon[2].y-pad.polygon[1].y)-Math.hypot(b.dx,b.dy)/2)<1e-8);
+  }
+  for (let offset=-25;offset<=25;offset+=5) {
+    const neighbour={x:handles[3].x+offset,y:handles[3].y,visible:true};
+    assert.deepEqual(movementAxisHandles(active,camera,400,400,50,'world','move',[neighbour]),handles,'Nearby controls cannot reposition squares');
+  }
 });

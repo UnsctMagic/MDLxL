@@ -30,7 +30,7 @@ export function projectMovementNodes(model, frame, sequenceIndex, camera, width,
   });
 }
 
-export function movementAxisHandles(active, camera, width, height, radius, space = 'local', mode = 'rotate', nearby = []) {
+export function movementAxisHandles(active, camera, width, height, radius, space = 'local', mode = 'rotate') {
   if (!active?.visible) return [];
   // Keep handles a consistent size at different camera distances and zooms.
   const distance = camera.isPerspectiveCamera ? active.world.distanceTo(camera.position) : radius * 2.6;
@@ -40,39 +40,25 @@ export function movementAxisHandles(active, camera, width, height, radius, space
     if (space === 'local' && mode !== 'scale') direction.applyQuaternion(active.rotation);
     const end = active.world.clone().addScaledVector(direction, unit * (mode === 'move' ? 112 : 68) * MOVEMENT_GIZMO_SCALE).project(camera);
     let dx = (end.x + 1) * width / 2 - active.x, dy = (1 - end.y) * height / 2 - active.y;
+    const projectedDx = dx, projectedDy = dy;
     // An axis facing the camera still gets a usable short handle.
     if (Math.hypot(dx, dy) < 18 * MOVEMENT_GIZMO_SCALE) { dx = axis === 'Z' ? 0 : axis === 'X' ? 25 * MOVEMENT_GIZMO_SCALE : -25 * MOVEMENT_GIZMO_SCALE; dy = axis === 'Z' ? -25 * MOVEMENT_GIZMO_SCALE : 25 * MOVEMENT_GIZMO_SCALE; }
     if (mode === 'move' && Math.hypot(dx, dy) < 52) { const scale = 52 / Math.hypot(dx, dy); dx *= scale; dy *= scale; }
-    return { axis, mode, color: COLORS[axis], x: active.x + dx, y: active.y + dy, startX: active.x, startY: active.y, dx, dy, unitsPerPixel: unit };
+    return { axis, mode, color: COLORS[axis], x: active.x + dx, y: active.y + dy, startX: active.x, startY: active.y, dx, dy, projectedDx, projectedDy, unitsPerPixel: unit };
   });
   if (mode === 'move') for (const plane of ['xy', 'xz', 'yz']) {
-    const [a, b] = plane.toUpperCase().split('').map(axis => AXES[axis]);
-    const centre = active.world.clone().addScaledVector(new Vector3(...a), unit * 49).addScaledVector(new Vector3(...b), unit * 49).project(camera);
-    const distance = Math.hypot((centre.x + 1) * width / 2 - active.x, (1 - centre.y) * height / 2 - active.y);
-    if (distance < 1) continue;
-    const middle = 49 * Math.max(1, 40 / distance);
-    let best;
-    for (const [u, v] of [[middle,middle],[middle+24,middle-12],[middle-12,middle+24],[middle+24,middle+24],[middle+40,middle-20],[middle-20,middle+40],[middle+56,middle+14],[middle+14,middle+56],[middle+56,middle+56]]) {
-      const polygon = [[u-9,v-9],[u+9,v-9],[u+9,v+9],[u-9,v+9]].map(([x, y]) => {
-        const point = active.world.clone().addScaledVector(new Vector3(...a), x * unit).addScaledVector(new Vector3(...b), y * unit).project(camera);
-        return { x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2 };
-      });
-      const area = Math.abs(polygon.reduce((sum, point, i) => { const next = polygon[(i + 1) % 4]; return sum + point.x * next.y - next.x * point.y; }, 0)) / 2;
-      // Edge-on planes have no usable square.
-      if (area < 35) continue;
-      const x = polygon.reduce((sum, point) => sum + point.x, 0) / 4, y = polygon.reduce((sum, point) => sum + point.y, 0) / 4;
-      const minX = Math.min(...polygon.map(point=>point.x)), maxX = Math.max(...polygon.map(point=>point.x)), minY = Math.min(...polygon.map(point=>point.y)), maxY = Math.max(...polygon.map(point=>point.y));
-      let score = Math.max(0, 32 - Math.hypot(x-active.x,y-active.y));
-      for (const point of nearby) if (point.visible && !point.quiet && !point.selected) score += Math.max(0, 24 - Math.hypot(Math.max(minX-point.x,0,point.x-maxX), Math.max(minY-point.y,0,point.y-maxY)));
-      for (const handle of handles) {
-        if (!handle.plane) score += Math.max(0, 10 - pointSegmentDistance(x,y,handle));
-        else if (handle.polygon.some(point=>point.x>=minX-3&&point.x<=maxX+3&&point.y>=minY-3&&point.y<=maxY+3)) score += 24;
-      }
-      const candidate = { axis: plane.toUpperCase(), mode, plane, polygon, color: COLORS[WORKPLANE_NORMALS[plane]], x, y, startX: active.x, startY: active.y, unitsPerPixel: unit };
-      if (!best || score < best.score) best = { candidate, score };
-      if (score === 0) break;
-    }
-    if (best) handles.push(best.candidate);
+    const [a, b] = plane.toUpperCase().split('').map(axis => handles.find(handle => handle.axis === axis));
+    if (Math.abs(a.projectedDx * b.projectedDy - a.projectedDy * b.projectedDx) / 4 < 35) continue;
+    // Fixed between its two displayed arrows, with sides half their lengths.
+    const polygon = [[.25,.25],[.75,.25],[.75,.75],[.25,.75]].map(([u, v]) => ({
+      x: active.x + a.dx * u + b.dx * v, y: active.y + a.dy * u + b.dy * v,
+    }));
+    const area = Math.abs(polygon.reduce((sum, point, i) => { const next = polygon[(i + 1) % 4]; return sum + point.x * next.y - next.x * point.y; }, 0)) / 2;
+    // Edge-on planes have no usable square.
+    if (area < 35) continue;
+    handles.push({ axis: plane.toUpperCase(), mode, plane, polygon, color: COLORS[WORKPLANE_NORMALS[plane]],
+      x: active.x + (a.dx + b.dx) / 2, y: active.y + (a.dy + b.dy) / 2,
+      startX: active.x, startY: active.y, unitsPerPixel: unit });
   }
   return handles;
 }
@@ -80,7 +66,7 @@ export function movementAxisHandles(active, camera, width, height, radius, space
 export function drawMovementOverlay(context, nodes, selectedIds, handles, width, height, ratio = 1, options = { bones: true, nodes: true, attachments: true, particles: true, boneLines: true }) {
   context.clearRect(0, 0, width * ratio, height * ratio);
   context.save(); context.scale(ratio, ratio);
-  const selected = new Set(selectedIds), byId = new Map(nodes.map(point => [point.node.ObjectId, point])), highlights = boneHighlightColors(nodes, selectedIds);
+  const selected = new Set(selectedIds), byId = new Map(nodes.map(point => [point.node.ObjectId, point])), highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds);
   const visual = visualOptions(options.preferences), boxSize = visual.helperSize * 3;
   for (const point of nodes) {
     const parent = byId.get(point.node.Parent);
@@ -156,7 +142,7 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
   context.clearRect(0, 0, width * ratio, height * ratio);
   if (!options.boneLines) return;
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point]));
-  const highlights = boneHighlightColors(nodes, selectedIds);
+  const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds);
   for (const point of nodes) {
     const parent = byId.get(point.node.Parent);
     if (!point.visible || !parent?.visible) continue;
