@@ -11,7 +11,7 @@ const { MANIFEST, validateManifest } = createRequire(import.meta.url)('../electr
 const manifest = JSON.parse(await fs.readFile(path.join(source, 'package.json'), 'utf8'));
 const runtimeFolders = ['dist', 'electron', 'src'];
 const externalFolders = ['Backgrounds', 'BitsAndParts', 'Addons'];
-const runtimeGuides = ['ADDONS.md', 'COMMUNITY_RESEARCH.md', 'MDLxL-Paint-Quick-Guide-EN.pdf', 'MDLxL-Paint-Quick-Guide-RU.pdf'];
+const runtimeGuides = ['ADDONS.md', 'COMMUNITY_RESEARCH.md', 'MDLxL-Paint-Quick-Guide-EN.pdf', 'MDLxL-Paint-Quick-Guide-RU.pdf', 'MDLxL-0.22.0-Quick-Manual-EN.pdf', 'MDLxL-0.22.0-Quick-Manual-ES.pdf', 'MDLxL-0.22.0-Quick-Manual-RU.pdf', 'MDLxL-0.22.0-Quick-Manual-ZH-CN.pdf'];
 const stageEntries = [...runtimeFolders, 'docs', 'package.json', 'README.md', 'MERGER_NOTES.md', 'THIRD_PARTY_NOTICES.md', 'LICENSES.bundled.txt'].sort();
 const exists = async file => { try { await fs.access(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const hash = async file => createHash('sha256').update(await fs.readFile(file)).digest('hex');
