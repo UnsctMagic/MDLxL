@@ -401,7 +401,7 @@ export default function GamePreview(inputProps) {
         const frame = Math.round(native.getFrame()), sequence = movementSequence(p, frame), baseline = posePreviewModel(ownedModel);
         // The renderer's private All-line interval is never a saved sequence.
         if (timelineSequenceIndex >= 0) baseline.Sequences = baseline.Sequences.slice(0, timelineSequenceIndex);
-        const config = p.poseConfig, scope = poseTrackScope(config, target, handle.kind === 'bend' ? 'move' : p.transformMode, baseline);
+        const config = p.poseConfig, scope = poseTrackScope(config, target, handle.kind === 'bend' ? 'move' : p.transformMode, baseline, p.restrictions);
         const byId = new Map(allNodes(baseline).map(node => [node.ObjectId, node])), snapshots = new Map();
         if (handle.chain) samplePoseChain(baseline, handle.chain, frame, sequence, globalClock);
         const currentChanges = scope.map(item => ({ ...item, value: sampleTrack(byId.get(item.id)?.[item.property], frame, { interval: baseline.Sequences[sequence]?.Interval, globalSequences: baseline.GlobalSequences, globalTime: globalClock, fallback: item.property === 'Rotation' ? [0, 0, 0, 1] : item.property === 'Scaling' ? [1, 1, 1] : [0, 0, 0], quaternion: item.property === 'Rotation' }) }));
@@ -463,8 +463,8 @@ export default function GamePreview(inputProps) {
             if (!gesture.workplaneEnabled && p.transformSpace === 'local' && gesture.handle.axis !== 'XYZ' && !gesture.handle.free) normal.applyQuaternion(pose.rotations[2]);
             result = turnPoseEndpoint(gesture.baseline, chain, gesture.frame, gesture.sequence, new THREE.Quaternion().setFromAxisAngle(normal.normalize(), degrees * Math.PI / 180).toArray(), gesture.globalTime);
           } else {
-            result = solvePoseLimb(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.target.kind === 'bend' ? pose.end : pose.end.clone().add(offset), { globalTime: gesture.globalTime, bendMemory: gesture.config.bends?.[chain.key] && new THREE.Vector3().fromArray(gesture.config.bends[chain.key]).applyQuaternion(pose.rotations[0]), ...(gesture.target.kind === 'bend' ? { pole: gesture.origin.clone().add(offset) } : {}) });
-            result.bends = [{ key: chain.key, local: new THREE.Vector3().fromArray(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }];
+            result = solvePoseLimb(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.target.kind === 'bend' ? pose.end : pose.end.clone().add(offset), { globalTime: gesture.globalTime, restrictions: p.restrictions, bendMemory: gesture.config.bends?.[chain.key] && new THREE.Vector3().fromArray(gesture.config.bends[chain.key]).applyQuaternion(pose.rotations[0]), ...(gesture.target.kind === 'bend' ? { pole: gesture.origin.clone().add(offset) } : { config: gesture.config }) });
+            result.bends = [...(result.bends || []), { key: chain.key, local: new THREE.Vector3().fromArray(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }];
           }
         }
         const writable = { ...ownedModel, Sequences: gesture.baseline.Sequences };

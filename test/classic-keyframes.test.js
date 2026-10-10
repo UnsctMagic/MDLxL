@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classicTimelineDomain, classicTimelineTargets, classicPaste, unrestrictedTimelineTargets } from '../src/classic-keyframes.js';
-import { timelineDomain, timelineTracks, timelineReadTrack, copyTimelineKeys, copyTimelinePose, setTimelineKeys, clearTimelineKeys, timelineKeys } from '../src/keyframe-timeline.js';
+import { classicTimelineDomain, classicTimelineTargets, classicPoseTargets, classicPaste, unrestrictedTimelineTargets } from '../src/classic-keyframes.js';
+import { timelineDomain, timelineTracks, timelineReadTrack, timelineSample, copyTimelineKeys, copyTimelinePose, setTimelineKeys, clearTimelineKeys, timelineKeys } from '../src/keyframe-timeline.js';
 
 const key = (Frame, values, curved = false) => ({ Frame, Vector: new Float32Array(values), ...(curved ? { InTan: new Float32Array(values.map(v => v + .2)), OutTan: new Float32Array(values.map(v => v - .1)) } : {}) });
 const track = (Keys, LineType = 1, GlobalSeqId = null) => ({ Keys, LineType, GlobalSeqId });
@@ -14,6 +14,33 @@ function fixture() {
 }
 const ids = targets => targets.map(t => t.trackId).sort();
 const find = (model, property, id = 0, kind = 'node') => timelineTracks(model).find(t => t.kind === kind && t.id === id && t.property === property);
+
+test('whole pose copies between keys and restores all native transforms across clips including defaults', () => {
+  const model = fixture(), before = structuredClone(model), source = classicTimelineDomain(model, 0), destination = classicTimelineDomain(model, 1);
+  const clipboard = copyTimelinePose(model, classicPoseTargets(model, source), 250, source);
+  assert.deepEqual(model, before, 'copy is read-only');
+  model.Bones[0].Scaling = track([key(2300, [2, 3, 4])]);
+  model.Lights[0].Translation = track([key(2300, [10, 11, 12])]);
+  classicPaste(model, classicPoseTargets(model, destination), clipboard, 2300, destination);
+  for (const entry of clipboard.entries) {
+    const restored = timelineSample(model, entry.target, 2300, destination);
+    assert.ok(restored.every((value, index) => Math.abs(value - entry.value[index]) < 1e-6), entry.target.trackId);
+  }
+  for (const property of ['Color', 'AmbColor', 'Visibility', 'Intensity']) assert.deepEqual(model.Lights[0][property], before.Lights[0][property]);
+  assert.deepEqual(model.GeosetAnims, before.GeosetAnims);
+  assert.deepEqual(model.Materials, before.Materials);
+  assert.deepEqual(model.Bones[0].Translation.Keys.filter(key => key.Frame !== 2300), before.Bones[0].Translation.Keys);
+});
+
+test('whole pose keeps global transforms and locked channels intact', () => {
+  const model = fixture(), domain = classicTimelineDomain(model, 0);
+  model.Bones[0].Scaling = track([key(100, [2, 2, 2])], 1, 0);
+  const targets = classicPoseTargets(model, domain), clipboard = copyTimelinePose(model, targets, 250, domain), before = structuredClone(model);
+  classicPaste(model, unrestrictedTimelineTargets(targets, { translation: true }), clipboard, 750, domain);
+  assert.deepEqual(model.Bones[0].Translation, before.Bones[0].Translation);
+  assert.deepEqual(model.Bones[0].Scaling, before.Bones[0].Scaling);
+  assert.notDeepEqual(model.Bones[0].Rotation, before.Bones[0].Rotation);
+});
 
 test('timeline set, key/pose paste, delete and release respect node transform locks while retaining appearance edits', () => {
   for (const locked of ['translation', 'rotation', 'scaling']) for (const action of ['set', 'pasteKeys', 'pastePose', 'clear']) {

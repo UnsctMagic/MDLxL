@@ -1,5 +1,43 @@
 # POSE implementation and verification
 
+## Pose clipboard and limb-led body movement (2026-10-11)
+
+POSE's ordinary Copy/Ctrl+C now samples every supported local node transform,
+including interpolation and static defaults. Paste restores that complete
+snapshot despite changed handle selection, tool or Highlight KF. The explicit
+stored-key command retains its existing behavior. Appearance channels, globals
+and locked transform channels retain their ownership.
+
+Hand/foot Move shares 15% of the requested displacement with the nearest mapped
+torso/pelvis/body through the existing connected control. Other affected limbs
+compensate; explicit pins retain their reach constraints. The dragged endpoint
+keeps its original world orientation. Bend, Turn, native FK and rig recognition
+retain their existing behavior. Preview snapshots cover every body/limb write,
+and the complete gesture commits once.
+
+Validation on the isolated 0.22.1 package at
+`out/pose-copy-package/MDLxL-win32-x64/MDLxL.exe`:
+
+- `test/pose-copy-body.electron.cjs`: five packaged acceptance groups passed,
+  zero page errors. Actual hand/foot drags led body nodes, retained limb lengths,
+  previewed without document mutation and committed one Undo. Ctrl+C at 513 ms
+  and Ctrl+V at 700 ms restored all local transforms despite changing to Body,
+  Scale and Highlight KF; Undo/Redo restored exact state. Cross-animation paste
+  and actual Alt+mouse camera rotation passed. Sidebar width stayed unchanged;
+  Setup remained closed. Evidence: `out/pose-copy-ui/result.json` and PNG.
+- Focused pose/classic timeline/ragdoll/performance/complex/corpus suites:
+  64 passed, eight skipped because optional local model fixtures were absent.
+- Existing keyframe clipboard/retiming/collision/global-clock cases: six passed.
+- Standard compatibility suite: 57 passed. Vite build and portable packaging
+  passed; package verification covered 556 runtime/assets and 55 locales.
+- Footman source remains byte-identical at SHA-256
+  `fa74ae722b151a1cf5e297bebe17d5a734fb89225823e37e29a588ecaf527812`.
+
+The full `keyframe-timeline.test.js` run stalled in an existing case and was
+stopped; its affected clipboard cases passed separately. No release version
+change, installer replacement, Warcraft in-game acceptance or publication is
+claimed by this local candidate.
+
 Original base: online `main` at `1e1d4c93398cdca7b8d74c73cbabbcd6fb28150a` (0.21.2).
 Current-main integration: `a73f104824e02a976894151e50c671a33b46234d`.
 Sources merged cleanly; generated bundle conflicts were resolved by rebuilding

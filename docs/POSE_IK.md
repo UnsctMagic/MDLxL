@@ -12,7 +12,9 @@ rigs, including joints named through their native attachment references.
    view where the model provides them.
 2. Click a handle's symbol or label. Use the existing **Move**, **Rotate** or
    **Scale** tool. Move a hand or foot to bend its limb; Rotate turns its
-   endpoint. Drag **Bend** with Move to steer the elbow or knee.
+   endpoint. Hands and feet pull their connected torso or body slightly as you
+   move them, while other limbs compensate and explicit pins stay fixed.
+   Drag **Bend** with Move to steer the elbow or knee.
 3. Move or Rotate **Body** or **Pelvis**. Pelvis carries the connected body,
    including rigs where the chest is a sibling of the pelvis. Mapped limbs compensate
    automatically, keeping their hands/feet in place and oriented while reachable.
@@ -87,6 +89,13 @@ available. These rules are based on the model structure, never model filenames
 or fixed node IDs.
 
 ## Edits, history and saving
+
+With POSE on, **Copy** / **Ctrl+C** captures the whole current pose, including
+interpolated transforms between stored keys. Move to another frame or animation
+and use **Paste** / **Ctrl+V** to restore it in one Undo step. The timeline menu's
+**Copy Pose** does the same. Transform restrictions and global controllers keep
+their existing ownership. **Copy keyframes** still copies stored keys; with
+POSE off, ordinary Copy retains its normal keyframe behavior.
 
 Each gesture starts from the current sampled pose. Automatic targets retain
 their requested endpoint pose across repeated ancestor drags, even beyond reach:
