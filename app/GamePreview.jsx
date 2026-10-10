@@ -577,7 +577,10 @@ export default function GamePreview(inputProps) {
       for (const node of allNodes(ownedModel)) {
         const original = gesture.snapshots.get(node.ObjectId); if (!original) continue;
         for (const property of ['Translation', 'Rotation', 'Scaling', 'PivotPoint']) {
-          if (original[property] === undefined) delete node[property]; else node[property] = structuredClone(original[property]);
+          if (original[property] === undefined) delete node[property];
+          // POSE installs detached tracks through applyMovementPose; its saved
+          // tracks are read-only. FK's in-place writer still needs a fresh copy.
+          else node[property] = gesture.pose ? original[property] : structuredClone(original[property]);
         }
       }
     }

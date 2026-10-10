@@ -746,3 +746,66 @@ src/dist files match the worktree, with zero mismatches. Original 16 sources and
 Current main was integrated into the feature branch; source merged cleanly and
 generated bundle conflicts were resolved by a normal Vite rebuild. Version stays
 0.21.2 for this unshipped test candidate. PR merge awaits user authorization.
+
+## Dense-rig posing performance (2026-10-10)
+
+Reference: GnomeLindormrRider_TwinHeads_FaceAlphaWrap.mdx, supplied locally.
+229 nodes, 2,075 vertices and 62,253 native transform keys. The main slowdown
+was repeatedly validating all keys in shared ancestors for each joint/handle.
+The pose sampler now shares validation only within one synchronous operation,
+validates each ancestry path once, and shares one sampled skeleton across the
+handle overlay. Failed paths are never marked valid. Later edits, frames and
+operations are checked afresh. No global cache, reduced-quality solver, dropped
+animation keys or skipped native write validation was introduced.
+
+Track interval lookup uses binary searches instead of walking the keys in other
+clips. Finite-key checks avoid allocating temporary arrays. The overlay reuses
+its node list. POSE restores its read-only gesture snapshot directly because the
+native pose writer detaches every changed track; ordinary FK still clones before
+its in-place writer. Rig geometry, hierarchy, pivots, skin, UI and history rules
+remain unchanged. LAH/RAH arm-hand abbreviations now identify the actual rider
+hand before its weapon child. Both dragon heads, two wings, mount feet and rider
+limbs are mapped; this model's unnamed tail still requires Add.
+
+Local CPU diagnostic (same machine, profiling enabled, median milliseconds):
+
+| Operation | Before | After |
+| --- | ---: | ---: |
+| Body solve | 719.7 | 43.2 |
+| Handle projection (including quiet markers) | 187.0 | 9.5 |
+| Right hand solve | 84.1 | 5.0 |
+
+Packaged Electron, Stand Ready, ten real mouse movements per gesture:
+
+| Mouse event round trip | Before median | After median |
+| --- | ---: | ---: |
+| Body move | 697.6 ms | 82.9 ms |
+| Right hand move | 521.3 ms | 79.1 ms |
+
+These are local input round-trip measurements, not a 60 FPS guarantee. Test
+connection overhead and rendering are included. Both builds use isolated
+profiles and the same model/animation/view. Evidence:
+out/pose-performance-mouse-before/result.json and
+out/pose-performance-mouse-after/result.json. Each effective drag creates one
+Undo entry; exact model hashes survive Undo/Redo, actual Alt-mouse rotation
+changes camera orientation, and both runs have zero page errors. The original
+file hash stays unchanged. The walkthrough uses wireframe; texture appearance
+and Warcraft in-game playback are not claimed.
+
+The dense-model source test exercises every mapped control, pinned body movement,
+native MDX save/reopen and exact Undo. Synthetic regressions cover dense clip
+boundaries/gaps, globals, interpolation, fresh validation after an in-place edit,
+shared-ancestor rejection and unavailable animation intervals. Existing corpus
+and connected-rig regressions remain part of the verification command.
+
+Broader-suite baseline failures reproduced from untouched ed7e0d6b source:
+- animation-tracks: text parser validation; baked RGB/visibility roundtrip.
+- movement-component: inline RGB fields; quick-display source expectations.
+- movement-rest-pose: serialized pivot ordering across node kinds.
+They are outside this performance change. Baseline evidence:
+out/pose-performance-reference-tests.log and
+out/pose-performance-reference-extra-tests.log.
+
+Candidate: D:/MDLxL-Tests/pose-performance/MDLxL-win32-x64/MDLxL.exe.
+Packaging verifies 551 runtime/assets and 55 locales. No release version bump:
+this is an unshipped test candidate on the existing pose feature PR.

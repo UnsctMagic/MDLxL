@@ -7,7 +7,11 @@ import { constrainMovementVector, applyMovementTransform, movementParentMatrix, 
 // POSE controls are editor-session identities. Only the resulting native keys
 // pass through Movement's transactional writer; no controller enters the rig.
 const v3 = value => value?.isVector3 ? value.clone() : new Vector3().fromArray(value);
-const finite = value => value && Array.from(value).every(Number.isFinite);
+const finite = value => {
+  if (!value) return false;
+  for (let i = 0; i < value.length; i++) if (!Number.isFinite(value[i])) return false;
+  return true;
+};
 const transformNodes = model => [...(model.Bones || []), ...(model.Helpers || [])];
 const options = (model, frame, sequence, globalTime) => ({ interval: model.Sequences?.[sequence]?.Interval, globalSequences: model.GlobalSequences, globalTime });
 
@@ -127,7 +131,7 @@ export function separatePoseChains(model, draft, existing) {
 export function poseNodeRole(node) {
   const name = String(node?.Name || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/(left|right)(hand|foot|wrist|ankle)/ig, '$1 $2').toLowerCase();
   if (/chain|rein|guard|camera|over\s*head|cloth|cape|banner/.test(name)) return node?.Name || 'Object';
-  if (/(?:^|[\s_.-])(?:hand|wrist)(?=$|[\s_0-9.\-])/.test(name)) return 'Hand';
+  if (/(?:^|[\s_.-])(?:hand|wrist)(?=$|[\s_0-9.\-])|(?:^|[\s_.-])[lr]ah$/.test(name)) return 'Hand';
   if (/hoof/.test(name)) return 'Hoof';
   if (/(?:^|[\s_.-])(?:foot|ankle|toe)(?=$|[\s_0-9.\-])/.test(name)) return 'Foot';
   if (/(?:pelvis|hips?)(?=$|[\s_0-9.\-])/.test(name)) return 'Pelvis';
@@ -141,7 +145,7 @@ export function poseNodeRole(node) {
   return node?.Name || 'Object';
 }
 
-export const poseRole = (model, config, id) => config.roles?.[id] || poseNodeRole(allNodes(model).find(node => node.ObjectId === id));
+export const poseRole = (model, config, id, nodes) => config.roles?.[id] || poseNodeRole((nodes || allNodes(model)).find(node => node.ObjectId === id));
 
 /** Anatomy names locate candidates; hierarchy and skinned geometry resolve the
  * control, including mounted rigs and feet below unnamed mesh children. */
@@ -340,22 +344,35 @@ function sampled(model, frame, sequence, globalTime) {
 function point(model, node, matrices) { return v3(node.PivotPoint || model.PivotPoints[node.ObjectId]).applyMatrix4(matrices.get(node.ObjectId)); }
 function chainPoint(model, chain, node, matrices) { return node.ObjectId === chain.end && chain.grip ? v3(chain.grip).applyMatrix4(matrices.get(node.ObjectId)) : point(model, node, matrices); }
 
-export function samplePoseChain(model, chain, frame, sequence, globalTime = frame) {
-  const nodes = validatePoseChain(model, chain), matrices = sampled(model, frame, sequence, globalTime), byId = new Map(allNodes(model).map(node => [node.ObjectId, node]));
+// Share one read-only sampled pose across handles. This context is deliberately
+// scoped to a synchronous overlay/solve, never retained across edits or frames.
+export function createPoseSample(model, frame, sequence, globalTime = frame, validatedTracks = new WeakMap()) {
+  return { matrices: sampled(model, frame, sequence, globalTime), byId: new Map(allNodes(model).map(node => [node.ObjectId, node])), checked: new Set(), validatedTracks };
+}
+
+export function samplePoseChain(model, chain, frame, sequence, globalTime = frame, sample = createPoseSample(model, frame, sequence, globalTime)) {
+  const nodes = validatePoseChain(model, chain), { matrices, byId, checked, validatedTracks } = sample;
   // Validate ancestry even when a descendant's effective matrix happens to
   // cancel an unsupported scale. No stripped flags or hidden rig repairs.
   for (const node of nodes) {
     let ancestor = node;
-    while (ancestor) {
+    const validAncestors = [];
+    while (ancestor && !checked.has(ancestor.ObjectId)) {
       for (const [property, fallback, quaternion] of [['Translation', [0, 0, 0], false], ['Rotation', [0, 0, 0, 1], true], ['Scaling', [1, 1, 1], false]]) {
         const track = ancestor[property];
-        if (track?.Keys?.some(key => !finite(key.Vector) || key.Vector.length !== fallback.length || quaternion && Math.hypot(...key.Vector) < 1e-12)) throw new Error('A POSE ancestor has an invalid transform key.');
+        if (track?.Keys && validatedTracks.get(track) !== fallback.length) {
+          if (track.Keys.some(key => !finite(key.Vector) || key.Vector.length !== fallback.length || quaternion && Math.hypot(...key.Vector) < 1e-12)) throw new Error('A POSE ancestor has an invalid transform key.');
+          validatedTracks.set(track, fallback.length);
+        }
         const value = sampleTrack(track, frame, { ...options(model, frame, sequence, globalTime), fallback, quaternion });
         if (!finite(value) || value.length !== fallback.length || quaternion && Math.hypot(...value) < 1e-12) throw new Error('A sampled POSE transform is invalid.');
         if (property === 'Scaling' && (value.some(component => component <= 1e-10) || value.some(component => Math.abs(component - value[0]) > Math.abs(value[0]) * 1e-5))) throw new Error('POSE supports positive uniform scale only.');
       }
-      rigidRotation(matrices.get(ancestor.ObjectId)); ancestor = byId.get(ancestor.Parent);
+      rigidRotation(matrices.get(ancestor.ObjectId)); validAncestors.push(ancestor.ObjectId); ancestor = byId.get(ancestor.Parent);
     }
+    // Only mark a path after its entire ancestry passed; a failed sibling
+    // must not let another handle skip the same malformed ancestor.
+    for (const id of validAncestors) checked.add(id);
   }
   const points = nodes.map(node => chainPoint(model, chain, node, matrices)), root = points[0], middle = points[1], end = points.at(-1);
   const lengths = points.slice(1).map((point, i) => point.distanceTo(points[i]));
@@ -432,10 +449,10 @@ function orientChainEnd(model, chain, node, desired, matrices, frame, sequence, 
   return changes;
 }
 
-function solveChainOnClone(model, chain, frame, sequence, target, { pole, orientation, bendMemory, strict = false, globalTime = frame } = {}) {
+function solveChainOnClone(model, chain, frame, sequence, target, { pole, orientation, bendMemory, strict = false, globalTime = frame, validatedTracks = new WeakMap() } = {}) {
   if (orientation && (!finite(orientation) || orientation.length !== 4 || Math.hypot(...orientation) < 1e-12)) throw new Error('POSE endpoint orientation must be a finite quaternion.');
-  const pose = samplePoseChain(model, chain, frame, sequence, globalTime);
-  if (poseChainIds(chain).length > 3 || pose.distortion > 2e-4) return solveExtendedChain(model, chain, pose, frame, sequence, target, { pole, orientation, strict, bendMemory, globalTime });
+  const pose = samplePoseChain(model, chain, frame, sequence, globalTime, createPoseSample(model, frame, sequence, globalTime, validatedTracks));
+  if (poseChainIds(chain).length > 3 || pose.distortion > 2e-4) return solveExtendedChain(model, chain, pose, frame, sequence, target, { pole, orientation, strict, bendMemory, globalTime, validatedTracks });
   const geometry = solveTwoBone(pose, target, pole, bendMemory);
   if (!pole && v3(target).distanceToSquared(pose.end) < 1e-20 && (!orientation || 1 - Math.abs(new Quaternion().fromArray(orientation).normalize().dot(pose.rotations[2])) < 1e-12)) return { changes: [], bend: geometry.bend.toArray(), clamped: false, pose };
   if (strict && geometry.clamped) throw new Error('Pinned foot is out of reach. Move the body closer; this preview is rejected.');
@@ -450,14 +467,14 @@ function solveChainOnClone(model, chain, frame, sequence, target, { pole, orient
   matrices = sampled(model, frame, sequence, globalTime);
   const endpointRotation = orientation ? new Quaternion().fromArray(orientation).normalize() : pose.rotations[2];
   changes.push(...orientChainEnd(model, chain, nodes[2], endpointRotation, matrices, frame, sequence, globalTime));
-  const result = samplePoseChain(model, chain, frame, sequence, globalTime);
+  const result = samplePoseChain(model, chain, frame, sequence, globalTime, createPoseSample(model, frame, sequence, globalTime, validatedTracks));
   if (result.root.distanceTo(pose.root) > pose.tolerance || result.end.distanceTo(geometry.end) > pose.tolerance * 4 || result.lengths.some((length, i) => Math.abs(length - pose.lengths[i]) > pose.tolerance * 4) || 1 - Math.abs(result.rotations[2].dot(endpointRotation)) > 1e-7) throw new Error('POSE verification failed. The limb remains unchanged.');
   return { changes, bend: geometry.bend.toArray(), clamped: geometry.clamped, pose: result };
 }
 
 // FABRIK keeps all of a horse leg's native segments. The native evaluator is
 // the final authority, including the small errors from quantized SD rotations.
-function solveExtendedChain(model, chain, pose, frame, sequence, target, { pole, orientation, strict, bendMemory, globalTime }) {
+function solveExtendedChain(model, chain, pose, frame, sequence, target, { pole, orientation, strict, bendMemory, globalTime, validatedTracks }) {
   const nodes = validatePoseChain(model, chain), goal = v3(target), points = pose.points.map(point => point.clone());
   const total = pose.lengths.reduce((a,b) => a+b,0), inner = Math.max(0, 2*Math.max(...pose.lengths)-total);
   const distance = goal.distanceTo(points[0]), clamped = distance > total + pose.tolerance || distance < inner - pose.tolerance;
@@ -493,7 +510,7 @@ function solveExtendedChain(model, chain, pose, frame, sequence, target, { pole,
   }
   const desired = orientation ? new Quaternion().fromArray(orientation).normalize() : pose.rotations[2];
   const endpointChanges=orientChainEnd(model,chain,nodes.at(-1),desired,sampled(model,frame,sequence,globalTime),frame,sequence,globalTime);
-  const result=samplePoseChain(model,chain,frame,sequence,globalTime);
+  const result=samplePoseChain(model,chain,frame,sequence,globalTime,createPoseSample(model,frame,sequence,globalTime,validatedTracks));
   if(strict && result.end.distanceTo(goal)>Math.max(pose.tolerance*8,total*1e-3)) throw new Error('Move closer to the pinned foot.');
   const solvedDirection=result.end.clone().sub(result.root).normalize(), bend=perpendicular(solvedDirection,result.middle.clone().sub(result.root),rememberedBend);
   return { changes:[...nodes.slice(0,-1).map(node=>({id:node.ObjectId,property:'Rotation',value:sampleMovement(model,node,'Rotation',frame,sequence)})),...endpointChanges], bend:bend.toArray(), clamped, pose:result };
@@ -573,8 +590,8 @@ const upperBodyRoles = new Set(['Spine', 'Chest', 'Neck', 'Head', 'Tail', 'Wing'
 /** A handle grips the part, while its native marker remains at the joint.
  * Use the existing skin centroid reader, including SD mesh children below a
  * helper. The grip is a fixed model-space point, never a new rig node. */
-export function poseControlGrip(model, id) {
-  const nodes = allNodes(model), node = nodes.find(node => node.ObjectId === id);
+export function poseControlGrip(model, id, nodes = allNodes(model)) {
+  const node = nodes.find(node => node.ObjectId === id);
   const pivot = v3(node.PivotPoint || model.PivotPoints[id]), identity = new Map();
   const centers = [node, ...nodes.filter(child => child.Parent === id && !upperBodyRoles.has(poseNodeRole(child)))]
     .map(child => movementBoneVertexCenter(model, child.ObjectId, identity)?.center).filter(Boolean);
@@ -629,10 +646,10 @@ export function poseNodeControl(model, config, target, mode = 'move') {
   return { joints, heads, driver, followers, carriers };
 }
 
-export function poseControlPoint(model, config, id, matrices) {
-  const node = allNodes(model).find(node => node.ObjectId === id);
-  const grip = id !== config.body && (upperBodyRoles.has(poseRole(model, config, id)) || poseRole(model, config, id) === 'Body') && (config.nodes || []).includes(id);
-  return (grip ? poseControlGrip(model, id) : v3(node.PivotPoint || model.PivotPoints[id])).applyMatrix4(matrices.get(id));
+export function poseControlPoint(model, config, id, matrices, nodes = allNodes(model)) {
+  const node = nodes.find(node => node.ObjectId === id);
+  const grip = id !== config.body && (upperBodyRoles.has(poseRole(model, config, id, nodes)) || poseRole(model, config, id, nodes) === 'Body') && (config.nodes || []).includes(id);
+  return (grip ? poseControlGrip(model, id, nodes) : v3(node.PivotPoint || model.PivotPoints[id])).applyMatrix4(matrices.get(id));
 }
 
 // Solve only rotations on the existing upper-body links. Damped coordinate
@@ -714,6 +731,8 @@ function reachFraction(relative, delta, inner, outer) {
 /** Ancestor moves solve affected limbs toward their current endpoint poses.
  * Automatic targets yield at reach; only explicit pins limit the body move. */
 export function solvePoseNode(model, id, constraints, frame, sequence, change, globalTime = frame) {
+  const validatedTracks = new WeakMap();
+  const poseAt = (source, chain) => samplePoseChain(source, chain, frame, sequence, globalTime, createPoseSample(source, frame, sequence, globalTime, validatedTracks));
   const node = allNodes(model).find(node => node.ObjectId === id), property = movementProperties[change.mode];
   if (!node || !property) throw new Error('Select an object and a Movement tool.');
   const values = change.values || ['X', 'Y', 'Z'].map(axis => axis === change.axis ? change.amount : change.mode === 'scale' ? 1 : 0);
@@ -728,7 +747,7 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
   const headRotations = control.heads.map(id => ({ id, rotation: rigidRotation(initialMatrices.get(id)) }));
   const used = new Set(), captured = constraints.filter(pin => [driver, ...followers].some(root => pin.chain.end !== root && descendantOf(model, pin.chain.end, root))).map(pin => {
     for (const joint of poseChainIds(pin.chain)) { if (used.has(joint)) throw new Error('Limb controls must have separate joint chains.'); used.add(joint); }
-    const pose = samplePoseChain(model, pin.chain, frame, sequence, globalTime);
+    const pose = poseAt(model, pin.chain);
     const target = pin.pinned === false && matchesPoseTarget(pin.target, pin.chain, pose, frame, sequence) ? pin.target : null;
     return { ...pin, pinned: pin.pinned !== false, pose, position: v3(pin.position || target?.position || pose.end), orientation: pin.orientation || target?.orientation || pose.rotations[2].toArray() };
   });
@@ -760,13 +779,13 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
     return copy;
   };
   const reachable = copy => fixed.every(pin => {
-    const pose = samplePoseChain(copy, pin.chain, frame, sequence, globalTime), distance = pose.root.distanceTo(pin.position);
+    const pose = poseAt(copy, pin.chain), distance = pose.root.distanceTo(pin.position);
     return distance <= reachBounds(pose)[1] + pose.tolerance * .1 && distance >= reachBounds(pose)[0] - pose.tolerance * .1;
   });
   let fraction = 1, copy = transformed(1), blockingKeys = [];
   if (fixed.length) {
     let linear = change.mode === 'move' && !grip;
-    const poses = fixed.map(pin => samplePoseChain(copy, pin.chain, frame, sequence, globalTime));
+    const poses = fixed.map(pin => poseAt(copy, pin.chain));
     linear &&= poses.every((pose, i) => pose.lengths.every((length, j) => Math.abs(length - fixed[i].pose.lengths[j]) < pose.tolerance));
     if (linear) for (let i = 0; i < fixed.length; i++) {
       const pin = fixed[i], delta = poses[i].root.clone().sub(pin.pose.root);
@@ -787,7 +806,7 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
           fraction = low;
           const beyond = transformed(high);
           blockingKeys = fixed.filter(pin => {
-            const pose = samplePoseChain(beyond, pin.chain, frame, sequence, globalTime), distance = pose.root.distanceTo(pin.position), [inner, outer] = reachBounds(pose);
+            const pose = poseAt(beyond, pin.chain), distance = pose.root.distanceTo(pin.position), [inner, outer] = reachBounds(pose);
             return distance > outer + pose.tolerance * .1 || distance < inner - pose.tolerance * .1;
           }).map(pin => pin.chain.key);
           break;
@@ -803,17 +822,17 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
   if (change.rotateOnOwnAxis && change.mode === 'rotate') changes.push({ id, property: 'Translation', value: sampleMovement(copy, target, 'Translation', frame, sequence) });
   for (const pin of captured) {
     let result;
-    try { result = solveChainOnClone(copy, pin.chain, frame, sequence, pin.position, { orientation: pin.orientation, bendMemory: pin.bendLocal && v3(pin.bendLocal).applyQuaternion(pin.pose.rotations[0]), strict: pin.pinned, globalTime }); }
+    try { result = solveChainOnClone(copy, pin.chain, frame, sequence, pin.position, { orientation: pin.orientation, bendMemory: pin.bendLocal && v3(pin.bendLocal).applyQuaternion(pin.pose.rotations[0]), strict: pin.pinned, globalTime, validatedTracks }); }
     catch (cause) { if (pin.pinned) cause.blockingKeys = [pin.chain.key]; throw cause; }
     changes.push(...result.changes); bends.push({ key: pin.chain.key, local: v3(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() });
   }
   for (const head of headRotations) changes.push(setWorldRotation(copy, byId.get(head.id), head.rotation, sampled(copy, frame, sequence, globalTime), frame, sequence, globalTime));
   for (const pin of fixed) {
-    const after = samplePoseChain(copy, pin.chain, frame, sequence, globalTime);
+    const after = poseAt(copy, pin.chain);
     if (after.end.distanceTo(pin.position) > pin.pose.tolerance * 4 || 1 - Math.abs(after.rotations[2].dot(new Quaternion().fromArray(pin.orientation))) > 1e-7) throw Object.assign(new Error('This transform cannot retain the pins.'), { blockingKeys: [pin.chain.key] });
   }
   const targets = captured.filter(pin => !pin.pinned).map(pin => {
-    const pose = samplePoseChain(copy, pin.chain, frame, sequence, globalTime);
+    const pose = poseAt(copy, pin.chain);
     return { key: pin.chain.key, frame, sequence, joints: poseChainIds(pin.chain),
       position: pin.position.toArray(), orientation: pin.orientation,
       points: [pose.root, pose.middle, pose.end].map(point => point.toArray()), rotations: pose.rotations.map(rotation => rotation.toArray()) };

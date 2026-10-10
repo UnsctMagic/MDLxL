@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from 'three';
 import { allNodes } from '../src/animation.js';
-import { poseControlPoint, poseAffectedPins, poseNodeRole, poseRole, samplePoseChain } from '../src/pose-ik.js';
+import { createPoseSample, poseControlPoint, poseAffectedPins, poseNodeRole, poseRole, samplePoseChain } from '../src/pose-ik.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { pickMovementNode } from './movement-overlay.js';
 
@@ -36,15 +36,17 @@ const identity = handle => `${handle.kind}:${handle.kind === 'body' ? '' : handl
 
 export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes) {
   if (!config?.enabled) return [];
-  const handles = [], target = config.target;
+  const handles = [], target = config.target, nodes = allNodes(model);
   const project = (world, fields) => {
     const screen = world.clone().project(camera);
     const unit = camera.isPerspectiveCamera ? 2 * world.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height : (camera.top - camera.bottom) / camera.zoom / height;
     return { ...fields, world, unitsPerPixel: unit, x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
   };
+  let sample;
   for (const chain of config.chains) {
     try {
-      const pose = samplePoseChain(model, chain, frame, sequence, globalTime), selected = target?.key === chain.key;
+      sample ||= createPoseSample(model, frame, sequence, globalTime);
+      const pose = samplePoseChain(model, chain, frame, sequence, globalTime, sample), selected = target?.key === chain.key;
       handles.push(project(pose.end, { kind: 'endpoint', key: chain.key, chain, rotation: pose.rotations[2], selected: selected && target.kind === 'endpoint', joints: selected ? pose.points.map(world => project(world, {})) : [], pinned: config.pins.includes(chain.key), label: chain.label || (chain.kind === 'leg' ? 'Foot' : 'Hand') }));
       if (selected) {
         const direction = pose.end.clone().sub(pose.root).normalize(), bend = pose.middle.clone().sub(pose.root);
@@ -59,23 +61,23 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
     } catch { /* Invalid session mappings have no visible or pickable handle. */ }
   }
   const matrices = samplePreviewMatrices(model, frame, sequence, globalTime, camera);
-  for (const node of allNodes(model)) {
+  for (const node of nodes) {
     if (handles.some(handle => handle.chain?.end === node.ObjectId)) continue;
     const body = node.ObjectId === config.body, selected = body ? target?.kind === 'body' : target?.kind === 'node' && !target.marker && target.id === node.ObjectId;
     const quiet = !body && !selected && !(config.nodes || []).includes(node.ObjectId);
     if (quiet && visibleNodes && !visibleNodes.has(node.ObjectId)) continue;
     const matrix = matrices.get(node.ObjectId), pivot = node.PivotPoint || model.PivotPoints?.[node.ObjectId];
     if (!matrix || !pivot) continue;
-    const world = poseControlPoint(model, config, node.ObjectId, matrices), rotation = new Quaternion(); matrix.decompose(new Vector3(), rotation, new Vector3());
+    const world = poseControlPoint(model, config, node.ObjectId, matrices, nodes), rotation = new Quaternion(); matrix.decompose(new Vector3(), rotation, new Vector3());
     if (!world.toArray().every(Number.isFinite)) continue;
     const paths = [];
     if (selected) for (const chain of poseAffectedPins(model, config, node.ObjectId)) {
-      try { const limb = samplePoseChain(model, chain, frame, sequence, globalTime); paths.push([world, limb.root, limb.middle, limb.end].map(point => project(point, {}))); } catch { /* Only this constraint is unavailable. The direct control remains usable. */ }
+      try { sample ||= createPoseSample(model, frame, sequence, globalTime); const limb = samplePoseChain(model, chain, frame, sequence, globalTime, sample); paths.push([world, limb.root, limb.middle, limb.end].map(point => project(point, {}))); } catch { /* Only this constraint is unavailable. The direct control remains usable. */ }
     }
-    handles.push(project(world, { kind: body ? 'body' : 'node', id: node.ObjectId, rotation, selected, paths, quiet, label: body ? 'Body' : poseRole(model, config, node.ObjectId) }));
+    handles.push(project(world, { kind: body ? 'body' : 'node', id: node.ObjectId, rotation, selected, paths, quiet, label: body ? 'Body' : poseRole(model, config, node.ObjectId, nodes) }));
   }
   if (target?.kind === 'node' && target.marker) {
-    const node = allNodes(model).find(node => node.ObjectId === target.id), matrix = matrices.get(target.id), pivot = node?.PivotPoint || model.PivotPoints?.[target.id];
+    const node = nodes.find(node => node.ObjectId === target.id), matrix = matrices.get(target.id), pivot = node?.PivotPoint || model.PivotPoints?.[target.id];
     if (matrix && pivot) {
       const world = new Vector3().fromArray(pivot).applyMatrix4(matrix), rotation = new Quaternion(); matrix.decompose(new Vector3(), rotation, new Vector3());
       handles.push(project(world, { kind: 'node', id: target.id, marker: true, quiet: true, selected: true, rotation, label: node.Name || 'Object' }));

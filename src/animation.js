@@ -13,9 +13,14 @@ export function sampleTrack(track, frame, options = {}) {
     frame = ((globalTime % to) + to) % to;
   }
   const keys = track.Keys || [];
-  let first = 0, last = keys.length - 1;
-  while (first <= last && keys[first].Frame < from) first++;
-  while (last >= first && keys[last].Frame > to) last--;
+  // Tracks are ordered by Frame (as required by the interpolation search
+  // below). Locate this clip without walking keys from every other animation.
+  let lo = 0, hi = keys.length;
+  while (lo < hi) { const mid = (lo + hi) >>> 1; if (keys[mid].Frame < from) lo = mid + 1; else hi = mid; }
+  const first = lo;
+  hi = keys.length;
+  while (lo < hi) { const mid = (lo + hi) >>> 1; if (keys[mid].Frame <= to) lo = mid + 1; else hi = mid; }
+  const last = lo - 1;
   if (first > last) return fallback;
   let left = keys[first], right = left;
   if (frame >= keys[last].Frame) left = right = keys[last];
