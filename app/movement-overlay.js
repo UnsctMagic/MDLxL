@@ -30,7 +30,7 @@ export function projectMovementNodes(model, frame, sequenceIndex, camera, width,
   });
 }
 
-export function movementAxisHandles(active, camera, width, height, radius, space = 'local', mode = 'rotate') {
+export function movementAxisHandles(active, camera, width, height, radius, space = 'local', mode = 'rotate', nearby = []) {
   if (!active?.visible) return [];
   // Keep handles a consistent size at different camera distances and zooms.
   const distance = camera.isPerspectiveCamera ? active.world.distanceTo(camera.position) : radius * 2.6;
@@ -38,23 +38,41 @@ export function movementAxisHandles(active, camera, width, height, radius, space
   const handles = Object.entries(AXES).map(([axis, values]) => {
     const direction = new Vector3().fromArray(values);
     if (space === 'local' && mode !== 'scale') direction.applyQuaternion(active.rotation);
-    const end = active.world.clone().addScaledVector(direction, unit * 68 * MOVEMENT_GIZMO_SCALE).project(camera);
+    const end = active.world.clone().addScaledVector(direction, unit * (mode === 'move' ? 112 : 68) * MOVEMENT_GIZMO_SCALE).project(camera);
     let dx = (end.x + 1) * width / 2 - active.x, dy = (1 - end.y) * height / 2 - active.y;
     // An axis facing the camera still gets a usable short handle.
     if (Math.hypot(dx, dy) < 18 * MOVEMENT_GIZMO_SCALE) { dx = axis === 'Z' ? 0 : axis === 'X' ? 25 * MOVEMENT_GIZMO_SCALE : -25 * MOVEMENT_GIZMO_SCALE; dy = axis === 'Z' ? -25 * MOVEMENT_GIZMO_SCALE : 25 * MOVEMENT_GIZMO_SCALE; }
+    if (mode === 'move' && Math.hypot(dx, dy) < 52) { const scale = 52 / Math.hypot(dx, dy); dx *= scale; dy *= scale; }
     return { axis, mode, color: COLORS[axis], x: active.x + dx, y: active.y + dy, startX: active.x, startY: active.y, dx, dy, unitsPerPixel: unit };
   });
   if (mode === 'move') for (const plane of ['xy', 'xz', 'yz']) {
     const [a, b] = plane.toUpperCase().split('').map(axis => AXES[axis]);
-    const polygon = [[20, 20], [34, 20], [34, 34], [20, 34]].map(([u, v]) => {
-      const point = active.world.clone().addScaledVector(new Vector3(...a), u * unit).addScaledVector(new Vector3(...b), v * unit).project(camera);
-      return { x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2 };
-    });
-    const area = Math.abs(polygon.reduce((sum, point, i) => { const next = polygon[(i + 1) % 4]; return sum + point.x * next.y - next.x * point.y; }, 0)) / 2;
-    // Edge-on planes have no usable square; do not show an invented screen plane.
-    if (area < 35) continue;
-    const x = polygon.reduce((sum, point) => sum + point.x, 0) / 4, y = polygon.reduce((sum, point) => sum + point.y, 0) / 4;
-    handles.push({ axis: plane.toUpperCase(), mode, plane, polygon, color: COLORS[WORKPLANE_NORMALS[plane]], x, y, startX: active.x, startY: active.y, unitsPerPixel: unit });
+    const centre = active.world.clone().addScaledVector(new Vector3(...a), unit * 49).addScaledVector(new Vector3(...b), unit * 49).project(camera);
+    const distance = Math.hypot((centre.x + 1) * width / 2 - active.x, (1 - centre.y) * height / 2 - active.y);
+    if (distance < 1) continue;
+    const middle = 49 * Math.max(1, 40 / distance);
+    let best;
+    for (const [u, v] of [[middle,middle],[middle+24,middle-12],[middle-12,middle+24],[middle+24,middle+24],[middle+40,middle-20],[middle-20,middle+40],[middle+56,middle+14],[middle+14,middle+56],[middle+56,middle+56]]) {
+      const polygon = [[u-9,v-9],[u+9,v-9],[u+9,v+9],[u-9,v+9]].map(([x, y]) => {
+        const point = active.world.clone().addScaledVector(new Vector3(...a), x * unit).addScaledVector(new Vector3(...b), y * unit).project(camera);
+        return { x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2 };
+      });
+      const area = Math.abs(polygon.reduce((sum, point, i) => { const next = polygon[(i + 1) % 4]; return sum + point.x * next.y - next.x * point.y; }, 0)) / 2;
+      // Edge-on planes have no usable square.
+      if (area < 35) continue;
+      const x = polygon.reduce((sum, point) => sum + point.x, 0) / 4, y = polygon.reduce((sum, point) => sum + point.y, 0) / 4;
+      const minX = Math.min(...polygon.map(point=>point.x)), maxX = Math.max(...polygon.map(point=>point.x)), minY = Math.min(...polygon.map(point=>point.y)), maxY = Math.max(...polygon.map(point=>point.y));
+      let score = Math.max(0, 32 - Math.hypot(x-active.x,y-active.y));
+      for (const point of nearby) if (point.visible && !point.quiet && !point.selected) score += Math.max(0, 24 - Math.hypot(Math.max(minX-point.x,0,point.x-maxX), Math.max(minY-point.y,0,point.y-maxY)));
+      for (const handle of handles) {
+        if (!handle.plane) score += Math.max(0, 10 - pointSegmentDistance(x,y,handle));
+        else if (handle.polygon.some(point=>point.x>=minX-3&&point.x<=maxX+3&&point.y>=minY-3&&point.y<=maxY+3)) score += 24;
+      }
+      const candidate = { axis: plane.toUpperCase(), mode, plane, polygon, color: COLORS[WORKPLANE_NORMALS[plane]], x, y, startX: active.x, startY: active.y, unitsPerPixel: unit };
+      if (!best || score < best.score) best = { candidate, score };
+      if (score === 0) break;
+    }
+    if (best) handles.push(best.candidate);
   }
   return handles;
 }
@@ -103,19 +121,19 @@ export function drawMovementGizmo(context, handles, ratio = 1) {
   context.save(); context.scale(ratio, ratio);
   for (const handle of handles.filter(handle => handle.plane)) {
     context.beginPath(); handle.polygon.forEach((point, index) => context[index ? 'lineTo' : 'moveTo'](point.x, point.y)); context.closePath();
-    context.fillStyle = handle.color; context.globalAlpha = .25; context.fill(); context.globalAlpha = 1;
-    context.strokeStyle = '#162137'; context.lineWidth = 4; context.stroke();
-    context.strokeStyle = handle.color; context.lineWidth = 2; context.stroke();
+    context.fillStyle = handle.color; context.globalAlpha = .16; context.fill(); context.globalAlpha = 1;
+    context.strokeStyle = '#162137'; context.lineWidth = 3; context.stroke();
+    context.strokeStyle = handle.color; context.lineWidth = 1.5; context.stroke();
   }
   for (const handle of handles.filter(handle => !handle.plane)) {
     const length = Math.hypot(handle.dx, handle.dy), ux = handle.dx / length, uy = handle.dy / length;
-    context.beginPath(); context.moveTo(handle.startX + (handle.mode === 'move' ? ux * 20 : 0), handle.startY + (handle.mode === 'move' ? uy * 20 : 0)); context.lineTo(handle.x, handle.y);
-    context.strokeStyle = '#162137'; context.lineWidth = 5; context.stroke();
-    context.strokeStyle = handle.color; context.lineWidth = 3; context.stroke();
+    context.beginPath(); context.moveTo(handle.startX + (handle.mode === 'move' ? ux * 24 : 0), handle.startY + (handle.mode === 'move' ? uy * 24 : 0)); context.lineTo(handle.x, handle.y);
+    context.strokeStyle = '#162137'; context.lineWidth = handle.mode === 'move' ? 3.5 : 5; context.stroke();
+    context.strokeStyle = handle.color; context.lineWidth = handle.mode === 'move' ? 2 : 3; context.stroke();
     if (handle.mode === 'move') {
       context.beginPath(); context.moveTo(handle.x, handle.y);
-      context.lineTo(handle.x - ux * 12 - uy * 6, handle.y - uy * 12 + ux * 6);
-      context.lineTo(handle.x - ux * 12 + uy * 6, handle.y - uy * 12 - ux * 6); context.closePath();
+      context.lineTo(handle.x - ux * 10 - uy * 4.5, handle.y - uy * 10 + ux * 4.5);
+      context.lineTo(handle.x - ux * 10 + uy * 4.5, handle.y - uy * 10 - ux * 4.5); context.closePath();
       context.fillStyle = handle.color; context.fill(); context.lineWidth = 1; context.strokeStyle = '#162137'; context.stroke(); continue;
     }
     context.beginPath(); context.arc(handle.x, handle.y, 10, 0, Math.PI * 2); context.fillStyle = handle.color; context.fill();
@@ -280,6 +298,29 @@ export function pickMovementHandle(handles, x, y, mode, threshold = 10) {
   }
   const distance = handle => mode === 'rotate' || mode === 'move' ? pointSegmentDistance(x, y, handle) : Math.hypot(handle.x - x, handle.y - y);
   return handles.filter(handle => !handle.plane).map(handle => ({ handle, distance: distance(handle) })).filter(hit => hit.distance <= threshold).sort((a, b) => a.distance - b.distance)[0]?.handle || null;
+}
+
+/** Keep the adjacent Pin button out of the selected control's drag areas. */
+export function movementPinPosition(active, handles, width, height, buttonWidth = 58, buttonHeight = 24, nearby = []) {
+  const overlaps = (box, points, padding = 6) => {
+    const xs = points.map(point => point.x), ys = points.map(point => point.y);
+    return Math.min(...xs) - padding < box.x + buttonWidth && Math.max(...xs) + padding > box.x && Math.min(...ys) - padding < box.y + buttonHeight && Math.max(...ys) + padding > box.y;
+  };
+  const blocked = box => handles.some(handle => {
+    if (handle.plane) return overlaps(box, handle.polygon);
+    const length = Math.hypot(handle.dx, handle.dy);
+    for (let pixel = 24; pixel <= length + 6; pixel += 6) {
+      if (overlaps(box, [{ x: handle.startX + handle.dx * pixel / length, y: handle.startY + handle.dy * pixel / length }], 8)) return true;
+    }
+    return false;
+  }) || nearby.some(handle => handle.visible && !handle.quiet && overlaps(box, [{ x: handle.x, y: handle.y }], 23));
+  const candidates = [];
+  for (const gap of [30, 54, 78]) for (const [dx, dy] of [[0,1],[0,-1],[-1,0],[1,0],[-1,1],[1,1],[-1,-1],[1,-1]]) {
+    const x = Math.max(0, Math.min(width - buttonWidth, active.x + dx * (gap + buttonWidth / 2) - buttonWidth / 2));
+    const y = Math.max(0, Math.min(height - buttonHeight, active.y + dy * (gap + buttonHeight / 2) - buttonHeight / 2));
+    const box = { x, y }; candidates.push(box); if (!blocked(box)) return box;
+  }
+  return candidates.at(-1);
 }
 
 export function movementNodeSelection(selectedIds, id, { multiple = false, shift = false, ctrl = false } = {}) {

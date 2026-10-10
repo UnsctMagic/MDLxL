@@ -75,7 +75,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const data=await page.evaluate(()=>{const {runtime,props}=poseProbe(),canvas=document.querySelector('[data-clean-model-canvas]');return {camera:runtime.controls.object.toJSON(),width:canvas.clientWidth,height:canvas.clientHeight,frame:runtime.native.getFrame(),sequence:props.sequenceIndex,id:props.selectedNodeIds.at(-1)};});
       const camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
       const active=pose?await handleFor('body'):projectMovementNodes(sourceModel,data.frame,data.sequence,camera,data.width,data.height).find(p=>p.node.ObjectId===data.id);
-      return {active,handles:movementAxisHandles(active,camera,data.width,data.height,100,'world','move')};
+      return {active,handles:movementAxisHandles(active,camera,data.width,data.height,100,'world','move',pose?await handles():[])};
     }
     async function position(id){const data=await page.evaluate(id=>{const n=poseProbe().runtime.native.rendererData.nodes.find(n=>n?.node.ObjectId===id);return {pivot:Array.from(n.node.PivotPoint),matrix:Array.from(n.matrix)};},id);return new Vector3().fromArray(data.pivot).applyMatrix4(new Matrix4().fromArray(data.matrix));}
     async function checkedDrag(pose,label,point,dx,dy,allowed,cancel=false){
@@ -94,7 +94,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for(const pose of [true,false]){
       if(!pose){await page.getByRole('button',{name:'POSE',exact:true}).click();await page.getByLabel('Movement bone or node').selectOption(String(config.body));await tool('Move');await settle();}
       for(const axis of ['X','Y','Z'])for(const part of ['shaft start','shaft middle','tip']){
-        const a=(await gizmo(pose)).handles.find(h=>h.axis===axis),length=Math.hypot(a.dx,a.dy),pixels=part==='tip'?length:part==='shaft start'?22:(20+length)/2;
+        const a=(await gizmo(pose)).handles.find(h=>h.axis===axis),length=Math.hypot(a.dx,a.dy),pixels=part==='tip'?length:part==='shaft start'?26:(20+length)/2;
         await checkedDrag(pose,axis+' '+part,{x:a.startX+a.dx/length*pixels,y:a.startY+a.dy/length*pixels},a.dx/length*4,a.dy/length*4,[{X:0,Y:1,Z:2}[axis]]);
       }
       const gizmoHandles=(await gizmo(pose)).handles, pads=gizmoHandles.filter(h=>h.plane);assert.equal(pads.length,3,'all plane squares visible in angled view');
@@ -103,6 +103,18 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const current=(await gizmo(pose)).handles,pad=current.find(h=>h.plane),point=[pad,...pad.polygon.map(v=>({x:pad.x+(v.x-pad.x)*.6,y:pad.y+(v.y-pad.y)*.6}))].find(p=>pickMovementHandle(current,p.x,p.y,'move')===pad);await checkedDrag(pose,pose?'plane Escape':'plane pointercancel',point,5,-4,[0,1,2],true);
     }
     await page.getByRole('button',{name:'POSE',exact:true}).click();await selectBody();await shot('move-arrows-and-squares');
+    const footId=config.chains.find(chain=>chain.kind==='leg').end;
+    await tool('Select');const foot=await handleFor('endpoint',footId);box=await viewportBox();
+    for(let i=0;i<45;i++){const selected=await page.evaluate(()=>poseProbe().props.poseConfig.target);if(selected?.kind==='endpoint'&&selected.key===foot.key)break;await page.mouse.click(box.x+foot.x,box.y+foot.y);await settle();}
+    assert.equal((await page.evaluate(()=>poseProbe().props.poseConfig.target)).key,foot.key);await tool('Move');await settle();
+    for(let view=0;view<3;view++){
+      const h=await handleFor('endpoint',footId),data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON()})),camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);box=await viewportBox();
+      const controls=movementAxisHandles(h,camera,box.width,box.height,100,'world','move',await handles()),pin=await page.locator('[data-pose-pin]').boundingBox();assert.ok(pin);
+      for(let x=pin.x-box.x+2;x<pin.x-box.x+pin.width-2;x+=3)for(let y=pin.y-box.y+2;y<pin.y-box.y+pin.height-2;y+=3)assert.equal(pickMovementHandle(controls,x,y,'move'),null,'Pin button is outside gizmo drag areas');
+      const before=await snap();await page.locator('[data-pose-pin]').click();assert.equal(await page.locator('[data-pose-pin]').getAttribute('aria-pressed'),'true');await page.locator('[data-pose-pin]').click();assert.equal(await page.locator('[data-pose-pin]').getAttribute('aria-pressed'),'false');assert.equal((await snap()).model,before.model,'Pin placement/toggle does not alter native keys');
+      await shot('foot-pin-spacing-'+view);results.checks.push('Pin spacing and mouse toggle at view '+view);
+      await page.keyboard.down('Alt');await page.mouse.move(box.x+50,box.y+50);await page.mouse.down();await page.mouse.move(box.x+100,box.y+65,{steps:4});await page.mouse.up();await page.keyboard.up('Alt');await settle();
+    }
     assert.equal(await page.locator('.classic-sidebar').evaluate(el=>el.getBoundingClientRect().width),sidebarWidth);assert.equal(await page.getByRole('dialog',{name:'POSE setup',exact:true}).count(),0);
     assert.equal(hash(fixture),fixtureHash);assert.deepEqual(errors,[]);results.errors=errors;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({checks:results.checks,errors}));
   } catch(error){console.error(error);const data=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));fs.writeFileSync(path.join(out,'failure.png'),Buffer.from(data,'base64'));throw error;} finally{await app.evaluate(({app})=>app.exit(0));}

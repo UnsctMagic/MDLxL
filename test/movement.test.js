@@ -4,7 +4,7 @@ import { Matrix4, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { applyMovementTransform, deleteMovementControllers, deleteMovementKeys, insertMovementKeys, movementControllerType, movementKeyframes, sampleMovement, setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve, updateMovementKey } from '../src/movement.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
-import { MOVEMENT_GIZMO_SCALE, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
+import { MOVEMENT_GIZMO_SCALE, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from '../app/game-preview-data.js';
 import { patchWarcraftMeshFragmentShader, previewGeosetTint } from '../app/warcraft-preview-adapter.js';
 import { projectedPlaneTranslation } from '../app/viewport-math.js';
@@ -395,4 +395,27 @@ test('an arrow drawn over a plane square owns its visible shaft', () => {
   const pad = { axis: 'XY', plane: 'xy', startX: 0, startY: 0, x: 35, y: 3, polygon: [{x:28,y:-4},{x:42,y:-4},{x:42,y:10},{x:28,y:10}] };
   assert.equal(pickMovementHandle([arrow, pad], 35, 0, 'move'), arrow);
   assert.equal(pickMovementHandle([arrow, pad], 35, 8, 'move'), pad);
+});
+
+
+test('Move arrows have room around the central grip and Pin clears the shaft and squares', () => {
+  const camera = new PerspectiveCamera(40, 1, .1, 1000); camera.up.set(0, 0, 1); camera.position.set(100, -140, 100); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  const active = { world: new Vector3(), x: 200, y: 200, visible: true };
+  const handles = movementAxisHandles(active, camera, 400, 400, 50, 'world', 'move');
+  assert.ok(handles.filter(handle => !handle.plane).every(handle => Math.hypot(handle.dx, handle.dy) >= 52));
+  assert.ok(handles.filter(handle => handle.plane).every(handle => Math.hypot(handle.x - active.x, handle.y - active.y) >= 35));
+  const position = movementPinPosition(active, handles, 400, 400, 40, 22, [active]);
+  for (let x = position.x; x <= position.x + 40; x += 2) for (let y = position.y; y <= position.y + 22; y += 2) assert.equal(pickMovementHandle(handles, x, y, 'move'), null);
+  assert.ok(position.y >= 0 && position.y + 22 <= 400 && position.x >= 0 && position.x + 40 <= 400);
+});
+
+
+test('plane pads move into clear gaps instead of hiding a neighbouring controller', () => {
+  const camera = new PerspectiveCamera(40,1,.1,1000);camera.up.set(0,0,1);camera.position.set(100,-140,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
+  const active={world:new Vector3(),x:200,y:200,visible:true};
+  const initial=movementAxisHandles(active,camera,400,400,50,'world','move').find(handle=>handle.plane==='yz');
+  const neighbour={x:initial.x,y:initial.y,visible:true};
+  const adjusted=movementAxisHandles(active,camera,400,400,50,'world','move',[neighbour]).find(handle=>handle.plane==='yz');
+  const xs=adjusted.polygon.map(point=>point.x),ys=adjusted.polygon.map(point=>point.y);
+  assert.ok(Math.hypot(Math.max(Math.min(...xs)-neighbour.x,0,neighbour.x-Math.max(...xs)),Math.max(Math.min(...ys)-neighbour.y,0,neighbour.y-Math.max(...ys)))>=24);
 });

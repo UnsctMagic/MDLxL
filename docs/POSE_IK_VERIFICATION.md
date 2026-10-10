@@ -843,3 +843,41 @@ Verification:
 Candidate: D:/MDLxL-Tests/pose-move-gizmo/MDLxL-win32-x64/MDLxL.exe.
 Packaging verifies 551 runtime/assets and 55 locales. Version stays 0.21.2;
 this is an unshipped local test on PR #154.
+
+
+## Move gizmo spacing and visual clarity - 2026-10-10
+
+The user's rider screenshot exposed a crowded 68-pixel manipulator: short arrows,
+plane pads, the centre symbol and adjacent Pin button occupied the same space.
+The supplied Hive screenshot was inspected as a usability reference. Its useful
+principle is a clear centre with thin arms and separated drag areas; its theme,
+panels and editor layout were not copied.
+
+Move now uses 112-pixel world-axis arms, with at least 52 projected pixels for a
+short axis. Shafts are thinner; plane pads are larger and farther from the pivot.
+Pad placement tries clear locations on the same world plane around visible
+controller grips, other pads and arrow shafts. The centre symbol, colors,
+hit-area generosity, world-plane solver and direct drags remain intact. Pin picks
+an adjacent clear position around the actual gizmo and other visible controls.
+Existing viewport flags, wireframe mode, native markers, mappings, sidebar,
+Rotate/Scale styles, model data and gesture history are retained.
+
+Verification:
+- 88 focused Movement/viewport/POSE checks pass, including central clearance,
+  minimum arrow size, pad/grip collisions and Pin bounds/hit-area separation.
+- Final packaged Footman walkthrough passes 32 mouse checks: the 29 original
+  arrow/square/direct/history/camera cases plus Pin spacing and mouse toggling at
+  three camera angles. Exact native Undo/Redo and zero page errors remain.
+- The exact rider wing endpoint shown by the user (121) was selected using real
+  mouse input and checked at three rotated views at close animation zoom. Pin
+  clears the gizmo and toggles by mouse, without native key changes. Original
+  MDX hash is unchanged; zero page errors.
+- Screenshots were inspected in wireframe with original viewport controls.
+  Evidence: out/pose-move-gizmo-spaced-ui/result.json,
+  foot-pin-spacing-0.png through -2.png, and
+  out/pose-move-gizmo-spaced-rider-ui/result.json / rider-spacing-0.png through -2.png.
+- Existing native FK Escape limitation remains; this pass changes visual spacing.
+
+Candidate: D:/MDLxL-Tests/pose-move-gizmo-spaced/MDLxL-win32-x64/MDLxL.exe.
+Packaging verifies 551 runtime/assets and 55 locales. Unshipped 0.21.2 candidate;
+no release or merge is included.
