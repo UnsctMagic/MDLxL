@@ -39,17 +39,18 @@ test('actual Movement component renders normal and Portrait mode without excepti
     assert.doesNotMatch(html,/Portrait Camera|Set Current View|>Create<\/button>/);
   }
 });
-test('Movement removes Own Axis and starts Restrictions and Controller minimized',()=>{
+test('Movement removes Own Axis, starts Restrictions minimized and Controller expanded',()=>{
   const model=fixture(), selectedNodeIds=[model.Bones[0].ObjectId];
   const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds,time:0,rotateOnOwnAxis:true}));
   assert.doesNotMatch(html,/Rotate on Own Axis/);
-  for(const title of ['Restrictions','Controller']) assert.match(html,new RegExp(`<details class="sidebar-section"><summary>${title}<\\/summary>`));
-  for(const title of ['Current Sequence','Object','Workplane','Tools']) assert.match(html,new RegExp(`<details class="sidebar-section" open=""><summary>${title}<\\/summary>`));
+  for(const title of ['Restrictions']) assert.match(html,new RegExp(`<details class="sidebar-section"><summary>${title}<\\/summary>`));
+  for(const title of ['Current Sequence','Object','Workplane','Tools','Controller']) assert.match(html,new RegExp(`<details class="sidebar-section" open=""><summary>${title}<\\/summary>`));
 });
 test('Movement places Highlight Chain directly under Highlight KF and exposes collapsible groups',()=>{
   const model=fixture(), selectedNodeIds=[model.Bones[0].ObjectId];
   const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds,time:0,highlightKeyframes:true,highlightChain:true}));
   assert.ok(html.indexOf('Highlight KF') < html.indexOf('Highlight Chain'));
+  assert.ok(html.indexOf('Highlight Chain') < html.indexOf('<legend>Controller type</legend>'));
   assert.match(html,/Highlight KF<\/label><label[^>]*><input type="checkbox" checked=""\/>Highlight Chain/);
   for(const title of ['Current Sequence','Object','Workplane','Tools','Restrictions','Controller']) assert.match(html,new RegExp(`<summary>${title}<\\/summary>`));
 });
