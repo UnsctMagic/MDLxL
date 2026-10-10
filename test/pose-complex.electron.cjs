@@ -12,16 +12,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-complex-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose-complex-fixtures/WH_VC_NecrarchLord3.mdx');
   const executablePath = path.resolve(process.env.MDLXL_POSE_EXE || 'out/pose-complex-package/MDLxL-win32-x64/MDLxL.exe');
   fs.mkdirSync(out, { recursive: true });
-  for (const entry of fs.readdirSync(path.dirname(fixture), {withFileTypes:true})) if (entry.isDirectory()) fs.cpSync(path.join(path.dirname(fixture),entry.name),path.join(out,entry.name),{recursive:true});
-  const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = sourceModel.Sequences.findIndex(s=>/^stand(?:\s|$)/i.test(s.Name)), frame = sourceModel.Sequences[sequence].Interval[0];
+  for (const entry of fs.readdirSync(path.dirname(fixture), {withFileTypes:true})) if (entry.isDirectory() || /\.(?:blp|dds|tga|png|jpe?g)$/i.test(entry.name)) fs.cpSync(path.join(path.dirname(fixture),entry.name),path.join(out,entry.name),{recursive:true});
+  const sourceModel = openDocument(fs.readFileSync(fixture)).model, sequence = Math.max(0, sourceModel.Sequences.findIndex(s=>/^stand(?:\s|$)/i.test(s.Name))), frame = sourceModel.Sequences[sequence].Interval[0];
   const fixtureHash = hash(fixture), errors = [], results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements: [] };
   const dist = path.join(path.dirname(executablePath), 'resources/app/dist'), bundle = crypto.createHash('sha256');
   for (const name of fs.readdirSync(path.join(dist, 'assets')).sort()) bundle.update(name).update(fs.readFileSync(path.join(dist, 'assets', name)));
   results.bundle = { indexHash: hash(path.join(dist, 'index.html')), assetsHash: bundle.digest('hex') };
-  results.textureHashes = Object.fromEntries(fs.readdirSync(path.join(out, 'Textures')).map(name => [name, hash(path.join(out, 'Textures', name))]));
+  results.textureHashes = Object.fromEntries((fs.existsSync(path.join(out, 'Textures')) ? fs.readdirSync(path.join(out, 'Textures')) : []).map(name => [name, hash(path.join(out, 'Textures', name))]));
   const app = await _electron.launch({ executablePath, args: [fixture, '--disable-backgrounding-occluded-windows'], env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
+    // Some supplied models have pre-existing duplicate geoset owners. Keep the
+    // original data when the normal import/reopen review is shown.
+    await page.addLocatorHandler(page.getByRole('button', {name:'Leave unchanged',exact:true}), button => button.click());
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1280, height: 920 }); win.showInactive(); });
     await page.locator('[data-warmkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption(String(sequence));
     const time = page.getByLabel('Current animation frame'); await time.fill(String(frame)); await time.press('Enter');
@@ -119,7 +122,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     results.mapping=config;await shot('01-auto-handles');
     await page.getByRole('checkbox',{name:'Emitters',exact:true}).uncheck();await tool('Select');
     await page.waitForTimeout(600);
-    const hoverHandle=await handleFor('endpoint',config.chains[0].end),hoverBox=await viewportBox();
+    const hoverHandle=config.chains.length ? await handleFor('endpoint',config.chains[0].end) : await handleFor('body'),hoverBox=await viewportBox();
     const overlayPixels=()=>page.locator('[data-node-overlay]').evaluate((canvas,h)=>{const ratio=canvas.width/canvas.clientWidth,data=canvas.getContext('2d').getImageData(Math.round(h.labelX*ratio),Math.round((h.labelY-7)*ratio),Math.ceil(h.labelWidth*ratio),Math.ceil(14*ratio)).data;let alpha=0;for(let i=3;i<data.length;i+=4)alpha+=data[i];return alpha;},hoverHandle);
     await page.mouse.move(8,12);await settle();const quietOverlay=await overlayPixels();await page.mouse.move(hoverBox.x+hoverHandle.x,hoverBox.y+hoverHandle.y);await settle();const hoveredOverlay=await overlayPixels();assert.ok(hoveredOverlay>quietOverlay+5000,'hover label appears with bone markers hidden');await shot('01b-hover-label');await page.mouse.move(8,12);await settle();const clearedOverlay=await overlayPixels();results.hoverLabel={quietOverlay,hoveredOverlay,clearedOverlay};assert.ok(Math.abs(clearedOverlay-quietOverlay)<=1020,'hover label clears, allowing four pixels of antialiasing at nearby symbols');
     results.checks.push('Handle labels appear on hover with bone markers hidden and clear when the pointer leaves');

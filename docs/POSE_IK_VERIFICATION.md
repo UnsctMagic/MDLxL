@@ -645,3 +645,56 @@ Undo, fade-out, normal posing, unchanged sidebar width and actual Alt-mouse
 camera rotation also pass. WAG original bytes remain unchanged. No native
 Warcraft gameplay or new solver regression suite was exercised for this UI pass.
 Candidate: D:/MDLxL-Tests/pose-crosshair-toggle-ready/MDLxL-win32-x64/MDLxL.exe.
+
+
+## Supplied complex-model recognition corpus (2026-10-10)
+
+Fourteen user-supplied archives and two loose MDX files contain 35 models,
+including variants, one portrait and one projectile. Fixtures remain ignored in
+out/pose-corpus-fixtures; manifest.json records every original source SHA256 and
+extracted MDX SHA256. No model or texture from this corpus is redistributed.
+
+src/pose-recognition.js measures per-clip local quaternion variation, skin support
+and mirrored articulated branches. suggestPoseRig combines this with hierarchy,
+references and anatomy names. Candidate ordering uses ancestor depth rather than
+a non-transitive pairwise comparator, preventing an earlier mesh named lefthand
+from stealing the real hand joint. Parts without any descendant skin are omitted.
+Named mesh proxies, cloth, spare skeletons and imported hull references are not
+promoted to anatomy. No runtime model filenames, source hashes or object IDs.
+
+Observed corrections:
+- WAG: all four anonymous four-joint horse legs, plus both actual rider hands;
+  unused second-rider arm/chest are excluded. Cart driver 31 remains separate
+  from horse 0 because the model has separate roots and no authored carrier.
+- Mindflayer: two real hands and eight repeated articulated tentacle Chains.
+- Anetheron/Mephistroth: both wings, including the unnamed mirrored wing, and
+  distal animated tail instead of a separate handle on every tail segment.
+- Salamander rider: actual hand 92 instead of the chest-to-wrist shortcut;
+  unanimated KotoChest mesh is excluded. No nonexistent rider legs are invented.
+- Nazgrel variants: all eight actual limbs, including the missing right boot;
+  real left hand 75 is chosen before its same-named child mesh.
+- Battleship: local hull 8 preserves root 7's global bobbing controller; no fake
+  hand or head controls. Projectile has no inferred limbs.
+- Tieflings: distal articulated tail, without Geo_Tail mesh grips.
+- BlackKnightV3: eight limbs; mapping does not drop a hoof at clip boundaries.
+- The earlier HeroGnomeDragonrider reference additionally identifies tail 50
+  beneath the nested dragon hip (direct source mapping check).
+
+96/96 source checks passed in out/pose-corpus-final-tests3.log: the prior 58 checks
+(Footman, nine Chaos Knights, four complex references and synthetic regressions)
+plus 38 new corpus/generalization checks. Each of the 35 models retains an
+identical mapping at the start/end of every authored clip. A nameless synthetic
+rig with unrelated IDs checks geometry/motion inference; removing its actual
+rotation variation prevents rigid props from being inferred as limbs.
+
+392 isolated handle solves are applied through EditorDocument/native Movement,
+serialized to MDX, reopened for full model equivalence, and undone exactly.
+Non-transform model content remains equivalent. Original 16 source files and
+35 fixture MDX hashes remain unchanged. Report: out/pose-corpus-regression-report.json.
+
+Limits: motion evidence measures local authored rotation variation, not semantic
+activity recognition or physics. Ambiguous/static/asymmetric rigs can require
+manual Add. Scale/shear restrictions on solving remain; stable recognition is not
+a guarantee that every frame can be posed. No Warcraft in-game playback or
+subjective user acceptance is claimed. Existing Add/Setup, pins, crosshair toggle,
+overlap selection and ordinary Movement bone editing remain unchanged.

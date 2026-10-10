@@ -2,7 +2,7 @@
 
 POSE uses the existing Movement tools and sidebar. Enable it once to get the
 hands, feet, hooves, wings, tail and main body controls recognized from anatomy names,
-native references, hierarchy and skinned geometry. Setup is optional for recognized
+native references, hierarchy, skinned geometry and existing joint animation. Setup is optional for recognized
 rigs, including joints named through their native attachment references.
 
 ## Start posing
@@ -159,3 +159,23 @@ session, so unusual rigs can be mapped through the same visual workflow.
 The crosshair button beside Setup controls blocker pings. Red means enabled
 (the default); click it to turn it black and disable pings. It does not release
 pins or change the pose.
+
+
+## Recognition from geometry and existing motion
+
+Automatic setup measures actual local joint rotation changes within the model's
+animation clips. It combines that evidence with skin attachment, branch lengths,
+mirrored geometry, anatomy names and attachment references. Repeated articulated
+branches can become generic Chain handles without being mislabeled as feet.
+Nested tails and mirrored wings are included when the native rig supports them.
+Real anatomical joints precede same-named mesh children; unused branches, cloth
+and rigid props do not become inferred limbs. Ships keep their local body driver
+without turning imported hand/foot attachment names into human anatomy.
+
+This is a reusable recognition pass, not per-file presets or background learning.
+No supplied filenames or object IDs enter the runtime rules. The model examples
+are local regression fixtures, not redistributed program assets. Recognition is
+stable across clip boundaries; unsupported transforms can still prevent an IK
+solve at an individual frame. Entirely unnamed static or asymmetric branches may
+still need Add. Separate roots without an authored carrier remain independently
+controlled; for example the chariot and horse retain their own body controls.
