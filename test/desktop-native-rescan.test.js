@@ -41,9 +41,8 @@ test('desktop rescan retains native texture resolution, cached bytes and build i
     process:{env:{MDLXL_PROFILE:profile},argv:[],execPath:process.execPath,cwd(){return root;}},
     discovery:new GameDataDiscovery({cacheFile:path.join(profile,'discovery.json'),env:{},registry:async()=>[game],drives:async()=>[]}),
   });
-  vm.runInContext(await fs.readFile(mainFile,'utf8'),context,{filename:mainFile});
-  vm.runInContext('gameDataDiscovery=discovery',context);
-  t.after(()=>vm.runInContext('textureResolver.close()',context));
+  vm.runInContext('(function(){'+await fs.readFile(mainFile,'utf8')+'\n gameDataDiscovery=discovery;globalThis.closeResolver=()=>textureResolver.close();})()',context,{filename:mainFile});
+  t.after(()=>context.closeResolver());
   const resolve=()=>handlers.get('texture:resolve')({}, {names:['Textures\\Example.blp']});
   const first=await resolve();
   assert.equal(first[0].bytes.toString(),'native-texture-1');

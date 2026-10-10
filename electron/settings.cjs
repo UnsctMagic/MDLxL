@@ -51,6 +51,10 @@ function applySettingsPatch(current, patch, normalizePreferences) {
       next.gameData = patch.gameData.trim();
     }
   }
+  if (own(patch, 'gameDataSources')) {
+    if (!Array.isArray(patch.gameDataSources) || patch.gameDataSources.some(source => !record(source) || !['casc', 'mpq'].includes(source.kind) || typeof source.path !== 'string' || !path.isAbsolute(source.path) || source.path.length > 32768 || source.path.includes('\0'))) throw Error('Invalid custom game archive.');
+    next.gameDataSources = [...new Map(patch.gameDataSources.map(source => [path.resolve(source.path).toLowerCase(), { kind: source.kind, path: path.resolve(source.path) }])).values()];
+  }
   if (own(patch, 'preferences')) {
     validatePreferences(patch.preferences);
     const previous = normalizePreferences(current.preferences);
@@ -79,7 +83,7 @@ class SettingsStore {
     value = record(value) ? value : {};
     this.settings = { preferences: this.normalizePreferences(value.preferences) };
     // Preserve each valid legacy field independently if a settings file was damaged.
-    for (const key of ['historyBudgetBytes', 'historyMaxSteps', 'gameData']) {
+    for (const key of ['historyBudgetBytes', 'historyMaxSteps', 'gameData', 'gameDataSources']) {
       if (own(value, key)) try { this.settings = applySettingsPatch(this.settings, { [key]: value[key] }, this.normalizePreferences); } catch {}
     }
     return this.settings;

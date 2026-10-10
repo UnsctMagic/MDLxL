@@ -29,6 +29,21 @@ async function scratch(t) {
   return path.join(directory, 'settings.json');
 }
 
+test('custom archive choices persist, deduplicate and remove without changing the saved installation', async t => {
+  const file = await scratch(t), folder = path.dirname(file), store = new SettingsStore(file, normalizePreferences);
+  await store.load();
+  const mpq = { kind: 'mpq', path: path.join(folder, 'custom.mpq') }, casc = { kind: 'casc', path: path.join(folder, 'assets') };
+  await store.configure({ gameData: folder, gameDataSources: [mpq, casc, mpq] });
+  const restarted = new SettingsStore(file, normalizePreferences);
+  assert.deepEqual((await restarted.load()).gameDataSources, [mpq, casc]);
+  await restarted.configure({ gameDataSources: [casc] });
+  assert.equal(restarted.settings.gameData, folder);
+  assert.deepEqual(restarted.settings.gameDataSources, [casc]);
+  assert.throws(() => restarted.configure({ gameDataSources: [{ kind: 'casc', path: 'relative' }] }), /Invalid custom game archive/);
+  await restarted.configure({ gameDataSources: [] });
+  assert.deepEqual((await new SettingsStore(file, normalizePreferences).load()).gameDataSources, []);
+});
+
 test('desktop settings persist mouse, graphics and cleared WarmKeys across restart without losing legacy history', async t => {
   const file = await scratch(t);
   await fs.writeFile(file, JSON.stringify({ gameData: 'C:\\Warcraft', historyBudgetBytes: 512 * 1048576, historyMaxSteps: 12000 }));
