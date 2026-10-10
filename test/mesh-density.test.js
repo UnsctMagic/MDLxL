@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { changeGeosetDensity, densifyGeoset, maximumDensityAmount, prepareMeshDensity } from '../src/mesh-density.js';
+import { changeGeosetDensity, densifyGeoset, maximumDensityAmount, prepareMeshDensity, selectedDensityTriangles } from '../src/mesh-density.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 
 await prepareMeshDensity();
@@ -41,9 +41,9 @@ function sparseBlade() {
   };
 }
 
-test('more density replaces long diagonals with a compact square grid and interpolates the surface and UVs', async () => {
+test('more density subdivides the original faces and interpolates the surface and UVs', async () => {
   const source = quad(), result = await changeGeosetDensity(source, 100), geoset = result.geoset;
-  assert.equal(result.trianglesBefore, 2); assert.equal(result.trianglesAfter, 18); assert.equal(geoset.PrimitiveCounts[0], geoset.Faces.length);
+  assert.equal(result.trianglesBefore, 2); assert.equal(result.trianglesAfter, 50); assert.equal(geoset.PrimitiveCounts[0], geoset.Faces.length);
   assert.deepEqual(source, quad(), 'preview generation must not mutate the source');
   const records = Array.from({ length: geoset.Vertices.length / 3 }, (_, index) => ({ p: [...geoset.Vertices.slice(index * 3, index * 3 + 3)], uv: [...geoset.TVertices[0].slice(index * 2, index * 2 + 2)] }));
   for (const record of records) assert.deepEqual(record.uv, record.p.slice(0, 2), 'new UVs follow the same barycentric position as the flat source');
@@ -72,13 +72,12 @@ test('square-grid coverage works on a surface with no world-axis alignment', asy
   }
 });
 
-test('the slider stops when the useful grid reaches six cells instead of scrolling into excess density', async () => {
+test('the separate shaping-support grid retains its six-cell saturation', () => {
   const source = sparseBlade(), expected = [[25, 76], [50, 92], [75, 108], [100, 108]];
-  for (const [amount, triangles] of expected) assert.equal((await changeGeosetDensity(source, amount)).trianglesAfter, triangles);
-  assert.equal(maximumDensityAmount(source), 75, 'the control stops at the first saturated six-cell grid');
-  const maximum = (await changeGeosetDensity(source, maximumDensityAmount(source))).geoset;
+  for (const [amount, triangles] of expected) assert.equal(densifyGeoset(source, Math.ceil(amount / 25)).Faces.length / 3, triangles);
+  const maximum = densifyGeoset(source, 4);
   assert.equal(maximum.Vertices.length / 3, 324, 'triangle-corner UV topology stays independently wrappable');
-  assert.equal(maximumDensityAmount(maximum), 0, 'an applied six-cell grid cannot be densified again by reopening the control');
+  assert.equal(densifyGeoset(maximum, 4).Faces.length, maximum.Faces.length, 'shaping support retains its accepted saturation');
   let bladeTriangles = 0;
   for (let offset = 0; offset < maximum.Faces.length; offset += 3) {
     const positions = Array.from(maximum.Faces.slice(offset, offset + 3), index => [...maximum.Vertices.slice(index * 3, index * 3 + 3)]);
@@ -89,6 +88,77 @@ test('the slider stops when the useful grid reaches six cells instead of scrolli
     }
   }
   assert.equal(bladeTriangles, 56);
+});
+
+test('one selected triangle is subdivided within its bounds and the neighboring face stays exact', async () => {
+  const source = quad(), before = structuredClone(source), result = await changeGeosetDensity(source, 25, { selectedVertices: [0, 1, 2] });
+  assert.deepEqual(selectedDensityTriangles(source, [0, 1, 2]), [0]);
+  assert.equal(result.trianglesAfter, 5);
+  assert.deepEqual([...result.geoset.Faces.slice(-3)], [0, 2, 3]);
+  assert.ok(!result.selectedVertices.includes(3), 'the unselected corner must remain unselected');
+  for (const stream of ['Vertices', 'Normals', 'VertexGroup']) assert.deepEqual(result.geoset[stream].slice(0, source[stream].length), source[stream]);
+  assert.deepEqual(result.geoset.TVertices[0].slice(0, source.TVertices[0].length), source.TVertices[0]);
+  for (const id of result.selectedVertices) {
+    const [x, y, z] = result.geoset.Vertices.slice(id * 3, id * 3 + 3);
+    assert.ok(x >= 0 && x <= 1 && y >= 0 && y <= x && z === 0, 'sample left the selected triangle');
+    assert.deepEqual([...result.geoset.TVertices[0].slice(id * 2, id * 2 + 2)], [x, y]);
+  }
+  assert.deepEqual(source, before);
+});
+
+test('closed surfaces work without a boundary and retain winding and coverage', async () => {
+  const source = quad();
+  source.Vertices = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  source.Faces = new Uint16Array([0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3]);
+  source.PrimitiveCounts[0] = source.Faces.length;
+  const result = await changeGeosetDensity(source, 25);
+  assert.equal(result.trianglesAfter, 16);
+  assert.equal(result.verticesAfter, 10, 'closed indexed edges share their new samples');
+  const volume = geoset => {
+    let value = 0;
+    for (let offset = 0; offset < geoset.Faces.length; offset += 3) {
+      const [a, b, c] = Array.from(geoset.Faces.slice(offset, offset + 3), id => [...geoset.Vertices.slice(id * 3, id * 3 + 3)]);
+      value += a[0] * (b[1] * c[2] - b[2] * c[1]) + a[1] * (b[2] * c[0] - b[0] * c[2]) + a[2] * (b[0] * c[1] - b[1] * c[0]);
+    }
+    return value / 6;
+  };
+  assert.equal(volume(result.geoset), volume(source));
+});
+
+test('coincident opposite surfaces keep their separate UV seams and normals', async () => {
+  const source = quad(), frontUV = [...source.TVertices[0]];
+  source.Vertices = new Float32Array([...source.Vertices, ...source.Vertices]);
+  source.Normals = new Float32Array([...source.Normals, ...source.Normals.map(value => -value)]);
+  source.VertexGroup = new Uint8Array(8);
+  source.TVertices = [new Float32Array([...frontUV, ...frontUV.map(value => value + 2)])];
+  source.Faces = new Uint16Array([0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6]);
+  source.PrimitiveCounts[0] = source.Faces.length;
+  const result = await changeGeosetDensity(source, 25);
+  assert.equal(result.trianglesAfter, 16); assert.equal(result.verticesAfter, 18);
+  const front = new Set(result.geoset.Faces.slice(0, 24)), back = new Set(result.geoset.Faces.slice(24));
+  for (const id of front) { assert.ok(!back.has(id)); assert.equal(result.geoset.Normals[id * 3 + 2], 1); assert.ok(result.geoset.TVertices[0][id * 2] <= 1); }
+  for (const id of back) { assert.equal(result.geoset.Normals[id * 3 + 2], -1); assert.ok(result.geoset.TVertices[0][id * 2] >= 2); }
+});
+
+test('applying more triangles permits another pass and incomplete selections affect no face', async () => {
+  const first = await changeGeosetDensity(quad(), 25);
+  assert.equal(maximumDensityAmount(first.geoset), 100);
+  const second = await changeGeosetDensity(first.geoset, 25, { selectedVertices: first.selectedVertices });
+  assert.equal(second.trianglesAfter, 32);
+  const empty = await changeGeosetDensity(quad(), 25, { selectedVertices: [0, 1] });
+  assert.equal(empty.trianglesAfter, 2); assert.deepEqual(empty.geoset, quad());
+});
+
+test('reducing a selected patch preserves unselected faces and authored stream indexes', async () => {
+  const source = grid(), selectedVertices = Array.from({ length: 81 }, (_, id) => id).filter(id => id % 9 <= 4);
+  const selected = new Set(selectedDensityTriangles(source, selectedVertices));
+  const unselectedFaces = Array.from(source.Faces).filter((_, offset) => !selected.has(Math.floor(offset / 3)));
+  const result = await changeGeosetDensity(source, -70, { selectedVertices });
+  assert.ok(result.trianglesAfter < result.trianglesBefore);
+  assert.deepEqual(Array.from(result.geoset.Faces).slice(-unselectedFaces.length), unselectedFaces);
+  for (const stream of ['Vertices', 'Normals', 'VertexGroup']) assert.deepEqual(result.geoset[stream], source[stream]);
+  assert.deepEqual(result.geoset.TVertices, source.TVertices);
+  assert.ok(result.selectedVertices.every(id => id < 81));
 });
 
 test('new vertices preserve classic and HD binding formats', async () => {

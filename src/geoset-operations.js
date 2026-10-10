@@ -38,16 +38,188 @@ function appearanceKey(model, index, animations) {
   if (material == null) return null;
   const metadata = Object.fromEntries(Object.entries(g).filter(([field]) => !geometryFields.has(field)));
   const anims = animations[index].map(animIndex => {
-    const { GeosetId, ...anim } = model.GeosetAnims[animIndex];
-    return anim;
+    const anim = model.GeosetAnims[animIndex];
+    return { rgb: animationPart(anim, 'rgb'), visibility: animationPart(anim, 'visibility'), settings: animationPart(anim, 'animationSettings') };
   });
-  return keyOf({ material, metadata, anims, uvSets: g.TVertices.length, tangents: g.Tangents != null, skin: g.SkinWeights != null, extentCount: g.Anims?.length || 0 });
+  return keyOf({ material, metadata, anims, uvSets: g.TVertices.length, tangents: !!g.Tangents?.length, skin: !!g.SkinWeights?.length, extentCount: g.Anims?.length || 0 });
 }
 
 function animationIndices(model) {
   const byGeoset = Array.from({ length: model.Geosets.length }, () => []);
   (model.GeosetAnims || []).forEach((anim, index) => byGeoset[anim.GeosetId]?.push(index));
   return byGeoset;
+}
+
+const metadataOf = g => Object.fromEntries(Object.entries(g).filter(([field]) => !geometryFields.has(field)));
+const recordsOf = (model, index) => (model.GeosetAnims || []).filter(anim => anim.GeosetId === index);
+function animationPart(anim, part) {
+  if (part === 'rgb') return { Color: anim.Color, enabled: anim.Flags & 2, base: anim._MdxDefaults?.Color };
+  if (part === 'visibility') return { Alpha: anim.Alpha, base: anim._MdxDefaults?.Alpha };
+  const { GeosetId, Color, Alpha, Flags, _MdxDefaults, ...rest } = anim;
+  const { Color: baseColor, Alpha: baseAlpha, ...defaults } = _MdxDefaults || {};
+  return { ...rest, Flags: (Flags || 0) & ~2, defaults };
+}
+
+function describeValue(value) {
+  if (value?.Keys) return `${value.Keys.length} keys, ${['step', 'linear', 'Hermite', 'Bezier'][value.LineType] || 'unknown'} interpolation${value.GlobalSeqId != null ? `, global sequence ${value.GlobalSeqId + 1}` : ''}`;
+  if (ArrayBuffer.isView(value) || Array.isArray(value)) return Array.from(value, v => typeof v === 'number' ? Number(v.toFixed(4)) : v).join(', ');
+  return value == null ? 'none' : String(value);
+}
+
+/** Read-only merge review. Different materials never become a resolution option. */
+export function geosetMergeConflicts(model, selectionByGeoset) {
+  const byMaterial = new Map();
+  for (const [text, selected] of Object.entries(selectionByGeoset || {})) {
+    const index = Number(text), geoset = model.Geosets[index];
+    if (!selected?.length || !geoset) continue;
+    const key = materialKey(model, geoset.MaterialID);
+    if (key == null) continue;
+    if (!byMaterial.has(key)) byMaterial.set(key, []);
+    byMaterial.get(key).push(index);
+  }
+  const groups = [...byMaterial.values()].filter(indices => indices.length > 1).map(indices => {
+    indices.sort((a, b) => a - b);
+    const id = String(indices[0]), conflicts = [];
+    const addSources = (kind, label, values, describe = describeValue, field) => {
+      if (new Set(values.map(keyOf)).size < 2) return;
+      conflicts.push({ id: `${id}:${kind}:${field || ''}`, kind, field, label,
+        options: indices.map((index, position) => ({ value: String(index), label: `Use geoset ${index + 1}`, detail: describe(values[position]) })) });
+    };
+    const records = indices.map(index => recordsOf(model, index));
+    if (new Set(records.map(list => list.length)).size > 1) {
+      addSources('animations', 'RGB and visibility records', records.map(list => list.map(({ GeosetId, ...anim }) => anim)), list => `${list.length} animation records; replaces RGB and visibility together`);
+    } else {
+      for (const [kind, label, property] of [['rgb', 'RGB', 'Color'], ['visibility', 'Visibility', 'Alpha'], ['animationSettings', 'Animation flags and stored settings', null]]) {
+        const values = records.map(list => list.map(anim => animationPart(anim, kind)));
+        addSources(kind, label, values, parts => parts.map((part, position) => {
+          if (!property) return keyOf(part);
+          const track = part[property];
+          const differingKey = track?.Keys?.find((key, keyIndex) => values.some(other => keyOf(other[position]?.[property]?.Keys?.[keyIndex]) !== keyOf(key)));
+          return `${describeValue(track)}${differingKey ? `; frame ${differingKey.Frame}: ${describeValue(differingKey.Vector)}` : ''}${kind === 'rgb' ? `; tint ${part.enabled ? 'on' : 'off'}` : ''}${part.base !== undefined ? `; stored base ${describeValue(part.base)}` : ''}`;
+        }).join('; '));
+      }
+    }
+    const metadata = indices.map(index => metadataOf(model.Geosets[index]));
+    for (const field of new Set(metadata.flatMap(value => Object.keys(value)))) addSources('metadata', field, metadata.map(value => value[field]), describeValue, field);
+    const addFormat = (kind, label, values, options) => {
+      if (new Set(values).size > 1) conflicts.push({ id: `${id}:${kind}:`, kind, label, options });
+    };
+    const uvCounts = indices.map(index => model.Geosets[index].TVertices.length);
+    addFormat('uv', `UV sets (${indices.map((index, position) => `${index + 1}: ${uvCounts[position]}`).join(', ')})`, uvCounts, [
+      { value: 'keep', label: 'Keep all UV sets', detail: 'Fill missing sets from that mesh’s first UV set, or with 0, 0 if it has none.' },
+      { value: 'trim', label: 'Keep only shared UV sets', detail: 'Remove extra UV sets from meshes that have more.' },
+    ]);
+    addFormat('tangents', 'Tangent format', indices.map(index => !!model.Geosets[index].Tangents?.length), [
+      { value: 'remove', label: 'Remove tangents', detail: 'Normal mapping may change; vertices and normals stay intact.' },
+    ]);
+    addFormat('skin', 'Skin-weight format', indices.map(index => !!model.Geosets[index].SkinWeights?.length), [
+      { value: 'remove', label: 'Use matrix-group bindings', detail: 'Remove skin weights; weighted deformation may change.' },
+    ]);
+    addFormat('extents', 'Animation bounds count', indices.map(index => model.Geosets[index].Anims?.length || 0), [
+      { value: 'union', label: 'Combine animation bounds', detail: 'Keep every existing bound and fill missing entries with empty bounds.' },
+    ]);
+    const first = model.Geosets[indices[0]], combined = { Vertices: { length: first.Vertices.length }, Groups: [...first.Groups] };
+    let exceedsLimit = false;
+    for (const index of indices.slice(1)) {
+      const geoset = model.Geosets[index];
+      if (!canAppend(combined, geoset)) { exceedsLimit = true; break; }
+      combined.Vertices.length += geoset.Vertices.length;
+      for (const groupId of new Set(geoset.VertexGroup)) {
+        const group = geoset.Groups[groupId];
+        if (!combined.Groups.some(other => keyOf(other) === keyOf(group))) combined.Groups.push(group);
+      }
+    }
+    if (exceedsLimit) conflicts.push({ id: `${id}:limits:`, kind: 'limits', label: 'Model format limits', options: [
+      { value: 'separate', label: 'Merge what fits; keep the rest separate', detail: 'One geoset can hold at most 65,536 vertices and 256 matrix groups.' },
+    ] });
+    return { id, indices, materialId: model.Geosets[indices[0]].MaterialID, conflicts };
+  });
+  return { groups, conflicts: groups.flatMap(group => group.conflicts) };
+}
+
+function copyOptional(target, source, field) {
+  if (source[field] === undefined) delete target[field];
+  else target[field] = structuredClone(source[field]);
+}
+
+function mergeParticipants(model, indices) {
+  const candidates = [];
+  for (const index of indices) {
+    const source = model.Geosets[index];
+    let target = candidates.find(candidate => canAppend(candidate, source));
+    if (!target) {
+      candidates.push({ Vertices: { length: source.Vertices.length }, Groups: [...source.Groups], indices: [index] });
+      continue;
+    }
+    target.indices.push(index); target.Vertices.length += source.Vertices.length;
+    for (const groupId of new Set(source.VertexGroup)) {
+      const group = source.Groups[groupId];
+      if (!target.Groups.some(other => keyOf(other) === keyOf(group))) target.Groups.push(group);
+    }
+  }
+  return candidates.filter(candidate => candidate.indices.length > 1).flatMap(candidate => candidate.indices);
+}
+
+function resolveMergeConflicts(model, review, resolutions) {
+  // Capture every donor before applying any choice; independent RGB and alpha
+  // choices must not read records already altered by another resolution.
+  const sources = structuredClone(model.GeosetAnims || []);
+  for (const originalGroup of review.groups) {
+    const group = { ...originalGroup, indices: mergeParticipants(model, originalGroup.indices) };
+    for (const conflict of group.conflicts) {
+      const choice = resolutions[conflict.id];
+      if (!conflict.options.some(option => option.value === choice)) throw Error(`Choose a resolution for ${conflict.label}.`);
+      const donor = sources.filter(anim => anim.GeosetId === Number(choice));
+      if (conflict.kind === 'animations') {
+        const old = model.GeosetAnims || [], replacements = new Map();
+        const next = [];
+        old.forEach((anim, index) => {
+          if (!group.indices.includes(anim.GeosetId)) { replacements.set(index, next.length); next.push(anim); }
+        });
+        for (const index of group.indices) {
+          const start = next.length;
+          next.push(...donor.map(anim => ({ ...structuredClone(anim), GeosetId: index })));
+          old.forEach((anim, oldIndex) => { if (anim.GeosetId === index) replacements.set(oldIndex, donor.length ? start + Math.min(old.filter(a => a.GeosetId === index).indexOf(anim), donor.length - 1) : null); });
+        }
+        for (const bone of model.Bones || []) if (replacements.has(bone.GeosetAnimId)) bone.GeosetAnimId = replacements.get(bone.GeosetAnimId);
+        model.GeosetAnims = next;
+        continue;
+      }
+      for (const index of group.indices) {
+        const g = model.Geosets[index];
+        if (conflict.kind === 'metadata') copyOptional(g, model.Geosets[Number(choice)], conflict.field);
+        else if (['rgb', 'visibility', 'animationSettings'].includes(conflict.kind)) {
+          recordsOf(model, index).forEach((anim, position) => {
+            const source = donor[position];
+            if (conflict.kind === 'animationSettings') {
+              const color = animationPart(anim, 'rgb'), alpha = animationPart(anim, 'visibility'), id = anim.GeosetId;
+              for (const field of Object.keys(anim)) delete anim[field];
+              Object.assign(anim, structuredClone(source), { GeosetId: id, Color: color.Color, Alpha: alpha.Alpha, Flags: ((source.Flags || 0) & ~2) | color.enabled });
+              anim._MdxDefaults ||= {};
+              copyOptional(anim._MdxDefaults, { Color: color.base }, 'Color');
+              copyOptional(anim._MdxDefaults, { Alpha: alpha.base }, 'Alpha');
+            } else {
+              const property = conflict.kind === 'rgb' ? 'Color' : 'Alpha';
+              copyOptional(anim, source, property);
+              if (property === 'Color') anim.Flags = ((anim.Flags || 0) & ~2) | (source.Flags & 2);
+              if (source._MdxDefaults?.[property] !== undefined) { anim._MdxDefaults ||= {}; copyOptional(anim._MdxDefaults, source._MdxDefaults, property); }
+              else if (anim._MdxDefaults) delete anim._MdxDefaults[property];
+            }
+          });
+        } else if (conflict.kind === 'uv') {
+          const counts = group.indices.map(other => model.Geosets[other].TVertices.length);
+          const count = choice === 'keep' ? Math.max(...counts) : Math.min(...counts);
+          g.TVertices = Array.from({ length: count }, (_, slot) => g.TVertices[slot] || (g.TVertices[0] ? g.TVertices[0].slice() : new Float32Array(g.Vertices.length / 3 * 2)));
+        } else if (conflict.kind === 'tangents') delete g.Tangents;
+        else if (conflict.kind === 'skin') delete g.SkinWeights;
+        else if (conflict.kind === 'extents') {
+          const count = Math.max(...group.indices.map(other => model.Geosets[other].Anims?.length || 0));
+          g.Anims ||= [];
+          while (g.Anims.length < count) g.Anims.push({ BoundsRadius: 0, MinimumExtent: new Float32Array(3).fill(3.40282e38), MaximumExtent: new Float32Array(3).fill(-3.40282e38) });
+        }
+      }
+    }
+  }
 }
 
 function selectedComponents(g, indices, nuclear) {
@@ -243,8 +415,18 @@ function canAppend(target, source) {
   return groups.length <= 256;
 }
 
-/** Merge only geosets with equivalent material, RGB/visibility and mesh settings. */
-export function mergeSimilarGeosets(model, selectionByGeoset) {
+/** Merge compatible geosets, optionally applying the user's reviewed conflict choices. */
+export function mergeSimilarGeosets(model, selectionByGeoset, resolutions) {
+  if (resolutions) {
+    const review = geosetMergeConflicts(model, selectionByGeoset);
+    const working = { ...model, Geosets: structuredClone(model.Geosets), GeosetAnims: structuredClone(model.GeosetAnims || []), Bones: structuredClone(model.Bones || []), Gliders: structuredClone(model.Gliders || []), Info: structuredClone(model.Info) };
+    resolveMergeConflicts(working, review, resolutions);
+    const result = mergeSimilarGeosets(working, selectionByGeoset);
+    if (result === false) return false;
+    for (const field of ['Geosets', 'GeosetAnims', 'Bones', 'Info']) model[field] = working[field];
+    if (model.Gliders) model.Gliders = working.Gliders;
+    return result;
+  }
   const original = model.Geosets, animations = animationIndices(model);
   const byKey = new Map(), leaders = original.map((_, index) => index), targets = new Set(), vertexOffsets = original.map(() => 0);
   for (let index = 0; index < original.length; index++) {

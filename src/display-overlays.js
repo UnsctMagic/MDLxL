@@ -25,3 +25,10 @@ export function setEditorDisplay(overlays, mode, key, value) {
 export function clearQuickDisplay(overlays, mode) {
   return { ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, false])) };
 }
+
+// POSE starts clean, then keeps the user's own display choices separately.
+export function defaultPoseDisplay(overlays) {
+  return { ...overlays, vertices: false, bones: false, skeleton: false, focusedSkeleton: true,
+    nodes: false, attachments: false, particles: false, sounds: false, events: false,
+    wires: false, normals: false, cameras: false };
+}

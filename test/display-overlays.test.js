@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearQuickDisplay, defaultEditorDisplay, setEditorDisplay } from '../src/display-overlays.js';
+import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay } from '../src/display-overlays.js';
 import { previewOverlayOptions } from '../app/preview-overlays.js';
 
 test('Movement enables only Emitters; Animations enables all effect categories and hides symbols', () => {
@@ -73,4 +73,13 @@ test('VIS retains the original independent Nodes, Emitters and Attachment displa
  assert.equal(nodes.nodes,true);assert.equal(nodes.particles,false);assert.equal(nodes.bones,false);
  const emitters=previewOverlayOptions({...state.animations,particles:true},false,'animations',true);
  assert.equal(emitters.particles,true);assert.equal(emitters.nodes,false);
+});
+
+test('POSE defaults hide symbols and geometry markers while preserving normal settings', () => {
+  const normal = { ...defaultEditorDisplay().movement, shaded:false, grid:true, bones:true, nodes:true, attachments:true, particles:true, vertices:true, skeleton:true, wires:true };
+  const before = structuredClone(normal), pose = defaultPoseDisplay(normal);
+  for (const key of ['bones','nodes','attachments','particles','sounds','events','vertices','skeleton','wires','normals','cameras']) assert.equal(pose[key],false,key);
+  assert.equal(pose.focusedSkeleton,true);assert.equal(pose.grid,true);assert.equal(pose.shaded,false);
+  const changed = setEditorDisplay({ movement:pose },'movement','particles',true);
+  assert.equal(changed.movement.particles,true);assert.deepEqual(normal,before);
 });

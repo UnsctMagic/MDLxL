@@ -1,4 +1,5 @@
 import { versionConversionIssues, normalizeVersionFields } from './model-version.js';
+import { adaptPasteFormat } from './paste-format.js';
 import { Buffer } from 'buffer';
 import { parseMDL, generateMDL } from 'war3-model';
 import { parseCompatibleMdx as parseMDX, generateCompatibleMdx as generateMDX } from './mdx-compatibility.js';
@@ -734,7 +735,6 @@ export function validateModel(model, { numericSections = null, previousDiagnosti
 
 export function createNode(model, type = 'Bone') {
   if (!NODE_TYPES[type]) throw new Error(`Unsupported node type: ${type}.`);
-  if (model.BindPoses?.length) throw new Error('Adding nodes to a model with bind-pose matrices is not supported yet.');
   const [collection, , flags] = NODE_TYPES[type];
   const id = Math.max(-1, ...nodeCollections(model).map((n) => n.ObjectId), (model.PivotPoints?.length || 0) - 1) + 1;
   const pivot = V3();
@@ -762,6 +762,12 @@ export function createNode(model, type = 'Bone') {
   }
   (model[collection] ||= []).push(node);
   (model.Nodes ||= [])[id] = node; (model.PivotPoints ||= [])[id] = pivot;
+  for (const pose of model.BindPoses || []) {
+    const cameraStart = pose.Matrices.length - (model.Cameras?.length || 0);
+    const matrices = Array.from({ length: Math.max(0, id - cameraStart + 1) }, () => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]));
+    pose.Matrices.splice(cameraStart, 0, ...matrices);
+    pose.Matrices[id] = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
+  }
   updateCounts(model);
   return node;
 }
@@ -920,9 +926,8 @@ export function appendGeosetGeometry(target, source) {
 }
 
 /** Append selected geometry with its required rig, textures and animation dependencies. */
-export function importGeosets(target, source, selectedIndices = source.Geosets.map((_, i) => i), anchor = null, { sameModel = false, targetGeoset = null, rigidNode = null } = {}) {
-  if (source.Version !== target.Version) throw new Error('Geoset import currently requires matching format versions to preserve SD/HD data.');
-  if (source.BindPoses?.length || target.BindPoses?.length) throw new Error('Geoset import with bind-pose matrices is not supported yet.');
+export function importGeosets(target, source, selectedIndices = source.Geosets.map((_, i) => i), anchor = null, { sameModel = false, targetGeoset = null, rigidNode = null, existingNodeMap = null } = {}) {
+  source = adaptPasteFormat(source, target.Version);
   if (anchor && typeof anchor === 'object') anchor = anchor.ObjectId;
   if (anchor != null && !target.Nodes?.[anchor]) throw new Error('The destination anchor node does not exist.');
   if (rigidNode && typeof rigidNode === 'object') rigidNode = rigidNode.ObjectId;
@@ -994,8 +999,9 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   };
   for (const id of neededNodes) {
     if (reuseExisting) {
-      if (!target.Nodes?.[id]) throw new Error(`The original pasted bone or node ${id} no longer exists in this model.`);
-      maps.nodes.set(id, id);
+      const destinationId = existingNodeMap?.get(id) ?? id;
+      if (!target.Nodes?.[destinationId]) throw new Error(`The original pasted bone or node ${id} no longer exists in this model.`);
+      maps.nodes.set(id, destinationId);
       continue;
     }
     const original = source.Nodes[id];
@@ -1006,6 +1012,7 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
     const newID = created.ObjectId;
     Object.assign(created, clone(original), { ObjectId: newID, Parent: original.Parent == null || original.Parent === -1 ? anchor : maps.nodes.get(original.Parent), Name: `${original.Name}_import` });
     created.PivotPoint = clone(source.PivotPoints[id] || original.PivotPoint || V3()); target.PivotPoints[newID] = created.PivotPoint;
+    for (const [index, pose] of (target.BindPoses || []).entries()) if (source.BindPoses?.[index]?.Matrices?.[id]) pose.Matrices[newID] = clone(source.BindPoses[index].Matrices[id]);
     if (type === 'Bone') { created.GeosetId = null; created.GeosetAnimId = null; }
     if (type === 'ParticleEmitter2') created.TextureID = textureRef(created.TextureID);
     if (type === 'RibbonEmitter') created.MaterialID = materialRef(created.MaterialID);
@@ -1026,6 +1033,9 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
       }
     } else {
       g.Groups = g.Groups.map((group) => group.map((id) => maps.nodes.get(id)));
+      // Widen before assigning destination IDs, which can exceed a donor's
+      // eight-bit range. Keep the donor width until remapping when narrowing.
+      if (g.SkinWeights?.length && target.Version >= 1400) g.SkinWeights = Uint16Array.from(g.SkinWeights);
       for (let i = 0; i < (g.SkinWeights?.length || 0); i += 8) for (let k = 0; k < 4; k++) {
         if (g.SkinWeights[i + 4 + k]) {
           const mapped = maps.nodes.get(g.SkinWeights[i + k]);
@@ -1033,6 +1043,7 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
           g.SkinWeights[i + k] = mapped;
         } else g.SkinWeights[i + k] = 0;
       }
+      if (g.SkinWeights?.length) g.SkinWeights = (target.Version >= 1400 ? Uint16Array : Uint8Array).from(g.SkinWeights);
     }
     const requestedTarget = indices.length === 1 && Number.isInteger(targetGeoset) && targetGeoset >= 0 ? targetGeoset : index;
     const destination = reuseExisting && target.Geosets[requestedTarget]?.MaterialID === g.MaterialID ? requestedTarget : null;

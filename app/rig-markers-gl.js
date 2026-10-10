@@ -75,7 +75,7 @@ export function rigMarkerSize(point, shape, options = {}) {
 
 /** Actual world-space polyhedra, shared by the editor and Warcraft GL contexts. */
 export function rigMarkerGeometry(nodes, selectedIds, options = {}) {
-  const byId = new Map(nodes.map(point => [point.node.ObjectId, point])), highlights = boneHighlightColors(nodes, selectedIds);
+  const byId = new Map(nodes.map(point => [point.node.ObjectId, point])), highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds);
   const triangles = [], edges = [], emphasizedEdges = [];
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
