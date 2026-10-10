@@ -955,3 +955,61 @@ Screenshots inspected. Existing native FK Escape limitation remains unchanged.
 
 Candidate: D:/MDLxL-Tests/pose-gizmo-capped-neon/MDLxL-win32-x64/MDLxL.exe.
 551 runtime/assets and 55 locales verified; unshipped 0.21.2, no release or merge.
+
+## SD elbow/knee swivel and compact Movement - 2026-10-11
+
+Reference: BlinkBoy's [Happy Animating with IK](https://www.hiveworkshop.com/threads/happy-animating-with-ik.256580/)
+uses separate limb endpoint and knee/elbow controls with retained endpoint
+orientation. POSE now offers that swivel through the existing Rotate tool:
+select a limb's Elbow/Knee, then drag horizontally. Move still aims the bend.
+Custom chains retain the generic Bend label. The selected limb's bend control
+is larger and labeled; no new permanent panel or toolbar is added.
+
+POSE enters Move directly. Passive Movement statistics expand from Details;
+empty coordinates in POSE and empty Connected Bones lists in Movement are
+hidden. Bones inspection, selected-node coordinates, existing sidebar width,
+normal camera controls and authored rig/resource data remain unchanged.
+
+The swivel preserves endpoint position and orientation, including visible
+offset mesh grips. Rigid chains retain their intermediate tracks; rounded SD
+rotations use the existing native-evaluated limb solver. A fully straight limb
+retains the chosen bend direction for the next endpoint move. No pivots,
+parents, geometry, weights, texture paths or scales are rewritten.
+
+Source verification:
+- 35/35 corpus models pass, including every recognized limb's new swivel,
+  unchanged source-file hashes, isolated previews, native MDX round trips and
+  exact Undo. Includes the rounded Black Knight arm and multi-link mounts.
+- 67 focused POSE/complex-rig/view/performance checks pass; two optional checks
+  skip: the separate original WAG file is missing and the dense-rider fixture
+  was not configured.
+- Four existing Movement component checks pass. The broader component file
+  reports two assertions in untouched Animation RGB and QuickDisplay coverage.
+- The corpus's separate original-source archive audit cannot run completely:
+  its manifest references the unavailable Desktop/WAG.mdx. The preserved WAG
+  corpus copy itself passes its hash, posing, serialization and Undo checks.
+- Rebuilt Vite output and portable package: 556 runtime/asset files and 55
+  locales verified. No version bump, release, or merge is included.
+
+Source evidence: out/pose-sd-swivel-corpus-final.log,
+out/pose-sd-focused-final.log, and out/pose-sd-final-package.log.
+
+Packaged acceptance: test/pose-sd-controls.electron.cjs passes all eight groups
+using a hidden portable window, disposable profile, and real mouse input.
+The Footman's arm and leg swivel at three Alt+mouse-rotated camera angles;
+the native renderer changes, endpoints stay within 0.000001 model units and
+retain orientation. Each gesture produces one native Undo/Redo entry. Escape
+and returning to the starting grip produce no keys/history. A pinned knee
+swivels with its foot fixed; existing Rotation restrictions still apply.
+Save As writes an equivalent MDX and that file reopens in the editor at the
+edited frame. The source hash is unchanged and there are no renderer errors.
+
+The compact default, expanded Details, ordinary Movement coordinates and
+unchanged sidebar width are also checked. Screenshots were inspected while
+posing in Textured view and after reopening in ordinary Movement. Evidence:
+out/pose-sd-final-ui/result.json and its 01-04 PNGs. Packaged dist/index.html
+SHA-256: 418cc72419a504010b01b5717b7b6be9adf7ef4203c6a6414ad68a4f179b6092.
+This is editor/native-format acceptance; no in-game Warcraft test was run.
+
+Candidate: out/pose-sd-final-package/MDLxL-win32-x64/MDLxL.exe.
+Unshipped 0.22.1 candidate; owner approval is still required before PR merge.

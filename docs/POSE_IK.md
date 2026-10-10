@@ -8,11 +8,16 @@ rigs, including joints named through their native attachment references.
 ## Start posing
 
 1. Open **Movement (F3)**, choose an animation and frame, then click **POSE** in
-   **Tools**. Recognized hands, feet, Body, Chest, Pelvis and Head appear in the
+   **Tools**. POSE starts in Move. Recognized hands, feet, Body, Chest, Pelvis and Head appear in the
    view where the model provides them.
 2. Click a handle's symbol or label. Use the existing **Move**, **Rotate** or
    **Scale** tool. Move a hand or foot to bend its limb; Rotate turns its
-   endpoint. Drag **Bend** with Move to steer the elbow or knee.
+   endpoint. Selecting a limb also reveals its labeled **Elbow** or **Knee**
+   control (**Bend** on custom chains). Drag it with Move to aim the bend.
+   For a swivel, choose Rotate and drag that control left or right: the elbow
+   or knee turns around the limb while its hand/foot stays in place and keeps
+   its facing direction. Shift snaps the swivel to five-degree steps. This also
+   works with a pinned endpoint, long chains and offset SD mesh grips.
 3. Move or Rotate **Body** or **Pelvis**. Pelvis carries the connected body,
    including rigs where the chest is a sibling of the pelvis. Mapped limbs compensate
    automatically, keeping their hands/feet in place and oriented while reachable.
@@ -41,7 +46,10 @@ symbol. A symbol takes priority over any label crossing it. Visible labels
 outside symbols remain clickable.
 
 **Controller** and **Restrictions** start minimized; click their existing headers
-to open them. **Rotate on Own Axis** is removed. Normal Alt+mouse camera rotation,
+to open them. Movement's passive object statistics sit under **Details**.
+Coordinates appear for a real selected node; empty numeric rows and an empty
+Connected Bones list stay out of POSE's way. Bones keeps its existing inspection
+controls. **Rotate on Own Axis** is removed. Normal Alt+mouse camera rotation,
 wheel zoom, axis gizmos, XY/ZX/YZ workplanes and Shift constraints remain available.
 
 ## Other objects and unusual rigs
@@ -103,7 +111,10 @@ frame, sequence, target or tool cancels unfinished previews. A click or drag
 back to the starting grip creates no key or Undo step.
 
 Hand/foot Move and Bend write native Rotation keys. Rotate writes endpoint
-Rotation. Connected upper-body Move writes Rotation on its spine/neck/head
+Rotation. Elbow/knee Rotate writes the limb root and endpoint Rotation, retaining
+intermediate tracks on rigid chains. Coarsely rounded SD rotations use the existing
+limb solver for correction; an offset mesh grip may need endpoint Translation.
+Connected upper-body Move writes Rotation on its spine/neck/head
 joints and compensating arms. Ancestor controls also write Head Rotation to
 retain its facing direction. Pelvis writes the shared body driver; separate carried roots receive native
 Translation/Rotation keys. Direct Body/object tools write the corresponding
@@ -139,6 +150,14 @@ This is a posing controller; balancing, physics, anatomical limits, contact
 baking, automatic animation generation and rig repair are outside its scope.
 
 See [verification evidence](POSE_IK_VERIFICATION.md).
+
+The limb controls follow the practical workflow in BlinkBoy's
+[Happy Animating with IK](https://www.hiveworkshop.com/threads/happy-animating-with-ik.256580/):
+separate endpoint and knee/elbow manipulators, retained endpoint orientation,
+and animation saved as ordinary Warcraft bone keys. His
+[In-depth Animation Tutorial](https://www.hiveworkshop.com/threads/in-depth-animation-tutorial-3ds-max.123520/)
+also emphasizes shaping and refining readable poses. POSE applies those ideas
+to the model's existing SD rig; enabling it requires no re-rigging or animation removal.
 
 ## Complex SD rigs
 

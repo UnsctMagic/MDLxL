@@ -25,7 +25,7 @@ import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, poseSkeletonHighlights, projectPoseHandles } from './pose-overlay.js';
-import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
+import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, swivelPoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
@@ -397,18 +397,18 @@ export default function GamePreview(inputProps) {
         event.preventDefault(); event.stopImmediatePropagation(); return true;
       }
       try {
-        if (handle.kind === 'bend' && p.transformMode !== 'move') throw new Error('Use Move to steer Bend.');
+        if (handle.kind === 'bend' && p.transformMode === 'scale') throw new Error('Use Move or Rotate to steer the elbow or knee.');
         const frame = Math.round(native.getFrame()), sequence = movementSequence(p, frame), baseline = posePreviewModel(ownedModel);
         // The renderer's private All-line interval is never a saved sequence.
         if (timelineSequenceIndex >= 0) baseline.Sequences = baseline.Sequences.slice(0, timelineSequenceIndex);
-        const config = p.poseConfig, scope = poseTrackScope(config, target, handle.kind === 'bend' ? 'move' : p.transformMode, baseline);
+        const config = p.poseConfig, scope = poseTrackScope(config, target, p.transformMode, baseline);
         const byId = new Map(allNodes(baseline).map(node => [node.ObjectId, node])), snapshots = new Map();
         if (handle.chain) samplePoseChain(baseline, handle.chain, frame, sequence, globalClock);
         const currentChanges = scope.map(item => ({ ...item, value: sampleTrack(byId.get(item.id)?.[item.property], frame, { interval: baseline.Sequences[sequence]?.Interval, globalSequences: baseline.GlobalSequences, globalTime: globalClock, fallback: item.property === 'Rotation' ? [0, 0, 0, 1] : item.property === 'Scaling' ? [1, 1, 1] : [0, 0, 0], quaternion: item.property === 'Rotation' }) }));
         prepareMovementPose(baseline, currentChanges, frame, sequence, p.restrictions);
         for (const { id } of scope) if (!snapshots.has(id)) { const node = byId.get(id); snapshots.set(id, structuredClone({ Translation: node.Translation, Rotation: node.Rotation, Scaling: node.Scaling, PivotPoint: node.PivotPoint })); }
         const gesture = { pose: true, id: event.pointerId, x, y, target, baseline, config, configStamp: poseStamp(config), inputTime: Math.round(p.time), inputSequence: p.sequenceIndex,
-          model: p.poseDocumentModel || p.model, previewModel: p.model, revision: p.revision, tool: p.transformMode, space: p.transformSpace, cameraMode: p.cameraMode, mode: handle.kind === 'bend' ? 'move' : p.transformMode, handle: axis || movementWorkplaneHandle(p.workplane || 'xy', handle.unitsPerPixel),
+          model: p.poseDocumentModel || p.model, previewModel: p.model, revision: p.revision, tool: p.transformMode, space: p.transformSpace, cameraMode: p.cameraMode, mode: p.transformMode, handle: axis || movementWorkplaneHandle(p.workplane || 'xy', handle.unitsPerPixel),
           camera: camera.clone(), origin: handle.world.clone(), snapshots, frame, sequence, globalTime: globalClock, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane,
           restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
@@ -455,7 +455,14 @@ export default function GamePreview(inputProps) {
           result = solvePoseNode(gesture.baseline, id, pins, gesture.frame, gesture.sequence, { control: poseNodeControl(gesture.baseline, gesture.config, gesture.target, gesture.mode), mode: gesture.mode, space: gesture.mode === 'move' ? 'world' : gesture.space, values, rotateOnOwnAxis: gesture.rotateOnOwnAxis, restrictions: p.restrictions }, gesture.globalTime);
         } else {
           const chain = gesture.config.chains.find(chain => chain.key === gesture.target.key), pose = samplePoseChain(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.globalTime);
-          if (gesture.mode === 'rotate') {
+          if (gesture.target.kind === 'bend' && gesture.mode === 'rotate') {
+            // A bend has one meaningful rotation axis: through the fixed hand
+            // or foot. Horizontal dragging works even when that axis is edge-on.
+            let degrees = dx * sensitivity;
+            if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
+            result = swivelPoseLimb(gesture.baseline, chain, gesture.frame, gesture.sequence, degrees * Math.PI / 180, gesture.globalTime, gesture.config.bends?.[chain.key] && new THREE.Vector3().fromArray(gesture.config.bends[chain.key]).applyQuaternion(pose.rotations[0]));
+            result.bends = result.bend ? [{ key: chain.key, local: new THREE.Vector3().fromArray(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }] : [];
+          } else if (gesture.mode === 'rotate') {
             let degrees = movementDragAmount(gesture.handle, dx, dy, 'rotate', sensitivity);
             if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
             if (degrees === 0) { gesture.changes = []; gesture.bends = []; setGestureLabel(''); return; }
@@ -1249,8 +1256,11 @@ export default function GamePreview(inputProps) {
             handleAnchor = { ...active, world: ownCenter.center, x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
           }
         }
-        const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode !== 'move' || movementRestricted((activePose.kind === 'endpoint' || poseNodeControl(markerModel, p.poseConfig, poseHandleTarget(activePose), handleMode).joints.length > 0) && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
-        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
+        const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode === 'scale' || movementRestricted((activePose.kind === 'endpoint' || poseNodeControl(markerModel, p.poseConfig, poseHandleTarget(activePose), handleMode).joints.length > 0) && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
+        // Swivel follows the limb, so world/local XYZ rotation bubbles would
+        // advertise the wrong axes. Grab the elbow/knee itself to turn it.
+        const bendSwivel = activePose?.kind === 'bend' && handleMode === 'rotate';
+        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && !bendSwivel && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
         if (pinButton && limb) {
           const position = movementPinPosition(limb, nodeHandles, width, height, pinButton.offsetWidth, pinButton.offsetHeight, poseHandles);
           pinButton.style.left = `${position.x}px`; pinButton.style.top = `${position.y}px`;

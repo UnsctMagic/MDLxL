@@ -19,7 +19,7 @@ function SetupWindow({ onClose, title, children }) {
 const limbParts = new Set(['Hand', 'Foot', 'Hoof', 'Wing', 'Chain']);
 const sameTarget = (a, b) => a?.kind === b?.kind && a?.id === b?.id && a?.key === b?.key;
 
-export default function PoseControls({ model, revision, config, onChange, onSelect, selectedNodeIds, frame, sequence, disabled }) {
+export default function PoseControls({ model, revision, config, onChange, onSelect, onTransformMode, selectedNodeIds, frame, sequence, disabled }) {
   const [open, setOpen] = useState(false), [editor, setEditor] = useState(null), [slot, setSlot] = useState('end'), [error, setError] = useState('');
   const anchor = useRef(null), names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name || 'Bone']));
   const latest = useRef({ config, onChange }); latest.current = { config, onChange };
@@ -86,6 +86,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
   const enable = () => {
     let next = { ...config, enabled: !config.enabled, target: null, picking: null, inspectIds: [] };
     if (next.enabled && !config.initialized) next = { ...next, ...suggestPoseRig(model, frame, sequence), initialized: true };
+    if (next.enabled) onTransformMode?.('move');
     onChange(next); setOpen(false); setEditor(null);
   };
   const without = (value, target) => {
