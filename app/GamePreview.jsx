@@ -23,7 +23,7 @@ import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
-import { drawAttachGuide, drawBoneConnectors, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
+import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, projectPoseHandles } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
@@ -383,9 +383,9 @@ export default function GamePreview(inputProps) {
         event.preventDefault(); event.stopImmediatePropagation(); invalidate(); return true;
       }
       const active = poseHandles.find(handle => handle.selected), realPicked = pickMovementNode(nodePoints, x, y);
-      // The visible axis tip belongs to the selected control, even when a
+      // The visible gizmo belongs to the selected control, even when a
       // different object's marker happens to sit beneath it.
-      const tip = !p.workplaneEnabled && active && p.transformMode !== 'select' ? pickMovementHandle(nodeHandles, x, y, 'move') : null;
+      const tip = !p.workplaneEnabled && active && p.transformMode !== 'select' ? pickMovementHandle(nodeHandles, x, y, p.transformMode === 'move' ? 'move' : 'tip') : null;
       const picked = tip ? null : pickPoseHandle(poseHandles, x, y, p.poseConfig.target, nodePoints, p.transformMode !== 'select');
       const axis = tip || (!picked && !p.workplaneEnabled && active ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null);
       const handle = picked || (axis || p.workplaneEnabled && active && !realPicked ? active : null);
@@ -412,8 +412,9 @@ export default function GamePreview(inputProps) {
           camera: camera.clone(), origin: handle.world.clone(), snapshots, frame, sequence, globalTime: globalClock, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane,
           restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
-        if (p.workplaneEnabled) {
-          const axes = p.workplane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(p.workplane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
+        gesture.dragPlane = axis?.plane || p.workplane;
+        if (p.workplaneEnabled || axis?.plane) {
+          const axes = gesture.dragPlane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(gesture.dragPlane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
           gesture.basis = axes.map(axis => { const end = handle.world.clone().add(new THREE.Vector3().setComponent(axis, 1)).project(camera); return [(end.x - origin.x) * rect.width / 2, (origin.y - end.y) * rect.height / 2]; });
         }
         nodeGesture = gesture; controls.enabled = false; posedGeometryCache = null;
@@ -432,9 +433,9 @@ export default function GamePreview(inputProps) {
       if (!poseContextValid(gesture, p)) { gesture.adjusted = true; return; }
       try {
         const sensitivity = pointerSensitivityValue(p.preferences?.pointerSensitivity);
-        let offset = gesture.basis ? new THREE.Vector3().fromArray(projectedPlaneTranslation(gesture.workplane, gesture.basis, dx * sensitivity, dy * sensitivity, event.shiftKey))
+        let offset = gesture.basis ? new THREE.Vector3().fromArray(projectedPlaneTranslation(gesture.dragPlane, gesture.basis, dx * sensitivity, dy * sensitivity, event.shiftKey))
           : screenPlaneTranslation(gesture.camera, gesture.origin, rect.width, rect.height, dx * sensitivity, dy * sensitivity, event.shiftKey);
-        if (!gesture.workplaneEnabled && !gesture.handle.free && gesture.mode === 'move') {
+        if (!gesture.basis && !gesture.workplaneEnabled && !gesture.handle.free && gesture.mode === 'move') {
           let amount = movementDragAmount(gesture.handle, dx, dy, 'move', sensitivity);
           if (event.shiftKey) amount = Math.round(amount);
           offset = new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], amount);
@@ -514,11 +515,13 @@ export default function GamePreview(inputProps) {
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
         const editSequence = movementSequence(p, Math.round(native.getFrame()));
         const picked = pickMovementNode(pickable, x, y, p.selectedNodeIds,13,p.transformMode==='move');
-        const active = p.transformMode==='move'&&picked?picked:pickable.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
+        const selected = pickable.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
+        const gizmo = selected && !p.workplaneEnabled ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
+        const active = p.transformMode==='move'&&picked&&!gizmo?picked:selected;
         const editable = p.onNodeTransform && (!p.restPose || p.transformMode === 'move') && !movementRestricted(p.transformMode || 'rotate', p.restrictions) && (p.restPose || editSequence >= 0);
-        const directMove=!!picked&&editable&&p.transformMode==='move',screenMove=directMove&&!p.workplaneEnabled;
+        const directMove=!!picked&&!gizmo&&editable&&p.transformMode==='move',screenMove=directMove&&!p.workplaneEnabled;
         const workplaneDrag = active && editable && p.workplaneEnabled && ['move', 'rotate'].includes(p.transformMode) && (directMove||!picked || p.selectedNodeIds?.includes(picked.node.ObjectId));
-        const axisHandle = active && editable && !p.workplaneEnabled ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
+        const axisHandle = active && editable ? gizmo : null;
         const freeScaleDrag = active && editable && p.transformMode === 'scale' && !picked && !axisHandle;
         const handle = active && editable && (workplaneDrag ? movementWorkplaneHandle(p.workplane, active.unitsPerPixel) : axisHandle || freeScaleDrag || screenMove ? axisHandle || { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: active.unitsPerPixel } : null);
         if (handle) {
@@ -528,8 +531,9 @@ export default function GamePreview(inputProps) {
           nodeGesture = { id: event.pointerId, x, y, handle, ids, snapshots, frame: Math.round(native.getFrame()), sequence: editSequence, mode: p.transformMode || 'rotate', space: p.transformSpace || 'local', rotateOnOwnAxis: !!p.rotateOnOwnAxis, amount: p.transformMode === 'scale' ? 1 : 0, moved: false };
           posedGeometryCache = null;
           Object.assign(nodeGesture, { restPose: !!p.restPose, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane, pivotPoints: structuredClone(ownedModel.PivotPoints), origin: active.world.clone() });
-          if (workplaneDrag && p.transformMode === 'move') {
-            const axes = p.workplane === 'yz' ? [1,2] : ['xz','zx'].includes(p.workplane) ? [0,2] : [0,1];
+          nodeGesture.dragPlane = axisHandle?.plane || p.workplane;
+          if ((workplaneDrag || axisHandle?.plane) && p.transformMode === 'move') {
+            const axes = nodeGesture.dragPlane === 'yz' ? [1,2] : ['xz','zx'].includes(nodeGesture.dragPlane) ? [0,2] : [0,1];
             const origin = active.world.clone().project(camera);
             nodeGesture.basis = axes.map(axis => { const end = active.world.clone().add(new THREE.Vector3().setComponent(axis,1)).project(camera); return [(end.x-origin.x)*rect.width/2, (origin.y-end.y)*rect.height/2]; });
             nodeGesture.space = 'world';
@@ -625,7 +629,7 @@ export default function GamePreview(inputProps) {
         nodeGesture.values = movementFreeScaleValues(dx, dy, { sensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), workplaneEnabled: nodeGesture.workplaneEnabled, workplane: nodeGesture.workplane, shiftKey: event.shiftKey });
         nodeGesture.amount = Math.max(...nodeGesture.values); nodeGesture.scaleConstrained = nodeGesture.workplaneEnabled && event.shiftKey;
       } else nodeGesture.amount = nodeGesture.basis ? 0 : movementDragAmount(nodeGesture.handle, dragX, dragY, nodeGesture.mode, pointerSensitivityValue(p.preferences?.pointerSensitivity));
-      if (nodeGesture.basis) nodeGesture.values = projectedPlaneTranslation(nodeGesture.workplane, nodeGesture.basis, dragX * pointerSensitivityValue(p.preferences?.pointerSensitivity), dragY * pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey);
+      if (nodeGesture.basis) nodeGesture.values = projectedPlaneTranslation(nodeGesture.dragPlane, nodeGesture.basis, dragX * pointerSensitivityValue(p.preferences?.pointerSensitivity), dragY * pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey);
       if(nodeGesture.screenMove)nodeGesture.values=screenPlaneTranslation(camera,nodeGesture.origin,rect.width,rect.height,dx*pointerSensitivityValue(p.preferences?.pointerSensitivity),dy*pointerSensitivityValue(p.preferences?.pointerSensitivity),event.shiftKey).toArray();
       if (event.shiftKey && !nodeGesture.freeScaleDrag) nodeGesture.amount = nodeGesture.mode === 'rotate' ? Math.round(nodeGesture.amount / 5) * 5 : nodeGesture.mode === 'move' ? Math.round(nodeGesture.amount) : Math.round(nodeGesture.amount * 20) / 20 || .05;
       restoreGestureTracks(nodeGesture);
@@ -1252,11 +1256,12 @@ export default function GamePreview(inputProps) {
         const markerOptions = { ...overlayOptions, modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
-        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
+        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
         const pingAge = posePing ? ownerWindow.performance.now() - posePing.started : 1200;
         const ping = poseVisible && p.poseConfig.crosshair !== false && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
         nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);
         drawPoseOverlay(nodeCanvas.getContext('2d'), p.poseConfig?.picking ? [] : poseHandles, canvas.width / Math.max(1, width), ping && { targets: ping.targets, age: pingAge });
+        if (activePose) drawMovementGizmo(nodeCanvas.getContext('2d'), nodeHandles, canvas.width / Math.max(1, width));
         if (ping) invalidate();
         if (poseVisible && p.poseConfig.inspectIds?.length) {
           const context = nodeCanvas.getContext('2d'), ratio = canvas.width / Math.max(1, width); context.save(); context.scale(ratio, ratio);

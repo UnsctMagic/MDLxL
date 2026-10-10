@@ -280,10 +280,12 @@ test('YZ move keeps model X fixed when the camera looks along X', () => {
   near(delta[0], 0); assert.ok(Math.abs(delta[1]) > 0 || Math.abs(delta[2]) > 0);
 });
 
-test('rotate picks an axis bar while move requires its endpoint', () => {
+test('Move picks the visible shaft and tip while leaving the central symbol free', () => {
   const handles = [{ axis: 'X', startX: 10, startY: 10, x: 110, y: 10 }];
   assert.equal(pickMovementHandle(handles, 55, 14, 'rotate')?.axis, 'X');
-  assert.equal(pickMovementHandle(handles, 55, 14, 'move'), null);
+  assert.equal(pickMovementHandle(handles, 55, 14, 'move')?.axis, 'X');
+  assert.equal(pickMovementHandle(handles, 15, 14, 'move'), null);
+  assert.equal(pickMovementHandle(handles, 55, 14, 'scale'), null);
   assert.equal(pickMovementHandle(handles, 106, 14, 'move')?.axis, 'X');
 });
 
@@ -368,4 +370,29 @@ test('light node markers show the authored RGB at the selected keyframe', () => 
   const model = fixture(), camera = new PerspectiveCamera(40, 1, .1, 1000); camera.position.set(0, -40, 20); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
   model.Lights = [{ ObjectId: 5, PivotPoint: [0, 0, 0], Color: track([100, [1, 0, 0]], [1000, [0, 0, 1]]) }];
   assert.equal(projectMovementNodes(model, 550, 0, camera, 400, 400).find(point => point.node.ObjectId === 5).displayColor, 'rgb(128,0,128)');
+});
+
+
+test('Move projects plane squares onto their real world planes and hides edge-on pads', () => {
+  const camera = new PerspectiveCamera(40, 1, .1, 1000); camera.up.set(0, 0, 1); camera.position.set(100, -140, 100); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  const active = { world: new Vector3(), x: 200, y: 200, visible: true };
+  const handles = movementAxisHandles(active, camera, 400, 400, 50, 'world', 'move');
+  assert.deepEqual(handles.filter(handle => handle.plane).map(handle => handle.plane), ['xy', 'xz', 'yz']);
+  for (const pad of handles.filter(handle => handle.plane)) {
+    const points = [pad, ...pad.polygon.map(point => ({ x: pad.x + (point.x - pad.x) * .6, y: pad.y + (point.y - pad.y) * .6 }))];
+    assert.ok(points.some(point => pickMovementHandle(handles, point.x, point.y, 'move') === pad), pad.plane + ' has a clickable visible area');
+    assert.equal(pad.polygon.length, 4);
+  }
+  assert.equal(pickMovementHandle(handles, active.x, active.y, 'move'), null);
+  assert.equal(movementAxisHandles(active, camera, 400, 400, 50, 'world', 'scale').length, 3);
+  camera.position.set(0, -100, 0); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  assert.deepEqual(movementAxisHandles(active, camera, 400, 400, 50, 'world', 'move').filter(handle => handle.plane).map(handle => handle.plane), ['xz']);
+});
+
+
+test('an arrow drawn over a plane square owns its visible shaft', () => {
+  const arrow = { axis: 'X', startX: 0, startY: 0, x: 70, y: 0 };
+  const pad = { axis: 'XY', plane: 'xy', startX: 0, startY: 0, x: 35, y: 3, polygon: [{x:28,y:-4},{x:42,y:-4},{x:42,y:10},{x:28,y:10}] };
+  assert.equal(pickMovementHandle([arrow, pad], 35, 0, 'move'), arrow);
+  assert.equal(pickMovementHandle([arrow, pad], 35, 8, 'move'), pad);
 });

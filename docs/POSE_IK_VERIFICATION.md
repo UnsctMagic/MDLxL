@@ -809,3 +809,37 @@ out/pose-performance-reference-extra-tests.log.
 Candidate: D:/MDLxL-Tests/pose-performance/MDLxL-win32-x64/MDLxL.exe.
 Packaging verifies 551 runtime/assets and 55 locales. No release version bump:
 this is an unshipped test candidate on the existing pose feature PR.
+
+
+## Grab-anywhere Move arrows and plane squares - 2026-10-10
+
+Move replaces XYZ endpoint bubbles with outlined RGB arrows. Every visible shaft
+and tip uses a ten-pixel hit area; the central symbol stays available for direct
+dragging and overlap selection. Small XY/XZ/YZ squares constrain one drag through
+the existing projected world-plane solver without changing the Workplane toggle.
+Edge-on squares are hidden. A visible shaft drawn across a square wins clicks on
+the shaft. Selected gizmos render above other controller symbols, matching their
+click priority. Rotate/Scale symbols and native write/solver owners are retained.
+
+Verification:
+- 86 focused Movement, viewport and POSE source checks pass.
+- Packaged Footman acceptance passes 29 checks: shaft start/middle/tip for each
+  axis, all three plane squares and direct centre dragging for both POSE and
+  ordinary bone editing; POSE Escape and native pointer cancellation; actual
+  Alt-mouse camera rotation. All 26 effective gestures move native matrices,
+  preserve excluded coordinates, create one Undo entry, and survive exact
+  model-hash Undo/Redo. Workplane remains off. Sidebar width/default collapsed
+  sections and the closed Setup workflow remain unchanged. Zero page errors.
+- Evidence: out/pose-move-gizmo-ui/result.json and move-arrows-and-squares.png.
+- The supplied twin-head rider still passes real body/hand drags, exact history,
+  actual mouse rotation and unchanged original-file hash with zero page errors.
+  Mouse event medians are 100 ms for body and 80 ms for hand on this run; these
+  include test connection/rendering overhead. Evidence:
+  out/pose-move-gizmo-rider-ui/result.json.
+- Native FK Escape did not cancel a gesture during this pass; its existing
+  keyboard route was not changed. Native pointer cancellation passes. No new
+  in-game playback or textured rendering claim is made.
+
+Candidate: D:/MDLxL-Tests/pose-move-gizmo/MDLxL-win32-x64/MDLxL.exe.
+Packaging verifies 551 runtime/assets and 55 locales. Version stays 0.21.2;
+this is an unshipped local test on PR #154.

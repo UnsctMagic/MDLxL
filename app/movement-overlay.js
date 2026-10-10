@@ -35,15 +35,28 @@ export function movementAxisHandles(active, camera, width, height, radius, space
   // Keep handles a consistent size at different camera distances and zooms.
   const distance = camera.isPerspectiveCamera ? active.world.distanceTo(camera.position) : radius * 2.6;
   const unit = camera.isPerspectiveCamera ? 2 * distance * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height : (camera.top - camera.bottom) / camera.zoom / height;
-  return Object.entries(AXES).map(([axis, values]) => {
+  const handles = Object.entries(AXES).map(([axis, values]) => {
     const direction = new Vector3().fromArray(values);
     if (space === 'local' && mode !== 'scale') direction.applyQuaternion(active.rotation);
     const end = active.world.clone().addScaledVector(direction, unit * 68 * MOVEMENT_GIZMO_SCALE).project(camera);
     let dx = (end.x + 1) * width / 2 - active.x, dy = (1 - end.y) * height / 2 - active.y;
     // An axis facing the camera still gets a usable short handle.
     if (Math.hypot(dx, dy) < 18 * MOVEMENT_GIZMO_SCALE) { dx = axis === 'Z' ? 0 : axis === 'X' ? 25 * MOVEMENT_GIZMO_SCALE : -25 * MOVEMENT_GIZMO_SCALE; dy = axis === 'Z' ? -25 * MOVEMENT_GIZMO_SCALE : 25 * MOVEMENT_GIZMO_SCALE; }
-    return { axis, color: COLORS[axis], x: active.x + dx, y: active.y + dy, startX: active.x, startY: active.y, dx, dy, unitsPerPixel: unit };
+    return { axis, mode, color: COLORS[axis], x: active.x + dx, y: active.y + dy, startX: active.x, startY: active.y, dx, dy, unitsPerPixel: unit };
   });
+  if (mode === 'move') for (const plane of ['xy', 'xz', 'yz']) {
+    const [a, b] = plane.toUpperCase().split('').map(axis => AXES[axis]);
+    const polygon = [[20, 20], [34, 20], [34, 34], [20, 34]].map(([u, v]) => {
+      const point = active.world.clone().addScaledVector(new Vector3(...a), u * unit).addScaledVector(new Vector3(...b), v * unit).project(camera);
+      return { x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2 };
+    });
+    const area = Math.abs(polygon.reduce((sum, point, i) => { const next = polygon[(i + 1) % 4]; return sum + point.x * next.y - next.x * point.y; }, 0)) / 2;
+    // Edge-on planes have no usable square; do not show an invented screen plane.
+    if (area < 35) continue;
+    const x = polygon.reduce((sum, point) => sum + point.x, 0) / 4, y = polygon.reduce((sum, point) => sum + point.y, 0) / 4;
+    handles.push({ axis: plane.toUpperCase(), mode, plane, polygon, color: COLORS[WORKPLANE_NORMALS[plane]], x, y, startX: active.x, startY: active.y, unitsPerPixel: unit });
+  }
+  return handles;
 }
 
 export function drawMovementOverlay(context, nodes, selectedIds, handles, width, height, ratio = 1, options = { bones: true, nodes: true, attachments: true, particles: true, boneLines: true }) {
@@ -82,10 +95,29 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
       context.fillStyle = '#fff'; context.fillText(point.node.Name || `Node ${point.node.ObjectId}`, point.x + 8, point.y - 8);
     }
   }
-  for (const handle of handles) {
-    context.beginPath(); context.moveTo(handle.startX, handle.startY); context.lineTo(handle.x, handle.y);
+  drawMovementGizmo(context, handles);
+  context.restore();
+}
+
+export function drawMovementGizmo(context, handles, ratio = 1) {
+  context.save(); context.scale(ratio, ratio);
+  for (const handle of handles.filter(handle => handle.plane)) {
+    context.beginPath(); handle.polygon.forEach((point, index) => context[index ? 'lineTo' : 'moveTo'](point.x, point.y)); context.closePath();
+    context.fillStyle = handle.color; context.globalAlpha = .25; context.fill(); context.globalAlpha = 1;
+    context.strokeStyle = '#162137'; context.lineWidth = 4; context.stroke();
+    context.strokeStyle = handle.color; context.lineWidth = 2; context.stroke();
+  }
+  for (const handle of handles.filter(handle => !handle.plane)) {
+    const length = Math.hypot(handle.dx, handle.dy), ux = handle.dx / length, uy = handle.dy / length;
+    context.beginPath(); context.moveTo(handle.startX + (handle.mode === 'move' ? ux * 20 : 0), handle.startY + (handle.mode === 'move' ? uy * 20 : 0)); context.lineTo(handle.x, handle.y);
     context.strokeStyle = '#162137'; context.lineWidth = 5; context.stroke();
     context.strokeStyle = handle.color; context.lineWidth = 3; context.stroke();
+    if (handle.mode === 'move') {
+      context.beginPath(); context.moveTo(handle.x, handle.y);
+      context.lineTo(handle.x - ux * 12 - uy * 6, handle.y - uy * 12 + ux * 6);
+      context.lineTo(handle.x - ux * 12 + uy * 6, handle.y - uy * 12 - ux * 6); context.closePath();
+      context.fillStyle = handle.color; context.fill(); context.lineWidth = 1; context.strokeStyle = '#162137'; context.stroke(); continue;
+    }
     context.beginPath(); context.arc(handle.x, handle.y, 10, 0, Math.PI * 2); context.fillStyle = handle.color; context.fill();
     context.lineWidth = 1; context.strokeStyle = '#162137'; context.stroke();
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = '#fff'; context.fillText(handle.axis, handle.x, handle.y);
@@ -234,8 +266,20 @@ function pointSegmentDistance(x, y, handle) {
 }
 
 export function pickMovementHandle(handles, x, y, mode, threshold = 10) {
-  const distance = handle => mode === 'rotate' ? pointSegmentDistance(x, y, handle) : Math.hypot(handle.x - x, handle.y - y);
-  return handles.map(handle => ({ handle, distance: distance(handle) })).filter(hit => hit.distance <= threshold).sort((a, b) => a.distance - b.distance)[0]?.handle || null;
+  if (mode === 'move') {
+    // The central symbol remains available for direct dragging and overlap cycling.
+    handles = handles.filter(handle => Math.hypot(x - handle.startX, y - handle.startY) >= 20);
+    const shaft = handles.filter(handle => !handle.plane).map(handle => ({ handle, distance: pointSegmentDistance(x, y, handle) })).filter(hit => hit.distance <= 4).sort((a, b) => a.distance - b.distance)[0];
+    if (shaft) return shaft.handle;
+    const pads = handles.filter(handle => handle.plane && (handle.polygon.every((point, i, polygon) => {
+      const next = polygon[(i + 1) % polygon.length]; return (next.x - point.x) * (y - point.y) - (next.y - point.y) * (x - point.x) >= 0;
+    }) || handle.polygon.every((point, i, polygon) => {
+      const next = polygon[(i + 1) % polygon.length]; return (next.x - point.x) * (y - point.y) - (next.y - point.y) * (x - point.x) <= 0;
+    })));
+    if (pads.length) return pads.sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+  }
+  const distance = handle => mode === 'rotate' || mode === 'move' ? pointSegmentDistance(x, y, handle) : Math.hypot(handle.x - x, handle.y - y);
+  return handles.filter(handle => !handle.plane).map(handle => ({ handle, distance: distance(handle) })).filter(hit => hit.distance <= threshold).sort((a, b) => a.distance - b.distance)[0]?.handle || null;
 }
 
 export function movementNodeSelection(selectedIds, id, { multiple = false, shift = false, ctrl = false } = {}) {
