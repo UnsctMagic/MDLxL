@@ -259,6 +259,11 @@ function writeKey(model, node, property, time, sequenceIndex, values, transformT
   node[property] = track;
 }
 
+const finitePoseVector = values => {
+  for (const value of values) if (!Number.isFinite(value)) return false;
+  return true;
+};
+
 /** Prepare exact native pose keys without touching the live model. All tracks
  * are validated before any is installed, including interval boundary seeds. */
 export function prepareMovementPose(model, changes, time, sequenceIndex, restrictions = {}) {
@@ -286,7 +291,7 @@ export function prepareMovementPose(model, changes, time, sequenceIndex, restric
       values = q.toArray();
     } else if (values.every((value, i) => Math.abs(value - sampled[i]) <= 1e-8)) continue;
     if (prior && !prior.Keys && Array.from(prior).some((value, i) => value !== defaults[property][i])) throw new Error('A static transform cannot become a local POSE track without changing other animations.');
-    if (prior?.Keys && (![0, 1, 2, 3].includes(prior.LineType) || prior.Keys.some(key => !Number.isInteger(key.Frame) || key.Vector?.length !== values.length || Array.from(key.Vector).some(value => !Number.isFinite(value)) || prior.LineType >= 2 && ['InTan', 'OutTan'].some(tangent => key[tangent]?.length !== values.length || Array.from(key[tangent] || []).some(value => !Number.isFinite(value)))))) throw new Error('The existing transform controller is malformed.');
+    if (prior?.Keys && (![0, 1, 2, 3].includes(prior.LineType) || prior.Keys.some(key => !Number.isInteger(key.Frame) || key.Vector?.length !== values.length || !finitePoseVector(key.Vector) || prior.LineType >= 2 && ['InTan', 'OutTan'].some(tangent => key[tangent]?.length !== values.length || !finitePoseVector(key[tangent] || []))))) throw new Error('The existing transform controller is malformed.');
     const seeded = !prior?.Keys?.some(key => key.Frame >= interval[0] && key.Frame <= interval[1]);
     const timestamps = seeded ? [...new Set([time, ...interval])] : [time];
     if (model.Sequences.some((sequence, index) => index !== sequenceIndex && sequence.Interval && timestamps.some(frame => frame >= sequence.Interval[0] && frame <= sequence.Interval[1]))) throw new Error('POSE would change a timestamp shared by another animation.');

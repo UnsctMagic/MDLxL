@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
-import { allNodes, sampleTrack } from '../src/animation.js';
+import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { applyMovementPose, applyMovementTransform, sampleMovement } from '../src/movement.js';
-import { poseAffectedPins, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
+import { suggestPickedPoseChain, separatePoseChains, poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
@@ -162,13 +162,76 @@ test('direct scale and translation preserve native cubic handles, other keys and
 
 test('body reaches the boundary without a rollback, restrictions prevent all writes', () => {
   const m = fixture(), before = structuredClone(m), pins = [leg1, leg2].map(chain => ({ chain }));
-  const limited = solvePoseBody(m, 0, pins, 500, 0, [0, 0, 100]); assert.ok(limited.limited); assert.ok(limited.fraction > 0 && limited.fraction < 1); assert.deepEqual(m, before);
+  const limited = solvePoseBody(m, 0, pins, 500, 0, [0, 0, 100]); assert.ok(limited.limited); assert.deepEqual(limited.blockingKeys.sort(), ['l', 'r']); assert.ok(limited.fraction > 0 && limited.fraction < 1); assert.deepEqual(m, before);
   const bounded = structuredClone(m); apply(bounded, limited);
   for (const chain of [leg1, leg2]) vectorNear(samplePoseChain(bounded, chain, 500, 0).end.toArray(), samplePoseChain(m, chain, 500, 0).end.toArray());
   const further = solvePoseBody(m, 0, pins, 500, 0, [0, 0, 200]); near(further.fraction * 200, limited.fraction * 100, 1e-5);
   const result = solvePoseBody(m, 0, [leg1, leg2].map(chain => ({ chain })), 500, 0, [.5, 0, -.5]);
   for (const restriction of [{ translation: true }, { rotation: true }]) { assert.throws(() => applyMovementPose(m, result.changes, 500, 0, restriction), /restricted/); assert.deepEqual(m, before); }
   const zero = solvePoseBody(m, 0, [leg1, leg2].map(chain => ({ chain })), 500, 0, [0, 0, 0]); assert.equal(apply(m, zero), 0);
+});
+
+test('automatic body posing crouches with stable endpoints and rises beyond reach without limiting the body', () => {
+  const m=fixture(), original=structuredClone(m), chains=[chain,leg1,leg2], config={chains,pins:[]}, poses=chains.map(c=>samplePoseChain(m,c,500,0));
+  for(const z of [-3,25]) {
+    const constraints=poseNodeConstraints(m,config,0), result=solvePoseNode(m,0,constraints,500,0,{mode:'move',space:'world',values:[0,0,z]}), posed=structuredClone(m);
+    assert.equal(result.fraction,1);assert.equal(result.limited,false);assert.deepEqual(m,original);apply(posed,result);
+    vectorNear(sampleMovement(posed,posed.Bones[0],'Translation',500,0),[0,0,z]);
+    for(let i=0;i<chains.length;i++) {
+      const p=samplePoseChain(posed,chains[i],500,0);vectorNear(p.lengths,poses[i].lengths);near(Math.abs(p.rotations[2].dot(poses[i].rotations[2])),1,1e-7);
+      if(z<0)vectorNear(p.end.toArray(),poses[i].end.toArray());
+      else {near(p.root.distanceTo(p.end),p.lengths[0]+p.lengths[1]);assert.ok(p.end.z>poses[i].end.z+10);}
+    }
+  }
+});
+
+test('crossing full extension in either drag direction stays continuous and returns to the original pose', () => {
+  const m=fixture(), config={chains:[leg1,leg2],pins:[]}, constraints=poseNodeConstraints(m,config,0);
+  let previous;
+  for(const z of [...Array.from({length:101},(_,i)=>-3+i*.15),...Array.from({length:101},(_,i)=>12-i*.15)]) {
+    const copy=structuredClone(m), result=solvePoseNode(m,0,constraints,500,0,{mode:'move',space:'world',values:[0,0,z]});apply(copy,result);
+    const poses=[leg1,leg2].map(c=>samplePoseChain(copy,c,500,0));
+    if(previous)for(let i=0;i<poses.length;i++){assert.ok(poses[i].end.distanceTo(previous[i].end)<.16);assert.ok(poses[i].middle.distanceTo(previous[i].middle)<1.0);}
+    previous=poses;
+  }
+  const zero=solvePoseNode(m,0,constraints,500,0,{mode:'move',space:'world',values:[0,0,0]});assert.equal(apply(m,zero),0);
+  const rise=solvePoseNode(m,0,constraints,500,0,{mode:'move',space:'world',values:[0,0,25]});apply(m,rise);
+  Object.assign(config,withPoseResult(config,rise));
+  const lower=solvePoseNode(m,0,poseNodeConstraints(m,config,0),500,0,{mode:'move',space:'world',values:[0,0,-25]});apply(m,lower);
+  for(const c of [leg1,leg2])vectorNear(samplePoseChain(m,c,500,0).end.toArray(),samplePoseChain(fixture(),c,500,0).end.toArray());
+  assert.ok(samplePoseChain(m,leg1,500,0).middle.x>0,'left knee keeps its bend after straightening');
+  assert.ok(samplePoseChain(m,leg2,500,0).middle.x<0,'right knee keeps its bend after straightening');
+});
+
+test('automatic goals rebase after direct FK, endpoint edits and frame changes', () => {
+  for(const edit of ['fk','endpoint','frame']) {
+    const m=fixture();let config={chains:[leg1,leg2],pins:[]};
+    const rise=solvePoseNode(m,0,poseNodeConstraints(m,config,0),500,0,{mode:'move',space:'world',values:[0,0,25]});apply(m,rise);config=withPoseResult(config,rise);
+    if(edit==='fk')applyMovementTransform(m,[leg1.root],500,0,{mode:'rotate',space:'world',values:[15,0,0]});
+    if(edit==='endpoint')apply(m,solvePoseLimb(m,leg1,500,0,samplePoseChain(m,leg1,500,0).end.clone().add(new Vector3(1,0,1))));
+    const frame=edit==='frame'?600:500, before=structuredClone(m), pose=samplePoseChain(m,leg1,frame,0);
+    const result=solvePoseNode(m,0,poseNodeConstraints(m,config,0),frame,0,{mode:'move',space:'world',values:[0,0,0]});
+    vectorNear(result.targets.find(t=>t.key==='l').position,pose.end.toArray());assert.deepEqual(m,before);
+  }
+});
+
+test('automatic targets permit complete ancestor turns while explicit pins alone limit movement', () => {
+  const m=fixture(), chains=[chain,leg1,leg2], config={chains,pins:[]}, before=structuredClone(m);
+  const turn={mode:'rotate',space:'world',values:[0,170,0]}, result=solvePoseNode(m,0,poseNodeConstraints(m,config,0,'rotate'),500,0,turn);
+  const posed=structuredClone(m), ordinary=structuredClone(m);apply(posed,result);applyMovementTransform(ordinary,[0],500,0,turn);
+  vectorNear(sampleMovement(posed,posed.Bones[0],'Rotation',500,0),sampleMovement(ordinary,ordinary.Bones[0],'Rotation',500,0));assert.equal(result.fraction,1);
+  config.pins=['l'];const mixed=solvePoseNode(m,0,poseNodeConstraints(m,config,0),500,0,{mode:'move',space:'world',values:[0,0,25]});assert.ok(mixed.limited);assert.deepEqual(mixed.blockingKeys,['l']);apply(m,mixed);
+  vectorNear(samplePoseChain(m,leg1,500,0).end.toArray(),samplePoseChain(before,leg1,500,0).end.toArray());
+});
+
+test('automatic scope includes compensated channels without intercepting direct joint FK or ordinary scale', () => {
+  const m=fixture(), config={chains:[chain,leg1,leg2],pins:[],body:0};
+  assert.equal(poseTrackScope(config,{kind:'body'},'move',m).length,10);
+  assert.deepEqual(poseNodeConstraints(m,config,chain.root),[]);assert.deepEqual(poseNodeConstraints(m,config,chain.middle),[]);
+  const change={mode:'rotate',space:'world',values:[15,0,0]}, expected=structuredClone(m);
+  applyMovementTransform(expected,[chain.root],500,0,change);apply(m,solvePoseNode(m,chain.root,poseNodeConstraints(m,config,chain.root,'rotate'),500,0,change));assert.deepEqual(m,expected);
+  assert.deepEqual(poseNodeConstraints(m,config,0,'scale'),[]);
+  config.pins=['a'];assert.equal(poseNodeConstraints(m,config,chain.root)[0].pinned,true);
 });
 
 test('handle centres and labels select POSE consistently; disabled and invalid controls cannot intercept', () => {
@@ -178,7 +241,7 @@ test('handle centres and labels select POSE consistently; disabled and invalid c
   const camera = new PerspectiveCamera(42, 1, .1, 1000); camera.position.set(50, -100, 60); camera.lookAt(0, 0, 10); camera.updateMatrixWorld();
   const handles = projectPoseHandles(m, config, 500, 0, camera, 600, 600), hand = handles.find(h => h.key === 'a');
   assert.equal(pickPoseHandle([hand], hand.x, hand.y), hand); assert.equal(pickPoseHandle([hand], hand.x + 13, hand.y), hand);
-  assert.equal(pickPoseHandle([hand], hand.x + 24, hand.y), hand);
+  assert.equal(pickPoseHandle([hand], hand.x + 24, hand.y), null, 'hidden label has no hit area'); hand.hovered=true; assert.equal(pickPoseHandle([hand], hand.x + 24, hand.y), hand);
   assert.deepEqual(projectPoseHandles(m, { ...config, enabled: false }, 500, 0, camera, 600, 600), []);
   m.Bones[2].Parent = 0; assert.ok(!projectPoseHandles(m, config, 500, 0, camera, 600, 600).some(h => h.key === 'a'));
 });
@@ -197,7 +260,7 @@ test('nearby body and chest labels remain separately selectable at their authore
   const camera=new PerspectiveCamera(42,1,.1,1000); camera.position.set(50,-100,60); camera.lookAt(0,0,10); camera.updateMatrixWorld();
   const handles=projectPoseHandles(m,{enabled:true,chains:[],pins:[],body:0,nodes:[1]},500,0,camera,600,600), body=handles.find(handle=>handle.kind==='body'), chest=handles.find(handle=>handle.id===1);
   assert.equal(body.x,chest.x); assert.equal(body.y,chest.y); assert.ok(Math.abs(body.labelY-chest.labelY)>=16);
-  for(const handle of [body,chest])assert.equal(pickPoseHandle(handles,handle.labelX+3,handle.labelY),handle);
+  for(const handle of [body,chest]) { handle.hovered=true; assert.equal(pickPoseHandle([body,chest],handle.labelX+3,handle.labelY),handle); }
 });
 
 test('overlapping handles and native markers share one complete selection cycle, while a drag keeps its selected object', () => {
@@ -207,7 +270,7 @@ test('overlapping handles and native markers share one complete selection cycle,
   for(let step=0;step<4;step++){const hit=pickPoseHandle([hand,head],30,40,target,nodes);target=poseHandleTarget(hit);visited.push(target);assert.deepEqual(poseHandleTarget(pickPoseHandle([hand,head],30,40,target,nodes,true)),target);}
   assert.deepEqual(visited,[{kind:'endpoint',key:'arm'},{kind:'node',id:3,marker:true},{kind:'node',id:8,marker:true},{kind:'node',id:5}]);
   assert.equal(pickPoseHandle([hand,head],30,40,target,nodes),hand);
-  assert.equal(pickPoseHandle([hand,head],hand.x+22,hand.y,target,nodes),hand,'a label selects its named handle directly');
+  hand.hovered=true; assert.equal(pickPoseHandle([hand,head],hand.x+22,hand.y,target,nodes),head,'a visible symbol wins over a crossing label'); assert.equal(pickPoseHandle([hand,head],hand.x+30,hand.y,target,nodes),hand,'a visible label remains clickable outside symbols');
   assert.equal(pickPoseHandle([{...hand,visible:false}],30,40,null,[]),null,'hidden controls never enter the cycle');
 });
 
@@ -301,4 +364,146 @@ test('one body operation is atomic history, including absent tracks restored by 
   assert.ok(clean.undo()); assert.deepEqual(clean.model, before); assert.equal(clean.undo(), false); assert.ok(clean.redo()); assert.deepEqual(clean.model, after);
   for (const format of ['mdx', 'mdl']) { const reopened = openDocument(clean.serialize(format), `body.${format}`); for (const c of [leg1, leg2]) { const original = samplePoseChain(before, c, 500, 0), saved = samplePoseChain(reopened.model, c, 500, 0); vectorNear(saved.end.toArray(), original.end.toArray()); near(Math.abs(saved.rotations[2].dot(original.rotations[2])), 1, 1e-6); } }
   const failed = structuredClone(clean.model); assert.throws(() => clean.apply('Failed body', ['Nodes'], m => { const bad = [...result.changes, { id: 9, property: 'Translation', value: [NaN, 0, 0] }]; applyMovementPose(m, bad, 500, 0); })); assert.deepEqual(clean.model, failed); assert.ok(clean.undo()); assert.deepEqual(clean.model, before);
+});
+
+
+function connectedEdit(model, config, id, values, mode = 'move', frame = 500) {
+  const target = { kind: id === config.body ? 'body' : 'node', id };
+  return solvePoseNode(model, id, poseNodeConstraints(model, config, id, mode, target), frame, 0,
+    { mode, space: 'world', values, control: poseNodeControl(model, config, target, mode) });
+}
+function jointPoints(model, frame = 500) {
+  const matrices = sampleNodeMatrices(model, frame, 0, frame);
+  return new Map(allNodes(model).map(node => [node.ObjectId, new Vector3(...(node.PivotPoint || model.PivotPoints[node.ObjectId])).applyMatrix4(matrices.get(node.ObjectId))]));
+}
+function connectedLengths(model, frame = 500) {
+  const points = jointPoints(model, frame);
+  return allNodes(model).filter(node => points.has(node.Parent)).map(node => points.get(node.ObjectId).distanceTo(points.get(node.Parent)));
+}
+
+test('Head and Chest grips bend connected SD joints instead of translating parts away', { skip: !fs.existsSync(nativeFixture) }, () => {
+  const source = openDocument(fs.readFileSync(nativeFixture), 'Footman.mdx').model, config = { ...suggestPoseRig(source, 500, 0), pins: [] };
+  for (const id of [33, 39]) for (const values of [[0, 3, 0], [4, -2, 1], [100, -80, 100]]) {
+    const model = structuredClone(source), before = structuredClone(model), lengths = connectedLengths(model);
+    const matrices = sampleNodeMatrices(model, 500, 0, 500), grip = poseControlPoint(model, config, id, matrices);
+    assert.ok(grip.distanceTo(jointPoints(model).get(id)) > 1, 'grip lies on the visible part above its joint');
+    const result = connectedEdit(model, config, id, values);
+    assert.deepEqual(model, before); assert.ok(result.changes.length > 0);
+    assert.ok(result.changes.every(change => change.property === 'Rotation'));
+    apply(model, result); vectorNear(connectedLengths(model), lengths, .003);
+    assert.ok(poseControlPoint(model, config, id, sampleNodeMatrices(model, 500, 0, 500)).distanceTo(grip) > .01);
+    for (const node of allNodes(model)) {
+      const old = allNodes(before).find(old => old.ObjectId === node.ObjectId);
+      assert.deepEqual(node.Translation, old.Translation); assert.deepEqual(node.Scaling, old.Scaling); assert.deepEqual(node.PivotPoint, old.PivotPoint); assert.equal(node.Parent, old.Parent);
+    }
+    if (id === 39) assert.ok(result.changes.some(change => change.id === 33), 'head drag shares motion with the chest');
+    else {
+      const after = sampleNodeMatrices(model, 500, 0, 500), orientation = matrix => new Quaternion().setFromRotationMatrix(matrix).normalize();
+      near(Math.abs(orientation(after.get(39)).dot(orientation(matrices.get(39)))), 1, 1e-6);
+      assert.ok(jointPoints(model).get(39).distanceTo(jointPoints(before).get(39)) > .01, 'head follows chest position while keeping facing');
+    }
+  }
+});
+
+test('connected Head Move has native rotation scope and raw head markers keep normal translation', { skip: !fs.existsSync(nativeFixture) }, () => {
+  const model = openDocument(fs.readFileSync(nativeFixture), 'Footman.mdx').model, config = { ...suggestPoseRig(model, 500, 0), pins: [] }, target = { kind: 'node', id: 39 };
+  const scope = poseTrackScope(config, target, 'move', model), ids = scope.map(item => item.id);
+  assert.ok(ids.includes(33) && ids.includes(39) && ids.includes(36) && ids.includes(34));
+  assert.ok(scope.every(item => item.property === 'Rotation'));
+  assert.deepEqual(poseTrackScope(config, { ...target, marker: true }, 'move', model), [{ id: 39, property: 'Translation' }]);
+  assert.deepEqual(connectedEdit(model, config, 39, [0, 0, 0]).changes, []);
+  assert.throws(() => { const result = connectedEdit(model, config, 39, [0, 3, 0]); applyMovementPose(model, result.changes, 500, 0, { rotation: true }); }, /restricted/);
+  const before = structuredClone(model); applyMovementTransform(model, [39], 500, 0, { mode: 'move', space: 'world', values: [0, 1, 0] });
+  const direct = structuredClone(model); assert.notDeepEqual(direct, before);
+  assert.deepEqual(connectedEdit(model, config, 39, [0, 0, 0]).changes, [], 'returning from FK never restores an old head target');
+});
+
+test('multiple spine and neck joints share a head drag with continuous, fixed-length motion', () => {
+  const model = fixture();
+  for (const [id, name, parent, pivot] of [[10, 'Spine', 0, [0,0,12]], [11, 'Chest', 10, [0,0,17]], [12, 'Neck', 11, [0,0,22]], [13, 'Head', 12, [0,0,24]]]) {
+    model.Bones.push({ ObjectId:id, Name:name, Parent:parent, PivotPoint:pivot, Flags:256 }); model.PivotPoints[id] = pivot;
+  }
+  const config = { body:0, nodes:[10,11,12,13], chains:[], pins:[] }, lengths = connectedLengths(model);
+  assert.deepEqual(poseNodeControl(model, config, { kind:'node', id:13 }).joints, [10,11,12,13]);
+  assert.deepEqual(poseNodeControl(model, { ...config, nodes:[] }, { kind:'node', id:13 }).joints, [], 'unmapped nodes retain ordinary controls');
+  model.Bones.push({ObjectId:14,Name:'Helper01',Parent:11,PivotPoint:[0,0,19],Flags:256});model.PivotPoints[14]=[0,0,19];model.Bones.find(node=>node.ObjectId===12).Parent=14;
+  assert.deepEqual(poseNodeControl(model,config,{kind:'node',id:13}).joints,[10,11,14,12,13]);
+  const helperLengths=connectedLengths(model);
+  let previous = null;
+  for (let i=0;i<=40;i++) {
+    const copy=structuredClone(model), result=connectedEdit(copy,config,13,[i*.1,0,0]); apply(copy,result);
+    vectorNear(connectedLengths(copy),helperLengths,1e-4);
+    const points=jointPoints(copy); if(previous) for(const id of [10,11,12,13]) assert.ok(points.get(id).distanceTo(previous.get(id))<.4,'small mouse steps do not flip the torso'); previous=points;
+  }
+});
+
+test('upper-body explicit hand pins remain reachable without releasing or stretching', { skip: !fs.existsSync(nativeFixture) }, () => {
+  const model = openDocument(fs.readFileSync(nativeFixture), 'Footman.mdx').model, config = { ...suggestPoseRig(model, 500, 0), pins: [] };
+  config.pins=config.chains.filter(chain=>chain.kind==='arm').map(chain=>chain.key);
+  const hands=config.chains.filter(chain=>chain.kind==='arm').map(chain=>({chain,pose:samplePoseChain(model,chain,500,0)}));
+  apply(model,connectedEdit(model,config,39,[0,35,0]));
+  for(const {chain,pose} of hands) { const after=samplePoseChain(model,chain,500,0);vectorNear(after.end.toArray(),pose.end.toArray(),.003);vectorNear(after.lengths,pose.lengths,.003); }
+});
+
+test('upper-body native keys survive history and MDL/MDX animation round trips with intact rig', { skip: !fs.existsSync(nativeFixture) }, () => {
+  const doc=openDocument(fs.readFileSync(nativeFixture),'Footman.mdx'), original=structuredClone(doc.model), config={...suggestPoseRig(doc.model,500,0),pins:[]};
+  const allowed=new Set();
+  for(const [frame,id,values] of [[500,39,[0,4,0]],[850,33,[3,-2,0]],[1200,39,[-2,0,2]]]) {
+    const result=connectedEdit(doc.model,config,id,values,'move',frame); result.changes.forEach(change=>allowed.add(change.id));
+    doc.apply('Connected upper body',['Nodes'],model=>applyMovementPose(model,result.changes,frame,0));
+  }
+  const edited=structuredClone(doc.model); assert.ok(doc.undo());assert.ok(doc.redo());assert.deepEqual(doc.model,edited);
+  const strip=model=>{const copy=structuredClone(model);for(const key of ['Nodes','Bones','Helpers','Attachments'])for(const node of copy[key]||[])if(node&&allowed.has(node.ObjectId))delete node.Rotation;return copy;};
+  assert.deepEqual(strip(edited),strip(original));
+  for(const format of ['mdl','mdx']) {
+    const reopened=openDocument(doc.serialize(format),'connected.'+format);assertModelEquivalent(edited,reopened.model);assertModelEquivalent(strip(original),strip(reopened.model));
+    for(const frame of [500,675,850,1025,1200])vectorNear(connectedLengths(reopened.model,frame),connectedLengths(original,frame),.004);
+  }
+});
+
+
+test('a selected controller symbol keeps its drag when another handle label crosses it', () => {
+  const body={kind:'body',label:'Body',x:50,y:40,visible:true}, hand={kind:'endpoint',key:'arm',label:'Hand',hovered:true,x:20,y:40,labelX:40,labelY:40,labelWidth:40,visible:true};
+  assert.equal(pickPoseHandle([hand,body],50,40,{kind:'body'},[],true),body);
+  assert.equal(pickPoseHandle([hand,body],65,40,{kind:'body'},[],true),body);
+  assert.equal(pickPoseHandle([hand,body],75,40,{kind:'body'},[],true),hand,'label remains clickable outside the selected symbol');
+  assert.equal(pickPoseHandle([hand,body],50,40,null,[],false),body,'a crossing label cannot intercept a controller symbol');
+});
+
+
+test('manual Start/End chains retain any number of native links and selected bending joints', () => {
+  const m = fixture(), before = structuredClone(m);
+  const full = poseChainBetween(m, 0, 3);
+  assert.deepEqual(full.joints, [0,1,2,3]);
+  const selected = poseChainBetween(m, 0, 3, [1]);
+  assert.deepEqual(selected.joints, [0,2,3]);
+  const pose = samplePoseChain(m, selected, 500, 0);
+  const result = solvePoseLimb(m, selected, 500, 0, pose.end.clone().add(new Vector3(-1,0,-1)));
+  assert.ok(result.changes.length); assert.ok(!result.changes.some(change => change.id === 1));
+  assert.deepEqual(m,before,'setup and preview never edit the model');
+  assert.throws(() => poseChainBetween(m, 0, 3, [1,2]), /at least one bending joint/);
+  assert.throws(() => poseChainBetween(m, 4, 3), /same bone branch/);
+  assert.throws(() => poseChainBetween(m, 3, 0), /same bone branch/);
+  assert.throws(() => poseChainBetween(m, null, 3), /both Start and End/);
+  m.Bones[1].Parent=3; assert.throws(() => poseChainBetween(m, 0, 3), /same bone branch/);
+});
+
+
+test('endpoint assistance follows unnamed articulated limbs and offers a nonmutating shared-body repair', { skip: !fs.existsSync('C:/Users/PC/Desktop/WAG.mdx') }, () => {
+  const path = 'C:/Users/PC/Desktop/WAG.mdx';
+  const model = openDocument(fs.readFileSync(path), 'WAG.mdx').model, original = structuredClone(model);
+  const left = suggestPickedPoseChain(model, 27), right = suggestPickedPoseChain(model, 28);
+  assert.deepEqual(left.joints, [35,42,21,27]);
+  assert.deepEqual(right.joints, [36,14,22,28]);
+  const broadLeft = { ...poseChainBetween(model,2,27), key:'limb:27', kind:'leg' };
+  const broadRight = { ...poseChainBetween(model,2,28), key:'limb:28', kind:'leg' };
+  const existing = structuredClone(broadLeft), repair = separatePoseChains(model,broadRight,[broadLeft]);
+  assert.deepEqual(repair.draft.joints,right.joints);
+  assert.deepEqual(repair.replacements[0].joints,left.joints);
+  assert.equal(repair.replacements[0].key,'limb:27');
+  assert.deepEqual(broadLeft,existing);
+  const selective = separatePoseChains(model,poseChainBetween(model,2,28,[14]),[broadLeft]);
+  assert.deepEqual(selective.draft.joints,[36,22,28]);
+  assert.equal(separatePoseChains(model,broadLeft,[broadLeft]),null);
+  assert.deepEqual(model,original);
 });

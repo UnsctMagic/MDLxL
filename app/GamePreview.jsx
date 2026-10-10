@@ -23,9 +23,9 @@ import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
-import { drawAttachGuide, drawBoneConnectors, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
-import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, projectPoseHandles } from './pose-overlay.js';
-import { poseAffectedPins, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
+import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
+import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, poseSkeletonHighlights, projectPoseHandles } from './pose-overlay.js';
+import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
 import { composePreviewCapture, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
@@ -234,7 +234,7 @@ export default function GamePreview(inputProps) {
     host.current.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: graphicsOptions(latest.current.preferences).antialias, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
+    let posePing = null, pinButton, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
@@ -368,7 +368,7 @@ export default function GamePreview(inputProps) {
       const sequences = p.model.Sequences || [];
       return sequences[p.sequenceIndex] ? p.sequenceIndex : sequences.findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
     };
-    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.nodes]);
+    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
     const poseContextValid = (gesture, p) => gesture.model === (p.poseDocumentModel || p.model) && gesture.previewModel === p.model && gesture.revision === p.revision &&
       (Math.round(p.time) === gesture.inputTime || Math.round(p.time) === gesture.frame) && gesture.inputSequence === p.sequenceIndex &&
@@ -377,10 +377,15 @@ export default function GamePreview(inputProps) {
       gesture.workplaneEnabled === !!p.workplaneEnabled && gesture.workplane === p.workplane && JSON.stringify(p.restrictions) === gesture.restrictionsStamp;
     const beginPoseGesture = (event, p, x, y, rect) => {
       if (!p.poseConfig?.enabled || p.restPose || !p.onPoseCommit || p.attachSourceIds?.length) return false;
+      if (p.poseConfig.picking) {
+        const picked = pickMovementNode(nodePoints, x, y, p.selectedNodeIds, 13, false);
+        if (picked) p.onPoseSelect?.({ kind: 'node', id: picked.node.ObjectId, marker: true });
+        event.preventDefault(); event.stopImmediatePropagation(); invalidate(); return true;
+      }
       const active = poseHandles.find(handle => handle.selected), realPicked = pickMovementNode(nodePoints, x, y);
-      // The visible axis tip belongs to the selected control, even when a
+      // The visible gizmo belongs to the selected control, even when a
       // different object's marker happens to sit beneath it.
-      const tip = !p.workplaneEnabled && active && p.transformMode !== 'select' ? pickMovementHandle(nodeHandles, x, y, 'move') : null;
+      const tip = !p.workplaneEnabled && active && p.transformMode !== 'select' ? pickMovementHandle(nodeHandles, x, y, p.transformMode === 'move' ? 'move' : 'tip') : null;
       const picked = tip ? null : pickPoseHandle(poseHandles, x, y, p.poseConfig.target, nodePoints, p.transformMode !== 'select');
       const axis = tip || (!picked && !p.workplaneEnabled && active ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null);
       const handle = picked || (axis || p.workplaneEnabled && active && !realPicked ? active : null);
@@ -407,8 +412,9 @@ export default function GamePreview(inputProps) {
           camera: camera.clone(), origin: handle.world.clone(), snapshots, frame, sequence, globalTime: globalClock, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane,
           restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
-        if (p.workplaneEnabled) {
-          const axes = p.workplane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(p.workplane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
+        gesture.dragPlane = axis?.plane || p.workplane;
+        if (p.workplaneEnabled || axis?.plane) {
+          const axes = gesture.dragPlane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(gesture.dragPlane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
           gesture.basis = axes.map(axis => { const end = handle.world.clone().add(new THREE.Vector3().setComponent(axis, 1)).project(camera); return [(end.x - origin.x) * rect.width / 2, (origin.y - end.y) * rect.height / 2]; });
         }
         nodeGesture = gesture; controls.enabled = false; posedGeometryCache = null;
@@ -417,14 +423,19 @@ export default function GamePreview(inputProps) {
       } catch (cause) { setGestureLabel(cause.message); controls.enabled = true; }
       event.preventDefault(); event.stopImmediatePropagation(); invalidate(); return true;
     };
+    const pingPoseBlockers = targets => {
+      if (!targets.length) return;
+      const identity = JSON.stringify(targets), now = ownerWindow.performance.now();
+      if (posePing?.identity !== identity || now - posePing.started > 1200) posePing = { identity, targets, started: now };
+    };
     const previewPoseGesture = (gesture, event, p, rect, dx, dy) => {
       restoreGestureTracks(gesture); posedGeometryCache = null;
       if (!poseContextValid(gesture, p)) { gesture.adjusted = true; return; }
       try {
         const sensitivity = pointerSensitivityValue(p.preferences?.pointerSensitivity);
-        let offset = gesture.basis ? new THREE.Vector3().fromArray(projectedPlaneTranslation(gesture.workplane, gesture.basis, dx * sensitivity, dy * sensitivity, event.shiftKey))
+        let offset = gesture.basis ? new THREE.Vector3().fromArray(projectedPlaneTranslation(gesture.dragPlane, gesture.basis, dx * sensitivity, dy * sensitivity, event.shiftKey))
           : screenPlaneTranslation(gesture.camera, gesture.origin, rect.width, rect.height, dx * sensitivity, dy * sensitivity, event.shiftKey);
-        if (!gesture.workplaneEnabled && !gesture.handle.free && gesture.mode === 'move') {
+        if (!gesture.basis && !gesture.workplaneEnabled && !gesture.handle.free && gesture.mode === 'move') {
           let amount = movementDragAmount(gesture.handle, dx, dy, 'move', sensitivity);
           if (event.shiftKey) amount = Math.round(amount);
           offset = new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], amount);
@@ -433,7 +444,7 @@ export default function GamePreview(inputProps) {
         let result;
         if (gesture.target.kind === 'body' || gesture.target.kind === 'node' || gesture.mode === 'scale') {
           const id = gesture.target.kind === 'body' ? gesture.config.body : gesture.target.kind === 'node' ? gesture.target.id : gesture.config.chains.find(chain => chain.key === gesture.target.key).end;
-          const pins = poseAffectedPins(gesture.baseline, gesture.config, id).map(chain => ({ chain, bendLocal: gesture.config.bends?.[chain.key] }));
+          const pins = poseNodeConstraints(gesture.baseline, gesture.config, id, gesture.mode, gesture.target);
           let values = offset.toArray();
           if (gesture.mode === 'rotate') {
             let degrees = movementDragAmount(gesture.handle, dx, dy, 'rotate', sensitivity); if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
@@ -441,7 +452,7 @@ export default function GamePreview(inputProps) {
             const normal = gesture.handle.axis === 'XYZ' ? gesture.camera.getWorldDirection(new THREE.Vector3()) : new THREE.Vector3().setComponent(({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis], 1);
             values = normal.multiplyScalar(degrees).toArray();
           } else if (gesture.mode === 'scale') values = gesture.handle.free || gesture.workplaneEnabled ? movementFreeScaleValues(dx, dy, { sensitivity, workplaneEnabled: gesture.workplaneEnabled, workplane: gesture.workplane, shiftKey: event.shiftKey }) : ['X', 'Y', 'Z'].map(axis => axis === gesture.handle.axis ? movementDragAmount(gesture.handle, dx, dy, 'scale', sensitivity) : 1);
-          result = solvePoseNode(gesture.baseline, id, pins, gesture.frame, gesture.sequence, { mode: gesture.mode, space: gesture.mode === 'move' ? 'world' : gesture.space, values, rotateOnOwnAxis: gesture.rotateOnOwnAxis, restrictions: p.restrictions }, gesture.globalTime);
+          result = solvePoseNode(gesture.baseline, id, pins, gesture.frame, gesture.sequence, { control: poseNodeControl(gesture.baseline, gesture.config, gesture.target, gesture.mode), mode: gesture.mode, space: gesture.mode === 'move' ? 'world' : gesture.space, values, rotateOnOwnAxis: gesture.rotateOnOwnAxis, restrictions: p.restrictions }, gesture.globalTime);
         } else {
           const chain = gesture.config.chains.find(chain => chain.key === gesture.target.key), pose = samplePoseChain(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.globalTime);
           if (gesture.mode === 'rotate') {
@@ -459,11 +470,14 @@ export default function GamePreview(inputProps) {
         const writable = { ...ownedModel, Sequences: gesture.baseline.Sequences };
         const count = applyMovementPose(writable, result.changes, gesture.frame, gesture.sequence, p.restrictions);
         gesture.changes = count ? result.changes : [];
-        gesture.bends = result.bends;
+        gesture.bends = result.bends; gesture.targets = result.targets;
+        const blockers = result.blockingKeys?.length ? result.blockingKeys.map(key => ({ kind: 'endpoint', key })) : result.clamped ? [gesture.target] : [];
+        pingPoseBlockers(blockers);
         setGestureLabel(result.limited || result.clamped ? 'Reach limit' : `${gesture.target.kind === 'body' ? 'Body' : gesture.target.kind === 'node' ? 'Object' : gesture.target.kind === 'bend' ? 'Bend' : gesture.mode === 'rotate' ? 'Turn' : 'Limb Move'}`);
       } catch (cause) {
         restoreGestureTracks(gesture);
         if (gesture.changes?.length) applyMovementPose({ ...ownedModel, Sequences: gesture.baseline.Sequences }, gesture.changes, gesture.frame, gesture.sequence, p.restrictions);
+        pingPoseBlockers((cause.blockingKeys || []).map(key => ({ kind: 'endpoint', key })));
         setGestureLabel(cause.message);
       }
     };
@@ -501,11 +515,13 @@ export default function GamePreview(inputProps) {
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
         const editSequence = movementSequence(p, Math.round(native.getFrame()));
         const picked = pickMovementNode(pickable, x, y, p.selectedNodeIds,13,p.transformMode==='move');
-        const active = p.transformMode==='move'&&picked?picked:pickable.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
+        const selected = pickable.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
+        const gizmo = selected && !p.workplaneEnabled ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
+        const active = p.transformMode==='move'&&picked&&!gizmo?picked:selected;
         const editable = p.onNodeTransform && (!p.restPose || p.transformMode === 'move') && !movementRestricted(p.transformMode || 'rotate', p.restrictions) && (p.restPose || editSequence >= 0);
-        const directMove=!!picked&&editable&&p.transformMode==='move',screenMove=directMove&&!p.workplaneEnabled;
+        const directMove=!!picked&&!gizmo&&editable&&p.transformMode==='move',screenMove=directMove&&!p.workplaneEnabled;
         const workplaneDrag = active && editable && p.workplaneEnabled && ['move', 'rotate'].includes(p.transformMode) && (directMove||!picked || p.selectedNodeIds?.includes(picked.node.ObjectId));
-        const axisHandle = active && editable && !p.workplaneEnabled ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
+        const axisHandle = active && editable ? gizmo : null;
         const freeScaleDrag = active && editable && p.transformMode === 'scale' && !picked && !axisHandle;
         const handle = active && editable && (workplaneDrag ? movementWorkplaneHandle(p.workplane, active.unitsPerPixel) : axisHandle || freeScaleDrag || screenMove ? axisHandle || { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: active.unitsPerPixel } : null);
         if (handle) {
@@ -515,8 +531,9 @@ export default function GamePreview(inputProps) {
           nodeGesture = { id: event.pointerId, x, y, handle, ids, snapshots, frame: Math.round(native.getFrame()), sequence: editSequence, mode: p.transformMode || 'rotate', space: p.transformSpace || 'local', rotateOnOwnAxis: !!p.rotateOnOwnAxis, amount: p.transformMode === 'scale' ? 1 : 0, moved: false };
           posedGeometryCache = null;
           Object.assign(nodeGesture, { restPose: !!p.restPose, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane, pivotPoints: structuredClone(ownedModel.PivotPoints), origin: active.world.clone() });
-          if (workplaneDrag && p.transformMode === 'move') {
-            const axes = p.workplane === 'yz' ? [1,2] : ['xz','zx'].includes(p.workplane) ? [0,2] : [0,1];
+          nodeGesture.dragPlane = axisHandle?.plane || p.workplane;
+          if ((workplaneDrag || axisHandle?.plane) && p.transformMode === 'move') {
+            const axes = nodeGesture.dragPlane === 'yz' ? [1,2] : ['xz','zx'].includes(nodeGesture.dragPlane) ? [0,2] : [0,1];
             const origin = active.world.clone().project(camera);
             nodeGesture.basis = axes.map(axis => { const end = active.world.clone().add(new THREE.Vector3().setComponent(axis,1)).project(camera); return [(end.x-origin.x)*rect.width/2, (origin.y-end.y)*rect.height/2]; });
             nodeGesture.space = 'world';
@@ -524,7 +541,7 @@ export default function GamePreview(inputProps) {
           if (p.transformMode === 'move' || p.transformMode === 'scale') nodeGesture.space = 'world';
           if (workplaneDrag && p.transformMode === 'rotate') nodeGesture.space = 'world';
           nodeGesture.workplaneDrag = workplaneDrag; nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;
-          controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId);
+          controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId); invalidate();
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
         if (picked && p.onSelectNodes) {
@@ -564,7 +581,10 @@ export default function GamePreview(inputProps) {
       for (const node of allNodes(ownedModel)) {
         const original = gesture.snapshots.get(node.ObjectId); if (!original) continue;
         for (const property of ['Translation', 'Rotation', 'Scaling', 'PivotPoint']) {
-          if (original[property] === undefined) delete node[property]; else node[property] = structuredClone(original[property]);
+          if (original[property] === undefined) delete node[property];
+          // POSE installs detached tracks through applyMovementPose; its saved
+          // tracks are read-only. FK's in-place writer still needs a fresh copy.
+          else node[property] = gesture.pose ? original[property] : structuredClone(original[property]);
         }
       }
     }
@@ -584,9 +604,11 @@ export default function GamePreview(inputProps) {
       }
       if (!nodeGesture) {
         const pickable = nodePoints;
-        if (!pickable.length || rotating || (p.cameraMode ?? 'work') !== 'work') { canvas.style.cursor = cursorFor(p); return; }
+        if ((!pickable.length && !poseHandles.length) || rotating || (p.cameraMode ?? 'work') !== 'work') { canvas.style.cursor = cursorFor(p); return; }
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
         const overHandle = (p.poseConfig?.enabled ? pickPoseHandle(poseHandles, x, y, p.poseConfig.target, nodePoints, true) : null) || pickMovementHandle(nodeHandles, x, y, p.transformMode);
+        const hovered = overHandle?.kind ? poseTargetStamp(poseHandleTarget(overHandle)) : null;
+        if (hovered !== poseHoverTarget) { poseHoverTarget = hovered; invalidate(); }
         canvas.style.cursor = overHandle || p.workplaneEnabled && ['move', 'rotate', 'scale'].includes(p.transformMode) || p.transformMode === 'scale' && p.selectedNodeIds?.length ? viewportCursor('work', p.transformMode) : pickMovementNode(pickable, x, y) ? 'pointer' : viewportCursor(p.cameraMode, p.transformMode);
         return;
       }
@@ -607,7 +629,7 @@ export default function GamePreview(inputProps) {
         nodeGesture.values = movementFreeScaleValues(dx, dy, { sensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), workplaneEnabled: nodeGesture.workplaneEnabled, workplane: nodeGesture.workplane, shiftKey: event.shiftKey });
         nodeGesture.amount = Math.max(...nodeGesture.values); nodeGesture.scaleConstrained = nodeGesture.workplaneEnabled && event.shiftKey;
       } else nodeGesture.amount = nodeGesture.basis ? 0 : movementDragAmount(nodeGesture.handle, dragX, dragY, nodeGesture.mode, pointerSensitivityValue(p.preferences?.pointerSensitivity));
-      if (nodeGesture.basis) nodeGesture.values = projectedPlaneTranslation(nodeGesture.workplane, nodeGesture.basis, dragX * pointerSensitivityValue(p.preferences?.pointerSensitivity), dragY * pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey);
+      if (nodeGesture.basis) nodeGesture.values = projectedPlaneTranslation(nodeGesture.dragPlane, nodeGesture.basis, dragX * pointerSensitivityValue(p.preferences?.pointerSensitivity), dragY * pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey);
       if(nodeGesture.screenMove)nodeGesture.values=screenPlaneTranslation(camera,nodeGesture.origin,rect.width,rect.height,dx*pointerSensitivityValue(p.preferences?.pointerSensitivity),dy*pointerSensitivityValue(p.preferences?.pointerSensitivity),event.shiftKey).toArray();
       if (event.shiftKey && !nodeGesture.freeScaleDrag) nodeGesture.amount = nodeGesture.mode === 'rotate' ? Math.round(nodeGesture.amount / 5) * 5 : nodeGesture.mode === 'move' ? Math.round(nodeGesture.amount) : Math.round(nodeGesture.amount * 20) / 20 || .05;
       restoreGestureTracks(nodeGesture);
@@ -616,7 +638,7 @@ export default function GamePreview(inputProps) {
         transform(ownedModel, nodeGesture.ids, nodeGesture.frame, nodeGesture.sequence, { mode: nodeGesture.mode, space: nodeGesture.space, rotateOnOwnAxis: nodeGesture.rotateOnOwnAxis, axis: nodeGesture.handle.axis, amount: nodeGesture.amount, values: nodeGesture.values, restPose: nodeGesture.restPose, workplaneEnabled: nodeGesture.mode === 'scale' ? nodeGesture.scaleConstrained : nodeGesture.workplaneEnabled, workplane: nodeGesture.workplane, restrictions: p.restrictions });
         if (!nodeGesture.restPose) p.onNodePosePreview?.(motionPose(ownedModel, nodeGesture.ids.at(-1), ({ move: 'Translation', rotate: 'Rotation', scale: 'Scaling' })[nodeGesture.mode], nodeGesture.frame, nodeGesture.sequence));
         const axisLabel = nodeGesture.freeScaleDrag && nodeGesture.scaleConstrained ? String(nodeGesture.workplane).toUpperCase().replace('XZ', 'ZX') : nodeGesture.handle.axis;
-        setGestureLabel(`${nodeGesture.mode[0].toUpperCase() + nodeGesture.mode.slice(1)} ${axisLabel}: ${nodeGesture.amount.toFixed(2)}${nodeGesture.mode === 'rotate' ? '°' : nodeGesture.mode === 'scale' ? '×' : ''}`);
+        setGestureLabel(`${nodeGesture.mode[0].toUpperCase() + nodeGesture.mode.slice(1)} ${axisLabel}: ${nodeGesture.amount.toFixed(2)}${nodeGesture.mode === 'rotate' ? 'Â°' : nodeGesture.mode === 'scale' ? 'Ã—' : ''}`);
       } catch (cause) { restoreGestureTracks(nodeGesture); setGestureLabel(cause.message); }
       canvas.style.cursor = viewportCursor('work', nodeGesture.mode); invalidate();
     };
@@ -656,7 +678,7 @@ export default function GamePreview(inputProps) {
         if (event.type === 'pointercancel' || event.type === 'lostpointercapture' || !gesture.moved || gesture.adjusted || !gesture.changes?.length || !valid) restoreGestureTracks(gesture);
         else {
           try {
-            const result = latest.current.onPoseCommit?.({ model: gesture.model, revision: gesture.revision, frame: gesture.frame, sequence: gesture.sequence, inputSequence: gesture.inputSequence, changes: gesture.changes, bends: gesture.bends,
+            const result = latest.current.onPoseCommit?.({ model: gesture.model, revision: gesture.revision, frame: gesture.frame, sequence: gesture.sequence, inputSequence: gesture.inputSequence, changes: gesture.changes, bends: gesture.bends, targets: gesture.targets,
               label: gesture.target.kind === 'bend' ? 'POSE Bend' : `POSE ${gesture.target.kind === 'body' ? 'Body' : gesture.target.kind === 'node' ? 'Object' : 'Limb'} ${gesture.mode[0].toUpperCase() + gesture.mode.slice(1)}` });
             if (result === false) restoreGestureTracks(gesture);
           } catch (cause) { restoreGestureTracks(gesture); setGestureLabel(cause.message); }
@@ -718,7 +740,7 @@ export default function GamePreview(inputProps) {
       const next = hit?.index ?? null;
       if (viewHoveredGeoset !== next) { viewHoveredGeoset = next; p.onHoverGeoset?.(next); }
     };
-    const leaveGeoset = () => { if (viewHoveredGeoset !== null) { viewHoveredGeoset = null; latest.current.onHoverGeoset?.(null); } };
+    const leaveGeoset = () => { if (poseHoverTarget !== null) { poseHoverTarget = null; invalidate(); } if (viewHoveredGeoset !== null) { viewHoveredGeoset = null; latest.current.onHoverGeoset?.(null); } };
     canvas.addEventListener('pointermove', hoverGeoset); canvas.addEventListener('pointerleave', leaveGeoset);
     const bounds = new THREE.Box3(), point = new THREE.Vector3();
     for (const [index, geo] of ownedModel.Geosets.entries()) if (!props.isolatedGeosets || props.isolatedGeosets.includes(index)) for (let i = 0; i < geo.Vertices.length; i += 3) bounds.expandByPoint(point.fromArray(geo.Vertices, i));
@@ -945,7 +967,7 @@ export default function GamePreview(inputProps) {
       } catch (cause) { failures.push(`${info.Image}: ${cause.message}`); }
       finally { texture?.dispose(); if (!disposed) invalidate(); }
     });
-    const texturePromise = Promise.all(jobs).then(() => { texturesReady = true; if (!disposed) setWarnings([...(missing ? [`${missing} textures unresolved · load the model's texture files`] : []), ...failures]); });
+    const texturePromise = Promise.all(jobs).then(() => { texturesReady = true; if (!disposed) setWarnings([...(missing ? [`${missing} textures unresolved Â· load the model's texture files`] : []), ...failures]); });
     let reportAt = performance.now(), activeSequence = -99, externalFrame, reportedFrame, lastPlaying = false, globalClock = 0, playbackStopped = false;
     let showcaseSample, recordingSink = null;
     const color = new THREE.Color(), cameraQuaternion = new THREE.Quaternion();
@@ -1138,6 +1160,7 @@ export default function GamePreview(inputProps) {
         drawCollisionSpheres(collisionCanvas.getContext('2d'),ownedModel,camera,native,canvas.width,canvas.height);
       } else if (collisionCanvas) { collisionCanvas.remove(); collisionCanvas=null; }
       const overlayOptions = { ...previewOverlayOptions(p.overlays, p.showNodes, p.editorDisplayMode, p.vanilla), vanilla:p.vanilla, preferences: p.preferences, workplane: p.workplane };
+      if (p.poseConfig?.picking) { overlayOptions.bones = true; overlayOptions.nodes = true; overlayOptions.attachments = true; }
       overlayOptions.selectableGeosets = p.selectableGeosets ?? [];
       overlayOptions.visibleGeosets = p.visibleGeosets;
       overlayOptions.grid = false;
@@ -1201,6 +1224,20 @@ export default function GamePreview(inputProps) {
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
         poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId))) : [];
+        const limb = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && handle.selected && handle.kind === 'endpoint');
+        if (limb && p.onPosePin && !p.suspended) {
+          if (!pinButton) {
+            pinButton = ownerDocument.createElement('button'); pinButton.dataset.posePin = '';
+            pinButton.style.cssText = 'position:absolute;z-index:70;pointer-events:auto;font:11px Tahoma,sans-serif;padding:2px 5px;min-height:22px';
+            pinButton.addEventListener('pointerdown', event => event.stopPropagation());
+            pinButton.addEventListener('click', event => { event.stopPropagation(); const current = latest.current; if (pinButton?.dataset.key) current.onPosePin?.(pinButton.dataset.key, Math.round(native.getFrame()), movementSequence(current, native.getFrame())); });
+            host.current.appendChild(pinButton);
+          }
+          pinButton.dataset.key = limb.key; pinButton.setAttribute('aria-label', limb.chain.kind === 'leg' ? 'Pin selected foot' : 'Pin selected hand');
+          pinButton.setAttribute('aria-pressed', String(limb.pinned)); pinButton.textContent = limb.pinned ? 'Pinned' : 'Pin';
+        } else if (pinButton) { pinButton.remove(); pinButton = null; }
+
+        for (const handle of poseHandles) handle.hovered = poseTargetStamp(poseHandleTarget(handle)) === poseHoverTarget;
         const activePose = poseHandles.find(handle => handle.selected);
         const active = activePose || nodePoints.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         const handleMode = p.transformMode || 'rotate', workplaneHidesHandles = p.workplaneEnabled && ['move', 'rotate', 'scale'].includes(handleMode);
@@ -1212,13 +1249,23 @@ export default function GamePreview(inputProps) {
             handleAnchor = { ...active, world: ownCenter.center, x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
           }
         }
-        const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode !== 'move' || movementRestricted(activePose.kind === 'endpoint' && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
+        const handleRestricted = activePose ? activePose.kind === 'bend' && handleMode !== 'move' || movementRestricted((activePose.kind === 'endpoint' || poseNodeControl(markerModel, p.poseConfig, poseHandleTarget(activePose), handleMode).joints.length > 0) && handleMode === 'move' || activePose.kind === 'bend' ? 'rotate' : handleMode, p.restrictions) : movementRestricted(handleMode, p.restrictions);
         nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
-        const markerOptions = { ...overlayOptions, modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
+        if (pinButton && limb) {
+          const position = movementPinPosition(limb, nodeHandles, width, height, pinButton.offsetWidth, pinButton.offsetHeight, poseHandles);
+          pinButton.style.left = `${position.x}px`; pinButton.style.top = `${position.y}px`;
+        }
+        const activeAxis = nodeGesture?.mode === 'move' && nodeGesture.handle.mode === 'move' ? nodeGesture.handle.axis : null;
+        const markerOptions = { ...overlayOptions, activeAxis, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
-        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
-        drawPoseOverlay(nodeCanvas.getContext('2d'), poseHandles, canvas.width / Math.max(1, width));
+        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
+        const pingAge = posePing ? ownerWindow.performance.now() - posePing.started : 1200;
+        const ping = poseVisible && p.poseConfig.crosshair !== false && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
+        nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);
+        drawPoseOverlay(nodeCanvas.getContext('2d'), p.poseConfig?.picking ? [] : poseHandles, canvas.width / Math.max(1, width), ping && { targets: ping.targets, age: pingAge });
+        if (activePose) drawMovementGizmo(nodeCanvas.getContext('2d'), nodeHandles, canvas.width / Math.max(1, width), activeAxis);
+        if (ping) invalidate();
         if (poseVisible && p.poseConfig.inspectIds?.length) {
           const context = nodeCanvas.getContext('2d'), ratio = canvas.width / Math.max(1, width); context.save(); context.scale(ratio, ratio);
           const joints = p.poseConfig.inspectIds.map(id => projectedNodes.find(point => point.node.ObjectId === id)).filter(point => point?.visible);
@@ -1226,7 +1273,7 @@ export default function GamePreview(inputProps) {
           for (const joint of joints) { context.beginPath(); context.arc(joint.x, joint.y, 9, 0, Math.PI * 2); context.stroke(); } context.restore();
         }
         if (p.attachSourceIds?.length) drawAttachGuide(nodeCanvas.getContext('2d'), projectedNodes, p.attachSourceIds, attachPointer, canvas.width / Math.max(1, width), now, visualOptions(p.preferences).helperSize);
-      } else { nodePoints = []; nodeHandles = []; poseHandles = []; if (nodeCanvas) { nodeCanvas.remove(); nodeCanvas = null; } if (connectorCanvas) { connectorCanvas.remove(); connectorCanvas = null; } }
+      } else { if (pinButton) { pinButton.remove(); pinButton = null; } nodePoints = []; nodeHandles = []; poseHandles = []; if (nodeCanvas) { nodeCanvas.remove(); nodeCanvas = null; } if (connectorCanvas) { connectorCanvas.remove(); connectorCanvas = null; } }
       }
       if (!captureOnly && playback.finished) { reportAt = now; reportedFrame = start; p.onTimeChange?.(start); p.onPlayingChange?.(false); }
       else if (!captureOnly && p.playing && !playbackStopped && now - reportAt > 32) { reportAt = now; reportedFrame = native.getFrame(); p.onTimeChange?.(reportedFrame); }
@@ -1371,7 +1418,7 @@ export default function GamePreview(inputProps) {
       compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelPoseCapture);
-      disposed = true; canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPoseCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPoseCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.antialias, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
@@ -1409,7 +1456,7 @@ export default function GamePreview(inputProps) {
       {framed && frame.status === 'ready' && <img className="portrait-human-frame" src={frame.url} alt="" aria-hidden="true" data-frame-version={portraitFrameVersion}/>}
       {props.showcase && <ShowcaseLayers ref={layerAPI} grid={props.showcaseGrid} gridDensity={props.showcaseGridDensity} crop={props.showcaseCrop} layers={props.showcaseLayers} activeId={props.showcaseActiveLayer} editing={props.showcaseLayerEditing} onSelect={props.onShowcaseLayerSelect} onChange={props.onShowcaseLayerChange} onError={props.onShowcaseLayerError} onInvalidate={()=>runtime.current?.scheduler.invalidate()}/>}
       {portrait && !hasCamera && <div className="portrait-message" role="status">Create or select a camera to view the portrait</div>}
-      {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
+      {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III dataâ€¦</div>}
       {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status">{frame.error}</div>}
     </div>
     {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}

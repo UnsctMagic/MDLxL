@@ -1,94 +1,158 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { allNodes } from '../src/animation.js';
-import { poseNodeRole, samplePoseChain, suggestPoseBody, suggestPoseChain, suggestPoseRig, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
+import { poseChainBetween, poseChainIds, poseRole, samplePoseChain, suggestPickedPoseChain, separatePoseChains, suggestPoseRig } from '../src/pose-ik.js';
+import { poseSymbols } from './pose-overlay.js';
+import useMovableWindow from './useMovableWindow.js';
 import './pose-controls.css';
 
+function PartIcon({ part }) {
+  if (part === 'Pelvis') return <img src={new URL('./pose-trollface.png', import.meta.url).href} alt="" />;
+  const paths = poseSymbols[part] || poseSymbols.Object;
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[0]} fill="currentColor"/><path d={paths[1]} fill="none" stroke="var(--ui-panel, #d4d0c8)" strokeWidth="1.8"/></svg>;
+}
+function SetupWindow({ onClose, title, children }) {
+  const ref = useRef(null), movable = useMovableWindow(ref);
+  return <div ref={ref} style={movable.style} className="pose-setup" role="dialog" aria-modal="false" aria-label="POSE setup">
+    <header {...movable.handleProps}><strong>{title}</strong><button aria-label="Close POSE setup" onClick={onClose}>×</button></header>{children}
+  </div>;
+}
+const limbParts = new Set(['Hand', 'Foot', 'Hoof', 'Wing', 'Chain']);
+const sameTarget = (a, b) => a?.kind === b?.kind && a?.id === b?.id && a?.key === b?.key;
+
 export default function PoseControls({ model, revision, config, onChange, onSelect, selectedNodeIds, frame, sequence, disabled }) {
-  const [open, setOpen] = useState(false), [draft, setDraft] = useState({ root: '', middle: '', end: '', kind: 'arm' }), [body, setBody] = useState(''), [object, setObject] = useState(''), [error, setError] = useState('');
-  const anchor = useRef(null), nodes = allNodes(model), joints = [...(model.Bones || []), ...(model.Helpers || [])];
-  const names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name || `Node ${node.ObjectId}`]));
-  const legs = config.chains.filter(chain => chain.kind === 'leg'), active = config.chains.find(chain => chain.key === config.target?.key);
+  const [open, setOpen] = useState(false), [editor, setEditor] = useState(null), [slot, setSlot] = useState('end'), [error, setError] = useState('');
+  const anchor = useRef(null), names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name || 'Bone']));
+  const latest = useRef({ config, onChange }); latest.current = { config, onChange };
+  useEffect(() => () => { const { config, onChange } = latest.current; if (config.picking) onChange({ ...config, picking: null, inspectIds: [] }); }, []);
+  const back = () => { setEditor(null); setError(''); onChange({ ...config, picking: null, inspectIds: [] }); };
+  const close = () => { setOpen(false); back(); };
   useEffect(() => {
     if (!open) return;
     const document = anchor.current?.ownerDocument;
-    const outside = event => { if (!anchor.current?.contains(event.target) && !event.target.closest?.('.movement-object, .game-preview-root')) setOpen(false); };
-    const escape = event => { if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); } };
-    document?.addEventListener('pointerdown', outside, true); document?.addEventListener('keydown', escape, true);
-    return () => { document?.removeEventListener('pointerdown', outside, true); document?.removeEventListener('keydown', escape, true); };
-  }, [open]);
-  useEffect(() => { if (open && selectedNodeIds.length === 1) setObject(String(selectedNodeIds[0])); }, [open, selectedNodeIds.join(',')]);
-  useEffect(() => {
-    const ids = open ? [...new Set([...([draft.root, draft.middle, draft.end].filter(value => value !== '').map(Number)), ...(body === '' ? [] : [Number(body), ...legs.map(chain => chain.root)])])] : [];
-    if (JSON.stringify(config.inspectIds || []) !== JSON.stringify(ids)) onChange({ ...config, inspectIds: ids });
-  }, [open, draft.root, draft.middle, draft.end, body, config]);
-  const run = operation => { setError(''); try { operation(); } catch (cause) { setError(cause.message); } };
-  const suggest = () => run(() => {
-    // React may defer a state updater until rendering. Validate in this event,
-    // before the updater, so a bad selection stays inside this popup.
-    setDraft(prior => ({ ...prior, root: '', middle: '', end: '' }));
-    const chain = suggestPoseChain(model, selectedNodeIds.at(-1));
-    setDraft(prior => ({ ...prior, ...chain, kind: poseNodeRole(nodes.find(node => node.ObjectId === chain.end)) === 'Foot' ? 'leg' : 'arm' }));
-  });
-  const showSetup = () => { setError(''); setOpen(value => !value); setBody(config.body ?? ''); };
-  const enable = () => run(() => {
-    let next = { ...config, enabled: !config.enabled, target: null };
-    if (next.enabled && !config.initialized) {
-      const suggested = suggestPoseRig(model, frame, sequence);
-      next = { ...next, chains: config.chains.length ? config.chains : suggested.chains, body: config.body ?? suggested.body, nodes: [...new Set([...(config.nodes || []), ...suggested.nodes])], initialized: true };
+    const escape = event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } };
+    document?.addEventListener('keydown', escape, true);
+    return () => document?.removeEventListener('keydown', escape, true);
+  }, [open, config]);
+  const pick = id => setEditor(previous => {
+    if (!previous || id == null) return previous;
+    const next = { ...previous, [slot]: id, excluded: [], replacements: undefined, manualRoot: previous.manualRoot || slot === 'root' };
+    if (slot === 'end' && !previous.manualRoot && limbParts.has(previous.part)) {
+      next.root = null;
+      try {
+        const suggestion = suggestPickedPoseChain(model, id), path = poseChainIds(poseChainBetween(model, suggestion.root, id));
+        next.root = suggestion.root; next.excluded = path.filter(joint => !poseChainIds(suggestion).includes(joint));
+      } catch { /* Keep the selected end; Start remains available for a manual pick. */ }
     }
-    onChange(next); setOpen(false);
+    return next;
   });
-  const addObject = () => run(() => {
-    const id = object === '' ? selectedNodeIds.at(-1) : Number(object);
-    if (!nodes.some(node => node.ObjectId === id)) throw new Error('Select an object in the view or Object picker.');
-    onChange({ ...config, nodes: [...new Set([...(config.nodes || []), id])] }); onSelect?.({ kind: 'node', id });
-  });
-  const add = () => run(() => {
-    const chain = { ...draft, root: Number(draft.root), middle: Number(draft.middle), end: Number(draft.end), key: crypto.randomUUID() };
-    if ([draft.root, draft.middle, draft.end].some(value => value === '')) throw new Error('Choose the three joints first.');
-    validatePoseChain(model, chain); if (model.Sequences?.[sequence]) samplePoseChain(model, chain, frame, sequence);
-    onChange({ ...config, chains: [...config.chains.filter(item => item.end !== chain.end), chain], target: { kind: 'endpoint', key: chain.key } }); onSelect?.({ kind: 'endpoint', key: chain.key });
-  });
-  const setBodyMapping = () => run(() => { if (body === '') throw new Error('Choose a body node.'); validatePoseBody(model, Number(body), legs); onChange({ ...config, body: Number(body) }); });
-  const select = target => { onChange({ ...config, target }); onSelect?.(target); };
-  const remove = key => onChange({ ...config, chains: config.chains.filter(chain => chain.key !== key), pins: config.pins.filter(pin => pin !== key), target: config.target?.key === key ? null : config.target });
-  const pin = () => run(() => {
-    if (config.pins.includes(active.key)) { onChange({ ...config, pins: config.pins.filter(key => key !== active.key) }); return; }
-    samplePoseChain(model, active, frame, sequence);
-    onChange({ ...config, pins: [...config.pins, active.key] });
-  });
-  let invalid = '';
-  try { for (const chain of config.chains) { validatePoseChain(model, chain); if (open) samplePoseChain(model, chain, frame, sequence); } if (config.body != null) validatePoseBody(model, config.body, legs); } catch (cause) { invalid = cause.message; }
+  useEffect(() => {
+    if (open && editor && config.pickSerial && selectedNodeIds.length === 1) { setError(''); pick(selectedNodeIds[0]); }
+  }, [config.pickSerial]);
+  const part = editor?.part, isChain = limbParts.has(part);
+  let draft = null, path = [], hint = '', conflict, repair;
+  if (editor) {
+    try {
+      if (isChain) {
+        if (editor.root != null && editor.end != null) {
+          path = poseChainIds(poseChainBetween(model, editor.root, editor.end));
+          draft = { ...poseChainBetween(model, editor.root, editor.end, editor.excluded), kind: ['Foot','Hoof'].includes(part) ? 'leg' : 'arm', ...(['Hoof','Wing','Chain'].includes(part) ? { label: part } : {}) };
+          const originalChain = config.chains.find(chain => chain.key === editor.original?.key);
+          if (originalChain?.end === editor.end && originalChain.grip) draft.grip = originalChain.grip;
+          if (model.Sequences?.[sequence]) samplePoseChain(model, draft, frame, sequence);
+          const otherChains = config.chains.filter(chain => !editor.replacements?.some(item => item.key === chain.key));
+          conflict = otherChains.find(chain => chain.key !== editor.original?.key && chain.end !== draft.end && poseChainIds(chain).some(id => poseChainIds(draft).includes(id)));
+          if (conflict) {
+            repair = separatePoseChains(model, draft, otherChains.filter(chain => chain.key !== editor.original?.key && chain.end !== draft.end));
+            throw new Error(repair ? 'Both chains start in the body. I can give each limb its own start.' : `This overlaps ${names.get(conflict.end)}. Pick a start farther down this limb.`);
+          }
+        }
+      } else if (editor.end != null) draft = { id: editor.end };
+    } catch (cause) { draft = null; hint = /uniform|shear/i.test(cause.message) ? 'This chain has uneven scale. Its normal bone controls still work.' : cause.message; }
+  }
+  const inspected = draft ? isChain ? poseChainIds(draft) : [draft.id] : path.length ? path.filter(id => id === editor.root || id === editor.end || !editor.excluded.includes(id)) : [editor?.root, editor?.end].filter(id => id != null);
+  useEffect(() => { if (JSON.stringify(config.inspectIds || []) !== JSON.stringify(inspected)) onChange({ ...config, inspectIds: inspected }); }, [JSON.stringify(inspected)]);
+  const choose = role => { setEditor({ part: role, root: null, end: null, excluded: [], original: null, manualRoot: false }); setSlot('end'); setError(''); onChange({ ...config, picking: role, inspectIds: [] }); };
+  const mappings = [ ...(config.body == null ? [] : [{ part: 'Body', id: config.body, target: { kind: 'body' } }]),
+    ...(config.nodes || []).filter(id => id !== config.body && !config.chains.some(chain => chain.end === id)).map(id => ({ part: poseRole(model, config, id), id, target: { kind: 'node', id } })),
+    ...config.chains.map(chain => ({ part: chain.label || (chain.kind === 'leg' ? 'Foot' : 'Hand'), id: chain.end, chain, target: { kind: 'endpoint', key: chain.key } })) ];
+  const edit = item => {
+    setOpen('setup');
+    let path = [], problem = '';
+    if (item.chain) { try { path = poseChainIds(poseChainBetween(model, item.chain.root, item.chain.end)); } catch (cause) { path = poseChainIds(item.chain); problem = cause.message; } }
+    setEditor({ part: item.part, root: item.chain?.root ?? null, end: item.id, excluded: path.filter(id => !poseChainIds(item.chain).includes(id)), original: item.target, manualRoot: true });
+    setSlot('end'); setError(problem); onChange({ ...config, target: item.target, picking: item.part, inspectIds: path.length ? path : [item.id] });
+  };
+  const showSetup = () => { setOpen('setup'); const item = mappings.find(item => sameTarget(item.target, config.target)); if (item) edit(item); };
+  const enable = () => {
+    let next = { ...config, enabled: !config.enabled, target: null, picking: null, inspectIds: [] };
+    if (next.enabled && !config.initialized) next = { ...next, ...suggestPoseRig(model, frame, sequence), initialized: true };
+    onChange(next); setOpen(false); setEditor(null);
+  };
+  const without = (value, target) => {
+    if (!target) return value;
+    const next = { ...value, target: null };
+    if (target.kind === 'body') next.body = null;
+    if (target.kind === 'node') { next.nodes = (value.nodes || []).filter(id => id !== target.id); next.roles = { ...value.roles }; delete next.roles[target.id]; }
+    if (target.kind === 'endpoint') {
+      next.chains = value.chains.filter(chain => chain.key !== target.key); next.pins = value.pins.filter(key => key !== target.key);
+      for (const key of ['targets','bends']) { next[key] = { ...value[key] }; delete next[key][target.key]; }
+    }
+    return next;
+  };
+  const save = () => {
+    if (!draft) return;
+    let next = { ...without(config, editor.original), picking: null, inspectIds: [], targets: {} }, target;
+    if (editor.replacements) {
+      next.chains = next.chains.map(chain => editor.replacements.find(item => item.key === chain.key) || chain);
+      next.bends = { ...next.bends }; for (const chain of editor.replacements) delete next.bends[chain.key];
+    }
+    if (isChain) {
+      const chain = { ...draft, key: `limb:${draft.end}` };
+      next = without(next, { kind: 'endpoint', key: chain.key }); next.chains = [...next.chains, chain]; if (config.pins.includes(chain.key)) next.pins = [...next.pins,chain.key]; target = { kind: 'endpoint', key: chain.key };
+    } else if (part === 'Body') { next.body = draft.id; target = { kind: 'body' }; }
+    else { next.nodes = [...new Set([...(next.nodes || []), draft.id])]; next.roles = { ...next.roles, [draft.id]: part }; target = { kind: 'node', id: draft.id }; }
+    onChange({ ...next, target }); onSelect?.(target); setEditor(null); setError('');
+  };
+  const repairSharedStart = () => {
+    if (!repair) return;
+    setEditor(previous => ({ ...previous, root: repair.draft.root, excluded: poseChainIds(poseChainBetween(model, repair.draft.root, repair.draft.end)).filter(id => !poseChainIds(repair.draft).includes(id)), replacements: repair.replacements, manualRoot: true }));
+  };
+  const remove = () => { onChange({ ...without(config, editor.original), picking: null, inspectIds: [] }); setEditor(null); setError(''); };
+  const pickSlot = key => { setSlot(key); onChange({ ...config, picking: part }); };
   return <div className="pose-controls" ref={anchor} data-pose-revision={revision}>
-    <button type="button" aria-label="POSE" aria-pressed={config.enabled} disabled={disabled} title="Pose with the existing Move, Rotate and Scale tools" onClick={enable}>POSE</button>
+    <button type="button" aria-label="POSE" aria-pressed={config.enabled} disabled={disabled} title="Pose with Move, Rotate and Scale" onClick={enable}>POSE</button>
     {config.enabled && <>
-      <button type="button" aria-label="POSE setup" aria-expanded={open} disabled={disabled} onClick={showSetup}>Setup…</button>
-      {active && config.target?.kind === 'endpoint' && <button type="button" aria-label={active.kind === 'leg' ? 'Pin selected foot' : 'Pin selected hand'} aria-pressed={config.pins.includes(active.key)} disabled={disabled} title="Keep this endpoint in place when its ancestors move" onClick={pin}>{config.pins.includes(active.key) ? 'Pinned' : 'Pin'}</button>}
-      {config.target && <span className="pose-target" title={config.target.kind === 'node' ? names.get(config.target.id) : config.target.kind === 'body' ? names.get(config.body) : names.get(active?.end)}>{config.target.kind === 'node' ? poseNodeRole(nodes.find(node => node.ObjectId === config.target.id)) : config.target.kind === 'body' ? 'Body' : config.target.kind === 'bend' ? 'Bend' : active?.kind === 'leg' ? 'Foot' : 'Hand'}</span>}
+      <button type="button" aria-label="Add POSE handle" aria-expanded={open === 'add'} disabled={disabled} onClick={() => { back(); setOpen('add'); }}>Add</button>
+      <button type="button" aria-label="POSE setup" aria-expanded={open === 'setup'} disabled={disabled} onClick={() => open === 'setup' ? close() : showSetup()}>Setup</button>
+      <button type="button" className="pose-crosshair" aria-label="Blocker crosshair" aria-pressed={config.crosshair !== false} disabled={disabled} title="Show the handle blocking a move" onClick={() => onChange({ ...config, crosshair: config.crosshair === false })}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v7m0 8v7M1 12h7m8 0h7"/></svg>
+      </button>
     </>}
-    {open && config.enabled && <div className="pose-setup" role="dialog" aria-modal="false" aria-label="POSE setup">
-      <header><strong>POSE setup</strong><button aria-label="Close POSE setup" onClick={() => setOpen(false)}>×</button></header>
-      <p>Hands and feet are suggested from this rig. Use Move, Rotate or Scale. Select any other object to pose it directly.</p>
-      {config.body != null && <div className="pose-mapping"><button onClick={() => select({ kind: 'body' })}>Body: {names.get(config.body)}</button></div>}
-      {(config.nodes || []).filter(id => id !== config.body && !config.chains.some(chain => chain.end === id)).map(id => <div className="pose-mapping" key={id}><button onClick={() => select({ kind: 'node', id })}>{poseNodeRole(nodes.find(node => node.ObjectId === id))}: {names.get(id)}</button><button aria-label={`Remove POSE ${names.get(id)}`} onClick={() => onChange({ ...config, nodes: config.nodes.filter(value => value !== id) })}>×</button></div>)}
-      <label>Object<select aria-label="POSE object" value={object} onChange={event => setObject(event.target.value)}><option value="">Selected object</option>{nodes.map(node => <option key={node.ObjectId} value={node.ObjectId}>{names.get(node.ObjectId)}</option>)}</select></label>
-      <button disabled={disabled} onClick={addObject}>Add object handle</button>
-      <details className="pose-custom"><summary>Custom limb…</summary>
-      <p>For unnamed or unusual rigs, choose the limb yourself. A reference / attachment can supply its endpoint.</p>
-      <button disabled={disabled || selectedNodeIds.length !== 1} onClick={suggest}>Suggest selected chain</button>
-      <label>Handle<select aria-label="POSE limb kind" value={draft.kind} onChange={event => setDraft({ ...draft, kind: event.target.value })}><option value="arm">Hand</option><option value="leg">Foot</option></select></label>
-      {['root', 'middle', 'end'].map((joint, index) => <label key={joint}>{['Upper joint', 'Elbow / knee', 'Hand / foot'][index]}<select aria-label={`POSE ${joint}`} value={draft[joint]} onChange={event => setDraft({ ...draft, [joint]: event.target.value })}><option value="">Choose…</option>{(joint === 'end' ? nodes : joints).map(node => <option key={node.ObjectId} value={node.ObjectId}>{names.get(node.ObjectId)}</option>)}</select></label>)}
-      <button disabled={disabled} onClick={add}>Add handle</button>
-      </details>
-      {config.chains.map(chain => <div className="pose-mapping" key={chain.key}><button title={`${names.get(chain.root)} → ${names.get(chain.middle)} → ${names.get(chain.end)}`} onClick={() => select({ kind: 'endpoint', key: chain.key })}>{chain.kind === 'leg' ? 'Foot' : 'Hand'}: {names.get(chain.end)}</button><button aria-label={`Remove POSE ${names.get(chain.end)}`} onClick={() => remove(chain.key)}>×</button></div>)}
-      <details className="pose-custom"><summary>Body node…</summary>
-        <label>Body<select aria-label="POSE body node" value={body} onChange={event => setBody(event.target.value)}><option value="">Choose…</option>{nodes.map(node => <option key={node.ObjectId} value={node.ObjectId}>{names.get(node.ObjectId)}</option>)}</select></label>
-        <div className="pose-mapping"><button onClick={() => run(() => setBody(suggestPoseBody(model, config.chains)))}>Suggest body</button><button onClick={setBodyMapping}>Confirm body</button></div>
-        {config.body != null && <button disabled={!!invalid} onClick={() => select({ kind: 'body' })}>Select body handle</button>}
-      </details>
-      <p>Pin a hand or foot to hold it while moving other controls. Release it with Pinned. Drag Bend to steer an elbow / knee.</p>
-      {(error || invalid) && <p role="alert">{error || invalid}</p>}
-    </div>}
+    {open && config.enabled && <SetupWindow onClose={close} title={open === 'add' ? 'Add handle' : 'Setup'}>
+      {editor ? <>
+        <div className="pose-edit-heading"><button onClick={back}>{open === 'add' ? 'Back' : 'Handles'}</button><PartIcon part={part}/><strong>{part}</strong></div>
+        <p>{editor.end == null ? 'Click the bone you want to grab.' : draft ? 'Ready. The connected bones are highlighted.' : 'Choose the bones in the view.'}</p>
+        <button className="pose-use-selected" aria-label="Pick endpoint" onClick={() => pickSlot('end')}>{names.get(editor.end) || 'Pick a bone...'}</button>
+        {selectedNodeIds.length === 1 && editor[slot] !== selectedNodeIds[0] && <button className="pose-use-selected" onClick={() => pick(selectedNodeIds[0])}>Use selected bone</button>}
+        <details className="pose-adjust"><summary>{isChain ? 'Adjust chain' : 'Change bone'}</summary>
+        <div className="pose-bounds">{(isChain ? ['root','end'] : ['end']).map(key => <button key={key} aria-label={`Pick ${isChain ? key === 'root' ? 'Start' : 'End' : 'Bone'}`} aria-pressed={slot === key} onClick={() => pickSlot(key)}><b>{isChain ? key === 'root' ? 'Start' : 'End' : 'Bone'}</b><span>{names.get(editor[key]) || 'Click a bone…'}</span></button>)}</div>
+        <p className="pose-pick-prompt">Picking {isChain ? slot === 'root' ? 'Start' : 'End' : 'Bone'} · click again to cycle overlaps.</p>
+        {path.length > 2 && <><p>Bending joints</p><div className="pose-chain" aria-label="Bending joints">{path.slice(1,-1).map(id => <label key={id} title={names.get(id)}><input type="checkbox" aria-label={`Use joint ${names.get(id)}`} checked={!editor.excluded.includes(id)} onChange={() => setEditor(previous => ({ ...previous, excluded: previous.excluded.includes(id) ? previous.excluded.filter(value => value !== id) : [...previous.excluded,id] }))}/><span>{names.get(id)}</span></label>)}</div></>}
+        </details>
+        {hint && <p role="status" className="pose-setup-hint">{hint}</p>}
+        {repair && <button className="pose-new-chain" onClick={repairSharedStart}>Use separate limbs</button>}
+        {conflict && !repair && <button onClick={() => edit(mappings.find(item => item.chain?.key === conflict.key))}>Edit {names.get(conflict.end)}</button>}
+        <div className="pose-actions"><button disabled={!draft || disabled} onClick={save}>{editor.original ? 'Save changes' : isChain && config.chains.some(chain => chain.end === draft?.end) ? 'Replace handle' : 'Add handle'}</button><button onClick={back}>Cancel</button></div>
+        {editor.original && <button className="pose-remove" onClick={remove}>Remove handle</button>}
+      </> : open === 'add' ? <>
+        <div className="pose-parts">{['Hand','Foot','Hoof','Wing','Head','Chest','Pelvis','Body','Tail','Object'].map(role => <button key={role} title={role} aria-label={`Map ${role}`} onClick={() => choose(role)}><PartIcon part={role}/><span>{role}</span></button>)}</div>
+        <button className="pose-new-chain" onClick={() => choose('Chain')}>+ New bone chain</button>
+      </> : <>
+        {!mappings.length && <p>No handles yet.</p>}
+        <div className="pose-mapped" aria-label="Mapped handles">{mappings.map(item => <button key={`${item.target.kind}:${item.id}`} title={`${item.part}: ${names.get(item.id)}`} aria-label={`Edit ${item.part}: ${names.get(item.id)}`} onClick={() => edit(item)}><PartIcon part={item.part}/><span><b>{item.part}</b><small>{names.get(item.id)}</small></span></button>)}</div>
+      </>}
+      {error && <p role="alert">{error}</p>}
+    </SetupWindow>}
     {!open && error && <span role="alert" className="pose-error">{error}</span>}
   </div>;
 }

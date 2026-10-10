@@ -4,7 +4,7 @@ import { Matrix4, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { applyMovementTransform, deleteMovementControllers, deleteMovementKeys, insertMovementKeys, movementControllerType, movementKeyframes, sampleMovement, setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve, updateMovementKey } from '../src/movement.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
-import { MOVEMENT_GIZMO_SCALE, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
+import { MOVEMENT_GIZMO_SCALE, MOVEMENT_MOVE_MAX_PIXELS, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from '../app/game-preview-data.js';
 import { patchWarcraftMeshFragmentShader, previewGeosetTint } from '../app/warcraft-preview-adapter.js';
 import { projectedPlaneTranslation } from '../app/viewport-math.js';
@@ -280,10 +280,12 @@ test('YZ move keeps model X fixed when the camera looks along X', () => {
   near(delta[0], 0); assert.ok(Math.abs(delta[1]) > 0 || Math.abs(delta[2]) > 0);
 });
 
-test('rotate picks an axis bar while move requires its endpoint', () => {
+test('Move picks the visible shaft and tip while leaving the central symbol free', () => {
   const handles = [{ axis: 'X', startX: 10, startY: 10, x: 110, y: 10 }];
   assert.equal(pickMovementHandle(handles, 55, 14, 'rotate')?.axis, 'X');
-  assert.equal(pickMovementHandle(handles, 55, 14, 'move'), null);
+  assert.equal(pickMovementHandle(handles, 55, 14, 'move')?.axis, 'X');
+  assert.equal(pickMovementHandle(handles, 15, 14, 'move'), null);
+  assert.equal(pickMovementHandle(handles, 55, 14, 'scale'), null);
   assert.equal(pickMovementHandle(handles, 106, 14, 'move')?.axis, 'X');
 });
 
@@ -368,4 +370,79 @@ test('light node markers show the authored RGB at the selected keyframe', () => 
   const model = fixture(), camera = new PerspectiveCamera(40, 1, .1, 1000); camera.position.set(0, -40, 20); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
   model.Lights = [{ ObjectId: 5, PivotPoint: [0, 0, 0], Color: track([100, [1, 0, 0]], [1000, [0, 0, 1]]) }];
   assert.equal(projectMovementNodes(model, 550, 0, camera, 400, 400).find(point => point.node.ObjectId === 5).displayColor, 'rgb(128,0,128)');
+});
+
+
+test('Move projects plane squares onto their real world planes and hides edge-on pads', () => {
+  const camera = new PerspectiveCamera(40, 1, .1, 1000); camera.up.set(0, 0, 1); camera.position.set(100, -140, 100); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  const active = { world: new Vector3(), x: 200, y: 200, visible: true };
+  const handles = movementAxisHandles(active, camera, 400, 400, 50, 'world', 'move');
+  assert.deepEqual(handles.filter(handle => handle.plane).map(handle => handle.plane), ['xy', 'xz', 'yz']);
+  for (const pad of handles.filter(handle => handle.plane)) {
+    const points = [pad, ...pad.polygon.map(point => ({ x: pad.x + (point.x - pad.x) * .6, y: pad.y + (point.y - pad.y) * .6 }))];
+    assert.ok(points.some(point => pickMovementHandle(handles, point.x, point.y, 'move') === pad), pad.plane + ' has a clickable visible area');
+    assert.equal(pad.polygon.length, 4);
+  }
+  assert.equal(pickMovementHandle(handles, active.x, active.y, 'move'), null);
+  assert.equal(movementAxisHandles(active, camera, 400, 400, 50, 'world', 'scale').length, 3);
+  camera.position.set(0, -100, 0); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  assert.deepEqual(movementAxisHandles(active, camera, 400, 400, 50, 'world', 'move').filter(handle => handle.plane).map(handle => handle.plane), ['xz']);
+});
+
+
+test('an arrow drawn over a plane square owns its visible shaft', () => {
+  const arrow = { axis: 'X', startX: 0, startY: 0, x: 70, y: 0 };
+  const pad = { axis: 'XY', plane: 'xy', startX: 0, startY: 0, x: 35, y: 3, polygon: [{x:28,y:-4},{x:42,y:-4},{x:42,y:10},{x:28,y:10}] };
+  assert.equal(pickMovementHandle([arrow, pad], 35, 0, 'move'), arrow);
+  assert.equal(pickMovementHandle([arrow, pad], 35, 8, 'move'), pad);
+});
+
+
+test('Move arrows have room around the central grip and Pin clears the shaft and squares', () => {
+  const camera = new PerspectiveCamera(40, 1, .1, 1000); camera.up.set(0, 0, 1); camera.position.set(100, -140, 100); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  const active = { world: new Vector3(), x: 200, y: 200, visible: true };
+  const handles = movementAxisHandles(active, camera, 400, 400, 50, 'world', 'move');
+  assert.ok(handles.filter(handle => !handle.plane).every(handle => Math.hypot(handle.dx, handle.dy) >= 52 - 1e-8));
+  assert.equal(pickMovementHandle(handles, active.x, active.y, 'move'), null, 'Central direct grip retains priority');
+  const position = movementPinPosition(active, handles, 400, 400, 40, 22, [active]);
+  for (let x = position.x; x <= position.x + 40; x += 2) for (let y = position.y; y <= position.y + 22; y += 2) assert.equal(pickMovementHandle(handles, x, y, 'move'), null);
+  assert.ok(position.y >= 0 && position.y + 22 <= 400 && position.x >= 0 && position.x + 40 <= 400);
+});
+
+
+test('plane pads stay fixed between their arrows with half-length sides', () => {
+  const camera = new PerspectiveCamera(40,1,.1,1000);camera.up.set(0,0,1);camera.position.set(100,-140,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
+  const active={world:new Vector3(),x:200,y:200,visible:true};
+  const handles=movementAxisHandles(active,camera,400,400,50,'world','move');
+  for (const pad of handles.filter(handle=>handle.plane)) {
+    const [a,b]=pad.axis.split('').map(axis=>handles.find(handle=>handle.axis===axis));
+    assert.equal(pad.x,active.x+(a.dx+b.dx)/2);assert.equal(pad.y,active.y+(a.dy+b.dy)/2);
+    assert.ok(Math.abs(Math.hypot(pad.polygon[1].x-pad.polygon[0].x,pad.polygon[1].y-pad.polygon[0].y)-Math.hypot(a.dx,a.dy)/2)<1e-8);
+    assert.ok(Math.abs(Math.hypot(pad.polygon[2].x-pad.polygon[1].x,pad.polygon[2].y-pad.polygon[1].y)-Math.hypot(b.dx,b.dy)/2)<1e-8);
+  }
+  for (let offset=-25;offset<=25;offset+=5) {
+    const neighbour={x:handles[3].x+offset,y:handles[3].y,visible:true};
+    assert.deepEqual(movementAxisHandles(active,camera,400,400,50,'world','move',[neighbour]),handles,'Nearby controls cannot reposition squares');
+  }
+});
+
+test('Move size follows distant model scale and cannot exceed the reference size', () => {
+  const camera=new PerspectiveCamera(40,1,.1,20000);camera.up.set(0,0,1);
+  const world=new Vector3(80,30,60),active={world,visible:true};
+  let closeLength;
+  for(const distance of [120,300,900,3000,9000])for(const zoom of [.4,1,3]) {
+    camera.position.set(distance,-distance*1.4,distance);camera.lookAt(0,0,0);camera.zoom=zoom;camera.updateProjectionMatrix();camera.updateMatrixWorld();
+    const screen=world.clone().project(camera);active.x=(screen.x+1)*200;active.y=(1-screen.y)*200;
+    const handles=movementAxisHandles(active,camera,400,400,200,'world','move'),lengths=handles.filter(h=>!h.plane).map(h=>Math.hypot(h.dx,h.dy));
+    assert.ok(lengths.every(length=>length<=MOVEMENT_MOVE_MAX_PIXELS+1e-8&&length>=52-1e-8));
+    if(distance===120&&zoom===1)closeLength=Math.max(...lengths);
+    if(distance===9000&&zoom===1)assert.ok(Math.max(...lengths)<closeLength,'Zoomed-out view shrinks the gizmo');
+  }
+});
+
+test('Move plane colors match the red/blue association shown by the user', () => {
+  const camera=new PerspectiveCamera(40,1,.1,1000);camera.up.set(0,0,1);camera.position.set(100,-140,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
+  const handles=movementAxisHandles({world:new Vector3(),x:200,y:200,visible:true},camera,400,400,200,'world','move');
+  const expected={xy:'X',xz:'Y',yz:'Z'};
+  for(const pad of handles.filter(h=>h.plane))assert.equal(pad.color,handles.find(h=>h.axis===expected[pad.plane]).color);
 });

@@ -1,6 +1,6 @@
 import PoseControls from './PoseControls.jsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { allNodes } from '../src/animation.js';
+import { allNodes, sampleNodeMatrices } from '../src/animation.js';
 import { nodeKind } from '../src/editor-commands.js';
 import {
   applyMovementPose, applyMovementTransform, constrainMovementVector, deleteMovementControllers,
@@ -8,7 +8,7 @@ import {
   setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve,
 } from '../src/movement.js';
 import { movementSelectionSummary } from '../src/movement-selection.js';
-import { poseAffectedPins, samplePoseChain, solvePoseLimb, solvePoseNode } from '../src/pose-ik.js';
+import { poseControlPoint, poseNodeControl, withPoseResult, poseNodeConstraints, samplePoseChain, solvePoseLimb, solvePoseNode } from '../src/pose-ik.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { HELPER_LIST_COLOR, rigNodeListGroups, rigNodeListKind } from '../src/rig-node-order.js';
 import { visualOptions } from '../src/preferences.js';
@@ -74,9 +74,11 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
   const summary = useMemo(() => movementSelectionSummary(model, selectedNodeIds, selectionByGeoset, { time: frame, sequenceIndex: editSequenceIndex, restPose }), [model, revision, selectedNodeIds, selectionByGeoset, frame, editSequenceIndex, restPose]);
   const editableNodes = !disabled && !globalDomain && selected.length > 0 && (restPose || editSequenceIndex >= 0);
   const poseTarget = !restPose && poseConfig?.enabled && poseConfig.target;
-  const blocked = mode => poseTarget && mode !== 'select' ? poseTarget.kind === 'bend' && mode !== 'move' || movementRestricted(poseTarget.kind === 'endpoint' && mode === 'move' || poseTarget.kind === 'bend' ? 'rotate' : mode, restrictions) : movementRestricted(mode, restrictions) || restPose && mode !== 'move' && mode !== 'select';
+  const connected = poseTarget && poseNodeControl(model, poseConfig, poseTarget, 'move').joints.length > 0;
+  const coordinateCenter = useMemo(() => connected ? poseControlPoint(model, poseConfig, poseTarget.id, sampleNodeMatrices(model, frame, editSequenceIndex, frame)).toArray() : summary.center, [connected, model, revision, poseConfig, poseTarget, frame, editSequenceIndex, summary.center]);
+  const blocked = mode => poseTarget && mode !== 'select' ? poseTarget.kind === 'bend' && mode !== 'move' || movementRestricted((poseTarget.kind === 'endpoint' || connected) && mode === 'move' || poseTarget.kind === 'bend' ? 'rotate' : mode, restrictions) : movementRestricted(mode, restrictions) || restPose && mode !== 'move' && mode !== 'select';
   const normalAxis = workplaneEnabled ? movementPlaneAxis(workplane) : -1;
-  const controllerMode = movementProperties[transformMode] ? transformMode : null;
+  const controllerMode = connected && transformMode === 'move' ? 'rotate' : movementProperties[transformMode] ? transformMode : null;
   const controllerProperty = controllerMode ? movementProperties[controllerMode] : null;
   const controllerType = useMemo(() => selected.length && controllerMode ? movementControllerType(model, selectedNodeIds, controllerMode) : null, [model, revision, selectedNodeIds, selected.length, controllerMode]);
   const selectedKey = selected.length === 1 && controllerProperty ? selected[0][controllerProperty]?.Keys?.find(key => key.Frame === frame) : null;
@@ -84,9 +86,10 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
   useEffect(() => { setValues(transformMode === 'scale' ? [1, 1, 1] : [0, 0, 0]); setError(''); }, [transformMode, restPose]);
   useEffect(() => { setIncoming(vectorText(selectedKey?.InTan || selectedKey?.Vector)); setOutgoing(vectorText(selectedKey?.OutTan || selectedKey?.Vector)); }, [selectedKey, revision, controllerType]);
 
+  const poseResult = useRef(null);
   const run = (label, mutate) => {
     if (disabled || globalDomain) return false;
-    setError(''); onPlayingChange?.(false);
+    setError(''); onPlayingChange?.(false); poseResult.current = null;
     try {
       let cause;
       const result = onEdit?.(label, restPose ? ['Nodes', 'PivotPoints'] : ['Nodes'], current => { try { return mutate(current); } catch (failure) { cause = failure; throw failure; } });
@@ -94,6 +97,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
       // The document returns false for a valid no-op (for example, changing
       // T/C/B on a single constant key). Only thrown validation failures are errors.
       if (result === false) return true;
+      if (poseResult.current) onPoseChange?.(withPoseResult(poseConfig, poseResult.current));
       return true;
     } catch (cause) { setError(cause.message); return false; }
   };
@@ -106,20 +110,22 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
       if (chain && change.mode === 'move') {
         const pose = samplePoseChain(current, chain, frame, editSequenceIndex);
         result = solvePoseLimb(current, chain, frame, editSequenceIndex, pose.end.clone().add({ x: change.values[0], y: change.values[1], z: change.values[2] }));
-      } else result = solvePoseNode(current, id, poseAffectedPins(current, poseConfig, id).map(chain => ({ chain })), frame, editSequenceIndex, change);
-      return applyMovementPose(current, result.changes, frame, editSequenceIndex, restrictions);
+      } else result = solvePoseNode(current, id, poseNodeConstraints(current, poseConfig, id, change.mode), frame, editSequenceIndex, { ...change, control: poseNodeControl(current, poseConfig, poseTarget, change.mode) });
+      const applied = applyMovementPose(current, result.changes, frame, editSequenceIndex, restrictions);
+      if (applied) poseResult.current = result;
+      return applied;
     }
     return controlModel && ['move', 'rotate'].includes(change.mode)
       ? applyPortraitModelTransform(current, selectedNodeIds, frame, editSequenceIndex, change)
       : applyMovementTransform(current, selectedNodeIds, frame, editSequenceIndex, change);
   };
   const commitPosition = (index, value) => {
-    if (!summary.center || blocked('move')) return;
-    const translation = [0, 0, 0]; translation[index] = value - summary.center[index];
+    if (!coordinateCenter || blocked('move')) return;
+    const translation = [0, 0, 0]; translation[index] = value - coordinateCenter[index];
     if (summary.source === 'nodes') run(controlModel ? 'Control Model' : restPose ? 'Move rest-pose pivots' : 'Move bones and nodes', current => transform(current, { ...options, mode: 'move', space: 'world', values: translation }));
     else if (restPose && onVertexTransform) { onPlayingChange?.(false); onVertexTransform({ translation: constrainMovementVector(translation, options), selections: selectionByGeoset }); }
   };
-  const coordinateValues = ['rotate', 'scale'].includes(transformMode) ? values : summary.center;
+  const coordinateValues = ['rotate', 'scale'].includes(transformMode) ? values : coordinateCenter;
   const coordinateDisabled = index => disabled || index === normalAxis || !coordinateValues || (['move', 'select'].includes(transformMode) ? blocked('move') || !summary.center || (summary.source === 'nodes' ? !editableNodes : !restPose || !onVertexTransform) : !editableNodes || blocked(transformMode));
   const commitCoordinate = (index, value) => {
     if (['move', 'select'].includes(transformMode)) return commitPosition(index, value);
