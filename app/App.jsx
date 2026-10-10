@@ -15,6 +15,7 @@ const ParticleEditor = lazy(() => import('./ParticleEditor.jsx'));
 const UVWorkspace = lazy(() => import('./UVWorkspace.jsx'));
 // Detached UV windows copy styles before their lazy contents mount.
 import './uv-workspace.css';
+import './mesh-density.css';
 import DetachedWindow from './DetachedWindow.jsx';
 import { openDetachedUVWindow, openOptimizeXLWindow } from './detached-window.js';
 import './optimizexl.css';
@@ -1032,18 +1033,18 @@ export default function App() {
     setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
     say('Forge item created and attached to DummyBone.');return result;
   }
-  function applyGeosetDensity(index, nextGeoset) {
+  function applyGeosetDensity(changes) {
     try {
-      if (!Number.isSafeInteger(index) || !model.Geosets[index] || !nextGeoset?.Vertices?.length || !nextGeoset?.Faces?.length) throw Error('Choose a valid geoset density preview.');
-      const before = model.Geosets[index].Faces.length / 3, after = nextGeoset.Faces.length / 3;
+      if (!changes?.length || changes.some(change => !Number.isSafeInteger(change.index) || !model.Geosets[change.index] || !change.geoset?.Vertices?.length || !change.geoset?.Faces?.length)) throw Error('Choose a valid geoset density preview.');
       const result = edit('Change geoset triangle density', ['Geosets'], current => {
-        current.Geosets[index] = structuredClone(nextGeoset); return { before, after };
+        for (const change of changes) current.Geosets[change.index] = structuredClone(change.geoset);
+        return changes;
       }, { rethrow: true });
       if (result === false) return false;
-      const ids = Array.from({ length: nextGeoset.Vertices.length / 3 }, (_, vertex) => vertex);
-      setSelectable(previous => new Set([...previous, index])); setActiveGeoset(index); setSelection(previous => ({ ...previous, [index]: ids })); setHidden(previous => ({ ...previous, [index]: [] }));
-      if (mode === 'uv') setUVEntrySelection(previous => ({ ...previous, [index]: ids }));
-      setLiveUV(null); clearZoomAnchor(); say(`Geoset ${index + 1}: ${before} → ${after} triangles.`); return result;
+      const nextSelection = Object.fromEntries(changes.map(change => [change.index, change.selectedVertices]));
+      setSelection(previous => ({ ...previous, ...nextSelection }));
+      if (mode === 'uv') setUVEntrySelection(previous => ({ ...previous, ...Object.fromEntries(changes.map(change => [change.index, [...new Set([...(previous[change.index] || []), ...change.selectedVertices])]])) }));
+      setLiveUV(null); clearZoomAnchor(); say(changes.map(change => `Geoset ${change.index + 1}: ${change.trianglesBefore} → ${change.trianglesAfter} triangles.`).join(' ')); return result;
     } catch (error) { say(error.message, true); return false; }
   }
   async function importPart({source,rgbSequence,assets,replacement}) {
