@@ -72,15 +72,22 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     results.checks.push('Actual Alt-mouse camera rotation');
     await page.getByRole('button',{name:'Fit',exact:true}).click();await settle();
     async function gizmo(pose){
-      const data=await page.evaluate(()=>{const {runtime,props}=poseProbe(),canvas=document.querySelector('[data-clean-model-canvas]');return {camera:runtime.controls.object.toJSON(),width:canvas.clientWidth,height:canvas.clientHeight,frame:runtime.native.getFrame(),sequence:props.sequenceIndex,id:props.selectedNodeIds.at(-1)};});
+      const data=await page.evaluate(()=>{const {runtime,props}=poseProbe(),canvas=document.querySelector('[data-clean-model-canvas]');return {camera:runtime.controls.object.toJSON(),width:canvas.clientWidth,height:canvas.clientHeight,frame:runtime.native.getFrame(),sequence:props.sequenceIndex,id:props.selectedNodeIds.at(-1),radius:runtime.captureApi.showcaseView().radius};});
       const camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
       const active=pose?await handleFor('body'):projectMovementNodes(sourceModel,data.frame,data.sequence,camera,data.width,data.height).find(p=>p.node.ObjectId===data.id);
-      return {active,handles:movementAxisHandles(active,camera,data.width,data.height,100,'world','move',pose?await handles():[])};
+      return {active,handles:movementAxisHandles(active,camera,data.width,data.height,data.radius,'world','move',pose?await handles():[])};
     }
     async function position(id){const data=await page.evaluate(id=>{const n=poseProbe().runtime.native.rendererData.nodes.find(n=>n?.node.ObjectId===id);return {pivot:Array.from(n.node.PivotPoint),matrix:Array.from(n.matrix)};},id);return new Vector3().fromArray(data.pivot).applyMatrix4(new Matrix4().fromArray(data.matrix));}
     async function checkedDrag(pose,label,point,dx,dy,allowed,cancel=false){
       const before=await snap(), g=await gizmo(pose), id=pose?config.body:g.active.node.ObjectId, from=await position(id);box=await viewportBox();console.log(pose?'POSE':'Bone',label,'pick',pickMovementHandle(g.handles,point.x,point.y,'move')?.axis);
-      await page.mouse.move(box.x+point.x,box.y+point.y);await page.mouse.down();await page.mouse.move(box.x+point.x+dx,box.y+point.y+dy,{steps:4});
+      await page.mouse.move(box.x+point.x,box.y+point.y);await page.mouse.down();
+      const picked=pickMovementHandle(g.handles,point.x,point.y,'move');
+      if(picked){await settle();const axis=picked.plane?({xy:'X',xz:'Y',yz:'Z'})[picked.plane]:picked.axis,rgb=({X:[255,102,119],Y:[85,255,119],Z:[85,187,255]})[axis];
+        const neon=await page.locator('[data-node-overlay]').evaluate((canvas,rgb)=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let count=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>40&&rgb.every((v,j)=>Math.abs(v-pixels[i+j])<=2))count++;return count;},rgb);
+        assert.ok(neon>0,(pose?'POSE ':'Bone ')+label+' glows in its own neon color immediately on press');
+        if(label==='X shaft middle'||label==='XY square')await shot((pose?'pose':'bone')+'-'+picked.axis+'-neon-active');
+      }
+      await page.mouse.move(box.x+point.x+dx,box.y+point.y+dy,{steps:4});
       if(cancel){if(pose)await page.keyboard.press('Escape');else await page.locator('[data-clean-model-canvas]').dispatchEvent('pointercancel',{pointerId:1});}await page.mouse.up();await settle();const after=await snap();
       if(cancel){assert.equal(after.model,before.model,label+' cancelled');assert.equal(after.undo,before.undo);}
       else{
@@ -108,8 +115,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for(let i=0;i<45;i++){const selected=await page.evaluate(()=>poseProbe().props.poseConfig.target);if(selected?.kind==='endpoint'&&selected.key===foot.key)break;await page.mouse.click(box.x+foot.x,box.y+foot.y);await settle();}
     assert.equal((await page.evaluate(()=>poseProbe().props.poseConfig.target)).key,foot.key);await tool('Move');await settle();
     for(let view=0;view<3;view++){
-      const h=await handleFor('endpoint',footId),data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON()})),camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);box=await viewportBox();
-      const controls=movementAxisHandles(h,camera,box.width,box.height,100,'world','move',await handles()),pin=await page.locator('[data-pose-pin]').boundingBox();assert.ok(pin);
+      const h=await handleFor('endpoint',footId),data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON(),radius:poseProbe().runtime.captureApi.showcaseView().radius})),camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);box=await viewportBox();
+      const controls=movementAxisHandles(h,camera,box.width,box.height,data.radius,'world','move',await handles()),pin=await page.locator('[data-pose-pin]').boundingBox();assert.ok(pin);
       for(let x=pin.x-box.x+2;x<pin.x-box.x+pin.width-2;x+=3)for(let y=pin.y-box.y+2;y<pin.y-box.y+pin.height-2;y+=3)assert.equal(pickMovementHandle(controls,x,y,'move'),null,'Pin button is outside gizmo drag areas');
       const before=await snap();await page.locator('[data-pose-pin]').click();assert.equal(await page.locator('[data-pose-pin]').getAttribute('aria-pressed'),'true');await page.locator('[data-pose-pin]').click();assert.equal(await page.locator('[data-pose-pin]').getAttribute('aria-pressed'),'false');assert.equal((await snap()).model,before.model,'Pin placement/toggle does not alter native keys');
       await shot('foot-pin-spacing-'+view);results.checks.push('Pin spacing and mouse toggle at view '+view);

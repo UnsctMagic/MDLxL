@@ -69,8 +69,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.wheel(0,-720);await settle();
     const original=await snap();
     for(let view=0;view<3;view++){
-      const points=await handles();h=points.find(point=>point.kind==='endpoint'&&point.chain.end===id);box=await viewportBox();const data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON()})),camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
-      const controls=movementAxisHandles(h,camera,box.width,box.height,100,'world','move',points),pin=await page.locator('[data-pose-pin]').boundingBox();assert.ok(pin);
+      const points=await handles();h=points.find(point=>point.kind==='endpoint'&&point.chain.end===id);box=await viewportBox();const data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON(),radius:poseProbe().runtime.captureApi.showcaseView().radius})),camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+      const controls=movementAxisHandles(h,camera,box.width,box.height,data.radius,'world','move',points),pin=await page.locator('[data-pose-pin]').boundingBox();assert.ok(pin);
       for(let x=pin.x-box.x+2;x<pin.x-box.x+pin.width-2;x+=3)for(let y=pin.y-box.y+2;y<pin.y-box.y+pin.height-2;y+=3)assert.equal(pickMovementHandle(controls,x,y,'move'),null,'Pin clears arrow/plane drag areas');
       await page.locator('[data-pose-pin]').click();assert.equal(await page.locator('[data-pose-pin]').getAttribute('aria-pressed'),'true');await page.locator('[data-pose-pin]').click();assert.equal(await page.locator('[data-pose-pin]').getAttribute('aria-pressed'),'false');
       await shot('rider-spacing-'+view);results.checks.push('Rider wing gizmo/Pin view '+view);

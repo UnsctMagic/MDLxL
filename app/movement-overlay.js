@@ -7,9 +7,12 @@ import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } fro
 import { drawPixelLine } from './pixel-lines.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
+const NEON_COLORS = { X: '#ff6677', Y: '#55ff77', Z: '#55bbff' };
+const PLANE_COLORS = { xy: 'X', xz: 'Y', yz: 'Z' };
 const AXES = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 const WORKPLANE_NORMALS = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
 export const MOVEMENT_GIZMO_SCALE = 1;
+export const MOVEMENT_MOVE_MAX_PIXELS = 104;
 export function projectMovementNodes(model, frame, sequenceIndex, camera, width, height, globalTime = frame, suppliedMatrices, vanilla = false) {
   const matrices = suppliedMatrices || samplePreviewMatrices(model, frame, sequenceIndex, globalTime, camera);
   const lightIds = new Set((model.Lights || []).map(node => node.ObjectId));
@@ -32,23 +35,25 @@ export function projectMovementNodes(model, frame, sequenceIndex, camera, width,
 
 export function movementAxisHandles(active, camera, width, height, radius, space = 'local', mode = 'rotate') {
   if (!active?.visible) return [];
-  // Keep handles a consistent size at different camera distances and zooms.
+  // Move shrinks with the model at a distance, capped at the reference size.
   const distance = camera.isPerspectiveCamera ? active.world.distanceTo(camera.position) : radius * 2.6;
   const unit = camera.isPerspectiveCamera ? 2 * distance * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height : (camera.top - camera.bottom) / camera.zoom / height;
   const handles = Object.entries(AXES).map(([axis, values]) => {
     const direction = new Vector3().fromArray(values);
     if (space === 'local' && mode !== 'scale') direction.applyQuaternion(active.rotation);
-    const end = active.world.clone().addScaledVector(direction, unit * (mode === 'move' ? 112 : 68) * MOVEMENT_GIZMO_SCALE).project(camera);
+    const length = mode === 'move' ? Math.min(unit * 112, radius * .2) : unit * 68;
+    const end = active.world.clone().addScaledVector(direction, length * MOVEMENT_GIZMO_SCALE).project(camera);
     let dx = (end.x + 1) * width / 2 - active.x, dy = (1 - end.y) * height / 2 - active.y;
     const projectedDx = dx, projectedDy = dy;
     // An axis facing the camera still gets a usable short handle.
     if (Math.hypot(dx, dy) < 18 * MOVEMENT_GIZMO_SCALE) { dx = axis === 'Z' ? 0 : axis === 'X' ? 25 * MOVEMENT_GIZMO_SCALE : -25 * MOVEMENT_GIZMO_SCALE; dy = axis === 'Z' ? -25 * MOVEMENT_GIZMO_SCALE : 25 * MOVEMENT_GIZMO_SCALE; }
-    if (mode === 'move' && Math.hypot(dx, dy) < 52) { const scale = 52 / Math.hypot(dx, dy); dx *= scale; dy *= scale; }
+    if (mode === 'move') { const pixels = Math.hypot(dx, dy), scale = Math.max(52, Math.min(MOVEMENT_MOVE_MAX_PIXELS, pixels)) / pixels; dx *= scale; dy *= scale; }
     return { axis, mode, color: COLORS[axis], x: active.x + dx, y: active.y + dy, startX: active.x, startY: active.y, dx, dy, projectedDx, projectedDy, unitsPerPixel: unit };
   });
   if (mode === 'move') for (const plane of ['xy', 'xz', 'yz']) {
     const [a, b] = plane.toUpperCase().split('').map(axis => handles.find(handle => handle.axis === axis));
-    if (Math.abs(a.projectedDx * b.projectedDy - a.projectedDy * b.projectedDx) / 4 < 35) continue;
+    if (Math.hypot(a.projectedDx, a.projectedDy) < 1e-5 || Math.hypot(b.projectedDx, b.projectedDy) < 1e-5) continue;
+    if (Math.abs(a.projectedDx * b.projectedDy - a.projectedDy * b.projectedDx) / (Math.hypot(a.projectedDx, a.projectedDy) * Math.hypot(b.projectedDx, b.projectedDy) || 1) < .01) continue;
     // Fixed between its two displayed arrows, with sides half their lengths.
     const polygon = [[.25,.25],[.75,.25],[.75,.75],[.25,.75]].map(([u, v]) => ({
       x: active.x + a.dx * u + b.dx * v, y: active.y + a.dy * u + b.dy * v,
@@ -56,7 +61,7 @@ export function movementAxisHandles(active, camera, width, height, radius, space
     const area = Math.abs(polygon.reduce((sum, point, i) => { const next = polygon[(i + 1) % 4]; return sum + point.x * next.y - next.x * point.y; }, 0)) / 2;
     // Edge-on planes have no usable square.
     if (area < 35) continue;
-    handles.push({ axis: plane.toUpperCase(), mode, plane, polygon, color: COLORS[WORKPLANE_NORMALS[plane]],
+    handles.push({ axis: plane.toUpperCase(), mode, plane, polygon, color: COLORS[PLANE_COLORS[plane]],
       x: active.x + (a.dx + b.dx) / 2, y: active.y + (a.dy + b.dy) / 2,
       startX: active.x, startY: active.y, unitsPerPixel: unit });
   }
@@ -99,32 +104,37 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
       context.fillStyle = '#fff'; context.fillText(point.node.Name || `Node ${point.node.ObjectId}`, point.x + 8, point.y - 8);
     }
   }
-  drawMovementGizmo(context, handles);
+  drawMovementGizmo(context, handles, 1, options.activeAxis);
   context.restore();
 }
 
-export function drawMovementGizmo(context, handles, ratio = 1) {
+export function drawMovementGizmo(context, handles, ratio = 1, activeAxis = null) {
   context.save(); context.scale(ratio, ratio);
   for (const handle of handles.filter(handle => handle.plane)) {
+    const active = handle.axis === activeAxis, color = active ? NEON_COLORS[PLANE_COLORS[handle.plane]] : handle.color;
+    context.save(); context.shadowColor = color; context.shadowBlur = active ? 8 : 0;
     context.beginPath(); handle.polygon.forEach((point, index) => context[index ? 'lineTo' : 'moveTo'](point.x, point.y)); context.closePath();
-    context.fillStyle = handle.color; context.globalAlpha = .16; context.fill(); context.globalAlpha = 1;
-    context.strokeStyle = '#162137'; context.lineWidth = 3; context.stroke();
-    context.strokeStyle = handle.color; context.lineWidth = 1.5; context.stroke();
+    context.fillStyle = color; context.globalAlpha = active ? .45 : .16; context.fill(); context.globalAlpha = 1;
+    context.shadowBlur = 0; context.strokeStyle = '#162137'; context.lineWidth = 3; context.stroke();
+    context.shadowBlur = active ? 8 : 0; context.strokeStyle = color; context.lineWidth = active ? 2.5 : 1.5; context.stroke(); context.restore();
   }
   for (const handle of handles.filter(handle => !handle.plane)) {
+    const active = handle.mode === 'move' && handle.axis === activeAxis, color = active ? NEON_COLORS[handle.axis] : handle.color;
+    context.save();
     const length = Math.hypot(handle.dx, handle.dy), ux = handle.dx / length, uy = handle.dy / length;
     context.beginPath(); context.moveTo(handle.startX + (handle.mode === 'move' ? ux * 24 : 0), handle.startY + (handle.mode === 'move' ? uy * 24 : 0)); context.lineTo(handle.x, handle.y);
     context.strokeStyle = '#162137'; context.lineWidth = handle.mode === 'move' ? 3.5 : 5; context.stroke();
-    context.strokeStyle = handle.color; context.lineWidth = handle.mode === 'move' ? 2 : 3; context.stroke();
+    context.shadowColor = color; context.shadowBlur = active ? 8 : 0;
+    context.strokeStyle = color; context.lineWidth = handle.mode === 'move' ? 2 : 3; context.stroke();
     if (handle.mode === 'move') {
       context.beginPath(); context.moveTo(handle.x, handle.y);
       context.lineTo(handle.x - ux * 10 - uy * 4.5, handle.y - uy * 10 + ux * 4.5);
       context.lineTo(handle.x - ux * 10 + uy * 4.5, handle.y - uy * 10 - ux * 4.5); context.closePath();
-      context.fillStyle = handle.color; context.fill(); context.lineWidth = 1; context.strokeStyle = '#162137'; context.stroke(); continue;
+      context.fillStyle = color; context.fill(); context.shadowBlur = 0; context.lineWidth = 1; context.strokeStyle = '#162137'; context.stroke(); context.restore(); continue;
     }
     context.beginPath(); context.arc(handle.x, handle.y, 10, 0, Math.PI * 2); context.fillStyle = handle.color; context.fill();
     context.lineWidth = 1; context.strokeStyle = '#162137'; context.stroke();
-    context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = '#fff'; context.fillText(handle.axis, handle.x, handle.y);
+    context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = '#fff'; context.fillText(handle.axis, handle.x, handle.y); context.restore();
   }
   context.restore();
 }

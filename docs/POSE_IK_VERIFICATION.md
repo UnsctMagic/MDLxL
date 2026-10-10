@@ -922,3 +922,36 @@ Verification:
 
 Candidate: D:/MDLxL-Tests/pose-fixed-squares-view/MDLxL-win32-x64/MDLxL.exe.
 551 runtime/assets and 55 locales verified. Unshipped 0.21.2; no release/merge.
+
+## Capped Move gizmo, square colors and neon press feedback - 2026-10-10
+
+The reference screenshot's longest arrow is approximately 104 CSS pixels. Move
+arrows now have that screen-space maximum, including perspective/off-centre
+projection growth. At a distance they follow model radius (20 percent of its
+radius) until reaching the existing 52-pixel minimum grab size. Squares remain
+fixed between their displayed axes, with half-length sides; none relocate around
+nearby controls. Rotation/Scale bubble sizes remain unchanged.
+
+The prior plane colors represented the excluded normal axis. Red/blue associations
+are swapped to match the user's reference: XY red, XZ green, YZ blue. Plane motion
+still uses its actual pair of world axes; no solver or native key changes.
+Pressed Move arrows/squares get a brighter shade of their own color and a small
+neon glow during the mouse gesture. The glow ends on release/cancel. FK invalidates
+on press as well as movement, so clicks show immediate feedback. Direct glyph
+and Workplane drags do not highlight an unrelated arrow.
+
+Verification: 98 focused source tests pass, including zoom/off-centre cap and
+color mapping. The package passes the 32 Footman mouse groups again, with
+additional actual canvas-pixel assertions for immediate neon color on every
+arrow/plane press in POSE and FK. Native one-entry Undo/Redo, direct dragging,
+camera rotation and cancellation checks remain. The rider passes 9 walkthrough
+groups including remembered display settings, focused limbs and actual mouse
+zoom. Longest measured arrows: close 104 px, distant 52 px, never over 104 px.
+Original source hashes and native model contents are unchanged; zero page errors.
+
+Evidence: out/pose-gizmo-neon-drags-ui/result.json and pose/bone neon-active PNGs;
+out/pose-gizmo-cap-rider-ui/result.json and pose-capped-zoom-0.png through -3.png.
+Screenshots inspected. Existing native FK Escape limitation remains unchanged.
+
+Candidate: D:/MDLxL-Tests/pose-gizmo-capped-neon/MDLxL-win32-x64/MDLxL.exe.
+551 runtime/assets and 55 locales verified; unshipped 0.21.2, no release or merge.

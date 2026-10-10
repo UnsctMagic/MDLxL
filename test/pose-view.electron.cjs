@@ -79,8 +79,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const modelOriginal=await snap();
     for(let view=0;view<3;view++) {
       const points=await handles();h=points.find(point=>point.kind==='endpoint'&&point.chain.end===id);box=await viewportBox();
-      const cameraData=await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()),camera=new ObjectLoader().parse(cameraData);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
-      const controls=movementAxisHandles(h,camera,box.width,box.height,100,'world','move',points),pads=controls.filter(c=>c.plane);
+      const cameraData=await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()),radius=await page.evaluate(()=>poseProbe().runtime.captureApi.showcaseView().radius),camera=new ObjectLoader().parse(cameraData);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+      const controls=movementAxisHandles(h,camera,box.width,box.height,radius,'world','move',points),pads=controls.filter(c=>c.plane);
       for(const pad of pads){
         const [a,b]=pad.axis.split('').map(axis=>controls.find(c=>c.axis===axis));
         assert.ok(Math.abs(pad.x-h.x-(a.dx+b.dx)/2)<1e-8);assert.ok(Math.abs(pad.y-h.y-(a.dy+b.dy)/2)<1e-8);
@@ -91,6 +91,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.keyboard.down('Alt');await page.mouse.move(box.x+50,box.y+50);await page.mouse.down();await page.mouse.move(box.x+105,box.y+67,{steps:5});await page.mouse.up();await page.keyboard.up('Alt');await settle();
       const after=new ObjectLoader().parse(await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()));assert.ok(camera.quaternion.angleTo(after.quaternion)>.001,'Actual mouse rotation');
     }
+    let closeLength;
+    for (const [index,delta] of [-960,480,960,960].entries()) {
+      box=await viewportBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.wheel(0,delta);await settle();
+      const points=await handles(),active=points.find(p=>p.kind==='endpoint'&&p.chain.end===id),data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON(),radius:poseProbe().runtime.captureApi.showcaseView().radius})),camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+      const controls=movementAxisHandles(active,camera,box.width,box.height,data.radius,'world','move'),lengths=controls.filter(c=>!c.plane).map(c=>Math.hypot(c.dx,c.dy));
+      assert.ok(lengths.every(length=>length<=104+1e-8),'Actual mouse zoom retains maximum arrow size');
+      if(index===0)closeLength=Math.max(...lengths);if(index===3)assert.ok(Math.max(...lengths)<closeLength,'Zooming out shrinks arrows');
+      results.measurements.push({zoom:index,lengths});await shot('pose-capped-zoom-'+index);
+    }
+    results.checks.push('Real mouse zoom: arrows shrink at distance and never exceed the screenshot cap');
     assert.equal((await snap()).model,modelOriginal.model);
     await page.getByLabel('Workplane',{exact:true}).check();await page.getByLabel('ZX',{exact:true}).check();
     for(const key of ['showVertices','display:bones','display:nodes','display:particles','display:attachments','display:events'])if(await checkbox(key).count())await checkbox(key).check();

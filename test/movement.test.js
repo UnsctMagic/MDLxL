@@ -4,7 +4,7 @@ import { Matrix4, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { applyMovementTransform, deleteMovementControllers, deleteMovementKeys, insertMovementKeys, movementControllerType, movementKeyframes, sampleMovement, setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve, updateMovementKey } from '../src/movement.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
-import { MOVEMENT_GIZMO_SCALE, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
+import { MOVEMENT_GIZMO_SCALE, MOVEMENT_MOVE_MAX_PIXELS, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from '../app/game-preview-data.js';
 import { patchWarcraftMeshFragmentShader, previewGeosetTint } from '../app/warcraft-preview-adapter.js';
 import { projectedPlaneTranslation } from '../app/viewport-math.js';
@@ -402,8 +402,8 @@ test('Move arrows have room around the central grip and Pin clears the shaft and
   const camera = new PerspectiveCamera(40, 1, .1, 1000); camera.up.set(0, 0, 1); camera.position.set(100, -140, 100); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
   const active = { world: new Vector3(), x: 200, y: 200, visible: true };
   const handles = movementAxisHandles(active, camera, 400, 400, 50, 'world', 'move');
-  assert.ok(handles.filter(handle => !handle.plane).every(handle => Math.hypot(handle.dx, handle.dy) >= 52));
-  assert.ok(handles.filter(handle => handle.plane).every(handle => Math.hypot(handle.x - active.x, handle.y - active.y) >= 35));
+  assert.ok(handles.filter(handle => !handle.plane).every(handle => Math.hypot(handle.dx, handle.dy) >= 52 - 1e-8));
+  assert.equal(pickMovementHandle(handles, active.x, active.y, 'move'), null, 'Central direct grip retains priority');
   const position = movementPinPosition(active, handles, 400, 400, 40, 22, [active]);
   for (let x = position.x; x <= position.x + 40; x += 2) for (let y = position.y; y <= position.y + 22; y += 2) assert.equal(pickMovementHandle(handles, x, y, 'move'), null);
   assert.ok(position.y >= 0 && position.y + 22 <= 400 && position.x >= 0 && position.x + 40 <= 400);
@@ -424,4 +424,25 @@ test('plane pads stay fixed between their arrows with half-length sides', () => 
     const neighbour={x:handles[3].x+offset,y:handles[3].y,visible:true};
     assert.deepEqual(movementAxisHandles(active,camera,400,400,50,'world','move',[neighbour]),handles,'Nearby controls cannot reposition squares');
   }
+});
+
+test('Move size follows distant model scale and cannot exceed the reference size', () => {
+  const camera=new PerspectiveCamera(40,1,.1,20000);camera.up.set(0,0,1);
+  const world=new Vector3(80,30,60),active={world,visible:true};
+  let closeLength;
+  for(const distance of [120,300,900,3000,9000])for(const zoom of [.4,1,3]) {
+    camera.position.set(distance,-distance*1.4,distance);camera.lookAt(0,0,0);camera.zoom=zoom;camera.updateProjectionMatrix();camera.updateMatrixWorld();
+    const screen=world.clone().project(camera);active.x=(screen.x+1)*200;active.y=(1-screen.y)*200;
+    const handles=movementAxisHandles(active,camera,400,400,200,'world','move'),lengths=handles.filter(h=>!h.plane).map(h=>Math.hypot(h.dx,h.dy));
+    assert.ok(lengths.every(length=>length<=MOVEMENT_MOVE_MAX_PIXELS+1e-8&&length>=52-1e-8));
+    if(distance===120&&zoom===1)closeLength=Math.max(...lengths);
+    if(distance===9000&&zoom===1)assert.ok(Math.max(...lengths)<closeLength,'Zoomed-out view shrinks the gizmo');
+  }
+});
+
+test('Move plane colors match the red/blue association shown by the user', () => {
+  const camera=new PerspectiveCamera(40,1,.1,1000);camera.up.set(0,0,1);camera.position.set(100,-140,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
+  const handles=movementAxisHandles({world:new Vector3(),x:200,y:200,visible:true},camera,400,400,200,'world','move');
+  const expected={xy:'X',xz:'Y',yz:'Z'};
+  for(const pad of handles.filter(h=>h.plane))assert.equal(pad.color,handles.find(h=>h.axis===expected[pad.plane]).color);
 });
