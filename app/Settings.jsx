@@ -93,7 +93,12 @@ function AssetPreload({ modelPath }) {
   </section>;
 }
 
-export default function Settings({ preferences, onChange, onClose, catalog: suppliedCatalog, initialTab = 'mouse', gameDataPath = '', modelPath = null, onChooseGameData, onClearGameData, updateStatus, onCheckUpdates, onRevertUpdate }) {
+export default function Settings({ preferences, onChange, onClose, catalog: suppliedCatalog, initialTab = 'mouse', gameDataPath = '', gameDataSources = [], modelPath = null, onChooseGameData, onClearGameData, onAddGameDataSource, onRemoveGameDataSource, updateStatus, onCheckUpdates, onRevertUpdate }) {
+  const [gameDataBusy, setGameDataBusy] = useState(false);
+  async function changeGameDataSource(action) {
+    setGameDataBusy(true);
+    try { await action(); } finally { setGameDataBusy(false); }
+  }
   const context = useWarmKeys(), catalog = suppliedCatalog || context.catalog;
   const prefs = normalizePreferences(preferences);
   const [tab, setTab] = useState(initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
@@ -358,7 +363,11 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <p>Choose the main Warcraft III installation folder once. MdlVis saves the location in its app profile, then uses it automatically when a model refers to native Warcraft textures.</p>
         {gameDataPath ? <p className="game-data-path"><strong>Saved folder:</strong> <code>{gameDataPath}</code></p> : <p className="settings-hint">Warcraft III is detected automatically when native textures are needed. The detected installation and textures are cached for later launches.</p>}
         <div className="settings-inline-actions"><button data-warmkey="game-data:choose" disabled={!onChooseGameData} onClick={onChooseGameData}>{gameDataPath ? 'Choose a different Warcraft III installation…' : 'Choose Warcraft III installation…'}</button>{gameDataPath && <button data-warmkey="game-data:clear" disabled={!onClearGameData} onClick={onClearGameData}>Forget saved folder</button>}</div>
-        <p className="settings-hint">Select the game installation folder, not an individual MPQ file. Choosing another folder replaces the saved location.</p>
+        <h3>Custom game archives</h3>
+        <p className="settings-hint">Add your own CASC storage or MPQ files for a custom Warcraft III setup. Custom archives take priority over installed game data.</p>
+        <div className="settings-inline-actions"><button data-warmkey="game-data:add-casc" disabled={!onAddGameDataSource || gameDataBusy} onClick={()=>changeGameDataSource(()=>onAddGameDataSource('casc'))}>Add CASC folder…</button><button data-warmkey="game-data:add-mpq" disabled={!onAddGameDataSource || gameDataBusy} onClick={()=>changeGameDataSource(()=>onAddGameDataSource('mpq'))}>Add MPQ files…</button></div>
+        {gameDataSources.map(source=><div className="game-data-path" key={source.path}><strong>{source.kind.toUpperCase()}: </strong><code>{source.path}</code> <button aria-label={`Remove ${source.path}`} disabled={!onRemoveGameDataSource || gameDataBusy} onClick={()=>changeGameDataSource(()=>onRemoveGameDataSource(source.path))}>Remove</button></div>)}
+        <p className="settings-hint">For CASC, select the storage folder containing .build.info and Data. For MPQ, select one or more .mpq files. These choices are saved in the app profile.</p>
         <AssetPreload modelPath={modelPath}/>
       </div>}
       <div className="settings-message" role="status" aria-live="polite">{message}</div>

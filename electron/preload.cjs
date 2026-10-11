@@ -73,6 +73,8 @@ contextBridge.exposeInMainWorld('desktop', {
     return ()=>{ipcRenderer.removeListener('texture:preloadDecode',listener);ipcRenderer.send('texture:decoderReady',false);};
   },
   chooseGameData: () => ipcRenderer.invoke('settings:gameData'),
+  addGameDataSource: kind => ipcRenderer.invoke('settings:addGameDataSource', kind),
+  removeGameDataSource: path => ipcRenderer.invoke('settings:removeGameDataSource', path),
   clearGameData: () => ipcRenderer.invoke('settings:clearGameData'),
   rescanGameData: () => ipcRenderer.invoke('settings:rescanGameData'),
   writeRecovery: payload => ipcRenderer.invoke('recovery:write',payload),

@@ -52,8 +52,9 @@ the currently grabbed object, even when another label overlaps its selected
 symbol. A symbol takes priority over any label crossing it. Visible labels
 outside symbols remain clickable.
 
-**Controller** and **Restrictions** start minimized; click their existing headers
-to open them. Movement's passive object statistics sit under **Details**.
+**Restrictions** starts minimized; click its header to expand it. **Controller**
+starts expanded, with Highlight KF and Highlight Chain above Controller type.
+Movement's passive object statistics sit under **Details**.
 Coordinates appear for a real selected node; empty numeric rows and an empty
 Connected Bones list stay out of POSE's way. Bones keeps its existing inspection
 controls. **Rotate on Own Axis** is removed. Normal Alt+mouse camera rotation,

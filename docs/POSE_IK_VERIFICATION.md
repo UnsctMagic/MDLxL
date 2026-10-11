@@ -1125,3 +1125,25 @@ model bytes and sidebar width remain unchanged; there are no renderer errors.
 
 Candidate: `out/pose-pin-package/MDLxL-win32-x64/MDLxL.exe`.
 No version bump, release, main merge, or Warcraft in-game acceptance is claimed.
+
+## Current-main reconciliation - 2026-10-11
+
+Integrated main `2661cd4e` after its custom game-archive and Controller-default
+changes landed. Source merged cleanly; generated bundle conflicts were resolved
+by rebuilding Vite. The new expanded Controller and Highlight KF/Highlight
+Chain placement remain intact, as does custom archive support. Native POSE
+solvers, pin interaction and clipboard behavior are unchanged by this merge.
+
+Four actual Movement component checks pass, including main's expanded
+Controller default. All five packaged clipboard/body-follow groups pass on
+this reconciled build; the test opens Controller only when it is collapsed.
+Evidence: `out/pose-review-component.log` and
+`out/pose-review-copy-ui/result.json`. Packaging again verifies 556 runtime
+and asset files plus 55 locales. The new isolated candidate is
+`out/pose-review-package/MDLxL-win32-x64/MDLxL.exe`; its dist/index.html SHA-256 is
+`046d979e742b8f7c92d6ee3f8eacc44d7ad0bbeaf54110a37f38ced21504c302`.
+
+All ten swivel/Pin/history/save-reopen groups also pass on this exact package,
+recorded in `out/pose-review-ui/result.json`. This brings packaged acceptance
+back to 15 passing groups after current-main integration, with no renderer
+errors or original-file changes. The updated default layout was inspected.

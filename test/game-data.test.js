@@ -83,6 +83,40 @@ test('automatic search ignores unrelated MPQs while a chosen data folder can sup
   assert.deepEqual((await discovery().discover({ explicitFolder: folder })).archives, [path.join(folder, 'Battle.net.mpq')]);
 });
 
+test('custom CASC and individual MPQs work outside game discovery and are removed from cached results', async t => {
+  const root = await scratch(t), folder = path.join(root, 'custom-assets'), file = path.join(root, 'only-this.mpq');
+  await fs.mkdir(path.join(folder, 'Data'), { recursive: true });
+  await fs.writeFile(path.join(folder, '.build.info'), 'custom-build');
+  await fs.writeFile(file, 'archive');
+  let sources = [{ kind: 'casc', path: folder }, { kind: 'mpq', path: file }];
+  const scan = discovery({ cacheFile: path.join(root, 'discovery.json'), customSources: () => sources });
+  const first = await scan.discover();
+  assert.deepEqual(first.cascFolders, [folder]);
+  assert.deepEqual(first.archives, [file]);
+  const restarted = await discovery({ cacheFile: scan.cacheFile, customSources: () => sources }).discover();
+  assert.deepEqual(restarted.customSources, first.customSources);
+  sources = [];
+  const removed = await scan.discover();
+  assert.deepEqual(removed.cascFolders, []);
+  assert.deepEqual(removed.archives, []);
+});
+
+test('custom sources precede installed archives while model textures retain priority', async t => {
+  const root = await scratch(t), model = path.join(root, 'model');
+  await fs.mkdir(model);
+  const texture = 'Textures\\Example.blp', custom = path.join(root, 'custom.mpq'), install = path.join(root, 'War3.mpq');
+  const resolver = new TextureResolver({
+    openArchive: async file => ({ read: async () => file === install ? Buffer.from('installed') : null, close: async () => {} }),
+    casc: { read: async (_, folders) => folders.length ? Buffer.from('custom-casc') : null, close: async () => {} },
+  });
+  t.after(() => resolver.close());
+  const sources = { modelFolders: [model], customArchives: [custom], customCascFolders: [root], archives: [install] };
+  assert.equal((await resolver.resolve([texture], sources))[0].bytes.toString(), 'custom-casc');
+  await fs.writeFile(path.join(model, 'Example.blp'), 'model');
+  assert.equal((await resolver.resolve([texture], sources))[0].bytes.toString(), 'model');
+  assert.equal((await resolver.resolve([texture], { archives: [install] }))[0].bytes.toString(), 'installed');
+});
+
 test('a selected Warcraft installation uses nested classic MPQs before automatic locations', async t => {
   const root = await scratch(t);
   const install = path.join(root, 'Warcraft III');
