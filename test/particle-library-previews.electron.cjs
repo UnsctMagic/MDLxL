@@ -1,0 +1,31 @@
+const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
+const {ParticleLibrary}=require('../electron/particle-library.cjs');
+const {particleSourceState}=require('../electron/particle-source.cjs');
+(async()=>{
+ const root=process.cwd(),out=path.resolve(process.env.MDLXL_PREVIEW_TEST_OUT||'out/particle-library-previews'),profile=path.join(out,'profile'),directory=path.join(profile,'particles');
+ const folder=path.join(out,'installation');await fs.mkdir(folder,{recursive:true});await fs.writeFile(path.join(folder,'.build.info'),'preview-test');await fs.mkdir(path.join(folder,'Data'),{recursive:true});
+ const sourceKey=(await particleSourceState(async()=>({cascFolders:[folder]}))).sourceKey,cache=path.join(directory,sourceKey);await fs.mkdir(cache,{recursive:true});
+ await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({gameData:folder,preferences:{checkUpdatesOnStartup:false}}));
+ const {createStarterRecipe}=await import('../src/particle-starters.js'),{stringifyParticleData}=await import('../src/particle-data.js'),recipe=createStarterRecipe(),items=[];
+ for(let n=1;n<=72;n++){const id='wc3-'+n.toString(16).padStart(24,'0');await fs.writeFile(path.join(cache,id+'.json'),stringifyParticleData({...recipe,id,name:'Cached effect '+n}));items.push({id,name:'Cached effect '+n,collection:'Warcraft',categories:['Sparks'],tags:[],unsupported:[]});}
+ await fs.writeFile(path.join(directory,'current.json'),JSON.stringify({sourceKey,folder}));await fs.writeFile(path.join(cache,'catalog.json'),JSON.stringify(items));await fs.writeFile(path.join(cache,'manifest.json'),JSON.stringify({schema:3,sourceKey,processed:[],failures:[],missingDependencies:[],unsupported:[],recipeCount:72,extractionComplete:true}));
+ const store=new ParticleLibrary({directory,discover:async()=>({cascFolders:[folder]})}),png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+ for(const item of items.slice(0,process.env.MDLXL_PREVIEW_COLD?'36':72)){const revision=(await store.thumbnails([item.id]))[item.id].revision;await store.thumbnail({id:item.id,url:png,revision});}
+ let app;const errors=[];try{
+ app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',...(process.env.MDLXL_ELECTRON_PATH?[]:[root])],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
+ const page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(20000);await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1400,920);w.setPosition(-3000,0);w.showInactive();});
+ await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();await page.locator('.pe-library').waitFor();await page.getByRole('button',{name:'Show more',exact:true}).click();
+ try{await page.waitForFunction(()=>document.querySelectorAll('.pe-effect-thumb img').length===72,null,{timeout:10000});}catch(e){console.log(JSON.stringify({phase:'cached-pagination',images:await page.locator('.pe-effect-thumb img').count(),cards:await page.locator('.pe-effect-card').count()}));throw e;}
+ await app.evaluate(({ipcMain})=>{const handler=ipcMain._invokeHandlers.get('particles:catalog');global.__catalogCalls=0;ipcMain.removeHandler('particles:catalog');ipcMain.handle('particles:catalog',(...args)=>{global.__catalogCalls++;return handler(...args);});});
+ await app.evaluate(({BrowserWindow})=>{for(let n=0;n<100;n++)BrowserWindow.getAllWindows()[0].webContents.send('particles:progress',{running:true,processed:n,total:100});});
+ await page.waitForTimeout(1300);const refreshes=await app.evaluate(()=>global.__catalogCalls);assert.ok(refreshes<=2,'A burst of index progress must not reload the full catalog for every event');
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('particles:progress',{running:false,processed:100,total:100}));await page.waitForFunction(()=>document.querySelectorAll('.pe-effect-thumb img').length===72);
+ await page.locator('.pe-effect-card').filter({hasText:'Cached effect 1'}).first().click();await page.locator('.pe-library').waitFor({state:'hidden'});
+ await page.waitForFunction(()=>!document.querySelector('.pe-window .re-status')?.textContent.includes('Updating effect'));const canvas=page.locator('.pe-preview .game-preview-root canvas').first(),box=await canvas.boundingBox();
+ const camera=()=>page.evaluate(()=>{let f=document.querySelector('.pe-preview .game-preview-root');f=f[Object.keys(f).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.native&&v.controls)return v.controls.object.position.toArray();}}),before=await camera();
+ await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+70,box.y+box.height/2+35,{steps:8});await page.mouse.up();assert.notDeepEqual(await camera(),before);
+ const samples=[];for(let n=0;n<5;n++){await page.getByRole('dialog',{name:'Particle Editor',exact:true}).getByRole('button',{name:'Library',exact:true}).click();await page.getByRole('button',{name:'Show more',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.pe-effect-thumb img').length===72);samples.push(await app.evaluate(({app})=>app.getAppMetrics().map(m=>({type:m.type,cpu:m.cpu.percentCPUUsage,workingSetKB:m.memory.workingSetSize}))));await page.locator('.pe-effect-card').filter({hasText:'Cached effect 1'}).first().click();await page.locator('.pe-library').waitFor({state:'hidden'});}
+ assert.deepEqual(errors,[]);await page.screenshot({path:path.join(out,'preview.png')});console.log(JSON.stringify({passed:true,checks:'72 cached thumbnails, five library/effect round trips, native mouse rotation, 100 index events coalesced',refreshes,samples}));
+ }finally{if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
+})().catch(e=>{console.error(e);process.exitCode=1;});

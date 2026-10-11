@@ -14,6 +14,26 @@ const {ParticleLibrary}=createRequire(import.meta.url)('../electron/particle-lib
 const directory=path.resolve('out/particle-prototype/store-tests-'+Date.now());
 const makeStore=()=>new ParticleLibrary({directory,discover:async()=>({cascFolders:[]})});
 
+test('opening the catalog automatically indexes missing, incomplete and changed Warcraft sources once',async()=>{
+ const {particleSourceState}=createRequire(import.meta.url)('../electron/particle-source.cjs'),root=path.join(directory,'automatic'),folder=path.join(root,'installation');await fs.mkdir(folder,{recursive:true});await fs.writeFile(path.join(folder,'.build.info'),'build-one');
+ const discover=async()=>({cascFolders:[folder]}),store=new ParticleLibrary({directory:root,discover});let scans=0;
+ store.scan=async()=>{scans++;store.status={running:true};return store.status;};
+ const first=await store.catalog();assert.equal(scans,1);assert.equal(first.status.running,true);assert.match(first.sourceStatus.message,/Indexing/);
+ await Promise.all([store.catalog(),store.catalog()]);assert.equal(scans,1,'Progress refreshes never start another scan');
+ store.status={running:false};await store.catalog();assert.equal(scans,1,'Cancelling the automatic scan does not immediately restart it');
+ const sourceKey=(await particleSourceState(discover)).sourceKey,cache=path.join(root,sourceKey);await fs.mkdir(cache,{recursive:true});await fs.writeFile(path.join(root,'current.json'),JSON.stringify({sourceKey}));await fs.writeFile(path.join(cache,'catalog.json'),'[]');
+ const manifest={schema:3,sourceKey,processed:[],failures:[],missingDependencies:[],unsupported:[],extractionComplete:false};await fs.writeFile(path.join(cache,'manifest.json'),JSON.stringify(manifest));
+ const restarted=new ParticleLibrary({directory:root,discover});restarted.scan=store.scan;await restarted.catalog();assert.equal(scans,2,'An incomplete index resumes on the next app session');
+ manifest.extractionComplete=true;await fs.writeFile(path.join(cache,'manifest.json'),JSON.stringify(manifest));const complete=new ParticleLibrary({directory:root,discover});complete.scan=store.scan;await complete.catalog();assert.equal(scans,2,'A complete current index is reused');
+ await fs.writeFile(path.join(folder,'.build.info'),'build-two');await complete.catalog();assert.equal(scans,3,'A changed game build is automatically reindexed');
+ const missing=new ParticleLibrary({directory:path.join(root,'missing'),discover:async()=>({cascFolders:[]})});missing.scan=store.scan;assert.equal((await missing.catalog()).sourceStatus.state,'missing');assert.equal(scans,3,'No scan runs without a connected source');
+});
+
+test('simultaneous scan requests create one worker while discovery is pending',async()=>{
+ let discover;const pending=new Promise(resolve=>{discover=resolve;}),store=new ParticleLibrary({directory:path.join(directory,'single-scan'),discover:()=>pending});
+ const first=store.scan(),second=store.scan();assert.equal(first,second);discover({cascFolders:[]});await assert.rejects(first,/Connect/);await assert.rejects(second,/Connect/);assert.equal(store.scanRequest,null);
+});
+
 test('My work lists new Labs and renders their edited ingredient graph without replacing presets',async()=>{
  const root=path.join(directory,'working-gallery'),store=new ParticleLibrary({directory:root,discover:async()=>({cascFolders:[]})}),recipe=createStarterRecipe(),doc=particleRecipeDocument(recipe);
  const {createNode}=await import('../src/editor-document.js');

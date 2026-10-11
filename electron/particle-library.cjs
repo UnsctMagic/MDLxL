@@ -19,7 +19,11 @@ class ParticleLibrary {
     catch(error){if(error.code==='ENOENT')return null;throw error;}
   }
   async metadata() { try{return JSON.parse(await fs.readFile(path.join(this.directory,'metadata.json'),'utf8'));}catch(error){if(error.code==='ENOENT')return {};throw error;} }
-  async catalog() {
+  catalog() {
+    if(!this.catalogRequest)this.catalogRequest=this.loadCatalog().finally(()=>{this.catalogRequest=null;});
+    return this.catalogRequest;
+  }
+  async loadCatalog() {
     const current=await this.current(), meta=await this.metadata();
     let items=[],coverage=null;
     if(current) {
@@ -47,7 +51,12 @@ class ParticleLibrary {
     if(coverage){coverage.reviewedNames=items.filter(item=>item.collection==='Warcraft'&&['reviewed','user-reviewed'].includes(item.naming?.state)).length;coverage.reviewNeededNames=items.filter(item=>item.collection==='Warcraft').length-coverage.reviewedNames;}
     const thumbnails=await this.thumbnails(items.slice(0,36).map(item=>item.id));
     for(const item of items)if(thumbnails[item.id]?.url)item.thumbnail=thumbnails[item.id].url;
-    const sourceStatus=current?await particleSourceState(this.discover,current.sourceKey):null;
+    const sourceStatus=await particleSourceState(this.discover,current?.sourceKey);
+    if(sourceStatus.state!=='missing'&&(!current||sourceStatus.state==='changed'||!coverage.extractionComplete)&&this.automaticSource!==sourceStatus.sourceKey){
+      this.automaticSource=sourceStatus.sourceKey;
+      await this.scan();
+    }
+    if(this.status.running)sourceStatus.message='Indexing Warcraft assets…';
     return {sourceStatus,items,coverage,status:this.status};
   }
 
@@ -139,7 +148,11 @@ class ParticleLibrary {
     const {parseParticleData}=await import('../src/particle-data.js'),text=await this.workingCopy({id});if(!text)throw Error('This working effect is unavailable.');
     const draft=parseParticleData(text);if(draft.schema!=='mdlxl-particle-draft'||draft.version!==1||!draft.state?.model||!draft.recipe)throw Error('Invalid working effect.');return draft;
   }
-  async scan() {
+  scan() {
+    if(!this.scanRequest)this.scanRequest=this.startScan().finally(()=>{this.scanRequest=null;});
+    return this.scanRequest;
+  }
+  async startScan() {
     if(this.worker)return this.status;
     const found=await this.discover(), folder=found.cascFolders?.[0];
     if(!folder)throw Error('Connect your Warcraft III installation in Settings.');
