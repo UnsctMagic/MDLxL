@@ -132,14 +132,19 @@ export function bindScrollSensitivity(element, options) {
 
 /** No frame callbacks remain queued while static or suspended. */
 export function createRenderScheduler({ render, continuous, paused, maxFps, request = requestAnimationFrame, cancel = cancelAnimationFrame }) {
-  let frame = null, disposed = false, dirty = 1, previous = null, idle = true;
+  let frame = null, disposed = false, dirty = 1, previous = null, deadline = null, previousInterval = null, idle = true;
   function schedule() { if (!disposed && frame === null && !paused() && (dirty || continuous())) frame = request(tick); }
   function tick(now) {
     frame = null;
-    if (disposed || paused()) { previous = null; idle = true; return; }
+    if (disposed || paused()) { previous = deadline = null; idle = true; return; }
     const interval = 1000 / (maxFps() || 60), elapsed = previous === null ? interval : now - previous;
-    if (previous === null || elapsed >= interval - .5) {
+    if (interval !== previousInterval) { deadline = previous === null ? null : previous + interval; previousInterval = interval; }
+    if (deadline === null || now >= deadline - .5) {
       dirty = Math.max(0, dirty - 1);
+      // Keep the cap's cadence when display refreshes fall between deadlines.
+      // Restarting the interval at each late frame can halve the frame rate.
+      // Skip missed deadlines after a stall instead of queuing catch-up frames.
+      deadline = deadline === null ? now + interval : deadline + Math.max(1, Math.floor((now - deadline + .5) / interval) + 1) * interval;
       const delta = idle || previous === null ? 0 : Math.min(100, elapsed); previous = now; idle = false;
       if (render(now, delta) === false) { dispose(); return; }
     }
@@ -151,7 +156,7 @@ export function createRenderScheduler({ render, continuous, paused, maxFps, requ
   // frame. Render once more at the frame cap, then return static views to idle.
   function resize() { dirty = Math.max(dirty, 2); schedule(); }
   function sync() {
-    if (paused()) { if (frame !== null) cancel(frame); frame = null; previous = null; idle = true; dirty = Math.max(dirty, 1); }
+    if (paused()) { if (frame !== null) cancel(frame); frame = null; previous = deadline = null; idle = true; dirty = Math.max(dirty, 1); }
     else invalidate();
   }
   function dispose() { disposed = true; if (frame !== null) cancel(frame); frame = null; }
