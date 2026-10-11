@@ -1,4 +1,4 @@
-const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, nativeTheme, utilityProcess } = require('electron');
 // Check before loading editor modules: another launch must not read a changing install.
 if (app.isPackaged && require('node:fs').existsSync(require('node:path').join(require('node:path').dirname(process.execPath), '.mdlxl-installing'))) {
   app.exit(0);
@@ -57,7 +57,7 @@ let settingsStore,preferenceApi,commandCatalog;
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
-const particleLibrary=new ParticleLibrary({directory:path.join(profile,'particles'),discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),onProgress:status=>{if(win&&!win.isDestroyed())win.webContents.send('particles:progress',status);}});
+const particleLibrary=new ParticleLibrary({directory:path.join(profile,'particles'),discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),createWorker:data=>{const child=utilityProcess.fork(path.join(__dirname,'particle-library-process.cjs'),[],{serviceName:'Warcraft asset indexing'});child.once('spawn',()=>child.postMessage(data));return child;},onProgress:status=>{if(win&&!win.isDestroyed())win.webContents.send('particles:progress',status);}});
 ipcMain.handle('particles:workingCopy',(_,payload)=>particleLibrary.workingCopy(payload));
 
 ipcMain.handle('particles:assets',(_,payload)=>resolveParticleSourceAssets(payload,{discover:()=>gameDataDiscovery.discover({explicitFolder:settings.gameData}),casc:textureResolver.casc}));

@@ -11,7 +11,17 @@ const reviewedNames=require('../src/particle-reviewed-names.json');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 let cancelled = false;
 parentPort?.on('message', message => { if (message === 'cancel') cancelled = true; });
-const atomic = async (file, content) => { await fs.writeFile(file + '.tmp', content); await fs.rename(file + '.tmp', file); };
+export const atomic = async (file, content) => {
+  await fs.writeFile(file + '.tmp', content);
+  for(let attempt=0;;attempt++){
+    try{await fs.rename(file + '.tmp',file);return;}
+    catch(error){
+      // Windows can briefly deny replacement while the catalogue is being read.
+      if(!['EPERM','EACCES','EBUSY'].includes(error.code)||attempt>=8)throw error;
+      await new Promise(resolve=>setTimeout(resolve,25*(attempt+1)));
+    }
+  }
+};
 function suggestedName(recipe) {
   const p = recipe.native.ParticleEmitters2[0], ribbon = recipe.native.RibbonEmitters[0];
   if (ribbon) return { name: 'Ribbon trail', categories: ['Trails'], tags: ['ribbon','weapon','trail'], naming: { state: 'review-needed' } };
