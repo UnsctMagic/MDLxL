@@ -1,16 +1,17 @@
-import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { previewPlaybackStep } from './game-preview-capture.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 
 export default function PoseMotionCompare({ weight, model, revision, sequence, time, playing, speed, onTimeChange, onPlayingChange, cameraHandoff, ...previewProps }) {
   const value = weight.state, camera = useRef({ saved: null, listeners: new Set() });
   const [clock, setClock] = useState({ time, globalTime: time, seekId: 0 });
-  const live = useRef(null), emitted = useRef(time);
+  const live = useRef(null), emitted = useRef(time), currentClock = useRef(clock);
   live.current = { time, playing, speed, onTimeChange, range: value.range, suspended: previewProps.suspended };
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (Math.abs(time - emitted.current) < .001) return;
     emitted.current = time;
-    setClock(previous => ({ time, globalTime: time, seekId: previous.seekId + 1 }));
+    const next = { time, globalTime: time, seekId: currentClock.current.seekId + 1 };
+    currentClock.current = next; setClock(next);
   }, [time]);
   useEffect(() => {
     if (!playing || previewProps.suspended) return;
@@ -18,16 +19,16 @@ export default function PoseMotionCompare({ weight, model, revision, sequence, t
     const step = now => {
       const o = live.current, elapsed = previous == null ? 0 : Math.min(100, now - previous) * o.speed / 100;
       previous = now;
-      setClock(current => {
-        const next = previewPlaybackStep(o.range, current.time, elapsed, true);
-        emitted.current = next.frame;
-        return { ...current, time: next.frame, globalTime: current.globalTime + next.elapsed };
-      });
+      const current = currentClock.current, next = previewPlaybackStep(o.range, current.time, elapsed, true);
+      const updated = { ...current, time: next.frame, globalTime: current.globalTime + next.elapsed };
+      // Publish the preview and timeline together. A delayed timeline echo must
+      // never be interpreted as a user seek back into an earlier playback tick.
+      currentClock.current = updated; emitted.current = next.frame;
+      setClock(updated); o.onTimeChange(next.frame);
       request = requestAnimationFrame(step);
     };
     request = requestAnimationFrame(step); return () => cancelAnimationFrame(request);
   }, [playing, previewProps.suspended]);
-  useEffect(() => { if (playing) onTimeChange(clock.time); }, [clock.time, playing, onTimeChange]);
   const common = { ...previewProps, model, revision, sequenceIndex: sequence, cameraHandoff, compareCamera: camera.current,
     preserveHiddenGeosets: true,
     presentation: 'preview', pixelAligned: true, preserveCameraView: true, cameraMode: 'rotate',

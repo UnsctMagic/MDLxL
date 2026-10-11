@@ -114,13 +114,30 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const clockChecks = [];
     for (const speed of [25, 50, 100]) {
       await page.getByRole('button', { name: speed + '%', exact: true }).click(); await seek(interval[0]);
-      await dialog.getByRole('button', { name: 'Play', exact: true }).click(); await page.waitForTimeout(260); await pause(); await settle();
+      await dialog.getByRole('button', { name: 'Play', exact: true }).click(); await settle();
+      const samples = await page.evaluate(duration => new Promise(resolve => {
+        const rows = [], start = performance.now();
+        const sample = now => {
+          const view = motionProbe().views[0];
+          rows.push({ now, frame: view.props.time, global: view.props.playbackGlobalTime, seek: view.props.seekId });
+          if (now - start >= duration) resolve(rows); else requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      }), (interval[1] - interval[0]) * 100 / speed + 250);
+      const first = samples[0], last = samples.at(-1), elapsed = last.now - first.now;
+      const advanced = last.global - first.global, expected = elapsed * speed / 100;
+      assert.ok(Math.abs(advanced - expected) < Math.max(20, expected * .08), `${speed}% preview must advance at its real wall-clock rate: ${advanced} / ${expected} ms`);
+      assert.ok(samples.every((row, i) => row.seek === first.seek && (!i || row.global >= samples[i - 1].global)), 'Playback echoes must not seek backwards or repeatedly reset the comparison clock');
+      assert.ok(samples.some((row, i) => i && row.frame < samples[i - 1].frame), 'Preview must complete the full animation and loop');
+      await pause(); await settle();
       const clocks = await page.evaluate(() => motionProbe().views.map(v => ({ frame: v.runtime.native.getFrame(), requested: v.props.time, global: v.props.playbackGlobalTime })));
       assert.deepEqual(clocks[0], clocks[1]); assert.ok(clocks[0].frame > interval[0]); assert.ok(Math.abs(clocks[0].frame - clocks[0].requested) < .0001);
-      assert.equal(await page.getByLabel('Playback speed percent').inputValue(), String(speed)); clockChecks.push({ speed, ...clocks[0] });
+      const paused = await page.evaluate(() => motionProbe().views.map(v => v.runtime.native.getFrame())); await page.waitForTimeout(120);
+      assert.deepEqual(await page.evaluate(() => motionProbe().views.map(v => v.runtime.native.getFrame())), paused, 'Pause holds both previews still');
+      assert.equal(await page.getByLabel('Playback speed percent').inputValue(), String(speed)); clockChecks.push({ speed, elapsed, advanced, expected, ...clocks[0] });
     }
     assert.equal(await page.locator('.classic-sidebar').evaluate(e => e.getBoundingClientRect().width), width); await unchanged(baseline); await screenshot('02-variants');
-    checks.push('Independent A/B settings and latest worker requests; copying variants; selectors survive Edit changes; both previews respect hidden geometry; actual mouse rotates both linked cameras; 25/50/100% clocks synchronized');
+    checks.push('Independent A/B settings and latest worker requests; copying variants; selectors survive Edit changes; both previews respect hidden geometry; actual mouse rotates both linked cameras; 25/50/100% real-time rates, full loops, synchronized clocks, stable pause and manual seeks');
 
     await page.getByRole('checkbox', { name: 'Side by side', exact: true }).uncheck(); await settle();
     await dialog.getByRole('button', { name: 'Swing', exact: true }).click(); await ready();
