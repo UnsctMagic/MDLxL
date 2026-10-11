@@ -13,7 +13,7 @@ const atomic = async(file,data) => {
   await fs.writeFile(file+'.tmp',data); await fs.rename(file+'.tmp',file);
 };
 class ParticleLibrary {
-  constructor({directory,discover,onProgress=()=>{}}) { Object.assign(this,{directory,discover,onProgress});this.worker=null;this.status={running:false};this.queue=Promise.resolve(); }
+  constructor({directory,discover,onProgress=()=>{},createWorker=data=>new Worker(path.join(__dirname,'particle-library-worker.mjs'),{workerData:data})}) { Object.assign(this,{directory,discover,onProgress,createWorker});this.worker=null;this.status={running:false};this.queue=Promise.resolve(); }
   async current() {
     try { const data=JSON.parse(await fs.readFile(path.join(this.directory,'current.json'),'utf8'));if(!/^[a-f0-9]{64}$/.test(data.sourceKey))throw Error('Invalid library source.');return data; }
     catch(error){if(error.code==='ENOENT')return null;throw error;}
@@ -157,14 +157,14 @@ class ParticleLibrary {
     const found=await this.discover(), folder=found.cascFolders?.[0];
     if(!folder)throw Error('Connect your Warcraft III installation in Settings.');
     this.status={running:true,processed:0,total:0,recipes:0};
-    const worker=this.worker=new Worker(path.join(__dirname,'particle-library-worker.mjs'),{workerData:{folder,directory:this.directory}});
+    const worker=this.worker=this.createWorker({folder,directory:this.directory});
     worker.on('message',message=>{
       if(message.type==='progress')this.status={running:true,...message.status};
       if(message.type==='done')this.status={...this.status,running:false,complete:message.summary.extractionComplete};
       if(message.type==='error')this.status={...this.status,running:false,error:message.message};
       this.onProgress(this.status);
     });
-    worker.on('error',error=>{this.status={...this.status,running:false,error:error.message};this.onProgress(this.status);});
+    worker.on('error',error=>{this.status={...this.status,running:false,error:typeof error==='string'?error:error.message};this.onProgress(this.status);});
     worker.on('exit',()=>{this.worker=null;this.status={...this.status,running:false};this.onProgress(this.status);});
     return this.status;
   }

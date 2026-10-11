@@ -34,6 +34,17 @@ test('simultaneous scan requests create one worker while discovery is pending',a
  const first=store.scan(),second=store.scan();assert.equal(first,second);discover({cascFolders:[]});await assert.rejects(first,/Connect/);await assert.rejects(second,/Connect/);assert.equal(store.scanRequest,null);
 });
 
+test('index checkpoints survive a temporary Windows read lock without replacing valid data early',async()=>{
+ const {atomic}=await import('../electron/particle-library-worker.mjs'),file=path.join(directory,'locked-index.json');await fs.mkdir(directory,{recursive:true});await fs.writeFile(file,'old index');
+ const rename=fs.rename;let attempts=0;
+ fs.rename=async(from,to)=>{if(to===file&&++attempts<3){assert.equal(await fs.readFile(file,'utf8'),'old index');throw Object.assign(Error('File is being read'),{code:'EPERM'});}return rename(from,to);};
+ try{await atomic(file,'complete checkpoint');assert.equal(attempts,3);assert.equal(await fs.readFile(file,'utf8'),'complete checkpoint');}
+ finally{fs.rename=rename;}
+ fs.rename=async(from,to)=>{if(to===file)throw Object.assign(Error('Disk write failed'),{code:'EIO'});return rename(from,to);};
+ try{await assert.rejects(atomic(file,'incomplete checkpoint'),/Disk write failed/);assert.equal(await fs.readFile(file,'utf8'),'complete checkpoint');}
+ finally{fs.rename=rename;}
+});
+
 test('My work lists new Labs and renders their edited ingredient graph without replacing presets',async()=>{
  const root=path.join(directory,'working-gallery'),store=new ParticleLibrary({directory:root,discover:async()=>({cascFolders:[]})}),recipe=createStarterRecipe(),doc=particleRecipeDocument(recipe);
  const {createNode}=await import('../src/editor-document.js');
