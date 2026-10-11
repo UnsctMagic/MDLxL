@@ -46,6 +46,19 @@ test('Movement removes Own Axis, starts Restrictions minimized and Controller ex
   for(const title of ['Restrictions']) assert.match(html,new RegExp(`<details class="sidebar-section"><summary>${title}<\\/summary>`));
   for(const title of ['Current Sequence','Object','Workplane','Tools','Controller']) assert.match(html,new RegExp(`<details class="sidebar-section" open=""><summary>${title}<\\/summary>`));
 });
+
+test('Movement workplanes do not disable XYZ rotation fields or bypass Rotation restrictions',()=>{
+  const model=fixture(), selectedNodeIds=[model.Bones[0].ObjectId];
+  for(const workplane of ['xy','xz','yz']) for(const transformMode of ['move','rotate','scale']) {
+    const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds,time:0,workplaneEnabled:true,workplane,transformMode}));
+    for(const [index,axis] of ['X','Y','Z'].entries()) {
+      const field=html.match(new RegExp(`<input[^>]*aria-label="${axis} coordinate"[^>]*>`))[0];
+      assert.equal(field.includes('disabled'),transformMode!=='rotate' && index===({xy:2,xz:1,yz:0})[workplane],`${workplane} ${transformMode} ${axis}`);
+    }
+  }
+  const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds,time:0,workplaneEnabled:true,workplane:'xy',transformMode:'rotate',restrictions:{rotation:true}}));
+  for(const axis of ['X','Y','Z'])assert.match(html,new RegExp(`<input[^>]*aria-label="${axis} coordinate"[^>]*disabled`));
+});
 test('Movement places Highlight Chain directly under Highlight KF and exposes collapsible groups',()=>{
   const model=fixture(), selectedNodeIds=[model.Bones[0].ObjectId];
   const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds,time:0,highlightKeyframes:true,highlightChain:true}));

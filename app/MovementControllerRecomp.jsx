@@ -126,7 +126,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
     else if (restPose && onVertexTransform) { onPlayingChange?.(false); onVertexTransform({ translation: constrainMovementVector(translation, options), selections: selectionByGeoset }); }
   };
   const coordinateValues = ['rotate', 'scale'].includes(transformMode) ? values : coordinateCenter;
-  const coordinateDisabled = index => disabled || index === normalAxis || !coordinateValues || (['move', 'select'].includes(transformMode) ? blocked('move') || !summary.center || (summary.source === 'nodes' ? !editableNodes : !restPose || !onVertexTransform) : !editableNodes || blocked(transformMode));
+  const coordinateDisabled = index => disabled || transformMode !== 'rotate' && index === normalAxis || !coordinateValues || (['move', 'select'].includes(transformMode) ? blocked('move') || !summary.center || (summary.source === 'nodes' ? !editableNodes : !restPose || !onVertexTransform) : !editableNodes || blocked(transformMode));
   const commitCoordinate = (index, value) => {
     if (['move', 'select'].includes(transformMode)) return commitPosition(index, value);
     const transformValues = transformMode === 'scale' ? [1, 1, 1] : [0, 0, 0];
