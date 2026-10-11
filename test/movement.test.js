@@ -409,6 +409,27 @@ test('Move arrows have room around the central grip and Pin clears the shaft and
   assert.ok(position.y >= 0 && position.y + 22 <= 400 && position.x >= 0 && position.x + 40 <= 400);
 });
 
+test('Pin keeps its clear side of a limb when another control moves away', () => {
+  const active = { x: 200, y: 200, visible: true }, neighbour = { x: 200, y: 245, visible: true };
+  const first = movementPinPosition(active, [], 400, 400, 76, 28, [active, neighbour]);
+  assert.ok(first.y < active.y, 'the occupied lower slot is avoided');
+  const preferred = { x: first.x - active.x, y: first.y - active.y };
+  assert.deepEqual(movementPinPosition(active, [], 400, 400, 76, 28, [active], preferred), first, 'clearing a nearer slot does not move the button');
+  const moved = { ...active, x: active.x + 8, y: active.y - 4 };
+  assert.deepEqual(movementPinPosition(moved, [], 400, 400, 76, 28, [moved], preferred), { x: first.x + 8, y: first.y - 4 }, 'the button follows its limb on the same side');
+});
+
+test('Pin stays inside the viewport and clears selected labels and bend grips', () => {
+  for (const [x, y] of [[8, 8], [392, 8], [8, 392], [392, 392], [200, 200]]) {
+    const active = { x, y, visible: true, selected: true, label: 'Foot', labelX: x + 20, labelY: y };
+    const knee = { x: x + 30, y: y + 35, kind: 'bend', label: 'Knee', visible: true };
+    const position = movementPinPosition(active, [], 400, 400, 76, 28, [active, knee], { x: 200, y: 200 });
+    assert.ok(position.x >= 4 && position.x + 76 <= 396 && position.y >= 4 && position.y + 28 <= 396);
+    assert.ok(position.x + 76 <= x - 23 || position.x >= x + 23 || position.y + 28 <= y - 23 || position.y >= y + 23, 'central grip remains clear');
+    assert.ok(position.x + 76 <= x + 14 || position.x >= x + 54 || position.y + 28 <= y - 13 || position.y >= y + 13, 'foot label remains clear');
+  }
+});
+
 
 test('plane pads stay fixed between their arrows with half-length sides', () => {
   const camera = new PerspectiveCamera(40,1,.1,1000);camera.up.set(0,0,1);camera.position.set(100,-140,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();

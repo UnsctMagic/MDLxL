@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { poseRecognitionEvidence, inferPoseBranches } from './pose-recognition.js';
-import { constrainMovementVector, applyMovementTransform, movementParentMatrix, movementProperties, prepareMovementPose, sampleMovement } from './movement.js';
+import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
 
 // POSE controls are editor-session identities. Only the resulting native keys
 // pass through Movement's transactional writer; no controller enters the rig.
@@ -529,7 +529,51 @@ export function posePreviewModel(model) {
 }
 
 export function solvePoseLimb(model, chain, frame, sequence, target, settings = {}) {
-  return solveChainOnClone(posePreviewModel(model), chain, frame, sequence, target, settings);
+  const copy = posePreviewModel(model), { config, restrictions = {}, globalTime = frame } = settings;
+  const bodyTarget = config && !settings.pole ? limbBodyTarget(model, config, chain, restrictions) : null;
+  if (!bodyTarget) return solveChainOnClone(copy, chain, frame, sequence, target, settings);
+  const pose = samplePoseChain(model, chain, frame, sequence, globalTime);
+  const offset = v3(target).sub(pose.end).multiplyScalar(.15);
+  if (offset.lengthSq() < 1e-20) return solveChainOnClone(copy, chain, frame, sequence, target, settings);
+  const id = bodyTarget.kind === 'body' ? config.body : bodyTarget.id;
+  const body = solvePoseNode(model, id, poseNodeConstraints(model, config, id, 'move', bodyTarget).filter(pin => pin.chain.key !== chain.key), frame, sequence,
+    { mode: 'move', space: 'world', values: offset.toArray(), restrictions, control: poseNodeControl(model, config, bodyTarget, 'move') }, globalTime);
+  applyMovementPose(copy, body.changes, frame, sequence, restrictions);
+  const result = solveChainOnClone(copy, chain, frame, sequence, target, { ...settings, orientation: settings.orientation || pose.rotations[2].toArray() });
+  const changes = [...new Map([...body.changes, ...result.changes].map(item => [`${item.id}:${item.property}`, item])).values()];
+  prepareMovementPose(model, changes, frame, sequence, restrictions);
+  return { ...body, ...result, changes, bends: [...(body.bends || []), { key: chain.key, local: v3(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }] };
+}
+
+/** Turn the limb's bending plane around its fixed root and endpoint. Rotating
+ * the native root carries every intermediate joint, including long SD chains;
+ * the endpoint's orientation is restored through the existing native writer. */
+export function swivelPoseLimb(model, chain, frame, sequence, radians, globalTime = frame, bendMemory) {
+  if (!Number.isFinite(radians)) throw new Error('Bend needs a finite angle.');
+  const copy = posePreviewModel(model), pose = samplePoseChain(copy, chain, frame, sequence, globalTime);
+  const angle = radians % (Math.PI * 2);
+  if (Math.abs(angle) < 1e-12) return { changes: [], pose };
+  const axis = pose.end.clone().sub(pose.root);
+  // A completely folded limb has no root-to-end direction. Use a stable axis
+  // perpendicular to its first segment; its coincident endpoint stays fixed.
+  if (axis.lengthSq() < pose.tolerance * pose.tolerance) axis.copy(perpendicular(pose.middle.clone().sub(pose.root).normalize(), new Vector3(0, 0, 1).applyQuaternion(pose.rotations[0])));
+  axis.normalize();
+  const turn = new Quaternion().setFromAxisAngle(axis, angle), nodes = validatePoseChain(copy, chain);
+  const projected = pose.middle.clone().sub(pose.root); projected.addScaledVector(axis, -projected.dot(axis));
+  const fallback = bendMemory ? v3(bendMemory) : perpendicular(axis, new Vector3(0, 0, 1).applyQuaternion(pose.rotations[0]), new Vector3(1, 0, 0).applyQuaternion(pose.rotations[0]));
+  const bend = perpendicular(axis, projected.lengthSq() > pose.tolerance * pose.tolerance ? projected : null, fallback);
+  const desiredBend = bend.clone().applyQuaternion(turn);
+  const changes = [setWorldRotation(copy, nodes[0], turn.clone().multiply(pose.rotations[0]), pose.matrices, frame, sequence, globalTime)];
+  // Use the existing native-evaluated solver for rounded SD rotations, just
+  // as endpoint Move does. Their sampled matrices are only approximately rigid.
+  if (pose.distortion > 2e-4) {
+    const pole = pose.middle.clone().addScaledVector(bend, Math.max(...pose.lengths) * .45).sub(pose.root).applyQuaternion(turn).add(pose.root);
+    return solveChainOnClone(copy, chain, frame, sequence, pose.end, { pole, orientation: pose.rotations[2].toArray(), bendMemory: desiredBend, strict: true, globalTime });
+  }
+  changes.push(...orientChainEnd(copy, chain, nodes.at(-1), pose.rotations[2], sampled(copy, frame, sequence, globalTime), frame, sequence, globalTime));
+  const result = samplePoseChain(copy, chain, frame, sequence, globalTime);
+  if (result.root.distanceTo(pose.root) > pose.tolerance * 4 || result.end.distanceTo(pose.end) > pose.tolerance * 4 || result.lengths.some((length, index) => Math.abs(length - pose.lengths[index]) > pose.tolerance * 4) || 1 - Math.abs(result.rotations[2].dot(pose.rotations[2])) > 1e-7) throw new Error('This limb cannot keep its endpoint fixed while bending.');
+  return { changes, pose: result, bend: desiredBend.toArray() };
 }
 
 export function turnPoseEndpoint(model, chain, frame, sequence, rotation, globalTime = frame) {
@@ -845,7 +889,25 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
 
 const chainTrackScope = chain => [...poseChainIds(chain).map(id => ({ id, property: 'Rotation' })), ...(chain.grip ? [{ id: chain.end, property: 'Translation' }] : [])];
 
-export function poseTrackScope(config, target, mode, model) {
+// Hands pull the nearest mapped torso; feet pull their connected pelvis/body.
+// Only existing anatomical controls participate, with their native owner and pins.
+function limbBodyTarget(model, config, chain, restrictions = {}) {
+  if (!['arm', 'leg'].includes(chain.kind) || ['Wing', 'Tail', 'Chain'].includes(chain.label)) return null;
+  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), visited = new Set();
+  let node = byId.get(byId.get(chain.root)?.Parent);
+  while (node && !visited.has(node.ObjectId)) {
+    visited.add(node.ObjectId);
+    if (node.ObjectId === config.body || (config.nodes || []).includes(node.ObjectId) && ['Chest', 'Spine', 'Pelvis', 'Body'].includes(poseRole(model, config, node.ObjectId))) {
+      const target = node.ObjectId === config.body ? { kind: 'body' } : { kind: 'node', id: node.ObjectId };
+      const control = poseNodeControl(model, config, target, 'move');
+      return movementRestricted(control.joints.length ? 'rotate' : 'move', restrictions) ? null : target;
+    }
+    node = byId.get(node.Parent);
+  }
+  return null;
+}
+
+export function poseTrackScope(config, target, mode, model, restrictions = {}) {
   if (!target) return [];
   if (target.kind === 'body' || target.kind === 'node') {
     const id = target.kind === 'body' ? config.body : target.id;
@@ -857,5 +919,9 @@ export function poseTrackScope(config, target, mode, model) {
   }
   const chain = config.chains.find(item => item.key === target.key);
   if (chain && mode === 'scale') return [{ id: chain.end, property: 'Scaling' }];
+  if (chain && model && mode === 'move' && target.kind === 'endpoint') {
+    const body = limbBodyTarget(model, config, chain, restrictions);
+    if (body) return [...new Map([...poseTrackScope(config, body, mode, model, restrictions), ...chainTrackScope(chain)].map(item => [`${item.id}:${item.property}`, item])).values()];
+  }
   return chain ? mode === 'rotate' && target.kind !== 'bend' ? chainTrackScope(chain).filter(item => item.id === chain.end) : chainTrackScope(chain) : [];
 }

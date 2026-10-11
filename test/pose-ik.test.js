@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { applyMovementPose, applyMovementTransform, sampleMovement } from '../src/movement.js';
-import { suggestPickedPoseChain, separatePoseChains, poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
+import { suggestPickedPoseChain, separatePoseChains, poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, swivelPoseLimb, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
@@ -30,6 +30,42 @@ function check(model, c, original, target) {
   near(Math.abs(result.rotations[2].dot(original.rotations[2])), 1, 1e-7);
   return result;
 }
+
+for (const limb of [chain, leg1]) test(`${limb.kind} leads its body slightly while other endpoints compensate`, () => {
+  const model = fixture(), original = structuredClone(model), config = { body: 0, chains: [chain, leg1, leg2], nodes: [], pins: [] };
+  const before = config.chains.map(c => samplePoseChain(model, c, 500, 0));
+  const delta = new Vector3(limb.kind === 'arm' ? -1 : 1, 1, 1);
+  const index = config.chains.indexOf(limb), target = before[index].end.clone().add(delta);
+  const result = solvePoseLimb(model, limb, 500, 0, target, { config });
+  assert.deepEqual(model, original, 'solver leaves authored data intact');
+  const scope = poseTrackScope(config, { kind: 'endpoint', key: limb.key }, 'move', model);
+  assert.ok(result.changes.every(change => scope.some(item => item.id === change.id && item.property === change.property)), 'preview covers body and compensating channels');
+  apply(model, result);
+  const matrices = sampleNodeMatrices(model, 500, 0);
+  vectorNear(new Vector3(...model.Bones[0].PivotPoint).applyMatrix4(matrices.get(0)).toArray(), [delta.x * .15, .15, 10.15]);
+  config.chains.forEach((c, i) => {
+    const after = samplePoseChain(model, c, 500, 0);
+    vectorNear(after.end.toArray(), (i === index ? target : before[i].end).toArray());
+    vectorNear(after.lengths, before[i].lengths);
+    near(Math.abs(after.rotations[2].dot(before[i].rotations[2])), 1, 1e-7);
+  });
+});
+
+test('leading hand respects explicit feet pins and translation restrictions; Bend stays local', () => {
+  const original = fixture(), config = { body: 0, chains: [chain, leg1, leg2], nodes: [], pins: [leg1.key, leg2.key] };
+  const pose = samplePoseChain(original, chain, 500, 0), target = pose.end.clone().add(new Vector3(0, 2, 1));
+  for (const restrictions of [{}, { translation: true }]) {
+    const model = structuredClone(original), result = solvePoseLimb(model, chain, 500, 0, target, { config, restrictions });
+    applyMovementPose(model, result.changes, 500, 0, restrictions);
+    for (const leg of [leg1, leg2]) vectorNear(samplePoseChain(model, leg, 500, 0).end.toArray(), samplePoseChain(original, leg, 500, 0).end.toArray());
+    vectorNear(samplePoseChain(model, chain, 500, 0).end.toArray(), target.toArray());
+    if (restrictions.translation) assert.equal(model.Bones[0].Translation, undefined);
+  }
+  const bend = solvePoseLimb(original, chain, 500, 0, pose.end, { config, pole: pose.middle.clone().add(new Vector3(0, 2, 0)) });
+  assert.ok(bend.changes.every(change => [chain.root, chain.middle, chain.end].includes(change.id)));
+  const still = solvePoseLimb(original, chain, 500, 0, pose.end, { config });
+  assert.equal(applyMovementPose(structuredClone(original), still.changes, 500, 0), 0, 'no movement creates no body key');
+});
 
 test('adjacent hierarchy suggestions use identities, reject skips, cyclic and missing parents', () => {
   const m = fixture(); assert.deepEqual(suggestPoseChain(m, 3), { root: 1, middle: 2, end: 3 });
@@ -66,6 +102,57 @@ test('straight and folded equal-length chains handle zero targets without NaNs',
     const pose = samplePoseChain(m, chain, 500, 0), result = solvePoseLimb(m, chain, 500, 0, [0, 0, 0]);
     apply(m, result); check(m, chain, pose); assert.ok(result.changes.flatMap(c => c.value).every(Number.isFinite));
   }
+});
+
+test('swivelling an arm or leg rotates its bending plane while fixing its endpoint and orientation', () => {
+  for (const limb of [chain, leg1, leg2]) {
+    const m = fixture();
+    m.Bones[0].Translation = track([500, [3, 6, 2]]);
+    m.Bones[0].Rotation = track([500, q([1, 2, 3], .8)]);
+    m.Bones[0].Scaling = track([500, [2, 2, 2]]);
+    const original = structuredClone(m), pose = samplePoseChain(m, limb, 500, 0), angle = Math.PI / 3;
+    const turn = new Quaternion().setFromAxisAngle(pose.end.clone().sub(pose.root).normalize(), angle);
+    const result = swivelPoseLimb(m, limb, 500, 0, angle);
+    assert.deepEqual(poseTrackScope({ chains: [limb] }, { kind: 'bend', key: limb.key }, 'rotate'), [limb.root, limb.middle, limb.end].map(id => ({ id, property: 'Rotation' })));
+    assert.deepEqual(m, original, 'preview does not touch the document');
+    assert.deepEqual(result.changes.map(item => [item.id, item.property]), [[limb.root, 'Rotation'], [limb.end, 'Rotation']]);
+    apply(m, result);
+    const after = check(m, limb, pose, pose.end);
+    vectorNear(after.middle.toArray(), pose.middle.clone().sub(pose.root).applyQuaternion(turn).add(pose.root).toArray());
+    assert.deepEqual(m.Bones[limb.middle], original.Bones[limb.middle], 'native middle track remains authored');
+  }
+});
+
+test('swivel preserves all segments of a long limb and the fixed visible grip of an offset endpoint', () => {
+  const m = fixture(), limb = { ...chain, end: 10, joints: [1, 2, 3, 10], grip: [18, 1, 17] };
+  m.Bones.push({ ObjectId: 10, Name: 'Tip', Parent: 3, PivotPoint: [16, 2, 17], Flags: 256 });
+  m.PivotPoints.push(m.Bones.at(-1).PivotPoint);
+  const pose = samplePoseChain(m, limb, 500, 0), original = structuredClone(m), angle = -.7;
+  const turn = new Quaternion().setFromAxisAngle(pose.end.clone().sub(pose.root).normalize(), angle);
+  apply(m, swivelPoseLimb(m, limb, 500, 0, angle));
+  const after = check(m, limb, pose, pose.end);
+  after.points.forEach((point, index) => vectorNear(point.toArray(), pose.points[index].clone().sub(pose.root).applyQuaternion(turn).add(pose.root).toArray()));
+  for (const id of [2, 3]) assert.deepEqual(m.Bones[id], original.Bones[id]);
+});
+
+test('swivel handles full extension and a completely folded limb; a full turn creates no native keys', () => {
+  for (const end of [[20, 0, 0], [0, 0, 0]]) {
+    const m = fixture(); m.Bones[1].PivotPoint = [0, 0, 0]; m.Bones[2].PivotPoint = [10, 0, 0]; m.Bones[3].PivotPoint = end;
+    const original = structuredClone(m), pose = samplePoseChain(m, chain, 500, 0);
+    for (const angle of [0, Math.PI * 2, -Math.PI * 4]) assert.deepEqual(swivelPoseLimb(m, chain, 500, 0, angle).changes, []);
+    assert.throws(() => swivelPoseLimb(m, chain, 500, 0, NaN), /finite/);
+    assert.deepEqual(m, original);
+    const result = swivelPoseLimb(m, chain, 500, 0, .7); apply(m, result); check(m, chain, pose, pose.end);
+    assert.ok(result.changes.flatMap(change => change.value).every(Number.isFinite));
+  }
+});
+
+test('swivelling a straight vertical leg carries its bend direction into the next knee bend', () => {
+  const m = fixture(); m.Bones[1].PivotPoint = [0, 0, 0]; m.Bones[2].PivotPoint = [0, 0, 10]; m.Bones[3].PivotPoint = [0, 0, 20];
+  const angle = .7, swivel = swivelPoseLimb(m, chain, 500, 0, angle), expected = new Vector3(1, 0, 0).applyAxisAngle(new Vector3(0, 0, 1), angle);
+  vectorNear(swivel.bend, expected.toArray()); apply(m, swivel);
+  const bent = solvePoseLimb(m, chain, 500, 0, [0, 0, 18], { bendMemory: swivel.bend });
+  assert.ok(new Vector3(...bent.bend).dot(expected) > .9999);
 });
 
 test('unsupported inherited-transform flags reject before mutation rather than disagreeing with the mesh renderer', () => {

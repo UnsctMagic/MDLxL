@@ -1,5 +1,43 @@
 # POSE implementation and verification
 
+## Pose clipboard and limb-led body movement (2026-10-11)
+
+POSE's ordinary Copy/Ctrl+C now samples every supported local node transform,
+including interpolation and static defaults. Paste restores that complete
+snapshot despite changed handle selection, tool or Highlight KF. The explicit
+stored-key command retains its existing behavior. Appearance channels, globals
+and locked transform channels retain their ownership.
+
+Hand/foot Move shares 15% of the requested displacement with the nearest mapped
+torso/pelvis/body through the existing connected control. Other affected limbs
+compensate; explicit pins retain their reach constraints. The dragged endpoint
+keeps its original world orientation. Bend, Turn, native FK and rig recognition
+retain their existing behavior. Preview snapshots cover every body/limb write,
+and the complete gesture commits once.
+
+Validation on the isolated 0.22.1 package at
+`out/pose-copy-package/MDLxL-win32-x64/MDLxL.exe`:
+
+- `test/pose-copy-body.electron.cjs`: five packaged acceptance groups passed,
+  zero page errors. Actual hand/foot drags led body nodes, retained limb lengths,
+  previewed without document mutation and committed one Undo. Ctrl+C at 513 ms
+  and Ctrl+V at 700 ms restored all local transforms despite changing to Body,
+  Scale and Highlight KF; Undo/Redo restored exact state. Cross-animation paste
+  and actual Alt+mouse camera rotation passed. Sidebar width stayed unchanged;
+  Setup remained closed. Evidence: `out/pose-copy-ui/result.json` and PNG.
+- Focused pose/classic timeline/ragdoll/performance/complex/corpus suites:
+  64 passed, eight skipped because optional local model fixtures were absent.
+- Existing keyframe clipboard/retiming/collision/global-clock cases: six passed.
+- Standard compatibility suite: 57 passed. Vite build and portable packaging
+  passed; package verification covered 556 runtime/assets and 55 locales.
+- Footman source remains byte-identical at SHA-256
+  `fa74ae722b151a1cf5e297bebe17d5a734fb89225823e37e29a588ecaf527812`.
+
+The full `keyframe-timeline.test.js` run stalled in an existing case and was
+stopped; its affected clipboard cases passed separately. No release version
+change, installer replacement, Warcraft in-game acceptance or publication is
+claimed by this local candidate.
+
 Original base: online `main` at `1e1d4c93398cdca7b8d74c73cbabbcd6fb28150a` (0.21.2).
 Current-main integration: `a73f104824e02a976894151e50c671a33b46234d`.
 Sources merged cleanly; generated bundle conflicts were resolved by rebuilding
@@ -955,3 +993,157 @@ Screenshots inspected. Existing native FK Escape limitation remains unchanged.
 
 Candidate: D:/MDLxL-Tests/pose-gizmo-capped-neon/MDLxL-win32-x64/MDLxL.exe.
 551 runtime/assets and 55 locales verified; unshipped 0.21.2, no release or merge.
+
+## SD elbow/knee swivel and compact Movement - 2026-10-11
+
+Reference: BlinkBoy's [Happy Animating with IK](https://www.hiveworkshop.com/threads/happy-animating-with-ik.256580/)
+uses separate limb endpoint and knee/elbow controls with retained endpoint
+orientation. POSE now offers that swivel through the existing Rotate tool:
+select a limb's Elbow/Knee, then drag horizontally. Move still aims the bend.
+Custom chains retain the generic Bend label. The selected limb's bend control
+is larger and labeled; no new permanent panel or toolbar is added.
+
+POSE enters Move directly. Passive Movement statistics expand from Details;
+empty coordinates in POSE and empty Connected Bones lists in Movement are
+hidden. Bones inspection, selected-node coordinates, existing sidebar width,
+normal camera controls and authored rig/resource data remain unchanged.
+
+The swivel preserves endpoint position and orientation, including visible
+offset mesh grips. Rigid chains retain their intermediate tracks; rounded SD
+rotations use the existing native-evaluated limb solver. A fully straight limb
+retains the chosen bend direction for the next endpoint move. No pivots,
+parents, geometry, weights, texture paths or scales are rewritten.
+
+Source verification:
+- 35/35 corpus models pass, including every recognized limb's new swivel,
+  unchanged source-file hashes, isolated previews, native MDX round trips and
+  exact Undo. Includes the rounded Black Knight arm and multi-link mounts.
+- 67 focused POSE/complex-rig/view/performance checks pass; two optional checks
+  skip: the separate original WAG file is missing and the dense-rider fixture
+  was not configured.
+- Four existing Movement component checks pass. The broader component file
+  reports two assertions in untouched Animation RGB and QuickDisplay coverage.
+- The corpus's separate original-source archive audit cannot run completely:
+  its manifest references the unavailable Desktop/WAG.mdx. The preserved WAG
+  corpus copy itself passes its hash, posing, serialization and Undo checks.
+- Rebuilt Vite output and portable package: 556 runtime/asset files and 55
+  locales verified. No version bump, release, or merge is included.
+
+Source evidence: out/pose-sd-swivel-corpus-final.log,
+out/pose-sd-focused-final.log, and out/pose-sd-final-package.log.
+
+Packaged acceptance: test/pose-sd-controls.electron.cjs passes all eight groups
+using a hidden portable window, disposable profile, and real mouse input.
+The Footman's arm and leg swivel at three Alt+mouse-rotated camera angles;
+the native renderer changes, endpoints stay within 0.000001 model units and
+retain orientation. Each gesture produces one native Undo/Redo entry. Escape
+and returning to the starting grip produce no keys/history. A pinned knee
+swivels with its foot fixed; existing Rotation restrictions still apply.
+Save As writes an equivalent MDX and that file reopens in the editor at the
+edited frame. The source hash is unchanged and there are no renderer errors.
+
+The compact default, expanded Details, ordinary Movement coordinates and
+unchanged sidebar width are also checked. Screenshots were inspected while
+posing in Textured view and after reopening in ordinary Movement. Evidence:
+out/pose-sd-final-ui/result.json and its 01-04 PNGs. Packaged dist/index.html
+SHA-256: 418cc72419a504010b01b5717b7b6be9adf7ef4203c6a6414ad68a4f179b6092.
+This is editor/native-format acceptance; no in-game Warcraft test was run.
+
+Candidate: out/pose-sd-final-package/MDLxL-win32-x64/MDLxL.exe.
+Unshipped 0.22.1 candidate; owner approval is still required before PR merge.
+
+## Integrated SD posing and Pin interaction - 2026-10-11
+
+Combines the pose clipboard/body-follow change from PR #161 with the SD
+elbow/knee swivel and compact Movement changes. Hand/foot Move, native FK,
+whole-pose copy/paste and bend swivel operate on the same sampled native rig.
+The preview's track scope includes every body and compensating-limb write.
+
+Pin is a fixed-size icon-and-text button beside the selected limb, also
+available while selecting its elbow or knee. Teal means free; amber and
+`Pinned` mean constrained. Its state colors remain legible under application
+palettes. A small amber pin badge remains on an unselected pinned endpoint.
+The button stays still under the pointer, follows the limb during camera
+movement even with keyboard focus, and hides during a drag or offscreen.
+Click, Space and Enter toggle the same session constraint. Clicking during
+playback pauses at the current integer frame without adding native keys.
+
+The interaction follows BlinkBoy's separate endpoint/bend-control workflow,
+with the native rig retained throughout. Autodesk's
+[Biped planted/sliding/free key documentation](https://help.autodesk.com/cloudhelp/2025/ENU/3DSMax-Character-Animation/files/GUID-24693B38-20BD-435D-9816-BE5BDA528506.htm)
+also distinguishes endpoint constraints from free posing. POSE's pins are
+session editing constraints, not contact keys spanning an animation.
+
+Source and format verification:
+- All 35 preserved SD corpus models pass, now exercising body-follow Move on
+  every mapped limb as well as swivel. Returned native writes fit within the
+  preview snapshot scope. Original hashes, unrelated rig/resource data, native
+  MDX round trips and exact Undo remain intact.
+- The broader focused run has 139 passing checks, two optional fixture skips
+  (original WAG location and dense rider), and one existing rest-pose assertion
+  about serialized pivot ordering. The same assertion fails on an isolated
+  copy of unchanged base `2bfa7d70`; no serializer/rest-pose fix is included.
+- All 57 standard format-compatibility checks and eight targeted keyframe
+  clipboard/retiming/global-clock checks pass. The previously documented full
+  timeline test stall and unrelated component assertions remain outside this
+  patch; they are not counted as passing.
+- Vite and portable packaging pass: 556 runtime/assets and 55 locales. The
+  packaged and workspace dist/index.html hashes match:
+  `a185dd444b1692b8702d537f3b52989a54dd87b435a67639abb73abc70a26a10`.
+
+Evidence: `out/pose-integrated-corpus.log`,
+`out/pose-integrated-final-source.log`, `out/pose-base-rest-pose.log`,
+`out/pose-integrated-compatibility.log`, `out/pose-clipboard-core.log`, and
+`out/pose-pin-package.log`.
+
+The hidden-window Pin trace first exposed stale overlay geometry after a
+tool change. Acceptance now lets Chromium finish painting before measuring
+the button. A separate actual mouse-wheel check caught and verified the fix
+for keyboard focus retaining the old absolute position during zoom.
+`out/pose-pin-viewport-final-ui/result.json` covers real pan/zoom, Enter,
+viewport containment, offscreen removal, unselected badge pixels, playback
+pause, source-byte preservation and zero native edits or renderer errors.
+
+The final package passes all ten groups in
+`test/pose-sd-controls.electron.cjs`, recorded in
+`out/pose-integrated-final-ui/result.json`. Arm and leg swivel at three actual
+mouse-rotated views; the largest measured endpoint displacement is
+0.000000501 model units, with retained endpoint orientation. Pin click/Space
+position checks pass at every view. Preview isolation, one-operation Undo/Redo,
+Escape, return-to-origin cancellation, pinned-foot swivel and restrictions
+pass. Save As and reopening reproduce the same native pose. Default layout,
+sidebar width, normal Movement coordinates, source hash and the hidden-window
+contract also pass, with zero renderer errors. Final screenshots were inspected.
+
+The same final package also passes all five groups in
+`test/pose-copy-body.electron.cjs`, recorded in
+`out/pose-integrated-final-copy-ui/result.json`: hand/foot drags lead the body
+without stretching, each preview/commit has atomic history, whole-pose copy
+samples between keys, paste survives tool/selection/Highlight KF changes,
+and cross-animation paste plus actual mouse camera rotation pass. Original
+model bytes and sidebar width remain unchanged; there are no renderer errors.
+
+Candidate: `out/pose-pin-package/MDLxL-win32-x64/MDLxL.exe`.
+No version bump, release, main merge, or Warcraft in-game acceptance is claimed.
+
+## Current-main reconciliation - 2026-10-11
+
+Integrated main `2661cd4e` after its custom game-archive and Controller-default
+changes landed. Source merged cleanly; generated bundle conflicts were resolved
+by rebuilding Vite. The new expanded Controller and Highlight KF/Highlight
+Chain placement remain intact, as does custom archive support. Native POSE
+solvers, pin interaction and clipboard behavior are unchanged by this merge.
+
+Four actual Movement component checks pass, including main's expanded
+Controller default. All five packaged clipboard/body-follow groups pass on
+this reconciled build; the test opens Controller only when it is collapsed.
+Evidence: `out/pose-review-component.log` and
+`out/pose-review-copy-ui/result.json`. Packaging again verifies 556 runtime
+and asset files plus 55 locales. The new isolated candidate is
+`out/pose-review-package/MDLxL-win32-x64/MDLxL.exe`; its dist/index.html SHA-256 is
+`046d979e742b8f7c92d6ee3f8eacc44d7ad0bbeaf54110a37f38ced21504c302`.
+
+All ten swivel/Pin/history/save-reopen groups also pass on this exact package,
+recorded in `out/pose-review-ui/result.json`. This brings packaged acceptance
+back to 15 passing groups after current-main integration, with no renderer
+errors or original-file changes. The updated default layout was inspected.

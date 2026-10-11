@@ -18,6 +18,7 @@ export const poseSymbols = {
   Object: ['M12 2L22 12L12 22L2 12Z', 'M9 9H15V15H9Z'],
 };
 const symbols = poseSymbols;
+export const posePinPath = 'M5 2H11L10 6L13 9V10H3V9L6 6ZM8 10V15';
 const symbolPaths = new Map();
 const pelvisSymbols = new Map();
 let pelvisFace;
@@ -57,7 +58,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
           if (bend.lengthSq() < 1e-12) bend.set(0, 1, 0).addScaledVector(direction, -direction.y);
         }
         const pole = pose.middle.clone().addScaledVector(bend.normalize(), Math.max(...pose.lengths) * .45);
-        handles.push(project(pole, { kind: 'bend', key: chain.key, chain, rotation: pose.rotations[2], selected: target.kind === 'bend', label: 'Bend', joint: project(pose.middle, {}) }));
+        handles.push(project(pole, { kind: 'bend', key: chain.key, chain, rotation: pose.rotations[2], selected: target.kind === 'bend', label: chain.label ? 'Bend' : chain.kind === 'leg' ? 'Knee' : 'Elbow', joint: project(pose.middle, {}) }));
       }
     } catch { /* Invalid session mappings have no visible or pickable handle. */ }
   }
@@ -89,7 +90,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   const labels = [];
   for (const handle of handles.filter(handle => handle.visible && !handle.quiet)) {
     handle.labelX = handle.x + 20;
-    handle.labelWidth = `${handle.label}${handle.pinned ? ' · PIN' : ''}`.length * 7;
+    handle.labelWidth = handle.label.length * 7;
     let offset = 0, attempt = 0;
     while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth) || handles.some(other => other.visible && !other.quiet && Math.abs(other.y - (handle.y + offset)) < 26 && handle.labelX < other.x + 19 && other.x - 19 < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
     handle.labelY = handle.y + offset; labels.push(handle);
@@ -102,12 +103,12 @@ export function pickPoseHandle(handles, x, y, target = null, nodes = null, prefe
   // The selected symbol is drawn last, over other controls' labels. Its
   // draggable face must therefore win over a label crossing that face.
   const selected = preferSelected && target && visible.find(handle => identity(handle) === identity(target));
-  if (selected && Math.hypot(x - selected.x, y - selected.y) <= (selected.kind === 'bend' ? 10 : 19)) return selected;
-  const label = visible.find(handle => !handle.quiet && (handle.selected || handle.hovered) && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
+  if (selected && Math.hypot(x - selected.x, y - selected.y) <= (selected.kind === 'bend' ? 14 : selected.pinned ? 24 : 19)) return selected;
+  const label = visible.find(handle => !handle.quiet && (handle.selected || handle.hovered || handle.kind === 'bend') && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
   const candidates = [...visible, ...(nodes || []).map(point => ({ ...point, kind: 'node', id: point.node.ObjectId, marker: true, quiet: true }))];
   const hits = candidates.filter(handle => handle.visible).filter(handle => {
     const distance = Math.hypot(x - handle.x, y - handle.y);
-    return distance <= (handle.quiet ? 13 : handle.kind === 'bend' ? 10 : 19);
+    return distance <= (handle.quiet ? 13 : handle.kind === 'bend' ? 14 : handle.pinned ? 24 : 19);
   });
   if (!hits.length) return label || null;
   // Share Movement's selection cycle, with each real marker and virtual handle
@@ -131,7 +132,7 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null) {
     }
     context.beginPath();
     if (handle.kind === 'body') { context.moveTo(handle.x, handle.y - 18); context.lineTo(handle.x + 18, handle.y); context.lineTo(handle.x, handle.y + 18); context.lineTo(handle.x - 18, handle.y); context.closePath(); }
-    else context.arc(handle.x, handle.y, handle.kind === 'bend' ? 7 : 17, 0, Math.PI * 2);
+    else context.arc(handle.x, handle.y, handle.kind === 'bend' ? 10 : 17, 0, Math.PI * 2);
     context.fillStyle = '#102431'; context.fill(); context.lineWidth = 1.5; context.strokeStyle = color; context.stroke();
     if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
     else if (handle.label === 'Pelvis') {
@@ -153,9 +154,16 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null) {
       context.save(); context.translate(handle.x - 12, handle.y - 12); context.fillStyle = color; context.fill(shape);
       context.strokeStyle = '#102431'; context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.stroke(detail); context.restore();
     }
-    if (!handle.selected && !handle.hovered) continue;
+    if (handle.pinned) {
+      // A pin remains legible after selection moves to the body or another limb.
+      if (!symbolPaths.has('Pin')) symbolPaths.set('Pin', new Path2D(posePinPath));
+      context.save(); context.translate(handle.x + 11, handle.y - 11);
+      context.beginPath(); context.arc(0, 0, 8, 0, Math.PI * 2); context.fillStyle = '#ffbd59'; context.fill();
+      context.translate(-6, -6); context.scale(.75, .75); context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.strokeStyle = '#102431'; context.stroke(symbolPaths.get('Pin')); context.restore();
+    }
+    if (!handle.selected && !handle.hovered && handle.kind !== 'bend') continue;
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'left'; context.textBaseline = 'middle'; context.lineWidth = 3; context.strokeStyle = '#102431';
-    const label = `${handle.label}${handle.pinned ? ' · PIN' : ''}`;
+    const label = handle.label;
     const labelX = handle.labelX ?? handle.x + 20, labelY = handle.labelY ?? handle.y;
     if (Math.abs(labelY - handle.y) > 1) { context.beginPath(); context.moveTo(handle.x + 15, handle.y); context.lineTo(labelX - 2, labelY); context.lineWidth = 1; context.strokeStyle = color; context.stroke(); }
     context.lineWidth = 3; context.strokeStyle = '#102431'; context.strokeText(label, labelX, labelY); context.fillStyle = color; context.fillText(label, labelX, labelY);

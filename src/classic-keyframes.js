@@ -11,6 +11,11 @@ export function unrestrictedTimelineTargets(targets, restrictions = {}) {
   return targets.filter(target => target.kind !== 'node' || !properties.has(target.property) || !(restrictions[target.property.toLowerCase()] || restrictions[target.property]));
 }
 
+/** A complete skeletal pose includes sampled defaults as well as authored keys. */
+export function classicPoseTargets(model, domain, tracks = timelineTracks(model)) {
+  return tracks.filter(target => !target.readOnly && target.kind === 'node' && Object.values(transforms).includes(target.property) && target.globalSeqId === domain?.globalSeqId);
+}
+
 /** The classic All line covers authored local time, including context channels. */
 export function classicTimelineDomain(model, sequenceIndex = -1, globalSeqId = null) {
   if (globalSeqId !== null || sequenceIndex !== -1) return timelineDomain(model, sequenceIndex, globalSeqId);

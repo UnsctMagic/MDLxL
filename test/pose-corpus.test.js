@@ -8,7 +8,7 @@ import {openDocument} from '../src/editor-document.js';
 import {allNodes} from '../src/animation.js';
 import {applyMovementPose} from '../src/movement.js';
 import {assertModelEquivalent} from '../src/save-equivalence.js';
-import {suggestPoseRig,poseRole,poseChainIds,poseNodeControl,poseNodeConstraints,samplePoseChain,solvePoseLimb,solvePoseNode,turnPoseEndpoint,poseTrackScope} from '../src/pose-ik.js';
+import {suggestPoseRig,poseRole,poseChainIds,poseNodeControl,poseNodeConstraints,samplePoseChain,solvePoseLimb,solvePoseNode,swivelPoseLimb,turnPoseEndpoint,poseTrackScope} from '../src/pose-ik.js';
 const manifestPath=process.env.MDLXL_POSE_CORPUS || 'out/pose-corpus-fixtures/manifest.json';
 const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath)):null;
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -25,7 +25,8 @@ for(const item of manifest?.models || []) test(`corpus: ${item.entry}`,()=>{
  for(const [si,seq] of model.Sequences.entries()) for(const t of [seq.Interval[0],seq.Interval[1]]) assert.deepEqual(mapping(suggestPoseRig(model,t,si)),mapping(rig));
  const used=new Set();for(const chain of rig.chains)for(const id of poseChainIds(chain)){assert.ok(!used.has(id),'independent chain ownership');used.add(id);}
  const record=result=>{assert.deepEqual(doc.model,before,'solver is isolated');doc.apply('Corpus pose',['Nodes'],m=>applyMovementPose(m,result.changes,frame,sequence));assertModelEquivalent(strip(before),strip(doc.model));assertModelEquivalent(doc.model,openDocument(doc.serialize('mdx')).model);if(result.changes.length){assert.ok(doc.undo());assert.deepEqual(doc.model,before);}entry.probes++;};
- for(const chain of rig.chains){const pose=samplePoseChain(model,chain,frame,sequence),delta=Math.min(...pose.lengths)*.03;record(solvePoseLimb(model,chain,frame,sequence,pose.end.clone().add(new Vector3(delta,0,delta))));}
+ for(const chain of rig.chains){const pose=samplePoseChain(model,chain,frame,sequence),delta=Math.min(...pose.lengths)*.03;record(solvePoseLimb(model,chain,frame,sequence,pose.end.clone().add(new Vector3(delta,0,delta))));const swivel=swivelPoseLimb(model,chain,frame,sequence,Math.PI/6);assert.ok(swivel.pose.end.distanceTo(pose.end)<pose.tolerance*4);record(swivel);}
+ for(const chain of rig.chains){const pose=samplePoseChain(model,chain,frame,sequence),delta=Math.min(...pose.lengths)*.03;const result=solvePoseLimb(model,chain,frame,sequence,pose.end.clone().add(new Vector3(delta,0,delta)),{config:rig});const scope=new Set(poseTrackScope(rig,{kind:'endpoint',key:chain.key},'move',model).map(item=>`${item.id}:${item.property}`));assert.ok(result.changes.every(item=>scope.has(`${item.id}:${item.property}`)),'all body-follow preview tracks are restorable');record(result);}
  for(const id of [rig.body,...rig.nodes].filter(id=>id!=null)){const target=id===rig.body?{kind:'body'}:{kind:'node',id};record(solvePoseNode(model,id,poseNodeConstraints(model,rig,id,'move',target),frame,sequence,{mode:'move',space:'world',values:[1,0,1],control:poseNodeControl(model,rig,target,'move')}));}
  assert.equal(hash(fs.readFileSync(item.path)),item.sha256);report.push(entry);
 });

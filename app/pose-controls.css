@@ -2,6 +2,16 @@
 .pose-controls > button { padding: 2px 5px; min-height: 22px; font-size: 11px; }
 .pose-controls > button[aria-pressed="true"] { background: #21465a; color: #9ff5ef; }
 .pose-target { font-size: 11px; color: #9ff5ef; }
+/* Canvas controls retain their legible state colors under document palettes. */
+.game-preview-root .pose-pin { --pose-pin-bg: #102431; --pose-pin-ink: #a4f4ed; --pose-pin-edge: #71d8cf; position: absolute; z-index: 70; display: inline-flex; align-items: center; justify-content: center; gap: 5px; box-sizing: border-box; width: 76px; height: 28px; min-height: 28px; padding: 0 6px; border: 1px solid; border-color: var(--pose-pin-edge)!important; border-radius: 5px; background: var(--pose-pin-bg)!important; color: var(--pose-pin-ink)!important; box-shadow: 0 1px 4px #0006; font: bold 11px Tahoma, sans-serif; cursor: pointer; pointer-events: auto; user-select: none; }
+.game-preview-root .pose-pin[hidden] { display: none; }
+.game-preview-root .pose-pin svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.game-preview-root .pose-pin:hover { --pose-pin-bg: #1d4149; }
+.game-preview-root .pose-pin[aria-pressed="true"] { --pose-pin-bg: #4b3516; --pose-pin-edge: #ffbd59; --pose-pin-ink: #ffe1ae; }
+.game-preview-root .pose-pin[aria-pressed="true"] svg { fill: #ffbd59; }
+.game-preview-root .pose-pin[aria-pressed="true"]:hover { --pose-pin-bg: #63471e; }
+.game-preview-root .pose-pin:active { filter: brightness(1.18); }
+.game-preview-root .pose-pin:focus-visible { outline: 2px solid #fff!important; outline-offset: 2px; }
 .pose-setup { position: fixed; z-index: 110; right: 174px; top: 118px; width: 260px; max-height: 70vh; overflow: auto; background: var(--ui-panel, #d4d0c8); border: 2px outset #eee; box-shadow: 2px 2px 4px #0008; padding: 7px; color: var(--ui-text, #111); font-size: 11px; }
 .pose-setup header { display: flex; align-items: center; justify-content: space-between; }
 .pose-setup p { margin: 7px 0; line-height: 1.35; }
