@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    # MDLxL ships as a Windows portable app, so build and test where it runs.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g pnpm@10.28.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          # Tests do not launch Electron, so skip its large runtime download.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: pnpm run build
+      - run: pnpm test

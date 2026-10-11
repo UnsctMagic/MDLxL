@@ -11,6 +11,7 @@
     "test:compatibility": "node --test tests/*.test.js",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "fetch-ffmpeg": "node scripts/fetch-ffmpeg.mjs",
     "start": "electron .",
     "package": "node scripts/package.mjs"
   },
@@ -26,6 +27,7 @@
   "devDependencies": {
     "vite": "7.3.1",
     "electron": "40.8.0",
+    "esbuild": "0.27.7",
     "@electron/packager": "19.0.3"
   },
   "engines": {

@@ -85,6 +85,7 @@ async function bundledLicenses() {
 
 async function makeStage(stage) {
   if (!await exists(path.join(source, 'dist', 'index.html'))) throw Error('Run npm run build before packaging.');
+  if (!await exists(path.join(source, 'electron', 'ffmpeg', 'ffmpeg.exe'))) throw Error('Run pnpm run fetch-ffmpeg before packaging.');
   for (const folder of runtimeFolders) await fs.cp(path.join(source, folder), path.join(stage, folder), { recursive: true });
   const runtimeManifest = Object.fromEntries(['name', 'version', 'private', 'type', 'description', 'main', 'productName'].filter(key => key in manifest).map(key => [key, manifest[key]]));
   await fs.writeFile(path.join(stage, 'package.json'), JSON.stringify(runtimeManifest, null, 2) + '\n');
