@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { poseRecognitionEvidence, inferPoseBranches } from './pose-recognition.js';
-import { constrainMovementVector, applyMovementTransform, movementParentMatrix, movementProperties, prepareMovementPose, sampleMovement } from './movement.js';
+import { constrainMovementVector, applyMovementPose, applyMovementTransform, movementParentMatrix, movementProperties, movementRestricted, prepareMovementPose, sampleMovement } from './movement.js';
 
 // POSE controls are editor-session identities. Only the resulting native keys
 // pass through Movement's transactional writer; no controller enters the rig.
@@ -529,7 +529,20 @@ export function posePreviewModel(model) {
 }
 
 export function solvePoseLimb(model, chain, frame, sequence, target, settings = {}) {
-  return solveChainOnClone(posePreviewModel(model), chain, frame, sequence, target, settings);
+  const copy = posePreviewModel(model), { config, restrictions = {}, globalTime = frame } = settings;
+  const bodyTarget = config && !settings.pole ? limbBodyTarget(model, config, chain, restrictions) : null;
+  if (!bodyTarget) return solveChainOnClone(copy, chain, frame, sequence, target, settings);
+  const pose = samplePoseChain(model, chain, frame, sequence, globalTime);
+  const offset = v3(target).sub(pose.end).multiplyScalar(.15);
+  if (offset.lengthSq() < 1e-20) return solveChainOnClone(copy, chain, frame, sequence, target, settings);
+  const id = bodyTarget.kind === 'body' ? config.body : bodyTarget.id;
+  const body = solvePoseNode(model, id, poseNodeConstraints(model, config, id, 'move', bodyTarget).filter(pin => pin.chain.key !== chain.key), frame, sequence,
+    { mode: 'move', space: 'world', values: offset.toArray(), restrictions, control: poseNodeControl(model, config, bodyTarget, 'move') }, globalTime);
+  applyMovementPose(copy, body.changes, frame, sequence, restrictions);
+  const result = solveChainOnClone(copy, chain, frame, sequence, target, { ...settings, orientation: settings.orientation || pose.rotations[2].toArray() });
+  const changes = [...new Map([...body.changes, ...result.changes].map(item => [`${item.id}:${item.property}`, item])).values()];
+  prepareMovementPose(model, changes, frame, sequence, restrictions);
+  return { ...body, ...result, changes, bends: [...(body.bends || []), { key: chain.key, local: v3(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }] };
 }
 
 /** Turn the limb's bending plane around its fixed root and endpoint. Rotating
@@ -876,7 +889,25 @@ export function solvePoseNode(model, id, constraints, frame, sequence, change, g
 
 const chainTrackScope = chain => [...poseChainIds(chain).map(id => ({ id, property: 'Rotation' })), ...(chain.grip ? [{ id: chain.end, property: 'Translation' }] : [])];
 
-export function poseTrackScope(config, target, mode, model) {
+// Hands pull the nearest mapped torso; feet pull their connected pelvis/body.
+// Only existing anatomical controls participate, with their native owner and pins.
+function limbBodyTarget(model, config, chain, restrictions = {}) {
+  if (!['arm', 'leg'].includes(chain.kind) || ['Wing', 'Tail', 'Chain'].includes(chain.label)) return null;
+  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), visited = new Set();
+  let node = byId.get(byId.get(chain.root)?.Parent);
+  while (node && !visited.has(node.ObjectId)) {
+    visited.add(node.ObjectId);
+    if (node.ObjectId === config.body || (config.nodes || []).includes(node.ObjectId) && ['Chest', 'Spine', 'Pelvis', 'Body'].includes(poseRole(model, config, node.ObjectId))) {
+      const target = node.ObjectId === config.body ? { kind: 'body' } : { kind: 'node', id: node.ObjectId };
+      const control = poseNodeControl(model, config, target, 'move');
+      return movementRestricted(control.joints.length ? 'rotate' : 'move', restrictions) ? null : target;
+    }
+    node = byId.get(node.Parent);
+  }
+  return null;
+}
+
+export function poseTrackScope(config, target, mode, model, restrictions = {}) {
   if (!target) return [];
   if (target.kind === 'body' || target.kind === 'node') {
     const id = target.kind === 'body' ? config.body : target.id;
@@ -888,5 +919,9 @@ export function poseTrackScope(config, target, mode, model) {
   }
   const chain = config.chains.find(item => item.key === target.key);
   if (chain && mode === 'scale') return [{ id: chain.end, property: 'Scaling' }];
+  if (chain && model && mode === 'move' && target.kind === 'endpoint') {
+    const body = limbBodyTarget(model, config, chain, restrictions);
+    if (body) return [...new Map([...poseTrackScope(config, body, mode, model, restrictions), ...chainTrackScope(chain)].map(item => [`${item.id}:${item.property}`, item])).values()];
+  }
   return chain ? mode === 'rotate' && target.kind !== 'bend' ? chainTrackScope(chain).filter(item => item.id === chain.end) : chainTrackScope(chain) : [];
 }

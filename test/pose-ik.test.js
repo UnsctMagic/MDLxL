@@ -31,6 +31,42 @@ function check(model, c, original, target) {
   return result;
 }
 
+for (const limb of [chain, leg1]) test(`${limb.kind} leads its body slightly while other endpoints compensate`, () => {
+  const model = fixture(), original = structuredClone(model), config = { body: 0, chains: [chain, leg1, leg2], nodes: [], pins: [] };
+  const before = config.chains.map(c => samplePoseChain(model, c, 500, 0));
+  const delta = new Vector3(limb.kind === 'arm' ? -1 : 1, 1, 1);
+  const index = config.chains.indexOf(limb), target = before[index].end.clone().add(delta);
+  const result = solvePoseLimb(model, limb, 500, 0, target, { config });
+  assert.deepEqual(model, original, 'solver leaves authored data intact');
+  const scope = poseTrackScope(config, { kind: 'endpoint', key: limb.key }, 'move', model);
+  assert.ok(result.changes.every(change => scope.some(item => item.id === change.id && item.property === change.property)), 'preview covers body and compensating channels');
+  apply(model, result);
+  const matrices = sampleNodeMatrices(model, 500, 0);
+  vectorNear(new Vector3(...model.Bones[0].PivotPoint).applyMatrix4(matrices.get(0)).toArray(), [delta.x * .15, .15, 10.15]);
+  config.chains.forEach((c, i) => {
+    const after = samplePoseChain(model, c, 500, 0);
+    vectorNear(after.end.toArray(), (i === index ? target : before[i].end).toArray());
+    vectorNear(after.lengths, before[i].lengths);
+    near(Math.abs(after.rotations[2].dot(before[i].rotations[2])), 1, 1e-7);
+  });
+});
+
+test('leading hand respects explicit feet pins and translation restrictions; Bend stays local', () => {
+  const original = fixture(), config = { body: 0, chains: [chain, leg1, leg2], nodes: [], pins: [leg1.key, leg2.key] };
+  const pose = samplePoseChain(original, chain, 500, 0), target = pose.end.clone().add(new Vector3(0, 2, 1));
+  for (const restrictions of [{}, { translation: true }]) {
+    const model = structuredClone(original), result = solvePoseLimb(model, chain, 500, 0, target, { config, restrictions });
+    applyMovementPose(model, result.changes, 500, 0, restrictions);
+    for (const leg of [leg1, leg2]) vectorNear(samplePoseChain(model, leg, 500, 0).end.toArray(), samplePoseChain(original, leg, 500, 0).end.toArray());
+    vectorNear(samplePoseChain(model, chain, 500, 0).end.toArray(), target.toArray());
+    if (restrictions.translation) assert.equal(model.Bones[0].Translation, undefined);
+  }
+  const bend = solvePoseLimb(original, chain, 500, 0, pose.end, { config, pole: pose.middle.clone().add(new Vector3(0, 2, 0)) });
+  assert.ok(bend.changes.every(change => [chain.root, chain.middle, chain.end].includes(change.id)));
+  const still = solvePoseLimb(original, chain, 500, 0, pose.end, { config });
+  assert.equal(applyMovementPose(structuredClone(original), still.changes, 500, 0), 0, 'no movement creates no body key');
+});
+
 test('adjacent hierarchy suggestions use identities, reject skips, cyclic and missing parents', () => {
   const m = fixture(); assert.deepEqual(suggestPoseChain(m, 3), { root: 1, middle: 2, end: 3 });
   assert.throws(() => validatePoseChain(m, { root: 0, middle: 2, end: 3 }), /adjacent/);

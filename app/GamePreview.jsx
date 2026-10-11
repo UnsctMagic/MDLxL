@@ -24,7 +24,7 @@ import { applyMovementPose, applyMovementTransform, movementRestricted, prepareM
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
-import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, poseSkeletonHighlights, projectPoseHandles } from './pose-overlay.js';
+import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, swivelPoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
@@ -234,7 +234,7 @@ export default function GamePreview(inputProps) {
     host.current.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: graphicsOptions(latest.current.preferences).antialias, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let posePing = null, pinButton, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
+    let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
@@ -401,7 +401,7 @@ export default function GamePreview(inputProps) {
         const frame = Math.round(native.getFrame()), sequence = movementSequence(p, frame), baseline = posePreviewModel(ownedModel);
         // The renderer's private All-line interval is never a saved sequence.
         if (timelineSequenceIndex >= 0) baseline.Sequences = baseline.Sequences.slice(0, timelineSequenceIndex);
-        const config = p.poseConfig, scope = poseTrackScope(config, target, p.transformMode, baseline);
+        const config = p.poseConfig, scope = poseTrackScope(config, target, p.transformMode, baseline, p.restrictions);
         const byId = new Map(allNodes(baseline).map(node => [node.ObjectId, node])), snapshots = new Map();
         if (handle.chain) samplePoseChain(baseline, handle.chain, frame, sequence, globalClock);
         const currentChanges = scope.map(item => ({ ...item, value: sampleTrack(byId.get(item.id)?.[item.property], frame, { interval: baseline.Sequences[sequence]?.Interval, globalSequences: baseline.GlobalSequences, globalTime: globalClock, fallback: item.property === 'Rotation' ? [0, 0, 0, 1] : item.property === 'Scaling' ? [1, 1, 1] : [0, 0, 0], quaternion: item.property === 'Rotation' }) }));
@@ -470,8 +470,8 @@ export default function GamePreview(inputProps) {
             if (!gesture.workplaneEnabled && p.transformSpace === 'local' && gesture.handle.axis !== 'XYZ' && !gesture.handle.free) normal.applyQuaternion(pose.rotations[2]);
             result = turnPoseEndpoint(gesture.baseline, chain, gesture.frame, gesture.sequence, new THREE.Quaternion().setFromAxisAngle(normal.normalize(), degrees * Math.PI / 180).toArray(), gesture.globalTime);
           } else {
-            result = solvePoseLimb(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.target.kind === 'bend' ? pose.end : pose.end.clone().add(offset), { globalTime: gesture.globalTime, bendMemory: gesture.config.bends?.[chain.key] && new THREE.Vector3().fromArray(gesture.config.bends[chain.key]).applyQuaternion(pose.rotations[0]), ...(gesture.target.kind === 'bend' ? { pole: gesture.origin.clone().add(offset) } : {}) });
-            result.bends = [{ key: chain.key, local: new THREE.Vector3().fromArray(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }];
+            result = solvePoseLimb(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.target.kind === 'bend' ? pose.end : pose.end.clone().add(offset), { globalTime: gesture.globalTime, restrictions: p.restrictions, bendMemory: gesture.config.bends?.[chain.key] && new THREE.Vector3().fromArray(gesture.config.bends[chain.key]).applyQuaternion(pose.rotations[0]), ...(gesture.target.kind === 'bend' ? { pole: gesture.origin.clone().add(offset) } : { config: gesture.config }) });
+            result.bends = [...(result.bends || []), { key: chain.key, local: new THREE.Vector3().fromArray(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }];
           }
         }
         const writable = { ...ownedModel, Sequences: gesture.baseline.Sequences };
@@ -1231,18 +1231,32 @@ export default function GamePreview(inputProps) {
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
         poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId))) : [];
-        const limb = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && handle.selected && handle.kind === 'endpoint');
+        const limb = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && handle.key === p.poseConfig?.target?.key && handle.kind === 'endpoint' && handle.x >= 0 && handle.x <= width && handle.y >= 0 && handle.y <= height);
         if (limb && p.onPosePin && !p.suspended) {
           if (!pinButton) {
-            pinButton = ownerDocument.createElement('button'); pinButton.dataset.posePin = '';
-            pinButton.style.cssText = 'position:absolute;z-index:70;pointer-events:auto;font:11px Tahoma,sans-serif;padding:2px 5px;min-height:22px';
+            pinButton = ownerDocument.createElement('button'); pinButton.type = 'button'; pinButton.dataset.posePin = ''; pinButton.className = 'pose-pin';
+            const icon = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg'), path = ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
+            icon.setAttribute('viewBox', '0 0 16 16'); icon.setAttribute('aria-hidden', 'true'); path.setAttribute('d', posePinPath); icon.appendChild(path);
+            pinButton.append(icon, ownerDocument.createElement('span'));
             pinButton.addEventListener('pointerdown', event => event.stopPropagation());
-            pinButton.addEventListener('click', event => { event.stopPropagation(); const current = latest.current; if (pinButton?.dataset.key) current.onPosePin?.(pinButton.dataset.key, Math.round(native.getFrame()), movementSequence(current, native.getFrame())); });
+            pinButton.addEventListener('click', event => {
+              event.stopPropagation(); const current = latest.current, key = pinButton?.dataset.key;
+              if (!key || nodeGesture) return;
+              const frame = Math.round(native.getFrame());
+              current.onPlayingChange?.(false); current.onTimeChange?.(frame);
+              current.onPosePin?.(key, frame, movementSequence(current, frame));
+            });
             host.current.appendChild(pinButton);
           }
-          pinButton.dataset.key = limb.key; pinButton.setAttribute('aria-label', limb.chain.kind === 'leg' ? 'Pin selected foot' : 'Pin selected hand');
-          pinButton.setAttribute('aria-pressed', String(limb.pinned)); pinButton.textContent = limb.pinned ? 'Pinned' : 'Pin';
-        } else if (pinButton) { pinButton.remove(); pinButton = null; }
+          if (pinButton.dataset.key !== limb.key) { pinPlacement = null; pinOffset = null; }
+          const name = limb.label.toLowerCase();
+          pinButton.dataset.key = limb.key; pinButton.setAttribute('aria-label', `Pin selected ${name}`);
+          pinButton.setAttribute('aria-pressed', String(limb.pinned));
+          pinButton.title = limb.pinned ? `Pinned ${name}. Click to release it.` : `Pin this ${name} in place while moving the body.`;
+          const pinText = limb.pinned ? 'Pinned' : 'Pin';
+          if (pinButton.lastChild.textContent !== pinText) pinButton.lastChild.textContent = pinText;
+          pinButton.hidden = !!nodeGesture;
+        } else if (pinButton) { pinButton.remove(); pinButton = null; pinPlacement = null; pinOffset = null; }
 
         for (const handle of poseHandles) handle.hovered = poseTargetStamp(poseHandleTarget(handle)) === poseHoverTarget;
         const activePose = poseHandles.find(handle => handle.selected);
@@ -1261,9 +1275,13 @@ export default function GamePreview(inputProps) {
         // advertise the wrong axes. Grab the elbow/knee itself to turn it.
         const bendSwivel = activePose?.kind === 'bend' && handleMode === 'rotate';
         nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && !bendSwivel && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
-        if (pinButton && limb) {
-          const position = movementPinPosition(limb, nodeHandles, width, height, pinButton.offsetWidth, pinButton.offsetHeight, poseHandles);
+        if (pinButton && limb && !pinButton.hidden) {
+          // Hold still under the pointer. Keyboard focus keeps the same side
+          // of the limb, while still following camera pan/zoom.
+          const held = pinPlacement && pinButton.matches(':hover') ? pinPlacement : pinOffset && ownerDocument.activeElement === pinButton ? { x: limb.x + pinOffset.x, y: limb.y + pinOffset.y } : null;
+          const position = held ? { x: Math.max(4, Math.min(width - pinButton.offsetWidth - 4, held.x)), y: Math.max(4, Math.min(height - pinButton.offsetHeight - 4, held.y)) } : movementPinPosition(limb, nodeHandles, width, height, pinButton.offsetWidth, pinButton.offsetHeight, poseHandles, pinOffset);
           pinButton.style.left = `${position.x}px`; pinButton.style.top = `${position.y}px`;
+          pinPlacement = position; pinOffset = { x: position.x - limb.x, y: position.y - limb.y };
         }
         const activeAxis = nodeGesture?.mode === 'move' && nodeGesture.handle.mode === 'move' ? nodeGesture.handle.axis : null;
         const markerOptions = { ...overlayOptions, activeAxis, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };

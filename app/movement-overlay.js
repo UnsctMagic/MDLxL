@@ -297,26 +297,35 @@ export function pickMovementHandle(handles, x, y, mode, threshold = 10) {
 }
 
 /** Keep the adjacent Pin button out of the selected control's drag areas. */
-export function movementPinPosition(active, handles, width, height, buttonWidth = 58, buttonHeight = 24, nearby = []) {
+export function movementPinPosition(active, handles, width, height, buttonWidth = 76, buttonHeight = 28, nearby = [], preferred = null) {
   const overlaps = (box, points, padding = 6) => {
     const xs = points.map(point => point.x), ys = points.map(point => point.y);
     return Math.min(...xs) - padding < box.x + buttonWidth && Math.max(...xs) + padding > box.x && Math.min(...ys) - padding < box.y + buttonHeight && Math.max(...ys) + padding > box.y;
   };
-  const blocked = box => handles.some(handle => {
+  const collisions = box => handles.filter(handle => {
     if (handle.plane) return overlaps(box, handle.polygon);
     const length = Math.hypot(handle.dx, handle.dy);
     for (let pixel = 24; pixel <= length + 6; pixel += 6) {
       if (overlaps(box, [{ x: handle.startX + handle.dx * pixel / length, y: handle.startY + handle.dy * pixel / length }], 8)) return true;
     }
     return false;
-  }) || nearby.some(handle => handle.visible && !handle.quiet && overlaps(box, [{ x: handle.x, y: handle.y }], 23));
+  }).length + nearby.filter(handle => handle.visible && !handle.quiet && (
+    overlaps(box, [{ x: handle.x, y: handle.y }], handle.pinned ? 27 : 23) ||
+    (handle.selected || handle.hovered || handle.kind === 'bend') && overlaps(box, [{ x: handle.labelX ?? handle.x + 20, y: (handle.labelY ?? handle.y) - 7 }, { x: (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? (handle.label?.length || 0) * 7), y: (handle.labelY ?? handle.y) + 7 }])
+  )).length;
+  const clamp = (x, y) => ({ x: Math.max(4, Math.min(width - buttonWidth - 4, x)), y: Math.max(4, Math.min(height - buttonHeight - 4, y)) });
+  // Reuse the same side of the limb while it remains clear. Toggling Pin or
+  // moving a nearby control must not make a usable button jump between slots.
+  if (preferred) {
+    const box = clamp(active.x + preferred.x, active.y + preferred.y);
+    if (!collisions(box)) return box;
+  }
   const candidates = [];
   for (const gap of [30, 54, 78]) for (const [dx, dy] of [[0,1],[0,-1],[-1,0],[1,0],[-1,1],[1,1],[-1,-1],[1,-1]]) {
-    const x = Math.max(0, Math.min(width - buttonWidth, active.x + dx * (gap + buttonWidth / 2) - buttonWidth / 2));
-    const y = Math.max(0, Math.min(height - buttonHeight, active.y + dy * (gap + buttonHeight / 2) - buttonHeight / 2));
-    const box = { x, y }; candidates.push(box); if (!blocked(box)) return box;
+    const box = clamp(active.x + dx * (gap + buttonWidth / 2) - buttonWidth / 2, active.y + dy * (gap + buttonHeight / 2) - buttonHeight / 2);
+    const score = collisions(box); candidates.push({ box, score }); if (!score) return box;
   }
-  return candidates.at(-1);
+  return candidates.sort((a, b) => a.score - b.score)[0].box;
 }
 
 export function movementNodeSelection(selectedIds, id, { multiple = false, shift = false, ctrl = false } = {}) {

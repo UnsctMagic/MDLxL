@@ -18,6 +18,7 @@ export const poseSymbols = {
   Object: ['M12 2L22 12L12 22L2 12Z', 'M9 9H15V15H9Z'],
 };
 const symbols = poseSymbols;
+export const posePinPath = 'M5 2H11L10 6L13 9V10H3V9L6 6ZM8 10V15';
 const symbolPaths = new Map();
 const pelvisSymbols = new Map();
 let pelvisFace;
@@ -89,7 +90,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   const labels = [];
   for (const handle of handles.filter(handle => handle.visible && !handle.quiet)) {
     handle.labelX = handle.x + 20;
-    handle.labelWidth = `${handle.label}${handle.pinned ? ' · PIN' : ''}`.length * 7;
+    handle.labelWidth = handle.label.length * 7;
     let offset = 0, attempt = 0;
     while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth) || handles.some(other => other.visible && !other.quiet && Math.abs(other.y - (handle.y + offset)) < 26 && handle.labelX < other.x + 19 && other.x - 19 < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
     handle.labelY = handle.y + offset; labels.push(handle);
@@ -102,12 +103,12 @@ export function pickPoseHandle(handles, x, y, target = null, nodes = null, prefe
   // The selected symbol is drawn last, over other controls' labels. Its
   // draggable face must therefore win over a label crossing that face.
   const selected = preferSelected && target && visible.find(handle => identity(handle) === identity(target));
-  if (selected && Math.hypot(x - selected.x, y - selected.y) <= (selected.kind === 'bend' ? 14 : 19)) return selected;
+  if (selected && Math.hypot(x - selected.x, y - selected.y) <= (selected.kind === 'bend' ? 14 : selected.pinned ? 24 : 19)) return selected;
   const label = visible.find(handle => !handle.quiet && (handle.selected || handle.hovered || handle.kind === 'bend') && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
   const candidates = [...visible, ...(nodes || []).map(point => ({ ...point, kind: 'node', id: point.node.ObjectId, marker: true, quiet: true }))];
   const hits = candidates.filter(handle => handle.visible).filter(handle => {
     const distance = Math.hypot(x - handle.x, y - handle.y);
-    return distance <= (handle.quiet ? 13 : handle.kind === 'bend' ? 14 : 19);
+    return distance <= (handle.quiet ? 13 : handle.kind === 'bend' ? 14 : handle.pinned ? 24 : 19);
   });
   if (!hits.length) return label || null;
   // Share Movement's selection cycle, with each real marker and virtual handle
@@ -153,9 +154,16 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null) {
       context.save(); context.translate(handle.x - 12, handle.y - 12); context.fillStyle = color; context.fill(shape);
       context.strokeStyle = '#102431'; context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.stroke(detail); context.restore();
     }
+    if (handle.pinned) {
+      // A pin remains legible after selection moves to the body or another limb.
+      if (!symbolPaths.has('Pin')) symbolPaths.set('Pin', new Path2D(posePinPath));
+      context.save(); context.translate(handle.x + 11, handle.y - 11);
+      context.beginPath(); context.arc(0, 0, 8, 0, Math.PI * 2); context.fillStyle = '#ffbd59'; context.fill();
+      context.translate(-6, -6); context.scale(.75, .75); context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.strokeStyle = '#102431'; context.stroke(symbolPaths.get('Pin')); context.restore();
+    }
     if (!handle.selected && !handle.hovered && handle.kind !== 'bend') continue;
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'left'; context.textBaseline = 'middle'; context.lineWidth = 3; context.strokeStyle = '#102431';
-    const label = `${handle.label}${handle.pinned ? ' · PIN' : ''}`;
+    const label = handle.label;
     const labelX = handle.labelX ?? handle.x + 20, labelY = handle.labelY ?? handle.y;
     if (Math.abs(labelY - handle.y) > 1) { context.beginPath(); context.moveTo(handle.x + 15, handle.y); context.lineTo(labelX - 2, labelY); context.lineWidth = 1; context.strokeStyle = color; context.stroke(); }
     context.lineWidth = 3; context.strokeStyle = '#102431'; context.strokeText(label, labelX, labelY); context.fillStyle = color; context.fillText(label, labelX, labelY);

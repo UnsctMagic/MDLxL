@@ -12,7 +12,9 @@ rigs, including joints named through their native attachment references.
    view where the model provides them.
 2. Click a handle's symbol or label. Use the existing **Move**, **Rotate** or
    **Scale** tool. Move a hand or foot to bend its limb; Rotate turns its
-   endpoint. Selecting a limb also reveals its labeled **Elbow** or **Knee**
+   endpoint. Hands and feet pull their connected torso or body slightly as you
+   move them, while other limbs compensate and explicit pins stay fixed.
+   Selecting a limb also reveals its labeled **Elbow** or **Knee**
    control (**Bend** on custom chains). Drag it with Move to aim the bend.
    For a swivel, choose Rotate and drag that control left or right: the elbow
    or knee turns around the limb while its hand/foot stays in place and keeps
@@ -30,10 +32,15 @@ rigs, including joints named through their native attachment references.
    translating apart. Chest movement carries the head while keeping its facing
    direction. Rotate turns the chosen part directly. Arms compensate as the
    torso bends. Select a small native bone marker for ordinary MDLvis transforms.
-5. Select a hand or foot and click **Pin** only when it must stay fixed. The
-   handle turns orange and shows **PIN**. Explicit pins can limit ancestor motion
-   at **Reach limit**. Click **Pinned** to return to automatic compensation.
-   Scale retains ordinary Movement behavior, with explicit pins compensated.
+5. Select a hand, foot, elbow or knee and click the adjacent **Pin** button when
+   its endpoint must stay fixed. The button turns amber and reads **Pinned**;
+   a small pin badge stays on the endpoint even after you select the body.
+   Click **Pinned** again to release it. Space or Enter also toggles the focused
+   button. Pinning pauses playback at the current frame and creates no keys.
+   The button keeps its size and position while you use it, follows the limb
+   when the camera moves, and hides during a drag or when that limb is offscreen.
+   Explicit pins can limit ancestor motion at **Reach limit**. Scale retains
+   ordinary Movement behavior, with explicit pins compensated.
 
 Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on dark
 backings so they remain identifiable over bone markers. Whole-body control uses
@@ -95,6 +102,13 @@ available. These rules are based on the model structure, never model filenames
 or fixed node IDs.
 
 ## Edits, history and saving
+
+With POSE on, **Copy** / **Ctrl+C** captures the whole current pose, including
+interpolated transforms between stored keys. Move to another frame or animation
+and use **Paste** / **Ctrl+V** to restore it in one Undo step. The timeline menu's
+**Copy Pose** does the same. Transform restrictions and global controllers keep
+their existing ownership. **Copy keyframes** still copies stored keys; with
+POSE off, ordinary Copy retains its normal keyframe behavior.
 
 Each gesture starts from the current sampled pose. Automatic targets retain
 their requested endpoint pose across repeated ancestor drags, even beyond reach:

@@ -109,7 +109,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
       let result;
       if (chain && change.mode === 'move') {
         const pose = samplePoseChain(current, chain, frame, editSequenceIndex);
-        result = solvePoseLimb(current, chain, frame, editSequenceIndex, pose.end.clone().add({ x: change.values[0], y: change.values[1], z: change.values[2] }));
+        result = solvePoseLimb(current, chain, frame, editSequenceIndex, pose.end.clone().add({ x: change.values[0], y: change.values[1], z: change.values[2] }), { config: poseConfig, restrictions });
       } else result = solvePoseNode(current, id, poseNodeConstraints(current, poseConfig, id, change.mode), frame, editSequenceIndex, { ...change, control: poseNodeControl(current, poseConfig, poseTarget, change.mode) });
       const applied = applyMovementPose(current, result.changes, frame, editSequenceIndex, restrictions);
       if (applied) poseResult.current = result;
