@@ -14,11 +14,6 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
-  # TEMP: dry run on this PR to verify the packaging steps. Remove after merge.
-  pull_request:
-    paths:
-      - .github/workflows/release.yml
-      - scripts/fetch-ffmpeg.mjs
 
 permissions:
   contents: write
