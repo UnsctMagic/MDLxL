@@ -19,7 +19,7 @@ function SetupWindow({ onClose, title, children }) {
 const limbParts = new Set(['Hand', 'Foot', 'Hoof', 'Wing', 'Chain']);
 const sameTarget = (a, b) => a?.kind === b?.kind && a?.id === b?.id && a?.key === b?.key;
 
-export default function PoseControls({ model, revision, config, onChange, onSelect, onTransformMode, selectedNodeIds, frame, sequence, disabled }) {
+export default function PoseControls({ model, revision, config, onChange, onSelect, onTransformMode, selectedNodeIds, frame, sequence, disabled, weight, weightRange }) {
   const [open, setOpen] = useState(false), [editor, setEditor] = useState(null), [slot, setSlot] = useState('end'), [error, setError] = useState('');
   const anchor = useRef(null), names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name || 'Bone']));
   const latest = useRef({ config, onChange }); latest.current = { config, onChange };
@@ -129,6 +129,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
       <button type="button" className="pose-crosshair" aria-label="Blocker crosshair" aria-pressed={config.crosshair !== false} disabled={disabled} title="Show the handle blocking a move" onClick={() => onChange({ ...config, crosshair: config.crosshair === false })}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v7m0 8v7M1 12h7m8 0h7"/></svg>
       </button>
+      {weight && <button type="button" className="pose-weight-button" aria-pressed={!!weight.state} disabled={disabled || !weight.state && (!config.target || config.target.kind === 'bend' || !weightRange)} title="Select a controller, Shift-drag part of its track, then choose vertices to give weight" onClick={weight.open}>Weight</button>}
     </>}
     {open && config.enabled && <SetupWindow onClose={close} title={open === 'add' ? 'Add handle' : 'Setup'}>
       {editor ? <>

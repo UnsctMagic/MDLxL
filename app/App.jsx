@@ -1,5 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import Viewport from './Viewport.jsx';
+import PoseWeight from './PoseWeight.jsx';
+import usePoseWeight from './usePoseWeight.js';
 import { QUAD_VIEW_OPTIONS } from './quad-view.js';
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
@@ -207,7 +209,21 @@ export default function App() {
   const [animationPanel, setAnimationPanel] = useState('movement'), [selectedNodeIds, setSelectedNodeIdsState] = useState([]), [movementMode, setMovementMode] = useState('select'), [movementSpace, setMovementSpace] = useState('local'), [showNodes, setShowNodes] = useState(true);
   const poseConfig = session.pose || { enabled: false, chains: [], body: null, pins: [], target: null };
   const poseSelectionOnly = useRef(false);
-  const changePose = value => { if (value.enabled) session.poseView ||= poseView; session.pose = value; setTick(tick => tick + 1); };
+  const [weightRange, setWeightRange] = useState(null);
+  const changePose = value => {
+    if (!value.enabled && session.pose?.enabled && !weight.finish()) return;
+    if (value.enabled) session.poseView ||= poseView;
+    if (value.enabled && !session.pose?.enabled) {
+      const id = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
+      const chain = value.chains.find(item => item.end === id);
+      const target = chain ? { kind: 'endpoint', key: chain.key } : id != null && id === value.body ? { kind: 'body' } : value.nodes?.includes(id) ? { kind: 'node', id } : null;
+      value = { ...value, target };
+      // A stale FK gizmo must not translate a hand alone on POSE entry.
+      // Explicit native marker picks remain available after entering.
+      if (!target) setSelectedNodeIdsState([]);
+    }
+    session.pose = value; setTick(tick => tick + 1);
+  };
   const pinPose = (key, frame, sequence) => {
     const config = session.pose || poseConfig, chain = config.chains.find(item => item.key === key);
     if (!chain || doc.readOnly || saving) return;
@@ -489,6 +505,7 @@ export default function App() {
   };
   const selectMode = async next => {
     if (savingRef.current || next === mode) return;
+    if (!weight.finish()) return;
     // Function-key mode changes can remove a focused blur-committed field
     // before React sees its blur. Commit that pending value while its editor
     // is still mounted (notably the final RGB channel in Animations).
@@ -578,6 +595,9 @@ export default function App() {
     }
     return result;
   };
+  const weight = usePoseWeight({ model, revision: doc.revision, sessionId: session.id, sequence, config: poseConfig, selection: validSelection, range: weightRange, restrictions, enabled: poseViewActive && globalSeqId === null, onEdit: edit, onPlayingChange: setPlaying, onPlaybackSpeedChange: setPlaybackSpeed, onSeek: setTime });
+  const hasWeightChanges = !!weight.state && (weight.state.amount > 0 && !weight.state.error || !!weight.state.result?.tracks.length);
+  latest.current.hasWeightChanges = hasWeightChanges;
   const chooseSets = next => { next = new Set([...next].filter(index => tabVisibleGeosets.has(index))); if (mode === 'animation' && animationPanel === 'animations') { setSelectedNodeIds([]); setMaterialVisibility(null); } setSelectable(next); setVisibleOnly(previous => new Set([...previous].filter(index => !next.has(index)))); setSelection(previous => filterVertexSelection(previous, next, doc.model)); setActiveGeoset(previous => next.has(previous) ? previous : next.size ? next.values().next().value : -1); };
   const stepGeoset = direction => {
     const indices = [...tabVisibleGeosets], index = indices.indexOf(activeGeoset);
@@ -665,6 +685,7 @@ export default function App() {
   }
   function activateSession(next, { remember = true } = {}) {
     if (!next || next === session || savingRef.current) return;
+    if (!weight.finish()) return;
     window.dispatchEvent(new CustomEvent('mdlxl-paint-flush'));
     if (remember) {
       rememberSessionView(session);
@@ -675,6 +696,7 @@ export default function App() {
     say(next.doc.readOnly ? 'Read-only model; original data retained.' : `Switched to ${next.doc.name}`);
   }
   function install(next, { replace = false } = {}) {
+    if (!weight.finish()) return;
     const history = settings.current; next.doc.configureHistory({ budgetBytes: history.historyBudgetBytes ?? 512 * 1024 * 1024, maxSteps: history.historyMaxSteps ?? 10000 });
     const currentSessions = latest.current.sessions || sessions, active = latest.current.session || session;
     const pristinePlaceholder = currentSessions.length === 1 && active === currentSessions[0] && !active.path && active.doc.name === 'Untitled.mdl' && !sessionDirty(active) && active.doc.revision === 0;
@@ -699,6 +721,7 @@ export default function App() {
   }
   function requestCloseSession(target) {
     if (savingRef.current) return;
+    if (target === session && !weight.finish()) return;
     window.dispatchEvent(new CustomEvent('mdlxl-paint-flush'));
     if (target === session) rememberSessionView(target);
     if (sessionDirty(target)) setDialog({ type: 'closeTab', target });
@@ -764,6 +787,7 @@ export default function App() {
     } finally { savingRef.current = false; setSaving(false); }
   }
   async function save(saveAs = false, requestedFormat = session.doc.format, target = session) {
+    if (target === session && !weight.finish()) return false;
     if (savingRef.current) return false;
     if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.'); return false; }
     savingRef.current = true; setSaving(true);
@@ -900,6 +924,7 @@ export default function App() {
   };
   const selectManagerTextureFiles = async () => { try { if (window.desktop) await selectManagerTextures(await window.desktop.textures()); else managerTextures.current.click(); } catch (error) { say(error.message, true); } };
   const undo = redo => {
+    if (weight.state) { weight.cancel(); return; }
     if (savingRef.current) return;
     if(mode==='showcase')return window.dispatchEvent(new CustomEvent('mdlxl-showcase-command',{detail:redo?'redo':'undo'}));
     try {
@@ -1190,8 +1215,8 @@ export default function App() {
   useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || latest.current.dialog?.type === 'resource' && ['undo','redo'].includes(action) || (!latest.current.dialog && !latest.current.settingsTab)) runLatest.current(action); }), []);
   useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); const persisted=normalizePreferences(settings.current.preferences || preferencesRef.current); savedPreferences.current=JSON.stringify(persisted); changePreferences(persisted); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
   useEffect(() => window.desktop?.onExternalModels?.(records => { queueModelRecords(records).catch(error=>say(error.message,true)); }), []);
-  const hasUnsavedWork=doc.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges;
-  const hasAnyUnsavedWork=sessions.some(sessionDirty);
+  const hasUnsavedWork=doc.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges||hasWeightChanges;
+  const hasAnyUnsavedWork=sessions.some(sessionDirty)||hasWeightChanges;
   async function saveSessionWork(target, includeNeverSaved = false) {
     const hasModelWork = target.doc.dirty || Object.keys(target.uvPreviews).length > 0 || Object.keys(target.animationDrafts).length > 0;
     let saved = !target.paintProject?.dirty || await savePaintProject(target.paintProject, target);
@@ -1199,13 +1224,14 @@ export default function App() {
     return saved;
   }
   saveBeforeCloseRef.current=async()=>{
+    if (!weight.finish()) return false;
     window.dispatchEvent(new CustomEvent('mdlxl-paint-flush'));
     for (const target of latest.current.sessions) if ((sessionDirty(target) || !target.path) && !await saveSessionWork(target, true)) return false;
     return true;
   };
-  useEffect(() => { const pending=sessions.filter(item=>sessionDirty(item)||!item.path);window.desktop?.setDirty({dirty:hasAnyUnsavedWork,saved:pending.length===0,name:pending.length>1?`${pending.length} open models`:pending[0]?.doc.name||doc.name}); document.title = `${hasUnsavedWork ? '* ' : ''}${session.path || doc.name} — MDLxL`; }, [doc, tick, sessions, session.path, hasUnsavedWork, hasAnyUnsavedWork]);
+  useEffect(() => { const pending=sessions.filter(item=>sessionDirty(item)||!item.path||item===session&&hasWeightChanges);window.desktop?.setDirty({dirty:hasAnyUnsavedWork,saved:pending.length===0,name:pending.length>1?`${pending.length} open models`:pending[0]?.doc.name||doc.name}); document.title = `${hasUnsavedWork ? '* ' : ''}${session.path || doc.name} — MDLxL`; }, [doc, tick, sessions, session.path, hasUnsavedWork, hasAnyUnsavedWork, hasWeightChanges]);
   useEffect(() => { applyApplicationTheme(preferences); }, [preferences]);
-  useEffect(() => { const handler = event => { if (latest.current.sessions.some(sessionDirty)) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, []);
+  useEffect(() => { const handler = event => { if (latest.current.hasWeightChanges || latest.current.sessions.some(sessionDirty)) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, []);
   useEffect(() => {
     if (!doc.dirty && doc.revision === 0 && !hasUVPreview && !hasTrackDrafts && session.checkpoint === 0) return;
     const timer = setTimeout(async () => { try { await checkpoint(session); } catch (error) { say(`Recovery checkpoint failed: ${error.message}`, true); } }, 350);
@@ -1358,7 +1384,7 @@ export default function App() {
         previewProps={{ ...cameraProps, previewMode:'textured', modelPath:session.path, key: session.id, preferences, onSensitivityChange: changeSensitivity, onPointerSensitivityChange: changePointerSensitivity, onCameraModeToggle: toggleMiddleCamera, suspended: previewSuspended,
           revision: doc.revision, teamColor, textureAssets: session.assets, view, cameraMode }} /></Suspense>);
   const textureLibraryDialog = dialog?.type === 'library' && <Suspense fallback={<div className="classic-modal"><p>Loading texture library…</p></div>}><TextureLibrary model={model} modelPath={session.path} onClose={() => setDialog(dialog.returnTo)} onAddTexture={doc.readOnly ? undefined : addTexture} onPreviewTexture={dialog.preview ? previewTexture : undefined} previewEnabled={dialog.preview && previewSelection.enabled && !doc.readOnly} previewReason={doc.readOnly ? 'This model is read-only.' : previewSelection.reason} onOpenMaterials={() => setDialog({ type: 'resource', kind: 'Materials' })}/></Suspense>;
-  const timeline = (<Suspense fallback={<div>Loading keyframes…</div>}><KeyframeTimeline
+  const timeline = (<Suspense fallback={<div>Loading keyframes…</div>}><KeyframeTimeline onRangeChange={setWeightRange}
     motionFindings={inspectingMotion ? motion.visible : []} motionActive={!inspectingMotion || motion.stale || motion.active?.resolved ? null : motion.active}
     motionControls={inspectingMotion && sequence >= 0 && (motion.active || motion.desiredCount > 0) ? motion : null}
     onMotionFinding={(finding, element) => { motionOrigin.current = element; setMotionAnchor(element.getBoundingClientRect().left); motion.setActive(finding); selectMotion(finding); }}
@@ -1419,7 +1445,7 @@ export default function App() {
       {preferencesReady && mode === 'paint' && <Suspense fallback={<div className="classic-empty-view">{paintMessage('paint.loading')}</div>}><PaintBoundary key={session.id} onSave={()=>savePaintProject()} onExit={()=>selectMode('vertices')}><PaintWorkspace key={session.id} model={session.paintWorkingModel||model} originalModel={paintOriginalModel} revision={doc.revision+session.paintWorkingRevision} modelName={doc.name} modelPath={session.path} textureAssets={session.assets} project={session.paintProject} activeGeoset={activeGeoset} onGeosetChange={setActiveGeoset} onWorkingModelChange={value=>{session.paintWorkingModel=value;session.paintWorkingRevision++;refresh();}} onProjectChange={value=>{if(!session.paintProject&&value){session.paintOriginalModelBytes=doc.serialize(doc.format);session.paintWorkingModel ||= structuredClone(model);}if(!value){session.paintWorkingModel=null;session.paintWorkingRevision++;delete session.paintAppliedRevision;}session.paintProject=value;refresh();}} onEnsureTarget={ensurePaintTarget} onSaveProject={savePaintProject} onOpenProject={open} onExport={exportPaintProject} onApply={applyPaintToModel} onExit={()=>selectMode('vertices')} onStatus={say} preferences={preferences} cameraProps={{...cameraProps,onWorkMode:()=>setCameraMode('work'),onSensitivityChange:changeSensitivity,onPointerSensitivityChange:changePointerSensitivity,onCameraModeToggle:toggleMiddleCamera}} view={view} cameraMode={cameraMode} teamColor={teamColor} readOnly={doc.readOnly||saving||model.Version!==800}/></PaintBoundary></Suspense>}
 
       {(mode === 'animation' || mode === 'bones') && <Suspense fallback={<div className="classic-empty-view">Loading model preview…</div>}><GamePreview vanilla={visUI} editorDisplayMode={displayMode} onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]} cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])} previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} restPose={restPose} cleanAnimationPreview={cleanAnimationPreview} workplaneEnabled={workplaneEnabled} restrictions={restrictions} multiple={multipleNodes} {...cameraProps} onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset} highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView} selectedGeoset={activeGeoset} selectionByGeoset={validSelection} visibleGeosets={displayedGeosets} selectableGeosets={selectable} onSelectionChange={next=>setSelection(filterVertexSelection(next,selectable,doc.model))} hiddenGeosets={hiddenGeosets} modelPath={session.path} mode={cleanView ? 'textured' : renderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={cameraPortraitActive ? false : showAxes} workplane={workplane} backgroundUrl={backgroundLibrary.url} backgroundType={backgroundLibrary.type} onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]} overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection} preferences={preferences} onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera} suspended={previewSuspended} key={session.id} model={previewModel} revision={doc.revision} sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying} teamColor={teamColor} textureAssets={session.assets} view={cameraPortraitActive ? portraitView : view} cameraMode={cameraMode}
-        poseConfig={rigWorkspace && !restPose && !activePortrait ? poseConfig : null} poseDocumentModel={model} onPoseSelect={selectPose} onPosePin={pinPose} onPoseCommit={commitPose} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision} liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}} onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace || !restPose && globalSeqId !== null ? undefined : moveNodes} showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
+        poseConfig={rigWorkspace && !restPose && !activePortrait ? poseConfig : null} poseDocumentModel={model} onPoseSelect={selectPose} onPosePin={pinPose} weightPreview={weight.state?.result} weightVertices={!!weight.state?.vertices} onPoseCommit={weight.state ? undefined : commitPose} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision} liveMovementRevision={liveMovementRevision.current} playbackRange={weight.state?.range || (inspectingMotion ? motion.focus : null)} globalSeqId={globalSeqId} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}} onNodeTransform={!!weight.state || doc.readOnly || saving || sharedMotionChannel || !rigWorkspace || !restPose && globalSeqId !== null ? undefined : moveNodes} showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 
     </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <aside className="classic-sidebar">
       {cameraRotating && !activePortrait && cameraPanel}
@@ -1435,7 +1461,7 @@ export default function App() {
       {mode === 'bones' && <Suspense fallback={<p>Loading controller…</p>}><MovementController poseConfig={poseConfig} onPoseChange={changePose} onPoseSelect={selectPose} onOpenEmitter={openParticles} restPose={restPose} selectionByGeoset={validSelection} workplaneEnabled={workplaneEnabled} onWorkplaneEnabled={setWorkplaneEnabled} workplane={workplane} onWorkplane={setWorkplane} restrictions={restrictions} onRestrictions={setRestrictions} multiple={multipleNodes} onMultiple={setMultipleNodes} onVertexTransform={transform} globalSeqId={restPose ? null : globalSeqId} onTimelineChange={selectTimeline} highlightKeyframes={highlightKeyframes} onHighlightKeyframes={setHighlightKeyframes} highlightChain={highlightChain} onHighlightChain={changeHighlightChain} preferences={preferences} disabled={doc.readOnly || saving} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onEdit={edit} onSeek={setTime} onSequenceChange={selectSequence} playing={playing} onPlayingChange={setPlaying} transformMode={movementMode} onTransformMode={value => setWorkTool(value==='move'?'translate':value)} transformSpace={movementSpace} onTransformSpace={setMovementSpace} showNodes={showNodes} onShowNodes={setShowNodes} showParticles={preferences.graphics.particles} onShowParticles={showParticlePreview} onOpenNodeManager={openNodeManager} onDeleteNode={deleteSelectedNode} onRenameNode={renameSelectedNode} onBillboarded={setSelectedBoneBillboarded} onCreateRigNode={createBoneOrAttachment} onAttach={beginAttach} onDetach={detachSelectedNode} onSoftBind={() => bindSelectedVertices('soft')} onHardBind={() => bindSelectedVertices('hard')} onDetachVertices={() => bindSelectedVertices('detach')} attachActive={attachSourceIds.length > 0} createOpen={boneCreateOpen} onCreateOpen={setBoneCreateOpen} canDeleteNode={!!singleRigNode} canAttach={selectedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1)} canDetach={parentedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1)} canBind={!!selectedBone && selectionCount > 0} /></Suspense>}
       {mode === 'animation' && (!cameraRotating || animationPanel === 'movement') && <Suspense fallback={<p>Loading controller…</p>}>
 
-        {animationPanel === 'movement' ? <MovementController poseConfig={poseConfig} onPoseChange={changePose} onPoseSelect={selectPose} onOpenEmitter={openParticles} restPose={restPose} selectionByGeoset={validSelection} workplaneEnabled={workplaneEnabled} onWorkplaneEnabled={setWorkplaneEnabled} workplane={workplane} onWorkplane={setWorkplane} restrictions={restrictions} onRestrictions={setRestrictions} multiple={multipleNodes} onMultiple={setMultipleNodes} onVertexTransform={transform} globalSeqId={restPose ? null : globalSeqId} onTimelineChange={selectTimeline} highlightKeyframes={highlightKeyframes} onHighlightKeyframes={setHighlightKeyframes} highlightChain={highlightChain} onHighlightChain={changeHighlightChain} preferences={preferences} disabled={doc.readOnly || saving} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onEdit={edit} onSeek={setTime} onSequenceChange={selectSequence} playing={playing} onPlayingChange={setPlaying} transformMode={movementMode} onTransformMode={value => setWorkTool(value==='move'?'translate':value)} transformSpace={movementSpace} onTransformSpace={setMovementSpace} showNodes={showNodes} onShowNodes={setShowNodes} showParticles={preferences.graphics.particles} onShowParticles={showParticlePreview} onOpenNodeManager={openNodeManager} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
+        {animationPanel === 'movement' ? <MovementController weight={weight} weightRange={weightRange} poseConfig={poseConfig} onPoseChange={changePose} onPoseSelect={selectPose} onOpenEmitter={openParticles} restPose={restPose} selectionByGeoset={validSelection} workplaneEnabled={workplaneEnabled} onWorkplaneEnabled={setWorkplaneEnabled} workplane={workplane} onWorkplane={setWorkplane} restrictions={restrictions} onRestrictions={setRestrictions} multiple={multipleNodes} onMultiple={setMultipleNodes} onVertexTransform={transform} globalSeqId={restPose ? null : globalSeqId} onTimelineChange={selectTimeline} highlightKeyframes={highlightKeyframes} onHighlightKeyframes={setHighlightKeyframes} highlightChain={highlightChain} onHighlightChain={changeHighlightChain} preferences={preferences} disabled={doc.readOnly || saving} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onEdit={edit} onSeek={setTime} onSequenceChange={selectSequence} playing={playing} onPlayingChange={setPlaying} transformMode={movementMode} onTransformMode={value => setWorkTool(value==='move'?'translate':value)} transformSpace={movementSpace} onTransformSpace={setMovementSpace} showNodes={showNodes} onShowNodes={setShowNodes} showParticles={preferences.graphics.particles} onShowParticles={showParticlePreview} onOpenNodeManager={openNodeManager} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
           <AnimationController Dialog={Dialog} materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
           {geosetPicker}
           <AnimationNodes model={model} revision={doc.revision} selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{setMaterialVisibility(null);setSelectedNodeIds(ids);}}/>
@@ -1452,6 +1478,7 @@ export default function App() {
     {mode === 'uv' && window.desktop && uvWindow && <DetachedWindow childWindow={uvWindow} title="MDLxL — UV Wrapper" preferences={preferences} onClose={() => { uvWindowRef.current = null; setUVWindow(null); if (latest.current.mode === 'uv') selectMode('vertices'); }}>{uvWorkspace}{dialog?.host === 'uv' && textureLibraryDialog}</DetachedWindow>}
     {dialog?.type === 'portraitSetup' && <PortraitSetup model={model} missingCamera={dialog.missingCamera} missingSequence={dialog.missingSequence} sourceIndex={sequence >= 0 ? sequence : model.Sequences.length ? 0 : -1} disabled={doc.readOnly || saving} onCreate={completePortraitSetup} onSetCamera={setMissingPortraitCamera} onClose={() => setDialog(null)}/>}
     {dialog?.type==='forge' && <Suspense fallback={<div className="classic-modal">Loading Forge…</div>}><Forge editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} selection={validSelection} textureAssets={session.assets} teamColor={teamColor} onCommitGlow={forgeGlow} preferences={preferences} model={model} modelPath={session.path} onClose={()=>setDialog(null)} onCommit={forgeItem}/></Suspense>}
+    {weight.state && <PoseWeight weight={weight}/>}
     {dialog?.type==='bitsAndParts' && <Suspense fallback={<div className="classic-modal">Loading BitsAndParts…</div>}><BitsAndParts model={model} selectionByGeoset={mode === 'vertices' ? validSelection : null} preferences={preferences} textureAssets={session.assets} teamColor={teamColor} onClose={()=>setDialog(null)} onCommit={importPart}/></Suspense>}
     {dialog?.type==='particles' && <Suspense fallback={<div className="classic-modal">Loading Particle Editor…</div>}><ParticleEditor onPlacedAssets={assets=>{changeOverlay('particles',true);session.assets=new Map([...session.assets,...assets]);refresh();}} doc={doc} revision={doc.revision} edit={edit} refresh={refresh} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} selectedNodeId={dialog.nodeId} attachmentNodeId={dialog.attachmentId} selectedGeometry={dialog.selection} sequenceIndex={sequence} previewFrame={time} onClose={()=>setDialog(null)} onNodeChange={id=>setSelectedNodeIds(id==null?[]:[id])}/></Suspense>}
     {dialog?.type==='shape' && <Suspense fallback={<div className="classic-modal">Loading shaping tools…</div>}><ShapingDialog editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} preferences={preferences} model={model} selectedGeosets={[...selectable]} selectionByGeoset={validSelection} initialTool={dialog.tool} onClose={()=>setDialog(null)} onApply={async(options,selection,working)=>{const {shapeGeosetsWithSupport}=await import('../src/shaping-support.js');return edit('Shape geosets',['Geosets','Info'],m=>{if(working!==model)m.Geosets=structuredClone(working.Geosets);return shapeGeosetsWithSupport(m,selection,options);});}}/></Suspense>}

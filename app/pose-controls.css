@@ -58,3 +58,13 @@
 .pose-crosshair svg { color: #000; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
 
 .pose-crosshair[aria-pressed="true"] svg { color: #ff3030; }
+.pose-controls > .pose-weight-button { grid-column: 1 / 7; }
+.pose-weight { width: 214px; top: 140px; }
+.pose-weight-modes { display: flex; gap: 4px; margin: 8px 0; }
+.pose-weight-modes button { flex: 1; }
+.pose-weight button[aria-pressed="true"] { background: var(--ui-selected); color: var(--ui-selected-text); }
+.pose-weight-count { margin-left: 7px; }
+.pose-weight-amount { display: block; margin-top: 10px; }
+.pose-weight-amount span { display: flex; justify-content: space-between; }
+.pose-weight-amount input { width: 100%; margin: 5px 0 0; }
+.pose-weight .pose-weight-interval { font-size: 10px; opacity: .8; }

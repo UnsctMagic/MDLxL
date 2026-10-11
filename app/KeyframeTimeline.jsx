@@ -10,7 +10,7 @@ import './KeyframeTimeline.css';
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 /** The original compact reel: time selection, with authoring in the controllers. */
-export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, globalSeqId = null, time = 0, selectedNodeIds = [], selectedGeosets = [], activeController = 'rotate', highlightKeyframes = true, highlightChain = false, poseScope = null, poseEnabled = false, playbackSpeed = 100, onPlaybackSpeedChange, playing = false, onPlayingChange, onEdit, onSeek, onCommands, onStatus, disabled = false, restrictions = {}, motionFindings = [], motionActive = null, motionControls = null, onMotionFinding, onKeyClick, children }) {
+export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, globalSeqId = null, time = 0, selectedNodeIds = [], selectedGeosets = [], activeController = 'rotate', highlightKeyframes = true, highlightChain = false, poseScope = null, poseEnabled = false, playbackSpeed = 100, onPlaybackSpeedChange, playing = false, onPlayingChange, onEdit, onSeek, onCommands, onStatus, disabled = false, restrictions = {}, motionFindings = [], motionActive = null, motionControls = null, onMotionFinding, onKeyClick, onRangeChange, children }) {
   const [range, setRange] = useState(null), [context, setContext] = useState(null), [draftTime, setDraftTime] = useState('0'), [draftSpeed, setDraftSpeed] = useState(String(playbackSpeed));
   const [keySelection, setKeySelection] = useState(null);
   const [, refreshClipboard] = useState(0);
@@ -69,6 +69,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
   }, [motionFindings, timeSet, selectionStamp, highlightKeyframes, activeController, domain, model, tracks]);
   const hasRange = range && range[0] !== range[1];
   const bounds = selectedKeysById ? [Math.min(...selectedKeysById.frames), Math.max(...selectedKeysById.frames)] : hasRange ? [Math.min(...range), Math.max(...range)] : [frame, frame];
+  useEffect(() => { onRangeChange?.(hasRange ? [Math.min(...range), Math.max(...range)] : null); }, [range?.[0], range?.[1], onRangeChange]);
   const mutationTargets = useMemo(() => unrestrictedTimelineTargets(targets, restrictions), [targets, restrictions]);
   const mutationTrackIds = new Set(mutationTargets.map(target => target.trackId));
   const mutationBlocked = disabled || !domain || !mutationTargets.length;

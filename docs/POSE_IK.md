@@ -165,8 +165,10 @@ Native edits require an editable local animation interval. Affected global
 controllers and shared sequence timestamps cannot be overwritten by POSE.
 Configuration remains available independently of the editing interval.
 
-This is a posing controller; balancing, physics, anatomical limits, contact
-baking, automatic animation generation and rig repair are outside its scope.
+[Weight](POSE_WEIGHT.md) adds an optional Heavy or Swing authoring pass to a
+selected portion of existing motion. It produces ordinary editable native keys.
+Balancing, runtime physics, anatomical limits, contact baking, complete animation
+generation and rig repair remain outside POSE's scope.
 
 See [verification evidence](POSE_IK_VERIFICATION.md).
 
