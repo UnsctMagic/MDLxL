@@ -56,6 +56,15 @@
   choose the next version from the latest released version and include all
   changes intended for that release.
 
+## Build output
+
+- `dist/` and the FFmpeg executable/DLLs in `electron/ffmpeg/` are not tracked in
+  git. Never commit them. Run `pnpm run build` for `dist/` and
+  `pnpm run fetch-ffmpeg` for FFmpeg (hash-verified against
+  `electron/ffmpeg/PROVENANCE.json`).
+- Releases are built by the **Draft release** GitHub Action when a `v<version>`
+  tag is pushed. It only creates a draft; publishing stays a manual step.
+
 ## Git workflow
 
 - Do not treat a local-only commit or merge as a completed handoff.

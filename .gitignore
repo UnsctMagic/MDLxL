@@ -16,6 +16,18 @@ release/
 *.asar
 *.zip
 
+# Renderer build output. Produced by `pnpm run build`; CI builds it for releases.
+dist/
+
+# Pinned FFmpeg binaries. Fetched and hash-verified by `pnpm run fetch-ffmpeg`
+# against electron/ffmpeg/PROVENANCE.json. The license texts stay tracked.
+electron/ffmpeg/*.exe
+electron/ffmpeg/*.dll
+
+# Retired CASC helpers. Only CascBridge-0.8.0.exe is used (see electron/casc.cjs).
+electron/casc/CascBridge.exe
+electron/casc/CascBridge-0.7.0.exe
+
 # OS/editor noise
 .DS_Store
 Thumbs.db

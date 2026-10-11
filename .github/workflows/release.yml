@@ -1,0 +1,71 @@
+name: Draft release
+
+# Pushing a version tag (for example v0.22.2) builds the portable Windows package
+# and creates a DRAFT GitHub release. A draft is never offered by the in-app
+# updater and does not trigger the Discord announcement. Review it, run the
+# updater release gate (docs/UPDATER_RELEASE_GATE.md), attach the FFmpeg
+# corresponding-source ZIP, then publish it by hand.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  draft-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g pnpm@10.28.0
+
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Ref '$GITHUB_REF_NAME' does not match package.json version v$version. Run this workflow from the version tag."
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run fetch-ffmpeg
+      - run: pnpm run build
+      - run: pnpm test
+      - name: Package
+        run: pnpm run package
+
+      - name: Zip the portable package
+        shell: pwsh
+        run: |
+          $zip = "MDLxL-$env:VERSION-win32-x64.zip"
+          # Windows' bsdtar writes a standard ZIP with forward-slash entry names.
+          & "$env:SystemRoot\System32\tar.exe" -a -c -f $zip -C release MDLxL-win32-x64
+          if ($LASTEXITCODE -ne 0) { throw "tar failed with exit code $LASTEXITCODE" }
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
+
+      - name: Create the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip="MDLxL-${VERSION}-win32-x64.zip"
+          notes="docs/RELEASE-${VERSION}.md"
+          if [ -f "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
+          gh release create "$GITHUB_REF_NAME" "$zip" "$zip.sha256" \
+            --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "MDLxL ${VERSION}" "${notes_args[@]}"
+          {
+            echo "### Draft release created for MDLxL ${VERSION}"
+            echo "Before publishing:"
+            echo "- Run the updater release gate (docs/UPDATER_RELEASE_GATE.md) on this ZIP."
+            echo "- Attach MDLxL-FFmpeg-corresponding-source.zip (see electron/ffmpeg/REDISTRIBUTION.md)."
+            echo "- Add the English/Русский/简体中文 post links to the release body and publish the website post."
+          } >> "$GITHUB_STEP_SUMMARY"

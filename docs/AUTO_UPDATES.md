@@ -13,6 +13,19 @@ leading directly to the MDLxL page.
 
 ## Publishing an update
 
+GitHub Actions builds the package. Bump the version (see AGENTS.md), merge to
+`main`, then push a tag that matches `package.json`, for example `v0.22.2`. The
+**Draft release** workflow fetches the pinned FFmpeg, builds, tests, packages,
+zips the result and creates a **draft** release with
+`MDLxL-<version>-win32-x64.zip` and its `.zip.sha256`. Drafts are invisible to
+the updater and do not trigger the Discord announcement, so nothing reaches
+users until you publish by hand. Before publishing, run the release gate in
+[UPDATER_RELEASE_GATE.md](UPDATER_RELEASE_GATE.md) on the CI ZIP, attach
+`MDLxL-FFmpeg-corresponding-source.zip`, and add the language links below.
+
+To build the same package locally instead, run `pnpm run fetch-ffmpeg`,
+`pnpm run build`, then `pnpm run package`. The manual steps are:
+
 Build the renderer and run `node scripts/package.mjs`. The portable package
 now contains `mdlxl-update-manifest.json`, identifying its version and the
 SHA-256 of each shipped file. Keep this file in the whole ZIP.

@@ -11,6 +11,7 @@
     "test:compatibility": "node --test tests/*.test.js",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "fetch-ffmpeg": "node scripts/fetch-ffmpeg.mjs",
     "start": "electron .",
     "package": "node scripts/package.mjs"
   },
