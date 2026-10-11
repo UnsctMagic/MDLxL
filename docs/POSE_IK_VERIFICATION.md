@@ -1195,3 +1195,27 @@ Candidate: `out/pose-console-package/MDLxL-win32-x64/MDLxL.exe`.
 Existing user windows, unsaved models and personal profiles were left intact.
 This remains an unshipped test candidate; no main merge or Warcraft in-game
 acceptance is claimed.
+
+## Pre-merge reconciliation with rotation and object controls - 2026-10-11
+
+Reconciled main `91df7e23` before the owner-authorized PR merge. Retained main's
+mouse-driven rotation, cancellation and XYZ workplane fixes, the relocated
+Multiselect from List control and tooltips, together with POSE's compact
+Details, Restrict, focused rig, themed controllers and fixed-endpoint swivel.
+Generated asset conflicts were resolved by a fresh Vite build.
+
+The combined source run passes 125 checks with one optional fixture skip;
+six relevant actual Movement component checks pass. The separate portable
+candidate passes all 120 real-mouse rotation checks and all ten existing
+POSE swivel/Pin/history/save-reopen groups. Both packaged runs report zero
+renderer errors and unchanged source bytes. Actual mouse rotation, pan/zoom,
+workplanes, cancellation, pins, atomic Undo/Redo and native MDX reopening were
+exercised. Evidence: `out/pose-merge-source.log`,
+`out/pose-merge-component.log`, `out/pose-merge-rotation-ui/result.json`, and
+`out/pose-merge-swivel-ui/result.json`.
+
+Candidate: `out/pose-merge-package/MDLxL-win32-x64/MDLxL.exe`. Packaging verifies
+557 runtime/assets and 55 locales. Workspace and packaged `dist/index.html`
+SHA-256 match:
+`d6930e5bce270d58da436d49f695d9afa5ad05590aaeb00e5ee6a3fb047583d9`.
+No release/version bump or Warcraft in-game acceptance is part of this merge.

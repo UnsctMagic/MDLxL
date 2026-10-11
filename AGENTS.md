@@ -3,6 +3,11 @@
 ## UI: the spirit of VIS
 
 - Keep MDLxL simple and compact, in the spirit of MDLVis and the VIS button.
+- Complicated or ambiguous controls and terms must have a short tooltip that
+  explains what they do in plain language for a new user. For example,
+  `Billboarded` must explain that the selected bone and attached model parts
+  turn toward the viewer as the camera moves. Show the tooltip when hovering
+  over either the control or its label.
 - Every 3D preview must allow camera rotation with the normal mouse controls.
   Never make a preview camera static or locked unless explicitly requested.
   Verify rotation with actual mouse drags in the packaged app; moving the
