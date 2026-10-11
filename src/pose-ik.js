@@ -481,7 +481,8 @@ function solveExtendedChain(model, chain, pose, frame, sequence, target, { pole,
   if (strict && clamped) throw new Error('Pinned foot is out of reach.');
   const direction = goal.clone().sub(points[0]).normalize();
   const rememberedBend = perpendicular(direction, pose.middle.clone().sub(pose.root), bendMemory && v3(bendMemory));
-  if (distance < total - pose.tolerance && points.slice(1,-1).every(point => point.clone().sub(points[0]).cross(direction).length() < pose.tolerance)) {
+  const originalDirection = pose.end.clone().sub(pose.root).normalize();
+  if (distance < total - pose.tolerance && points.slice(1,-1).every(point => point.clone().sub(points[0]).cross(originalDirection).length() < pose.tolerance)) {
     let along=0; const height=Math.sqrt(Math.max(0,total*total-distance*distance))*.25;
     for(let i=1;i<points.length-1;i++){along+=pose.lengths[i-1];points[i].addScaledVector(rememberedBend,Math.sin(Math.PI*along/total)*height);}
   }
@@ -495,7 +496,9 @@ function solveExtendedChain(model, chain, pose, frame, sequence, target, { pole,
     for (let i=1;i<points.length;i++) points[i].copy(points[i-1]).addScaledVector(direction,pose.lengths[i-1]);
   } else {
     const root = points[0].clone();
-    for (let sweep=0;sweep<48;sweep++) {
+    // Almost straight multi-segment legs converge slowly when a pinned body
+    // settles by a small amount. Keep the same accuracy target and early exit.
+    for (let sweep=0;sweep<4096;sweep++) {
       points.at(-1).copy(goal);
       for (let i=points.length-2;i>=0;i--) { const direction=points[i].clone().sub(points[i+1]); if(direction.lengthSq()<1e-16) direction.copy(pose.points[i]).sub(pose.points[i+1]); points[i].copy(points[i+1]).addScaledVector(direction.normalize(),pose.lengths[i]); }
       points[0].copy(root);

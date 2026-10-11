@@ -75,3 +75,17 @@
 .pose-weight-refine input[type="number"] { width: 76px; }
 .pose-weight-refine > button { margin: 5px 4px 0 0; }
 .pose-weight-refine p { margin: 5px 0; }
+.pose-motion-variants, .pose-motion-speed { display: flex; align-items: center; gap: 4px; margin-top: 9px; }
+.pose-motion-variants button { flex: 1; white-space: nowrap; }
+.pose-motion-speed button { flex: 1; padding: 2px; }
+.pose-motion-compare-toggle { display: flex; align-items: center; gap: 5px; margin-top: 9px; }
+.pose-motion-anchors { display: flex; flex-wrap: wrap; gap: 4px; }
+.pose-motion-anchors > span { display: inline-flex; }
+.pose-motion-anchors button { font-size: 10px; padding: 2px 4px; }
+.pose-motion-ground { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
+.pose-motion-comparison { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.pose-motion-pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.pose-motion-pane + .pose-motion-pane { border-left: 1px solid var(--ui-border); }
+.pose-motion-pane-label { position: absolute; top: 36px; left: 8px; z-index: 85; display: flex; align-items: center; gap: 5px; padding: 3px 5px; background: var(--ui-panel, #d4d0c8); color: var(--ui-text, #111); font-size: 11px; }
+.pose-motion-pane-label select { max-width: 120px; font-size: 11px; }
+.pose-motion-pane-error { position: absolute; bottom: 8px; left: 8px; right: 8px; z-index: 85; margin: 0; padding: 5px; background: var(--ui-panel, #d4d0c8); color: var(--ui-error, #a32913); font-size: 11px; }

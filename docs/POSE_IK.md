@@ -165,10 +165,10 @@ Native edits require an editable local animation interval. Affected global
 controllers and shared sequence timestamps cannot be overwritten by POSE.
 Configuration remains available independently of the editing interval.
 
-[Weight](POSE_WEIGHT.md) adds a Swing or Step pass to the current animation or a
-selected portion. Drag, recoil and body response produce editable native keys.
-Balancing, runtime physics, anatomical limits, contact baking, complete animation
-generation and rig repair remain outside POSE's scope.
+[Motion](POSE_MOTION.md) shapes transitions between authored poses in the current
+animation or a selected portion. Flow, Swing and Step offer temporary A/B
+previews and commit editable native keys. Runtime physics, anatomical limits,
+complete animation generation and rig repair remain outside POSE's scope.
 
 See [verification evidence](POSE_IK_VERIFICATION.md).
 

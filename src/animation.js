@@ -34,6 +34,8 @@ export function sampleTrack(track, frame, options = {}) {
   if (left === right || track.LineType === 0) return scalar ? a[0] : Array.from(a);
   const t = Math.max(0, Math.min(1, (frame - left.Frame) / (right.Frame - left.Frame)));
   if (quaternion) {
+    // Native playback retains rounded quaternion values at exact key times.
+    if (t === 0 || t === 1) return Array.from(t === 0 ? a : b);
     const qa = new Quaternion().fromArray(a).normalize(), qb = new Quaternion().fromArray(b).normalize();
     if ((track.LineType === 2 || track.LineType === 3) && left.OutTan && right.InTan) {
       const outer = qa.clone().slerp(qb, t);

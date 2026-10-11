@@ -1,102 +1,115 @@
 import { useEffect, useRef, useState } from 'react';
-import { applyPoseWeight, buildPoseWeight, preparePoseWeight } from '../src/pose-weight.js';
+import { applyPoseMotion, buildPoseMotion, preparePoseMotion } from '../src/pose-motion.js';
+
+const defaults = () => ({ style: 'flow', timing: 65, follow: 35, body: 35, contacts: true });
+const variant = () => ({ settings: defaults(), result: null, error: '', pending: false, request: 0 });
 
 export default function usePoseWeight(options) {
-  const [state, setState] = useState(null), current = useRef(null), latest = useRef(options), worker = useRef(null), queued = useRef(null), serial = useRef(0);
+  const [state, setState] = useState(null), current = useRef(null), latest = useRef(options);
+  const worker = useRef(null), queued = useRef(new Map()), busy = useRef(false), serial = useRef(0);
   latest.current = options;
-  const publish = next => { current.current = next; setState(next); };
-  const calculate = next => {
-    try {
-      const key = JSON.stringify([next.target, next.range, next.selection]);
-      const analysis = next.analysisKey === key ? next.analysis : preparePoseWeight(next.model, next.config, next.target, next.sequence, next.range, next.selection);
-      return { ...next, analysis, analysisKey: key, result: buildPoseWeight(analysis, next.mode, next.amount, latest.current.restrictions, next.settings), error: '', pending: false };
-    } catch (error) { return { ...next, result: null, error: error.message, pending: false }; }
+  const publish = next => {
+    const value = next ? { ...next, ...next.variants[next.editing] } : null;
+    current.current = value; setState(value);
   };
-  const stopWorker = () => { worker.current?.terminate(); worker.current = null; queued.current = null; };
-  const send = next => {
-    const job = worker.current;
-    if (!job) return;
-    job.postMessage({ request: next.request, selection: next.selection, mode: next.mode, amount: next.amount, settings: next.settings, restrictions: latest.current.restrictions });
+  const stopWorker = () => { worker.current?.terminate(); worker.current = null; queued.current.clear(); busy.current = false; };
+  const pump = () => {
+    if (busy.current || !worker.current || !queued.current.size) return;
+    const [id, request] = queued.current.entries().next().value;
+    queued.current.delete(id); busy.current = true; worker.current.postMessage(request);
   };
-  const schedule = next => {
-    next = { ...next, request: ++serial.current, pending: true }; publish(next);
-    if (worker.current) { queued.current = next; return; }
+  const schedule = (next, ids = [next.editing]) => {
+    const variants = { ...next.variants };
+    for (const id of ids) {
+      const value = variants[id] = { ...variants[id], request: ++serial.current, pending: true, error: '' };
+      queued.current.set(id, { variant: id, request: value.request, settings: value.settings, restrictions: latest.current.restrictions });
+    }
+    publish({ ...next, variants });
     try {
-      const job = worker.current = new Worker(new URL('./pose-weight.worker.js', import.meta.url), { type: 'module' });
-      const fail = message => { if (worker.current !== job) return; stopWorker(); if (current.current) publish({ ...current.current, result: null, error: message, pending: false }); };
-      job.onerror = event => fail(event.message || 'Weight preview failed.');
-      job.onmessageerror = () => fail('Weight preview returned unreadable results.');
-      job.onmessage = ({ data }) => {
-        if (worker.current !== job || !current.current) return;
-        if (queued.current) { const next = queued.current; queued.current = null; send(next); return; }
-        if (data.request === current.current.request) publish({ ...current.current, result: data.result || null, error: data.error || '', pending: false });
-        // Keep sampled motion in this worker between slider changes.
-        job.idle = true;
-      };
-      job.postMessage({ context: { model: next.model, config: next.config, target: next.target, sequence: next.sequence, range: next.range } });
-      send(next);
-    } catch (error) { stopWorker(); publish({ ...next, result: null, error: error.message, pending: false }); }
+      if (!worker.current) {
+        const job = worker.current = new Worker(new URL('./pose-weight.worker.js', import.meta.url), { type: 'module' });
+        const fail = message => {
+          if (worker.current !== job) return;
+          stopWorker(); const value = current.current;
+          if (value) publish({ ...value, variants: Object.fromEntries(Object.entries(value.variants).map(([id, item]) => [id, { ...item, pending: false, result: null, error: message }])) });
+        };
+        job.onerror = event => fail(event.message || 'Motion preview failed.');
+        job.onmessageerror = () => fail('Motion preview returned unreadable results.');
+        job.onmessage = ({ data }) => {
+          if (worker.current !== job || !current.current) return;
+          busy.current = false;
+          const value = current.current, item = value.variants[data.variant];
+          if (item?.request === data.request) publish({ ...value, variants: { ...value.variants, [data.variant]: { ...item, result: data.result || null, error: data.error || '', pending: false } } });
+          pump();
+        };
+        job.postMessage({ context: { model: next.model, config: next.config, sequence: next.sequence, range: next.range } });
+      }
+      pump();
+    } catch (error) {
+      stopWorker(); const value = current.current;
+      publish({ ...value, variants: Object.fromEntries(Object.entries(value.variants).map(([id, item]) => [id, { ...item, result: null, error: error.message, pending: false }])) });
+    }
   };
   const update = change => {
-    if (!current.current) return;
-    const next = { ...current.current, ...change };
-    if (Object.keys(change).length > 0 && Object.keys(change).every(key => ['vertices', 'compare'].includes(key))) { publish(next); return; }
-    if ('range' in change || 'target' in change) { stopWorker(); schedule(next); return; }
-    if (worker.current?.idle) {
-      worker.current.idle = false;
-      const pending = { ...next, request: ++serial.current, pending: true }; publish(pending); send(pending);
-    } else schedule(next);
+    const value = current.current; if (!value) return;
+    const next = { ...value, ...change, variants: { ...value.variants } };
+    if (change.settings) next.variants[value.editing] = { ...value.variants[value.editing], settings: change.settings };
+    if (change.range) {
+      stopWorker();
+      for (const id of ['A', 'B']) next.variants[id] = { ...next.variants[id], result: null, settings: { ...next.variants[id].settings, hit: undefined, anchors: undefined } };
+      schedule(next, ['A', 'B']);
+    } else if (change.settings) schedule(next);
+    else publish(next);
   };
-  const finish = (commit = true) => {
-    let value = current.current; if (!value) return true;
-    const o = latest.current;
-    const valid = value.model === o.model && value.revision === o.revision && value.sessionId === o.sessionId;
-    if (commit && valid && value.pending) value = calculate(value);
-    if (commit && valid && value.error) { stopWorker(); publish(value); return false; }
-    if (commit && valid && value.result?.tracks.length) {
-      const result = o.onEdit(`POSE Weight: ${value.mode === 'step' ? 'Step' : 'Swing'}`, ['Nodes'], model => applyPoseWeight(model, value.result));
-      if (result === false) return false;
+  // Leaving the preview never writes keys. Only the explicit Commit button does.
+  const finish = () => {
+    if (!current.current) return true;
+    stopWorker(); publish(null); latest.current.onPlayingChange(false); return true;
+  };
+  const commit = () => {
+    const value = current.current, o = latest.current;
+    if (!value) return false;
+    if (value.model !== o.model || value.revision !== o.revision || value.sessionId !== o.sessionId || value.sequence !== o.sequence) { finish(); return false; }
+    let result = value.result;
+    try {
+      if (value.pending) result = buildPoseMotion(preparePoseMotion(value.model, value.config, value.sequence, value.range), value.settings, o.restrictions);
+      if (value.error || !result?.tracks.length) return false;
+      if (o.onEdit(`Motion ${value.editing}: ${value.settings.style}`, ['Nodes'], model => applyPoseMotion(model, result)) === false) return false;
+      finish(); return true;
+    } catch (error) {
+      publish({ ...value, variants: { ...value.variants, [value.editing]: { ...value.variants[value.editing], error: error.message, pending: false } } }); return false;
     }
-    stopWorker(); publish(null); o.onPlayingChange(false); return true;
   };
   const open = () => {
-    if (current.current) return finish(false);
-    const o = latest.current;
-    const range = o.range || o.model.Sequences?.[o.sequence]?.Interval;
+    if (current.current) return finish();
+    const o = latest.current, range = o.range || o.model.Sequences?.[o.sequence]?.Interval;
     if (!range) return;
-    const target = o.config.target?.kind === 'bend' ? { kind: 'endpoint', key: o.config.target.key } : o.config.target;
-    const chain = o.config.chains?.find(c => c.key === target?.key);
-    const next = { model: o.model, revision: o.revision, sessionId: o.sessionId, config: structuredClone(o.config),
-      target, sequence: o.sequence, range: [...range], selection: {}, mode: chain?.kind === 'leg' ? 'step' : 'strike', amount: 100,
-      settings: { drag: 65, recoil: 65, body: 45 }, vertices: false, compare: false, result: null, error: '', pending: false };
-    o.onPlaybackSpeedChange(100); o.onSeek(range[0]); schedule(next); o.onPlayingChange(true);
-    if (target && JSON.stringify(target) !== JSON.stringify(o.config.target)) o.onTargetChange(target);
+    const next = { model: o.model, revision: o.revision, sessionId: o.sessionId, config: structuredClone(o.config), sequence: o.sequence,
+      range: [...range], variants: { A: variant(), B: variant() }, editing: 'A', compare: false, sideBySide: false, left: 'original', right: 'A' };
+    o.onSeek(range[0]); schedule(next, ['A', 'B']); o.onPlayingChange(true);
   };
-  const selectTarget = target => {
-    if (!current.current) return;
-    const value = current.current, chain = value.config.chains.find(c => c.key === target?.key);
-    update({ target, config: { ...value.config, target }, selection: {}, vertices: false, mode: chain?.kind === 'leg' ? 'step' : 'strike', settings: { ...value.settings, hit: undefined }, compare: false });
-    latest.current.onTargetChange(target);
+  const copy = () => {
+    const value = current.current; if (!value) return;
+    const into = value.editing === 'A' ? 'B' : 'A';
+    const next = { ...value, variants: { ...value.variants, [into]: { ...value.variants[into], settings: structuredClone(value.settings) } } };
+    schedule(next, [into]);
   };
   useEffect(() => {
-    const value = current.current; if (!value) return;
-    if (value.model !== options.model || value.revision !== options.revision || value.sessionId !== options.sessionId) { finish(false); return; }
-    if (!options.enabled || options.sequence !== value.sequence) { finish(); return; }
-    if (JSON.stringify(options.config.target) !== JSON.stringify(value.target)) {
-      if (options.config.target && options.config.target.kind !== 'bend') selectTarget(options.config.target);
-      return;
-    }
-  }, [options.enabled, options.model, options.revision, options.sessionId, options.sequence, JSON.stringify(options.config.target)]);
-  useEffect(() => { if (current.current) update({}); }, [JSON.stringify(options.restrictions)]);
+    const value = current.current;
+    if (value && (value.model !== options.model || value.revision !== options.revision || value.sessionId !== options.sessionId || !options.enabled || options.sequence !== value.sequence)) finish();
+  }, [options.enabled, options.model, options.revision, options.sessionId, options.sequence]);
+  useEffect(() => { if (current.current) schedule(current.current, ['A', 'B']); }, [JSON.stringify(options.restrictions)]);
   useEffect(() => {
     if (!state) return;
-    const escape = event => { if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); finish(false); } };
-    window.addEventListener('keydown', escape, true);
-    return () => window.removeEventListener('keydown', escape, true);
+    const escape = event => { if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); finish(); } };
+    window.addEventListener('keydown', escape, true); return () => window.removeEventListener('keydown', escape, true);
   }, [!!state]);
   useEffect(() => () => stopWorker(), []);
-  return { state, open, update, finish, selectTarget, playing: options.playing,
-    play: () => { const o = latest.current; if (!o.playing) o.onSeek(current.current.range[0]); o.onPlayingChange(!o.playing); },
-    markHit: () => { const o = latest.current; o.onPlayingChange(false); update({ settings: { ...current.current.settings, hit: Math.round(o.time) } }); },
-    cancel: () => finish(false) };
+  return { state, open, update, finish, commit, copy, playing: options.playing, speed: options.playbackSpeed,
+    setSpeed: value => latest.current.onPlaybackSpeedChange(value),
+    seek: frame => { latest.current.onPlayingChange(false); latest.current.onSeek(frame); },
+    keepPose: () => { const value = current.current; if (!value) return; const frame = Math.max(value.range[0], Math.min(value.range[1], Math.round(latest.current.time))); update({ settings: { ...value.settings, anchors: [...new Set([...(value.result?.anchors || value.range), frame])].sort((a, b) => a - b) } }); },
+    play: () => { const o = latest.current; if (!current.current) return; if (o.time < current.current.range[0] || o.time >= current.current.range[1]) o.onSeek(current.current.range[0]); o.onPlayingChange(!o.playing); },
+    markHit: () => { const o = latest.current; o.onPlayingChange(false); update({ settings: { ...current.current.settings, hit: Math.max(current.current.range[0], Math.min(current.current.range[1], Math.round(o.time))) } }); },
+    cancel: finish };
 }

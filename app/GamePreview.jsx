@@ -19,7 +19,7 @@ import { textureFromAsset } from './Viewport.jsx';
 import { drawGeosetHighlight } from './geoset-highlight.js';
 import { allNodes, localSequenceAtFrame, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
 import { isolateGlobalSequence } from '../src/global-sequence-preview.js';
-import { applyPoseWeight } from '../src/pose-weight.js';
+import { applyPoseMotion } from '../src/pose-motion.js';
 import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
@@ -934,7 +934,7 @@ export default function GamePreview(inputProps) {
       for (const { id, property, track } of weightOriginal.values()) { const node = nodes.get(id); if (track === undefined) delete node[property]; else node[property] = track; }
       weightOriginal.clear();
       for (const item of result?.tracks || []) weightOriginal.set(`${item.id}:${item.property}`, { id: item.id, property: item.property, track: nodes.get(item.id)[item.property] });
-      if (result) applyPoseWeight(ownedModel, result);
+      if (result) applyPoseMotion(ownedModel, result);
       posedGeometryCache = null; invalidate();
     }
     const state = { native, controls, updateWeight, weightSourceModel: rendererModel, particleSourceModel:rendererModel, updateParticles: (source,field,id)=>{if(particleAuthor)particleAuthor.updateSource(source,field,id);else updateParticlePreview(native,source);invalidate();}, setView, setCameraPreset, fit, resize, updateUV, drawBackground, enterPortrait, exitPortrait, portraitActive: false, cameraEditing: false, cameraDetached: false, cameraView: () => editorCameraSnapshot(camera, controls.target, perspective), refreshCursor: () => { canvas.style.cursor = cursorFor(latest.current); }, setCameraAngles: values => { if (state.portraitActive || latest.current.suspended) return; if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); cameraChanged(); } } }; runtime.current = state;
