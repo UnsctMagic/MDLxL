@@ -198,6 +198,27 @@ test('rapid camera invalidations respect the frame limit without dropping the fi
   scheduler.invalidate(); timer.step(34); assert.deepEqual(frames, [0, 34]); assert.equal(timer.pending, 0);
 });
 
+for (const [cap, refresh] of [[60, 15.6], [30, 16], [60, 1000 / 144]]) {
+  test(`${cap} FPS keeps its cadence on a ${refresh.toFixed(2)} ms display without slowing playback`, () => {
+    const timer = clock(), frames = [];
+    const scheduler = createRenderScheduler({ render: (...args) => frames.push(args), continuous: () => true, paused: () => false, maxFps: () => cap, request: timer.request, cancel: timer.cancel });
+    scheduler.invalidate();
+    for (let now = 0; now <= 1000; now += refresh) timer.step(now);
+    assert.ok(frames.length >= cap - 1 && frames.length <= cap + 1, `${frames.length} renders in one second at ${cap} FPS`);
+    for (let index = 1; index < frames.length; index++) assert.ok(Math.abs(frames[index][1] - (frames[index][0] - frames[index - 1][0])) < 1e-9, 'playback uses actual elapsed time');
+    scheduler.dispose();
+  });
+}
+
+test('changing the frame limit takes effect immediately and a stalled frame cannot trigger a burst', () => {
+  const timer = clock(), frames = []; let cap = 30;
+  const scheduler = createRenderScheduler({ render: now => frames.push(now), continuous: () => true, paused: () => false, maxFps: () => cap, request: timer.request, cancel: timer.cancel });
+  scheduler.invalidate(); timer.step(0); timer.step(16);
+  cap = 60; timer.step(17); assert.deepEqual(frames, [0, 17]);
+  timer.step(1000); timer.step(1001); assert.deepEqual(frames, [0, 17, 1000]);
+  scheduler.dispose();
+});
+
 test('a rendering failure stops scheduling repeated work', () => {
   const timer = clock();
   const scheduler = createRenderScheduler({ render: () => false, continuous: () => true, paused: () => false, maxFps: () => 60, request: timer.request, cancel: timer.cancel });
