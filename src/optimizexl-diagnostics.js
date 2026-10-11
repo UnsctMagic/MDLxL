@@ -26,8 +26,10 @@ export function classifyHiveFindings(findings,proposals=[]){
     else if(message==='Using a gravity animation.'){kind='gravity';owner='sanity';}
     else if(message==='Interpolation type not set to None'){kind='visibilityInterpolation';owner='sanity';}
     else if(/^This sequence starts before sequence \d+ "/.test(message)){kind='sequenceTimeline';owner='sanity';}
+    else if(/^Number of sequence extents \(\d+\) does not match the number of sequences \(\d+\)$/.test(message)){kind='sequenceExtents';owner='sanity';}
+    else if(message==='There are no vertices attached to this bone'){kind='unskinnedBone';}
     const location=hiveTrackPath(f.path);
-    const proposal=proposals.find(p=>p.kind==='splineResample'&&kind==='redundantTracks'&&location===p.path?.join('.')&&p.noticed.includes(frame))||proposals.find(p=>f.type!=='unused'&&/extent|radius/i.test(message)&&p.targets?.some(t=>(f.path||'').startsWith(t.hivePath))||
+    const proposal=proposals.find(p=>p.kind==='splineResample'&&kind==='redundantTracks'&&location===p.path?.join('.')&&p.noticed.includes(frame))||proposals.find(p=>f.type!=='unused'&&/extent|radius/i.test(message)&&p.targets?.some(t=>t.sequenceExtents?(kind==='sequenceExtents'&&(f.path||'')===t.hivePath)||(f.path||'').startsWith(t.hivePath+'/Extent'):(f.path||'').startsWith(t.hivePath))||
       p.kind==='sequenceTimeline'&&kind==='sequenceTimeline'||
       p.kind==='gravity'&&location===`ParticleEmitters2.${p.emitter}.Gravity`||
       p.kind===kind&&location===p.path?.join('.')&&
@@ -36,6 +38,7 @@ export function classifyHiveFindings(findings,proposals=[]){
       return {...f,kind,owner:'sanity',fixId:proposal.id,status:manual?'manual':'preview',
         reason:manual?proposal.preservedTurns?.includes(frame)?'Similar values contain an authored turn; keep this key to preserve motion.':'Detected; its curve or domain requires manual review.':'Supported correction available.'};}
     if(kind==='unusedObject')return {...f,kind,owner,status:'stage',reason:'Review reference-based removal in Unused data; retained dependencies remain reported here.'};
+    if(kind==='unskinnedBone')return {...f,kind,owner,status:'manual',reason:'An unskinned bone may still drive child nodes or reference geoset animation. Inspect its hierarchy and references before changing or removing it.'};
     return {...f,kind,owner,status:'manual',reason:kind==='unsupported'?'Detected by Hive; no supported automatic correction.':'Detected; no safe automatic correction for this domain.'};
   });
 }

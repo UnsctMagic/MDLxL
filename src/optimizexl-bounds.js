@@ -9,11 +9,17 @@ export function boundsProposals(model){
  model.Sequences.forEach((s,sequence)=>{if(invalid(s))targets.push({path:['Sequences',sequence],sequence,label:s.Name,hivePath:`/Sequence ${sequence} -`});});
  model.Geosets.forEach((g,geoset)=>{
   if(invalid(g))targets.push({path:['Geosets',geoset],geoset,label:`Geoset ${geoset+1}`,hivePath:`/Geoset ${geoset}/Extent`});
-  g.Anims?.forEach((a,sequence)=>{if(invalid(a))targets.push({path:['Geosets',geoset,'Anims',sequence],geoset,sequence,label:`Geoset ${geoset+1}, ${model.Sequences[sequence]?.Name||'animation '+(sequence+1)}`,hivePath:`/Geoset ${geoset}/Extent`});});
+  if((g.Anims?.length||0)!==model.Sequences.length){
+   // An extent record has no sequence identity. After a table-size mismatch,
+   // keeping a prefix or copying a neighbor can assign bounds to the wrong
+   // animation. Rebuild this entire table; it also owns its invalid records.
+   targets.push({path:['Geosets',geoset,'Anims'],geoset,sequenceExtents:true,extentCount:g.Anims?.length||0,intervals:model.Sequences.map(s=>Array.from(s.Interval)),label:`Geoset ${geoset+1}: sequence extent count`,hivePath:`/Geoset ${geoset}`});
+  }else g.Anims?.forEach((a,sequence)=>{if(invalid(a))targets.push({path:['Geosets',geoset,'Anims',sequence],geoset,sequence,label:`Geoset ${geoset+1}, ${model.Sequences[sequence]?.Name||'animation '+(sequence+1)}`,hivePath:`/Geoset ${geoset}/Extent`});});
  });
  if(!targets.length)return [];
  const sequence=targets.find(t=>t.sequence!=null)?.sequence??0;
- return [{id:'invalidBounds',kind:'bounds',targets,sequence,frame:model.Sequences[sequence]?.Interval[0]||0,label:`Recalculate invalid bounds (${targets.length})`,detail:'Rebuild the broken extent boxes from model geometry and sampled animation poses. Meshes, keys and visibility stay unchanged.'}];
+ const mismatched=targets.some(t=>t.sequenceExtents);
+ return [{id:'invalidBounds',kind:'bounds',targets,sequence,frame:model.Sequences[sequence]?.Interval[0]||0,label:`Recalculate invalid bounds (${targets.length})`,detail:mismatched?'Rebuild mismatched geoset extent tables with one box per animation, using sampled animated geometry. Also rebuild any invalid bounds. Meshes, keys and visibility stay unchanged.':'Rebuild the broken extent boxes from model geometry and sampled animation poses. Meshes, keys and visibility stay unchanged.'}];
 }
 function box(){return {min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};}
 function include(b,vertices){for(let i=0;i<vertices.length;i++){const v=vertices[i];if(!Number.isFinite(v))throw Error('Cannot calculate bounds for non-finite geometry.');b.min[i%3]=Math.min(b.min[i%3],v);b.max[i%3]=Math.max(b.max[i%3],v);}}
@@ -23,10 +29,11 @@ function finish(b){
  return {MinimumExtent:new Float32Array(b.min.map(v=>v-pad)),MaximumExtent:new Float32Array(b.max.map(v=>v+pad)),BoundsRadius:Math.fround(Math.hypot(...b.max.map((v,i)=>(v-b.min[i])/2+pad)))};
 }
 export function repairBounds(model,fix,{includeGlobalKeys=false}={}){
- const renderer=new ModelRenderer(structuredClone(model)),cache=new Map();
+ let renderer;const cache=new Map();
  function animated(sequence){
   if(cache.has(sequence))return cache.get(sequence);
   const s=model.Sequences[sequence];if(!s)throw Error('The invalid extent has no matching animation.');
+  renderer ||= new ModelRenderer(structuredClone(model));
   const [lo,hi]=s.Interval,frames=new Set([lo,hi]),boxes=model.Geosets.map(box);
   for(const node of allNodes(model))for(const property of ['Translation','Rotation','Scaling'])for(const k of node[property]?.Keys||[])if(k.Frame>=lo&&k.Frame<=hi)frames.add(k.Frame);
   if(includeGlobalKeys)for(const node of allNodes(model))for(const property of ['Translation','Rotation','Scaling']){
@@ -46,6 +53,10 @@ export function repairBounds(model,fix,{includeGlobalKeys=false}={}){
   cache.set(sequence,boxes);return boxes;
  }
  for(const target of fix.targets){
+  if(target.sequenceExtents){
+   model.Geosets[target.geoset].Anims=model.Sequences.map((_,sequence)=>finish(animated(sequence)[target.geoset]));
+   continue;
+  }
   const b=box();
   if(target.sequence!=null){const boxes=animated(target.sequence);for(const g of target.geoset!=null?[boxes[target.geoset]]:boxes)if(Number.isFinite(g.min[0])){include(b,g.min);include(b,g.max);}}
   else if(target.geoset!=null)include(b,model.Geosets[target.geoset].Vertices);
