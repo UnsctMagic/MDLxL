@@ -99,7 +99,8 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
       result.presets.push(preset.name);
     }
     const palette = await page.evaluate(() => JSON.stringify(auditSettings().preferences.viewportAppearance));
-    await page.locator('[data-warmkey="appearance:theme:light"]').click();
+    await page.locator('.settings-appearance-section > summary').filter({ hasText: /^Interface$/ }).click();
+    await page.getByLabel('Interface appearance set', { exact: true }).selectOption('mdlvis-vanilla');
     assert.equal(await page.evaluate(() => JSON.stringify(auditSettings().preferences.viewportAppearance)), palette);
     await page.getByLabel('Custom viewport preset name').fill('Appearance audit');
     await page.getByRole('button', { name: 'Save as custom preset', exact: true }).click();

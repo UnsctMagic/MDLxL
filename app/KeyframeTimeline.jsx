@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { classicTimelineDomain, classicTimelineTargets, classicPaste, unrestrictedTimelineTargets } from '../src/classic-keyframes.js';
+import { classicTimelineDomain, classicTimelineTargets, classicPoseTargets, classicPaste, unrestrictedTimelineTargets } from '../src/classic-keyframes.js';
 import { timelineTracks, timelineKeys, timelineSections, copyTimelineKeys, copyTimelinePose, setTimelineKeys, clearTimelineKeys } from '../src/keyframe-timeline.js';
 import { animationMarkerTimes } from '../src/animation-markers.js';
 import { animationTrackId } from '../src/animation-tracks.js';
@@ -10,7 +10,7 @@ import './KeyframeTimeline.css';
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 /** The original compact reel: time selection, with authoring in the controllers. */
-export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, globalSeqId = null, time = 0, selectedNodeIds = [], selectedGeosets = [], activeController = 'rotate', highlightKeyframes = true, highlightChain = false, poseScope = null, playbackSpeed = 100, onPlaybackSpeedChange, playing = false, onPlayingChange, onEdit, onSeek, onCommands, onStatus, disabled = false, restrictions = {}, motionFindings = [], motionActive = null, motionControls = null, onMotionFinding, onKeyClick, children }) {
+export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, globalSeqId = null, time = 0, selectedNodeIds = [], selectedGeosets = [], activeController = 'rotate', highlightKeyframes = true, highlightChain = false, poseScope = null, poseEnabled = false, playbackSpeed = 100, onPlaybackSpeedChange, playing = false, onPlayingChange, onEdit, onSeek, onCommands, onStatus, disabled = false, restrictions = {}, motionFindings = [], motionActive = null, motionControls = null, onMotionFinding, onKeyClick, children }) {
   const [range, setRange] = useState(null), [context, setContext] = useState(null), [draftTime, setDraftTime] = useState('0'), [draftSpeed, setDraftSpeed] = useState(String(playbackSpeed));
   const [keySelection, setKeySelection] = useState(null);
   const [, refreshClipboard] = useState(0);
@@ -24,6 +24,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
   }, [model, revision, sequenceIndex, globalSeqId]);
   useEffect(() => setDraftSpeed(String(clampPlaybackSpeed(playbackSpeed))), [playbackSpeed]);
   const domain = timing.domain, domainStamp = `${sequenceIndex}:${globalSeqId}:${domain?.start}:${domain?.end}`;
+  const wholePoseTargets = useMemo(() => domain ? classicPoseTargets(model, domain, tracks) : [], [model, tracks, domain]);
   const scopedNodeIds = useMemo(() => highlightKeyframes && highlightChain ? downstreamBoneIds(model, selectedNodeIds) : selectedNodeIds, [model, revision, selectedNodeIds.join(','), highlightKeyframes, highlightChain]);
   const selectionStamp = `${scopedNodeIds.join(',')}|${selectedGeosets.join(',')}`;
   const { targets, copyTargets, poseTargets, keys, copyKeysInDomain, times, timeSet } = useMemo(() => {
@@ -71,6 +72,9 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
   const mutationTargets = useMemo(() => unrestrictedTimelineTargets(targets, restrictions), [targets, restrictions]);
   const mutationTrackIds = new Set(mutationTargets.map(target => target.trackId));
   const mutationBlocked = disabled || !domain || !mutationTargets.length;
+  const frameTargets = poseEnabled ? wholePoseTargets : poseTargets;
+  const pasteTargets = unrestrictedTimelineTargets(clipboard.current?.wholePose ? wholePoseTargets : highlightKeyframes ? copyTargets : targets, restrictions);
+  const pasteBlocked = disabled || !domain || !pasteTargets.length;
 
   // Playback displays the live frame directly; only a focused edit owns a draft.
   useEffect(() => { setRange(null); setKeySelection(null); setContext(null); editingTime.current = false; setDraftTime(String(frame)); }, [domainStamp]);
@@ -123,10 +127,10 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     });
   }
   function copyFrame() {
-    if (!domain || !poseTargets.length) { onStatus?.('Select an object and controller.', true); return; }
+    if (!domain || !frameTargets.length) { onStatus?.('Select an object and controller.', true); return; }
     report(() => {
-      clipboard.current = copyTimelinePose(model, poseTargets, frame, domain); refreshClipboard(value => value + 1);
-      onStatus?.('Current frame copied.');
+      clipboard.current = { ...copyTimelinePose(model, frameTargets, frame, domain), wholePose: poseEnabled }; refreshClipboard(value => value + 1);
+      onStatus?.(poseEnabled ? 'Pose copied.' : 'Current frame copied.');
     });
   }
   function previous(extend = false) { const value = times.findLast(value => value < frame); if (value !== undefined) seek(value, extend, selectionAnchor()); }
@@ -135,14 +139,16 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     set: () => mutate('Set keyframes', current => setTimelineKeys(current, mutationTargets, frame, domain)),
     copy: copyKeys, copyPose: copyFrame,
     paste: () => {
-      const destinations = unrestrictedTimelineTargets(highlightKeyframes ? copyTargets : targets, restrictions);
+      // Read the clipboard at invocation: Copy and Paste can run before a render.
+      const destinations = unrestrictedTimelineTargets(clipboard.current?.wholePose ? wholePoseTargets : highlightKeyframes ? copyTargets : targets, restrictions);
       if (disabled || !domain || !destinations.length) { onStatus?.('Select an object and controller.', true); return; }
       report(() => {
         onPlayingChange?.(false);
         let failure, count = 0;
-        const result = onEdit?.('Paste keyframes', timelineSections, current => { try { count = classicPaste(current, destinations, clipboard.current, frame, domain); return count; } catch (error) { failure = error; throw error; } });
+        const label = clipboard.current?.wholePose ? 'Paste pose' : 'Paste keyframes';
+        const result = onEdit?.(label, timelineSections, current => { try { count = classicPaste(current, destinations, clipboard.current, frame, domain); return count; } catch (error) { failure = error; throw error; } });
         if (failure) throw failure;
-        if (result !== false && result !== undefined) onStatus?.(count ? 'Paste keyframes' : 'No keyframes changed.');
+        if (result !== false && result !== undefined) onStatus?.(count ? label : 'No keyframes changed.');
       });
     },
     delete: () => mutate('Delete keyframes', current => clearTimelineKeys(current, mutationTargets, editableKeys(), domain)),
@@ -220,7 +226,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
   }
   const divisions = Array.from({ length: 11 }, (_, index) => Math.round((domain?.start || 0) + span * index / 10)).filter((value, index, values) => value <= (domain?.end || 0) && values.indexOf(value) === index);
   const canPaste = !!clipboard.current && (clipboard.current.kind === 'pose' || clipboard.current.count > 0);
-  const menuItems = context ? [['copy', 'Copy', !keys.length], ['copyPose', 'Copy Frame', !poseTargets.length], ['paste', 'Paste', mutationBlocked || !canPaste], ['delete', 'Delete', mutationBlocked || !editableKeys().length, 'Delete unlocked keys at the current frame or in the selected interval.'], ['clear', 'Clear', mutationBlocked || !keys.some(key => mutationTrackIds.has(key.trackId)), 'Clear unlocked keys in the selected interval, or the whole animation interval when no range is selected.']] : [];
+  const menuItems = context ? [['copy', 'Copy', !keys.length], ['copyPose', poseEnabled ? 'Copy Pose' : 'Copy Frame', !frameTargets.length], ['paste', 'Paste', pasteBlocked || !canPaste], ['delete', 'Delete', mutationBlocked || !editableKeys().length, 'Delete unlocked keys at the current frame or in the selected interval.'], ['clear', 'Clear', mutationBlocked || !keys.some(key => mutationTrackIds.has(key.trackId)), 'Clear unlocked keys in the selected interval, or the whole animation interval when no range is selected.']] : [];
 
   return <section ref={panel} tabIndex="0" className="keyframe-timeline classic-keyframe-reel" aria-label="Keyframe timeline" data-warmkey-category="Keyframes" onKeyDown={keyboard} onContextMenu={openContext}>
     <button type="button" className="classic-reel-play" aria-label={playing ? 'Stop' : 'Play'} title={playing ? 'Stop' : 'Play'} disabled={!domain} onClick={() => onPlayingChange?.(!playing)}>{playing ? '■' : '▶'}</button>

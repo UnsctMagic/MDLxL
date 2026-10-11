@@ -13,7 +13,8 @@ export function applyApplicationTheme(preferences, targetDocument = document) {
   root.style.setProperty('--ui-accent', accent);
   root.style.setProperty('--panel-scale', String(preferences?.panelScale || 1));
   root.style.setProperty('--panel-width', `${preferences?.panelWidth || 164}px`);
-  const tree = viewportAppearanceOptions(preferences).tree;
+  const appearance = viewportAppearanceOptions(preferences), tree = appearance.tree;
+  for (const [name, value] of Object.entries(appearance.controllers)) root.style.setProperty(`--controller-${name}`, String(value));
   for (const [name, value] of Object.entries(tree)) {
     if (name === 'nodes' || name === 'folders') {
       for (const [key, tint] of Object.entries(value)) root.style.setProperty(`--tree-${name}-${key}`, tint);

@@ -19,7 +19,7 @@ function SetupWindow({ onClose, title, children }) {
 const limbParts = new Set(['Hand', 'Foot', 'Hoof', 'Wing', 'Chain']);
 const sameTarget = (a, b) => a?.kind === b?.kind && a?.id === b?.id && a?.key === b?.key;
 
-export default function PoseControls({ model, revision, config, onChange, onSelect, selectedNodeIds, frame, sequence, disabled }) {
+export default function PoseControls({ model, revision, config, onChange, onSelect, onTransformMode, selectedNodeIds, frame, sequence, disabled }) {
   const [open, setOpen] = useState(false), [editor, setEditor] = useState(null), [slot, setSlot] = useState('end'), [error, setError] = useState('');
   const anchor = useRef(null), names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name || 'Bone']));
   const latest = useRef({ config, onChange }); latest.current = { config, onChange };
@@ -86,6 +86,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
   const enable = () => {
     let next = { ...config, enabled: !config.enabled, target: null, picking: null, inspectIds: [] };
     if (next.enabled && !config.initialized) next = { ...next, ...suggestPoseRig(model, frame, sequence), initialized: true };
+    if (next.enabled) onTransformMode?.('move');
     onChange(next); setOpen(false); setEditor(null);
   };
   const without = (value, target) => {
@@ -123,6 +124,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
     <button type="button" aria-label="POSE" aria-pressed={config.enabled} disabled={disabled} title="Pose with Move, Rotate and Scale" onClick={enable}>POSE</button>
     {config.enabled && <>
       <button type="button" aria-label="Add POSE handle" aria-expanded={open === 'add'} disabled={disabled} onClick={() => { back(); setOpen('add'); }}>Add</button>
+      <button type="button" className="pose-restrict" aria-label="Restrict POSE" aria-pressed={!!config.restrict} disabled={disabled} title="Keep the body still when moving a hand or foot" onClick={() => onChange({ ...config, restrict: !config.restrict })}>Restrict</button>
       <button type="button" aria-label="POSE setup" aria-expanded={open === 'setup'} disabled={disabled} onClick={() => open === 'setup' ? close() : showSetup()}>Setup</button>
       <button type="button" className="pose-crosshair" aria-label="Blocker crosshair" aria-pressed={config.crosshair !== false} disabled={disabled} title="Show the handle blocking a move" onClick={() => onChange({ ...config, crosshair: config.crosshair === false })}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v7m0 8v7M1 12h7m8 0h7"/></svg>

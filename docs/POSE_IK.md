@@ -8,11 +8,20 @@ rigs, including joints named through their native attachment references.
 ## Start posing
 
 1. Open **Movement (F3)**, choose an animation and frame, then click **POSE** in
-   **Tools**. Recognized hands, feet, Body, Chest, Pelvis and Head appear in the
+   **Tools**. POSE starts in Move. Recognized hands, feet, Body, Chest, Pelvis and Head appear in the
    view where the model provides them.
 2. Click a handle's symbol or label. Use the existing **Move**, **Rotate** or
    **Scale** tool. Move a hand or foot to bend its limb; Rotate turns its
-   endpoint. Drag **Bend** with Move to steer the elbow or knee.
+   endpoint. Hands and feet pull their connected torso or body slightly as you
+   move them, while other limbs compensate and explicit pins stay fixed.
+   **Restrict**, immediately left of Setup, turns off this body lead. It starts
+   off. It does not disable limb IK, bending, direct body movement or pins.
+   Selecting a limb also reveals its labeled **Elbow** or **Knee**
+   control (**Bend** on custom chains). Drag it with Move to aim the bend.
+   For a swivel, choose Rotate and drag that control left or right: the elbow
+   or knee turns around the limb while its hand/foot stays in place and keeps
+   its facing direction. Shift snaps the swivel to five-degree steps. This also
+   works with a pinned endpoint, long chains and offset SD mesh grips.
 3. Move or Rotate **Body** or **Pelvis**. Pelvis carries the connected body,
    including rigs where the chest is a sibling of the pelvis. Mapped limbs compensate
    automatically, keeping their hands/feet in place and oriented while reachable.
@@ -25,23 +34,34 @@ rigs, including joints named through their native attachment references.
    translating apart. Chest movement carries the head while keeping its facing
    direction. Rotate turns the chosen part directly. Arms compensate as the
    torso bends. Select a small native bone marker for ordinary MDLvis transforms.
-5. Select a hand or foot and click **Pin** only when it must stay fixed. The
-   handle turns orange and shows **PIN**. Explicit pins can limit ancestor motion
-   at **Reach limit**. Click **Pinned** to return to automatic compensation.
-   Scale retains ordinary Movement behavior, with explicit pins compensated.
+5. Select a hand, foot, elbow or knee and click the adjacent **Pin** button when
+   its endpoint must stay fixed. The button uses the appearance set's pinned colour;
+   the labeled style reads **Pinned** and icon styles fill the pin symbol.
+   a small pin badge stays on the endpoint even after you select the body.
+   Click **Pinned** again to release it. Space or Enter also toggles the focused
+   button. Pinning pauses playback at the current frame and creates no keys.
+   The button keeps its size and position while you use it, follows the limb
+   when the camera moves, and hides during a drag or when that limb is offscreen.
+   It sits on the character's outside flank, beyond the transform arrows.
+   Explicit pins can limit ancestor motion at **Reach limit**. Scale retains
+   ordinary Movement behavior, with explicit pins compensated.
 
-Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on dark
+Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on themed
 backings so they remain identifiable over bone markers. Whole-body control uses
 a person symbol; hooves have their own symbol. Labels appear for the selected
-or hovered handle. The Trollface uses the same cyan fill and yellow selection
-highlight as other handles. Repeated clicks cycle through all handles and visible bones
+or hovered handle. Pelvis uses the same handle and selection colours as the other
+controls. Repeated clicks cycle through all handles and visible bones
 under the pointer, including with Move, Rotate or Scale active. Dragging keeps
 the currently grabbed object, even when another label overlaps its selected
 symbol. A symbol takes priority over any label crossing it. Visible labels
 outside symbols remain clickable.
 
-**Controller** and **Restrictions** start minimized; click their existing headers
-to open them. **Rotate on Own Axis** is removed. Normal Alt+mouse camera rotation,
+**Restrictions** starts minimized; click its header to expand it. **Controller**
+starts expanded, with Highlight KF and Highlight Chain above Controller type.
+Movement's passive object statistics sit under **Details**.
+Coordinates appear for a real selected node; empty numeric rows and an empty
+Connected Bones list stay out of POSE's way. Bones keeps its existing inspection
+controls. **Rotate on Own Axis** is removed. Normal Alt+mouse camera rotation,
 wheel zoom, axis gizmos, XY/ZX/YZ workplanes and Shift constraints remain available.
 
 ## Other objects and unusual rigs
@@ -88,6 +108,13 @@ or fixed node IDs.
 
 ## Edits, history and saving
 
+With POSE on, **Copy** / **Ctrl+C** captures the whole current pose, including
+interpolated transforms between stored keys. Move to another frame or animation
+and use **Paste** / **Ctrl+V** to restore it in one Undo step. The timeline menu's
+**Copy Pose** does the same. Transform restrictions and global controllers keep
+their existing ownership. **Copy keyframes** still copies stored keys; with
+POSE off, ordinary Copy retains its normal keyframe behavior.
+
 Each gesture starts from the current sampled pose. Automatic targets retain
 their requested endpoint pose across repeated ancestor drags, even beyond reach:
 raise the body, release, grab it again and lower it to bring the feet back.
@@ -103,7 +130,10 @@ frame, sequence, target or tool cancels unfinished previews. A click or drag
 back to the starting grip creates no key or Undo step.
 
 Hand/foot Move and Bend write native Rotation keys. Rotate writes endpoint
-Rotation. Connected upper-body Move writes Rotation on its spine/neck/head
+Rotation. Elbow/knee Rotate writes the limb root and endpoint Rotation, retaining
+intermediate tracks on rigid chains. Coarsely rounded SD rotations use the existing
+limb solver for correction; an offset mesh grip may need endpoint Translation.
+Connected upper-body Move writes Rotation on its spine/neck/head
 joints and compensating arms. Ancestor controls also write Head Rotation to
 retain its facing direction. Pelvis writes the shared body driver; separate carried roots receive native
 Translation/Rotation keys. Direct Body/object tools write the corresponding
@@ -139,6 +169,14 @@ This is a posing controller; balancing, physics, anatomical limits, contact
 baking, automatic animation generation and rig repair are outside its scope.
 
 See [verification evidence](POSE_IK_VERIFICATION.md).
+
+The limb controls follow the practical workflow in BlinkBoy's
+[Happy Animating with IK](https://www.hiveworkshop.com/threads/happy-animating-with-ik.256580/):
+separate endpoint and knee/elbow manipulators, retained endpoint orientation,
+and animation saved as ordinary Warcraft bone keys. His
+[In-depth Animation Tutorial](https://www.hiveworkshop.com/threads/in-depth-animation-tutorial-3ds-max.123520/)
+also emphasizes shaping and refining readable poses. POSE applies those ideas
+to the model's existing SD rig; enabling it requires no re-rigging or animation removal.
 
 ## Complex SD rigs
 
@@ -185,3 +223,27 @@ For those rigid SD endpoints, recognition places the grip on vertices owned
 solely by that mesh. Posing keeps the grip in place with native endpoint
 Translation/Rotation keys; the authored pivot and skin weights stay intact.
 Setup preserves that grip while editing the same endpoint.
+
+## Focus and appearance
+
+During POSE, Focused Skeleton shows a compact control skeleton: mapped body
+parts and limb joints, with the selected limb or body connections emphasized.
+It omits native mesh-helper, weapon and attachment branches. Switching POSE off
+restores ordinary Focused Skeleton behavior; the actual rig is never replaced.
+
+Settings starts its tab row with Configuration, with Updates at the top.
+Appearance uses collapsed sections and a color-set picker in every section.
+A whole appearance preset also sets the controllers. Controllers can then use
+a separate set, for example Blackrock controls with a Lordaeron interface.
+Lordaeron remains the default. Handle, body and bend shapes offer circles,
+squares, diamonds and triangles; symbols, size, state colors and XYZ colors
+are adjustable. Pin offers a labeled button, square icon and round icon.
+These are familiar rig-control primitives, following Autodesk's
+[custom curve control workflow](https://www.autodesk.com/learn/ondemand/tutorial/common-rig-control-methods).
+
+Section color sets preserve the other sections, image backgrounds, sizes and
+line styles. The Controllers appearance set also loads its characteristic
+shapes and Pin style. Configuration export/import preserves mixed appearances.
+The native animation Controller type is now a dropdown above the collapsed
+Restrictions section. This interpolation setting remains separate from the
+viewport controllers' appearance.
