@@ -24,7 +24,7 @@ import { applyMovementPose, applyMovementTransform, movementRestricted, prepareM
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
 import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
-import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles } from './pose-overlay.js';
+import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, swivelPoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
@@ -368,7 +368,7 @@ export default function GamePreview(inputProps) {
       const sequences = p.model.Sequences || [];
       return sequences[p.sequenceIndex] ? p.sequenceIndex : sequences.findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
     };
-    const poseStamp = config => JSON.stringify(config && [config.enabled, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
+    const poseStamp = config => JSON.stringify(config && [config.enabled, config.restrict, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
     const poseContextValid = (gesture, p) => gesture.model === (p.poseDocumentModel || p.model) && gesture.previewModel === p.model && gesture.revision === p.revision &&
       (Math.round(p.time) === gesture.inputTime || Math.round(p.time) === gesture.frame) && gesture.inputSequence === p.sequenceIndex &&
@@ -1230,7 +1230,8 @@ export default function GamePreview(inputProps) {
         nodePoints = visibleMovementPoints(projectedNodes, overlayOptions);
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
-        poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId))) : [];
+        const controllerAppearance = viewportAppearanceOptions(p.preferences).controllers;
+        poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId)), controllerAppearance) : [];
         const limb = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && handle.key === p.poseConfig?.target?.key && handle.kind === 'endpoint' && handle.x >= 0 && handle.x <= width && handle.y >= 0 && handle.y <= height);
         if (limb && p.onPosePin && !p.suspended) {
           if (!pinButton) {
@@ -1251,6 +1252,7 @@ export default function GamePreview(inputProps) {
           if (pinButton.dataset.key !== limb.key) { pinPlacement = null; pinOffset = null; }
           const name = limb.label.toLowerCase();
           pinButton.dataset.key = limb.key; pinButton.setAttribute('aria-label', `Pin selected ${name}`);
+          if (pinButton.dataset.style !== controllerAppearance.pinStyle) { pinPlacement = null; pinOffset = null; pinButton.dataset.style = controllerAppearance.pinStyle; }
           pinButton.setAttribute('aria-pressed', String(limb.pinned));
           pinButton.title = limb.pinned ? `Pinned ${name}. Click to release it.` : `Pin this ${name} in place while moving the body.`;
           const pinText = limb.pinned ? 'Pinned' : 'Pin';
@@ -1278,26 +1280,29 @@ export default function GamePreview(inputProps) {
         if (pinButton && limb && !pinButton.hidden) {
           // Hold still under the pointer. Keyboard focus keeps the same side
           // of the limb, while still following camera pan/zoom.
-          const held = pinPlacement && pinButton.matches(':hover') ? pinPlacement : pinOffset && ownerDocument.activeElement === pinButton ? { x: limb.x + pinOffset.x, y: limb.y + pinOffset.y } : null;
+          const held = pinPlacement && pinButton.matches(':hover') ? pinPlacement : null;
           const position = held ? { x: Math.max(4, Math.min(width - pinButton.offsetWidth - 4, held.x)), y: Math.max(4, Math.min(height - pinButton.offsetHeight - 4, held.y)) } : movementPinPosition(limb, nodeHandles, width, height, pinButton.offsetWidth, pinButton.offsetHeight, poseHandles, pinOffset);
           pinButton.style.left = `${position.x}px`; pinButton.style.top = `${position.y}px`;
           pinPlacement = position; pinOffset = { x: position.x - limb.x, y: position.y - limb.y };
         }
         const activeAxis = nodeGesture?.mode === 'move' && nodeGesture.handle.mode === 'move' ? nodeGesture.handle.axis : null;
-        const markerOptions = { ...overlayOptions, activeAxis, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
+        const focusedPose = poseVisible && !p.poseConfig.picking && overlayOptions.focusedBoneLines;
+        const poseSkeleton = focusedPose ? projectPoseSkeleton(projectedNodes, poseHandles, p.poseConfig) : null;
+        const markerOptions = { ...overlayOptions, activeAxis, preferences: p.preferences, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), ...(focusedPose ? { boneLines: false, bones: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
         drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
         const pingAge = posePing ? ownerWindow.performance.now() - posePing.started : 1200;
         const ping = poseVisible && p.poseConfig.crosshair !== false && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
         nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);
-        drawPoseOverlay(nodeCanvas.getContext('2d'), p.poseConfig?.picking ? [] : poseHandles, canvas.width / Math.max(1, width), ping && { targets: ping.targets, age: pingAge });
-        if (activePose) drawMovementGizmo(nodeCanvas.getContext('2d'), nodeHandles, canvas.width / Math.max(1, width), activeAxis);
+        nodeCanvas.dataset.poseSkeleton = String(poseSkeleton?.length || 0);
+        drawPoseOverlay(nodeCanvas.getContext('2d'), p.poseConfig?.picking ? [] : poseHandles, canvas.width / Math.max(1, width), ping && { targets: ping.targets, age: pingAge }, controllerAppearance, poseSkeleton);
+        if (activePose) drawMovementGizmo(nodeCanvas.getContext('2d'), nodeHandles, canvas.width / Math.max(1, width), activeAxis, controllerAppearance);
         if (ping) invalidate();
         if (poseVisible && p.poseConfig.inspectIds?.length) {
           const context = nodeCanvas.getContext('2d'), ratio = canvas.width / Math.max(1, width); context.save(); context.scale(ratio, ratio);
           const joints = p.poseConfig.inspectIds.map(id => projectedNodes.find(point => point.node.ObjectId === id)).filter(point => point?.visible);
-          context.strokeStyle = '#71eee4'; context.lineWidth = 2; context.beginPath(); joints.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); }); context.stroke();
+          context.strokeStyle = controllerAppearance.skeleton; context.lineWidth = 2; context.beginPath(); joints.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); }); context.stroke();
           for (const joint of joints) { context.beginPath(); context.arc(joint.x, joint.y, 9, 0, Math.PI * 2); context.stroke(); } context.restore();
         }
         if (p.attachSourceIds?.length) drawAttachGuide(nodeCanvas.getContext('2d'), projectedNodes, p.attachSourceIds, attachPointer, canvas.width / Math.max(1, width), now, visualOptions(p.preferences).helperSize);

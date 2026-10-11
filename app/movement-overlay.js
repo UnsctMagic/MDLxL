@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
-import { visualOptions } from '../src/preferences.js';
+import { visualOptions, viewportAppearanceOptions } from '../src/preferences.js';
 import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
 import { drawPixelLine } from './pixel-lines.js';
 
@@ -104,36 +104,36 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
       context.fillStyle = '#fff'; context.fillText(point.node.Name || `Node ${point.node.ObjectId}`, point.x + 8, point.y - 8);
     }
   }
-  drawMovementGizmo(context, handles, 1, options.activeAxis);
+  drawMovementGizmo(context, handles, 1, options.activeAxis, viewportAppearanceOptions(options.preferences).controllers);
   context.restore();
 }
 
-export function drawMovementGizmo(context, handles, ratio = 1, activeAxis = null) {
+export function drawMovementGizmo(context, handles, ratio = 1, activeAxis = null, appearance = null) {
   context.save(); context.scale(ratio, ratio);
   for (const handle of handles.filter(handle => handle.plane)) {
-    const active = handle.axis === activeAxis, color = active ? NEON_COLORS[PLANE_COLORS[handle.plane]] : handle.color;
+    const active = handle.axis === activeAxis, color = appearance?.['axis' + PLANE_COLORS[handle.plane]] || (active ? NEON_COLORS[PLANE_COLORS[handle.plane]] : handle.color);
     context.save(); context.shadowColor = color; context.shadowBlur = active ? 8 : 0;
     context.beginPath(); handle.polygon.forEach((point, index) => context[index ? 'lineTo' : 'moveTo'](point.x, point.y)); context.closePath();
     context.fillStyle = color; context.globalAlpha = active ? .45 : .16; context.fill(); context.globalAlpha = 1;
-    context.shadowBlur = 0; context.strokeStyle = '#162137'; context.lineWidth = 3; context.stroke();
+    context.shadowBlur = 0; context.strokeStyle = appearance?.outline || '#162137'; context.lineWidth = 3; context.stroke();
     context.shadowBlur = active ? 8 : 0; context.strokeStyle = color; context.lineWidth = active ? 2.5 : 1.5; context.stroke(); context.restore();
   }
   for (const handle of handles.filter(handle => !handle.plane)) {
-    const active = handle.mode === 'move' && handle.axis === activeAxis, color = active ? NEON_COLORS[handle.axis] : handle.color;
+    const active = handle.mode === 'move' && handle.axis === activeAxis, color = appearance?.['axis' + handle.axis] || (active ? NEON_COLORS[handle.axis] : handle.color);
     context.save();
     const length = Math.hypot(handle.dx, handle.dy), ux = handle.dx / length, uy = handle.dy / length;
     context.beginPath(); context.moveTo(handle.startX + (handle.mode === 'move' ? ux * 24 : 0), handle.startY + (handle.mode === 'move' ? uy * 24 : 0)); context.lineTo(handle.x, handle.y);
-    context.strokeStyle = '#162137'; context.lineWidth = handle.mode === 'move' ? 3.5 : 5; context.stroke();
+    context.strokeStyle = appearance?.outline || '#162137'; context.lineWidth = handle.mode === 'move' ? 3.5 : 5; context.stroke();
     context.shadowColor = color; context.shadowBlur = active ? 8 : 0;
     context.strokeStyle = color; context.lineWidth = handle.mode === 'move' ? 2 : 3; context.stroke();
     if (handle.mode === 'move') {
       context.beginPath(); context.moveTo(handle.x, handle.y);
       context.lineTo(handle.x - ux * 10 - uy * 4.5, handle.y - uy * 10 + ux * 4.5);
       context.lineTo(handle.x - ux * 10 + uy * 4.5, handle.y - uy * 10 - ux * 4.5); context.closePath();
-      context.fillStyle = color; context.fill(); context.shadowBlur = 0; context.lineWidth = 1; context.strokeStyle = '#162137'; context.stroke(); context.restore(); continue;
+      context.fillStyle = color; context.fill(); context.shadowBlur = 0; context.lineWidth = 1; context.strokeStyle = appearance?.outline || '#162137'; context.stroke(); context.restore(); continue;
     }
-    context.beginPath(); context.arc(handle.x, handle.y, 10, 0, Math.PI * 2); context.fillStyle = handle.color; context.fill();
-    context.lineWidth = 1; context.strokeStyle = '#162137'; context.stroke();
+    context.beginPath(); context.arc(handle.x, handle.y, 10, 0, Math.PI * 2); context.fillStyle = color; context.fill();
+    context.lineWidth = 1; context.strokeStyle = appearance?.outline || '#162137'; context.stroke();
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = '#fff'; context.fillText(handle.axis, handle.x, handle.y); context.restore();
   }
   context.restore();
@@ -314,6 +314,26 @@ export function movementPinPosition(active, handles, width, height, buttonWidth 
     (handle.selected || handle.hovered || handle.kind === 'bend') && overlaps(box, [{ x: handle.labelX ?? handle.x + 20, y: (handle.labelY ?? handle.y) - 7 }, { x: (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? (handle.label?.length || 0) * 7), y: (handle.labelY ?? handle.y) + 7 }])
   )).length;
   const clamp = (x, y) => ({ x: Math.max(4, Math.min(width - buttonWidth - 4, x)), y: Math.max(4, Math.min(height - buttonHeight - 4, y)) });
+  const body = nearby.find(handle => handle.visible && !handle.quiet && handle.label === (active.chain?.kind === 'leg' ? 'Pelvis' : 'Chest')) || nearby.find(handle => handle.kind === 'body' && handle.visible);
+  if (body) {
+    // Prefer the character's outside flank. Only use a vertical direction when
+    // the endpoint projects directly above/below the body's centre.
+    const dx = active.x - body.x, dy = active.y - body.y;
+    const angle = Math.abs(dx) > 8 ? dx > 0 ? 0 : Math.PI : dy < 0 ? -Math.PI / 2 : Math.PI / 2;
+    const outward = { x: Math.cos(angle), y: Math.sin(angle) };
+    const edges = handles.flatMap(handle => handle.plane ? handle.polygon : [{ x: handle.x, y: handle.y }]);
+    const extent = Math.max(active.size || 24, ...edges.map(point => (point.x - active.x) * outward.x + (point.y - active.y) * outward.y)) + 14;
+    const half = Math.abs(outward.x) * buttonWidth / 2 + Math.abs(outward.y) * buttonHeight / 2;
+    const outside = box => (box.x + buttonWidth / 2 - active.x) * outward.x + (box.y + buttonHeight / 2 - active.y) * outward.y - half >= extent - .1;
+    if (preferred) { const box = clamp(active.x + preferred.x, active.y + preferred.y); if (outside(box) && !collisions(box)) return box; }
+    const slots = [];
+    for (const distance of [0, 24, 48, 80]) for (const slide of [0, -40, 40, -80, 80, -120, 120]) {
+      const box = clamp(active.x + outward.x * (extent + half + distance) - outward.y * slide - buttonWidth / 2, active.y + outward.y * (extent + half + distance) + outward.x * slide - buttonHeight / 2);
+      const score = collisions(box) * 1000 + (outside(box) ? 0 : 100000) + distance + Math.abs(slide) * .1;
+      slots.push({ box, score }); if (!score) return box;
+    }
+    return slots.sort((a, b) => a.score - b.score)[0].box;
+  }
   // Reuse the same side of the limb while it remains clear. Toggling Pin or
   // moving a nearby control must not make a usable button jump between slots.
   if (preferred) {

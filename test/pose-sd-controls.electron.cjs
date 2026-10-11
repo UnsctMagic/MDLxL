@@ -148,12 +148,13 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
       await select('body'); await paint();
       assert.equal(await pin.count(), 0, 'body selection hides the limb action');
       const foot = (await handles()).find(handle => handle.kind === 'endpoint' && handle.key === chain.key);
-      const amber = await page.locator('[data-node-overlay]').evaluate((canvas, handle) => {
+      const badgePixels = await page.locator('[data-node-overlay]').evaluate((canvas, handle) => {
         const ratio = canvas.width / canvas.clientWidth, pixels = canvas.getContext('2d').getImageData(Math.round((handle.x + 3) * ratio), Math.round((handle.y - 19) * ratio), Math.round(16 * ratio), Math.round(16 * ratio)).data;
-        let count = 0; for (let i = 0; i < pixels.length; i += 4) if (pixels[i] > 220 && pixels[i + 1] > 120 && pixels[i + 1] < 220 && pixels[i + 2] < 140 && pixels[i + 3] > 180) count++;
+        const hex = getComputedStyle(document.documentElement).getPropertyValue('--controller-pinned').trim(), rgb = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16));
+        let count = 0; for (let i = 0; i < pixels.length; i += 4) if (rgb.every((value, channel) => Math.abs(pixels[i + channel] - value) < 5) && pixels[i + 3] > 180) count++;
         return count;
       }, foot);
-      assert.ok(amber > 8, 'unselected pinned foot retains its visible amber pin badge'); await shot('pin-unselected-badge');
+      assert.ok(badgePixels > 8, 'unselected pinned foot retains its themed pin badge'); await shot('pin-unselected-badge');
       await select('endpoint', chain.key); await paint();
       await pin.press('Enter'); await page.waitForFunction(() => document.querySelector('[data-pose-pin]')?.getAttribute('aria-pressed') === 'false');
       // Pinning an animated handle pauses on its current native pose.

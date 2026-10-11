@@ -14,6 +14,8 @@ rigs, including joints named through their native attachment references.
    **Scale** tool. Move a hand or foot to bend its limb; Rotate turns its
    endpoint. Hands and feet pull their connected torso or body slightly as you
    move them, while other limbs compensate and explicit pins stay fixed.
+   **Restrict**, immediately left of Setup, turns off this body lead. It starts
+   off. It does not disable limb IK, bending, direct body movement or pins.
    Selecting a limb also reveals its labeled **Elbow** or **Knee**
    control (**Bend** on custom chains). Drag it with Move to aim the bend.
    For a swivel, choose Rotate and drag that control left or right: the elbow
@@ -33,20 +35,22 @@ rigs, including joints named through their native attachment references.
    direction. Rotate turns the chosen part directly. Arms compensate as the
    torso bends. Select a small native bone marker for ordinary MDLvis transforms.
 5. Select a hand, foot, elbow or knee and click the adjacent **Pin** button when
-   its endpoint must stay fixed. The button turns amber and reads **Pinned**;
+   its endpoint must stay fixed. The button uses the appearance set's pinned colour;
+   the labeled style reads **Pinned** and icon styles fill the pin symbol.
    a small pin badge stays on the endpoint even after you select the body.
    Click **Pinned** again to release it. Space or Enter also toggles the focused
    button. Pinning pauses playback at the current frame and creates no keys.
    The button keeps its size and position while you use it, follows the limb
    when the camera moves, and hides during a drag or when that limb is offscreen.
+   It sits on the character's outside flank, beyond the transform arrows.
    Explicit pins can limit ancestor motion at **Reach limit**. Scale retains
    ordinary Movement behavior, with explicit pins compensated.
 
-Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on dark
+Handles use hand, boot, helmet, chest plate and Trollface pelvis symbols on themed
 backings so they remain identifiable over bone markers. Whole-body control uses
 a person symbol; hooves have their own symbol. Labels appear for the selected
-or hovered handle. The Trollface uses the same cyan fill and yellow selection
-highlight as other handles. Repeated clicks cycle through all handles and visible bones
+or hovered handle. Pelvis uses the same handle and selection colours as the other
+controls. Repeated clicks cycle through all handles and visible bones
 under the pointer, including with Move, Rotate or Scale active. Dragging keeps
 the currently grabbed object, even when another label overlaps its selected
 symbol. A symbol takes priority over any label crossing it. Visible labels
@@ -219,3 +223,27 @@ For those rigid SD endpoints, recognition places the grip on vertices owned
 solely by that mesh. Posing keeps the grip in place with native endpoint
 Translation/Rotation keys; the authored pivot and skin weights stay intact.
 Setup preserves that grip while editing the same endpoint.
+
+## Focus and appearance
+
+During POSE, Focused Skeleton shows a compact control skeleton: mapped body
+parts and limb joints, with the selected limb or body connections emphasized.
+It omits native mesh-helper, weapon and attachment branches. Switching POSE off
+restores ordinary Focused Skeleton behavior; the actual rig is never replaced.
+
+Settings starts its tab row with Configuration, with Updates at the top.
+Appearance uses collapsed sections and a color-set picker in every section.
+A whole appearance preset also sets the controllers. Controllers can then use
+a separate set, for example Blackrock controls with a Lordaeron interface.
+Lordaeron remains the default. Handle, body and bend shapes offer circles,
+squares, diamonds and triangles; symbols, size, state colors and XYZ colors
+are adjustable. Pin offers a labeled button, square icon and round icon.
+These are familiar rig-control primitives, following Autodesk's
+[custom curve control workflow](https://www.autodesk.com/learn/ondemand/tutorial/common-rig-control-methods).
+
+Section color sets preserve the other sections, image backgrounds, sizes and
+line styles. The Controllers appearance set also loads its characteristic
+shapes and Pin style. Configuration export/import preserves mixed appearances.
+The native animation Controller type is now a dropdown above the collapsed
+Restrictions section. This interpolation setting remains separate from the
+viewport controllers' appearance.

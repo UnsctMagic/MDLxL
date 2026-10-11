@@ -4,6 +4,7 @@ import { createPoseSample, poseChainIds, poseNodeControl, poseControlPoint, pose
 import { samplePreviewMatrices } from './preview-pose.js';
 import { pickMovementNode } from './movement-overlay.js';
 import { boneHighlightColors } from './rig-markers-gl.js';
+import { DEFAULT_CONTROLLER_APPEARANCE, controllerShapePoints } from '../src/controller-appearance.js';
 
 export const poseSymbols = {
   Hand: ['M7 22L4 17L1 13Q0 11 2 10Q3 10 5 12L6 13V4Q6 2 8 2Q10 2 10 4V10V2Q10 0 12 0Q14 0 14 2V10V3Q14 1 16 1Q18 1 18 3V11V6Q18 4 20 4Q22 4 22 6V15Q22 19 18 22Z', 'M9 16H18'],
@@ -36,20 +37,20 @@ export function poseHandleTarget(handle) {
 }
 const identity = handle => `${handle.kind}:${handle.kind === 'body' ? '' : handle.key ?? handle.id ?? ''}:${handle.marker ? 'marker' : 'control'}`;
 
-export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes) {
+export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes, appearance = DEFAULT_CONTROLLER_APPEARANCE) {
   if (!config?.enabled) return [];
   const handles = [], target = config.target, nodes = allNodes(model);
   const project = (world, fields) => {
     const screen = world.clone().project(camera);
     const unit = camera.isPerspectiveCamera ? 2 * world.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height : (camera.top - camera.bottom) / camera.zoom / height;
-    return { ...fields, world, unitsPerPixel: unit, x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
+    return { ...fields, size: fields.kind === 'bend' ? appearance.size * .6 : appearance.size, shape: appearance[fields.kind === 'bend' ? 'bendShape' : fields.kind === 'body' ? 'bodyShape' : 'shape'], world, unitsPerPixel: unit, x: (screen.x + 1) * width / 2, y: (1 - screen.y) * height / 2, visible: screen.z >= -1 && screen.z <= 1 };
   };
   let sample;
   for (const chain of config.chains) {
     try {
       sample ||= createPoseSample(model, frame, sequence, globalTime);
       const pose = samplePoseChain(model, chain, frame, sequence, globalTime, sample), selected = target?.key === chain.key;
-      handles.push(project(pose.end, { kind: 'endpoint', key: chain.key, chain, rotation: pose.rotations[2], selected: selected && target.kind === 'endpoint', joints: selected ? pose.points.map(world => project(world, {})) : [], pinned: config.pins.includes(chain.key), label: chain.label || (chain.kind === 'leg' ? 'Foot' : 'Hand') }));
+      handles.push(project(pose.end, { kind: 'endpoint', key: chain.key, chain, rotation: pose.rotations[2], selected: selected && target.kind === 'endpoint', joints: pose.points.map(world => project(world, {})), pinned: config.pins.includes(chain.key), label: chain.label || (chain.kind === 'leg' ? 'Foot' : 'Hand') }));
       if (selected) {
         const direction = pose.end.clone().sub(pose.root).normalize(), bend = pose.middle.clone().sub(pose.root);
         bend.addScaledVector(direction, -bend.dot(direction));
@@ -89,10 +90,10 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
   // clickable while retaining the actual joint positions and compact overlay.
   const labels = [];
   for (const handle of handles.filter(handle => handle.visible && !handle.quiet)) {
-    handle.labelX = handle.x + 20;
+    handle.labelX = handle.x + handle.size + 4;
     handle.labelWidth = handle.label.length * 7;
     let offset = 0, attempt = 0;
-    while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth) || handles.some(other => other.visible && !other.quiet && Math.abs(other.y - (handle.y + offset)) < 26 && handle.labelX < other.x + 19 && other.x - 19 < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
+    while (labels.some(other => Math.abs(other.labelY - (handle.y + offset)) < 16 && handle.labelX < other.labelX + other.labelWidth && other.labelX < handle.labelX + handle.labelWidth) || handles.some(other => other.visible && !other.quiet && Math.abs(other.y - (handle.y + offset)) < (other.size || 17) + 9 && handle.labelX < other.x + (other.size || 17) + 2 && other.x - (other.size || 17) - 2 < handle.labelX + handle.labelWidth)) { attempt++; offset = (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 16; }
     handle.labelY = handle.y + offset; labels.push(handle);
   }
   return handles;
@@ -103,38 +104,52 @@ export function pickPoseHandle(handles, x, y, target = null, nodes = null, prefe
   // The selected symbol is drawn last, over other controls' labels. Its
   // draggable face must therefore win over a label crossing that face.
   const selected = preferSelected && target && visible.find(handle => identity(handle) === identity(target));
-  if (selected && Math.hypot(x - selected.x, y - selected.y) <= (selected.kind === 'bend' ? 14 : selected.pinned ? 24 : 19)) return selected;
+  const hit = handle => {
+    const radius = (handle.size ?? (handle.kind === 'bend' ? 10 : 17)) + (handle.pinned ? 7 : 3);
+    const dx = Math.abs(x - handle.x), dy = Math.abs(y - handle.y);
+    return handle.shape === 'square' || handle.shape === 'triangle' ? Math.max(dx, dy) <= radius : Math.hypot(dx, dy) <= radius;
+  };
+  if (selected && hit(selected)) return selected;
   const label = visible.find(handle => !handle.quiet && (handle.selected || handle.hovered || handle.kind === 'bend') && x >= (handle.labelX ?? handle.x + 20) && x <= (handle.labelX ?? handle.x + 20) + (handle.labelWidth ?? handle.label.length * 7) && Math.abs(y - (handle.labelY ?? handle.y)) <= 7);
   const candidates = [...visible, ...(nodes || []).map(point => ({ ...point, kind: 'node', id: point.node.ObjectId, marker: true, quiet: true }))];
   const hits = candidates.filter(handle => handle.visible).filter(handle => {
     const distance = Math.hypot(x - handle.x, y - handle.y);
-    return distance <= (handle.quiet ? 13 : handle.kind === 'bend' ? 14 : handle.pinned ? 24 : 19);
+    return handle.quiet ? distance <= 13 : hit(handle);
   });
   if (!hits.length) return label || null;
   // Share Movement's selection cycle, with each real marker and virtual handle
   // retaining its own identity. Every object covering this click participates.
   const points = hits.map(handle => ({ ...handle, node: { ObjectId: identity(handle) }, handle }));
-  return pickMovementNode(points, x, y, target ? [identity(target)] : [], 19, preferSelected, true)?.handle || null;
+  return pickMovementNode(points, x, y, target ? [identity(target)] : [], Infinity, preferSelected, true)?.handle || null;
 }
 
-export function drawPoseOverlay(context, handles, ratio = 1, ping = null) {
+export function drawPoseOverlay(context, handles, ratio = 1, ping = null, appearance = DEFAULT_CONTROLLER_APPEARANCE, skeleton = null) {
   context.save(); context.scale(ratio, ratio);
+  if (skeleton) for (const segment of skeleton) {
+    context.beginPath(); context.moveTo(segment.from.x, segment.from.y); context.lineTo(segment.to.x, segment.to.y);
+    context.strokeStyle = appearance.background; context.lineWidth = 4; context.stroke();
+    context.strokeStyle = segment.selected ? appearance.selected : appearance.skeleton; context.lineWidth = segment.selected ? 2.5 : 1.5; context.stroke();
+    for (const joint of [segment.from, segment.to]) { context.beginPath(); context.arc(joint.x, joint.y, 3, 0, Math.PI * 2); context.fillStyle = appearance.background; context.fill(); context.lineWidth = 1.5; context.stroke(); }
+  }
   // Keep the selected symbol above overlapping controllers.
   for (const handle of [...handles.filter(handle => !handle.selected && !handle.hovered), ...handles.filter(handle => !handle.selected && handle.hovered), ...handles.filter(handle => handle.selected)]) {
     if (!handle.visible || handle.quiet) continue;
-    const color = handle.pinned ? '#ffbd59' : handle.selected ? '#fff58b' : '#71eee4';
-    for (const path of handle.paths || [handle.joints || []]) if (path.length && path.every(joint => joint.visible)) {
+    const color = handle.pinned ? appearance.pinned : handle.selected ? appearance.selected : appearance.color;
+    for (const path of skeleton ? [] : handle.paths || [handle.selected ? handle.joints || [] : []]) if (path.length && path.every(joint => joint.visible)) {
       context.beginPath(); path.forEach((joint, i) => { if (i) context.lineTo(joint.x, joint.y); else context.moveTo(joint.x, joint.y); });
-      context.strokeStyle = '#71eee4'; context.lineWidth = 3; context.stroke();
+      context.strokeStyle = appearance.skeleton; context.lineWidth = 2; context.stroke();
     }
     if (handle.joint?.visible) {
       context.beginPath(); context.setLineDash([3, 3]); context.moveTo(handle.joint.x, handle.joint.y); context.lineTo(handle.x, handle.y); context.strokeStyle = color; context.lineWidth = 1; context.stroke(); context.setLineDash([]);
     }
     context.beginPath();
-    if (handle.kind === 'body') { context.moveTo(handle.x, handle.y - 18); context.lineTo(handle.x + 18, handle.y); context.lineTo(handle.x, handle.y + 18); context.lineTo(handle.x - 18, handle.y); context.closePath(); }
-    else context.arc(handle.x, handle.y, handle.kind === 'bend' ? 10 : 17, 0, Math.PI * 2);
-    context.fillStyle = '#102431'; context.fill(); context.lineWidth = 1.5; context.strokeStyle = color; context.stroke();
+    const size = handle.size ?? (handle.kind === 'bend' ? 10 : appearance.size), polygon = controllerShapePoints(handle.shape || appearance.shape, size);
+    if (polygon) { polygon.forEach(([x, y], index) => context[index ? 'lineTo' : 'moveTo'](handle.x + x, handle.y + y)); context.closePath(); }
+    else context.arc(handle.x, handle.y, size, 0, Math.PI * 2);
+    context.fillStyle = appearance.background; context.fill(); context.lineWidth = handle.selected ? 4 : 3; context.strokeStyle = appearance.outline; context.stroke(); context.lineWidth = handle.selected ? 2.5 : 1.5; context.strokeStyle = color; context.stroke();
+    context.save(); const iconScale = Math.min(1, size / 17) * (handle.shape === 'triangle' ? .65 : handle.shape === 'diamond' ? .8 : 1); context.translate(handle.x, handle.y + (handle.shape === 'triangle' ? size * .2 : 0)); context.scale(iconScale, iconScale); context.translate(-handle.x, -handle.y);
     if (handle.kind === 'bend') { context.beginPath(); context.moveTo(handle.x - 3, handle.y - 3); context.lineTo(handle.x + 2, handle.y); context.lineTo(handle.x - 3, handle.y + 3); context.lineWidth = 2; context.stroke(); }
+    else if (!appearance.symbols) { /* Outline-only rig controls. */ }
     else if (handle.label === 'Pelvis') {
       if (pelvisFace?.complete && pelvisFace.naturalWidth) {
         if (!pelvisSymbols.has(color)) {
@@ -152,21 +167,22 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null) {
       if (!symbolPaths.has(name)) symbolPaths.set(name, symbols[name].map(path => new Path2D(path)));
       const [shape, detail] = symbolPaths.get(name);
       context.save(); context.translate(handle.x - 12, handle.y - 12); context.fillStyle = color; context.fill(shape);
-      context.strokeStyle = '#102431'; context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.stroke(detail); context.restore();
+      context.strokeStyle = appearance.background; context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.stroke(detail); context.restore();
     }
+    context.restore();
     if (handle.pinned) {
       // A pin remains legible after selection moves to the body or another limb.
       if (!symbolPaths.has('Pin')) symbolPaths.set('Pin', new Path2D(posePinPath));
       context.save(); context.translate(handle.x + 11, handle.y - 11);
-      context.beginPath(); context.arc(0, 0, 8, 0, Math.PI * 2); context.fillStyle = '#ffbd59'; context.fill();
-      context.translate(-6, -6); context.scale(.75, .75); context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.strokeStyle = '#102431'; context.stroke(symbolPaths.get('Pin')); context.restore();
+      context.beginPath(); context.arc(0, 0, 8, 0, Math.PI * 2); context.fillStyle = appearance.pinned; context.fill();
+      context.translate(-6, -6); context.scale(.75, .75); context.lineWidth = 1.8; context.lineJoin = 'round'; context.lineCap = 'round'; context.strokeStyle = appearance.background; context.stroke(symbolPaths.get('Pin')); context.restore();
     }
     if (!handle.selected && !handle.hovered && handle.kind !== 'bend') continue;
     context.font = 'bold 11px Tahoma, sans-serif'; context.textAlign = 'left'; context.textBaseline = 'middle'; context.lineWidth = 3; context.strokeStyle = '#102431';
     const label = handle.label;
     const labelX = handle.labelX ?? handle.x + 20, labelY = handle.labelY ?? handle.y;
     if (Math.abs(labelY - handle.y) > 1) { context.beginPath(); context.moveTo(handle.x + 15, handle.y); context.lineTo(labelX - 2, labelY); context.lineWidth = 1; context.strokeStyle = color; context.stroke(); }
-    context.lineWidth = 3; context.strokeStyle = '#102431'; context.strokeText(label, labelX, labelY); context.fillStyle = color; context.fillText(label, labelX, labelY);
+    context.lineWidth = 3; context.strokeStyle = appearance.background; context.strokeText(label, labelX, labelY); context.fillStyle = color; context.fillText(label, labelX, labelY);
   }
   if (ping) for (const handle of handles.filter(handle => handle.visible && ping.targets.some(target => identity(target) === identity(handle)))) {
     const radius = 27 + 5 * Math.sin(ping.age / 75), x = handle.x, y = handle.y;
@@ -180,6 +196,34 @@ export function drawPoseOverlay(context, handles, ratio = 1, ping = null) {
     context.strokeStyle = '#ff3030'; context.lineWidth = 3; context.stroke();
   }
   context.restore();
+}
+
+/** Draw only mapped pose controls and their limb joints. Mesh helpers, weapon
+ * bones and attachment branches are not part of this display skeleton. */
+export function projectPoseSkeleton(points, handles, config) {
+  const byId = new Map(points.map(point => [point.node.ObjectId, point]));
+  const controls = new Map(handles.filter(handle => !handle.quiet && !handle.marker && ['body', 'node'].includes(handle.kind)).map(handle => [handle.id, handle]));
+  const segments = [], seen = new Set();
+  const ancestor = id => {
+    const visited = new Set([id]); let parent = config.carriers?.[id] ?? byId.get(id)?.node.Parent;
+    while (parent != null && !visited.has(parent)) {
+      if (controls.has(parent)) return controls.get(parent);
+      visited.add(parent); parent = config.carriers?.[parent] ?? byId.get(parent)?.node.Parent;
+    }
+    return null;
+  };
+  const add = (from, to, selected) => {
+    if (!from?.visible || !to?.visible || Math.hypot(from.x - to.x, from.y - to.y) < .5) return;
+    const key = [from.x, from.y, to.x, to.y].map(value => value.toFixed(2)).join(':');
+    if (!seen.has(key)) { seen.add(key); segments.push({ from, to, selected }); }
+  };
+  for (const control of controls.values()) { const parent = ancestor(control.id); add(parent, control, control.selected || parent?.selected); }
+  for (const handle of handles.filter(item => item.kind === 'endpoint')) {
+    const parent = ancestor(handle.chain.root), selected = config.target?.key === handle.key || parent?.selected;
+    add(parent, handle.joints[0], selected);
+    for (let index = 1; index < handle.joints.length; index++) add(handle.joints[index - 1], handle.joints[index], selected);
+  }
+  return segments;
 }
 
 // Keep limb focus on its actual joints, without lighting unrelated branches.

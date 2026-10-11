@@ -23,3 +23,13 @@
 .settings-appearance-content>.settings-number,.settings-appearance-content>.settings-select,.settings-appearance-content>.settings-color{margin:8px 0}
 .settings-appearance-page>.settings-appearance-grid{align-items:start;margin:0 0 8px;gap:8px}
 .settings-appearance-page>.settings-appearance-grid>.settings-appearance-section{margin:0}
+
+.settings-appearance-set { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--ui-border); }
+.settings-appearance-set select { width: 180px; max-width: 65%; }
+.settings-appearance-section > summary { padding: 7px 10px; font-size: 12px; }
+.settings-appearance-content .settings-graphics-grid { gap: 12px; margin: 12px 0; }
+.settings-controller-shapes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
+.settings-controller-preview { width: 100%; height: 80px; border: 1px solid var(--ui-border); }
+.settings-appearance-content .settings-color code { color: var(--ui-muted); }
+.settings-appearance-page .settings-toggle { margin: 10px 0; }
+@media (max-width:620px) { .settings-controller-shapes { grid-template-columns: 1fr; } }

@@ -23,11 +23,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const style = (locator, key) => locator.evaluate((el, k) => getComputedStyle(el)[k], key);
     await settings();
     const sections = page.locator('.settings-appearance-section');
-    assert.equal(await sections.count(), 14);
-    assert.ok(await sections.evaluateAll(elements => elements.every(el => el.open)), 'all categories start expanded');
-    await page.getByText('Folders & lists', { exact: true }).click();
+    assert.equal(await sections.count(), 15);
+    assert.equal(await sections.evaluateAll(elements => elements.filter(el => el.open).length), 1, 'only Presets starts expanded');
     const folders = sections.filter({ has: page.locator('summary', { hasText: /^Folders & lists$/ }) });
     assert.equal(await folders.evaluate(el => el.open), false);
+    await page.locator('.settings-appearance-section > summary').filter({ hasText: /^Interface$/ }).click();
     await page.getByLabel('UI accent', { exact: true }).fill('#123456');
     assert.equal(await folders.evaluate(el => el.open), false, 'editing another category preserves collapse state');
     await page.getByText('Folders & lists', { exact: true }).click();
@@ -52,6 +52,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       console.log(preset.name + ': node and sound folder palettes verified');
     }
     await settings();
+    for (const title of ['Folders & lists', 'Node colors', 'Sound folder colors']) {
+      await page.locator('.settings-appearance-section > summary').filter({ hasText: new RegExp('^' + title + '$') }).click();
+    }
     await page.getByLabel('Tree List background', { exact: true }).fill('#102030');
     await page.getByLabel('Tree List text', { exact: true }).fill('#f0e0d0');
     await page.getByLabel('Node Bones', { exact: true }).fill('#ffaa22');

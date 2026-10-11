@@ -892,6 +892,7 @@ const chainTrackScope = chain => [...poseChainIds(chain).map(id => ({ id, proper
 // Hands pull the nearest mapped torso; feet pull their connected pelvis/body.
 // Only existing anatomical controls participate, with their native owner and pins.
 function limbBodyTarget(model, config, chain, restrictions = {}) {
+  if (config.restrict) return null;
   if (!['arm', 'leg'].includes(chain.kind) || ['Wing', 'Tail', 'Chain'].includes(chain.label)) return null;
   const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), visited = new Set();
   let node = byId.get(byId.get(chain.root)?.Parent);

@@ -8,13 +8,29 @@ import { useWarmKeys } from './WarmKeys.jsx';
 import { WarmKeySequence, WARMKEY_LEADER } from '../src/warmkey-defaults.js';
 import { BUILT_IN_VIEWPORT_PRESETS, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
 import { wireDashArray } from '../src/wire-pattern.js';
-import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS, treeAppearanceForTheme } from '../src/tree-appearance.js';
+import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS } from '../src/tree-appearance.js';
+import { CONTROLLER_SHAPES, PIN_STYLES, controllerShapePoints } from '../src/controller-appearance.js';
 import './settings.css';
 import { updateStatusText } from './UpdatePrompt.jsx';
 
-function AppearanceSection({ title, children }) {
-  const [open, setOpen] = useState(true);
-  return <details className="settings-appearance-section" open={open} onToggle={event => setOpen(event.currentTarget.open)}><summary>{title}</summary><div className="settings-appearance-content">{children}</div></details>;
+function AppearanceSection({ title, children, palette }) {
+  const [open, setOpen] = useState(title === 'Presets');
+  return <details className="settings-appearance-section" open={open} onToggle={event => setOpen(event.currentTarget.open)}><summary>{title}</summary><div className="settings-appearance-content">{palette}{children}</div></details>;
+}
+const colorValues = value => Object.fromEntries(Object.entries(value).filter(([, color]) => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)));
+const sameValues = (a, b) => Object.keys(b).every(key => a?.[key] === b[key]);
+function AppearanceSet({ title, value, entries, onChange }) {
+  const current = entries.find(([, , colors]) => sameValues(value, colors))?.[0] || '';
+  return <label className="settings-appearance-set"><span>{title === 'Controllers' ? 'Appearance set' : 'Color set'}</span><select aria-label={`${title} appearance set`} value={current} onChange={event => onChange(entries.find(([id]) => id === event.target.value)[2])}><option value="" disabled>Custom</option>{entries.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label>;
+}
+function ControllerPreview({ appearance }) {
+  return <svg className="settings-controller-preview" viewBox="0 0 300 66" role="img" aria-label="Controller appearance preview" style={{ background: appearance.background }}>
+    {['shape', 'bodyShape', 'bendShape'].map((key, index) => {
+      const x = 38 + index * 78, points = controllerShapePoints(appearance[key], appearance.size);
+      return <g key={key} transform={`translate(${x},26)`} stroke={index === 1 ? appearance.selected : appearance.color} fill={appearance.background} strokeWidth="2">{points ? <polygon points={points.map(pair => pair.join(',')).join(' ')}/> : <circle r={appearance.size}/>}<text y="32" stroke="none" fill={appearance.outline} textAnchor="middle" fontSize="10">{['Handle', 'Body', 'Bend'][index]}</text></g>;
+    })}
+    <g transform="translate(262,26)" stroke={appearance.pinned} fill="none" strokeWidth="2">{appearance.pinStyle === 'round' ? <circle r="15"/> : <rect x={appearance.pinStyle === 'label' ? -25 : -15} y="-15" width={appearance.pinStyle === 'label' ? 50 : 30} height="30" rx="3"/>}<path d="M-5-8H5L3-2L7 2V4H-7V2L-3-2ZM0 4V12"/><text y="32" stroke="none" fill={appearance.outline} textAnchor="middle" fontSize="10">Pin</text></g>
+  </svg>;
 }
 function AppearanceColors({ colors, value, prefix, onChange }) {
   return <div className="settings-color-grid">{colors.map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input type="color" aria-label={`${prefix} ${label}`} value={value[key]} onChange={event => onChange({ [key]: event.target.value })}/><code>{value[key]}</code></label>)}</div>;
@@ -93,7 +109,7 @@ function AssetPreload({ modelPath }) {
   </section>;
 }
 
-export default function Settings({ preferences, onChange, onClose, catalog: suppliedCatalog, initialTab = 'mouse', gameDataPath = '', gameDataSources = [], modelPath = null, onChooseGameData, onClearGameData, onAddGameDataSource, onRemoveGameDataSource, updateStatus, onCheckUpdates, onRevertUpdate }) {
+export default function Settings({ preferences, onChange, onClose, catalog: suppliedCatalog, initialTab = 'mouse', onTabChange, gameDataPath = '', gameDataSources = [], modelPath = null, onChooseGameData, onClearGameData, onAddGameDataSource, onRemoveGameDataSource, updateStatus, onCheckUpdates, onRevertUpdate }) {
   const [gameDataBusy, setGameDataBusy] = useState(false);
   async function changeGameDataSource(action) {
     setGameDataBusy(true);
@@ -119,6 +135,10 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   const viewportPart = (part, change) => viewport({ [part]: { ...prefs.viewportAppearance[part], ...change } });
   const quadPart = (part, change) => viewportPart('quadView', { [part]: { ...prefs.viewportAppearance.quadView[part], ...change } });
   const treePart = (part, change) => viewportPart('tree', { [part]: { ...prefs.viewportAppearance.tree[part], ...change } });
+  const palette = (title, value, read, apply) => <AppearanceSet title={title} value={value} entries={Object.values(BUILT_IN_VIEWPORT_PRESETS).map(preset => [preset.id, preset.name, read(preset)])} onChange={apply}/>;
+  const partPalette = (part, title) => palette(title, prefs.viewportAppearance[part], preset => part === 'controllers' ? preset.appearance[part] : colorValues(preset.appearance[part]), change => viewportPart(part, change));
+  const helpersFor = preset => preset.theme === 'light' ? colorValues(Object.fromEntries(APPEARANCE_HELPER_COLORS.map(([key]) => [key, DEFAULT_VISUALS[key]]))) : { keyframe: preset.appearance.controllers.color, activeKeyframe: preset.appearance.controllers.selected, bone: preset.appearance.tree.nodes.bone, node: preset.appearance.tree.nodes.attachment, particle: preset.appearance.tree.nodes.emitter, event: preset.appearance.tree.nodes.spawn, selection: preset.appearance.controllers.selected, uvSelection: preset.appearance.controllers.pinned };
+  const paintFor = preset => preset.theme === 'light' ? colorValues(DEFAULT_PAINT_APPEARANCE) : { brushTipLight: '#242424', brushTipDark: APPLICATION_THEMES[preset.theme].colors.text, brushCursor: APPLICATION_THEMES[preset.theme].colors.text, geosetSelection: preset.appearance.controllers.color, geosetBorder: preset.appearance.controllers.selected, lampSelection: preset.appearance.controllers.pinned };
   const grid = change => commit({ grid: { ...prefs.grid, ...change } });
   useEffect(() => {
     previousFocus.current = document.activeElement;
@@ -173,7 +193,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   const applyViewportPreset = id => {
     const preset = viewportPresetById(id, prefs.viewportPresets);
     if (!preset) return;
-    commit({ viewportPreset: id, viewportAppearance: preset.appearance, ...(preset.theme ? { theme: preset.theme, accent: preset.accent || APPLICATION_THEMES[preset.theme].accent } : {}) }); setMessage(`${preset.name} loaded.`);
+    commit({ viewportPreset: id, viewportAppearance: preset.appearance, ...(preset.theme ? { theme: preset.theme, accent: preset.accent || APPLICATION_THEMES[preset.theme].accent } : {}), ...(BUILT_IN_VIEWPORT_PRESETS[id] ? { visuals: { ...prefs.visuals, ...helpersFor(preset) }, citadelPaint: { ...prefs.citadelPaint, ...paintFor(preset) } } : {}) }); setMessage(`${preset.name} loaded.`);
   };
   const saveViewportPreset = () => {
     const name = presetName.trim();
@@ -200,16 +220,9 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   };
   return <div className="classic-modal settings-overlay" data-warmkey-scope="settings"><section ref={panel} className="classic-modal-window settings-window" role="dialog" aria-modal="true" aria-label="Settings" data-warmkey-scope="settings" data-warmkey-prefix="settings" data-warmkey-category="Settings" onKeyDown={trapFocus}>
     <header><span>Settings</span><button data-warmkey="close" aria-label="Close Settings" onClick={onClose}>×</button></header>
-    <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['mouse', 'Mouse'], ['warmkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['configuration','Configuration'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-warmkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); setRecording(null); setMessage(''); }}>{label}</button>)}</div>
+    <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['configuration','Configuration'], ['mouse', 'Mouse'], ['warmkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-warmkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); onTabChange?.(id); setRecording(null); setMessage(''); }}>{label}</button>)}</div>
     <div className="classic-modal-body settings-body" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>
       {tab === 'mouse' && <div className="settings-page">
-        <h3>Updates</h3>
-        <Toggle id="updates:startup" label="Auto update" checked={prefs.checkUpdatesOnStartup} onChange={checkUpdatesOnStartup => commit({ checkUpdatesOnStartup })} description="Search for updates when MDLxL starts. Ask before downloading or installing."/>
-        <button data-warmkey="updates:check" disabled={!onCheckUpdates || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onCheckUpdates}>Search for updates</button>
-        <button data-warmkey="updates:revert" disabled={!onRevertUpdate || !updateStatus?.previousVersion || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onRevertUpdate}>Revert to last version</button>
-        {updateStatus?.previousVersion && <small>{`Previous version: ${updateStatus.previousVersion}`}</small>}
-        <p className="settings-hint" role="status">{updateStatusText(updateStatus)}</p>
-        {updateStatus?.error && updateStatus.state !== 'error' && <p role="alert">{updateStatus.error}</p>}
         <h3>Camera controls</h3><p>Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.</p>
         <div className="settings-inline-actions"><span>Preset:</span><button data-warmkey="mouse:preset:classic" onClick={() => commit(CAMERA_PRESETS.classic)}>Classic MDLVis</button><button data-warmkey="mouse:preset:orbit" onClick={() => commit(CAMERA_PRESETS.orbit)}>Orbit navigation</button></div>
         <div className="settings-graphics-grid">{[['right', 'Right mouse'], ['middle', 'Middle mouse']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select data-warmkey={`mouse:binding:${key}`} aria-label={`${label} camera action`} value={prefs.cameraBindings[key]} onChange={event => commit({ cameraBindings: { ...prefs.cameraBindings, [key]: event.target.value } })}>{(key === 'middle' ? [['toggle', 'Toggle rotation / work']] : []).concat([['pan', 'Pan'], ['rotate', 'Rotate'], ['zoom', 'Zoom'], ['none', 'No action']]).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}</div>
@@ -276,22 +289,29 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </select></label>
         <div className="settings-inline-actions"><input aria-label="Custom viewport preset name" value={presetName} maxLength={80} placeholder="Custom preset name" onChange={event => setPresetName(event.target.value)}/><button onClick={saveViewportPreset}>Save as custom preset</button>{String(prefs.viewportPreset).startsWith('custom-') && <button onClick={deleteViewportPreset}>Delete selected preset</button>}</div>
         </AppearanceSection>
-        <AppearanceSection title="Interface">
-        <div className="settings-inline-actions" role="group" aria-label="Application theme"><span>Theme:</span>{Object.entries(APPLICATION_THEMES).map(([value, theme]) => <button key={value} data-warmkey={`appearance:theme:${value}`} aria-pressed={prefs.theme === value} onClick={() => commit({ theme: value, accent: theme.accent, viewportPreset: 'custom', viewportAppearance: { ...prefs.viewportAppearance, tree: treeAppearanceForTheme(value) } })}>{theme.name}</button>)}</div>
+        <AppearanceSection title="Interface" palette={palette('Interface', { theme: prefs.theme, accent: prefs.accent }, preset => ({ theme: preset.theme, accent: APPLICATION_THEMES[preset.theme].accent }), change => commit({ ...change, viewportPreset: 'custom' }))}>
         <label className="settings-color">UI accent <input type="color" aria-label="UI accent" value={prefs.accent} onChange={event=>commit({accent:event.target.value})}/><code>{prefs.accent}</code></label>
         <div className="settings-graphics-grid"><Numeric id="appearance:panel-width" label="Toolbox width" value={prefs.panelWidth} min={162} max={420} unit="px" onChange={panelWidth=>commit({panelWidth})}/><Numeric id="appearance:panel-scale" label="Toolbox scale" value={prefs.panelScale} min={1} max={1.75} step={.05} unit="×" onChange={panelScale=>commit({panelScale})}/></div>
         </AppearanceSection>
-        <AppearanceSection title="Folders & lists">
+        <AppearanceSection title="Controllers" palette={partPalette('controllers', 'Controllers')}>
+          <ControllerPreview appearance={prefs.viewportAppearance.controllers}/>
+          <div className="settings-controller-shapes">{[['shape', 'Handle shape'], ['bodyShape', 'Body shape'], ['bendShape', 'Bend shape']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={label} value={prefs.viewportAppearance.controllers[key]} onChange={event => viewportPart('controllers', { [key]: event.target.value })}>{CONTROLLER_SHAPES.map(shape => <option key={shape} value={shape}>{shape[0].toUpperCase() + shape.slice(1)}</option>)}</select></label>)}</div>
+          <label className="settings-select"><span>Pin button</span><select aria-label="Pin button style" value={prefs.viewportAppearance.controllers.pinStyle} onChange={event => viewportPart('controllers', { pinStyle: event.target.value })}>{PIN_STYLES.map((style, index) => <option key={style} value={style}>{['Icon and label', 'Square icon', 'Round icon'][index]}</option>)}</select></label>
+          <Toggle label="Show body-part symbols" checked={prefs.viewportAppearance.controllers.symbols} onChange={symbols => viewportPart('controllers', { symbols })}/>
+          <Numeric label="Controller size" min={12} max={24} unit="px" value={prefs.viewportAppearance.controllers.size} onChange={size => viewportPart('controllers', { size })}/>
+          <AppearanceColors prefix="Controller" colors={[['color', 'Handle'], ['selected', 'Selected'], ['pinned', 'Pinned'], ['background', 'Background'], ['skeleton', 'Pose skeleton'], ['outline', 'Outline'], ['axisX', 'X axis'], ['axisY', 'Y axis'], ['axisZ', 'Z axis']]} value={prefs.viewportAppearance.controllers} onChange={change => viewportPart('controllers', change)}/>
+        </AppearanceSection>
+        <AppearanceSection title="Folders & lists" palette={palette('Folders & lists', prefs.viewportAppearance.tree, preset => colorValues(preset.appearance.tree), change => viewportPart('tree', change))}>
           <AppearanceColors colors={TREE_COLORS} value={prefs.viewportAppearance.tree} prefix="Tree" onChange={change => viewportPart('tree', change)}/>
           <Numeric label="List font size" id="appearance:tree:font-size" min={10} max={20} unit="px" value={prefs.viewportAppearance.tree.fontSize} onChange={fontSize => viewportPart('tree', { fontSize })}/>
         </AppearanceSection>
-        <AppearanceSection title="Node colors">
+        <AppearanceSection title="Node colors" palette={palette('Node colors', prefs.viewportAppearance.tree.nodes, preset => preset.appearance.tree.nodes, change => treePart('nodes', change))}>
           <AppearanceColors colors={NODE_COLORS} value={prefs.viewportAppearance.tree.nodes} prefix="Node" onChange={change => treePart('nodes', change)}/>
         </AppearanceSection>
-        <AppearanceSection title="Sound folder colors">
+        <AppearanceSection title="Sound folder colors" palette={palette('Sound folder colors', prefs.viewportAppearance.tree.folders, preset => preset.appearance.tree.folders, change => treePart('folders', change))}>
           <AppearanceColors colors={FOLDER_COLORS} value={prefs.viewportAppearance.tree.folders} prefix="Folder" onChange={change => treePart('folders', change)}/>
         </AppearanceSection>
-        <AppearanceSection title="Viewport background">
+        <AppearanceSection title="Viewport background" palette={partPalette('background', 'Viewport background')}>
         <div className="settings-inline-actions" role="group" aria-label="Viewport background type"><span>Type:</span><button aria-pressed={prefs.viewportAppearance.background.type === 'color'} onClick={() => viewportPart('background',{type:'color'})}>Solid color</button><button aria-pressed={prefs.viewportAppearance.background.type === 'image'} disabled={!prefs.viewportAppearance.background.imageData} onClick={() => viewportPart('background',{type:'image'})}>Image</button></div>
         <label className="settings-color">Fallback color <input type="color" aria-label="Viewport background color" value={prefs.viewportAppearance.background.color} onChange={event => viewportPart('background',{color:event.target.value})}/><code>{prefs.viewportAppearance.background.color}</code></label>
         <input ref={viewportImageInput} hidden type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" onChange={event => { loadViewportBackground(event.target.files[0]); event.target.value=''; }}/>
@@ -299,28 +319,28 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         {prefs.viewportAppearance.background.imageData && <div className="settings-graphics-grid"><label className="settings-select"><span>Image display</span><select aria-label="Background image display mode" value={prefs.viewportAppearance.background.display} onChange={event => viewportPart('background',{display:event.target.value})}><option value="fit">Fit</option><option value="fill">Fill</option><option value="stretch">Stretch</option><option value="center">Center / actual size</option></select></label><Numeric id="appearance:background:opacity" label="Image opacity" value={prefs.viewportAppearance.background.opacity} min={0} max={1} step={.05} onChange={opacity => viewportPart('background',{opacity})}/></div>}
         <Toggle id="appearance:xray-vertices" label="Show occluded vertices in General View (X-Ray)" checked={prefs.viewportAppearance.xrayVertices} onChange={xrayVertices => viewport({xrayVertices})} description="Off by default: General View hides vertices behind model geometry. Wireframe View remains see-through."/>
         </AppearanceSection>
-        <AppearanceSection title="Highlight Geoset">
+        <AppearanceSection title="Highlight Geoset" palette={partPalette('geosetHighlight', 'Highlight Geoset')}>
           <label className="settings-color"><span>Color</span><input type="color" aria-label="Highlight Geoset color" value={prefs.viewportAppearance.geosetHighlight.color} onChange={event => viewportPart('geosetHighlight', { color: event.target.value })}/><code>{prefs.viewportAppearance.geosetHighlight.color}</code></label>
           <label className="settings-select"><span>Type</span><select aria-label="Highlight Geoset type" value={prefs.viewportAppearance.geosetHighlight.type} onChange={event => viewportPart('geosetHighlight', { type: event.target.value })}><option value="wire-vertices">Wireframe with vertices</option><option value="wire">Wireframe without vertices</option><option value="fill">Filled geoset</option></select></label>
           <label><input type="checkbox" checked={prefs.viewportAppearance.geosetHighlight.viaView} disabled={!prefs.viewportAppearance.geosetHighlight.viaSelection} onChange={event => viewportPart('geosetHighlight', { viaView: event.target.checked })}/>Highlight via View</label>
           <label><input type="checkbox" checked={prefs.viewportAppearance.geosetHighlight.viaSelection} disabled={!prefs.viewportAppearance.geosetHighlight.viaView} onChange={event => viewportPart('geosetHighlight', { viaSelection: event.target.checked })}/>Highlight via Selection</label>
         </AppearanceSection>
         <div className="settings-appearance-grid">
-          {[['selectedGeoset','Selected geoset'],['otherGeoset','Other visible geosets']].map(([part,label]) => <AppearanceSection key={part} title={label}>
+          {[['selectedGeoset','Selected geoset'],['otherGeoset','Other visible geosets']].map(([part,label]) => <AppearanceSection key={part} title={label} palette={partPalette(part, label)}>
             <label className="settings-color"><span>Wire color</span><input type="color" aria-label={`${label} wire color`} value={prefs.viewportAppearance[part].color} onChange={event => viewportPart(part,{color:event.target.value})}/><code>{prefs.viewportAppearance[part].color}</code></label>
             <Numeric id={`appearance:${part}:thickness`} label="Wire thickness" value={prefs.viewportAppearance[part].thickness} min={.5} max={4} step={.25} unit="px" onChange={thickness => viewportPart(part,{thickness})}/>
             <Numeric id={`appearance:${part}:opacity`} label="Wire opacity" value={prefs.viewportAppearance[part].opacity} min={0} max={1} step={.05} onChange={opacity => viewportPart(part,{opacity})}/>
             <label className="settings-select"><span>Wire style</span><select aria-label={`${label} wire style`} value={prefs.viewportAppearance[part].style} onChange={event => viewportPart(part,{style:event.target.value})}><option value="solid">Solid</option><option value="dotted">Dotted</option><option value="dashed">Striped</option></select></label>
             {prefs.viewportAppearance[part].style !== 'solid' && <Numeric id={`appearance:${part}:spacing`} label="Line spacing" value={prefs.viewportAppearance[part].spacing} min={2} max={32} step={1} unit="px" onChange={spacing => viewportPart(part,{spacing})}/>}<WireLinePreview wire={prefs.viewportAppearance[part]} background={prefs.viewportAppearance.background.color} label={label}/>
           </AppearanceSection>)}
-          {[['selectedVertex','Selected vertices'],['unselectedVertex','Unselected vertices']].map(([part,label]) => <AppearanceSection key={part} title={label}>
+          {[['selectedVertex','Selected vertices'],['unselectedVertex','Unselected vertices']].map(([part,label]) => <AppearanceSection key={part} title={label} palette={partPalette(part, label)}>
             <label className="settings-color"><span>Marker color</span><input type="color" aria-label={`${label} color`} value={prefs.viewportAppearance[part].color} onChange={event => viewportPart(part,{color:event.target.value})}/><code>{prefs.viewportAppearance[part].color}</code></label>
             <Numeric id={`appearance:${part}:size`} label="Marker size" value={prefs.viewportAppearance[part].size} min={2} max={16} step={1} unit="px" onChange={size => viewportPart(part,{size})}/>
             <label className="settings-select"><span>Marker style</span><select aria-label={`${label} marker style`} value={prefs.viewportAppearance[part].style} onChange={event => viewportPart(part,{style:event.target.value})}><option value="square">Square</option><option value="circle">Circle</option><option value="diamond">Diamond</option></select></label>
             <VertexMarkerPreview marker={prefs.viewportAppearance[part]} background={prefs.viewportAppearance.background.color} label={label}/>
           </AppearanceSection>)}
         </div>
-        <AppearanceSection title="Quadview">
+        <AppearanceSection title="Quadview" palette={palette('Quadview', { ...colorValues(prefs.viewportAppearance.quadView.grid), background: prefs.viewportAppearance.quadView.background.color }, preset => ({ ...colorValues(preset.appearance.quadView.grid), background: preset.appearance.quadView.background.color }), ({ background, ...colors }) => viewportPart('quadView', { background: { ...prefs.viewportAppearance.quadView.background, color: background }, grid: { ...prefs.viewportAppearance.quadView.grid, ...colors } }))}>
           <Toggle id="appearance:quadview:grid" label="Quadview grid" checked={prefs.viewportAppearance.quadView.grid.enabled} onChange={enabled => quadPart('grid', {enabled})}/>
           <div className="settings-color-grid">
             <label className="settings-color"><span>Background</span><input type="color" aria-label="Quadview background color" value={prefs.viewportAppearance.quadView.background.color} onChange={event => quadPart('background', {color:event.target.value})}/></label>
@@ -337,11 +357,11 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           <div className="settings-inline-actions"><button onClick={() => quadImageInput.current?.click()}>Choose Quadview background image…</button>{prefs.viewportAppearance.quadView.background.imageData && <button onClick={() => quadPart('background', {type:'color',imageData:'',imageName:''})}>Remove Quadview image</button>}</div>
           {prefs.viewportAppearance.quadView.background.imageData && <div className="settings-graphics-grid"><label>Quadview image display <select aria-label="Quadview image display" value={prefs.viewportAppearance.quadView.background.display} onChange={event => quadPart('background', {display:event.target.value})}>{['fit','fill','stretch','center'].map(value => <option key={value} value={value}>{value}</option>)}</select></label><Numeric id="appearance:quadview:image-opacity" label="Quadview image opacity" value={prefs.viewportAppearance.quadView.background.opacity} min={0} max={1} step={.05} onChange={opacity => quadPart('background', {opacity})}/></div>}
         </AppearanceSection>
-        <AppearanceSection title="Editor helpers"><div className="settings-color-grid">{APPEARANCE_HELPER_COLORS.map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input data-warmkey={`appearance:color:${key}`} type="color" aria-label={`${label} color`} value={prefs.visuals[key]} onChange={event => visual({ [key]: event.target.value })}/><code>{prefs.visuals[key]}</code></label>)}</div>
+        <AppearanceSection title="Editor helpers" palette={palette('Editor helpers', prefs.visuals, helpersFor, visual)}><div className="settings-color-grid">{APPEARANCE_HELPER_COLORS.map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input data-warmkey={`appearance:color:${key}`} type="color" aria-label={`${label} color`} value={prefs.visuals[key]} onChange={event => visual({ [key]: event.target.value })}/><code>{prefs.visuals[key]}</code></label>)}</div>
         <label>Emitter marker<select aria-label="Emitter marker" value={prefs.emitterMarker} onChange={event=>commit({emitterMarker:event.target.value})}><option value="pentagram">Pentagram in a circle</option><option value="tetrahedron">Normal node</option><option value="cube">Cube</option></select></label>
         <div className="settings-graphics-grid">{[['keyframeSize', 'Keyframe marker size', 4, 24, 1, 'px'], ['helperSize', 'Node marker size', 3, 18, 1, 'px'], ['occludedOpacity', 'Hidden wire intensity', 0, 1, 0.05, '']].map(([key, label, min, max, step, unit]) => <Numeric key={key} id={`appearance:size:${key}`} label={label} value={prefs.visuals[key]} min={min} max={max} step={step} unit={unit} onChange={value => visual({ [key]: value })}/>)}</div>
         </AppearanceSection>
-        <AppearanceSection title="Citadel Paint"><div className="settings-appearance-grid">
+        <AppearanceSection title="Citadel Paint" palette={palette('Citadel Paint', prefs.citadelPaint, paintFor, change => commit({ citadelPaint: { ...prefs.citadelPaint, ...change } }))}><div className="settings-appearance-grid">
           {[['brushTipLight','Brush tips — light theme'],['brushTipDark','Brush tips — dark themes'],['brushCursor','Brush cursor'],['geosetSelection','Geoset selection'],['geosetBorder','Geoset border'],['lampSelection','Selected lamp']].map(([key,label])=><label className="settings-color" key={key}><span>{label}</span><input type="color" aria-label={'Citadel '+label} value={prefs.citadelPaint[key]} onChange={e=>commit({citadelPaint:{...prefs.citadelPaint,[key]:e.target.value}})}/></label>)}
           <Numeric label="Citadel border thickness" id="citadel:borderThickness" min={1} max={6} value={prefs.citadelPaint.borderThickness} onChange={borderThickness=>commit({citadelPaint:{...prefs.citadelPaint,borderThickness}})}/>
           <button onClick={()=>commit({citadelPaint:DEFAULT_PAINT_APPEARANCE})}>Reset Citadel colours</button>
@@ -357,7 +377,14 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <div className="settings-plane-choices"><span>Axes:</span>{['x', 'y', 'z'].map(key => <label key={key}><input data-warmkey={`grid:axis:${key}`} aria-label={`Grid ${key.toUpperCase()} axis`} type="checkbox" checked={prefs.grid.axes[key]} onChange={event => grid({ axes: { ...prefs.grid.axes, [key]: event.target.checked } })}/>{key.toUpperCase()}</label>)}</div>
         <div className="settings-color-grid">{VISUAL_COLORS.filter(([key]) => key.startsWith('grid') || key.startsWith('axis')).map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input data-warmkey={`grid:color:${key}`} type="color" aria-label={`${label} color`} value={prefs.visuals[key]} onChange={event => visual({ [key]: event.target.value })}/><code>{prefs.visuals[key]}</code></label>)}</div>
       </div>}
-      {tab === 'configuration' && <div className="settings-page"><h3>Reusable configuration</h3><p>Export interface colors, toolbox size, input settings, graphics and hotkeys. Import replaces these preferences together; machine paths and model data stay local.</p><input ref={configInput} hidden type="file" accept=".json,application/json" onChange={event=>{loadConfiguration(event.target.files[0]);event.target.value='';}}/><button onClick={exportSettings}>Export configuration…</button><button onClick={()=>configInput.current.click()}>Import configuration…</button><h3>New model</h3><label>Starter format <select aria-label="New model version" value={prefs.newModelVersion} onChange={event=>commit({newModelVersion:Number(event.target.value)})}><option value={800}>MDX800 · Classic</option><option value={1000}>MDX1000 · Reforged</option></select></label><p>New creates Bone_Root and a 64-unit cube with eight vertices and twelve triangles.</p></div>}
+      {tab === 'configuration' && <div className="settings-page">        <h3>Updates</h3>
+        <Toggle id="updates:startup" label="Auto update" checked={prefs.checkUpdatesOnStartup} onChange={checkUpdatesOnStartup => commit({ checkUpdatesOnStartup })} description="Search for updates when MDLxL starts. Ask before downloading or installing."/>
+        <button data-warmkey="updates:check" disabled={!onCheckUpdates || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onCheckUpdates}>Search for updates</button>
+        <button data-warmkey="updates:revert" disabled={!onRevertUpdate || !updateStatus?.previousVersion || ['checking','downloading','ready','reverting'].includes(updateStatus?.state)} onClick={onRevertUpdate}>Revert to last version</button>
+        {updateStatus?.previousVersion && <small>{`Previous version: ${updateStatus.previousVersion}`}</small>}
+        <p className="settings-hint" role="status">{updateStatusText(updateStatus)}</p>
+        {updateStatus?.error && updateStatus.state !== 'error' && <p role="alert">{updateStatus.error}</p>}
+<h3>Reusable configuration</h3><p>Export interface colors, toolbox size, input settings, graphics and hotkeys. Import replaces these preferences together; machine paths and model data stay local.</p><input ref={configInput} hidden type="file" accept=".json,application/json" onChange={event=>{loadConfiguration(event.target.files[0]);event.target.value='';}}/><button onClick={exportSettings}>Export configuration…</button><button onClick={()=>configInput.current.click()}>Import configuration…</button><h3>New model</h3><label>Starter format <select aria-label="New model version" value={prefs.newModelVersion} onChange={event=>commit({newModelVersion:Number(event.target.value)})}><option value={800}>MDX800 · Classic</option><option value={1000}>MDX1000 · Reforged</option></select></label><p>New creates Bone_Root and a 64-unit cube with eight vertices and twelve triangles.</p></div>}
       {tab === 'gameData' && <div className="settings-page game-data-page">
         <h3>Warcraft III installation</h3>
         <p>Choose the main Warcraft III installation folder once. MdlVis saves the location in its app profile, then uses it automatically when a model refers to native Warcraft textures.</p>

@@ -45,7 +45,7 @@ test('preset application pairs theme and accent while native windows use the sam
   const settings=readFileSync(new URL('../app/Settings.jsx',import.meta.url),'utf8');
   const desktop=readFileSync(new URL('../electron/main.cjs',import.meta.url),'utf8');
   assert.match(settings,/theme: preset.theme, accent: preset.accent \|\| APPLICATION_THEMES\[preset.theme\].accent/);
-  assert.match(settings,/Object.entries\(APPLICATION_THEMES\)/);
+  assert.match(settings,/Object.values\(BUILT_IN_VIEWPORT_PRESETS\)/);
   assert.doesNotMatch(desktop,/theme==='dark'/);
   assert.match(desktop,/require\('\.\.\/src\/application-themes.json'\)/);
 });

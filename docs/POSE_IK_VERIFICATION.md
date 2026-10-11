@@ -1147,3 +1147,51 @@ All ten swivel/Pin/history/save-reopen groups also pass on this exact package,
 recorded in `out/pose-review-ui/result.json`. This brings packaged acceptance
 back to 15 passing groups after current-main integration, with no renderer
 errors or original-file changes. The updated default layout was inspected.
+
+## Focused pose skeleton, console and appearance - 2026-10-11
+
+Focused Skeleton now draws mapped body controls and limb joints during POSE,
+omitting the native mesh-helper and weapon branches. The compact console adds
+Restrict immediately left of Setup. It starts off; enabling it disables the
+existing hand/foot body lead without changing the rig or pin constraints.
+Pin prefers the outward flank beyond the gizmo. Controller symbols, skeleton,
+gizmos and Pin use the active controller appearance, with independent sets,
+shapes, sizes and Pin styles. Configuration is the first Settings tab, Updates
+leads that page, and Movement's Controller dropdown sits above closed Restrictions.
+
+Verification on the rebuilt portable candidate:
+
+- Focused source checks: 119 pass, one optional fixture skip. They include
+  palette migration, mixed-set configuration round trip, outward Pin geometry,
+  clean skeleton topology, shape picking, balanced canvas state, and hands/feet
+  with Restrict on/off and exact Undo. Actual Movement JSX checks: five pass.
+  Structural rig/pose regressions: five pass, four optional fixture skips.
+- All six groups in `test/pose-console.electron.cjs` pass: actual hand/foot
+  drags with both Restrict states, native preview isolation and atomic Undo,
+  pelvis focus without yellow descendant branches, outward Pin at three actual
+  mouse-rotated views, all seven controller sets, four shapes, three Pin styles,
+  independent color selectors in every Appearance section, and unchanged
+  model/history/sidebar width. No renderer errors or source-file changes.
+- All ten existing swivel/Pin/history groups pass on the same package,
+  including real rotation, pan/zoom, keyboard Pin, pinned-foot swivel,
+  cancellation, restrictions, Save As and MDX reopen. Maximum endpoint drift
+  in these swivel checks is 0.000000501 model units; orientation is retained.
+- A separate hidden app restart restores the mixed controller color, shape,
+  size, symbol visibility and Pin style. Configuration/Updates order also
+  passes. Switching from Configuration to Appearance resumes live preview.
+
+Evidence: `out/pose-console-source.log`, `out/pose-console-component.log`,
+`out/pose-console-regression.log`, `out/pose-console-ui/result.json`,
+`out/pose-console-swivel-ui/result.json`, and `out/pose-console-restart.json`.
+Screenshots of the compact console, focused rig and controller settings were
+inspected. Hidden Chromium captures can trail recent UI changes; assertions
+also read current DOM, native model and canvas state rather than relying on
+those images alone.
+
+Vite and portable packaging pass, with 557 runtime/assets and 55 locales.
+Workspace and packaged `dist/index.html` SHA-256 match:
+`8d448dcc02274f8a59f1b79c3abd11c8ec0f12f6591ea8024349e4bf1b449e3b`.
+Candidate: `out/pose-console-package/MDLxL-win32-x64/MDLxL.exe`.
+Existing user windows, unsaved models and personal profiles were left intact.
+This remains an unshipped test candidate; no main merge or Warcraft in-game
+acceptance is claimed.

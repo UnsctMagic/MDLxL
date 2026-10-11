@@ -1,5 +1,6 @@
 import themes from './application-themes.json' with { type: 'json' };
 import { normalizeTreeAppearance, treeAppearanceForTheme } from './tree-appearance.js';
+import { controllerAppearanceForTheme, normalizeControllerAppearance } from './controller-appearance.js';
 
 const color = (value, fallback) => /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback;
 const number = (value, min, max, fallback) => value !== null && value !== '' && Number.isFinite(Number(value))
@@ -17,6 +18,7 @@ function quadDefaults(background) {
 }
 
 const profile = (theme, value) => Object.freeze({
+  controllers: Object.freeze(controllerAppearanceForTheme(theme)),
   tree: Object.freeze(treeAppearanceForTheme(theme)),
   selectedGeoset: Object.freeze({ ...value.selectedGeoset }),
   otherGeoset: Object.freeze({ ...value.otherGeoset }),
@@ -25,7 +27,7 @@ const profile = (theme, value) => Object.freeze({
   background: Object.freeze({ ...value.background }),
   quadView: Object.freeze({ background: Object.freeze({ ...value.background }), grid: Object.freeze(quadDefaults(value.background).grid) }),
   xrayVertices: value.xrayVertices === true,
-  geosetHighlight: Object.freeze({ color: '#39ff14', type: 'wire-vertices', viaView: true, viaSelection: true }),
+  geosetHighlight: Object.freeze({ color: theme === 'light' ? '#39ff14' : controllerAppearanceForTheme(theme).color, type: 'wire-vertices', viaView: true, viaSelection: true }),
 });
 
 // The Vanilla colors are sampled from the supplied MDLVis reference: its
@@ -140,6 +142,7 @@ export function normalizeViewportAppearance(value, fallback = DEFAULT_VIEWPORT_A
   const viaView = typeof highlight.viaView === 'boolean' ? highlight.viaView : highlightBase.viaView;
   const viaSelection = typeof highlight.viaSelection === 'boolean' ? highlight.viaSelection : highlightBase.viaSelection;
   return {
+    controllers: normalizeControllerAppearance(input.controllers, base.controllers),
     tree: normalizeTreeAppearance(input.tree, base.tree || treeAppearanceForTheme()),
     selectedGeoset: normalizeWire(input.selectedGeoset, base.selectedGeoset || DEFAULT_VIEWPORT_APPEARANCE.selectedGeoset),
     otherGeoset: normalizeWire(input.otherGeoset, base.otherGeoset || DEFAULT_VIEWPORT_APPEARANCE.otherGeoset),
@@ -175,7 +178,7 @@ export function normalizeViewportPresets(value) {
     if (!id || !name || ids.has(id) || names.has(name.toLowerCase())) continue;
     ids.add(id); names.add(name.toLowerCase());
     const theme = Object.hasOwn(themes, item.theme) ? item.theme : null;
-    const appearance = normalizeViewportAppearance(item.appearance, { ...DEFAULT_VIEWPORT_APPEARANCE, tree: treeAppearanceForTheme(theme) });
+    const appearance = normalizeViewportAppearance(item.appearance, { ...DEFAULT_VIEWPORT_APPEARANCE, tree: treeAppearanceForTheme(theme), controllers: controllerAppearanceForTheme(theme) });
     output.push({ id, name, appearance, ...(theme ? { theme, accent: color(item.accent, themes[theme].accent) } : {}) });
   }
   return output;
