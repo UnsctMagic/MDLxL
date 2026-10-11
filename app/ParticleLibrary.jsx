@@ -7,7 +7,23 @@ export default function ParticleLibrary({onChoose,onClose,onError,preferences,di
   const [openingName,setOpeningName]=useState('');
   const [catalog,setCatalog]=useState({items:[]}),[collection,setCollection]=useState('Warcraft'),[category,setCategory]=useState('All'),[search,setSearch]=useState(''),[limit,setLimit]=useState(36),[details,setDetails]=useState(null),[sourceContext,setSourceContext]=useState(null);
   const load=()=>window.desktop?.particleCatalog?.().then(setCatalog).catch(error=>onError(error.message));
-  useEffect(()=>{load();const off=window.desktop?.onParticleProgress?.(()=>load());return()=>off?.();},[]);
+  useEffect(()=>{
+    let active=true,inFlight=false,again=false,timer,lastLoad=0;
+    const refresh=async()=>{
+      if(inFlight){again=true;return;}
+      inFlight=true;lastLoad=Date.now();
+      try{const next=await window.desktop?.particleCatalog?.();if(active&&next)setCatalog(next);}
+      catch(error){if(active)onError(error.message);}
+      finally{inFlight=false;if(active&&again){again=false;schedule();}}
+    };
+    const schedule=()=>{if(!timer)timer=setTimeout(()=>{timer=null;refresh();},Math.max(0,1000-(Date.now()-lastLoad)));};
+    refresh();
+    const off=window.desktop?.onParticleProgress?.(status=>{
+      setCatalog(old=>({...old,status}));
+      if(status.running)schedule();else{clearTimeout(timer);timer=null;refresh();}
+    });
+    return()=>{active=false;clearTimeout(timer);off?.();};
+  },[]);
   const items=useMemo(()=>{
     const terms=search.toLowerCase().split(/\s+/).filter(Boolean);
     return [...catalog.items].sort((a,b)=>collection==='My work'?(b.updatedAt||0)-(a.updatedAt||0):Number(!!a.blocked)-Number(!!b.blocked)||Number(['reviewed','user-reviewed'].includes(b.naming?.state))-Number(['reviewed','user-reviewed'].includes(a.naming?.state))).filter(item=>(collection==='Favorites'?item.favorite:item.collection===collection)&&(category==='All'||item.categories?.includes(category))&&terms.every(term=>[item.name,...item.tags||[],...item.aliases||[]].join(' ').toLowerCase().includes(term)));
@@ -21,7 +37,7 @@ export default function ParticleLibrary({onChoose,onClose,onError,preferences,di
     {collection==='Warcraft'&&catalog.sourceStatus?.message&&<p role="status">{catalog.sourceStatus.message}</p>}
     <div className="pe-library-search"><input aria-label="Find an effect" placeholder="Find an effect…" value={search} onChange={e=>{setSearch(e.target.value);setLimit(36);}}/><select aria-label="Effect appearance" value={category} onChange={e=>setCategory(e.target.value)}>{['All','Fire','Smoke','Sparks','Magic','Glows','Trails','Bursts','Other'].map(name=><option key={name}>{name}</option>)}</select></div>
     <div className="pe-library-grid">{items.slice(0,limit).map(item=><article key={item.id}><button className="pe-effect-card" onClick={()=>choose(item)}><span className="pe-effect-thumb">{item.thumbnail?<img src={item.thumbnail} alt=""/>:<span aria-hidden="true" className="pe-thumbnail-pending">{item.empty?"+":"◇"}</span>}</span><span>{item.name}</span>{item.empty&&<small>Empty effect · undo or add</small>}{item.collection==='My work'&&<small>{new Date(item.updatedAt).toLocaleString(undefined,{dateStyle:'short',timeStyle:'short'})}</small>}{(item.blocked||item.unsupported?.length>0||item.previewError)&&<small>{item.blocked?'Unavailable':item.previewError?'Preview unavailable':'Incomplete preview'}</small>}</button><div><button aria-label={'Favorite '+item.name} aria-pressed={item.favorite} onClick={()=>favorite(item)}>{item.favorite?'★':'☆'}</button><button onClick={()=>setDetails(details===item.id?null:item.id)} aria-label={'Details for '+item.name}>Details</button></div>{details===item.id&&<div className="pe-effect-details"><p translate="no">{item.sources?.[0]?.logicalPath}</p>{item.blocked&&<p>{item.blocked.reason}</p>}{item.grouping&&<p>Source group: {item.grouping.kind}. Other source visuals are outside this particle group.</p>}{item.previewError&&<p>{item.previewError}</p>}{item.unsupported?.map((entry,i)=><p key={i}>{entry.reason||entry}</p>)}{!item.blocked&&item.sources?.some(source=>source.physicalPath)&&<button onClick={()=>setSourceContext(item)}>View source context</button>}<label>Name<input aria-label="Effect display name" defaultValue={item.name} onBlur={async event=>{if(event.target.value.trim()){await window.desktop.particleAnnotate({id:item.id,name:event.target.value});load();}}}/></label><label>Tags<input aria-label="Effect tags" defaultValue={(item.tags||[]).join(', ')} onBlur={async event=>{try{await window.desktop.particleAnnotate({id:item.id,tags:event.target.value.split(',').map(v=>v.trim()).filter(Boolean)});load();}catch(error){onError(error.message);}}}/></label><button disabled={!!item.blocked||item.empty} onClick={async()=>{try{await window.desktop.particleDuplicate(item.id);await load();}catch(error){onError(error.message);}}}>Duplicate</button><button disabled={!!item.blocked||item.empty} onClick={()=>window.desktop.particleExport(item.id).catch(error=>onError(error.message))}>Export preset</button>{item.collection==='My presets'&&<button onClick={async()=>{await window.desktop.particleRemove(item.id);load();}}>Delete</button>}</div>}</article>)}</div>
-    {!items.length&&<p>{collection==='Warcraft'?'Index your Warcraft assets to discover effects.':'No matching presets.'}</p>}
+    {!items.length&&<p>{collection==='Warcraft'?(catalog.status?.running?'Discovering effects…':catalog.sourceStatus?.message||'No Warcraft effects found.'):'No matching presets.'}</p>}
     {items.length>limit&&<button onClick={()=>setLimit(value=>value+36)}>Show more</button>}
     {sourceContext&&<ParticleSourceContext item={sourceContext} preferences={preferences} onClose={()=>setSourceContext(null)}/>}
     <footer>{catalog.status?.running?<><span>Indexing {catalog.status.processed} / {catalog.status.total}</span><button onClick={()=>window.desktop.particleCancel()}>Cancel scan</button></>:<button onClick={()=>window.desktop?.particleScan?.().then(load).catch(error=>onError(error.message))}>Index Warcraft assets</button>}{catalog.coverage&&<details><summary>Coverage · {catalog.coverage.recipes} recipes</summary><p>{catalog.coverage.parsedAssets} parsed / {catalog.coverage.candidateAssets} candidates · {catalog.coverage.failures} extraction exceptions · {catalog.coverage.reviewedNames} appearance names reviewed, {catalog.coverage.reviewNeededNames} still to review. Preview and placement validation are incomplete.</p></details>}</footer>
