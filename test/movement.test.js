@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Matrix4, PerspectiveCamera, Quaternion, Vector3 } from 'three';
+import { Matrix4, OrthographicCamera, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { applyMovementTransform, deleteMovementControllers, deleteMovementKeys, insertMovementKeys, movementControllerType, movementKeyframes, sampleMovement, setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve, updateMovementKey } from '../src/movement.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
-import { MOVEMENT_GIZMO_SCALE, MOVEMENT_MOVE_MAX_PIXELS, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
+import { MOVEMENT_GIZMO_SCALE, MOVEMENT_MOVE_MAX_PIXELS, boneConnectionAppearance, boneConnectionEndpoints, boneConnectionVisible, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationGesture, movementFreeScaleValues, movementMarkerRadius, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from '../app/movement-overlay.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera } from '../app/game-preview-data.js';
 import { patchWarcraftMeshFragmentShader, previewGeosetTint } from '../app/warcraft-preview-adapter.js';
-import { projectedPlaneTranslation } from '../app/viewport-math.js';
+import { applyViewPreset, projectedPlaneTranslation } from '../app/viewport-math.js';
 
 const near = (a, b, epsilon = 1e-5) => assert.ok(Math.abs(a - b) < epsilon, `${a} != ${b}`);
 const nearVector = (a, b) => Array.from(a).forEach((value, i) => near(value, b[i]));
@@ -250,6 +250,62 @@ test('free-space resize is uniform unless Shift constrains it to the active work
   assert.ok(grow.every(value => value === grow[0]));
   assert.deepEqual(movementFreeScaleValues(20, -20, { workplaneEnabled: true, workplane: 'xy', shiftKey: true }).map(value => value === 1), [false, false, true]);
   assert.ok(movementFreeScaleValues(20, -20, { workplaneEnabled: true, workplane: 'xy', shiftKey: false }).every(value => value > 1));
+});
+
+test('XYZ rotation endpoints own their press even over another axis shaft', () => {
+  const camera = new OrthographicCamera(-100, 100, 100, -100, .1, 1000);
+  const active = { visible: true, world: new Vector3(), rotation: new Quaternion(), x: 200, y: 200 };
+  for (const view of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
+    applyViewPreset(camera, view, new Vector3(), 300);
+    const handles = movementAxisHandles(active, camera, 400, 400, 50, 'world', 'rotate');
+    for (const handle of handles) assert.equal(pickMovementHandle(handles, handle.x, handle.y, 'rotate'), handle, `${view} ${handle.axis}`);
+  }
+});
+
+test('XYZ rotation preserves radial drag sensitivity and responds across every displayed axis', () => {
+  for (const [dx, dy] of [[68, 0], [-68, 0], [0, -68], [25, 25], [-30, 40]]) {
+    const handle = { dx, dy }, center = { x: 100, y: 100 }, start = { x: center.x + dx, y: center.y + dy };
+    const radial = movementRotationGesture(handle, start, center);
+    for (const factor of [.1, .5, -.25, 0]) {
+      near(movementRotationAmount(radial, dx * factor, dy * factor, .4), movementDragAmount(handle, dx * factor, dy * factor, 'rotate', .4));
+    }
+    const across = movementRotationGesture(handle, start, center);
+    assert.ok(Math.abs(movementRotationAmount(across, -dy * .2, dx * .2)) > 1);
+    near(movementRotationAmount(across, 0, 0), 0);
+  }
+});
+
+test('rotation arcs unwrap multiple turns, reverse exactly, and retain their captured basis', () => {
+  const center = { x: 100, y: 100 }, start = { x: 168, y: 100 }, handle = { dx: 68, dy: 0 };
+  const drag = movementRotationGesture(handle, start, center);
+  const sample = step => movementRotationAmount(drag, Math.cos(step * Math.PI / 32) * 68 - 68, Math.sin(step * Math.PI / 32) * 68);
+  for (let step = 1; step <= 128; step++) { const angle = sample(step); near(angle, -step * 180 / 32); }
+  handle.dx = 0; handle.dy = -68;
+  for (let step = 127; step >= 0; step--) sample(step);
+  near(drag.angle, 0);
+  const behind = movementRotationGesture({ dx: 68, dy: 0 }, start, center, -1);
+  near(movementRotationAmount(behind, 0, 10), -movementRotationAmount(movementRotationGesture({ dx: 68, dy: 0 }, start, center, 1), 0, 10));
+});
+
+test('rotation arc crossing the pivot rebases without a half-turn or a snap when it resumes', () => {
+  const drag = movementRotationGesture({ dx: 68, dy: 0 }, { x: 68, y: 0 }, { x: 0, y: 0 });
+  movementRotationAmount(drag, 0, 3);
+  const before = movementRotationAmount(drag, -68, 68);
+  near(before, -90);
+  near(movementRotationAmount(drag, -68, 0), before);
+  near(movementRotationAmount(drag, -68, -68), before);
+  near(movementRotationAmount(drag, -68 + 68 * Math.sin(.1), -68 * Math.cos(.1)), before - .1 * 180 / Math.PI);
+});
+
+test('every workplane preserves its original drag direction and accepts perpendicular input near or away from the pivot', () => {
+  for (const plane of ['xy', 'xz', 'yz']) for (const start of [{ x: 0, y: 0 }, { x: 0, y: 50 }, { x: 50, y: 0 }, { x: 50, y: 50 }]) {
+    const handle = movementWorkplaneHandle(plane), center = { x: 0, y: 0 };
+    const along = movementRotationGesture(handle, start, center);
+    near(movementRotationAmount(along, handle.dx * 20, handle.dy * 20), 20);
+    const across = movementRotationGesture(handle, start, center);
+    assert.ok(Math.abs(movementRotationAmount(across, -handle.dy * 20, handle.dx * 20)) > 1, `${plane} ${JSON.stringify(start)}`);
+    near(movementRotationAmount(across, 0, 0), 0);
+  }
 });
 
 test('selected bone connector colors distinguish its parent and every child', () => {

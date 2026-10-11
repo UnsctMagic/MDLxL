@@ -11,6 +11,7 @@ import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
 import { assertModelEquivalent } from '../src/save-equivalence.js';
 import { pickPoseHandle, poseHandleTarget, projectPoseHandles } from '../app/pose-overlay.js';
+import { movementRotationAmount, movementRotationFacing, movementRotationGesture, movementWorkplaneHandle } from '../app/movement-overlay.js';
 
 const chain = { root: 1, middle: 2, end: 3, kind: 'arm', key: 'a' }, leg1 = { root: 4, middle: 5, end: 6, kind: 'leg', key: 'l' }, leg2 = { root: 7, middle: 8, end: 9, kind: 'leg', key: 'r' };
 const q = (axis, angle) => new Quaternion().setFromAxisAngle(new Vector3(...axis).normalize(), angle).toArray();
@@ -30,6 +31,26 @@ function check(model, c, original, target) {
   near(Math.abs(result.rotations[2].dot(original.rotations[2])), 1, 1e-7);
   return result;
 }
+
+test('POSE workplane rotation follows the pointer through local Body/Object and world Endpoint transforms', () => {
+  for (const plane of ['xy', 'xz', 'yz']) for (const space of ['local', 'world']) for (const kind of ['body', 'node', 'endpoint']) {
+    const model = fixture(), handle = movementWorkplaneHandle(plane), axis = ({ X: 0, Y: 1, Z: 2 })[handle.axis];
+    const normal = new Vector3().setComponent(axis, 1), flipAxis = axis === 0 ? [0, 1, 0] : [1, 0, 0];
+    model.Bones[0].Rotation = track([500, q(flipAxis, Math.PI)]);
+    const id = kind === 'body' ? 0 : chain.end;
+    const before = new Quaternion(); sampleNodeMatrices(model, 500, 0).get(id).decompose(new Vector3(), before, new Vector3());
+    const gesture = { pose: true, target: { kind }, handle, space, workplaneEnabled: true };
+    const drag = movementRotationGesture(handle, { x: handle.dx * 50, y: handle.dy * 50 }, { x: 0, y: 0 }, movementRotationFacing(gesture, before, normal.clone().negate()));
+    const degrees = movementRotationAmount(drag, -handle.dy * 20, handle.dx * 20);
+    const result = kind === 'endpoint'
+      ? turnPoseEndpoint(model, chain, 500, 0, new Quaternion().setFromAxisAngle(normal, degrees * Math.PI / 180).toArray())
+      : solvePoseNode(model, id, [], 500, 0, { mode: 'rotate', space, values: normal.clone().multiplyScalar(degrees).toArray() });
+    apply(model, result);
+    const after = new Quaternion(); sampleNodeMatrices(model, 500, 0).get(id).decompose(new Vector3(), after, new Vector3());
+    const delta = after.multiply(before.clone().invert()), expected = new Quaternion().setFromAxisAngle(normal, -Math.atan2(20, 50));
+    near(Math.abs(delta.dot(expected)), 1, 1e-7);
+  }
+});
 
 test('adjacent hierarchy suggestions use identities, reject skips, cyclic and missing parents', () => {
   const m = fixture(); assert.deepEqual(suggestPoseChain(m, 3), { root: 1, middle: 2, end: 3 });
