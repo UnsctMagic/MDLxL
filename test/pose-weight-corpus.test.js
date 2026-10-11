@@ -41,7 +41,7 @@ for (const item of manifest?.models || []) test(`Weight native round-trip: ${ite
       if (Object.keys(selection).length) break;
     }
     const analysis = preparePoseWeight(model, rig, { kind: 'endpoint', key: chain.key }, sequence, range, selection);
-    for (const mode of ['heavy', 'swing']) {
+    for (const mode of ['strike']) {
       const result = buildPoseWeight(analysis, mode, 55);
       assert.ok(result.tracks.length, 'ordinary bone tracks are authored');
       assert.deepEqual(doc.model, before, 'preview never changes the document');

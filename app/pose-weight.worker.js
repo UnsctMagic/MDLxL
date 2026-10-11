@@ -10,6 +10,6 @@ self.onmessage = ({ data }) => {
       analysis = preparePoseWeight(model, config, target, sequence, range, data.selection);
       selectionKey = key;
     }
-    self.postMessage({ request: data.request, result: buildPoseWeight(analysis, data.mode, data.amount, data.restrictions) });
+    self.postMessage({ request: data.request, result: buildPoseWeight(analysis, data.mode, data.amount, data.restrictions, data.settings) });
   } catch (error) { self.postMessage({ request: data.request, error: error.message }); }
 };

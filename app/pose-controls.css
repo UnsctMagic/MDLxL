@@ -68,3 +68,10 @@
 .pose-weight-amount span { display: flex; justify-content: space-between; }
 .pose-weight-amount input { width: 100%; margin: 5px 0 0; }
 .pose-weight .pose-weight-interval { font-size: 10px; opacity: .8; }
+.pose-weight-part { display: grid; gap: 4px; margin-top: 9px; }
+.pose-weight-part select { width: 100%; min-width: 0; }
+.pose-weight-preview { display: flex; gap: 5px; margin-top: 10px; }
+.pose-weight-preview button { flex: 1; }
+.pose-weight-refine input[type="number"] { width: 76px; }
+.pose-weight-refine > button { margin: 5px 4px 0 0; }
+.pose-weight-refine p { margin: 5px 0; }

@@ -129,7 +129,7 @@ export default function PoseControls({ model, revision, config, onChange, onSele
       <button type="button" className="pose-crosshair" aria-label="Blocker crosshair" aria-pressed={config.crosshair !== false} disabled={disabled} title="Show the handle blocking a move" onClick={() => onChange({ ...config, crosshair: config.crosshair === false })}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v7m0 8v7M1 12h7m8 0h7"/></svg>
       </button>
-      {weight && <button type="button" className="pose-weight-button" aria-pressed={!!weight.state} disabled={disabled || !weight.state && (!config.target || config.target.kind === 'bend' || !weightRange)} title="Select a controller, Shift-drag part of its track, then choose vertices to give weight" onClick={weight.open}>Weight</button>}
+      {weight && <button type="button" className="pose-weight-button" aria-pressed={!!weight.state} disabled={disabled || !model.Sequences?.[sequence]} title="Add drag and recoil to a hand, foot or part. Uses the current animation; a timeline selection is optional." onClick={weight.open}>Weight</button>}
     </>}
     {open && config.enabled && <SetupWindow onClose={close} title={open === 'add' ? 'Add handle' : 'Setup'}>
       {editor ? <>
