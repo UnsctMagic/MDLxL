@@ -1,12 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { translate } from '../src/localization.js';
-import { currentSources, currentRussian, currentSpanish, currentChinese } from '../src/locales/current-ui-locales.js';
+import ru from '../src/locales/ru.json' with { type: 'json' };
+import es from '../src/locales/es.json' with { type: 'json' };
+import zh from '../src/locales/zh.json' with { type: 'json' };
+import sources from './fixtures/locale-feature-sources.json' with { type: 'json' };
+const currentSources = sources.current;
 const slots=text=>[...new Set(text.match(/\{\d+\}/g)||[])].sort();
 test('newer UI and update controls have entries in all three translated languages',()=>{
   assert.ok(currentSources.length>500);
   assert.equal(new Set(currentSources).size,currentSources.length);
-  for(const [locale,pack] of Object.entries({ru:currentRussian,es:currentSpanish,zh:currentChinese}))for(const source of currentSources){assert.ok(pack[source]?.trim(),`${locale}: ${source}`);assert.deepEqual(slots(pack[source]),slots(source));assert.notEqual(translate(source,locale),undefined);}
+  for(const [locale,pack] of Object.entries({ru,es,zh}))for(const source of currentSources){assert.ok(pack[source]?.trim(),`${locale}: ${source}`);assert.deepEqual(slots(pack[source]),slots(source));assert.notEqual(translate(source,locale),undefined);}
   for(const locale of ['ru','es','zh','mordor'])for(const label of ['Search for updates','Auto update','Update and restart','Revert to last version','Move checked geosets','Collect Bit','Sound preview','Resource managers','UV map tile limit','Replace Part','Shape complexity','Picked vertices only','All per-animation RGB tracks are saved.'])assert.notEqual(translate(label,locale),label,`${locale}: ${label}`);
 });
 test('update messages preserve actual versions and localized native revert prompts',()=>{

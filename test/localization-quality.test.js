@@ -3,20 +3,15 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { russian, translate, setLanguage } from '../src/localization.js';
-import reviewedSpanish from '../src/locales/es-reviewed.json' with { type: 'json' };
-import { chinese } from '../src/locales/short-ui-locales.js';
-import { broadChinese } from '../src/locales/broad-ui-locales.js';
-import { release015Spanish } from '../src/locales/v015-ui-locales.js';
-import { currentSpanish } from '../src/locales/current-ui-locales.js';
+import spanish from '../src/locales/es.json' with { type: 'json' };
+import zh from '../src/locales/zh.json' with { type: 'json' };
+import sources from './fixtures/locale-feature-sources.json' with { type: 'json' };
 import { PAINT_MESSAGES } from '../src/paint-messages.js';
 import { COMMANDS } from '../src/commands.js';
 import { particleUVGroups, particleFlags } from '../src/particle-editing.js';
 import { localizedCreateElement } from '../app/localized-element.js';
 import viewMenu from '../src/view-menu.json' with { type: 'json' };
 
-import {paintSpanish} from '../src/locales/paint-ui-locales.js';
-import showcase from '../src/locales/showcase.json' with { type: 'json' };
-const spanish = { ...currentSpanish, ...paintSpanish, ...Object.fromEntries(Object.entries(showcase).map(([key, values]) => [key, values[1]])), ...reviewedSpanish, ...release015Spanish };
 const packs = { ru: russian, es: spanish };
 const slots = text => [...new Set(text.match(/\{\d+\}/g) || [])].sort();
 // These slots are English inflection fragments ("s", " has", "s have"),
@@ -32,7 +27,8 @@ const inflections = {
 };
 
 test('the entire community Chinese catalog stays byte-for-byte unchanged', () => {
-  const catalog = { ...chinese, ...broadChinese };
+  // The community entries live in zh.json; the fixture lists their keys in the catalog's original order.
+  const catalog = Object.fromEntries(sources.zhCommunity.map(source => [source, zh[source]]));
   assert.equal(Object.keys(catalog).length, 321);
   assert.equal(createHash('sha256').update(JSON.stringify(catalog)).digest('hex'), 'f852b24437357b5b9947ca2eb95c4a0157b3621f85e373ed7aac0eaff9166398');
   for (const [source, expected] of Object.entries(catalog)) assert.equal(translate(source, 'zh'), expected, source);

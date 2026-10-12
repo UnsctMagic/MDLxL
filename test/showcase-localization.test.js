@@ -1,15 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import showcase from '../src/locales/showcase.json' with { type: 'json' };
+import ru from '../src/locales/ru.json' with { type: 'json' };
+import es from '../src/locales/es.json' with { type: 'json' };
+import zh from '../src/locales/zh.json' with { type: 'json' };
+import sources from './fixtures/locale-feature-sources.json' with { type: 'json' };
 import { translate, setLanguage } from '../src/localization.js';
 import { localizedCreateElement } from '../app/localized-element.js';
 
 test('every Showcase label has complete language packs with intact data slots', () => {
   const slots = text => [...text.matchAll(/\{\d+\}/g)].map(m => m[0]).sort();
-  for (const [source, values] of Object.entries(showcase)) {
-    assert.equal(values.length, 3, source);
+  assert.ok(sources.showcase.length > 200);
+  for (const source of sources.showcase) {
+    const values = [ru[source], es[source], zh[source]];
     for (const [index, locale] of ['ru', 'es', 'zh'].entries()) {
-      assert.ok(values[index].trim() && !values[index].includes('\ufffd'), source);
+      assert.ok(values[index]?.trim() && !values[index].includes('\ufffd'), source);
       assert.deepEqual(slots(values[index]), slots(source), `${locale}: ${source}`);
       if (!['Color', 'Zoom'].includes(source)) assert.notEqual(translate(source, locale), source, `${locale}: ${source}`);
     }
