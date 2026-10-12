@@ -166,6 +166,25 @@ test('two updates retain exactly one previous version and offline revert restore
   await assert.rejects(fs.access(retained));
 });
 
+test('updates install when TEMP is an 8.3 short path', async t => {
+  const {directory,target,source} = await fixture(t);
+  const longTemp=path.join(directory,'long temporary folder name');await fs.mkdir(longTemp);
+  const shortTemp=(await run(process.env.ComSpec||'cmd.exe',['/d','/c',`for %I in ("${longTemp}") do @echo %~sI`],{windowsHide:true,windowsVerbatimArguments:true})).stdout.trim();
+  if(!shortTemp||shortTemp===longTemp)return t.skip('this volume has no 8.3 short names');
+  const profile=path.join(target,'resources/app/profile');await fs.mkdir(profile,{recursive:true});
+  const release=metadata('0.19.0');release.assets[0].size=4;release.assets[0].digest='sha256:'+await (async()=>{const file=path.join(directory,'archive');await fs.writeFile(file,'data');return digest(file);})();
+  const saved=[process.env.TEMP,process.env.TMP];process.env.TEMP=process.env.TMP=shortTemp;
+  try{
+    const updater=new Updater({currentVersion:'0.18.8',installRoot:target,profile,packaged:true,fetcher:async url=>new Response(url.endsWith('.zip')?'data':url.includes('api.github')?JSON.stringify(release):'- Program update'),extract:async(_,destination)=>fs.cp(source,path.join(destination,'MDLxL-win32-x64'),{recursive:true})});
+    await updater.initialize();await updater.check();await updater.prepare();
+    assert.equal(updater.status().state,'ready',updater.status().error);
+    const plan=JSON.parse(await fs.readFile(updater.prepared.planFile,'utf8'));plan.pid=0;await fs.writeFile(updater.prepared.planFile,JSON.stringify(plan));
+    await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(updater.prepared.stage,'install.ps1'),updater.prepared.planFile],{windowsHide:true});
+  }finally{[process.env.TEMP,process.env.TMP]=saved;}
+  const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));assert.equal(result.ok,true,result.error);
+  assert.equal(await fs.readFile(path.join(target,'MDLxL.exe'),'utf8'),'0.19.0');
+});
+
 
 test('checksum-verified legacy ZIPs get a local manifest without changing the installed program', async t => {
   const {target,source}=await fixture(t);
