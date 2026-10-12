@@ -30,4 +30,4 @@ jobs:
         # A per-test timeout makes a hanging test fail with its name instead of
         # stalling the job; the step timeout is a backstop.
         timeout-minutes: 30
-        run: node --test --test-timeout=120000 --test-reporter=spec "test/*.test.js"
+        run: node --test --test-timeout=120000 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./.github/test-annotations.mjs --test-reporter-destination=stdout "test/*.test.js"
