@@ -10,6 +10,7 @@ function absentEquivalent(value,key) {
   if(value==null)return true;
   if(key in defaults)return typeof value==='number'?equalNumber(value,defaults[key]):value===defaults[key];
   if(key==='FresnelColor')return Array.from(value).every(n=>n===1);
+  if(key==='AmbColor')return ArrayBuffer.isView(value)&&value.length===3&&Array.from(value).every(n=>n===1);
   return false;
 }
 export function modelDifferenceReport(expected,actual,{keys=Object.keys(expected),limit=12}={}) {
@@ -39,6 +40,7 @@ export function modelDifferenceReport(expected,actual,{keys=Object.keys(expected
       // Raw flags mirror these public boolean fields; compare unknown bits too.
       if(k==='Flags'&&'NonLooping'in a){walk((a.Flags||0)&~1,(b.Flags||0)&~1,path+'.Flags',k);continue;}
       if(k==='SelectionFlags'){walk((a[k]||0)&~4,(b[k]||0)&~4,path+'.'+k,k);continue;}
+      if((k==='PrimitiveTypes'||k==='PrimitiveCounts') && !(a.Faces||b.Faces)?.length && [a,b].every(g=>Array.from(g.PrimitiveCounts||[]).every(n=>n===0)))continue;
       if((k==='PrimitiveTypes'||k==='PrimitiveCounts') && (!a[k]||!b[k])) {
         const types=a.PrimitiveTypes||b.PrimitiveTypes,counts=a.PrimitiveCounts||b.PrimitiveCounts;
         if(types?.length===1&&types[0]===4&&counts?.length===1&&counts[0]===(a.Faces||b.Faces)?.length)continue;

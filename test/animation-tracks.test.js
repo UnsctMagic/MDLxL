@@ -115,7 +115,7 @@ test('Bake parses all pending text atomically and does not depend on currently s
 });
 
 test('text parser validates duplicates, shape, ranges, times and timing, and preserves spline tangents', () => {
-  for (const input of ['100: 0\n100: 1', '-1: 0', '1.2: 0', '100: NaN', '100: 2', '100: 0, 1', '', 'text']) assert.throws(() => parseAnimationTrackText(input));
+  for (const input of ['100: 0\n100: 1', '-2147483649: 0', '2147483648: 0', '1.2: 0', '100: NaN', '100: 2', '100: 0, 1', '', 'text']) assert.throws(() => parseAnimationTrackText(input));
   const text = '// RGB values\n200: { 0.1, 0.2, 0.3 },\n InTan: -1, 0, 2\n OutTan: 3, 2, 1\n100: 0.8, 0.7, 0.6 # earlier';
   const track = parseAnimationTrackText(text, { property: 'Color', lineType: 2 });
   assert.deepEqual(frames(track), [100, 200]);
@@ -190,11 +190,11 @@ test('keyframe list filters selected scope and active sequence; delete removes o
 test('Bake is one undoable edit and preserves RGB/visibility through in-memory MDL and MDX roundtrip', () => {
   const doc = createDemoDocument();
   const interval = doc.model.Sequences[0].Interval, start = interval[0], end = interval[1];
-  let lightId, ribbonId, particleId;
+  let lightId, ribbonId, particleId, lightName, ribbonName, particleName;
   doc.apply('Synthetic nodes', ['Nodes'], model => {
-    lightId = createNode(model, 'Light').ObjectId;
-    ribbonId = createNode(model, 'RibbonEmitter').ObjectId;
-    particleId = createNode(model, 'ParticleEmitter2').ObjectId;
+    ({ ObjectId: lightId, Name: lightName } = createNode(model, 'Light'));
+    ({ ObjectId: ribbonId, Name: ribbonName } = createNode(model, 'RibbonEmitter'));
+    ({ ObjectId: particleId, Name: particleName } = createNode(model, 'ParticleEmitter2'));
   });
   const before = structuredClone(doc.model), count = doc.historyStats.undoSteps;
   const drafts = [
@@ -215,9 +215,9 @@ test('Bake is one undoable edit and preserves RGB/visibility through in-memory M
     assert.deepEqual(opened.diagnostics.filter(d => d.severity === 'error'), []);
     close(opened.model.GeosetAnims[0].Color.Keys[0].Vector, [1, 0.2, 0.4]);
     assert.equal(opened.model.GeosetAnims[0].Flags & 2, 2, `${format} must retain the enabled color`);
-    close(opened.model.Lights.find(n => n.ObjectId === lightId).Color.Keys[0].Vector, [0.1, 0.2, 0.8]);
-    close(opened.model.RibbonEmitters.find(n => n.ObjectId === ribbonId).Alpha.Keys[0].Vector, [0.2]);
-    assert.equal(opened.model.ParticleEmitters2.find(n => n.ObjectId === particleId).Visibility.Keys[0].Vector[0], 0);
+    close(opened.model.Lights.find(n => n.Name === lightName).Color.Keys[0].Vector, [0.1, 0.2, 0.8]);
+    close(opened.model.RibbonEmitters.find(n => n.Name === ribbonName).Alpha.Keys[0].Vector, [0.2]);
+    assert.equal(opened.model.ParticleEmitters2.find(n => n.Name === particleName).Visibility.Keys[0].Vector[0], 0);
   }
 });
 

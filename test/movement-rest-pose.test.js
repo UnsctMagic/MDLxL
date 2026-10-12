@@ -62,7 +62,7 @@ test('perpendicular-only workplane moves author no keys or pivots and do not mod
 });
 
 test('rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, and retain authored animation/skin/BPOS', () => {
-  const source = structuredClone(createDemoDocument().model); source.Version = 1000;
+  const source = structuredClone(createDemoDocument().model); source.Version = 1000; for (const geoset of source.Geosets) geoset.LevelOfDetail = 0;
   for (const type of Object.keys(NODE_TYPES)) createNode(source, type);
   source.BindPoses = [{ Matrices: Array.from({ length: source.Nodes.length }, (_, i) => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, i, i + 1, i + 2])) }];
   const doc = openDocument(generateMDL(source)), original = structuredClone(doc.model), ids = allNodes(doc.model).map(node => node.ObjectId);
@@ -79,10 +79,13 @@ test('rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, a
   doc.model.Geosets.forEach((geo, i) => assert.deepEqual(skinGeoset(geo, sampleNodeMatrices(doc.model, 777, -1)), skins[i]));
   for (const format of ['mdl', 'mdx']) {
     const reopened = openDocument(doc.serialize(format), `rest-pose.${format}`);
-    assert.deepEqual(reopened.model.PivotPoints, authored.PivotPoints);
-    assert.deepEqual(reopened.model.BindPoses, original.BindPoses);
+    // Saved files renumber nodes into compact type order; match reopened nodes by name.
+    assert.equal(reopened.model.PivotPoints.length, authored.PivotPoints.length);
+    assert.equal(reopened.model.BindPoses[0].Matrices.length, original.BindPoses[0].Matrices.length);
     for (const node of allNodes(reopened.model)) {
-      const prior = allNodes(original).find(other => other.ObjectId === node.ObjectId);
+      const live = allNodes(authored).find(other => other.Name === node.Name), prior = allNodes(original).find(other => other.Name === node.Name);
+      assert.deepEqual(reopened.model.PivotPoints[node.ObjectId], authored.PivotPoints[live.ObjectId]);
+      assert.deepEqual(reopened.model.BindPoses[0].Matrices[node.ObjectId], original.BindPoses[0].Matrices[prior.ObjectId]);
       for (const property of ['Translation', 'Rotation', 'Scaling', 'EventTrack']) assert.deepEqual(node[property], prior[property]);
     }
   }

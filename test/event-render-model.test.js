@@ -34,7 +34,7 @@ test('1200 ParticleEmitter2 resources retain their version, tracks, texture and 
   assert.equal(parsed.ParticleEmitters2[0].Parent, parsed.Helpers[0].ObjectId);
   assert.deepEqual(parsed.ParticleEmitters2[0].EmissionRate, emitter.EmissionRate);
   assert.equal(parsed.Textures[0].Image, 'Textures\\Test.blp'); assert.deepEqual(bytes, original);
-  assert.equal(openDocument(bytes, 'Test.mdx').readOnly, true, 'runtime capability does not permit writing 1200 files');
+  assert.equal(openDocument(bytes, 'Test.mdx').readOnly, false, '1200 is an editable format');
 });
 
 test('1200 geometry and the changed LITE layout remain explicitly unsupported', () => {
@@ -61,8 +61,8 @@ test('supported legacy MDX and MDL event resources continue decoding', () => {
   const model = particleModel(1100);
   assert.equal(parseEventRenderModel(encoded(model), 'Test.mdx').Version, 1100);
   assert.equal(parseEventRenderModel(new TextEncoder().encode(generateMDL(model)), 'Test.mdl').Version, 1100);
-  const unknown = particleModel(1300);
-  assert.throws(() => parseEventRenderModel(encoded(unknown)), /format 1300/);
+  const unknown = particleModel(1500);
+  assert.throws(() => parseEventRenderModel(encoded(unknown)), /format 1500/);
 });
 
 test('HD event resources report that HD models are unsupported instead of rendering', () => {
