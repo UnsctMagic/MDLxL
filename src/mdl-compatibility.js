@@ -254,8 +254,10 @@ export function finishCompatibleMdl(input,model) {
       const c=m.children.find(c=>['Box','Sphere'].includes(c.name));if(c)edits.push({start:c.start,end:c.end,text:o.Shape===1?'Plane,':'Cylinder,'});
       if(o.Shape===3 && !represented.has('BoundsRadius'))extra.push(mdlProperty('BoundsRadius',o.BoundsRadius));
     }
-    for(const key of ['Color','Visibility'])if(o[key]?.Keys && !represented.has(key))extra.push(mdlProperty(key,o[key],key==='Color'));
-    if(typeof o.Visibility==='number' && !represented.has('Visibility'))extra.push(mdlProperty('Visibility',o.Visibility,false,true));
+    // A ParticleEmitter's Particle block reuses the emitter as owner, but MDL has no
+    // Color or Visibility inside Particle (war3-model loops forever on one there).
+    if(m.name!=='Particle')for(const key of ['Color','Visibility'])if(o[key]?.Keys && !represented.has(key))extra.push(mdlProperty(key,o[key],key==='Color'));
+    if(m.name!=='Particle' && typeof o.Visibility==='number' && !represented.has('Visibility'))extra.push(mdlProperty('Visibility',o.Visibility,false,true));
     // White is a meaningful enabled GEOA color; the dependency omits it.
     if(m.name==='GeosetAnim' && (o.Flags&2) && !represented.has('Color') && o.Color)extra.push(mdlProperty('Color',o.Color,true,true));
     if(m.name==='Light')for(const key of ['Color','AmbColor'])if(o[key] && !represented.has(key))extra.push(mdlProperty(key,o[key],true,true));
