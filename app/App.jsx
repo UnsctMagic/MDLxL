@@ -10,7 +10,6 @@ import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } fr
 import { recalculatePortraitExtents } from '../src/portrait-extents.js';
 import { attachToBone, changeVertexBinding, createRigNode, deleteRigNode, detachFromBone, renameRigNode, setBoneBillboarded } from '../src/bone-tools.js';
 import { builtinTextureAssets } from '../src/builtin-textures.js';
-const UVWorkspace = lazy(() => import('./UVWorkspace.jsx'));
 // Detached UV windows copy styles before their lazy contents mount.
 import './uv-workspace.css';
 import './mesh-density.css';
@@ -27,21 +26,18 @@ const GamePreview = lazy(() => import('./GamePreview.jsx'));
 import useMovableWindow from './useMovableWindow.js';
 import SidebarSection from './SidebarSection.jsx';
 import './animation-resources.css'; // keeps the stylesheet's place in the CSS order; AnimationNodes renders in AppSidebar
-const TextureLibrary = lazy(() => import('./TextureLibrary.jsx'));
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
 const ShowcaseWorkspace = lazy(() => import('./ShowcaseWorkspace.jsx'));
-const KeyframeTimeline = lazy(() => import('./KeyframeTimeline.jsx'));
-const MotionInspector = lazy(() => import('./MotionInspector.jsx'));
+import { AppUVWorkspace, AppTextureLibrary, AppTimeline } from './AppPanels.jsx';
 import useMotionInspector from './useMotionInspector.js';
 import { rememberMotionSave } from '../src/motion-decisions.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { retainedForgeAssets, forgeExportArchive, isForgeAssetPath, missingForgeAssetPaths } from '../src/forge-assets.js';
 import { applyMovementTransform, applyMovementPose, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
-import { withPoseResult, poseTrackScope, samplePoseChain } from '../src/pose-ik.js';
+import { withPoseResult, samplePoseChain } from '../src/pose-ik.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
 import { beginUVPreview, applyUVPreviews, revertUVPreviews, uvPreviewModel, restoreUVPreviews, addLibraryTexture, captureUVPreviewGuard, validateUVPreviewGuard, getUVPreviewSelection } from '../src/uv-preview.js';
-import { applyMaterialPreset } from '../src/material-presets.js';
-import { setUVTextureWrapping, uncoupleUVVertices } from '../src/uv-tools.js';
+import { uncoupleUVVertices } from '../src/uv-tools.js';
 import './modules.css';
 import './texture-library.css';
 import './material-properties.css';
@@ -1321,37 +1317,23 @@ export default function App() {
     });
     if (result !== false) { setSelection(nextSelection); setUVEntrySelection(nextDomain); setLiveUV(null); }
   };
-  const uvWorkspace = (<Suspense fallback={null}><UVWorkspace key={session.id+':'+uvEntryId} model={model} materialModel={texturedModel} previewModel={previewModel} revision={doc.revision} activeGeoset={activeGeoset} eligibleSelection={uvEntrySelection} selectionByGeoset={validSelection}
-        onSelectionChange={next => setSelection(filterVertexSelection(next, new Set(Object.keys(uvEntrySelection).map(Number)), doc.model))}
-        onPreviewSelectionChange={next => {
-          setUVEntrySelection(previous => {
-            let expanded = previous;
-            for (const [index, ids] of Object.entries(next)) if (ids?.some(id => previous[index] && !previous[index].includes(id))) {
-              if (expanded === previous) expanded = { ...previous };
-              expanded[index] = [...new Set([...previous[index], ...ids])];
-            }
-            return expanded;
-          });
-          setSelection(filterVertexSelection(next, new Set(Object.keys(uvEntrySelection).map(Number)), doc.model));
-        }}
-        onUVChanges={commitUVChanges} onPreviewChanges={changes => setLiveUV(changes?.length ? changes : null)} onUncouple={uncoupleUVSelection}
-        onMaterialPreset={(id, preset, tint) => edit(preset, ['Materials', 'Textures'], current => applyMaterialPreset(current, id, preset, tint))}
-        onWrappingChange={(textureIDs, enabled) => edit(`${enabled ? 'Enable' : 'Disable'} UV texture wrapping`, ['Textures'], current => setUVTextureWrapping(current, textureIDs, enabled))}
-        onDensityApply={applyGeosetDensity}
-        onGeosetChange={(index, coordId = 0) => { if (index < 0) return; setActiveGeoset(index); setUvSet(coordId); setLiveUV(null); }}
-        textureAssets={session.assets} teamColor={teamColor} preferences={preferences} onPreferences={changePreferences} readOnly={doc.readOnly || saving}
-        draftCount={Object.keys(session.uvPreviews).length} onLibrary={() => openLibrary(true)} onSavePreview={() => finishUVPreview()} onRevertPreview={() => finishUVPreview(true)} onExit={() => selectMode('vertices')}
-        previewProps={{ ...cameraProps, previewMode:'textured', modelPath:session.path, key: session.id, preferences, onSensitivityChange: changeSensitivity, onPointerSensitivityChange: changePointerSensitivity, onCameraModeToggle: toggleMiddleCamera, suspended: previewSuspended,
-          revision: doc.revision, teamColor, textureAssets: session.assets, view, cameraMode }} /></Suspense>);
-  const textureLibraryDialog = dialog?.type === 'library' && <Suspense fallback={<div className="classic-modal"><p>Loading texture library…</p></div>}><TextureLibrary model={model} modelPath={session.path} onClose={() => setDialog(dialog.returnTo)} onAddTexture={doc.readOnly ? undefined : addTexture} onPreviewTexture={dialog.preview ? previewTexture : undefined} previewEnabled={dialog.preview && previewSelection.enabled && !doc.readOnly} previewReason={doc.readOnly ? 'This model is read-only.' : previewSelection.reason} onOpenMaterials={() => setDialog({ type: 'resource', kind: 'Materials' })}/></Suspense>;
-  const timeline = (<Suspense fallback={<div>Loading keyframes…</div>}><KeyframeTimeline
-    motionFindings={inspectingMotion ? motion.visible : []} motionActive={!inspectingMotion || motion.stale || motion.active?.resolved ? null : motion.active}
-    motionControls={inspectingMotion && sequence >= 0 && (motion.active || motion.desiredCount > 0) ? motion : null}
-    onMotionFinding={(finding, element) => { motionOrigin.current = element; setMotionAnchor(element.getBoundingClientRect().left); motion.setActive(finding); selectMotion(finding); }}
-    onKeyClick={mode === 'animation' && animationPanel === 'movement' ? () => { if (motion.active) closeMotion(); } : undefined}
-    poseEnabled={poseViewActive && globalSeqId === null} poseScope={rigWorkspace && !restPose && poseConfig.enabled && poseConfig.target ? poseTrackScope(poseConfig, poseConfig.target, movementMode, model, restrictions) : null} restrictions={rigWorkspace?restrictions:{}} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedNodeIds={selectedNodeIds} selectedGeosets={animationPanel === 'animations' && selectedNodeIds.length ? [] : [...selectable]} globalSeqId={globalSeqId} highlightKeyframes={animationPanel === 'animations' && selectedNodeIds.length > 0 || highlightKeyframes} highlightChain={animationPanel === 'movement' && highlightChain} playbackSpeed={playbackSpeed} onPlaybackSpeedChange={setPlaybackSpeed} playing={playing} onPlayingChange={setPlaying} onStatus={say} activeController={animationPanel==='movement'?movementMode:materialVisibility?`materialVisibility:${materialVisibility.id}:${materialVisibility.layer}`:selectedNodeIds.length?'nodeVisibility':'animations'} onEdit={edit} onSeek={seekMotionTime} onCommands={registerTimelineCommands} disabled={doc.readOnly||saving} preferences={preferences}>
-    {inspectingMotion && animationPanel === 'movement' && motion.active && <Suspense fallback={null}><MotionInspector time={time} selectedNodeIds={selectedNodeIds} mode={movementMode} motion={motion} anchor={motionAnchor} onClose={closeMotion} onSelect={selectMotion} onReplay={replayMotion}/></Suspense>}
-  </KeyframeTimeline></Suspense>);
+  const uvWorkspace = <AppUVWorkspace {...{
+    activeGeoset, applyGeosetDensity, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
+    changeSensitivity, commitUVChanges, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
+    previewSuspended, saving, selectMode, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
+    setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
+    validSelection, view
+  }}/>;
+  const textureLibraryDialog = dialog?.type === 'library' && <AppTextureLibrary {...{
+    addTexture, dialog, doc, model, previewSelection, previewTexture, session, setDialog
+  }}/>;
+  const timeline = <AppTimeline {...{
+    animationPanel, closeMotion, doc, edit, globalSeqId, highlightChain, highlightKeyframes, inspectingMotion,
+    materialVisibility, mode, model, motion, motionAnchor, motionOrigin, movementMode, playbackSpeed, playing,
+    poseConfig, poseViewActive, preferences, registerTimelineCommands, replayMotion, restPose, restrictions,
+    rigWorkspace, saving, say, seekMotionTime, selectable, selectedNodeIds, selectMotion, sequence, session,
+    setMotionAnchor, setPlaybackSpeed, setPlaying, time
+  }}/>;
   const activePortrait = portraitModeActive;
   const controlGroups = useMemo(() => { try { return modelControlGroups(model); } catch { return []; } }, [model, doc.revision]);
   const cameraPortraitActive = activePortrait && !!model.Cameras?.[portraitCameraIndex];
