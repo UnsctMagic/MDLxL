@@ -1,7 +1,5 @@
 # Tests in test/ that already failed on main when the full suite was added to CI.
 # CI fails only on failures not listed here. Remove a line once its test passes.
-test/editing-regressions.test.js › last triangle can be deleted independently of a loose vertex, with undo and MDL/MDX round trips
-test/movement-rest-pose.test.js › rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, and retain authored animation/skin/BPOS
 test/keyframe-timeline.test.js › Popcorn MDL rotation repair retains quaternion W, cubic tangent W, global metadata and untouched input bytes
 test/keyframe-timeline.test.js › Popcorn RGB uses the literal RGB order in authored MDL and retains cubic color tangents on export
 test/keyframe-timeline.test.js › supported visibility and RGB node families roundtrip through both codecs, including Reforged popcorn
