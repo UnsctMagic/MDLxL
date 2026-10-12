@@ -17,6 +17,7 @@ test/localization-quality.test.js › all paint messages, commands, view control
 test/movement-component.test.js › Animations exposes inline RGB fields on All line
 test/movement-component.test.js › quick display shows only the active editor options without Reveal
 test/movement-rest-pose.test.js › rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, and retain authored animation/skin/BPOS
+# Flaky: the whole file sometimes times out on the Windows runner and sometimes passes.
 test/preview-ffmpeg.test.js › test/preview-ffmpeg.test.js
 test/updater.test.js › checksum-verified legacy ZIPs get a local manifest without changing the installed program
 test/updater.test.js › corruption and local program edits prevent installation before any files change
