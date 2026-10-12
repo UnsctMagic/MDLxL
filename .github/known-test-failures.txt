@@ -10,9 +10,3 @@ test/editor-document.test.js › format conversion reports opaque-data loss and 
 test/editor-document.test.js › unsupported version 1200 and truncated input remain exact-copy read-only documents
 test/keyframe-timeline.test.js › test/keyframe-timeline.test.js
 test/movement-rest-pose.test.js › rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, and retain authored animation/skin/BPOS
-# Flaky: the whole file sometimes times out on the Windows runner and sometimes passes.
-test/preview-ffmpeg.test.js › test/preview-ffmpeg.test.js
-test/updater.test.js › checksum-verified legacy ZIPs get a local manifest without changing the installed program
-test/updater.test.js › corruption and local program edits prevent installation before any files change
-test/updater.test.js › installation preserves all profile, libraries, settings, saves and untracked files
-test/updater.test.js › two updates retain exactly one previous version and offline revert restores it
