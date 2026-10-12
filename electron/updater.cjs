@@ -181,7 +181,9 @@ class Updater {
       let checksum = /^sha256:([a-f0-9]{64})$/.exec(this.release.asset.digest || '')?.[1];
       if (!checksum && releaseURL(this.release.checksum?.browser_download_url)) checksum = /^([a-f0-9]{64})\s/i.exec(await (await this.response(this.release.checksum.browser_download_url)).text())?.[1].toLowerCase();
       if (!checksum) throw Error('The update checksum is unavailable.');
-      stage = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-update-'));
+      // Stage under the real path: an 8.3 short TEMP (C:\Users\JOHNSM~1\...) fails the
+      // install helper's canonical-path checks.
+      stage = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-update-')));
       const archive = path.join(stage, 'update.zip'), file = await fs.open(archive, 'wx');
       const hash = crypto.createHash('sha256'); let received = 0, last = 0;
       try {
@@ -248,7 +250,7 @@ class Updater {
       const previous = validateManifest(JSON.parse(await fs.readFile(path.join(retained,MANIFEST),'utf8')),snapshot.version);
       const current = validateManifest(JSON.parse(await fs.readFile(path.join(this.installRoot,MANIFEST),'utf8')),this.currentVersion);
       for(const relative of ['MDLxL.exe','resources/app/package.json','resources/app/electron/main.cjs','resources/app/dist/index.html',MANIFEST])if(!snapshot.files[relative])throw Error('The previous version could not be read.');
-      stage = await fs.mkdtemp(path.join(os.tmpdir(),'mdlxl-update-'));
+      stage = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'mdlxl-update-')));
       const source=path.join(stage,'restore');await fs.mkdir(source);
       const operations=[];
       for(const [relative,hash] of Object.entries(snapshot.files)){
