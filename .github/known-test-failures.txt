@@ -1,0 +1,2 @@
+# Tests in test/ that already failed on main when the full suite was added to CI.
+# CI fails only on failures not listed here. Remove a line once its test passes.
