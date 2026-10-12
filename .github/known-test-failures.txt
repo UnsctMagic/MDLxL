@@ -1,30 +1,3 @@
-# Tests in test/ that already failed on main when the full suite was added to CI.
-# CI fails only on failures not listed here. Remove a line once its test passes.
-test/animation-tracks.test.js › Bake is one undoable edit and preserves RGB/visibility through in-memory MDL and MDX roundtrip
-test/animation-tracks.test.js › text parser validates duplicates, shape, ranges, times and timing, and preserves spline tangents
-test/editing-regressions.test.js › last triangle can be deleted independently of a loose vertex, with undo and MDL/MDX round trips
-test/editor-commands.test.js › binding validates bone and byte capacity before appending groups or overwriting weights
-test/editor-document.test.js › UI unset sentinels and static node visibility save without rebinding IDs or losing values
-test/editor-document.test.js › deleteNode blocks weighted/matrix references and reparents children without renumbering
-test/editor-document.test.js › format conversion reports opaque-data loss and never silently changes version
-test/editor-document.test.js › unsupported version 1200 and truncated input remain exact-copy read-only documents
-test/event-render-model.test.js › 1200 ParticleEmitter2 resources retain their version, tracks, texture and original bytes
-test/event-render-model.test.js › supported legacy MDX and MDL event resources continue decoding
-test/herrdave-render.test.js › HD10 typed markers contain real cube/tetra vertices and preserve node pivots
-test/herrdave-render.test.js › Helper roots are ordinary green bones for hierarchy highlighting while refs and events retain distinct polyhedrons
-test/keyframe-timeline.test.js › supported visibility and RGB node families roundtrip through both codecs, including Reforged popcorn
 test/keyframe-timeline.test.js › Popcorn MDL rotation repair retains quaternion W, cubic tangent W, global metadata and untouched input bytes
 test/keyframe-timeline.test.js › Popcorn RGB uses the literal RGB order in authored MDL and retains cubic color tangents on export
-test/localization-quality.test.js › all paint messages, commands, view controls, and particle controls have reviewed translations
-test/movement-component.test.js › Animations exposes inline RGB fields on All line
-test/movement-component.test.js › quick display shows only the active editor options without Reveal
-test/movement-rest-pose.test.js › rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, and retain authored animation/skin/BPOS
-# Flaky: the whole file sometimes times out on the Windows runner and sometimes passes.
-test/preview-ffmpeg.test.js › test/preview-ffmpeg.test.js
-test/updater.test.js › checksum-verified legacy ZIPs get a local manifest without changing the installed program
-test/updater.test.js › corruption and local program edits prevent installation before any files change
-test/updater.test.js › installation preserves all profile, libraries, settings, saves and untracked files
-test/updater.test.js › two updates retain exactly one previous version and offline revert restores it
-test/uv-camera-preservation.test.js › UV opts into restoring its user view before fit, without replaying old projection presets
-test/uv-camera-preservation.test.js › team label stays absent and geosets fill down columns
-test/uv-detached-window.test.js › UV opens one named about:blank child window that can close independently
+test/keyframe-timeline.test.js › supported visibility and RGB node families roundtrip through both codecs, including Reforged popcorn
