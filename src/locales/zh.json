@@ -2107,5 +2107,17 @@
   "Smooth normals": "平滑法线",
   "Uncouple": "解除耦合",
   "Nuclear Seperation": "完全分离",
-  "Seperate by Loose parts": "按松散部件分离"
+  "Seperate by Loose parts": "按松散部件分离",
+  "Forge: Add shape": "Forge：添加形状",
+  "Forge: Shape control points": "Forge：形状控制点",
+  "Forge: Face control points": "Forge：面控制点",
+  "Forge: Edge control points": "Forge：边控制点",
+  "Forge: Vertex control points": "Forge：顶点控制点",
+  "Forge: Extrude": "Forge：挤出",
+  "Forge: Inset": "Forge：内插面",
+  "Forge: Shape tools": "Forge：形状工具",
+  "Forge: Duplicate shape": "Forge：复制形状",
+  "Forge: Commit shape": "Forge：提交形状",
+  "Forge: Add to model": "Forge：添加到模型",
+  "Events": "事件"
 }
