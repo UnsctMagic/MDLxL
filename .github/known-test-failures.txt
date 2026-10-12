@@ -12,7 +12,9 @@ test/event-render-model.test.js › 1200 ParticleEmitter2 resources retain their
 test/event-render-model.test.js › supported legacy MDX and MDL event resources continue decoding
 test/herrdave-render.test.js › HD10 typed markers contain real cube/tetra vertices and preserve node pivots
 test/herrdave-render.test.js › Helper roots are ordinary green bones for hierarchy highlighting while refs and events retain distinct polyhedrons
-test/keyframe-timeline.test.js › test/keyframe-timeline.test.js
+test/keyframe-timeline.test.js › supported visibility and RGB node families roundtrip through both codecs, including Reforged popcorn
+test/keyframe-timeline.test.js › Popcorn MDL rotation repair retains quaternion W, cubic tangent W, global metadata and untouched input bytes
+test/keyframe-timeline.test.js › Popcorn RGB uses the literal RGB order in authored MDL and retains cubic color tangents on export
 test/localization-quality.test.js › all paint messages, commands, view controls, and particle controls have reviewed translations
 test/movement-component.test.js › Animations exposes inline RGB fields on All line
 test/movement-component.test.js › quick display shows only the active editor options without Reveal
