@@ -11,25 +11,21 @@ import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } fr
 import { recalculatePortraitExtents } from '../src/portrait-extents.js';
 import { attachToBone, changeVertexBinding, createRigNode, deleteRigNode, detachFromBone, renameRigNode, setBoneBillboarded } from '../src/bone-tools.js';
 import { builtinTextureAssets } from '../src/builtin-textures.js';
-const BitsAndParts = lazy(() => import('./BitsAndParts.jsx'));
-const ParticleEditor = lazy(() => import('./ParticleEditor.jsx'));
 const UVWorkspace = lazy(() => import('./UVWorkspace.jsx'));
 // Detached UV windows copy styles before their lazy contents mount.
 import './uv-workspace.css';
 import './mesh-density.css';
-import DetachedWindow from './DetachedWindow.jsx';
 import { openDetachedUVWindow, openOptimizeXLWindow } from './detached-window.js';
 import './optimizexl.css';
 import { applyApplicationTheme } from './theme.js';
 import PressedKeys from './PressedKeys.jsx';
 import LanguageSwitch from './LanguageSwitch.jsx';
-import UpdatePrompt, { OfficialWebsite } from './UpdatePrompt.jsx';
+import AppDialogs from './AppDialogs.jsx';
 import useUpdates from './useUpdates.js';
 import { Tool, Coordinate, CameraTools, TransformTools, WorkplaneControls } from './EditorControls.jsx';
 import { setLanguage, translate } from '../src/localization.js';
 import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
-const ResourceEditor = lazy(() => import('./ResourceEditors.jsx'));
 const MovementController = lazy(() => import('./MovementControllerRecomp.jsx'));
 import useMovableWindow from './useMovableWindow.js';
 import AnimationNodes from './AnimationNodes.jsx';
@@ -37,9 +33,6 @@ const AnimationController = lazy(() => import('./AnimationController.jsx'));
 const TextureLibrary = lazy(() => import('./TextureLibrary.jsx'));
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
 const ShowcaseWorkspace = lazy(() => import('./ShowcaseWorkspace.jsx'));
-const Forge = lazy(() => import('./Forge.jsx'));
-const OptimizeXL = lazy(() => import('./OptimizeXL.jsx'));
-const ShapingDialog = lazy(() => import('./ShapingDialog.jsx'));
 const KeyframeTimeline = lazy(() => import('./KeyframeTimeline.jsx'));
 const MotionInspector = lazy(() => import('./MotionInspector.jsx'));
 import useMotionInspector from './useMotionInspector.js';
@@ -55,7 +48,6 @@ import { setUVTextureWrapping, uncoupleUVVertices } from '../src/uv-tools.js';
 import './modules.css';
 import './texture-library.css';
 import './material-properties.css';
-const Settings = lazy(() => import('./Settings.jsx'));
 import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { WarmKeysProvider } from './WarmKeys.jsx';
@@ -81,7 +73,6 @@ import { createStarterDocument } from '../src/starter-model.js';
 import { bindDropdownWheel } from '../src/dropdown-wheel.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { clearEditorData, EDITOR_DATA_SECTIONS } from '../src/editor-data.js';
-import SaveEditorData from './SaveEditorData.jsx';
 import { sampleTrack } from '../src/animation.js';
 import { buildPaintExportArtifact, buildPaintProjectArtifact } from '../src/paint-export.js';
 import { markPaintProjectSaved, restorePaintProject, travelPaintHistory } from '../src/paint-project.js';
@@ -90,15 +81,13 @@ import { paintMessage } from '../src/paint-messages.js';
 import { decodePaintImage } from './paint-raster.js';
 import VIS_VIEW_MENU from '../src/vis-view-menu.json';
 import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay } from '../src/display-overlays.js';
-import { evaluateModelCamera } from './portrait-view.js';
 import { setCameraFromCurrentView } from './portrait-camera-edit.js';
 import PortraitToolbar from './PortraitToolbar.jsx';
 import QuickDisplay from './QuickDisplay.jsx';
 import SidebarSection from './SidebarSection.jsx';
 import GeosetAnimationRepair from './GeosetAnimationRepair.jsx';
 import GeosetTabs from './GeosetTabs.jsx';
-import { GEOSET_TABS_KEY, assignGeosetTab, geosetsInTab } from '../src/geoset-tabs.js';
-import PortraitSetup from './PortraitSetup.jsx';
+import { GEOSET_TABS_KEY, geosetsInTab } from '../src/geoset-tabs.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
 
@@ -1473,46 +1462,20 @@ export default function App() {
     </aside>}</main>
     {mode==='animation' && timeline}
     <div className="classic-status" role="status"><span>{saving ? 'Saving…' : status}</span><span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'paint' ? paintMessage('paint.hint') : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations'}</span></div>
-    {mode === 'uv' && window.desktop && uvWindow && <DetachedWindow childWindow={uvWindow} title="MDLxL — UV Wrapper" preferences={preferences} onClose={() => { uvWindowRef.current = null; setUVWindow(null); if (latest.current.mode === 'uv') selectMode('vertices'); }}>{uvWorkspace}{dialog?.host === 'uv' && textureLibraryDialog}</DetachedWindow>}
-    {dialog?.type === 'portraitSetup' && <PortraitSetup model={model} missingCamera={dialog.missingCamera} missingSequence={dialog.missingSequence} sourceIndex={sequence >= 0 ? sequence : model.Sequences.length ? 0 : -1} disabled={doc.readOnly || saving} onCreate={completePortraitSetup} onSetCamera={setMissingPortraitCamera} onClose={() => setDialog(null)}/>}
-    {dialog?.type==='forge' && <Suspense fallback={<div className="classic-modal">Loading Forge…</div>}><Forge editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} selection={validSelection} textureAssets={session.assets} teamColor={teamColor} onCommitGlow={forgeGlow} preferences={preferences} model={model} modelPath={session.path} onClose={()=>setDialog(null)} onCommit={forgeItem}/></Suspense>}
-    {dialog?.type==='bitsAndParts' && <Suspense fallback={<div className="classic-modal">Loading BitsAndParts…</div>}><BitsAndParts model={model} selectionByGeoset={mode === 'vertices' ? validSelection : null} preferences={preferences} textureAssets={session.assets} teamColor={teamColor} onClose={()=>setDialog(null)} onCommit={importPart}/></Suspense>}
-    {dialog?.type==='particles' && <Suspense fallback={<div className="classic-modal">Loading Particle Editor…</div>}><ParticleEditor onPlacedAssets={assets=>{changeOverlay('particles',true);session.assets=new Map([...session.assets,...assets]);refresh();}} doc={doc} revision={doc.revision} edit={edit} refresh={refresh} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} selectedNodeId={dialog.nodeId} attachmentNodeId={dialog.attachmentId} selectedGeometry={dialog.selection} sequenceIndex={sequence} previewFrame={time} onClose={()=>setDialog(null)} onNodeChange={id=>setSelectedNodeIds(id==null?[]:[id])}/></Suspense>}
-    {dialog?.type==='shape' && <Suspense fallback={<div className="classic-modal">Loading shaping tools…</div>}><ShapingDialog editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} preferences={preferences} model={model} selectedGeosets={[...selectable]} selectionByGeoset={validSelection} initialTool={dialog.tool} onClose={()=>setDialog(null)} onApply={async(options,selection,working)=>{const {shapeGeosetsWithSupport}=await import('../src/shaping-support.js');return edit('Shape geosets',['Geosets','Info'],m=>{if(working!==model)m.Geosets=structuredClone(working.Geosets);return shapeGeosetsWithSupport(m,selection,options);});}}/></Suspense>}
-    {dialog?.type==='saveFormat' && !saveDataChoice && <Dialog title="Save as" onClose={()=>setDialog(null)} footer={<><button disabled={saving} onClick={async()=>{if(await save(true,'mdx'))setDialog(null);}}>Save MDX…</button><button disabled={saving} onClick={async()=>{if(await save(true,'mdl'))setDialog(null);}}>Save MDL…</button><button disabled={saving} onClick={()=>setDialog(null)}>Cancel</button></>}><p>Model version: {model.Version}</p><p>MDX saves the binary model. MDL saves editable text. Both preserve supported model data; unsupported conversion is blocked before writing.</p></Dialog>}
-    {saveDataChoice && <SaveEditorData Dialog={Dialog} name={saveDataChoice.name} bytes={saveDataChoice.bytes} onChoose={value => { saveDataChoice.resolve(value); setSaveDataChoice(null); }}/>}
-    {dialog?.type === 'recent' && <Dialog title="Recent Files" onClose={()=>setDialog(null)} footer={<><button disabled={!recentFiles.length} onClick={clearRecent}>Clear History</button><button onClick={()=>setDialog(null)}>Close</button></>}>{recentFiles.length ? recentFiles.map(path=><button key={path} title={path} onClick={()=>{setDialog(null);openRecent(path);}} style={{display:'block',width:'100%',textAlign:'left',overflowWrap:'anywhere'}}>{path}</button>) : <p>No recent files.</p>}</Dialog>}
-    {context && <div className="classic-context" role="menu" style={{ position: 'fixed', left: Math.min(context.x, window.innerWidth - 140), top: Math.min(context.y, window.innerHeight - (Number.isInteger(context.geosetIndex) ? 140 : 110)) }}>{[...(Number.isInteger(context.geosetIndex) ? [['Add to tab…', () => setDialog({ type: 'geosetTab', geosetIndex: context.geosetIndex, tabId: (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === geosetTab) ? geosetTab : model[GEOSET_TABS_KEY]?.[0]?.id })]] : []), ...(leaveVisibleAvailable && Number.isInteger(context.geosetIndex) ? [['Leave as visible', () => leaveGeosetVisible(context.geosetIndex)]] : []), ['Select all geosets', () => chooseSets(new Set(tabVisibleGeosets))], ['Clear geosets', () => chooseSets(new Set())], ['Invert geosets', () => chooseSets(new Set([...tabVisibleGeosets].filter(index => !selectable.has(index))))], ['Show all vertices', () => setHidden({})]].map(([label, run]) => <button data-warmkey={({'Select all geosets':'geosetsAll','Clear geosets':'geosetsClear','Invert geosets':'geosetsInvert','Show all vertices':'show'})[label]} role={label === 'Leave as visible' ? 'menuitemcheckbox' : 'menuitem'} aria-checked={label === 'Leave as visible' ? visibleOnly.has(context.geosetIndex) : undefined} disabled={label === 'Add to tab…' && (doc.readOnly || saving || !model[GEOSET_TABS_KEY]?.length)} key={label} onClick={run}>{label}</button>)}</div>}
-    {dialog?.type === 'mergeGeosets' && <Dialog title="Merge Geosets" overlayClass="geoset-merge-dialog" onClose={() => setDialog(null)} onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setDialog(null); }} footer={<><button onClick={() => setDialog(null)}>Cancel</button><button disabled={!editable || dialog.review.conflicts.some(conflict => !dialog.resolutions[conflict.id])} onClick={resolveGeosetMerge}>Merge</button></>}>
-      <p>Choose how to resolve the conflicts. Chosen settings apply to the merged mesh.</p>
-      {dialog.review.groups.filter(group => group.conflicts.length).map(group => <fieldset className="geoset-merge-group" key={group.id}>
-        <legend>Geosets {group.indices.map(index => index + 1).join(', ')} · Material {group.materialId + 1}</legend>
-        {group.conflicts.map((conflict, index) => <label className="geoset-merge-conflict" key={conflict.id}>
-          <b>{conflict.label}</b>
-          {conflict.options.map(option => <span className="geoset-merge-detail" key={option.value}>{option.label}: {option.detail}</span>)}
-          <select autoFocus={index === 0 && group === dialog.review.groups.find(item => item.conflicts.length)} aria-label={`${conflict.label} resolution for geosets ${group.indices.map(id => id + 1).join(', ')}`} value={dialog.resolutions[conflict.id] || ''} onChange={event => { const value = event.target.value; setDialog(previous => ({ ...previous, resolutions: { ...previous.resolutions, [conflict.id]: value } })); }}>
-            <option value="">Choose resolution…</option>
-            {conflict.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </label>)}
-      </fieldset>)}
-    </Dialog>}
-    {dialog?.type === 'geosetTab' && <div className="geoset-tabs" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setDialog(null); }}><Dialog title="Add to tab" onClose={() => setDialog(null)} footer={<><button onClick={() => setDialog(null)}>Cancel</button><button disabled={doc.readOnly || saving || !dialog.tabId} onClick={() => { if (edit('Assign geoset tab', [GEOSET_TABS_KEY, 'Geosets'], current => assignGeosetTab(current, [dialog.geosetIndex], dialog.tabId)) !== false) setDialog(null); }}>Add</button></>}><select autoFocus aria-label="Geoset tab" value={dialog.tabId || ''} onChange={event => setDialog(previous => ({ ...previous, tabId: event.target.value }))}>{(model[GEOSET_TABS_KEY] || []).map(tab => <option key={tab.id} value={tab.id}>{tab.name}</option>)}</select></Dialog></div>}
-    {dialog?.type === 'resource' && <div><Suspense fallback={<div className="classic-modal"><div className="classic-modal-window">Loading resource editor…</div></div>}><ResourceEditor onEditVisibility={({kind,index,layer})=>{setDialog(null);selectAnimationPanel('animations');setMaterialVisibility(kind==='Materials'?{kind:'material',id:index,layer,property:'Alpha'}:null);setSelectedNodeIds(kind==='Nodes'?[index]:[]);if(kind==='Geosets'||kind==='GeosetAnims'){const id=kind==='Geosets'?index:model.GeosetAnims[index].GeosetId;setSelectable(new Set([id]));setActiveGeoset(id);}}} modelPath={session.path} onKindChange={kind => setDialog(previous => ({ ...previous, kind }))} onUndo={() => undo(false)} onRedo={() => undo(true)} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} sequenceIndex={sequence} onSequenceChange={selectSequence} onSeek={value => { setPlaying(false); setTime(value); }} onOpenParticleEditor={openParticles} onViewCamera={(camera,index) => { const evaluated=evaluateModelCamera(model,camera,time,sequence,time); setView('perspective'); setDialog(null); if(evaluated)requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('mdlxl-view-camera',{detail:evaluated}))); }} selectedNodeId={selectedNodeIds.at(-1)} previewFrame={time} onNodeChange={id => setSelectedNodeIds([id])} onWarmKeys={()=>setSettingsTab('warmkeys')} kind={dialog.kind} doc={doc} edit={edit} refresh={refresh} onClose={() => setDialog(null)} onImportTexture={() => openLibrary()} onTextureFolder={selectManagerTextureFiles} selectionByGeoset={validSelection} activeGeoset={activeGeoset} onGeosetChange={index => { setSelectable(previous => new Set([...previous, index])); setActiveGeoset(index); setUvSet(0); }} onVerticesChange={(index, ids) => { if (!doc.model.Geosets[index]) return; setSelection(previous => ({ ...previous, [index]: ids })); setSelectable(previous => new Set([...previous, index])); setActiveGeoset(index); setHidden(previous => ({ ...previous, [index]: [] })); }} onSelectionClear={index => { if (index === undefined) { setSelection({}); setHidden({}); setSelectable(allGeosets(doc.model.Geosets.length)); setActiveGeoset(previous => Math.min(previous, doc.model.Geosets.length - 1)); } else { setSelection(previous => { const next = { ...previous }; delete next[index]; return next; }); setHidden(previous => ({ ...previous, [index]: [] })); } }}/></Suspense></div>}
-    {dialog?.type === 'library' && dialog.host !== 'uv' && textureLibraryDialog}
-    {dialog?.type === 'closeTab' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Close model tab?" onClose={() => setDialog(null)} footer={<><button data-warmkey="app:action:3" disabled={saving} onClick={async()=>{const target=dialog.target;if(await saveSessionWork(target)){setDialog(null);removeSession(target);}}}>Save</button><button data-warmkey="app:action:4" disabled={saving} onClick={()=>{const target=dialog.target;setDialog(null);removeSession(target);}}>Don't save</button><button data-warmkey="app:action:5" disabled={saving} onClick={()=>setDialog(null)}>Cancel</button></>}><p>Save changes to {dialog.target.doc.name} before closing its tab?</p></Dialog>}
-    {dialog?.type === 'history' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Undo settings" onClose={() => setDialog(null)} footer={<><button data-warmkey="app:action:6" onClick={async () => { try { const options = { budgetBytes: Math.round(historyMB * 1048576), maxSteps: historySteps }; if (!Number.isInteger(historyMB) || historyMB < 64 || historyMB > 4096 || !Number.isInteger(historySteps) || historySteps < 10 || historySteps > 100000) throw new Error("Use 64–4096 MB and 10–100000 steps."); await window.desktop?.configure?.({ historyBudgetBytes: options.budgetBytes, historyMaxSteps: options.maxSteps }); doc.configureHistory(options); settings.current = { ...settings.current, historyBudgetBytes: options.budgetBytes, historyMaxSteps: options.maxSteps }; setDialog(null); refresh(); } catch (error) { say(error.message, true); } }}>Apply</button><button data-warmkey="app:action:7" onClick={() => setDialog(null)}>Close</button></>}><label>Memory limit (MB) <input data-warmkey="app:field:1" aria-label="Undo memory limit MB" type="number" min="64" max="4096" step="1" value={historyMB} onChange={event => setHistoryMB(Number(event.target.value))}/></label><label>Maximum steps <input data-warmkey="app:field:2" aria-label="Maximum undo steps" type="number" min="10" max="100000" step="1" value={historySteps} onChange={event => setHistorySteps(Number(event.target.value))}/></label><p>{doc.historyStats.undoSteps} undo / {doc.historyStats.redoSteps} redo · {(doc.historyStats.usedBytes / 1048576).toFixed(1)} MB used.</p><p>Oldest steps are discarded when a limit is reached. Recovery includes the retained history.</p></Dialog>}
-    {dialog?.type === 'recovery' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Recovery" onClose={() => setDialog(null)}>{recoveries.length ? recoveries.map(item => <button data-warmkey={`restore:${item.id}`} key={item.id} onClick={() => restoreRecovery(item)}>{item.name || item.id} · {item.date ? new Date(item.date).toLocaleString() : 'Saved draft'}</button>) : <p>No recovery drafts.</p>}</Dialog>}
-    {dialog?.type === 'pasteSpecial' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Special paste" onClose={() => setDialog(null)} footer={<><button data-warmkey="app:action:9" onClick={() => paste(anchor === '' ? null : Number(anchor), true)}>Paste</button><button data-warmkey="app:action:10" onClick={() => setDialog(null)}>Close</button></>}><label>Parent for imported roots <select data-warmkey="app:field:3" value={anchor} onChange={event => setAnchor(event.target.value)}><option value="">Preserve donor roots</option>{model.Bones.map(node => <option key={node.ObjectId} value={node.ObjectId}>{node.Name}</option>)}</select></label><p>Copies geosets and their dependencies. Animation keys retain their donor frame times.</p></Dialog>}
-    {dialog?.type === 'pasteRepair' && <Dialog title="Fix paste" onClose={() => setDialog(null)} footer={<><button onClick={() => paste(dialog.parent, dialog.special, true, dialog.source)}>Fix and paste</button><button onClick={() => setDialog(null)}>Cancel</button></>}><p>To finish pasting:</p><ul>{dialog.repairs.map(repair => <li key={repair}>{repair}</li>)}</ul><p>The repair and pasted objects can be undone together.</p></Dialog>}
-    {dialog?.type === 'normalRotate' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Rotate normals" onClose={() => setDialog(null)} footer={<><button data-warmkey="app:action:11" onClick={() => { if (Number.isFinite(normalAngle)) { meshAction('Rotate normals'); setDialog(null); } }}>Apply</button><button data-warmkey="app:action:12" onClick={() => setDialog(null)}>Close</button></>}><label>Angle around workplane normal (degrees) <input data-warmkey="app:field:4" type="number" step="any" value={normalAngle} onChange={event => setNormalAngle(Number(event.target.value))}/></label></Dialog>}
-    {dialog?.type === 'diagnostics' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="Model diagnostics" onClose={() => setDialog(null)}>{doc.diagnostics.length ? doc.diagnostics.map((item, i) => <p key={i}><b>{item.severity}: </b>{item.message}</p>) : <p>No model diagnostics.</p>}</Dialog>}
-    {dialog?.type === 'help' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="MDLxL help" onClose={() => setDialog(null)}><p>Default Hotkeys (customize in Settings): F1 vertices · F2 selected UV maps · F3 Movement. Bones edits the unanimated rig. Animations edits visibility and RGB; BAKE applies current visibility and RGB across the selected animation; ALL applies them across every animation. Bake Text applies edited text tracks. A select · M/Q move · R rotate · Z scale. W switches between work and camera rotation. F toggles Textured View on and off; S selects Surface. Wireframe remains available beside the view direction. Use View / Fit to frame the model.</p><p>Geoset checkboxes control which meshes can be selected. Only checkboxes change selection; Shift checks a range. All, Clear and Invert act on the geoset list. Hide/Show affects editor visibility only.</p><p>T creates a triangle from three selected points. U uncouples, C collapses and B welds points. Welding retains the last selected vertex's UVs and binding. Copy remains available after opening another model.</p><p>Windows opens the material, texture and node managers. Changes can be undone. Untouched saves preserve original bytes; edited sections regenerate through the codec.</p><OfficialWebsite/></Dialog>}
-    {dialog?.type === 'about' && <Dialog onWarmKeys={()=>setSettingsTab('warmkeys')} title="About MDLxL" onClose={() => setDialog(null)}><p>MDLxL model editor.</p><p>Based on the original 1.41 form layout, with integrated material/node editing and recoverable undo history. The original application is unchanged.</p><p>Format 1200 remains read-only. Model and rendering compatibility still require Warcraft testing.</p><OfficialWebsite/></Dialog>}
-    {dialog?.type === 'optimizeModel' && <DetachedWindow childWindow={dialog.child} title="OptimizeXL" preferences={preferences} forwardKeys={false} onClose={()=>setDialog(null)}><Suspense fallback={<div className="classic-empty-view">Loading OptimizeXL…</div>}><OptimizeXL doc={doc} preferences={preferences} textureAssets={session.assets} teamColor={teamColor} onClose={()=>setDialog(null)}/></Suspense></DetachedWindow>}
-    {settingsTab && <Suspense fallback={null}><Settings onRevertUpdate={window.desktop?.revertUpdate ? updates.revert : undefined} updateStatus={updates.status} onCheckUpdates={window.desktop?.checkUpdates ? updates.check : undefined} modelPath={session.path} preferences={preferences} initialTab={settingsTab} onTabChange={setSettingsTab} gameDataPath={gameDataPath} gameDataSources={gameDataSources} onAddGameDataSource={window.desktop?.addGameDataSource ? kind=>changeGameDataSource(kind) : undefined} onRemoveGameDataSource={window.desktop?.removeGameDataSource ? file=>changeGameDataSource(null,file) : undefined} onChooseGameData={window.desktop?.chooseGameData ? gameData : undefined} onClearGameData={window.desktop?.clearGameData ? clearGameData : undefined} onChange={changePreferences} onClose={()=>setSettingsTab(null)}/></Suspense>}
-    {notice && <Dialog title="HD models" onClose={() => setNotice(null)} footer={notice.convert ? <><button onClick={() => setNotice(null)}>Open view-only</button><button onClick={() => { setNotice(null); convertToSD(notice.convert); }}>Convert to SD</button></> : <button onClick={() => setNotice(null)}>OK</button>}><p>{notice.message}</p></Dialog>}
-    {updates.open && <UpdatePrompt status={updates.status} Dialog={Dialog} onInstall={updates.install} onClose={updates.close}/> }
+    <AppDialogs {...{
+      Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
+      clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
+      forgeGlow, forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
+      importPart, latest, leaveGeosetVisible, leaveVisibleAvailable, meshAction, mode, model, normalAngle, notice,
+      openLibrary, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
+      removeSession, resolveGeosetMerge, restoreRecovery, save, saveDataChoice, saveSessionWork, saving, say,
+      selectAnimationPanel, selectManagerTextureFiles, selectMode, selectSequence, selectable, selectedNodeIds,
+      sequence, session, setActiveGeoset, setAnchor, setDialog, setHidden, setHistoryMB, setHistorySteps,
+      setMaterialVisibility, setMissingPortraitCamera, setNormalAngle, setNotice, setPlaying, setSaveDataChoice,
+      setSelectable, setSelectedNodeIds, setSelection, setSettingsTab, setTime, setUVWindow, setUvSet, setView,
+      settings, settingsTab, tabVisibleGeosets, teamColor, textureLibraryDialog, time, tool, undo, updates, uvWindow,
+      uvWindowRef, uvWorkspace, validSelection, view, visibleOnly, workplane, workplaneEnabled
+    }}/>
     <PressedKeys enabled={preferences.showPressedKeys}/>
   </div></WarmKeysProvider>;
 }
