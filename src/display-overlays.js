@@ -1,5 +1,3 @@
-export const EDITOR_DISPLAY_MODES = Object.freeze(['vertices', 'bones', 'movement', 'animations']);
-
 export function defaultEditorDisplay(vanilla = false) {
   const base = { shaded: true, vertices: true, bones: false, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
   return {

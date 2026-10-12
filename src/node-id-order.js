@@ -13,11 +13,6 @@ export function hasCanonicalSerializedNodeOrder(model) {
   return nodes.every((node, index) => node?.ObjectId === index) && (model.PivotPoints?.length || 0) === nodes.length;
 }
 
-export function hasMonotonicSerializedNodeOrder(model) {
-  const nodes = serializedNodes(model);
-  return nodes.every((node, index) => Number.isInteger(node?.ObjectId) && node.ObjectId >= 0 && (!index || nodes[index - 1].ObjectId < node.ObjectId));
-}
-
 /**
  * Warcraft tools resolve geoset matrix IDs through the order of serialized
  * node sections. Keep that order identical to ObjectId order and remap every
@@ -81,13 +76,4 @@ export function canonicalizeSerializedNodeOrder(model, { preserveUnusedPivots = 
   model.Nodes = [];
   nodes.forEach(node => { model.Nodes[node.ObjectId] = node; });
   return map;
-}
-
-export function repairLegacyAppendedDummyBoneOrder(model, dummy) {
-  if (hasCanonicalSerializedNodeOrder(model)) return false;
-  const nodes = serializedNodes(model), withoutDummy = nodes.filter(node => node !== dummy);
-  const exactLegacyShape = dummy?.ObjectId === nodes.length - 1 && withoutDummy.length === nodes.length - 1 && withoutDummy.every((node, index) => node.ObjectId === index);
-  if (!exactLegacyShape) throw Error('The model node sections are not in safe ObjectId order. Repair that ordering before using DummyBone imports.');
-  canonicalizeSerializedNodeOrder(model);
-  return true;
 }

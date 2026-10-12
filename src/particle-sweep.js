@@ -1,6 +1,6 @@
 import {createNode} from './editor-document.js';
 import {Vector3} from 'three';
-import {allNodes,sampleTrack} from './animation.js';
+import {allNodes} from './animation.js';
 import {samplePreviewMatrices} from '../app/preview-pose.js';
 const vector=value=>new Float32Array([value]);
 /** Inspection samples use the same project pose evaluator as movement handles. */
@@ -45,9 +45,6 @@ export function particleBurstTrack(node,interval,impact,amount) {
   if(prior?.LineType>0&&keys.some(k=>k.Frame<start||k.Frame>end))throw Error('Other animations share interpolated amount. Keep that track and edit its keys in Classic.');
   const values=new Map([[start,0],[impact,amount],[impact+1,0],[end,0]]);
   return {...(prior?.Keys?structuredClone(prior):{}),LineType:0,GlobalSeqId:null,Keys:[...keys.filter(k=>k.Frame<start||k.Frame>end).map(k=>structuredClone(k)),...[...values].map(([Frame,v])=>({Frame,Vector:vector(v)}))].sort((a,b)=>a.Frame-b.Frame)};
-}
-export function particleBurstAmount(node,frame,interval,globalSequences=[]) {
-  return Number(sampleTrack(node.EmissionRate,frame,{interval,globalSequences,globalTime:frame,fallback:0}));
 }
 
 /** Explicit preview-only demonstration wrapper. Never pass this clone to document commands. */

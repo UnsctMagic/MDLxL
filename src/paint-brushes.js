@@ -47,6 +47,3 @@ export const PAINT_BRUSH_TIP_MANIFEST = Object.freeze({
   conversion: 'GIH/GBR grayscale mask to 256×256 RGBA PNG',
   tips: PAINT_BRUSH_TIPS,
 });
-
-export function paintBrushTipById(id) { return PAINT_BRUSH_TIPS.find(tip => tip.id === id) || null; }
-

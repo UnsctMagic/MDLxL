@@ -11,7 +11,7 @@ const require=createRequire(process.env.PLAYWRIGHT_MODULE || import.meta.url);
 const {chromium}=require('playwright');
 // Exercise the actual owning material factory, without exporting a test-only app API.
 const viewport=fs.readFileSync(path.join(root,'app/Viewport.jsx'),'utf8');
-const factory=viewport.slice(viewport.indexOf('function layerMaterial('),viewport.indexOf('\nfunction clearGroup('));
+const factory=viewport.slice(viewport.indexOf('function layerMaterial('),viewport.indexOf('\nfunction updateWideWireGeometry('));
 assert.ok(factory.startsWith('function layerMaterial('));
 const server=http.createServer((req,res)=>{
   if(req.url==='/favicon.ico'){res.writeHead(204);res.end();return;}
