@@ -1,23 +1,10 @@
-import {paintRussian,paintSpanish,paintChinese} from './locales/paint-ui-locales.js';
-import showcase from './locales/showcase.json' with { type: 'json' };
-const showcaseLocale = index => Object.fromEntries(Object.entries(showcase).map(([key, values]) => [key, values[index]]));
-import core from './locales/ru-core.json' with { type: 'json' };
-import editor from './locales/ru-editor.json' with { type: 'json' };
-import engine from './locales/ru-engine.json' with { type: 'json' };
-import additions from './locales/ru-additions.json' with { type: 'json' };
-import forge from './locales/ru-forge.json' with { type: 'json' };
-import descriptors from './locales/ru-descriptors.json' with { type: 'json' };
-import materials from './locales/ru-materials.json' with { type: 'json' };
-import previewCache from './locales/ru-preview-cache.json' with { type: 'json' };
-import optimizer from './locales/ru-optimizer.json' with { type: 'json' };
-import reviewedRussian from './locales/ru-reviewed.json' with { type: 'json' };
-import reviewedSpanish from './locales/es-reviewed.json' with { type: 'json' };
-import { chinese, mordor, spanish } from './locales/short-ui-locales.js';
-import { broadChinese, broadMordor, broadSpanish } from './locales/broad-ui-locales.js';
-import { release015Chinese, release015Russian, release015Spanish } from './locales/v015-ui-locales.js';
-import { currentRussian, currentSpanish, currentChinese } from './locales/current-ui-locales.js';
+// One reviewed catalog per language: English source text -> translation.
+// Key order is meaningful: equal-weight {0} templates are tried in this order.
+import ru from './locales/ru.json' with { type: 'json' };
+import es from './locales/es.json' with { type: 'json' };
+import zh from './locales/zh.json' with { type: 'json' };
 
-export const russian = Object.freeze({ ...currentRussian, ...paintRussian, ...showcaseLocale(0), ...core, ...editor, ...engine, ...additions, ...forge, ...descriptors, ...materials, ...previewCache, ...optimizer, ...reviewedRussian, ...release015Russian });
+export const russian = Object.freeze({ ...ru });
 export const LANGUAGES = Object.freeze([
   Object.freeze({ id: 'en', label: 'English', nativeLabel: 'English' }),
   Object.freeze({ id: 'ru', label: 'Russian', nativeLabel: 'Русский' }),
@@ -41,12 +28,13 @@ function blackSpeechCipher(text) {
     return blackSpeechWords[hash % blackSpeechWords.length];
   });
 }
-const mordorKeys = Object.freeze({ ...russian, ...reviewedSpanish, ...mordor, ...broadMordor });
+// Mordor ciphers every translated source: Russian order first, then Spanish-only keys.
+const mordorKeys = Object.freeze({ ...russian, ...es });
 const blackSpeech = Object.freeze({ ...Object.fromEntries(Object.keys(mordorKeys).map(key => [key, blackSpeechCipher(key)])), 'Image/Video': blackSpeechCipher('Image') + '/' + blackSpeechCipher('Video') });
 const dictionaries = Object.freeze({
   ru: russian,
-  es: Object.freeze({ ...currentSpanish, ...paintSpanish, ...showcaseLocale(1), ...spanish, ...broadSpanish, ...reviewedSpanish, ...release015Spanish }),
-  zh: Object.freeze({ ...currentChinese, ...paintChinese, ...showcaseLocale(2), ...chinese, ...broadChinese, ...release015Chinese }),
+  es: Object.freeze({ ...es }),
+  zh: Object.freeze({ ...zh }),
   mordor: blackSpeech,
 });
 let language = 'en';
