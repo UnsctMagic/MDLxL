@@ -38,7 +38,7 @@ test('UV opts into restoring its user view before fit, without replaying old pro
 test('team label stays absent and geosets fill down columns',()=>{
   const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
   const css=readFileSync(new URL('../app/styles.css',import.meta.url),'utf8');
-  assert.doesNotMatch(app,/className="team-picker">Team color/);
+  assert.doesNotMatch(readFileSync(new URL('../app/AppToolbar.jsx',import.meta.url),'utf8'),/className="team-picker">Team color/);
   assert.match(app,/'--geoset-rows': Math.max\(1, Math.ceil\(tabGeosets.size \/ 4\)\)/);
   assert.match(css,/classic-geoset-list\{display:grid;grid-auto-flow:column/);
 });

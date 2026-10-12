@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
+const app=readFileSync(new URL('../app/AppToolbar.jsx',import.meta.url),'utf8');
 const css=readFileSync(new URL('../app/modules.css',import.meta.url),'utf8');
 
 test('every module icon keeps its action and carries a visible short label',()=>{
