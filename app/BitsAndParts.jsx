@@ -3,6 +3,7 @@ import { Grid2X2, Square } from 'lucide-react';
 import Viewport, { textureFromAsset } from './Viewport.jsx';
 import ModernIcon from './ModernIcon.jsx';
 import { openDocument, validateModel } from '../src/editor-document.js';
+import { HD_UNSUPPORTED_MESSAGE } from '../src/model-version.js';
 import { collectPart, partPathKey, partRgbSnapshot, partTextureIndices, partTextureKey, positionPart, previewPart, previewPartReplacement, transformPart } from '../src/bits-and-parts.js';
 import CollectBit from './CollectBit.jsx';
 import PartAnimations from './PartAnimations.jsx';
@@ -62,6 +63,7 @@ export default function BitsAndParts({ model, preferences, selectionByGeoset, te
     try {
       const record = window.desktop?.readPart ? await window.desktop.readPart(entry.id) : { name: entry.name, bytes: new Uint8Array(await bank.models.get(entry.id).arrayBuffer()) };
       const document = openDocument(record.bytes, record.name);
+      if (document.hdViewOnly) throw Error(HD_UNSUPPORTED_MESSAGE);
       if (document.readOnly || validateModel(document.model).some(issue => issue.severity === 'error')) throw Error('This part is unreadable or contains invalid references. Repair it before importing.');
       if (!document.model.Geosets.length) throw Error('This part has no geosets.');
       const names = partTextureIndices(document.model).map(index => document.model.Textures[index]).filter(texture => !texture.ReplaceableId && texture.Image).map(texture => texture.Image);

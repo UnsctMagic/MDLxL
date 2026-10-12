@@ -5007,7 +5007,7 @@
   "Every native effect needs one ingredient identity.": "Каждому нативному эффекту нужен один идентификатор компонента.",
   "Invalid effect anchor.": "Недопустимая опора эффекта.",
   "Preview paused at the {0} live-particle budget. Authored values are unchanged.": "Предпросмотр остановлен на лимите живых частиц: {0}. Авторские значения не изменены.",
-  "Inspection effect": "Проверочный эффект",
+  "Inspection effect": "Проверочный эффект",
   "Forge: Add shape": "Forge: добавить фигуру",
   "Forge: Shape control points": "Forge: управление фигурой целиком",
   "Forge: Face control points": "Forge: управление гранями",
@@ -5019,5 +5019,14 @@
   "Forge: Duplicate shape": "Forge: дублировать фигуру",
   "Forge: Commit shape": "Forge: применить фигуру",
   "Forge: Add to model": "Forge: добавить в модель",
-  "Events": "События"
+  "Events": "События",
+  "HD models aren't supported yet.": "HD-модели пока не поддерживаются.",
+  "HD models aren't supported yet. This model is open view-only; saving is disabled.": "HD-модели пока не поддерживаются. Модель открыта только для просмотра; сохранение отключено.",
+  "HD content isn't supported yet, so it will be converted to SD.": "HD-контент пока не поддерживается, поэтому он будет преобразован в SD.",
+  "HD content isn't supported yet, so it was converted to SD.": "HD-контент пока не поддерживается, поэтому он был преобразован в SD.",
+  "HD shaders aren't supported yet, so the shader was not applied.": "HD-шейдеры пока не поддерживаются, поэтому шейдер не применён.",
+  "This model has HD shader or lighting settings, which aren't supported yet. Open it view-only, or convert it to SD by removing those settings? The file is not changed until you save.": "В модели есть настройки HD-шейдера или освещения, которые пока не поддерживаются. Открыть её только для просмотра или преобразовать в SD, удалив эти настройки? Файл не изменится, пока вы его не сохраните.",
+  "HD models": "HD-модели",
+  "Open view-only": "Открыть только для просмотра",
+  "Convert to SD": "Преобразовать в SD"
 }

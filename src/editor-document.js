@@ -1,4 +1,4 @@
-import { versionConversionIssues, normalizeVersionFields } from './model-version.js';
+import { versionConversionIssues, normalizeVersionFields, hdContentIssues, hdContentKind, clearHDMaterialSettings, HD_VIEW_ONLY_MESSAGE } from './model-version.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { Buffer } from 'buffer';
 import { parseMDL, generateMDL } from 'war3-model';
@@ -267,6 +267,10 @@ export class EditorDocument {
         this._sourceErrors.push({ severity: 'error', code: 'SEMANTIC_DECODE_FAILED', message: `Editing unavailable: ${error.message}. The original file can still be copied exactly.` });
       }
     }
+    // HD content is decoded for viewing only; editing and saving stay disabled.
+    // allowHD is for internal decode checks and asset indexing, never user files.
+    this.hdViewOnly = this.hdBorderline = false;
+    if (!options.allowHD && !this.readOnly && hdContentIssues(this.model).length) this._viewOnlyHD();
     this._savedModel = clone(this.model);
     // One committed shadow supports closed-over inspector edits and rollback.
     // Each successful edit updates only its changed paths; history retains deltas.
@@ -287,6 +291,18 @@ export class EditorDocument {
       try { this._sections = scanMdlSections(this._original); }
       catch (error) { this._sourceErrors.push({ severity: 'error', code: 'MDL_STRUCTURE', message: error.message }); }
     }
+  }
+  _viewOnlyHD() {
+    this.readOnly = this.hdViewOnly = true; this.hdBorderline = hdContentKind(this.model) === 'borderline';
+    this._sourceErrors.push({ severity: 'error', code: 'HD_VIEW_ONLY', message: HD_VIEW_ONLY_MESSAGE });
+  }
+  /** Borderline HD only (a shader name or HD lighting values): an editable SD
+   * copy with those settings cleared. The file changes only when it is saved. */
+  convertToSD() {
+    if (!this.hdBorderline) throw new Error(HD_VIEW_ONLY_MESSAGE);
+    const state = this.captureRecoveryState({ includeHistory: false });
+    clearHDMaterialSettings(state.model);
+    return EditorDocument.restoreRecoveryState(state);
   }
   get originalBytes() { return new Uint8Array(this._original); }
   _candidateKeys() {
@@ -344,7 +360,7 @@ export class EditorDocument {
     // Prove the target writer/reader accepts the complete converted content before committing.
     const candidate=clone(this.model); normalizeVersionFields(candidate,target);
     const bytes=writeMdxEventGlobalSequences(generateMDX({...candidate,GeosetAnims:convertMdxGeosetColorTracks(candidate.GeosetAnims),BindPoses:candidate.BindPoses?.length?candidate.BindPoses:undefined}),candidate);
-    const check=openDocument(bytes,'converted.mdx');
+    const check=openDocument(bytes,'converted.mdx',{allowHD:true});
     if(check.readOnly || check.version!==target || check.diagnostics.some(d=>d.severity==='error')) throw new Error('Target format verification failed. The model was kept.');
     assertModelEquivalent(candidate,check.model,{keys:Object.keys(SECTION_TYPES)});
     for(const key of Object.keys(SECTION_TYPES)) if(Array.isArray(candidate[key]) && candidate[key].length!==check.model[key]?.length) throw new Error('Target conversion changed '+key+' count.');
@@ -452,9 +468,9 @@ export class EditorDocument {
       revision: this.revision, history: includeHistory ? this._historyStore._recoveryState() : null,
       activity: this.history });
   }
-  static restoreRecoveryState(state) {
+  static restoreRecoveryState(state, options) {
     if (state?.schema !== 'mdlvis-document-recovery' || ![1, 2].includes(state.version) || !(state.originalBytes instanceof Uint8Array) || typeof state.name !== 'string' || (state.version === 1 ? !state.model : !Array.isArray(state.savedChanges) || !Array.isArray(state.modelChanges))) throw new Error('Invalid document recovery data.');
-    const doc = new EditorDocument(state.originalBytes, state.name);
+    const doc = new EditorDocument(state.originalBytes, state.name, { ...options, allowHD: true });
     let savedModel, recovered;
     if (state.version === 2) {
       savedModel = clone(doc.model); applyChanges(savedModel, state.savedChanges); normalizeModel(savedModel);
@@ -472,6 +488,8 @@ export class EditorDocument {
     if (state.history) doc._historyStore = HistoryStore.restore(state.history);
     doc.revision = Number.isSafeInteger(state.revision) && state.revision >= 0 ? state.revision : 0;
     doc.history = Array.isArray(state.activity) ? clone(state.activity.slice(-Math.max(1, doc.historyStats.maxSteps))) : [];
+    // View-only follows the recovered content, so a model converted to SD stays editable.
+    if (!options?.allowHD && !doc.readOnly && hdContentIssues(doc.model).length) doc._viewOnlyHD();
     return doc;
   }
   saveImpact(format = this.format) {
@@ -488,7 +506,8 @@ export class EditorDocument {
     warnings.push(...stringIssues);
     const unknown = this._unknownSections();
     if (conversion && unknown.length) warnings.push(`Cannot convert unrecognized source data: ${unknown.join(', ')}.`);
-    return { format, conversion, exact: !conversion && changed.length === 0 && !this._tabsChanged && !this._speedChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: ['mdl', 'mdx'].includes(format) && (!this.readOnly || !conversion && !changed.length && !this._tabsChanged && !this._speedChanged) && !stringIssues.length && !(conversion && unknown.length) };
+    if (this.hdViewOnly) warnings.push(HD_VIEW_ONLY_MESSAGE);
+    return { format, conversion, exact: !conversion && changed.length === 0 && !this._tabsChanged && !this._speedChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: !this.hdViewOnly && ['mdl', 'mdx'].includes(format) &&(!this.readOnly || !conversion && !changed.length && !this._tabsChanged && !this._speedChanged) && !stringIssues.length && !(conversion && unknown.length) };
   }
   serialize(format = this.format, { timings = {} } = {}) {
     Object.assign(timings, { serializationMs: 0, reparsingMs: 0, verificationMs: 0, errorFormattingMs: 0 });
@@ -496,6 +515,7 @@ export class EditorDocument {
     const nextStage = next => { const now = performance.now(); timings[stage] += now - start; stage = next; start = now; };
     try {
     format = format.toLowerCase();
+    if (this.hdViewOnly) throw new Error(HD_VIEW_ONLY_MESSAGE);
     const impact = this.saveImpact(format);
     if (!impact.canSave) throw new Error(`This document cannot be saved in that format. ${impact.warnings.at(-1) || 'An exact copy in its original format is available.'}`);
     const remember = (data) => {
@@ -509,7 +529,7 @@ export class EditorDocument {
     if (!impact.conversion && !impact.changedSections.length) {
       const output = writeAnimationSpeed(writeGeosetTabs(this._original, format, this.model), format, this.model);
       nextStage('reparsingMs');
-      const reopened = openDocument(output, `validation.${format}`);
+      const reopened = openDocument(output, `validation.${format}`, { allowHD: true });
       nextStage('verificationMs');
       if (reopened.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata did not reopen.');
       if (JSON.stringify(animationSpeedData(this.model)) !== JSON.stringify(animationSpeedData(reopened.model))) throw new Error('Save verification failed: animation speed metadata did not reopen.');
@@ -551,7 +571,7 @@ export class EditorDocument {
     // A writer can succeed while emitting a dialect the reader cannot parse.
     // Check the final surgical/conversion result before allowing it onto disk.
     nextStage('reparsingMs');
-    const reopened = openDocument(output, `validation.${format}`);
+    const reopened = openDocument(output, `validation.${format}`, { allowHD: true });
     nextStage('verificationMs');
     if (reopened.readOnly) {
       nextStage('errorFormattingMs');

@@ -13,7 +13,7 @@ const commit = (doc, plan) => doc.apply('Fix and paste', [], model => { Object.a
 const identity = () => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
 const roundTrip = doc => {
   for (const format of ['mdl', 'mdx']) {
-    const reopened = openDocument(doc.serialize(format));
+    const reopened = openDocument(doc.serialize(format), undefined, { allowHD: true });
     assert.equal(reopened.readOnly, false); assert.deepEqual(validateModel(reopened.model).filter(issue => issue.severity === 'error'), []);
   }
 };
@@ -146,8 +146,12 @@ test('HD format adaptation retains texture-slot positions and the static texture
 
 test('special paste into MDX1400 widens donor skin indices before assigning imported nodes above 255', () => {
   const source = createDemoDocument(), template = createDemoDocument(); source.convertVersion(1000); template.model.Version = 1400;
-  const target = openDocument(generateCompatibleMdx(template.model));
-  target.apply('Large destination rig', [], model => { for (let index = 0; index < 260; index++) createNode(model, 'Bone'); });
+  // A weighted HD destination (engine level); an SD destination receives SD content instead.
+  const target = openDocument(generateCompatibleMdx(template.model), undefined, { allowHD: true });
+  target.apply('Large destination rig', [], model => {
+    for (let index = 0; index < 260; index++) createNode(model, 'Bone');
+    for (const g of model.Geosets) { g.Tangents = forgeTangents(g); g.SkinWeights = new Uint16Array(g.Vertices.length / 3 * 8); for (let v = 0; v < g.Vertices.length / 3; v++) g.SkinWeights.set([g.Groups[g.VertexGroup[v]][0], 0, 0, 0, 255, 0, 0, 0], v * 8); }
+  });
   const clipboard = copiedMesh(source), geoset = clipboard.model.Geosets[0];
   geoset.Tangents = forgeTangents(geoset); geoset.SkinWeights = new Uint8Array(geoset.Vertices.length / 3 * 8);
   const oldId = geoset.Groups[0][0];

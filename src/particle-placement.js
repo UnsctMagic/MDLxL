@@ -12,10 +12,10 @@ export function particlePlacementInterval(model,placement,{preview=false}={}) {
  return [from,to];
 }
 
-export function placeTimedParticleRecipe(model,recipe,placement,{preview=false}={}) {
+export function placeTimedParticleRecipe(model,recipe,placement,{preview=false,convertHD=false}={}) {
  const window=placement.ribbon?model.Sequences[placement.sequence]?.Interval:particlePlacementInterval(model,placement,{preview});
  const sourceInterval=Array.from(recipe.native.Sequences[recipe.defaultSequence||0]?.Interval||[0,5000]);
- const result=placeParticleRecipe(model,recipe,{parent:placement.parent===''?null:Number(placement.parent),position:placement.position,sourceInterval,targetInterval:window||sourceInterval,fit:placement.fit,motion:placement.motion,directAttachment:!!placement.ribbon});
+ const result=placeParticleRecipe(model,recipe,{parent:placement.parent===''?null:Number(placement.parent),position:placement.position,sourceInterval,targetInterval:window||sourceInterval,fit:placement.fit,motion:placement.motion,directAttachment:!!placement.ribbon,convertHD});
  if(placement.ribbon){
   const selected=new Set(placement.sequences),visibility=new Map(),boundaries=new Set();
   for(let i=0;i<model.Sequences.length;i++)for(const frame of model.Sequences[i].Interval){visibility.set(frame,selected.has(i)?1:0);boundaries.add(frame);}

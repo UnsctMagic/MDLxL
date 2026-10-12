@@ -13,13 +13,13 @@ function fixture(version, weighted, bindPose) {
     g.LevelOfDetail = 0;
     if (weighted) { g.Tangents = forgeTangents(g); g.SkinWeights = new Uint8Array(g.Vertices.length / 3 * 8); for (let i = 0; i < g.Vertices.length / 3; i++) g.SkinWeights.set([g.Groups[g.VertexGroup[i]][0],0,0,0,255,0,0,0],i*8); }
   }
-  return openDocument(generateMDL(model));
+  return openDocument(generateMDL(model), undefined, { allowHD: true });
 }
 test('Forge retains LOD0 and valid matrix binding through 900/1000/1100 MDL and MDX round trips', () => {
   for (const version of [900,1000,1100]) for (const bindPose of [false,true]) {
     const doc = fixture(version,false,bindPose), poses = structuredClone(doc.model.BindPoses), result = doc.apply('Forge format',[],m=>commitForge(m,mesh(),{texturePath:'MDLxL_Forge\\piece.tga'}));
     for (const format of ['mdl','mdx']) {
-      const reopened = openDocument(doc.serialize(format)); assert.equal(reopened.readOnly,false); assert.deepEqual(validateModel(reopened.model).filter(d=>d.severity==='error'),[]);
+      const reopened = openDocument(doc.serialize(format),undefined,{allowHD:true}); assert.equal(reopened.readOnly,false); assert.deepEqual(validateModel(reopened.model).filter(d=>d.severity==='error'),[]);
       assert.deepEqual(reopened.model.BindPoses,poses); assert.equal(reopened.model.Bones.filter(n=>n.Name==='DummyBone').length,1);
       for (const gi of result.geosetIndices) { assert.equal(reopened.model.Geosets[gi].LevelOfDetail,0); assert.deepEqual(reopened.model.Geosets[gi].Groups,[[result.boneId]]); }
     }
@@ -32,7 +32,7 @@ test('weighted destinations receive complete rigid skin streams and version-corr
     assert.deepEqual([...result.extraAssets.find(a=>a.name.includes('flat-normal')).bytes.slice(18)],[0,127,127,255],'TGA BGRA encodes the inverted Reforged flat normal');
     assert.deepEqual([...result.extraAssets.find(a=>a.name.includes('neutral-orm')).bytes.slice(18)],[0,255,255,0],'neutral ORM retains roughness and occlusion while disabling metallic and team color');
     for (const format of ['mdl','mdx']) {
-      const reopened = openDocument(doc.serialize(format)); assert.equal(reopened.readOnly,false); assert.deepEqual(validateModel(reopened.model).filter(d=>d.severity==='error'),[]); assert.deepEqual(reopened.model.BindPoses,poses);
+      const reopened = openDocument(doc.serialize(format),undefined,{allowHD:true}); assert.equal(reopened.readOnly,false); assert.deepEqual(validateModel(reopened.model).filter(d=>d.severity==='error'),[]); assert.deepEqual(reopened.model.BindPoses,poses);
       for (const gi of result.geosetIndices) {
         const g = reopened.model.Geosets[gi], material = reopened.model.Materials[g.MaterialID];
         assert.equal(g.LevelOfDetail,0); assert.equal(g.SkinWeights.length,g.Vertices.length/3*8); assert.equal(g.Tangents.length,g.Vertices.length/3*4);

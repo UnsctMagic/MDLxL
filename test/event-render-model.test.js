@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { generateMDX, generateMDL } from 'war3-model';
 import { createDemoDocument, createNode, openDocument } from '../src/editor-document.js';
 import { parseEventRenderModel } from '../app/event-render-model.js';
+import { createStarterDocument } from '../src/starter-model.js';
 
 function particleModel(version = 1200) {
   const model = createDemoDocument().model;
@@ -62,4 +63,14 @@ test('supported legacy MDX and MDL event resources continue decoding', () => {
   assert.equal(parseEventRenderModel(new TextEncoder().encode(generateMDL(model)), 'Test.mdl').Version, 1100);
   const unknown = particleModel(1500);
   assert.throws(() => parseEventRenderModel(encoded(unknown)), /format 1500/);
+});
+
+test('HD event resources report that HD models are unsupported instead of rendering', () => {
+  const resource = change => { const doc = createStarterDocument(1000); if (change) doc.apply('HD', [], change); return doc; };
+  const shader = model => { model.Materials[0].Shader = 'Shader_HD_DefaultUnit'; };
+  const skin = model => { const geoset = model.Geosets[0]; geoset.SkinWeights = new Uint8Array(geoset.Vertices.length / 3 * 8).map((_, index) => index % 8 === 4 ? 255 : 0); };
+  for (const format of ['mdx', 'mdl']) {
+    assert.equal(parseEventRenderModel(resource().serialize(format), `SD.${format}`).Version, 1000);
+    for (const change of [shader, skin]) assert.throws(() => parseEventRenderModel(resource(change).serialize(format), `HD.${format}`), /^Error: HD models aren't supported yet\.$/);
+  }
 });

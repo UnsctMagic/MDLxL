@@ -19,6 +19,7 @@ import {ParticleSweepControls,ParticleSweepOverlay} from './ParticleSweepTools.j
 import ParticlePlacementStage from './ParticlePlacementStage.jsx';
 import ParticlePlacementControls from './ParticlePlacementControls.jsx';
 import {placeTimedParticleRecipe} from '../src/particle-placement.js';
+import {HD_CONVERTED_MESSAGE} from '../src/model-version.js';
 import {addParticleDemonstration,setParticleEmissionWindow} from '../src/particle-sweep.js';
 import ParticleStageTools from './ParticleStageTools.jsx';
 import ParticleLibrary from './ParticleLibrary.jsx';
@@ -180,9 +181,9 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       if(opening.current||!recoveryReady)return false;opening.current=true;cancel();
       try{
         const incoming=await assetsFor(recipe),prepared=await prepareParticlePlacementAssets(recipe,incoming,assets);let result;
-        const accepted=apply('Add effect ingredient',target=>{result=placeParticleRecipe(target,prepared.recipe,{sourceInterval:Array.from(recipe.native.Sequences[recipe.defaultSequence||0]?.Interval||[0,5000]),targetInterval:Array.from(interval),fit:true});},['Nodes','PivotPoints','Textures','Materials','TextureAnims','GlobalSequences']);
+        const accepted=apply('Add effect ingredient',target=>{result=placeParticleRecipe(target,prepared.recipe,{sourceInterval:Array.from(recipe.native.Sequences[recipe.defaultSequence||0]?.Interval||[0,5000]),targetInterval:Array.from(interval),fit:true,convertHD:context==='On model'});},['Nodes','PivotPoints','Textures','Materials','TextureAnims','GlobalSequences']);
         if(accepted===false)return false;
-        setLab(old=>({...old,assets:new Map([...old.assets,...prepared.assets])}));setEmitterId(result.ids[0]);setLibrary(false);setAdding(null);setStructure(v=>v+1);return true;
+        setLab(old=>({...old,assets:new Map([...old.assets,...prepared.assets])}));setEmitterId(result.ids[0]);setLibrary(false);setAdding(null);setStructure(v=>v+1);if(result.convertedHD)window.dispatchEvent(new CustomEvent('mdlxl-notice',{detail:HD_CONVERTED_MESSAGE}));return true;
       }catch(error){setMessage(error.message);return false;}finally{opening.current=false;}
     }
     const accepted=await loadRecipe(recipe);if(accepted&&adding==='model')setPlacement(initialPlacement());if(accepted)setAdding(null);return accepted;
@@ -205,10 +206,10 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     try{
       if(!placementResources)return;
       const {recipe,assets:incoming}=placementResources;
-      let result;const mutate=target=>{result=placeTimedParticleRecipe(target,recipe,placement);};
+      let result;const mutate=target=>{result=placeTimedParticleRecipe(target,recipe,placement,{convertHD:true});};
       const accepted=edit?edit('Add particle effect',['Nodes','Textures','Materials','TextureAnims','GlobalSequences','PivotPoints'],mutate):doc.apply('Add particle effect',['Nodes','Textures','Materials','TextureAnims','GlobalSequences','PivotPoints'],mutate);
       if(accepted===false)return;
-      onPlacedAssets?.(incoming);setContext('On model');setEmitterId(result.ids[0]);onNodeChange?.(result.ids[0]);setSequence(placement.sequence);setTime(result.interval[0]);setTool('Basics');setPlacement(null);setStructure(v=>v+1);refresh?.();setMessage(placement.ribbon?'Ribbon added. Drag its two ends to adjust the edge.':'Effect added. Undo restores the model.');
+      onPlacedAssets?.(incoming);setContext('On model');setEmitterId(result.ids[0]);onNodeChange?.(result.ids[0]);setSequence(placement.sequence);setTime(result.interval[0]);setTool('Basics');setPlacement(null);setStructure(v=>v+1);refresh?.();setMessage(placement.ribbon?'Ribbon added. Drag its two ends to adjust the edge.':'Effect added. Undo restores the model.');if(result.convertedHD)window.dispatchEvent(new CustomEvent('mdlxl-notice',{detail:HD_CONVERTED_MESSAGE}));
     }catch(error){setMessage(error.message);}
   };
   const placementRecipe=useMemo(()=>placement?.ribbon?.recipe||(placement?extractParticleRecipe(model,effectNodes(model).map(item=>item.node.ObjectId),{...lab.recipe,name:lab.recipe.name,defaultSequence:sequence}):null),[!!placement,placement?.ribbon,model,activeDoc.revision,sequence]);

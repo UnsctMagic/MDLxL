@@ -156,7 +156,7 @@ test('skin weights add and remove only the selected bone while retaining a valid
   skin = doc.model.Geosets[0].SkinWeights;
   assert.deepEqual([...skin.slice(0, 8)], [0, 0, 0, 0, 0, 0, 0, 0]);
   assert.deepEqual([...skin.slice(8, 16)], [root, 0, 0, 0, 255, 0, 0, 0]);
-  assert.equal(openDocument(doc.serialize('mdx')).readOnly, false);
+  assert.equal(openDocument(doc.serialize('mdx'), undefined, { allowHD: true }).readOnly, false);
 });
 
 test('rig edits keep existing bind-pose matrix slots and round-trip MDX1000', () => {

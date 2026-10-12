@@ -42,3 +42,13 @@ export function adaptPasteFormat(model, version) {
   } else for (const geoset of copy.Geosets || []) geoset.LevelOfDetail ??= 0;
   return copy;
 }
+/** HD content isn't supported yet: give a copy Classic skinning and diffuse
+ * materials at its own version, keeping its geoset LOD names. */
+export function convertHDToSD(model) {
+  const sd = adaptPasteFormat(adaptPasteFormat({ ...model, Version: Math.max(model.Version, 900) }, 800), model.Version);
+  (sd.Geosets || []).forEach((geoset, index) => {
+    if (model.Geosets[index].Name !== undefined) geoset.Name = model.Geosets[index].Name;
+    if (model.Geosets[index].LevelOfDetail !== undefined) geoset.LevelOfDetail = model.Geosets[index].LevelOfDetail;
+  });
+  return sd;
+}
