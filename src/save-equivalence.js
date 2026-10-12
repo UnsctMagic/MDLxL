@@ -5,6 +5,14 @@ import { equivalentGeosetColorDefaults } from './geoset-animation-defaults.js';
 const ignored = new Set(['_GeosetTabId','_AnimationSpeed','_AnimationSpeedFrame','_AnimationSpeedEvents','Nodes','PivotPoint','TotalGroupsCount','NumGeosets','NumGeosetAnims','NumBones','NumHelpers','NumLights','NumAttachments','NumEvents','NumParticleEmitters','NumParticleEmitters2','NumRibbonEmitters']);
 const defaults = { AnimationFile:'',Path:'',PriorityPlane:0,Gravity:0,SyncPoint:0,Flags:0,SelectionFlags:0,Variant:0,Shader:'',Name:'',LevelOfDetail:0,Alpha:1,EmissiveGain:1,FresnelOpacity:0,FresnelTeamColor:0,ShaderTypeId:0,ShadowIntensity:0,ShadowCasting:0,ShadowCastingStart:0,ShadowCastingEnd:0,QuadraticFalloff:0.0005,LinearFalloff:0,Damping:0.00001,_MdxTextureId:0 };
 const equalNumber = (a,b) => Object.is(a,b) || Object.is(Math.fround(a),Math.fround(b));
+// Node-type bits (Bone 0x100 through RibbonEmitter 0x4000) only restate the
+// section a node belongs to: the MDX chunk or the MDL block keyword decides
+// what the node is. MDL has no other spelling for them, so a reader derives
+// them from the block. A stray type bit in MDX (e.g. a Helper carrying the Bone
+// bit) is therefore unrepresentable in MDL and carries no meaning; compare the
+// remaining node flags (DontInherit*, Billboarded*, CameraAnchored, emitter
+// flags) exactly. MDX writes Flags raw, so MDX saves still compare every bit.
+const NODE_TYPE_BITS = 0x7f00;
 const integerFields = new Set(['Version','Frame','Flags','RenderMode','Shading','SelectionFlags','SyncPoint','ObjectId','Parent','GeosetId','GeosetAnimId','MaterialID','TextureID','NormalTextureID','ORMTextureID','EmissiveTextureID','TeamColorTextureID','ReflectionsTextureID','TextureSlot','TVertexAnimId','CoordId','GlobalSeqId','LineType','AttachmentID','ReplaceableId','FilterMode','LightType','Shape','Rows','Columns','PriorityPlane','SelectionGroup','LevelOfDetail','ShaderTypeId','Variant','BlendTime','_MdxTextureId']);
 function absentEquivalent(value,key) {
   if(value==null)return true;
@@ -13,7 +21,8 @@ function absentEquivalent(value,key) {
   if(key==='AmbColor')return ArrayBuffer.isView(value)&&value.length===3&&Array.from(value).every(n=>n===1);
   return false;
 }
-export function modelDifferenceReport(expected,actual,{keys=Object.keys(expected),limit=12}={}) {
+export function modelDifferenceReport(expected,actual,{keys=Object.keys(expected),limit=12,format}={}) {
+  const nodeTypeFromSection = format === 'mdl';
   const differences=[];
   let total = 0;
   const add = path => { total++; if (differences.length < limit) differences.push(path); };
@@ -39,6 +48,7 @@ export function modelDifferenceReport(expected,actual,{keys=Object.keys(expected
       if(k==='BoundsRadius' && 'Shape'in a && a.Shape<2)continue;
       // Raw flags mirror these public boolean fields; compare unknown bits too.
       if(k==='Flags'&&'NonLooping'in a){walk((a.Flags||0)&~1,(b.Flags||0)&~1,path+'.Flags',k);continue;}
+      if(k==='Flags'&&nodeTypeFromSection&&'ObjectId'in a){walk((a.Flags||0)&~NODE_TYPE_BITS,(b.Flags||0)&~NODE_TYPE_BITS,path+'.Flags',k);continue;}
       if(k==='SelectionFlags'){walk((a[k]||0)&~4,(b[k]||0)&~4,path+'.'+k,k);continue;}
       if((k==='PrimitiveTypes'||k==='PrimitiveCounts') && !(a.Faces||b.Faces)?.length && [a,b].every(g=>Array.from(g.PrimitiveCounts||[]).every(n=>n===0)))continue;
       if((k==='PrimitiveTypes'||k==='PrimitiveCounts') && (!a[k]||!b[k])) {

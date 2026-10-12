@@ -578,7 +578,7 @@ export class EditorDocument {
       throw new Error(formatSaveIssues('Save verification failed', reopened.diagnostics.filter(d => d.severity === 'error').map(d => d.message)));
     }
     if (reopened.version !== this.version) throw new Error('Save verification failed: model version changed.');
-    assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings });
+    assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings, format });
     if (JSON.stringify(geosetTabsData(saveModel)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata changed.');
     if (JSON.stringify(animationSpeedData(saveModel)) !== JSON.stringify(animationSpeedData(reopened.model))) throw new Error('Save verification failed: animation speed metadata changed.');
     for (const key of Object.keys(SECTION_TYPES)) if (Array.isArray(this.model[key]) && this.model[key].length !== reopened.model[key]?.length) throw new Error(`Save verification failed: ${key} count changed during serialization.`);

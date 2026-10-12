@@ -91,15 +91,17 @@ coalesced and the failed job can be followed by a successful save.
 
 ## Remaining limits
 
-**The supplied fixture still cannot be exported losslessly to MDL.** Once the
-24 harmless Color differences are removed, comparison reveals 26 Helper Flags
-differences (0x100 disappears). No Helper flags are ignored or changed in this
-patch. A standard MDL Helper has no raw numeric flag field in the independent
-[mdx-m3-viewer reader](https://github.com/flowtsohg/mdx-m3-viewer/blob/master/src/parsers/mdlx/genericobject.ts).
-The fixture regression asserts the bounded flag-loss rejection. Synthetic models
-without this unrelated ambiguity successfully round-trip the specified color
-and alpha cases through **both** formats. This is not full MDL acceptance of the
-supplied fixture, and no repaired fixture is substituted for that test.
+**Resolved later: the supplied fixture now exports to MDL.** Once the 24
+harmless Color differences are removed, comparison reveals 26 Helper Flags
+differences (0x100 disappears). 0x100 is the Bone *node-type* bit, not a node
+behaviour flag. A standard MDL Helper has no raw numeric flag field (see the independent
+[mdx-m3-viewer reader](https://github.com/flowtsohg/mdx-m3-viewer/blob/master/src/parsers/mdlx/genericobject.ts)):
+its block keyword is its type, and readers derive the type bits from it. MDL
+save verification therefore compares node Flags without the type bits
+(0x100–0x4000). It still compares DontInherit*, Billboarded*, CameraAnchored,
+emitter and unknown bits exactly. MDX saves still compare every raw bit. The
+fixture regression now asserts that only those 26 type bits differ after an
+MDL round trip.
 
 The broader `test/animation-tracks.test.js` has one existing failure: it expects
 a negative keyframe to be rejected, while the signed-frame parser accepts it.
