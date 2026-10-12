@@ -2,7 +2,6 @@
 # CI fails only on failures not listed here. Remove a line once its test passes.
 test/animation-tracks.test.js › Bake is one undoable edit and preserves RGB/visibility through in-memory MDL and MDX roundtrip
 test/animation-tracks.test.js › text parser validates duplicates, shape, ranges, times and timing, and preserves spline tangents
-test/editing-regressions.test.js › last triangle can be deleted independently of a loose vertex, with undo and MDL/MDX round trips
 test/editor-commands.test.js › binding validates bone and byte capacity before appending groups or overwriting weights
 test/editor-document.test.js › UI unset sentinels and static node visibility save without rebinding IDs or losing values
 test/editor-document.test.js › deleteNode blocks weighted/matrix references and reparents children without renumbering
@@ -16,7 +15,6 @@ test/keyframe-timeline.test.js › test/keyframe-timeline.test.js
 test/localization-quality.test.js › all paint messages, commands, view controls, and particle controls have reviewed translations
 test/movement-component.test.js › Animations exposes inline RGB fields on All line
 test/movement-component.test.js › quick display shows only the active editor options without Reveal
-test/movement-rest-pose.test.js › rest-pose pivot edits support every node kind, persist in MDL/MDX, undo, and retain authored animation/skin/BPOS
 # Flaky: the whole file sometimes times out on the Windows runner and sometimes passes.
 test/preview-ffmpeg.test.js › test/preview-ffmpeg.test.js
 test/updater.test.js › checksum-verified legacy ZIPs get a local manifest without changing the installed program
