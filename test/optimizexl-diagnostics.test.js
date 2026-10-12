@@ -26,6 +26,17 @@ for(const property of ['Translation','Rotation','Scaling'])for(const global of [
   const retained=openDocument(after,'x.mdx').model.Bones[0][property].Keys;
   assert.deepEqual(retained,model.Bones[0][property].Keys.filter(k=>![170,230].includes(k.Frame)));
 });
+
+test('unskinned ancestor bone warning explains retained dependencies instead of offering deletion',()=>{
+ const d=fixture();d.apply('Unskinned parent',['Bones','PivotPoints'],m=>{
+  const parent=createNode(m,'Bone');parent.Name='Rig parent';m.Bones[0].Parent=parent.ObjectId;
+ });
+ const source=d.serialize('mdx'),model=openDocument(source,'x.mdx').model;
+ const warnings=hive(source).findings.filter(f=>f.message==='There are no vertices attached to this bone');
+ assert.equal(warnings.length,1);const [classified]=classifyHiveFindings(warnings,sanityProposals(model));
+ assert.equal(classified.kind,'unskinnedBone');assert.equal(classified.status,'manual');assert.match(classified.reason,/child nodes/);assert.equal(classified.fixId,undefined);
+ const result=runOptimizeStage(source,'unused',{nodes:true});assert.deepEqual(result.bytes,source,'The existing unused-data owner keeps this live ancestor');
+});
 test('equal key values with a meaningful cubic curve are detected but not removed',()=>{
   const d=fixture('Translation');d.model.Bones[0].Translation.LineType=3;
   for(const k of d.model.Bones[0].Translation.Keys){k.InTan=new Float32Array(k.Vector);k.OutTan=new Float32Array(k.Vector);}
