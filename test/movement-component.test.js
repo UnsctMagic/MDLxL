@@ -5,6 +5,7 @@ import { build } from 'esbuild';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createDemoDocument, createNode } from '../src/editor-document.js';
+import { animationTargets, sampleAnimationProperty } from '../src/animation-tracks.js';
 
 // Execute the real JSX component, not a regex over source. This catches
 // undefined render-time variables even when the production bundler succeeds.
@@ -89,7 +90,10 @@ test('Animations remains editable with no selected vertices or checked geosets',
 test('Animations exposes inline RGB fields on All line',()=>{
   const html=renderToStaticMarkup(React.createElement(Animation,{model:fixture(),sequenceIndex:-1,time:0,selectedGeosets:[0]}));
   assert.doesNotMatch(html,/<input[^>]*aria-label="Animation R"[^>]*disabled/);
-  assert.match(html,/aria-label="Animation R"[^>]*value="179"/);
+  // renderToStaticMarkup never runs effects; the RGB fields are seeded after mount
+  // from the All-line inline Color, so check that source value directly.
+  const model=fixture(),[target]=animationTargets(model,{geosetIds:[0]}).filter(t=>t.property==='Color');
+  assert.deepEqual(Array.from(sampleAnimationProperty(model,target,0,-1)).map(v=>Math.round(v*255)),[178,209,235]);
 });
 test('Animations enables RGB and visibility fields on a global sequence',()=>{
   const html=renderToStaticMarkup(React.createElement(Animation,{model:fixture(),sequenceIndex:-1,globalSeqId:0,time:0,selectedGeosets:[0]}));
@@ -126,8 +130,8 @@ test('camera toolbar renders inside Movement with one create-or-update action an
 
 test('quick display shows only the active editor options without Reveal',()=>{
   const html=renderToStaticMarkup(React.createElement(QuickDisplay,{viewMode:'animations',checks:{'display:particles':true},isEnabled:()=>true,onCommand:()=>{},onClear:()=>{}}));
-  assert.equal((html.match(/type="checkbox"/g)||[]).length,7);
-  for(const label of ['Bones','Skeleton','Focused Skeleton','Nodes','Particles','Wireframe','Grid','Clear']) assert.ok(html.includes(label));
+  assert.equal((html.match(/type="checkbox"/g)||[]).length,9);
+  for(const label of ['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear']) assert.ok(html.includes(label));
   assert.doesNotMatch(html,/Reveal|Shadows|Vertices|Textured View/);
   assert.match(html,/<input[^>]*data-warmkey="display:particles"[^>]*checked=""/);
 });
