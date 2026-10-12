@@ -1,4 +1,4 @@
-# MDLxL 0.23.0
+# MDLxL 0.24.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -27,7 +27,7 @@ The `dist/` build output and the FFmpeg binaries are not stored in git. After pu
 
 ## Current version
 
-Version 0.23.0 improves SD posing and controller appearance, adds custom CASC/MPQ sources, repairs emitter-library indexing and previews, and smooths viewport frame scheduling. See [the 0.23.0 release notes](docs/RELEASE-0.23.0.md).
+Version 0.24.0 opens Reforged HD models view-only, offers SD conversion for models with only HD shader or lighting settings, converts HD content entering SD models to SD, fixes MDL saves that froze or were wrongly refused, and lets in-app updates install on short "~1" temporary paths. See [the 0.24.0 release notes](docs/RELEASE-0.24.0.md).
 
 ## Releases
 
@@ -41,6 +41,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.24.0](docs/RELEASE-0.24.0.md) ([ES](docs/RELEASE-0.24.0-ES.md), [RU](docs/RELEASE-0.24.0-RU.md), [ZH-CN](docs/RELEASE-0.24.0-ZH-CN.md))
 - [0.23.0](docs/RELEASE-0.23.0.md) ([ES](docs/RELEASE-0.23.0-ES.md), [RU](docs/RELEASE-0.23.0-RU.md), [ZH-CN](docs/RELEASE-0.23.0-ZH-CN.md))
 - [0.22.1](docs/RELEASE-0.22.1.md)
 - [0.22.0](docs/RELEASE-0.22.0.md) ([ES](docs/RELEASE-0.22.0-ES.md), [RU](docs/RELEASE-0.22.0-RU.md), [ZH-CN](docs/RELEASE-0.22.0-ZH-CN.md))
