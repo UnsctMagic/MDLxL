@@ -170,6 +170,7 @@ test('deleteNode blocks weighted/matrix references and reparents children withou
     const parent = createNode(m, 'Helper'); parent.Parent = 0;
     const child = createNode(m, 'Helper'); child.Parent = parent.ObjectId;
   });
+  const removedName = doc.model.Nodes[3].Name, childName = doc.model.Nodes[4].Name, rootName = doc.model.Nodes[0].Name;
   doc.apply('Remove helper', ['Nodes'], (m) => deleteNode(m, 3));
   assert.equal(doc.model.Nodes[4].Parent, 0);
   assert.equal(doc.model.Nodes[3], undefined);
@@ -177,8 +178,10 @@ test('deleteNode blocks weighted/matrix references and reparents children withou
   for (const format of ['mdl', 'mdx']) {
     const loaded = openDocument(doc.serialize(format));
     assert.equal(loaded.readOnly, false);
-    assert.equal(loaded.model.Nodes[3], undefined);
-    assert.equal(loaded.model.Nodes[4].Parent, 0);
+    // Saved files use compact, type-ordered ObjectIds; live IDs above stay unchanged.
+    const byName = (name) => loaded.model.Nodes.find((n) => n?.Name === name);
+    assert.equal(byName(removedName), undefined);
+    assert.equal(byName(childName).Parent, byName(rootName).ObjectId);
     assert.deepEqual(errors(loaded), []);
   }
 });
@@ -201,7 +204,7 @@ test('UI unset sentinels and static node visibility save without rebinding IDs o
   doc.apply('Unset parent and UV animation', ['Nodes', 'Materials'], (m) => {
     delete m.Nodes[1].Parent;
     delete m.Materials[0].Layers[0].TVertexAnimId;
-    m.Materials.push({ Layers: [{ TextureID: 0, Alpha: 1 }] });
+    m.Materials.push({ PriorityPlane: 0, RenderMode: 0, Layers: [{ TextureID: 0, Alpha: 1 }] });
     const ribbon = createNode(m, 'RibbonEmitter'); ribbon.Visibility = 0;
     const light = createNode(m, 'Light'); light.Visibility = 0.3;
   });
@@ -271,10 +274,10 @@ test('rig-aware import maps ancestors, animated texture IDs, pivots and global s
   assert.equal(source.model.Geosets.length, 5);
 });
 
-test('unsupported version 1200 and truncated input remain exact-copy read-only documents', () => {
+test('unsupported version 1700 and truncated input remain exact-copy read-only documents', () => {
   const canonical = Buffer.from(createDemoDocument().serialize('mdx'));
-  canonical.writeUInt32LE(1200, 12);
-  for (const bytes of [canonical, canonical.subarray(0, canonical.length - 7), Buffer.from('Version { FormatVersion 1200, }\nFuture { Keep 1, }')]) {
+  canonical.writeUInt32LE(1700, 12);
+  for (const bytes of [canonical, canonical.subarray(0, canonical.length - 7), Buffer.from('Version { FormatVersion 1700, }\nFuture { Keep 1, }')]) {
     const doc = openDocument(bytes);
     assert.equal(doc.readOnly, true);
     assert.deepEqual(Buffer.from(doc.serialize()), bytes);
@@ -288,12 +291,12 @@ test('format conversion reports opaque-data loss and never silently changes vers
   const impact = doc.saveImpact('mdl');
   assert.equal(impact.conversion, true);
   assert.equal(impact.exact, false);
-  assert.equal(impact.canSave, true);
+  assert.equal(impact.canSave, false);
   assert.ok(impact.warnings.some((w) => /Unknown chunks/.test(w)));
-  assert.deepEqual(impact.preservedUnknown, []);
-  const converted = openDocument(doc.serialize('mdl'));
-  assert.equal(converted.version, doc.version);
-  assert.equal(converted.readOnly, false);
+  assert.ok(impact.warnings.some((w) => /Cannot convert unrecognized source data: XTRA/.test(w)));
+  assert.deepEqual(impact.preservedUnknown, ['XTRA']);
+  assert.throws(() => doc.serialize('mdl'), /cannot be saved in that format/);
+  assert.equal(openDocument(doc.serialize('mdx')).version, doc.version);
   assert.throws(() => doc.apply('Downgrade', ['Version'], (m) => { m.Version = 900; }), /version/);
 });
 
