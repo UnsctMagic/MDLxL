@@ -9,7 +9,6 @@ test/editor-document.test.js › deleteNode blocks weighted/matrix references an
 test/editor-document.test.js › format conversion reports opaque-data loss and never silently changes version
 test/editor-document.test.js › unsupported version 1200 and truncated input remain exact-copy read-only documents
 test/event-render-model.test.js › 1200 ParticleEmitter2 resources retain their version, tracks, texture and original bytes
-test/event-render-model.test.js › supported legacy MDX and MDL event resources continue decoding
 test/herrdave-render.test.js › HD10 typed markers contain real cube/tetra vertices and preserve node pivots
 test/herrdave-render.test.js › Helper roots are ordinary green bones for hierarchy highlighting while refs and events retain distinct polyhedrons
 test/keyframe-timeline.test.js › test/keyframe-timeline.test.js

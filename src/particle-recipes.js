@@ -138,11 +138,11 @@ export function validateParticleRecipe(recipe) {
   return recipe;
 }
 export function particleModelDocument(model) {
-  const doc = openDocument(generateCompatibleMdx({...model,BindPoses:model.BindPoses?.length?model.BindPoses:undefined}), 'Particle-Lab.mdx');
+  const doc = openDocument(generateCompatibleMdx({...model,BindPoses:model.BindPoses?.length?model.BindPoses:undefined}), 'Particle-Lab.mdx', { allowHD: true });
   if (doc.readOnly) throw Error('Unsupported native model version.');
   const state = doc.captureRecoveryState({includeHistory:false});
   state.model = clone(model); state.savedModel = clone(model);
-  return doc.constructor.restoreRecoveryState(state);
+  return doc.constructor.restoreRecoveryState(state, { allowHD: true });
 }
 export function particleRecipeDocument(recipe) { validateParticleRecipe(recipe); return particleModelDocument(recipe.native); }
 export function placeParticleRecipe(target, recipe, options = {}) {

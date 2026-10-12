@@ -65,6 +65,7 @@ import VIEW_MENU from '../src/view-menu.json';
 import { SelectionHistory } from '../src/selection-history.js';
 import { correctNormalsXL } from '../src/normals-xl.js';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
+import { HD_VIEW_ONLY_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
 import './geoset-merge.css';
 import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
@@ -672,7 +673,7 @@ export default function App() {
     }
     setSession(next); restoreSessionView(next);
     if (latest.current.preferencesReady) resolveTextures(next);
-    say(next.doc.readOnly ? 'Read-only model; original data retained.' : `Switched to ${next.doc.name}`);
+    say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Switched to ${next.doc.name}`);
   }
   function install(next, { replace = false } = {}) {
     const history = settings.current; next.doc.configureHistory({ budgetBytes: history.historyBudgetBytes ?? 512 * 1024 * 1024, maxSteps: history.historyMaxSteps ?? 10000 });
@@ -682,7 +683,7 @@ export default function App() {
     const nextSessions = replaceActive ? currentSessions.map(item => item === active ? next : item) : [...currentSessions, next];
     if (!replaceActive) rememberSessionView(active);
     setSessions(nextSessions); setSession(next); restoreSessionView(next);
-    say(next.doc.readOnly ? 'Read-only model; original data retained.' : `Opened ${next.doc.name}`);
+    say(next.doc.hdViewOnly ? HD_VIEW_ONLY_MESSAGE : next.doc.readOnly ? 'Read-only model; original data retained.' : `Opened ${next.doc.name}`);
     // The boot effect resolves once after installing the initial model and settings.
     if (latest.current.preferencesReady) resolveTextures(next);
   }

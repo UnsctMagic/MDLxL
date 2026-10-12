@@ -1,6 +1,7 @@
 import { parseMDL, parseMDX } from 'war3-model';
-import { parseMdx, SUPPORTED_FORMAT_VERSIONS } from '../src/mdx-container.js';
+import { parseMdx } from '../src/mdx-container.js';
 import { validateModel } from '../src/editor-document.js';
+import { hdContentIssues, HD_UNSUPPORTED_MESSAGE } from '../src/model-version.js';
 import { convertMdxGeosetColorTracks } from '../src/geoset-color-codec.js';
 
 // These particle-scene chunks retain their 1100 layout in 1200. In particular,
@@ -9,6 +10,9 @@ import { convertMdxGeosetColorTracks } from '../src/geoset-color-codec.js';
 // https://github.com/FernandoS27/WhiteoutLib/blob/master/src/whiteout/models/mdx/parser.cpp
 const PARTICLE_1200_CHUNKS = new Set(['VERS', 'MODL', 'SEQS', 'GLBS', 'TEXS', 'BONE', 'HELP', 'PIVT', 'PRE2']);
 const unsupported = version => new Error(`format ${version} needs a compatible Warcraft renderer`);
+// Layouts the pinned war3-model renderer decodes. This is a runtime limit, not
+// the editor's SUPPORTED_FORMAT_VERSIONS: newer layouts must not reach it raw.
+const RENDERER_VERSIONS = [800, 900, 1000, 1100];
 
 /** Decode a private event resource without downgrading its version or bytes. */
 export function parseEventRenderModel(input, resourcePath = '') {
@@ -25,12 +29,14 @@ export function parseEventRenderModel(input, resourcePath = '') {
       if (container.chunks.filter(chunk => chunk.tag === 'VERS').length !== 1 || container.chunks.find(chunk => chunk.tag === 'VERS')?.data.length !== 4) {
         throw new Error('Event model has an invalid version chunk.');
       }
-    } else if (!SUPPORTED_FORMAT_VERSIONS.includes(container.version)) throw unsupported(container.version);
+    } else if (!RENDERER_VERSIONS.includes(container.version)) throw unsupported(container.version);
   }
   const model = text ? parseMDL(new TextDecoder().decode(bytes)) : parseMDX(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
   if (!text) model.GeosetAnims = convertMdxGeosetColorTracks(model.GeosetAnims);
   if (model.Version !== 1200) {
-    if (!SUPPORTED_FORMAT_VERSIONS.includes(model.Version)) throw unsupported(model.Version);
+    if (!RENDERER_VERSIONS.includes(model.Version)) throw unsupported(model.Version);
+    // HD models are unsupported, as in the editor; do not attempt to render them.
+    if (hdContentIssues(model).length) throw new Error(HD_UNSUPPORTED_MESSAGE);
     return model;
   }
   // Only MDX offers the complete chunk inventory needed to verify this narrow

@@ -79,7 +79,7 @@ export async function scanParticleLibrary({ folder, directory, maxAssets = Infin
         try{const contentKey=keys[logical.toLowerCase()],data=contentKey?await reader.readKey(contentKey):await reader.read(logical),record=data?{state:'resolved',hash:hash(data),bytes:data.length,physicalPath:logical,contentKey}:{state:'missing',physicalPath:logical};
           if(data&&dependency.kind==='model'){
             if(trail.size>=8)record.referenceError='External model depth exceeds eight; further references are unverified.';
-            else {const external=openDocument(data,logical),next=new Set([...trail,logical]);record.external={version:external.model.Version,readOnly:external.readOnly,emitters:effectNodes(external.model).map(({family,node})=>({family,id:node.ObjectId,name:node.Name})),dependencies:[...external.model.Textures.filter(t=>t.Image).map(t=>({kind:'texture',path:t.Image})),...external.model.ParticleEmitters.filter(n=>n.Path).map(n=>({kind:'model',path:n.Path}))]};
+            else {const external=openDocument(data,logical,{allowHD:true}),next=new Set([...trail,logical]);record.external={version:external.model.Version,readOnly:external.readOnly,emitters:effectNodes(external.model).map(({family,node})=>({family,id:node.ObjectId,name:node.Name})),dependencies:[...external.model.Textures.filter(t=>t.Image).map(t=>({kind:'texture',path:t.Image})),...external.model.ParticleEmitters.filter(n=>n.Path).map(n=>({kind:'model',path:n.Path}))]};
               if(record.external.dependencies.length>256)record.referenceError='External dependency count exceeds 256; further references are unverified.';else for(const child of record.external.dependencies)await resolveDependency(child,logical,next);
             }
           }
@@ -95,7 +95,7 @@ export async function scanParticleLibrary({ folder, directory, maxAssets = Infin
       try {
         const bytes = await reader.readKey(inventory.keys[name.toLowerCase()]);
         if (!bytes?.length) throw Error('CASC model bytes are missing.');
-        const doc = openDocument(bytes,name);
+        const doc = openDocument(bytes,name,{allowHD:true});
         if (doc.readOnly) throw Error('Source is read-only: ' + doc.diagnostics.filter(d=>d.severity==='error').map(d=>d.code).join(', '));
         manifest.parsedAssets++;
         const found = effectNodes(doc.model), source = {installation:folder,buildKey:sourceKey,logicalPath:name.split(':').at(-1),physicalPath:name,contentKey:inventory.keys[name.toLowerCase()],contentHash:hash(bytes)};

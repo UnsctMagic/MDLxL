@@ -13,7 +13,7 @@ const commit = (doc, plan) => doc.apply('Fix and paste', [], model => { Object.a
 const identity = () => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
 const roundTrip = doc => {
   for (const format of ['mdl', 'mdx']) {
-    const reopened = openDocument(doc.serialize(format));
+    const reopened = openDocument(doc.serialize(format), undefined, { allowHD: true });
     assert.equal(reopened.readOnly, false); assert.deepEqual(validateModel(reopened.model).filter(issue => issue.severity === 'error'), []);
   }
 };

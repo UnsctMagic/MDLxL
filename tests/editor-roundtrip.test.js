@@ -22,7 +22,8 @@ const chunks = b => parseMdx(b).chunks.map(c=>({tag:c.tag,data:Buffer.from(b).su
 const payload = (b,tag) => chunks(b).find(c=>c.tag===tag)?.data;
 const alter = (b,tag,fn) => Buffer.concat([Buffer.from('MDLX'),...chunks(b).map(c=>chunk(c.tag,c.tag===tag?fn(Buffer.from(c.data)):c.data))]);
 const fixture = () => Buffer.from(createDemoDocument().serialize('mdx'));
-const load = b => { const d=openDocument(b);assert.equal(d.readOnly,false,JSON.stringify(d.diagnostics));return d; };
+// Engine round trips cover HD content; the app itself opens HD files view-only.
+const load = b => { const d=openDocument(b,undefined,{allowHD:true});assert.equal(d.readOnly,false,JSON.stringify(d.diagnostics));return d; };
 const reopenEdit = (b,key,fn) => {const d=load(b);d.apply('test edit',[key],fn);return {bytes:Buffer.from(d.serialize()),doc:d};};
 const track = (width=1,integer=false) => ({LineType:3,GlobalSeqId:null,Keys:[{Frame:-10,Vector:(integer?Int32Array:Float32Array).from(Array.from({length:width},(_,i)=>integer?i:i+0.125)),InTan:(integer?Int32Array:Float32Array).from(Array.from({length:width},(_,i)=>integer?i:i+0.25)),OutTan:(integer?Int32Array:Float32Array).from(Array.from({length:width},(_,i)=>integer?i:i+0.75))}]});
 

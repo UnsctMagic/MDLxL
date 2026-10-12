@@ -2107,5 +2107,7 @@
   "Smooth normals": "平滑法线",
   "Uncouple": "解除耦合",
   "Nuclear Seperation": "完全分离",
-  "Seperate by Loose parts": "按松散部件分离"
+  "Seperate by Loose parts": "按松散部件分离",
+  "HD models aren't supported yet.": "暂不支持 HD 模型。",
+  "HD models aren't supported yet. This model is open view-only; saving is disabled.": "暂不支持 HD 模型。此模型以仅查看模式打开，保存已禁用。"
 }

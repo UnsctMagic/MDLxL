@@ -12,16 +12,32 @@ export function versionConversionIssues(model, target) {
       for(const key of ['SkinWeights','Tangents']) if(g[key]?.length)issues.push(`Geoset ${index+1} has ${key}.`);
       if(g.LevelOfDetail>0 || g.Name)issues.push(`Geoset ${index+1} has authored level-of-detail data.`);
     }
-    for(const [index,material] of (model.Materials||[]).entries()) {
-      if(material.Shader)issues.push(`Material ${index+1} uses a shader.`);
-      for(const layer of material.Layers||[]) {
-        for(const key of ['NormalTextureID','ORMTextureID','EmissiveTextureID','TeamColorTextureID','ReflectionsTextureID']) if(layer[key]!=null)issues.push(`Material ${index+1} uses ${key}.`);
-        const nondefault=(key,def)=>layer[key]!=null && (typeof layer[key]==='object' || layer[key]!==def);
-        if(nondefault('EmissiveGain',1)||nondefault('FresnelOpacity',0)||nondefault('FresnelTeamColor',0)||layer.ShaderTypeId>0)issues.push(`Material ${index+1} has Reforged lighting properties.`);
-        if(layer.FresnelColor && (layer.FresnelColor.Keys || Array.from(layer.FresnelColor).some(v=>v!==1)))issues.push(`Material ${index+1} has a Fresnel color.`);
-      }
+    issues.push(...hdMaterialIssues(model));
+  }
+  return [...new Set(issues)];
+}
+function hdMaterialIssues(model) {
+  const issues=[];
+  for(const [index,material] of (model.Materials||[]).entries()) {
+    if(material.Shader)issues.push(`Material ${index+1} uses a shader.`);
+    for(const layer of material.Layers||[]) {
+      for(const key of ['NormalTextureID','ORMTextureID','EmissiveTextureID','TeamColorTextureID','ReflectionsTextureID']) if(layer[key]!=null)issues.push(`Material ${index+1} uses ${key}.`);
+      const nondefault=(key,def)=>layer[key]!=null && (typeof layer[key]==='object' || layer[key]!==def);
+      if(nondefault('EmissiveGain',1)||nondefault('FresnelOpacity',0)||nondefault('FresnelTeamColor',0)||layer.ShaderTypeId>0)issues.push(`Material ${index+1} has Reforged lighting properties.`);
+      if(layer.FresnelColor && (layer.FresnelColor.Keys || Array.from(layer.FresnelColor).some(v=>v!==1)))issues.push(`Material ${index+1} has a Fresnel color.`);
     }
   }
+  return issues;
+}
+export const HD_UNSUPPORTED_MESSAGE="HD models aren't supported yet.";
+export const HD_VIEW_ONLY_MESSAGE=`${HD_UNSUPPORTED_MESSAGE} This model is open view-only; saving is disabled.`;
+/** Reforged HD content in any format version: the HD material content that
+ * blocks downgrade (shader, HD texture slots, HD lighting) or weighted skin.
+ * SD 800/1000 models, including MDLxL's own SD output, have none of it.
+ */
+export function hdContentIssues(model) {
+  const issues=hdMaterialIssues(model||{});
+  for(const [index,g] of (model?.Geosets||[]).entries()) if(g.SkinWeights?.length)issues.push(`Geoset ${index+1} has SkinWeights.`);
   return [...new Set(issues)];
 }
 export function normalizeVersionFields(model, target) {
