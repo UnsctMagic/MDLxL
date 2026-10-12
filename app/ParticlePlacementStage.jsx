@@ -4,7 +4,7 @@ const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 export default function ParticlePlacementStage({doc,recipe,placement,onPosition,onEnd,textureAssets,preferences,teamColor,onError}){
  const [snapshot,setSnapshot]=useState(null),[surface,setSurface]=useState(false),[time,setTime]=useState(placement.from||0),[playing,setPlaying]=useState(true),[speed,setSpeed]=useState(.5),drag=useRef(null);
  const graph=useMemo(()=>{
-  try{const model=structuredClone(doc.model),inserted=placeTimedParticleRecipe(model,recipe,placement,{preview:true});
+  try{const model=structuredClone(doc.model),inserted=placeTimedParticleRecipe(model,recipe,placement,{preview:true,convertHD:true});
    return {model,...inserted};
   }catch(error){return {error:error.message};}
  },[doc,doc.revision,recipe,placement.parent,placement.sequence,placement.fit,placement.motion,placement.from,placement.to,placement.sequences]);

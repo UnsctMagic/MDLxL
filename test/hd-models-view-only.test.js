@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createStarterDocument } from '../src/starter-model.js';
 import { createDemoDocument, openDocument, EditorDocument } from '../src/editor-document.js';
-import { hdContentIssues, HD_VIEW_ONLY_MESSAGE } from '../src/model-version.js';
+import { hdContentIssues, hdContentKind, HD_VIEW_ONLY_MESSAGE, HD_CONVERT_NOTICE } from '../src/model-version.js';
+import { captureMeshSelection } from '../src/mesh-clipboard.js';
+import { prepareClipboardPaste } from '../src/clipboard-paste.js';
+import { createStarterRecipe } from '../src/particle-starters.js';
+import { placeParticleRecipe } from '../src/particle-recipes.js';
 
 const MESSAGE = "HD models aren't supported yet. This model is open view-only; saving is disabled.";
 // An SD 1000 starter that gains HD content. Save verification checks decoding
@@ -92,4 +96,93 @@ test('built-in demo, starter and converted models are never HD', () => {
     for (const format of ['mdx', 'mdl']) assert.equal(openDocument(doc.serialize(format), `x.${format}`).readOnly, false);
   }
   for (const name of ['demo.mdx', 'demo.mdl']) assert.equal(openDocument(readFileSync(new URL(`../fixtures/${name}`, import.meta.url)), name).readOnly, false);
+});
+
+// Owner decision: only a shader name or HD lighting values is "borderline" and
+// may be converted to SD; HD textures or skin weights stay view-only.
+test('borderline HD is split from real HD textures and skin weights', () => {
+  const sd = openDocument(createStarterDocument(1000).serialize('mdx'), 'sd.mdx').model;
+  assert.equal(hdContentKind(sd), null);
+  const variant = change => { const copy = structuredClone(sd); change(copy); return hdContentKind(copy); };
+  assert.equal(variant(shader), 'borderline');
+  assert.equal(variant(model => { model.Materials[0].Layers[0].EmissiveGain = 0.5; }), 'borderline');
+  assert.equal(variant(model => { model.Materials[0].Layers[0].ShaderTypeId = 1; }), 'borderline');
+  // Before 1100, a Shader_HD material carries its normal/ORM/emissive maps as extra layers.
+  assert.equal(variant(model => { shader(model); model.Materials[0].Layers.push(structuredClone(model.Materials[0].Layers[0])); }), 'hd');
+  assert.equal(variant(model => { model.Materials[0].Layers[0].NormalTextureID = 0; }), 'hd');
+  assert.equal(variant(skin), 'hd');
+  for (const format of ['mdx', 'mdl']) {
+    assert.equal(openDocument(hdBytes(shader, format), `b.${format}`).hdBorderline, true);
+    const real = openDocument(hdBytes(skin, format), `s.${format}`);
+    assert.equal(real.hdBorderline, false); assert.throws(() => real.convertToSD(), error => error.message === MESSAGE);
+  }
+  assert.equal(openDocument(slotModel(1), 'slot.mdl').hdBorderline, false);
+});
+
+test('borderline view-only keeps the file exact; Convert to SD gives an editable SD model that saves', () => {
+  const lighting = model => { shader(model); Object.assign(model.Materials[0].Layers[0], { EmissiveGain: 0.4, FresnelOpacity: 0.5, FresnelColor: new Float32Array([1, 0, 0]) }); };
+  for (const format of ['mdx', 'mdl']) {
+    const bytes = hdBytes(lighting, format), doc = openDocument(bytes, `b.${format}`), before = structuredClone(doc.model);
+    assertViewOnly(doc);
+    assert.deepEqual(Buffer.from(doc.originalBytes), Buffer.from(bytes));
+    const converted = doc.convertToSD();
+    assert.deepEqual(doc.model, before, 'choosing view-only or converting never changes the open view-only document');
+    assert.equal(converted.readOnly, false); assert.equal(converted.hdViewOnly, false); assert.equal(converted.dirty, true);
+    assert.deepEqual(hdContentIssues(converted.model), []);
+    assert.equal(converted.canUndo, false, 'the conversion is the starting point, not an undoable edit');
+    // The save worker restores a snapshot first; the converted model must stay editable there.
+    const worker = EditorDocument.restoreRecoveryState(converted.captureRecoveryState({ includeHistory: false }));
+    for (const saved of [converted.serialize(format), worker.serialize(format)]) {
+      const reopened = openDocument(saved, `sd.${format}`);
+      assert.equal(reopened.readOnly, false); assert.deepEqual(hdContentIssues(reopened.model), []);
+      assert.deepEqual(reopened.model.Geosets[0].Vertices, before.Geosets[0].Vertices);
+    }
+  }
+});
+
+test('paste and special paste from an HD model give an SD model the SD version of the content', () => {
+  const sourceDoc = openDocument(hdBytes(model => { shader(model); skin(model); }), 'hd.mdx', { allowHD: true });
+  for (const special of [false, true]) {
+    const target = createStarterDocument(1000), clipboard = captureMeshSelection(sourceDoc.model, {}, new Set([0]));
+    const plan = prepareClipboardPaste(target.model, clipboard, { special });
+    assert.ok(plan.repairs.includes(HD_CONVERT_NOTICE), plan.repairs.join('\n'));
+    target.apply('Fix and paste', [], model => { Object.assign(model, plan.model); return plan.result; });
+    assert.deepEqual(hdContentIssues(target.model), []);
+    for (const format of ['mdx', 'mdl']) assert.equal(openDocument(target.serialize(format), `pasted.${format}`).readOnly, false);
+  }
+  // Material-only HD content is converted too.
+  const materialOnly = openDocument(hdBytes(shader), 'shader.mdx', { allowHD: true }), target = createStarterDocument(1000);
+  const plan = prepareClipboardPaste(target.model, captureMeshSelection(materialOnly.model, {}, new Set([0])));
+  assert.ok(plan.repairs.includes(HD_CONVERT_NOTICE)); assert.deepEqual(hdContentIssues(plan.model), []);
+  // SD into SD is unchanged: no HD repair.
+  assert.equal(prepareClipboardPaste(target.model, captureMeshSelection(createStarterDocument(1000).model, {}, new Set([0]))).repairs.includes(HD_CONVERT_NOTICE), false);
+});
+
+test('placing a particle preset with an HD material into an SD model places an SD copy', () => {
+  const recipe = createStarterRecipe('ribbon');
+  recipe.native.Version = 1000; recipe.native.Materials[0].Shader = 'Shader_HD_DefaultUnit'; recipe.native.Materials[0].Layers[0].EmissiveGain = 0.4;
+  const target = createStarterDocument(1000);
+  let result;
+  target.apply('Add effect', ['Nodes', 'Textures', 'Materials', 'TextureAnims', 'GlobalSequences', 'PivotPoints'], model => { result = placeParticleRecipe(model, recipe, { position: [0, 0, 0], convertHD: true }); });
+  assert.equal(result.convertedHD, true); assert.deepEqual(hdContentIssues(target.model), []);
+  assert.equal(target.model.RibbonEmitters.length, 1);
+  for (const format of ['mdx', 'mdl']) assert.equal(openDocument(target.serialize(format), `effect.${format}`).readOnly, false);
+  // Without the option (Particle Lab, inspection), the preset is placed unchanged.
+  const lab = structuredClone(createStarterDocument(1000).model);
+  assert.equal(placeParticleRecipe(lab, recipe, { position: [0, 0, 0] }).convertedHD, false);
+  assert.equal(lab.Materials.at(-1).Shader, 'Shader_HD_DefaultUnit');
+});
+
+// App popups are checked at source level, like the other App.jsx tests: mounting
+// the editor needs WebGL. The popup reuses the app's in-app Dialog.
+test('HD popups reuse the in-app dialog on open and on save, with view-only and Convert to SD choices', () => {
+  const app = readFileSync(new URL('../app/App.jsx', import.meta.url), 'utf8');
+  const inspector = readFileSync(new URL('../app/Inspectors.jsx', import.meta.url), 'utf8');
+  assert.match(app, /\{notice && <Dialog title="HD models"[^\n]*>Open view-only<\/button>[^\n]*>Convert to SD<\/button>[^\n]*>OK<\/button>/);
+  assert.match(app, /function install\([\s\S]*?if \(next\.doc\.hdViewOnly\) setNotice\(next\.doc\.hdBorderline \? \{ message: HD_BORDERLINE_MESSAGE, convert: next \} : \{ message: HD_VIEW_ONLY_MESSAGE \}\);/);
+  assert.doesNotMatch(app.match(/function activateSession\([\s\S]*?\n  \}/)[0], /setNotice/, 'switching tabs does not repeat the popup');
+  assert.match(app, /async function save\([^\n]*\n[^\n]*\n    if \(target\.doc\.hdViewOnly\) \{ say\(HD_VIEW_ONLY_MESSAGE, true\); setNotice\(\{ message: HD_VIEW_ONLY_MESSAGE \}\); return false; \}/);
+  assert.match(app, /saveAs: \(\) => mode==='paint'\?savePaintProject\(\):doc\.hdViewOnly\?save\(true\)/);
+  assert.match(inspector, /onChange=\{v=>setShader\(mat,v\)\}/);
+  assert.match(inspector, /detail:HD_SHADER_MESSAGE/);
 });

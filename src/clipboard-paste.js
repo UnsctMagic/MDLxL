@@ -3,7 +3,8 @@ import { ensureDummyBone } from './dummy-bone.js';
 import { canonicalizeSerializedNodeOrder, serializedNodes } from './node-id-order.js';
 import { pasteNodesToDummy } from './node-clipboard.js';
 import { applyMeshClipboardColors } from './mesh-clipboard.js';
-import { adaptPasteFormat } from './paste-format.js';
+import { adaptPasteFormat, convertHDToSD } from './paste-format.js';
+import { hdContentIssues, HD_CONVERT_NOTICE } from './model-version.js';
 import { forgeTangents } from './geoset-tangents.js';
 
 const validPivot = value => value?.length === 3 && Array.from(value).every(Number.isFinite);
@@ -115,7 +116,7 @@ export function prepareClipboardPaste(model, clipboard, { parent = null, special
   if (source.model.Version !== target.Version) repairs.add(`Adapt the copied objects from MDX${source.model.Version} to MDX${target.Version}${target.Version === 800 ? ' using Classic geometry and diffuse materials' : ''}.`);
   source.model = adaptPasteFormat(source.model, target.Version);
   if (source.kind !== 'nodes' && !special && target.Version >= 900) {
-    const targetHD = target.Geosets.some(geoset => geoset.SkinWeights?.length), sourceHD = source.indices.some(index => source.model.Geosets[index].SkinWeights?.length);
+    const targetHD = target.Geosets.some(geoset => geoset.SkinWeights?.length);
     if (targetHD) for (const index of source.indices) {
       const geoset = source.model.Geosets[index], count = geoset.Vertices.length / 3;
       if (!geoset.SkinWeights?.length) {
@@ -124,16 +125,10 @@ export function prepareClipboardPaste(model, clipboard, { parent = null, special
         repairs.add('Build HD skin weights for the copied geometry.');
       }
       if (!geoset.Tangents?.length) { geoset.Tangents = forgeTangents(geoset); repairs.add('Build tangents for the copied geometry.'); }
-    } else if (sourceHD) {
-      const originalGeosets = source.model.Geosets;
-      source.model = adaptPasteFormat(adaptPasteFormat(source.model, 800), target.Version);
-      source.model.Geosets.forEach((geoset, index) => {
-        if (originalGeosets[index].Name !== undefined) geoset.Name = originalGeosets[index].Name;
-        if (originalGeosets[index].LevelOfDetail !== undefined) geoset.LevelOfDetail = originalGeosets[index].LevelOfDetail;
-      });
-      repairs.add('Adapt the copied HD geometry and materials to the destination’s Classic skinning.');
     }
   }
+  // An SD destination stays SD for every paste kind: HD content is not supported yet.
+  if (!hdContentIssues(target).length && hdContentIssues(source.model).length) { source.model = convertHDToSD(source.model); repairs.add(HD_CONVERT_NOTICE); }
   const orderChanged = serializedNodes(target).some((node, index) => node.ObjectId !== index);
   repairNodeReferences(target, repairs);
   if (orderChanged) repairs.add('Repair node order and update existing mesh bindings.');

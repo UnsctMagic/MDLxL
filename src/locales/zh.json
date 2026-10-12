@@ -2109,5 +2109,12 @@
   "Nuclear Seperation": "完全分离",
   "Seperate by Loose parts": "按松散部件分离",
   "HD models aren't supported yet.": "暂不支持 HD 模型。",
-  "HD models aren't supported yet. This model is open view-only; saving is disabled.": "暂不支持 HD 模型。此模型以仅查看模式打开，保存已禁用。"
+  "HD models aren't supported yet. This model is open view-only; saving is disabled.": "暂不支持 HD 模型。此模型以仅查看模式打开，保存已禁用。",
+  "HD content isn't supported yet, so it will be converted to SD.": "暂不支持 HD 内容，因此将转换为 SD。",
+  "HD content isn't supported yet, so it was converted to SD.": "暂不支持 HD 内容，因此已转换为 SD。",
+  "HD shaders aren't supported yet, so the shader was not applied.": "暂不支持 HD 着色器，因此未应用该着色器。",
+  "This model has HD shader or lighting settings, which aren't supported yet. Open it view-only, or convert it to SD by removing those settings? The file is not changed until you save.": "此模型包含暂不支持的 HD 着色器或光照设置。以仅查看模式打开，还是移除这些设置并转换为 SD？保存之前文件不会改变。",
+  "HD models": "HD 模型",
+  "Open view-only": "以仅查看模式打开",
+  "Convert to SD": "转换为 SD"
 }

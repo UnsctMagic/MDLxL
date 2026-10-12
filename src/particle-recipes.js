@@ -2,6 +2,8 @@ import {validateParticleAssets} from './particle-assets.js';
 import {generateCompatibleMdx} from './mdx-compatibility.js';
 import { createNode, NODE_TYPES, validateModel, openDocument } from './editor-document.js';
 import { stringifyParticleData, safeParticlePath } from './particle-data.js';
+import { hdContentIssues } from './model-version.js';
+import { convertHDToSD } from './paste-format.js';
 
 export const EFFECT_FAMILIES = ['ParticleEmitters2', 'RibbonEmitters', 'ParticleEmitters', 'ParticleEmitterPopcorns'];
 const clone = value => structuredClone(value);
@@ -148,7 +150,9 @@ export function particleRecipeDocument(recipe) { validateParticleRecipe(recipe);
 export function placeParticleRecipe(target, recipe, options = {}) {
   validateParticleRecipe(recipe);
   if (recipe.compatibility?.unsupported?.length) throw Error('This effect has unsupported ingredients; placement is not yet available.');
-  let source=recipe.native;
+  let source=recipe.native,convertedHD=false;
+  // HD content isn't supported yet: an SD model receives an SD copy of the effect.
+  if(options.convertHD&&!hdContentIssues(target).length&&hdContentIssues(source).length){source=convertHDToSD(source);convertedHD=true;}
   if(source.Version!==target.Version){
     // Prove this dependency graph can retain every authored field at the target
     // version before touching the target; never upgrade the model version.
@@ -161,12 +165,12 @@ export function placeParticleRecipe(target, recipe, options = {}) {
   if (position.length !== 3 || position.some(n => !Number.isFinite(n))) throw Error('Invalid effect anchor.');
   // Fitted weapon ribbons already store their edge in the weapon's bind space.
   // Attach to that bone directly, as native Blademaster ribbons do.
-  if(options.directAttachment)return copyEffectGraph(target,source,recipe.ingredients.map(item=>item.objectId),options);
+  if(options.directAttachment)return {...copyEffectGraph(target,source,recipe.ingredients.map(item=>item.objectId),options),convertedHD};
   const wrapper = createNode(target, 'Helper');
   wrapper.Name = recipe.name; wrapper.Parent = options.parent ?? null;
   if (position.some(n => n !== 0)) wrapper.Translation = { LineType: 0, GlobalSeqId: null, Keys: [{ Frame: options.targetInterval?.[0] || 0, Vector: new Float32Array(position) }] };
   const result = copyEffectGraph(target, source, recipe.ingredients.map(item => item.objectId), { ...options, parent: wrapper.ObjectId });
   if(options.motion==='target')for(const [originalId,newId]of result.maps.nodes)if(!recipe.ingredients.some(item=>item.objectId===originalId)){const node=target.Nodes[newId];delete node.Translation;delete node.Rotation;delete node.Scaling;}
   
-  return { ...result, anchorId: wrapper.ObjectId };
+  return { ...result, anchorId: wrapper.ObjectId, convertedHD };
 }
