@@ -25,7 +25,7 @@ Validation on the isolated 0.22.1 package at
   Scale and Highlight KF; Undo/Redo restored exact state. Cross-animation paste
   and actual Alt+mouse camera rotation passed. Sidebar width stayed unchanged;
   Setup remained closed. Evidence: `out/pose-copy-ui/result.json` and PNG.
-- Focused pose/classic timeline/ragdoll/performance/complex/corpus suites:
+- Focused pose/classic timeline/connected-rig/performance/complex/corpus suites:
   64 passed, eight skipped because optional local model fixtures were absent.
 - Existing keyframe clipboard/retiming/collision/global-clock cases: six passed.
 - Standard compatibility suite: 57 passed. Vite build and portable packaging
@@ -195,13 +195,10 @@ The full solver/source suites were not repeated for this color-only change.
 
 ## Automatic ancestor posing (2026-10-09)
 
-The user requested the body/limb freedom shown in the WhiteoutFlakes Auto IK
-video and the Hive tutorials [Happy Animating with IK](https://www.hiveworkshop.com/threads/happy-animating-with-ik.256580/)
-and [In-depth Animation Tutorial](https://www.hiveworkshop.com/threads/in-depth-animation-tutorial-3ds-max.123520/).
-The relevant workflow is body/root motion with independent hand/foot goals,
-orientation preservation, knee/elbow steering, and native keyed poses. Tutorial
-instructions about rebuilding skins, removing imported animations or replacing
-controllers belong to that 3ds Max/NeoDex workflow and are not applied to MDLxL.
+The user requested more body/limb freedom while posing: body/root motion with
+independent hand/foot goals, orientation preservation, knee/elbow steering, and
+native keyed poses. Skins, imported animations and controllers are left as they
+are; POSE does not rebuild or replace them.
 
 - POSE enables automatic Move/Rotate compensation for complete limbs below the
   selected ancestor. Direct edits to a limb's own joints remain ordinary FK.
@@ -339,7 +336,7 @@ No bone dropdowns remain in Setup. Existing sidebar dimensions and closed sectio
 are unchanged. Labels appear only on selection/hover, avoid neighboring symbols,
 and clear when leaving the viewport, including with bone markers hidden.
 
-Source validation: `out/pose-ragdoll-final-source.log`, **50/50 passed**. This
+Source validation: `out/pose-connected-rig-final-source.log`, **50/50 passed**. This
 includes all nine unmodified local `WH_WOC_Knight*.mdx` reference copies (Khorne,
 Nurgle, Slaanesh, Tzeentch and Undivided variants), all eight controls per model,
 connected parent-child distances, both heads, native writer scope, three frames,
@@ -356,16 +353,16 @@ authored animation/skin/BPOS`. Compatibility: **57/57 passed**.
 
 Packaged mouse/keyboard evidence:
 
-- `out/pose-ragdoll-acceptance-full-ui/result.json`: **26 checks**,
+- `out/pose-connected-rig-acceptance-full-ui/result.json`: **26 checks**,
   zero page errors. Pins, cancellation, no-op gestures, restrictions, ordinary FK,
   controls/display, camera rotation/zoom, MDL/MDX save/reopen, and a three-pose jump
   with native playback. This preceded only the final hover-label rendering polish.
-- `out/pose-ragdoll-ready-footman-ui/result.json`: **4 workflow checks,
+- `out/pose-connected-rig-ready-footman-ui/result.json`: **4 workflow checks,
   5 drags**, zero page errors, on the final build. Textured view,
   symbol plus actual viewport bone selection, invalid root selection, explicit
   custom joint picking, XY pelvis movement matching the supplied GIF, connected
   jump/return, head/chest posing, camera rotation and native MDX save/reopen.
-- `out/pose-ragdoll-ready-knight-ui/result.json`: **3 workflow checks,
+- `out/pose-connected-rig-ready-knight-ui/result.json`: **3 workflow checks,
   15 drags**, zero page errors, on the final build. Textured
   Undivided Chaos Knight with connected pelvis, horse/rider jump and return, all
   eight limb drags, both heads and chests, camera rotation and MDX save/reopen.
@@ -383,7 +380,7 @@ through Playwright. Read-only probes inspect native state; posing and mapping
 use actual UI input. This is not a claim of independent human enjoyment or
 Warcraft in-game playback; those remain for user acceptance.
 
-Final package: `out/pose-ragdoll-ready/MDLxL-win32-x64/MDLxL.exe`.
+Final package: `out/pose-connected-rig-ready/MDLxL-win32-x64/MDLxL.exe`.
 Packaging verified 551 runtime/assets and 55 locales; all 462 packaged
 source/bundle files match the source byte-for-byte, with no mismatches.
 Index hash: `0903a395ef451b7c00a4db825d8296ec1517f2415c1bc8f1cbb3ef62acdc817e`.
@@ -998,9 +995,8 @@ Candidate: D:/MDLxL-Tests/pose-gizmo-capped-neon/MDLxL-win32-x64/MDLxL.exe.
 
 ## SD elbow/knee swivel and compact Movement - 2026-10-11
 
-Reference: BlinkBoy's [Happy Animating with IK](https://www.hiveworkshop.com/threads/happy-animating-with-ik.256580/)
-uses separate limb endpoint and knee/elbow controls with retained endpoint
-orientation. POSE now offers that swivel through the existing Rotate tool:
+POSE uses separate limb endpoint and knee/elbow controls with retained endpoint
+orientation. It now offers the knee/elbow swivel through the existing Rotate tool:
 select a limb's Elbow/Knee, then drag horizontally. Move still aims the bend.
 Custom chains retain the generic Bend label. The selected limb's bend control
 is larger and labeled; no new permanent panel or toolbar is added.
@@ -1070,8 +1066,8 @@ movement even with keyboard focus, and hides during a drag or offscreen.
 Click, Space and Enter toggle the same session constraint. Clicking during
 playback pauses at the current integer frame without adding native keys.
 
-The interaction follows BlinkBoy's separate endpoint/bend-control workflow,
-with the native rig retained throughout. Autodesk's
+The interaction keeps separate endpoint and bend controls, with the native rig
+retained throughout. Autodesk's
 [Biped planted/sliding/free key documentation](https://help.autodesk.com/cloudhelp/2025/ENU/3DSMax-Character-Animation/files/GUID-24693B38-20BD-435D-9816-BE5BDA528506.htm)
 also distinguishes endpoint constraints from free posing. POSE's pins are
 session editing constraints, not contact keys spanning an animation.

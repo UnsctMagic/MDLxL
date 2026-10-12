@@ -28,7 +28,7 @@ test('Footman pelvis carries its sibling chest through the shared body, while na
  assert.deepEqual(doc.model,original);
  const scaled=structuredClone(original);allNodes(scaled).find(n=>n.ObjectId===25).Scaling={LineType:1,GlobalSeqId:null,Keys:[{Frame:167,Vector:[1.01,1,1]}]};assert.throws(()=>move(scaled,config,{kind:'node',id:39},[2,0,0],167,0),/uniform scale/);
 });
-const knightDirectory=process.env.MDLXL_POSE_KNIGHTS || 'out/pose-ragdoll-knights';
+const knightDirectory=process.env.MDLXL_POSE_KNIGHTS || 'out/pose-connected-rig-knights';
 const knights=fs.existsSync(knightDirectory)?fs.readdirSync(knightDirectory).filter(name=>/^WH_WOC_Knight.*\.mdx$/.test(name)):[];
 for(const file of knights)test(`${file}: native horse and rider stay connected, every mapped limb is usable, save is lossless`,()=>{
  const filename=path.join(knightDirectory,file),bytes=fs.readFileSync(filename),hash=digest(bytes),doc=openDocument(bytes),original=structuredClone(doc.model),config={...suggestPoseRig(doc.model,1667,1),pins:[]};

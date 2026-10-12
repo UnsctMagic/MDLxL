@@ -14,8 +14,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { projectedPlaneTranslation } = await import('../app/viewport-math.js');
   const { pointerSensitivityValue } = await import('../app/viewport-performance.js');
   const { movementAxisHandles, movementDragAmount } = await import('../app/movement-overlay.js');
-  const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-ragdoll-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose/Footman.mdx');
-  const executablePath = path.resolve(process.env.MDLXL_POSE_EXE || 'out/pose-ragdoll-package/MDLxL-win32-x64/MDLxL.exe');
+  const root = process.cwd(), out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-connected-rig-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose/Footman.mdx');
+  const executablePath = path.resolve(process.env.MDLXL_POSE_EXE || 'out/pose-connected-rig-package/MDLxL-win32-x64/MDLxL.exe');
   fs.mkdirSync(out, { recursive: true });
   fs.cpSync(path.join(path.dirname(fixture), 'Textures'), path.join(out, 'Textures'), { recursive: true });
   const fixtureHash = hash(fixture), errors = [], results = { fixture, fixtureHash, executablePath, executableHash: hash(executablePath), checks: [], measurements: [] };
@@ -162,7 +162,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const cameraBefore=await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON()),box=await viewportBox();
     await page.mouse.move(box.x+box.width*.25,box.y+box.height*.3);await page.mouse.down({button:'right'});await page.mouse.move(box.x+box.width*.25+55,box.y+box.height*.3+20,{steps:8});await page.mouse.up({button:'right'});await settle();const cameraAfter=await page.evaluate(()=>poseProbe().runtime.controls.object.toJSON());assert.notDeepEqual(cameraAfter,cameraBefore,'normal right-mouse camera rotation');await shot('07-rotated');
     assert.equal(await page.locator('.classic-sidebar').evaluate(e=>e.getBoundingClientRect().width),sidebar);
-    const edited=(await snap()).model,dest=path.join(out,'ragdoll-posed.mdx');await app.evaluate(({dialog},dest)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:dest});},dest);await menu('saveAs');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});assertModelEquivalent(edited,openDocument(fs.readFileSync(dest)).model);
+    const edited=(await snap()).model,dest=path.join(out,'connected-posed.mdx');await app.evaluate(({dialog},dest)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:dest});},dest);await menu('saveAs');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});assertModelEquivalent(edited,openDocument(fs.readFileSync(dest)).model);
     await page.locator('.model-tab.active .model-tab-close').click();await settle();await app.evaluate(({dialog},dest)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[dest]});},dest);await menu('open');await settle();await menu('animation');await page.getByLabel('Movement current sequence').selectOption(String(sequence));await time.fill(String(frame));await time.press('Enter');await settle();assertModelEquivalent(edited,(await snap()).model);await shot('08-reopened');results.checks.push('Normal camera rotation, unchanged sidebar width, native MDX save and reopen, source model unchanged');
     assert.equal(hash(fixture),fixtureHash);assert.deepEqual(errors,[]);results.errors=errors;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));
   } catch(error){await (await app.firstWindow()).screenshot({path:path.join(out,'failure.png')});throw error;} finally{await app.evaluate(({app})=>app.exit(0));}

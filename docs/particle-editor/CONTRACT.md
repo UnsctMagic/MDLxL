@@ -42,15 +42,15 @@ These are original author explanations, developer changelogs, and individual com
 
 **Visible geometry can control emitter settings.** Fingolfin's Blender exporter uses a plane's dimensions to author an emission region. This is a useful precedent for interactive proxies, not evidence that emitted sprites are persistent editable mesh vertices. Consequence: map visible handles to native properties. [R2]
 
-**A continuous weapon trail is not just a stretched sprite.** BlinkBoy explains ribbons as connected emitted edges associated with a material. Consequence: retain the distinction between PE2 streaks and ribbons, and inspect trails with their source motion. His illustrative pseudocode is not production code. [R3]
+**A continuous weapon trail is not just a stretched sprite.** Ribbons are connected emitted edges associated with a material. Consequence: retain the distinction between PE2 streaks and ribbons, and inspect trails with their source motion.
 
-**Round-trip mistakes can destroy an otherwise convincing preview.** NeoDex's developer changelog describes fixes involving imported visibility controls, flags, rotation, tail UV fields, and ribbon material settings. Those are examples from another tool, not alleged MDLxL bugs. Consequence: switching UI modes and opening imported effects must never silently replace data with defaults. [R4]
+**Round-trip mistakes can destroy an otherwise convincing preview.** NeoDex's developer changelog describes fixes involving imported visibility controls, flags, rotation, tail UV fields, and ribbon material settings. Those are examples from another tool, not alleged MDLxL bugs. Consequence: switching UI modes and opening imported effects must never silently replace data with defaults. [R3]
 
-**Reuse is a real workflow.** A Magos support discussion recommends starting from an existing in-game emitter. Consequence: source presets must contain authored behavior and dependencies, not merely a thumbnail of a texture. [R5]
+**Reuse is a real workflow.** A Magos support discussion recommends starting from an existing in-game emitter. Consequence: source presets must contain authored behavior and dependencies, not merely a thumbnail of a texture. [R4]
 
-**Successful refinement can mean removing effects.** The Frost Arrows changelog records reduced particle counts, corrected birth animations, and adjusted ribbon placement. A Pandaren Battleship review identifies an emitter remaining active during decay. Consequence: inspect sequence boundaries, compare multiple instances, and provide easy timing and amount controls—not a one-click “more spectacular” algorithm. [R6–R7]
+**Successful refinement can mean removing effects.** The Frost Arrows changelog records reduced particle counts, corrected birth animations, and adjusted ribbon placement. A Pandaren Battleship review identifies an emitter remaining active during decay. Consequence: inspect sequence boundaries, compare multiple instances, and provide easy timing and amount controls—not a one-click “more spectacular” algorithm. [R5–R6]
 
-**Modern precedents support a playground.** Unity documents resimulation of existing particles while authoring. Boris FX documents emitter and multi-emitter preset organization. W3C's supplemental cognitive-accessibility guidance favors familiar words over unexplained jargon. Borrow those interaction principles, not unsupported Unity/Niagara/Particle Illusion engine features. [R8–R10]
+**Modern precedents support a playground.** Unity documents resimulation of existing particles while authoring. Boris FX documents emitter and multi-emitter preset organization. W3C's supplemental cognitive-accessibility guidance favors familiar words over unexplained jargon. Borrow those interaction principles, not unsupported Unity/Niagara/Particle Illusion engine features. [R7–R9]
 
 ## 4. One workspace, two contexts, two modes
 
@@ -100,7 +100,7 @@ Keep a small top-level set of actions: Library, New, mode selection, context sel
 
 No explanatory paragraphs, raw ObjectIds, texture paths, interpolation names, key-count tables, or repetitive “changes apply immediately” text in the normal Clueless view. Use a brief message only when there is something actionable, such as a missing texture or unsupported ingredient.
 
-Do not replace a text wall with an icon puzzle. Use familiar icons with short labels where needed, accessible names, visible focus, tooltips on demand, and keyboard equivalents. No required action may depend exclusively on hover, color discrimination, or double-clicking a small moving target. These are design requirements; do not make medical claims about ADHD. [R10]
+Do not replace a text wall with an icon puzzle. Use familiar icons with short labels where needed, accessible names, visible focus, tooltips on demand, and keyboard equivalents. No required action may depend exclusively on hover, color discrimination, or double-clicking a small moving target. These are design requirements; do not make medical claims about ADHD. [R9]
 
 Use the existing application theme and focus conventions. Modern means clear hierarchy, responsive interaction, and sufficient working space—not gratuitous glow, animation, or a second visual identity.
 
@@ -235,7 +235,7 @@ At a self-crossing path, use the current time neighborhood or a small time choos
 
 For PE2, expose emission window, particle size, lasting time, spread, and streak length. For ribbons, expose the two strip-edge offsets, lasting time, emission timing, and material appearance through the native representation. Preserve the current parent and animation unless the user explicitly edits them.
 
-A ribbon's strip follows its emitted history. A frozen source can therefore be a poor test of a moving trail; offer source motion or an explicitly preview-only demonstration sweep in Lab. Do not export that demonstration path unintentionally. [R3]
+A ribbon's strip follows its emitted history. A frozen source can therefore be a poor test of a moving trail; offer source motion or an explicitly preview-only demonstration sweep in Lab. Do not export that demonstration path unintentionally.
 
 ### 9.5 Reproducible scrubbing
 
@@ -257,7 +257,7 @@ Keep the GL context, camera, texture cache, selection, and playback position sta
 
 Implement one parameter/transaction adapter shared by Classic fields, Clueless sliders, direct handles, and animation tools. Keep shared `Fields.jsx` behavior intact for unrelated editors unless a separate audited change is necessary. Suggested new module names are implementation choices, not evidence those modules already exist.
 
-Separate **natural playback** from **authoring resimulation**. In natural playback, use the renderer's native behavior for particles already alive. During authoring, a deterministic reconstruction can show the current recipe immediately. Unity provides a precedent for this distinction. [R8]
+Separate **natural playback** from **authoring resimulation**. In natural playback, use the renderer's native behavior for particles already alive. During authoring, a deterministic reconstruction can show the current recipe immediately. Unity provides a precedent for this distinction. [R7]
 
 Do not clear and restart the selected emitter on every slider event. That produces flicker, disappearing tails, and effects that never get old enough to inspect. Coalesce reconstruction work, cancel stale jobs, and retain the last valid frame while expensive work completes. A renderer that continually displays stale settings without indicating an update is also unacceptable.
 
@@ -403,7 +403,7 @@ Provide a small set of original example recipes, with visible before/after compa
 
 **Weapon sweep:** compare PE2 streaks and a ribbon using the same motion so the user chooses deliberately. Offer slow looping and ghost positions, not a paragraph telling them what the trail should look like.
 
-These examples are justified as teaching/authoring tasks by the observed demand for examples and by real effect revisions involving count, timing, and ribbon placement; the specific visual recipes here are design proposals. [R1, R6]
+These examples are justified as teaching/authoring tasks by the observed demand for examples and by real effect revisions involving count, timing, and ribbon placement; the specific visual recipes here are design proposals. [R1, R5]
 
 An optional Compare action must use the same seed, camera, clip, time, and global phase for before/after. A random reroll is not a fair comparison of a small edit.
 
@@ -411,7 +411,7 @@ Provide a compact test view for light/dark backgrounds, game-like viewing distan
 
 Expose cost details only when requested or when an actual preview budget is reached. Keep optimization explicit. Never lower particle count, shorten lifespan, change opacity, or remove ingredients without the user's action.
 
-Require tests of birth, idle, attack/spell, death, and decay where those sequences exist. This is not speculative polish: source-effect changelogs and reviews contain concrete timing and lifecycle corrections. [R6–R7]
+Require tests of birth, idle, attack/spell, death, and decay where those sequences exist. This is not speculative polish: source-effect changelogs and reviews contain concrete timing and lifecycle corrections. [R5–R6]
 
 ## 14. Acceptance contract
 
@@ -541,34 +541,30 @@ This source register is retained from draft 1, whose research was dated 30 Septe
 
 `https://www.hiveworkshop.com/threads/mdl-exporter-for-blender3d.308138/`
 
-**R3 — BlinkBoy, Ribbon Emitters from a mesh perspective.** 20 August 2013. Connected-edge explanation and material-based ribbon structure; illustrative code explicitly not production-tested.
-
-`https://www.hiveworkshop.com/threads/ribbon-emitters-from-a-mesh-perspective.239816/`
-
-**R4 — NeoDex 4.7 Reforged Edition.** Developer-maintained changelog. Concrete import/export UI and particle-field repairs; cited as regression-test precedent, not evidence of those same faults in MDLxL.
+**R3 — NeoDex 4.7 Reforged Edition.** Developer-maintained changelog. Concrete import/export UI and particle-field repairs; cited as regression-test precedent, not evidence of those same faults in MDLxL.
 
 `https://www.hiveworkshop.com/threads/neodex-4-7-reforged-edition.354942/`
 
-**R5 — Lot's o Question about magos (Mostly Effects).** December 2015 support discussion; includes a recommendation to begin from in-game emitters.
+**R4 — Lot's o Question about magos (Mostly Effects).** December 2015 support discussion; includes a recommendation to begin from in-game emitters.
 
 `https://www.hiveworkshop.com/threads/lots-o-question-about-magos-mostly-effects.273797/`
 
-**R6 — Vinz, Frost Arrows.** Author's 2018–2019 changelog, including particle-count reductions, birth fixes, and ribbon placement changes. Supports iteration and lifecycle testing, not a universal numerical budget.
+**R5 — Vinz, Frost Arrows.** Author's 2018–2019 changelog, including particle-count reductions, birth fixes, and ribbon placement changes. Supports iteration and lifecycle testing, not a universal numerical budget.
 
 `https://www.hiveworkshop.com/threads/frost-arrows.309707/`
 
-**R7 — Pandaren Battleship.** Resource review discussion includes an emitter continuing through decay; a concrete lifecycle-check example.
+**R6 — Pandaren Battleship.** Resource review discussion includes an emitter continuing through decay; a concrete lifecycle-check example.
 
 `https://www.hiveworkshop.com/threads/pandaren-battleship.303571/`
 
-**R8 — Unity 6 Particle System reference.** Official authoring guidance including resimulation of existing particles when settings change. Used as a UX precedent, not as a WC3 feature list.
+**R7 — Unity 6 Particle System reference.** Official authoring guidance including resimulation of existing particles when settings change. Used as a UX precedent, not as a WC3 feature list.
 
 `https://docs.unity3d.com/6000.0/Documentation/Manual/class-ParticleSystem.html`
 
-**R9 — Boris FX, BCC Particle Illusion manual.** Official library/preset and multi-emitter workflow documentation. Used as an organizational precedent only; its simulation modules are outside this contract.
+**R8 — Boris FX, BCC Particle Illusion manual.** Official library/preset and multi-emitter workflow documentation. Used as an organizational precedent only; its simulation modules are outside this contract.
 
 `https://borisfx.com/documentation/continuum/bcc-particle-illusion/`
 
-**R10 — W3C WAI, Use Clear Words.** Supplemental cognitive-accessibility design guidance. Supports familiar labels and avoiding unnecessary jargon; not a claim that this draft establishes WCAG conformance or treats ADHD.
+**R9 — W3C WAI, Use Clear Words.** Supplemental cognitive-accessibility design guidance. Supports familiar labels and avoiding unnecessary jargon; not a claim that this draft establishes WCAG conformance or treats ADHD.
 
 `https://www.w3.org/WAI/WCAG2/supplemental/patterns/o3p01-clear-words/`

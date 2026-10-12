@@ -170,13 +170,10 @@ baking, automatic animation generation and rig repair are outside its scope.
 
 See [verification evidence](POSE_IK_VERIFICATION.md).
 
-The limb controls follow the practical workflow in BlinkBoy's
-[Happy Animating with IK](https://www.hiveworkshop.com/threads/happy-animating-with-ik.256580/):
-separate endpoint and knee/elbow manipulators, retained endpoint orientation,
-and animation saved as ordinary Warcraft bone keys. His
-[In-depth Animation Tutorial](https://www.hiveworkshop.com/threads/in-depth-animation-tutorial-3ds-max.123520/)
-also emphasizes shaping and refining readable poses. POSE applies those ideas
-to the model's existing SD rig; enabling it requires no re-rigging or animation removal.
+The limb controls use separate endpoint and knee/elbow manipulators, retain
+endpoint orientation, and save animation as ordinary Warcraft bone keys. POSE
+works on the model's existing SD rig; enabling it requires no re-rigging or
+animation removal.
 
 ## Complex SD rigs
 
