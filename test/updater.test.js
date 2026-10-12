@@ -9,6 +9,9 @@ import { promisify } from 'node:util';
 import { normalizePreferences } from '../src/preferences.js';
 const { Updater, newerVersion, releaseMetadata, summaryLines, externalURL, validateManifest, installPlan, digest, MANIFEST, extractArchive } = createRequire(import.meta.url)('../electron/updater.cjs');
 const run = promisify(execFile);
+// The updater rejects non-canonical paths, and the GitHub Windows runner's TEMP is an
+// 8.3 short path (C:\Users\RUNNER~1\...). Run fixtures and update staging under the real path.
+process.env.TEMP = process.env.TMP = await fs.realpath(os.tmpdir());
 const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe');
 const metadata = (version = '0.19.0') => ({ tag_name: `v${version}`, name: 'MDLxL', html_url: `https://github.com/UnsctMagic/MDLxL/releases/tag/v${version}`, body: '[English](https://github.com/UnsctMagic/MDLxL/blob/v0.19.0/docs/RELEASE-0.19.0.md)\n[Русский](https://github.com/UnsctMagic/MDLxL/blob/v0.19.0/docs/RELEASE-0.19.0-RU.md)\n[简体中文](https://github.com/UnsctMagic/MDLxL/blob/v0.19.0/docs/RELEASE-0.19.0-ZH-CN.md)', assets: [{ name: `MDLxL-${version}-win32-x64.zip`, browser_download_url: `https://github.com/UnsctMagic/MDLxL/releases/download/v${version}/MDLxL-${version}-win32-x64.zip` }] });
 async function fixture(t) {

@@ -30,11 +30,12 @@ jobs:
       - name: Full test suite
         # Fails only on tests outside .github/known-test-failures.txt, so the
         # pre-existing failures do not hide or block new regressions. A per-test
-        # timeout turns a hanging test into a named failure.
+        # timeout turns a hanging test into a named failure. It is 5 minutes
+        # because the large preview-ffmpeg GIF test takes up to ~110 s on CI.
         timeout-minutes: 30
         shell: bash
         run: |
-          node --test --test-timeout=120000 \
+          node --test --test-timeout=300000 \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=./.github/test-annotations.mjs --test-reporter-destination=test-failures.txt \
             "test/*.test.js" || true
