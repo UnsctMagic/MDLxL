@@ -24,4 +24,7 @@ jobs:
           # Tests do not launch Electron, so skip its large runtime download.
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: pnpm run build
-      - run: pnpm test
+      - name: Compatibility tests
+        run: pnpm test
+      - name: Full test suite
+        run: pnpm run test:source
