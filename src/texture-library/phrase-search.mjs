@@ -441,5 +441,3 @@ export function searchDetailed(items,options={}){
 }
 export function search(items,options={}){return searchDetailed(items,{...options,includeClose:options.includeClose??false}).items;}
 export function meanings(query,knownWords){return parseQuery(query,knownWords).map(p=>p.op?'OR':(p.exclude?'Without ':'')+(p.label||p.word));}
-export const SEARCH_EXAMPLES=['ugly face','disgusting nasty stuff','skeleton','eldritch horror','rusted looking, old metal','torn fabric','feldwood rotten wood','red or blue cloth without icons','human units with plate armour','512x512 metal'];
-export const SEARCH_VOCABULARY = {phrases:lexicon.size,concepts:definitions.size};

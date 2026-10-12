@@ -213,11 +213,3 @@ export function inferUltraConcepts(item) {
  }
  return [...output.values()];
 }
-
-export const ULTRA_RULES_VERSION = 1;
-export const ULTRA_RULES_STATS = {
- directDescriptionRules: DIRECT_NOTE_RULES.length,
- relatedDescriptionRules: RELATED_NOTE_RULES.length,
- relatedSubjectRules: RELATED_SUBJECT_RULES.length,
- tagRules: TAG_CONCEPT_RULES.length,
-};

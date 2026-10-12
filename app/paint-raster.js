@@ -37,8 +37,3 @@ export function paintRasterCanvas(raster, existing = null, bounds = null) {
   const canvas = existing || document.createElement('canvas'); if (canvas.width !== raster.width) canvas.width = raster.width; if (canvas.height !== raster.height) canvas.height = raster.height;
   const context = canvas.getContext('2d'),image=new ImageData(raster.data,raster.width,raster.height);if(bounds)context.putImageData(image,0,0,bounds.x,bounds.y,bounds.width,bounds.height);else context.putImageData(image,0,0);return canvas;
 }
-
-export async function fetchPaintRaster(url, resolution) {
-  const response = await fetch(url); if (!response.ok) throw Error(`Could not load paint material: ${response.status}.`);
-  const raster = await decodePaintImage(new Uint8Array(await response.arrayBuffer()), url); return raster.width === resolution && raster.height === resolution ? raster : resizePaintRaster(raster, resolution, resolution);
-}

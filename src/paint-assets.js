@@ -34,7 +34,6 @@ export const PAINT_ASSETS=Object.freeze(rows.map(([id,name,category,key,crop,app
     provenance:{kind:'warcraft-native',author:'Blizzard Entertainment',sourcePath:'war3.w3mod:'+path,sourceSha256:sha256,crop:{x:crop[0],y:crop[1],width:crop[2],height:crop[3]},alpha:'Source material alpha ignored for brush imagery; destination alpha is preserved independently.',reviewed:'2026-10-02'}});
 }));
 export const PAINT_ASSET_MANIFEST=Object.freeze({schema:PAINT_ASSET_SCHEMA,version:PAINT_ASSET_VERSION,style:'Native Warcraft III sections',logicalAssetCount:PAINT_ASSETS.length,assets:PAINT_ASSETS,pixels:'Resolved locally from configured Warcraft III data; not bundled.'});
-export function paintAssetById(id){return PAINT_ASSETS.find(asset=>asset.id===id)||null;}
 export function selectedPaintMaterialRaster(brush,selectedAssetId,raster){return brush?.materialId&&brush.materialId===selectedAssetId?raster:null;}
 
 export function cropNativePaintAsset(asset,raster){

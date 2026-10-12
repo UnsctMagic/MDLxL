@@ -56,9 +56,6 @@ export function modelDifferenceReport(expected,actual,{keys=Object.keys(expected
   for(const key of keys)walk(expected[key],actual[key],key,key);
   return { total, differences };
 }
-export function modelDifferences(expected,actual,options) {
-  return modelDifferenceReport(expected,actual,options).differences;
-}
 export function formatSaveIssues(label, issues, limit = 12) {
   return `${label} (${issues.length} issue${issues.length===1?'':'s'}): ${issues.slice(0,limit).join(' ')}${issues.length>limit?` ${issues.length-limit} more.`:''}`;
 }

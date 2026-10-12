@@ -115,11 +115,6 @@ export function timelineSample(model, target, time, domain) {
   if (isTrack(source) && domain.kind === 'global') source = { ...source, GlobalSeqId: null };
   return vector(sampleTrack(source, time, { interval: [domain.start, domain.end], fallback: defaults(target.property), quaternion: target.property === 'Rotation' }));
 }
-export function timelineTrackState(model, target, time, domain) {
-  const track = timelineReadTrack(model, target);
-  if (track?.Keys?.some(key => key.Frame === time)) return 'Key exists';
-  return track?.Keys?.some(key => key.Frame >= domain.start && key.Frame <= domain.end) ? 'Interpolated' : 'Static/default';
-}
 function editableTrack(model, target, domain, template) {
   const source = visibleSource(model, target);
   if (isTrack(source)) return clone(source);

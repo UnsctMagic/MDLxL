@@ -2,7 +2,6 @@ export const UV_SIDE_DEFAULT = 40;
 export const UV_SIDE_MIN = 18;
 export const UV_SIDE_MAX = 75;
 export const UV_PREVIEW_DEFAULT = 62;
-export const UV_SELECT_PREVIEW_DEFAULT = 78;
 export const UV_PREVIEW_MIN = 28;
 export const UV_PREVIEW_MAX = 88;
 

@@ -57,7 +57,6 @@ export const BRUSH_PRESETS = Object.freeze([
 export function isPaintResolution(value) { return PAINT_RESOLUTIONS.includes(Number(value)); }
 export function isPaintRaster(raster) { return Number.isInteger(raster?.width)&&Number.isInteger(raster?.height)&&raster.width>0&&raster.height>0&&raster.width<=4096&&raster.height<=4096&&raster.data?.length===raster.width*raster.height*4; }
 export function brushPreset(id) { return BRUSH_PRESETS.find(item => item.id === id) || BRUSH_PRESETS[0]; }
-export function coatDefinition(id) { return PAINT_COATS.find(item => item.id === id) || PAINT_COATS[0]; }
 
 export function normalizeBrushSettings(value = {}) {
   const preset = brushPreset(value.id);
