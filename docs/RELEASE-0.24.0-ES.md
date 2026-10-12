@@ -16,7 +16,13 @@
 
 - Las actualizaciones desde la aplicación ya se instalan en cuentas de Windows cuya carpeta temporal usa una ruta corta con «~1», habitual con nombres de usuario largos o con caracteres no latinos.
 - Los nombres de los atajos de Forge, el interruptor de visualización Eventos y los nuevos avisos HD están traducidos al ruso, español y chino.
-- Mejoras internas: más pruebas, archivos de código más pequeños y comprobaciones más rápidas. El comportamiento de MDLxL no cambia.
+
+## Mejoras internas
+
+- El código principal del editor se dividió en archivos más pequeños y específicos, y se eliminaron el código sin uso y las funciones auxiliares duplicadas.
+- Las traducciones ahora están en un archivo por idioma y todas las existentes se conservan sin cambios.
+- Unas 1600 pruebas automáticas revisan ahora cada cambio, y las comparaciones de antes y después confirmaron que los modelos se abren, se guardan y se ven igual que en 0.23.0.
+- El comportamiento de MDLxL no cambia.
 
 ## Actualización
 

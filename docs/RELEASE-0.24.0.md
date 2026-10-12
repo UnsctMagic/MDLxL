@@ -16,7 +16,13 @@
 
 - In-app updates now install on Windows accounts whose temporary folder uses a short "~1" path, common with long or non-ASCII user names.
 - Forge shortcut names, the Events display toggle and the new HD messages are translated into Russian, Spanish and Chinese.
-- Under the hood: cleanup with more tests, smaller code files and faster checks. Nothing changes in how MDLxL behaves.
+
+## Under the hood
+
+- The main editor code was split into smaller, focused files, and leftover unused code and duplicate helpers were removed.
+- Translations now live in one file per language, with every existing translation kept word for word.
+- About 1,600 automated tests now run on every change, and before/after checks confirmed that models open, save and look the same as in 0.23.0.
+- Nothing changes in how MDLxL behaves.
 
 ## Update
 
