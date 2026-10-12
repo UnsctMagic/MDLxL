@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createDemoDocument, createNode, deleteNode, openDocument, EditorDocument } from '../src/editor-document.js';
 import { canonicalizeSerializedNodeOrder, serializedNodes } from '../src/node-id-order.js';
 import { formatGeneratedMdl, mdlMembers } from '../src/mdl-compatibility.js';
-import { assertModelEquivalent } from '../src/save-equivalence.js';
+import { assertModelEquivalent, modelDifferenceReport } from '../src/save-equivalence.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
 import { mdxRecords, readTrack } from '../src/mdx-compatibility.js';
@@ -149,4 +149,35 @@ test('MDX classic animated colors and tangents are BGR while live colors stay RG
     assert.deepEqual(track.Keys[0].InTan, f(.75,.5,.25));
     assert.deepEqual(track.Keys[0].OutTan, f(1,.75,.5));
   }
+});
+
+test('MDX nodes with a stray node-type bit save as MDL; their real flags round-trip', () => {
+  // Some converters leave the Bone type bit (0x100) on Helpers in MDX. MDL
+  // names a node's type only by its block keyword, so that bit has no MDL
+  // spelling; every flag MDL can express must still survive exactly.
+  const source = createStarterDocument();
+  source.apply('Helpers tagged as bones', [], model => {
+    for (const extra of [0, 8 | 2, 16 | 128 | 4]) { const n = createNode(model, 'Helper'); n.Flags = 256 | extra; }
+    const bone = createNode(model, 'Bone'); bone.Flags = 0; // a Bone missing its type bit
+    const light = createNode(model, 'Light'); light.Flags = 256 | 512 | 1;
+  });
+  const mdx = Buffer.from(source.serialize('mdx'));
+  const doc = openDocument(mdx, 'tagged.mdx');
+  assert.deepEqual(doc.model.Helpers.slice(-3).map(n => n.Flags), [256, 256 | 10, 256 | 148], 'MDX keeps raw flags');
+  const mdl = doc.serialize('mdl');
+  const reopened = openDocument(mdl, 'tagged.mdl');
+  assert.equal(reopened.readOnly, false);
+  assert.deepEqual(reopened.model.Helpers.slice(-3).map(n => n.Flags), [0, 10, 148], 'MDL keeps DontInherit/Billboarded/CameraAnchored bits');
+  assert.equal(reopened.model.Bones.at(-1).Flags, 256);
+  assert.equal(reopened.model.Lights.at(-1).Flags, 512 | 1);
+  assert.match(Buffer.from(mdl).toString('utf8'), /Billboarded,[\s\S]*CameraAnchored,/);
+  assert.deepEqual(Buffer.from(doc.serialize('mdx')), mdx, 'MDX output keeps every raw bit');
+});
+
+test('MDL save verification still reports node flags that MDL can express', () => {
+  const helper = flags => ({ Helpers: [{ Name: 'h', ObjectId: 0, Parent: null, Flags: flags }] });
+  assert.equal(modelDifferenceReport(helper(256), helper(0), { format: 'mdl' }).total, 0);
+  for (const lost of [1, 2, 4, 8, 16, 32, 64, 128, 0x8000]) assert.deepEqual(modelDifferenceReport(helper(256 | lost), helper(0), { format: 'mdl' }).differences, ['Helpers[0].Flags'], `bit ${lost}`);
+  assert.deepEqual(modelDifferenceReport(helper(256), helper(0), { format: 'mdx' }).differences, ['Helpers[0].Flags'], 'MDX compares raw type bits');
+  assert.deepEqual(modelDifferenceReport(helper(256), helper(0)).differences, ['Helpers[0].Flags']);
 });

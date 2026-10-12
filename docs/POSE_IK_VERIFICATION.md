@@ -114,9 +114,11 @@ used to satisfy an IK target; deliberate Scale still scales the native model.
 
 Footman and its exact textures were copied byte for byte from the local Warcraft
 CASC resources. No original resource was edited and no game asset is committed.
-Footman texture hashes are recorded in the packaged result. Knight's unchanged
-source already fails MDL conversion for a Helper flag; that baseline limitation
-is asserted. Knight MDX and both Footman formats have preservation coverage.
+Footman texture hashes are recorded in the packaged result. Knight's Helpers
+carry the Bone node-type bit, which MDL expresses only by its block keyword;
+MDL save verification compares node flags without type bits, so Knight now
+saves in both formats. Knight and Footman have preservation coverage in both
+formats.
 
 ## Packaged mouse acceptance
 

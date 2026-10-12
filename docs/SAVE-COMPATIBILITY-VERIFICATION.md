@@ -80,9 +80,10 @@ checks passed, but this is not a claim of an error-free UI session.
   not invert valid file data merely to mask the external reader inconsistency.
 - The original cross-tab case still refuses MDL export because dormant nonwhite
   GEOA colors cannot be represented without enabling tint. Its MDX passes.
-  The Knight reference also retains its existing MDL guard against losing 26
-  Helper flag values. Neither guard is bypassed or reported as a successful MDL
-  conversion.
+  This guard is not bypassed or reported as a successful MDL conversion. (The
+  Knight reference's former 26 "Helper flag" differences were later traced to
+  the Bone node-type bit 0x100 on Helpers. MDL has no spelling for it, so MDL
+  verification now ignores only type bits; Knight exports to MDL.)
 - No-op saves remain byte-exact. This patch is not an automatic repair of
   pre-existing corrupt files or arbitrary nonstandard source syntax. Untouched
   authored records, unknown data and existing loss-prevention checks remain.

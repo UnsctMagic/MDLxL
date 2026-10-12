@@ -37,13 +37,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       globalThis.saveDialogs = 0;
       dialog.showSaveDialog = async (_window, options) => { globalThis.saveDialogs++; return { canceled: false, filePath: out + '/ui-saved.' + options.filters[0].extensions[0] }; };
     }, out);
+    // The fixture's Helpers carry the Bone type bit, which MDL expresses only by
+    // its block keyword; MDL export now verifies and writes instead of failing.
     await page.keyboard.press('Control+Shift+s');
     await page.getByRole('button', { name: 'Save MDL…', exact: true }).click();
     await page.waitForFunction(() => window.saveEvents.length === 1);
-    await page.getByRole('button', { name: 'Save MDL…', exact: true }).waitFor({ state: 'visible' });
-    console.log('FAILED', await page.evaluate(() => ({ events: window.saveEvents, workers: window.saveWorkerCount, ticks: window.saveTicks, text: document.body.innerText.slice(-900) })));
-    if (await app.evaluate(() => globalThis.saveDialogs) !== 0) throw Error('Failed verification opened a disk save dialog');
-    await page.screenshot({ path: path.join(out, 'electron-failure-controls.png') });
+    await page.getByRole('button', { name: 'Save MDL…', exact: true }).waitFor({ state: 'hidden' });
+    console.log('SAVED MDL', await page.evaluate(() => ({ events: window.saveEvents, workers: window.saveWorkerCount, ticks: window.saveTicks })));
+    if (await page.evaluate(() => window.saveEvents[0].error)) throw Error('MDL save verification failed');
+    if (await app.evaluate(() => globalThis.saveDialogs) !== 1 || !fs.existsSync(path.join(out, 'ui-saved.mdl'))) throw Error('MDL save did not write output');
+    await page.keyboard.press('Control+Shift+s');
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.waitForFunction(() => window.saveEvents.length === 2);
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'hidden' });

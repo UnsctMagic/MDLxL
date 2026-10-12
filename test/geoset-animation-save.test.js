@@ -57,17 +57,20 @@ test('original fixture has optional records, disabled white colors, and byte-exa
   assert.equal(doc.dirty, false);
 });
 
-test('fixture MDL export reports the separate 26 Helper flag losses, never harmless Color defaults', () => {
+test('fixture MDL export keeps every expressible flag; only the 26 stray Helper type bits and no Color defaults differ', () => {
   for (const edited of [false, true]) {
     const doc = fixture();
     if (edited) hide(doc);
     const before = structuredClone(doc.model), history = doc.historyStats;
-    assert.throws(() => prepareModelSave(doc, 'mdl'), error => {
-      assert.match(error.message, /26 fields: Helpers\[0\]\.Flags/);
-      assert.doesNotMatch(error.message, /GeosetAnims/);
-      assert(error.message.length < 600);
-      return true;
-    });
+    // These Helpers carry the Bone type bit 0x100, which MDL names only by its
+    // block keyword. One of them is also Billboarded (0x108); that bit survives.
+    const output = prepareModelSave(doc, 'mdl'), reopened = openDocument(output.bytes, output.name).model;
+    const report = modelDifferenceReport(before, reopened, { limit: 100 });
+    assert.equal(report.total, 26);
+    assert(report.differences.every(path => /^Helpers\[\d+\]\.Flags$/.test(path)), report.differences.join(', '));
+    assert.deepEqual(reopened.Helpers.map(node => node.Flags), before.Helpers.map(node => node.Flags & ~0x100));
+    assert(reopened.Helpers.some(node => node.Flags === 8));
+    assert.equal(modelDifferenceReport(before, reopened, { format: 'mdl' }).total, 0);
     assert.deepEqual(doc.model, before);
     assert.deepEqual(doc.historyStats, history);
     assert.equal(doc.dirty, edited);
@@ -254,10 +257,12 @@ function nodeWorker(counter) {
 
 test('real save worker coalesces repeated attempts, retains failure edits and recovers for a subsequent save', async () => {
   const counter = { count: 0 }, doc = fixture(); hide(doc);
+  // An unknown Helper flag bit has no MDL spelling, so MDL verification rejects it.
+  doc.apply('Unknown helper flag', ['Helpers'], model => { model.Helpers[0].Flags |= 0x8000; });
   const before = structuredClone(doc.model), history = doc.historyStats;
   const failed = prepareModelSaveAsync(doc, 'mdl', doc.name, () => nodeWorker(counter));
   assert.equal(prepareModelSaveAsync(doc, 'mdl'), failed);
-  await assert.rejects(failed, /26 fields/);
+  await assert.rejects(failed, /1 field: Helpers\[0\]\.Flags/);
   assert.equal(counter.count, 1); assert.deepEqual(doc.model, before); assert.deepEqual(doc.historyStats, history); assert(doc.dirty);
   const result = await prepareModelSaveAsync(doc, 'mdx', doc.name, () => nodeWorker(counter));
   assert.equal(counter.count, 2); assertModelEquivalent(before, openDocument(result.bytes, result.name).model);

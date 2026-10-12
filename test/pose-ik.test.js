@@ -427,10 +427,9 @@ test('Knight SD arm native solve, atomic Undo/Redo and MDX reopen preserve all o
   const result = solvePoseLimb(doc.model, c, 2000, 1, target); doc.apply('POSE', ['Nodes'], m => applyMovementPose(m, result.changes, 2000, 1));
   const edited = structuredClone(doc.model), strip = model => { const copy = structuredClone(model); for (const key of ['Bones', 'Nodes']) for (const node of copy[key] || []) if (node && [23, 37, 46].includes(node.ObjectId)) delete node.Rotation; return copy; };
   assert.deepEqual(strip(edited), strip(original)); assert.ok(doc.undo()); assert.deepEqual(doc.model, original); assert.equal(doc.undo(), false); assert.ok(doc.redo()); assert.deepEqual(doc.model, edited);
-  // This imported fixture has an existing MDL conversion failure for helper
-  // type flags even before editing. Its MDX path remains losslessly testable.
-  assert.throws(() => openDocument(bytes, 'Knight.mdx').serialize('mdl'), /Helpers\[0\].Flags/);
-  for (const format of ['mdx']) { const saved = doc.serialize(format), reopen = openDocument(saved, `pose.${format}`); const after = samplePoseChain(reopen.model, c, 2000, 1); near(after.end.distanceTo(target), 0, .002); near(Math.abs(after.rotations[2].dot(pose.rotations[2])), 1, 1e-6); }
+  // This imported fixture's Helpers carry the Bone type bit, which MDL names
+  // only by its block keyword; the MDL save still keeps the solved pose.
+  for (const format of ['mdx', 'mdl']) { const saved = doc.serialize(format), reopen = openDocument(saved, `pose.${format}`); const after = samplePoseChain(reopen.model, c, 2000, 1); near(after.end.distanceTo(target), 0, .002); near(Math.abs(after.rotations[2].dot(pose.rotations[2])), 1, 1e-6); }
   const saved = doc.serialize('mdx'), oldChunks = parseMdx(bytes).chunks, newChunks = parseMdx(saved).chunks;
   for (const chunk of oldChunks) if (chunk.tag !== 'BONE') { const other = newChunks.find(item => item.tag === chunk.tag); assert.deepEqual(Buffer.from(saved).subarray(other.offset, other.payloadOffset + other.declaredSize), bytes.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize), `${chunk.tag} unchanged`); }
   assert.equal(createHash('sha256').update(fs.readFileSync(path)).digest('hex'), hash);
