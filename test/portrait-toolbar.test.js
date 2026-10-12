@@ -95,8 +95,9 @@ test('Movement and Portrait share the complete viewpoint dropdown',()=>{
   const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
   assert.match(app,/const views = \['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'\]/);
-  assert.match(app,/value=\{cameraPortraitActive \? portraitView : mode === 'vertices' && quadView \? activeVertexPane\?\.view \|\| 'front' : view\}/);
-  assert.match(app,/onChange=\{event => cameraPortraitActive \? setPortraitView\(event\.target\.value\) : setView\(event\.target\.value\)\}/);
+  const bar=readFileSync(new URL('../app/AppToolbar.jsx',import.meta.url),'utf8');
+  assert.match(bar,/value=\{cameraPortraitActive \? portraitView : mode === 'vertices' && quadView \? activeVertexPane\?\.view \|\| 'front' : view\}/);
+  assert.match(bar,/onChange=\{event => cameraPortraitActive \? setPortraitView\(event\.target\.value\) : setView\(event\.target\.value\)\}/);
   assert.doesNotMatch(preview,/function setView\(next\) \{\s*if \(state\.portraitActive\) return;/);
   assert.match(preview,/if \(state\.portraitActive\) \{ state\.cameraDetached = true; latest\.current\.onPlayingChange\?\.\(false\); \}/);
   assert.match(preview,/state\.portraitActive = true; state\.cameraDetached = false; state\.appliedView = 'perspective';/);
