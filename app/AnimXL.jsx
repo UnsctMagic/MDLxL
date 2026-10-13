@@ -301,7 +301,9 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     if (!picking || !boneOptions.has(id)) return;
     update(old => {
       const list = old[picking], other = picking === 'heavyIds' ? 'looseIds' : 'heavyIds';
-      return list.includes(id) ? { ...old, [picking]: list.filter(x => x !== id) } : { ...old, [picking]: [...list, id], [other]: old[other].filter(x => x !== id) };
+      if (list.includes(id)) return { ...old, [picking]: list.filter(x => x !== id) };
+      // A bone is either heavy or loose, never both; feet are independent.
+      return picking === 'footIds' ? { ...old, footIds: [...list, id] } : { ...old, [picking]: [...list, id], [other]: old[other].filter(x => x !== id) };
     });
   };
   const footfalls = result?.footfalls || [];
@@ -374,6 +376,14 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           </Section>
           <Section title="Feet" note={[settings.feet !== false && 'planted', settings.steps && 'Heavy steps ' + settings.steps].filter(Boolean).join(', ')}>
             <label className="ax-check" title="Feet stay exactly where your animation puts them. The body still sinks and sways; the knees bend to make up the difference. Legs that never touch the ground (a rider's) are left free."><input type="checkbox" checked={settings.feet !== false} onChange={event => change('feet', event.target.checked)}/> Keep feet planted</label>
+            <label className="ax-field" title="The bone that carries the body's weight (usually the pelvis or root). Weight, Heavy steps and Flinch move it.">Body
+              <select aria-label="Body bone" value={settings.bodyId ?? ''} onChange={event => change('bodyId', event.target.value === '' ? null : Number(event.target.value))}>
+                <option value="">Found: {boneOptions.get(result?.rig?.body) || 'none'}</option>
+                {[...boneOptions].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </label>
+            <span className="ax-note" title="The feet AnimXL keeps planted and listens to for footfalls.">Feet{settings.footIds.length ? ' (your picks)' : `: found ${(result?.rig?.feet || []).map(id => boneOptions.get(id)).filter(Boolean).join(', ') || 'none'}`}</span>
+            <BonePicker label="feet" tip="Pick each foot (ankle) bone if AnimXL did not find the right ones. Its leg is the foot and its two parent bones." ids={settings.footIds} options={boneOptions} onChange={ids => change('footIds', ids)} picking={picking === 'footIds'} onPick={() => setPicking(p => p === 'footIds' ? null : 'footIds')}/>
             <Slider id="steps" label="Heavy steps" low="Off" high="Stomp" tip="Each time a foot lands, the body drops into the step and the chest and head nod. Footfalls are found from the feet touching the ground." value={settings.steps} onChange={change}/>
             {settings.steps > 0 && <small className="ax-note">{footfalls.length ? `${footfalls.length} footfall${footfalls.length > 1 ? 's' : ''} found (green ticks)` : 'No feet touch the ground in this animation.'}</small>}
           </Section>

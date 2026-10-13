@@ -90,6 +90,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     checks.push(`Flinch marker added; ${await dialog.locator('.ax-foot').count()} footfall ticks shown with Heavy steps`);
     await page.waitForTimeout(400);
     await dialog.screenshot({ path: path.join(out, '4-heavy-preset.png') });
+    await dialog.locator('summary', { hasText: 'Feet' }).click();
+    const feetNote = (await dialog.locator('.ax-note', { hasText: /^Feet/ }).textContent()).trim();
+    assert.match(feetNote, /found .+/);
+    await dialog.getByRole('combobox', { name: 'Body bone' }).selectOption({ index: 2 });
+    await page.waitForTimeout(500);
+    await dialog.getByRole('combobox', { name: 'Body bone' }).selectOption({ index: 0 });
+    checks.push(`Feet section shows the rig it found ("${feetNote}") and the body can be changed`);
     // Pick bones in the preview: the skeleton appears while picking.
     await dialog.getByRole('button', { name: 'Pick in view' }).first().click();
     await page.waitForTimeout(500);

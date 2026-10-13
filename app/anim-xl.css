@@ -49,3 +49,5 @@
 .resource-editor .ax-row input[aria-label='Preset name']{flex:1;min-width:0}
 .resource-editor .ax-sound{display:flex;flex-direction:column;gap:2px}
 .resource-editor .ax-sound .ax-row input{flex:1;min-width:0}
+.resource-editor .ax-field{display:flex;gap:4px;align-items:center}
+.resource-editor .ax-field select{flex:1;min-width:0}

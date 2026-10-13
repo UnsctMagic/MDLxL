@@ -12,7 +12,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   steps: 0,
   thunk: 60, thunks: [], thunkSound: '',
   flinch: 60, flinches: [], flinchBehind: false, flinchSound: '',
-  retime: {},
+  retime: {}, bodyId: null, footIds: [],
 });
 
 const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2, POSE_WINDOW = 140;
@@ -81,7 +81,7 @@ export function animXLKeyTimes(model, sequenceIndex) {
 /** What AnimXL knows about the rig: the body that carries the weight, the
  * feet that land, and the spine/neck/head that react. Uses POSE's rig reading
  * and falls back to bone names. */
-export function animXLRig(model, sequenceIndex = 0) {
+export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
   const nodes = animXLNodes(model), ids = new Set(nodes.map(n => n.ObjectId)), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
   let body = null, feet = [], legLength = 0, legs = [], arms = [];
   const roles = new Map();
@@ -112,6 +112,14 @@ export function animXLRig(model, sequenceIndex = 0) {
   }
   if (!feet.length) feet = [...roles].filter(([id, role]) => ['Foot', 'Hoof'].includes(role) && byId.has(id)).map(([id]) => id);
   const torso = [...roles].filter(([id, role]) => ['Chest', 'Spine', 'Neck', 'Head'].includes(role) && ids.has(id)).map(([id]) => id);
+  // Your own picks win: a picked foot's leg is the foot and its two parents.
+  if (Number.isInteger(overrides.bodyId) && byId.has(overrides.bodyId)) body = overrides.bodyId;
+  if (overrides.footIds?.length) {
+    const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+    legs = overrides.footIds.filter(id => byId.has(id)).map(end => { const middle = byId.get(end).Parent, root = byId.get(middle)?.Parent; return { root, middle, end }; }).filter(leg => byId.has(leg.root) && byId.has(leg.middle));
+    feet = legs.map(leg => leg.end);
+    legLength = legs.length ? legs.reduce((sum, c) => sum + pivotOf(c.root).distanceTo(pivotOf(c.middle)) + pivotOf(c.middle).distanceTo(pivotOf(c.end)), 0) / legs.length : legLength;
+  }
   return { body, feet, torso, legLength, legs, arms };
 }
 
@@ -220,7 +228,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const from_ = settings.flinchBehind ? -1 : 1;
   const flinches = [...(settings.flinches || [])].map(f => typeof f === 'number' ? { at: f, dir: from_ } : { at: f.at, dir: f.dir ?? from_ }).sort((a, b) => a.at - b.at);
   const wantsBody = settings.weight > 0 || settings.steps > 0 || flinches.length > 0;
-  const rig = animXLRig(model, sequenceIndex);
+  const rig = animXLRig(model, sequenceIndex, { bodyId: settings.bodyId, footIds: settings.footIds });
   const footfalls = settings.steps > 0 ? animXLFootfalls(model, sequenceIndex, rig).map(t => Math.round(toOutput(t))) : [];
   const reactive = settings.steps > 0 || flinches.length > 0;
   const general = settings.overlap > 0 || settings.settle > 0 || settings.weight > 0 || reactive;
@@ -453,7 +461,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     tracks.push({ id: node.ObjectId, property: 'Translation', track: mergeTrack(track, ours, lineType, from, to) });
     keyCount += ours.length;
   }
-  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: bodyNode?.ObjectId ?? null, feet: rig.feet } };
+  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet } };
 }
 
 // World matrices from local rotations, translations and scaling, with pivots,
