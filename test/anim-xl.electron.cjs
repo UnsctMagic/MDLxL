@@ -52,6 +52,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(1200);
     assert.equal(await dialog.locator('canvas[data-path-overlay]').count(), 1, 'arc overlay drawn');
     await dialog.screenshot({ path: path.join(out, '3b-arcs.png') });
+    if (await dialog.getByRole('combobox', { name: 'Arc bone' }).count()) { await dialog.getByRole('combobox', { name: 'Arc bone' }).selectOption({ index: 1 }); await page.waitForTimeout(600); assert.equal(await dialog.locator('canvas[data-path-overlay]').count(), 1); checks.push('Arc bone can be switched'); }
     await dialog.getByRole('button', { name: 'Arcs', exact: true }).click();
     checks.push('Arcs draws the weapon tip path over the preview');
     await dialog.screenshot({ path: path.join(out, '3-rotated.png') });
