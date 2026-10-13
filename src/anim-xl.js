@@ -333,18 +333,20 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     const qs = samples.get(node.ObjectId);
     for (let i = 1; i < qs.length; i++) if (qs[i].dot(qs[i - 1]) < 0) qs[i].set(-qs[i].x, -qs[i].y, -qs[i].z, -qs[i].w);
     let changed = false;
-    for (let i = 0; i < qs.length && !changed; i++) changed = qs[i].angleTo(localTarget(node, outFrames[i], tmp)) > 0.005;
+    for (let i = 0; i < qs.length && !changed; i++) changed = qs[i].angleTo(localTarget(node, outFrames[i], tmp)) > 0.01;
     if (!changed) continue;
-    const kept = reduceRotation(outFrames, qs, 0.008);
+    // Smooth (squad) keys follow the curve with far fewer keys than straight
+    // slerp. A linear track becomes Bezier; its other keys get flat tangents,
+    // which interpolate exactly as before.
     const original = node.Rotation?.Keys ? node.Rotation : { LineType: 1, Keys: [] };
-    const lineType = original.LineType ?? 1;
-    const ours = kept.map(i => {
-      const v = new Float32Array(qs[i].toArray());
-      const key = { Frame: outFrames[i], Vector: v };
-      if (lineType >= 2) { key.InTan = new Float32Array(v); key.OutTan = new Float32Array(v); }
-      return key;
+    const lineType = Math.max(2, original.LineType ?? 1) === 2 ? 2 : 3;
+    const ours = reduceRotationSquad(outFrames, qs, settings.tolerance ?? 0.008);
+    const outside = original.Keys.filter(key => key.Frame < from || key.Frame > to).map(key => {
+      const copy = structuredClone(key);
+      if (!copy.InTan) { copy.InTan = new Float32Array(copy.Vector); copy.OutTan = new Float32Array(copy.Vector); }
+      return copy;
     });
-    tracks.push({ id: node.ObjectId, property: 'Rotation', track: mergeTrack(original, ours, lineType, from, to) });
+    tracks.push({ id: node.ObjectId, property: 'Rotation', track: { ...structuredClone({ ...original, Keys: [] }), LineType: lineType, Keys: [...outside, ...ours].sort((a, b) => a.Frame - b.Frame) } });
     keyCount += ours.length;
   }
   if (bodyNode && bodySamples.length === outFrames.length) {
@@ -371,6 +373,41 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
 function mergeTrack(original, ours, lineType, from, to) {
   const outside = original.Keys.filter(key => key.Frame < from || key.Frame > to).map(key => structuredClone(key));
   return { ...structuredClone({ ...original, Keys: [] }), LineType: lineType, Keys: [...outside, ...ours].sort((a, b) => a.Frame - b.Frame) };
+}
+
+// war3 squad: slerp(slerp(a, d, t), slerp(b, c, t), 2t(1 - t)).
+function squad(a, outTan, inTan, b, t, out = new Quaternion()) {
+  const p = new Quaternion().slerpQuaternions(a, b, t), q = new Quaternion().slerpQuaternions(outTan, inTan, t);
+  return out.slerpQuaternions(p, q, 2 * t * (1 - t));
+}
+// Classic squad control point for key i between its kept neighbours.
+function squadTangent(prev, q, next) {
+  const inv = q.clone().invert(), a = logQ(inv.clone().multiply(next)), b = logQ(inv.clone().multiply(prev));
+  return q.clone().multiply(expQ(a.add(b).multiplyScalar(-0.25))).normalize();
+}
+/** Fewest smooth keys whose squad curve stays within tolerance (radians). */
+function reduceRotationSquad(frames, qs, tolerance) {
+  const kept = [0, qs.length - 1], probe = new Quaternion();
+  // End keys keep a flat tangent so the curve starts and ends on its pose.
+  const tangents = () => kept.map((i, k) => k === 0 || k === kept.length - 1 ? qs[i].clone() : squadTangent(qs[kept[k - 1]], qs[i], qs[kept[k + 1]]));
+  for (let guard = 0; guard < qs.length; guard++) {
+    const tan = tangents();
+    let worst = tolerance, at = -1;
+    for (let k = 0; k + 1 < kept.length; k++) {
+      const a = kept[k], b = kept[k + 1];
+      for (let i = a + 1; i < b; i++) {
+        const e = squad(qs[a], tan[k], tan[k + 1], qs[b], (frames[i] - frames[a]) / (frames[b] - frames[a]), probe).angleTo(qs[i]);
+        if (e > worst) { worst = e; at = i; }
+      }
+    }
+    if (at < 0) break;
+    kept.push(at); kept.sort((x, y) => x - y);
+  }
+  const tan = tangents();
+  return kept.map((i, k) => {
+    const v = new Float32Array(qs[i].toArray()), t = new Float32Array(tan[k].toArray());
+    return { Frame: frames[i], Vector: v, InTan: t, OutTan: new Float32Array(t) };
+  });
 }
 
 // Keep the fewest keys whose straight slerp stays within tolerance (radians).

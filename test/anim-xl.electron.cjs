@@ -51,6 +51,33 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.getByRole('button', { name: 'Add THUNK here' }).click();
     assert.equal(await dialog.locator('.ax-thunk').count(), 1);
     checks.push('THUNK added from the paused moment');
+    // Quick start preset, heavy steps and a flinch.
+    await dialog.getByRole('button', { name: 'Heavy', exact: true }).click();
+    await page.waitForTimeout(400);
+    assert.equal(await dialog.getByRole('slider', { name: 'Weight', exact: true }).inputValue(), '80');
+    checks.push('Heavy preset sets the sliders');
+    await dialog.getByRole('button', { name: 'Add flinch here' }).click();
+    assert.equal(await dialog.locator('.ax-flinch').count(), 1);
+    checks.push(`Flinch marker added; ${await dialog.locator('.ax-foot').count()} footfall ticks shown with Heavy steps`);
+    await page.waitForTimeout(400);
+    await dialog.screenshot({ path: path.join(out, '4-heavy-preset.png') });
+    // Pick bones in the preview: the skeleton appears while picking.
+    await dialog.getByRole('button', { name: 'Pick in view' }).first().click();
+    await page.waitForTimeout(500);
+    await dialog.screenshot({ path: path.join(out, '5-picking.png') });
+    await dialog.getByRole('button', { name: 'Done picking' }).click();
+    checks.push('Pick in view toggles the skeleton picker');
+    // Settings are remembered when AnimXL is closed and reopened.
+    const overlapBefore = await dialog.getByRole('slider', { name: 'Overlap', exact: true }).inputValue();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await dialog.waitFor({ state: 'detached' });
+    await page.waitForTimeout(400);
+    await button.click();
+    await dialog.waitFor();
+    await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 1' });
+    await page.waitForTimeout(400);
+    assert.equal(await dialog.getByRole('slider', { name: 'Overlap', exact: true }).inputValue(), overlapBefore);
+    checks.push(`Settings remembered after closing (Overlap ${overlapBefore})`);
     await dialog.getByRole('button', { name: 'Commit' }).click();
     await dialog.waitFor({ state: 'detached' });
     checks.push('Commit closes AnimXL');
