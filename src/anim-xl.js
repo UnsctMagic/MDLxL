@@ -191,7 +191,8 @@ function springParams(settings, kind, depth) {
     f = lerp(8, 1.3, h); z = lerp(0.8, 0.25, h); follow = lerp(0.9, 0.25, h); pull = lerp(0, 45, h);
   } else if (kind === 'loose') {
     const l = settings.loose / 100;
-    f = lerp(6, 1, l); z = lerp(0.6, 0.1, l); follow = lerp(0.85, 0.3, l);
+    // Chains of loose bones compound their swing, so each link stays fairly damped.
+    f = lerp(7, 2, l) / (1 + 0.15 * depth); z = lerp(0.75, 0.3, l); follow = lerp(0.9, 0.5, l);
   } else {
     f = lerp(12, 2.6, o);
     if (s > 0) f = Math.min(f, lerp(12, 4.5, s));
@@ -200,7 +201,7 @@ function springParams(settings, kind, depth) {
   }
   f *= lerp(1, 0.6, w);
   const om = 2 * Math.PI * f;
-  return { k: om * om, c: 2 * z * om, follow, pull };
+  return { k: om * om, c: 2 * z * om, follow, pull, limit: kind === 'loose' ? 1.1 : MAX_ERR };
 }
 
 /** Build the flavoured tracks. Returns only tracks that actually change. */
@@ -353,7 +354,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
         W[i].addScaledVector(step, dt);
         Q[i].premultiply(expQ(err.copy(W[i]).multiplyScalar(dt), tmp)).normalize();
         tmp.copy(target[i]).multiply(tmp2.copy(Q[i]).invert()); logQ(tmp, err);
-        if (err.length() > MAX_ERR) { Q[i].premultiply(expQ(err.setLength(err.length() - MAX_ERR), tmp)).normalize(); W[i].copy(wT); }
+        if (err.length() > p.limit) { Q[i].premultiply(expQ(err.setLength(err.length() - p.limit), tmp)).normalize(); W[i].copy(wT); }
         // A heavy part drags on whatever holds it.
         if (p.pull && pi !== undefined && simIds.has(order[pi].ObjectId)) { tmp.copy(Q[i]).multiply(tmp2.copy(target[i]).invert()); logQ(tmp, err); W[pi].addScaledVector(err, p.pull * dt); }
       }
