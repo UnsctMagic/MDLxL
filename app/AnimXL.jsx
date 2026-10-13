@@ -46,11 +46,11 @@ const ICONS = {
 // Death types (the engine's DEATH_STYLES), by the names the Fall Simulation card shows.
 const DEATH_NAMES = { knees: 'Knees then fall', back: 'Fall backwards', forward: 'Fall forwards', side: 'Onto the side', limp: 'Limp' };
 const PRESETS = [
-  ['Default', 'A balanced starting point for most hand-keyed animations', { ease: 40, overlap: 50, settle: 9, weight: 20, poses: 60, anticipation: 20, exaggerate: 10, life: 30, heavy: 45, loose: 50, steps: 0, collapse: 0 }],
-  ['Heavy', 'Large, slow units: ogres, golems, armoured knights', { ease: 40, overlap: 60, settle: 4, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20, collapse: 0 }],
-  ['Agile', 'Quick, light units: rogues, archers, small creatures', { ease: 80, overlap: 35, settle: 30, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25, collapse: 0 }],
-  ['Relaxed', 'Loose, low-tension motion: undead, exhausted or wounded units', { ease: 30, overlap: 80, settle: 30, weight: 40, poses: 30, loose: 80, heavy: 40, steps: 0, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
-  ['Fall', 'Fall Simulation from the current pose, for building a death. Use Commit as new to keep the original.', { ease: 30, overlap: 40, settle: 9, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, collapseStyle: 'auto', bounce: 30 }],
+  ['Default', 'A balanced starting point for most hand-keyed animations', { ease: 40, overlap: 40, settle: 9, weight: 20, poses: 60, anticipation: 20, exaggerate: 10, life: 30, heavy: 45, loose: 50, steps: 0, collapse: 0 }],
+  ['Heavy', 'Large, slow units: ogres, golems, armoured knights', { ease: 40, overlap: 48.8, settle: 4, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20, collapse: 0 }],
+  ['Agile', 'Quick, light units: rogues, archers, small creatures', { ease: 80, overlap: 29.8, settle: 30, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25, collapse: 0 }],
+  ['Relaxed', 'Loose, low-tension motion: undead, exhausted or wounded units', { ease: 30, overlap: 71.2, settle: 30, weight: 40, poses: 30, loose: 80, heavy: 40, steps: 0, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
+  ['Fall', 'Fall Simulation from the current pose, for building a death. Use Commit as new to keep the original.', { ease: 30, overlap: 32.8, settle: 9, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, collapseStyle: 'auto', bounce: 30 }],
 ];// How strongly a bone changed, as a colour: blue untouched, yellow some, red a lot.
 const heat = share => share < 0.004 ? '#4fc3ff' : share < 0.02 ? '#ffd23f' : share < 0.05 ? '#ff8a2a' : '#ff3b30';
 const storageKey = (path, name) => `mdlxl.animxl.${path || 'unsaved'}.${name}`;

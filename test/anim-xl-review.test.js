@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import * as animXL from '../src/anim-xl.js';
+import { openDocument } from '../src/editor-document.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Quaternion, Vector3 } from 'three';
@@ -175,4 +179,165 @@ test('death types pose the unit with its feet planted, then fall the way they na
     assert.ok(end.z < 30, `${style}: the head ends near the ground (z=${end.z.toFixed(1)})`);
     assert.ok(way(end), `${style}: falls its way (head ${end.toArray().map(v => v.toFixed(0))})`);
   }
+});
+
+// Frozen from 8751ef63 on the mounted knight fixture: Attack - 1 and Walk.
+const overlapBaseline = [
+  {
+    "name": "Default",
+    "seq": 3,
+    "sequence": "Attack - 1",
+    "hash": "a5c4e4aa4f7808ca276175248c3dbb85a604203b395f39263bb6b142bbd578bd"
+  },
+  {
+    "name": "Default",
+    "seq": 0,
+    "sequence": "Walk",
+    "hash": "9ac1a31ee161da17d4edfb97f7010f94bdbfc2f6de5a936da187d70d8f0b1de6"
+  },
+  {
+    "name": "Heavy",
+    "seq": 3,
+    "sequence": "Attack - 1",
+    "hash": "62df1fb2f23b0ac6b74331191897b74b21b9069c0cb920ffce875eb98ec07ab7"
+  },
+  {
+    "name": "Heavy",
+    "seq": 0,
+    "sequence": "Walk",
+    "hash": "1286665b0087fea18651d5ddc4c4e12818614a5777242d48a9c0c20fda6813ad"
+  },
+  {
+    "name": "Agile",
+    "seq": 3,
+    "sequence": "Attack - 1",
+    "hash": "3998d6c9841e8cb23c350acda18d85f75def77084c9b99e69634db499b7d0dbe"
+  },
+  {
+    "name": "Agile",
+    "seq": 0,
+    "sequence": "Walk",
+    "hash": "4d2499fd34cc966b88df95549781a97fc02659de11f3d2db29a1b211e90e51f3"
+  },
+  {
+    "name": "Relaxed",
+    "seq": 3,
+    "sequence": "Attack - 1",
+    "hash": "a0d8026d894071c105eec57c88775d901781b15394354148f045573837b5bdb9"
+  },
+  {
+    "name": "Relaxed",
+    "seq": 0,
+    "sequence": "Walk",
+    "hash": "a7b7ed8eea5c56d29c07f852c6263dd830142aae2c59e9cc4090b0b8ffb47c71"
+  },
+  {
+    "name": "Fall",
+    "seq": 3,
+    "sequence": "Attack - 1",
+    "hash": "84a4955889bfbc6fe947da91630cab954925c742e8cc5f08be82ad0a629e851c"
+  },
+  {
+    "name": "Fall",
+    "seq": 0,
+    "sequence": "Walk",
+    "hash": "96ae3923f6af663c433ef55015dbb18f8ad1918e12e9318da4997953607b0da7"
+  },
+  {
+    "settings": {
+      "overlap": 100
+    },
+    "seq": 3,
+    "hash": "c118834f99c4ec134fd04faaf28256b7b668af18b90524dc8551a49a4d901f56"
+  },
+  {
+    "settings": {
+      "collapse": 100
+    },
+    "seq": 3,
+    "hash": "9696c1f5a4e42634c94256b072a817b01da7943e5c7d2cf8eccc911a96692405"
+  },
+  {
+    "settings": {
+      "collapse": 100,
+      "overlap": 100
+    },
+    "seq": 3,
+    "hash": "b6711d45726cb9a96a763d24aee607677683d8677b6f4b1243928232a14cb369"
+  }
+];
+const overlapPresets = () => {
+  const source = readFileSync(new URL('../app/AnimXL.jsx', import.meta.url), 'utf8');
+  return Function('return ' + source.match(/const PRESETS = (\[[\s\S]*?\n\]);/)[1])();
+};
+const overlapFixture = () => openDocument(readFileSync(new URL('./fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx', import.meta.url)), 'Tzeentch_Knight_Max_Reduced.mdx').model;
+const overlapDigest = result => createHash('sha256').update(JSON.stringify(result)).digest('hex');
+
+test('the Overlap scale preserves endpoints and spreads the middle without crossing the reaction floor', () => {
+  assert.equal(typeof animXL.overlapSpring, 'function');
+  const f = animXL.overlapSpring;
+  assert.equal(f(0), 0);
+  assert.equal(f(100), 1);
+  assert.equal(f(25), 0.25, 'the implicit reaction minimum is unchanged');
+  for (const value of [1, 10, 20, 25]) assert.equal(f(value), value / 100);
+  assert.equal(f(50), Math.sqrt(3 / 8));
+  assert.equal(f(-10), 0);
+  assert.equal(f(110), 1);
+  for (let value = 1; value <= 100; value++) assert.ok(f(value) > f(value - 1));
+  assert.ok(Math.abs(f(25 - 1e-6) - f(25 + 1e-6)) < 1e-7, 'continuous at the join');
+  const model = overlapFixture();
+  assert.equal(buildAnimXL(model, 3, { overlap: 0 }).tracks.length, 0, 'zero remains off');
+});
+
+test('every rescaled Overlap preset retains its exact internal value and baseline tracks', () => {
+  assert.equal(typeof animXL.overlapSpring, 'function');
+  const old = { Default: 0.5, Heavy: 0.6, Agile: 0.35, Relaxed: 0.8, Fall: 0.4 };
+  const model = overlapFixture(), presets = overlapPresets();
+  assert.equal(presets.length, Object.keys(old).length);
+  for (const [name,,values] of presets) {
+    assert.equal(animXL.overlapSpring(values.overlap), old[name], name);
+    const effective = values.steps > 0 ? Math.max(values.overlap, 25) : values.overlap;
+    assert.equal(animXL.overlapSpring(effective), old[name], name + ' with reaction floor');
+    for (const c of overlapBaseline.filter(c => c.name === name)) {
+      assert.equal(overlapDigest(buildAnimXL(model, c.seq, { ...suggestAnimXLBones(model), ...values })), c.hash, name + ' ' + c.sequence);
+    }
+  }
+});
+
+test('Overlap 100 and Collapse Full retain the exact baseline output', () => {
+  const model = overlapFixture();
+  for (const c of overlapBaseline.filter(c => c.settings)) {
+    assert.equal(overlapDigest(buildAnimXL(model, c.seq, { ...suggestAnimXLBones(model), ...c.settings })), c.hash, JSON.stringify(c.settings));
+  }
+});
+
+// Steps and flinches impose an internal minimum of 25 even with Overlap off.
+test('Overlap preserves reaction-only output at the existing minimum', () => {
+  const model = overlapFixture();
+  const cases = [
+  {
+    "settings": {
+      "steps": 70,
+      "overlap": 0
+    },
+    "hash": "9314b98892436a084060843c54bb1e3b9d03cc2352b60e80b8a4335e485e8a43"
+  },
+  {
+    "settings": {
+      "steps": 70,
+      "overlap": 25
+    },
+    "hash": "9314b98892436a084060843c54bb1e3b9d03cc2352b60e80b8a4335e485e8a43"
+  },
+  {
+    "settings": {
+      "flinches": [
+        22117
+      ],
+      "overlap": 0
+    },
+    "hash": "1b4bb29f966586e9de93f6caf0512d44b181af25e0f57ccecf5e7880ce994297"
+  }
+];
+  for (const c of cases) assert.equal(overlapDigest(buildAnimXL(model, 3, { ...suggestAnimXLBones(model), ...c.settings })), c.hash, JSON.stringify(c.settings));
 });

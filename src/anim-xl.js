@@ -231,8 +231,15 @@ export function animXLTimeMap(keys, settings, outKeys = animXLRetimed(keys, sett
  * quarter tripled the effect; the square root spreads it evenly over the slider. */
 export const settleSpring = settle => Math.sqrt(clamp(settle / 100, 0, 1));
 
+/** Overlap uses a square-root section to spread the measured motion change.
+ * Keep the first quarter unchanged: steps and flinches impose a minimum of 25. */
+export const overlapSpring = overlap => {
+  const value = clamp(overlap, 0, 100);
+  return value <= 25 ? value / 100 : Math.sqrt((value * 5 - 100) / 400);
+};
+
 function springParams(settings, kind, depth) {
-  const o = settings.overlap / 100, s = settleSpring(settings.settle), w = settings.weight / 100;
+  const o = overlapSpring(settings.overlap), s = settleSpring(settings.settle), w = settings.weight / 100;
   let f, z, follow = 1, pull = 0;
   if (kind === 'heavy') {
     const h = settings.heavy / 100;

@@ -12,7 +12,7 @@ The window is a big preview with a timeline under it, and effect cards beside it
 | --- | --- |
 | Presets | Natural, Heavy, Snappy, Floppy and Death switch several cards on at good starting values. **Save as preset…** (under Fine-tune) adds your own preset button, for any model. |
 | Smooth | Speeds up out of each pose and slows into the next. Poses stay where they are. |
-| Follow-through | Parts further from the body follow a moment later (hips → chest → arms → hands → weapon). |
+| Follow-through | Parts further from the body follow a moment later (hips → chest → arms → hands → weapon). Overlap uses a short linear section followed by a square-root scale so the change grows more evenly, while presets and the maximum keep their original motion. |
 | Wobble | Parts overshoot a pose slightly and wobble back into it. The slider is on a square-root scale (25 is half the springiness), because overshoot only shows at low damping and a straight scale did little until its last quarter. |
 | Weight | The body is slower to start and stop and lags behind its path. |
 | Weapon drag | The weapon (or any heavy part you pick) trails the swing and drags the arm holding it. Its card picks the bones and keeps a two-handed grip on the weapon. |
