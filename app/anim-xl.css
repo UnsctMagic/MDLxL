@@ -1,4 +1,4 @@
-.resource-editor .ax-window{width:900px;height:600px}
+.resource-editor .ax-window{width:900px;height:600px;min-width:620px;min-height:440px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px);resize:both;overflow:hidden}
 .resource-editor .ax-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px 2px}
 .resource-editor .ax-toolbar label{display:inline-flex;align-items:center;gap:4px;margin-right:8px}
 .resource-editor .ax-toolbar button[aria-pressed="true"],.resource-editor .ax-window button[aria-pressed="true"]{border-style:inset;background:#c0bdb5}
@@ -41,3 +41,5 @@
 .resource-editor .ax-section>summary{cursor:pointer;font-weight:bold;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .resource-editor .ax-section>summary small{font-weight:normal;color:#555}
 .resource-editor .ax-section-body{display:flex;flex-direction:column;gap:4px;padding-top:2px}
+.resource-editor .ax-dense{margin:0;padding:4px 6px;background:#ffffe1;border:1px solid #a0a0a0}
+.resource-editor .ax-check{display:flex;gap:4px;align-items:center}

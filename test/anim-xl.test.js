@@ -109,3 +109,9 @@ test('life makes a held pose breathe and loops seamlessly', () => {
   assert.ok(Math.max(...values) - Math.min(...values) > 0.8, `held pose moves (${values.map(v => v.toFixed(2))})`);
   assert.ok(Math.abs(angleAt(arm, 0) - angleAt(arm, 1000)) < 0.3, 'start and end match for looping');
 });
+
+test('a flinch from behind pushes the body forward', () => {
+  const body = buildAnimXL(model(), 0, { flinches: [200], flinch: 100, poses: 0, flinchBehind: true }).tracks.find(t => t.property === 'Translation');
+  const x = frame => sampleTrack(body.track, frame, { interval: [0, 1000], fallback: [0, 0, 0] })[0];
+  assert.ok(x(260) > 30 * 260 / 500 + 2, `pushed forward (x=${x(260)})`);
+});

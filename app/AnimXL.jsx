@@ -200,6 +200,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           </div>
         </div>
         <div className="ax-controls">
+          {result?.dense && <p className="ax-note ax-dense" title="AnimXL treats the moments where the body slows to a stop as the poses.">This animation is already keyed in detail. AnimXL works best on a few hand-made poses, but you can still shape it.</p>}
           <Section title="Quick start" open>
             <div className="ax-row ax-presets">{PRESETS.map(([name, tip, values]) => <button key={name} title={tip} onClick={() => update(old => ({ ...old, ...values }))}>{name}</button>)}</div>
           </Section>
@@ -223,6 +224,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             <Slider id="thunk" label="THUNK" low="Light" high="Brutal" tip="How long the hit holds and how hard the heavy bones bounce back." value={settings.thunk} onChange={change}/>
             <div className="ax-chips">{settings.flinches.map(t => <button key={t} className="ax-chip ax-chip-flinch" title="Remove this flinch" onClick={() => change('flinches', settings.flinches.filter(x => x !== t))}>✕ {t - interval[0]} ms ×</button>)}</div>
             <button onClick={() => addMarker('flinches')} title="The unit gets hit from the front here: the body is knocked back and the torso snaps back, then recovers.">Add flinch here</button>
+            <label className="ax-check" title="Flinches come from behind: the body is pushed forward and the torso snaps forward instead of back."><input type="checkbox" checked={settings.flinchBehind} onChange={event => change('flinchBehind', event.target.checked)}/> Hit from behind</label>
             <Slider id="flinch" label="Flinch" low="Tap" high="Wrecked" tip="How hard the unit is knocked back by each flinch." value={settings.flinch} onChange={change}/>
           </Section>
           <Section title="Also apply to" note={also.length ? `${also.length} more` : ''}>

@@ -11,7 +11,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   heavy: 60, heavyIds: [], loose: 60, looseIds: [],
   steps: 0,
   thunk: 60, thunks: [],
-  flinch: 60, flinches: [],
+  flinch: 60, flinches: [], flinchBehind: false,
 });
 
 const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2, POSE_WINDOW = 140;
@@ -72,7 +72,9 @@ export function animXLKeyTimes(model, sequenceIndex) {
   for (let i = 1; i < speed.length - 1; i++) {
     if (speed[i] <= speed[i - 1] && speed[i] <= speed[i + 1] && speed[i] < peak * 0.35 && frames[i] - found[found.length - 1] >= 120 && to - frames[i] >= 120) found.push(frames[i]);
   }
-  return [...found, to];
+  const moments = [...found, to];
+  moments.dense = true;
+  return moments;
 }
 
 /** What AnimXL knows about the rig: the body that carries the weight, the
@@ -199,7 +201,8 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const nodes = animXLNodes(model), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
   const keys = animXLKeyTimes(model, sequenceIndex), timeMap = animXLTimeMap(keys, settings);
   const heavy = new Set(settings.heavyIds), loose = new Set(settings.looseIds);
-  const flinches = [...(settings.flinches || [])].map(f => typeof f === 'number' ? { at: f, dir: 1 } : { at: f.at, dir: f.dir ?? 1 }).sort((a, b) => a.at - b.at);
+  const from_ = settings.flinchBehind ? -1 : 1;
+  const flinches = [...(settings.flinches || [])].map(f => typeof f === 'number' ? { at: f, dir: from_ } : { at: f.at, dir: f.dir ?? from_ }).sort((a, b) => a.at - b.at);
   const wantsBody = settings.weight > 0 || settings.steps > 0 || flinches.length > 0;
   const rig = wantsBody || settings.steps > 0 ? animXLRig(model, sequenceIndex) : { body: null, feet: [], torso: [], legLength: 0 };
   const footfalls = settings.steps > 0 ? animXLFootfalls(model, sequenceIndex, rig) : [];
@@ -407,7 +410,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
       keyCount += ours.length;
     }
   }
-  return { tracks, keyCount, keyTimes: keys, footfalls, nodes: simIds.size, rig: { body: bodyNode?.ObjectId ?? null, feet: rig.feet } };
+  return { tracks, keyCount, keyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: bodyNode?.ObjectId ?? null, feet: rig.feet } };
 }
 
 // Our keys replace this sequence's keys; every other sequence keeps its own.
