@@ -15,6 +15,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 | Weight | The body is slower to start and stop and lags behind its path. |
 | Anticipation | Before each big move, bones first pull back the other way for a moment (a wind-up). |
 | Exaggerate | Pushes every pose further than you posed it, for punchier motion. |
+| Life | Held poses breathe: small, slow drifts so the unit never freezes dead. Loops seamlessly. |
 | Hit poses | How closely the result lands on your key poses (Loose ↔ Exact). |
 | Heavy bones | Picked bones (usually the weapon) trail the swing and drag the arm holding them. |
 | Loose bones | Picked bones (cape, hair, tail) swing loosely on their own. |

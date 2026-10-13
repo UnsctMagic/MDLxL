@@ -7,7 +7,7 @@ import { suggestPoseRig } from './pose-ik.js';
 // written back as ordinary keys for this sequence only.
 
 export const ANIMXL_DEFAULTS = Object.freeze({
-  ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, anticipation: 0, exaggerate: 0,
+  ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, anticipation: 0, exaggerate: 0, life: 0,
   heavy: 60, heavyIds: [], loose: 60, looseIds: [],
   steps: 0,
   thunk: 60, thunks: [],
@@ -234,8 +234,21 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     const moves = pushed.slice(1).map((q, i) => { const d = logQ(pushed[i].clone().invert().multiply(q)); return d.length() > 0.7 ? d.setLength(0.7) : d; });
     shaping.set(node.ObjectId, { mean, push, moves });
   }
+  // Life: slow, small drifts so held poses breathe. Whole cycles fit the
+  // animation, so looping animations stay seamless. Same result every time.
+  const life = settings.life / 100, drift = new Map();
+  if (life > 0) for (const node of nodes) {
+    if (!byId.has(node.Parent) || (node.Flags || 0) & 7) continue;
+    let seed = (node.ObjectId + 1) * 2654435761 % 4294967296;
+    const rand = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+    const axis = new Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize();
+    const cycles = Math.max(1, Math.round(duration / 1000 * lerp(0.35, 0.8, rand())));
+    drift.set(node.ObjectId, { axis, cycles, phase: rand() * 2 * Math.PI, amp: lerp(0.012, 0.045, life) * lerp(0.6, 1.2, rand()) });
+  }
   const localTarget = (node, t, out = new Quaternion()) => {
     authored(node, t, out);
+    const wobble = drift.get(node.ObjectId);
+    if (wobble) out.multiply(expQ(wobble.axis.clone().multiplyScalar(wobble.amp * Math.sin(wobble.phase + 2 * Math.PI * wobble.cycles * (t - from) / duration))));
     const shape = shaping.get(node.ObjectId);
     if (!shape) return out;
     if (exaggerate > 0) out.copy(shape.push(out));

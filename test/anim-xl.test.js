@@ -99,3 +99,13 @@ test('exaggerate pushes poses further from the average', () => {
   const arm = buildAnimXL(model(), 0, { exaggerate: 100 }).tracks.find(t => t.id === 1).track;
   assert.ok(angleAt(arm, 500) > 100, `bigger pose (${angleAt(arm, 500)})`);
 });
+
+test('life makes a held pose breathe and loops seamlessly', () => {
+  const m = model();
+  m.Bones[1].Rotation.Keys = [key(0, 20), key(1000, 20), key(2000, 10), key(3000, 10)];
+  m.Sequences[0].NonLooping = false;
+  const arm = buildAnimXL(m, 0, { life: 100 }).tracks.find(t => t.id === 1).track;
+  const values = [100, 300, 500, 700, 900].map(f => angleAt(arm, f));
+  assert.ok(Math.max(...values) - Math.min(...values) > 0.8, `held pose moves (${values.map(v => v.toFixed(2))})`);
+  assert.ok(Math.abs(angleAt(arm, 0) - angleAt(arm, 1000)) < 0.3, 'start and end match for looping');
+});
