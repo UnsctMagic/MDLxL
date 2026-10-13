@@ -1,8 +1,8 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import useMovableWindow from './useMovableWindow.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
-import { allNodes, sampleNodeMatrices } from '../src/animation.js';
-import { Matrix4, Vector3 } from 'three';
+import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
+import { Matrix4, Quaternion, Vector3 } from 'three';
 import { createSequenceFromCurrent, setSequenceName } from '../src/sequence-editor.js';
 import { createNode } from '../src/editor-document.js';
 import { loadEventCatalog, resolveEventSound } from './node-event-data.js';
@@ -11,23 +11,47 @@ import './anim-xl.css';
 
 const GamePreview = lazy(() => import('./GamePreview.jsx'));
 
-const MOTION = [
-  ['ease', 'Ease', 'Linear', 'Snappy', 'Speeds up out of each pose and slows into the next one, instead of moving at one even speed. Your poses stay where they are.'],
-  ['overlap', 'Overlap', 'Stiff', 'Loose', 'Parts further from the body follow a moment later: the hips lead, then chest, arms, hands and weapon. The single biggest fix for robotic motion.'],
-  ['settle', 'Settle', 'Dead stop', 'Bouncy', 'Parts overshoot a pose slightly and wobble back into it, instead of stopping dead.'],
-  ['weight', 'Weight', 'Light', 'Heavy', 'The body is slower to start and stop and lags behind its path, as if it were heavier.'],
-  ['anticipation', 'Anticipation', 'None', 'Big wind-up', 'Before each big move, the bones first pull back the other way for a moment, like winding up a swing.'],
-  ['exaggerate', 'Exaggerate', 'Subtle', 'Extreme', 'Pushes every pose further than you posed it, for punchier, more readable motion.'],
-  ['life', 'Life', 'Still', 'Alive', 'Held poses breathe: small, slow drifts in the body so the unit never freezes dead. Loops seamlessly.'],
-  ['poses', 'Hit poses', 'Loose', 'Exact', 'How closely the result lands on your key poses. Exact keeps every pose; Loose lets overlap and settle carry through them.'],
+// The effects, as cards. `key` is the setting the card's slider drives and `on` the value
+// a card starts at when you switch it on. `bones` names the bones the card moves, which
+// light up in the preview while you point at the card.
+const EFFECTS = [
+  { id: 'smooth', name: 'Smooth', hint: 'Eases in and out of every pose', key: 'ease', on: 50, low: 'Even', high: 'Silky', tip: 'Speeds up out of each pose and slows into the next one, instead of moving at one even speed. Your poses stay where they are.' },
+  { id: 'follow', name: 'Follow-through', hint: 'Head, arms and tail trail the body', key: 'overlap', on: 50, low: 'Stiff', high: 'Loose', tip: 'Parts further from the body follow a moment later: the hips lead, then chest, arms, hands and weapon. The single biggest fix for robotic motion.' },
+  { id: 'wobble', name: 'Wobble', hint: 'Overshoots a pose, then settles', key: 'settle', on: 40, low: 'Dead stop', high: 'Bouncy', tip: 'Parts overshoot a pose slightly and wobble back into it, instead of stopping dead.' },
+  { id: 'weight', name: 'Weight', hint: 'A heavier, slower body', key: 'weight', on: 50, low: 'Light', high: 'Heavy', bones: 'body', tip: 'The body is slower to start and stop and lags behind its path, as if it were heavier.' },
+  { id: 'weapon', name: 'Weapon drag', hint: 'The weapon trails the swing', key: 'heavy', on: 60, low: 'Dagger', high: 'Greatsword', bones: 'heavyIds', tip: 'The weapon (or any heavy part you pick) trails behind the swing and drags the arm holding it.' },
+  { id: 'cloth', name: 'Cloth & hair', hint: 'Capes, hair and tails swing', key: 'loose', on: 60, low: 'Stiff', high: 'Floppy', bones: 'looseIds', tip: 'Capes, hair, tails and plumes swing freely on their own.' },
+  { id: 'steps', name: 'Heavy steps', hint: 'Each footfall shakes the body', key: 'steps', on: 60, low: 'Soft', high: 'Stomp', bones: 'feet', tip: 'Each time a foot lands, the body drops into the step and the chest and head nod.' },
+  { id: 'windup', name: 'Wind-up', hint: 'Pulls back before each move', key: 'anticipation', on: 50, low: 'None', high: 'Big', tip: 'Before each big move, the bones first pull back the other way for a moment, like winding up a swing.' },
+  { id: 'punch', name: 'Punch it up', hint: 'Pushes your poses further', key: 'exaggerate', on: 40, low: 'Subtle', high: 'Extreme', tip: 'Pushes every pose further than you posed it, for punchier, more readable motion.' },
+  { id: 'breathe', name: 'Breathing', hint: 'Still poses stay alive', key: 'life', on: 50, low: 'Still', high: 'Alive', tip: 'Held poses breathe: small, slow drifts in the body so the unit never freezes dead. Loops seamlessly.' },
+  { id: 'hits', name: 'Hits', hint: 'THUNKs and flinches', tip: 'Mark the moment a weapon connects (THUNK) or the unit gets hit (flinch) on the timeline.' },
+  { id: 'collapse', name: 'Collapse', hint: 'Goes limp and falls down', key: 'collapse', on: 100, low: 'Off', high: 'Limp', bones: 'all', tip: 'From a chosen moment the unit loses its strength and falls to the ground under its own weight. Use Commit as new to keep the original.' },
 ];
+// Little pictures of each effect.
+const ICONS = {
+  smooth: <path d="M4 26C20 26 24 4 40 4"/>,
+  follow: <><path d="M4 24Q14 4 24 24"/><path d="M12 26Q22 8 32 26" opacity=".6"/><path d="M20 27Q30 12 40 27" opacity=".35"/></>,
+  wobble: <path d="M4 22L14 22Q17 4 20 22T26 22Q28 15 30 22T34 22L40 22"/>,
+  weight: <><path d="M22 3V15"/><path d="M17 11L22 16L27 11"/><rect x="14" y="18" width="16" height="9" rx="2" className="ax-fill"/></>,
+  weapon: <><path d="M10 27L34 5"/><path d="M5 19Q12 6 27 3" strokeDasharray="3 3" opacity=".6"/><path d="M28 9L33 14"/></>,
+  cloth: <><path d="M12 4V27"/><path d="M12 5Q22 3 28 7T40 9Q34 14 38 21Q28 18 22 22T12 20"/></>,
+  steps: <><ellipse cx="14" cy="13" rx="4" ry="6" className="ax-fill"/><ellipse cx="29" cy="18" rx="4" ry="6" className="ax-fill"/><path d="M4 27H40"/></>,
+  windup: <><path d="M36 20H10"/><path d="M10 20Q3 20 5 12"/><path d="M30 15L36 20L30 25"/></>,
+  punch: <path d="M22 3L25 12L35 9L28 16L38 22L26 21L25 29L20 21L9 25L16 16L6 9L18 12Z"/>,
+  breathe: <path d="M4 16Q13 6 22 16T40 16"/>,
+  hits: <><path d="M15 6L17 12L23 12L18 16L20 22L15 18L10 22L12 16L7 12L13 12Z" className="ax-fill"/><path d="M28 8L38 18M38 8L28 18"/></>,
+  collapse: <><circle cx="11" cy="8" r="3"/><path d="M13 11L24 21L36 22"/><path d="M18 15L14 24"/><path d="M4 27H40"/></>,
+};
 const PRESETS = [
-  ['Natural', 'A good first pass for most hand-keyed animations', { ease: 50, overlap: 50, settle: 30, weight: 20, poses: 60, anticipation: 30, exaggerate: 10, life: 30, heavy: 45, loose: 50, collapse: 0 }],
+  ['Natural', 'A good first pass for most hand-keyed animations', { ease: 50, overlap: 50, settle: 30, weight: 20, poses: 60, anticipation: 30, exaggerate: 10, life: 30, heavy: 45, loose: 50, steps: 0, collapse: 0 }],
   ['Heavy', 'A big, slow unit: ogre, golem, armoured knight', { ease: 40, overlap: 60, settle: 20, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20, collapse: 0 }],
   ['Snappy', 'A quick, light unit: rogue, archer, small creature', { ease: 80, overlap: 35, settle: 55, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25, collapse: 0 }],
-  ['Loose', 'A floppy, relaxed feel: undead, drunk, exhausted', { ease: 30, overlap: 80, settle: 55, weight: 40, poses: 30, loose: 80, heavy: 40, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
-  ['Collapse', 'Goes limp and falls to the ground: a death from any pose. Use Commit as new to keep the original.', { ease: 30, overlap: 40, settle: 30, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, bounce: 30 }],
+  ['Floppy', 'A loose, relaxed feel: undead, drunk, exhausted', { ease: 30, overlap: 80, settle: 55, weight: 40, poses: 30, loose: 80, heavy: 40, steps: 0, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
+  ['Death', 'Goes limp and falls to the ground: a death from any pose. Use Commit as new to keep the original.', { ease: 30, overlap: 40, settle: 30, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, bounce: 30 }],
 ];
+// How strongly a bone changed, as a colour: blue untouched, yellow some, red a lot.
+const heat = share => share < 0.004 ? '#4fc3ff' : share < 0.02 ? '#ffd23f' : share < 0.05 ? '#ff8a2a' : '#ff3b30';
 const storageKey = (path, name) => `mdlxl.animxl.${path || 'unsaved'}.${name}`;
 const readSaved = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
 const writeSaved = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage is optional */ } };
@@ -49,6 +73,18 @@ function Section({ title, note, open = false, children }) {
     <summary title={`Show or hide ${title}`}>{title}{note ? <small> · {note}</small> : null}</summary>
     <div className="ax-section-body">{children}</div>
   </details>;
+}
+
+// One effect: its picture, name and what it does. Clicking it opens its controls (and
+// switches it on); the corner switch turns it off and on again.
+function EffectCard({ effect, value, active, selected, onSelect, onToggle, onHover }) {
+  return <div className={`ax-card${active ? ' ax-card-on' : ''}${selected ? ' ax-card-selected' : ''}`} onPointerEnter={() => onHover(effect.id)} onPointerLeave={() => onHover(null)}>
+    <button className="ax-card-main" aria-pressed={selected} title={effect.tip} onClick={onSelect}>
+      <svg viewBox="0 0 44 30" className="ax-icon" aria-hidden="true">{ICONS[effect.id]}</svg>
+      <span className="ax-card-text"><b>{effect.name}</b><small>{effect.hint}</small></span>
+    </button>
+    {effect.key && <button className="ax-card-switch" role="switch" aria-checked={active} aria-label={`${effect.name} on`} title={active ? `Turn ${effect.name} off` : `Turn ${effect.name} on`} onClick={onToggle}>{active ? value : 'off'}</button>}
+  </div>;
 }
 
 // The model with some node tracks swapped in (no deep copy).
@@ -183,15 +219,42 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     return outcome.result && built?.settings === settings && built.sequence === seq && built.revision === doc.revision ? outcome.result : buildAnimXL(model, seq, settings);
   };
 
+  // ×3: the preview shows every change three times as strong, so subtle shaping on an
+  // already-animated unit is easy to see. Preview only; Commit writes the real result.
+  const [magnify, setMagnify] = useState(false), [ghost, setGhost] = useState(true), [hover, setHover] = useState(null), [selected, setSelected] = useState(null);
+  const magnified = useMemo(() => {
+    if (!magnify || !result?.tracks.length) return null;
+    const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), [from, to] = interval, frames = [];
+    for (let f = from; f < to; f += 1000 / 30) frames.push(Math.round(f));
+    frames.push(to);
+    const opts = { interval, globalSequences: model.GlobalSequences || [] };
+    return result.tracks.map(item => {
+      const rotation = item.property === 'Rotation', before = byId.get(item.id)?.[item.property];
+      const read = (track, f) => track?.Keys ? sampleTrack(track, f, rotation ? { ...opts, quaternion: true, fallback: [0, 0, 0, 1] } : { ...opts, fallback: [0, 0, 0] }) : rotation ? [0, 0, 0, 1] : [0, 0, 0];
+      const keys = frames.map(Frame => {
+        const now = read(item.track, Frame), was = read(before, Frame);
+        if (!rotation) return { Frame, Vector: new Float32Array(was.map((v, i) => v + (now[i] - v) * 3)) };
+        const a = new Quaternion(...was).normalize(), b = new Quaternion(...now).normalize(), d = a.clone().invert().multiply(b);
+        if (d.w < 0) d.set(-d.x, -d.y, -d.z, -d.w);
+        const sin = Math.hypot(d.x, d.y, d.z), angle = Math.min(2 * Math.atan2(sin, d.w) * 3, Math.PI * 0.95);
+        if (sin < 1e-7) return { Frame, Vector: new Float32Array(b.toArray()) };
+        const k = Math.sin(angle / 2) / sin;
+        return { Frame, Vector: new Float32Array(a.multiply(new Quaternion(d.x * k, d.y * k, d.z * k, Math.cos(angle / 2))).toArray()) };
+      });
+      const others = item.track.Keys.filter(key => key.Frame < from || key.Frame > to).map(key => ({ Frame: key.Frame, Vector: key.Vector }));
+      return { ...item, track: { ...item.track, LineType: 1, Keys: [...others, ...keys].sort((x, y) => x.Frame - y.Frame) } };
+    });
+  }, [magnify, result, model, interval[0], interval[1]]);
+
   // Tracks for the preview: the shaped result, or the originals when comparing.
   const liveTracks = useMemo(() => {
     const byId = new Map(allNodes(model).map(node => [node.ObjectId, node]));
-    const shaped = original || !result ? [] : result.tracks;
+    const shaped = original || !result ? [] : magnified || result.tracks;
     for (const item of shaped) touched.current.add(`${item.id}:${item.property}`);
     const shapedKeys = new Set(shaped.map(item => `${item.id}:${item.property}`));
     const restore = [...touched.current].filter(key => !shapedKeys.has(key)).map(key => { const [id, property] = key.split(':'); return { id: Number(id), property, track: byId.get(Number(id))?.[property] }; }).filter(item => byId.has(item.id));
     return [...shaped, ...restore];
-  }, [result, original, model]);
+  }, [result, magnified, original, model]);
   // Side by side: the left view always shows the authored tracks.
   const [compare, setCompare] = useState(false), cameraBus = useRef({ saved: null, listeners: new Set() });
   // Arcs: the path the weapon's tip draws through the animation, original
@@ -211,6 +274,41 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const arcMarker = Math.max(0, Math.min(arcFrames.length - 1, Math.round((time - interval[0]) / arcStep)));
   const originalPath = originalArc && { points: originalArc, color: '#9fb4c8', width: 2, dash: [6, 4], alpha: 0.95, marker: arcMarker };
   const shapedPath = shapedArc && { points: shapedArc, color: '#ff8a2a', width: 2.5, marker: arcMarker };
+  // Ghost: the original skeleton (faint white) under the AnimXL skeleton, each bone
+  // coloured by how far it moved from the original. Pointing at a card lights up its bones.
+  const skeleton = useMemo(() => {
+    const nodes = allNodes(model).filter(n => (model.Bones || []).includes(n) || (model.Helpers || []).includes(n)), ids = new Set(nodes.map(n => n.ObjectId)), children = new Map();
+    for (const n of nodes) if (ids.has(n.Parent)) (children.get(n.Parent) || children.set(n.Parent, []).get(n.Parent)).push(n.ObjectId);
+    const pivots = new Map(nodes.map(n => [n.ObjectId, new Vector3().fromArray(n.PivotPoint || model.PivotPoints?.[n.ObjectId] || [0, 0, 0])]));
+    const xs = [...pivots.values()], extent = axis => Math.max(...xs.map(p => p[axis])) - Math.min(...xs.map(p => p[axis]));
+    return { links: nodes.filter(n => ids.has(n.Parent)).map(n => [n.Parent, n.ObjectId]), children, parent: new Map(nodes.map(n => [n.ObjectId, n.Parent])), pivots, size: Math.max(20, ...['x', 'y', 'z'].map(extent)) };
+  }, [model, doc.revision]);
+  const litEffect = hover || selected;
+  const litIds = useMemo(() => {
+    const kind = EFFECTS.find(e => e.id === litEffect)?.bones;
+    if (!kind) return new Set();
+    if (kind === 'all') return new Set(skeleton.pivots.keys());
+    const below = start => { const out = new Set(), stack = [...start]; while (stack.length) { const id = stack.pop(); if (out.has(id)) continue; out.add(id); stack.push(...(skeleton.children.get(id) || [])); } return out; };
+    if (kind === 'body') { const body = result?.rig?.body; return body == null ? new Set() : new Set([body, ...(skeleton.children.get(body) || [])]); }
+    if (kind === 'feet') return new Set((result?.rig?.feet || []).flatMap(foot => { const knee = skeleton.parent.get(foot); return [foot, knee, skeleton.parent.get(knee)]; }).filter(id => id != null));
+    return below(settings[kind] || []);
+  }, [litEffect, skeleton, result, settings.heavyIds, settings.looseIds]);
+  const ghostPaths = useMemo(() => {
+    if (compare || picking || original || !result || (!ghost && !litIds.size)) return [];
+    const t = Math.round(Math.max(interval[0], Math.min(interval[1], time))), was = sampleNodeMatrices(model, t, seq), now = sampleNodeMatrices(withTracks(model, magnified || result.tracks), t, seq);
+    const at = (matrices, id) => skeleton.pivots.get(id).clone().applyMatrix4(matrices.get(id) || new Matrix4());
+    const paths = [];
+    for (const [p, c] of skeleton.links) if (litIds.has(c)) paths.push({ points: [at(now, p).toArray(), at(now, c).toArray()], color: '#ffe14d', width: 7, alpha: 0.55 });
+    // Only the bones that moved most are drawn, so the unit itself stays easy to see.
+    if (ghost) {
+      const moved = skeleton.links.map(([p, c]) => { const b = at(was, c), b2 = at(now, c); return { p, c, b, b2, share: b2.distanceTo(b) / skeleton.size }; }).filter(link => link.share >= 0.006).sort((x, y) => y.share - x.share).slice(0, 12);
+      for (const { p, c, b, b2, share } of moved) {
+        paths.push({ points: [at(was, p).toArray(), b.toArray()], color: '#ffffff', width: 1.5, dash: [4, 3], alpha: 0.7 });
+        paths.push({ points: [at(now, p).toArray(), b2.toArray()], color: heat(share), width: 3.5, alpha: 0.95, marker: 1 });
+      }
+    }
+    return paths;
+  }, [ghost, compare, picking, original, result, magnified, litIds, skeleton, time, seq, model]);
   const originalTracks = useMemo(() => {
     const byId = new Map(allNodes(model).map(node => [node.ObjectId, node]));
     return [...touched.current].map(key => { const [id, property] = key.split(':'); return { id: Number(id), property, track: byId.get(Number(id))?.[property] }; }).filter(item => byId.has(item.id));
@@ -231,6 +329,12 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     h.at = 0;
   };
   const change = (key, value) => update(old => ({ ...old, [key]: value }));
+  // Cards: clicking one opens its controls and switches it on; the switch turns it off,
+  // and on again at the value it had.
+  const lastOn = useRef({});
+  const effectActive = e => e.key ? settings[e.key] > 0 : settings.thunks.length + settings.flinches.length > 0;
+  const toggleEffect = e => { if (settings[e.key] > 0) { lastOn.current[e.key] = settings[e.key]; change(e.key, 0); } else change(e.key, lastOn.current[e.key] || e.on); };
+  const selectEffect = e => { setSelected(s => s === e.id ? null : e.id); if (e.key && !(settings[e.key] > 0)) change(e.key, lastOn.current[e.key] || e.on); };
   const clampTime = t => Math.round(Math.max(interval[0], Math.min(interval[1], t)));
   const addMarker = key => update(old => ({ ...old, [key]: [...new Set([...old[key], clampTime(time)])].sort((a, b) => a - b) }));
   // THUNK sound: chosen from the game's own sound list, heard in the preview at
@@ -361,7 +465,17 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
       return picking === 'footIds' || picking === 'stiffIds' ? { ...old, [picking]: [...list, id] } : { ...old, [picking]: [...list, id], [other]: old[other].filter(x => x !== id) };
     });
   };
+  // Motion graph on the strip: how much the whole unit moves over time, the original as a
+  // grey line and AnimXL as an orange area. Easing, wind-ups, holds and falls show as shapes.
+  const graph = useMemo(() => {
+    const m = result?.motion;
+    if (!m?.frames?.length) return null;
+    const top = Math.max(1e-6, ...m.original, ...m.shaped), x = f => ((f - interval[0]) / span * 1000).toFixed(1), y = v => (96 - v / top * 88).toFixed(1);
+    const line = values => values.map((v, i) => `${i ? 'L' : 'M'}${x(m.frames[i])} ${y(v)}`).join('');
+    return { original: line(m.original), shaped: `${line(m.shaped)}L${x(m.frames.at(-1))} 100L${x(m.frames[0])} 100Z` };
+  }, [result, interval[0], span]);
   const footfalls = result?.footfalls || [];
+  const selectedEffect = EFFECTS.find(e => e.id === selected);
   const status = outcome.error ? outcome.error : original ? 'Showing the original animation.' : picking ? 'Click bones in the preview to add or remove them.' : result?.tracks.length ? `${new Set(result.tracks.map(t => t.id)).size} bones shaped · ${result.keyCount} keys` : 'Move a slider to shape the animation.';
 
   return <div className="resource-editor anim-xl" onKeyDown={event => {
@@ -381,6 +495,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
         <button aria-pressed={arcs} disabled={arcWeapon == null} title={arcWeapon == null ? 'Pick a heavy or loose bone to see the arc it draws' : 'Draw the arc the chosen bone\'s tip follows: dashed for the original, orange for the AnimXL version'} onClick={() => setArcs(v => !v)}>Arcs</button>
         {arcs && arcChoices.length > 1 && <select aria-label="Arc bone" title="Which bone's arc to draw" value={arcWeapon ?? ''} onChange={event => setArcPick(Number(event.target.value))}>{arcChoices.map(id => <option key={id} value={id}>{boneOptions.get(id)}</option>)}</select>}
         <button aria-pressed={compare} title="Show the original (left) and the AnimXL version (right) side by side, playing together" onClick={() => { cameraBus.current = { saved: null, listeners: new Set() }; setCompare(v => !v); setOriginal(false); }}>Side by side</button>
+        <button aria-pressed={ghost} title="Ghost: the original skeleton (dashed white) under the AnimXL skeleton. Bones turn yellow, orange and red the more AnimXL moved them." onClick={() => setGhost(v => !v)}>Ghost</button>
+        <button aria-pressed={magnify} className="ax-magnify" title="Show every change three times as strong, so small differences are easy to see. Only the preview; Commit writes the real result." onClick={() => setMagnify(v => !v)}>×3</button>
         <span className="ax-time" title="Current time in this animation">{Math.round(time - interval[0])} / {span} ms</span>
       </div>
       <div className="ax-body">
@@ -395,12 +511,16 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           <div className="ax-preview" aria-label="AnimXL animation">
             {compare && <span className="ax-badge ax-badge-new">AnimXL</span>}
             <Suspense fallback={<span>Loading preview…</span>}>
-              <GamePreview key={compare ? 'compare' : 'single'} presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks} overlayPaths={compare ? (shapedPath ? [shapedPath] : undefined) : [originalPath, shapedPath].filter(Boolean)} {...(compare ? { compareCamera: cameraBus.current, preserveCameraView: true } : {})}
+              <GamePreview key={compare ? 'compare' : 'single'} presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks} overlayPaths={compare ? (shapedPath ? [shapedPath] : undefined) : [...ghostPaths, originalPath, shapedPath].filter(Boolean)} {...(compare ? { compareCamera: cameraBus.current, preserveCameraView: true } : {})}
                 {...(picking ? { cleanAnimationPreview: true, overlays: { bones: true }, selectedNodeIds: [], onSelectNodes: pickBone } : {})}/>
             </Suspense>
           </div>
           </div>
           <div className="ax-strip" role="slider" aria-label="Animation time" aria-valuemin={interval[0]} aria-valuemax={interval[1]} aria-valuenow={Math.round(time)} title="Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it." onPointerDown={stripDown} onPointerMove={stripMove} onPointerUp={() => { drag.current = null; }} onDoubleClick={resetPose}>
+            {graph && <svg className="ax-graph" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+              <path className="ax-graph-shaped" d={graph.shaped}/>
+              <path className="ax-graph-original" d={graph.original}/>
+            </svg>}
             {(result?.keyTimes || []).map((t, i) => <i key={'k' + i} className={t !== result.sourceKeyTimes[i] ? 'ax-key ax-key-moved' : 'ax-key'} style={{ left: pct(t) }}/>)}
             {settings.steps > 0 && footfalls.map(t => <i key={'f' + t} className="ax-foot" style={{ left: pct(t) }}/>)}
             {settings.thunks.map(t => <i key={'t' + t} className="ax-thunk" style={{ left: pct(t) }}>★</i>)}
@@ -409,36 +529,55 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           </div>
         </div>
         <div className="ax-controls">
-          {result?.dense && <p className="ax-note ax-dense" title="AnimXL treats the moments where the body slows to a stop as the poses.">This animation is already keyed in detail. AnimXL works best on a few hand-made poses, but you can still shape it.</p>}
-          <Section title="Quick start" open>
-            <div className="ax-row ax-presets">{PRESETS.map(([name, tip, values]) => <button key={name} title={tip} onClick={() => update(old => ({ ...old, ...values }))}>{name}</button>)}</div>
-            {userPresets.length > 0 && <div className="ax-row ax-presets">{userPresets.map(preset => <span key={preset.name} className="ax-user-preset"><button title={`Use your preset "${preset.name}"`} onClick={() => update(old => ({ ...old, ...preset.values }))}>{preset.name}</button><button className="ax-chip" aria-label={`Delete preset ${preset.name}`} title={`Delete your preset "${preset.name}"`} onClick={() => saveUserPresets(userPresets.filter(p => p !== preset))}>×</button></span>)}</div>}
-            {naming === null
-              ? <button title="Remember the current slider settings as your own preset, for any model" onClick={() => setNaming('')}>Save as preset…</button>
-              : <div className="ax-row"><input aria-label="Preset name" placeholder="Preset name" value={naming} maxLength={24} autoFocus onChange={event => setNaming(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') savePreset(); if (event.key === 'Escape') { event.stopPropagation(); setNaming(null); } }}/><button disabled={!naming.trim()} onClick={savePreset}>Save</button><button onClick={() => setNaming(null)}>Cancel</button></div>}
-          </Section>
-          <Section title="Motion" open>{MOTION.slice(0, 4).map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</Section>
-          <Section title="More motion" note={MOTION.slice(4).filter(([id]) => settings[id] !== ANIMXL_DEFAULTS[id]).map(([, label]) => label).join(', ')}>{MOTION.slice(4).map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</Section>
-          <Section title="Heavy bones" open note={settings.heavyIds.length ? `${settings.heavyIds.length} picked` : ''}>
-            <BonePicker label="heavy bones" tip="Picked bones (usually the weapon) trail behind the swing and drag the arm holding them." ids={settings.heavyIds} options={boneOptions} onChange={ids => change('heavyIds', ids)} picking={picking === 'heavyIds'} onPick={() => setPicking(p => p === 'heavyIds' ? null : 'heavyIds')}/>
-            <label className="ax-check" title="If the other hand holds the weapon too (a two-handed grip), it stays on the weapon while the weapon drags."><input type="checkbox" checked={settings.grip !== false} onChange={event => change('grip', event.target.checked)}/> Keep both hands on the weapon</label>
-            <Slider id="heavy" label="Heaviness" low="Dagger" high="Greatsword" tip="How heavy the picked bones are. Heavier parts lag more and overshoot further." value={settings.heavy} onChange={change}/>
-          </Section>
-          <Section title="Loose bones" note={settings.looseIds.length ? `${settings.looseIds.length} picked` : ''}>
-            <BonePicker label="loose bones" tip="Picked bones (cape, hair, tail, plume) swing loosely on their own." ids={settings.looseIds} options={boneOptions} onChange={ids => change('looseIds', ids)} picking={picking === 'looseIds'} onPick={() => setPicking(p => p === 'looseIds' ? null : 'looseIds')}/>
-            <Slider id="loose" label="Looseness" low="Stiff" high="Floppy" tip="How freely the picked bones swing and wobble." value={settings.loose} onChange={change}/>
-          </Section>
-          <Section title="Stiff bones" note={settings.stiffIds.length ? `${settings.stiffIds.length} picked` : ''}>
-            <small className="ax-note">Picked bones and everything below them follow exactly: no lag, wobble or drag. For example a mount's legs, or face and portrait bones.</small>
-            <BonePicker label="stiff bones" tip="Pick bones to keep exact; everything below them stays exact too." ids={settings.stiffIds} options={boneOptions} onChange={ids => change('stiffIds', ids)} picking={picking === 'stiffIds'} onPick={() => setPicking(p => p === 'stiffIds' ? null : 'stiffIds')}/>
-          </Section>
-<Section title="Timing" note={movedPoses ? `${movedPoses} pose${movedPoses > 1 ? 's' : ''} moved` : ''}>
-            <small className="ax-note">Drag a diamond on the strip to change when that pose happens: earlier makes the move into it faster, later holds the pose before it longer. Double-click a diamond to put it back.</small>
+          {result?.dense && <p className="ax-note ax-dense" title="AnimXL treats the moments where the body slows to a stop as the poses.">This animation is already keyed in detail, so changes are subtle. Turn on ×3 to see them clearly.</p>}
+          <div className="ax-presets" role="group" aria-label="Quick start">
+            {PRESETS.map(([name, tip, values]) => <button key={name} className="ax-preset" title={tip} onClick={() => update(old => ({ ...old, ...values }))}>{name}</button>)}
+            {userPresets.map(preset => <span key={preset.name} className="ax-user-preset"><button className="ax-preset" title={`Use your preset "${preset.name}"`} onClick={() => update(old => ({ ...old, ...preset.values }))}>{preset.name}</button><button className="ax-chip" aria-label={`Delete preset ${preset.name}`} title={`Delete your preset "${preset.name}"`} onClick={() => saveUserPresets(userPresets.filter(p => p !== preset))}>×</button></span>)}
+          </div>
+          <div className="ax-cards">
+            {EFFECTS.map(e => <EffectCard key={e.id} effect={e} value={e.key ? settings[e.key] : 0} active={effectActive(e)} selected={selected === e.id} onSelect={() => selectEffect(e)} onToggle={() => toggleEffect(e)} onHover={setHover}/>)}
+          </div>
+          {selectedEffect
+            ? <div className="ax-tray" role="group" aria-label={`${selectedEffect.name} settings`}>
+                <div className="ax-tray-title"><b>{selectedEffect.name}</b><small>{selectedEffect.tip}</small></div>
+                {selectedEffect.key && <Slider id={selectedEffect.key} label={selectedEffect.name} low={selectedEffect.low} high={selectedEffect.high} tip={selectedEffect.tip} value={settings[selectedEffect.key]} onChange={change}/>}
+                {selectedEffect.id === 'weapon' && <>
+                  <BonePicker label="weapon bones" tip="The bones that drag: usually the weapon. AnimXL guesses them; pick others here." ids={settings.heavyIds} options={boneOptions} onChange={ids => change('heavyIds', ids)} picking={picking === 'heavyIds'} onPick={() => setPicking(p => p === 'heavyIds' ? null : 'heavyIds')}/>
+                  <label className="ax-check" title="If the other hand holds the weapon too (a two-handed grip), it stays on the weapon while the weapon drags."><input type="checkbox" checked={settings.grip !== false} onChange={event => change('grip', event.target.checked)}/> Keep both hands on the weapon</label>
+                </>}
+                {selectedEffect.id === 'cloth' && <BonePicker label="cloth and hair bones" tip="The bones that swing freely: capes, hair, tails, plumes. AnimXL guesses them; pick others here." ids={settings.looseIds} options={boneOptions} onChange={ids => change('looseIds', ids)} picking={picking === 'looseIds'} onPick={() => setPicking(p => p === 'looseIds' ? null : 'looseIds')}/>}
+                {selectedEffect.id === 'steps' && <small className="ax-note">{footfalls.length ? `${footfalls.length} footfall${footfalls.length > 1 ? 's' : ''} found: the green ticks on the timeline.` : 'No feet touch the ground in this animation. Pick the feet under Fine-tune.'}</small>}
+                {selectedEffect.id === 'hits' && <>
+                  <small className="ax-note">Pause where the hit lands, then add it. Drag a mark on the timeline to move it.</small>
+                  <div className="ax-chips">{settings.thunks.map(t => <button key={t} className="ax-chip" title="Remove this THUNK" onClick={() => change('thunks', settings.thunks.filter(x => x !== t))}>★ {t - interval[0]} ms ×</button>)}</div>
+                  <button onClick={() => addMarker('thunks')} title="Your weapon connects here: the animation holds this pose for a beat and heavy bones bounce back.">Add THUNK here</button>
+                  <Slider id="thunk" label="THUNK" low="Light" high="Brutal" tip="How long the hit holds and how hard the heavy bones bounce back." value={settings.thunk} onChange={change}/>
+                  <SoundPicker label="THUNK sound" tip="A sound that plays at each THUNK: you hear it in the preview, and Commit adds it as a sound event on the weapon so it plays in game." value={settings.thunkSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('thunkSound', id)}/>
+                  {soundError && <small className="ax-note">{soundError}</small>}
+                  <div className="ax-chips">{settings.flinches.map(t => <button key={t} className="ax-chip ax-chip-flinch" title="Remove this flinch" onClick={() => change('flinches', settings.flinches.filter(x => x !== t))}>✕ {t - interval[0]} ms ×</button>)}</div>
+                  <button onClick={() => addMarker('flinches')} title="The unit gets hit here: the body is knocked back and the torso snaps back, then recovers.">Add flinch here</button>
+                  <label className="ax-check" title="Flinches come from behind: the body is pushed forward and the torso snaps forward instead of back."><input type="checkbox" checked={settings.flinchBehind} onChange={event => change('flinchBehind', event.target.checked)}/> Hit from behind</label>
+                  <Slider id="flinch" label="Flinch" low="Tap" high="Wrecked" tip="How hard the unit is knocked back by each flinch." value={settings.flinch} onChange={change}/>
+                  <SoundPicker label="Hit sound" tip="A sound that plays at each flinch (the unit getting hit): you hear it in the preview, and Commit adds it as a sound event on the body so it plays in game." value={settings.flinchSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('flinchSound', id)}/>
+                </>}
+                {selectedEffect.id === 'collapse' && <>
+                  <Slider id="collapseAt" label="Goes limp at" low="Start" high="End" tip="When the strength gives out, as a share of the animation. Before it the animation plays as you keyed it." value={settings.collapseAt} onChange={change}/>
+                  <label className="ax-field" title="Which way the unit tips over as it falls.">Falls
+                    <select aria-label="Fall direction" value={settings.collapseDir} onChange={event => change('collapseDir', event.target.value)}>
+                      <option value="back">Backwards</option><option value="forward">Forwards</option><option value="left">To its left</option><option value="right">To its right</option>
+                    </select>
+                  </label>
+                  <Slider id="bounce" label="Landing" low="Thud" high="Bouncy" tip="How much the body bounces when it hits the ground." value={settings.bounce} onChange={change}/>
+                  <small className="ax-note">Use Commit as new to keep the original and add the fall as a new animation.</small>
+                </>}
+              </div>
+            : <p className="ax-note ax-hint">Click a card to switch an effect on and tune it. Point at a card to light up the bones it moves.</p>}
+          <Section title="Fine-tune" note={[movedPoses && `${movedPoses} pose${movedPoses > 1 ? 's' : ''} moved`, settings.stiffIds.length && `${settings.stiffIds.length} stiff`, also.length && `${also.length} more animations`].filter(Boolean).join(', ')}>
+            <Slider id="poses" label="Stick to my poses" low="Loose" high="Exact" tip="How closely the result lands on your key poses. Exact keeps every pose; Loose lets follow-through and wobble carry through them." value={settings.poses} onChange={change}/>
+            <small className="ax-note">Timing: drag a diamond on the timeline to change when that pose happens; double-click it to put it back.</small>
             <button disabled={!movedPoses} onClick={() => update(old => ({ ...old, retime: {} }))} title="Put every pose back at its original time">Reset timing</button>
-          </Section>
-          <Section title="Feet" note={[settings.feet !== false && 'planted', settings.steps && 'Heavy steps ' + settings.steps].filter(Boolean).join(', ')}>
             <label className="ax-check" title="Feet stay exactly where your animation puts them. The body still sinks and sways; the knees bend to make up the difference. Legs that never touch the ground (a rider's) are left free."><input type="checkbox" checked={settings.feet !== false} onChange={event => change('feet', event.target.checked)}/> Keep feet planted</label>
-            <label className="ax-field" title="The bone that carries the body's weight (usually the pelvis or root). Weight, Heavy steps and Flinch move it.">Body
+            <label className="ax-field" title="The bone that carries the body's weight (usually the pelvis or root). Weight, Heavy steps, Flinch and Collapse move it.">Body
               <select aria-label="Body bone" value={settings.bodyId ?? ''} onChange={event => change('bodyId', event.target.value === '' ? null : Number(event.target.value))}>
                 <option value="">Found: {boneOptions.get(result?.rig?.body) || 'none'}</option>
                 {[...boneOptions].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
@@ -446,35 +585,13 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             </label>
             <span className="ax-note" title="The feet AnimXL keeps planted and listens to for footfalls.">Feet{settings.footIds.length ? ' (your picks)' : `: found ${(result?.rig?.feet || []).map(id => boneOptions.get(id)).filter(Boolean).join(', ') || 'none'}`}</span>
             <BonePicker label="feet" tip="Pick each foot (ankle) bone if AnimXL did not find the right ones. Its leg is the foot and its two parent bones." ids={settings.footIds} options={boneOptions} onChange={ids => change('footIds', ids)} picking={picking === 'footIds'} onPick={() => setPicking(p => p === 'footIds' ? null : 'footIds')}/>
-            <Slider id="steps" label="Heavy steps" low="Off" high="Stomp" tip="Each time a foot lands, the body drops into the step and the chest and head nod. Footfalls are found from the feet touching the ground." value={settings.steps} onChange={change}/>
-            {settings.steps > 0 && <small className="ax-note">{footfalls.length ? `${footfalls.length} footfall${footfalls.length > 1 ? 's' : ''} found (green ticks)` : 'No feet touch the ground in this animation.'}</small>}
-          </Section>
-          <Section title="Hits" note={[settings.thunks.length && `★${settings.thunks.length}`, settings.flinches.length && `✕${settings.flinches.length}`].filter(Boolean).join(' ')}>
-            <div className="ax-chips">{settings.thunks.map(t => <button key={t} className="ax-chip" title="Remove this THUNK" onClick={() => change('thunks', settings.thunks.filter(x => x !== t))}>★ {t - interval[0]} ms ×</button>)}</div>
-            <button onClick={() => addMarker('thunks')} title="Your weapon connects here: the animation holds this pose for a beat and heavy bones bounce back.">Add THUNK here</button>
-            <SoundPicker label="THUNK sound" tip="A sound that plays at each THUNK: you hear it in the preview, and Commit adds it as a sound event on the weapon so it plays in game." value={settings.thunkSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('thunkSound', id)}/>
-            {soundError && <small className="ax-note">{soundError}</small>}
-            <Slider id="thunk" label="THUNK" low="Light" high="Brutal" tip="How long the hit holds and how hard the heavy bones bounce back." value={settings.thunk} onChange={change}/>
-            <div className="ax-chips">{settings.flinches.map(t => <button key={t} className="ax-chip ax-chip-flinch" title="Remove this flinch" onClick={() => change('flinches', settings.flinches.filter(x => x !== t))}>✕ {t - interval[0]} ms ×</button>)}</div>
-            <button onClick={() => addMarker('flinches')} title="The unit gets hit from the front here: the body is knocked back and the torso snaps back, then recovers.">Add flinch here</button>
-            <label className="ax-check" title="Flinches come from behind: the body is pushed forward and the torso snaps forward instead of back."><input type="checkbox" checked={settings.flinchBehind} onChange={event => change('flinchBehind', event.target.checked)}/> Hit from behind</label>
-            <SoundPicker label="Hit sound" tip="A sound that plays at each flinch (the unit getting hit): you hear it in the preview, and Commit adds it as a sound event on the body so it plays in game." value={settings.flinchSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('flinchSound', id)}/>
-            <Slider id="flinch" label="Flinch" low="Tap" high="Wrecked" tip="How hard the unit is knocked back by each flinch." value={settings.flinch} onChange={change}/>
-          </Section>
-          <Section title="Collapse" note={settings.collapse ? `, falls ` : ''}>
-            <Slider id="collapse" label="Collapse" low="Off" high="Limp" tip="From the moment below, the unit loses its strength and falls to the ground under its own weight. Limp gives up completely; lower values keep some fight in the muscles." value={settings.collapse} onChange={change}/>
-            <Slider id="collapseAt" label="Goes limp at" low="Start" high="End" tip="When the strength gives out, as a share of the animation. Before it the animation plays as you keyed it." value={settings.collapseAt} onChange={change} disabled={!settings.collapse}/>
-            <label className="ax-field" title="Which way the unit tips over as it falls.">Falls
-              <select aria-label="Fall direction" value={settings.collapseDir} disabled={!settings.collapse} onChange={event => change('collapseDir', event.target.value)}>
-                <option value="back">Backwards</option><option value="forward">Forwards</option><option value="left">To its left</option><option value="right">To its right</option>
-              </select>
-            </label>
-            <Slider id="bounce" label="Landing" low="Thud" high="Bouncy" tip="How much the body bounces when it hits the ground." value={settings.bounce} onChange={change} disabled={!settings.collapse}/>
-            <small className="ax-note">Shape a Stand or an attack and use Commit as new to make a new death animation.</small>
-          </Section>
-          <Section title="Also apply to" note={also.length ? `${also.length} more` : ''}>
-            <small className="ax-note">Commit shapes these animations too, with the same sliders and bones. THUNKs and flinches stay on this animation.</small>
+            <small className="ax-note">Stiff bones and everything below them follow exactly: no lag, wobble or drag. For example a mount's legs, or face and portrait bones.</small>
+            <BonePicker label="stiff bones" tip="Pick bones to keep exact; everything below them stays exact too." ids={settings.stiffIds} options={boneOptions} onChange={ids => change('stiffIds', ids)} picking={picking === 'stiffIds'} onPick={() => setPicking(p => p === 'stiffIds' ? null : 'stiffIds')}/>
+            <small className="ax-note">Also apply to: Commit shapes these animations too, with the same settings. THUNKs and flinches stay on this animation.</small>
             <div className="ax-also">{sequences.map((s, i) => i === seq ? null : <label key={i} title={`Shape ${s.Name || 'this animation'} too when you commit`}><input type="checkbox" checked={also.includes(i)} onChange={event => setAlso(list => event.target.checked ? [...list, i] : list.filter(x => x !== i))}/> {s.Name || `Animation ${i + 1}`}</label>)}</div>
+            {naming === null
+              ? <button title="Remember the current settings as your own preset button, for any model" onClick={() => setNaming('')}>Save as preset…</button>
+              : <div className="ax-row"><input aria-label="Preset name" placeholder="Preset name" value={naming} maxLength={24} autoFocus onChange={event => setNaming(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') savePreset(); if (event.key === 'Escape') { event.stopPropagation(); setNaming(null); } }}/><button disabled={!naming.trim()} onClick={savePreset}>Save</button><button onClick={() => setNaming(null)}>Cancel</button></div>}
           </Section>
         </div>
       </div>

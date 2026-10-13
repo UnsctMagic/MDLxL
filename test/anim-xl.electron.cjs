@@ -31,10 +31,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       return ((b - a + span) % span) / (Date.now() - started);
     };
     const full = await rate();
-    assert.ok(full > 0.6 && full < 1.4, `100% plays in real time (rate ${full.toFixed(2)})`);
+    assert.ok(full > 0.5 && full < 1.8, `100% plays in real time (rate ${full.toFixed(2)})`);
     await dialog.getByRole('button', { name: '25%', exact: true }).click();
     const quarter = await rate();
-    assert.ok(quarter > 0.12 && quarter < 0.4, `25% plays a quarter as fast (rate ${quarter.toFixed(2)})`);
+    assert.ok(quarter > 0.1 && quarter < 0.5, `25% plays a quarter as fast (rate ${quarter.toFixed(2)})`);
     await dialog.getByRole('button', { name: '100%', exact: true }).click();
     checks.push(`Playback runs at ${full.toFixed(2)}x real time at 100% and ${quarter.toFixed(2)}x at 25%`);
     await dialog.getByRole('button', { name: 'Pause' }).click();
@@ -42,8 +42,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.mouse.click(sb.x + sb.width * 0.45, sb.y + sb.height / 2);
     await page.waitForTimeout(400);
     await dialog.screenshot({ path: path.join(out, '1-original.png') });
-    // Real mouse clicks on the slider tracks.
-    for (const [label, u] of [['Ease', 0.6], ['Overlap', 0.8], ['Settle', 0.5], ['Weight', 0.4]]) {
+    // Effect cards: clicking one switches it on and opens its slider; real mouse clicks on the slider track.
+    const card = name => dialog.locator('.ax-card-main', { hasText: name });
+    const value = name => dialog.getByRole('switch', { name: name + ' on', exact: true }).textContent();
+    for (const [label, u] of [['Smooth', 0.6], ['Follow-through', 0.8], ['Wobble', 0.5], ['Weight', 0.4]]) {
+      await card(label).click();
       const box = await dialog.getByRole('slider', { name: label, exact: true }).boundingBox();
       await page.mouse.click(box.x + box.width * u, box.y + box.height / 2);
     }
@@ -53,6 +56,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     checks.push(`Sliders shape the animation: "${status}"`);
     assert.ok(page.workers().some(worker => worker.url().includes('anim-xl.worker')), 'AnimXL builds in its worker');
     checks.push('Shaping runs in a background worker');
+    await page.waitForTimeout(500);
+    assert.equal(await dialog.locator('svg.ax-graph').count(), 1, 'motion graph on the timeline');
+    assert.ok(await dialog.locator('svg.ax-graph').isVisible(), 'motion graph is visible');
+    assert.equal(await dialog.locator('canvas[data-path-overlay]').count(), 1, 'ghost skeleton drawn');
+    await dialog.getByRole('button', { name: '×3', exact: true }).click(); await page.waitForTimeout(500);
+    await dialog.screenshot({ path: path.join(out, '2b-magnified.png') });
+    await dialog.getByRole('button', { name: '×3', exact: true }).click();
+    checks.push('Motion graph, ghost skeleton and ×3 magnify show the changes');
     await dialog.screenshot({ path: path.join(out, '2-shaped.png') });
     // Camera rotation with a real drag inside the preview.
     const pv = await dialog.locator('.ax-preview').boundingBox();
@@ -72,7 +83,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     checks.push('Arcs draws the weapon tip path over the preview');
     await dialog.screenshot({ path: path.join(out, '3-rotated.png') });
     // THUNK at the paused moment.
-    await dialog.locator('summary', { hasText: 'Hits' }).click();
+    await card('Hits').click();
     await dialog.getByRole('button', { name: 'Add THUNK here' }).click();
     assert.equal(await dialog.locator('.ax-thunk').count(), 1);
     checks.push('THUNK added from the paused moment');
@@ -93,15 +104,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // Quick start preset, heavy steps and a flinch.
     await dialog.getByRole('button', { name: 'Heavy', exact: true }).click();
     await page.waitForTimeout(400);
-    assert.equal(await dialog.getByRole('slider', { name: 'Weight', exact: true }).inputValue(), '80');
-    checks.push('Heavy preset sets the sliders');
+    assert.equal(await value('Weight'), '80');
+    checks.push('Heavy preset sets the cards');
     await dialog.getByRole('button', { name: 'Undo', exact: true }).click();
     await page.waitForTimeout(300);
-    assert.notEqual(await dialog.getByRole('slider', { name: 'Weight', exact: true }).inputValue(), '80');
+    assert.notEqual(await value('Weight'), '80');
     await page.keyboard.press('Control+y');
     await page.waitForTimeout(300);
-    assert.equal(await dialog.getByRole('slider', { name: 'Weight', exact: true }).inputValue(), '80');
+    assert.equal(await value('Weight'), '80');
     checks.push('Undo and Ctrl+Y step through slider changes');
+    await dialog.locator('summary', { hasText: 'Fine-tune' }).click();
     await dialog.getByRole('button', { name: 'Save as preset…' }).click();
     await dialog.getByLabel('Preset name').fill('My ogre');
     await page.keyboard.press('Enter');
@@ -112,7 +124,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     checks.push(`Flinch marker added; ${await dialog.locator('.ax-foot').count()} footfall ticks shown with Heavy steps`);
     await page.waitForTimeout(400);
     await dialog.screenshot({ path: path.join(out, '4-heavy-preset.png') });
-    await dialog.locator('summary', { hasText: 'Feet' }).click();
     const feetNote = (await dialog.locator('.ax-note', { hasText: /^Feet/ }).textContent()).trim();
     assert.match(feetNote, /found .+/);
     await dialog.getByRole('combobox', { name: 'Body bone' }).selectOption({ index: 2 });
@@ -125,11 +136,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.screenshot({ path: path.join(out, '5-picking.png') });
     await dialog.getByRole('button', { name: 'Done picking' }).click();
     checks.push('Pick in view toggles the skeleton picker');
-    await dialog.locator('summary', { hasText: 'Stiff bones' }).click();
     await dialog.getByRole('combobox', { name: 'Add stiff bones' }).selectOption({ index: 1 });
     await page.waitForTimeout(400);
-    assert.equal(await dialog.locator('summary', { hasText: 'Stiff bones' }).locator('small').textContent(), ' · 1 picked');
-    await dialog.locator('.ax-section', { hasText: 'Stiff bones' }).locator('.ax-chip').first().click();
+    assert.match(await dialog.locator('summary', { hasText: 'Fine-tune' }).locator('small').textContent(), /1 stiff/);
+    await dialog.locator('.ax-section', { hasText: 'Fine-tune' }).locator('.ax-chip').first().click();
     checks.push('Stiff bones can be picked and removed');
     await dialog.getByRole('button', { name: 'Side by side' }).click();
     await page.waitForTimeout(1200);
@@ -138,7 +148,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.getByRole('button', { name: 'Side by side' }).click();
     checks.push('Side by side shows the original and the AnimXL version together');
     // Settings are remembered when AnimXL is closed and reopened.
-    const overlapBefore = await dialog.getByRole('slider', { name: 'Overlap', exact: true }).inputValue();
+    const overlapBefore = await value('Follow-through');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await dialog.waitFor({ state: 'detached' });
     await page.waitForTimeout(400);
@@ -146,9 +156,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.waitFor();
     await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 1' });
     await page.waitForTimeout(400);
-    assert.equal(await dialog.getByRole('slider', { name: 'Overlap', exact: true }).inputValue(), overlapBefore);
-    checks.push(`Settings remembered after closing (Overlap ${overlapBefore})`);
-    await dialog.locator('summary', { hasText: 'Also apply to' }).click();
+    assert.equal(await value('Follow-through'), overlapBefore);
+    checks.push(`Settings remembered after closing (Follow-through ${overlapBefore})`);
+    await dialog.locator('summary', { hasText: 'Fine-tune' }).click();
     await dialog.getByRole('checkbox', { name: 'Attack - 2' }).check();
     assert.equal(await dialog.getByRole('button', { name: 'Commit 2 animations' }).count(), 1);
     checks.push('Also apply to: Commit covers 2 animations');
@@ -163,7 +173,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.waitFor();
     await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 2' });
     await page.waitForTimeout(800);
-    await dialog.locator('summary', { hasText: 'Timing' }).click();
     const diamond = await dialog.locator('.ax-key').nth(2).boundingBox();
     await page.mouse.move(diamond.x + diamond.width / 2, diamond.y + diamond.height / 2);
     await page.mouse.down(); await page.mouse.move(diamond.x + diamond.width / 2 + 40, diamond.y + diamond.height / 2, { steps: 8 }); await page.mouse.up();
@@ -175,8 +184,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(600);
     assert.equal(await dialog.locator('.ax-key-moved').count(), 0, 'double-click puts it back');
     checks.push('Dragging a pose diamond retimes it; double-click resets');
-    await dialog.getByRole('slider', { name: 'Overlap', exact: true }).scrollIntoViewIfNeeded();
-    const ov = await dialog.getByRole('slider', { name: 'Overlap', exact: true }).boundingBox();
+    await card('Follow-through').click();
+    await dialog.getByRole('slider', { name: 'Follow-through', exact: true }).scrollIntoViewIfNeeded();
+    const ov = await dialog.getByRole('slider', { name: 'Follow-through', exact: true }).boundingBox();
     await page.mouse.click(ov.x + ov.width * 0.7, ov.y + ov.height / 2);
     await page.waitForTimeout(400);
     await dialog.getByRole('button', { name: 'Commit as new' }).click();

@@ -6,34 +6,30 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 
 ## Controls
 
+The window is a big preview with a timeline under it, and effect cards beside it. Click a card to switch an effect on and open its slider; the switch in its corner turns it off. Point at a card and the bones it moves light up in the preview.
+
 | Control | What it does |
 | --- | --- |
-| Quick start | Natural, Heavy, Snappy and Loose set the sliders to a good starting point. **Save as preset…** keeps your own slider settings as a button, for any model. |
-| Ease | Speeds up out of each pose and slows into the next. Poses stay where they are. |
-| Overlap | Parts further from the body follow a moment later (hips → chest → arms → hands → weapon). |
-| Settle | Parts overshoot a pose slightly and wobble back into it. |
+| Presets | Natural, Heavy, Snappy, Floppy and Death switch several cards on at good starting values. **Save as preset…** (under Fine-tune) adds your own preset button, for any model. |
+| Smooth | Speeds up out of each pose and slows into the next. Poses stay where they are. |
+| Follow-through | Parts further from the body follow a moment later (hips → chest → arms → hands → weapon). |
+| Wobble | Parts overshoot a pose slightly and wobble back into it. |
 | Weight | The body is slower to start and stop and lags behind its path. |
-| Anticipation | Before each big move, bones first pull back the other way for a moment (a wind-up). |
-| Exaggerate | Pushes every pose further than you posed it, for punchier motion. |
-| Life | Held poses breathe: small, slow drifts so the unit never freezes dead. Loops seamlessly. |
-| Hit poses | How closely the result lands on your key poses (Loose ↔ Exact). |
-| Timing | Drag a pose diamond on the strip to change when that pose happens; double-click it to put it back. Translations follow the new timing too. |
-| Heavy bones | Picked bones (usually the weapon) trail the swing and drag the arm holding them. Picked bones do nothing while the slider is at 0. |
-| Keep both hands on the weapon | With a two-handed grip (the other hand stays at one spot on the weapon), that hand stays on the weapon while it drags. |
-| Loose bones | Picked bones (cape, hair, tail) swing loosely on their own. |
-| Stiff bones | Picked bones and everything below them follow exactly: no lag, wobble or drag (a mount's legs, face or portrait bones). |
-| Body and feet | The Feet section shows the body and feet AnimXL found. If it read the rig wrong, pick the body bone from the list and pick each foot (ankle) bone, by list or in the preview; a picked foot's leg is the foot and its two parents. |
-| Keep feet planted | Feet stay exactly where your animation puts them; the body still sinks and sways and the knees bend to make up the difference (two-bone IK per leg). On by default. |
-| Heavy steps | Each footfall drops the body into the step and nods the chest and head. Footfalls are found from the feet touching the ground (green ticks). |
-| THUNK | The weapon connects: the pose holds for a beat, then catches up; heavy bones bounce back. |
-| Collapse | From a chosen moment the unit loses its strength and falls to the ground under its own weight: Collapse sets how limp, Goes limp at sets when, Falls picks the direction and Landing the bounce. The Collapse preset turns any pose into a death; use Commit as new to keep the original. |
-| THUNK sound | Pick a game sound (from your Warcraft III files); you hear it at each THUNK in the preview, and Commit adds it as a sound event (SNDx…) on the weapon so it plays in game. |
-| Hit sound | Like THUNK sound, for flinches: the sound event goes on the body that takes the hit. Both pickers have a search box. |
-| Flinch | The unit is hit from the front: the body is knocked back, the torso snaps back, then recovers. |
-| Also apply to | Commit shapes other animations too, with the same sliders and bones. |
-| Commit as new | Keeps the original and adds the shaped version as a new animation, "<name> (AnimXL)". One Undo removes it. |
-| Arcs | Draws the path a bone's tip follows through the animation over the preview: dashed for the original, orange for the AnimXL version, with a dot at the current moment. Choose the weapon, a loose bone or a foot. |
-| Original / Side by side | Compare with the unshaped animation, alone or next to it with a shared camera. |
+| Weapon drag | The weapon (or any heavy part you pick) trails the swing and drags the arm holding it. Its card picks the bones and keeps a two-handed grip on the weapon. |
+| Cloth & hair | Capes, hair, tails and plumes swing freely. Its card picks the bones. |
+| Heavy steps | Each footfall drops the body into the step and nods the chest and head. Footfalls show as green ticks on the timeline. |
+| Wind-up | Before each big move, bones first pull back the other way for a moment. |
+| Punch it up | Pushes every pose further than you posed it, for punchier motion. |
+| Breathing | Held poses breathe: small, slow drifts so the unit never freezes dead. Loops seamlessly. |
+| Hits | THUNK: the weapon connects, the pose holds for a beat and heavy bones bounce back. Flinch: the unit is hit, the body is knocked back and the torso snaps. Each can play a game sound, written as a sound event on Commit. |
+| Collapse | From a chosen moment the unit loses its strength and falls to the ground under its own weight: Goes limp at, Falls (direction) and Landing. The Death preset turns any pose into a death; use Commit as new to keep the original. |
+| Fine-tune | Stick to my poses (Loose ↔ Exact), timing reset, Keep feet planted, the body and feet bones, stiff bones (they and everything below them follow exactly), and other animations to shape on Commit. |
+| Timeline | Diamonds are your key poses; drag one to change when it happens (double-click puts it back). The graph shows how much the unit moves over time: dashed for the original, orange for AnimXL. |
+| Ghost | The original skeleton (dashed white) under the bones AnimXL moved most, coloured yellow, orange and red by how far they moved. |
+| ×3 | The preview shows every change three times as strong, so subtle changes are easy to see. Commit writes the real result. |
+| Arcs | Draws the path a bone's tip follows: dashed for the original, orange for AnimXL. |
+| Original / Side by side | Compare with the unshaped animation, alone or next to it with one shared camera. |
+| Commit as new | Keeps the original and adds the shaped version as a new animation, "<name> (AnimXL)". |
 | Undo (Ctrl+Z / Ctrl+Y) | Steps through slider changes inside AnimXL. |
 
 Weapon, cape, hair and tail bones are guessed from bone names. Change them with the pickers, or **Pick in view** and click bones in the preview.
@@ -42,7 +38,7 @@ The strip under the preview shows key poses (diamonds, orange once moved), footf
 
 Slider settings are remembered per model and animation until you commit.
 
-AnimXL opens showing your animation unchanged; nothing moves until you move a slider or pick a preset. Shaping runs in a background worker, so sliders stay smooth on long animations of big models.
+AnimXL opens showing your animation unchanged; nothing moves until you switch a card on or pick a preset. Shaping runs in a background worker, so sliders stay smooth on long animations of big models.
 
 ## How it works
 
@@ -64,7 +60,7 @@ Collapse treats the unit's own skeleton (the tree holding its body; separate eff
 
 - Rotations and translations only; scaling keys keep their original timing.
 - Eased motion needs extra keys: shaped animations carry roughly 4 keys per move per bone.
-- Overlap means children reach a pose slightly after their parent unless Hit poses is set to Exact.
+- Follow-through means children reach a pose slightly after their parent unless Stick to my poses is set to Exact.
 - Bones with global-sequence or billboarded rotation are left alone.
 - Heavy steps and foot planting need feet that touch the ground; a rider's feet in stirrups are left free. A leg must have its own upper and middle bone: dangling flyer talons that hang off one hip bone are not legs.
 - A weapon that is scaled to nothing during an animation gets no grip in that animation.

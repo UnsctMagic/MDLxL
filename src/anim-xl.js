@@ -442,7 +442,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const legNodes = new Set((rig.legs || []).flatMap(leg => [leg.root, leg.middle, leg.end]));
   const plantLegs = settings.feet !== false && rig.legs?.length && ([...legNodes].some(id => simIds.has(id)) || bodyNode);
   // Keep both hands on a two-handed weapon (the first heavy bone is the weapon).
-  const weapon = settings.grip !== false && settings.heavyIds?.length ? settings.heavyIds[0] : null;
+  const weapon = settings.grip !== false && settings.heavyIds?.length && simIds.has(settings.heavyIds[0]) ? settings.heavyIds[0] : null;
   if (plantLegs || weapon != null) solveLimbs({ model, sequenceIndex, byId, legs: plantLegs ? rig.legs : [], arms: weapon != null ? rig.arms : [], weapon, legLength: rig.legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts });
   if (settings.collapse > 0) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]) }, rotOpts, posOpts });
 
@@ -502,7 +502,22 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     tracks.push({ id: node.ObjectId, property: 'Translation', track: mergeTrack(track, ours, lineType, from, to) });
     keyCount += ours.length;
   }
-  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet } };
+  // How much the whole unit moves from frame to frame, original and shaped: the strip draws it as a graph.
+  const motion = { frames: outFrames, original: new Array(outFrames.length).fill(0), shaped: new Array(outFrames.length).fill(0) };
+  const before = new Quaternion(), after = new Quaternion();
+  for (const node of order) {
+    const qs = samples.get(node.ObjectId);
+    for (let i = 1; i < outFrames.length; i++) {
+      motion.shaped[i] += qs[i].angleTo(qs[i - 1]);
+      motion.original[i] += authored(node, outFrames[i], after).angleTo(authored(node, outFrames[i - 1], before));
+    }
+  }
+  if (bodyNode && bodySamples.length === outFrames.length) for (let i = 1; i < outFrames.length; i++) {
+    motion.shaped[i] += bodySamples[i].distanceTo(bodySamples[i - 1]) / scale * 4;
+    motion.original[i] += bodyTarget(outFrames[i], new Vector3()).distanceTo(bodyTarget(outFrames[i - 1], new Vector3())) / scale * 4;
+  }
+  motion.shaped[0] = motion.shaped[1] ?? 0; motion.original[0] = motion.original[1] ?? 0;
+  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet }, motion };
 }
 
 /** Spread any mismatch between the last and first frame over the final

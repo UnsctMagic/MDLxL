@@ -1,4 +1,4 @@
-.resource-editor .ax-window{width:900px;height:600px;min-width:620px;min-height:440px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px);resize:both;overflow:hidden}
+.resource-editor .ax-window{width:1020px;height:660px;min-width:680px;min-height:480px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px);resize:both;overflow:hidden}
 .resource-editor .ax-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px 2px}
 .resource-editor .ax-toolbar label{display:inline-flex;align-items:center;gap:4px;margin-right:8px}
 .resource-editor .ax-toolbar button[aria-pressed="true"],.resource-editor .ax-window button[aria-pressed="true"]{border-style:inset;background:#c0bdb5}
@@ -9,12 +9,12 @@
 .resource-editor .ax-badge{position:absolute!important;inset:auto auto auto 4px!important;top:4px!important;z-index:2;padding:1px 6px;background:#0a246a;color:#fff;font-weight:bold;pointer-events:none}
 .resource-editor .ax-badge-new{background:#cf5f12}
 .resource-editor .ax-preview>*{position:absolute;inset:0}
-.resource-editor .ax-strip{position:relative;height:22px;border:2px inset #ece9d8;background:#fff;cursor:pointer;touch-action:none}
+.resource-editor .ax-strip{position:relative;height:48px;border:2px inset #ece9d8;background:#14171c;cursor:pointer;touch-action:none}
 .resource-editor .ax-strip i{position:absolute;top:50%;font-style:normal;pointer-events:none}
 .resource-editor .ax-key{width:8px;height:8px;margin:-4px 0 0 -4px;background:#c48700;transform:rotate(45deg)}
 .resource-editor .ax-thunk{margin:-8px 0 0 -6px;color:#cf5f12;font-size:13px;line-height:16px}
-.resource-editor .ax-head{top:0!important;bottom:0;width:2px;margin-left:-1px;background:#0a246a}
-.resource-editor .ax-controls{width:290px;flex:none;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:4px;padding-right:2px}
+.resource-editor .ax-head{top:0!important;bottom:0;width:2px;margin-left:-1px;background:#ffe14d;box-shadow:0 0 4px #ffe14d}
+.resource-editor .ax-controls{width:350px;flex:none;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:6px;padding:6px;background:#1d2128;color:#e8e6e1;border:2px inset #ece9d8}
 .resource-editor .ax-controls fieldset{margin:0;min-width:0;padding:4px 6px 6px;border:2px groove #ece9d8;display:flex;flex-direction:column;gap:4px}
 .resource-editor .ax-slider{display:flex;flex-direction:column}
 .resource-editor .ax-slider-row,.resource-editor .ax-ends{display:flex;justify-content:space-between}
@@ -51,3 +51,50 @@
 .resource-editor .ax-sound .ax-row input{flex:1;min-width:0}
 .resource-editor .ax-field{display:flex;gap:4px;align-items:center}
 .resource-editor .ax-field select{flex:1;min-width:0}
+/* Cards: the effects, game-style. */
+.resource-editor .ax-presets{display:flex;flex-wrap:wrap;gap:4px}
+.resource-editor .ax-window .ax-preset{flex:1 1 auto;min-height:26px;padding:0 10px;border:1px solid #4a5260;border-radius:13px;background:linear-gradient(#3b424e,#2a3039);color:#f1efe9;font-weight:bold;cursor:pointer}
+.resource-editor .ax-window .ax-preset:hover{border-color:#ff9a3c;color:#fff;box-shadow:0 0 6px #ff8a2a66}
+.resource-editor .ax-cards{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.resource-editor .ax-card{position:relative;display:flex;min-width:0;border:1px solid #3a414c;border-radius:7px;background:#262b33;transition:border-color .12s,background .12s}
+.resource-editor .ax-card:hover{border-color:#ffe14d}
+.resource-editor .ax-window .ax-card-main{flex:1;min-width:0;min-height:50px;display:flex;align-items:center;gap:7px;padding:5px 7px;border:0;background:none;color:inherit;text-align:left;cursor:pointer}
+.resource-editor .ax-icon{width:40px;height:28px;flex:none;fill:none;stroke:#7f8a99;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.resource-editor .ax-icon .ax-fill{fill:#7f8a99;stroke:none}
+.resource-editor .ax-card-text{display:flex;flex-direction:column;min-width:0;padding-right:22px}
+.resource-editor .ax-card-text b{font-size:12px;white-space:nowrap}
+.resource-editor .ax-card-text small{font-size:10px;line-height:12px;color:#9aa3ad}
+.resource-editor .ax-window .ax-card-switch{position:absolute;top:4px;right:4px;min-width:26px;min-height:0;height:15px;padding:0 4px;border:1px solid #4a5260;border-radius:8px;background:#1b1f25;color:#8a939e;font-size:10px;line-height:13px;cursor:pointer}
+.resource-editor .ax-card-on{border-color:#c4651a;background:linear-gradient(#3b2b1d,#2a2119)}
+.resource-editor .ax-card-on .ax-icon{stroke:#ff9a3c;filter:drop-shadow(0 0 3px #ff8a2a88)}
+.resource-editor .ax-card-on .ax-icon .ax-fill{fill:#ff9a3c}
+.resource-editor .ax-window .ax-card-on .ax-card-switch{background:#ff8a2a;border-color:#ff8a2a;color:#1a1a1a;font-weight:bold}
+.resource-editor .ax-card-selected{outline:2px solid #ffe14d;outline-offset:-1px}
+.resource-editor .ax-tray{display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid #ffe14d66;border-radius:7px;background:#2c323b}
+.resource-editor .ax-tray-title b{font-size:13px;color:#ffe14d}
+.resource-editor .ax-tray-title small{display:block;color:#b8c0c9;line-height:13px}
+.resource-editor .ax-controls .ax-hint{margin:0;text-align:center;color:#9aa3ad}
+.resource-editor .ax-controls .ax-note,.resource-editor .ax-controls .ax-chips small{color:#b8c0c9}
+.resource-editor .ax-controls .ax-ends{color:#8a939e}
+.resource-editor .ax-controls .ax-section{border:1px solid #3a414c;border-radius:7px;background:#22272e}
+.resource-editor .ax-controls .ax-section>summary small{color:#9aa3ad}
+.resource-editor .ax-controls .ax-dense{color:#3a2a00}
+/* Motion graph on the timeline: grey dashed = original, orange = AnimXL. */
+.resource-editor .ax-graph{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.resource-editor .ax-graph-shaped{fill:#ff8a2a40;stroke:#ff8a2a;stroke-width:1.6;vector-effect:non-scaling-stroke}
+.resource-editor .ax-graph-original{fill:none;stroke:#c9d2dc;stroke-width:1.2;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.resource-editor .ax-window .ax-magnify[aria-pressed="true"]{background:#ff8a2a;color:#111;font-weight:bold}/* The shared editor styles hide SVGs and draw every button as a grey Windows button; the cards and graph opt out. */
+.resource-editor .ax-window svg.ax-icon,.resource-editor .ax-window svg.ax-graph{display:block!important}
+.resource-editor .ax-window .ax-card-main,.resource-editor .ax-window .ax-card-main:hover,.resource-editor .ax-window .ax-card-main:active,.resource-editor .ax-window .ax-card-main[aria-pressed="true"]{background:transparent!important;border:0!important;color:#e8e6e1!important;box-shadow:none!important;justify-content:flex-start}
+.resource-editor .ax-window .ax-card{background:#262b33!important}
+.resource-editor .ax-window .ax-card-on{background:linear-gradient(#3b2b1d,#2a2119)!important}
+.resource-editor .ax-window .ax-card-text b{color:#f1efe9}
+.resource-editor .ax-window .ax-card-switch{background:#1b1f25!important;color:#8a939e!important;border:1px solid #4a5260!important}
+.resource-editor .ax-window .ax-card-on .ax-card-switch{background:#ff8a2a!important;border-color:#ff8a2a!important;color:#1a1a1a!important}
+.resource-editor .ax-window .ax-preset,.resource-editor .ax-window .ax-preset:hover,.resource-editor .ax-window .ax-preset:active{background:linear-gradient(#3b424e,#2a3039)!important;color:#f1efe9!important;border:1px solid #4a5260!important;border-radius:13px!important}
+.resource-editor .ax-window .ax-preset:hover{border-color:#ff9a3c!important;box-shadow:0 0 6px #ff8a2a66!important}
+/* The on/off switch sits in the bottom corner so names stay readable. */
+.resource-editor .ax-window .ax-card-switch{top:auto!important;bottom:4px}
+.resource-editor .ax-window .ax-card-text{padding-right:0}
+.resource-editor .ax-window .ax-icon{width:34px;height:24px}
+.resource-editor .ax-window .ax-card-text small{padding-right:26px}
