@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import useMovableWindow from './useMovableWindow.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
 import { allNodes } from '../src/animation.js';
@@ -57,19 +57,22 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const [settings, setSettings] = useState(() => ({ ...fresh(), ...(readSaved(keyFor(seq)) || {}) }));
   const interval = sequences[seq] ? Array.from(sequences[seq].Interval) : [0, 1000];
   const [time, setTime] = useState(interval[0]), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(1);
-  const [original, setOriginal] = useState(false), [picking, setPicking] = useState(null);
+  const [original, setOriginal] = useState(false), [picking, setPicking] = useState(null), [also, setAlso] = useState([]);
   const dialog = useRef(null), movable = useMovableWindow(dialog), touched = useRef(new Set()), drag = useRef(null);
+  const history = useRef({ undo: [], redo: [], at: 0 });
+  // Building runs on a deferred copy, so a slider drag never stutters on long animations.
+  const deferred = useDeferredValue(settings);
   const boneOptions = useMemo(() => new Map(animXLNodes(model).map(node => [node.ObjectId, node.Name || `Bone ${node.ObjectId}`])), [model, doc.revision]);
 
-  useEffect(() => { setTime(interval[0]); setSettings({ ...fresh(), ...(readSaved(keyFor(seq)) || {}) }); }, [seq]);
+  useEffect(() => { setTime(interval[0]); setSettings({ ...fresh(), ...(readSaved(keyFor(seq)) || {}) }); history.current = { undo: [], redo: [], at: 0 }; setAlso([]); }, [seq]);
   useEffect(() => { dialog.current?.focus(); }, []);
   useEffect(() => { const id = setTimeout(() => writeSaved(keyFor(seq), settings), 300); return () => clearTimeout(id); }, [settings, seq]);
 
   const outcome = useMemo(() => {
     if (!sequences[seq]) return { error: 'This model has no animations yet. Create one in Movement first.' };
-    try { return { result: buildAnimXL(model, seq, settings) }; }
+    try { return { result: buildAnimXL(model, seq, deferred) }; }
     catch (error) { return { error: error.message }; }
-  }, [model, doc.revision, seq, settings]);
+  }, [model, doc.revision, seq, deferred]);
   const result = outcome.result;
 
   // Tracks for the preview: the shaped result, or the originals when comparing.
@@ -82,12 +85,29 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     return [...shaped, ...restore];
   }, [result, original, model]);
 
-  const change = (key, value) => setSettings(old => ({ ...old, [key]: value }));
+  // Undo groups a burst of changes (one slider drag) into one step.
+  const remember = old => {
+    const h = history.current, now = Date.now();
+    if (now - h.at > 500) { h.undo.push(old); if (h.undo.length > 100) h.undo.shift(); h.redo = []; }
+    h.at = now;
+  };
+  const update = fn => setSettings(old => { const next = fn(old); if (next !== old) remember(old); return next; });
+  const undoSettings = redo => {
+    const h = history.current, from = redo ? h.redo : h.undo, to = redo ? h.undo : h.redo;
+    if (!from.length) return;
+    const previous = from.pop();
+    setSettings(current => { to.push(current); return previous; });
+    h.at = 0;
+  };
+  const change = (key, value) => update(old => ({ ...old, [key]: value }));
   const clampTime = t => Math.round(Math.max(interval[0], Math.min(interval[1], t)));
-  const addMarker = key => setSettings(old => ({ ...old, [key]: [...new Set([...old[key], clampTime(time)])].sort((a, b) => a - b) }));
+  const addMarker = key => update(old => ({ ...old, [key]: [...new Set([...old[key], clampTime(time)])].sort((a, b) => a - b) }));
   const commit = () => {
     if (!result?.tracks.length) return;
-    if (edit(`AnimXL: ${sequences[seq].Name || 'animation'}`, ['Nodes'], m => applyAnimXL(m, result)) === false) return;
+    // Other picked animations get the same sliders and bones; hit markers belong to this animation only.
+    const shared = { ...settings, thunks: [], flinches: [] }, name = sequences[seq].Name || 'animation';
+    const label = also.length ? `AnimXL: ${name} + ${also.length} more` : `AnimXL: ${name}`;
+    if (edit(label, ['Nodes'], m => { applyAnimXL(m, result); for (const index of also) applyAnimXL(m, buildAnimXL(m, index, shared)); }) === false) return;
     writeSaved(keyFor(seq), null);
     onClose();
   };
@@ -107,13 +127,13 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     const d = drag.current;
     if (!d) return;
     const t = stripTime(event, d.box);
-    if (d.key) { setSettings(old => ({ ...old, [d.key]: old[d.key].map(x => x === d.at ? t : x).sort((a, b) => a - b) })); d.at = t; setTime(t); }
+    if (d.key) { update(old => ({ ...old, [d.key]: old[d.key].map(x => x === d.at ? t : x).sort((a, b) => a - b) })); d.at = t; setTime(t); }
     else setTime(t);
   };
   const pickBone = ids => {
     const id = ids?.at?.(-1);
     if (!picking || !boneOptions.has(id)) return;
-    setSettings(old => {
+    update(old => {
       const list = old[picking], other = picking === 'heavyIds' ? 'looseIds' : 'heavyIds';
       return list.includes(id) ? { ...old, [picking]: list.filter(x => x !== id) } : { ...old, [picking]: [...list, id], [other]: old[other].filter(x => x !== id) };
     });
@@ -125,6 +145,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); if (picking) setPicking(null); else onClose(); }
     if (event.key === ' ' && !['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(event.target.tagName)) { event.preventDefault(); setPlaying(v => !v); }
+    if ((event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) { event.preventDefault(); undoSettings(event.key.toLowerCase() === 'y' || event.shiftKey); }
   }}>
     <section ref={dialog} style={movable.style} tabIndex={-1} className="re-window ax-window" role="dialog" aria-modal="true" aria-label="AnimXL">
       <header className="re-caption" {...movable.handleProps}><span>AnimXL</span><button className="re-caption-close" aria-label="Close AnimXL" title="Close without changing the animation" onClick={onClose}>×</button></header>
@@ -153,7 +174,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
         </div>
         <div className="ax-controls">
           <fieldset><legend>Quick start</legend>
-            <div className="ax-row ax-presets">{PRESETS.map(([name, tip, values]) => <button key={name} title={tip} onClick={() => setSettings(old => ({ ...old, ...values }))}>{name}</button>)}</div>
+            <div className="ax-row ax-presets">{PRESETS.map(([name, tip, values]) => <button key={name} title={tip} onClick={() => update(old => ({ ...old, ...values }))}>{name}</button>)}</div>
           </fieldset>
           <fieldset><legend>Motion</legend>{MOTION.map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</fieldset>
           <fieldset><legend>Heavy bones</legend>
@@ -176,12 +197,17 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             <button onClick={() => addMarker('flinches')} title="The unit gets hit from the front here: the body is knocked back and the torso snaps back, then recovers.">Add flinch here</button>
             <Slider id="flinch" label="Flinch" low="Tap" high="Wrecked" tip="How hard the unit is knocked back by each flinch." value={settings.flinch} onChange={change}/>
           </fieldset>
+          <fieldset><legend>Also apply to</legend>
+            <small className="ax-note">Commit shapes these animations too, with the same sliders and bones. THUNKs and flinches stay on this animation.</small>
+            <div className="ax-also">{sequences.map((s, i) => i === seq ? null : <label key={i} title={`Shape ${s.Name || 'this animation'} too when you commit`}><input type="checkbox" checked={also.includes(i)} onChange={event => setAlso(list => event.target.checked ? [...list, i] : list.filter(x => x !== i))}/> {s.Name || `Animation ${i + 1}`}</label>)}</div>
+          </fieldset>
         </div>
       </div>
       <footer className="ax-footer">
         <span className="ax-status" role="status">{status}</span>
-        <button onClick={() => setSettings(old => ({ ...ANIMXL_DEFAULTS, heavyIds: old.heavyIds, looseIds: old.looseIds }))} title="Set every slider back to its start and remove all THUNKs and flinches">Reset</button>
-        <button disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">Commit</button>
+        <button onClick={() => undoSettings(false)} title="Undo the last slider change (Ctrl+Z). Ctrl+Y redoes it.">Undo</button>
+        <button onClick={() => update(old => ({ ...ANIMXL_DEFAULTS, heavyIds: old.heavyIds, looseIds: old.looseIds }))} title="Set every slider back to its start and remove all THUNKs and flinches">Reset</button>
+        <button disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">{also.length ? `Commit ${also.length + 1} animations` : 'Commit'}</button>
         <button onClick={onClose} title="Close without changing the animation. Your slider settings are remembered for this animation.">Cancel</button>
       </footer>
     </section>

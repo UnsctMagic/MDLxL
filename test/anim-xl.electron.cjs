@@ -56,6 +56,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(400);
     assert.equal(await dialog.getByRole('slider', { name: 'Weight', exact: true }).inputValue(), '80');
     checks.push('Heavy preset sets the sliders');
+    await dialog.getByRole('button', { name: 'Undo', exact: true }).click();
+    await page.waitForTimeout(300);
+    assert.notEqual(await dialog.getByRole('slider', { name: 'Weight', exact: true }).inputValue(), '80');
+    await page.keyboard.press('Control+y');
+    await page.waitForTimeout(300);
+    assert.equal(await dialog.getByRole('slider', { name: 'Weight', exact: true }).inputValue(), '80');
+    checks.push('Undo and Ctrl+Y step through slider changes');
     await dialog.getByRole('button', { name: 'Add flinch here' }).click();
     assert.equal(await dialog.locator('.ax-flinch').count(), 1);
     checks.push(`Flinch marker added; ${await dialog.locator('.ax-foot').count()} footfall ticks shown with Heavy steps`);
@@ -78,6 +85,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(400);
     assert.equal(await dialog.getByRole('slider', { name: 'Overlap', exact: true }).inputValue(), overlapBefore);
     checks.push(`Settings remembered after closing (Overlap ${overlapBefore})`);
+    await dialog.getByRole('checkbox', { name: 'Attack - 2' }).check();
+    assert.equal(await dialog.getByRole('button', { name: 'Commit 2 animations' }).count(), 1);
+    checks.push('Also apply to: Commit covers 2 animations');
     await dialog.getByRole('button', { name: 'Commit' }).click();
     await dialog.waitFor({ state: 'detached' });
     checks.push('Commit closes AnimXL');
