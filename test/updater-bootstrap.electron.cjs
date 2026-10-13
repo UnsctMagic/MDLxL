@@ -69,7 +69,7 @@ require('./updater.cjs').Updater.prototype.prepare=async function(){const result
   assert.equal(repairedHelper,await digest(path.resolve('electron/update-install.ps1')));
   console.log('PASS unchanged 0.20.1 updater downloads and installs repair 0.20.2, skips EXE, restarts and reports current');
   await offer(full,'0.21.1');
-  await page.locator('[data-warmkey="updates:check"]').click();
+  await page.locator('[data-hotkey="updates:check"]').click();
   await page.getByRole('button',{name:'Update and restart',exact:true}).click();
   await waitFor(async()=>JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version==='0.21.1');
   const second=JSON.parse(await fs.readFile(path.join(root,'prepared.json'),'utf8'));
@@ -77,7 +77,7 @@ require('./updater.cjs').Updater.prototype.prepare=async function(){const result
   assert.ok(second.plan.operations.some(operation=>operation.relative==='MDLxL.exe'));
   page=await connect('0.21.1');await waitFor(async()=>(await page.evaluate(()=>window.desktop.updateStatus())).state==='current');
   await page.waitForFunction(()=>!!document.querySelector('.classic-app canvas'));
-  assert.equal(await page.locator('[data-warmkey="update:install"]').count(),0);
+  assert.equal(await page.locator('[data-hotkey="update:install"]').count(),0);
   for(const [name,hash]of Object.entries(before))assert.equal(await digest(path.join(target,name)),hash,name);
   await fs.writeFile(path.join(root,'proof.json'),JSON.stringify({oldVersion:'0.20.1',repairVersion:'0.20.2',fullVersion:'0.21.1',oldHelper,repairedHelper,firstOperations:first.plan.operations.map(row=>row.relative),personalFiles:personal,passed:true},null,2));
   console.log('PASS repaired 0.20.2 updater installs the full package including EXE, restarts without a repeated prompt, preserves all personal fixtures; '+root);

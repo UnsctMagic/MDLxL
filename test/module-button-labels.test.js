@@ -15,7 +15,7 @@ test('every module icon keeps its action and carries a visible short label',()=>
     assert.match(app,new RegExp(`action="${action}" className="${className}"[^>]*badge="${label}"`));
   }
   assert.ok(app.includes('action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>}'));
-  assert.match(app,/className="pressed-keys-tool" data-warmkey="pressedKeys"/);
+  assert.match(app,/className="pressed-keys-tool" data-hotkey="pressedKeys"/);
   assert.match(app,/<b>K<\/b><b>E<\/b><b>Y<\/b>/);
   assert.match(app,/className="vis-toggle"[^>]*badge=\{visUI \? 'XL' : 'VIS'\}/);
 });

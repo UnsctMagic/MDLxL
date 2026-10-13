@@ -40,7 +40,7 @@ const previewRig = ({ check = false } = {}) => {
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.unmaximize(); win.setBounds({ x: -3000, y: 0, width: 1280, height: 800 }); win.showInactive(); });
     const base = await page.evaluate(readModel), sidebar = await page.locator('.classic-sidebar').first().boundingBox();
     await page.screenshot({ path: path.join(out, '01-default.png') });
-    const open = async () => { await page.locator('[data-warmkey="forge"]').click(); await page.getByRole('tab', { name: 'Glow Up', exact: true }).click(); };
+    const open = async () => { await page.locator('[data-hotkey="forge"]').click(); await page.getByRole('tab', { name: 'Glow Up', exact: true }).click(); };
     await open(); await page.getByRole('alert').filter({ hasText: 'Select vertices' }).waitFor(); assert.equal(await page.getByRole('button', { name: 'Add', exact: true }).isEnabled(), false);
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Control+a');

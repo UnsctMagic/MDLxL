@@ -101,7 +101,7 @@ async function visibleCanvas(page, team) {
     await main.getByLabel('Team color', { exact: true }).selectOption('#ff0303');
     for (let i = 0; i < 5; i++) await main.getByLabel(`Select geoset ${i}`, { exact: true }).check();
     await main.getByLabel('3D model viewport', { exact: true }).click(); await main.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window'); await main.locator('[data-warmkey="uv"]').click(); uv = await opened;
+    const opened = app.waitForEvent('window'); await main.locator('[data-hotkey="uv"]').click(); uv = await opened;
     uv.setDefaultTimeout(20000); uv.on('pageerror', error => errors.push(error.message));
     await uv.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
     await app.evaluate(({ BrowserWindow }) => {
@@ -122,7 +122,7 @@ async function visibleCanvas(page, team) {
     const redCanvas = await visibleCanvas(uv, [255, 3, 3]); await uv.screenshot({ path: path.join(out, 'red.png') });
     const closed = uv.waitForEvent('close'); await uv.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click(); await closed;
     await main.getByLabel('Team color', { exact: true }).selectOption('#0042ff');
-    const reopened = app.waitForEvent('window'); await main.locator('[data-warmkey="uv"]').click(); uv = await reopened;
+    const reopened = app.waitForEvent('window'); await main.locator('[data-hotkey="uv"]').click(); uv = await reopened;
     uv.setDefaultTimeout(20000); uv.on('pageerror', error => errors.push(error.message));
     await uv.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
     await app.evaluate(({ BrowserWindow }) => {

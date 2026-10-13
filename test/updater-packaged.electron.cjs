@@ -43,18 +43,18 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
   async function connect(){const port=await waitFor(async()=>{try{const port=(await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];const response=await fetch('http://127.0.0.1:'+port+'/json/version');return response.ok?port:false;}catch{return false;}});return chromium.connectOverCDP('http://127.0.0.1:'+port);}
   const initialBrowser=await connect();ownedBrowser=initialBrowser;const initial=await waitFor(()=>initialBrowser.contexts()[0]?.pages()[0]);initial.setDefaultTimeout(15000);await initial.waitForFunction(()=>!!document.querySelector('.classic-app canvas'));
   assert.equal((await initial.evaluate(()=>window.desktop.updateStatus())).currentVersion,current);
-  await initial.locator('[data-warmkey="updates:check"]').dispatchEvent('click');await initial.locator('[data-warmkey="update:install"]').waitFor();
-  const updating=initial.waitForEvent('close');await initial.locator('[data-warmkey="update:install"]').dispatchEvent('click');
+  await initial.locator('[data-hotkey="updates:check"]').dispatchEvent('click');await initial.locator('[data-hotkey="update:install"]').waitFor();
+  const updating=initial.waitForEvent('close');await initial.locator('[data-hotkey="update:install"]').dispatchEvent('click');
   await updating;await waitFor(async()=>JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version===version);
   await initialBrowser.close();ownedBrowser=null;
   const updatedBrowser=await connect();ownedBrowser=updatedBrowser;const page=await waitFor(()=>updatedBrowser.contexts()[0]?.pages()[0]);await page.waitForFunction(()=>!!window.desktop?.updateStatus);
   const status=await waitFor(async()=>{const value=await page.evaluate(()=>window.desktop.updateStatus());return value.currentVersion===version?value:false;});
   assert.equal(status.previousVersion,current);assert.equal(status.canInstall,true);
   await waitFor(async()=>(await page.evaluate(()=>window.desktop.updateStatus())).state==='current');
-  assert.equal(await page.locator('[data-warmkey="update:install"]').count(),0,'No repeat update prompt after the restarted version checks the same release');
-  await page.locator('.settings-window').waitFor();assert.equal(await page.locator('[data-warmkey="updates:revert"]').isEnabled(),true);
+  assert.equal(await page.locator('[data-hotkey="update:install"]').count(),0,'No repeat update prompt after the restarted version checks the same release');
+  await page.locator('.settings-window').waitFor();assert.equal(await page.locator('[data-hotkey="updates:revert"]').isEnabled(),true);
   const closing=page.waitForEvent('close');
-  await page.locator('[data-warmkey="updates:revert"]').dispatchEvent('click');
+  await page.locator('[data-hotkey="updates:revert"]').dispatchEvent('click');
   await closing;
   // Do not send Browser.close during MDLxL's asynchronous shutdown.
   await waitFor(async()=>JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version===current);

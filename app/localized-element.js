@@ -1,6 +1,6 @@
 import React from 'react';
 import { translate } from '../src/localization.js';
-const textProps=['title','aria-label','aria-description','placeholder','alt','data-warmkey-label'];
+const textProps=['title','aria-label','aria-description','placeholder','alt','data-hotkey-label'];
 function textChildren(value){return typeof value==='string'?translate(value):Array.isArray(value)?value.map(textChildren):value;}
 /** JSX presentation adapter. Preserve original values, event handlers, IDs and refs. */
 export function localizedCreateElement(type, props, ...children) {

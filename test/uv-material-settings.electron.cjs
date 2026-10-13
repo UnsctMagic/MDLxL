@@ -46,12 +46,12 @@ async function fixture() {
       w.setBounds({ x: -3000, y: 0, width: 1600, height: 1000 }); w.showInactive();
     });
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
-    await main.locator('[data-warmkey="geosetsClear"]').click();
+    await main.locator('[data-hotkey="geosetsClear"]').click();
     await main.getByLabel('Select geoset 0', { exact: true }).check();
     await main.getByLabel('3D model viewport', { exact: true }).click();
     await main.keyboard.press('Control+a');
     const opened = app.waitForEvent('window');
-    await main.locator('[data-warmkey="uv"]').click(); uv = await opened; uv.setDefaultTimeout(20000);
+    await main.locator('[data-hotkey="uv"]').click(); uv = await opened; uv.setDefaultTimeout(20000);
     await uv.getByLabel('Material Properties', { exact: true }).waitFor({ timeout: 60000 });
     await app.evaluate(({ BrowserWindow }) => {
       const w = BrowserWindow.getAllWindows().find(w => w.webContents.getURL() === 'about:blank');

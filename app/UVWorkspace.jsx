@@ -39,7 +39,7 @@ function rememberLayout(key, value) {
 const UV_ICONS = { select: MousePointer2, move: Hand, rotate: RotateCw, scale: Maximize2, mirrorX: FlipHorizontal2, mirrorY: FlipVertical2, uncouple: Unlink2, fold: FoldHorizontal };
 function Tool({ action, icon, label, active, disabled, onClick }) {
   const Icon = UV_ICONS[icon];
-  return <button type="button" data-warmkey={action} data-warmkey-category="UV" className={`uv-tool${active ? ' active' : ''}`} aria-label={label} title={label} aria-pressed={active === undefined ? undefined : active} disabled={disabled} onClick={onClick}>{Icon ? <Icon size={20} strokeWidth={1.9} aria-hidden="true"/> : label}</button>;
+  return <button type="button" data-hotkey={action} data-hotkey-category="UV" className={`uv-tool${active ? ' active' : ''}`} aria-label={label} title={label} aria-pressed={active === undefined ? undefined : active} disabled={disabled} onClick={onClick}>{Icon ? <Icon size={20} strokeWidth={1.9} aria-hidden="true"/> : label}</button>;
 }
 
 function UVGridControls({ value, onChange, children }) {

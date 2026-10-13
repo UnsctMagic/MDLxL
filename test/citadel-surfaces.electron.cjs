@@ -52,7 +52,7 @@ async function placement(index,label){
 async function run(){
   const model=await fixture();app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,model],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>result.errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1280,920);w.setPosition(-3000,0);w.showInactive();});
-  await page.locator('[data-warmkey="paint"]').click();await page.getByRole('button',{name:'Begin painting',exact:true}).click();await page.locator('.paint-texture-view').waitFor();await helpers();await settle();
+  await page.locator('[data-hotkey="paint"]').click();await page.getByRole('button',{name:'Begin painting',exact:true}).click();await page.locator('.paint-texture-view').waitFor();await helpers();await settle();
   await page.getByRole('button',{name:'Pick color from model',exact:true}).click();await page.mouse.click(...await page.evaluate(()=>pointFor(8)));await settle();assert.equal(await page.getByLabel('Paint color',{exact:true}).inputValue(),'#467048');result.checks.push('Model eyedropper samples the repeated pixel rather than the clamped image edge');
   await page.getByRole('button',{name:'Footman chainmail',exact:true}).click();await page.getByRole('spinbutton',{name:'Stamp size value',exact:true}).fill('30');
   for(const [index,label] of [[0,'flat-shared'],[1,'uv-seam'],[3,'curved'],[4,'stretched'],[5,'collapsed']])await placement(index,label);

@@ -27,7 +27,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1280, height: 920 }); win.showInactive(); });
-    await page.locator('[data-warmkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption(process.env.MDLXL_POSE_KNIGHT ? '1' : '0');
+    await page.locator('[data-hotkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption(process.env.MDLXL_POSE_KNIGHT ? '1' : '0');
     const time = page.getByLabel('Current animation frame'); await time.fill(process.env.MDLXL_POSE_KNIGHT ? '1667' : '167'); await time.press('Enter');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     await page.evaluate(() => {

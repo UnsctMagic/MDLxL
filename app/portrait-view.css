@@ -25,7 +25,7 @@
 .editor-modules .quick-display-options label{gap:2px;font-size:9.5px}
 .editor-modules .quick-display-actions{display:flex;align-items:center;gap:3px;flex:0 0 auto;margin-left:auto}
 .classic-app>.classic-toolbar .language-switch{margin-left:3px}
-.classic-app .classic-toolbar>.addon-menu,.classic-app .classic-toolbar>[data-warmkey="convertVersion"]{flex-shrink:0}
+.classic-app .classic-toolbar>.addon-menu,.classic-app .classic-toolbar>[data-hotkey="convertVersion"]{flex-shrink:0}
 .classic-app .classic-toolbar .language-trigger{padding-left:3px;padding-right:3px;font-size:10px}
 .classic-app .editor-modules .quick-display button{min-width:0;height:21px;min-height:21px;padding:0 5px}
 .classic-app .classic-toolbar .toolbar-visibility button{min-width:38px;height:23px;min-height:23px;padding:0 6px}
@@ -34,7 +34,7 @@
 .classic-app[data-vis-ui]>.classic-modules>:not(.toolbar-modules):not(.editor-modules),
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules>button,
 .classic-app[data-vis-ui]>.classic-modules>.toolbar-modules>:not(.vis-toggle),
-.classic-app[data-vis-ui]>.classic-toolbar :is(.toolbar-modules,.addon-menu,.language-switch,[data-warmkey="new"],[data-warmkey="redo"],[data-warmkey="copy"],[data-warmkey="paste"],[data-warmkey="convertVersion"]),
+.classic-app[data-vis-ui]>.classic-toolbar :is(.toolbar-modules,.addon-menu,.language-switch,[data-hotkey="new"],[data-hotkey="redo"],[data-hotkey="copy"],[data-hotkey="paste"],[data-hotkey="convertVersion"]),
 .classic-app[data-vis-ui] .classic-view-label>:not(:first-child){display:none}
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules{grid-row:1/-1;align-self:center}
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules>.quick-display{flex:0 0 auto}

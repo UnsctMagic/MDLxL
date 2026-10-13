@@ -36,7 +36,7 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
     await page.getByLabel('3D model viewport', { exact: true }).waitFor();
-    await page.locator('[data-warmkey="geosetsClear"]').click(); await page.getByLabel(`Select geoset ${geosetIndex}`, { exact: true }).check();
+    await page.locator('[data-hotkey="geosetsClear"]').click(); await page.getByLabel(`Select geoset ${geosetIndex}`, { exact: true }).check();
     await page.waitForFunction(count => document.querySelector('.classic-counts')?.textContent.includes(`Vertices: ${count}`), vertexCount);
     await page.evaluate(index => {
       window.dragGeosetIndex = index;

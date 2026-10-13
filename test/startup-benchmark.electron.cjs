@@ -39,12 +39,12 @@ const root = path.resolve(__dirname, '..');
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
       await page.waitForFunction(() => !!document.querySelector('[aria-label="3D model viewport"] canvas'), null, { polling: 20, timeout: 30000 });
       const viewportMs = performance.now() - began;
-      const grid = page.locator('[data-warmkey="grid"]');
+      const grid = page.locator('[data-hotkey="grid"]');
       const checked = await grid.isChecked();
       // A hidden window has no compositor actionability frames. Dispatch the
       // normal DOM event and verify React changed the actual control state.
       await grid.dispatchEvent('click');
-      await page.waitForFunction(previous => document.querySelector('[data-warmkey="grid"]').checked !== previous, checked, { polling: 20 });
+      await page.waitForFunction(previous => document.querySelector('[data-hotkey="grid"]').checked !== previous, checked, { polling: 20 });
       const responsiveMs = performance.now() - began;
       assert.deepEqual(errors, []);
       assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.isVisible())), false);

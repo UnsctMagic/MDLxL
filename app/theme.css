@@ -16,24 +16,24 @@
 :root[data-theme=dark] :is(.classic-modal-window>header,.classic-dialog>header,.resource-editor .re-caption,.tl-header,.tl-footer){background:var(--ui-trim);color:#f1f5ff;border-color:var(--ui-border)}
 :root[data-theme=dark] :is(.classic-modal-window,.classic-dialog,.resource-editor .re-window,.classic-context){border:2px solid var(--ui-trim);box-shadow:0 5px 24px #10192488}
 :root[data-theme=dark] :is(.classic-menu details[open]>summary,.classic-menu [role=menu] button:hover,.classic-context button:hover,.geoset-row.selected,.resource-editor .re-list button.re-selected,.resource-editor .re-list button.re-selected:hover,.movement-node-list label:has(input:checked)){background:var(--ui-selected);color:var(--ui-selected-text)}
-:root[data-theme=dark] :is(.classic-geosets [role=listbox],.resource-editor .re-list,.resource-editor .re-list button,.resource-editor .key-list,.module-controller .node-picks,.movement-node-list,.warmkeys-table-wrap,.warmkeys-capture){background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}
-:root[data-theme=dark] :is(.settings-tabs button[aria-selected=true],.mouse-mode-control.selected,.warmkeys-recorder,.warmkeys-chip,.warmkeys-table th,.game-data-path){background:var(--ui-surface);color:var(--ui-text);border-color:var(--ui-border);box-shadow:none}
+:root[data-theme=dark] :is(.classic-geosets [role=listbox],.resource-editor .re-list,.resource-editor .re-list button,.resource-editor .key-list,.module-controller .node-picks,.movement-node-list,.hotkeys-table-wrap,.hotkeys-capture){background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme=dark] :is(.settings-tabs button[aria-selected=true],.mouse-mode-control.selected,.hotkeys-recorder,.hotkeys-chip,.hotkeys-table th,.game-data-path){background:var(--ui-surface);color:var(--ui-text);border-color:var(--ui-border);box-shadow:none}
 :root[data-theme=dark] :is(.resource-editor,.resource-editor .field,.resource-editor .field>span,.resource-editor .check,.resource-editor .vector-field,.resource-editor .inspector-fields,.resource-editor .re-list-label,.resource-editor .stat-grid b,.resource-editor .stat-grid span,.resource-editor .property-line,.resource-editor .track-heading,.resource-editor code){color:var(--ui-text)}
-:root[data-theme=dark] :is(.hint,.notice,.settings-hint,.settings-muted,.settings-toggle small,.settings-select small,.settings-range-labels,.settings-window>footer>span,.warmkeys-filter>span,.warmkeys-table td small,.mouse-mode-hint,.classic-modules .module-hint,.resource-editor .hint,.resource-editor .used-by,.resource-editor .re-status,.resource-editor .re-list button small,.resource-editor .re-empty-list,.resource-editor .re-empty-properties,.movement-node-list label small,.movement-hint,.movement-values){color:var(--ui-muted)}
+:root[data-theme=dark] :is(.hint,.notice,.settings-hint,.settings-muted,.settings-toggle small,.settings-select small,.settings-range-labels,.settings-window>footer>span,.hotkeys-filter>span,.hotkeys-table td small,.mouse-mode-hint,.classic-modules .module-hint,.resource-editor .hint,.resource-editor .used-by,.resource-editor .re-status,.resource-editor .re-list button small,.resource-editor .re-empty-list,.resource-editor .re-empty-properties,.movement-node-list label small,.movement-hint,.movement-values){color:var(--ui-muted)}
 :root[data-theme=dark] :is(.notice,.uv-workspace .uv-preview-selection-note){background:#393a31;color:#e4dcb3;border-color:#626249}
-:root[data-theme=dark] :is(.settings-message,.warmkeys-chip kbd,.warmkeys-capture kbd,.game-data-path code){color:#9ddca6}
-:root[data-theme=dark] :is(.danger,.resource-editor .field-error,.movement-controller [role=alert],.capture-error,.warmkeys-conflict){color:#ffb3a5}
+:root[data-theme=dark] :is(.settings-message,.hotkeys-chip kbd,.hotkeys-capture kbd,.game-data-path code){color:#9ddca6}
+:root[data-theme=dark] :is(.danger,.resource-editor .field-error,.movement-controller [role=alert],.capture-error,.hotkeys-conflict){color:#ffb3a5}
 :root[data-theme=dark] :is(a,.tl-details code){color:var(--ui-link)}
 :root[data-theme=dark] :is(.classic-empty-view,.uv-live-preview){background:var(--ui-surface);color:var(--ui-muted);border-color:var(--ui-border)}
-:root[data-theme=dark] :is(fieldset,.inspector-section,.classic-geosets,.classic-status>span,.classic-modal-body td,.warmkeys-table td,.resource-editor .track-field,.resource-editor .re-footer,.uv-workspace-panes,.uv-map-pane){border-color:var(--ui-border)}
+:root[data-theme=dark] :is(fieldset,.inspector-section,.classic-geosets,.classic-status>span,.classic-modal-body td,.hotkeys-table td,.resource-editor .track-field,.resource-editor .re-footer,.uv-workspace-panes,.uv-map-pane){border-color:var(--ui-border)}
 :root[data-theme=dark] .classic-modal{background:#10182277}
 :root[data-theme=dark] .animation-controller .ac-heading{background:var(--ui-panel);color:var(--ui-text)}
 :root[data-theme=dark] :is(.animation-controller .ac-hint,.animation-controller .ac-context){color:var(--ui-muted)}
 :root[data-theme=dark] .animation-controller legend{color:var(--ui-link)}
 :root[data-theme=dark] .animation-controller .ac-error{color:#ffb3a5}
 :root[data-theme=dark] .animation-controller .ac-notice{color:#9ddca6}
-:root[data-theme=dark] .warmkeys-sequence-cue{background:var(--ui-trim);color:var(--ui-text);border-color:var(--ui-border)}
-:root[data-theme=dark] .warmkeys-sequence-cue kbd{color:#9ddca6}
+:root[data-theme=dark] .hotkeys-sequence-cue{background:var(--ui-trim);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme=dark] .hotkeys-sequence-cue kbd{color:#9ddca6}
 .selection-box,.marquee{border-color:var(--visual-selection,#fff)}
 .classic-coordinates .field:nth-of-type(1)>span{color:var(--ui-channel-r,#b00000)}
 .classic-coordinates .field:nth-of-type(2)>span{color:var(--ui-channel-g,#006b00)}

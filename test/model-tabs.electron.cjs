@@ -49,7 +49,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('demo.mdx'));
     await page.keyboard.press('Control+c');
     await page.waitForTimeout(250);
-    const copyState=await page.evaluate(()=>({status:document.querySelector('.classic-status')?.textContent,copyDisabled:document.querySelector('[data-warmkey="copy"]')?.disabled,active:document.querySelector('.model-tab.active [role="tab"]')?.textContent,focus:document.activeElement?.outerHTML?.slice(0,240)}));
+    const copyState=await page.evaluate(()=>({status:document.querySelector('.classic-status')?.textContent,copyDisabled:document.querySelector('[data-hotkey="copy"]')?.disabled,active:document.querySelector('.model-tab.active [role="tab"]')?.textContent,focus:document.activeElement?.outerHTML?.slice(0,240)}));
     assert.match(copyState.status||'',/Copied/,`Ctrl+C did not reach the active model: ${JSON.stringify(copyState)}`);
     await page.getByRole('tab', { name: 'demo.mdl' }).click();
     await page.waitForFunction(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('demo.mdl'));
@@ -63,7 +63,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     await page.getByRole('tab', { name: 'demo.mdx' }).click();
     assert.deepEqual(await page.evaluate(() => modelTabSummary()), firstBefore, 'inactive source model remains unchanged');
-    await page.locator('[data-warmkey="bones"]').click();
+    await page.locator('[data-hotkey="bones"]').click();
     await page.keyboard.press('Control+a'); await page.keyboard.press('Control+c');
     await page.getByRole('tab', { name: 'demo.mdl' }).click();
     const beforeNodes = await page.evaluate(() => modelTabSummary());
@@ -76,7 +76,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('dialog', { name: 'Close model tab?' }).waitFor();
     await page.getByRole('button', { name: "Don't save", exact: true }).click();
     assert.equal(await page.getByRole('tab').count(), 1);
-    await page.locator('[data-warmkey="vertices"]').click();
+    await page.locator('[data-hotkey="vertices"]').click();
     assert.deepEqual(await page.evaluate(() => modelTabSummary()), firstBefore);
     assert.deepEqual(errors, []);
     console.log('PASS single-instance desktop handoff, model tabs, suspended inactive renderer, cross-tab geometry/node paste, Ctrl+P, DummyBone binding, and close prompt');

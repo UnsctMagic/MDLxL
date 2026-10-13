@@ -53,13 +53,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     });
     assert.equal(unchanged, true, 'even a stale transform payload cannot edit a visible-only geoset');
     await capture('vertex-visible.png');
-    await page.locator('[data-warmkey="undo"]').first().click();
+    await page.locator('[data-hotkey="undo"]').first().click();
     assert.equal(await page.getByRole('checkbox', { name: 'Select geoset 0', exact: true }).isChecked(), true);
     assert.deepEqual((await state()).editable, [0]);
-    await page.locator('[data-warmkey="redo"]').first().click();
+    await page.locator('[data-hotkey="redo"]').first().click();
     assert.deepEqual((await state()).editable, []);
     assert.deepEqual((await state()).visible, [0]);
-    await page.locator('[data-warmkey="animation"]').click();
+    await page.locator('[data-hotkey="animation"]').click();
     await page.locator('.movement-controller').waitFor();
     await page.locator('.game-preview-root canvas').first().waitFor();
     assert.deepEqual((await state()).editable, []);
@@ -69,7 +69,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual((await state()).visible, []);
     await pin();
     assert.deepEqual((await state()).visible, [0]);
-    await page.locator('[data-warmkey="new"]').first().click();
+    await page.locator('[data-hotkey="new"]').first().click();
     await page.getByRole('tab', { name: /Untitled\.mdx/ }).waitFor();
     assert.equal(await page.getByLabel('Geoset 0 left visible').count(), 0);
     await page.getByRole('tab', { name: 'demo.mdx' }).click();

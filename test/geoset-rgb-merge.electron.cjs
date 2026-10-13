@@ -50,7 +50,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       window.rgbMergeState();
     });
 
-    await page.locator('[data-warmkey="geosetsClear"]').click();
+    await page.locator('[data-hotkey="geosetsClear"]').click();
     await page.getByLabel('Select geoset 5', { exact: true }).click();
     await page.getByLabel('Select geoset 11', { exact: true }).click();
     await page.getByRole('button', { name: 'Animations', exact: true }).click();

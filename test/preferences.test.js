@@ -14,7 +14,7 @@ test('preferences validate persisted data and preserve explicitly cleared bindin
   assert.equal(normalizePreferences({ uvViewTileLimit: 18 }).uvViewTileLimit, 18);
   assert.equal(normalizePreferences({ uvViewTileLimit: 2 }).uvViewTileLimit, 7);
 });
-test('WarmKeys normalizes combinations and ignores IME / modifiers', () => {
+test('Hotkeys normalizes combinations and ignores IME / modifiers', () => {
   assert.equal(normalizeChord('shift+control+z'), 'Ctrl+Shift+Z');
   assert.equal(chordFromEvent({ key: ' ', ctrlKey: true }), 'Ctrl+Space');
   assert.equal(chordFromEvent({ key: '+', shiftKey: true }), 'Shift+Plus');

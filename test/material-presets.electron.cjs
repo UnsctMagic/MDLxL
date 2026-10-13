@@ -10,9 +10,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   page=await app.firstWindow();page.setDefaultTimeout(20000);
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3000,y:0,width:1920,height:1080});w.showInactive();});
   await page.getByLabel('Select geoset 4',{exact:true}).waitFor({timeout:60000});
-  await page.locator('[data-warmkey="geosetsClear"]').click();await page.getByLabel('Select geoset 4',{exact:true}).check();
+  await page.locator('[data-hotkey="geosetsClear"]').click();await page.getByLabel('Select geoset 4',{exact:true}).check();
   await page.locator('[aria-label="3D model viewport"]').click();await page.keyboard.press('Control+a');
-  const opened=app.waitForEvent('window');await page.locator('[data-warmkey="uv"]').click();uv=await opened;uv.setDefaultTimeout(20000);
+  const opened=app.waitForEvent('window');await page.locator('[data-hotkey="uv"]').click();uv=await opened;uv.setDefaultTimeout(20000);
   await uv.getByLabel('Material Properties',{exact:true}).waitFor();
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL()==='about:blank');w.setBounds({x:-3000,y:0,width:1920,height:1080});w.showInactive();});
   await uv.waitForFunction(()=>innerWidth>1800);

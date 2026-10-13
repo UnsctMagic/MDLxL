@@ -59,16 +59,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(() => bitState().app?.doc.model.Info.Name === 'Untitled' && bitState().app.doc.model.Geosets.length === 2);
     const before = await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx')));
     const sidebar = await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width);
-    await page.locator('[data-warmkey="bitsAndParts"]').click();
+    await page.locator('[data-hotkey="bitsAndParts"]').click();
     assert.equal(await page.getByRole('button', { name: 'Replace Part', exact: true }).isDisabled(), true);
     assert.deepEqual(await page.locator('.parts-header-actions button').allTextContents(), ['Collect Bit', 'Replace Part']);
     await page.getByRole('button', { name: 'Close BitsAndParts', exact: true }).click();
-    await page.locator('[data-warmkey="geosetsAll"]').click();
+    await page.locator('[data-hotkey="geosetsAll"]').click();
     await page.evaluate(selection => bitState().props.onSelectionChange(selection), selection);
     await page.waitForFunction(() => document.querySelector('.classic-counts')?.textContent.includes('Selected: 8'));
     await page.waitForFunction(name => bitState().app.session.assets.has(name.toLowerCase()), texturePath);
     const begin = async () => {
-      await page.locator('[data-warmkey="bitsAndParts"]').click();
+      await page.locator('[data-hotkey="bitsAndParts"]').click();
       await page.getByRole('button', { name: 'Replace Part', exact: true }).click();
       await page.waitForFunction(() => bitState('.parts-preview [aria-label="3D model viewport"]').viewport?.entries.length === 1);
       const absent = await page.evaluate(() => {
@@ -159,12 +159,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(reopened.model.Sequences.length, 0);
     assert.deepEqual(validateModel(reopened.model).filter(issue => issue.severity === 'error'), []);
     assert.equal(await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width), sidebar);
-    await page.locator('[data-warmkey="geosetsAll"]').click();
+    await page.locator('[data-hotkey="geosetsAll"]').click();
     await page.screenshot({ path: path.join(output, 'applied-replacement.png') });
     // Selection changes have their own history entries in MDLxL.
-    await page.locator('[data-warmkey="undo"]').click();
-    await page.locator('[data-warmkey="undo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))), before);
-    await page.locator('[data-warmkey="redo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))), Array.from(bytes));
+    await page.locator('[data-hotkey="undo"]').click();
+    await page.locator('[data-hotkey="undo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))), before);
+    await page.locator('[data-hotkey="redo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitState().app.doc.serialize('mdx'))), Array.from(bytes));
     assert.ok(fs.readFileSync(fixture).equals(original)); assert.ok(fs.readFileSync(bitFile).equals(donorBytes)); assert.deepEqual(pageErrors, []);
     fs.writeFileSync(path.join(output, 'verification.json'), JSON.stringify({ executable, passed: true, miniMenu: true, quadMoveRotateScale: true, normalPlanes: ['XY', 'ZX', 'YZ'], quadAndNormalZoom: true, cancelUnchanged: true, undoRedo: true, textureCount: 1, materialCount: 1, bonesPreserved: true, sidebarWidth: sidebar }, null, 2));
     console.log('PASS packaged Electron: compact in-preview menus, quad move/rotate/scale, normal XY/ZX/YZ plane locks, quad/normal zoom without geometry edits, cancel, replacement, dependency reuse, bones, undo/redo and unchanged fixtures/sidebar.');

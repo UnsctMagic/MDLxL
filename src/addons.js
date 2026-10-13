@@ -1,4 +1,5 @@
 import { COMMANDS } from './commands.js';
+import { migrateHotkeyId } from './hotkey-defaults.js';
 
 // API v1 deliberately offers declarative editor commands: add-ons never execute
 // code at install/startup, and command enablement remains owned by the editor.
@@ -14,8 +15,10 @@ export function validateAddon(input) {
     if(!/^[a-z0-9._-]{1,64}$/.test(action?.id||'')||seen.has(action.id))throw new Error('Action IDs must be valid and unique.');
     seen.add(action.id);
     if(typeof action.label!=='string'||!action.label.trim()||action.label.length>100)throw new Error('Each action needs a short label.');
-    if(!commands.has(action.command))throw new Error('Unknown editor command: '+action.command);
-    return {id:action.id,label:action.label,command:action.command};
+    // Manifests and saved add-on lists from before the Hotkeys rename may name the old command ID.
+    const command=migrateHotkeyId(action.command);
+    if(!commands.has(command))throw new Error('Unknown editor command: '+action.command);
+    return {id:action.id,label:action.label,command};
   });
   return {schema:'mdlxl-addon',apiVersion:1,id:value.id,name:value.name,actions};
 }

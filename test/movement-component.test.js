@@ -133,7 +133,7 @@ test('quick display shows only the active editor options without Reveal',()=>{
   assert.equal((html.match(/type="checkbox"/g)||[]).length,9);
   for(const label of ['Bones','Skeleton','Focused Skeleton','Nodes','Emitters','Events','Sounds','Wireframe','Grid','Clear']) assert.ok(html.includes(label));
   assert.doesNotMatch(html,/Reveal|Shadows|Vertices|Textured View/);
-  assert.match(html,/<input[^>]*data-warmkey="display:particles"[^>]*checked=""/);
+  assert.match(html,/<input[^>]*data-hotkey="display:particles"[^>]*checked=""/);
 });
 
 test('timeline displays the live frame without an effect-driven duplicate frame state',()=>{
