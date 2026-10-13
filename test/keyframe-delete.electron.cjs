@@ -24,7 +24,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const app = await _electron.launch({ executablePath: path.join(cwd, 'node_modules/electron/dist/electron.exe'), args: [cwd, fixture], env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
-    await page.locator('[data-warmkey="animation"]').click();
+    await page.locator('[data-hotkey="animation"]').click();
     const reel = page.locator('.classic-reel-track'), frameInput = page.getByLabel('Current animation frame');
     const marker = frame => page.locator(`.classic-reel-key[data-frame="${frame}"]`);
     async function clickKey(frame) {

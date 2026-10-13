@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Euler, Quaternion, Vector3 } from 'three';
 import Viewport from './Viewport.jsx';
 import { CameraTools, Coordinate, Tool, TransformTools, WorkplaneControls } from './EditorControls.jsx';
-import { useWarmKeys } from './WarmKeys.jsx';
+import { useHotkeys } from './Hotkeys.jsx';
 import { chordFromEvent, isTextEditingTarget } from '../src/preferences.js';
 import { QUAD_VIEW_OPTIONS } from './quad-view.js';
 
@@ -14,7 +14,7 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
   const [workplane, setWorkplane] = useState(editorState.workplane || 'xy'), [workplaneEnabled, setWorkplaneEnabled] = useState(editorState.workplaneEnabled !== false);
   const [renderMode, setRenderMode] = useState(initialRenderMode), [vertices, setVertices] = useState(!previewOnly), [grid, setGrid] = useState(false), [grabThrough, setGrabThrough] = useState(editorState.grabThrough !== false);
   const [localFrame, setLocalFrame] = useState({ id: 0, selection: false }), [angles, setAngles] = useState({ x: 0, y: 0, z: 0 }), [angleRequest, setAngleRequest] = useState(null);
-  const { shortcuts } = useWarmKeys(), root = useRef();
+  const { shortcuts } = useHotkeys(), root = useRef();
   const selectable = useMemo(() => new Set(model.Geosets.map((_, i) => i)), [model]);
   const points = Object.entries(selection).flatMap(([gi, ids]) => ids.map(id => Array.from(model.Geosets[gi]?.Vertices.slice(id * 3, id * 3 + 3) || []))).filter(p => p.length === 3);
   const center = points.length ? [0, 1, 2].map(a => points.reduce((sum, p) => sum + p[a], 0) / points.length) : [0, 0, 0];
@@ -45,7 +45,7 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
       <div className="forge-display"><label className="check"><input type="checkbox" checked={vertices} onChange={e => setVertices(e.target.checked)}/>Vertices</label><label className="check"><input type="checkbox" checked={grid} onChange={e => setGrid(e.target.checked)}/>Grid</label></div>
     </div>
     <div className="classic-workspace forge-editor-workspace"><section className="classic-view">
-      <div className="classic-view-label"><select data-warmkey="viewDirection" aria-label="View direction" value={quad ? pane?.view || 'front' : view} onChange={e => setView(e.target.value)}>{(quad ? QUAD_VIEW_OPTIONS : ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'].map(v => [v, v[0].toUpperCase() + v.slice(1)])).map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select><select aria-label="Render mode" value={renderMode} onChange={e => setRenderMode(e.target.value)}><option value="wireframe">Wireframe</option><option value="solid">Surface</option><option value="textured">Textured View</option></select><button aria-pressed={quad} onClick={() => setQuad(!quad)}>Quad View</button><button data-warmkey="fit" title="Fit model" onClick={() => fit(false)}>Fit</button><button data-warmkey="fitSelection" title="Fit selection" onClick={() => fit(true)}>Fit selection</button></div>
+      <div className="classic-view-label"><select data-hotkey="viewDirection" aria-label="View direction" value={quad ? pane?.view || 'front' : view} onChange={e => setView(e.target.value)}>{(quad ? QUAD_VIEW_OPTIONS : ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'].map(v => [v, v[0].toUpperCase() + v.slice(1)])).map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select><select aria-label="Render mode" value={renderMode} onChange={e => setRenderMode(e.target.value)}><option value="wireframe">Wireframe</option><option value="solid">Surface</option><option value="textured">Textured View</option></select><button aria-pressed={quad} onClick={() => setQuad(!quad)}>Quad View</button><button data-hotkey="fit" title="Fit model" onClick={() => fit(false)}>Fit</button><button data-hotkey="fitSelection" title="Fit selection" onClick={() => fit(true)}>Fit selection</button></div>
       <Viewport model={model} preferences={preferences} mode={renderMode} view={view} onViewChange={setView} quadView={quad} viewRequest={viewRequest} onActivePaneChange={setPane} cameraMode={cameraMode} onCameraModeToggle={toggleCamera} onCameraAnglesChange={receiveAngles} cameraAnglesRequest={angleRequest} frameRequest={frameRequest} workplane={workplane} workplaneEnabled={workplaneEnabled} transformMode={previewOnly ? 'select' : tool} selectionByGeoset={selection} selectableGeosets={selectable} visibleGeosets={selectable} onSelectionChange={onSelectionChange} onSelectParts={onSelectParts} onTransform={onTransform} showVertices={vertices} showGrid={grid} showAxes={true} shaded={true} grabThrough={grabThrough} textureAssets={textureAssets} teamColor={teamColor} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} highlightSelection={true}/>
     </section>{controlPoints && <div className="forge-control-points">{controlPoints}</div>}<aside className="classic-sidebar forge-editor-sidebar">
       {cameraMode === 'rotate' ? <><div className="forge-section-title">Camera rotation</div><div className="classic-coordinates">{['X', 'Y', 'Z'].map(axis => <Coordinate key={axis} axis={axis} value={angles[axis.toLowerCase()]} onCommit={value => setAngleRequest({ ...angles, [axis.toLowerCase()]: value })}/>)}</div></> : !previewOnly && <>
@@ -55,8 +55,8 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
         <div className="classic-tools"><TransformTools value={tool} onChange={chooseTool}/>{onDelete && <Tool action="Delete vertices" icon="sb_del" title="Delete selection" disabled={!points.length} onClick={onDelete}/>}</div>
         {operations}
         <label className="check grabthrough-option"><input aria-label="Grabthrough" type="checkbox" checked={grabThrough} onChange={e => setGrabThrough(e.target.checked)}/>Grabthrough</label>
-        <div className="forge-selection-actions"><button data-warmkey="selectAll" onClick={all}>All</button><button data-warmkey="clear" onClick={actions.clear}>Clear</button><button data-warmkey="invertSelection" onClick={invert}>Invert</button></div>
-        {onDuplicate && <button data-warmkey={duplicateAction} aria-label="Duplicate" className="forge-duplicate" disabled={!points.length} onClick={onDuplicate}>Duplicate</button>}
+        <div className="forge-selection-actions"><button data-hotkey="selectAll" onClick={all}>All</button><button data-hotkey="clear" onClick={actions.clear}>Clear</button><button data-hotkey="invertSelection" onClick={invert}>Invert</button></div>
+        {onDuplicate && <button data-hotkey={duplicateAction} aria-label="Duplicate" className="forge-duplicate" disabled={!points.length} onClick={onDuplicate}>Duplicate</button>}
       </>}
       {sidebar}
     </aside></div><div className="forge-editor-status" role="status">{status || 'MDLxL FORGE'}</div>

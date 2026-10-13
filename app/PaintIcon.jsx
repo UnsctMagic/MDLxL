@@ -10,4 +10,4 @@ export default function PaintIcon({name}){
     </>}
   </svg>;
 }
-export function PaintTool({icon,label,active,onClick,disabled,children,action}){return <button className="paint-tool" title={label} aria-label={label} aria-pressed={active} onClick={onClick} disabled={disabled} data-warmkey={action} data-warmkey-badges="false"><PaintIcon name={icon}/>{children}</button>;}
+export function PaintTool({icon,label,active,onClick,disabled,children,action}){return <button className="paint-tool" title={label} aria-label={label} aria-pressed={active} onClick={onClick} disabled={disabled} data-hotkey={action} data-hotkey-badges="false"><PaintIcon name={icon}/>{children}</button>;}

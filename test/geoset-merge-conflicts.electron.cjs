@@ -61,7 +61,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       };
     });
     const choose = async indices => {
-      await page.locator('[data-warmkey="geosetsClear"]').click();
+      await page.locator('[data-hotkey="geosetsClear"]').click();
       for (const index of indices) await page.getByLabel(`Select geoset ${index}`, { exact: true }).click();
       await page.locator('[aria-label="3D model viewport"]').focus(); await page.keyboard.press('Control+A');
     };

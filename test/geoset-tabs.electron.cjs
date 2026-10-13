@@ -63,7 +63,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual((await state()).hidden, Array.from({ length: initial.count - 1 }, (_, i) => i + 1));
     assert.equal(await page.getByRole('checkbox', { name: /^Select geoset/ }).count(), 1);
     await picker.selectOption('all');
-    await page.locator('[data-warmkey="geosetsClear"]').click();
+    await page.locator('[data-hotkey="geosetsClear"]').click();
     await page.getByRole('checkbox', { name: 'Select geoset 1', exact: true }).check();
     const armorId = await create('Armor');
     assert.deepEqual((await state()).selectable, [1]);
@@ -91,7 +91,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await addDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: 'Vertices', exact: true }).click();
     await picker.selectOption(bodyId);
-    await page.locator('[data-warmkey="geosetsAll"]').click(); assert.deepEqual((await state()).selectable, [0, 2]);
+    await page.locator('[data-hotkey="geosetsAll"]').click(); assert.deepEqual((await state()).selectable, [0, 2]);
     const eyeInBox = await page.getByRole('button', { name: 'Show tab Body', exact: true }).evaluate(element => {
       const eye = element.getBoundingClientRect(), box = element.parentElement.getBoundingClientRect();
       return eye.left >= box.left && eye.right <= box.right && eye.top >= box.top && eye.bottom <= box.bottom;
@@ -133,7 +133,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await picker.selectOption(armorId);
     assert.equal(await page.getByRole('checkbox', { name: /^Select geoset/ }).count(), 1);
     await screenshot('reopened.png');
-    await page.locator('[data-warmkey="geosetsAll"]').click();
+    await page.locator('[data-hotkey="geosetsAll"]').click();
     await picker.selectOption('action:move');
     await page.getByLabel('Move checked geosets to tab').selectOption(bodyId);
     await page.getByRole('dialog', { name: 'Move checked geosets', exact: true }).getByRole('button', { name: 'Move', exact: true }).click();

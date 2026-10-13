@@ -24,7 +24,7 @@ const root = path.resolve(__dirname, '..');
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
     await page.waitForFunction(() => document.title.includes('dense.mdx'));
-    await page.locator('[data-warmkey="animation"]').dispatchEvent('click');
+    await page.locator('[data-hotkey="animation"]').dispatchEvent('click');
     await page.locator('.classic-reel-track').waitFor();
     // Send native input without waiting for hidden compositor actionability.
     // Pointer capture requires a real active pointer, not synthetic DOM events.

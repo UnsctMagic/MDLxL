@@ -12,7 +12,7 @@ const root=process.cwd(),out=path.resolve('out/default-paint-library');
   try{
     const page=await app.firstWindow();page.setDefaultTimeout(20000);
     await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1280,920);w.showInactive();});
-    await page.locator('[data-warmkey="paint"]').click();await page.getByRole('button',{name:'Begin painting',exact:true}).click();
+    await page.locator('[data-hotkey="paint"]').click();await page.getByRole('button',{name:'Begin painting',exact:true}).click();
     const collection=page.getByRole('button',{name:'Texture library',exact:true});
     await collection.waitFor();assert.equal(await collection.getAttribute('aria-pressed'),'true');
     await page.waitForFunction(()=>document.querySelectorAll('.paint-shelf-tile').length===31);

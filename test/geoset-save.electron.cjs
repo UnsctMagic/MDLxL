@@ -12,11 +12,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const page = await app.firstWindow();
     page.setDefaultTimeout(10000);
     page.on('pageerror', e => console.log('PAGE ERROR', e.message));
-    await page.waitForSelector('[data-warmkey="animations"]', { timeout: 60000 });
+    await page.waitForSelector('[data-hotkey="animations"]', { timeout: 60000 });
     console.log('LOADED', await page.title());
-    await page.locator('[data-warmkey="animations"]').click();
+    await page.locator('[data-hotkey="animations"]').click();
     await page.getByLabel('Choose animation sequence').selectOption({ label: 'Decay Bone' });
-    await page.locator('[data-warmkey="geosetsAll"]').click();
+    await page.locator('[data-hotkey="geosetsAll"]').click();
     await page.getByRole('button', { name: 'Create Visibility', exact: true }).click();
     await page.getByLabel('Visibility alpha percent').fill('0');
     await page.getByLabel('Visibility alpha percent').press('Enter');
@@ -59,9 +59,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await app.evaluate(({ dialog }, out) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [out + '/ui-saved.mdx'] }); }, out);
     await page.keyboard.press('Control+o');
     await page.waitForFunction(() => document.title.includes('ui-saved.mdx'));
-    await page.locator('[data-warmkey="animations"]').click();
+    await page.locator('[data-hotkey="animations"]').click();
     await page.getByLabel('Choose animation sequence').selectOption({ label: 'Decay Bone' });
-    await page.locator('[data-warmkey="geosetsAll"]').click();
+    await page.locator('[data-hotkey="geosetsAll"]').click();
     if (await page.getByLabel('Visibility alpha percent').inputValue() !== '0') throw Error('Reopened visibility edit was lost');
     await page.screenshot({ path: path.join(out, 'electron-reopened.png') });
     console.log('REOPENED alpha=0; fixture preserved; controls usable');

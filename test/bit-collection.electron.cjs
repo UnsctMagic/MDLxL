@@ -43,14 +43,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(() => bitTestState().app.doc.model.Geosets.length === 5);
     const before = await page.evaluate(() => Array.from(bitTestState().app.doc.serialize('mdx')));
     const sidebar = await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width);
-    await page.locator('[data-warmkey="bitsAndParts"]').click();
+    await page.locator('[data-hotkey="bitsAndParts"]').click();
     assert.equal(await page.getByRole('button', { name: 'Collect Bit', exact: true }).isDisabled(), true);
     await page.getByRole('button', { name: 'Close BitsAndParts', exact: true }).click();
-    await page.locator('[data-warmkey="geosetsAll"]').click();
+    await page.locator('[data-hotkey="geosetsAll"]').click();
     await page.evaluate(() => bitTestState().props.onSelectionChange(Object.fromEntries(Array.from({ length: 5 }, (_, gi) => [gi, Array.from({ length: 8 }, (_, vi) => vi)]))));
     await page.waitForFunction(() => document.querySelector('.classic-counts')?.textContent.includes('Selected: 40'));
     await page.waitForFunction(name => bitTestState().app.session.assets.has(name.toLowerCase()), texturePath);
-    await page.locator('[data-warmkey="bitsAndParts"]').click(); await page.getByRole('button', { name: 'Collect Bit', exact: true }).click();
+    await page.locator('[data-hotkey="bitsAndParts"]').click(); await page.getByRole('button', { name: 'Collect Bit', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Collect Bit', exact: true }); await dialog.waitFor();
     assert.match(await dialog.innerText(), /5 geosets · 40 selected vertices/);
     assert.equal(await dialog.getByText('Select animations and rename', { exact: true }).count(), 0);
@@ -76,7 +76,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for (let gi = 0; gi < 5; gi++) assert.deepEqual(sampleGeosetAnimation(imported.model, gi + 5, 0, -1).color, [0, 0, 1 - gi / 8]);
     assert.equal(imported.model.Textures.length, 1); assert.equal(imported.model.Materials.length, 1);
     assert.deepEqual(validateModel(imported.model).filter(issue => issue.severity === 'error'), []);
-    await page.locator('[data-warmkey="undo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitTestState().app.doc.serialize('mdx'))), before);
+    await page.locator('[data-hotkey="undo"]').click(); assert.deepEqual(await page.evaluate(() => Array.from(bitTestState().app.doc.serialize('mdx'))), before);
     assert.equal(await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width), sidebar);
     assert.ok(fs.readFileSync(fixture).equals(original)); assert.deepEqual(errors, []);
     console.log('PASS packaged collection: all RGB animation tracks saved; Red and Blue render correctly; per-geoset selected RGB import, textures/materials reused, donor and sidebar preserved.');

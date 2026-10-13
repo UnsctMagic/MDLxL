@@ -44,7 +44,7 @@ test('custom archive choices persist, deduplicate and remove without changing th
   assert.deepEqual((await new SettingsStore(file, normalizePreferences).load()).gameDataSources, []);
 });
 
-test('desktop settings persist mouse, graphics and cleared WarmKeys across restart without losing legacy history', async t => {
+test('desktop settings persist mouse, graphics and cleared Hotkeys across restart without losing legacy history', async t => {
   const file = await scratch(t);
   await fs.writeFile(file, JSON.stringify({ gameData: 'C:\\Warcraft', historyBudgetBytes: 512 * 1048576, historyMaxSteps: 12000 }));
   const store = new SettingsStore(file, normalizePreferences);
@@ -129,7 +129,7 @@ test('native menus reflect remapped and cleared shortcuts and leave execution to
   assert.ok(COMMANDS.some(command => command.id === 'front'), 'view actions remain available for viewport and shortcut use');
   const settings = menus.find(menu => menu.label === 'Settings').submenu;
   settings.slice(0, 3).forEach(item => item.click());
-  assert.deepEqual(actions, ['settings', 'warmkeys', 'graphics']);
+  assert.deepEqual(actions, ['settings', 'hotkeys', 'graphics']);
   assert.equal(settings[2].label, 'Graphical settings…');
   for (const [label, action] of [['Recording and screenshots…','captureSettings'],['Appearance…','appearanceSettings'],['Configuration…','configurationSettings'],['Grid…','gridSettings'],['Warcraft III…','gameDataSettings']]) {
     const entry = settings.find(item => item.label === label); assert.ok(entry, `${label} is directly reachable`); entry.click(); assert.equal(actions.at(-1), action);
@@ -139,7 +139,7 @@ test('native menus reflect remapped and cleared shortcuts and leave execution to
   assert.equal(actions.filter(id => id === 'open').length, 1);
 });
 
-test('middle button and DPI preferences persist with desktop validation and long resource WarmKeys identities', async t => {
+test('middle button and DPI preferences persist with desktop validation and long resource Hotkeys identities', async t => {
   const file = await scratch(t), store = new SettingsStore(file, normalizePreferences);
   await store.load();
   assert.equal(store.settings.preferences.wheelMode, 'rotate'); assert.equal(store.settings.preferences.pointerSensitivity, 1);

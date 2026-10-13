@@ -1,5 +1,5 @@
 [
-  {"type": "click", "selector": "[data-warmkey=\"forge\"]"},
+  {"type": "click", "selector": "[data-hotkey=\"forge\"]"},
   {"type": "click", "role": "tab", "name": "Shape"},
   {"type": "click", "name": "Front / fit"},
   {"type": "click", "name": "Add shape"},

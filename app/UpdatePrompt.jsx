@@ -12,7 +12,7 @@ export const updateStatusText = status => ({ idle: '', checking: 'Searching for 
 
 export default function UpdatePrompt({ status, Dialog, onInstall, onClose }) {
   const release = status?.release, busy = ['downloading', 'ready'].includes(status?.state);
-  useEffect(()=>{const previous=document.activeElement;document.querySelector('[data-warmkey="update:later"]')?.focus();return ()=>{if(previous?.isConnected)previous.focus();};},[]);
+  useEffect(()=>{const previous=document.activeElement;document.querySelector('[data-hotkey="update:later"]')?.focus();return ()=>{if(previous?.isConnected)previous.focus();};},[]);
   const trapFocus = event => {
     if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!busy)onClose();}
     if(event.key!=='Tab')return;
@@ -20,7 +20,7 @@ export default function UpdatePrompt({ status, Dialog, onInstall, onClose }) {
     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
   };
   if (!release) return null;
-  return <Dialog overlayClass="update-overlay" onKeyDown={trapFocus} title="MDLxL update" onClose={busy ? () => {} : onClose} footer={<><button data-warmkey="update:install" disabled={busy || !status.canInstall} onClick={onInstall}>Update and restart</button><button data-warmkey="update:later" disabled={busy} onClick={onClose}>Later</button></>}>
+  return <Dialog overlayClass="update-overlay" onKeyDown={trapFocus} title="MDLxL update" onClose={busy ? () => {} : onClose} footer={<><button data-hotkey="update:install" disabled={busy || !status.canInstall} onClick={onInstall}>Update and restart</button><button data-hotkey="update:later" disabled={busy} onClick={onClose}>Later</button></>}>
     <UpdateShredder status={status}/>
     <p><strong>{`MDLxL ${release.version} is available.`}</strong></p>
     <p>{`Installed version: ${status.currentVersion}`}</p>

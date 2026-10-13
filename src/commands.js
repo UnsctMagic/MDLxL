@@ -1,8 +1,8 @@
-import { coreWarmKeyDefaults } from './warmkey-defaults.js';
+import { coreHotkeyDefaults } from './hotkey-defaults.js';
 
 // Stable command IDs shared by the renderer, Settings and the native menu.
 const group = (category, rows) => rows.map(([id, label, ...defaultKeys]) => ({ id, label, category, defaultKeys, scope: 'editor' }));
-export const COMMANDS = coreWarmKeyDefaults([
+export const COMMANDS = coreHotkeyDefaults([
   ...group('Shape', ['Bend','Warp','Dome','Wrap','Taper'].map(name=>['shape:'+name.toLowerCase(),name])),
   ...group('Modules', [['forge','Forge'],['pressedKeys','Show pressed keys'],['captureSettings','Recording and screenshots']]),
   ...group('File', [['new','New model','Ctrl+N'],['open','Open model','Ctrl+O'],['save','Save model','Ctrl+S'],['saveAs','Save model as','Ctrl+Shift+S'],['recovery','Recovery'],['gameData','Game data folder'],['importTextures','Load texture files'],['textureFolder','Resolve textures from folder']]),
@@ -13,7 +13,7 @@ export const COMMANDS = coreWarmKeyDefaults([
   ...group('UV', [['uv:flip-u','Flip UV horizontally','X'],['uv:flip-v','Flip UV vertically','Y'],['uv:rotate','Rotate UV 90 degrees'],['uv:fold','Fold selected UV vertices','G'],['uv:select-connected','Select connected UV vertices'],['uv:select-invert','Invert UV selection'],['nextUV','Next UV coordinate set']]),
   ...group('Animation', [['play','Play / stop animation','Space'],['nextSequence','Next sequence'],['previousSequence','Previous sequence'],['firstFrame','Go to sequence start'],['lastFrame','Go to sequence end'],['nextFrame','Advance one frame'],['previousFrame','Go back one frame']]),
   ...group('Resources', ['Materials','Textures','Nodes','Geosets','Sequences','TextureAnims','GlobalSequences'].map(id=>[id,({TextureAnims:'Texture Animation',GlobalSequences:'Global Sequence'})[id] || id.replace(/s$/,'')+' Manager'])),
-  ...group('Settings', [['settings','Mouse and general settings','Ctrl+,'],['warmkeys','Keyboard Shortcuts','Ctrl+K'],['graphics','Graphical settings'],['appearanceSettings','Appearance settings'],['configurationSettings','Configuration settings'],['gridSettings','Grid settings'],['gameDataSettings','Warcraft III settings'],['sensitivityUp','Increase scroll sensitivity'],['sensitivityDown','Decrease scroll sensitivity']]),
+  ...group('Settings', [['settings','Mouse and general settings','Ctrl+,'],['hotkeys','Keyboard Shortcuts','Ctrl+K'],['graphics','Graphical settings'],['appearanceSettings','Appearance settings'],['configurationSettings','Configuration settings'],['gridSettings','Grid settings'],['gameDataSettings','Warcraft III settings'],['sensitivityUp','Increase scroll sensitivity'],['sensitivityDown','Decrease scroll sensitivity']]),
   ...group('File', [['exit','Exit MDLxL']]),
   ...group('Help', [['help','Help'],['diagnostics','Model diagnostics'],['about','About MDLxL']]),
   ...group('Mouse', [['wheel:rotate','Normal wheel zoom / middle-button camera rotation'],['wheel:scroll','Peon: wheel adjusts scroll sensitivity','Ctrl+Alt+P'],['wheel:pointer','Wisp: left click + wheel activates and adjusts mouse DPI','Ctrl+Alt+I'],['pointerUp','Increase mouse DPI'],['pointerDown','Decrease mouse DPI']]),

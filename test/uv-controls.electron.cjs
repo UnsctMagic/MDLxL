@@ -29,12 +29,12 @@ async function chord(cdp,key,code,virtualKey){const data={key,code,windowsVirtua
   try{
     main=await connect((await target(port,item=>item.type==='page'&&item.url.includes('/dist/index.html'))).webSocketDebuggerUrl);
     await waitFor(main,`!!document.querySelector('[aria-label="Select geoset 3"]')`);
-    await click(main,'[data-warmkey="geosetsClear"]');
+    await click(main,'[data-hotkey="geosetsClear"]');
     await click(main,'[aria-label="Select geoset 3"]');
     await evaluate(main,`document.querySelector('[aria-label="3D model viewport"]').focus()`);
     await chord(main,'a','KeyA',65);
-    await waitFor(main,`!document.querySelector('[data-warmkey="uv"]').disabled`);
-    await click(main,'[data-warmkey="uv"]');
+    await waitFor(main,`!document.querySelector('[data-hotkey="uv"]').disabled`);
+    await click(main,'[data-hotkey="uv"]');
     uv=await connect((await target(port,item=>item.type==='page'&&(item.title?.includes('UV')||item.url==='about:blank'))).webSocketDebuggerUrl);
     await waitFor(uv,`!!document.querySelector('.uv-preview-footer [aria-label="Selected Only"]')`);
     await waitFor(uv,`!!document.querySelector('.game-preview-root')`);
