@@ -13,7 +13,7 @@ The window is a big preview with a timeline under it, and effect cards beside it
 | Presets | Natural, Heavy, Snappy, Floppy and Death switch several cards on at good starting values. **Save as preset…** (under Fine-tune) adds your own preset button, for any model. |
 | Smooth | Speeds up out of each pose and slows into the next. Poses stay where they are. |
 | Follow-through | Parts further from the body follow a moment later (hips → chest → arms → hands → weapon). |
-| Wobble | Parts overshoot a pose slightly and wobble back into it. |
+| Wobble | Parts overshoot a pose slightly and wobble back into it. The slider is on a square-root scale (25 is half the springiness), because overshoot only shows at low damping and a straight scale did little until its last quarter. |
 | Weight | The body is slower to start and stop and lags behind its path. |
 | Weapon drag | The weapon (or any heavy part you pick) trails the swing and drags the arm holding it. Its card picks the bones and keeps a two-handed grip on the weapon. |
 | Cloth & hair | Capes, hair, tails and plumes swing freely. Its card picks the bones. |
@@ -54,7 +54,7 @@ Looping animations end exactly where they start: AnimXL pre-rolls whole cycles s
 
 Ease, retiming and THUNK holds also retime keyed translations, so a jump or a crouch stays in step with the rotations.
 
-Collapse treats the unit's own skeleton (the tree holding its body; separate effect bones are left alone) as points joined at their bone lengths. Muscles pull the points toward the animated pose less and less, gravity and a push in the chosen direction take over, knees and elbows fold but the spine hardly does, and each bone comes to rest at the thickness of its own mesh above the ground. The points then go back into rotations and the body's translation.
+Collapse treats the unit's own skeleton (the tree holding its body; separate effect bones are left alone) as points joined at their bone lengths. Muscles pull the points toward the animated pose less and less, gravity and a push in the chosen direction take over, knees and elbows fold but the spine hardly does, and each bone comes to rest at the thickness of its own mesh above the ground. The points then go back into rotations and the body's translation. Below Full some strength stays (a damped pull toward the pose that weakens exponentially as the slider rises), so the unit sags, buckles or kneels instead of falling flat; before, anything under Full simply held the pose.
 
 ## Limits
 

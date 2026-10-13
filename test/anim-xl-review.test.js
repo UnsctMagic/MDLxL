@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Quaternion, Vector3 } from 'three';
-import { ANIMXL_DEFAULTS, animXLRetimed, animXLTimeMap, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
+import { ANIMXL_DEFAULTS, animXLRetimed, animXLTimeMap, applyAnimXL, buildAnimXL, settleSpring, suggestAnimXLBones } from '../src/anim-xl.js';
 import { sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 
 // Regression tests for the engine review findings: AnimXL changes nothing it
@@ -85,14 +85,18 @@ test('a Weapon Ref at the mouth or on an empty bone is not a weapon; a skinned h
   assert.deepEqual(suggestAnimXLBones(model).heavyIds, [4]);
 });
 
-test('collapse drops a standing figure to the ground and leaves other animations alone', () => {
-  // A stick figure: root > pelvis > spine > head, and two legs, standing 100 units tall.
+// A stick figure: root > pelvis > spine > head, and two legs, standing 100 units tall.
+function stickFigure() {
   const bones = [['Bone_Root', -1, [0, 0, 0]], ['Bone_Pelvis', 0, [0, 0, 50]], ['Bone_Spine', 1, [0, 0, 75]], ['Bone_Head', 2, [0, 0, 100]],
     ['Bone_Thigh_L', 1, [0, 8, 50]], ['Bone_Shin_L', 4, [2, 8, 25]], ['Bone_Foot_L', 5, [0, 8, 2]],
     ['Bone_Thigh_R', 1, [0, -8, 50]], ['Bone_Shin_R', 7, [2, -8, 25]], ['Bone_Foot_R', 8, [0, -8, 2]]];
   const still = { LineType: 1, GlobalSeqId: -1, Keys: [0, 1000, 2000, 3000].map(Frame => ({ Frame, Vector: q(0) })) };
-  const model = { Sequences: [{ Name: 'Stand', Interval: [0, 1000], NonLooping: false }, { Name: 'Walk', Interval: [2000, 3000], NonLooping: false }], GlobalSequences: [], Helpers: [], Geosets: [],
+  return { Sequences: [{ Name: 'Stand', Interval: [0, 1000], NonLooping: false }, { Name: 'Walk', Interval: [2000, 3000], NonLooping: false }], GlobalSequences: [], Helpers: [], Geosets: [],
     PivotPoints: bones.map(b => b[2]), Bones: bones.map(([Name, Parent, PivotPoint], ObjectId) => ({ Name, ObjectId, Parent, PivotPoint, Flags: 0, Rotation: structuredClone(still) })) };
+}
+
+test('collapse drops a standing figure to the ground and leaves other animations alone', () => {
+  const model = stickFigure();
   const result = buildAnimXL(model, 0, { collapse: 100, collapseAt: 10 });
   assert.ok(result.tracks.length > 0);
   for (const t of result.tracks) for (const k of t.track.Keys) assert.ok(Array.from(k.Vector).every(Number.isFinite));
@@ -103,6 +107,25 @@ test('collapse drops a standing figure to the ground and leaves other animations
   assert.ok(head(fallen, 1000, 0).x < -20, 'it falls backwards by default');
   assert.ok(head(fallen, 0, 0).distanceTo(head(model, 0, 0)) < 0.5, 'before it goes limp the animation is unchanged');
   assert.ok(head(fallen, 2500, 1).distanceTo(head(model, 2500, 1)) < 0.01, 'the Walk is untouched');
+});
+
+test('collapse below Full sags partway, more as the slider rises', () => {
+  // Before, everything under 100 held the pose and only Full fell (the animation study's 25/50 rows were identical).
+  const model = stickFigure();
+  const headAt = collapse => { const m = structuredClone(model); applyAnimXL(m, buildAnimXL(model, 0, { collapse, collapseAt: 10 })); return new Vector3(0, 0, 100).applyMatrix4(sampleNodeMatrices(m, 1000, 0).get(3)).z; };
+  const heights = [25, 50, 75, 100].map(headAt);
+  for (let i = 1; i < heights.length; i++) assert.ok(heights[i] < heights[i - 1] - 3, `each step sinks further: ${heights.map(h => h.toFixed(1)).join(', ')}`);
+  assert.ok(heights[0] > 90, `a little Collapse barely sags (z=${heights[0].toFixed(1)})`);
+  assert.ok(heights[1] < 95 && heights[1] > 40, `half Collapse sags partway (z=${heights[1].toFixed(1)})`);
+});
+
+test('the Settle slider spreads its springiness evenly', () => {
+  // Overshoot only shows at low damping, so a straight scale did little until the last quarter.
+  assert.equal(settleSpring(0), 0);
+  assert.equal(settleSpring(25), 0.5);
+  assert.equal(settleSpring(100), 1);
+  // The presets were rescaled to keep their look: 9 now is what 30 was.
+  assert.ok(Math.abs(settleSpring(9) - 0.3) < 1e-9);
 });
 
 test('a section is shaped on its own: outside it and its edge keys stay exactly as they were', () => {

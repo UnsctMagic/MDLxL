@@ -27,7 +27,7 @@ const EFFECTS = [
   { id: 'punch', name: 'Exaggeration', hint: 'Amplifies the key poses', key: 'exaggerate', on: 40, low: 'Subtle', high: 'Strong', tip: 'Pushes each key pose further from the neutral pose for clearer, more readable motion.' },
   { id: 'breathe', name: 'Idle Motion', hint: 'Subtle drift in held poses', key: 'life', on: 50, low: 'Still', high: 'Active', tip: 'Adds slow, subtle drift so held poses never freeze. Loops seamlessly.' },
   { id: 'hits', name: 'Hit Stop & Reaction', hint: 'Impact holds and hit reactions', tip: 'Hit stop: a brief hold at the moment of impact, with recoil on heavy parts. Hit reaction: the body is knocked back and recovers. Both are placed on the timeline.' },
-  { id: 'collapse', name: 'Fall Simulation', hint: 'Physics-based fall', key: 'collapse', on: 100, low: 'Off', high: 'Full', bones: 'all', tip: 'From a chosen time the unit loses muscle tension and falls under gravity. Intended for building a death from a standing pose; use Commit as new to keep the original.' },
+  { id: 'collapse', name: 'Fall Simulation', hint: 'Physics-based fall', key: 'collapse', on: 100, low: 'Off', high: 'Full', bones: 'all', tip: 'From a chosen time the unit loses muscle tension and falls under gravity. Full drops it to the ground; lower values keep some strength, so it sags, buckles or kneels. Intended for building a death from a standing pose; use Commit as new to keep the original.' },
 ];// Little pictures of each effect.
 const ICONS = {
   smooth: <path d="M4 26C20 26 24 4 40 4"/>,
@@ -44,11 +44,11 @@ const ICONS = {
   collapse: <><circle cx="11" cy="8" r="3"/><path d="M13 11L24 21L36 22"/><path d="M18 15L14 24"/><path d="M4 27H40"/></>,
 };
 const PRESETS = [
-  ['Default', 'A balanced starting point for most hand-keyed animations', { ease: 50, overlap: 50, settle: 30, weight: 20, poses: 60, anticipation: 30, exaggerate: 10, life: 30, heavy: 45, loose: 50, steps: 0, collapse: 0 }],
-  ['Heavy', 'Large, slow units: ogres, golems, armoured knights', { ease: 40, overlap: 60, settle: 20, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20, collapse: 0 }],
-  ['Agile', 'Quick, light units: rogues, archers, small creatures', { ease: 80, overlap: 35, settle: 55, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25, collapse: 0 }],
-  ['Relaxed', 'Loose, low-tension motion: undead, exhausted or wounded units', { ease: 30, overlap: 80, settle: 55, weight: 40, poses: 30, loose: 80, heavy: 40, steps: 0, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
-  ['Fall', 'Fall Simulation from the current pose, for building a death. Use Commit as new to keep the original.', { ease: 30, overlap: 40, settle: 30, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, bounce: 30 }],
+  ['Default', 'A balanced starting point for most hand-keyed animations', { ease: 40, overlap: 50, settle: 9, weight: 20, poses: 60, anticipation: 20, exaggerate: 10, life: 30, heavy: 45, loose: 50, steps: 0, collapse: 0 }],
+  ['Heavy', 'Large, slow units: ogres, golems, armoured knights', { ease: 40, overlap: 60, settle: 4, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20, collapse: 0 }],
+  ['Agile', 'Quick, light units: rogues, archers, small creatures', { ease: 80, overlap: 35, settle: 30, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25, collapse: 0 }],
+  ['Relaxed', 'Loose, low-tension motion: undead, exhausted or wounded units', { ease: 30, overlap: 80, settle: 30, weight: 40, poses: 30, loose: 80, heavy: 40, steps: 0, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
+  ['Fall', 'Fall Simulation from the current pose, for building a death. Use Commit as new to keep the original.', { ease: 30, overlap: 40, settle: 9, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, bounce: 30 }],
 ];// How strongly a bone changed, as a colour: blue untouched, yellow some, red a lot.
 const heat = share => share < 0.004 ? '#4fc3ff' : share < 0.02 ? '#ffd23f' : share < 0.05 ? '#ff8a2a' : '#ff3b30';
 const storageKey = (path, name) => `mdlxl.animxl.${path || 'unsaved'}.${name}`;

@@ -225,8 +225,13 @@ export function animXLTimeMap(keys, settings, outKeys = animXLRetimed(keys, sett
   };
 }
 
+/** Settle slider -> spring springiness. Overshoot only shows once the damping is
+ * low, so on a straight scale the lower half did almost nothing and the last
+ * quarter tripled the effect; the square root spreads it evenly over the slider. */
+export const settleSpring = settle => Math.sqrt(clamp(settle / 100, 0, 1));
+
 function springParams(settings, kind, depth) {
-  const o = settings.overlap / 100, s = settings.settle / 100, w = settings.weight / 100;
+  const o = settings.overlap / 100, s = settleSpring(settings.settle), w = settings.weight / 100;
   let f, z, follow = 1, pull = 0;
   if (kind === 'heavy') {
     const h = settings.heavy / 100;
@@ -274,7 +279,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const index = new Map(order.map((n, i) => [n.ObjectId, i]));
   const kinds = order.map(n => heavy.has(n.ObjectId) ? 'heavy' : loose.has(n.ObjectId) ? 'loose' : 'general');
   // Reactions need some give even with Overlap and Settle at zero.
-  const springSettings = reactive ? { ...settings, overlap: Math.max(settings.overlap, 25), settle: Math.max(settings.settle, 25) } : settings;
+  const springSettings = reactive ? { ...settings, overlap: Math.max(settings.overlap, 25), settle: Math.max(settings.settle, 6.25) } : settings;
   const params = order.map((n, i) => springParams(springSettings, kinds[i], depthOf(n)));
   const interval = seq.Interval, sampleOpts = { interval, globalSequences: model.GlobalSequences || [] };
   const rotOpts = { ...sampleOpts, quaternion: true, fallback: [0, 0, 0, 1] }, posOpts = { ...sampleOpts, fallback: [0, 0, 0] };
@@ -660,6 +665,9 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
   const fold = order.map((id, i) => { if (grandOf[i] < 0) return 0; const span = cur[i].distanceTo(cur[grandOf[i]]), hangs = cur[grandOf[i]].z - cur[i].z > span * 0.5; return span * (limbs.has(id) || hangs ? 0.5 : 0.85); });
   const weight = order.map(id => 1 / sizeOf(id));
   const g = height * 6, bounce = clamp((settings.bounce ?? 30) / 100, 0, 1) * 0.5, dt = 1 / SIM_HZ;
+  // Strength left after the drain (a per-step pull). Sag grows about as fast as the
+  // pull weakens squared, so it falls off exponentially to spread the slider evenly; Full keeps none.
+  const residual = amount >= 1 ? 0 : 0.25 * Math.exp(-(1.2 + 3 * amount));
   // The push tips the top of the unit the chosen way while it falls; the feet barely move.
   // Natural: two legs fall backwards, four or more fall onto their side.
   const direction = settings.collapseDir === 'auto' || !FALL[settings.collapseDir] ? (settings.legCount >= 4 ? 'left' : 'back') : settings.collapseDir;
@@ -678,15 +686,21 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
     const steps = stepsPerFrame(k);
     for (let s = 1; s <= steps; s++) {
       const u = s / steps, t = outFrames[k - 1] + (outFrames[k] - outFrames[k - 1]) * u;
-      // Strength drains over a fifth of a second.
-      const hold = 1 - amount * smooth((t - outFrames[k0]) / 200);
+      // Strength drains over a fifth of a second. Below Full, some strength stays: a
+      // damped pull toward the pose that gets weaker as Collapse rises, so the unit
+      // sags, buckles or kneels instead of either standing or falling flat.
+      const drained = smooth((t - outFrames[k0]) / 200), hold = 1 - drained, keep = residual * drained;
       for (let i = 0; i < n; i++) {
         const v = cur[i].clone().sub(prev[i]).multiplyScalar(0.995);
         prev[i].copy(cur[i]);
         cur[i].add(v); cur[i].z -= g * dt * dt;
         // The push lasts the whole fall but fades near the ground, so nothing stays propped up on end.
         cur[i].addScaledVector(push, Math.max(0, cur[i].z - floor[i]) / height);
-        if (hold > 0) cur[i].lerp(position(k - 1, order[i]).lerp(position(k, order[i]), u), hold * 0.25);
+        if (hold > 0 || keep > 0) {
+          const pose = position(k - 1, order[i]).lerp(position(k, order[i]), u);
+          if (hold > 0) cur[i].lerp(pose, hold * 0.25);
+          if (keep > 0) { cur[i].lerp(pose, keep); prev[i].lerp(pose, keep); }
+        }
       }
       for (let pass = 0; pass < 8; pass++) {
         for (let i = 0; i < n; i++) if (parentOf[i] >= 0) pull(parentOf[i], i, rest[i]);
