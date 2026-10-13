@@ -460,8 +460,16 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   // A rig with no legs or arms (a machine, a serpent) has nothing to buckle: Death fall leaves it alone.
   const machine = !rig.legs.length && !rig.arms.length;
   // A death type first poses the unit (knees buckle, the torso leans), then the physics fall takes over.
-  const deathStyle = animXLDeathStyle(settings.collapseStyle, rig.legs.length);
-  const fall = settings.collapse > 0 && !machine && deathStyle !== 'limp' ? deathPose({ model, byId, rig, style: deathStyle, samples, bodyNode, bodySamples, outFrames, srcFrames, start: from + duration * clamp((settings.collapseAt ?? 20) / 100, 0, 0.95), end: to, settings, rotOpts, posOpts }) : null;
+  // Only limbs that stand on the ground count as legs here: a bear's forelegs read as arms,
+  // and a long coat can read as legs.
+  const standing = settings.collapse > 0 ? groundedLimbs(model, byId, [...rig.legs, ...rig.arms], from, sequenceIndex) : rig.legs.length;
+  const fallFrom = from + duration * clamp((settings.collapseAt ?? 20) / 100, 0, 0.95);
+  let deathStyle = animXLDeathStyle(settings.collapseStyle, rig.legs.length, standing);
+  // The fall itself needs about 0.9 s to land; with less time left the posing is skipped.
+  if (deathStyle !== 'limp' && to - fallFrom - FALL_MS < DEATH_STYLES[deathStyle].fall * 0.25) deathStyle = 'limp';
+  const fall = settings.collapse > 0 && !machine && deathStyle !== 'limp' ? deathPose({ model, byId, rig, style: deathStyle, standing, samples, bodyNode, bodySamples, outFrames, srcFrames, start: fallFrom, end: to, settings, rotOpts, posOpts }) : null;
+  // The pose moved the body as a whole; now each foot goes back onto its own authored spot.
+  if (fall && settings.feet !== false && rig.legs.length) solveLimbs({ model, sequenceIndex, byId, legs: rig.legs, arms: [], weapon: null, legLength: rig.legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts });
   if (settings.collapse > 0 && !machine) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]), legCount: rig.legs.length, fallStart: fall ? Math.min(fall.fallAt, to - 1) : undefined, fallDir: fall?.dir }, rotOpts, posOpts });
 
   // Selected bones: only these are shaped; every other bone (and the body, unless it is
@@ -568,7 +576,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     motion.original[i] += bodyTarget(outFrames[i], new Vector3()).distanceTo(bodyTarget(outFrames[i - 1], new Vector3())) / scale * 4;
   }
   motion.shaped[0] = motion.shaped[1] ?? 0; motion.original[0] = motion.original[1] ?? 0;
-  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet, machine, legs: rig.legs.length, deathStyle }, motion };
+  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet, machine, legs: rig.legs.length, deathStyle, shortFall: settings.collapse > 0 && to - fallFrom < FALL_MS + 400 }, motion };
 }
 
 /** Spread any mismatch between the last and first frame over the final
@@ -640,19 +648,35 @@ export const DEATH_STYLES = Object.freeze({
 /** Which death type a setting means on this rig: Auto picks knees then fall, the most
  * common death on two legs. On four or more legs Auto goes limp, which already falls onto
  * the side (their most common death) more cleanly than buckling every leg; rigs without
- * legs only go limp. */
-export function animXLDeathStyle(style, legCount) {
+ * legs only go limp. `standing` counts every limb on the ground (forelegs that read as arms too). */
+export function animXLDeathStyle(style, legCount, standing = legCount) {
   if (!legCount || style === 'limp') return 'limp';
   if (DEATH_STYLES[style]) return style;
-  return legCount >= 4 ? 'limp' : 'knees';
+  return standing >= 4 ? 'limp' : 'knees';
+}
+
+/** The time a fall needs after the posing to land and come to rest (ms). */
+const FALL_MS = 900;
+
+/** How many of these limbs stand on the ground at the start of the animation. The limb that
+ * reaches lowest stands; its height (top of the limb above its end) sets the scale, and any
+ * limb ending within 30% of that height above it stands too. A tall mount's forehooves do;
+ * a coat tail or a hand at the waist does not. */
+function groundedLimbs(model, byId, limbs, frame, sequenceIndex) {
+  if (!limbs.length) return 0;
+  const M = sampleNodeMatrices(model, frame, sequenceIndex);
+  const z = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(M.get(id) || new Matrix4()).z;
+  const ends = limbs.map(limb => z(limb.end)), lowest = Math.min(...ends), anchor = limbs[ends.indexOf(lowest)];
+  const reach = Math.max(4, 0.3 * (z(anchor.root) - lowest));
+  return ends.filter(e => e - lowest <= reach).length;
 }
 
 /** Poses the unit through its death type's key poses on top of the animation, feet
  * planted, and returns when the physics fall takes over and which way it falls. */
-function deathPose({ model, byId, rig, style, samples, bodyNode, bodySamples, outFrames, srcFrames, start, end, settings, rotOpts, posOpts }) {
+function deathPose({ model, byId, rig, style, standing = rig.legs.length, samples, bodyNode, bodySamples, outFrames, srcFrames, start, end, settings, rotOpts, posOpts }) {
   // Timing follows a 2-second death, stretched to the animation; the posing never takes more
-  // than 45% of what is left, so the fall always has time to land.
-  const plan = DEATH_STYLES[style], left = end - start, scale = Math.min(clamp(left / 2000, 0.5, 1.5), 0.45 * left / plan.fall), soft = rig.legs.length >= 4 ? 0.5 : 1;
+  // than 45% of what is left and always leaves the fall FALL_MS to land.
+  const plan = DEATH_STYLES[style], left = end - start, scale = Math.min(clamp(left / 2000, 0.5, 1.5), 0.45 * left / plan.fall, (left - FALL_MS) / plan.fall), soft = standing >= 4 ? 0.5 : 1;
   const keys = [{ at: 0 }, ...plan.keys].map(k => ({ ...k, at: start + k.at * scale }));
   const fallAt = start + plan.fall * scale;
   const side = settings.collapseDir === 'right' ? 'right' : 'left';

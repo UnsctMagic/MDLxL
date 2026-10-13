@@ -62,7 +62,7 @@ const PRESET_KEYS = ['ease', 'overlap', 'settle', 'weight', 'anticipation', 'exa
 
 function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
   return <label className="ax-slider" title={tip}>
-    <span className="ax-slider-row"><span>{label}</span><output>{value}</output></span>
+    <span className="ax-slider-row"><span>{label}</span><output>{Math.round(value)}</output></span>
     <input type="range" min="0" max="100" step="1" value={value} aria-label={label} title={tip} disabled={disabled} onChange={event => onChange(id, Number(event.target.value))}/>
     <span className="ax-ends"><span>{low}</span><span>{high}</span></span>
   </label>;
@@ -84,7 +84,7 @@ function EffectCard({ effect, value, active, selected, onSelect, onToggle, onHov
       <svg viewBox="0 0 44 30" className="ax-icon" aria-hidden="true">{ICONS[effect.id]}</svg>
       <span className="ax-card-text"><b>{effect.name}</b><small>{effect.hint}</small></span>
     </button>
-    {effect.key && <button className="ax-card-switch" role="switch" aria-checked={active} aria-label={`${effect.name} on`} title={active ? `Turn ${effect.name} off` : `Turn ${effect.name} on`} onClick={onToggle}>{active ? value : ''}</button>}
+    {effect.key && <button className="ax-card-switch" role="switch" aria-checked={active} aria-label={`${effect.name} on`} title={active ? `Turn ${effect.name} off` : `Turn ${effect.name} on`} onClick={onToggle}>{active ? Math.round(value) : ''}</button>}
   </div>;
 }
 
@@ -638,6 +638,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
                   </label>}
                   <Slider id="bounce" label="Bounce" low="None" high="High" tip="How much the body rebounds on impact with the ground." value={settings.bounce} onChange={change}/>
                   {result?.rig?.machine ? <small className="ax-note">AnimXL found no legs or arms on this rig, so Fall Simulation has nothing to buckle and leaves it as it is.</small> : <small className="ax-note">Auto: knees then fall on two legs; on four or more legs Limp, which falls onto the side. Use Commit as new to keep the original and add the fall as a new animation.</small>}
+                  {result?.rig?.shortFall && !result?.rig?.machine && <small className="ax-note">Less than 1.3 seconds are left after Start time, so the fall may not finish landing. Move Start time earlier or use a longer animation.</small>}
                 </>}
               </div>
             : <p className="ax-note ax-hint">Click a card to switch an effect on and tune it. Point at a card to light up the bones it moves.</p>}

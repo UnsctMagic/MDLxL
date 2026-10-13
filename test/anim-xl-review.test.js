@@ -181,81 +181,103 @@ test('death types pose the unit with its feet planted, then fall the way they na
   }
 });
 
+test('each foot stays on its own spot while a death type poses, even in an uneven stance', () => {
+  // The left foot stands forward: moving the body by the average foot shift alone let both feet slide.
+  const model = stickFigure(3000), at = (m, t, id, p) => new Vector3(...p).applyMatrix4(sampleNodeMatrices(m, t, 0).get(id));
+  model.Bones[5].PivotPoint = model.PivotPoints[5] = [8, 8, 26]; model.Bones[6].PivotPoint = model.PivotPoints[6] = [14, 8, 2];
+  const m = structuredClone(model);
+  applyAnimXL(m, buildAnimXL(model, 0, { collapse: 100, collapseAt: 0, collapseStyle: 'knees' }));
+  for (const t of [600, 1000, 1500]) for (const [id, p] of [[6, [14, 8, 2]], [9, [0, -8, 2]]]) {
+    const foot = at(m, t, id, p);
+    assert.ok(foot.distanceTo(new Vector3(...p)) < 1, `foot ${id} at ${t} ms stays put (${foot.toArray().map(v => v.toFixed(1))})`);
+  }
+});
+
+test('a fall with too little time left skips the posing so it can still land', () => {
+  // 900 ms after Start time is about what a fall needs; the posing would leave it hanging mid-air.
+  const short = buildAnimXL(stickFigure(1000), 0, { collapse: 100, collapseAt: 10, collapseStyle: 'knees' });
+  assert.equal(short.rig.deathStyle, 'limp');
+  assert.equal(short.rig.shortFall, true);
+  const long = buildAnimXL(stickFigure(3000), 0, { collapse: 100, collapseAt: 10, collapseStyle: 'knees' });
+  assert.equal(long.rig.deathStyle, 'knees');
+  assert.equal(long.rig.shortFall, false);
+});
+
 // Frozen from 8751ef63 on the mounted knight fixture: Attack - 1 and Walk.
 const overlapBaseline = [
   {
     "name": "Default",
     "seq": 3,
     "sequence": "Attack - 1",
-    "hash": "a5c4e4aa4f7808ca276175248c3dbb85a604203b395f39263bb6b142bbd578bd"
+    "hash": "e6b0e6796e0a91e53c5bd083e509fdb90bd0eb843780ddec7840cd59cfcc82a7"
   },
   {
     "name": "Default",
     "seq": 0,
     "sequence": "Walk",
-    "hash": "9ac1a31ee161da17d4edfb97f7010f94bdbfc2f6de5a936da187d70d8f0b1de6"
+    "hash": "aee86584de6e826421fe89aecf60191c198f81a236e349e27f459810868e2954"
   },
   {
     "name": "Heavy",
     "seq": 3,
     "sequence": "Attack - 1",
-    "hash": "62df1fb2f23b0ac6b74331191897b74b21b9069c0cb920ffce875eb98ec07ab7"
+    "hash": "e5be5edfcb0bb28ca1106e5676af4ed9ddad411e707ef83d8a9e5920abfcaf17"
   },
   {
     "name": "Heavy",
     "seq": 0,
     "sequence": "Walk",
-    "hash": "1286665b0087fea18651d5ddc4c4e12818614a5777242d48a9c0c20fda6813ad"
+    "hash": "262761f34d97ed3238ba371a57d38b8bc1382a0f40d3764450ca6c18095768c9"
   },
   {
     "name": "Agile",
     "seq": 3,
     "sequence": "Attack - 1",
-    "hash": "3998d6c9841e8cb23c350acda18d85f75def77084c9b99e69634db499b7d0dbe"
+    "hash": "b4716eec7290feb21fcdef4e0099d8a8447ff7e6e9daa53dbbe238085f4bb9a7"
   },
   {
     "name": "Agile",
     "seq": 0,
     "sequence": "Walk",
-    "hash": "4d2499fd34cc966b88df95549781a97fc02659de11f3d2db29a1b211e90e51f3"
+    "hash": "4c48960c83539922661ae276d14855c0c4eb9d46a22c77db9c739b9efe178c3e"
   },
   {
     "name": "Relaxed",
     "seq": 3,
     "sequence": "Attack - 1",
-    "hash": "a0d8026d894071c105eec57c88775d901781b15394354148f045573837b5bdb9"
+    "hash": "9b603d7ebfc5a3a10ad9184d35d3efa60e186ac73a577c9c8252cb327c3e5dc3"
   },
   {
     "name": "Relaxed",
     "seq": 0,
     "sequence": "Walk",
-    "hash": "a7b7ed8eea5c56d29c07f852c6263dd830142aae2c59e9cc4090b0b8ffb47c71"
+    "hash": "10266c4f1fbf134b5cf8426dcd09cd63473042ee7338b90cd03032430c6a1789"
   },
   {
     "name": "Fall",
     "seq": 3,
     "sequence": "Attack - 1",
-    "hash": "84a4955889bfbc6fe947da91630cab954925c742e8cc5f08be82ad0a629e851c"
+    "hash": "7f4f828f68da50ee6b28dd51f6828d2ca09766b058b46880980e84b8f579b320"
   },
   {
     "name": "Fall",
     "seq": 0,
     "sequence": "Walk",
-    "hash": "96ae3923f6af663c433ef55015dbb18f8ad1918e12e9318da4997953607b0da7"
+    "hash": "55dc6c41c5b77a03c428918a78e88fc9bab2460faf68db4b5eea15750cab756b"
   },
   {
     "settings": {
       "overlap": 100
     },
     "seq": 3,
-    "hash": "c118834f99c4ec134fd04faaf28256b7b668af18b90524dc8551a49a4d901f56"
+    "hash": "6a77898bc150aa24dd41ebdf5eff76d9323bce4cb7e3ae1c27a23be4828d3440"
   },
   {
     "settings": {
       "collapse": 100
     },
     "seq": 3,
-    "hash": "9696c1f5a4e42634c94256b072a817b01da7943e5c7d2cf8eccc911a96692405"
+    "hash": "a9578834a1e5a1e8c2af7ca2e55006839ec580bb65ca819de41037402a181088"
   },
   {
     "settings": {
@@ -263,7 +285,7 @@ const overlapBaseline = [
       "overlap": 100
     },
     "seq": 3,
-    "hash": "b6711d45726cb9a96a763d24aee607677683d8677b6f4b1243928232a14cb369"
+    "hash": "9e6ab66f398bb426edc6be2f49319884a221041a2ca3ccd0c9dee7f856ae09d5"
   }
 ];
 const overlapPresets = () => {
@@ -320,14 +342,14 @@ test('Overlap preserves reaction-only output at the existing minimum', () => {
       "steps": 70,
       "overlap": 0
     },
-    "hash": "9314b98892436a084060843c54bb1e3b9d03cc2352b60e80b8a4335e485e8a43"
+    "hash": "223785d8c5105617374bb6b380bdf5947005277586df502c1fc874d80eacd931"
   },
   {
     "settings": {
       "steps": 70,
       "overlap": 25
     },
-    "hash": "9314b98892436a084060843c54bb1e3b9d03cc2352b60e80b8a4335e485e8a43"
+    "hash": "223785d8c5105617374bb6b380bdf5947005277586df502c1fc874d80eacd931"
   },
   {
     "settings": {
@@ -336,7 +358,7 @@ test('Overlap preserves reaction-only output at the existing minimum', () => {
       ],
       "overlap": 0
     },
-    "hash": "1b4bb29f966586e9de93f6caf0512d44b181af25e0f57ccecf5e7880ce994297"
+    "hash": "459a8d144187340ef481aa0d97285c1c8b002dfa503fa05a9469effee9ae6562"
   }
 ];
   for (const c of cases) assert.equal(overlapDigest(buildAnimXL(model, 3, { ...suggestAnimXLBones(model), ...c.settings })), c.hash, JSON.stringify(c.settings));
