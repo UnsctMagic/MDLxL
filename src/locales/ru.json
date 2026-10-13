@@ -5199,5 +5199,6 @@
   "Anticipation, Life, Hit poses": "Замах, Жизнь, Точность поз",
   "Exaggerate, Life, Hit poses": "Усиление поз, Жизнь, Точность поз",
   "Anticipation, Exaggerate, Life, Hit poses": "Замах, Усиление поз, Жизнь, Точность поз",
-  "Off": "Выкл."
+  "Off": "Выкл.",
+  "Bone {0}": "Кость {0}"
 }

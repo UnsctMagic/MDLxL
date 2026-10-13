@@ -5211,5 +5211,6 @@
   "Anticipation, Life, Hit poses": "Preparación, Vida, Precisión de poses",
   "Exaggerate, Life, Hit poses": "Exageración, Vida, Precisión de poses",
   "Anticipation, Exaggerate, Life, Hit poses": "Preparación, Exageración, Vida, Precisión de poses",
-  "Off": "Desactivado"
+  "Off": "Desactivado",
+  "Bone {0}": "Hueso {0}"
 }
