@@ -12,7 +12,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   steps: 0,
   thunk: 60, thunks: [], thunkSound: '',
   flinch: 60, flinches: [], flinchBehind: false, flinchSound: '',
-  retime: {}, bodyId: null, footIds: [],
+  retime: {}, bodyId: null, footIds: [], stiffIds: [],
 });
 
 const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2, POSE_WINDOW = 140;
@@ -234,7 +234,9 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const general = settings.overlap > 0 || settings.settle > 0 || settings.weight > 0 || reactive;
   function depthOf(node) { let d = 0, p = node.Parent; const seen = new Set(); while (byId.has(p) && !seen.has(p)) { seen.add(p); d++; p = byId.get(p).Parent; } return d; }
   const order = [...nodes].sort((a, b) => depthOf(a) - depthOf(b));
-  const simIds = new Set(order.filter(n => heavy.has(n.ObjectId) || loose.has(n.ObjectId) || (general && byId.has(n.Parent) && !((n.Flags || 0) & 7))).map(n => n.ObjectId));
+  // Stiff bones (and everything below them) follow exactly: no lag, wobble or drag.
+  const stiffRoots = new Set(settings.stiffIds || []), stiff = new Set(order.filter(n => { for (let p = n.ObjectId, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) if (stiffRoots.has(p)) return true; return false; }).map(n => n.ObjectId));
+  const simIds = new Set(order.filter(n => !stiff.has(n.ObjectId) && (heavy.has(n.ObjectId) || loose.has(n.ObjectId) || (general && byId.has(n.Parent) && !((n.Flags || 0) & 7)))).map(n => n.ObjectId));
   const index = new Map(order.map((n, i) => [n.ObjectId, i]));
   const kinds = order.map(n => heavy.has(n.ObjectId) ? 'heavy' : loose.has(n.ObjectId) ? 'loose' : 'general');
   // Reactions need some give even with Overlap and Settle at zero.

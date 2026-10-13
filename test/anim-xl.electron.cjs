@@ -109,6 +109,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.screenshot({ path: path.join(out, '5-picking.png') });
     await dialog.getByRole('button', { name: 'Done picking' }).click();
     checks.push('Pick in view toggles the skeleton picker');
+    await dialog.locator('summary', { hasText: 'Stiff bones' }).click();
+    await dialog.getByRole('combobox', { name: 'Add stiff bones' }).selectOption({ index: 1 });
+    await page.waitForTimeout(400);
+    assert.equal(await dialog.locator('summary', { hasText: 'Stiff bones' }).locator('small').textContent(), ' · 1 picked');
+    await dialog.locator('.ax-section', { hasText: 'Stiff bones' }).locator('.ax-chip').first().click();
+    checks.push('Stiff bones can be picked and removed');
     await dialog.getByRole('button', { name: 'Side by side' }).click();
     await page.waitForTimeout(1200);
     assert.equal(await dialog.locator('.ax-preview').count(), 2);

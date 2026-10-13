@@ -133,3 +133,10 @@ test('ease and retiming move keyed translations with the rotations', () => {
   assert.ok(Math.abs(x(300) - 30) < 0.5, `translation peak moved to 300 ms (x=${x(300)})`);
   assert.deepEqual(Array.from(body.track.Keys.find(k => k.Frame === 2000).Vector), [5, 5, 5]);
 });
+
+test('stiff bones and everything below them follow exactly', () => {
+  const loose = buildAnimXL(model(), 0, { overlap: 80 }).tracks.find(t => t.id === 2);
+  const stiff = buildAnimXL(model(), 0, { overlap: 80, stiffIds: [1] }).tracks.find(t => t.id === 2);
+  assert.ok(loose, 'the sword drags with overlap');
+  assert.equal(stiff, undefined, 'a stiff arm keeps its sword exact');
+});

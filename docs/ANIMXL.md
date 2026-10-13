@@ -21,6 +21,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 | Heavy bones | Picked bones (usually the weapon) trail the swing and drag the arm holding them. |
 | Keep both hands on the weapon | With a two-handed grip (the other hand stays at one spot on the weapon), that hand stays on the weapon while it drags. Not yet exercised on a real two-handed model: none of the local test units has one. |
 | Loose bones | Picked bones (cape, hair, tail) swing loosely on their own. |
+| Stiff bones | Picked bones and everything below them follow exactly: no lag, wobble or drag (a mount's legs, face or portrait bones). |
 | Body and feet | The Feet section shows the body and feet AnimXL found. If it read the rig wrong, pick the body bone from the list and pick each foot (ankle) bone, by list or in the preview; a picked foot's leg is the foot and its two parents. |
 | Keep feet planted | Feet stay exactly where your animation puts them; the body still sinks and sways and the knees bend to make up the difference (two-bone IK per leg). On by default. |
 | Heavy steps | Each footfall drops the body into the step and nods the chest and head. Footfalls are found from the feet touching the ground (green ticks). |

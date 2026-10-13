@@ -345,7 +345,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
       const list = old[picking], other = picking === 'heavyIds' ? 'looseIds' : 'heavyIds';
       if (list.includes(id)) return { ...old, [picking]: list.filter(x => x !== id) };
       // A bone is either heavy or loose, never both; feet are independent.
-      return picking === 'footIds' ? { ...old, footIds: [...list, id] } : { ...old, [picking]: [...list, id], [other]: old[other].filter(x => x !== id) };
+      return picking === 'footIds' || picking === 'stiffIds' ? { ...old, [picking]: [...list, id] } : { ...old, [picking]: [...list, id], [other]: old[other].filter(x => x !== id) };
     });
   };
   const footfalls = result?.footfalls || [];
@@ -413,7 +413,11 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             <BonePicker label="loose bones" tip="Picked bones (cape, hair, tail, plume) swing loosely on their own." ids={settings.looseIds} options={boneOptions} onChange={ids => change('looseIds', ids)} picking={picking === 'looseIds'} onPick={() => setPicking(p => p === 'looseIds' ? null : 'looseIds')}/>
             <Slider id="loose" label="Looseness" low="Stiff" high="Floppy" tip="How freely the picked bones swing and wobble." value={settings.loose} onChange={change}/>
           </Section>
-          <Section title="Timing" note={movedPoses ? `${movedPoses} pose${movedPoses > 1 ? 's' : ''} moved` : ''}>
+          <Section title="Stiff bones" note={settings.stiffIds.length ? `${settings.stiffIds.length} picked` : ''}>
+            <small className="ax-note">Picked bones and everything below them follow exactly: no lag, wobble or drag. For example a mount's legs, or face and portrait bones.</small>
+            <BonePicker label="stiff bones" tip="Pick bones to keep exact; everything below them stays exact too." ids={settings.stiffIds} options={boneOptions} onChange={ids => change('stiffIds', ids)} picking={picking === 'stiffIds'} onPick={() => setPicking(p => p === 'stiffIds' ? null : 'stiffIds')}/>
+          </Section>
+<Section title="Timing" note={movedPoses ? `${movedPoses} pose${movedPoses > 1 ? 's' : ''} moved` : ''}>
             <small className="ax-note">Drag a diamond on the strip to change when that pose happens: earlier makes the move into it faster, later holds the pose before it longer. Double-click a diamond to put it back.</small>
             <button disabled={!movedPoses} onClick={() => update(old => ({ ...old, retime: {} }))} title="Put every pose back at its original time">Reset timing</button>
           </Section>
