@@ -89,3 +89,13 @@ test('a flinch knocks the body back', () => {
   const authored = 30 * 260 / 500;
   assert.ok(x(260) < authored - 2, `pushed back at 260 ms (x=${x(260)}, authored ${authored})`);
 });
+test('anticipation winds up against the coming move without moving the poses', () => {
+  const arm = buildAnimXL(model(), 0, { anticipation: 100 }).tracks.find(t => t.id === 1).track;
+  assert.ok(angleAt(arm, 87) < angleAt(model().Bones[1].Rotation, 87) - 5, `wind-up at 87 ms (${angleAt(arm, 87)})`);
+  assert.ok(Math.abs(angleAt(arm, 500) - 90) < 0.6, 'pose kept');
+});
+
+test('exaggerate pushes poses further from the average', () => {
+  const arm = buildAnimXL(model(), 0, { exaggerate: 100 }).tracks.find(t => t.id === 1).track;
+  assert.ok(angleAt(arm, 500) > 100, `bigger pose (${angleAt(arm, 500)})`);
+});

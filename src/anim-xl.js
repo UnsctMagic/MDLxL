@@ -7,7 +7,7 @@ import { suggestPoseRig } from './pose-ik.js';
 // written back as ordinary keys for this sequence only.
 
 export const ANIMXL_DEFAULTS = Object.freeze({
-  ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50,
+  ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, anticipation: 0, exaggerate: 0,
   heavy: 60, heavyIds: [], loose: 60, looseIds: [],
   steps: 0,
   thunk: 60, thunks: [],
@@ -215,9 +215,37 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const params = order.map((n, i) => springParams(springSettings, kinds[i], depthOf(n)));
   const interval = seq.Interval, sampleOpts = { interval, globalSequences: model.GlobalSequences || [] };
   const rotOpts = { ...sampleOpts, quaternion: true, fallback: [0, 0, 0, 1] }, posOpts = { ...sampleOpts, fallback: [0, 0, 0] };
-  const localTarget = (node, t, out = new Quaternion()) => {
+  const authored = (node, t, out = new Quaternion()) => {
     const v = node.Rotation ? sampleTrack(node.Rotation, t, rotOpts) : [0, 0, 0, 1];
     return out.set(v[0], v[1], v[2], v[3]).normalize();
+  };
+  // Exaggerate pushes every pose further from the bone's average pose.
+  // Anticipation winds each bone up against its coming move at the start of a move.
+  const exaggerate = settings.exaggerate / 100, anticipate = settings.anticipation / 100;
+  const shaping = new Map();
+  if (exaggerate > 0 || anticipate > 0) for (const node of nodes) {
+    if (!node.Rotation?.Keys) continue;
+    const poses = keys.map(k => authored(node, k));
+    for (let i = 1; i < poses.length; i++) if (poses[i].dot(poses[i - 1]) < 0) poses[i].set(-poses[i].x, -poses[i].y, -poses[i].z, -poses[i].w);
+    const sum = poses.reduce((acc, q) => acc.set(acc.x + q.x, acc.y + q.y, acc.z + q.z, acc.w + q.w), new Quaternion(0, 0, 0, 0));
+    const mean = sum.lengthSq() > 1e-12 ? sum.normalize() : new Quaternion();
+    const push = q => exaggerate > 0 ? mean.clone().multiply(expQ(logQ(mean.clone().invert().multiply(q)).multiplyScalar(1 + 0.6 * exaggerate))) : q;
+    const pushed = poses.map(push);
+    const moves = pushed.slice(1).map((q, i) => { const d = logQ(pushed[i].clone().invert().multiply(q)); return d.length() > 0.7 ? d.setLength(0.7) : d; });
+    shaping.set(node.ObjectId, { mean, push, moves });
+  }
+  const localTarget = (node, t, out = new Quaternion()) => {
+    authored(node, t, out);
+    const shape = shaping.get(node.ObjectId);
+    if (!shape) return out;
+    if (exaggerate > 0) out.copy(shape.push(out));
+    if (anticipate > 0) {
+      let i = 0;
+      while (i < keys.length - 2 && t >= keys[i + 1]) i++;
+      const span = keys[i + 1] - keys[i], u = span > 0 ? (t - keys[i]) / span : 1;
+      if (u < 0.35 && span >= 120) out.multiply(expQ(shape.moves[i].clone().multiplyScalar(-0.3 * anticipate * Math.sin(Math.PI * u / 0.35) ** 2)));
+    }
+    return out;
   };
   // Parent world orientation for nodes outside the simulated set follows the authored pose.
   const outsideWorld = (id, t, cache) => {
@@ -333,7 +361,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     const qs = samples.get(node.ObjectId);
     for (let i = 1; i < qs.length; i++) if (qs[i].dot(qs[i - 1]) < 0) qs[i].set(-qs[i].x, -qs[i].y, -qs[i].z, -qs[i].w);
     let changed = false;
-    for (let i = 0; i < qs.length && !changed; i++) changed = qs[i].angleTo(localTarget(node, outFrames[i], tmp)) > 0.01;
+    for (let i = 0; i < qs.length && !changed; i++) changed = qs[i].angleTo(authored(node, outFrames[i], tmp)) > 0.01;
     if (!changed) continue;
     // Smooth (squad) keys follow the curve with far fewer keys than straight
     // slerp. A linear track becomes Bezier; its other keys get flat tangents,
