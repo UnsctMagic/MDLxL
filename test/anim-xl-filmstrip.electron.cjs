@@ -1,6 +1,6 @@
 // Contact sheet of one animation in AnimXL: rows for Original and presets, columns over time.
 // MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_ANIMXL_EXE=<MDLxL.exe> node test/anim-xl-filmstrip.electron.cjs <model.mdx> <animation name> [presets...]
-// A preset can carry a fall direction for the Death preset: Death:left
+// A preset can carry a fall direction for the Death preset: Fall:left
 const fs = require('node:fs'), path = require('node:path');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
@@ -30,10 +30,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const original = dialog.getByRole('button', { name: 'Original', exact: true });
       const pressed = await original.getAttribute('aria-pressed') === 'true';
       if ((row === 'Original') !== pressed) await original.click();
-      // A row can name a fall direction too: Death:left.
+      // A row can name a fall direction too: Fall:left.
       const [preset, fall] = row.split(':');
       if (row !== 'Original') { await dialog.getByRole('button', { name: preset, exact: true }).click(); }
-      if (fall) { if (!(await dialog.getByLabel('Fall direction').isVisible())) await dialog.locator('.ax-card-main', { hasText: 'Death fall' }).click(); await dialog.getByLabel('Fall direction').selectOption(fall); }
+      if (fall) { if (!(await dialog.getByLabel('Fall direction').isVisible())) await dialog.locator('.ax-card-main', { hasText: 'Fall Simulation' }).click(); await dialog.getByLabel('Fall direction').selectOption(fall); }
       await page.waitForTimeout(700);
       for (let k = 0; k < frames; k++) {
         await page.mouse.click(strip.x + 1 + (strip.width - 2) * k / (frames - 1), strip.y + strip.height / 2);

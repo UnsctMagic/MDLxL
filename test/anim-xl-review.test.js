@@ -118,3 +118,13 @@ test('a section is shaped on its own: outside it and its edge keys stay exactly 
   assert.ok(Math.max(...inside) > 1, `the section itself changes (${inside.map(v => v.toFixed(1)).join(', ')} degrees)`);
   assert.equal(buildAnimXL(model, 0, { overlap: 90, range: [400, 400] }).tracks.length, 0, 'an empty section shapes nothing');
 });
+
+test('selected bones: only they are shaped, every other bone keeps its animation exactly', () => {
+  const pivots = [[0, 0, 0], [0, 0, 20], [10, 0, 20], [0, 10, 20]], names = ['Bone_Pelvis', 'Bone_Arm', 'Bone_Sword', 'Bone_Tail'];
+  const model = { Sequences: [{ Name: 'Attack', Interval: [0, 1000], NonLooping: true }], GlobalSequences: [], PivotPoints: pivots, Geosets: [], Helpers: [],
+    Bones: pivots.map((PivotPoint, ObjectId) => ({ ObjectId, Name: names[ObjectId], Parent: ObjectId === 0 ? -1 : ObjectId === 1 ? 0 : 1, PivotPoint, Flags: 256, Rotation: rot(ObjectId === 1 ? [[0, 0], [500, 90], [1000, 0]] : [[0, 0], [1000, 0]]) })) };
+  const all = buildAnimXL(model, 0, { overlap: 90, heavy: 80, heavyIds: [2], loose: 80, looseIds: [3], poses: 0 });
+  const picked = buildAnimXL(model, 0, { overlap: 90, heavy: 80, heavyIds: [2], loose: 80, looseIds: [3], poses: 0, only: [2] });
+  assert.ok(all.tracks.some(t => t.id === 3), 'without a selection the tail is shaped too');
+  assert.deepEqual(picked.tracks.map(t => t.id), [2], 'with the sword selected, only the sword is shaped');
+});

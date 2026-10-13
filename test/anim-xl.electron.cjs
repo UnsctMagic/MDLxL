@@ -45,7 +45,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // Effect cards: clicking one switches it on and opens its slider; real mouse clicks on the slider track.
     const card = name => dialog.locator('.ax-card-main', { hasText: name });
     const value = name => dialog.getByRole('switch', { name: name + ' on', exact: true }).textContent();
-    for (const [label, u] of [['Smooth', 0.6], ['Follow-through', 0.8], ['Wobble', 0.5], ['Weight', 0.4]]) {
+    for (const [label, u] of [['Easing', 0.6], ['Overlap', 0.8], ['Settle', 0.5], ['Weight', 0.4]]) {
       await card(label).click();
       const box = await dialog.getByRole('slider', { name: label, exact: true }).boundingBox();
       await page.mouse.click(box.x + box.width * u, box.y + box.height / 2);
@@ -64,6 +64,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.screenshot({ path: path.join(out, '2b-magnified.png') });
     await dialog.getByRole('button', { name: '×3', exact: true }).click();
     checks.push('Motion graph, ghost skeleton and ×3 magnify show the changes');
+    // Apply to: Selected bones waits for a selection; Auto goes back to AnimXL's own picks.
+    await dialog.getByRole('button', { name: 'Selected bones', exact: true }).click(); await page.waitForTimeout(800);
+    if (await dialog.getByRole('button', { name: 'Clear', exact: true }).count()) { await dialog.getByRole('button', { name: 'Clear', exact: true }).click(); await page.waitForTimeout(600); }
+    assert.match(await dialog.locator('.ax-status').textContent(), /Click bones or POSE handles/);
+    await dialog.screenshot({ path: path.join(out, '2c-selected-bones.png') });
+    await dialog.getByRole('button', { name: 'Auto', exact: true }).click(); await page.waitForTimeout(600);
+    assert.match(await dialog.locator('.ax-status').textContent(), /bones shaped/);
+    checks.push('Apply to switches between Auto and Selected bones');
     await dialog.screenshot({ path: path.join(out, '2-shaped.png') });
     // Camera rotation with a real drag inside the preview.
     const pv = await dialog.locator('.ax-preview').boundingBox();
@@ -83,22 +91,22 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     checks.push('Arcs draws the weapon tip path over the preview');
     await dialog.screenshot({ path: path.join(out, '3-rotated.png') });
     // THUNK at the paused moment.
-    await card('Hits').click();
-    await dialog.getByRole('button', { name: 'Add THUNK here' }).click();
+    await card('Hit Stop').click();
+    await dialog.getByRole('button', { name: 'Add hit stop here' }).click();
     assert.equal(await dialog.locator('.ax-thunk').count(), 1);
     checks.push('THUNK added from the paused moment');
-    await dialog.getByRole('combobox', { name: 'THUNK sound', exact: true }).click();
+    await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).click();
     await page.waitForTimeout(2500);
     await page.keyboard.press('Escape');
-    const soundOptions = await dialog.getByRole('combobox', { name: 'THUNK sound', exact: true }).locator('option').count();
+    const soundOptions = await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).locator('option').count();
     const soundNote = await dialog.locator('.ax-note', { hasText: /sound/i }).count();
     assert.ok(soundOptions > 1 || soundNote > 0, 'sound picker lists sounds or explains why not');
     if (soundOptions > 1) {
-      await dialog.getByLabel('Search THUNK sound').fill('metal');
-      const filtered = await dialog.getByRole('combobox', { name: 'THUNK sound', exact: true }).locator('option').count();
+      await dialog.getByLabel('Search Hit stop sound').fill('metal');
+      const filtered = await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).locator('option').count();
       assert.ok(filtered > 1 && filtered < soundOptions, `search narrows the list (${filtered} of ${soundOptions})`);
       checks.push(`Sound search narrows ${soundOptions - 1} sounds to ${filtered - 1} for "metal"`);
-      await dialog.getByRole('combobox', { name: 'THUNK sound', exact: true }).selectOption({ index: 1 }); await page.waitForTimeout(800);
+      await dialog.getByRole('combobox', { name: 'Hit stop sound', exact: true }).selectOption({ index: 1 }); await page.waitForTimeout(800);
     }
     checks.push(soundOptions > 1 ? `THUNK sound picker lists ${soundOptions - 1} game sounds` : 'THUNK sound picker explains that game sound files are needed');
     // Quick start preset, heavy steps and a flinch.
@@ -119,7 +127,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.press('Enter');
     assert.equal(await dialog.getByRole('button', { name: 'My ogre', exact: true }).count(), 1);
     checks.push('Save as preset adds your own preset button');
-    await dialog.getByRole('button', { name: 'Add flinch here' }).click();
+    await dialog.getByRole('button', { name: 'Add hit reaction here' }).click();
     assert.equal(await dialog.locator('.ax-flinch').count(), 1);
     checks.push(`Flinch marker added; ${await dialog.locator('.ax-foot').count()} footfall ticks shown with Heavy steps`);
     await page.waitForTimeout(400);
@@ -148,7 +156,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.getByRole('button', { name: 'Side by side' }).click();
     checks.push('Side by side shows the original and the AnimXL version together');
     // Settings are remembered when AnimXL is closed and reopened.
-    const overlapBefore = await value('Follow-through');
+    const overlapBefore = await value('Overlap');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await dialog.waitFor({ state: 'detached' });
     await page.waitForTimeout(400);
@@ -156,8 +164,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.waitFor();
     await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 1' });
     await page.waitForTimeout(400);
-    assert.equal(await value('Follow-through'), overlapBefore);
-    checks.push(`Settings remembered after closing (Follow-through ${overlapBefore})`);
+    assert.equal(await value('Overlap'), overlapBefore);
+    checks.push(`Settings remembered after closing (Overlap ${overlapBefore})`);
     await dialog.locator('summary', { hasText: 'Fine-tune' }).click();
     await dialog.getByRole('checkbox', { name: 'Attack - 2' }).check();
     assert.equal(await dialog.getByRole('button', { name: 'Commit 2 animations' }).count(), 1);
@@ -185,7 +193,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await dialog.locator('.ax-key-moved').count(), 0, 'double-click puts it back');
     checks.push('Dragging a pose diamond retimes it; double-click resets');
     // Sections: pick part of the timeline, shape only that, commit, and carry on.
-    await card('Follow-through').click();
+    await card('Overlap').click();
     await dialog.getByRole('button', { name: 'Pick section', exact: true }).click();
     const st = await dialog.getByRole('slider', { name: 'Animation time' }).boundingBox();
     await page.mouse.move(st.x + st.width * 0.3, st.y + st.height / 2); await page.mouse.down();
@@ -202,9 +210,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.getByRole('button', { name: 'Whole animation', exact: true }).click();
     await page.waitForTimeout(600);
     checks.push('A section can be picked, shaped and committed on its own; AnimXL stays open for the next one');
-    if (!(await dialog.getByRole('slider', { name: 'Follow-through', exact: true }).count())) await card('Follow-through').click();
-    await dialog.getByRole('slider', { name: 'Follow-through', exact: true }).scrollIntoViewIfNeeded();
-    const ov = await dialog.getByRole('slider', { name: 'Follow-through', exact: true }).boundingBox();
+    if (!(await dialog.getByRole('slider', { name: 'Overlap', exact: true }).count())) await card('Overlap').click();
+    await dialog.getByRole('slider', { name: 'Overlap', exact: true }).scrollIntoViewIfNeeded();
+    const ov = await dialog.getByRole('slider', { name: 'Overlap', exact: true }).boundingBox();
     await page.mouse.click(ov.x + ov.width * 0.7, ov.y + ov.height / 2);
     await page.waitForTimeout(400);
     await dialog.getByRole('button', { name: 'Commit as new' }).click();

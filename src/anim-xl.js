@@ -13,7 +13,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   collapse: 0, collapseAt: 20, collapseDir: 'auto', bounce: 30,
   thunk: 60, thunks: [], thunkSound: '',
   flinch: 60, flinches: [], flinchBehind: false, flinchSound: '',
-  retime: {}, bodyId: null, footIds: [], stiffIds: [], range: null,
+  retime: {}, bodyId: null, footIds: [], stiffIds: [], range: null, only: null,
 });
 
 const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2, POSE_WINDOW = 140;
@@ -448,6 +448,13 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const machine = !rig.legs.length && !rig.arms.length;
   if (settings.collapse > 0 && !machine) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]), legCount: rig.legs.length }, rotOpts, posOpts });
 
+  // Selected bones: only these are shaped; every other bone (and the body, unless it is
+  // selected) keeps its animation exactly.
+  const only = Array.isArray(settings.only) ? new Set(settings.only) : null;
+  if (only) {
+    for (const node of order) if (!only.has(node.ObjectId)) { const qs = samples.get(node.ObjectId); for (let i = 0; i < qs.length; i++) authored(node, outFrames[i], qs[i]); }
+    if (bodyNode && !only.has(bodyNode.ObjectId)) bodySamples.forEach((p, i) => bodyTarget(outFrames[i], p));
+  }
   // Section: only this stretch of the animation is shaped. It fades in and out over
   // its edges, so the result meets the original exactly where the section starts and ends.
   const section = Array.isArray(settings.range) && settings.range.length === 2 ? [clamp(Math.min(...settings.range), from, to), clamp(Math.max(...settings.range), from, to)] : null;
@@ -513,7 +520,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const retimed = settings.ease > 0 || thunks.length > 0 || outKeys.some((t, i) => t !== keys[i]);
   if (retimed) for (const node of nodes) {
     const track = node.Translation;
-    if (tracks.some(t => t.id === node.ObjectId && t.property === 'Translation')) continue;
+    if (tracks.some(t => t.id === node.ObjectId && t.property === 'Translation') || (only && !only.has(node.ObjectId))) continue;
     if (!track?.Keys || isGlobal(track, model) || !track.Keys.some(k => k.Frame >= from && k.Frame <= to)) continue;
     const at = f => new Vector3().fromArray(sampleTrack(track, f, posOpts));
     const moved = outFrames.map(f => at(timeMap(f))).map((p, i) => at(outFrames[i]).lerp(p, weightAt(outFrames[i]))), tolerance = Math.max(0.02, scale * 0.002);

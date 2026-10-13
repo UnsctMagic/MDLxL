@@ -110,3 +110,9 @@
 .resource-editor .ax-strip i.ax-band{top:0;bottom:0;margin:0;background:#ffe14d33;border-left:2px solid #ffe14d;border-right:2px solid #ffe14d}
 .resource-editor .ax-strip i.ax-dim{top:0;bottom:0;margin:0;background:#000a}
 .resource-editor .ax-strip-picking{cursor:col-resize;outline:2px solid #ffe14d;outline-offset:-2px}
+/* Apply to: Auto or the bones you select in the preview. */
+.resource-editor .ax-target{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.resource-editor .ax-target>span{color:#b8c0c9;margin-right:2px}
+.resource-editor .ax-target>b{min-width:18px;padding:0 5px;border-radius:9px;background:#ff8a2a;color:#111;text-align:center}
+.resource-editor .ax-window .ax-target button[aria-pressed="true"]{background:#ff8a2a!important;color:#111!important;font-weight:bold}
+.resource-editor .ax-controls .ax-selection{color:#ffe14d}
