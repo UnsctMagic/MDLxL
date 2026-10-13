@@ -7,7 +7,7 @@ import { suggestPoseRig } from './pose-ik.js';
 // written back as ordinary keys for this sequence only.
 
 export const ANIMXL_DEFAULTS = Object.freeze({
-  ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, feet: true, anticipation: 0, exaggerate: 0, life: 0,
+  ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, feet: true, grip: true, anticipation: 0, exaggerate: 0, life: 0,
   heavy: 60, heavyIds: [], loose: 60, looseIds: [],
   steps: 0,
   thunk: 60, thunks: [],
@@ -83,13 +83,14 @@ export function animXLKeyTimes(model, sequenceIndex) {
  * and falls back to bone names. */
 export function animXLRig(model, sequenceIndex = 0) {
   const nodes = animXLNodes(model), ids = new Set(nodes.map(n => n.ObjectId)), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
-  let body = null, feet = [], legLength = 0, legs = [];
+  let body = null, feet = [], legLength = 0, legs = [], arms = [];
   const roles = new Map();
   try {
     const seq = model.Sequences?.[sequenceIndex], rig = suggestPoseRig(model, seq ? seq.Interval[0] : 0, sequenceIndex);
     for (const [id, role] of asMap(rig.roles)) roles.set(Number(id), role);
     body = rig.body ?? null;
     legs = (rig.chains || []).filter(chain => chain.kind === 'leg' && byId.has(chain.root) && byId.has(chain.middle) && byId.has(chain.end)).map(chain => ({ root: chain.root, middle: chain.middle, end: chain.end }));
+    arms = (rig.chains || []).filter(chain => chain.kind === 'arm' && byId.has(chain.root) && byId.has(chain.middle) && byId.has(chain.end)).map(chain => ({ root: chain.root, middle: chain.middle, end: chain.end }));
     feet = legs.map(chain => chain.end).filter(id => byId.has(id));
     const pivot = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
     legLength = legs.length ? legs.reduce((sum, c) => sum + pivot(c.root).distanceTo(pivot(c.middle)) + pivot(c.middle).distanceTo(pivot(c.end)), 0) / legs.length : 0;
@@ -111,7 +112,7 @@ export function animXLRig(model, sequenceIndex = 0) {
   }
   if (!feet.length) feet = [...roles].filter(([id, role]) => ['Foot', 'Hoof'].includes(role) && byId.has(id)).map(([id]) => id);
   const torso = [...roles].filter(([id, role]) => ['Chest', 'Spine', 'Neck', 'Head'].includes(role) && ids.has(id)).map(([id]) => id);
-  return { body, feet, torso, legLength, legs };
+  return { body, feet, torso, legLength, legs, arms };
 }
 
 /** Moments a foot touches down in this animation (source time, ms). */
@@ -219,7 +220,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const from_ = settings.flinchBehind ? -1 : 1;
   const flinches = [...(settings.flinches || [])].map(f => typeof f === 'number' ? { at: f, dir: from_ } : { at: f.at, dir: f.dir ?? from_ }).sort((a, b) => a.at - b.at);
   const wantsBody = settings.weight > 0 || settings.steps > 0 || flinches.length > 0;
-  const rig = wantsBody || settings.steps > 0 ? animXLRig(model, sequenceIndex) : { body: null, feet: [], torso: [], legLength: 0 };
+  const rig = animXLRig(model, sequenceIndex);
   const footfalls = settings.steps > 0 ? animXLFootfalls(model, sequenceIndex, rig).map(t => Math.round(toOutput(t))) : [];
   const reactive = settings.steps > 0 || flinches.length > 0;
   const general = settings.overlap > 0 || settings.settle > 0 || settings.weight > 0 || reactive;
@@ -300,7 +301,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   // Body translation: a spring that lags the authored path (Weight) and takes
   // the knocks of footfalls and flinches. Its parent's orientation turns world
   // pushes into the body's local space.
-  const bodyNode = rig.body != null && byId.has(rig.body) && index.has(rig.body) && !isGlobal(byId.get(rig.body).Translation, model) && !Array.isArray(byId.get(rig.body).Translation) ? byId.get(rig.body) : null;
+  const bodyNode = wantsBody && rig.body != null && byId.has(rig.body) && index.has(rig.body) && !isGlobal(byId.get(rig.body).Translation, model) && !Array.isArray(byId.get(rig.body).Translation) ? byId.get(rig.body) : null;
   const scale = Math.max(rig.legLength || 0, 20);
   const wB = settings.weight / 100, give = Math.max(wB, settings.steps > 0 ? 0.4 : 0, flinches.length ? 0.7 : 0);
   const fB = lerp(8, 2.4, give), zB = lerp(0.9, 0.35, Math.max(wB, settings.steps / 200, flinches.length ? 0.55 : 0)), followB = lerp(1, 0.25, wB);
@@ -389,7 +390,10 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
 
   // Keep feet planted: legs are solved back onto the authored foot path.
   const legNodes = new Set((rig.legs || []).flatMap(leg => [leg.root, leg.middle, leg.end]));
-  if (settings.feet !== false && rig.legs?.length && ([...legNodes].some(id => simIds.has(id)) || bodyNode)) plantFeet({ model, sequenceIndex, byId, legs: rig.legs, legLength: rig.legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts });
+  const plantLegs = settings.feet !== false && rig.legs?.length && ([...legNodes].some(id => simIds.has(id)) || bodyNode);
+  // Keep both hands on a two-handed weapon (the first heavy bone is the weapon).
+  const weapon = settings.grip !== false && settings.heavyIds?.length ? settings.heavyIds[0] : null;
+  if (plantLegs || weapon != null) solveLimbs({ model, sequenceIndex, byId, legs: plantLegs ? rig.legs : [], arms: weapon != null ? rig.arms : [], weapon, legLength: rig.legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts });
 
   const tracks = [];
   let keyCount = 0;
@@ -483,29 +487,53 @@ function worldMatrices(model, byId, rotation, translation, scaling) {
   return out;
 }
 
-/** Two-bone IK per leg, per recorded frame: the ankle goes back to where the
- * authored animation puts it (knee stays in its current bend plane) and the foot
- * keeps its authored orientation. Legs that never reach the ground (a rider's)
- * are left alone. Updates `samples` in place. */
-function plantFeet({ model, sequenceIndex, byId, legs, legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts }) {
+/** Two-bone IK, per recorded frame, for limbs that must stay where the
+ * authored animation keeps them:
+ *  - legs: the ankle goes back onto the authored foot path and the foot keeps
+ *    its authored orientation. Legs that never reach the ground (a rider's)
+ *    are left alone.
+ *  - a two-handed grip: the off hand keeps its authored hold on the weapon,
+ *    wherever the shaped weapon now is.
+ * The knee or elbow stays in its current bend plane. Updates `samples` in place. */
+function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts }) {
   const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
   const position = (matrices, id) => pivotOf(id).applyMatrix4(matrices.get(id));
   const rotationOf = (matrices, id) => { const p = new Vector3(), q = new Quaternion(), s = new Vector3(); matrices.get(id)?.decompose(p, q, s); return q; };
-  const authored = srcFrames.map(src => sampleNodeMatrices(model, Math.round(src), sequenceIndex));
-  const usable = legs.filter(leg => [leg.root, leg.middle, leg.end].every(id => samples.has(id)));
-  if (!usable.length) return;
-  const heights = usable.map(leg => authored.map(m => position(m, leg.end).z)), ground = Math.min(...heights.flat());
-  const planted = usable.filter((leg, i) => Math.min(...heights[i]) <= ground + Math.max(4, legLength * 0.25));
-  const sampleVec = (track, t, fallback) => new Vector3().fromArray(track ? sampleTrack(track, t, { ...posOpts, fallback }) : fallback);
   const descendsFrom = (id, ancestor) => { for (let p = id, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) if (p === ancestor) return true; return false; };
+  const usable = chain => [chain.root, chain.middle, chain.end].every(id => samples.has(id));
+  const authored = srcFrames.map(src => sampleNodeMatrices(model, Math.round(src), sequenceIndex));
+  const limbs = [];
+  const legChains = (legs || []).filter(usable);
+  if (legChains.length) {
+    const heights = legChains.map(leg => authored.map(m => position(m, leg.end).z)), ground = Math.min(...heights.flat());
+    legChains.forEach((leg, i) => {
+      if (Math.min(...heights[i]) <= ground + Math.max(4, legLength * 0.25)) limbs.push({ chain: leg, target: (k, shaped) => ({ position: position(authored[k], leg.end), rotation: rotationOf(authored[k], leg.end) }) });
+    });
+  }
+  if (weapon != null && byId.has(weapon)) for (const arm of (arms || []).filter(usable)) {
+    if (descendsFrom(weapon, arm.root)) continue; // the arm holding the weapon
+    const reach = pivotOf(arm.root).distanceTo(pivotOf(arm.middle)) + pivotOf(arm.middle).distanceTo(pivotOf(arm.end));
+    // A two-handed grip keeps the hand at one spot on the weapon all through the animation.
+    const held = authored.map(m => position(m, arm.end).applyMatrix4(m.get(weapon).clone().invert()));
+    const centre = held.reduce((sum, p) => sum.add(p), new Vector3()).divideScalar(held.length);
+    if (Math.max(...held.map(p => p.distanceTo(centre))) > reach * 0.15) continue;
+    limbs.push({ chain: arm, target: (k, shaped) => {
+      const hold = shaped.get(weapon).clone().multiply(authored[k].get(weapon).clone().invert()).multiply(authored[k].get(arm.end));
+      const p = new Vector3(), q = new Quaternion(), s = new Vector3(); hold.decompose(p, q, s);
+      return { position: pivotOf(arm.end).applyMatrix4(hold), rotation: q };
+    } });
+  }
+  if (!limbs.length) return 0;
+  const sampleVec = (track, t, fallback) => new Vector3().fromArray(track ? sampleTrack(track, t, { ...posOpts, fallback }) : fallback);
   for (let k = 0; k < srcFrames.length; k++) {
     const src = srcFrames[k];
     const shaped = worldMatrices(model, byId,
       node => samples.get(node.ObjectId)?.[k] || new Quaternion().fromArray(node.Rotation ? sampleTrack(node.Rotation, src, rotOpts) : [0, 0, 0, 1]).normalize(),
       node => node === bodyNode && bodySamples[k] ? bodySamples[k].clone() : sampleVec(node.Translation, src, [0, 0, 0]),
       node => sampleVec(node.Scaling, src, [1, 1, 1]));
-    for (const leg of planted) {
-      const R = position(shaped, leg.root), M = position(shaped, leg.middle), E = position(shaped, leg.end), T = position(authored[k], leg.end);
+    for (const { chain, target } of limbs) {
+      const goal = target(k, shaped);
+      const R = position(shaped, chain.root), M = position(shaped, chain.middle), E = position(shaped, chain.end), T = goal.position;
       if (E.distanceTo(T) < 0.01) continue;
       const a = R.distanceTo(M), b = M.distanceTo(E);
       if (a < 1e-4 || b < 1e-4) continue;
@@ -517,19 +545,20 @@ function plantFeet({ model, sequenceIndex, byId, legs, legLength, samples, bodyN
       const newM = R.clone().addScaledVector(dir, x).addScaledVector(pole, h), newE = R.clone().addScaledVector(dir, d);
       const q1 = new Quaternion().setFromUnitVectors(M.clone().sub(R).normalize(), newM.clone().sub(R).normalize());
       const q2 = new Quaternion().setFromUnitVectors(E.clone().sub(M).applyQuaternion(q1).normalize(), newE.clone().sub(newM).normalize());
-      const rootWorld = q1.clone().multiply(rotationOf(shaped, leg.root)), midWorld = q2.clone().multiply(q1).multiply(rotationOf(shaped, leg.middle));
+      const rootWorld = q1.clone().multiply(rotationOf(shaped, chain.root)), midWorld = q2.clone().multiply(q1).multiply(rotationOf(shaped, chain.middle));
       const newParentWorld = id => {
         const old = rotationOf(shaped, id);
-        if (id === leg.middle || descendsFrom(id, leg.middle)) return q2.clone().multiply(q1).multiply(old);
-        if (id === leg.root || descendsFrom(id, leg.root)) return q1.clone().multiply(old);
+        if (id === chain.middle || descendsFrom(id, chain.middle)) return q2.clone().multiply(q1).multiply(old);
+        if (id === chain.root || descendsFrom(id, chain.root)) return q1.clone().multiply(old);
         return old;
       };
-      const rootNode = byId.get(leg.root), midNode = byId.get(leg.middle), endNode = byId.get(leg.end);
-      samples.get(leg.root)[k] = rotationOf(shaped, rootNode.Parent).invert().multiply(rootWorld).normalize();
-      samples.get(leg.middle)[k] = newParentWorld(midNode.Parent).invert().multiply(midWorld).normalize();
-      samples.get(leg.end)[k] = newParentWorld(endNode.Parent).invert().multiply(rotationOf(authored[k], leg.end)).normalize();
+      const rootNode = byId.get(chain.root), midNode = byId.get(chain.middle), endNode = byId.get(chain.end);
+      samples.get(chain.root)[k] = rotationOf(shaped, rootNode.Parent).invert().multiply(rootWorld).normalize();
+      samples.get(chain.middle)[k] = newParentWorld(midNode.Parent).invert().multiply(midWorld).normalize();
+      samples.get(chain.end)[k] = newParentWorld(endNode.Parent).invert().multiply(goal.rotation).normalize();
     }
   }
+  return limbs.length;
 }
 // Our keys replace this sequence's keys; every other sequence keeps its own.
 function mergeTrack(original, ours, lineType, from, to) {

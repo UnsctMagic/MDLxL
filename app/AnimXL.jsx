@@ -288,6 +288,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           <Section title="More motion" note={MOTION.slice(4).filter(([id]) => settings[id] !== ANIMXL_DEFAULTS[id]).map(([, label]) => label).join(', ')}>{MOTION.slice(4).map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</Section>
           <Section title="Heavy bones" open note={settings.heavyIds.length ? `${settings.heavyIds.length} picked` : ''}>
             <BonePicker label="heavy bones" tip="Picked bones (usually the weapon) trail behind the swing and drag the arm holding them." ids={settings.heavyIds} options={boneOptions} onChange={ids => change('heavyIds', ids)} picking={picking === 'heavyIds'} onPick={() => setPicking(p => p === 'heavyIds' ? null : 'heavyIds')}/>
+            <label className="ax-check" title="If the other hand holds the weapon too (a two-handed grip), it stays on the weapon while the weapon drags."><input type="checkbox" checked={settings.grip !== false} onChange={event => change('grip', event.target.checked)}/> Keep both hands on the weapon</label>
             <Slider id="heavy" label="Heaviness" low="Dagger" high="Greatsword" tip="How heavy the picked bones are. Heavier parts lag more and overshoot further." value={settings.heavy} onChange={change}/>
           </Section>
           <Section title="Loose bones" note={settings.looseIds.length ? `${settings.looseIds.length} picked` : ''}>
