@@ -8,7 +8,7 @@ import { suggestPoseRig } from './pose-ik.js';
 
 export const ANIMXL_DEFAULTS = Object.freeze({
   ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, feet: true, grip: true, anticipation: 0, exaggerate: 0, life: 0,
-  heavy: 60, heavyIds: [], loose: 60, looseIds: [],
+  heavy: 0, heavyIds: [], loose: 0, looseIds: [],
   steps: 0,
   thunk: 60, thunks: [],
   flinch: 60, flinches: [], flinchBehind: false,

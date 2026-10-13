@@ -19,10 +19,10 @@ const MOTION = [
   ['poses', 'Hit poses', 'Loose', 'Exact', 'How closely the result lands on your key poses. Exact keeps every pose; Loose lets overlap and settle carry through them.'],
 ];
 const PRESETS = [
-  ['Natural', 'A good first pass for most hand-keyed animations', { ease: 50, overlap: 50, settle: 30, weight: 20, poses: 60, anticipation: 30, exaggerate: 10, life: 30 }],
-  ['Heavy', 'A big, slow unit: ogre, golem, armoured knight', { ease: 40, overlap: 60, settle: 20, weight: 80, poses: 50, heavy: 85, steps: 70, anticipation: 50, exaggerate: 15, life: 20 }],
-  ['Snappy', 'A quick, light unit: rogue, archer, small creature', { ease: 80, overlap: 35, settle: 55, weight: 0, poses: 70, heavy: 35, steps: 15, anticipation: 40, exaggerate: 30, life: 25 }],
-  ['Loose', 'A floppy, relaxed feel: undead, drunk, exhausted', { ease: 30, overlap: 80, settle: 55, weight: 40, poses: 30, loose: 80, anticipation: 15, exaggerate: 0, life: 60 }],
+  ['Natural', 'A good first pass for most hand-keyed animations', { ease: 50, overlap: 50, settle: 30, weight: 20, poses: 60, anticipation: 30, exaggerate: 10, life: 30, heavy: 45, loose: 50 }],
+  ['Heavy', 'A big, slow unit: ogre, golem, armoured knight', { ease: 40, overlap: 60, settle: 20, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20 }],
+  ['Snappy', 'A quick, light unit: rogue, archer, small creature', { ease: 80, overlap: 35, settle: 55, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25 }],
+  ['Loose', 'A floppy, relaxed feel: undead, drunk, exhausted', { ease: 30, overlap: 80, settle: 55, weight: 40, poses: 30, loose: 80, heavy: 40, anticipation: 15, exaggerate: 0, life: 60 }],
 ];
 const storageKey = (path, name) => `mdlxl.animxl.${path || 'unsaved'}.${name}`;
 const readSaved = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
