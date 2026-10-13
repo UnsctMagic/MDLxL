@@ -32,8 +32,16 @@ function check(model, c, original, target) {
   return result;
 }
 
+test('Restrict is on by default: a hand or foot moves without leading its body', () => {
+  for (const limb of [chain, leg1]) {
+    const model = fixture(), config = { body: 0, chains: [chain, leg1, leg2], nodes: [], pins: [] };
+    const target = samplePoseChain(model, limb, 500, 0).end.clone().add(new Vector3(1, 1, 1));
+    const result = solvePoseLimb(model, limb, 500, 0, target, { config }), ids = new Set([limb.root, limb.middle, limb.end]);
+    assert.ok(result.changes.length && result.changes.every(change => ids.has(change.id)), limb.kind + ' keeps the body still');
+  }
+});
 for (const limb of [chain, leg1]) test(`${limb.kind} leads its body slightly while other endpoints compensate`, () => {
-  const model = fixture(), original = structuredClone(model), config = { body: 0, chains: [chain, leg1, leg2], nodes: [], pins: [] };
+  const model = fixture(), original = structuredClone(model), config = { body: 0, chains: [chain, leg1, leg2], nodes: [], pins: [], restrict: false };
   const before = config.chains.map(c => samplePoseChain(model, c, 500, 0));
   const delta = new Vector3(limb.kind === 'arm' ? -1 : 1, 1, 1);
   const index = config.chains.indexOf(limb), target = before[index].end.clone().add(delta);
