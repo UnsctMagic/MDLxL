@@ -1,4 +1,4 @@
-import { Matrix4, Quaternion, Vector3 } from 'three';
+import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { suggestPoseRig } from './pose-ik.js';
 
@@ -10,6 +10,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, feet: true, grip: true, anticipation: 0, exaggerate: 0, life: 0,
   heavy: 0, heavyIds: [], loose: 0, looseIds: [],
   steps: 0,
+  collapse: 0, collapseAt: 20, collapseDir: 'back', bounce: 30,
   thunk: 60, thunks: [], thunkSound: '',
   flinch: 60, flinches: [], flinchBehind: false, flinchSound: '',
   retime: {}, bodyId: null, footIds: [], stiffIds: [],
@@ -260,7 +261,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const heavy = new Set(settings.heavy > 0 || settings.thunks?.length ? settings.heavyIds : []), loose = new Set(settings.loose > 0 ? settings.looseIds : []);
   const from_ = settings.flinchBehind ? -1 : 1;
   const flinches = [...(settings.flinches || [])].map(f => typeof f === 'number' ? { at: f, dir: from_ } : { at: f.at, dir: f.dir ?? from_ }).sort((a, b) => a.at - b.at);
-  const wantsBody = settings.weight > 0 || settings.steps > 0 || flinches.length > 0;
+  const wantsBody = settings.weight > 0 || settings.steps > 0 || flinches.length > 0 || settings.collapse > 0;
   const rig = animXLRig(model, sequenceIndex, { bodyId: settings.bodyId, footIds: settings.footIds });
   const footfalls = settings.steps > 0 ? animXLFootfalls(model, sequenceIndex, rig).map(t => Math.round(toOutput(t))) : [];
   const reactive = settings.steps > 0 || flinches.length > 0;
@@ -434,7 +435,8 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
 
   // Loops must end exactly where they start: ease the last stretch onto the first pose.
   // Only bones AnimXL shaped are touched; an authored seam elsewhere is left as it is.
-  if (!seq.NonLooping) closeLoop(samples, bodySamples, id => simIds.has(id) || drift.has(id) || shaping.has(id));
+  // A collapse never loops back to its first pose.
+  if (!seq.NonLooping && !(settings.collapse > 0)) closeLoop(samples, bodySamples, id => simIds.has(id) || drift.has(id) || shaping.has(id));
 
   // Keep feet planted: legs are solved back onto the authored foot path.
   const legNodes = new Set((rig.legs || []).flatMap(leg => [leg.root, leg.middle, leg.end]));
@@ -442,6 +444,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   // Keep both hands on a two-handed weapon (the first heavy bone is the weapon).
   const weapon = settings.grip !== false && settings.heavyIds?.length ? settings.heavyIds[0] : null;
   if (plantLegs || weapon != null) solveLimbs({ model, sequenceIndex, byId, legs: plantLegs ? rig.legs : [], arms: weapon != null ? rig.arms : [], weapon, legLength: rig.legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts });
+  if (settings.collapse > 0) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]) }, rotOpts, posOpts });
 
   const tracks = [];
   let keyCount = 0;
@@ -555,6 +558,118 @@ function worldMatrices(model, byId, rotation, translation, scaling) {
   return out;
 }
 
+/** Collapse: from a moment on, the unit loses its strength and falls onto the
+ * ground. Every bone pivot becomes a point held to its parent at the bone's
+ * length; muscles pull the points toward the animated pose less and less,
+ * gravity and a push in the chosen direction take over, and the ground stops
+ * them with a little bounce. The points then go back into rotations and the
+ * body's translation. Updates `samples` and `bodySamples` in place. */
+const FALL = { back: [-1, 0, 0], forward: [1, 0, 0], left: [0, 1, 0], right: [0, -1, 0] };
+function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings, rotOpts, posOpts }) {
+  const amount = clamp(settings.collapse / 100, 0, 1), start = from + duration * clamp((settings.collapseAt ?? 20) / 100, 0, 0.95);
+  const k0 = outFrames.findIndex(f => f >= start);
+  if (k0 < 0 || amount <= 0) return;
+  const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+  const sampleVec = (track, t, fallback) => new Vector3().fromArray(track ? sampleTrack(track, t, { ...posOpts, fallback }) : fallback);
+  const rotationOf = (matrices, id) => { const p = new Vector3(), q = new Quaternion(), s = new Vector3(); matrices.get(id)?.decompose(p, q, s); return q; };
+  const shapedAt = k => worldMatrices(model, byId,
+    node => samples.get(node.ObjectId)?.[k] || new Quaternion().fromArray(node.Rotation ? sampleTrack(node.Rotation, srcFrames[k], rotOpts) : [0, 0, 0, 1]).normalize(),
+    node => node === bodyNode && bodySamples[k] ? bodySamples[k].clone() : sampleVec(node.Translation, srcFrames[k], [0, 0, 0]),
+    node => sampleVec(node.Scaling, srcFrames[k], [1, 1, 1]));
+  const frames = outFrames.map((_, k) => k >= Math.max(0, k0 - 1) ? shapedAt(k) : null);
+
+  // The skeleton: the unit's own tree of bones and helpers (the one holding the body; loose
+  // effect bones stay as they are), parents first, each with its main child (the biggest branch).
+  const all = [...(model.Bones || []), ...(model.Helpers || [])].map(n => n.ObjectId).filter(id => byId.has(id));
+  const topOf = id => { let top = id; for (let p = byId.get(id)?.Parent, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) top = p; return top; };
+  const tops = new Map(); for (const id of all) tops.set(topOf(id), (tops.get(topOf(id)) || 0) + 1);
+  const unit = bodyNode ? topOf(bodyNode.ObjectId) : [...tops].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const ids = all.filter(id => topOf(id) === unit);
+  const inSet = new Set(ids), children = new Map(ids.map(id => [id, []]));
+  for (const id of ids) if (inSet.has(byId.get(id).Parent)) children.get(byId.get(id).Parent).push(id);
+  const size = new Map(), sizeOf = id => { if (!size.has(id)) size.set(id, 1 + children.get(id).reduce((s, c) => s + sizeOf(c), 0)); return size.get(id); };
+  const depth = id => { let d = 0; for (let p = byId.get(id).Parent; inSet.has(p) && d < 64; p = byId.get(p).Parent) d++; return d; };
+  const order = [...ids].sort((a, b) => depth(a) - depth(b));
+  const mainChild = new Map(ids.map(id => [id, children.get(id).sort((a, b) => sizeOf(b) - sizeOf(a))[0]]));
+  const position = (k, id) => pivotOf(id).applyMatrix4(frames[k].get(id));
+
+  // Points start where the animation has them, moving as it moves.
+  const n = order.length, at = new Map(order.map((id, i) => [id, i]));
+  const stepsPerFrame = k => Math.max(1, Math.round((outFrames[k] - outFrames[k - 1]) / (1000 / SIM_HZ)));
+  const cur = order.map(id => position(k0, id)), prev = cur.map(p => p.clone());
+  if (k0 > 0) { const s = stepsPerFrame(k0); order.forEach((id, i) => prev[i].addScaledVector(position(k0 - 1, id).sub(cur[i]), 1 / s)); }
+  const zs = cur.map(p => p.z), ground = Math.min(...zs), height = Math.max(Math.max(...zs) - ground, 20);
+  // Pivots sit inside the mesh: each bone rests on the ground at about the thickness of its own mesh; the feet stay where they stand.
+  const radius = boneRadii(model);
+  const floor = order.map((id, i) => Math.min(cur[i].z, ground + clamp(radius.get(id) ?? 0, height * 0.03, height * 0.2)));
+  const parentOf = order.map(id => at.get(byId.get(id).Parent) ?? -1), grandOf = parentOf.map(p => p >= 0 ? parentOf[p] : -1);
+  const rest = order.map((id, i) => parentOf[i] >= 0 ? cur[i].distanceTo(cur[parentOf[i]]) : 0);
+  // Knees and elbows fold to about half their open length; the spine, neck and tail hardly fold, so the body falls as one piece.
+  const limbs = new Set((settings.limbIds || []));
+  const fold = order.map((id, i) => grandOf[i] >= 0 ? cur[i].distanceTo(cur[grandOf[i]]) * (limbs.has(id) ? 0.5 : 0.85) : 0);
+  const weight = order.map(id => 1 / sizeOf(id));
+  const g = height * 6, bounce = clamp((settings.bounce ?? 30) / 100, 0, 1) * 0.5, dt = 1 / SIM_HZ;
+  // The push tips the top of the unit the chosen way while it falls; the feet barely move.
+  const push = new Vector3().fromArray(FALL[settings.collapseDir] || FALL.back).multiplyScalar(height * 5 * amount * dt * dt);
+  const pull = (i, j, length, mode) => {
+    const d = cur[j].clone().sub(cur[i]), len = d.length();
+    if (len < 1e-6 || (mode === 'min' && len >= length)) return;
+    const wi = weight[i], wj = weight[j], move = (len - length) / len / (wi + wj);
+    cur[i].addScaledVector(d, wi * move); cur[j].addScaledVector(d, -wj * move);
+  };
+  const out = new Map([[k0, cur.map(p => p.clone())]]);
+  for (let k = k0 + 1; k < outFrames.length; k++) {
+    const steps = stepsPerFrame(k);
+    for (let s = 1; s <= steps; s++) {
+      const u = s / steps, t = outFrames[k - 1] + (outFrames[k] - outFrames[k - 1]) * u;
+      // Strength drains over a fifth of a second.
+      const hold = 1 - amount * smooth((t - outFrames[k0]) / 200);
+      for (let i = 0; i < n; i++) {
+        const v = cur[i].clone().sub(prev[i]).multiplyScalar(0.995);
+        prev[i].copy(cur[i]);
+        cur[i].add(v); cur[i].z -= g * dt * dt;
+        if (t - outFrames[k0] < 600) cur[i].addScaledVector(push, Math.max(0, cur[i].z - floor[i]) / height);
+        if (hold > 0) cur[i].lerp(position(k - 1, order[i]).lerp(position(k, order[i]), u), hold * 0.25);
+      }
+      for (let pass = 0; pass < 8; pass++) {
+        for (let i = 0; i < n; i++) if (parentOf[i] >= 0) pull(parentOf[i], i, rest[i]);
+        for (let i = 0; i < n; i++) if (grandOf[i] >= 0) pull(grandOf[i], i, fold[i], 'min');
+      }
+      for (let i = 0; i < n; i++) if (cur[i].z < floor[i]) {
+        const vz = cur[i].z - prev[i].z;
+        cur[i].z = floor[i]; prev[i].z = floor[i] + vz * bounce;
+        prev[i].x += (cur[i].x - prev[i].x) * 0.6; prev[i].y += (cur[i].y - prev[i].y) * 0.6;
+      }
+    }
+    out.set(k, cur.map(p => p.clone()));
+  }
+
+  // Back to rotations: each bone turns so its main child points where the points ended up.
+  for (let k = k0; k < outFrames.length; k++) {
+    const X = out.get(k), M = frames[k], world = new Map();
+    for (const id of order) {
+      const node = byId.get(id), parentId = node.Parent, own = rotationOf(M, id);
+      const inherits = inSet.has(parentId) && !((node.Flags || 0) & 2);
+      const carried = inherits ? world.get(parentId).clone().multiply(rotationOf(M, parentId).invert()) : new Quaternion();
+      let next = carried.clone().multiply(own);
+      const child = mainChild.get(id);
+      if (samples.has(id) && child != null) {
+        const was = position(k, child).sub(position(k, id)).applyQuaternion(carried), now = X[at.get(child)].clone().sub(X[at.get(id)]);
+        if (was.lengthSq() > 1e-8 && now.lengthSq() > 1e-8) next = new Quaternion().setFromUnitVectors(was.normalize(), now.normalize()).multiply(next);
+      }
+      world.set(id, next.normalize());
+      if (samples.has(id)) samples.get(id)[k] = (inherits ? world.get(parentId).clone().invert() : new Quaternion()).multiply(next).normalize();
+    }
+    // The body follows its point down to the ground.
+    if (bodyNode && bodySamples[k]) {
+      const moved = shapedAt(k), parent = moved.get(bodyNode.Parent);
+      const delta = X[at.get(bodyNode.ObjectId)].clone().sub(pivotOf(bodyNode.ObjectId).applyMatrix4(moved.get(bodyNode.ObjectId)));
+      if (parent && !((bodyNode.Flags || 0) & 1)) delta.applyMatrix3(new Matrix3().setFromMatrix4(parent).invert());
+      bodySamples[k] = bodySamples[k].clone().add(delta);
+    }
+  }
+}
+
 /** Two-bone IK, per recorded frame, for limbs that must stay where the
  * authored animation keeps them:
  *  - legs: the ankle goes back onto the authored foot path and the foot keeps
@@ -648,6 +763,20 @@ function outsideKeys(original, from, to, flatTangents) {
     if (stepped && held > key.Frame && (held < from || held > to)) out.push({ ...structuredClone(copy), Frame: held });
   });
   return out;
+}
+/** About how thick the mesh is around each bone: the median distance of its own vertices from its pivot. */
+function boneRadii(model) {
+  const pivots = new Map([...(model.Bones || []), ...(model.Helpers || [])].map(n => [n.ObjectId, n.PivotPoint || model.PivotPoints?.[n.ObjectId] || [0, 0, 0]]));
+  const distances = new Map(), add = (id, v, x, y, z) => { const p = pivots.get(id); if (!p) return; (distances.get(id) || distances.set(id, []).get(id)).push(Math.hypot(x - p[0], y - p[1], z - p[2])); };
+  for (const geo of model.Geosets || []) {
+    const vertices = geo.Vertices || [], count = vertices.length / 3, skin = geo.SkinWeights;
+    for (let v = 0; v < count; v++) {
+      const x = vertices[v * 3], y = vertices[v * 3 + 1], z = vertices[v * 3 + 2];
+      if (skin?.length === count * 8) { for (let s = 0; s < 4; s++) if (skin[v * 8 + s + 4] > 127) add(skin[v * 8 + s], v, x, y, z); }
+      else for (const id of geo.Groups?.[geo.VertexGroup?.[v]] || []) add(id, v, x, y, z);
+    }
+  }
+  return new Map([...distances].map(([id, list]) => [id, list.sort((a, b) => a - b)[list.length >> 1]]));
 }
 // Our keys replace this sequence's keys; every other sequence keeps its own.
 function mergeTrack(original, ours, lineType, from, to) {

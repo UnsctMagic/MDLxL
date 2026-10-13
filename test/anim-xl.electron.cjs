@@ -160,6 +160,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(600);
     assert.equal(await dialog.locator('.ax-key-moved').count(), 0, 'double-click puts it back');
     checks.push('Dragging a pose diamond retimes it; double-click resets');
+    await dialog.getByRole('slider', { name: 'Overlap', exact: true }).scrollIntoViewIfNeeded();
     const ov = await dialog.getByRole('slider', { name: 'Overlap', exact: true }).boundingBox();
     await page.mouse.click(ov.x + ov.width * 0.7, ov.y + ov.height / 2);
     await page.waitForTimeout(400);

@@ -26,6 +26,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 | Keep feet planted | Feet stay exactly where your animation puts them; the body still sinks and sways and the knees bend to make up the difference (two-bone IK per leg). On by default. |
 | Heavy steps | Each footfall drops the body into the step and nods the chest and head. Footfalls are found from the feet touching the ground (green ticks). |
 | THUNK | The weapon connects: the pose holds for a beat, then catches up; heavy bones bounce back. |
+| Collapse | From a chosen moment the unit loses its strength and falls to the ground under its own weight: Collapse sets how limp, Goes limp at sets when, Falls picks the direction and Landing the bounce. The Collapse preset turns any pose into a death; use Commit as new to keep the original. |
 | THUNK sound | Pick a game sound (from your Warcraft III files); you hear it at each THUNK in the preview, and Commit adds it as a sound event (SNDx…) on the weapon so it plays in game. |
 | Hit sound | Like THUNK sound, for flinches: the sound event goes on the body that takes the hit. Both pickers have a search box. |
 | Flinch | The unit is hit from the front: the body is knocked back, the torso snaps back, then recovers. |
@@ -56,6 +57,8 @@ Hand-keyed animations use their own key times as the poses Ease preserves. Dense
 Looping animations end exactly where they start: AnimXL pre-rolls whole cycles so the springs settle into the loop, then eases the last quarter of every shaped bone onto its first pose. On those bones this also repairs seams already in the animation (for example a cape that jumps at the loop point); bones AnimXL does not shape keep their keys.
 
 Ease, retiming and THUNK holds also retime keyed translations, so a jump or a crouch stays in step with the rotations.
+
+Collapse treats the unit's own skeleton (the tree holding its body; separate effect bones are left alone) as points joined at their bone lengths. Muscles pull the points toward the animated pose less and less, gravity and a push in the chosen direction take over, knees and elbows fold but the spine hardly does, and each bone comes to rest at the thickness of its own mesh above the ground. The points then go back into rotations and the body's translation.
 
 ## Limits
 

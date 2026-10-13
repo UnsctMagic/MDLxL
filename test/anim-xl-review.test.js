@@ -84,3 +84,23 @@ test('a Weapon Ref at the mouth or on an empty bone is not a weapon; a skinned h
   };
   assert.deepEqual(suggestAnimXLBones(model).heavyIds, [4]);
 });
+
+test('collapse drops a standing figure to the ground and leaves other animations alone', () => {
+  // A stick figure: root > pelvis > spine > head, and two legs, standing 100 units tall.
+  const bones = [['Bone_Root', -1, [0, 0, 0]], ['Bone_Pelvis', 0, [0, 0, 50]], ['Bone_Spine', 1, [0, 0, 75]], ['Bone_Head', 2, [0, 0, 100]],
+    ['Bone_Thigh_L', 1, [0, 8, 50]], ['Bone_Shin_L', 4, [2, 8, 25]], ['Bone_Foot_L', 5, [0, 8, 2]],
+    ['Bone_Thigh_R', 1, [0, -8, 50]], ['Bone_Shin_R', 7, [2, -8, 25]], ['Bone_Foot_R', 8, [0, -8, 2]]];
+  const still = { LineType: 1, GlobalSeqId: -1, Keys: [0, 1000, 2000, 3000].map(Frame => ({ Frame, Vector: q(0) })) };
+  const model = { Sequences: [{ Name: 'Stand', Interval: [0, 1000], NonLooping: false }, { Name: 'Walk', Interval: [2000, 3000], NonLooping: false }], GlobalSequences: [], Helpers: [], Geosets: [],
+    PivotPoints: bones.map(b => b[2]), Bones: bones.map(([Name, Parent, PivotPoint], ObjectId) => ({ Name, ObjectId, Parent, PivotPoint, Flags: 0, Rotation: structuredClone(still) })) };
+  const result = buildAnimXL(model, 0, { collapse: 100, collapseAt: 10 });
+  assert.ok(result.tracks.length > 0);
+  for (const t of result.tracks) for (const k of t.track.Keys) assert.ok(Array.from(k.Vector).every(Number.isFinite));
+  const fallen = structuredClone(model);
+  applyAnimXL(fallen, result);
+  const head = (m, t, seq) => new Vector3(0, 0, 100).applyMatrix4(sampleNodeMatrices(m, t, seq).get(3));
+  assert.ok(head(fallen, 1000, 0).z < 30, `the head ends near the ground (z=${head(fallen, 1000, 0).z.toFixed(1)})`);
+  assert.ok(head(fallen, 1000, 0).x < -20, 'it falls backwards by default');
+  assert.ok(head(fallen, 0, 0).distanceTo(head(model, 0, 0)) < 0.5, 'before it goes limp the animation is unchanged');
+  assert.ok(head(fallen, 2500, 1).distanceTo(head(model, 2500, 1)) < 0.01, 'the Walk is untouched');
+});

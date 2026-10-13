@@ -1,5 +1,6 @@
 // Contact sheet of one animation in AnimXL: rows for Original and presets, columns over time.
 // MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_ANIMXL_EXE=<MDLxL.exe> node test/anim-xl-filmstrip.electron.cjs <model.mdx> <animation name> [presets...]
+// A preset can carry a fall direction for Collapse: Collapse:left
 const fs = require('node:fs'), path = require('node:path');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
@@ -29,12 +30,15 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const original = dialog.getByRole('button', { name: 'Original', exact: true });
       const pressed = await original.getAttribute('aria-pressed') === 'true';
       if ((row === 'Original') !== pressed) await original.click();
-      if (row !== 'Original') { await dialog.getByRole('button', { name: row, exact: true }).click(); }
+      // A row can name a fall direction too: Collapse:left.
+      const [preset, fall] = row.split(':');
+      if (row !== 'Original') { await dialog.getByRole('button', { name: preset, exact: true }).click(); }
+      if (fall) { const section = dialog.locator('summary', { hasText: /^Collapse/ }); if (!(await dialog.getByLabel('Fall direction').isVisible())) await section.click(); await dialog.getByLabel('Fall direction').selectOption(fall); }
       await page.waitForTimeout(700);
       for (let k = 0; k < frames; k++) {
         await page.mouse.click(strip.x + 1 + (strip.width - 2) * k / (frames - 1), strip.y + strip.height / 2);
         await page.waitForTimeout(250);
-        const file = path.join(out, `${row}-${k}.png`);
+        const file = path.join(out, `${row.replace(/[^\w-]/g, '_')}-${k}.png`);
         fs.writeFileSync(file, await page.screenshot({ clip: preview }));
         shots.push({ row, k, file });
       }

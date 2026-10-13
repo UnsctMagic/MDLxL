@@ -22,17 +22,18 @@ const MOTION = [
   ['poses', 'Hit poses', 'Loose', 'Exact', 'How closely the result lands on your key poses. Exact keeps every pose; Loose lets overlap and settle carry through them.'],
 ];
 const PRESETS = [
-  ['Natural', 'A good first pass for most hand-keyed animations', { ease: 50, overlap: 50, settle: 30, weight: 20, poses: 60, anticipation: 30, exaggerate: 10, life: 30, heavy: 45, loose: 50 }],
-  ['Heavy', 'A big, slow unit: ogre, golem, armoured knight', { ease: 40, overlap: 60, settle: 20, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20 }],
-  ['Snappy', 'A quick, light unit: rogue, archer, small creature', { ease: 80, overlap: 35, settle: 55, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25 }],
-  ['Loose', 'A floppy, relaxed feel: undead, drunk, exhausted', { ease: 30, overlap: 80, settle: 55, weight: 40, poses: 30, loose: 80, heavy: 40, anticipation: 15, exaggerate: 0, life: 60 }],
+  ['Natural', 'A good first pass for most hand-keyed animations', { ease: 50, overlap: 50, settle: 30, weight: 20, poses: 60, anticipation: 30, exaggerate: 10, life: 30, heavy: 45, loose: 50, collapse: 0 }],
+  ['Heavy', 'A big, slow unit: ogre, golem, armoured knight', { ease: 40, overlap: 60, settle: 20, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20, collapse: 0 }],
+  ['Snappy', 'A quick, light unit: rogue, archer, small creature', { ease: 80, overlap: 35, settle: 55, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25, collapse: 0 }],
+  ['Loose', 'A floppy, relaxed feel: undead, drunk, exhausted', { ease: 30, overlap: 80, settle: 55, weight: 40, poses: 30, loose: 80, heavy: 40, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
+  ['Collapse', 'Goes limp and falls to the ground: a death from any pose. Use Commit as new to keep the original.', { ease: 30, overlap: 40, settle: 30, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, bounce: 30 }],
 ];
 const storageKey = (path, name) => `mdlxl.animxl.${path || 'unsaved'}.${name}`;
 const readSaved = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
 const writeSaved = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage is optional */ } };
 // Your own presets keep slider values only; bones, markers and timing belong to one animation.
 const USER_PRESETS = 'mdlxl.animxl.presets';
-const PRESET_KEYS = ['ease', 'overlap', 'settle', 'weight', 'anticipation', 'exaggerate', 'life', 'poses', 'heavy', 'loose', 'steps', 'feet', 'thunk', 'flinch', 'flinchBehind'];
+const PRESET_KEYS = ['ease', 'overlap', 'settle', 'weight', 'anticipation', 'exaggerate', 'life', 'poses', 'heavy', 'loose', 'steps', 'feet', 'thunk', 'flinch', 'flinchBehind', 'collapse', 'collapseAt', 'collapseDir', 'bounce'];
 
 function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
   return <label className="ax-slider" title={tip}>
@@ -458,6 +459,17 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             <label className="ax-check" title="Flinches come from behind: the body is pushed forward and the torso snaps forward instead of back."><input type="checkbox" checked={settings.flinchBehind} onChange={event => change('flinchBehind', event.target.checked)}/> Hit from behind</label>
             <SoundPicker label="Hit sound" tip="A sound that plays at each flinch (the unit getting hit): you hear it in the preview, and Commit adds it as a sound event on the body so it plays in game." value={settings.flinchSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('flinchSound', id)}/>
             <Slider id="flinch" label="Flinch" low="Tap" high="Wrecked" tip="How hard the unit is knocked back by each flinch." value={settings.flinch} onChange={change}/>
+          </Section>
+          <Section title="Collapse" note={settings.collapse ? `, falls ` : ''}>
+            <Slider id="collapse" label="Collapse" low="Off" high="Limp" tip="From the moment below, the unit loses its strength and falls to the ground under its own weight. Limp gives up completely; lower values keep some fight in the muscles." value={settings.collapse} onChange={change}/>
+            <Slider id="collapseAt" label="Goes limp at" low="Start" high="End" tip="When the strength gives out, as a share of the animation. Before it the animation plays as you keyed it." value={settings.collapseAt} onChange={change} disabled={!settings.collapse}/>
+            <label className="ax-field" title="Which way the unit tips over as it falls.">Falls
+              <select aria-label="Fall direction" value={settings.collapseDir} disabled={!settings.collapse} onChange={event => change('collapseDir', event.target.value)}>
+                <option value="back">Backwards</option><option value="forward">Forwards</option><option value="left">To its left</option><option value="right">To its right</option>
+              </select>
+            </label>
+            <Slider id="bounce" label="Landing" low="Thud" high="Bouncy" tip="How much the body bounces when it hits the ground." value={settings.bounce} onChange={change} disabled={!settings.collapse}/>
+            <small className="ax-note">Shape a Stand or an attack and use Commit as new to make a new death animation.</small>
           </Section>
           <Section title="Also apply to" note={also.length ? `${also.length} more` : ''}>
             <small className="ax-note">Commit shapes these animations too, with the same sliders and bones. THUNKs and flinches stay on this animation.</small>
