@@ -73,3 +73,14 @@ test('a planted foot keeps its authored orientation even when it is already in p
     assert.ok(orientation(a).angleTo(orientation(b)) * 180 / Math.PI < 1.5, `foot turned at ${t}`);
   }
 });
+
+test('a Weapon Ref at the mouth or on an empty bone is not a weapon; a skinned held part is', () => {
+  const bone = (ObjectId, Name, Parent) => ({ ObjectId, Name, Parent, Flags: 256, PivotPoint: [0, 0, ObjectId * 5] });
+  const model = {
+    Sequences: [{ Name: 'Attack', Interval: [0, 1000], NonLooping: true }], GlobalSequences: [], Helpers: [], PivotPoints: [],
+    Bones: [bone(0, 'Bone_Pelvis', -1), bone(1, 'Bone_Head', 0), bone(2, 'Bone_Jaw', 1), bone(3, 'Bone_Hand_R', 0), bone(4, 'Object01', 3), bone(5, 'Bone_Weapon', 3)],
+    Attachments: [{ Name: 'Weapon Ref', ObjectId: 6, Parent: 2 }, { Name: 'Weapon Ref Right', ObjectId: 7, Parent: 4 }],
+    Geosets: [{ Vertices: new Float32Array(6), VertexGroup: new Uint8Array([0, 1]), Groups: [[2], [4]] }],
+  };
+  assert.deepEqual(suggestAnimXLBones(model).heavyIds, [4]);
+});

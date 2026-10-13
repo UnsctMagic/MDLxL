@@ -90,16 +90,30 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
     for (const [id, role] of asMap(rig.roles)) roles.set(Number(id), role);
     body = rig.body ?? null;
     // A limb owns its upper and middle bones. Two "legs" sharing a hip bone
-    // (dangling flyer talons, toes of one foot) cannot be solved apart.
+    // cannot be solved apart, so such a limb is rebuilt from its end's own
+    // parent and grandparent; toes of one foot that share a whole leg are dropped.
     const limbs = kind => {
-      const found = (rig.chains || []).filter(chain => chain.kind === kind && byId.has(chain.root) && byId.has(chain.middle) && byId.has(chain.end) && new Set([chain.root, chain.middle, chain.end]).size === 3);
-      const uses = new Map();
-      for (const chain of found) for (const id of [chain.root, chain.middle]) uses.set(id, (uses.get(id) || 0) + 1);
-      return found.filter(chain => uses.get(chain.root) === 1 && uses.get(chain.middle) === 1).map(chain => ({ root: chain.root, middle: chain.middle, end: chain.end }));
+      const valid = chain => byId.has(chain.root) && byId.has(chain.middle) && byId.has(chain.end) && new Set([chain.root, chain.middle, chain.end]).size === 3;
+      const count = list => { const uses = new Map(); for (const chain of list) for (const id of [chain.root, chain.middle]) uses.set(id, (uses.get(id) || 0) + 1); return uses; };
+      const found = (rig.chains || []).filter(chain => chain.kind === kind && valid(chain)).map(chain => ({ root: chain.root, middle: chain.middle, end: chain.end }));
+      const shared = count(found);
+      const rebuilt = found.map(chain => shared.get(chain.root) === 1 && shared.get(chain.middle) === 1 ? chain : { root: byId.get(byId.get(chain.end).Parent)?.Parent, middle: byId.get(chain.end).Parent, end: chain.end }).filter(valid);
+      const uses = count(rebuilt);
+      return rebuilt.filter(chain => uses.get(chain.root) === 1 && uses.get(chain.middle) === 1);
     };
     legs = limbs('leg'); arms = limbs('arm');
-    feet = legs.map(chain => chain.end).filter(id => byId.has(id));
     const pivot = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+    // A "Hand Ref" can make ground limbs look like arms (a bull's forelegs, a
+    // crab's walking legs). On a rig without legs, a limb whose end stands at
+    // the bottom of the rig is a leg.
+    if (!legs.length && arms.length && seq) {
+      const frames = [seq.Interval[0], Math.round((seq.Interval[0] + seq.Interval[1]) / 2), seq.Interval[1]].map(f => sampleNodeMatrices(model, f, sequenceIndex));
+      const height = id => Math.min(...frames.map(m => pivot(id).applyMatrix4(m.get(id) || new Matrix4()).z));
+      const zs = nodes.map(n => height(n.ObjectId)), bottom = Math.min(...zs), tall = Math.max(...zs) - bottom;
+      const grounded = arms.filter(chain => height(chain.end) <= bottom + Math.max(4, tall * 0.15));
+      legs = [...legs, ...grounded]; arms = arms.filter(chain => !grounded.includes(chain));
+    }
+    feet = legs.map(chain => chain.end).filter(id => byId.has(id));
     legLength = legs.length ? legs.reduce((sum, c) => sum + pivot(c.root).distanceTo(pivot(c.middle)) + pivot(c.middle).distanceTo(pivot(c.end)), 0) / legs.length : 0;
   } catch { /* unusual rigs fall back to names */ }
   for (const node of nodes) if (!roles.has(node.ObjectId)) {
@@ -117,7 +131,9 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
     const depth = node => { let d = 0, p = node.Parent; while (byId.has(p) && d < 64) { d++; p = byId.get(p).Parent; } return d; };
     body = nodes.filter(n => n.Translation?.Keys?.length > 1).sort((a, b) => depth(a) - depth(b))[0]?.ObjectId ?? null;
   }
-  if (!feet.length) feet = [...roles].filter(([id, role]) => ['Foot', 'Hoof'].includes(role) && byId.has(id)).map(([id]) => id);
+  // Without leg chains, only bones named as feet count. Foot attachments alone
+  // mislead: wheels, tails and pelvises carry them on legless rigs.
+  if (!feet.length) feet = nodes.filter(n => /foot|feet|hoof|paw/i.test(n.Name || '') && !/\bref\b|tail|wheel/i.test(n.Name || '')).map(n => n.ObjectId);
   const torso = [...roles].filter(([id, role]) => ['Chest', 'Spine', 'Neck', 'Head'].includes(role) && ids.has(id)).map(([id]) => id);
   // Your own picks win: a picked foot's leg is the foot and its two parents.
   if (Number.isInteger(overrides.bodyId) && byId.has(overrides.bodyId)) body = overrides.bodyId;
@@ -717,18 +733,77 @@ export function applyAnimXL(model, result) {
 /** Name-based first guess for heavy (weapon) and loose (cloth, hair) bones. */
 export function suggestAnimXLBones(model) {
   const heavyIds = [], looseIds = [], nodes = animXLNodes(model), ids = new Set(nodes.map(n => n.ObjectId));
+  const byId = new Map(allNodes(model).map(n => [n.ObjectId, n])), children = new Map();
+  for (const node of byId.values()) { if (!children.has(node.Parent)) children.set(node.Parent, []); children.get(node.Parent).push(node.ObjectId); }
+  // Only bones that move something visible are worth shaping: an empty "weapon"
+  // leaf does nothing when the real sword is skinned to the hand.
+  const skinned = skinnedBoneIds(model);
+  const carriesSkin = id => { if (!skinned.size) return true; const stack = [id], seen = new Set(); while (stack.length) { const at = stack.pop(); if (seen.has(at)) continue; seen.add(at); if (skinned.has(at)) return true; stack.push(...(children.get(at) || [])); } return false; };
+  // Heads, jaws and natural claws are never "the weapon", even with a Weapon Ref at the mouth.
+  const headLike = /head|neck|jaw|mouth|beak|skull|face|tongue|teeth|fang/i;
+  // Biped rigs hang the arms under the neck, so a hand on the way up means it is held, not part of the head.
+  const underHead = id => { for (let p = id, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) { const name = byId.get(p).Name || ''; if (/hand|arm|clavicle/i.test(name)) return false; if (headLike.test(name)) return true; } return false; };
+  const subtree = id => { let count = 0; const stack = [id], seen = new Set(); while (stack.length) { const at = stack.pop(); if (seen.has(at)) continue; seen.add(at); count++; stack.push(...(children.get(at) || [])); } return count; };
   // Hands, limbs and mounts are never "the weapon", even when named after it ("Sword Hand").
-  const bodyPart = /hand|arm|finger|wrist|toe|foot|leg|wolf|horse|boar|mount|mesh|death/i;
+  let rig = null;
+  try { rig = animXLRig(model, 0); } catch { /* names only */ }
+  // A machine (no legs, no arms) has no body parts: its arm is the throwing arm.
+  const machine = rig && nodes.length >= 6 && !rig.legs.length && !rig.arms.length && !nodes.some(n => /hand|leg|foot|head|neck|spine|pelvis|chest/i.test(n.Name || ''));
+  const bodyPart = machine ? /wheel|tail|mesh|death/i : /hand|arm|finger|wrist|toe|foot|leg|paw|claw|pinc|wolf|horse|boar|mount|mesh|death|tail|wheel|pelvis|spine|chest/i;
+  const weaponName = machine ? /weapon|sword|axe|hammer|blade|mace|staff|spear|club|flail|glaive|attack|arm|launch|throw|bucket|crusher|barrel|cannon|turret/i : /weapon|sword|axe|hammer|blade|mace|staff|spear|club|flail|choppa|glaive|halberd|scythe/i;
+  const soft = /cape|cloak|hair|tail|plume|ribbon|cloth|banner|skirt|robe|chain|beard|tabard|sling|(?<![a-z])rope/i;
   for (const node of nodes) {
     const name = node.Name || '';
-    if (/weapon|sword|axe|hammer|blade|mace|staff|spear|club|flail|choppa|glaive|halberd|scythe/i.test(name) && !bodyPart.test(name)) heavyIds.push(node.ObjectId);
-    else if (/cape|cloak|hair|tail|plume|ribbon|cloth|banner|skirt|robe|chain|beard|tabard/i.test(name)) looseIds.push(node.ObjectId);
+    if (weaponName.test(name) && !bodyPart.test(name) && !/cape|cloak|cloth|ribbon|banner|(?<![a-z])rope|sling/i.test(name) && carriesSkin(node.ObjectId)) heavyIds.push(node.ObjectId);
+    else if (soft.test(name) && carriesSkin(node.ObjectId)) looseIds.push(node.ObjectId);
   }
   // A "Weapon Ref" attachment names the weapon bone even when the bone itself has a generic name.
   for (const attachment of model.Attachments || []) {
     if (!/weapon/i.test(attachment.Name || '')) continue;
     const parent = nodes.find(n => n.ObjectId === attachment.Parent);
-    if (parent && ids.has(parent.ObjectId) && !bodyPart.test(parent.Name || '') && !heavyIds.includes(parent.ObjectId) && !looseIds.includes(parent.ObjectId)) heavyIds.push(parent.ObjectId);
+    // A bone that carries most of the rig (a tank's hull) is not a weapon either.
+    if (!parent || bodyPart.test(parent.Name || '') || underHead(parent.ObjectId) || !carriesSkin(parent.ObjectId) || subtree(parent.ObjectId) > nodes.length / 2) continue;
+    if (!heavyIds.includes(parent.ObjectId) && !looseIds.includes(parent.ObjectId)) heavyIds.push(parent.ObjectId);
+  }
+  // Tails with plain names (Bone12, Object44): a chain of three or more bones
+  // reaching backwards along the middle of a creature that stands on legs,
+  // each moving its own skin, apart from the legs and arms.
+  if (rig?.legs.length >= 2) {
+    const pivot = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+    const limbIds = new Set([...rig.legs, ...rig.arms].flatMap(c => [c.root, c.middle, c.end]));
+    const holdsLimb = id => { const stack = [id], seen = new Set(); while (stack.length) { const at = stack.pop(); if (seen.has(at)) continue; seen.add(at); if (limbIds.has(at)) return true; stack.push(...(children.get(at) || [])); } return false; };
+    const xs = nodes.map(n => pivot(n.ObjectId).x), size = Math.max(...xs) - Math.min(...xs);
+    const bodyX = rig.body != null ? pivot(rig.body).x : (Math.max(...xs) + Math.min(...xs)) / 2, midY = rig.body != null ? pivot(rig.body).y : 0;
+    const ownSkin = id => !skinned.size || skinned.has(id);
+    const taken = new Set([...heavyIds, ...looseIds, ...rig.torso, rig.body]);
+    const depth = id => { let d = 0; for (let p = byId.get(id)?.Parent; byId.has(p) && d < 64; p = byId.get(p).Parent) d++; return d; };
+    for (const node of [...nodes].sort((a, b) => depth(a.ObjectId) - depth(b.ObjectId))) {
+      const id = node.ObjectId;
+      if (taken.has(id) || holdsLimb(id) || pivot(id).x >= bodyX || Math.abs(pivot(id).y - midY) > size * 0.1 || !ownSkin(id)) continue;
+      const chain = [id];
+      for (let at = id; ;) {
+        const back = (children.get(at) || []).filter(c => ids.has(c) && !taken.has(c) && !holdsLimb(c) && ownSkin(c) && Math.abs(pivot(c).y - midY) <= size * 0.1 && pivot(c).x < pivot(at).x - 0.5).sort((a, b) => pivot(a).x - pivot(b).x)[0];
+        if (back == null) break;
+        chain.push(back); at = back;
+      }
+      // A rear body segment that branches (tail plus hind parts) is not part of the tail.
+      while (chain.length > 1 && (children.get(chain[0]) || []).filter(child => carriesSkin(child)).length > 1) chain.shift();
+      if (chain.length < 3) continue;
+      const first = byId.get(chain[0]), reach = pivot(chain[chain.length - 1]).sub(pivot(byId.has(first.Parent) ? first.Parent : chain[0]));
+      if (-reach.x < Math.max(size * 0.08, 0.5 * reach.length()) || -reach.x < Math.abs(reach.y)) continue;
+      for (const c of chain) { looseIds.push(c); taken.add(c); }
+    }
   }
   return { heavyIds, looseIds };
+}
+
+/** Bones that move at least one vertex (SD matrix groups in use or positive HD weights). */
+function skinnedBoneIds(model) {
+  const out = new Set();
+  for (const geo of model.Geosets || []) {
+    const vertices = (geo.Vertices?.length || 0) / 3, skin = geo.SkinWeights;
+    if (skin?.length === vertices * 8) { for (let v = 0; v < vertices; v++) for (let s = 0; s < 4; s++) if (skin[v * 8 + s + 4] > 0) out.add(skin[v * 8 + s]); }
+    else for (const index of new Set(geo.VertexGroup || [])) for (const id of geo.Groups?.[index] || []) out.add(id);
+  }
+  return out;
 }

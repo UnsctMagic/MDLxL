@@ -47,7 +47,9 @@ AnimXL opens showing your animation unchanged; nothing moves until you move a sl
 
 `src/anim-xl.js` samples the authored animation as a target pose, runs a spring per bone in world orientation (so children lag their parents), and reduces the result back to smooth (squad) keys. Linear rotation tracks become Bezier; keys of other animations get flat tangents, so they play exactly as before. On a stepped (no interpolation) track, each key of the other animations is held until just before the next, so they keep stepping. The body (from POSE's rig reading, bone names, or your pick) gets a translation spring for Weight, Heavy steps and Flinch. Afterwards, two-bone IK puts planted feet back on their authored path and keeps a two-handed grip on the weapon.
 
-The weapon is found from bone names or the model's "Weapon Ref" attachment; hands, limbs, mounts and shields are never guessed as the weapon.
+The weapon is found from bone names or the model's "Weapon Ref" attachment; hands, limbs, mounts and shields are never guessed as the weapon, and neither is a head or jaw that carries a Weapon Ref at the mouth. Only bones that move visible vertices are suggested. On a machine (no legs or arms), the throwing arm, launcher, barrel or turret is the weapon and ropes and slings are loose. Tails with plain names (Bone12, Object44) are found from their shape: a skinned chain reaching backwards along the middle of a creature that stands on legs.
+
+Legs come from POSE's rig reading. A leg owns its upper and middle bone; on a rig with no legs, limbs that stand at the bottom of the rig (a crab's walking legs, a bull's forelegs marked with Hand Refs) are legs. Without leg chains, only bones named as feet count as feet, so wheels and tails carrying Foot Refs are left alone.
 
 Hand-keyed animations use their own key times as the poses Ease preserves. Densely keyed animations use the moments where the body slows to a stop, and AnimXL says so.
 
