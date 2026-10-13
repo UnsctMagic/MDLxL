@@ -186,7 +186,10 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const [compare, setCompare] = useState(false), cameraBus = useRef({ saved: null, listeners: new Set() });
   // Arcs: the path the weapon's tip draws through the animation, original
   // (dashed) and shaped (solid), with a dot at the current moment.
-  const [arcs, setArcs] = useState(false), arcWeapon = settings.heavyIds[0] ?? null;
+  const [arcs, setArcs] = useState(false), [arcPick, setArcPick] = useState(null);
+  // Any heavy, loose or foot bone can show its arc; the weapon is the default.
+  const arcChoices = [...new Set([...settings.heavyIds, ...settings.looseIds, ...(result?.rig?.feet || [])])].filter(id => boneOptions.has(id));
+  const arcWeapon = arcChoices.includes(arcPick) ? arcPick : arcChoices[0] ?? null;
   const arcStep = 25, arcFrames = useMemo(() => { const list = []; for (let f = interval[0]; f <= interval[1]; f += arcStep) list.push(f); return list; }, [interval[0], interval[1]]);
   const tipOf = useMemo(() => weaponTip(model, arcWeapon), [model, doc.revision, arcWeapon]);
   const originalArc = useMemo(() => arcs && arcWeapon != null ? arcFrames.map(f => tipOf.clone().applyMatrix4(sampleNodeMatrices(model, f, seq).get(arcWeapon) || new Matrix4()).toArray()) : null, [arcs, arcWeapon, tipOf, arcFrames, model, doc.revision, seq]);
@@ -364,7 +367,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
         <button onClick={() => setPlaying(v => !v)} title="Play or pause the preview (Space)">{playing ? 'Pause' : 'Play'}</button>
         {[1, 0.5, 0.25].map(value => <button key={value} aria-pressed={speed === value} title={`Play at ${value * 100}% speed. This only changes the preview.`} onClick={() => setSpeed(value)}>{value * 100}%</button>)}
         <button aria-pressed={original} disabled={compare} title="Show the animation without AnimXL to compare" onClick={() => setOriginal(v => !v)}>Original</button>
-        <button aria-pressed={arcs} disabled={arcWeapon == null} title={arcWeapon == null ? 'Pick a heavy bone (the weapon) to see the arc its tip draws' : 'Draw the arc the weapon tip follows: dashed for the original, orange for the AnimXL version'} onClick={() => setArcs(v => !v)}>Arcs</button>
+        <button aria-pressed={arcs} disabled={arcWeapon == null} title={arcWeapon == null ? 'Pick a heavy or loose bone to see the arc it draws' : 'Draw the arc the chosen bone\'s tip follows: dashed for the original, orange for the AnimXL version'} onClick={() => setArcs(v => !v)}>Arcs</button>
+        {arcs && arcChoices.length > 1 && <select aria-label="Arc bone" title="Which bone's arc to draw" value={arcWeapon ?? ''} onChange={event => setArcPick(Number(event.target.value))}>{arcChoices.map(id => <option key={id} value={id}>{boneOptions.get(id)}</option>)}</select>}
         <button aria-pressed={compare} title="Show the original (left) and the AnimXL version (right) side by side, playing together" onClick={() => { cameraBus.current = { saved: null, listeners: new Set() }; setCompare(v => !v); setOriginal(false); }}>Side by side</button>
         <span className="ax-time" title="Current time in this animation">{Math.round(time - interval[0])} / {span} ms</span>
       </div>
