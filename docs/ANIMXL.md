@@ -8,7 +8,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 
 | Control | What it does |
 | --- | --- |
-| Quick start | Natural, Heavy, Snappy and Loose set the sliders to a good starting point. |
+| Quick start | Natural, Heavy, Snappy and Loose set the sliders to a good starting point. **Save as preset…** keeps your own slider settings as a button, for any model. |
 | Ease | Speeds up out of each pose and slows into the next. Poses stay where they are. |
 | Overlap | Parts further from the body follow a moment later (hips → chest → arms → hands → weapon). |
 | Settle | Parts overshoot a pose slightly and wobble back into it. |

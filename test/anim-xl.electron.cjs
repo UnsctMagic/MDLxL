@@ -64,6 +64,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(300);
     assert.equal(await dialog.getByRole('slider', { name: 'Weight', exact: true }).inputValue(), '80');
     checks.push('Undo and Ctrl+Y step through slider changes');
+    await dialog.getByRole('button', { name: 'Save as preset…' }).click();
+    await dialog.getByLabel('Preset name').fill('My ogre');
+    await page.keyboard.press('Enter');
+    assert.equal(await dialog.getByRole('button', { name: 'My ogre', exact: true }).count(), 1);
+    checks.push('Save as preset adds your own preset button');
     await dialog.getByRole('button', { name: 'Add flinch here' }).click();
     assert.equal(await dialog.locator('.ax-flinch').count(), 1);
     checks.push(`Flinch marker added; ${await dialog.locator('.ax-foot').count()} footfall ticks shown with Heavy steps`);

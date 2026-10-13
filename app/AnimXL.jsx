@@ -26,6 +26,9 @@ const PRESETS = [
 const storageKey = (path, name) => `mdlxl.animxl.${path || 'unsaved'}.${name}`;
 const readSaved = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
 const writeSaved = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage is optional */ } };
+// Your own presets keep slider values only; bones, markers and timing belong to one animation.
+const USER_PRESETS = 'mdlxl.animxl.presets';
+const PRESET_KEYS = ['ease', 'overlap', 'settle', 'weight', 'anticipation', 'exaggerate', 'life', 'poses', 'heavy', 'loose', 'steps', 'feet', 'thunk', 'flinch', 'flinchBehind'];
 
 function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
   return <label className="ax-slider" title={tip}>
@@ -158,6 +161,15 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     if (index > 0) update(old => { const retime = { ...old.retime }; delete retime[result.sourceKeyTimes[index]]; return { ...old, retime }; });
   };
   const movedPoses = Object.keys(settings.retime || {}).length;
+  const [userPresets, setUserPresets] = useState(() => readSaved(USER_PRESETS) || []), [naming, setNaming] = useState(null);
+  const saveUserPresets = list => { setUserPresets(list); writeSaved(USER_PRESETS, list); };
+  const savePreset = () => {
+    const name = (naming || '').trim();
+    if (!name) return;
+    const values = Object.fromEntries(PRESET_KEYS.map(key => [key, settings[key]]));
+    saveUserPresets([...userPresets.filter(p => p.name !== name), { name, values }]);
+    setNaming(null);
+  };
   const pickBone = ids => {
     const id = ids?.at?.(-1);
     if (!picking || !boneOptions.has(id)) return;
@@ -214,6 +226,10 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           {result?.dense && <p className="ax-note ax-dense" title="AnimXL treats the moments where the body slows to a stop as the poses.">This animation is already keyed in detail. AnimXL works best on a few hand-made poses, but you can still shape it.</p>}
           <Section title="Quick start" open>
             <div className="ax-row ax-presets">{PRESETS.map(([name, tip, values]) => <button key={name} title={tip} onClick={() => update(old => ({ ...old, ...values }))}>{name}</button>)}</div>
+            {userPresets.length > 0 && <div className="ax-row ax-presets">{userPresets.map(preset => <span key={preset.name} className="ax-user-preset"><button title={`Use your preset "${preset.name}"`} onClick={() => update(old => ({ ...old, ...preset.values }))}>{preset.name}</button><button className="ax-chip" aria-label={`Delete preset ${preset.name}`} title={`Delete your preset "${preset.name}"`} onClick={() => saveUserPresets(userPresets.filter(p => p !== preset))}>×</button></span>)}</div>}
+            {naming === null
+              ? <button title="Remember the current slider settings as your own preset, for any model" onClick={() => setNaming('')}>Save as preset…</button>
+              : <div className="ax-row"><input aria-label="Preset name" placeholder="Preset name" value={naming} maxLength={24} autoFocus onChange={event => setNaming(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') savePreset(); if (event.key === 'Escape') { event.stopPropagation(); setNaming(null); } }}/><button disabled={!naming.trim()} onClick={savePreset}>Save</button><button onClick={() => setNaming(null)}>Cancel</button></div>}
           </Section>
           <Section title="Motion" open>{MOTION.slice(0, 4).map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</Section>
           <Section title="More motion" note={MOTION.slice(4).filter(([id]) => settings[id] !== ANIMXL_DEFAULTS[id]).map(([, label]) => label).join(', ')}>{MOTION.slice(4).map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</Section>
