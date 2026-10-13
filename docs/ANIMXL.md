@@ -50,6 +50,8 @@ The weapon is found from bone names or the model's "Weapon Ref" attachment; hand
 
 Hand-keyed animations use their own key times as the poses Ease preserves. Densely keyed animations use the moments where the body slows to a stop, and AnimXL says so.
 
+Looping animations end exactly where they start: AnimXL pre-rolls whole cycles so the springs settle into the loop, then eases the last quarter onto the first pose. This also repairs loop seams already in an animation (for example a cape that jumps at the loop point).
+
 Ease, retiming and THUNK holds also retime keyed translations, so a jump or a crouch stays in step with the rotations.
 
 ## Limits

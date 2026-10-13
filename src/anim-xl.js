@@ -326,7 +326,8 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     torsoIndices.forEach((i, k) => W[i].addScaledVector(worldAngular, 1 + 0.35 * k));
   };
 
-  const preroll = seq.NonLooping ? 0 : Math.min(duration, 3000);
+  // Looping animations pre-roll whole cycles until slow springs settle into the loop's rhythm.
+  const preroll = seq.NonLooping ? 0 : duration * Math.max(1, Math.min(Math.ceil(2000 / duration), Math.floor(8000 / duration)));
   const outFrames = [];
   for (let k = 0; ; k++) { const f = Math.round(from + k * 1000 / OUT_HZ); if (f >= to) break; outFrames.push(f); }
   outFrames.push(to);
@@ -396,6 +397,9 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     if (record) outIndex++;
   }
 
+  // Loops must end exactly where they start: ease the last stretch onto the first pose.
+  if (!seq.NonLooping) closeLoop(samples, bodySamples);
+
   // Keep feet planted: legs are solved back onto the authored foot path.
   const legNodes = new Set((rig.legs || []).flatMap(leg => [leg.root, leg.middle, leg.end]));
   const plantLegs = settings.feet !== false && rig.legs?.length && ([...legNodes].some(id => simIds.has(id)) || bodyNode);
@@ -464,6 +468,27 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet } };
 }
 
+/** Spread any mismatch between the last and first frame over the final
+ * quarter of a looping animation, so it plays without a pop at the loop. */
+function closeLoop(samples, bodySamples) {
+  for (const qs of samples.values()) {
+    const n = qs.length;
+    if (n < 4) continue;
+    const correction = qs[0].clone().multiply(qs[n - 1].clone().invert());
+    if (correction.w < 0) correction.set(-correction.x, -correction.y, -correction.z, -correction.w);
+    if (2 * Math.acos(Math.min(1, correction.w)) < 1e-4) continue;
+    const start = Math.floor(n * 0.75), identity = new Quaternion();
+    for (let k = start; k < n; k++) {
+      const u = smooth((k - start) / (n - 1 - start));
+      qs[k] = new Quaternion().slerpQuaternions(identity, correction, u).multiply(qs[k]).normalize();
+    }
+  }
+  const m = bodySamples.length;
+  if (m >= 4) {
+    const offset = bodySamples[0].clone().sub(bodySamples[m - 1]), start = Math.floor(m * 0.75);
+    for (let k = start; k < m; k++) bodySamples[k] = bodySamples[k].clone().addScaledVector(offset, smooth((k - start) / (m - 1 - start)));
+  }
+}
 // World matrices from local rotations, translations and scaling, with pivots,
 // matching the editor's own node sampling.
 function worldMatrices(model, byId, rotation, translation, scaling) {
