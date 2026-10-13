@@ -1,7 +1,8 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import useMovableWindow from './useMovableWindow.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
-import { allNodes } from '../src/animation.js';
+import { allNodes, sampleNodeMatrices } from '../src/animation.js';
+import { Matrix4, Vector3 } from 'three';
 import { createSequenceFromCurrent, setSequenceName } from '../src/sequence-editor.js';
 import { createNode } from '../src/editor-document.js';
 import { loadEventCatalog, resolveEventSound } from './node-event-data.js';
@@ -49,6 +50,33 @@ function Section({ title, note, open = false, children }) {
   </details>;
 }
 
+// The model with some node tracks swapped in (no deep copy).
+function withTracks(model, tracks) {
+  if (!tracks.length) return model;
+  const byId = new Map();
+  for (const item of tracks) (byId.get(item.id) || byId.set(item.id, []).get(item.id)).push(item);
+  const patch = node => { const items = byId.get(node.ObjectId); if (!items) return node; const copy = { ...node }; for (const item of items) copy[item.property] = item.track; return copy; };
+  return { ...model, Bones: (model.Bones || []).map(patch), Helpers: (model.Helpers || []).map(patch) };
+}
+
+// The weapon's tip: the point of its mesh furthest from its pivot (bind pose).
+function weaponTip(model, weaponId) {
+  const node = allNodes(model).find(n => n.ObjectId === weaponId);
+  const pivot = new Vector3().fromArray(node?.PivotPoint || model.PivotPoints?.[weaponId] || [0, 0, 0]);
+  if (!node) return pivot;
+  let tip = pivot.clone(), far = 0;
+  const point = new Vector3();
+  for (const geo of model.Geosets || []) {
+    const count = geo.Vertices.length / 3, hd = geo.SkinWeights?.length === count * 8;
+    for (let v = 0; v < count; v++) {
+      const bound = hd ? [0, 1, 2, 3].some(j => geo.SkinWeights[v * 8 + j] === weaponId && geo.SkinWeights[v * 8 + 4 + j] > 0) : (geo.Groups?.[geo.VertexGroup?.[v]] || []).includes(weaponId);
+      if (!bound) continue;
+      const d = point.fromArray(geo.Vertices, v * 3).distanceTo(pivot);
+      if (d > far) { far = d; tip = point.clone(); }
+    }
+  }
+  return tip;
+}
 // Pick a game sound by searching its name; hearing it is one click away.
 function SoundPicker({ label, tip, value, sounds, onOpen, onPlay, onChange }) {
   const [filter, setFilter] = useState('');
@@ -156,6 +184,20 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   }, [result, original, model]);
   // Side by side: the left view always shows the authored tracks.
   const [compare, setCompare] = useState(false), cameraBus = useRef({ saved: null, listeners: new Set() });
+  // Arcs: the path the weapon's tip draws through the animation, original
+  // (dashed) and shaped (solid), with a dot at the current moment.
+  const [arcs, setArcs] = useState(false), arcWeapon = settings.heavyIds[0] ?? null;
+  const arcStep = 25, arcFrames = useMemo(() => { const list = []; for (let f = interval[0]; f <= interval[1]; f += arcStep) list.push(f); return list; }, [interval[0], interval[1]]);
+  const tipOf = useMemo(() => weaponTip(model, arcWeapon), [model, doc.revision, arcWeapon]);
+  const originalArc = useMemo(() => arcs && arcWeapon != null ? arcFrames.map(f => tipOf.clone().applyMatrix4(sampleNodeMatrices(model, f, seq).get(arcWeapon) || new Matrix4()).toArray()) : null, [arcs, arcWeapon, tipOf, arcFrames, model, doc.revision, seq]);
+  const shapedArc = useMemo(() => {
+    if (!arcs || arcWeapon == null) return null;
+    const shaped = withTracks(model, result?.tracks || []);
+    return arcFrames.map(f => tipOf.clone().applyMatrix4(sampleNodeMatrices(shaped, f, seq).get(arcWeapon) || new Matrix4()).toArray());
+  }, [arcs, arcWeapon, tipOf, arcFrames, result, model, seq]);
+  const arcMarker = Math.max(0, Math.min(arcFrames.length - 1, Math.round((time - interval[0]) / arcStep)));
+  const originalPath = originalArc && { points: originalArc, color: '#9fb4c8', width: 2, dash: [6, 4], alpha: 0.95, marker: arcMarker };
+  const shapedPath = shapedArc && { points: shapedArc, color: '#ff8a2a', width: 2.5, marker: arcMarker };
   const originalTracks = useMemo(() => {
     const byId = new Map(allNodes(model).map(node => [node.ObjectId, node]));
     return [...touched.current].map(key => { const [id, property] = key.split(':'); return { id: Number(id), property, track: byId.get(Number(id))?.[property] }; }).filter(item => byId.has(item.id));
@@ -322,6 +364,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
         <button onClick={() => setPlaying(v => !v)} title="Play or pause the preview (Space)">{playing ? 'Pause' : 'Play'}</button>
         {[1, 0.5, 0.25].map(value => <button key={value} aria-pressed={speed === value} title={`Play at ${value * 100}% speed. This only changes the preview.`} onClick={() => setSpeed(value)}>{value * 100}%</button>)}
         <button aria-pressed={original} disabled={compare} title="Show the animation without AnimXL to compare" onClick={() => setOriginal(v => !v)}>Original</button>
+        <button aria-pressed={arcs} disabled={arcWeapon == null} title={arcWeapon == null ? 'Pick a heavy bone (the weapon) to see the arc its tip draws' : 'Draw the arc the weapon tip follows: dashed for the original, orange for the AnimXL version'} onClick={() => setArcs(v => !v)}>Arcs</button>
         <button aria-pressed={compare} title="Show the original (left) and the AnimXL version (right) side by side, playing together" onClick={() => { cameraBus.current = { saved: null, listeners: new Set() }; setCompare(v => !v); setOriginal(false); }}>Side by side</button>
         <span className="ax-time" title="Current time in this animation">{Math.round(time - interval[0])} / {span} ms</span>
       </div>
@@ -331,13 +374,13 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           {compare && <div className="ax-preview" aria-label="Original animation">
             <span className="ax-badge">Original</span>
             <Suspense fallback={<span>Loading preview…</span>}>
-              <GamePreview presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} liveNodeTracks={originalTracks} compareCamera={cameraBus.current} preserveCameraView/>
+              <GamePreview presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} liveNodeTracks={originalTracks} compareCamera={cameraBus.current} preserveCameraView overlayPaths={originalPath ? [originalPath] : undefined}/>
             </Suspense>
           </div>}
           <div className="ax-preview" aria-label="AnimXL animation">
             {compare && <span className="ax-badge ax-badge-new">AnimXL</span>}
             <Suspense fallback={<span>Loading preview…</span>}>
-              <GamePreview key={compare ? 'compare' : 'single'} presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks} {...(compare ? { compareCamera: cameraBus.current, preserveCameraView: true } : {})}
+              <GamePreview key={compare ? 'compare' : 'single'} presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks} overlayPaths={compare ? (shapedPath ? [shapedPath] : undefined) : [originalPath, shapedPath].filter(Boolean)} {...(compare ? { compareCamera: cameraBus.current, preserveCameraView: true } : {})}
                 {...(picking ? { cleanAnimationPreview: true, overlays: { bones: true }, selectedNodeIds: [], onSelectNodes: pickBone } : {})}/>
             </Suspense>
           </div>

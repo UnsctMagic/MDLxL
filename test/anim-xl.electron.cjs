@@ -48,6 +48,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const after = await page.screenshot({ clip: pv });
     assert.ok(!before.equals(after), 'camera drag changes the preview');
     checks.push('Preview camera rotates with a real mouse drag');
+    await dialog.getByRole('button', { name: 'Arcs', exact: true }).click();
+    await page.waitForTimeout(1200);
+    assert.equal(await dialog.locator('canvas[data-path-overlay]').count(), 1, 'arc overlay drawn');
+    await dialog.screenshot({ path: path.join(out, '3b-arcs.png') });
+    await dialog.getByRole('button', { name: 'Arcs', exact: true }).click();
+    checks.push('Arcs draws the weapon tip path over the preview');
     await dialog.screenshot({ path: path.join(out, '3-rotated.png') });
     // THUNK at the paused moment.
     await dialog.locator('summary', { hasText: 'Hits' }).click();
