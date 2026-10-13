@@ -53,8 +53,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
     assert.equal(await page.getByRole('dialog', { name: 'Save model', exact: true }).count(), 0);
     assert.deepEqual(await fs.readFile(path.join(out, 'unused.mdx')), Buffer.from(original));
-    const setRange = async (range, value) => { await range.fill(String(value)); await page.waitForTimeout(150); };
-    const typePercent = async (input, value) => { await input.fill(String(value)); await input.press('Enter'); await page.waitForTimeout(150); };
+    // A write shows the progress bar for at least 300 ms; wait until it finishes.
+    const written = async () => { await page.waitForTimeout(50); await page.locator('.ac-speed-progress').waitFor({ state: 'detached' }); };
+    const setRange = async (range, value) => { await range.fill(String(value)); await written(); };
+    const typePercent = async (input, value) => { await input.fill(String(value)); await input.press('Enter'); await written(); };
     const readRuntime = () => page.evaluate(() => {
       const el = document.querySelector('.game-preview-root');
       let fiber = el?.[Object.keys(el).find(key => key.startsWith('__reactFiber'))];
@@ -83,8 +85,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.mouse.up();
     await waitFor(state => state.interval[1] === Math.round(start.interval[1] * 100 / dragged), 'Released drag retimes once');
     assert.equal(await slider.inputValue(), String(dragged));
-    await typePercent(percent, 100);
+    await page.evaluate(() => { window.__speedProgress = false; new MutationObserver(() => { if (document.querySelector('.ac-speed-progress')) window.__speedProgress = true; }).observe(document.body, { childList: true, subtree: true }); });
+    await percent.fill('100'); await percent.press('Enter');
+    await page.locator('.ac-speed-progress').first().waitFor();
+    await screenshot('speed-progress.png');
     await waitFor(state => JSON.stringify(state.translation) === JSON.stringify(baseline), 'Typed 100% restores original frames');
+    assert.equal(await page.evaluate(() => window.__speedProgress), true, 'progress bar shows while the speed is written');
+    await page.locator('.ac-speed-progress').waitFor({ state: 'detached' });
     await typePercent(percent, 50);
     assert.equal(await slider.inputValue(), '50');
     await waitFor(state => state.interval[1] === 4000 && state.translation[1] === 2000, 'Real preview intervals and keyframes retimed');
@@ -93,7 +100,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await screenshot('half-speed-playing.png');
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await setRange(slider, 100);
-    assert.deepEqual((await readRuntime()).translation, baseline);
+    await waitFor(state => JSON.stringify(state.translation) === JSON.stringify(baseline), 'Slider 100% restores original frames');
     await page.getByRole('button', { name: 'Adjust All Speed', exact: true }).click();
     const menu = page.getByRole('dialog', { name: 'Adjust All Speed', exact: true });
     assert.equal(await menu.locator('.ac-speed-warning').count(), 0);

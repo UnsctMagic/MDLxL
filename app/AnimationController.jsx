@@ -33,15 +33,25 @@ const clampSpeed = value => Math.max(1, Math.min(300, Math.round(value)));
  * moves a local draft. The edit is committed once, when the slider is released
  * (or per arrow key press) or when a typed percent is confirmed. */
 function SpeedControl({ label, value, disabled, onCommit }) {
-  const [draft, setDraft] = useState(null), [text, setText] = useState(String(value));
-  const slider = useRef(null), latest = useRef(null);
+  const [draft, setDraft] = useState(null), [text, setText] = useState(String(value)), [busy, setBusy] = useState(false);
+  const slider = useRef(null), latest = useRef(null), writing = useRef(false), current = useRef({ value, onCommit });
+  current.current = { value, onCommit };
   useEffect(() => { setDraft(null); setText(String(value)); }, [value]);
   function commit(raw) {
-    setDraft(null);
-    if (String(raw).trim() === '' || !Number.isFinite(Number(raw))) { setText(String(value)); return; }
+    if (writing.current) return;
+    if (String(raw).trim() === '' || !Number.isFinite(Number(raw))) { setDraft(null); setText(String(value)); return; }
     const percent = clampSpeed(Number(raw));
     setText(String(percent));
-    if (percent !== value && onCommit(percent) === false) setText(String(value));
+    if (percent === value) { setDraft(null); return; }
+    // Retiming blocks the renderer. Paint the progress bar first; its
+    // transform animation keeps running on the compositor during the write.
+    writing.current = true; setDraft(percent); setBusy(true);
+    const started = performance.now();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (current.current.onCommit(percent) === false) setText(String(current.current.value));
+      setDraft(null); writing.current = false;
+      setTimeout(() => setBusy(false), Math.max(0, 300 - (performance.now() - started)));
+    }));
   }
   latest.current = commit;
   // The native change event fires once on release; React's onChange fires on every move.
@@ -50,9 +60,10 @@ function SpeedControl({ label, value, disabled, onCommit }) {
     input?.addEventListener('change', release);
     return () => input?.removeEventListener('change', release);
   }, []);
-  return <div className="ac-actual-speed" title="Speeds the animation up or slows it down by retiming its keyframes. 100% is the speed when the model was opened.">
+  return <div className={`ac-actual-speed${busy ? ' ac-speed-busy' : ''}`} aria-busy={busy} title="Speeds the animation up or slows it down by retiming its keyframes. 100% is the speed when the model was opened.">
     <span>{label}<span className="ac-speed-number"><input aria-label={`${label} percent`} type="number" min="1" max="300" step="1" value={draft === null ? text : String(draft)} disabled={disabled} onChange={event => setText(event.target.value)} onBlur={event => commit(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') commit(event.currentTarget.value); }}/>%</span></span>
-    <input ref={slider} aria-label={label} type="range" min="1" max="300" step="1" value={draft ?? value} disabled={disabled} onChange={event => setDraft(Number(event.target.value))}/>
+    <input ref={slider} aria-label={label} type="range" min="1" max="300" step="1" value={draft ?? value} disabled={disabled} onChange={event => { if (!writing.current) setDraft(Number(event.target.value)); }}/>
+    {busy && <div className="ac-speed-progress" role="progressbar" aria-label={`Applying ${label}`}/>}
   </div>;
 }
 
