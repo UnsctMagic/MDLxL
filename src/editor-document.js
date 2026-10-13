@@ -16,7 +16,7 @@ import { writeMdlUVSets } from './uv-coordinate-codec.js';
 import { convertMdxGeosetColorTracks } from './geoset-color-codec.js';
 import { geosetColorExportIssues, prepareGeosetAnimationColors } from './geoset-animation-defaults.js';
 import { GEOSET_TABS_KEY, GEOSET_TAB_KEY, geosetTabsData, normalizeGeosetTabs, readGeosetTabs, writeGeosetTabs, isGeosetTabsChunk } from './geoset-tabs.js';
-import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, animationSpeedData, readAnimationSpeed, writeAnimationSpeed, isAnimationSpeedChunk } from './animation-speed.js';
+import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, stripAnimationSpeed, isAnimationSpeedChunk } from './animation-speed.js';
 
 const V3 = (x = 0, y = 0, z = 0) => new Float32Array([x, y, z]);
 const clone = (value) => structuredClone(value);
@@ -261,7 +261,6 @@ export class EditorDocument {
         }
         normalizeModel(this.model);
         this._sourceWarnings.push(...readGeosetTabs(this._original, this.format, this.model, this._container));
-        this._sourceWarnings.push(...readAnimationSpeed(this._original, this.format, this.model, this._container));
       } catch (error) {
         this.readOnly = true;
         this._sourceErrors.push({ severity: 'error', code: 'SEMANTIC_DECODE_FAILED', message: `Editing unavailable: ${error.message}. The original file can still be copied exactly.` });
@@ -327,8 +326,7 @@ export class EditorDocument {
     return this._changeCache.keys;
   }
   get _tabsChanged() { return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model)); }
-  get _speedChanged() { return JSON.stringify(animationSpeedData(this._savedModel)) !== JSON.stringify(animationSpeedData(this.model)); }
-  get dirty() { return this._changedKeys().length > 0 || this._tabsChanged || this._speedChanged; }
+  get dirty() { return this._changedKeys().length > 0 || this._tabsChanged; }
   get canUndo() { return this._historyStore.stats.undoSteps > 0; }
   get canRedo() { return this._historyStore.stats.redoSteps > 0; }
   get historyStats() { return this._historyStore.stats; }
@@ -525,14 +523,13 @@ export class EditorDocument {
       this._serializedStates.set(bytes, { model: clone(this.model), revision: this.revision });
       return bytes;
     };
-    if (impact.exact && (this.readOnly || writeAnimationSpeed(this._original, format, this.model).equals(this._original))) return remember(this._original);
+    if (impact.exact && (this.readOnly || stripAnimationSpeed(this._original, format).equals(this._original))) return remember(this._original);
     if (!impact.conversion && !impact.changedSections.length) {
-      const output = writeAnimationSpeed(writeGeosetTabs(this._original, format, this.model), format, this.model);
+      const output = stripAnimationSpeed(writeGeosetTabs(this._original, format, this.model), format);
       nextStage('reparsingMs');
       const reopened = openDocument(output, `validation.${format}`, { allowHD: true });
       nextStage('verificationMs');
       if (reopened.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata did not reopen.');
-      if (JSON.stringify(animationSpeedData(this.model)) !== JSON.stringify(animationSpeedData(reopened.model))) throw new Error('Save verification failed: animation speed metadata did not reopen.');
       return remember(output);
     }
     // Object IDs stay stable in the editor and its undo history. Only the save
@@ -567,7 +564,7 @@ export class EditorDocument {
     const keys = saveModel !== this.model || this._recoverySavedChanges.length
       ? Object.keys(SECTION_TYPES).filter(key => fingerprint(sourceModel[key]) !== fingerprint(saveModel[key]))
       : this._changedKeys();
-    const output = writeAnimationSpeed(writeGeosetTabs(impact.conversion ? generated : format === 'mdl' ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys), format, saveModel), format, saveModel);
+    const output = stripAnimationSpeed(writeGeosetTabs(impact.conversion ? generated : format === 'mdl' ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys), format, saveModel), format);
     // A writer can succeed while emitting a dialect the reader cannot parse.
     // Check the final surgical/conversion result before allowing it onto disk.
     nextStage('reparsingMs');
@@ -580,7 +577,6 @@ export class EditorDocument {
     if (reopened.version !== this.version) throw new Error('Save verification failed: model version changed.');
     assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings, format });
     if (JSON.stringify(geosetTabsData(saveModel)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata changed.');
-    if (JSON.stringify(animationSpeedData(saveModel)) !== JSON.stringify(animationSpeedData(reopened.model))) throw new Error('Save verification failed: animation speed metadata changed.');
     for (const key of Object.keys(SECTION_TYPES)) if (Array.isArray(this.model[key]) && this.model[key].length !== reopened.model[key]?.length) throw new Error(`Save verification failed: ${key} count changed during serialization.`);
     for (let index = 0; index < this.model.Geosets.length; index++) if (this.model.Geosets[index].TVertices.length !== reopened.model.Geosets[index].TVertices.length) throw new Error(`Save verification failed: Geoset ${index} UV set count changed during serialization.`);
     const existingErrors = new Set(validateModel(this.model).filter((d) => d.severity === 'error').map((d) => `${d.code}:${d.path}`));

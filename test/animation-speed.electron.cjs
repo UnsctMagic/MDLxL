@@ -8,13 +8,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   await fs.mkdir(out, { recursive: true }); const profile = await fs.mkdtemp(path.join(out, 'profile-'));
   const { createDemoDocument, openDocument } = await import('../src/editor-document.js');
   const { createSequenceFromCurrent } = await import('../src/sequence-editor.js');
-  const { animationSpeedData, setAnimationActualSpeed } = await import('../src/animation-speed.js');
-  const { removeEditorData } = await import('../src/editor-data.js');
+  const { ANIMATION_SPEED_TAG } = await import('../src/animation-speed.js');
   const { createGeosetTab } = await import('../src/geoset-tabs.js');
   const { prepareModelSave } = await import('../src/save-target.js');
   const doc = createDemoDocument();
   doc.apply('Two animations', [], model => {
-    // Enough real timing samples to exercise the >0.5 KB save choice.
     const rotation = model.Bones[0].Rotation;
     for (let i = 1; i <= 80; i++) {
       const Frame = i * 20;
@@ -43,10 +41,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const width = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     const slider = page.getByRole('slider', { name: 'Animation Actual Speed', exact: true });
     assert.equal(await slider.inputValue(), '100'); assert.equal(await slider.getAttribute('min'), '1'); assert.equal(await slider.getAttribute('max'), '300');
-    const rememberTiming = page.getByRole('region', { name: 'Animations toolbox', exact: true }).getByRole('checkbox', { name: 'Remember Original Timing', exact: true });
-    assert.equal(await rememberTiming.isChecked(), true);
+    const percent = page.getByRole('spinbutton', { name: 'Animation Actual Speed percent', exact: true });
+    assert.equal(await percent.inputValue(), '100');
+    assert.equal(await page.getByRole('region', { name: 'Animations toolbox', exact: true }).getByText('Remember Original Timing').count(), 0);
     assert.equal(await page.getByRole('dialog').count(), 0);
-    const placement = await slider.evaluate(el => ({ afterRarity: el.closest('label').previousElementSibling.classList.contains('ac-rarity'), nextButton: el.closest('label').nextElementSibling.textContent }));
+    const placement = await slider.evaluate(el => ({ afterRarity: el.closest('.ac-actual-speed').previousElementSibling.classList.contains('ac-rarity'), nextButton: el.closest('.ac-actual-speed').nextElementSibling.textContent }));
     assert.equal(placement.afterRarity, true); assert.equal(placement.nextButton, 'Adjust All Speed');
     await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/unused.' + options.filters[0].extensions[0] }); }, out);
     await page.keyboard.press('Control+Shift+s');
@@ -55,6 +54,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.getByRole('dialog', { name: 'Save model', exact: true }).count(), 0);
     assert.deepEqual(await fs.readFile(path.join(out, 'unused.mdx')), Buffer.from(original));
     const setRange = async (range, value) => { await range.fill(String(value)); await page.waitForTimeout(150); };
+    const typePercent = async (input, value) => { await input.fill(String(value)); await input.press('Enter'); await page.waitForTimeout(150); };
     const readRuntime = () => page.evaluate(() => {
       const el = document.querySelector('.game-preview-root');
       let fiber = el?.[Object.keys(el).find(key => key.startsWith('__reactFiber'))];
@@ -69,9 +69,24 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       while (Date.now() < until) { const state = await readRuntime(); if (state && predicate(state)) return state; await page.waitForTimeout(100); }
       throw Error(label + ': ' + JSON.stringify(await readRuntime()));
     };
-    await waitFor(state => state.ready, 'Preview loaded');
+    const start = await waitFor(state => state.ready, 'Preview loaded');
     await screenshot('default.png');
-    await setRange(slider, 50);
+    // A real mouse drag only moves a draft. The model is retimed once, on release.
+    const track = await slider.boundingBox(), x = value => track.x + 8 + (track.width - 16) * (value - 1) / 299, y = track.y + track.height / 2;
+    await page.mouse.move(x(100), y); await page.mouse.down();
+    await page.mouse.move(x(40), y, { steps: 30 });
+    await page.waitForTimeout(300);
+    const dragged = Number(await slider.inputValue());
+    assert.ok(dragged < 100, 'slider follows the drag');
+    assert.equal(await percent.inputValue(), String(dragged), 'number box follows the drag');
+    assert.deepEqual((await readRuntime()).interval, start.interval, 'no retiming while dragging');
+    await page.mouse.up();
+    await waitFor(state => state.interval[1] === Math.round(start.interval[1] * 100 / dragged), 'Released drag retimes once');
+    assert.equal(await slider.inputValue(), String(dragged));
+    await typePercent(percent, 100);
+    await waitFor(state => JSON.stringify(state.translation) === JSON.stringify(baseline), 'Typed 100% restores original frames');
+    await typePercent(percent, 50);
+    assert.equal(await slider.inputValue(), '50');
     await waitFor(state => state.interval[1] === 4000 && state.translation[1] === 2000, 'Real preview intervals and keyframes retimed');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const playing = await waitFor(state => state.frame > 600 && state.frame < 1800, 'Slower animation is playing');
@@ -81,97 +96,45 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual((await readRuntime()).translation, baseline);
     await page.getByRole('button', { name: 'Adjust All Speed', exact: true }).click();
     const menu = page.getByRole('dialog', { name: 'Adjust All Speed', exact: true });
-    const warning = menu.locator('.ac-speed-warning');
-    assert.match(await warning.innerText(), /MDLxL preserves original timing.*another editor may remove this data/);
-    assert.equal(await warning.evaluate(el => getComputedStyle(el).color), 'rgb(208, 0, 0)');
-    assert.equal(await warning.evaluate(el => el.nextElementSibling.querySelector('input')?.getAttribute('aria-label')), 'Master Controller');
+    assert.equal(await menu.locator('.ac-speed-warning').count(), 0);
+    assert.equal(await menu.getByText('Remember Original Timing').count(), 0);
     const master = menu.getByRole('slider', { name: 'Master Controller', exact: true });
     assert.equal(await master.inputValue(), '100');
-    assert.equal(await menu.getByRole('checkbox', { name: 'Remember Original Timing', exact: true }).isChecked(), true);
     assert.ok(await menu.getByLabel('Include Stand in Master Controller', { exact: true }).isChecked());
     assert.ok(await menu.getByLabel('Include Walk in Master Controller', { exact: true }).isChecked());
     await menu.getByLabel('Include Walk in Master Controller', { exact: true }).uncheck();
     await setRange(master, 50);
     assert.equal(await menu.getByRole('slider', { name: 'Stand speed', exact: true }).inputValue(), '50');
     assert.equal(await menu.getByRole('slider', { name: 'Walk speed', exact: true }).inputValue(), '100');
-    await setRange(menu.getByRole('slider', { name: 'Walk speed', exact: true }), 200);
+    await typePercent(menu.getByRole('spinbutton', { name: 'Walk speed percent', exact: true }), 200);
+    assert.equal(await menu.getByRole('slider', { name: 'Walk speed', exact: true }).inputValue(), '200');
     await screenshot('all-speed-menu.png');
     await page.keyboard.press('Escape'); await menu.waitFor({ state: 'hidden' });
     assert.equal(await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width), width);
+    // Speed changes are saved as native timing only; no editor data is added.
+    const adjusted = await readRuntime();
     await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/saved.' + options.filters[0].extensions[0] }); }, out);
     for (const format of ['mdx', 'mdl']) {
       await page.keyboard.press('Control+Shift+s');
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
-      const saveOptions = page.getByRole('dialog', { name: 'Save model', exact: true });
-      await saveOptions.waitFor();
-      assert.equal(await saveOptions.getByRole('checkbox', { name: /Remove all MDLxL editor data/ }).isChecked(), false);
-      await screenshot('save-options-' + format + '.png');
-      await saveOptions.getByRole('button', { name: 'Save', exact: true }).click();
-      await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'hidden' });
-      const saved = openDocument(await fs.readFile(path.join(out, 'saved.' + format)), 'saved.' + format);
+      await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
+      assert.equal(await page.getByRole('dialog', { name: 'Save model', exact: true }).count(), 0);
+      const bytes = await fs.readFile(path.join(out, 'saved.' + format)), saved = openDocument(bytes, 'saved.' + format);
       assert.equal(saved.readOnly, false);
-      assert.equal(animationSpeedData(saved.model).master, 50);
-      assert.deepEqual(animationSpeedData(saved.model).sequences.map(item => [item.percent, item.checked]), [[50, true], [200, false]]);
-      saved.apply('Reset', [], model => { setAnimationActualSpeed(model, 0, 100); setAnimationActualSpeed(model, 1, 100); });
-      assert.deepEqual(saved.model.Bones[0].Translation.Keys.map(key => key.Frame), baseline);
+      assert.ok(!bytes.includes(ANIMATION_SPEED_TAG));
+      assert.deepEqual(Array.from(saved.model.Sequences[0].Interval), adjusted.interval);
+      assert.deepEqual(saved.model.Bones[0].Translation.Keys.map(key => key.Frame), adjusted.translation);
     }
     for (const format of ['mdx', 'mdl']) {
       await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, path.join(out, 'saved.' + format));
       await page.keyboard.press('Control+o'); await page.getByRole('tab', { name: 'saved.' + format, exact: true }).waitFor();
       await page.getByRole('button', { name: 'Animations', exact: true }).click();
       await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
-      assert.equal(await slider.inputValue(), '50');
+      await waitFor(state => JSON.stringify(state.interval) === JSON.stringify(adjusted.interval), 'Reopened ' + format + ' keeps its saved timing');
+      assert.equal(await slider.inputValue(), '100'); assert.equal(await percent.inputValue(), '100');
       await page.getByRole('button', { name: 'Adjust All Speed', exact: true }).click();
-      assert.equal(await master.inputValue(), '50'); assert.equal(await menu.getByLabel('Include Walk in Master Controller', { exact: true }).isChecked(), false);
-      await setRange(master, 100); await setRange(menu.getByRole('slider', { name: 'Walk speed', exact: true }), 100);
-      await page.keyboard.press('Escape');
-      await waitFor(state => JSON.stringify(state.translation) === JSON.stringify(baseline), 'UI restores original frames after ' + format + ' reopen');
-    }
-    // The checkbox affects persistence, while the running model keeps its
-    // adjusted timing. Both controls share the same document-level setting.
-    await setRange(slider, 50);
-    await rememberTiming.uncheck();
-    await page.getByRole('button', { name: 'Adjust All Speed', exact: true }).click();
-    assert.equal(await menu.getByRole('checkbox', { name: 'Remember Original Timing', exact: true }).isChecked(), false);
-    await menu.getByRole('button', { name: 'Close', exact: true }).click();
-    await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/not-remembered.' + options.filters[0].extensions[0] }); }, out);
-    await page.keyboard.press('Control+Shift+s');
-    await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
-    const notRemembered = openDocument(await fs.readFile(path.join(out, 'not-remembered.mdx')), 'not-remembered.mdx');
-    assert.equal(animationSpeedData(notRemembered.model), null);
-    assert.equal(notRemembered.model.Sequences[0].Interval[1], 4000);
-    assert.equal(await slider.inputValue(), '50');
-    await rememberTiming.check();
-
-    for (const format of ['mdx', 'mdl']) {
-      await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/stripped.' + options.filters[0].extensions[0] }); }, out);
-      await page.keyboard.press('Control+Shift+s');
-      await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
-      const saveOptions = page.getByRole('dialog', { name: 'Save model', exact: true });
-      await saveOptions.waitFor();
-      await saveOptions.getByRole('checkbox', { name: /Remove all MDLxL editor data/ }).check();
-      // Cancel must preserve the checkbox, original timing and live playback.
-      await saveOptions.getByRole('button', { name: 'Cancel', exact: true }).click();
-      await page.getByRole('dialog', { name: 'Save as', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
-      assert.equal(await rememberTiming.isChecked(), true);
-      assert.equal(await slider.inputValue(), '50');
-      const before = await readRuntime();
-      await page.keyboard.press('Control+Shift+s');
-      await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
-      await saveOptions.getByRole('checkbox', { name: /Remove all MDLxL editor data/ }).check();
-      await saveOptions.getByRole('button', { name: 'Save', exact: true }).click();
-      await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
-      const strippedBytes = await fs.readFile(path.join(out, 'stripped.' + format)), stripped = openDocument(strippedBytes, 'stripped.' + format);
-      assert.equal(removeEditorData(strippedBytes, format).removedBytes, 0);
-      assert.equal(animationSpeedData(stripped.model), null);
-      assert.deepEqual(Array.from(stripped.model.Sequences[0].Interval), before.interval);
-      assert.deepEqual(stripped.model.Bones[0].Translation.Keys.map(key => key.Frame), before.translation);
-      assert.equal(await rememberTiming.isChecked(), false);
-      assert.equal(await slider.inputValue(), '100');
-      await page.keyboard.press('Control+z');
-      assert.equal(await rememberTiming.isChecked(), true);
-      assert.equal(await slider.inputValue(), '50');
+      assert.equal(await master.inputValue(), '100'); assert.equal(await menu.getByLabel('Include Walk in Master Controller', { exact: true }).isChecked(), true);
+      await menu.getByRole('button', { name: 'Close', exact: true }).click(); await menu.waitFor({ state: 'hidden' });
     }
     for (const format of ['mdx', 'mdl']) for (const size of [511, 512, 513]) {
       const boundary = createDemoDocument();
