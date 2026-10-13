@@ -744,6 +744,17 @@ export function poseNodeConstraints(model, config, id, mode = 'move', target = c
     .map(chain => ({ chain, pinned: pinned.has(chain.key), bendLocal: config.bends?.[chain.key], target: config.targets?.[chain.key] }));
 }
 
+/** True when a Pelvis handle would only repeat Body: Move and Rotate both resolve to
+ * exactly Body's control (driver, joints, followers, carriers and head compensation,
+ * hence the same constraints). A rider's pelvis drives its own rider body and stays.
+ * Scale is not compared: it acts on the selected bone itself, so Pelvis Scale differs. */
+export function poseDuplicatesBody(model, config, id) {
+  if (id === config.body || config.body == null || poseRole(model, config, id) !== 'Pelvis') return false;
+  try {
+    return ['move', 'rotate'].every(mode => JSON.stringify(poseNodeControl(model, config, { kind: 'node', id }, mode)) === JSON.stringify(poseNodeControl(model, config, { kind: 'body' }, mode)));
+  } catch { return false; }
+}
+
 // Reuse an unreachable automatic goal only while its sampled pose still matches.
 // FK edits, Undo, scrubbing and changed mappings therefore rebase from native data.
 function matchesPoseTarget(target, chain, pose, frame, sequence) {
