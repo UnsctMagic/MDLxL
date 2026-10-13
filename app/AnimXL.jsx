@@ -134,44 +134,53 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   // Builds run in a worker so sliders and the preview never stutter, even on
   // long animations of big models. Only the newest request is built; the
   // window falls back to building in place if a worker cannot start.
-  const [outcome, setOutcome] = useState({}), worker = useRef(null), jobs = useRef({ next: 0, busy: false, queued: null, latest: 0 });
-  const buildHere = (index, values) => {
-    try { setOutcome({ result: buildAnimXL(model, index, values), settings: values }); }
-    catch (error) { setOutcome({ error: error.message, settings: values }); }
+  // One request is in flight at a time and only the newest waiting one is kept.
+  // Every result remembers the request (animation, settings, model revision) it was built from.
+  const [outcome, setOutcome] = useState({}), worker = useRef(null), jobs = useRef({ next: 0, busy: null, queued: null, latest: null });
+  const buildHere = request => {
+    try { setOutcome({ result: buildAnimXL(model, request.sequence, request.settings), request }); }
+    catch (error) { setOutcome({ error: error.message, request }); }
   };
   const send = request => {
     const queue = jobs.current;
     if (queue.busy) { queue.queued = request; return; }
-    queue.busy = true; worker.current.postMessage(request);
+    queue.busy = request; worker.current.postMessage({ id: request.id, sequence: request.sequence, settings: request.settings });
   };
   useEffect(() => {
     let job = null;
     try { job = new Worker(new URL('./anim-xl.worker.js', import.meta.url), { type: 'module' }); job.postMessage({ model }); }
     catch { job = null; }
     worker.current = job;
-    jobs.current = { next: jobs.current.next, busy: false, queued: null, latest: jobs.current.latest, pending: new Map() };
+    jobs.current = { next: jobs.current.next, busy: null, queued: null, latest: null };
     if (job) {
       job.onmessage = ({ data }) => {
-        const queue = jobs.current, values = queue.pending.get(data.id);
-        queue.pending.delete(data.id); queue.busy = false;
-        if (data.id === queue.latest) setOutcome(data.error ? { error: data.error, settings: values } : { result: data.result, settings: values });
+        const queue = jobs.current, request = queue.busy;
+        queue.busy = null;
+        if (request && data.id === request.id && request === queue.latest) setOutcome(data.error ? { error: data.error, request } : { result: data.result, request });
         if (queue.queued) { const next = queue.queued; queue.queued = null; send(next); }
       };
-      job.onerror = () => { job.terminate(); if (worker.current === job) { worker.current = null; jobs.current.busy = false; buildHere(seq, settings); } };
+      job.onerror = () => {
+        job.terminate();
+        if (worker.current !== job) return;
+        worker.current = null;
+        const queue = jobs.current; queue.busy = null; queue.queued = null;
+        if (queue.latest) buildHere(queue.latest);
+      };
     }
     return () => { job?.terminate(); if (worker.current === job) worker.current = null; };
   }, [model, doc.revision]);
   useEffect(() => {
     if (!sequences[seq]) { setOutcome({ error: 'This model has no animations yet. Create one in Movement first.' }); return; }
-    const queue = jobs.current, id = ++queue.next;
-    queue.latest = id;
-    if (!worker.current) { buildHere(seq, settings); return; }
-    queue.pending.set(id, settings);
-    send({ id, sequence: seq, settings });
+    const queue = jobs.current, request = { id: ++queue.next, sequence: seq, settings, revision: doc.revision };
+    queue.latest = request;
+    if (!worker.current) buildHere(request); else send(request);
   }, [model, doc.revision, seq, settings]);
   const result = outcome.result;
-  // Commit always uses a result built from exactly the current settings.
-  const currentResult = () => outcome.settings === settings && outcome.result ? outcome.result : buildAnimXL(model, seq, settings);
+  // Commit always uses a result built from exactly the current animation, settings and model.
+  const currentResult = () => {
+    const built = outcome.request;
+    return outcome.result && built?.settings === settings && built.sequence === seq && built.revision === doc.revision ? outcome.result : buildAnimXL(model, seq, settings);
+  };
 
   // Tracks for the preview: the shaped result, or the originals when comparing.
   const liveTracks = useMemo(() => {

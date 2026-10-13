@@ -89,8 +89,15 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
     const seq = model.Sequences?.[sequenceIndex], rig = suggestPoseRig(model, seq ? seq.Interval[0] : 0, sequenceIndex);
     for (const [id, role] of asMap(rig.roles)) roles.set(Number(id), role);
     body = rig.body ?? null;
-    legs = (rig.chains || []).filter(chain => chain.kind === 'leg' && byId.has(chain.root) && byId.has(chain.middle) && byId.has(chain.end)).map(chain => ({ root: chain.root, middle: chain.middle, end: chain.end }));
-    arms = (rig.chains || []).filter(chain => chain.kind === 'arm' && byId.has(chain.root) && byId.has(chain.middle) && byId.has(chain.end)).map(chain => ({ root: chain.root, middle: chain.middle, end: chain.end }));
+    // A limb owns its upper and middle bones. Two "legs" sharing a hip bone
+    // (dangling flyer talons, toes of one foot) cannot be solved apart.
+    const limbs = kind => {
+      const found = (rig.chains || []).filter(chain => chain.kind === kind && byId.has(chain.root) && byId.has(chain.middle) && byId.has(chain.end) && new Set([chain.root, chain.middle, chain.end]).size === 3);
+      const uses = new Map();
+      for (const chain of found) for (const id of [chain.root, chain.middle]) uses.set(id, (uses.get(id) || 0) + 1);
+      return found.filter(chain => uses.get(chain.root) === 1 && uses.get(chain.middle) === 1).map(chain => ({ root: chain.root, middle: chain.middle, end: chain.end }));
+    };
+    legs = limbs('leg'); arms = limbs('arm');
     feet = legs.map(chain => chain.end).filter(id => byId.has(id));
     const pivot = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
     legLength = legs.length ? legs.reduce((sum, c) => sum + pivot(c.root).distanceTo(pivot(c.middle)) + pivot(c.middle).distanceTo(pivot(c.end)), 0) / legs.length : 0;
@@ -163,9 +170,16 @@ function easeCurve(u, amount) {
  * pose time to a new one; the first and last pose stay at the sequence ends
  * and poses keep their order. */
 export function animXLRetimed(keys, settings) {
-  const moved = settings.retime || {}, out = keys.map(k => Number.isFinite(moved[k]) ? moved[k] : k);
-  out[0] = keys[0]; out[out.length - 1] = keys[keys.length - 1];
-  for (let i = 1; i < out.length - 1; i++) out[i] = Math.round(clamp(out[i], out[i - 1] + 10, keys[keys.length - 1] - 10 * (out.length - 1 - i)));
+  const moved = settings.retime || {};
+  if (!keys.some((k, i) => i > 0 && i < keys.length - 1 && Number.isFinite(moved[k]) && moved[k] !== k)) return keys.slice();
+  const out = keys.map(k => Number.isFinite(moved[k]) ? moved[k] : k), end = keys[keys.length - 1];
+  out[0] = keys[0]; out[out.length - 1] = end;
+  // Poses stay at least 10 ms apart, or evenly spread when the animation is too short for that.
+  const gap = Math.min(10, (end - keys[0]) / (out.length - 1));
+  for (let i = 1; i < out.length - 1; i++) {
+    const t = clamp(out[i], out[i - 1] + gap, end - gap * (out.length - 1 - i));
+    out[i] = gap >= 10 ? Math.round(t) : t;
+  }
   return out;
 }
 
@@ -174,11 +188,13 @@ export function animXLRetimed(keys, settings) {
  * sequence keeps its length. */
 export function animXLTimeMap(keys, settings, outKeys = animXLRetimed(keys, settings)) {
   const wanted = lerp(40, 150, settings.thunk / 100), start = outKeys[0], end = outKeys[outKeys.length - 1];
-  // Each hold catches up before the next pose, so no pose is skipped.
-  const holds = [...(settings.thunks || [])].sort((a, b) => a - b).filter(at => at >= start && at < end).map(at => {
-    const room = (outKeys.find(k => k > at) ?? end) - at, hold = Math.min(wanted, room / 3);
+  // Each hold catches up before the next pose and before the next hold, so no
+  // pose is skipped and time never runs backwards.
+  const ats = [...new Set(settings.thunks || [])].sort((a, b) => a - b).filter(at => at >= start && at < end);
+  const holds = ats.map((at, i) => {
+    const room = Math.min(outKeys.find(k => k > at) ?? end, ats[i + 1] ?? end) - at, hold = Math.min(wanted, room / 3);
     return { at, hold, catchUp: Math.min(hold * 2.5, room - hold) };
-  });
+  }).filter(h => h.hold > 0);
   return t => {
     for (const { at, hold, catchUp } of holds) {
       if (t >= at && t < at + hold) { t = at; break; }
@@ -224,7 +240,8 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const keys = animXLKeyTimes(model, sequenceIndex), outKeys = animXLRetimed(keys, settings), timeMap = animXLTimeMap(keys, settings, outKeys);
   // Source time -> output time (ignoring ease), for events found in the authored animation.
   const toOutput = t => { let i = 0; while (i < keys.length - 2 && t >= keys[i + 1]) i++; const span = keys[i + 1] - keys[i]; return span > 0 ? outKeys[i] + (t - keys[i]) / span * (outKeys[i + 1] - outKeys[i]) : outKeys[i]; };
-  const heavy = new Set(settings.heavyIds), loose = new Set(settings.looseIds);
+  // Picked bones only do something once their slider is up (a THUNK also shakes the heavy bones).
+  const heavy = new Set(settings.heavy > 0 || settings.thunks?.length ? settings.heavyIds : []), loose = new Set(settings.loose > 0 ? settings.looseIds : []);
   const from_ = settings.flinchBehind ? -1 : 1;
   const flinches = [...(settings.flinches || [])].map(f => typeof f === 'number' ? { at: f, dir: from_ } : { at: f.at, dir: f.dir ?? from_ }).sort((a, b) => a.at - b.at);
   const wantsBody = settings.weight > 0 || settings.steps > 0 || flinches.length > 0;
@@ -253,7 +270,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const exaggerate = settings.exaggerate / 100, anticipate = settings.anticipation / 100;
   const shaping = new Map();
   if (exaggerate > 0 || anticipate > 0) for (const node of nodes) {
-    if (!node.Rotation?.Keys) continue;
+    if (!node.Rotation?.Keys || stiff.has(node.ObjectId)) continue;
     const poses = keys.map(k => authored(node, k));
     for (let i = 1; i < poses.length; i++) if (poses[i].dot(poses[i - 1]) < 0) poses[i].set(-poses[i].x, -poses[i].y, -poses[i].z, -poses[i].w);
     const sum = poses.reduce((acc, q) => acc.set(acc.x + q.x, acc.y + q.y, acc.z + q.z, acc.w + q.w), new Quaternion(0, 0, 0, 0));
@@ -267,7 +284,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   // animation, so looping animations stay seamless. Same result every time.
   const life = settings.life / 100, drift = new Map();
   if (life > 0) for (const node of nodes) {
-    if (!byId.has(node.Parent) || (node.Flags || 0) & 7) continue;
+    if (!byId.has(node.Parent) || (node.Flags || 0) & 7 || stiff.has(node.ObjectId)) continue;
     let seed = (node.ObjectId + 1) * 2654435761 % 4294967296;
     const rand = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
     const axis = new Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize();
@@ -400,7 +417,8 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   }
 
   // Loops must end exactly where they start: ease the last stretch onto the first pose.
-  if (!seq.NonLooping) closeLoop(samples, bodySamples);
+  // Only bones AnimXL shaped are touched; an authored seam elsewhere is left as it is.
+  if (!seq.NonLooping) closeLoop(samples, bodySamples, id => simIds.has(id) || drift.has(id) || shaping.has(id));
 
   // Keep feet planted: legs are solved back onto the authored foot path.
   const legNodes = new Set((rig.legs || []).flatMap(leg => [leg.root, leg.middle, leg.end]));
@@ -413,6 +431,8 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   let keyCount = 0;
   for (const node of order) {
     const qs = samples.get(node.ObjectId);
+    // A degenerate pose (a bone scaled to nothing) falls back to the authored one rather than saving a broken key.
+    for (let i = 0; i < qs.length; i++) if (![qs[i].x, qs[i].y, qs[i].z, qs[i].w].every(Number.isFinite)) authored(node, outFrames[i], qs[i]);
     for (let i = 1; i < qs.length; i++) if (qs[i].dot(qs[i - 1]) < 0) qs[i].set(-qs[i].x, -qs[i].y, -qs[i].z, -qs[i].w);
     let changed = false;
     for (let i = 0; i < qs.length && !changed; i++) changed = qs[i].angleTo(authored(node, outFrames[i], tmp)) > 0.01;
@@ -423,11 +443,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     const original = node.Rotation?.Keys ? node.Rotation : { LineType: 1, Keys: [] };
     const lineType = Math.max(2, original.LineType ?? 1) === 2 ? 2 : 3;
     const ours = reduceRotationSquad(outFrames, qs, settings.tolerance ?? 0.008);
-    const outside = original.Keys.filter(key => key.Frame < from || key.Frame > to).map(key => {
-      const copy = structuredClone(key);
-      if (!copy.InTan) { copy.InTan = new Float32Array(copy.Vector); copy.OutTan = new Float32Array(copy.Vector); }
-      return copy;
-    });
+    const outside = outsideKeys(original, from, to, true);
     tracks.push({ id: node.ObjectId, property: 'Rotation', track: { ...structuredClone({ ...original, Keys: [] }), LineType: lineType, Keys: [...outside, ...ours].sort((a, b) => a.Frame - b.Frame) } });
     keyCount += ours.length;
   }
@@ -436,7 +452,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     const authored = outFrames.map(f => bodyTarget(f, new Vector3()));
     const tolerance = Math.max(0.05, scale * 0.004);
     if (bodySamples.some((p, i) => p.distanceTo(authored[i]) > tolerance)) {
-      const lineType = original.LineType ?? 1;
+      const lineType = original.LineType || 1; // stepped tracks become Linear for our keys
       const kept = reducePoints(outFrames, bodySamples, tolerance);
       const ours = kept.map(i => {
         const v = new Float32Array(bodySamples[i].toArray()), key = { Frame: outFrames[i], Vector: v };
@@ -457,7 +473,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     const at = f => new Vector3().fromArray(sampleTrack(track, f, posOpts));
     const moved = outFrames.map(f => at(timeMap(f))), tolerance = Math.max(0.02, scale * 0.002);
     if (!moved.some((p, i) => p.distanceTo(at(outFrames[i])) > tolerance)) continue;
-    const lineType = track.LineType ?? 1;
+    const lineType = track.LineType || 1;
     const ours = reducePoints(outFrames, moved, tolerance).map(i => {
       const v = new Float32Array(moved[i].toArray()), key = { Frame: outFrames[i], Vector: v };
       if (lineType === 3) { key.InTan = new Float32Array(v); key.OutTan = new Float32Array(v); }
@@ -472,8 +488,9 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
 
 /** Spread any mismatch between the last and first frame over the final
  * quarter of a looping animation, so it plays without a pop at the loop. */
-function closeLoop(samples, bodySamples) {
-  for (const qs of samples.values()) {
+function closeLoop(samples, bodySamples, shaped) {
+  for (const [id, qs] of samples) {
+    if (!shaped(id)) continue;
     const n = qs.length;
     if (n < 4) continue;
     const correction = qs[0].clone().multiply(qs[n - 1].clone().invert());
@@ -545,14 +562,17 @@ function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength,
       if (Math.min(...heights[i]) <= ground + Math.max(4, legLength * 0.25)) limbs.push({ chain: leg, target: (k, shaped) => ({ position: position(authored[k], leg.end), rotation: rotationOf(authored[k], leg.end) }) });
     });
   }
-  if (weapon != null && byId.has(weapon)) for (const arm of (arms || []).filter(usable)) {
+  // A weapon scaled to nothing (hidden for part of the animation) has no grip to keep.
+  const solid = matrix => matrix && Math.abs(matrix.determinant()) > 1e-9;
+  if (weapon != null && byId.has(weapon) && authored.every(m => solid(m.get(weapon)))) for (const arm of (arms || []).filter(usable)) {
     if (descendsFrom(weapon, arm.root)) continue; // the arm holding the weapon
     const reach = pivotOf(arm.root).distanceTo(pivotOf(arm.middle)) + pivotOf(arm.middle).distanceTo(pivotOf(arm.end));
     // A two-handed grip keeps the hand at one spot on the weapon all through the animation.
     const held = authored.map(m => position(m, arm.end).applyMatrix4(m.get(weapon).clone().invert()));
     const centre = held.reduce((sum, p) => sum.add(p), new Vector3()).divideScalar(held.length);
-    if (Math.max(...held.map(p => p.distanceTo(centre))) > reach * 0.15) continue;
+    if (!(Math.max(...held.map(p => p.distanceTo(centre))) <= reach * 0.15)) continue;
     limbs.push({ chain: arm, target: (k, shaped) => {
+      if (!solid(shaped.get(weapon))) return null;
       const hold = shaped.get(weapon).clone().multiply(authored[k].get(weapon).clone().invert()).multiply(authored[k].get(arm.end));
       const p = new Vector3(), q = new Quaternion(), s = new Vector3(); hold.decompose(p, q, s);
       return { position: pivotOf(arm.end).applyMatrix4(hold), rotation: q };
@@ -568,8 +588,11 @@ function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength,
       node => sampleVec(node.Scaling, src, [1, 1, 1]));
     for (const { chain, target } of limbs) {
       const goal = target(k, shaped);
+      if (!goal || ![goal.position.x, goal.position.y, goal.position.z, goal.rotation.x, goal.rotation.y, goal.rotation.z, goal.rotation.w].every(Number.isFinite)) continue;
       const R = position(shaped, chain.root), M = position(shaped, chain.middle), E = position(shaped, chain.end), T = goal.position;
-      if (E.distanceTo(T) < 0.01) continue;
+      const endNode = byId.get(chain.end);
+      // Already in place: only the foot or hand turns back to its authored orientation.
+      if (E.distanceTo(T) < 0.01) { samples.get(chain.end)[k] = rotationOf(shaped, endNode.Parent).invert().multiply(goal.rotation).normalize(); continue; }
       const a = R.distanceTo(M), b = M.distanceTo(E);
       if (a < 1e-4 || b < 1e-4) continue;
       const toT = T.clone().sub(R), d = clamp(toT.length(), Math.abs(a - b) + 1e-3, a + b - 1e-3), dir = toT.normalize();
@@ -587,7 +610,7 @@ function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength,
         if (id === chain.root || descendsFrom(id, chain.root)) return q1.clone().multiply(old);
         return old;
       };
-      const rootNode = byId.get(chain.root), midNode = byId.get(chain.middle), endNode = byId.get(chain.end);
+      const rootNode = byId.get(chain.root), midNode = byId.get(chain.middle);
       samples.get(chain.root)[k] = rotationOf(shaped, rootNode.Parent).invert().multiply(rootWorld).normalize();
       samples.get(chain.middle)[k] = newParentWorld(midNode.Parent).invert().multiply(midWorld).normalize();
       samples.get(chain.end)[k] = newParentWorld(endNode.Parent).invert().multiply(goal.rotation).normalize();
@@ -595,9 +618,24 @@ function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength,
   }
   return limbs.length;
 }
+/** Keys of every other animation, unchanged in how they play. A stepped
+ * (no interpolation) track becomes smooth for our keys, so each of its other
+ * keys is held until just before the next one and those animations keep stepping. */
+function outsideKeys(original, from, to, flatTangents) {
+  const keys = [...original.Keys].sort((a, b) => a.Frame - b.Frame), stepped = (original.LineType ?? 1) === 0, out = [];
+  keys.forEach((key, i) => {
+    if (key.Frame >= from && key.Frame <= to) return;
+    const copy = structuredClone(key);
+    if (flatTangents && !copy.InTan) { copy.InTan = new Float32Array(copy.Vector); copy.OutTan = new Float32Array(copy.Vector); }
+    out.push(copy);
+    const held = keys[i + 1]?.Frame - 1;
+    if (stepped && held > key.Frame && (held < from || held > to)) out.push({ ...structuredClone(copy), Frame: held });
+  });
+  return out;
+}
 // Our keys replace this sequence's keys; every other sequence keeps its own.
 function mergeTrack(original, ours, lineType, from, to) {
-  const outside = original.Keys.filter(key => key.Frame < from || key.Frame > to).map(key => structuredClone(key));
+  const outside = outsideKeys(original, from, to, false);
   return { ...structuredClone({ ...original, Keys: [] }), LineType: lineType, Keys: [...outside, ...ours].sort((a, b) => a.Frame - b.Frame) };
 }
 

@@ -18,8 +18,8 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 | Life | Held poses breathe: small, slow drifts so the unit never freezes dead. Loops seamlessly. |
 | Hit poses | How closely the result lands on your key poses (Loose ↔ Exact). |
 | Timing | Drag a pose diamond on the strip to change when that pose happens; double-click it to put it back. Translations follow the new timing too. |
-| Heavy bones | Picked bones (usually the weapon) trail the swing and drag the arm holding them. |
-| Keep both hands on the weapon | With a two-handed grip (the other hand stays at one spot on the weapon), that hand stays on the weapon while it drags. Not yet exercised on a real two-handed model: none of the local test units has one. |
+| Heavy bones | Picked bones (usually the weapon) trail the swing and drag the arm holding them. Picked bones do nothing while the slider is at 0. |
+| Keep both hands on the weapon | With a two-handed grip (the other hand stays at one spot on the weapon), that hand stays on the weapon while it drags. |
 | Loose bones | Picked bones (cape, hair, tail) swing loosely on their own. |
 | Stiff bones | Picked bones and everything below them follow exactly: no lag, wobble or drag (a mount's legs, face or portrait bones). |
 | Body and feet | The Feet section shows the body and feet AnimXL found. If it read the rig wrong, pick the body bone from the list and pick each foot (ankle) bone, by list or in the preview; a picked foot's leg is the foot and its two parents. |
@@ -45,13 +45,13 @@ AnimXL opens showing your animation unchanged; nothing moves until you move a sl
 
 ## How it works
 
-`src/anim-xl.js` samples the authored animation as a target pose, runs a spring per bone in world orientation (so children lag their parents), and reduces the result back to smooth (squad) keys. Linear rotation tracks become Bezier; keys of other animations get flat tangents, so they play exactly as before. The body (from POSE's rig reading, bone names, or your pick) gets a translation spring for Weight, Heavy steps and Flinch. Afterwards, two-bone IK puts planted feet back on their authored path and keeps a two-handed grip on the weapon.
+`src/anim-xl.js` samples the authored animation as a target pose, runs a spring per bone in world orientation (so children lag their parents), and reduces the result back to smooth (squad) keys. Linear rotation tracks become Bezier; keys of other animations get flat tangents, so they play exactly as before. On a stepped (no interpolation) track, each key of the other animations is held until just before the next, so they keep stepping. The body (from POSE's rig reading, bone names, or your pick) gets a translation spring for Weight, Heavy steps and Flinch. Afterwards, two-bone IK puts planted feet back on their authored path and keeps a two-handed grip on the weapon.
 
 The weapon is found from bone names or the model's "Weapon Ref" attachment; hands, limbs, mounts and shields are never guessed as the weapon.
 
 Hand-keyed animations use their own key times as the poses Ease preserves. Densely keyed animations use the moments where the body slows to a stop, and AnimXL says so.
 
-Looping animations end exactly where they start: AnimXL pre-rolls whole cycles so the springs settle into the loop, then eases the last quarter onto the first pose. This also repairs loop seams already in an animation (for example a cape that jumps at the loop point).
+Looping animations end exactly where they start: AnimXL pre-rolls whole cycles so the springs settle into the loop, then eases the last quarter of every shaped bone onto its first pose. On those bones this also repairs seams already in the animation (for example a cape that jumps at the loop point); bones AnimXL does not shape keep their keys.
 
 Ease, retiming and THUNK holds also retime keyed translations, so a jump or a crouch stays in step with the rotations.
 
@@ -61,13 +61,13 @@ Ease, retiming and THUNK holds also retime keyed translations, so a jump or a cr
 - Eased motion needs extra keys: shaped animations carry roughly 4 keys per move per bone.
 - Overlap means children reach a pose slightly after their parent unless Hit poses is set to Exact.
 - Bones with global-sequence or billboarded rotation are left alone.
-- Heavy steps and foot planting need feet that touch the ground; a rider's feet in stirrups are left free.
-- The two-handed grip has not met a real two-handed model yet (none of the local test units has one).
-- AnimXL's own window text is English only; its module name is not translated, like OptimizeXL.
+- Heavy steps and foot planting need feet that touch the ground; a rider's feet in stirrups are left free. A leg must have its own upper and middle bone: dangling flyer talons that hang off one hip bone are not legs.
+- A weapon that is scaled to nothing during an animation gets no grip in that animation.
+- Reforged HD (format 1000) models open read-only in MDLxL, so AnimXL cannot shape them yet.
 
 ## Checks
 
-- `node --test test/anim-xl.test.js`
+- `node --test test/anim-xl.test.js test/anim-xl-grip.test.js test/anim-xl-review.test.js`
 - Packaged mouse check: `MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_ANIMXL_EXE=<MDLxL.exe> node test/anim-xl.electron.cjs`
 - Contact sheet of one animation (Original and presets over time): `node test/anim-xl-filmstrip.electron.cjs <model.mdx> "Attack - 1" Natural Heavy`
 

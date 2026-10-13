@@ -1,0 +1,75 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { Quaternion, Vector3 } from 'three';
+import { ANIMXL_DEFAULTS, animXLRetimed, animXLTimeMap, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
+import { sampleNodeMatrices, sampleTrack } from '../src/animation.js';
+
+// Regression tests for the engine review findings: AnimXL changes nothing it
+// was not asked to change, and time never runs backwards.
+
+const q = deg => new Float32Array(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), deg * Math.PI / 180).toArray());
+const rot = (rows, type = 1) => ({ LineType: type, GlobalSeqId: -1, Keys: rows.map(([Frame, deg]) => ({ Frame, Vector: q(deg) })) });
+const angleAt = (track, frame, interval) => new Quaternion().fromArray(sampleTrack(track, frame, { interval, quaternion: true, fallback: [0, 0, 0, 1] })).angleTo(new Quaternion()) * 180 / Math.PI;
+const twoBones = rotation => ({
+  Sequences: [{ Name: 'Loop', Interval: [0, 1000], NonLooping: false }, { Name: 'Other', Interval: [2000, 3000], NonLooping: true }],
+  Bones: [{ Name: 'Bone_Pelvis', ObjectId: 0, Parent: -1, Flags: 256, PivotPoint: [0, 0, 0] }, { Name: 'Bone_Arm', ObjectId: 1, Parent: 0, Flags: 256, PivotPoint: [0, 0, 20], Rotation: rotation }],
+  Helpers: [], Geosets: [], PivotPoints: [[0, 0, 0], [0, 0, 20]], GlobalSequences: [],
+});
+
+test('AnimXL with nothing turned up leaves an authored loop seam alone', () => {
+  const model = twoBones(rot([[0, 0], [500, 90], [1000, 45]]));
+  assert.equal(buildAnimXL(model, 0, {}).tracks.length, 0);
+});
+
+test('AnimXL keeps another animation that steps between keys stepping', () => {
+  const model = twoBones(rot([[0, 0], [500, 90], [1000, 45], [2000, 0], [3000, 90]], 0));
+  model.Sequences[0].NonLooping = true;
+  const before = [2000, 2500, 2998, 3000].map(t => angleAt(model.Bones[1].Rotation, t, [2000, 3000]));
+  applyAnimXL(model, buildAnimXL(model, 0, { overlap: 80 }));
+  const after = [2000, 2500, 2998, 3000].map(t => angleAt(model.Bones[1].Rotation, t, [2000, 3000]));
+  after.forEach((a, i) => assert.ok(Math.abs(a - before[i]) < 0.01, `frame ${[2000, 2500, 2998, 3000][i]}: ${before[i]} -> ${a}`));
+});
+
+test('suggested heavy and loose bones do nothing until their sliders are up', () => {
+  const pivots = [[0, 0, 0], [0, 0, 20], [10, 0, 20], [0, 10, 20]], names = ['Bone_Pelvis', 'Bone_Arm', 'Bone_Sword', 'Bone_Tail'];
+  const model = { Sequences: [{ Name: 'Attack', Interval: [0, 1000], NonLooping: true }], GlobalSequences: [], PivotPoints: pivots, Geosets: [], Helpers: [],
+    Bones: pivots.map((PivotPoint, ObjectId) => ({ ObjectId, Name: names[ObjectId], Parent: ObjectId === 0 ? -1 : ObjectId === 1 ? 0 : 1, PivotPoint, Flags: 256, ...(ObjectId === 1 ? { Rotation: rot([[0, 0], [500, 90], [1000, 0]]) } : {}) })) };
+  const picks = suggestAnimXLBones(model);
+  assert.deepEqual([picks.heavyIds, picks.looseIds], [[2], [3]]);
+  assert.equal(buildAnimXL(model, 0, picks).tracks.length, 0);
+  assert.ok(buildAnimXL(model, 0, { ...picks, heavy: 50, loose: 50 }).tracks.some(t => t.id === 2), 'the sword drags once Heavy is up');
+});
+
+test('overlapping THUNK holds never run source time backwards', () => {
+  const map = animXLTimeMap([0, 500, 1000], { ...ANIMXL_DEFAULTS, thunks: [100, 250, 250] });
+  for (let t = 1; t <= 1000; t++) assert.ok(map(t) >= map(t - 1) - 1e-9, `time ran backwards at ${t}`);
+  assert.equal(map(1000), 1000);
+});
+
+test('a very short animation keeps its last pose at its end', () => {
+  const keys = [0, 1, 2, 3, 30];
+  assert.deepEqual(animXLRetimed(keys, ANIMXL_DEFAULTS), keys);
+  assert.equal(animXLTimeMap(keys, ANIMXL_DEFAULTS)(30), 30);
+  const squeezed = animXLRetimed(keys, { retime: { 2: 29 } });
+  assert.equal(squeezed[4], 30);
+  for (let i = 1; i < squeezed.length; i++) assert.ok(squeezed[i] > squeezed[i - 1]);
+});
+
+test('stiff bones get no Life wobble', () => {
+  const model = { ...twoBones(rot([[0, 0], [500, 0], [1000, 0]])), Sequences: [{ Name: 'Attack', Interval: [0, 1000], NonLooping: true }] };
+  const result = buildAnimXL(model, 0, { life: 100, stiffIds: [1] });
+  assert.equal(result.tracks.length, 0);
+});
+
+test('a planted foot keeps its authored orientation even when it is already in place', () => {
+  const pivots = [[0, 0, 40], [0, 0, 40], [8, 0, 20], [0, 0, 0]], names = ['Bone_Pelvis', 'Bone_Thigh_L', 'Bone_Shin_L', 'Bone_Foot_L'], parents = [-1, 0, 1, 2];
+  const model = { Sequences: [{ Name: 'Stand', Interval: [0, 1000], NonLooping: true }], GlobalSequences: [], Helpers: [], Geosets: [], PivotPoints: pivots,
+    Bones: pivots.map((PivotPoint, ObjectId) => ({ ObjectId, Name: names[ObjectId], Parent: parents[ObjectId], PivotPoint, Flags: 256, ...(ObjectId === 3 ? { Rotation: rot([[0, 0], [500, 90], [1000, 0]]) } : {}) })) };
+  const planted = structuredClone(model);
+  applyAnimXL(planted, buildAnimXL(model, 0, { overlap: 70, poses: 0, feet: true }));
+  const orientation = matrix => { const r = new Quaternion(); matrix.decompose(new Vector3(), r, new Vector3()); return r; };
+  for (let t = 0; t <= 1000; t += 33) {
+    const a = sampleNodeMatrices(model, t, 0).get(3), b = sampleNodeMatrices(planted, t, 0).get(3);
+    assert.ok(orientation(a).angleTo(orientation(b)) * 180 / Math.PI < 1.5, `foot turned at ${t}`);
+  }
+});
