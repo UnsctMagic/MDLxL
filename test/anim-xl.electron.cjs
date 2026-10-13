@@ -48,6 +48,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     checks.push('Preview camera rotates with a real mouse drag');
     await dialog.screenshot({ path: path.join(out, '3-rotated.png') });
     // THUNK at the paused moment.
+    await dialog.locator('summary', { hasText: 'Hits' }).click();
     await dialog.getByRole('button', { name: 'Add THUNK here' }).click();
     assert.equal(await dialog.locator('.ax-thunk').count(), 1);
     checks.push('THUNK added from the paused moment');
@@ -91,6 +92,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(400);
     assert.equal(await dialog.getByRole('slider', { name: 'Overlap', exact: true }).inputValue(), overlapBefore);
     checks.push(`Settings remembered after closing (Overlap ${overlapBefore})`);
+    await dialog.locator('summary', { hasText: 'Also apply to' }).click();
     await dialog.getByRole('checkbox', { name: 'Attack - 2' }).check();
     assert.equal(await dialog.getByRole('button', { name: 'Commit 2 animations' }).count(), 1);
     checks.push('Also apply to: Commit covers 2 animations');

@@ -35,6 +35,14 @@ function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
   </label>;
 }
 
+// A collapsible group: the title (and a short summary while closed) stays visible.
+function Section({ title, note, open = false, children }) {
+  return <details className="ax-section" open={open}>
+    <summary title={`Show or hide ${title}`}>{title}{note ? <small> · {note}</small> : null}</summary>
+    <div className="ax-section-body">{children}</div>
+  </details>;
+}
+
 function BonePicker({ label, tip, ids, options, onChange, picking, onPick }) {
   const chosen = new Set(ids);
   return <div className="ax-bones" title={tip}>
@@ -192,34 +200,35 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           </div>
         </div>
         <div className="ax-controls">
-          <fieldset><legend>Quick start</legend>
+          <Section title="Quick start" open>
             <div className="ax-row ax-presets">{PRESETS.map(([name, tip, values]) => <button key={name} title={tip} onClick={() => update(old => ({ ...old, ...values }))}>{name}</button>)}</div>
-          </fieldset>
-          <fieldset><legend>Motion</legend>{MOTION.map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</fieldset>
-          <fieldset><legend>Heavy bones</legend>
+          </Section>
+          <Section title="Motion" open>{MOTION.slice(0, 4).map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</Section>
+          <Section title="More motion" note={MOTION.slice(4).filter(([id]) => settings[id] !== ANIMXL_DEFAULTS[id]).map(([, label]) => label).join(', ')}>{MOTION.slice(4).map(([id, label, low, high, tip]) => <Slider key={id} {...{ id, label, low, high, tip }} value={settings[id]} onChange={change}/>)}</Section>
+          <Section title="Heavy bones" open note={settings.heavyIds.length ? ` picked` : ''}>
             <BonePicker label="heavy bones" tip="Picked bones (usually the weapon) trail behind the swing and drag the arm holding them." ids={settings.heavyIds} options={boneOptions} onChange={ids => change('heavyIds', ids)} picking={picking === 'heavyIds'} onPick={() => setPicking(p => p === 'heavyIds' ? null : 'heavyIds')}/>
             <Slider id="heavy" label="Heaviness" low="Dagger" high="Greatsword" tip="How heavy the picked bones are. Heavier parts lag more and overshoot further." value={settings.heavy} onChange={change}/>
-          </fieldset>
-          <fieldset><legend>Loose bones</legend>
+          </Section>
+          <Section title="Loose bones" note={settings.looseIds.length ? ` picked` : ''}>
             <BonePicker label="loose bones" tip="Picked bones (cape, hair, tail, plume) swing loosely on their own." ids={settings.looseIds} options={boneOptions} onChange={ids => change('looseIds', ids)} picking={picking === 'looseIds'} onPick={() => setPicking(p => p === 'looseIds' ? null : 'looseIds')}/>
             <Slider id="loose" label="Looseness" low="Stiff" high="Floppy" tip="How freely the picked bones swing and wobble." value={settings.loose} onChange={change}/>
-          </fieldset>
-          <fieldset><legend>Steps</legend>
+          </Section>
+          <Section title="Steps" note={settings.steps ? `Heavy steps ${settings.steps}` : ''}>
             <Slider id="steps" label="Heavy steps" low="Off" high="Stomp" tip="Each time a foot lands, the body drops into the step and the chest and head nod. Footfalls are found from the feet touching the ground." value={settings.steps} onChange={change}/>
             {settings.steps > 0 && <small className="ax-note">{footfalls.length ? `${footfalls.length} footfall${footfalls.length > 1 ? 's' : ''} found (green ticks)` : 'No feet touch the ground in this animation.'}</small>}
-          </fieldset>
-          <fieldset><legend>Hits</legend>
+          </Section>
+          <Section title="Hits" note={[settings.thunks.length && `★${settings.thunks.length}`, settings.flinches.length && `✕${settings.flinches.length}`].filter(Boolean).join(' ')}>
             <div className="ax-chips">{settings.thunks.map(t => <button key={t} className="ax-chip" title="Remove this THUNK" onClick={() => change('thunks', settings.thunks.filter(x => x !== t))}>★ {t - interval[0]} ms ×</button>)}</div>
             <button onClick={() => addMarker('thunks')} title="Your weapon connects here: the animation holds this pose for a beat and heavy bones bounce back.">Add THUNK here</button>
             <Slider id="thunk" label="THUNK" low="Light" high="Brutal" tip="How long the hit holds and how hard the heavy bones bounce back." value={settings.thunk} onChange={change}/>
             <div className="ax-chips">{settings.flinches.map(t => <button key={t} className="ax-chip ax-chip-flinch" title="Remove this flinch" onClick={() => change('flinches', settings.flinches.filter(x => x !== t))}>✕ {t - interval[0]} ms ×</button>)}</div>
             <button onClick={() => addMarker('flinches')} title="The unit gets hit from the front here: the body is knocked back and the torso snaps back, then recovers.">Add flinch here</button>
             <Slider id="flinch" label="Flinch" low="Tap" high="Wrecked" tip="How hard the unit is knocked back by each flinch." value={settings.flinch} onChange={change}/>
-          </fieldset>
-          <fieldset><legend>Also apply to</legend>
+          </Section>
+          <Section title="Also apply to" note={also.length ? `${also.length} more` : ''}>
             <small className="ax-note">Commit shapes these animations too, with the same sliders and bones. THUNKs and flinches stay on this animation.</small>
             <div className="ax-also">{sequences.map((s, i) => i === seq ? null : <label key={i} title={`Shape ${s.Name || 'this animation'} too when you commit`}><input type="checkbox" checked={also.includes(i)} onChange={event => setAlso(list => event.target.checked ? [...list, i] : list.filter(x => x !== i))}/> {s.Name || `Animation ${i + 1}`}</label>)}</div>
-          </fieldset>
+          </Section>
         </div>
       </div>
       <footer className="ax-footer">

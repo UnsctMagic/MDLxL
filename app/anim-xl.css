@@ -37,3 +37,7 @@
 .resource-editor .ax-strip i.ax-thunk,.resource-editor .ax-strip i.ax-flinch{cursor:ew-resize}
 .resource-editor .ax-also{display:flex;flex-direction:column;gap:1px;max-height:120px;overflow-y:auto;border:1px solid #a0a0a0;background:#fff;padding:2px 4px}
 .resource-editor .ax-also label{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.resource-editor .ax-section{border:2px groove #ece9d8;padding:2px 6px 4px}
+.resource-editor .ax-section>summary{cursor:pointer;font-weight:bold;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resource-editor .ax-section>summary small{font-weight:normal;color:#555}
+.resource-editor .ax-section-body{display:flex;flex-direction:column;gap:4px;padding-top:2px}
