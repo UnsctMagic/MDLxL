@@ -39,18 +39,27 @@ The strip under the preview shows key poses (diamonds, orange once moved), footf
 
 Slider settings are remembered per model and animation until you commit.
 
+AnimXL opens showing your animation unchanged; nothing moves until you move a slider or pick a preset. Shaping runs in a background worker, so sliders stay smooth on long animations of big models.
+
 ## How it works
 
-`src/anim-xl.js` samples the authored animation as a target pose, runs a spring per bone in world orientation (so children lag their parents), and reduces the result back to smooth (squad) keys. Linear rotation tracks become Bezier; keys of other animations get flat tangents, so they play exactly as before. The body (from POSE's rig reading, or bone names) gets a translation spring for Weight, Heavy steps and Flinch.
+`src/anim-xl.js` samples the authored animation as a target pose, runs a spring per bone in world orientation (so children lag their parents), and reduces the result back to smooth (squad) keys. Linear rotation tracks become Bezier; keys of other animations get flat tangents, so they play exactly as before. The body (from POSE's rig reading, bone names, or your pick) gets a translation spring for Weight, Heavy steps and Flinch. Afterwards, two-bone IK puts planted feet back on their authored path and keeps a two-handed grip on the weapon.
 
-Hand-keyed animations use their own key times as the poses Ease preserves. Densely keyed animations use the moments where the body slows to a stop.
+The weapon is found from bone names or the model's "Weapon Ref" attachment; hands, limbs, mounts and shields are never guessed as the weapon.
+
+Hand-keyed animations use their own key times as the poses Ease preserves. Densely keyed animations use the moments where the body slows to a stop, and AnimXL says so.
+
+Ease, retiming and THUNK holds also retime keyed translations, so a jump or a crouch stays in step with the rotations.
 
 ## Limits
 
+- Rotations and translations only; scaling keys keep their original timing.
 - Eased motion needs extra keys: shaped animations carry roughly 4 keys per move per bone.
 - Overlap means children reach a pose slightly after their parent unless Hit poses is set to Exact.
 - Bones with global-sequence or billboarded rotation are left alone.
-- Heavy steps needs feet that touch the ground; a rider's feet in stirrups are ignored.
+- Heavy steps and foot planting need feet that touch the ground; a rider's feet in stirrups are left free.
+- The two-handed grip has not met a real two-handed model yet (none of the local test units has one).
+- AnimXL's own window text is English only; its module name is not translated, like OptimizeXL.
 
 ## Checks
 
@@ -58,4 +67,4 @@ Hand-keyed animations use their own key times as the poses Ease preserves. Dense
 - Packaged mouse check: `MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_ANIMXL_EXE=<MDLxL.exe> node test/anim-xl.electron.cjs`
 - Contact sheet of one animation (Original and presets over time): `node test/anim-xl-filmstrip.electron.cjs <model.mdx> "Attack - 1" Natural Heavy`
 
-Verified locally on 29 unit models (335 animations, every slider on, no failures; slowest build 239 ms), and MDX/MDL save-and-reopen gives identical poses.
+Verified locally on 29 unit models (335 animations, every slider on, no failures; slowest build about 400 ms, in the worker), and MDX/MDL save-and-reopen gives identical poses. Foot slip under heavy Weight and Overlap drops from 4–14 units to about 0.5–1 on walks. Sound events survive MDX and MDL save-and-reopen.
