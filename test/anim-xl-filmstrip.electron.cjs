@@ -33,7 +33,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       // A row can name a fall direction too: Death:left.
       const [preset, fall] = row.split(':');
       if (row !== 'Original') { await dialog.getByRole('button', { name: preset, exact: true }).click(); }
-      if (fall) { if (!(await dialog.getByLabel('Fall direction').isVisible())) await dialog.locator('.ax-card-main', { hasText: 'Collapse' }).click(); await dialog.getByLabel('Fall direction').selectOption(fall); }
+      if (fall) { if (!(await dialog.getByLabel('Fall direction').isVisible())) await dialog.locator('.ax-card-main', { hasText: 'Death fall' }).click(); await dialog.getByLabel('Fall direction').selectOption(fall); }
       await page.waitForTimeout(700);
       for (let k = 0; k < frames; k++) {
         await page.mouse.click(strip.x + 1 + (strip.width - 2) * k / (frames - 1), strip.y + strip.height / 2);

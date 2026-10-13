@@ -18,7 +18,7 @@ const EFFECTS = [
   { id: 'smooth', name: 'Smooth', hint: 'Eases in and out of every pose', key: 'ease', on: 50, low: 'Even', high: 'Silky', tip: 'Speeds up out of each pose and slows into the next one, instead of moving at one even speed. Your poses stay where they are.' },
   { id: 'follow', name: 'Follow-through', hint: 'Head, arms and tail trail the body', key: 'overlap', on: 50, low: 'Stiff', high: 'Loose', tip: 'Parts further from the body follow a moment later: the hips lead, then chest, arms, hands and weapon. The single biggest fix for robotic motion.' },
   { id: 'wobble', name: 'Wobble', hint: 'Overshoots a pose, then settles', key: 'settle', on: 40, low: 'Dead stop', high: 'Bouncy', tip: 'Parts overshoot a pose slightly and wobble back into it, instead of stopping dead.' },
-  { id: 'weight', name: 'Weight', hint: 'A heavier, slower body', key: 'weight', on: 50, low: 'Light', high: 'Heavy', bones: 'body', tip: 'The body is slower to start and stop and lags behind its path, as if it were heavier.' },
+  { id: 'weight', name: 'Weight', hint: 'A heavier, slower body', key: 'weight', on: 50, low: 'Nimble', high: 'Heavy', bones: 'body', tip: 'The body is slower to start and stop and lags behind its path, as if it were heavier.' },
   { id: 'weapon', name: 'Weapon drag', hint: 'The weapon trails the swing', key: 'heavy', on: 60, low: 'Dagger', high: 'Greatsword', bones: 'heavyIds', tip: 'The weapon (or any heavy part you pick) trails behind the swing and drags the arm holding it.' },
   { id: 'cloth', name: 'Cloth & hair', hint: 'Capes, hair and tails swing', key: 'loose', on: 60, low: 'Stiff', high: 'Floppy', bones: 'looseIds', tip: 'Capes, hair, tails and plumes swing freely on their own.' },
   { id: 'steps', name: 'Heavy steps', hint: 'Each footfall shakes the body', key: 'steps', on: 60, low: 'Soft', high: 'Stomp', bones: 'feet', tip: 'Each time a foot lands, the body drops into the step and the chest and head nod.' },
@@ -26,7 +26,7 @@ const EFFECTS = [
   { id: 'punch', name: 'Punch it up', hint: 'Pushes your poses further', key: 'exaggerate', on: 40, low: 'Subtle', high: 'Extreme', tip: 'Pushes every pose further than you posed it, for punchier, more readable motion.' },
   { id: 'breathe', name: 'Breathing', hint: 'Still poses stay alive', key: 'life', on: 50, low: 'Still', high: 'Alive', tip: 'Held poses breathe: small, slow drifts in the body so the unit never freezes dead. Loops seamlessly.' },
   { id: 'hits', name: 'Hits', hint: 'THUNKs and flinches', tip: 'Mark the moment a weapon connects (THUNK) or the unit gets hit (flinch) on the timeline.' },
-  { id: 'collapse', name: 'Collapse', hint: 'Goes limp and falls down', key: 'collapse', on: 100, low: 'Off', high: 'Limp', bones: 'all', tip: 'From a chosen moment the unit loses its strength and falls to the ground under its own weight. Use Commit as new to keep the original.' },
+  { id: 'collapse', name: 'Death fall', hint: 'Goes limp and falls down', key: 'collapse', on: 100, low: 'Off', high: 'Limp', bones: 'all', tip: 'From a chosen moment the unit loses its strength and falls to the ground under its own weight. Use Commit as new to keep the original.' },
 ];
 // Little pictures of each effect.
 const ICONS = {
@@ -83,7 +83,7 @@ function EffectCard({ effect, value, active, selected, onSelect, onToggle, onHov
       <svg viewBox="0 0 44 30" className="ax-icon" aria-hidden="true">{ICONS[effect.id]}</svg>
       <span className="ax-card-text"><b>{effect.name}</b><small>{effect.hint}</small></span>
     </button>
-    {effect.key && <button className="ax-card-switch" role="switch" aria-checked={active} aria-label={`${effect.name} on`} title={active ? `Turn ${effect.name} off` : `Turn ${effect.name} on`} onClick={onToggle}>{active ? value : 'off'}</button>}
+    {effect.key && <button className="ax-card-switch" role="switch" aria-checked={active} aria-label={`${effect.name} on`} title={active ? `Turn ${effect.name} off` : `Turn ${effect.name} on`} onClick={onToggle}>{active ? value : ''}</button>}
   </div>;
 }
 
@@ -564,11 +564,11 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
                   <Slider id="collapseAt" label="Goes limp at" low="Start" high="End" tip="When the strength gives out, as a share of the animation. Before it the animation plays as you keyed it." value={settings.collapseAt} onChange={change}/>
                   <label className="ax-field" title="Which way the unit tips over as it falls.">Falls
                     <select aria-label="Fall direction" value={settings.collapseDir} onChange={event => change('collapseDir', event.target.value)}>
-                      <option value="back">Backwards</option><option value="forward">Forwards</option><option value="left">To its left</option><option value="right">To its right</option>
+                      <option value="auto">Natural</option><option value="back">Backwards</option><option value="forward">Forwards</option><option value="left">To its left</option><option value="right">To its right</option>
                     </select>
                   </label>
                   <Slider id="bounce" label="Landing" low="Thud" high="Bouncy" tip="How much the body bounces when it hits the ground." value={settings.bounce} onChange={change}/>
-                  <small className="ax-note">Use Commit as new to keep the original and add the fall as a new animation.</small>
+                  {result?.rig?.machine ? <small className="ax-note">AnimXL found no legs or arms on this rig, so Death fall has nothing to buckle and leaves it as it is.</small> : <small className="ax-note">Natural falls backwards on two legs and onto the side on four or more. Use Commit as new to keep the original and add the fall as a new animation.</small>}
                 </>}
               </div>
             : <p className="ax-note ax-hint">Click a card to switch an effect on and tune it. Point at a card to light up the bones it moves.</p>}

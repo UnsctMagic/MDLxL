@@ -10,7 +10,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, feet: true, grip: true, anticipation: 0, exaggerate: 0, life: 0,
   heavy: 0, heavyIds: [], loose: 0, looseIds: [],
   steps: 0,
-  collapse: 0, collapseAt: 20, collapseDir: 'back', bounce: 30,
+  collapse: 0, collapseAt: 20, collapseDir: 'auto', bounce: 30,
   thunk: 60, thunks: [], thunkSound: '',
   flinch: 60, flinches: [], flinchBehind: false, flinchSound: '',
   retime: {}, bodyId: null, footIds: [], stiffIds: [],
@@ -444,7 +444,9 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   // Keep both hands on a two-handed weapon (the first heavy bone is the weapon).
   const weapon = settings.grip !== false && settings.heavyIds?.length && simIds.has(settings.heavyIds[0]) ? settings.heavyIds[0] : null;
   if (plantLegs || weapon != null) solveLimbs({ model, sequenceIndex, byId, legs: plantLegs ? rig.legs : [], arms: weapon != null ? rig.arms : [], weapon, legLength: rig.legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts });
-  if (settings.collapse > 0) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]) }, rotOpts, posOpts });
+  // A rig with no legs or arms (a machine, a serpent) has nothing to buckle: Death fall leaves it alone.
+  const machine = !rig.legs.length && !rig.arms.length;
+  if (settings.collapse > 0 && !machine) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]), legCount: rig.legs.length }, rotOpts, posOpts });
 
   const tracks = [];
   let keyCount = 0;
@@ -517,7 +519,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     motion.original[i] += bodyTarget(outFrames[i], new Vector3()).distanceTo(bodyTarget(outFrames[i - 1], new Vector3())) / scale * 4;
   }
   motion.shaped[0] = motion.shaped[1] ?? 0; motion.original[0] = motion.original[1] ?? 0;
-  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet }, motion };
+  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet, machine }, motion };
 }
 
 /** Spread any mismatch between the last and first frame over the final
@@ -621,11 +623,17 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
   const rest = order.map((id, i) => parentOf[i] >= 0 ? cur[i].distanceTo(cur[parentOf[i]]) : 0);
   // Knees and elbows fold to about half their open length; the spine, neck and tail hardly fold, so the body falls as one piece.
   const limbs = new Set((settings.limbIds || []));
-  const fold = order.map((id, i) => grandOf[i] >= 0 ? cur[i].distanceTo(cur[grandOf[i]]) * (limbs.has(id) ? 0.5 : 0.85) : 0);
+  // A part hanging down from its grandparent is a leg or an arm even when the rig reading missed it.
+  const fold = order.map((id, i) => { if (grandOf[i] < 0) return 0; const span = cur[i].distanceTo(cur[grandOf[i]]), hangs = cur[grandOf[i]].z - cur[i].z > span * 0.5; return span * (limbs.has(id) || hangs ? 0.5 : 0.85); });
   const weight = order.map(id => 1 / sizeOf(id));
   const g = height * 6, bounce = clamp((settings.bounce ?? 30) / 100, 0, 1) * 0.5, dt = 1 / SIM_HZ;
   // The push tips the top of the unit the chosen way while it falls; the feet barely move.
-  const push = new Vector3().fromArray(FALL[settings.collapseDir] || FALL.back).multiplyScalar(height * 5 * amount * dt * dt);
+  // Natural: two legs fall backwards, four or more fall onto their side.
+  const direction = settings.collapseDir === 'auto' || !FALL[settings.collapseDir] ? (settings.legCount >= 4 ? 'left' : 'back') : settings.collapseDir;
+  const push = new Vector3().fromArray(FALL[direction]).multiplyScalar(height * 5 * amount * dt * dt);
+  // A small, fixed sideways nudge per joint: perfectly straight legs would otherwise
+  // never choose a way to buckle. Same result every time.
+  prev.forEach((p, i) => p.add(new Vector3(((i * 7919) % 13) / 13 - 0.5, ((i * 104729) % 17) / 17 - 0.5, 0).multiplyScalar(height * 0.6 * amount * dt)));
   const pull = (i, j, length, mode) => {
     const d = cur[j].clone().sub(cur[i]), len = d.length();
     if (len < 1e-6 || (mode === 'min' && len >= length)) return;
@@ -643,7 +651,8 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
         const v = cur[i].clone().sub(prev[i]).multiplyScalar(0.995);
         prev[i].copy(cur[i]);
         cur[i].add(v); cur[i].z -= g * dt * dt;
-        if (t - outFrames[k0] < 600) cur[i].addScaledVector(push, Math.max(0, cur[i].z - floor[i]) / height);
+        // The push lasts the whole fall but fades near the ground, so nothing stays propped up on end.
+        cur[i].addScaledVector(push, Math.max(0, cur[i].z - floor[i]) / height);
         if (hold > 0) cur[i].lerp(position(k - 1, order[i]).lerp(position(k, order[i]), u), hold * 0.25);
       }
       for (let pass = 0; pass < 8; pass++) {
