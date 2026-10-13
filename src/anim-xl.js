@@ -42,15 +42,32 @@ export function animXLNodes(model) {
   });
 }
 
-/** Authored key times inside the sequence; these are the poses ease preserves. */
+/** The poses ease preserves. Hand-keyed animations use their key times.
+ * Densely keyed (imported) animations use the moments where the whole body
+ * slows to a stop, so ease does not stutter between frame-by-frame keys. */
 export function animXLKeyTimes(model, sequenceIndex) {
-  const [from, to] = model.Sequences[sequenceIndex].Interval;
+  const seq = model.Sequences[sequenceIndex], [from, to] = Array.from(seq.Interval), nodes = animXLNodes(model);
   const times = new Set([from, to]);
-  for (const node of animXLNodes(model)) for (const p of ['Rotation', 'Translation']) {
+  for (const node of nodes) for (const p of ['Rotation', 'Translation']) {
     const track = node[p];
     if (track?.Keys && !isGlobal(track, model)) for (const key of track.Keys) if (key.Frame >= from && key.Frame <= to) times.add(key.Frame);
   }
-  return [...times].sort((a, b) => a - b);
+  const keys = [...times].sort((a, b) => a - b);
+  const gaps = keys.slice(1).map((t, i) => t - keys[i]).sort((a, b) => a - b);
+  if (keys.length < 6 || gaps[gaps.length >> 1] >= 90) return keys;
+  const opts = { interval: seq.Interval, globalSequences: model.GlobalSequences || [], quaternion: true, fallback: [0, 0, 0, 1] };
+  const frames = [];
+  for (let t = from; t <= to; t += 1000 / 30) frames.push(Math.round(t));
+  const poses = frames.map(t => nodes.map(node => node.Rotation?.Keys ? sampleTrack(node.Rotation, t, opts) : null));
+  const speed = poses.slice(1).map((pose, i) => pose.reduce((sum, q, j) => {
+    const p = poses[i][j];
+    return q && p ? sum + 2 * Math.acos(Math.min(1, Math.abs(q[0] * p[0] + q[1] * p[1] + q[2] * p[2] + q[3] * p[3]))) : sum;
+  }, 0));
+  const peak = Math.max(...speed, 1e-9), found = [from];
+  for (let i = 1; i < speed.length - 1; i++) {
+    if (speed[i] <= speed[i - 1] && speed[i] <= speed[i + 1] && speed[i] < peak * 0.35 && frames[i] - found[found.length - 1] >= 120 && to - frames[i] >= 120) found.push(frames[i]);
+  }
+  return [...found, to];
 }
 
 // Ease: within each pair of key poses, speed up from and slow into the poses.
@@ -198,7 +215,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
       changed = qs[i].angleTo(new Quaternion(o[0], o[1], o[2], o[3]).normalize()) > 0.003;
     }
     if (!changed) continue;
-    const kept = reduceRotation(outFrames, qs, 0.0035);
+    const kept = reduceRotation(outFrames, qs, 0.007);
     const original = node.Rotation?.Keys ? node.Rotation : { LineType: 1, Keys: [] };
     const lineType = original.LineType ?? 1;
     const ours = kept.map(i => {

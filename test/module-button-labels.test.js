@@ -11,6 +11,7 @@ test('every module icon keeps its action and carries a visible short label',()=>
     ['forge','forge-tool','FRG'],
     ['bitsAndParts','bits-tool','BITZ'],
     ['optimizeModel','optimizer-tool','OPXL'],
+    ['animXL','animxl-tool','ANIM'],
   ]){
     assert.match(app,new RegExp(`action="${action}" className="${className}"[^>]*badge="${label}"`));
   }

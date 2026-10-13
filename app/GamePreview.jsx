@@ -767,7 +767,7 @@ export default function GamePreview(inputProps) {
     let radius = Math.max(1, boundsSize.length() / 2);
     const fitRadius = () => {
       const p = latest.current, gridVisible = p.overlays?.grid ?? !!p.showGrid;
-      if (p.previewSelectionMode || p.particleAuthoring) return radius;
+      if (p.previewSelectionMode || p.particleAuthoring || p.fitModel) return radius;
       return gridVisible ? Math.max(radius, gridFrameRadius(center, gridOptions(p.preferences).extent)) : radius;
     };
     function drawBackground() {
@@ -926,7 +926,7 @@ export default function GamePreview(inputProps) {
       state.cameraEditing = false; reportProjectionView(); invalidate();
     };
     controls.addEventListener('start', cameraStarted); controls.addEventListener('end', cameraEnded);
-    const state = { native, controls, particleSourceModel:rendererModel, updateParticles: (source,field,id)=>{if(particleAuthor)particleAuthor.updateSource(source,field,id);else updateParticlePreview(native,source);invalidate();}, setView, setCameraPreset, fit, resize, updateUV, drawBackground, enterPortrait, exitPortrait, portraitActive: false, cameraEditing: false, cameraDetached: false, cameraView: () => editorCameraSnapshot(camera, controls.target, perspective), refreshCursor: () => { canvas.style.cursor = cursorFor(latest.current); }, setCameraAngles: values => { if (state.portraitActive || latest.current.suspended) return; if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); cameraChanged(); } } }; runtime.current = state;
+    const state = { native, controls, particleSourceModel:rendererModel, updateParticles: (source,field,id)=>{if(particleAuthor)particleAuthor.updateSource(source,field,id);else updateParticlePreview(native,source);invalidate();}, updateNodeTracks: list => { for (const item of list) { const node = ownedModel.Nodes[item.id]; if (node) node[item.property] = item.track; } invalidate(); }, setView, setCameraPreset, fit, resize, updateUV, drawBackground, enterPortrait, exitPortrait, portraitActive: false, cameraEditing: false, cameraDetached: false, cameraView: () => editorCameraSnapshot(camera, controls.target, perspective), refreshCursor: () => { canvas.style.cursor = cursorFor(latest.current); }, setCameraAngles: values => { if (state.portraitActive || latest.current.suspended) return; if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); cameraChanged(); } } }; runtime.current = state;
     observer = new ownerWindow.ResizeObserver(resize); observer.observe(host.current);
     const saved = cameraMemory.current || latest.current.cameraHandoff?.current;
     // UV edits may rebuild geometry/materials, but never own the user's view.
@@ -1476,6 +1476,8 @@ export default function GamePreview(inputProps) {
   // Context/recipe replacement rebuilds in the passive effect above. Do not apply
   // its hierarchy to the old runtime during this earlier layout-effect phase.
   useLayoutEffect(()=>{const current=runtime.current;if(props.particleLiveModel&&current?.particleSourceModel===rendererModel)current.updateParticles(props.particleLiveModel,props.particleLiveField,props.particleSelectedId);},[props.particleLiveModel,props.particleLiveRevision,rendererModel]);
+  // AnimXL swaps node tracks in the renderer's own copy; no WebGL rebuild per slider move.
+  useLayoutEffect(() => { const current = runtime.current; if (props.liveNodeTracks && current?.particleSourceModel === rendererModel) current.updateNodeTracks(props.liveNodeTracks); }, [props.liveNodeTracks, rendererModel]);
   useEffect(() => { if(runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view]);
   useEffect(() => { if (props.cameraPresetRequest?.name) runtime.current?.setCameraPreset(props.cameraPresetRequest.name); }, [props.cameraPresetRequest?.revision]);
   useEffect(() => { runtime.current?.refreshCursor(); }, [props.cameraMode, props.transformMode, props.showcaseCrop]);

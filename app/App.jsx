@@ -1074,7 +1074,7 @@ export default function App() {
   }
   commands.current = { 'paint:select':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'select'})), 'paint:draw':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'draw'})), open, recent:showRecent, openRecent, clearRecent, save: () => mode==='paint'?savePaintProject():save(), saveAs: () => mode==='paint'?savePaintProject():doc.hdViewOnly?save(true):setDialog({type:'saveFormat'}), new: () => install(newSession(createStarterDocument(preferences.newModelVersion))), recovery: listRecovery, gameData, undo: () => undo(false), redo: () => undo(true), copy, paste: () => paste(), pasteSpecial: () => { if (clipboard.current?.kind !== 'nodes') { setAnchor(''); setDialog({ type: 'pasteSpecial' }); } }, selectAll, clear: () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'clear'})); if (normalsXL) { setNormalsXL(null); return; } if (mode === 'bones' && attachSourceIds.length) { setAttachSourceIds([]); return; } if ((mode === 'vertices' || rigWorkspace) && !window.dispatchEvent(new Event('mdlxl-cancel-gesture', { cancelable: true }))) return; if(mode==='uv')return uvAction('select-none');setSelectedNodeIds([]); setSelection({}); }, history: showHistory, grid: () => setShowGrid(v => !v), frame: toggleTextured, frameSelection: () => setViewRenderMode('solid'), fit: () => frame(false), fitSelection: () => frame(true), vertices: () => selectMode('vertices'), bones: () => {setMovementMode('select');selectMode('bones');}, uv: () => selectMode('uv'), paint: () => {setRenderMode('textured');setView('perspective');selectMode('paint');}, animation: () => selectAnimationPanel('movement'), animations: () => selectAnimationPanel('animations'), textureLibrary: () => openLibrary(), help: () => setDialog({ type: 'help' }), diagnostics: () => setDialog({ type: 'diagnostics' }), about: () => setDialog({ type: 'about' }), ...Object.fromEntries(resources.map(kind => [kind, () => setDialog({ type: 'resource', kind })])), ...Object.fromEntries(views.map(name => [name, () => setView(name)])) };
   Object.assign(commands.current, {
-    forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(),
+    forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(), animXL:()=>setDialog({type:'animXL'}),
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
     ...Object.fromEntries(['set','copy','paste','copyPose','delete','clear','selectAll','previous','next'].map(id=>['keyframe:'+id,()=>timelineCommands.current[id]?.()])),
     exit: () => window.desktop?.close?.(), settings: () => setSettingsTab('mouse'), warmkeys: () => setSettingsTab('warmkeys'), graphics: () => setSettingsTab('graphics'), appearanceSettings: () => setSettingsTab('visuals'), configurationSettings: () => setSettingsTab('configuration'), gridSettings: () => setSettingsTab('grid'), gameDataSettings: () => setSettingsTab('gameData'),
@@ -1116,7 +1116,7 @@ export default function App() {
   });
   function commandEnabled(id) {
     if (repairBlocked) return !saving && (id === 'exit' || !repairReceipt && ['open', 'save', 'saveAs'].includes(id));
-    if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
+    if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'animXL', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
     if(id==='particles')return !saving;
     if(vertexNodeCenter&&id==='Delete vertices')return editable;
     if(id==='paint')return !doc.readOnly&&!saving&&model.Version===800;
@@ -1136,7 +1136,7 @@ export default function App() {
     if (['undo','redo'].includes(id)&&mode==='showcase')return showcaseHistoryState[id];
     if (['undo','redo'].includes(id)) return mode==='paint' ? !!session.paintProject?.history?.[id==='undo'?'undo':'redo']?.length : id==='undo'?doc.canUndo:doc.canRedo;
     if (mode === 'animation' && ['Collapse','Delete vertices'].includes(id)) return !doc.readOnly && !saving;
-    if(['forge','bitsAndParts','particles','GeosetAnims','convertVersion'].includes(id))return !doc.readOnly&&!saving;
+    if(['forge','bitsAndParts','particles','animXL','GeosetAnims','convertVersion'].includes(id))return !doc.readOnly&&!saving;
     if(id.startsWith('shape:'))return !doc.readOnly&&!saving&&selectable.size>0;
     if(id.startsWith('keyframe:'))return ['animation','uv'].includes(mode)&&!doc.readOnly&&!saving;
     if(id==='paste'&&mode==='animation')return !doc.readOnly&&!saving;
