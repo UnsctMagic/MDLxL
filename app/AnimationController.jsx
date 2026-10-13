@@ -6,7 +6,7 @@ import {
 import { setSequenceOptions } from '../src/animation.js';
 import { clampAlphaPercentText } from '../src/animation-controller-inputs.js';
 import { wheelOptionIndex } from '../src/dropdown-wheel.js';
-import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked, rememberOriginalTiming, setRememberOriginalTiming } from '../src/animation-speed.js';
+import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
 import SidebarSection from './SidebarSection.jsx';
 import {
   createGlobalSequence, createSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
@@ -27,8 +27,44 @@ function commonValue(model, targets, time, sequenceIndex, globalSeqId = null) {
 
 const enterBlurs = event => { if (event.key === 'Enter') event.currentTarget.blur(); };
 
-function SpeedSlider({ label, value, disabled, onChange }) {
-  return <label className="ac-actual-speed"><span>{label}<output>{value}%</output></span><input aria-label={label} type="range" min="1" max="300" step="1" value={value} disabled={disabled} onChange={event => onChange(Number(event.target.value))}/></label>;
+const clampSpeed = value => Math.max(1, Math.min(300, Math.round(value)));
+
+/** Retiming rewrites every keyframe and records one undo step, so dragging only
+ * moves a local draft. The edit is committed once, when the slider is released
+ * (or per arrow key press) or when a typed percent is confirmed. */
+function SpeedControl({ label, value, disabled, onCommit }) {
+  const [draft, setDraft] = useState(null), [text, setText] = useState(String(value)), [busy, setBusy] = useState(false);
+  const slider = useRef(null), latest = useRef(null), writing = useRef(false), current = useRef({ value, onCommit });
+  current.current = { value, onCommit };
+  useEffect(() => { setDraft(null); setText(String(value)); }, [value]);
+  function commit(raw) {
+    if (writing.current) return;
+    if (String(raw).trim() === '' || !Number.isFinite(Number(raw))) { setDraft(null); setText(String(value)); return; }
+    const percent = clampSpeed(Number(raw));
+    setText(String(percent));
+    if (percent === value) { setDraft(null); return; }
+    // Retiming blocks the renderer. Paint the progress bar first; its
+    // transform animation keeps running on the compositor during the write.
+    writing.current = true; setDraft(percent); setBusy(true);
+    const started = performance.now();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (current.current.onCommit(percent) === false) setText(String(current.current.value));
+      setDraft(null); writing.current = false;
+      setTimeout(() => setBusy(false), Math.max(0, 300 - (performance.now() - started)));
+    }));
+  }
+  latest.current = commit;
+  // The native change event fires once on release; React's onChange fires on every move.
+  useEffect(() => {
+    const input = slider.current, release = event => latest.current(event.target.value);
+    input?.addEventListener('change', release);
+    return () => input?.removeEventListener('change', release);
+  }, []);
+  return <div className={`ac-actual-speed${busy ? ' ac-speed-busy' : ''}`} aria-busy={busy} title="Speeds the animation up or slows it down by retiming its keyframes. 100% is the speed when the model was opened.">
+    <span>{label}<span className="ac-speed-number"><input aria-label={`${label} percent`} type="number" min="1" max="300" step="1" value={draft === null ? text : String(draft)} disabled={disabled} onChange={event => setText(event.target.value)} onBlur={event => commit(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') commit(event.currentTarget.value); }}/>%</span></span>
+    <input ref={slider} aria-label={label} type="range" min="1" max="300" step="1" value={draft ?? value} disabled={disabled} onChange={event => { if (!writing.current) setDraft(Number(event.target.value)); }}/>
+    {busy && <div className="ac-speed-progress" role="progressbar" aria-label={`Applying ${label}`}/>}
+  </div>;
 }
 
 /** Screenshot-faithful Animations toolbox. Movement remains in its own tab. */
@@ -121,10 +157,10 @@ export default function AnimationController({
   function changeActualSpeed(index, percent) {
     const interval = model.Sequences?.[sequenceIndex]?.Interval;
     const progress = interval ? Math.max(0, Math.min(1, (time - interval[0]) / Math.max(1, interval[1] - interval[0]))) : 0;
-    if (commit('Adjust animation actual speed', ANIMATION_SPEED_SECTIONS, current => setAnimationActualSpeed(current, index, percent), '')) {
-      const updated = model.Sequences?.[sequenceIndex]?.Interval;
-      if (updated) onSeek?.(updated[0] + Math.round(progress * (updated[1] - updated[0])));
-    }
+    if (!commit('Adjust animation actual speed', ANIMATION_SPEED_SECTIONS, current => setAnimationActualSpeed(current, index, percent), '')) return false;
+    const updated = model.Sequences?.[sequenceIndex]?.Interval;
+    if (updated) onSeek?.(updated[0] + Math.round(progress * (updated[1] - updated[0])));
+    return true;
   }
 
   function commitInterval() {
@@ -280,7 +316,6 @@ export default function AnimationController({
   const visibleChecked = Number.isFinite(alphaNumber) && alphaNumber > 0;
   const mixedOrPartial = alpha === '' || Number.isFinite(alphaNumber) && alphaNumber !== 0 && alphaNumber !== 100;
   const currentValue = globalDomain ? `global:${globalSeqId}` : sequenceIndex;
-  const rememberTimingControl = <label className="ac-remember-timing" title="Save original timing so you can return to 100% after reopening. Uncheck to save only the current animation timing."><input type="checkbox" checked={rememberOriginalTiming(model)} disabled={disabled} onChange={event => commit('Remember original animation timing', [ANIMATION_SPEED_KEY], current => setRememberOriginalTiming(current, event.target.checked), '')}/>Remember Original Timing</label>;
   return <section className="animation-controller" aria-label="Animations toolbox">
     <SidebarSection title="Current Sequence"><label className="ac-current"><span className="ac-sequence-combo"><input ref={sequenceNameInput} aria-label="Animation sequence name" className={globalDomain ? 'global-sequence-value' : ''} value={sequenceNameText} disabled={!sequence} readOnly={globalDomain || !sequence} onWheel={wheelSequence} onChange={event => setSequenceNameText(event.target.value)} onBlur={commitSequenceName} onKeyDown={enterBlurs}/><select ref={sequenceSelect} data-hotkey="animationSequence" aria-label="Choose animation sequence" value={currentValue} onChange={event => onTimelineChange?.(event.target.value)} title="Choose animation sequence">
       <option value={-1}>All line</option>
@@ -293,9 +328,8 @@ export default function AnimationController({
       <label><input type="checkbox" checked={!!sequence && !sequence.NonLooping} disabled={noLocalSequence} onChange={event => changeSequence({ nonLooping: !event.target.checked })}/>Loop</label>
       <label><input type="checkbox" checked={(sequence?.Rarity || 0) > 0} disabled={noLocalSequence} onChange={event => changeSequence({ rarity: event.target.checked ? 1 : 0 })}/>Use Rarity</label>
       <label className="ac-rarity">Rarity =<input aria-label="Sequence rarity" type="number" min="1" max="40" step="1" disabled={noLocalSequence || !(sequence?.Rarity > 0)} value={sequence?.Rarity > 0 ? sequence.Rarity : ''} onChange={event => { if (event.target.value !== '') changeSequence({ rarity: Number(event.target.value) }); }}/></label>
-      <SpeedSlider label="Animation Actual Speed" value={animationSpeed(sequence)} disabled={noLocalSequence} onChange={percent => changeActualSpeed(sequenceIndex, percent)}/>
+      <SpeedControl label="Animation Actual Speed" value={animationSpeed(sequence)} disabled={noLocalSequence} onCommit={percent => changeActualSpeed(sequenceIndex, percent)}/>
       <button disabled={disabled || !model.Sequences?.length} onClick={() => { setError(''); setSpeedMenu(true); }}>Adjust All Speed</button>
-      {rememberTimingControl}
       <label title="Enable the sequence MoveSpeed ground-speed value."><input type="checkbox" checked={moveApplied} disabled={noLocalSequence} onChange={event => toggleMoveSpeed(event.target.checked)}/>Apply Move Speed</label>
       {moveApplied && <label className="ac-move-speed">Speed=<input aria-label="Sequence move speed" type="number" min="0.001" step="any" disabled={noLocalSequence} value={moveSpeedText} onChange={event => setMoveSpeedText(event.target.value)} onBlur={commitMoveSpeed} onKeyDown={enterBlurs}/></label>}
     </div>
@@ -319,12 +353,10 @@ export default function AnimationController({
     </SidebarSection>
     {error && !speedMenu && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
     {speedMenu && <Dialog title="Adjust All Speed" onClose={() => setSpeedMenu(false)} overlayClass="ac-speed-menu" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setSpeedMenu(false); }}>
-      <p className="ac-speed-warning">MDLxL preserves original timing while Remember Original Timing is enabled. Saving in another editor may remove this data.</p>
-      <SpeedSlider label="Master Controller" value={animationMasterSpeed(model)} disabled={disabled} onChange={percent => changeActualSpeed(null, percent)}/>
-      {rememberTimingControl}
+      <SpeedControl label="Master Controller" value={animationMasterSpeed(model)} disabled={disabled} onCommit={percent => changeActualSpeed(null, percent)}/>
       <div className="ac-speed-list">{(model.Sequences || []).map((item, index) => <div className="ac-speed-row" key={index}>
         <label className="ac-speed-name"><input type="checkbox" aria-label={`Include ${item.Name} in Master Controller`} checked={animationSpeedChecked(item)} disabled={disabled} onChange={event => commit('Select animation for Master Controller', ['Sequences', ANIMATION_SPEED_KEY], current => setAnimationSpeedChecked(current, index, event.target.checked), '')}/><span translate="no">{item.Name}</span></label>
-        <SpeedSlider label={`${item.Name} speed`} value={animationSpeed(item)} disabled={disabled} onChange={percent => changeActualSpeed(index, percent)}/>
+        <SpeedControl label={`${item.Name} speed`} value={animationSpeed(item)} disabled={disabled} onCommit={percent => changeActualSpeed(index, percent)}/>
       </div>)}</div>
       {error && <p className="ac-error" role="alert">{error}</p>}
     </Dialog>}

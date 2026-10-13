@@ -39,16 +39,20 @@
 .animation-controller .ac-error{color:#900}.animation-controller .ac-notice{display:none}
 .animation-controller .ac-actual-speed{display:flex!important;flex-direction:column;align-items:stretch!important;gap:1px;margin:2px 0;min-width:0}
 .ac-actual-speed>span{display:flex;justify-content:space-between;gap:6px;font-size:11px}
-.ac-actual-speed output{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ac-speed-number{display:inline-flex;align-items:center;gap:1px;font-size:11px;white-space:nowrap}
+.ac-speed-number input[type=number]{box-sizing:border-box;width:46px;height:20px;padding:1px 3px;font:11px Tahoma,Arial,sans-serif;font-variant-numeric:tabular-nums;text-align:right}
 .ac-actual-speed input[type=range]{width:100%;min-width:0;margin:0;height:18px;padding:0}
+.ac-actual-speed{position:relative}
+.ac-speed-busy input[type=range]{opacity:.55}
+.ac-speed-progress{position:absolute;left:0;right:0;bottom:-2px;height:3px;overflow:hidden;border-radius:2px;background:#b7cbe4;pointer-events:none}
+.ac-speed-progress::before{content:'';position:absolute;top:0;bottom:0;left:0;width:40%;border-radius:2px;background:#0b5ed7;will-change:transform;animation:ac-speed-progress .9s linear infinite}
+@keyframes ac-speed-progress{from{transform:translateX(-50%)}to{transform:translateX(250%)}}
 .ac-speed-menu .classic-modal-window{width:360px;max-width:calc(100vw - 24px)}
 .ac-speed-menu .classic-modal-body{display:flex;flex-direction:column;gap:8px}
-.ac-speed-warning{margin:0;font-size:10px;line-height:1.3;color:#d00000}
 .ac-speed-list{max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:7px}
 .ac-speed-row{min-width:0;padding-top:5px;border-top:1px solid var(--ui-border,#aaa)}
 .ac-speed-name{display:flex;align-items:center;gap:3px}
 .ac-speed-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ac-speed-row .ac-actual-speed>span{justify-content:flex-end}
 .ac-speed-row .ac-actual-speed>span{font-size:0}
-.ac-speed-row .ac-actual-speed output{font-size:11px}
-.ac-remember-timing{display:flex!important;align-items:center;gap:3px;font-size:10px;line-height:1.2}
+.ac-speed-row .ac-speed-number{font-size:11px}
