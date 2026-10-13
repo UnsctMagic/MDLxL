@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import useMovableWindow from './useMovableWindow.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
 import { allNodes } from '../src/animation.js';
@@ -75,20 +75,53 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const [original, setOriginal] = useState(false), [picking, setPicking] = useState(null), [also, setAlso] = useState([]);
   const dialog = useRef(null), movable = useMovableWindow(dialog), touched = useRef(new Set()), drag = useRef(null);
   const history = useRef({ undo: [], redo: [], at: 0 });
-  // Building runs on a deferred copy, so a slider drag never stutters on long animations.
-  const deferred = useDeferredValue(settings);
   const boneOptions = useMemo(() => new Map(animXLNodes(model).map(node => [node.ObjectId, node.Name || `Bone ${node.ObjectId}`])), [model, doc.revision]);
 
   useEffect(() => { setTime(interval[0]); setSettings({ ...fresh(), ...(readSaved(keyFor(seq)) || {}) }); history.current = { undo: [], redo: [], at: 0 }; setAlso([]); }, [seq]);
   useEffect(() => { dialog.current?.focus(); }, []);
   useEffect(() => { const id = setTimeout(() => writeSaved(keyFor(seq), settings), 300); return () => clearTimeout(id); }, [settings, seq]);
 
-  const outcome = useMemo(() => {
-    if (!sequences[seq]) return { error: 'This model has no animations yet. Create one in Movement first.' };
-    try { return { result: buildAnimXL(model, seq, deferred) }; }
-    catch (error) { return { error: error.message }; }
-  }, [model, doc.revision, seq, deferred]);
+  // Builds run in a worker so sliders and the preview never stutter, even on
+  // long animations of big models. Only the newest request is built; the
+  // window falls back to building in place if a worker cannot start.
+  const [outcome, setOutcome] = useState({}), worker = useRef(null), jobs = useRef({ next: 0, busy: false, queued: null, latest: 0 });
+  const buildHere = (index, values) => {
+    try { setOutcome({ result: buildAnimXL(model, index, values), settings: values }); }
+    catch (error) { setOutcome({ error: error.message, settings: values }); }
+  };
+  const send = request => {
+    const queue = jobs.current;
+    if (queue.busy) { queue.queued = request; return; }
+    queue.busy = true; worker.current.postMessage(request);
+  };
+  useEffect(() => {
+    let job = null;
+    try { job = new Worker(new URL('./anim-xl.worker.js', import.meta.url), { type: 'module' }); job.postMessage({ model }); }
+    catch { job = null; }
+    worker.current = job;
+    jobs.current = { next: jobs.current.next, busy: false, queued: null, latest: jobs.current.latest, pending: new Map() };
+    if (job) {
+      job.onmessage = ({ data }) => {
+        const queue = jobs.current, values = queue.pending.get(data.id);
+        queue.pending.delete(data.id); queue.busy = false;
+        if (data.id === queue.latest) setOutcome(data.error ? { error: data.error, settings: values } : { result: data.result, settings: values });
+        if (queue.queued) { const next = queue.queued; queue.queued = null; send(next); }
+      };
+      job.onerror = () => { job.terminate(); if (worker.current === job) { worker.current = null; jobs.current.busy = false; buildHere(seq, settings); } };
+    }
+    return () => { job?.terminate(); if (worker.current === job) worker.current = null; };
+  }, [model, doc.revision]);
+  useEffect(() => {
+    if (!sequences[seq]) { setOutcome({ error: 'This model has no animations yet. Create one in Movement first.' }); return; }
+    const queue = jobs.current, id = ++queue.next;
+    queue.latest = id;
+    if (!worker.current) { buildHere(seq, settings); return; }
+    queue.pending.set(id, settings);
+    send({ id, sequence: seq, settings });
+  }, [model, doc.revision, seq, settings]);
   const result = outcome.result;
+  // Commit always uses a result built from exactly the current settings.
+  const currentResult = () => outcome.settings === settings && outcome.result ? outcome.result : buildAnimXL(model, seq, settings);
 
   // Tracks for the preview: the shaped result, or the originals when comparing.
   const liveTracks = useMemo(() => {
@@ -146,7 +179,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     // Other picked animations get the same sliders and bones; hit markers belong to this animation only.
     const shared = { ...settings, thunks: [], flinches: [], retime: {} }, name = sequences[seq].Name || 'animation';
     const label = also.length ? `AnimXL: ${name} + ${also.length} more` : `AnimXL: ${name}`;
-    if (edit(label, ['Nodes'], m => { applyAnimXL(m, result); for (const index of also) applyAnimXL(m, buildAnimXL(m, index, shared)); }) === false) return;
+    const shaped = currentResult();
+    if (edit(label, ['Nodes'], m => { applyAnimXL(m, shaped); for (const index of also) applyAnimXL(m, buildAnimXL(m, index, shared)); }) === false) return;
     writeSaved(keyFor(seq), null);
     onClose();
   };

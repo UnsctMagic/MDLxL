@@ -36,6 +36,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const status = await dialog.locator('.ax-status').textContent();
     assert.match(status, /bones shaped/, `status after sliders: ${status}`);
     checks.push(`Sliders shape the animation: "${status}"`);
+    assert.ok(page.workers().some(worker => worker.url().includes('anim-xl.worker')), 'AnimXL builds in its worker');
+    checks.push('Shaping runs in a background worker');
     await dialog.screenshot({ path: path.join(out, '2-shaped.png') });
     // Camera rotation with a real drag inside the preview.
     const pv = await dialog.locator('.ax-preview').boundingBox();
