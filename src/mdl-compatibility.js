@@ -8,9 +8,30 @@ const numeric = t => /^(?:[+-]?(?:\d|\.)|[+-]?(?:nan|inf(?:inity)?)$)/i.test(raw
 const number = t => /^[-+]?nan$/i.test(raw(t)) ? NaN : /^[+]?inf(?:inity)?$/i.test(raw(t)) ? Infinity : /^-inf(?:inity)?$/i.test(raw(t)) ? -Infinity : Number(raw(t));
 const spelling = n => Number.isNaN(n) ? 'nan' : n === Infinity ? 'inf' : n === -Infinity ? '-inf' : Object.is(n,-0) ? '-0' : String(n);
 
+// Preserve MDX values that have no standard MDL token as comments on their
+// owning Layer/GeosetAnim closing line. Retera must not see comment-only
+// lines inside a block, where its reader mistakes them for animation data.
+const rawMdxPrefix = '// MDLXL_RAW_MDX_V1: ';
+const rawMdxField = m => m.name === 'Layer' ? 'FilterMode' : m.name === 'GeosetAnim' ? 'Flags' : null;
+const rawMdxComment = (m, value) => rawMdxPrefix + rawMdxField(m) + ' ' + value;
+function rawMdxValue(member, comments, bytes) {
+  const field = rawMdxField(member);
+  if (!field) return null;
+  for (const comment of comments) {
+    if (comment.start < member.end || !/^[\t ]*$/.test(bytes.subarray(member.end, comment.start).toString('utf8'))) continue;
+    const match = raw(comment).match(/^\/\/ MDLXL_RAW_MDX_V1: (FilterMode|Flags) ([0-9]+)\s*$/);
+    const value = match && Number(match[2]);
+    if (match?.[1] === field && Number.isInteger(value) && value <= 0xffffffff &&
+        (field === 'FilterMode' ? value > 6 : value > 0 && (value & 3) === 0)) return value;
+  }
+  return null;
+}
+
 // Syntax-only member tree. Quoted paths and comments are never searched as code.
 export function mdlMembers(input) {
-  const bytes = Buffer.from(input), tokens = parseMdl(bytes).tokens.filter(t=>!trivia.has(t.kind));
+  const bytes = Buffer.from(input), parsed = parseMdl(bytes);
+  const tokens = parsed.tokens.filter(t=>!trivia.has(t.kind));
+  const comments = parsed.tokens.filter(t=>t.kind === 'line-comment' && raw(t).startsWith(rawMdxPrefix));
   // The lossless lexer intentionally treats '-' and 'inf' separately.
   for (let i=tokens.length-2;i>=0;i--) if (raw(tokens[i]) === '-' && /^inf(?:inity)?$/i.test(raw(tokens[i+1]))) tokens.splice(i,2,{...tokens[i],end:tokens[i+1].end,raw:Buffer.from('-inf')});
   let at = 0;
@@ -30,7 +51,7 @@ export function mdlMembers(input) {
     }
     return out;
   }
-  return { bytes, members:list() };
+  return { bytes, members:list(), comments };
 }
 const valueTokens = m => m.tokens.filter(t=>numeric(t));
 const numbers = m => valueTokens(m).map(number);
@@ -130,7 +151,15 @@ export function prepareCompatibleMdl(input) {
   for(const t of parseMdl(tree.bytes).tokens) if(t.kind==='line-comment'||t.kind==='block-comment')edits.push({start:t.start,end:t.end,text:' '});
   // Semantic values are restored from the untouched syntax tree below.
   for(const t of parseMdl(tree.bytes).tokens) if(t.kind!=='string' && /^[-+]?(?:nan|inf(?:inity)?)$/i.test(raw(t))) edits.push({start:t.start,end:t.end,text:'0'});
-  return {text:replace(tree.bytes,edits).toString('utf8'),restore(model){restoreValues(tree.members,model);}};
+  return {text:replace(tree.bytes,edits).toString('utf8'),restore(model){
+    restoreValues(tree.members,model);
+    owners(tree.members,model,(m,o)=>{
+      const rawValue = rawMdxValue(m, tree.comments, tree.bytes);
+      // An explicit named mode wins if another editor has changed FilterMode.
+      if(m.name==='Layer' && o.FilterMode===0 && rawValue!=null)o.FilterMode=rawValue;
+      if(m.name==='GeosetAnim' && rawValue!=null)o.Flags=o.Flags|rawValue;
+    });
+  }};
 }
 
 function restoreValues(members,model) {
@@ -196,7 +225,7 @@ export function mdlProperty(name,value,reverse=false,isStatic=false) {
 export function finishCompatibleMdl(input,model) {
   const tree=mdlMembers(input),edits=[];
   owners(tree.members,model,(m,o)=>{
-    const extra=[];let uv=0;
+    const extra=[];let uv=0,rawValue=null;
     if(m.name==='PivotPoints') {
       edits.push({start:m.open.end,end:m.close.start,text:'\n'+o.map(v=>tuple(v)+',').join('\n')+'\n'});return;
     }
@@ -208,6 +237,10 @@ export function finishCompatibleMdl(input,model) {
     const represented=new Set();
     for(const c of m.children||[]) {
       const key=c.name;represented.add(key);let value=o[key];
+      if(m.name==='Layer' && key==='FilterMode' && Number.isInteger(value) && value>6 && value<=0xffffffff) {
+        edits.push({start:c.start,end:c.end,text:'FilterMode None,'});
+        rawValue=value;continue;
+      }
       if(m.name==='Material' && key==='SortPrimsFarZ') {edits.push({start:c.start,end:c.end,text:'SortPrimitives,'});continue;}
       if(key==='Faces' && o.PrimitiveCounts && Array.from(o.PrimitiveCounts).reduce((a,n)=>a+n,0)===o.Faces.length) {
         let at=0;const groups=Array.from(o.PrimitiveCounts,n=>{const row=tuple(o.Faces.subarray(at,at+n));at+=n;return row+',';});
@@ -239,6 +272,7 @@ export function finishCompatibleMdl(input,model) {
     }
     if(m.name==='Light' && o.ShadowCasting && model.Version>=1300)extra.push('ShadowCasting,');
     if(m.name==='Camera')for(const key of ['FocusDistance','FocalLength','FStop'])if(o[key])extra.push(mdlProperty(key+'Keys',o[key]));
+    if(m.name==='GeosetAnim' && (o.Flags&~3))rawValue=(o.Flags&~3)>>>0;
     if(m.name==='Layer')for(const [key,bit]of Object.entries(layerFlags))if(o.Shading&bit)extra.push(key+',');
     if(m.name==='Material')for(const [key,bit]of Object.entries(materialFlags))if(o.RenderMode&bit)extra.push(key+',');
     if(m.name==='Material' && o.Unfogged)extra.push('Unfogged,');
@@ -260,9 +294,12 @@ export function finishCompatibleMdl(input,model) {
     if(m.name!=='Particle' && typeof o.Visibility==='number' && !represented.has('Visibility'))extra.push(mdlProperty('Visibility',o.Visibility,false,true));
     // White is a meaningful enabled GEOA color; the dependency omits it.
     if(m.name==='GeosetAnim' && (o.Flags&2) && !represented.has('Color') && o.Color)extra.push(mdlProperty('Color',o.Color,true,true));
+    // Unlike GEOA's disabled neutral color, a white ribbon is an authored tint.
+    if(m.name==='RibbonEmitter' && o.Color instanceof Float32Array && !represented.has('Color'))extra.push(mdlProperty('Color',o.Color,true,true));
     if(m.name==='Light')for(const key of ['Color','AmbColor'])if(o[key] && !represented.has(key))extra.push(mdlProperty(key,o[key],true,true));
     for(const key of ['BoundsRadius','MinimumExtent','MaximumExtent'])if(o[key]!=null && !represented.has(key))extra.push(mdlProperty(key,o[key]));
     if(extra.length)edits.push({start:m.close.start,end:m.close.start,text:'\n'+extra.join('\n')+'\n'});
+    if(rawValue!=null)edits.push({start:m.end,end:m.end,text:' '+rawMdxComment(m,rawValue)+'\n'});
   });
   const gliders=(model.Gliders||[]).map(g=>`\nGlider { GeosetId ${g.GeosetId}, }\n`).join('');
   return Buffer.concat([replace(tree.bytes,edits),Buffer.from(gliders)]);
@@ -271,7 +308,7 @@ export function finishCompatibleMdl(input,model) {
 /** Format generated syntax for line-oriented Warcraft editors. Source records
  * are restored afterward, so this never reformats untouched authored text. */
 export function formatGeneratedMdl(input) {
-  const { bytes, members } = mdlMembers(input);
+  const { bytes, members, comments } = mdlMembers(input);
   function render(member, depth) {
     const indent = '\t'.repeat(depth);
     if (!member.children) return indent + bytes.subarray(member.start, member.end).toString('utf8').trim();
@@ -279,8 +316,10 @@ export function formatGeneratedMdl(input) {
     const suffix = bytes.subarray(member.close.end, member.end).toString('utf8').trim();
     const inline = member.name === 'DontInherit' || !['VertexGroup', 'EventTrack', 'GlobalSequences'].includes(member.name) && member.children.length > 0 && member.children.every(child => !child.children && child.header.every(numeric));
     const prefix = header ? header + ' ' : '';
-    if (inline) return indent + prefix + '{ ' + member.children.map(child => render(child, 0)).join(' ') + ' }' + suffix;
-    return indent + prefix + '{\n' + member.children.map(child => render(child, depth + 1)).join('\n') + (member.children.length ? '\n' : '') + indent + '}' + suffix;
+    const rawValue = rawMdxValue(member, comments, bytes);
+    const metadata = rawValue == null ? '' : ' ' + rawMdxComment(member, rawValue);
+    if (inline) return indent + prefix + '{ ' + member.children.map(child => render(child, 0)).join(' ') + ' }' + suffix + metadata;
+    return indent + prefix + '{\n' + member.children.map(child => render(child, depth + 1)).join('\n') + (member.children.length ? '\n' : '') + indent + '}' + suffix + metadata;
   }
   return Buffer.from(members.map(member => render(member, 0)).join('\n') + '\n');
 }

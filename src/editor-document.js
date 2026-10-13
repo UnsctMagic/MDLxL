@@ -84,6 +84,13 @@ export function scanMdlSections(input) {
       if (--depth < 0) throw new Error('Unmatched MDL closing brace.');
       i++;
       if (depth === 0 && start >= 0) {
+        // Raw GEOA bits belong to this record even though MDL stores them in
+        // a closing-line comment. Surgical saves must replace it with the owner.
+        if (name === 'GeosetAnim') {
+          let lineEnd = i;
+          while (lineEnd < bytes.length && bytes[lineEnd] !== 10 && bytes[lineEnd] !== 13) lineEnd++;
+          if (/^[\t ]*\/\/ MDLXL_RAW_MDX_V1: Flags [0-9]+[\t ]*$/.test(bytes.subarray(i, lineEnd).toString('utf8'))) i = lineEnd;
+        }
         sections.push({ name, key: MDL_TO_KEY[name], start, end: i }); start = -1;
       }
     } else if (depth === 0 && start < 0 && ((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95)) {
