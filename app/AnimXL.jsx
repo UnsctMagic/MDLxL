@@ -122,7 +122,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const keyFor = index => storageKey(modelPath || doc.name, sequences[index]?.Name || index);
   const [settings, setSettings] = useState(() => ({ ...fresh(), ...(readSaved(keyFor(seq)) || {}) }));
   const interval = sequences[seq] ? Array.from(sequences[seq].Interval) : [0, 1000];
-  const [time, setTime] = useState(interval[0]), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(1);
+  const [time, setTime] = useState(interval[0]), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   const [original, setOriginal] = useState(false), [picking, setPicking] = useState(null), [also, setAlso] = useState([]);
   const dialog = useRef(null), movable = useMovableWindow(dialog), touched = useRef(new Set()), drag = useRef(null);
   const history = useRef({ undo: [], redo: [], at: 0 });
@@ -375,7 +375,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
       <div className="ax-toolbar">
         <label title="The animation to shape">Animation <select aria-label="Animation" value={seq} onChange={event => setSeq(Number(event.target.value))}>{sequences.map((s, i) => <option key={i} value={i}>{s.Name || `Animation ${i + 1}`}</option>)}</select></label>
         <button onClick={() => setPlaying(v => !v)} title="Play or pause the preview (Space)">{playing ? 'Pause' : 'Play'}</button>
-        {[1, 0.5, 0.25].map(value => <button key={value} aria-pressed={speed === value} title={`Play at ${value * 100}% speed. This only changes the preview.`} onClick={() => setSpeed(value)}>{value * 100}%</button>)}
+        {/* The preview's speed is a percentage: 100 plays in real time. */}
+        {[100, 50, 25].map(value => <button key={value} aria-pressed={speed === value} title={`Play at ${value}% speed. This only changes the preview.`} onClick={() => setSpeed(value)}>{value}%</button>)}
         <button aria-pressed={original} disabled={compare} title="Show the animation without AnimXL to compare" onClick={() => setOriginal(v => !v)}>Original</button>
         <button aria-pressed={arcs} disabled={arcWeapon == null} title={arcWeapon == null ? 'Pick a heavy or loose bone to see the arc it draws' : 'Draw the arc the chosen bone\'s tip follows: dashed for the original, orange for the AnimXL version'} onClick={() => setArcs(v => !v)}>Arcs</button>
         {arcs && arcChoices.length > 1 && <select aria-label="Arc bone" title="Which bone's arc to draw" value={arcWeapon ?? ''} onChange={event => setArcPick(Number(event.target.value))}>{arcChoices.map(id => <option key={id} value={id}>{boneOptions.get(id)}</option>)}</select>}

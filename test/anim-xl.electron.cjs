@@ -22,6 +22,21 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     checks.push('AnimXL opens from the ANIM module button');
     await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 1' });
     await page.waitForTimeout(800);
+    // Playback runs in real time at 100% and a quarter as fast at 25%.
+    const rate = async () => {
+      const read = async () => (await dialog.locator('.ax-time').textContent()).match(/(\d+) \/ (\d+)/).slice(1).map(Number);
+      const [a, span] = await read(), started = Date.now();
+      await page.waitForTimeout(300);
+      const [b] = await read();
+      return ((b - a + span) % span) / (Date.now() - started);
+    };
+    const full = await rate();
+    assert.ok(full > 0.6 && full < 1.4, `100% plays in real time (rate ${full.toFixed(2)})`);
+    await dialog.getByRole('button', { name: '25%', exact: true }).click();
+    const quarter = await rate();
+    assert.ok(quarter > 0.12 && quarter < 0.4, `25% plays a quarter as fast (rate ${quarter.toFixed(2)})`);
+    await dialog.getByRole('button', { name: '100%', exact: true }).click();
+    checks.push(`Playback runs at ${full.toFixed(2)}x real time at 100% and ${quarter.toFixed(2)}x at 25%`);
     await dialog.getByRole('button', { name: 'Pause' }).click();
     const strip = dialog.getByRole('slider', { name: 'Animation time' }), sb = await strip.boundingBox();
     await page.mouse.click(sb.x + sb.width * 0.45, sb.y + sb.height / 2);
