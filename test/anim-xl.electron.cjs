@@ -54,6 +54,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.getByRole('button', { name: 'Add THUNK here' }).click();
     assert.equal(await dialog.locator('.ax-thunk').count(), 1);
     checks.push('THUNK added from the paused moment');
+    await dialog.getByLabel('THUNK sound', { exact: true }).click();
+    await page.waitForTimeout(2500);
+    await page.keyboard.press('Escape');
+    const soundOptions = await dialog.getByLabel('THUNK sound', { exact: true }).locator('option').count();
+    const soundNote = await dialog.locator('.ax-note', { hasText: /sound/i }).count();
+    assert.ok(soundOptions > 1 || soundNote > 0, 'sound picker lists sounds or explains why not');
+    if (soundOptions > 1) { await dialog.getByLabel('THUNK sound', { exact: true }).selectOption({ index: 1 }); await page.waitForTimeout(800); }
+    checks.push(soundOptions > 1 ? `THUNK sound picker lists ${soundOptions - 1} game sounds` : 'THUNK sound picker explains that game sound files are needed');
     // Quick start preset, heavy steps and a flinch.
     await dialog.getByRole('button', { name: 'Heavy', exact: true }).click();
     await page.waitForTimeout(400);

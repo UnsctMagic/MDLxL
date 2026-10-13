@@ -3,6 +3,8 @@ import useMovableWindow from './useMovableWindow.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
 import { allNodes } from '../src/animation.js';
 import { createSequenceFromCurrent, setSequenceName } from '../src/sequence-editor.js';
+import { createNode } from '../src/editor-document.js';
+import { loadEventCatalog, resolveEventSound } from './node-event-data.js';
 import './resource-editors.css';
 import './anim-xl.css';
 
@@ -156,6 +158,43 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const change = (key, value) => update(old => ({ ...old, [key]: value }));
   const clampTime = t => Math.round(Math.max(interval[0], Math.min(interval[1], t)));
   const addMarker = key => update(old => ({ ...old, [key]: [...new Set([...old[key], clampTime(time)])].sort((a, b) => a - b) }));
+  // THUNK sound: chosen from the game's own sound list, heard in the preview at
+  // each THUNK, and written as a sound event so it plays in game.
+  const [sounds, setSounds] = useState(null), [soundError, setSoundError] = useState(''), audio = useRef(new Map()), lastTime = useRef(time);
+  const loadSounds = () => {
+    if (sounds || soundError) return;
+    if (!window.desktop?.resolveEventResources) { setSoundError('The sound list needs the desktop app and your Warcraft III game files (Settings).'); return; }
+    setSounds({ SND: [], loading: true });
+    loadEventCatalog(modelPath).then(catalog => { setSounds(catalog); if (!catalog.SND.length) setSoundError('No sounds found in the configured game files.'); }, cause => { setSounds(null); setSoundError(cause.message); });
+  };
+  const soundFor = async id => {
+    if (audio.current.has(id)) return audio.current.get(id);
+    const file = sounds?.SND?.find(sound => sound.id === id)?.files?.[0];
+    if (!file) return null;
+    const { bytes, mime } = await resolveEventSound(window.desktop.resolveEventResources, file, modelPath);
+    const element = new Audio(URL.createObjectURL(new Blob([bytes], { type: mime })));
+    audio.current.set(id, element);
+    return element;
+  };
+  const playSound = async id => { try { const element = await soundFor(id); if (element) { element.currentTime = 0; await element.play(); } } catch (cause) { setSoundError(cause.message); } };
+  useEffect(() => {
+    const before = lastTime.current; lastTime.current = time;
+    if (!playing || original || !settings.thunkSound || !settings.thunks.length) return;
+    const crossed = settings.thunks.some(at => (before <= time ? at > before && at <= time : at > before || at <= time));
+    if (crossed) playSound(settings.thunkSound);
+  }, [time]);
+  // A THUNK sound becomes a sound event on the weapon at each THUNK, so it plays in game.
+  const withSound = settings.thunkSound && settings.thunks.length > 0;
+  const addThunkSound = (m, frames) => {
+    const weaponId = settings.heavyIds.find(id => allNodes(m).some(node => node.ObjectId === id));
+    const event = createNode(m, 'EventObject');
+    event.Name = `SNDx${settings.thunkSound}`;
+    if (weaponId != null) {
+      const weapon = allNodes(m).find(node => node.ObjectId === weaponId), pivot = new Float32Array(weapon.PivotPoint || m.PivotPoints?.[weaponId] || [0, 0, 0]);
+      event.Parent = weaponId; event.PivotPoint = pivot; m.PivotPoints[event.ObjectId] = pivot;
+    }
+    event.EventTrack = new Uint32Array([...new Set(frames)].sort((a, b) => a - b));
+  };
   // Keep the original: copy the animation, shape the copy. Markers and retimed
   // poses move with the copy's time range.
   const commitAsNew = () => {
@@ -164,12 +203,14 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     let copyName = `${name} (AnimXL)`, n = 2;
     while (taken.has(copyName)) copyName = `${name} (AnimXL ${n++})`;
     let created = -1;
-    if (edit(`AnimXL: new animation from ${name}`, ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras'], m => {
+    const sections = ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras', ...(withSound ? ['EventObjects', 'PivotPoints', 'Info'] : [])];
+    if (edit(`AnimXL: new animation from ${name}`, sections, m => {
       created = createSequenceFromCurrent(m, seq);
       const offset = m.Sequences[created].Interval[0] - m.Sequences[seq].Interval[0];
       setSequenceName(m, created, copyName);
       const shifted = { ...settings, thunks: settings.thunks.map(t => t + offset), flinches: settings.flinches.map(t => t + offset), retime: Object.fromEntries(Object.entries(settings.retime || {}).map(([k, v]) => [Number(k) + offset, v + offset])) };
       applyAnimXL(m, buildAnimXL(m, created, shifted));
+      if (withSound) addThunkSound(m, shifted.thunks);
     }) === false) return;
     writeSaved(keyFor(seq), null);
     onClose();
@@ -180,7 +221,12 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     const shared = { ...settings, thunks: [], flinches: [], retime: {} }, name = sequences[seq].Name || 'animation';
     const label = also.length ? `AnimXL: ${name} + ${also.length} more` : `AnimXL: ${name}`;
     const shaped = currentResult();
-    if (edit(label, ['Nodes'], m => { applyAnimXL(m, shaped); for (const index of also) applyAnimXL(m, buildAnimXL(m, index, shared)); }) === false) return;
+    const sections = withSound ? ['Nodes', 'EventObjects', 'PivotPoints', 'Info'] : ['Nodes'];
+    if (edit(label, sections, m => {
+      applyAnimXL(m, shaped);
+      for (const index of also) applyAnimXL(m, buildAnimXL(m, index, shared));
+      if (withSound) addThunkSound(m, settings.thunks);
+    }) === false) return;
     writeSaved(keyFor(seq), null);
     onClose();
   };
@@ -307,6 +353,16 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           <Section title="Hits" note={[settings.thunks.length && `★${settings.thunks.length}`, settings.flinches.length && `✕${settings.flinches.length}`].filter(Boolean).join(' ')}>
             <div className="ax-chips">{settings.thunks.map(t => <button key={t} className="ax-chip" title="Remove this THUNK" onClick={() => change('thunks', settings.thunks.filter(x => x !== t))}>★ {t - interval[0]} ms ×</button>)}</div>
             <button onClick={() => addMarker('thunks')} title="Your weapon connects here: the animation holds this pose for a beat and heavy bones bounce back.">Add THUNK here</button>
+            <div className="ax-row" title="A sound that plays at each THUNK: you hear it in the preview, and Commit adds it to the model as a sound event on the weapon so it plays in game.">
+              <select aria-label="THUNK sound" value={settings.thunkSound || ''} onFocus={loadSounds} onPointerDown={loadSounds} onChange={event => { change('thunkSound', event.target.value); if (event.target.value) playSound(event.target.value); }}>
+                <option value="">No THUNK sound</option>
+                {sounds?.loading && <option disabled>Loading sounds…</option>}
+                {(sounds?.SND || []).map(sound => <option key={sound.id} value={sound.id}>{sound.label}</option>)}
+                {settings.thunkSound && !(sounds?.SND || []).some(sound => sound.id === settings.thunkSound) && <option value={settings.thunkSound}>{settings.thunkSound}</option>}
+              </select>
+              <button aria-label="Play THUNK sound" title="Play the chosen sound" disabled={!settings.thunkSound || !sounds?.SND?.length} onClick={() => playSound(settings.thunkSound)}>▶</button>
+            </div>
+            {soundError && <small className="ax-note">{soundError}</small>}
             <Slider id="thunk" label="THUNK" low="Light" high="Brutal" tip="How long the hit holds and how hard the heavy bones bounce back." value={settings.thunk} onChange={change}/>
             <div className="ax-chips">{settings.flinches.map(t => <button key={t} className="ax-chip ax-chip-flinch" title="Remove this flinch" onClick={() => change('flinches', settings.flinches.filter(x => x !== t))}>✕ {t - interval[0]} ms ×</button>)}</div>
             <button onClick={() => addMarker('flinches')} title="The unit gets hit from the front here: the body is knocked back and the torso snaps back, then recovers.">Add flinch here</button>
