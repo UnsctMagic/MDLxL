@@ -122,7 +122,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const commit = () => {
     if (!result?.tracks.length) return;
     // Other picked animations get the same sliders and bones; hit markers belong to this animation only.
-    const shared = { ...settings, thunks: [], flinches: [] }, name = sequences[seq].Name || 'animation';
+    const shared = { ...settings, thunks: [], flinches: [], retime: {} }, name = sequences[seq].Name || 'animation';
     const label = also.length ? `AnimXL: ${name} + ${also.length} more` : `AnimXL: ${name}`;
     if (edit(label, ['Nodes'], m => { applyAnimXL(m, result); for (const index of also) applyAnimXL(m, buildAnimXL(m, index, shared)); }) === false) return;
     writeSaved(keyFor(seq), null);
@@ -134,10 +134,14 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     const box = event.currentTarget.getBoundingClientRect(), x = event.clientX - box.left;
     event.currentTarget.setPointerCapture(event.pointerId);
     setPlaying(false);
+    const near = t => Math.abs((t - interval[0]) / span * box.width - x) < 7;
     for (const key of ['thunks', 'flinches']) {
-      const at = settings[key].find(t => Math.abs((t - interval[0]) / span * box.width - x) < 7);
+      const at = settings[key].find(near);
       if (at !== undefined) { drag.current = { key, at, box }; return; }
     }
+    // Inner pose diamonds can be dragged to retime that pose.
+    const poses = result?.keyTimes || [], index = poses.findIndex((t, i) => i > 0 && i < poses.length - 1 && near(t));
+    if (index > 0) { drag.current = { pose: result.sourceKeyTimes[index], box }; setTime(poses[index]); return; }
     drag.current = { box }; setTime(stripTime(event, box));
   };
   const stripMove = event => {
@@ -145,8 +149,15 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     if (!d) return;
     const t = stripTime(event, d.box);
     if (d.key) { update(old => ({ ...old, [d.key]: old[d.key].map(x => x === d.at ? t : x).sort((a, b) => a - b) })); d.at = t; setTime(t); }
+    else if (d.pose !== undefined) { update(old => ({ ...old, retime: { ...old.retime, [d.pose]: t } })); setTime(t); }
     else setTime(t);
   };
+  const resetPose = event => {
+    const box = event.currentTarget.getBoundingClientRect(), x = event.clientX - box.left, poses = result?.keyTimes || [];
+    const index = poses.findIndex((t, i) => i > 0 && i < poses.length - 1 && Math.abs((t - interval[0]) / span * box.width - x) < 7);
+    if (index > 0) update(old => { const retime = { ...old.retime }; delete retime[result.sourceKeyTimes[index]]; return { ...old, retime }; });
+  };
+  const movedPoses = Object.keys(settings.retime || {}).length;
   const pickBone = ids => {
     const id = ids?.at?.(-1);
     if (!picking || !boneOptions.has(id)) return;
@@ -191,8 +202,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             </Suspense>
           </div>
           </div>
-          <div className="ax-strip" role="slider" aria-label="Animation time" aria-valuemin={interval[0]} aria-valuemax={interval[1]} aria-valuenow={Math.round(time)} title="Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump; drag a star or red mark to move it." onPointerDown={stripDown} onPointerMove={stripMove} onPointerUp={() => { drag.current = null; }}>
-            {(result?.keyTimes || []).map(t => <i key={'k' + t} className="ax-key" style={{ left: pct(t) }}/>)}
+          <div className="ax-strip" role="slider" aria-label="Animation time" aria-valuemin={interval[0]} aria-valuemax={interval[1]} aria-valuenow={Math.round(time)} title="Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it." onPointerDown={stripDown} onPointerMove={stripMove} onPointerUp={() => { drag.current = null; }} onDoubleClick={resetPose}>
+            {(result?.keyTimes || []).map((t, i) => <i key={'k' + i} className={t !== result.sourceKeyTimes[i] ? 'ax-key ax-key-moved' : 'ax-key'} style={{ left: pct(t) }}/>)}
             {settings.steps > 0 && footfalls.map(t => <i key={'f' + t} className="ax-foot" style={{ left: pct(t) }}/>)}
             {settings.thunks.map(t => <i key={'t' + t} className="ax-thunk" style={{ left: pct(t) }}>★</i>)}
             {settings.flinches.map(t => <i key={'x' + t} className="ax-flinch" style={{ left: pct(t) }}>✕</i>)}
@@ -213,6 +224,10 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           <Section title="Loose bones" note={settings.looseIds.length ? `${settings.looseIds.length} picked` : ''}>
             <BonePicker label="loose bones" tip="Picked bones (cape, hair, tail, plume) swing loosely on their own." ids={settings.looseIds} options={boneOptions} onChange={ids => change('looseIds', ids)} picking={picking === 'looseIds'} onPick={() => setPicking(p => p === 'looseIds' ? null : 'looseIds')}/>
             <Slider id="loose" label="Looseness" low="Stiff" high="Floppy" tip="How freely the picked bones swing and wobble." value={settings.loose} onChange={change}/>
+          </Section>
+          <Section title="Timing" note={movedPoses ? `${movedPoses} pose${movedPoses > 1 ? 's' : ''} moved` : ''}>
+            <small className="ax-note">Drag a diamond on the strip to change when that pose happens: earlier makes the move into it faster, later holds the pose before it longer. Double-click a diamond to put it back.</small>
+            <button disabled={!movedPoses} onClick={() => update(old => ({ ...old, retime: {} }))} title="Put every pose back at its original time">Reset timing</button>
           </Section>
           <Section title="Steps" note={settings.steps ? `Heavy steps ${settings.steps}` : ''}>
             <Slider id="steps" label="Heavy steps" low="Off" high="Stomp" tip="Each time a foot lands, the body drops into the step and the chest and head nod. Footfalls are found from the feet touching the ground." value={settings.steps} onChange={change}/>

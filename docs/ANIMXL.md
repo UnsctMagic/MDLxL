@@ -17,6 +17,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 | Exaggerate | Pushes every pose further than you posed it, for punchier motion. |
 | Life | Held poses breathe: small, slow drifts so the unit never freezes dead. Loops seamlessly. |
 | Hit poses | How closely the result lands on your key poses (Loose ↔ Exact). |
+| Timing | Drag a pose diamond on the strip to change when that pose happens; double-click it to put it back. Translations follow the new timing too. |
 | Heavy bones | Picked bones (usually the weapon) trail the swing and drag the arm holding them. |
 | Loose bones | Picked bones (cape, hair, tail) swing loosely on their own. |
 | Heavy steps | Each footfall drops the body into the step and nods the chest and head. Footfalls are found from the feet touching the ground (green ticks). |
@@ -28,7 +29,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 
 Weapon, cape, hair and tail bones are guessed from bone names. Change them with the pickers, or **Pick in view** and click bones in the preview.
 
-The strip under the preview shows key poses (diamonds), footfalls (green ticks), THUNKs (stars) and flinches (red marks). Click it to jump to a moment, and drag a star or red mark to move it.
+The strip under the preview shows key poses (diamonds, orange once moved), footfalls (green ticks), THUNKs (stars) and flinches (red marks). Click it to jump to a moment; drag a diamond, star or red mark to move it.
 
 Slider settings are remembered per model and animation until you commit.
 

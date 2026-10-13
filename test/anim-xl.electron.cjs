@@ -102,6 +102,24 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(300);
     checks.push('Undo pressed after commit without errors');
+    // Retime a pose by dragging its diamond on the strip.
+    await button.click();
+    await dialog.waitFor();
+    await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 2' });
+    await page.waitForTimeout(800);
+    await dialog.locator('summary', { hasText: 'Timing' }).click();
+    const diamond = await dialog.locator('.ax-key').nth(2).boundingBox();
+    await page.mouse.move(diamond.x + diamond.width / 2, diamond.y + diamond.height / 2);
+    await page.mouse.down(); await page.mouse.move(diamond.x + diamond.width / 2 + 40, diamond.y + diamond.height / 2, { steps: 8 }); await page.mouse.up();
+    await page.waitForTimeout(600);
+    assert.equal(await dialog.locator('.ax-key-moved').count(), 1, 'one pose moved');
+    await dialog.screenshot({ path: path.join(out, '7-retimed.png') });
+    const moved = await dialog.locator('.ax-key-moved').boundingBox();
+    await page.mouse.dblclick(moved.x + moved.width / 2, moved.y + moved.height / 2);
+    await page.waitForTimeout(600);
+    assert.equal(await dialog.locator('.ax-key-moved').count(), 0, 'double-click puts it back');
+    checks.push('Dragging a pose diamond retimes it; double-click resets');
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ executablePath, checks, errors }, null, 2));
     console.log(checks.map(c => '✔ ' + c).join('\n'));

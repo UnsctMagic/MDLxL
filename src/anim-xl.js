@@ -12,6 +12,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   steps: 0,
   thunk: 60, thunks: [],
   flinch: 60, flinches: [], flinchBehind: false,
+  retime: {},
 });
 
 const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2, POSE_WINDOW = 140;
@@ -149,13 +150,24 @@ function easeCurve(u, amount) {
   return p / (p + q);
 }
 
-/** Output time -> source time. THUNK holds the pose for a beat, then catches
- * up, so the sequence keeps its length. */
-export function animXLTimeMap(keys, settings) {
-  const wanted = lerp(40, 150, settings.thunk / 100), end = keys[keys.length - 1];
-  // Each hold catches up before the next key pose, so no pose is skipped.
-  const holds = [...(settings.thunks || [])].sort((a, b) => a - b).filter(at => at >= keys[0] && at < end).map(at => {
-    const room = (keys.find(k => k > at) ?? end) - at, hold = Math.min(wanted, room / 3);
+/** Where each pose happens after retiming. `settings.retime` maps an original
+ * pose time to a new one; the first and last pose stay at the sequence ends
+ * and poses keep their order. */
+export function animXLRetimed(keys, settings) {
+  const moved = settings.retime || {}, out = keys.map(k => Number.isFinite(moved[k]) ? moved[k] : k);
+  out[0] = keys[0]; out[out.length - 1] = keys[keys.length - 1];
+  for (let i = 1; i < out.length - 1; i++) out[i] = Math.round(clamp(out[i], out[i - 1] + 10, keys[keys.length - 1] - 10 * (out.length - 1 - i)));
+  return out;
+}
+
+/** Output time -> source time. Retiming moves poses, ease shapes the spacing
+ * between them, and a THUNK holds the pose for a beat then catches up, so the
+ * sequence keeps its length. */
+export function animXLTimeMap(keys, settings, outKeys = animXLRetimed(keys, settings)) {
+  const wanted = lerp(40, 150, settings.thunk / 100), start = outKeys[0], end = outKeys[outKeys.length - 1];
+  // Each hold catches up before the next pose, so no pose is skipped.
+  const holds = [...(settings.thunks || [])].sort((a, b) => a - b).filter(at => at >= start && at < end).map(at => {
+    const room = (outKeys.find(k => k > at) ?? end) - at, hold = Math.min(wanted, room / 3);
     return { at, hold, catchUp: Math.min(hold * 2.5, room - hold) };
   });
   return t => {
@@ -163,11 +175,11 @@ export function animXLTimeMap(keys, settings) {
       if (t >= at && t < at + hold) { t = at; break; }
       if (t >= at + hold && t < at + hold + catchUp) { t = at + (t - at - hold) * (hold + catchUp) / catchUp; break; }
     }
-    t = clamp(t, keys[0], end);
+    t = clamp(t, start, end);
     let i = 0;
-    while (i < keys.length - 2 && t >= keys[i + 1]) i++;
-    const a = keys[i], b = keys[i + 1], span = b - a;
-    return span > 0 ? a + span * easeCurve((t - a) / span, settings.ease / 100) : a;
+    while (i < outKeys.length - 2 && t >= outKeys[i + 1]) i++;
+    const a = outKeys[i], b = outKeys[i + 1], span = b - a;
+    return span > 0 ? keys[i] + (keys[i + 1] - keys[i]) * easeCurve((t - a) / span, settings.ease / 100) : keys[i];
   };
 }
 
@@ -199,13 +211,15 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const [from, to] = Array.from(seq.Interval), duration = to - from;
   if (duration < 30) throw new Error('This animation is too short to shape.');
   const nodes = animXLNodes(model), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
-  const keys = animXLKeyTimes(model, sequenceIndex), timeMap = animXLTimeMap(keys, settings);
+  const keys = animXLKeyTimes(model, sequenceIndex), outKeys = animXLRetimed(keys, settings), timeMap = animXLTimeMap(keys, settings, outKeys);
+  // Source time -> output time (ignoring ease), for events found in the authored animation.
+  const toOutput = t => { let i = 0; while (i < keys.length - 2 && t >= keys[i + 1]) i++; const span = keys[i + 1] - keys[i]; return span > 0 ? outKeys[i] + (t - keys[i]) / span * (outKeys[i + 1] - outKeys[i]) : outKeys[i]; };
   const heavy = new Set(settings.heavyIds), loose = new Set(settings.looseIds);
   const from_ = settings.flinchBehind ? -1 : 1;
   const flinches = [...(settings.flinches || [])].map(f => typeof f === 'number' ? { at: f, dir: from_ } : { at: f.at, dir: f.dir ?? from_ }).sort((a, b) => a.at - b.at);
   const wantsBody = settings.weight > 0 || settings.steps > 0 || flinches.length > 0;
   const rig = wantsBody || settings.steps > 0 ? animXLRig(model, sequenceIndex) : { body: null, feet: [], torso: [], legLength: 0 };
-  const footfalls = settings.steps > 0 ? animXLFootfalls(model, sequenceIndex, rig) : [];
+  const footfalls = settings.steps > 0 ? animXLFootfalls(model, sequenceIndex, rig).map(t => Math.round(toOutput(t))) : [];
   const reactive = settings.steps > 0 || flinches.length > 0;
   const general = settings.overlap > 0 || settings.settle > 0 || settings.weight > 0 || reactive;
   function depthOf(node) { let d = 0, p = node.Parent; const seen = new Set(); while (byId.has(p) && !seen.has(p)) { seen.add(p); d++; p = byId.get(p).Parent; } return d; }
@@ -321,7 +335,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     }
     // Hit poses: near each key pose, pull the result onto the authored pose.
     let poseBlend = 0;
-    if (poseAmount > 0) for (const k of keys) poseBlend = Math.max(poseBlend, poseAmount * (1 - smooth(Math.abs(tOut - k) / POSE_WINDOW)));
+    if (poseAmount > 0) for (const k of outKeys) poseBlend = Math.max(poseBlend, poseAmount * (1 - smooth(Math.abs(tOut - k) / POSE_WINDOW)));
     for (let i = 0; i < n; i++) {
       const node = order[i], pi = index.get(node.Parent);
       const parentWorld = (node.Flags || 0) & 2 ? new Quaternion() : pi !== undefined ? world[pi] : outsideWorld(node.Parent, src, cache);
@@ -410,7 +424,26 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
       keyCount += ours.length;
     }
   }
-  return { tracks, keyCount, keyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: bodyNode?.ObjectId ?? null, feet: rig.feet } };
+  // Ease, retiming and THUNK holds move keyed translations in step with the rotations.
+  const retimed = settings.ease > 0 || thunks.length > 0 || outKeys.some((t, i) => t !== keys[i]);
+  if (retimed) for (const node of nodes) {
+    const track = node.Translation;
+    if (tracks.some(t => t.id === node.ObjectId && t.property === 'Translation')) continue;
+    if (!track?.Keys || isGlobal(track, model) || !track.Keys.some(k => k.Frame >= from && k.Frame <= to)) continue;
+    const at = f => new Vector3().fromArray(sampleTrack(track, f, posOpts));
+    const moved = outFrames.map(f => at(timeMap(f))), tolerance = Math.max(0.02, scale * 0.002);
+    if (!moved.some((p, i) => p.distanceTo(at(outFrames[i])) > tolerance)) continue;
+    const lineType = track.LineType ?? 1;
+    const ours = reducePoints(outFrames, moved, tolerance).map(i => {
+      const v = new Float32Array(moved[i].toArray()), key = { Frame: outFrames[i], Vector: v };
+      if (lineType === 3) { key.InTan = new Float32Array(v); key.OutTan = new Float32Array(v); }
+      else if (lineType === 2) { key.InTan = new Float32Array(3); key.OutTan = new Float32Array(3); }
+      return key;
+    });
+    tracks.push({ id: node.ObjectId, property: 'Translation', track: mergeTrack(track, ours, lineType, from, to) });
+    keyCount += ours.length;
+  }
+  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: bodyNode?.ObjectId ?? null, feet: rig.feet } };
 }
 
 // Our keys replace this sequence's keys; every other sequence keeps its own.

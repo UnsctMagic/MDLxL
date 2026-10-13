@@ -115,3 +115,21 @@ test('a flinch from behind pushes the body forward', () => {
   const x = frame => sampleTrack(body.track, frame, { interval: [0, 1000], fallback: [0, 0, 0] })[0];
   assert.ok(x(260) > 30 * 260 / 500 + 2, `pushed forward (x=${x(260)})`);
 });
+
+test('retiming moves a pose to a new time and keeps the others', () => {
+  const result = buildAnimXL(model(), 0, { retime: { 500: 300 } });
+  const arm = result.tracks.find(t => t.id === 1).track;
+  assert.deepEqual(result.keyTimes, [0, 300, 1000]);
+  assert.ok(Math.abs(angleAt(arm, 300) - 90) < 0.6, `pose now at 300 ms (${angleAt(arm, 300)})`);
+  assert.ok(angleAt(arm, 1000) < 0.5 && angleAt(arm, 0) < 0.5, 'ends unchanged');
+  assert.ok(angleAt(arm, 650) > 40 && angleAt(arm, 650) < 50, 'halfway back at 650 ms');
+});
+
+test('ease and retiming move keyed translations with the rotations', () => {
+  const result = buildAnimXL(model(), 0, { retime: { 500: 300 }, poses: 0 });
+  const body = result.tracks.find(t => t.id === 0 && t.property === 'Translation');
+  assert.ok(body, 'root translation retimed');
+  const x = frame => sampleTrack(body.track, frame, { interval: [0, 1000], fallback: [0, 0, 0] })[0];
+  assert.ok(Math.abs(x(300) - 30) < 0.5, `translation peak moved to 300 ms (x=${x(300)})`);
+  assert.deepEqual(Array.from(body.track.Keys.find(k => k.Frame === 2000).Vector), [5, 5, 5]);
+});

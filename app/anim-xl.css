@@ -43,3 +43,5 @@
 .resource-editor .ax-section-body{display:flex;flex-direction:column;gap:4px;padding-top:2px}
 .resource-editor .ax-dense{margin:0;padding:4px 6px;background:#ffffe1;border:1px solid #a0a0a0}
 .resource-editor .ax-check{display:flex;gap:4px;align-items:center}
+.resource-editor .ax-key{cursor:ew-resize}
+.resource-editor .ax-key-moved{background:#cf5f12;outline:1px solid #7a3608}
