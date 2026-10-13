@@ -47,3 +47,5 @@
 .resource-editor .ax-key-moved{background:#cf5f12;outline:1px solid #7a3608}
 .resource-editor .ax-user-preset{display:inline-flex;gap:1px}
 .resource-editor .ax-row input[aria-label='Preset name']{flex:1;min-width:0}
+.resource-editor .ax-sound{display:flex;flex-direction:column;gap:2px}
+.resource-editor .ax-sound .ax-row input{flex:1;min-width:0}

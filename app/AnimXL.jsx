@@ -49,6 +49,26 @@ function Section({ title, note, open = false, children }) {
   </details>;
 }
 
+// Pick a game sound by searching its name; hearing it is one click away.
+function SoundPicker({ label, tip, value, sounds, onOpen, onPlay, onChange }) {
+  const [filter, setFilter] = useState('');
+  const all = sounds?.SND || [], words = filter.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = words.length ? all.filter(sound => words.every(word => sound.label.toLowerCase().includes(word))).slice(0, 300) : all;
+  return <div className="ax-sound" title={tip}>
+    <span>{label}</span>
+    <div className="ax-row">
+      <input aria-label={`Search ${label}`} placeholder="Search sounds" value={filter} onFocus={onOpen} onChange={event => setFilter(event.target.value)}/>
+      <button aria-label={`Play ${label}`} title="Play the chosen sound" disabled={!value || !all.length} onClick={() => onPlay(value)}>▶</button>
+    </div>
+    <select aria-label={label} value={value || ''} onFocus={onOpen} onPointerDown={onOpen} onChange={event => { onChange(event.target.value); if (event.target.value) onPlay(event.target.value); }}>
+      <option value="">None</option>
+      {sounds?.loading && <option disabled>Loading sounds…</option>}
+      {shown.map(sound => <option key={sound.id} value={sound.id}>{sound.label}</option>)}
+      {value && !shown.some(sound => sound.id === value) && <option value={value}>{all.find(sound => sound.id === value)?.label || value}</option>}
+    </select>
+  </div>;
+}
+
 function BonePicker({ label, tip, ids, options, onChange, picking, onPick }) {
   const chosen = new Set(ids);
   return <div className="ax-bones" title={tip}>
@@ -177,21 +197,28 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     return element;
   };
   const playSound = async id => { try { const element = await soundFor(id); if (element) { element.currentTime = 0; await element.play(); } } catch (cause) { setSoundError(cause.message); } };
+  // Sounds play in the preview whenever playback passes a THUNK or a flinch.
   useEffect(() => {
     const before = lastTime.current; lastTime.current = time;
-    if (!playing || original || !settings.thunkSound || !settings.thunks.length) return;
-    const crossed = settings.thunks.some(at => (before <= time ? at > before && at <= time : at > before || at <= time));
-    if (crossed) playSound(settings.thunkSound);
+    if (!playing || original) return;
+    const passed = list => list.some(at => (before <= time ? at > before && at <= time : at > before || at <= time));
+    if (settings.thunkSound && passed(settings.thunks)) playSound(settings.thunkSound);
+    if (settings.flinchSound && passed(settings.flinches)) playSound(settings.flinchSound);
   }, [time]);
-  // A THUNK sound becomes a sound event on the weapon at each THUNK, so it plays in game.
-  const withSound = settings.thunkSound && settings.thunks.length > 0;
-  const addThunkSound = (m, frames) => {
-    const weaponId = settings.heavyIds.find(id => allNodes(m).some(node => node.ObjectId === id));
+  // Each sound becomes a sound event so it plays in game: THUNKs on the weapon,
+  // flinches on the body that takes the hit.
+  const soundEvents = (thunks, flinches) => [
+    settings.thunkSound && thunks.length && { id: settings.thunkSound, frames: thunks, on: settings.heavyIds },
+    settings.flinchSound && flinches.length && { id: settings.flinchSound, frames: flinches, on: [result?.rig?.body].filter(id => id != null) },
+  ].filter(Boolean);
+  const withSound = soundEvents(settings.thunks, settings.flinches).length > 0;
+  const addSoundEvent = (m, { id, frames, on }) => {
+    const nodes = allNodes(m), holderId = on.find(candidate => nodes.some(node => node.ObjectId === candidate));
     const event = createNode(m, 'EventObject');
-    event.Name = `SNDx${settings.thunkSound}`;
-    if (weaponId != null) {
-      const weapon = allNodes(m).find(node => node.ObjectId === weaponId), pivot = new Float32Array(weapon.PivotPoint || m.PivotPoints?.[weaponId] || [0, 0, 0]);
-      event.Parent = weaponId; event.PivotPoint = pivot; m.PivotPoints[event.ObjectId] = pivot;
+    event.Name = `SNDx${id}`;
+    if (holderId != null) {
+      const holder = nodes.find(node => node.ObjectId === holderId), pivot = new Float32Array(holder.PivotPoint || m.PivotPoints?.[holderId] || [0, 0, 0]);
+      event.Parent = holderId; event.PivotPoint = pivot; m.PivotPoints[event.ObjectId] = pivot;
     }
     event.EventTrack = new Uint32Array([...new Set(frames)].sort((a, b) => a - b));
   };
@@ -210,7 +237,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
       setSequenceName(m, created, copyName);
       const shifted = { ...settings, thunks: settings.thunks.map(t => t + offset), flinches: settings.flinches.map(t => t + offset), retime: Object.fromEntries(Object.entries(settings.retime || {}).map(([k, v]) => [Number(k) + offset, v + offset])) };
       applyAnimXL(m, buildAnimXL(m, created, shifted));
-      if (withSound) addThunkSound(m, shifted.thunks);
+      for (const sound of soundEvents(shifted.thunks, shifted.flinches)) addSoundEvent(m, sound);
     }) === false) return;
     writeSaved(keyFor(seq), null);
     onClose();
@@ -225,7 +252,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     if (edit(label, sections, m => {
       applyAnimXL(m, shaped);
       for (const index of also) applyAnimXL(m, buildAnimXL(m, index, shared));
-      if (withSound) addThunkSound(m, settings.thunks);
+      for (const sound of soundEvents(settings.thunks, settings.flinches)) addSoundEvent(m, sound);
     }) === false) return;
     writeSaved(keyFor(seq), null);
     onClose();
@@ -353,20 +380,13 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
           <Section title="Hits" note={[settings.thunks.length && `★${settings.thunks.length}`, settings.flinches.length && `✕${settings.flinches.length}`].filter(Boolean).join(' ')}>
             <div className="ax-chips">{settings.thunks.map(t => <button key={t} className="ax-chip" title="Remove this THUNK" onClick={() => change('thunks', settings.thunks.filter(x => x !== t))}>★ {t - interval[0]} ms ×</button>)}</div>
             <button onClick={() => addMarker('thunks')} title="Your weapon connects here: the animation holds this pose for a beat and heavy bones bounce back.">Add THUNK here</button>
-            <div className="ax-row" title="A sound that plays at each THUNK: you hear it in the preview, and Commit adds it to the model as a sound event on the weapon so it plays in game.">
-              <select aria-label="THUNK sound" value={settings.thunkSound || ''} onFocus={loadSounds} onPointerDown={loadSounds} onChange={event => { change('thunkSound', event.target.value); if (event.target.value) playSound(event.target.value); }}>
-                <option value="">No THUNK sound</option>
-                {sounds?.loading && <option disabled>Loading sounds…</option>}
-                {(sounds?.SND || []).map(sound => <option key={sound.id} value={sound.id}>{sound.label}</option>)}
-                {settings.thunkSound && !(sounds?.SND || []).some(sound => sound.id === settings.thunkSound) && <option value={settings.thunkSound}>{settings.thunkSound}</option>}
-              </select>
-              <button aria-label="Play THUNK sound" title="Play the chosen sound" disabled={!settings.thunkSound || !sounds?.SND?.length} onClick={() => playSound(settings.thunkSound)}>▶</button>
-            </div>
+            <SoundPicker label="THUNK sound" tip="A sound that plays at each THUNK: you hear it in the preview, and Commit adds it as a sound event on the weapon so it plays in game." value={settings.thunkSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('thunkSound', id)}/>
             {soundError && <small className="ax-note">{soundError}</small>}
             <Slider id="thunk" label="THUNK" low="Light" high="Brutal" tip="How long the hit holds and how hard the heavy bones bounce back." value={settings.thunk} onChange={change}/>
             <div className="ax-chips">{settings.flinches.map(t => <button key={t} className="ax-chip ax-chip-flinch" title="Remove this flinch" onClick={() => change('flinches', settings.flinches.filter(x => x !== t))}>✕ {t - interval[0]} ms ×</button>)}</div>
             <button onClick={() => addMarker('flinches')} title="The unit gets hit from the front here: the body is knocked back and the torso snaps back, then recovers.">Add flinch here</button>
             <label className="ax-check" title="Flinches come from behind: the body is pushed forward and the torso snaps forward instead of back."><input type="checkbox" checked={settings.flinchBehind} onChange={event => change('flinchBehind', event.target.checked)}/> Hit from behind</label>
+            <SoundPicker label="Hit sound" tip="A sound that plays at each flinch (the unit getting hit): you hear it in the preview, and Commit adds it as a sound event on the body so it plays in game." value={settings.flinchSound} sounds={sounds} onOpen={loadSounds} onPlay={playSound} onChange={id => change('flinchSound', id)}/>
             <Slider id="flinch" label="Flinch" low="Tap" high="Wrecked" tip="How hard the unit is knocked back by each flinch." value={settings.flinch} onChange={change}/>
           </Section>
           <Section title="Also apply to" note={also.length ? `${also.length} more` : ''}>

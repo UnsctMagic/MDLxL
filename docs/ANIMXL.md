@@ -25,6 +25,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 | Heavy steps | Each footfall drops the body into the step and nods the chest and head. Footfalls are found from the feet touching the ground (green ticks). |
 | THUNK | The weapon connects: the pose holds for a beat, then catches up; heavy bones bounce back. |
 | THUNK sound | Pick a game sound (from your Warcraft III files); you hear it at each THUNK in the preview, and Commit adds it as a sound event (SNDx…) on the weapon so it plays in game. |
+| Hit sound | Like THUNK sound, for flinches: the sound event goes on the body that takes the hit. Both pickers have a search box. |
 | Flinch | The unit is hit from the front: the body is knocked back, the torso snaps back, then recovers. |
 | Also apply to | Commit shapes other animations too, with the same sliders and bones. |
 | Commit as new | Keeps the original and adds the shaped version as a new animation, "<name> (AnimXL)". One Undo removes it. |

@@ -11,7 +11,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   heavy: 0, heavyIds: [], loose: 0, looseIds: [],
   steps: 0,
   thunk: 60, thunks: [], thunkSound: '',
-  flinch: 60, flinches: [], flinchBehind: false,
+  flinch: 60, flinches: [], flinchBehind: false, flinchSound: '',
   retime: {},
 });
 
