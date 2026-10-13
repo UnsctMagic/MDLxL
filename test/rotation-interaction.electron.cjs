@@ -41,7 +41,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
   try {
     page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setSize(1280, 900); });
-    await page.locator('[data-warmkey="animation"]').click();
+    await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Movement current sequence').selectOption('0');
     await page.getByLabel('Movement bone or node').selectOption('0');
     await page.getByRole('group', { name: 'Movement tool', exact: true }).getByRole('button', { name: 'Rotate', exact: true }).click();
@@ -89,7 +89,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     const workplane = page.getByLabel('Workplane', { exact: true });
     const sidebarWidth = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     for (const [plane, normal] of [['xy', 'Z'], ['xz', 'Y'], ['yz', 'X']]) {
-      await workplane.check(); await page.locator(`[data-warmkey="plane:${plane}"]`).check();
+      await workplane.check(); await page.locator(`[data-hotkey="plane:${plane}"]`).check();
       const disabled = await Promise.all(['X', 'Y', 'Z'].map(axis => page.getByLabel(axis + ' coordinate', { exact: true }).isDisabled()));
       check(plane + ' numeric XYZ rotation includes its normal ' + normal, disabled.every(value => !value), disabled);
       const input = page.getByLabel(normal + ' coordinate', { exact: true });
@@ -141,7 +141,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     await drag('Bottom-view Z handle cap', shortZ, shortZ.dx, shortZ.dy, false, 'Z');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); await settle();
     for (const plane of ['xy', 'xz', 'yz']) {
-      await workplane.check(); await page.locator(`[data-warmkey="plane:${plane}"]`).check(); await settle();
+      await workplane.check(); await page.locator(`[data-hotkey="plane:${plane}"]`).check(); await settle();
       for (const direction of ['horizontal', 'vertical']) {
         const active = (await handles()).active;
         await drag(plane + ' ' + direction, { x: active.x + 120, y: active.y + 90 }, direction === 'horizontal' ? 30 : 0, direction === 'vertical' ? 30 : 0, false, { xy: 'Z', xz: 'Y', yz: 'X' }[plane]);
@@ -175,10 +175,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       const afterRotate = await snap(); check('Workplane ' + enabled + ' actual Alt mouse camera rotation', delta(beforeRotate.camera.quaternion, afterRotate.camera.quaternion) > .01 && beforeRotate.model === afterRotate.model);
       const beforeZoom = await snap(); await page.mouse.move(x, y); await page.mouse.wheel(0, -120); await settle(); const afterZoom = await snap();
       check('Workplane ' + enabled + ' wheel zoom preserves model', afterZoom.camera.zoom > beforeZoom.camera.zoom && afterZoom.model === beforeZoom.model);
-      await page.locator('[data-warmkey="camera:zoom"]').click();
+      await page.locator('[data-hotkey="camera:zoom"]').click();
       const beforeDragZoom = await snap(); await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x, y - 30, { steps: 6 }); await page.mouse.up(); await settle(); const afterDragZoom = await snap();
       check('Workplane ' + enabled + ' mouse zoom preserves model', afterDragZoom.camera.zoom > beforeDragZoom.camera.zoom && afterDragZoom.model === beforeDragZoom.model);
-      await page.locator('[data-warmkey="camera:work"]').click();
+      await page.locator('[data-hotkey="camera:work"]').click();
     }
     check('sidebar width preserved', await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width) === sidebarWidth);
     check('input model bytes preserved', hash(fixture) === fixtureHash); check('no renderer errors', errors.length === 0, errors);

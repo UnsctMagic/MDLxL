@@ -52,7 +52,7 @@ function sameOrientation(actual, expected, message) {
       window.pointerLog=[];for(const type of ['pointerdown','pointermove','pointerup'])document.addEventListener(type,event=>{pointerLog.push({type,x:event.clientX,y:event.clientY,target:event.target.className});if(pointerLog.length>20)pointerLog.shift();},true);
     });
     await page.getByLabel('View direction',{exact:true}).selectOption('perspective');
-    await page.locator('[data-warmkey="select"]').click();
+    await page.locator('[data-hotkey="select"]').click();
     const clickVertex=async()=>{const p=await page.evaluate(()=>vertexPoint());await page.mouse.click(p.x,p.y);};
     const idle=()=>page.waitForTimeout(150);
     await idle();await clickVertex();await idle();
@@ -166,9 +166,9 @@ function sameOrientation(actual, expected, message) {
       const r=await page.locator(`[data-viewport="${id}"]`).boundingBox(),cx=r.x+r.width/2,cy=r.y+r.height/2;
       await page.mouse.move(cx,cy);await page.keyboard.down('Alt');await page.mouse.down();await page.mouse.move(cx+34,cy+23,{steps:4});await page.mouse.up();await page.keyboard.up('Alt');await idle();
       sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' Alt cannot rotate the editing plane');
-      await page.locator('[data-warmkey="camera:rotate"]').click();await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+21,cy+12);await page.mouse.up();await idle();
+      await page.locator('[data-hotkey="camera:rotate"]').click();await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+21,cy+12);await page.mouse.up();await idle();
       sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' camera toolbar cannot rotate the editing plane');
-      await page.locator('[data-warmkey="camera:work"]').click();await activate(id);
+      await page.locator('[data-hotkey="camera:work"]').click();await activate(id);
       await page.evaluate(()=>{viewportState().setCameraAngles({x:31,y:59,z:83});viewportState().setView('orthographic');viewportState().setView('top-front-right');});await idle();
       assert.equal(await dropdown.inputValue(),view);sameOrientation((await page.evaluate(()=>cameraState())).quaternion,fixed.quaternion,view+' rejects arbitrary camera angles');
       assert.deepEqual(await page.evaluate(()=>coordinates()),unchanged,'navigation does not edit vertices');
@@ -291,7 +291,7 @@ function sameOrientation(actual, expected, message) {
     };});
     const previewCamera=()=>page.evaluate(()=>previewCameraState());
     const shiftPan=async label=>{
-      await page.locator('[data-warmkey="camera:move"]').click();
+      await page.locator('[data-hotkey="camera:move"]').click();
       const rect=await page.locator('.game-preview-surface canvas[data-clean-model-canvas]').boundingBox(),x=rect.x+rect.width/2,y=rect.y+rect.height/2;
       const initial=await previewCamera();
       await page.mouse.move(x,y);await page.keyboard.down('Shift');await page.mouse.down();
@@ -303,14 +303,14 @@ function sameOrientation(actual, expected, message) {
       assert.ok(moved(horizontal,vertical)>.01,label+' Shift vertical camera pan works');
     };
     const shiftRotate=async label=>{
-      await page.locator('[data-warmkey="camera:rotate"]').click();
+      await page.locator('[data-hotkey="camera:rotate"]').click();
       const rect=await page.locator('.game-preview-surface canvas[data-clean-model-canvas]').boundingBox(),x=rect.x+rect.width/2,y=rect.y+rect.height/2;
       const before=await previewCamera();
       await page.mouse.move(x,y);await page.keyboard.down('Shift');await page.mouse.down();
       await page.mouse.move(x+80,y+60,{steps:5});await page.mouse.up();await page.keyboard.up('Shift');await idle();
       const after=await previewCamera();
       assert.ok(Math.hypot(...before.quaternion.map((value,index)=>value-after.quaternion[index]))>.001,label+' Shift camera rotation works');
-      await page.locator('[data-warmkey="camera:work"]').click();
+      await page.locator('[data-hotkey="camera:work"]').click();
     };
     await page.getByRole('button',{name:'Bones',exact:true}).click();
     await page.getByLabel('Bones controller').waitFor({timeout:60000});

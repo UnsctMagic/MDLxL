@@ -5,8 +5,7 @@ import { createDemoDocument, openDocument, EditorDocument, createNode } from '..
 import { createSequenceFromCurrent, deleteSequence } from '../src/sequence-editor.js';
 import { parseCompatibleMdx } from '../src/mdx-compatibility.js';
 import { parseMdx } from '../src/mdx-container.js';
-import { assertModelEquivalent } from '../src/save-equivalence.js';
-import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, ANIMATION_SPEED_TAG, ANIMATION_SPEED_CHUNK, animationSpeedData, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
+import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, ANIMATION_SPEED_TAG, ANIMATION_SPEED_LEGACY_TAG, ANIMATION_SPEED_CHUNK, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
 
 function fixture() {
   const doc = createDemoDocument();
@@ -41,40 +40,52 @@ test('individual speed changes real intervals, all local keys and events; 100 re
 });
 
 for (const format of ['mdl', 'mdx']) {
-  test(`${format}: another document restores 100 after speed edits, conversion, and repeated save/reopen`, () => {
-    let doc = fixture(); const baseline = native(doc.model);
+  test(`${format}: speed changes save native timing only and reopen at 100%`, () => {
+    let doc = fixture();
     doc.apply('137%', [], model => setAnimationActualSpeed(model, 0, 137));
     doc.apply('Exclude Walk', [], model => setAnimationSpeedChecked(model, 1, false));
     doc.apply('Master 259%', [], model => setAnimationActualSpeed(model, null, 259));
-    const data = animationSpeedData(doc.model), bytes = doc.serialize(format);
-    assert.equal(Buffer.from(bytes).toString('utf8').split(ANIMATION_SPEED_TAG).length, 2);
-    if (format === 'mdx') assert.equal(parseMdx(bytes).chunks.filter(chunk => chunk.tag === ANIMATION_SPEED_CHUNK).length, 1);
+    const bytes = doc.serialize(format), timing = intervals(doc.model);
+    assert.ok(!Buffer.from(bytes).includes(ANIMATION_SPEED_TAG));
+    if (format === 'mdx') assert.equal(parseMdx(bytes).chunks.filter(chunk => chunk.tag === ANIMATION_SPEED_CHUNK).length, 0);
     const plain = format === 'mdl' ? parseMDL(Buffer.from(bytes).toString('utf8')) : parseCompatibleMdx(bytes);
-    assert.deepEqual(intervals(plain), intervals(doc.model));
+    assert.deepEqual(intervals(plain), timing);
     assert.deepEqual(plain.Bones[0].Translation.Keys.map(key => key.Frame), doc.model.Bones[0].Translation.Keys.map(key => key.Frame));
     doc = openDocument(bytes, `different-person.${format}`);
-    assert.equal(doc.readOnly, false); assert.deepEqual(animationSpeedData(doc.model), data);
-    assert.equal(animationMasterSpeed(doc.model), 259); assert.equal(animationSpeedChecked(doc.model.Sequences[1]), false);
+    assert.equal(doc.readOnly, false); assert.equal(doc.dirty, false);
+    assert.deepEqual(intervals(doc.model), timing);
+    assert.deepEqual(doc.model.Sequences.map(animationSpeed), [100, 100]);
+    assert.equal(animationMasterSpeed(doc.model), 100); assert.equal(animationSpeedChecked(doc.model.Sequences[1]), true);
     assert.deepEqual(doc.serialize(), bytes);
-    doc.apply('73%', [], model => setAnimationActualSpeed(model, 0, 73));
-    const opposite = format === 'mdl' ? 'mdx' : 'mdl';
-    doc = openDocument(doc.serialize(opposite), `other-format.${opposite}`);
-    doc.apply('Original', [], model => setAnimationActualSpeed(model, 0, 100));
-    assertModelEquivalent({ Sequences: baseline.Sequences }, { Sequences: doc.model.Sequences }, { keys: ['Sequences'] });
-    assert.deepEqual(doc.model.Bones[0].Translation.Keys.map(key => key.Frame), baseline.Bones[0].Translation.Keys.map(key => key.Frame));
-    assert.deepEqual(Array.from(doc.model.EventObjects[0].EventTrack), baseline.EventObjects[0].EventTrack);
+    doc.apply('Half', [], model => setAnimationActualSpeed(model, 0, 50));
+    assert.equal(doc.model.Sequences[0].Interval[1] - doc.model.Sequences[0].Interval[0], (timing[0][1] - timing[0][0]) * 2);
+  });
+
+  test(`${format}: speed annotations from earlier versions are stripped on save without touching native data`, () => {
+    const nativeBytes = Buffer.from(createDemoDocument().serialize(format));
+    for (const tag of [ANIMATION_SPEED_TAG, ANIMATION_SPEED_LEGACY_TAG]) {
+      const text = Buffer.from(`// ${tag} {"master":50}\n`);
+      const header = Buffer.alloc(8); header.write(ANIMATION_SPEED_CHUNK, 'ascii'); header.writeUInt32LE(text.length, 4);
+      const input = format === 'mdl' ? Buffer.concat([text, nativeBytes]) : Buffer.concat([nativeBytes, header, text]);
+      const doc = openDocument(input, `old.${format}`);
+      assert.equal(doc.readOnly, false);
+      assert.ok(!doc.diagnostics.some(item => item.code === 'OPAQUE_DATA_PRESERVED'));
+      assert.deepEqual(doc.model.Sequences.map(animationSpeed), doc.model.Sequences.map(() => 100));
+      assert.deepEqual(Buffer.from(doc.serialize()), nativeBytes);
+    }
   });
 }
 
 test('master only changes checked speeds, per-animation settings remain independent, and undo/recovery retain the baseline', () => {
   const doc = fixture(); const before = native(doc.model);
+  doc.markSaved(doc.serialize('mdx'), 'fixture.mdx');
   doc.apply('Exclude', [], model => setAnimationSpeedChecked(model, 1, false));
-  assert.equal(doc.dirty, true);
+  assert.equal(doc.dirty, false); // Choosing participants alone changes nothing in the file.
   doc.apply('Master', [], model => setAnimationActualSpeed(model, null, 50));
   assert.equal(animationSpeed(doc.model.Sequences[0]), 50); assert.equal(animationSpeed(doc.model.Sequences[1]), 100);
   assert.equal(doc.model.Sequences[1].Interval[1] - doc.model.Sequences[1].Interval[0], 2000);
   const copy = EditorDocument.restoreRecoveryState(doc.captureRecoveryState({ compact: true }));
-  assert.deepEqual(animationSpeedData(copy.model), animationSpeedData(doc.model));
+  assert.deepEqual(copy.model.Sequences.map(animationSpeed), [50, 100]);
   copy.undo(); assert.deepEqual(native(copy.model), before); copy.redo();
   copy.apply('Walk speed', [], model => setAnimationActualSpeed(model, 1, 200));
   assert.equal(animationSpeed(copy.model.Sequences[0]), 50); assert.equal(animationSpeed(copy.model.Sequences[1]), 200);
@@ -82,8 +93,8 @@ test('master only changes checked speeds, per-animation settings remain independ
   assert.deepEqual(native(copy.model), before);
 });
 
-test('new keys, edited key values, removed events, copied and deleted sequences survive subsequent save and restore', () => {
-  let doc = fixture();
+test('new keys, edited key values, removed events, copied and deleted sequences restore exactly in the session', () => {
+  const doc = fixture();
   doc.apply('Speed', [], model => setAnimationActualSpeed(model, 0, 50));
   doc.apply('Edit motion', [], model => {
     model.Bones[0].Translation.Keys[1].Vector[0] = 99;
@@ -91,16 +102,16 @@ test('new keys, edited key values, removed events, copied and deleted sequences 
     model.EventObjects[0].EventTrack = new Uint32Array(Array.from(model.EventObjects[0].EventTrack).filter(frame => frame !== 1554));
     createSequenceFromCurrent(model, 0);
   });
-  doc = openDocument(doc.serialize('mdx'), 'copy.mdx');
-  assert.equal(doc.readOnly, false);
   doc.apply('Copy original speed', [], model => setAnimationActualSpeed(model, 2, 100));
   assert.equal(doc.model.Sequences[2].Interval[1] - doc.model.Sequences[2].Interval[0], 2000);
   doc.apply('Delete Walk', [], model => deleteSequence(model, 1));
-  doc = openDocument(doc.serialize('mdl'), 'edited.mdl');
   doc.apply('Original', [], model => setAnimationActualSpeed(model, 0, 100));
   assert.equal(doc.model.Bones[0].Translation.Keys.find(key => key.Frame === 777).Vector[0], 99);
   assert.ok(doc.model.Bones[0].Translation.Keys.some(key => key.Frame === 800));
   assert.ok(!Array.from(doc.model.EventObjects[0].EventTrack).includes(777));
+  const reopened = openDocument(doc.serialize('mdx'), 'copy.mdx');
+  assert.equal(reopened.readOnly, false);
+  assert.deepEqual(intervals(reopened.model), intervals(doc.model));
 });
 
 test('invalid percentages and keyframe collisions fail without dropping motion; contiguous sequences work', () => {
@@ -115,20 +126,6 @@ test('invalid percentages and keyframe collisions fail without dropping motion; 
   setAnimationActualSpeed(minimal, 0, 50); assert.deepEqual(intervals(minimal), [[0, 2000], [2000, 3000]]);
 });
 
-test('malformed comments are reported and preserved, and metadata-only saves preserve native bytes', () => {
-  const original = createDemoDocument().serialize('mdl');
-  const malformed = Buffer.concat([Buffer.from(`// ${ANIMATION_SPEED_TAG} {"tracks":[null]}\n`), original]);
-  const doc = openDocument(malformed, 'invalid.mdl');
-  assert.equal(doc.readOnly, false); assert.ok(doc.diagnostics.some(item => item.code === 'ANIMATION_SPEED_METADATA'));
-  assert.deepEqual(Buffer.from(doc.serialize()), malformed);
-  doc.apply('Uncheck', [], model => setAnimationSpeedChecked(model, 0, false));
-  const bytes = Buffer.from(doc.serialize());
-  assert.ok(bytes.includes(malformed));
-  // Choosing master participants alone must not write a timing baseline.
-  assert.deepEqual(bytes, malformed);
-  assert.equal(animationSpeedData(openDocument(bytes, 'saved.mdl').model), null);
-});
-
 test('negative local key and event times remain signed, and cubic values and tangents survive speed changes', () => {
   const doc = fixture();
   doc.apply('Signed cubic fixture', [], model => {
@@ -138,27 +135,26 @@ test('negative local key and event times remain signed, and cubic values and tan
     model.EventObjects[0].EventTrack = new Int32Array([-10, ...model.EventObjects[0].EventTrack]);
   });
   const before = structuredClone(doc.model.Bones[0].Translation);
+  const keys = model => model.Bones[0].Translation.Keys.map(key => ({ Frame: key.Frame, Vector: key.Vector, InTan: key.InTan, OutTan: key.OutTan }));
   doc.apply('Speed', [], model => setAnimationActualSpeed(model, 0, 200));
   for (const format of ['mdl', 'mdx']) {
     const reopened = openDocument(doc.serialize(format), `signed.${format}`);
     assert.equal(reopened.readOnly, false);
     assert.equal(reopened.model.EventObjects[0].EventTrack[0], -10);
-    reopened.apply('Original', [], model => setAnimationActualSpeed(model, 0, 100));
-    assert.deepEqual(reopened.model.Bones[0].Translation.Keys.map(key => ({ Frame: key.Frame, Vector: key.Vector, InTan: key.InTan, OutTan: key.OutTan })), before.Keys);
+    assert.deepEqual(keys(reopened.model), keys(doc.model));
   }
+  doc.apply('Original', [], model => setAnimationActualSpeed(model, 0, 100));
+  assert.deepEqual(keys(doc.model), before.Keys);
 });
 
-test('saved baselines, edits during disk writing, and valid JSON with malformed records preserve history and comments', () => {
+test('saved baselines and edits during disk writing keep the dirty state accurate', () => {
   const doc = fixture();
   doc.apply('Speed', [], model => setAnimationActualSpeed(model, 0, 50));
   const saved = doc.serialize('mdx'); doc.markSaved(saved, 'speed.mdx'); assert.equal(doc.dirty, false);
   assert.deepEqual(doc.serialize(), saved);
   doc.apply('Master', [], model => setAnimationActualSpeed(model, null, 137));
   const pending = doc.serialize();
-  doc.apply('Exclude', [], model => setAnimationSpeedChecked(model, 1, false));
+  doc.apply('Walk', [], model => setAnimationActualSpeed(model, 1, 200));
   doc.markSaved(pending, 'speed.mdx'); assert.equal(doc.dirty, true);
   doc.undo(); assert.equal(doc.dirty, false); doc.redo(); assert.equal(doc.dirty, true);
-  const invalid = Buffer.from(`// ${ANIMATION_SPEED_TAG} {"master":100,"sequences":[],"tracks":[null],"events":[]}\n`);
-  const reopened = openDocument(Buffer.concat([invalid, createDemoDocument().serialize('mdl')]), 'malformed.mdl');
-  assert.equal(reopened.readOnly, false); assert.ok(reopened.diagnostics.some(item => item.code === 'ANIMATION_SPEED_METADATA'));
 });

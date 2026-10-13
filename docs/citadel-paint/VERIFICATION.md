@@ -10,7 +10,7 @@ uses the real PaintTextureLibrary with a separate test root.
 - Paint unit/regression tests: **141 passed**, including bounded Blend strength,
   multi-geoset selection, brush shapes, color ramps, boundary-safe UV edits,
   floating-point camera cache reuse and exact triangle scanline parity.
-- Compatibility plus WarmKeys defaults: **62 passed** (56 compatibility + 6
+- Compatibility plus Hotkeys defaults: **62 passed** (56 compatibility + 6
   shortcut checks).
 - Vite production build: passed; existing large-chunk advisory remains.
 - Package runtime whitelist and complete bundled dependency licenses: passed.

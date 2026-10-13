@@ -56,7 +56,7 @@ const root = path.resolve(__dirname, '..');
     for (let spot = 0; spot < 4; spot++) {
       await page.mouse.move(10, 10);
       await page.evaluate(value => { Math.random = () => value; }, (spot + .1) / 4);
-      if (spot === 0) await page.locator('[data-warmkey="update:install"]').click({force:true});
+      if (spot === 0) await page.locator('[data-hotkey="update:install"]').click({force:true});
       else await app.evaluate(() => shredderTest.updater.publish({state:'downloading',received:3}));
       await page.locator('.update-shredder').waitFor({state:'attached'});
       const box = page.getByRole('dialog',{name:'MDLxL update'});
@@ -116,7 +116,7 @@ const root = path.resolve(__dirname, '..');
     await page.waitForFunction(async () => (await window.desktop.updateStatus()).state === 'available');
     assert.ok(await app.evaluate(() => shredderTest.closePrompts) > 0,'the normal unsaved-model prompt still runs');
     assert.equal(await page.locator('.update-shredder-layer').count(),0);
-    await page.locator('[data-warmkey="update:later"]').click({force:true});
+    await page.locator('[data-hotkey="update:later"]').click({force:true});
     assert.equal(await page.locator('.update-overlay').count(),0);
     await app.evaluate(() => {shredderTest.updater.publish({state:'available'});shredderTest.updater.publish({state:'downloading',total:0,received:0});});
     await page.locator('.update-shredder').waitFor({state:'attached'});

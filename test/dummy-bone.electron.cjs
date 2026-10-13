@@ -108,7 +108,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(count => pasteSummary().geosets === count + 1, before.geosets);
 
     await page.getByRole('tab', { name: 'paste-donor.mdx' }).click();
-    await page.locator('[data-warmkey="bones"]').click(); await page.keyboard.press('Control+a'); await page.keyboard.press('Control+c');
+    await page.locator('[data-hotkey="bones"]').click(); await page.keyboard.press('Control+a'); await page.keyboard.press('Control+c');
     await page.getByRole('tab', { name: 'paste-target.mdx' }).click();
     await page.keyboard.press('Control+p');
     if (scenario === 'format') await repairDialog.getByRole('button', { name: 'Fix and paste', exact: true }).click();

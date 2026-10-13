@@ -43,7 +43,7 @@ import './texture-library.css';
 import './material-properties.css';
 import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
-import { WarmKeysProvider } from './WarmKeys.jsx';
+import { HotkeysProvider } from './Hotkeys.jsx';
 import { normalizePreferences } from '../src/preferences.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
@@ -106,9 +106,9 @@ function browserRecovery(operation, value) {
     request.onsuccess = () => { const db = request.result, tx = db.transaction('drafts', operation === 'put' ? 'readwrite' : 'readonly'), store = tx.objectStore('drafts'); const action = operation === 'put' ? store.put(value) : operation === 'get' ? store.get(value) : store.getAll(); let result; action.onsuccess = () => { result = action.result; }; tx.oncomplete = () => { db.close(); resolve(result); }; tx.onerror = () => { db.close(); reject(tx.error); }; };
   });
 }
-function Dialog({ title, children, footer, onClose, onWarmKeys, overlayClass = '', onKeyDown }) {
+function Dialog({ title, children, footer, onClose, onHotkeys, overlayClass = '', onKeyDown }) {
   const windowRef = useRef(null), movable = useMovableWindow(windowRef);
-  return <div className={`classic-modal ${overlayClass}`} onKeyDown={onKeyDown}><section data-warmkey-scope="dialog" data-warmkey-prefix={title} ref={windowRef} style={movable.style} className="classic-modal-window" role="dialog" aria-modal="true" aria-label={title}><header {...movable.handleProps}><span>{title}</span><div>{onWarmKeys && <button data-warmkey="warmkeys" aria-label="Hotkeys for this dialog" onClick={onWarmKeys}>Keys</button>}<button data-warmkey="close" aria-label={`Close ${title}`} onClick={onClose}>×</button></div></header><div className="classic-modal-body">{children}</div><footer>{footer || <button data-warmkey="app:action:1" onClick={onClose}>Close</button>}</footer></section></div>;
+  return <div className={`classic-modal ${overlayClass}`} onKeyDown={onKeyDown}><section data-hotkey-scope="dialog" data-hotkey-prefix={title} ref={windowRef} style={movable.style} className="classic-modal-window" role="dialog" aria-modal="true" aria-label={title}><header {...movable.handleProps}><span>{title}</span><div>{onHotkeys && <button data-hotkey="hotkeys" aria-label="Hotkeys for this dialog" onClick={onHotkeys}>Keys</button>}<button data-hotkey="close" aria-label={`Close ${title}`} onClick={onClose}>×</button></div></header><div className="classic-modal-body">{children}</div><footer>{footer || <button data-hotkey="app:action:1" onClick={onClose}>Close</button>}</footer></section></div>;
 }
 
 export default function App() {
@@ -1077,7 +1077,7 @@ export default function App() {
     forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(), animXL:()=>setDialog({type:'animXL'}),
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
     ...Object.fromEntries(['set','copy','paste','copyPose','delete','clear','selectAll','previous','next'].map(id=>['keyframe:'+id,()=>timelineCommands.current[id]?.()])),
-    exit: () => window.desktop?.close?.(), settings: () => setSettingsTab('mouse'), warmkeys: () => setSettingsTab('warmkeys'), graphics: () => setSettingsTab('graphics'), appearanceSettings: () => setSettingsTab('visuals'), configurationSettings: () => setSettingsTab('configuration'), gridSettings: () => setSettingsTab('grid'), gameDataSettings: () => setSettingsTab('gameData'),
+    exit: () => window.desktop?.close?.(), settings: () => setSettingsTab('mouse'), hotkeys: () => setSettingsTab('hotkeys'), graphics: () => setSettingsTab('graphics'), appearanceSettings: () => setSettingsTab('visuals'), configurationSettings: () => setSettingsTab('configuration'), gridSettings: () => setSettingsTab('grid'), gameDataSettings: () => setSettingsTab('gameData'),
     pressedKeys: () => changePreferences(previous=>({...previous,showPressedKeys:!previous.showPressedKeys})), captureSettings:()=>setSettingsTab('capture'),
     importTextures, textureFolder, hide, show: () => setHidden({}),
     cameraToggle: toggleCamera,
@@ -1159,7 +1159,7 @@ export default function App() {
     return true;
   }
   // Playback time changes do not change available commands or shortcut bindings.
-  const settingsCommands = ['settings','warmkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
+  const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
   const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, repairBlocked, repairReceipt, session.paintProject?.revision,showcaseHistoryState]);
   const runCommand = id => { if(commandEnabled(id)) { if(repairBlocked && id==='saveAs') save(true); else commands.current[id]?.(); } };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
@@ -1360,7 +1360,7 @@ export default function App() {
       onRepair={repairDuplicateAnimations} onUndo={undoDuplicateRepair} onAccept={() => setRepairReceipt(null)} onOpen={open} onSave={() => save(true)}/>
     {dialog?.type === 'closeTab' && <Dialog title="Close model tab?" onClose={() => setDialog(null)} footer={<><button disabled={saving} onClick={async()=>{const target=dialog.target;if(await saveSessionWork(target)){setDialog(null);removeSession(target);}}}>Save</button><button disabled={saving} onClick={()=>{const target=dialog.target;setDialog(null);removeSession(target);}}>Don't save</button><button disabled={saving} onClick={()=>setDialog(null)}>Cancel</button></>}><p>Save changes to {dialog.target.doc.name} before closing its tab?</p></Dialog>}
   </>;
-  return <WarmKeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog?'dialog':mode==='paint'?'paint':'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-warmkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const records = [...event.dataTransfer.files], record = records.find(file => /\.(mdl|mdx|mdlxlpaint)$/i.test(file.name)); if(record&&mode==='showcase')loadShowcaseModel(record);else if (record) loadFile(record); else loadTextures(records).catch(error => say(error.message, true)); }} onClick={() => context && setContext(null)}>
+  return <HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog?'dialog':mode==='paint'?'paint':'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const records = [...event.dataTransfer.files], record = records.find(file => /\.(mdl|mdx|mdlxlpaint)$/i.test(file.name)); if(record&&mode==='showcase')loadShowcaseModel(record);else if (record) loadFile(record); else loadTextures(records).catch(error => say(error.message, true)); }} onClick={() => context && setContext(null)}>
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
       activateSession, animationPanel, cameraMode, changePreferences, clearDisplay, commandEnabled, commands, copy,
@@ -1466,5 +1466,5 @@ export default function App() {
       uvWindowRef, uvWorkspace, validSelection, view, visibleOnly, workplane, workplaneEnabled
     }}/>
     <PressedKeys enabled={preferences.showPressedKeys}/>
-  </div></WarmKeysProvider>;
+  </div></HotkeysProvider>;
 }

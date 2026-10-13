@@ -76,10 +76,10 @@ async function setRange(locator, value) {
     const mainWindow = await app.browserWindow(main);
     await mainWindow.evaluate(window => { window.webContents.setBackgroundThrottling(false); window.setBounds({ x: -4000, y: 0, width: 1600, height: 1000 }); window.showInactive(); });
     await main.getByLabel('Select geoset 2', { exact: true }).waitFor();
-    await main.locator('[data-warmkey="geosetsClear"]').click();
+    await main.locator('[data-hotkey="geosetsClear"]').click();
     await main.getByLabel('Select geoset 0', { exact: true }).check(); await main.getByLabel('Select geoset 2', { exact: true }).check();
     await main.getByLabel('3D model viewport', { exact: true }).click(); await main.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window'); await main.locator('[data-warmkey="uv"]').click(); uv = await opened;
+    const opened = app.waitForEvent('window'); await main.locator('[data-hotkey="uv"]').click(); uv = await opened;
     uv.setDefaultTimeout(15000); uv.on('pageerror', error => errors.push(error.message));
     const uvWindow = await app.browserWindow(uv);
     await uvWindow.evaluate(window => { window.webContents.setBackgroundThrottling(false); window.setBounds({ x: -4000, y: 0, width: 1600, height: 1000 }); window.showInactive(); });

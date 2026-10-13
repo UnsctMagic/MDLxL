@@ -27,14 +27,14 @@ const preferenceValue = selector => `(() => {
     const main = await app.firstWindow(); main.setDefaultTimeout(15000);
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
     await main.getByLabel('Select geoset 3', { exact: true }).waitFor({ timeout: 60000 });
-    await main.locator('[data-warmkey="geosetsClear"]').click();
+    await main.locator('[data-hotkey="geosetsClear"]').click();
     await main.getByLabel('Select geoset 3', { exact: true }).check();
     await main.locator('[aria-label="3D model viewport"]').click();
     await main.keyboard.press('Control+a');
     const outsideBefore = await main.evaluate(preferenceValue('[aria-label="3D model viewport"]'));
 
     const opened = app.waitForEvent('window');
-    await main.locator('[data-warmkey="uv"]').click();
+    await main.locator('[data-hotkey="uv"]').click();
     let uv = await opened; uv.setDefaultTimeout(15000);
     const map = uv.getByLabel('UV coordinate editor');
     await map.waitFor({ timeout: 60000 });
@@ -56,7 +56,7 @@ const preferenceValue = selector => `(() => {
     assert.equal(await main.evaluate(preferenceValue('[aria-label="3D model viewport"]')), outsideBefore);
 
     const reopened = app.waitForEvent('window');
-    await main.locator('[data-warmkey="uv"]').click();
+    await main.locator('[data-hotkey="uv"]').click();
     uv = await reopened; uv.setDefaultTimeout(15000);
     await uv.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
     await uv.locator('.game-preview-root').waitFor({ timeout: 60000 });

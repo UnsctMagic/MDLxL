@@ -67,8 +67,8 @@ async function closeTestApp(app) {
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1400, height: 950 }); win.showInactive(); });
-    await page.locator('[data-warmkey="animation"]').click();
-    const button = page.locator('button.animxl-tool, [data-warmkey="animXL"]').first();
+    await page.locator('[data-hotkey="animation"]').click();
+    const button = page.locator('button.animxl-tool, [data-hotkey="animXL"]').first();
     await button.click();
     const dialog = page.getByRole('dialog', { name: 'AnimXL' });
     await dialog.waitFor();

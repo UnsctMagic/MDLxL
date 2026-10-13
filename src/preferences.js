@@ -5,7 +5,7 @@ import APPLICATION_THEMES from './application-themes.json' with { type: 'json' }
 export { APPLICATION_THEMES };
 import { DEFAULT_PAINT_APPEARANCE, normalizePaintAppearance } from './paint-appearance.js';
 /** Shared, DOM-free preference validation and Hotkeys rules. */
-import { normalizeWarmKeySequence, WARMKEY_LEADER } from './warmkey-defaults.js';
+import { migrateHotkeyBindings, normalizeHotkeySequence, HOTKEY_LEADER } from './hotkey-defaults.js';
 import { DEFAULT_CAPTURE, normalizeCapture } from './capture-settings.js';
 import { DEFAULT_UV_PREVIEW_DISPLAY, normalizeUVPreviewDisplay } from './uv-preview-display.js';
 import { DEFAULT_UV_GRID, normalizeUVGrid } from './uv-grid.js';
@@ -106,7 +106,7 @@ export function cameraBindings(preferences) {
 /** UV coordinates use an independent multiplier, captured once at gesture start. */
 export function uvTransformSensitivity(preferences) { return bounded(preferences?.uvSensitivity, 0.01, 4, DEFAULT_PREFERENCES.uvSensitivity); }
 // Nested resource, section, track, and vector identities remain intact when persisted.
-export const MAX_WARMKEY_ID_LENGTH = 2048;
+export const MAX_HOTKEY_ID_LENGTH = 2048;
 /** Adopt the requested follow-up raster/grid defaults once for older profiles.
  * Later explicit settings remain user-controlled; lighting is never migrated. */
 export function migrateFollowupPreferences(value = {}) {
@@ -130,13 +130,18 @@ export function migrateFollowupPreferences(value = {}) {
     ...(input.rendererRevision !== 1 && input.panelWidth === 178 ? {panelWidth:164} : {}),
     ...(input.rendererRevision !== 1 ? {graphics:{...record(input.graphics),antialias:false}} : {})};
 }
+/** One-way load migrations for saved preferences, including custom hotkeys saved under pre-rename IDs. */
+export function migratePreferences(value = {}) {
+  const input = migrateFollowupPreferences(value), hotkeys = migrateHotkeyBindings(input.hotkeys);
+  return hotkeys === input.hotkeys ? input : { ...input, hotkeys };
+}
 export function normalizePreferences(value = {}) {
-  const input = migrateFollowupPreferences(value), graphic = record(input.graphics), defaults = DEFAULT_PREFERENCES.graphics;
+  const input = migratePreferences(value), graphic = record(input.graphics), defaults = DEFAULT_PREFERENCES.graphics;
   const sensitivity = Number(input.scrollSensitivity);
   const pointer = Number(input.pointerSensitivity);
   const hotkeys = {};
   for (const [id, keys] of Object.entries(record(input.hotkeys))) {
-    if (!id || id.length > MAX_WARMKEY_ID_LENGTH || ['__proto__', 'constructor', 'prototype'].includes(id) || !Array.isArray(keys)) continue;
+    if (!id || id.length > MAX_HOTKEY_ID_LENGTH || ['__proto__', 'constructor', 'prototype'].includes(id) || !Array.isArray(keys)) continue;
     hotkeys[id] = [...new Set(keys.map(normalizeChord).filter(Boolean))].slice(0, 8);
   }
   const legacyVisuals = legacyVisualOptions(input), legacyCustomized = !input.viewportAppearance && customizedLegacyVisuals(input.visuals);
@@ -178,7 +183,7 @@ const keyAliases = { ' ': 'Space', space: 'Space', spacebar: 'Space', esc: 'Esca
 const modifiers = ['Ctrl', 'Alt', 'Shift', 'Meta'];
 export function normalizeChord(value) {
   if (typeof value !== 'string' || value.length > 100) return '';
-  if (value.includes('>')) return normalizeWarmKeySequence(value);
+  if (value.includes('>')) return normalizeHotkeySequence(value);
   const normalized = value === ' ' ? 'Space' : value.trim().replace(/\+\+$/, '+Plus');
   const parts = normalized === '+' ? ['Plus'] : normalized.split('+').map(part => part.trim());
   const held = new Set(); let key = '';
@@ -218,7 +223,7 @@ export function hotkeyConflicts(catalog, overrides, actionId, chord) {
 }
 export function assignHotkey(overrides, catalog, actionId, chord, { replace = false } = {}) {
   const key = normalizeChord(chord), hotkeys = { ...record(overrides) };
-  if (key === WARMKEY_LEADER) return { ok: false, hotkeys, conflicts: [], error: 'Ctrl+Alt+Space starts a Hotkeys sequence. Follow it with a three-character code, or choose another shortcut.' };
+  if (key === HOTKEY_LEADER) return { ok: false, hotkeys, conflicts: [], error: 'Ctrl+Alt+Space starts a Hotkeys sequence. Follow it with a three-character code, or choose another shortcut.' };
   if (!key || !actionId) return { ok: false, hotkeys, conflicts: [], error: 'Press a key, optionally with Ctrl, Alt, Shift, or Win.' };
   const bindings = effectiveBindings(catalog, hotkeys), conflicts = hotkeyConflicts(catalog, hotkeys, actionId, key);
   if (conflicts.length && !replace) return { ok: false, hotkeys, conflicts, error: 'This shortcut is already assigned.' };
@@ -228,7 +233,7 @@ export function assignHotkey(overrides, catalog, actionId, chord, { replace = fa
 }
 export function isTextEditingTarget(target) {
   if (!target) return false;
-  if (target.isContentEditable || target.closest?.('[contenteditable="true"], [role="textbox"], [data-warmkey-recording]')) return true;
+  if (target.isContentEditable || target.closest?.('[contenteditable="true"], [role="textbox"], [data-hotkey-recording]')) return true;
   const tag = String(target.tagName || '').toLowerCase();
   if (tag === 'input') return !['checkbox', 'radio', 'button', 'submit', 'reset', 'image'].includes(String(target.type || 'text').toLowerCase());
   return ['textarea', 'select'].includes(tag);

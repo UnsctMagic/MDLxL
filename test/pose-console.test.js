@@ -55,12 +55,12 @@ test('pose skeleton connects controls and joints without native mesh/weapon bran
 test('Restrict switches body lead off for hands and feet, retaining native limb edits and exact Undo', { skip: !fs.existsSync('out/pose/Footman.mdx') }, () => {
   const doc = openDocument(fs.readFileSync('out/pose/Footman.mdx')), before = structuredClone(doc.model);
   const rig = { ...suggestPoseRig(doc.model, 500, 0), pins: [] };
-  for (const kind of ['arm', 'leg']) for (const restrict of [false, true]) {
+  for (const kind of ['arm', 'leg']) for (const restrict of [false, true, undefined]) {
     const config = { ...rig, restrict }, chain = rig.chains.find(chain => chain.kind === kind), pose = samplePoseChain(doc.model, chain, 500, 0);
     const result = solvePoseLimb(doc.model, chain, 500, 0, pose.end.clone().add(new Vector3(2, 1, 2)), { config });
     const scope = poseTrackScope(config, { kind: 'endpoint', key: chain.key }, 'move', doc.model), ids = new Set(poseChainIds(chain));
     assert.ok(result.changes.every(change => scope.some(item => item.id === change.id && item.property === change.property)));
-    assert.equal(result.changes.some(change => !ids.has(change.id)), !restrict, kind + ' body lead');
+    assert.equal(result.changes.some(change => !ids.has(change.id)), restrict === false, kind + ' body lead');
     doc.apply('Pose', ['Nodes'], model => applyMovementPose(model, result.changes, 500, 0));
     assert.ok(samplePoseChain(doc.model, chain, 500, 0).end.distanceTo(pose.end) > .1);
     assert.ok(doc.undo()); assert.deepEqual(doc.model, before);

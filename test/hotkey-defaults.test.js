@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { COMMANDS } from '../src/commands.js';
 import { assignHotkey, effectiveBindings, normalizeChord, normalizePreferences } from '../src/preferences.js';
-import { contextualWarmKeyDefaults, coreWarmKeyDefaults, normalizeWarmKeySequence, warmKeyCode, warmKeySequence, WarmKeySequence, WARMKEY_LEADER } from '../src/warmkey-defaults.js';
+import { contextualHotkeyDefaults, coreHotkeyDefaults, normalizeHotkeySequence, hotkeyCode, hotkeySequence, HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
 
 const leader = { key: ' ', code: 'Space', ctrlKey: true, altKey: true };
 test('every core action has a unique default and original MDLVis shortcuts retain their command', () => {
@@ -17,43 +17,43 @@ test('every core action has a unique default and original MDLVis shortcuts retai
   for (const key of ['H', 'K', 'Ctrl+X', 'Ctrl+B']) assert.equal(assigned.has(key), false, `${key} is reserved by original MDLVis`);
   assert.deepEqual(COMMANDS.find(command => command.id === 'keyframe:clear').defaultKeys, ['Ctrl+D']);
   assert.equal(assigned.get('Ctrl+Alt+P'), 'wheel:scroll'); assert.equal(assigned.get('Ctrl+Alt+I'), 'wheel:pointer');
-  assert.deepEqual(coreWarmKeyDefaults([{ id:'existing', defaultKeys:['M','Q'] }])[0].defaultKeys, ['M','Q']);
+  assert.deepEqual(coreHotkeyDefaults([{ id:'existing', defaultKeys:['M','Q'] }])[0].defaultKeys, ['M','Q']);
 });
 
 test('contextual defaults are unique, independent of discovery order, and stable after persistence and new controls', () => {
   const contextual = Array.from({ length: 6000 }, (_, i) => ({ id:`resource:Nodes:node:${i}:field:X`, contextual:true, defaultKeys:[] }));
-  const first = contextualWarmKeyDefaults([...COMMANDS, ...contextual]);
-  const reversed = contextualWarmKeyDefaults([...COMMANDS, ...contextual.toReversed()]);
+  const first = contextualHotkeyDefaults([...COMMANDS, ...contextual]);
+  const reversed = contextualHotkeyDefaults([...COMMANDS, ...contextual.toReversed()]);
   const byId = actions => Object.fromEntries(actions.map(action => [action.id, action.defaultKeys]));
   assert.deepEqual(byId(first), byId(reversed));
   const codes = first.flatMap(action => action.defaultKeys); assert.equal(new Set(codes).size, codes.length);
   const saved = JSON.parse(JSON.stringify(first.filter(action => action.contextual)));
-  const next = contextualWarmKeyDefaults([...COMMANDS, { id:'new:control', contextual:true }, ...saved]);
+  const next = contextualHotkeyDefaults([...COMMANDS, { id:'new:control', contextual:true }, ...saved]);
   const updated = byId(next);
   for (const action of first) assert.deepEqual(updated[action.id], action.defaultKeys);
   assert.equal(next.find(action => action.id === 'new:control').defaultKeys.length, 1);
-  assert.ok(next.filter(action => action.contextual).every(action => !warmKeyCode(action.defaultKeys[0]).startsWith('A')));
+  assert.ok(next.filter(action => action.contextual).every(action => !hotkeyCode(action.defaultKeys[0]).startsWith('A')));
 });
 
 test('new contextual codes avoid custom assignments; corrupted duplicate saved codes are repaired', () => {
-  const action = { id:'context:new', contextual:true }, first = contextualWarmKeyDefaults([action])[0];
+  const action = { id:'context:new', contextual:true }, first = contextualHotkeyDefaults([action])[0];
   const reserved = first.defaultKeys[0];
-  assert.notEqual(contextualWarmKeyDefaults([action], [reserved])[0].defaultKeys[0], reserved);
-  const repaired = contextualWarmKeyDefaults([{ ...first, id:'one' }, { ...first, id:'two' }]);
+  assert.notEqual(contextualHotkeyDefaults([action], [reserved])[0].defaultKeys[0], reserved);
+  const repaired = contextualHotkeyDefaults([{ ...first, id:'one' }, { ...first, id:'two' }]);
   assert.notEqual(repaired[0].defaultKeys[0], repaired[1].defaultKeys[0]);
 });
 
 test('Forge contextual controls drop generated codes but remain available for custom hotkeys', () => {
-  const actions = contextualWarmKeyDefaults([
+  const actions = contextualHotkeyDefaults([
     ...COMMANDS,
-    { id: 'forge:shape:add:Cube', contextual: true, defaultCode: 'ISG', defaultKeys: [warmKeySequence('ISG')] },
+    { id: 'forge:shape:add:Cube', contextual: true, defaultCode: 'ISG', defaultKeys: [hotkeySequence('ISG')] },
     { id: 'forge:effect:tool:Dome', contextual: true, defaultCode: 'WKY' },
     { id: 'paint:custom:control', contextual: true, defaultCode: 'BCD' },
   ]);
   const bindings = effectiveBindings(actions, {});
   assert.deepEqual(bindings['forge:shape:add:Cube'], []);
   assert.deepEqual(bindings['forge:effect:tool:Dome'], []);
-  assert.deepEqual(bindings['paint:custom:control'], [warmKeySequence('BCD')]);
+  assert.deepEqual(bindings['paint:custom:control'], [hotkeySequence('BCD')]);
   assert.deepEqual(bindings['forge:shape:extrude'], ['E']);
   const assigned = assignHotkey({}, actions, 'forge:shape:add:Cube', 'F8');
   assert.equal(assigned.ok, true);
@@ -61,19 +61,19 @@ test('Forge contextual controls drop generated codes but remain available for cu
 });
 
 test('sequence normalization, persistence and assignment conflicts share the same canonical identity', () => {
-  assert.equal(normalizeWarmKeySequence('alt + control + space > a09'), 'Ctrl+Alt+Space > A09');
+  assert.equal(normalizeHotkeySequence('alt + control + space > a09'), 'Ctrl+Alt+Space > A09');
   assert.equal(normalizeChord('Ctrl+Alt+Space > xyz'), 'Ctrl+Alt+Space > XYZ');
-  for (const value of ['Ctrl+Space > ABC', 'Ctrl+Alt+Space > AB', 'Ctrl+Alt+Space > AB12', 'Ctrl+Alt+Space > A+1', 'Ctrl+Alt+Space > ABC > DEF']) assert.equal(normalizeWarmKeySequence(value), '');
-  const key = warmKeySequence('AAA'), catalog = [{id:'one', defaultKeys:[key]}, {id:'two', defaultKeys:[]}];
+  for (const value of ['Ctrl+Space > ABC', 'Ctrl+Alt+Space > AB', 'Ctrl+Alt+Space > AB12', 'Ctrl+Alt+Space > A+1', 'Ctrl+Alt+Space > ABC > DEF']) assert.equal(normalizeHotkeySequence(value), '');
+  const key = hotkeySequence('AAA'), catalog = [{id:'one', defaultKeys:[key]}, {id:'two', defaultKeys:[]}];
   assert.equal(assignHotkey({}, catalog, 'two', key).ok, false);
   const replaced = assignHotkey({}, catalog, 'two', key, { replace:true });
   assert.deepEqual(effectiveBindings(catalog, replaced.hotkeys), {one:[], two:[key]});
   assert.deepEqual(normalizePreferences({ hotkeys:replaced.hotkeys }).hotkeys, replaced.hotkeys);
-  assert.equal(assignHotkey({}, catalog, 'two', WARMKEY_LEADER).ok, false, 'leader cannot become a simultaneous shortcut');
+  assert.equal(assignHotkey({}, catalog, 'two', HOTKEY_LEADER).ok, false, 'leader cannot become a simultaneous shortcut');
 });
 
 test('leader accepts exactly three characters, retained modifiers, and repeats without leaking direct shortcuts', () => {
-  const sequence = new WarmKeySequence();
+  const sequence = new HotkeySequence();
   assert.equal(sequence.feed({key:'M'}, 0).consume, false);
   assert.equal(sequence.feed(leader, 10).pending, true);
   assert.equal(sequence.feed({key:'a', code:'KeyA', ctrlKey:true, altKey:true}, 20).code, 'A');
@@ -86,7 +86,7 @@ test('leader accepts exactly three characters, retained modifiers, and repeats w
 });
 
 test('Escape, invalid keys, timeout, focus cancellation and IME cancel an incomplete sequence', () => {
-  const sequence = new WarmKeySequence({timeoutMs:100});
+  const sequence = new HotkeySequence({timeoutMs:100});
   for (const key of ['Escape', 'ArrowDown', 'Enter']) {
     sequence.feed(leader, 0); sequence.feed({key:'M'}, 10);
     const result = sequence.feed({key}, 20);

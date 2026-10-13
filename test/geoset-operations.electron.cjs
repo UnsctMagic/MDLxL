@@ -61,7 +61,7 @@ async function waitFor(cdp, expression) {
     assert.deepEqual(controls.labels, ['Seperate by Loose parts', 'Nuclear Seperation', 'Merge Geosets', 'NormalsXL', 'Delete free vertices']);
     assert.equal(controls.beforeList, true);
     assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, true, false]);
-    await evaluate(cdp, `document.querySelector('[data-warmkey="geosetsClear"]').click()`);
+    await evaluate(cdp, `document.querySelector('[data-hotkey="geosetsClear"]').click()`);
     assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, true, true]);
     await evaluate(cdp, `document.querySelector('[aria-label="Select geoset 0"]').click()`);
     assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, true, false]);

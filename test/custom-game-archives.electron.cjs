@@ -70,7 +70,7 @@ function archive(name, bytes) {
   async function picker(paths, canceled = false) {
     await app.evaluate(({ dialog }, answer) => { dialog.showOpenDialog = async (...args) => { globalThis.archivePickerOptions = args.at(-1); return answer; }; }, { canceled, filePaths: paths });
   }
-  async function idle() { await page.waitForFunction(() => !document.querySelector('[data-warmkey="game-data:add-mpq"]')?.disabled); }
+  async function idle() { await page.waitForFunction(() => !document.querySelector('[data-hotkey="game-data:add-mpq"]')?.disabled); }
   async function asset() { return page.evaluate(async name => (await window.desktop.resolveTextures({ names: [name] })).map(record => Array.from(record.bytes)), name); }
   async function capture(file) {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -118,7 +118,7 @@ function archive(name, bytes) {
     await picker(files); await page.getByRole('button', { name: 'Add MPQ files…', exact: true }).click();
     await page.locator('.game-data-path code').filter({ hasText: files[1] }).waitFor(); await idle();
     await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await page.locator('[data-warmkey="animation"]').click();
+    await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Render mode', { exact: true }).selectOption('textured');
     await page.locator('.game-preview-root').waitFor();
     await page.evaluate(() => {

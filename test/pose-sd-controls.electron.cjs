@@ -21,7 +21,7 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1280, height: 920 }); win.hide(); });
-    await page.locator('[data-warmkey="animation"]').click();
+    await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Movement current sequence').selectOption('0');
     const time = page.getByLabel('Current animation frame'); await time.fill('500'); await time.press('Enter');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');

@@ -25,7 +25,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
     page.on('console', message => { if (message.type() === 'error' && /TypeError|ReferenceError/.test(message.text())) errors.push(message.text()); });
-    await page.locator('[data-warmkey="animation"]').waitFor({ timeout: 60000 });
+    await page.locator('[data-hotkey="animation"]').waitFor({ timeout: 60000 });
     await page.evaluate(() => {
       window.motionTicks = 0; window.motionScanEvents = []; window.motionTimer = setInterval(() => window.motionTicks++, 5);
       const Original = window.Worker;
@@ -49,7 +49,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.waitForFunction(count => window.motionScanEvents.length > count, count);
     }
     async function showDesired() { await menu(); await page.getByRole('menuitemcheckbox', { name: 'Show Desired' }).click(); }
-    await page.locator('[data-warmkey="animations"]').click();
+    await page.locator('[data-hotkey="animations"]').click();
     await page.getByLabel('Choose animation sequence').selectOption('0');
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await holding.waitFor();
@@ -69,7 +69,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await details.count(), 0, 'An ordinary key must not open any extra UI');
     await holding.click();
     assert.match(await page.getByLabel('Selected motion finding').innerText(), /hold the movement until 800 ms, leaving only 50 ms/);
-    assert.equal(await page.locator('[data-warmkey="animation"]').getAttribute('aria-pressed'), 'true', 'A warning in Animations hands off to Movement');
+    assert.equal(await page.locator('[data-hotkey="animation"]').getAttribute('aria-pressed'), 'true', 'A warning in Animations hands off to Movement');
     assert.equal(await page.getByLabel('Current animation frame').inputValue(), '800');
     assert.equal(await page.getByLabel('Movement bone or node').inputValue(), '0');
     assert.equal(await page.getByRole('button', { name: 'Delete selected key', exact: true }).count(), 0);
@@ -86,7 +86,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await holding.click();
     await page.screenshot({ path: path.join(out, '01-holding-warning.png') });
     assert.equal(await page.locator('.classic-status').innerText().then(t => t.includes('Modified')), false);
-    assert.equal(await page.locator('[data-warmkey="undo"]').isDisabled(), true);
+    assert.equal(await page.locator('[data-hotkey="undo"]').isDisabled(), true);
     await page.getByRole('button', { name: 'Mark Desired', exact: true }).click();
     await page.getByRole('button', { name: 'Restore warning', exact: true }).waitFor();
     assert.equal(await holding.count(), 0);
@@ -96,7 +96,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Restore warning', exact: true }).click();
     await page.getByRole('button', { name: 'Mark Desired', exact: true }).waitFor();
     await showDesired();
-    assert.equal(await page.locator('[data-warmkey="undo"]').isDisabled(), true);
+    assert.equal(await page.locator('[data-hotkey="undo"]').isDisabled(), true);
     // Replace an unrelated range with only the diagnosed intermediate hold keys.
     await page.getByRole('button', { name: 'Close motion warning', exact: true }).click();
     const reelBox = await reel.boundingBox();
@@ -114,15 +114,15 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.locator('.classic-reel-key[data-frame="600"]').count(), 0);
     assert.equal(await page.locator('.classic-reel-key[data-frame="0"]').count(), 1);
     assert.equal(await page.locator('.classic-reel-key[data-frame="850"]').count(), 1);
-    await page.locator('[data-warmkey="undo"]').click(); await holding.waitFor();
-    await page.locator('[data-warmkey="redo"]').click();
+    await page.locator('[data-hotkey="undo"]').click(); await holding.waitFor();
+    await page.locator('[data-hotkey="redo"]').click();
     await page.waitForFunction(() => !document.querySelector('.classic-reel-key[data-frame="800"]'));
-    await page.locator('[data-warmkey="undo"]').click(); await holding.waitFor(); await holding.click();
+    await page.locator('[data-hotkey="undo"]').click(); await holding.waitFor(); await holding.click();
     await page.getByRole('button', { name: 'Mark Desired', exact: true }).click();
     await page.getByRole('button', { name: 'Restore warning', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Close motion warning', exact: true }).click();
     // The Knight04 pattern: select its old-pose neighbors, preserving the new pose.
-    await page.locator('[data-warmkey="animations"]').click();
+    await page.locator('[data-hotkey="animations"]').click();
     await page.getByLabel('Choose animation sequence').selectOption('1');
     const spike = page.locator('.motion-reel-warning[aria-label*="pose-spike"]');
     await spike.waitFor(); await spike.click();
@@ -133,14 +133,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(await page.locator('.motion-key-selected').evaluateAll(keys => keys.map(k => +k.dataset.frame)), [2224, 2472, 2690, 2853, 2997]);
     assert.equal(await page.locator('.motion-key-selected[data-frame="2377"]').count(), 0, 'The intended pose is explicitly excluded');
     await page.getByRole('button', { name: 'Close motion warning' }).click();
-    await page.locator('[data-warmkey="animations"]').click();
+    await page.locator('[data-hotkey="animations"]').click();
     assert.equal(await page.locator('.motion-key-selected').count(), 0, 'A selection cannot follow the user into another controller');
     await spike.click();
     await page.screenshot({ path: path.join(out, '02-holding-selection.png') });
     await page.getByRole('button', { name: 'Select 5 holding keys', exact: true }).click();
     assert.equal(await details.count(), 0);
     assert.equal(await page.getByLabel('Current animation frame').inputValue(), '2224');
-    assert.equal(await page.locator('[data-warmkey="undo"]').isDisabled(), true, 'Selection itself adds no model undo');
+    assert.equal(await page.locator('[data-hotkey="undo"]').isDisabled(), true, 'Selection itself adds no model undo');
     await spike.click();
     await page.getByRole('button', { name: 'Replay section', exact: true }).click();
     await page.waitForFunction(() => +document.querySelector('[aria-label="Current animation frame"]').value > 2050);
@@ -150,8 +150,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.press('Delete');
     await page.waitForFunction(() => !document.querySelector('.classic-reel-key[data-frame="2224"]'));
     assert.equal(await page.locator('.classic-reel-key[data-frame="2377"]').count(), 1);
-    await page.locator('[data-warmkey="undo"]').click(); await spike.waitFor();
-    await page.locator('[data-warmkey="redo"]').click();
+    await page.locator('[data-hotkey="undo"]').click(); await spike.waitFor();
+    await page.locator('[data-hotkey="redo"]').click();
     await page.waitForFunction(() => !document.querySelector('.classic-reel-key[data-frame="2224"]'));
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await page.waitForFunction(() => +document.querySelector('[aria-label="Current animation frame"]').value > 2050);
@@ -165,7 +165,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(fs.readFileSync(saved), Buffer.from(expected.serialize('mdx')), 'The intended pose and all other channels must survive the ordinary Delete operation');
     await app.evaluate(({ dialog }, saved) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [saved] }); }, saved);
     await page.keyboard.press('Control+o'); await page.waitForFunction(() => document.title.includes('motion-saved'));
-    await page.locator('[data-warmkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption('0');
+    await page.locator('[data-hotkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption('0');
     await rescan();
     assert.equal(await holding.count(), 0); assert.equal(await details.count(), 0);
     await showDesired(); await holding.waitFor();

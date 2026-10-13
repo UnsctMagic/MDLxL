@@ -39,7 +39,7 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     });
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await main.getByLabel('3D model viewport', { exact: true }).click(); await main.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window'); await main.locator('[data-warmkey="uv"]').click(); uv = await opened; uv.setDefaultTimeout(20000);
+    const opened = app.waitForEvent('window'); await main.locator('[data-hotkey="uv"]').click(); uv = await opened; uv.setDefaultTimeout(20000);
     await uv.getByLabel('Material Properties', { exact: true }).waitFor({ timeout: 60000 });
     await app.evaluate(({ BrowserWindow }) => {
       const w = BrowserWindow.getAllWindows().find(w => w.webContents.getURL() === 'about:blank');

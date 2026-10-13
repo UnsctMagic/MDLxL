@@ -30,7 +30,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => { throw error; });
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
-    await page.locator('[data-warmkey="animation"]').click();
+    await page.locator('[data-hotkey="animation"]').click();
     await page.getByLabel('Movement bone or node').selectOption(String(shoulderId));
     await page.getByRole('group', { name: 'Movement tool' }).getByRole('button', { name: 'Rotate', exact: true }).click();
     await page.getByLabel('Highlight KF').check();
@@ -61,7 +61,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await focused.check();
     await page.screenshot({ path: path.join(out, 'movement.png') });
 
-    await page.locator('[data-warmkey="animations"]').click();
+    await page.locator('[data-hotkey="animations"]').click();
     await page.locator('.animation-controller').waitFor();
     const animationSections = page.locator('.classic-sidebar details.sidebar-section');
     assert.ok(await animationSections.count() >= 4);

@@ -692,7 +692,7 @@ export default function Viewport(inputProps) {
       // Modifier transitions must reset the latch even if the mouse is still.
       if (quad && event.key === 'Shift' && state.drag?.action === 'translate') moveDragPoint(state.drag.move, state.drag.move.pointer, event.shiftKey);
     };
-    // WarmKeys consumes Escape before viewport key listeners. Its Clear command
+    // Hotkeys consumes Escape before viewport key listeners. Its Clear command
     // gives an in-progress drag first refusal through this cancelable event.
     const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); } };
     const contextMenu = event => event.preventDefault();

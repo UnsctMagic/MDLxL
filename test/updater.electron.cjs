@@ -35,33 +35,33 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
       await page.waitForFunction(()=>!!document.querySelector('.classic-app canvas'));
       const command=id=>app.evaluate(({BrowserWindow},id)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',id),id);
       if(scenario==='startup'){
-        const prompt=page.locator('[role="dialog"]').filter({has:page.locator('[data-warmkey="update:install"]')});
+        const prompt=page.locator('[role="dialog"]').filter({has:page.locator('[data-hotkey="update:install"]')});
         await prompt.waitFor();assert.match(await prompt.innerText(),/Обновить и перезапустить/);assert.match(await prompt.innerText(),/Исправлено сохранение моделей/);
         assert.equal(await app.evaluate(()=>updaterTest.installs),0);
-        await page.locator('[data-warmkey="update:later"]').dispatchEvent('click');await prompt.waitFor({state:'detached'});
+        await page.locator('[data-hotkey="update:later"]').dispatchEvent('click');await prompt.waitFor({state:'detached'});
       }else{
-        assert.equal(await page.locator('[data-warmkey="update:install"]').count(),0);
+        assert.equal(await page.locator('[data-hotkey="update:install"]').count(),0);
         assert.equal((await app.evaluate(()=>updaterTest.calls)).length,0);
         await command('help');const help=page.getByRole('dialog',{name:'MDLxL help'});await help.waitFor();
         await help.locator('.official-website a').dispatchEvent('click');assert.equal((await app.evaluate(()=>updaterTest.links)).at(-1),'https://www.lowpolyworks.com/mdlxl');
-        await help.locator('[data-warmkey="close"]').dispatchEvent('click');
-        await command('about');const about=page.getByRole('dialog',{name:'About MDLxL'});await about.waitFor();assert.equal(await about.locator('.official-website a').count(),1);await about.locator('[data-warmkey="close"]').dispatchEvent('click');
+        await help.locator('[data-hotkey="close"]').dispatchEvent('click');
+        await command('about');const about=page.getByRole('dialog',{name:'About MDLxL'});await about.waitFor();assert.equal(await about.locator('.official-website a').count(),1);await about.locator('[data-hotkey="close"]').dispatchEvent('click');
         await command('settings');await page.locator('.settings-window').waitFor();
-        assert.equal(await page.locator('[data-warmkey="updates:startup"]').isChecked(),false);
-        assert.equal(await page.locator('[data-warmkey="updates:revert"]').isEnabled(),true);
-        await page.locator('[data-warmkey="updates:check"]').dispatchEvent('click');
+        assert.equal(await page.locator('[data-hotkey="updates:startup"]').isChecked(),false);
+        assert.equal(await page.locator('[data-hotkey="updates:revert"]').isEnabled(),true);
+        await page.locator('[data-hotkey="updates:check"]').dispatchEvent('click');
         if(scenario==='current'){
-          await page.getByText('You have the latest version.',{exact:true}).waitFor();assert.equal(await page.locator('[data-warmkey="update:install"]').count(),0);
+          await page.getByText('You have the latest version.',{exact:true}).waitFor();assert.equal(await page.locator('[data-hotkey="update:install"]').count(),0);
         }else{
           const prompt=page.getByRole('dialog',{name:'MDLxL update'});await prompt.waitFor();assert.equal(await prompt.locator('li').count(),2);
           const top=await prompt.evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.closest('[role="dialog"]')===node;});assert.equal(top,true,'update prompt appears above Settings');
           assert.equal(await prompt.locator('a').count(),5);
           await prompt.locator('a').first().dispatchEvent('click');assert.match((await app.evaluate(()=>updaterTest.links)).at(-1),/RELEASE-0.19.0.md$/);
-          await page.locator('[data-warmkey="update:install"]').dispatchEvent('click');
+          await page.locator('[data-hotkey="update:install"]').dispatchEvent('click');
           await page.waitForFunction(async()=>(await window.desktop.updateStatus()).state==='available');
           assert.equal(await app.evaluate(()=>updaterTest.installs),1);assert.ok(await app.evaluate(()=>updaterTest.closePrompts)>0,'cancel uses the existing close confirmation');
-          await page.locator('[data-warmkey="update:later"]').dispatchEvent('click');
-          await page.locator('[data-warmkey="updates:startup"]').dispatchEvent('click');
+          await page.locator('[data-hotkey="update:later"]').dispatchEvent('click');
+          await page.locator('[data-hotkey="updates:startup"]').dispatchEvent('click');
           await page.waitForFunction(async()=>(await window.desktop.getSettings()).preferences.checkUpdatesOnStartup===true);
         }
       }

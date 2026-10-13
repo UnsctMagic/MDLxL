@@ -19,8 +19,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // Some models open with a repair question first; leave the model as it is.
     const leave = page.getByRole('button', { name: 'Leave unchanged' });
     try { await leave.waitFor({ timeout: 4000 }); await leave.click(); } catch {}
-    await page.locator('[data-warmkey="animation"]').click();
-    await page.locator('button.animxl-tool, [data-warmkey="animXL"]').first().click();
+    await page.locator('[data-hotkey="animation"]').click();
+    await page.locator('button.animxl-tool, [data-hotkey="animXL"]').first().click();
     const dialog = page.getByRole('dialog', { name: 'AnimXL' });
     await dialog.waitFor();
     await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: sequence });

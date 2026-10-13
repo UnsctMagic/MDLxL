@@ -1,4 +1,4 @@
-import { normalizePreferences, normalizeChord, migrateFollowupPreferences } from './preferences.js';
+import { normalizePreferences, normalizeChord, migratePreferences } from './preferences.js';
 
 export function exportConfiguration(preferences) {
   return {schema:'mdlxl-configuration', version:1, preferences:normalizePreferences(preferences)};
@@ -18,7 +18,7 @@ export function importConfiguration(input) {
     else if (a && typeof a==='object') { for (const [k,v] of Object.entries(a)) compare(v,b?.[k],`${path}.${k}`); }
     else if (a!==b) throw new Error(`Invalid ${path}.`);
   };
-  compare(migrateFollowupPreferences(p),normalized,'preferences');
+  compare(migratePreferences(p),normalized,'preferences');
   const assigned = new Map();
   for (const [id,keys] of Object.entries(normalized.hotkeys)) for (const value of keys) {
     const chord = normalizeChord(value);

@@ -21,7 +21,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1280, height: 920 }); win.showInactive(); });
-    await page.locator('[data-warmkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption(String(sequence));
+    await page.locator('[data-hotkey="animation"]').click(); await page.getByLabel('Movement current sequence').selectOption(String(sequence));
     const time = page.getByLabel('Current animation frame'); await time.fill(String(frame)); await time.press('Enter');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     await page.evaluate(() => {
@@ -60,7 +60,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const historyDepth = () => page.evaluate(() => poseProbe().session.doc.historyStats.undoSteps);
     const quick = page.getByRole('group',{name:'Quick display',exact:true});
     const toggles = ['shaded','showVertices','display:bones','display:skeleton','display:focusedSkeleton','display:particles','display:events','display:sounds','display:attachments','display:nodes','display:wires','normals'];
-    const checkbox = key => quick.locator('input[data-warmkey="'+key+'"]');
+    const checkbox = key => quick.locator('input[data-hotkey="'+key+'"]');
     const readView = () => page.evaluate(() => { const p=poseProbe().props;return {overlays:p.overlays,workplane:p.workplane,workplaneEnabled:p.workplaneEnabled}; });
     const stateBefore=await snap(),sidebarWidth=await page.locator('.classic-sidebar').evaluate(el=>el.getBoundingClientRect().width);
     for(const key of toggles) if(await checkbox(key).count()) await checkbox(key).setChecked(key!=='display:focusedSkeleton');
@@ -112,7 +112,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();assert.deepEqual(await readView(),customized);
     await page.getByRole('button',{name:'POSE',exact:true}).click();await settle();assert.deepEqual(await readView(),normalChanged);
     results.checks.push('POSE re-entry restores its customized choices while later normal changes stay separate');
-    await page.getByRole('button',{name:'POSE',exact:true}).click();await page.locator('[data-warmkey="vertices"]').click();await page.locator('[data-warmkey="animation"]').click();await settle();assert.deepEqual(await readView(),customized);
+    await page.getByRole('button',{name:'POSE',exact:true}).click();await page.locator('[data-hotkey="vertices"]').click();await page.locator('[data-hotkey="animation"]').click();await settle();assert.deepEqual(await readView(),customized);
     results.checks.push('Leaving Movement and returning retains POSE choices');
     await page.getByLabel('Workplane',{exact:true}).uncheck();for(const key of toggles)if(await checkbox(key).count())await checkbox(key).setChecked(key==='shaded'||key==='display:focusedSkeleton');
     await settle();assert.equal(await page.locator('.classic-sidebar').evaluate(el=>el.getBoundingClientRect().width),sidebarWidth);assert.equal(await page.getByRole('dialog',{name:'POSE setup',exact:true}).count(),0);

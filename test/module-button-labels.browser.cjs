@@ -25,7 +25,7 @@ const ready=new Promise((resolve,reject)=>{
     await page.goto(`http://127.0.0.1:${port}/`);
     const toolbar=page.locator('.toolbar-modules');
     await toolbar.waitFor();
-    assert.deepEqual(await toolbar.locator('.module-icon-badge,.pressed-keys-tool>span:not(.warmkey-badge)').allTextContents(),['LIBR','FRG','BITZ','OPXL','EMTR','KEY','VIS']);
+    assert.deepEqual(await toolbar.locator('.module-icon-badge,.pressed-keys-tool>span:not(.hotkey-badge)').allTextContents(),['LIBR','FRG','BITZ','OPXL','EMTR','KEY','VIS']);
     assert.deepEqual(await toolbar.locator('.library-tool,.forge-tool,.bits-tool,.optimizer-tool').evaluateAll(buttons=>buttons.map(button=>{
       const style=getComputedStyle(button.querySelector('.module-icon-badge'));
       return [style.color,style.backgroundColor];
@@ -39,7 +39,7 @@ const ready=new Promise((resolve,reject)=>{
     assert.equal(await page.locator('.classic-toolbar .quick-display').count(),0);
     assert.equal(await page.locator('.editor-modules .quick-display').count(),1);
     await page.screenshot({path:path.join(root,'out/editor-row-quick-display.png')});
-    await page.locator('.editor-modules [data-warmkey="animations"]').click();
+    await page.locator('.editor-modules [data-hotkey="animations"]').click();
     await page.locator('.portrait-toolbar').waitFor();
     assert.equal(await page.locator('.portrait-toolbar').getAttribute('aria-label'),'Animation view');
     assert.equal(await page.getByRole('button',{name:'Portrait Frame View',exact:true}).count(),1);

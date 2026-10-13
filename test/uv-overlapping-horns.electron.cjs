@@ -17,12 +17,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setPosition(-3000, 0); win.showInactive(); });
     await page.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
-    await page.locator('[data-warmkey="geosetsClear"]').click();
+    await page.locator('[data-hotkey="geosetsClear"]').click();
     await page.getByLabel('Select geoset 0', { exact: true }).check();
     await page.locator('[aria-label="3D model viewport"]').click();
     await page.keyboard.press('Control+a');
     const opened = app.waitForEvent('window');
-    await page.locator('[data-warmkey="uv"]').click();
+    await page.locator('[data-hotkey="uv"]').click();
     const uv = await opened; uv.setDefaultTimeout(15000);
     await uv.locator('[data-clean-model-canvas]').waitFor({ timeout: 60000 });
     await uv.evaluate(() => {
