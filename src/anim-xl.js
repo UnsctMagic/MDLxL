@@ -10,7 +10,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50, feet: true, grip: true, anticipation: 0, exaggerate: 0, life: 0,
   heavy: 0, heavyIds: [], loose: 0, looseIds: [],
   steps: 0,
-  collapse: 0, collapseAt: 20, collapseDir: 'auto', bounce: 30,
+  collapse: 0, collapseAt: 20, collapseDir: 'auto', collapseStyle: 'auto', bounce: 30,
   thunk: 60, thunks: [], thunkSound: '',
   flinch: 60, flinches: [], flinchBehind: false, flinchSound: '',
   retime: {}, bodyId: null, footIds: [], stiffIds: [], range: null, only: null,
@@ -136,6 +136,7 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
   // mislead: wheels, tails and pelvises carry them on legless rigs.
   if (!feet.length) feet = nodes.filter(n => /foot|feet|hoof|paw/i.test(n.Name || '') && !/\bref\b|tail|wheel/i.test(n.Name || '')).map(n => n.ObjectId);
   const torso = [...roles].filter(([id, role]) => ['Chest', 'Spine', 'Neck', 'Head'].includes(role) && ids.has(id)).map(([id]) => id);
+  const spine = [...roles].filter(([id, role]) => ['Chest', 'Spine'].includes(role) && ids.has(id)).map(([id]) => id);
   // Your own picks win: a picked foot's leg is the foot and its two parents.
   if (Number.isInteger(overrides.bodyId) && byId.has(overrides.bodyId)) body = overrides.bodyId;
   if (overrides.footIds?.length) {
@@ -144,7 +145,7 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
     feet = legs.map(leg => leg.end);
     legLength = legs.length ? legs.reduce((sum, c) => sum + pivotOf(c.root).distanceTo(pivotOf(c.middle)) + pivotOf(c.middle).distanceTo(pivotOf(c.end)), 0) / legs.length : legLength;
   }
-  return { body, feet, torso, legLength, legs, arms };
+  return { body, feet, torso, spine, legLength, legs, arms };
 }
 
 /** Moments a foot touches down in this animation (source time, ms). */
@@ -451,7 +452,10 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   if (plantLegs || weapon != null) solveLimbs({ model, sequenceIndex, byId, legs: plantLegs ? rig.legs : [], arms: weapon != null ? rig.arms : [], weapon, legLength: rig.legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts });
   // A rig with no legs or arms (a machine, a serpent) has nothing to buckle: Death fall leaves it alone.
   const machine = !rig.legs.length && !rig.arms.length;
-  if (settings.collapse > 0 && !machine) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]), legCount: rig.legs.length }, rotOpts, posOpts });
+  // A death type first poses the unit (knees buckle, the torso leans), then the physics fall takes over.
+  const deathStyle = animXLDeathStyle(settings.collapseStyle, rig.legs.length);
+  const fall = settings.collapse > 0 && !machine && deathStyle !== 'limp' ? deathPose({ model, byId, rig, style: deathStyle, samples, bodyNode, bodySamples, outFrames, srcFrames, start: from + duration * clamp((settings.collapseAt ?? 20) / 100, 0, 0.95), end: to, settings, rotOpts, posOpts }) : null;
+  if (settings.collapse > 0 && !machine) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]), legCount: rig.legs.length, fallStart: fall ? Math.min(fall.fallAt, to - 1) : undefined, fallDir: fall?.dir }, rotOpts, posOpts });
 
   // Selected bones: only these are shaped; every other bone (and the body, unless it is
   // selected) keeps its animation exactly.
@@ -557,7 +561,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     motion.original[i] += bodyTarget(outFrames[i], new Vector3()).distanceTo(bodyTarget(outFrames[i - 1], new Vector3())) / scale * 4;
   }
   motion.shaped[0] = motion.shaped[1] ?? 0; motion.original[0] = motion.original[1] ?? 0;
-  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet, machine }, motion };
+  return { tracks, keyCount, keyTimes: outKeys, sourceKeyTimes: keys, dense: !!keys.dense, footfalls, nodes: simIds.size, rig: { body: rig.body ?? null, feet: rig.feet, machine, legs: rig.legs.length, deathStyle }, motion };
 }
 
 /** Spread any mismatch between the last and first frame over the final
@@ -613,6 +617,100 @@ function worldMatrices(model, byId, rotation, translation, scaling) {
   return out;
 }
 
+/** Death types: the key poses a real death passes through before the body gives way,
+ * measured on 469 Warcraft III units (TASK-10 pose library, small humanoids; times on a
+ * 2-second death). lean/bend: torso forward (negative = back) and chest hunch; side: sideways
+ * lean; knees: knee bend; arms: upper arms raised; all in degrees. `fall` is when the
+ * physics fall takes over and which way it pushes. Forward deaths hold still for 0.9 s in
+ * the data (the hit plays out first); here that wait is shortened so the death starts at once. */
+export const DEATH_STYLES = Object.freeze({
+  back: { fall: 420, dir: 'back', keys: [{ at: 220, lean: -11, knees: 20, arms: 10 }, { at: 420, lean: -25, knees: 30, arms: 15 }] },
+  knees: { fall: 1150, dir: 'forward', keys: [{ at: 300, knees: 40, arms: 9 }, { at: 550, knees: 57, bend: 15, arms: 14 }, { at: 1000, knees: 55, bend: 5, arms: 15 }, { at: 1150, knees: 55, lean: 8, bend: 6, arms: 20 }] },
+  forward: { fall: 800, dir: 'forward', keys: [{ at: 300, knees: 5, arms: 10 }, { at: 600, lean: 17, knees: 8, arms: 20 }, { at: 800, lean: 25, knees: 19, arms: 24 }] },
+  side: { fall: 1220, dir: 'side', keys: [{ at: 320, knees: 13, bend: 4, arms: 5 }, { at: 860, knees: 20, bend: 16, arms: 20 }, { at: 1040, knees: 13, bend: 17, arms: 34, side: 3 }, { at: 1220, knees: 7, bend: 2, arms: 30, side: 11 }] },
+});
+
+/** Which death type a setting means on this rig: Auto picks knees then fall, the most
+ * common death on two legs. On four or more legs Auto goes limp, which already falls onto
+ * the side (their most common death) more cleanly than buckling every leg; rigs without
+ * legs only go limp. */
+export function animXLDeathStyle(style, legCount) {
+  if (!legCount || style === 'limp') return 'limp';
+  if (DEATH_STYLES[style]) return style;
+  return legCount >= 4 ? 'limp' : 'knees';
+}
+
+/** Poses the unit through its death type's key poses on top of the animation, feet
+ * planted, and returns when the physics fall takes over and which way it falls. */
+function deathPose({ model, byId, rig, style, samples, bodyNode, bodySamples, outFrames, srcFrames, start, end, settings, rotOpts, posOpts }) {
+  // Timing follows a 2-second death, stretched to the animation; the posing never takes more
+  // than 45% of what is left, so the fall always has time to land.
+  const plan = DEATH_STYLES[style], left = end - start, scale = Math.min(clamp(left / 2000, 0.5, 1.5), 0.45 * left / plan.fall), soft = rig.legs.length >= 4 ? 0.5 : 1;
+  const keys = [{ at: 0 }, ...plan.keys].map(k => ({ ...k, at: start + k.at * scale }));
+  const fallAt = start + plan.fall * scale;
+  const side = settings.collapseDir === 'right' ? 'right' : 'left';
+  const dir = plan.dir === 'side' ? side : plan.dir;
+  const value = (t, name) => {
+    let i = 0;
+    while (i < keys.length - 2 && t >= keys[i + 1].at) i++;
+    const a = keys[i], b = keys[i + 1], u = b.at > a.at ? smooth((t - a.at) / (b.at - a.at)) : 1;
+    return lerp(a[name] || 0, b[name] || 0, u) * Math.PI / 180;
+  };
+  const sampleVec = (track, t, fallback) => new Vector3().fromArray(track ? sampleTrack(track, t, { ...posOpts, fallback }) : fallback);
+  const matricesAt = k => worldMatrices(model, byId,
+    node => samples.get(node.ObjectId)?.[k] || new Quaternion().fromArray(node.Rotation ? sampleTrack(node.Rotation, srcFrames[k], rotOpts) : [0, 0, 0, 1]).normalize(),
+    node => node === bodyNode && bodySamples[k] ? bodySamples[k].clone() : sampleVec(node.Translation, srcFrames[k], [0, 0, 0]),
+    node => sampleVec(node.Scaling, srcFrames[k], [1, 1, 1]));
+  const rotationOf = (M, id) => { const p = new Vector3(), q = new Quaternion(), s = new Vector3(); M.get(id)?.decompose(p, q, s); return q; };
+  const pivotAt = (M, id) => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(M.get(id) || new Matrix4());
+  const Y = new Vector3(0, 1, 0), X = new Vector3(1, 0, 0), Z = new Vector3(0, 0, 1);
+  // Turn a bone about a world axis, measured in its parent's frame (so bends along a chain add up).
+  const turn = (M, k, id, axis, angle) => {
+    const qs = samples.get(id);
+    if (!qs || Math.abs(angle) < 1e-6) return;
+    const parent = byId.has(byId.get(id).Parent) ? rotationOf(M, byId.get(id).Parent) : new Quaternion();
+    const r = new Quaternion().setFromAxisAngle(axis, angle);
+    qs[k] = parent.clone().invert().multiply(r).multiply(parent).multiply(qs[k]).normalize();
+  };
+  const spine = rig.spine.filter(id => samples.has(id));
+  const bodyTurns = !spine.length && bodyNode && samples.has(bodyNode.ObjectId);
+  for (let k = 0; k < outFrames.length; k++) {
+    const t = Math.min(outFrames[k], fallAt);
+    if (outFrames[k] <= start) continue;
+    const M = matricesAt(k), feetBefore = rig.feet.map(id => pivotAt(M, id));
+    const lean = value(t, 'lean'), bend = value(t, 'bend'), sideLean = value(t, 'side') * (dir === 'right' ? 1 : -1), knees = value(t, 'knees') * soft, arms = value(t, 'arms');
+    // Torso: lean and hunch spread over the spine (or the body when the rig has no spine bones).
+    const torso = spine.length ? spine : bodyTurns ? [bodyNode.ObjectId] : [];
+    for (const id of torso) { turn(M, k, id, Y, (lean + bend) / torso.length); turn(M, k, id, X, sideLean / torso.length); }
+    // Knees fold the way they already point (forward on a straight leg); the foot stays level.
+    for (const leg of rig.legs) {
+      const hip = pivotAt(M, leg.root), knee = pivotAt(M, leg.middle), foot = pivotAt(M, leg.end);
+      const line = foot.clone().sub(hip), along = line.lengthSq() > 1e-8 ? line.clone().normalize() : Z.clone().negate();
+      const out = knee.clone().sub(hip).projectOnPlane(along).setZ(0);
+      const point = out.lengthSq() > 1e-4 * line.lengthSq() ? out.normalize() : X.clone();
+      const axis = along.clone().cross(point).normalize();
+      if (axis.lengthSq() < 0.5) continue;
+      if (bodyTurns && byId.get(leg.root).Parent === bodyNode.ObjectId) turn(M, k, leg.root, Y, -(lean + bend));
+      turn(M, k, leg.root, axis, knees / 2); turn(M, k, leg.middle, axis, -knees); turn(M, k, leg.end, axis, knees / 2);
+    }
+    // Arms come up and out as the unit loses its footing.
+    for (const arm of rig.arms) {
+      const d = pivotAt(M, arm.middle).sub(pivotAt(M, arm.root)), axis = d.clone().cross(Z);
+      if (axis.lengthSq() > 1e-6 * d.lengthSq()) turn(M, k, arm.root, axis.normalize(), arms);
+    }
+    // Keep the feet where they stand: the body sinks into the bent knees.
+    if (bodyNode && bodySamples[k] && feetBefore.length) {
+      const after = matricesAt(k), delta = new Vector3();
+      rig.feet.forEach((id, i) => delta.add(feetBefore[i].clone().sub(pivotAt(after, id))));
+      delta.divideScalar(rig.feet.length);
+      const parent = after.get(bodyNode.Parent);
+      if (parent && !((bodyNode.Flags || 0) & 1)) delta.applyMatrix3(new Matrix3().setFromMatrix4(parent).invert());
+      bodySamples[k] = bodySamples[k].clone().add(delta);
+    }
+  }
+  return { fallAt, dir };
+}
+
 /** Collapse: from a moment on, the unit loses its strength and falls onto the
  * ground. Every bone pivot becomes a point held to its parent at the bone's
  * length; muscles pull the points toward the animated pose less and less,
@@ -621,7 +719,7 @@ function worldMatrices(model, byId, rotation, translation, scaling) {
  * body's translation. Updates `samples` and `bodySamples` in place. */
 const FALL = { back: [-1, 0, 0], forward: [1, 0, 0], left: [0, 1, 0], right: [0, -1, 0] };
 function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings, rotOpts, posOpts }) {
-  const amount = clamp(settings.collapse / 100, 0, 1), start = from + duration * clamp((settings.collapseAt ?? 20) / 100, 0, 0.95);
+  const amount = clamp(settings.collapse / 100, 0, 1), start = settings.fallStart ?? from + duration * clamp((settings.collapseAt ?? 20) / 100, 0, 0.95);
   const k0 = outFrames.findIndex(f => f >= start);
   if (k0 < 0 || amount <= 0) return;
   const pivotOf = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
@@ -670,7 +768,7 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
   const residual = amount >= 1 ? 0 : 0.25 * Math.exp(-(1.2 + 3 * amount));
   // The push tips the top of the unit the chosen way while it falls; the feet barely move.
   // Natural: two legs fall backwards, four or more fall onto their side.
-  const direction = settings.collapseDir === 'auto' || !FALL[settings.collapseDir] ? (settings.legCount >= 4 ? 'left' : 'back') : settings.collapseDir;
+  const direction = FALL[settings.fallDir] ? settings.fallDir : settings.collapseDir === 'auto' || !FALL[settings.collapseDir] ? (settings.legCount >= 4 ? 'left' : 'back') : settings.collapseDir;
   const push = new Vector3().fromArray(FALL[direction]).multiplyScalar(height * 5 * amount * dt * dt);
   // A small, fixed sideways nudge per joint: perfectly straight legs would otherwise
   // never choose a way to buckle. Same result every time.

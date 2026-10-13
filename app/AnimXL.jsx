@@ -27,7 +27,7 @@ const EFFECTS = [
   { id: 'punch', name: 'Exaggeration', hint: 'Amplifies the key poses', key: 'exaggerate', on: 40, low: 'Subtle', high: 'Strong', tip: 'Pushes each key pose further from the neutral pose for clearer, more readable motion.' },
   { id: 'breathe', name: 'Idle Motion', hint: 'Subtle drift in held poses', key: 'life', on: 50, low: 'Still', high: 'Active', tip: 'Adds slow, subtle drift so held poses never freeze. Loops seamlessly.' },
   { id: 'hits', name: 'Hit Stop & Reaction', hint: 'Impact holds and hit reactions', tip: 'Hit stop: a brief hold at the moment of impact, with recoil on heavy parts. Hit reaction: the body is knocked back and recovers. Both are placed on the timeline.' },
-  { id: 'collapse', name: 'Fall Simulation', hint: 'Physics-based fall', key: 'collapse', on: 100, low: 'Off', high: 'Full', bones: 'all', tip: 'From a chosen time the unit loses muscle tension and falls under gravity. Full drops it to the ground; lower values keep some strength, so it sags, buckles or kneels. Intended for building a death from a standing pose; use Commit as new to keep the original.' },
+  { id: 'collapse', name: 'Fall Simulation', hint: 'Physics-based fall', key: 'collapse', on: 100, low: 'Off', high: 'Full', bones: 'all', tip: 'From a chosen time the unit dies: a death type poses it (knees buckle, the torso leans), then it loses muscle tension and falls under gravity. Full drops it to the ground; lower values keep some strength, so it sags, buckles or kneels. Intended for building a death from a standing pose; use Commit as new to keep the original.' },
 ];// Little pictures of each effect.
 const ICONS = {
   smooth: <path d="M4 26C20 26 24 4 40 4"/>,
@@ -43,12 +43,14 @@ const ICONS = {
   hits: <><path d="M15 6L17 12L23 12L18 16L20 22L15 18L10 22L12 16L7 12L13 12Z" className="ax-fill"/><path d="M28 8L38 18M38 8L28 18"/></>,
   collapse: <><circle cx="11" cy="8" r="3"/><path d="M13 11L24 21L36 22"/><path d="M18 15L14 24"/><path d="M4 27H40"/></>,
 };
+// Death types (the engine's DEATH_STYLES), by the names the Fall Simulation card shows.
+const DEATH_NAMES = { knees: 'Knees then fall', back: 'Fall backwards', forward: 'Fall forwards', side: 'Onto the side', limp: 'Limp' };
 const PRESETS = [
   ['Default', 'A balanced starting point for most hand-keyed animations', { ease: 40, overlap: 50, settle: 9, weight: 20, poses: 60, anticipation: 20, exaggerate: 10, life: 30, heavy: 45, loose: 50, steps: 0, collapse: 0 }],
   ['Heavy', 'Large, slow units: ogres, golems, armoured knights', { ease: 40, overlap: 60, settle: 4, weight: 80, poses: 50, heavy: 85, loose: 40, steps: 70, anticipation: 50, exaggerate: 15, life: 20, collapse: 0 }],
   ['Agile', 'Quick, light units: rogues, archers, small creatures', { ease: 80, overlap: 35, settle: 30, weight: 0, poses: 70, heavy: 35, loose: 40, steps: 15, anticipation: 40, exaggerate: 30, life: 25, collapse: 0 }],
   ['Relaxed', 'Loose, low-tension motion: undead, exhausted or wounded units', { ease: 30, overlap: 80, settle: 30, weight: 40, poses: 30, loose: 80, heavy: 40, steps: 0, anticipation: 15, exaggerate: 0, life: 60, collapse: 0 }],
-  ['Fall', 'Fall Simulation from the current pose, for building a death. Use Commit as new to keep the original.', { ease: 30, overlap: 40, settle: 9, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, bounce: 30 }],
+  ['Fall', 'Fall Simulation from the current pose, for building a death. Use Commit as new to keep the original.', { ease: 30, overlap: 40, settle: 9, weight: 0, poses: 30, heavy: 60, loose: 70, steps: 0, anticipation: 0, exaggerate: 0, life: 0, collapse: 100, collapseAt: 20, collapseStyle: 'auto', bounce: 30 }],
 ];// How strongly a bone changed, as a colour: blue untouched, yellow some, red a lot.
 const heat = share => share < 0.004 ? '#4fc3ff' : share < 0.02 ? '#ffd23f' : share < 0.05 ? '#ff8a2a' : '#ff3b30';
 const storageKey = (path, name) => `mdlxl.animxl.${path || 'unsaved'}.${name}`;
@@ -56,7 +58,7 @@ const readSaved = key => { try { return JSON.parse(localStorage.getItem(key) || 
 const writeSaved = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage is optional */ } };
 // Your own presets keep slider values only; bones, markers and timing belong to one animation.
 const USER_PRESETS = 'mdlxl.animxl.presets';
-const PRESET_KEYS = ['ease', 'overlap', 'settle', 'weight', 'anticipation', 'exaggerate', 'life', 'poses', 'heavy', 'loose', 'steps', 'feet', 'thunk', 'flinch', 'flinchBehind', 'collapse', 'collapseAt', 'collapseDir', 'bounce'];
+const PRESET_KEYS = ['ease', 'overlap', 'settle', 'weight', 'anticipation', 'exaggerate', 'life', 'poses', 'heavy', 'loose', 'steps', 'feet', 'thunk', 'flinch', 'flinchBehind', 'collapse', 'collapseAt', 'collapseDir', 'collapseStyle', 'bounce'];
 
 function Slider({ id, label, low, high, tip, value, onChange, disabled }) {
   return <label className="ax-slider" title={tip}>
@@ -623,13 +625,19 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
                 </>}
                 {selectedEffect.id === 'collapse' && <>
                   <Slider id="collapseAt" label="Start time" low="Start" high="End" tip="When the fall begins, as a share of the animation. Before it the animation plays as keyed." value={settings.collapseAt} onChange={change}/>
-                  <label className="ax-field" title="The direction the unit falls in.">Direction
-                    <select aria-label="Fall direction" value={settings.collapseDir} onChange={event => change('collapseDir', event.target.value)}>
-                      <option value="auto">Natural</option><option value="back">Backwards</option><option value="forward">Forwards</option><option value="left">To its left</option><option value="right">To its right</option>
+                  <label className="ax-field" title="How the unit dies. Each type first poses the body the way Warcraft III deaths do (knees buckle, the torso leans), then gravity takes over for the fall and landing. Limp only goes slack and drops.">Death type
+                    <select aria-label="Death type" value={settings.collapseStyle} onChange={event => change('collapseStyle', event.target.value)}>
+                      <option value="auto">Auto{result?.rig?.deathStyle && settings.collapseStyle === 'auto' ? ` (${DEATH_NAMES[result.rig.deathStyle]})` : ''}</option>
+                      {Object.entries(DEATH_NAMES).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
                     </select>
                   </label>
+                  {['limp', 'side'].includes(result?.rig?.deathStyle ?? 'limp') && <label className="ax-field" title={result?.rig?.deathStyle === 'side' ? 'The side the unit falls onto.' : 'The direction the unit falls in.'}>Direction
+                    <select aria-label="Fall direction" value={settings.collapseDir} onChange={event => change('collapseDir', event.target.value)}>
+                      <option value="auto">Natural</option>{result?.rig?.deathStyle !== 'side' && <><option value="back">Backwards</option><option value="forward">Forwards</option></>}<option value="left">To its left</option><option value="right">To its right</option>
+                    </select>
+                  </label>}
                   <Slider id="bounce" label="Bounce" low="None" high="High" tip="How much the body rebounds on impact with the ground." value={settings.bounce} onChange={change}/>
-                  {result?.rig?.machine ? <small className="ax-note">AnimXL found no legs or arms on this rig, so Fall Simulation has nothing to buckle and leaves it as it is.</small> : <small className="ax-note">Natural falls backwards on two legs and onto the side on four or more. Use Commit as new to keep the original and add the fall as a new animation.</small>}
+                  {result?.rig?.machine ? <small className="ax-note">AnimXL found no legs or arms on this rig, so Fall Simulation has nothing to buckle and leaves it as it is.</small> : <small className="ax-note">Auto: knees then fall on two legs; on four or more legs Limp, which falls onto the side. Use Commit as new to keep the original and add the fall as a new animation.</small>}
                 </>}
               </div>
             : <p className="ax-note ax-hint">Click a card to switch an effect on and tune it. Point at a card to light up the bones it moves.</p>}

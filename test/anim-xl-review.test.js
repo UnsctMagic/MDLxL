@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Quaternion, Vector3 } from 'three';
-import { ANIMXL_DEFAULTS, animXLRetimed, animXLTimeMap, applyAnimXL, buildAnimXL, settleSpring, suggestAnimXLBones } from '../src/anim-xl.js';
+import { ANIMXL_DEFAULTS, animXLDeathStyle, animXLRetimed, animXLTimeMap, applyAnimXL, buildAnimXL, settleSpring, suggestAnimXLBones } from '../src/anim-xl.js';
 import { sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 
 // Regression tests for the engine review findings: AnimXL changes nothing it
@@ -86,18 +86,18 @@ test('a Weapon Ref at the mouth or on an empty bone is not a weapon; a skinned h
 });
 
 // A stick figure: root > pelvis > spine > head, and two legs, standing 100 units tall.
-function stickFigure() {
+function stickFigure(length = 1000) {
   const bones = [['Bone_Root', -1, [0, 0, 0]], ['Bone_Pelvis', 0, [0, 0, 50]], ['Bone_Spine', 1, [0, 0, 75]], ['Bone_Head', 2, [0, 0, 100]],
     ['Bone_Thigh_L', 1, [0, 8, 50]], ['Bone_Shin_L', 4, [2, 8, 25]], ['Bone_Foot_L', 5, [0, 8, 2]],
     ['Bone_Thigh_R', 1, [0, -8, 50]], ['Bone_Shin_R', 7, [2, -8, 25]], ['Bone_Foot_R', 8, [0, -8, 2]]];
-  const still = { LineType: 1, GlobalSeqId: -1, Keys: [0, 1000, 2000, 3000].map(Frame => ({ Frame, Vector: q(0) })) };
-  return { Sequences: [{ Name: 'Stand', Interval: [0, 1000], NonLooping: false }, { Name: 'Walk', Interval: [2000, 3000], NonLooping: false }], GlobalSequences: [], Helpers: [], Geosets: [],
+  const still = { LineType: 1, GlobalSeqId: -1, Keys: [0, length, length + 1000, length + 2000].map(Frame => ({ Frame, Vector: q(0) })) };
+  return { Sequences: [{ Name: 'Stand', Interval: [0, length], NonLooping: false }, { Name: 'Walk', Interval: [length + 1000, length + 2000], NonLooping: false }], GlobalSequences: [], Helpers: [], Geosets: [],
     PivotPoints: bones.map(b => b[2]), Bones: bones.map(([Name, Parent, PivotPoint], ObjectId) => ({ Name, ObjectId, Parent, PivotPoint, Flags: 0, Rotation: structuredClone(still) })) };
 }
 
 test('collapse drops a standing figure to the ground and leaves other animations alone', () => {
   const model = stickFigure();
-  const result = buildAnimXL(model, 0, { collapse: 100, collapseAt: 10 });
+  const result = buildAnimXL(model, 0, { collapse: 100, collapseAt: 10, collapseStyle: 'limp' });
   assert.ok(result.tracks.length > 0);
   for (const t of result.tracks) for (const k of t.track.Keys) assert.ok(Array.from(k.Vector).every(Number.isFinite));
   const fallen = structuredClone(model);
@@ -112,7 +112,7 @@ test('collapse drops a standing figure to the ground and leaves other animations
 test('collapse below Full sags partway, more as the slider rises', () => {
   // Before, everything under 100 held the pose and only Full fell (the animation study's 25/50 rows were identical).
   const model = stickFigure();
-  const headAt = collapse => { const m = structuredClone(model); applyAnimXL(m, buildAnimXL(model, 0, { collapse, collapseAt: 10 })); return new Vector3(0, 0, 100).applyMatrix4(sampleNodeMatrices(m, 1000, 0).get(3)).z; };
+  const headAt = collapse => { const m = structuredClone(model); applyAnimXL(m, buildAnimXL(model, 0, { collapse, collapseAt: 10, collapseStyle: 'limp' })); return new Vector3(0, 0, 100).applyMatrix4(sampleNodeMatrices(m, 1000, 0).get(3)).z; };
   const heights = [25, 50, 75, 100].map(headAt);
   for (let i = 1; i < heights.length; i++) assert.ok(heights[i] < heights[i - 1] - 3, `each step sinks further: ${heights.map(h => h.toFixed(1)).join(', ')}`);
   assert.ok(heights[0] > 90, `a little Collapse barely sags (z=${heights[0].toFixed(1)})`);
@@ -150,4 +150,29 @@ test('selected bones: only they are shaped, every other bone keeps its animation
   const picked = buildAnimXL(model, 0, { overlap: 90, heavy: 80, heavyIds: [2], loose: 80, looseIds: [3], poses: 0, only: [2] });
   assert.ok(all.tracks.some(t => t.id === 3), 'without a selection the tail is shaped too');
   assert.deepEqual(picked.tracks.map(t => t.id), [2], 'with the sword selected, only the sword is shaped');
+});
+
+test('Auto picks a death type the rig can do', () => {
+  assert.equal(animXLDeathStyle('auto', 2), 'knees');
+  assert.equal(animXLDeathStyle('auto', 4), 'limp', 'four legs fall onto the side limp');
+  assert.equal(animXLDeathStyle('back', 0), 'limp', 'no legs: nothing to buckle');
+  assert.equal(animXLDeathStyle('back', 2), 'back');
+});
+
+test('death types pose the unit with its feet planted, then fall the way they name', () => {
+  const model = stickFigure(3000), at = (m, t, id, p) => new Vector3(...p).applyMatrix4(sampleNodeMatrices(m, t, 0).get(id));
+  // Each with a moment just before its fall begins (the poses span 1.5x their 2-second timing here).
+  const ways = { back: [500, h => h.x < -20], knees: [1500, h => h.x > 20], forward: [1100, h => h.x > 20], side: [1700, h => Math.abs(h.y) > 40] };
+  for (const [style, [posing, way]] of Object.entries(ways)) {
+    const result = buildAnimXL(model, 0, { collapse: 100, collapseAt: 0, collapseStyle: style }), m = structuredClone(model);
+    assert.equal(result.rig.deathStyle, style);
+    applyAnimXL(m, result);
+    // Before the fall: knees bent, body lower, feet where they stood.
+    const foot = at(m, posing, 6, [0, 8, 2]), head = at(m, posing, 3, [0, 0, 100]);
+    assert.ok(foot.distanceTo(new Vector3(0, 8, 2)) < 1, `${style}: the foot stays planted while posing (${foot.toArray().map(v => v.toFixed(1))})`);
+    assert.ok(head.z < 99, `${style}: the body sinks into the pose (head z=${head.z.toFixed(1)})`);
+    const end = at(m, 3000, 3, [0, 0, 100]);
+    assert.ok(end.z < 30, `${style}: the head ends near the ground (z=${end.z.toFixed(1)})`);
+    assert.ok(way(end), `${style}: falls its way (head ${end.toArray().map(v => v.toFixed(0))})`);
+  }
 });
