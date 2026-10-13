@@ -20,6 +20,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 | Timing | Drag a pose diamond on the strip to change when that pose happens; double-click it to put it back. Translations follow the new timing too. |
 | Heavy bones | Picked bones (usually the weapon) trail the swing and drag the arm holding them. |
 | Loose bones | Picked bones (cape, hair, tail) swing loosely on their own. |
+| Keep feet planted | Feet stay exactly where your animation puts them; the body still sinks and sways and the knees bend to make up the difference (two-bone IK per leg). On by default. |
 | Heavy steps | Each footfall drops the body into the step and nods the chest and head. Footfalls are found from the feet touching the ground (green ticks). |
 | THUNK | The weapon connects: the pose holds for a beat, then catches up; heavy bones bounce back. |
 | Flinch | The unit is hit from the front: the body is knocked back, the torso snaps back, then recovers. |

@@ -229,7 +229,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             <small className="ax-note">Drag a diamond on the strip to change when that pose happens: earlier makes the move into it faster, later holds the pose before it longer. Double-click a diamond to put it back.</small>
             <button disabled={!movedPoses} onClick={() => update(old => ({ ...old, retime: {} }))} title="Put every pose back at its original time">Reset timing</button>
           </Section>
-          <Section title="Steps" note={settings.steps ? `Heavy steps ${settings.steps}` : ''}>
+          <Section title="Feet" note={[settings.feet !== false && 'planted', settings.steps && 'Heavy steps ' + settings.steps].filter(Boolean).join(', ')}>
+            <label className="ax-check" title="Feet stay exactly where your animation puts them. The body still sinks and sways; the knees bend to make up the difference. Legs that never touch the ground (a rider's) are left free."><input type="checkbox" checked={settings.feet !== false} onChange={event => change('feet', event.target.checked)}/> Keep feet planted</label>
             <Slider id="steps" label="Heavy steps" low="Off" high="Stomp" tip="Each time a foot lands, the body drops into the step and the chest and head nod. Footfalls are found from the feet touching the ground." value={settings.steps} onChange={change}/>
             {settings.steps > 0 && <small className="ax-note">{footfalls.length ? `${footfalls.length} footfall${footfalls.length > 1 ? 's' : ''} found (green ticks)` : 'No feet touch the ground in this animation.'}</small>}
           </Section>
