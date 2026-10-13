@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { applyMovementPose, applyMovementTransform, sampleMovement } from '../src/movement.js';
-import { suggestPickedPoseChain, separatePoseChains, poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, swivelPoseLimb, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
+import { poseDuplicatesBody, suggestPickedPoseChain, separatePoseChains, poseChainBetween, poseControlPoint, poseNodeControl, withPoseResult, poseAffectedPins, poseNodeConstraints, poseTrackScope, samplePoseChain, solvePoseBody, solvePoseLimb, solvePoseNode, suggestPoseBody, suggestPoseChain, suggestPoseRig, swivelPoseLimb, turnPoseEndpoint, validatePoseBody, validatePoseChain } from '../src/pose-ik.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { parseMdx } from '../src/mdx-container.js';
@@ -621,4 +621,22 @@ test('endpoint assistance follows unnamed articulated limbs and offers a nonmuta
   assert.deepEqual(selective.draft.joints,[36,22,28]);
   assert.equal(separatePoseChains(model,broadLeft,[broadLeft]),null);
   assert.deepEqual(model,original);
+});
+
+test('a Pelvis that only repeats Body is left out of POSE, except for Scale; a rider pelvis stays', () => {
+  // Root (Body) > Pelvis and Chest > Head, plus a rider: Rider Root (its own Body) > Rider Pelvis.
+  const bone = (Name, ObjectId, Parent, PivotPoint) => ({ Name, ObjectId, Parent, PivotPoint, Flags: 0 });
+  const bones = [bone('Bone_Root', 0, -1, [0, 0, 0]), bone('Bone_Pelvis', 1, 0, [0, 0, 40]), bone('Bone_Chest', 2, 0, [0, 0, 60]), bone('Bone_Head', 3, 2, [0, 0, 80]), bone('Bone_Rider_Root', 4, 0, [0, 0, 100]), bone('Bone_Rider_Pelvis', 5, 4, [0, 0, 110])];
+  const m = { Sequences: [{ Name: 'Stand', Interval: [0, 1000] }], GlobalSequences: [], Bones: bones, Helpers: [], Geosets: [], PivotPoints: bones.map(b => b.PivotPoint) };
+  const config = { enabled: true, chains: [], pins: [], body: 0, nodes: [1, 2, 3, 5], roles: { 4: 'Body', 5: 'Pelvis' }, target: { kind: 'body' } };
+  assert.equal(poseDuplicatesBody(m, config, 1), true, 'the pelvis under Body moves and rotates exactly what Body does');
+  assert.equal(poseDuplicatesBody(m, config, 5), false, 'the rider pelvis drives the rider, not the mount');
+  assert.equal(poseDuplicatesBody(m, config, 0), false, 'Body itself is never a duplicate');
+  assert.equal(poseDuplicatesBody(m, config, 2), false, 'only Pelvis handles are folded into Body');
+  const camera = new PerspectiveCamera(42, 1, .1, 1000); camera.position.set(80, -200, 60); camera.lookAt(0, 0, 50); camera.updateMatrixWorld();
+  const ids = mode => projectPoseHandles(m, config, 500, 0, camera, 600, 600, 500, undefined, undefined, mode).filter(h => h.kind === 'node').map(h => h.id);
+  for (const mode of ['select', 'move', 'rotate']) { assert.ok(!ids(mode).includes(1), mode + ': no duplicate Pelvis'); assert.ok(ids(mode).includes(5), mode + ': rider Pelvis stays'); }
+  assert.ok(ids('scale').includes(1), 'Scale acts on the pelvis bone itself, so its handle is there');
+  // A pelvis that is already selected keeps its handle so the selection stays visible.
+  assert.ok(projectPoseHandles(m, { ...config, target: { kind: 'node', id: 1 } }, 500, 0, camera, 600, 600, 500, undefined, undefined, 'move').some(h => h.id === 1));
 });
