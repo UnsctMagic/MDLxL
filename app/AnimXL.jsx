@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, us
 import useMovableWindow from './useMovableWindow.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
 import { allNodes } from '../src/animation.js';
+import { createSequenceFromCurrent, setSequenceName } from '../src/sequence-editor.js';
 import './resource-editors.css';
 import './anim-xl.css';
 
@@ -122,6 +123,24 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const change = (key, value) => update(old => ({ ...old, [key]: value }));
   const clampTime = t => Math.round(Math.max(interval[0], Math.min(interval[1], t)));
   const addMarker = key => update(old => ({ ...old, [key]: [...new Set([...old[key], clampTime(time)])].sort((a, b) => a - b) }));
+  // Keep the original: copy the animation, shape the copy. Markers and retimed
+  // poses move with the copy's time range.
+  const commitAsNew = () => {
+    if (!result?.tracks.length) return;
+    const name = sequences[seq].Name || 'Animation', taken = new Set(sequences.map(s => s.Name));
+    let copyName = `${name} (AnimXL)`, n = 2;
+    while (taken.has(copyName)) copyName = `${name} (AnimXL ${n++})`;
+    let created = -1;
+    if (edit(`AnimXL: new animation from ${name}`, ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras'], m => {
+      created = createSequenceFromCurrent(m, seq);
+      const offset = m.Sequences[created].Interval[0] - m.Sequences[seq].Interval[0];
+      setSequenceName(m, created, copyName);
+      const shifted = { ...settings, thunks: settings.thunks.map(t => t + offset), flinches: settings.flinches.map(t => t + offset), retime: Object.fromEntries(Object.entries(settings.retime || {}).map(([k, v]) => [Number(k) + offset, v + offset])) };
+      applyAnimXL(m, buildAnimXL(m, created, shifted));
+    }) === false) return;
+    writeSaved(keyFor(seq), null);
+    onClose();
+  };
   const commit = () => {
     if (!result?.tracks.length) return;
     // Other picked animations get the same sliders and bones; hit markers belong to this animation only.
@@ -269,6 +288,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
         <span className="ax-status" role="status">{status}</span>
         <button onClick={() => undoSettings(false)} title="Undo the last slider change (Ctrl+Z). Ctrl+Y redoes it.">Undo</button>
         <button onClick={() => update(old => ({ ...ANIMXL_DEFAULTS, heavyIds: old.heavyIds, looseIds: old.looseIds }))} title="Set every slider back to its start and remove all THUNKs and flinches">Reset</button>
+        <button disabled={!result?.tracks.length || doc.readOnly} onClick={commitAsNew} title={`Keep ${sequences[seq]?.Name || 'this animation'} as it is and add the shaped version as a new animation named "${sequences[seq]?.Name || 'Animation'} (AnimXL)". Rename it in Animations if you want the game to use it.`}>Commit as new</button>
         <button disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">{also.length ? `Commit ${also.length + 1} animations` : 'Commit'}</button>
         <button onClick={onClose} title="Close without changing the animation. Your slider settings are remembered for this animation.">Cancel</button>
       </footer>

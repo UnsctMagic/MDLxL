@@ -25,6 +25,7 @@ Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the ani
 | THUNK | The weapon connects: the pose holds for a beat, then catches up; heavy bones bounce back. |
 | Flinch | The unit is hit from the front: the body is knocked back, the torso snaps back, then recovers. |
 | Also apply to | Commit shapes other animations too, with the same sliders and bones. |
+| Commit as new | Keeps the original and adds the shaped version as a new animation, "<name> (AnimXL)". One Undo removes it. |
 | Original / Side by side | Compare with the unshaped animation, alone or next to it with a shared camera. |
 | Undo (Ctrl+Z / Ctrl+Y) | Steps through slider changes inside AnimXL. |
 
