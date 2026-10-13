@@ -3,6 +3,59 @@
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
+const { execFile } = require('node:child_process');
+
+async function closeTestApp(app) {
+  const child = app.process();
+  const exited = () => child.exitCode !== null || child.signalCode !== null;
+  if (exited()) return;
+  const exit = new Promise(resolve => child.once('exit', resolve));
+  let timer;
+  const cleanClose = (async () => {
+    // Only this disposable app is patched; choose the same discard action as a user.
+    for (const page of app.windows()) page.on('dialog', dialog => {
+      const response = dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss();
+      response.catch(error => console.error('Shutdown dialog:', error.message));
+    });
+    app.on('console', message => console.log('Shutdown:', message.text()));
+    await app.evaluate(({ dialog }) => {
+      const discard = options => {
+        const label = options.title === 'Save model?' ? 'Close'
+          : options.title === 'Pending work could not be saved' ? 'Close anyway' : null;
+        const index = label ? options.buttons?.indexOf(label) : -1;
+        if (index >= 0) console.log(`Discard prompt: ${options.title} -> ${label}`);
+        return index;
+      };
+      for (const method of ['showMessageBoxSync', 'showMessageBox']) {
+        const original = dialog[method].bind(dialog);
+        dialog[method] = (...args) => {
+          const response = discard(args.at(-1));
+          if (response < 0) return original(...args);
+          return method === 'showMessageBoxSync' ? response : Promise.resolve({ response, checkboxChecked: false });
+        };
+      }
+    });
+    await app.close();
+    await exit;
+    return true;
+  })().catch(error => {
+    console.error('Clean shutdown:', error.message);
+    return exited();
+  });
+  const clean = await Promise.race([cleanClose, new Promise(resolve => { timer = setTimeout(() => resolve(false), 5000); })]);
+  clearTimeout(timer);
+  if (clean) { console.log(`App PID ${child.pid} closed cleanly`); return; }
+  if (!exited()) {
+    console.log(`Shutdown timeout: stopping launched PID tree ${child.pid}`);
+    await new Promise((resolve, reject) => execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { timeout: 5000, windowsHide: true }, error => {
+      if (error && !exited()) reject(error); else resolve();
+    }));
+  }
+  try {
+    await Promise.race([exit, new Promise((_, reject) => { timer = setTimeout(() => reject(Error(`App PID ${child.pid} did not exit`)), 5000); })]);
+  } finally { clearTimeout(timer); }
+}
+
 (async () => {
   const out = path.resolve(process.env.MDLXL_ANIMXL_OUT || 'out/anim-xl-ui');
   const fixture = path.resolve(process.env.MDLXL_ANIMXL_FIXTURE || 'test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx');
@@ -229,8 +282,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ executablePath, checks, errors }, null, 2));
     console.log(checks.map(c => '✔ ' + c).join('\n'));
   } catch (error) {
+    errors.push(error.message);
     console.error('FAILED', error.message, errors);
     try { await (await app.firstWindow()).screenshot({ path: path.join(out, 'failure.png') }); } catch {}
     process.exitCode = 1;
-  } finally { await app.close(); }
+  } finally {
+    try { await closeTestApp(app); }
+    catch (error) { errors.push('Shutdown: ' + error.message); process.exitCode = 1; console.error(error); }
+    if (errors.length) process.exitCode = 1;
+    fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ executablePath, checks, errors }, null, 2));
+  }
 })();
