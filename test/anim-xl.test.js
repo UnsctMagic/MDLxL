@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Quaternion, Vector3 } from 'three';
 import { sampleTrack } from '../src/animation.js';
-import { buildAnimXL, applyAnimXL, animXLKeyTimes, suggestAnimXLBones } from '../src/anim-xl.js';
+import { buildAnimXL, applyAnimXL, animXLKeyTimes, suggestAnimXLBones, animXLRig } from '../src/anim-xl.js';
 
 const q = deg => Array.from(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), deg * Math.PI / 180).toArray());
 const key = (Frame, deg) => ({ Frame, Vector: new Float32Array(q(deg)) });
@@ -12,7 +12,7 @@ function model() {
     Sequences: [{ Name: 'Attack', Interval: new Uint32Array([0, 1000]), NonLooping: true }, { Name: 'Stand', Interval: new Uint32Array([2000, 3000]) }],
     GlobalSequences: [],
     Bones: [
-      { Name: 'Bone_Root', ObjectId: 0, Parent: -1, Flags: 0 },
+      { Name: 'Bone_Root', ObjectId: 0, Parent: -1, Flags: 0, Translation: { LineType: 1, GlobalSeqId: -1, Keys: [{ Frame: 0, Vector: new Float32Array([0, 0, 0]) }, { Frame: 500, Vector: new Float32Array([30, 0, 0]) }, { Frame: 1000, Vector: new Float32Array([0, 0, 0]) }, { Frame: 2000, Vector: new Float32Array([5, 5, 5]) }] } },
       { Name: 'Bone_Arm', ObjectId: 1, Parent: 0, Flags: 0, Rotation: { LineType: 1, GlobalSeqId: -1, Keys: [key(0, 0), key(500, 90), key(1000, 0), key(2000, 10), key(3000, 10)] } },
       { Name: 'Bone_Sword', ObjectId: 2, Parent: 1, Flags: 0 },
     ],
@@ -63,4 +63,29 @@ test('a THUNK holds the pose for a beat at the hit', () => {
 test('key times and name suggestions', () => {
   assert.deepEqual(animXLKeyTimes(model(), 0), [0, 500, 1000]);
   assert.deepEqual(suggestAnimXLBones(model()).heavyIds, [2]);
+});
+
+test('hit poses lands overlapping bones exactly on the key pose', () => {
+  const loose = buildAnimXL(model(), 0, { overlap: 90, poses: 0 }).tracks.find(t => t.id === 1).track;
+  const exact = buildAnimXL(model(), 0, { overlap: 90, poses: 100 }).tracks.find(t => t.id === 1).track;
+  assert.ok(Math.abs(angleAt(loose, 500) - 90) > 1, 'overlap alone misses the pose');
+  assert.ok(Math.abs(angleAt(exact, 500) - 90) < 0.6, 'hit poses lands it');
+});
+
+test('weight lags the body and keeps other animations', () => {
+  const m = model();
+  assert.equal(animXLRig(m, 0).body, 0);
+  const body = buildAnimXL(m, 0, { weight: 100, poses: 0 }).tracks.find(t => t.id === 0 && t.property === 'Translation');
+  assert.ok(body, 'body translation written');
+  const x = frame => sampleTrack(body.track, frame, { interval: [0, 1000], fallback: [0, 0, 0] })[0];
+  assert.ok(x(250) < 14, `body lags the authored path (x=${x(250)})`);
+  assert.deepEqual(Array.from(body.track.Keys.find(k => k.Frame === 2000).Vector), [5, 5, 5]);
+});
+
+test('a flinch knocks the body back', () => {
+  const body = buildAnimXL(model(), 0, { flinches: [200], flinch: 100, poses: 0 }).tracks.find(t => t.property === 'Translation');
+  assert.ok(body, 'body moved');
+  const x = frame => sampleTrack(body.track, frame, { interval: [0, 1000], fallback: [0, 0, 0] })[0];
+  const authored = 30 * 260 / 500;
+  assert.ok(x(260) < authored - 2, `pushed back at 260 ms (x=${x(260)}, authored ${authored})`);
 });

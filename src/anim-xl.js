@@ -1,20 +1,25 @@
 import { Quaternion, Vector3 } from 'three';
-import { allNodes, sampleTrack } from './animation.js';
+import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
+import { suggestPoseRig } from './pose-ik.js';
 
 // AnimXL: flavour for hand-keyed animations. The authored keys drive a target
 // pose; springs on top add easing, overlap, settle and weight. The result is
 // written back as ordinary keys for this sequence only.
 
 export const ANIMXL_DEFAULTS = Object.freeze({
-  ease: 0, overlap: 0, settle: 0, weight: 0,
+  ease: 0, overlap: 0, settle: 0, weight: 0, poses: 50,
   heavy: 60, heavyIds: [], loose: 60, looseIds: [],
+  steps: 0,
   thunk: 60, thunks: [],
+  flinch: 60, flinches: [],
 });
 
-const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2;
+const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2, POSE_WINDOW = 140;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, u) => a + (b - a) * u;
+const smooth = u => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
 const isGlobal = (track, model) => Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0 && model.GlobalSequences?.[track.GlobalSeqId] > 0;
+const asMap = value => value instanceof Map ? value : new Map(Object.entries(value || {}).map(([k, v]) => [Number(k), v]));
 
 function logQ(q, out = new Vector3()) {
   let { x, y, z, w } = q;
@@ -68,6 +73,71 @@ export function animXLKeyTimes(model, sequenceIndex) {
     if (speed[i] <= speed[i - 1] && speed[i] <= speed[i + 1] && speed[i] < peak * 0.35 && frames[i] - found[found.length - 1] >= 120 && to - frames[i] >= 120) found.push(frames[i]);
   }
   return [...found, to];
+}
+
+/** What AnimXL knows about the rig: the body that carries the weight, the
+ * feet that land, and the spine/neck/head that react. Uses POSE's rig reading
+ * and falls back to bone names. */
+export function animXLRig(model, sequenceIndex = 0) {
+  const nodes = animXLNodes(model), ids = new Set(nodes.map(n => n.ObjectId)), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
+  let body = null, feet = [], legLength = 0;
+  const roles = new Map();
+  try {
+    const seq = model.Sequences?.[sequenceIndex], rig = suggestPoseRig(model, seq ? seq.Interval[0] : 0, sequenceIndex);
+    for (const [id, role] of asMap(rig.roles)) roles.set(Number(id), role);
+    body = rig.body ?? null;
+    const legs = (rig.chains || []).filter(chain => chain.kind === 'leg');
+    feet = legs.map(chain => chain.end).filter(id => byId.has(id));
+    const pivot = id => new Vector3().fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
+    legLength = legs.length ? legs.reduce((sum, c) => sum + pivot(c.root).distanceTo(pivot(c.middle)) + pivot(c.middle).distanceTo(pivot(c.end)), 0) / legs.length : 0;
+  } catch { /* unusual rigs fall back to names */ }
+  for (const node of nodes) if (!roles.has(node.ObjectId)) {
+    const name = node.Name || '';
+    if (/chest|torso/i.test(name)) roles.set(node.ObjectId, 'Chest');
+    else if (/spine|back|abdomen/i.test(name)) roles.set(node.ObjectId, 'Spine');
+    else if (/neck/i.test(name)) roles.set(node.ObjectId, 'Neck');
+    else if (/head/i.test(name)) roles.set(node.ObjectId, 'Head');
+    else if (/pelvis|hip|body/i.test(name)) roles.set(node.ObjectId, 'Pelvis');
+    else if (/foot|feet|toe|hoof/i.test(name)) roles.set(node.ObjectId, 'Foot');
+  }
+  if (body == null || !ids.has(body)) body = [...roles].find(([id, role]) => ['Pelvis', 'Body'].includes(role) && ids.has(id))?.[0] ?? null;
+  if (body == null) {
+    // The highest bone with a moving translation usually carries the body.
+    const depth = node => { let d = 0, p = node.Parent; while (byId.has(p) && d < 64) { d++; p = byId.get(p).Parent; } return d; };
+    body = nodes.filter(n => n.Translation?.Keys?.length > 1).sort((a, b) => depth(a) - depth(b))[0]?.ObjectId ?? null;
+  }
+  if (!feet.length) feet = [...roles].filter(([id, role]) => ['Foot', 'Hoof'].includes(role) && byId.has(id)).map(([id]) => id);
+  const torso = [...roles].filter(([id, role]) => ['Chest', 'Spine', 'Neck', 'Head'].includes(role) && ids.has(id)).map(([id]) => id);
+  return { body, feet, torso, legLength };
+}
+
+/** Moments a foot touches down in this animation (source time, ms). */
+export function animXLFootfalls(model, sequenceIndex, rig = animXLRig(model, sequenceIndex)) {
+  const seq = model.Sequences?.[sequenceIndex];
+  if (!seq || !rig.feet.length) return [];
+  const [from, to] = Array.from(seq.Interval), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
+  const frames = [];
+  for (let t = from; t <= to; t += 1000 / 30) frames.push(Math.round(t));
+  const heights = rig.feet.map(() => []), point = new Vector3();
+  for (const frame of frames) {
+    const matrices = sampleNodeMatrices(model, frame, sequenceIndex);
+    rig.feet.forEach((id, k) => { point.fromArray(byId.get(id)?.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(matrices.get(id)); heights[k].push(point.z); });
+  }
+  const falls = [], ground = Math.min(...heights.flat());
+  for (const h of heights) {
+    const lo = Math.min(...h), hi = Math.max(...h), range = hi - lo;
+    // Only feet that reach the ground land: a rider's feet in stirrups do not.
+    if (range < Math.max(1, rig.legLength * 0.04) || lo > ground + Math.max(4, rig.legLength * 0.25)) continue;
+    let lifted = h[0] > lo + range * 0.4;
+    for (let i = 1; i < h.length; i++) {
+      if (lifted && h[i] < lo + range * 0.12) { falls.push(frames[i]); lifted = false; }
+      else if (!lifted && h[i] > lo + range * 0.4) lifted = true;
+    }
+  }
+  // Feet landing together (or a four-legged gait) make one thump, not several.
+  const merged = [];
+  for (const t of [...new Set(falls)].sort((a, b) => a - b)) if (!merged.length || t - merged[merged.length - 1] > 90) merged.push(t);
+  return merged;
 }
 
 // Ease: within each pair of key poses, speed up from and slow into the poses.
@@ -129,76 +199,129 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const nodes = animXLNodes(model), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
   const keys = animXLKeyTimes(model, sequenceIndex), timeMap = animXLTimeMap(keys, settings);
   const heavy = new Set(settings.heavyIds), loose = new Set(settings.looseIds);
-  const general = settings.overlap > 0 || settings.settle > 0 || settings.weight > 0;
-  const order = [...nodes].sort((a, b) => depthOf(a) - depthOf(b));
+  const flinches = [...(settings.flinches || [])].map(f => typeof f === 'number' ? { at: f, dir: 1 } : { at: f.at, dir: f.dir ?? 1 }).sort((a, b) => a.at - b.at);
+  const wantsBody = settings.weight > 0 || settings.steps > 0 || flinches.length > 0;
+  const rig = wantsBody || settings.steps > 0 ? animXLRig(model, sequenceIndex) : { body: null, feet: [], torso: [], legLength: 0 };
+  const footfalls = settings.steps > 0 ? animXLFootfalls(model, sequenceIndex, rig) : [];
+  const reactive = settings.steps > 0 || flinches.length > 0;
+  const general = settings.overlap > 0 || settings.settle > 0 || settings.weight > 0 || reactive;
   function depthOf(node) { let d = 0, p = node.Parent; const seen = new Set(); while (byId.has(p) && !seen.has(p)) { seen.add(p); d++; p = byId.get(p).Parent; } return d; }
+  const order = [...nodes].sort((a, b) => depthOf(a) - depthOf(b));
   const simIds = new Set(order.filter(n => heavy.has(n.ObjectId) || loose.has(n.ObjectId) || (general && byId.has(n.Parent) && !((n.Flags || 0) & 7))).map(n => n.ObjectId));
   const index = new Map(order.map((n, i) => [n.ObjectId, i]));
-  const params = order.map(n => springParams(settings, heavy.has(n.ObjectId) ? 'heavy' : loose.has(n.ObjectId) ? 'loose' : 'general', depthOf(n)));
-  const interval = seq.Interval, sampleOpts = { interval, globalSequences: model.GlobalSequences || [], quaternion: true };
-  const localTarget = (node, t) => {
-    const r = node.Rotation;
-    const v = r ? sampleTrack(r, t, { ...sampleOpts, fallback: [0, 0, 0, 1] }) : [0, 0, 0, 1];
-    return new Quaternion(v[0], v[1], v[2], v[3]).normalize();
+  const kinds = order.map(n => heavy.has(n.ObjectId) ? 'heavy' : loose.has(n.ObjectId) ? 'loose' : 'general');
+  // Reactions need some give even with Overlap and Settle at zero.
+  const springSettings = reactive ? { ...settings, overlap: Math.max(settings.overlap, 25), settle: Math.max(settings.settle, 25) } : settings;
+  const params = order.map((n, i) => springParams(springSettings, kinds[i], depthOf(n)));
+  const interval = seq.Interval, sampleOpts = { interval, globalSequences: model.GlobalSequences || [] };
+  const rotOpts = { ...sampleOpts, quaternion: true, fallback: [0, 0, 0, 1] }, posOpts = { ...sampleOpts, fallback: [0, 0, 0] };
+  const localTarget = (node, t, out = new Quaternion()) => {
+    const v = node.Rotation ? sampleTrack(node.Rotation, t, rotOpts) : [0, 0, 0, 1];
+    return out.set(v[0], v[1], v[2], v[3]).normalize();
   };
   // Parent world orientation for nodes outside the simulated set follows the authored pose.
   const outsideWorld = (id, t, cache) => {
     if (!byId.has(id)) return new Quaternion();
     if (cache.has(id)) return cache.get(id);
     const node = byId.get(id), parent = (node.Flags || 0) & 2 ? new Quaternion() : outsideWorld(node.Parent, t, cache);
-    const r = node.Rotation, v = r?.Keys ? sampleTrack(r, t, { ...sampleOpts, fallback: [0, 0, 0, 1] }) : [0, 0, 0, 1];
+    const v = node.Rotation?.Keys ? sampleTrack(node.Rotation, t, rotOpts) : [0, 0, 0, 1];
     const q = parent.clone().multiply(new Quaternion(v[0], v[1], v[2], v[3]).normalize());
     cache.set(id, q); return q;
   };
 
   const n = order.length, Q = Array.from({ length: n }, () => new Quaternion()), W = Array.from({ length: n }, () => new Vector3());
   const prevT = Array.from({ length: n }, () => new Quaternion()), started = new Uint8Array(n), local = Array.from({ length: n }, () => new Quaternion());
+  const target = Array.from({ length: n }, () => new Quaternion()), authoredLocal = Array.from({ length: n }, () => new Quaternion());
   const err = new Vector3(), wT = new Vector3(), tmp = new Quaternion(), tmp2 = new Quaternion(), step = new Vector3();
   const dt = 1 / SIM_HZ, stepMs = 1000 / SIM_HZ;
   const thunks = [...(settings.thunks || [])].sort((a, b) => a - b), bounce = lerp(0.25, 0.75, settings.thunk / 100);
   const thunkTargets = new Set(heavy.size ? heavy : simIds);
-  // Looping animations pre-roll one cycle so the springs loop seamlessly.
+  const poseAmount = settings.poses / 100;
+
+  // Body translation: a spring that lags the authored path (Weight) and takes
+  // the knocks of footfalls and flinches. Its parent's orientation turns world
+  // pushes into the body's local space.
+  const bodyNode = rig.body != null && byId.has(rig.body) && index.has(rig.body) && !isGlobal(byId.get(rig.body).Translation, model) && !Array.isArray(byId.get(rig.body).Translation) ? byId.get(rig.body) : null;
+  const scale = Math.max(rig.legLength || 0, 20);
+  const wB = settings.weight / 100, give = Math.max(wB, settings.steps > 0 ? 0.4 : 0, flinches.length ? 0.7 : 0);
+  const fB = lerp(8, 2.4, give), zB = lerp(0.9, 0.35, Math.max(wB, settings.steps / 200, flinches.length ? 0.55 : 0)), followB = lerp(1, 0.25, wB);
+  const kB = (2 * Math.PI * fB) ** 2, cB = 2 * zB * 2 * Math.PI * fB;
+  const bodyP = new Vector3(), bodyV = new Vector3(), bodyPrev = new Vector3(), bodyT = new Vector3(), bodyTV = new Vector3();
+  let bodyStarted = false;
+  const bodyTarget = (t, out) => out.fromArray(bodyNode.Translation ? sampleTrack(bodyNode.Translation, t, posOpts) : [0, 0, 0]);
+  const torsoIndices = rig.torso.map(id => index.get(id)).filter(i => i !== undefined && simIds.has(order[i].ObjectId));
+  const kick = (worldAngular, linear) => {
+    if (bodyNode) {
+      const pi = index.get(bodyNode.Parent), parentWorld = pi !== undefined ? Q[pi] : new Quaternion();
+      bodyV.add(linear.clone().applyQuaternion(parentWorld.clone().invert()));
+    }
+    torsoIndices.forEach((i, k) => W[i].addScaledVector(worldAngular, 1 + 0.35 * k));
+  };
+
   const preroll = seq.NonLooping ? 0 : Math.min(duration, 3000);
   const outFrames = [];
   for (let k = 0; ; k++) { const f = Math.round(from + k * 1000 / OUT_HZ); if (f >= to) break; outFrames.push(f); }
   outFrames.push(to);
-  const samples = new Map(order.map(nd => [nd.ObjectId, []]));
+  const samples = new Map(order.map(nd => [nd.ObjectId, []])), bodySamples = [];
   let outIndex = 0, lastSimMs = -Infinity;
-
   const world = new Array(n);
+
   const advance = (tOut, record) => {
     const src = timeMap(tOut), cache = new Map();
+    if (bodyNode) {
+      bodyTarget(src, bodyT);
+      if (!bodyStarted) { bodyP.copy(bodyT); bodyV.set(0, 0, 0); bodyPrev.copy(bodyT); bodyStarted = true; }
+      bodyTV.copy(bodyT).sub(bodyPrev).multiplyScalar(1 / dt); bodyPrev.copy(bodyT);
+      const acc = bodyT.clone().sub(bodyP).multiplyScalar(kB).addScaledVector(bodyTV, cB * followB).addScaledVector(bodyV, -cB);
+      bodyV.addScaledVector(acc, dt); bodyP.addScaledVector(bodyV, dt);
+    }
+    // Hit poses: near each key pose, pull the result onto the authored pose.
+    let poseBlend = 0;
+    if (poseAmount > 0) for (const k of keys) poseBlend = Math.max(poseBlend, poseAmount * (1 - smooth(Math.abs(tOut - k) / POSE_WINDOW)));
     for (let i = 0; i < n; i++) {
       const node = order[i], pi = index.get(node.Parent);
       const parentWorld = (node.Flags || 0) & 2 ? new Quaternion() : pi !== undefined ? world[pi] : outsideWorld(node.Parent, src, cache);
-      const target = parentWorld.clone().multiply(localTarget(node, src));
+      localTarget(node, src, authoredLocal[i]);
+      target[i].copy(parentWorld).multiply(authoredLocal[i]);
       if (!simIds.has(node.ObjectId) || !started[i]) {
-        Q[i].copy(target); W[i].set(0, 0, 0); prevT[i].copy(target); started[i] = 1;
+        Q[i].copy(target[i]); W[i].set(0, 0, 0); prevT[i].copy(target[i]); started[i] = 1;
       } else {
         const p = params[i];
-        tmp.copy(target).multiply(tmp2.copy(prevT[i]).invert()); logQ(tmp, wT).multiplyScalar(1 / dt);
+        tmp.copy(target[i]).multiply(tmp2.copy(prevT[i]).invert()); logQ(tmp, wT).multiplyScalar(1 / dt);
         if (wT.length() > 60) wT.setLength(60);
-        prevT[i].copy(target);
-        tmp.copy(target).multiply(tmp2.copy(Q[i]).invert()); logQ(tmp, err);
+        prevT[i].copy(target[i]);
+        tmp.copy(target[i]).multiply(tmp2.copy(Q[i]).invert()); logQ(tmp, err);
         step.copy(err).multiplyScalar(p.k).addScaledVector(wT, p.c * p.follow).addScaledVector(W[i], -p.c);
         W[i].addScaledVector(step, dt);
         Q[i].premultiply(expQ(err.copy(W[i]).multiplyScalar(dt), tmp)).normalize();
-        tmp.copy(target).multiply(tmp2.copy(Q[i]).invert()); logQ(tmp, err);
+        tmp.copy(target[i]).multiply(tmp2.copy(Q[i]).invert()); logQ(tmp, err);
         if (err.length() > MAX_ERR) { Q[i].premultiply(expQ(err.setLength(err.length() - MAX_ERR), tmp)).normalize(); W[i].copy(wT); }
         // A heavy part drags on whatever holds it.
-        if (p.pull && pi !== undefined && simIds.has(order[pi].ObjectId)) { tmp.copy(Q[i]).multiply(tmp2.copy(target).invert()); logQ(tmp, err); W[pi].addScaledVector(err, p.pull * dt); }
+        if (p.pull && pi !== undefined && simIds.has(order[pi].ObjectId)) { tmp.copy(Q[i]).multiply(tmp2.copy(target[i]).invert()); logQ(tmp, err); W[pi].addScaledVector(err, p.pull * dt); }
       }
       world[i] = Q[i];
       local[i].copy(parentWorld).invert().multiply(Q[i]);
+      if (record && poseBlend > 0 && simIds.has(node.ObjectId)) local[i].slerp(authoredLocal[i], kinds[i] === 'general' ? poseBlend : poseBlend * 0.5);
     }
-    if (record) for (let i = 0; i < n; i++) samples.get(order[i].ObjectId).push(local[i].clone());
+    if (record) {
+      for (let i = 0; i < n; i++) samples.get(order[i].ObjectId).push(local[i].clone());
+      if (bodyNode) bodySamples.push(poseBlend > 0 ? bodyP.clone().lerp(bodyT, poseBlend) : bodyP.clone());
+    }
   };
-  const thunkCheck = (a, b) => { for (const at of thunks) if (at > a && at <= b) for (let i = 0; i < n; i++) if (thunkTargets.has(order[i].ObjectId) && simIds.has(order[i].ObjectId)) W[i].multiplyScalar(-bounce); };
+  const events = (a, b) => {
+    for (const at of thunks) if (at > a && at <= b) for (let i = 0; i < n; i++) if (thunkTargets.has(order[i].ObjectId) && simIds.has(order[i].ObjectId)) W[i].multiplyScalar(-bounce);
+    // Footfalls: the body drops into the step and the chest and head nod forward.
+    const s = settings.steps / 100;
+    for (const at of footfalls) if (at > a && at <= b) kick(new Vector3(0, lerp(0.4, 3.2, s), 0), new Vector3(0, 0, -scale * lerp(0.5, 5, s)));
+    // Flinch: knocked back from the front, torso snapping back.
+    const f = settings.flinch / 100;
+    for (const { at, dir } of flinches) if (at > a && at <= b) kick(new Vector3(0, -dir * lerp(2, 9, f), 0), new Vector3(-dir * scale * lerp(2, 10, f), 0, scale * lerp(0, 1.5, f)));
+  };
 
   for (let ms = 0; ms < preroll; ms += stepMs) advance(from + ((ms + duration - preroll % duration) % duration), false);
   for (let ms = 0; outIndex < outFrames.length; ms += stepMs) {
     const t = from + ms;
-    thunkCheck(lastSimMs, t); lastSimMs = t;
+    events(lastSimMs, t); lastSimMs = t;
     const record = t >= outFrames[outIndex] - stepMs / 2;
     advance(Math.min(t, to), record);
     if (record) outIndex++;
@@ -210,12 +333,9 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     const qs = samples.get(node.ObjectId);
     for (let i = 1; i < qs.length; i++) if (qs[i].dot(qs[i - 1]) < 0) qs[i].set(-qs[i].x, -qs[i].y, -qs[i].z, -qs[i].w);
     let changed = false;
-    for (let i = 0; i < qs.length && !changed; i++) {
-      const o = node.Rotation ? sampleTrack(node.Rotation, outFrames[i], { ...sampleOpts, fallback: [0, 0, 0, 1] }) : [0, 0, 0, 1];
-      changed = qs[i].angleTo(new Quaternion(o[0], o[1], o[2], o[3]).normalize()) > 0.003;
-    }
+    for (let i = 0; i < qs.length && !changed; i++) changed = qs[i].angleTo(localTarget(node, outFrames[i], tmp)) > 0.005;
     if (!changed) continue;
-    const kept = reduceRotation(outFrames, qs, 0.007);
+    const kept = reduceRotation(outFrames, qs, 0.008);
     const original = node.Rotation?.Keys ? node.Rotation : { LineType: 1, Keys: [] };
     const lineType = original.LineType ?? 1;
     const ours = kept.map(i => {
@@ -224,11 +344,33 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
       if (lineType >= 2) { key.InTan = new Float32Array(v); key.OutTan = new Float32Array(v); }
       return key;
     });
-    const outside = original.Keys.filter(key => key.Frame < from || key.Frame > to).map(key => structuredClone(key));
-    tracks.push({ id: node.ObjectId, property: 'Rotation', track: { ...structuredClone({ ...original, Keys: [] }), LineType: lineType, Keys: [...outside, ...ours].sort((a, b) => a.Frame - b.Frame) } });
+    tracks.push({ id: node.ObjectId, property: 'Rotation', track: mergeTrack(original, ours, lineType, from, to) });
     keyCount += ours.length;
   }
-  return { tracks, keyCount, keyTimes: keys, nodes: simIds.size };
+  if (bodyNode && bodySamples.length === outFrames.length) {
+    const original = bodyNode.Translation?.Keys ? bodyNode.Translation : { LineType: 1, Keys: [] };
+    const authored = outFrames.map(f => bodyTarget(f, new Vector3()));
+    const tolerance = Math.max(0.05, scale * 0.004);
+    if (bodySamples.some((p, i) => p.distanceTo(authored[i]) > tolerance)) {
+      const lineType = original.LineType ?? 1;
+      const kept = reducePoints(outFrames, bodySamples, tolerance);
+      const ours = kept.map(i => {
+        const v = new Float32Array(bodySamples[i].toArray()), key = { Frame: outFrames[i], Vector: v };
+        if (lineType === 3) { key.InTan = new Float32Array(v); key.OutTan = new Float32Array(v); }
+        else if (lineType === 2) { key.InTan = new Float32Array(3); key.OutTan = new Float32Array(3); }
+        return key;
+      });
+      tracks.push({ id: bodyNode.ObjectId, property: 'Translation', track: mergeTrack(original, ours, lineType, from, to) });
+      keyCount += ours.length;
+    }
+  }
+  return { tracks, keyCount, keyTimes: keys, footfalls, nodes: simIds.size, rig: { body: bodyNode?.ObjectId ?? null, feet: rig.feet } };
+}
+
+// Our keys replace this sequence's keys; every other sequence keeps its own.
+function mergeTrack(original, ours, lineType, from, to) {
+  const outside = original.Keys.filter(key => key.Frame < from || key.Frame > to).map(key => structuredClone(key));
+  return { ...structuredClone({ ...original, Keys: [] }), LineType: lineType, Keys: [...outside, ...ours].sort((a, b) => a.Frame - b.Frame) };
 }
 
 // Keep the fewest keys whose straight slerp stays within tolerance (radians).
@@ -240,6 +382,19 @@ function reduceRotation(frames, qs, tolerance) {
     for (let i = a + 1; i < b; i++) {
       probe.slerpQuaternions(qs[a], qs[b], (frames[i] - frames[a]) / (frames[b] - frames[a]));
       const e = probe.angleTo(qs[i]);
+      if (e > worst) { worst = e; at = i; }
+    }
+    if (at >= 0) { keep.add(at); stack.push([a, at], [at, b]); }
+  }
+  return [...keep].sort((x, y) => x - y);
+}
+function reducePoints(frames, ps, tolerance) {
+  const keep = new Set([0, ps.length - 1]), stack = [[0, ps.length - 1]], probe = new Vector3();
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    let worst = tolerance, at = -1;
+    for (let i = a + 1; i < b; i++) {
+      const e = probe.lerpVectors(ps[a], ps[b], (frames[i] - frames[a]) / (frames[b] - frames[a])).distanceTo(ps[i]);
       if (e > worst) { worst = e; at = i; }
     }
     if (at >= 0) { keep.add(at); stack.push([a, at], [at, b]); }
