@@ -5108,7 +5108,7 @@
   "Current time in this animation": "Tiempo actual en esta animación",
   "Original animation": "Animación original",
   "AnimXL animation": "Animación AnimXL",
-  "Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it.": "Rombos: poses clave. Marcas verdes: pisadas. Estrellas: THUNK. Marcas rojas: impactos recibidos. Pulsa para saltar. Arrastra un rombo para cambiar su tiempo (doble clic para restaurar); arrastra una estrella o marca roja para moverla.",
+  "Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it. Shift-drag to pick a section to shape on its own.": "Rombos: poses clave. Marcas verdes: pisadas. Estrellas: THUNK. Marcas rojas: impactos recibidos. Pulsa para saltar. Arrastra un rombo para cambiar su tiempo (doble clic para restaurar); arrastra una estrella o marca roja para moverla. Mayús+arrastrar elige un tramo para ajustarlo por separado.",
   "AnimXL treats the moments where the body slows to a stop as the poses.": "AnimXL toma como poses los momentos en que el cuerpo frena hasta pararse.",
   "This animation is already keyed in detail. AnimXL works best on a few hand-made poses, but you can still shape it.": "Esta animación ya tiene muchas claves. AnimXL funciona mejor con pocas poses manuales, pero aún puedes modificarla.",
   "Quick start": "Inicio rápido",
@@ -5288,5 +5288,14 @@
   "Turn {0} off": "Desactivar {0}",
   "Turn {0} on": "Activar {0}",
   "{0} settings": "Ajustes de {0}",
-  "off": "no"
+  "off": "no",
+  "Pick section": "Elegir tramo",
+  "Then drag on the timeline over the part you want to shape. Shift-drag on the timeline works too.": "Luego arrastra en la línea de tiempo sobre la parte que quieres ajustar. También funciona Mayús+arrastrar en la línea de tiempo.",
+  "Shape the whole animation again": "Volver a ajustar toda la animación",
+  "Drag the next section on the timeline": "Arrastra el siguiente tramo en la línea de tiempo",
+  "Drag on the timeline now": "Ahora arrastra en la línea de tiempo",
+  "Section committed. Drag over the next part of the timeline to shape it.": "Tramo aplicado. Arrastra sobre la siguiente parte de la línea de tiempo para ajustarla.",
+  "Commit section": "Confirmar tramo",
+  "Whole animation": "Toda la animación",
+  "Section": "Tramo"
 }

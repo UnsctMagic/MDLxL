@@ -5096,7 +5096,7 @@
   "Current time in this animation": "Текущее время в этой анимации",
   "Original animation": "Исходная анимация",
   "AnimXL animation": "Анимация AnimXL",
-  "Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it.": "Ромбы — ключевые позы, зелёные отметки — шаги, звёзды — THUNK, красные отметки — реакции на удар. Нажмите, чтобы перейти к моменту. Перетащите ромб для изменения времени позы (двойной щелчок возвращает его); звезду или красную отметку тоже можно перетащить.",
+  "Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it. Shift-drag to pick a section to shape on its own.": "Ромбы — ключевые позы, зелёные отметки — шаги, звёзды — THUNK, красные отметки — реакции на удар. Нажмите, чтобы перейти к моменту. Перетащите ромб для изменения времени позы (двойной щелчок возвращает его); звезду или красную отметку тоже можно перетащить. Перетаскивание с Shift выбирает отрезок, который обрабатывается отдельно.",
   "AnimXL treats the moments where the body slows to a stop as the poses.": "AnimXL считает позами моменты, когда тело замедляется до остановки.",
   "This animation is already keyed in detail. AnimXL works best on a few hand-made poses, but you can still shape it.": "В этой анимации уже много ключей. AnimXL лучше работает с несколькими ручными позами, но эту тоже можно изменить.",
   "Quick start": "Быстрый старт",
@@ -5276,5 +5276,14 @@
   "Turn {0} off": "Выключить {0}",
   "Turn {0} on": "Включить {0}",
   "{0} settings": "Настройки: {0}",
-  "off": "выкл."
+  "off": "выкл.",
+  "Pick section": "Выбрать отрезок",
+  "Then drag on the timeline over the part you want to shape. Shift-drag on the timeline works too.": "Затем протяните по шкале времени над частью, которую хотите обработать. Также работает перетаскивание с Shift по шкале времени.",
+  "Shape the whole animation again": "Снова обрабатывать всю анимацию",
+  "Drag the next section on the timeline": "Протяните следующий отрезок на шкале времени",
+  "Drag on the timeline now": "Теперь протяните по шкале времени",
+  "Section committed. Drag over the next part of the timeline to shape it.": "Отрезок применён. Протяните по следующей части шкалы времени, чтобы обработать её.",
+  "Commit section": "Применить отрезок",
+  "Whole animation": "Вся анимация",
+  "Section": "Отрезок"
 }

@@ -158,6 +158,11 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const keyFor = index => storageKey(modelPath || doc.name, sequences[index]?.Name || index);
   const [settings, setSettings] = useState(() => ({ ...fresh(), ...(readSaved(keyFor(seq)) || {}) }));
   const interval = sequences[seq] ? Array.from(sequences[seq].Interval) : [0, 1000];
+  // Section: the part of the timeline AnimXL works on; none means the whole animation.
+  // After a section commit it is empty (nothing shaped) until the next one is dragged.
+  const [armed, setArmed] = useState(false), [draft, setDraft] = useState(null);
+  const sectionOn = Array.isArray(settings.range) && settings.range[1] > settings.range[0];
+  const sectionDone = Array.isArray(settings.range) && !sectionOn;
   const [time, setTime] = useState(interval[0]), [playing, setPlaying] = useState(true), [speed, setSpeed] = useState(100);
   const [original, setOriginal] = useState(false), [picking, setPicking] = useState(null), [also, setAlso] = useState([]);
   const dialog = useRef(null), movable = useMovableWindow(dialog), touched = useRef(new Set()), drag = useRef(null);
@@ -394,7 +399,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
       created = createSequenceFromCurrent(m, seq);
       const offset = m.Sequences[created].Interval[0] - m.Sequences[seq].Interval[0];
       setSequenceName(m, created, copyName);
-      const shifted = { ...settings, thunks: settings.thunks.map(t => t + offset), flinches: settings.flinches.map(t => t + offset), retime: Object.fromEntries(Object.entries(settings.retime || {}).map(([k, v]) => [Number(k) + offset, v + offset])) };
+      const shifted = { ...settings, range: settings.range ? settings.range.map(t => t + offset) : null, thunks: settings.thunks.map(t => t + offset), flinches: settings.flinches.map(t => t + offset), retime: Object.fromEntries(Object.entries(settings.retime || {}).map(([k, v]) => [Number(k) + offset, v + offset])) };
       applyAnimXL(m, buildAnimXL(m, created, shifted));
       for (const sound of soundEvents(shifted.thunks, shifted.flinches)) addSoundEvent(m, sound);
     }) === false) return;
@@ -404,7 +409,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const commit = () => {
     if (!result?.tracks.length) return;
     // Other picked animations get the same sliders and bones; hit markers belong to this animation only.
-    const shared = { ...settings, thunks: [], flinches: [], retime: {} }, name = sequences[seq].Name || 'animation';
+    const shared = { ...settings, thunks: [], flinches: [], retime: {}, range: null }, name = sequences[seq].Name || 'animation';
     const label = also.length ? `AnimXL: ${name} + ${also.length} more` : `AnimXL: ${name}`;
     const shaped = currentResult();
     const sections = withSound ? ['Nodes', 'EventObjects', 'PivotPoints', 'Info'] : ['Nodes'];
@@ -413,6 +418,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
       for (const index of also) applyAnimXL(m, buildAnimXL(m, index, shared));
       for (const sound of soundEvents(settings.thunks, settings.flinches)) addSoundEvent(m, sound);
     }) === false) return;
+    // A section commit keeps AnimXL open with the same cards, ready for the next section.
+    if (sectionOn) { setSettings(old => ({ ...old, range: [old.range[1], old.range[1]] })); return; }
     writeSaved(keyFor(seq), null);
     onClose();
   };
@@ -422,6 +429,8 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     const box = event.currentTarget.getBoundingClientRect(), x = event.clientX - box.left;
     event.currentTarget.setPointerCapture(event.pointerId);
     setPlaying(false);
+    // Shift-drag (or Pick section, then drag) marks the section to shape.
+    if (event.shiftKey || armed) { const t = stripTime(event, box); drag.current = { section: t, box }; setDraft([t, t]); return; }
     const near = t => Math.abs((t - interval[0]) / span * box.width - x) < 7;
     for (const key of ['thunks', 'flinches']) {
       const at = settings[key].find(near);
@@ -436,9 +445,16 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     const d = drag.current;
     if (!d) return;
     const t = stripTime(event, d.box);
+    if (d.section !== undefined) { setDraft(d.section < t ? [d.section, t] : [t, d.section]); setTime(t); return; }
     if (d.key) { update(old => ({ ...old, [d.key]: old[d.key].map(x => x === d.at ? t : x).sort((a, b) => a - b) })); d.at = t; setTime(t); }
     else if (d.pose !== undefined) { update(old => ({ ...old, retime: { ...old.retime, [d.pose]: t } })); setTime(t); }
     else setTime(t);
+  };
+  const stripUp = () => {
+    const d = drag.current; drag.current = null;
+    if (d?.section === undefined) return;
+    if (draft && draft[1] - draft[0] >= 30) update(old => ({ ...old, range: draft }));
+    setDraft(null); setArmed(false);
   };
   const resetPose = event => {
     const box = event.currentTarget.getBoundingClientRect(), x = event.clientX - box.left, poses = result?.keyTimes || [];
@@ -476,7 +492,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   }, [result, interval[0], span]);
   const footfalls = result?.footfalls || [];
   const selectedEffect = EFFECTS.find(e => e.id === selected);
-  const status = outcome.error ? outcome.error : original ? 'Showing the original animation.' : picking ? 'Click bones in the preview to add or remove them.' : result?.tracks.length ? `${new Set(result.tracks.map(t => t.id)).size} bones shaped · ${result.keyCount} keys` : 'Move a slider to shape the animation.';
+  const status = outcome.error ? outcome.error : sectionDone ? 'Section committed. Drag over the next part of the timeline to shape it.' : original ? 'Showing the original animation.' : picking ? 'Click bones in the preview to add or remove them.' : result?.tracks.length ? `${new Set(result.tracks.map(t => t.id)).size} bones shaped · ${result.keyCount} keys` : 'Move a slider to shape the animation.';
 
   return <div className="resource-editor anim-xl" onKeyDown={event => {
     event.stopPropagation();
@@ -516,7 +532,20 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
             </Suspense>
           </div>
           </div>
-          <div className="ax-strip" role="slider" aria-label="Animation time" aria-valuemin={interval[0]} aria-valuemax={interval[1]} aria-valuenow={Math.round(time)} title="Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it." onPointerDown={stripDown} onPointerMove={stripMove} onPointerUp={() => { drag.current = null; }} onDoubleClick={resetPose}>
+          <div className="ax-section-bar">
+            <button aria-pressed={armed} onClick={() => setArmed(v => !v)} title="Then drag on the timeline over the part you want to shape. Shift-drag on the timeline works too.">Pick section</button>
+            {sectionOn ? <span className="ax-section-on">Section {Math.round(settings.range[0] - interval[0])}–{Math.round(settings.range[1] - interval[0])} ms</span>
+              : sectionDone ? <span>Drag the next section on the timeline</span>
+              : <span>Whole animation</span>}
+            {settings.range && <button onClick={() => change('range', null)} title="Shape the whole animation again">Whole animation</button>}
+            {armed && <small>Drag on the timeline now</small>}
+          </div>
+          <div className={`ax-strip${armed ? ' ax-strip-picking' : ''}`} role="slider" aria-label="Animation time" aria-valuemin={interval[0]} aria-valuemax={interval[1]} aria-valuenow={Math.round(time)} title="Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it. Shift-drag to pick a section to shape on its own." onPointerDown={stripDown} onPointerMove={stripMove} onPointerUp={stripUp} onDoubleClick={resetPose}>
+            {(draft || sectionOn) && (([a, b]) => <>
+              <i className="ax-dim" style={{ left: 0, width: pct(a) }}/>
+              <i className="ax-band" style={{ left: pct(a), width: `${(b - a) / span * 100}%` }}/>
+              <i className="ax-dim" style={{ left: pct(b), right: 0 }}/>
+            </>)(draft || settings.range)}
             {graph && <svg className="ax-graph" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
               <path className="ax-graph-shaped" d={graph.shaped}/>
               <path className="ax-graph-original" d={graph.original}/>
@@ -600,7 +629,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
         <button onClick={() => undoSettings(false)} title="Undo the last slider change (Ctrl+Z). Ctrl+Y redoes it.">Undo</button>
         <button onClick={() => update(old => ({ ...ANIMXL_DEFAULTS, heavyIds: old.heavyIds, looseIds: old.looseIds }))} title="Set every slider back to its start and remove all THUNKs and flinches">Reset</button>
         <button disabled={!result?.tracks.length || doc.readOnly} onClick={commitAsNew} title={`Keep ${sequences[seq]?.Name || 'this animation'} as it is and add the shaped version as a new animation named "${sequences[seq]?.Name || 'Animation'} (AnimXL)". Rename it in Animations if you want the game to use it.`}>Commit as new</button>
-        <button disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">{also.length ? `Commit ${also.length + 1} animations` : 'Commit'}</button>
+        <button disabled={!result?.tracks.length || doc.readOnly} onClick={commit} title="Write the shaped animation as ordinary keyframes. One Undo reverts it.">{sectionOn ? 'Commit section' : also.length ? `Commit ${also.length + 1} animations` : 'Commit'}</button>
         <button onClick={onClose} title="Close without changing the animation. Your slider settings are remembered for this animation.">Cancel</button>
       </footer>
     </section>

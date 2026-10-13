@@ -13,7 +13,7 @@ export const ANIMXL_DEFAULTS = Object.freeze({
   collapse: 0, collapseAt: 20, collapseDir: 'auto', bounce: 30,
   thunk: 60, thunks: [], thunkSound: '',
   flinch: 60, flinches: [], flinchBehind: false, flinchSound: '',
-  retime: {}, bodyId: null, footIds: [], stiffIds: [],
+  retime: {}, bodyId: null, footIds: [], stiffIds: [], range: null,
 });
 
 const SIM_HZ = 240, OUT_HZ = 30, MAX_ERR = 2, POSE_WINDOW = 140;
@@ -448,6 +448,28 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const machine = !rig.legs.length && !rig.arms.length;
   if (settings.collapse > 0 && !machine) collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, srcFrames, from, duration, settings: { ...settings, limbIds: [...rig.legs, ...rig.arms].flatMap(c => [c.middle, c.end]), legCount: rig.legs.length }, rotOpts, posOpts });
 
+  // Section: only this stretch of the animation is shaped. It fades in and out over
+  // its edges, so the result meets the original exactly where the section starts and ends.
+  const section = Array.isArray(settings.range) && settings.range.length === 2 ? [clamp(Math.min(...settings.range), from, to), clamp(Math.max(...settings.range), from, to)] : null;
+  const fade = section ? Math.max(1, Math.min(150, (section[1] - section[0]) * 0.25)) : 0;
+  const weightAt = t => !section ? 1 : t < section[0] || t > section[1] || section[1] <= section[0] ? 0 : (section[0] <= from ? 1 : smooth((t - section[0]) / fade)) * (section[1] >= to ? 1 : smooth((section[1] - t) / fade));
+  if (section) {
+    for (const node of order) {
+      const qs = samples.get(node.ObjectId);
+      for (let i = 0; i < qs.length; i++) { const w = weightAt(outFrames[i]); if (w < 1) qs[i] = authored(node, outFrames[i], new Quaternion()).slerp(qs[i], w); }
+    }
+    if (bodyNode) for (let i = 0; i < bodySamples.length; i++) { const w = weightAt(outFrames[i]); if (w < 1) bodySamples[i] = bodyTarget(outFrames[i], new Vector3()).lerp(bodySamples[i], w); }
+  }
+  // The keys our keys replace: the whole animation, or for a section the stretch between
+  // the original keys on either side of it (those keys, and everything outside, stay as they are).
+  const spanOf = track => {
+    if (!section) return { lo: from, hi: to, frames: outFrames.map((_, i) => i) };
+    const inside = (track?.Keys || []).map(k => k.Frame).filter(f => f >= from && f <= to);
+    const a = Math.max(from, ...inside.filter(f => f <= section[0])), b = Math.min(to, ...inside.filter(f => f >= section[1]));
+    const keepA = inside.includes(a), keepB = inside.includes(b);
+    return { lo: keepA ? a + 0.5 : a, hi: keepB ? b - 0.5 : b, frames: outFrames.map((_, i) => i).filter(i => outFrames[i] >= (keepA ? a + 0.5 : a) && outFrames[i] <= (keepB ? b - 0.5 : b)) };
+  };
+
   const tracks = [];
   let keyCount = 0;
   for (const node of order) {
@@ -463,8 +485,10 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     // which interpolate exactly as before.
     const original = node.Rotation?.Keys ? node.Rotation : { LineType: 1, Keys: [] };
     const lineType = Math.max(2, original.LineType ?? 1) === 2 ? 2 : 3;
-    const ours = reduceRotationSquad(outFrames, qs, settings.tolerance ?? 0.008);
-    const outside = outsideKeys(original, from, to, true);
+    const span = spanOf(original);
+    if (span.frames.length < 2) continue;
+    const ours = reduceRotationSquad(span.frames.map(i => outFrames[i]), span.frames.map(i => qs[i]), settings.tolerance ?? 0.008);
+    const outside = outsideKeys(original, span.lo, span.hi, true);
     tracks.push({ id: node.ObjectId, property: 'Rotation', track: { ...structuredClone({ ...original, Keys: [] }), LineType: lineType, Keys: [...outside, ...ours].sort((a, b) => a.Frame - b.Frame) } });
     keyCount += ours.length;
   }
@@ -474,14 +498,14 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     const tolerance = Math.max(0.05, scale * 0.004);
     if (bodySamples.some((p, i) => p.distanceTo(authored[i]) > tolerance)) {
       const lineType = original.LineType || 1; // stepped tracks become Linear for our keys
-      const kept = reducePoints(outFrames, bodySamples, tolerance);
-      const ours = kept.map(i => {
-        const v = new Float32Array(bodySamples[i].toArray()), key = { Frame: outFrames[i], Vector: v };
+      const span = spanOf(original), frames = span.frames.map(i => outFrames[i]), points = span.frames.map(i => bodySamples[i]);
+      const ours = (frames.length > 1 ? reducePoints(frames, points, tolerance) : []).map(i => {
+        const v = new Float32Array(points[i].toArray()), key = { Frame: frames[i], Vector: v };
         if (lineType === 3) { key.InTan = new Float32Array(v); key.OutTan = new Float32Array(v); }
         else if (lineType === 2) { key.InTan = new Float32Array(3); key.OutTan = new Float32Array(3); }
         return key;
       });
-      tracks.push({ id: bodyNode.ObjectId, property: 'Translation', track: mergeTrack(original, ours, lineType, from, to) });
+      tracks.push({ id: bodyNode.ObjectId, property: 'Translation', track: mergeTrack(original, ours, lineType, span.lo, span.hi) });
       keyCount += ours.length;
     }
   }
@@ -492,16 +516,18 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
     if (tracks.some(t => t.id === node.ObjectId && t.property === 'Translation')) continue;
     if (!track?.Keys || isGlobal(track, model) || !track.Keys.some(k => k.Frame >= from && k.Frame <= to)) continue;
     const at = f => new Vector3().fromArray(sampleTrack(track, f, posOpts));
-    const moved = outFrames.map(f => at(timeMap(f))), tolerance = Math.max(0.02, scale * 0.002);
+    const moved = outFrames.map(f => at(timeMap(f))).map((p, i) => at(outFrames[i]).lerp(p, weightAt(outFrames[i]))), tolerance = Math.max(0.02, scale * 0.002);
     if (!moved.some((p, i) => p.distanceTo(at(outFrames[i])) > tolerance)) continue;
     const lineType = track.LineType || 1;
-    const ours = reducePoints(outFrames, moved, tolerance).map(i => {
-      const v = new Float32Array(moved[i].toArray()), key = { Frame: outFrames[i], Vector: v };
+    const span = spanOf(track), frames = span.frames.map(i => outFrames[i]), points = span.frames.map(i => moved[i]);
+    if (frames.length < 2) continue;
+    const ours = reducePoints(frames, points, tolerance).map(i => {
+      const v = new Float32Array(points[i].toArray()), key = { Frame: frames[i], Vector: v };
       if (lineType === 3) { key.InTan = new Float32Array(v); key.OutTan = new Float32Array(v); }
       else if (lineType === 2) { key.InTan = new Float32Array(3); key.OutTan = new Float32Array(3); }
       return key;
     });
-    tracks.push({ id: node.ObjectId, property: 'Translation', track: mergeTrack(track, ours, lineType, from, to) });
+    tracks.push({ id: node.ObjectId, property: 'Translation', track: mergeTrack(track, ours, lineType, span.lo, span.hi) });
     keyCount += ours.length;
   }
   // How much the whole unit moves from frame to frame, original and shaped: the strip draws it as a graph.

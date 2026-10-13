@@ -103,3 +103,10 @@
 .resource-editor .ax-window .ax-card-switch:empty::before{content:"";display:block;width:7px;height:7px;margin:0 auto;border-radius:50%;background:#5b6573}
 .resource-editor .ax-window .ax-card-text small{padding-right:30px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .resource-editor .ax-window .ax-card-text b{white-space:normal;line-height:14px}
+/* Sections: the part of the timeline AnimXL works on. */
+.resource-editor .ax-section-bar{display:flex;align-items:center;gap:6px;min-height:24px}
+.resource-editor .ax-section-bar .ax-section-on{font-weight:bold;color:#b85a0e}
+.resource-editor .ax-section-bar small{color:#b85a0e}
+.resource-editor .ax-strip i.ax-band{top:0;bottom:0;margin:0;background:#ffe14d33;border-left:2px solid #ffe14d;border-right:2px solid #ffe14d}
+.resource-editor .ax-strip i.ax-dim{top:0;bottom:0;margin:0;background:#000a}
+.resource-editor .ax-strip-picking{cursor:col-resize;outline:2px solid #ffe14d;outline-offset:-2px}

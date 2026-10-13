@@ -104,3 +104,17 @@ test('collapse drops a standing figure to the ground and leaves other animations
   assert.ok(head(fallen, 0, 0).distanceTo(head(model, 0, 0)) < 0.5, 'before it goes limp the animation is unchanged');
   assert.ok(head(fallen, 2500, 1).distanceTo(head(model, 2500, 1)) < 0.01, 'the Walk is untouched');
 });
+
+test('a section is shaped on its own: outside it and its edge keys stay exactly as they were', () => {
+  const model = { ...twoBones(rot([[0, 0], [250, 60], [500, 90], [750, 30], [1000, 0]])), Sequences: [{ Name: 'Attack', Interval: [0, 1000], NonLooping: true }] };
+  const before = structuredClone(model.Bones[1].Rotation);
+  const result = buildAnimXL(model, 0, { overlap: 90, settle: 60, poses: 0, range: [250, 750] });
+  const shaped = structuredClone(model);
+  applyAnimXL(shaped, result);
+  const track = shaped.Bones[1].Rotation;
+  for (const t of [0, 100, 240, 760, 900, 1000]) assert.ok(Math.abs(angleAt(track, t, [0, 1000]) - angleAt(before, t, [0, 1000])) < 0.05, `unchanged at ${t}`);
+  for (const frame of [0, 250, 750, 1000]) assert.deepEqual(Array.from(track.Keys.find(k => k.Frame === frame).Vector), Array.from(before.Keys.find(k => k.Frame === frame).Vector), `original key kept at ${frame}`);
+  const inside = [350, 450, 550, 650].map(t => Math.abs(angleAt(track, t, [0, 1000]) - angleAt(before, t, [0, 1000])));
+  assert.ok(Math.max(...inside) > 1, `the section itself changes (${inside.map(v => v.toFixed(1)).join(', ')} degrees)`);
+  assert.equal(buildAnimXL(model, 0, { overlap: 90, range: [400, 400] }).tracks.length, 0, 'an empty section shapes nothing');
+});

@@ -2199,7 +2199,7 @@
   "Original animation": "原始动画",
   "AnimXL animation": "AnimXL 动画",
   "Animation time": "动画时间",
-  "Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it.": "菱形：关键姿势。绿线：落脚。星形：THUNK。红标：受击。点击跳转。拖动菱形更改姿势时间（双击还原）；拖动星形或红标移动它们。",
+  "Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump. Drag a diamond to change when that pose happens (double-click it to put it back); drag a star or red mark to move it. Shift-drag to pick a section to shape on its own.": "菱形：关键姿势。绿线：落脚。星形：THUNK。红标：受击。点击跳转。拖动菱形更改姿势时间（双击还原）；拖动星形或红标移动它们。按住 Shift 拖动可选择一个片段单独调整。",
   "AnimXL treats the moments where the body slows to a stop as the poses.": "AnimXL 将身体减速至停顿的时刻视为姿势。",
   "This animation is already keyed in detail. AnimXL works best on a few hand-made poses, but you can still shape it.": "此动画已有密集关键帧。AnimXL 更适合少量手工姿势，但仍可调整此动画。",
   "Quick start": "快速开始",
@@ -2383,5 +2383,14 @@
   "Turn {0} on": "开启{0}",
   "{0} settings": "{0}设置",
   "Smooth": "平滑",
-  "off": "关"
+  "off": "关",
+  "Pick section": "选择片段",
+  "Then drag on the timeline over the part you want to shape. Shift-drag on the timeline works too.": "然后在时间轴上拖过要调整的部分。在时间轴上按住 Shift 拖动也可以。",
+  "Shape the whole animation again": "重新调整整个动画",
+  "Drag the next section on the timeline": "在时间轴上拖出下一个片段",
+  "Drag on the timeline now": "现在在时间轴上拖动",
+  "Section committed. Drag over the next part of the timeline to shape it.": "片段已应用。在时间轴上拖过下一部分来调整它。",
+  "Commit section": "应用片段",
+  "Whole animation": "整个动画",
+  "Section": "片段"
 }

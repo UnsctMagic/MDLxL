@@ -184,7 +184,25 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(600);
     assert.equal(await dialog.locator('.ax-key-moved').count(), 0, 'double-click puts it back');
     checks.push('Dragging a pose diamond retimes it; double-click resets');
+    // Sections: pick part of the timeline, shape only that, commit, and carry on.
     await card('Follow-through').click();
+    await dialog.getByRole('button', { name: 'Pick section', exact: true }).click();
+    const st = await dialog.getByRole('slider', { name: 'Animation time' }).boundingBox();
+    await page.mouse.move(st.x + st.width * 0.3, st.y + st.height / 2); await page.mouse.down();
+    await page.mouse.move(st.x + st.width * 0.7, st.y + st.height / 2, { steps: 6 }); await page.mouse.up();
+    await page.waitForTimeout(800);
+    assert.equal(await dialog.locator('.ax-band').count(), 1, 'section band shown');
+    assert.match(await dialog.locator('.ax-section-on').textContent(), /Section \d+–\d+ ms/);
+    assert.equal(await dialog.getByRole('button', { name: 'Commit section', exact: true }).count(), 1);
+    await dialog.screenshot({ path: path.join(out, '7b-section.png') });
+    await dialog.getByRole('button', { name: 'Commit section', exact: true }).click();
+    await page.waitForTimeout(800);
+    assert.ok(await dialog.isVisible(), 'AnimXL stays open after a section commit');
+    assert.match(await dialog.locator('.ax-status').textContent(), /Section committed/);
+    await dialog.getByRole('button', { name: 'Whole animation', exact: true }).click();
+    await page.waitForTimeout(600);
+    checks.push('A section can be picked, shaped and committed on its own; AnimXL stays open for the next one');
+    if (!(await dialog.getByRole('slider', { name: 'Follow-through', exact: true }).count())) await card('Follow-through').click();
     await dialog.getByRole('slider', { name: 'Follow-through', exact: true }).scrollIntoViewIfNeeded();
     const ov = await dialog.getByRole('slider', { name: 'Follow-through', exact: true }).boundingBox();
     await page.mouse.click(ov.x + ov.width * 0.7, ov.y + ov.height / 2);
