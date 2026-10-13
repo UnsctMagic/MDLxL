@@ -613,11 +613,19 @@ export function applyAnimXL(model, result) {
 
 /** Name-based first guess for heavy (weapon) and loose (cloth, hair) bones. */
 export function suggestAnimXLBones(model) {
-  const heavyIds = [], looseIds = [];
-  for (const node of animXLNodes(model)) {
+  const heavyIds = [], looseIds = [], nodes = animXLNodes(model), ids = new Set(nodes.map(n => n.ObjectId));
+  // Hands, limbs and mounts are never "the weapon", even when named after it ("Sword Hand").
+  const bodyPart = /hand|arm|finger|wrist|toe|foot|leg|wolf|horse|boar|mount|mesh|death/i;
+  for (const node of nodes) {
     const name = node.Name || '';
-    if (/weapon|sword|axe|hammer|blade|mace|staff|spear|club|shield|flail/i.test(name)) heavyIds.push(node.ObjectId);
+    if (/weapon|sword|axe|hammer|blade|mace|staff|spear|club|flail|choppa|glaive|halberd|scythe/i.test(name) && !bodyPart.test(name)) heavyIds.push(node.ObjectId);
     else if (/cape|cloak|hair|tail|plume|ribbon|cloth|banner|skirt|robe|chain|beard|tabard/i.test(name)) looseIds.push(node.ObjectId);
+  }
+  // A "Weapon Ref" attachment names the weapon bone even when the bone itself has a generic name.
+  for (const attachment of model.Attachments || []) {
+    if (!/weapon/i.test(attachment.Name || '')) continue;
+    const parent = nodes.find(n => n.ObjectId === attachment.Parent);
+    if (parent && ids.has(parent.ObjectId) && !bodyPart.test(parent.Name || '') && !heavyIds.includes(parent.ObjectId) && !looseIds.includes(parent.ObjectId)) heavyIds.push(parent.ObjectId);
   }
   return { heavyIds, looseIds };
 }
