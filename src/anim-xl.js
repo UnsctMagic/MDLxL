@@ -764,6 +764,16 @@ function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength,
   }
   return limbs.length;
 }
+// Copy typed key values directly instead of a native clone call for each key.
+function cloneKey(key) {
+  const copy = {};
+  for (const property of Object.keys(key)) {
+    const value = key[property];
+    copy[property] = value instanceof Float32Array || value instanceof Int32Array ? value.slice()
+      : value !== null && typeof value === 'object' ? structuredClone(value) : value;
+  }
+  return copy;
+}
 /** Keys of every other animation, unchanged in how they play. A stepped
  * (no interpolation) track becomes smooth for our keys, so each of its other
  * keys is held until just before the next one and those animations keep stepping. */
@@ -771,11 +781,11 @@ function outsideKeys(original, from, to, flatTangents) {
   const keys = [...original.Keys].sort((a, b) => a.Frame - b.Frame), stepped = (original.LineType ?? 1) === 0, out = [];
   keys.forEach((key, i) => {
     if (key.Frame >= from && key.Frame <= to) return;
-    const copy = structuredClone(key);
+    const copy = cloneKey(key);
     if (flatTangents && !copy.InTan) { copy.InTan = new Float32Array(copy.Vector); copy.OutTan = new Float32Array(copy.Vector); }
     out.push(copy);
     const held = keys[i + 1]?.Frame - 1;
-    if (stepped && held > key.Frame && (held < from || held > to)) out.push({ ...structuredClone(copy), Frame: held });
+    if (stepped && held > key.Frame && (held < from || held > to)) out.push({ ...cloneKey(copy), Frame: held });
   });
   return out;
 }
@@ -811,18 +821,34 @@ function squadTangent(prev, q, next) {
 }
 /** Fewest smooth keys whose squad curve stays within tolerance (radians). */
 function reduceRotationSquad(frames, qs, tolerance) {
-  const kept = [0, qs.length - 1], probe = new Quaternion();
+  const kept = [0, qs.length - 1], probe = new Quaternion(), spans = new Map(), controls = new Map();
   // End keys keep a flat tangent so the curve starts and ends on its pose.
-  const tangents = () => kept.map((i, k) => k === 0 || k === kept.length - 1 ? qs[i].clone() : squadTangent(qs[kept[k - 1]], qs[i], qs[kept[k + 1]]));
+  // Reuse a tangent while both of its kept neighbours are unchanged.
+  const tangents = () => kept.map((i, k) => {
+    const prev = kept[k - 1] ?? -1, next = kept[k + 1] ?? -1;
+    let control = controls.get(i);
+    if (!control || control.prev !== prev || control.next !== next) {
+      const q = k === 0 || k === kept.length - 1 ? qs[i].clone() : squadTangent(qs[prev], qs[i], qs[next]);
+      controls.set(i, control = { prev, next, q });
+    }
+    return control.q;
+  });
   for (let guard = 0; guard < qs.length; guard++) {
     const tan = tangents();
     let worst = tolerance, at = -1;
     for (let k = 0; k + 1 < kept.length; k++) {
-      const a = kept[k], b = kept[k + 1];
-      for (let i = a + 1; i < b; i++) {
-        const e = squad(qs[a], tan[k], tan[k + 1], qs[b], (frames[i] - frames[a]) / (frames[b] - frames[a]), probe).angleTo(qs[i]);
-        if (e > worst) { worst = e; at = i; }
+      const a = kept[k], b = kept[k + 1], prev = kept[k - 1] ?? -1, next = kept[k + 2] ?? -1;
+      let span = spans.get(a);
+      // Both tangents depend on these four kept poses. Recheck only when one changes.
+      if (!span || span.b !== b || span.prev !== prev || span.next !== next) {
+        span = { b, prev, next, worst: tolerance, at: -1 };
+        for (let i = a + 1; i < b; i++) {
+          const e = squad(qs[a], tan[k], tan[k + 1], qs[b], (frames[i] - frames[a]) / (frames[b] - frames[a]), probe).angleTo(qs[i]);
+          if (e > span.worst) { span.worst = e; span.at = i; }
+        }
+        spans.set(a, span);
       }
+      if (span.worst > worst) { worst = span.worst; at = span.at; }
     }
     if (at < 0) break;
     kept.push(at); kept.sort((x, y) => x - y);
