@@ -74,6 +74,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.screenshot({ path: path.join(out, '5-picking.png') });
     await dialog.getByRole('button', { name: 'Done picking' }).click();
     checks.push('Pick in view toggles the skeleton picker');
+    await dialog.getByRole('button', { name: 'Side by side' }).click();
+    await page.waitForTimeout(1200);
+    assert.equal(await dialog.locator('.ax-preview').count(), 2);
+    await dialog.screenshot({ path: path.join(out, '6-side-by-side.png') });
+    await dialog.getByRole('button', { name: 'Side by side' }).click();
+    checks.push('Side by side shows the original and the AnimXL version together');
     // Settings are remembered when AnimXL is closed and reopened.
     const overlapBefore = await dialog.getByRole('slider', { name: 'Overlap', exact: true }).inputValue();
     await dialog.getByRole('button', { name: 'Cancel' }).click();

@@ -1,36 +1,51 @@
 # AnimXL
 
-AnimXL shapes a hand-keyed animation with a few sliders and shows the result live on the model. Commit writes ordinary bone keyframes for that animation only, as one Undo step.
+AnimXL shapes a hand-keyed animation with a few sliders and shows the result live on the model. Commit writes ordinary bone keyframes as one Undo step.
 
-Open it with the **ANIM** module button (or Modules → AnimXL…).
+Open it with the **ANIM** module button (or Modules → AnimXL…). Pick the animation at the top.
 
 ## Controls
 
 | Control | What it does |
 | --- | --- |
+| Quick start | Natural, Heavy, Snappy and Loose set the sliders to a good starting point. |
 | Ease | Speeds up out of each pose and slows into the next. Poses stay where they are. |
 | Overlap | Parts further from the body follow a moment later (hips → chest → arms → hands → weapon). |
 | Settle | Parts overshoot a pose slightly and wobble back into it. |
-| Weight | The whole body is slower to start and stop. |
+| Weight | The body is slower to start and stop and lags behind its path. |
+| Hit poses | How closely the result lands on your key poses (Loose ↔ Exact). |
 | Heavy bones | Picked bones (usually the weapon) trail the swing and drag the arm holding them. |
 | Loose bones | Picked bones (cape, hair, tail) swing loosely on their own. |
-| THUNK | At each THUNK the animation holds the hit pose for a beat, then catches up; heavy bones bounce back. |
-| Original | Shows the unshaped animation for comparison. |
+| Heavy steps | Each footfall drops the body into the step and nods the chest and head. Footfalls are found from the feet touching the ground (green ticks). |
+| THUNK | The weapon connects: the pose holds for a beat, then catches up; heavy bones bounce back. |
+| Flinch | The unit is hit from the front: the body is knocked back, the torso snaps back, then recovers. |
+| Also apply to | Commit shapes other animations too, with the same sliders and bones. |
+| Original / Side by side | Compare with the unshaped animation, alone or next to it with a shared camera. |
+| Undo (Ctrl+Z / Ctrl+Y) | Steps through slider changes inside AnimXL. |
 
-Weapon, cape, hair and tail bones are guessed from bone names; change them with the bone pickers.
+Weapon, cape, hair and tail bones are guessed from bone names. Change them with the pickers, or **Pick in view** and click bones in the preview.
+
+The strip under the preview shows key poses (diamonds), footfalls (green ticks), THUNKs (stars) and flinches (red marks). Click it to jump to a moment, and drag a star or red mark to move it.
+
+Slider settings are remembered per model and animation until you commit.
 
 ## How it works
 
-`src/anim-xl.js` samples the authored animation as a target pose, runs a spring per bone in world orientation (so children lag their parents), and reduces the result back to keys. Keys of other animations are kept exactly. Hand-keyed animations use their own key times as the poses Ease preserves; densely keyed animations use the moments where the body slows to a stop.
+`src/anim-xl.js` samples the authored animation as a target pose, runs a spring per bone in world orientation (so children lag their parents), and reduces the result back to smooth (squad) keys. Linear rotation tracks become Bezier; keys of other animations get flat tangents, so they play exactly as before. The body (from POSE's rig reading, or bone names) gets a translation spring for Weight, Heavy steps and Flinch.
 
-## Limits (v1)
+Hand-keyed animations use their own key times as the poses Ease preserves. Densely keyed animations use the moments where the body slows to a stop.
 
-- Rotations only. Translations, scaling and Weight's body sink are not written yet.
-- Overlap means children reach a pose slightly after their parent; on held poses they settle into it exactly.
-- Shaped animations carry more keys than hand-made ones (a 1-second attack on a 73-bone rig: about 2,000 keys).
+## Limits
+
+- Eased motion needs extra keys: shaped animations carry roughly 4 keys per move per bone.
+- Overlap means children reach a pose slightly after their parent unless Hit poses is set to Exact.
 - Bones with global-sequence or billboarded rotation are left alone.
+- Heavy steps needs feet that touch the ground; a rider's feet in stirrups are ignored.
 
 ## Checks
 
 - `node --test test/anim-xl.test.js`
 - Packaged mouse check: `MDLXL_PLAYWRIGHT_MODULE=<playwright> MDLXL_ANIMXL_EXE=<MDLxL.exe> node test/anim-xl.electron.cjs`
+- Contact sheet of one animation (Original and presets over time): `node test/anim-xl-filmstrip.electron.cjs <model.mdx> "Attack - 1" Natural Heavy`
+
+Verified locally on 29 unit models (335 animations, every slider on, no failures; slowest build 239 ms), and MDX/MDL save-and-reopen gives identical poses.

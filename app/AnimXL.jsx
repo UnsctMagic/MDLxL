@@ -84,6 +84,12 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
     const restore = [...touched.current].filter(key => !shapedKeys.has(key)).map(key => { const [id, property] = key.split(':'); return { id: Number(id), property, track: byId.get(Number(id))?.[property] }; }).filter(item => byId.has(item.id));
     return [...shaped, ...restore];
   }, [result, original, model]);
+  // Side by side: the left view always shows the authored tracks.
+  const [compare, setCompare] = useState(false), cameraBus = useRef({ saved: null, listeners: new Set() });
+  const originalTracks = useMemo(() => {
+    const byId = new Map(allNodes(model).map(node => [node.ObjectId, node]));
+    return [...touched.current].map(key => { const [id, property] = key.split(':'); return { id: Number(id), property, track: byId.get(Number(id))?.[property] }; }).filter(item => byId.has(item.id));
+  }, [liveTracks, model]);
 
   // Undo groups a burst of changes (one slider drag) into one step.
   const remember = old => {
@@ -153,16 +159,26 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
         <label title="The animation to shape">Animation <select aria-label="Animation" value={seq} onChange={event => setSeq(Number(event.target.value))}>{sequences.map((s, i) => <option key={i} value={i}>{s.Name || `Animation ${i + 1}`}</option>)}</select></label>
         <button onClick={() => setPlaying(v => !v)} title="Play or pause the preview (Space)">{playing ? 'Pause' : 'Play'}</button>
         {[1, 0.5, 0.25].map(value => <button key={value} aria-pressed={speed === value} title={`Play at ${value * 100}% speed. This only changes the preview.`} onClick={() => setSpeed(value)}>{value * 100}%</button>)}
-        <button aria-pressed={original} title="Show the animation without AnimXL to compare" onClick={() => setOriginal(v => !v)}>Original</button>
+        <button aria-pressed={original} disabled={compare} title="Show the animation without AnimXL to compare" onClick={() => setOriginal(v => !v)}>Original</button>
+        <button aria-pressed={compare} title="Show the original (left) and the AnimXL version (right) side by side, playing together" onClick={() => { cameraBus.current = { saved: null, listeners: new Set() }; setCompare(v => !v); setOriginal(false); }}>Side by side</button>
         <span className="ax-time" title="Current time in this animation">{Math.round(time - interval[0])} / {span} ms</span>
       </div>
       <div className="ax-body">
         <div className="ax-preview-pane">
-          <div className="ax-preview">
+          <div className={compare ? 'ax-previews ax-compare' : 'ax-previews'}>
+          {compare && <div className="ax-preview" aria-label="Original animation">
+            <span className="ax-badge">Original</span>
             <Suspense fallback={<span>Loading preview…</span>}>
-              <GamePreview presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks}
+              <GamePreview presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} liveNodeTracks={originalTracks} compareCamera={cameraBus.current} preserveCameraView/>
+            </Suspense>
+          </div>}
+          <div className="ax-preview" aria-label="AnimXL animation">
+            {compare && <span className="ax-badge ax-badge-new">AnimXL</span>}
+            <Suspense fallback={<span>Loading preview…</span>}>
+              <GamePreview key={compare ? 'compare' : 'single'} presentation="preview" interactivePreview fitModel model={model} revision={doc.revision} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor} sequenceIndex={seq} time={time} playing={playing} playbackSpeed={speed} onTimeChange={setTime} liveNodeTracks={liveTracks} {...(compare ? { compareCamera: cameraBus.current, preserveCameraView: true } : {})}
                 {...(picking ? { cleanAnimationPreview: true, overlays: { bones: true }, selectedNodeIds: [], onSelectNodes: pickBone } : {})}/>
             </Suspense>
+          </div>
           </div>
           <div className="ax-strip" role="slider" aria-label="Animation time" aria-valuemin={interval[0]} aria-valuemax={interval[1]} aria-valuenow={Math.round(time)} title="Diamonds: your key poses. Green ticks: footfalls. Stars: THUNKs. Red marks: flinches. Click to jump; drag a star or red mark to move it." onPointerDown={stripDown} onPointerMove={stripMove} onPointerUp={() => { drag.current = null; }}>
             {(result?.keyTimes || []).map(t => <i key={'k' + t} className="ax-key" style={{ left: pct(t) }}/>)}
