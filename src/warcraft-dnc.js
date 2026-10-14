@@ -42,8 +42,13 @@ export function readWarcraftDnc(input,name='dnc.mdx') {
     else if(tag==='HELP')while(offset<end)node();
     else if(tag==='LITE')while(offset<end){
       const start=offset,length=uint(),last=start+length,light=node();if(last>end||last<=offset)throw Error('Invalid DNC light.');
-      light.LightType=uint();light.AttenuationStart=float();light.AttenuationEnd=float();light.Color=[float(),float(),float()];light.Intensity=float();light.AmbColor=[float(),float(),float()];light.AmbIntensity=float();
-      if(model.Version>=1200)light.PreviewUnusedScalar=float();
+      light.LightType=uint();
+      // Current game assets add a scalar after the light type and six rendering
+      // parameters after ambient intensity. Classic lighting uses the shared fields.
+      if(model.Version>=1800)light.PreviewUnusedTypeScalar=float();
+      light.AttenuationStart=float();light.AttenuationEnd=float();light.Color=[float(),float(),float()];light.Intensity=float();light.AmbColor=[float(),float(),float()];light.AmbIntensity=float();
+      if(model.Version>=1800)light.PreviewUnusedParameters=Array.from({length:6},float);
+      else if(model.Version>=1200)light.PreviewUnusedScalar=float();
       anim(light,last);model.Lights.push(light);
     }
     if(['VERS','SEQS','GLBS','PIVT','HELP','LITE'].includes(tag)&&offset!==end)throw Error('Invalid DNC chunk length.');offset=end;

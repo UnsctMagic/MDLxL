@@ -64,9 +64,9 @@ test('native shader repairs retain SD bone bounds and derivative support for smo
 test('classic portrait uses clamped vertex lighting without changing ordinary inspection shading', () => {
   const vertex = patchWarcraftMeshVertexShader('uniform mat4 uNodesMatrices[128]; attribute vec4 aGroup; void main() { vNormal = aNormal; }');
   const fragment = patchWarcraftMeshFragmentShader('precision mediump float; uniform mat3 uTVertexAnim; uniform float uWireframe; void main() { gl_FragColor = vec4(1.); }');
-  assert.ok(vertex.includes('out float vMdlxlPortraitLight;'));
-  assert.ok(vertex.includes('vMdlxlPortraitLight = clamp(.3 + max(0., dot(vNormal, normalize(uMdlxlLightDirection))), 0., 1.)'));
-  assert.ok(fragment.includes('in float vMdlxlPortraitLight;'));
+  assert.ok(vertex.includes('out vec3 vMdlxlPortraitLight;'));
+  assert.ok(vertex.includes('vMdlxlPortraitLight = vec3(clamp(.3 + max(0., dot(vNormal, normalize(uMdlxlLightDirection))), 0., 1.)'));
+  assert.ok(fragment.includes('in vec3 vMdlxlPortraitLight;'));
   assert.ok(fragment.includes('if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) gl_FragColor.rgb *= vMdlxlPortraitLight; } else if (uMdlxlLegacy > .5)'));
   assert.ok(fragment.includes('mdlxlEncodeSRGB(max(inspectionBase'));
 });

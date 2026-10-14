@@ -75,19 +75,19 @@ test('Snap uses existing camera entry without altering document, playback or seq
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
   assert.match(app,/onSnap=\{\(\) => \{ setPortraitView\('perspective'\); setPortraitSnapRevision\(value => value \+ 1\); \}\}/);
   assert.match(preview,/current\.enterPortrait\(evaluated\);\s*\}, \[props\.portraitMode, props\.portraitCameraIndex, props\.portraitSnapRevision/);
-  assert.doesNotMatch(app,/newPortraitCamera|onPortraitNew/);
+
   for(const file of ['src/commands.js','electron/menu.cjs']) {
     const source=readFileSync(new URL('../'+file,import.meta.url),'utf8');
     assert.doesNotMatch(source,/'Cameras'/);
   }
 });
 
-test('Portrait hides free XYZ camera controls and locks camera pitch',()=>{
+test('Portrait retains compact camera controls and permits vertical orbit',()=>{
   const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
   assert.match(app,/const cameraRotating = cameraMode === 'rotate' && !lockedVertexPlane \|\| cameraGesture;/);
   assert.match(app,/\{cameraRotating && !activePortrait && cameraPanel\}/);
-  assert.match(preview,/controls\.minPolarAngle = controls\.maxPolarAngle = controls\.getPolarAngle\(\)/);
+  assert.doesNotMatch(preview,/controls\.minPolarAngle = controls\.maxPolarAngle = controls\.getPolarAngle\(\)/);
   assert.match(preview,/setCameraAngles: values => \{ if \(state\.portraitActive \|\| latest\.current\.suspended\) return;/);
 });
 
@@ -99,8 +99,8 @@ test('Movement and Portrait share the complete viewpoint dropdown',()=>{
   assert.match(bar,/value=\{cameraPortraitActive \? portraitView : mode === 'vertices' && quadView \? activeVertexPane\?\.view \|\| 'front' : view\}/);
   assert.match(bar,/onChange=\{event => cameraPortraitActive \? setPortraitView\(event\.target\.value\) : setView\(event\.target\.value\)\}/);
   assert.doesNotMatch(preview,/function setView\(next\) \{\s*if \(state\.portraitActive\) return;/);
-  assert.match(preview,/if \(state\.portraitActive\) \{ state\.cameraDetached = true; latest\.current\.onPlayingChange\?\.\(false\); \}/);
-  assert.match(preview,/state\.portraitActive = true; state\.cameraDetached = false; state\.appliedView = 'perspective';/);
+  assert.match(preview,/if \(state\.portraitActive\) \{ state\.cameraDetached = true; latest\.current\.onPlayingChange\?\.\(false\); latest\.current\.onPortraitPreviewChange\?\.\(true\); \}/);
+  assert.match(preview,/state\.portraitActive = true; state\.cameraDetached = false; latest\.current\.onPortraitPreviewChange\?\.\(false\); state\.appliedView = 'perspective';/);
 });
 
 test('switching Portrait sequences preserves the one shared camera view',()=>{

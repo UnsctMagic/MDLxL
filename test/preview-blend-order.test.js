@@ -12,7 +12,7 @@ function fixture() {
     shaderSource() {}, useProgram() {}, bindBuffer(target, buffer) { bound = buffer; },
     drawElements() { calls.push(['mesh', buffers.indexOf(bound)]); },
     getUniformLocation: (_, name) => name, getContextAttributes: () => ({ antialias: false }),
-    uniform1f() {}, uniform3fv() {}, uniform4fv() {}, enable() {}, disable() {}, depthMask() {}, blendFuncSeparate() {},
+    uniform1i() {}, uniform2fv() {}, uniform1f() {}, uniform3fv() {}, uniform4fv() {}, enable() {}, disable() {}, depthMask() {}, blendFuncSeparate() {},
     blendFunc(src, dst) { calls.push(['blend', src, dst]); },
   };
   const native = {
