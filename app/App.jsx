@@ -71,7 +71,8 @@ import { enumeratePaintTargets, installFreshPaintLayer, paintTargetsForGeoset } 
 import { paintMessage } from '../src/paint-messages.js';
 import { decodePaintImage } from './paint-raster.js';
 import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay } from '../src/display-overlays.js';
-import { setCameraFromCurrentView } from './portrait-camera-edit.js';
+import { setCameraFromCurrentView, createPortraitCamera, makePortraitCamera, editPortraitCamera, framePortraitSubject, portraitShot } from './portrait-camera-edit.js';
+import { firstPortraitSequenceIndex, evaluateModelCamera } from './portrait-view.js';
 import PortraitToolbar from './PortraitToolbar.jsx';
 import AppToolbar, { AppViewLabel } from './AppToolbar.jsx';
 import GeosetAnimationRepair from './GeosetAnimationRepair.jsx';
@@ -156,6 +157,8 @@ export default function App() {
   const [controlModelGroup, setControlModelGroup] = useState('all');
   useEffect(() => { setControlModelGroup('all'); setControlModelIds([]); setMaterialVisibility(null); }, [session.id]);
   const [portraitSnapRevision, setPortraitSnapRevision] = useState(0);
+  const [portraitSettings, setPortraitSettings] = useState({ lighting: true, composition: false, thirds: false, mask: .65 });
+  const [portraitPreviewChanged, setPortraitPreviewChanged] = useState(false), [portraitLightingStatus, setPortraitLightingStatus] = useState('');
   const receiveCameraAngles = useCallback(value => setCameraAngles(previous => ['x','y','z'].some(axis=>Math.abs(previous[axis]-value[axis])>.001)?value:previous), []);
   const [grabThroughByEditor, setGrabThroughByEditor] = useState({vertices:true,bones:false});
   const grabThrough = grabThroughByEditor[mode] ?? false;
@@ -295,7 +298,7 @@ export default function App() {
   const repairBlocked = duplicateAnimations.length > 0 || !!repairReceipt;
   useEffect(() => { if (!model.Cameras?.[portraitCameraIndex]) setPortraitCameraIndex(model.Cameras?.length ? 0 : -1); }, [model, doc.revision, portraitCameraIndex]);
   useEffect(() => {
-    if (portraitEnabled && (!model.Cameras?.length || !portraitSequenceIndices(model).includes(sequence))) setPortraitEnabled(false);
+    if (portraitEnabled && !model.Cameras?.length) setPortraitEnabled(false);
   }, [model, doc.revision, sequence, portraitEnabled]);
   const paintOriginalModel=useMemo(()=>session.paintOriginalModelBytes?openDocument(session.paintOriginalModelBytes,doc.name).model:model,[session.paintOriginalModelBytes,session.id,model]);
   const animationDomain = useMemo(() => classicTimelineDomain(model, model.Sequences[sequence] ? sequence : -1, model.GlobalSequences?.[globalSeqId] > 0 ? globalSeqId : null), [model, doc.revision, sequence, globalSeqId]);
@@ -401,15 +404,15 @@ export default function App() {
   // Portrait is a view within Movement: preserve its selection, tools and undo path.
   const enterPortrait = (cameraIndex, sequenceIndex) => {
     setPortraitCameraIndex(cameraIndex); setGlobalSeqId(null);
-    setSequence(sequenceIndex); setTime(model.Sequences[sequenceIndex].Interval[0]);
+    setSequence(sequenceIndex); setTime(model.Sequences[sequenceIndex]?.Interval[0] || 0);
     setRenderMode('textured'); setCleanViews(previous => ({ ...previous, animation: false }));
-    setCameraMode('work'); setPortraitView('perspective'); setPortraitEnabled(true); setPlaying(true);
+    setCameraMode('work'); setPortraitView('perspective'); setPortraitEnabled(true); setPlaying(sequenceIndex >= 0); setPortraitPreviewChanged(false);
   };
   const enablePortrait = () => {
     const cameraIndex = model.Cameras?.[portraitCameraIndex] ? portraitCameraIndex : model.Cameras?.length ? 0 : -1;
-    const portraitSequence = portraitSequenceIndices(model)[0] ?? -1;
-    if (cameraIndex < 0 || portraitSequence < 0) {
-      setDialog({ type: 'portraitSetup', missingCamera: cameraIndex < 0, missingSequence: portraitSequence < 0 });
+    const portraitSequence = firstPortraitSequenceIndex(model);
+    if (cameraIndex < 0) {
+      setDialog({ type: 'portraitSetup', missingCamera: true, missingSequence: false });
       return;
     }
     enterPortrait(cameraIndex, portraitSequence);
@@ -425,9 +428,29 @@ export default function App() {
   const updatePortraitCamera = () => {
     const view = currentCameraView();
     if (!view) { say('The model viewport is still loading.', true); return false; }
-    const index = edit('Set camera to current view', ['Cameras', 'Info', 'Geosets'], current => setCameraFromCurrentView(current, portraitCameraIndex, view, time, sequence));
-    if (index !== false) { setPortraitCameraIndex(index); setPortraitView('perspective'); }
+    const index = edit('Set camera to current view', ['Cameras', 'BindPoses', 'Info', 'Geosets'], current => setCameraFromCurrentView(current, portraitCameraIndex, view, time, sequence));
+    if (index !== false) { setPortraitCameraIndex(index); setPortraitView('perspective'); setPortraitPreviewChanged(false); }
     return index;
+  };
+  const newPortraitCamera = () => {
+    const previewSequence = firstPortraitSequenceIndex(model), previewFrame = model.Sequences[previewSequence]?.Interval[0] || 0;
+    const index = edit('New portrait camera', ['Cameras', 'BindPoses', 'Info', 'Geosets'], current => createPortraitCamera(current, framePortraitSubject(current, null, previewFrame, previewSequence)));
+    if (index !== false) enterPortrait(index, previewSequence);
+  };
+  const promotePortraitCamera = () => {
+    const index = edit('Make game portrait camera', ['Cameras','BindPoses'], current => makePortraitCamera(current, portraitCameraIndex));
+    if (index !== false) { setPortraitCameraIndex(index); setPortraitPreviewChanged(false); }
+  };
+  const editPortraitFields = patch => {
+    setPlaying(false);
+    const result = edit('Edit portrait camera', ['Cameras','Info','Geosets'], current => editPortraitCamera(current, portraitCameraIndex, patch, time, sequence));
+    if (result !== false) { setPortraitView('perspective'); setPortraitPreviewChanged(false); }
+    return result;
+  };
+  const composePortraitShot = kind => {
+    const view = (portraitModeActive && currentCameraView()) || evaluateModelCamera(model, model.Cameras?.[portraitCameraIndex], time, sequence);
+    const index = edit(kind === 'frame' ? 'Frame portrait subject' : kind === 'front' ? 'Front portrait shot' : 'Level portrait shot', ['Cameras','BindPoses','Info','Geosets'], current => setCameraFromCurrentView(current, portraitCameraIndex, kind === 'frame' ? framePortraitSubject(current, view, time, sequence) : portraitShot(view, kind), time, sequence));
+    if (index !== false) { setPlaying(false); setPortraitView('perspective'); setPortraitPreviewChanged(false); }
   };
   const selectControlModel = (group = controlModelGroup) => {
     try {
@@ -440,7 +463,7 @@ export default function App() {
     const index = updatePortraitCamera();
     if (index === false) return;
     if (dialog.missingSequence) setDialog(previous => ({ ...previous, missingCamera: false }));
-    else { setDialog(null); enterPortrait(index, portraitSequenceIndices(model)[0]); }
+    else { setDialog(null); enterPortrait(index, firstPortraitSequenceIndex(model)); }
   };
   const clearDisplay = () => {
     setOverlayModes(previous => clearQuickDisplay(previous, displayMode));
@@ -504,7 +527,7 @@ export default function App() {
     if (tool === 'rotate') setTool('select');
     if (rigWorkspace && movementMode === 'rotate') setMovementMode('select');
   };
-  const selectSequence = index => { if (portraitModeActive && !portraitSequenceIndices(model).includes(index)) return; setGlobalSeqId(null); setSequence(index); setTime(model.Sequences[index]?.Interval[0] || 0); };
+  const selectSequence = index => { setGlobalSeqId(null); setSequence(index); setTime(model.Sequences[index]?.Interval[0] || 0); };
   const selectTimeline = value => { if (portraitModeActive && String(value).startsWith('global:')) return; if (String(value).startsWith('global:')) { setGlobalSeqId(Number(value.split(':')[1])); setSequence(-1); setTime(0); } else selectSequence(Number(value)); };
   const showParticlePreview = value => changePreferences(previous => ({ ...previous, graphics: { ...previous.graphics, particles: value } }));
   const texturedModel = useMemo(() => uvPreviewModel(model, session.uvPreviews), [model, doc.revision, session.uvPreviews]);
@@ -530,7 +553,7 @@ export default function App() {
   };
   const inspectGeoset = index => { if(model.Geosets[index])setActiveGeoset(index); };
   const openNodeManager = () => setDialog({ type: 'resource', kind: 'Nodes' });
-  const controlsWholeModel = ids => portraitModeActive && controlModelIds.length > 0 && ids.length === controlModelIds.length && controlModelIds.every(id => ids.includes(id));
+  const controlsWholeModel = ids => portraitModeActive && portraitSequenceIndices(model).includes(sequence) && controlModelIds.length > 0 && ids.length === controlModelIds.length && controlModelIds.every(id => ids.includes(id));
   const moveNodes = payload => {
     const pose=payload.restPose??restPose;
     const change = {...payload, restPose:pose, workplaneEnabled: payload.workplaneEnabled ?? workplaneEnabled, workplane:payload.workplane??workplane, restrictions};
@@ -1101,8 +1124,8 @@ export default function App() {
     normalRotate: () => setDialog({type:'normalRotate'}),
     anchorSelect: () => { setChoosingZoomAnchor(true); say('Drag a selection box over one selected vertex.'); },
     play: () => setPlaying(v => !v),
-    nextSequence: () => { const ids = portraitModeActive ? portraitSequenceIndices(model) : model.Sequences.map((_, i) => i); if (ids.length) selectSequence(ids[(ids.indexOf(sequence) + 1) % ids.length]); },
-    previousSequence: () => { const ids = portraitModeActive ? portraitSequenceIndices(model) : model.Sequences.map((_, i) => i); if (ids.length) selectSequence(ids[(ids.indexOf(sequence) + ids.length - 1) % ids.length]); },
+    nextSequence: () => { const ids = model.Sequences.map((_, i) => i); if (ids.length) selectSequence(ids[(ids.indexOf(sequence) + 1) % ids.length]); },
+    previousSequence: () => { const ids = model.Sequences.map((_, i) => i); if (ids.length) selectSequence(ids[(ids.indexOf(sequence) + ids.length - 1) % ids.length]); },
     firstFrame: () => {setPlaying(false);setTime(animationDomain.start);}, lastFrame: () => {setPlaying(false);setTime(animationDomain.end);},
     nextFrame: () => {setPlaying(false);setTime(v=>Math.min(animationDomain.end,Math.round(v)+1));}, previousFrame: () => {setPlaying(false);setTime(v=>Math.max(animationDomain.start,Math.round(v)-1));},
     sensitivityUp: () => changeSensitivity(preferencesRef.current.scrollSensitivity*1.15), sensitivityDown: () => changeSensitivity(preferencesRef.current.scrollSensitivity/1.15),
@@ -1370,7 +1393,7 @@ export default function App() {
       sessionDirty, sessions, setCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
       setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI
     }}/>
-    {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement'} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} onSetView={updatePortraitCamera} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
+    {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onSetView={updatePortraitCamera} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
       <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
@@ -1422,7 +1445,7 @@ export default function App() {
         sequenceIndex={sequence} time={time} playbackSpeed={playbackSpeed} playing={playing} onTimeChange={setTime} onPlayingChange={setPlaying}
         teamColor={teamColor} textureAssets={session.assets} view={cameraPortraitActive ? portraitView : view} cameraMode={cameraMode}
         poseConfig={rigWorkspace && !restPose && !activePortrait ? poseConfig : null} poseDocumentModel={model} onPoseSelect={selectPose} onPosePin={pinPose} onPoseCommit={commitPose}
-        portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
+        portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
         liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
         selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}}
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace || !restPose && globalSeqId !== null ? undefined : moveNodes}

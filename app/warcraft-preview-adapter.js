@@ -1,3 +1,4 @@
+import { portraitLightDeclarations, portraitLightCalculation } from './portrait-lighting.js';
 import { sampleTrack, sampleGeosetAnimation } from '../src/animation.js';
 import { previewLighting } from '../src/preview-lighting.js';
 
@@ -26,7 +27,7 @@ export function patchWarcraftMeshFragmentShader(source) {
   const header = source.startsWith('#version 300 es') ? '' : '#version 300 es\nprecision highp float;\nout vec4 mdlxlFragmentColor;\n#define gl_FragColor mdlxlFragmentColor\n';
   if (header) source = source.replace(/\bvarying\b/g, 'in').replace(/\btexture2D\b/g, 'texture').replace(/\btextureCube\b/g, 'texture');
   return header + source.replace('precision mediump float;', 'precision highp float;')
-    .replace(/void main\s*\(/, `${hd ? '' : 'uniform float uMdlxlPortrait;\nin float vMdlxlPortraitLight;\n'}void main(`)
+    .replace(/void main\s*\(/, `${hd ? '' : 'uniform float uMdlxlPortrait;\nin vec3 vMdlxlPortraitLight;\n'}void main(`)
     .replace(/void main\s*\(/, `vec3 mdlxlDecodeSRGB(vec3 c) { return mix(c / 12.92, pow((c + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c)); }\nvec3 mdlxlEncodeSRGB(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(vec3(.0031308), c)); }\nvoid main(`)
     .replace('uniform float uWireframe;', 'uniform float uWireframe;\nuniform vec4 uMdlvisGeosetTint;\nuniform float uMdlxlLighting;\nuniform vec3 uMdlxlLightDirection;\nuniform float uMdlxlCoverage;\nuniform float uMdlxlSurface;\nuniform vec3 uMdlxlAmbient;\nuniform vec3 uMdlxlDiffuse;\nuniform vec3 uMdlxlSpecular;\nuniform float uMdlxlPower;\nuniform float uMdlxlLegacy;\nuniform vec3 uMdlxlViewDirection;')
     .replace(/if \((?:gl_FragColor|FragColor)\[3\] < uDiscardAlphaLevel\) \{\s*discard;\s*}/, `if (uDiscardAlphaLevel > 0. && uMdlxlCoverage > .5) {\n        float edge = max(fwidth(${output}.a), .001);\n        ${output}.a = smoothstep(uDiscardAlphaLevel - edge, uDiscardAlphaLevel + edge, ${output}.a);\n        if (${output}.a <= 0.) discard;\n    } else if (${output}.a < uDiscardAlphaLevel) { discard; }`)
@@ -36,16 +37,15 @@ export function patchWarcraftMeshFragmentShader(source) {
 /** The upstream SD vertex shader skins positions but leaves normals in bind pose. */
 export function patchWarcraftMeshVertexShader(source) {
   if (source.includes('aNormal') && source.includes('uMVMatrix') && source.includes('vTextureCoord') && !source.startsWith('#version 300 es')) source = '#version 300 es\n' + source.replace(/\battribute\b/g, 'in').replace(/\bvarying\b/g, 'out');
-  if (!source.includes('aGroup') || !source.includes('vNormal = aNormal;')) return source;
-  return source.replace(/void main\s*\(/, 'uniform vec3 uMdlxlLightDirection;\nout float vMdlxlPortraitLight;\nvoid main(')
-    .replace('vNormal = aNormal;', `vec3 posedNormal = mat3(uNodesMatrices[int(aGroup[0])]) * aNormal;
-    if (aGroup[1] < \${MAX_NODES}.) posedNormal += mat3(uNodesMatrices[int(aGroup[1])]) * aNormal;
-    if (aGroup[2] < \${MAX_NODES}.) posedNormal += mat3(uNodesMatrices[int(aGroup[2])]) * aNormal;
-    if (aGroup[3] < \${MAX_NODES}.) posedNormal += mat3(uNodesMatrices[int(aGroup[3])]) * aNormal;
-    vNormal = normalize(posedNormal);
-    // Classic portrait lighting is vertex-lit, clamped, and multiplied directly
-    // into texture RGB (not the editor's linear/sRGB inspection lighting).
-    vMdlxlPortraitLight = clamp(.3 + max(0., dot(vNormal, normalize(uMdlxlLightDirection))), 0., 1.);`.replaceAll('${MAX_NODES}', /uNodesMatrices\[(\d+)\]/.exec(source)?.[1] || '256'));
+  if (!source.includes('vNormal = aNormal;')) return source;
+  const count = /uNodesMatrices\[(\d+)\]/.exec(source)?.[1] || '256';
+  const normal = source.includes('aGroup') ? `vec3 posedNormal = mat3(uNodesMatrices[int(aGroup[0])]) * aNormal;
+    if (aGroup[1] < ${count}.) posedNormal += mat3(uNodesMatrices[int(aGroup[1])]) * aNormal;
+    if (aGroup[2] < ${count}.) posedNormal += mat3(uNodesMatrices[int(aGroup[2])]) * aNormal;
+    if (aGroup[3] < ${count}.) posedNormal += mat3(uNodesMatrices[int(aGroup[3])]) * aNormal;
+    vNormal = normalize(posedNormal);` : 'vNormal = normalize(aNormal);';
+  return source.replace(/void main\s*\(/, 'uniform vec3 uMdlxlLightDirection;\n' + portraitLightDeclarations + 'void main(')
+    .replace('vNormal = aNormal;',normal + portraitLightCalculation);
 }
 
 export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false) {
@@ -97,7 +97,7 @@ function createSolidTexture(gl, rgba) {
 export function installWarcraftPreviewAdapter(gl, model, getClock) {
   const original = { shaderSource: gl.shaderSource, bindBuffer: gl.bindBuffer, useProgram: gl.useProgram, drawElements: gl.drawElements };
   gl.shaderSource = function (shader, source) { return original.shaderSource.call(this, shader, patchWarcraftMeshVertexShader(patchWarcraftMeshFragmentShader(source))); };
-  let native, location, lightingLocation, lightDirectionLocation, portraitLocation, coverageLocation, surfaceLocation, lightUniforms, activeProgram, elementBuffer, activeLayer, byIndexBuffer, setLayerProps, setLayerPropsHD, renderRibbons, updateRibbons, renderParticles, render;
+  let native, location, lightingLocation, lightDirectionLocation, portraitLocation, coverageLocation, surfaceLocation, lightUniforms, portraitUniforms, activeProgram, elementBuffer, activeLayer, byIndexBuffer, setLayerProps, setLayerPropsHD, renderRibbons, updateRibbons, renderParticles, render;
   let neutralNormalTexture, neutralOrmTexture;
   const classicSkinnedMaterials = new Set((model.Geosets || []).flatMap(geoset => geoset.SkinWeights?.length && model.Materials?.[geoset.MaterialID]?.Layers?.length && !isExplicitHdMaterial(model.Materials[geoset.MaterialID]) ? [geoset.MaterialID] : []));
   let meshPass = null;
@@ -111,6 +111,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       coverageLocation = gl.getUniformLocation(native.shaderProgram, 'uMdlxlCoverage');
       surfaceLocation = gl.getUniformLocation(native.shaderProgram, 'uMdlxlSurface');
       lightUniforms = Object.fromEntries(['Ambient', 'Diffuse', 'Specular', 'Power', 'Legacy', 'ViewDirection'].map(name => [name, gl.getUniformLocation(native.shaderProgram, `uMdlxl${name}`)]));
+      portraitUniforms = Object.fromEntries(['Count','Positions','Directions','Colors','Ambient','Ranges'].map(name => [name, gl.getUniformLocation(native.shaderProgram, 'uPortraitLight' + name + (name === 'Count' ? '' : '[0]'))]));
       if (!location) throw new Error('The Warcraft preview shader is incompatible with geoset color editing.');
       byIndexBuffer = new Map(native.indexBuffer.map((buffer, index) => [buffer, index]));
       setLayerProps = native.setLayerProps; setLayerPropsHD = native.setLayerPropsHD;
@@ -204,6 +205,14 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           if (lightingLocation) this.uniform1f(lightingLocation, surface || getClock().lighting !== false && !(activeLayer?.Shading & 1) ? 1 : 0);
           if (portraitLocation) this.uniform1f(portraitLocation, getClock().portrait ? 1 : 0);
           if (lightDirectionLocation) this.uniform3fv(lightDirectionLocation, getClock().lightDirection || [-.65, .55, 1]);
+          if (portraitUniforms.Count) {
+            const rig = getClock().portraitLightValues;
+            this.uniform1i(portraitUniforms.Count, rig?.count || 0);
+            if (rig?.count) {
+              this.uniform4fv(portraitUniforms.Positions,rig.positions); this.uniform3fv(portraitUniforms.Directions,rig.directions);
+              this.uniform3fv(portraitUniforms.Colors,rig.colors); this.uniform3fv(portraitUniforms.Ambient,rig.ambient); this.uniform2fv(portraitUniforms.Ranges,rig.ranges);
+            }
+          }
           const lighting = previewLighting(getClock().preferences);
           for (const name of ['Ambient', 'Diffuse', 'Specular']) if (lightUniforms[name]) this.uniform3fv(lightUniforms[name], lighting[name.toLowerCase()]);
           if (lightUniforms.Power) this.uniform1f(lightUniforms.Power, lighting.power);
