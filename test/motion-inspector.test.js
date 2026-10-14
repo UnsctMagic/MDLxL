@@ -16,7 +16,7 @@ function fixture() {
     { ObjectId: 1, Name: 'Arm', Parent: 0, PivotPoint: [0, 0, 0], Rotation: track([0, 200, 400, 600, 800, 850, 1000].map(t => [t, rotation(t >= 850 ? 90 : 0)])) },
     { ObjectId: 2, Name: 'Sword', Parent: 1, PivotPoint: [10, 0, 0] },
     { ObjectId: 3, Name: 'Other', PivotPoint: [0, 0, 0] },
-  ], Sequences: [{ Name: 'Attack', Interval: [0, 1000] }, { Name: 'Stand', Interval: [2000, 3000] }], GlobalSequences: [], Info: { BoundsRadius: 20 } };
+  ], Sequences: [{ Name: 'Attack', Interval: [0, 1000], NonLooping: true }, { Name: 'Stand', Interval: [2000, 3000] }], GlobalSequences: [], Info: { BoundsRadius: 20 } };
 }
 const memoryStorage = () => { const data = new Map(); return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) }; };
 async function holding(model) { const f = scanMotion(model).findings.find(f => f.kind === 'holding-keys'); assert.ok(f); return { ...f, signature: await motionSignature(f) }; }
@@ -65,6 +65,70 @@ test('smooth dense motion, holds alone and equivalent quaternion signs do not pr
 test('only active sequence keys are sampled; boundary jumps to other animations are not warnings', () => {
   const model = fixture(); model.Nodes[1].Rotation = track([[0, rotation(0)], [1000, rotation(5)], [1001, rotation(170)], [2000, rotation(-90)]]);
   assert.deepEqual(scanMotion(model).findings, []);
+});
+
+function loopFixture() {
+  return { Nodes: [{ ObjectId: 0, Name: 'Any node', PivotPoint: [0, 0, 0] }],
+    Sequences: [{ Name: 'Any looping animation', Interval: [333, 900], NonLooping: false }], Info: { BoundsRadius: 400 } };
+}
+
+test('sparse loop tracks expose the supplied shield translation and rotation boundary patterns', () => {
+  for (const offset of [[.100323811, -6.921129704, 1.297698736], [.075240664, -5.190690041, .973244846]]) {
+    const model = loopFixture(), node = model.Nodes[0];
+    // No start key: the evaluator holds the 467 ms position back to 333 ms.
+    node.Translation = track([[0, [0, 0, 0]], [467, offset], [900, [0, 0, 0]], [1667, [100, 0, 0]]]);
+    const before = structuredClone(model), findings = scanMotion(model).findings;
+    assert.equal(findings.length, 1);
+    assert.deepEqual([findings[0].kind, findings[0].property, findings[0].start, findings[0].end, findings[0].time], ['loop-seam', 'Translation', 333, 900, 900]);
+    assert.deepEqual(findings[0].keyTimes, [467, 900]); assert.deepEqual(findings[0].targets, []);
+    assert.match(findings[0].explanation, /loops from 900 back to 333/);
+    assert.deepEqual(model, before);
+    node.Rotation = track([[333, rotation(0)], [467, rotation(8)]]);
+    assert.deepEqual(scanMotion(motionSnapshot(model)).findings.map(f => f.property).sort(), ['Rotation', 'Translation']);
+    node.Rotation.Keys.push({ Frame: 900, Vector: new Float32Array(rotation(0)) });
+    assert.equal(scanMotion(model).findings.length, 1, 'The closed rotation in the second model stays quiet');
+    node.Translation.Keys.splice(1, 0, { Frame: 333, Vector: new Float32Array([0, 0, 0]) });
+    assert.deepEqual(scanMotion(model).findings, [], 'Closing the loop leaves ordinary in-cycle motion quiet');
+  }
+});
+
+test('loop boundaries ignore nonlooping clips, small differences, equivalent rotations and shared tracks', () => {
+  const model = loopFixture(), node = model.Nodes[0];
+  node.Translation = track([[467, [0, 7, 0]], [900, [0, 0, 0]]]);
+  model.Sequences[0].NonLooping = true;
+  assert.deepEqual(scanMotion(model).findings, []);
+  model.Sequences[0].NonLooping = false;
+  node.Translation.Keys[0].Vector = new Float32Array([0, .1, 0]);
+  node.Rotation = track([[333, rotation(40)], [900, rotation(40).map(v => -v)]]);
+  assert.deepEqual(scanMotion(model).findings, []);
+  node.Translation = track([[0, [0, 7, 0]], [1000, [0, 0, 0]]]);
+  node.Translation.GlobalSeqId = 0; model.GlobalSequences = [1000];
+  assert.deepEqual(scanMotion(model).findings, [], 'Global time does not restart at a local animation boundary');
+  delete node.Translation.GlobalSeqId;
+  node.Translation = track([[467, [0, 7, 0]]]);
+  assert.deepEqual(scanMotion(model).findings, [], 'One in-sequence key is a constant pose');
+});
+
+test('fully keyed loops still warn about mismatched endpoints without blaming smooth interior speed', () => {
+  const model = loopFixture();
+  model.Nodes[0].Rotation = track([[333, rotation(0)], [600, rotation(4)], [900, rotation(8)]]);
+  const findings = scanMotion(model).findings;
+  assert.deepEqual(findings.map(f => f.kind), ['loop-seam']);
+  assert.deepEqual(findings[0].keyTimes, [333, 900]);
+});
+
+test('Desired loop evidence includes both boundary poses but excludes other animations', async () => {
+  const model = loopFixture(), node = model.Nodes[0];
+  node.Translation = track([[467, [0, 7, 0]], [900, [0, 0, 0]], [1667, [100, 0, 0]]]);
+  const signature = async () => motionSignature(scanMotion(model).findings[0]);
+  const before = await signature();
+  node.Translation.Keys[2].Vector[0] = 200;
+  assert.equal(await signature(), before);
+  node.Translation.Keys[0].Vector[1] = 8;
+  assert.notEqual(await signature(), before);
+  const changedStart = await signature();
+  node.Translation.Keys[1].Vector[0] = 1;
+  assert.notEqual(await signature(), changedStart);
 });
 
 test('severe translation spikes, abrupt changes, steps and short extreme curve excursions', () => {

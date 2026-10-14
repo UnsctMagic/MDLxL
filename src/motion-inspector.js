@@ -161,6 +161,17 @@ export function scanMotion(model, { sequenceIndex = 0, nodeIds = null, maxWorldS
     const keys = track.Keys.filter(k => k.Frame >= interval[0] && k.Frame <= interval[1]);
     const unit = property === 'Rotation' ? '°' : ' model units', min = minimum(property), tolerance = property === 'Rotation' ? .25 : Math.max(.0001, size * .001);
     const sample = time => Array.from(sampleTrack(track, time, { interval, quaternion: property === 'Rotation', fallback: defaults[property] }));
+    // Playback clamps sparse tracks to their first/last in-sequence keys, then
+    // wraps the animation clock. Compare those evaluated boundary poses too:
+    // a missing boundary key can hide an instantaneous jump between cycles.
+    if (!model.Sequences[sequenceIndex].NonLooping && interval[1] > interval[0] && keys.length > 1) {
+      const change = distance(sample(interval[1]), sample(interval[0]), property);
+      const seamMinimum = property === 'Rotation' ? 6 : Math.max(.01, size * .01);
+      if (change >= seamMinimum) add(node, property, 'loop-seam', 'local', interval[0], interval[1], interval[1],
+        `${label(node)} jumps when this animation loops from ${interval[1]} back to ${interval[0]} ms. Its end and start poses differ. Inspect both boundary poses; missing boundary keys can hold the nearest pose until the loop restarts.`,
+        `Loop boundary change: ${round(change)}${unit}. First key: ${keys[0].Frame} ms; last key: ${keys.at(-1).Frame} ms.`,
+        [...new Set([keys[0].Frame, keys.at(-1).Frame])]);
+    }
     const segments = keys.slice(1).map((key, i) => {
       const left = keys[i], dt = key.Frame - left.Frame;
       const poses = Array.from({ length: 5 }, (_, step) => sample(left.Frame + dt * step / 4));

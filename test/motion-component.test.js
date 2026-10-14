@@ -52,6 +52,12 @@ test('repeated curve warning explains shaking without proposing key deletion', (
   assert.match(html, /repeatedly bounces between key poses/); assert.match(html, /Replay section/);
   assert.doesNotMatch(html, /Select .*holding key|Delete selected key/);
 });
+
+test('loop warning explains the wrap without suggesting that either boundary pose should be deleted', () => {
+  const html = render({ motion: { ...motion, active: { ...finding, kind: 'loop-seam', start: 333, end: 900, targets: [] } } });
+  assert.match(html, /loops from 900 back to 333 ms/); assert.match(html, /missing boundary keys/);
+  assert.doesNotMatch(html, /Select .*holding key|Delete selected key|swings past/);
+});
 test('held-pose warning identifies the old-pose neighbors without treating the new pose as disposable', () => {
   const html = render({ motion: { ...motion, active: { ...finding, kind: 'pose-spike', time: 900, targets: [{ role: 'surrounding-holds', time: 800, keyTimes: [800, 1000], returnTime: 1000, preserveTime: 900 }] }, visible: [finding, { ...finding, signature: 'two' }] } });
   assert.match(html, /Old-pose keys hold until 800 ms and pull back at 1000 ms/);

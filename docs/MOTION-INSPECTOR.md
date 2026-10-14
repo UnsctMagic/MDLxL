@@ -55,6 +55,12 @@ are normalized quaternion angles, including equivalent quaternion signs.
 - **Stepped tracks:** a significant switch of at least 60 degrees or 20% of radius.
 - **Curve excursions:** an overshoot of at least that magnitude within 100 ms.
   Broad curved movement is not flagged merely for leaving the endpoint range.
+- **Loop seams:** local start/end poses differ by at least 6 degrees or 1% of
+  model radius in a looping animation. The real evaluator supplies both poses,
+  including its hold before the first key or after the last key. This is an
+  instantaneous boundary change, not an ordinary in-cycle speed change.
+  Nonlooping clips and shared global tracks are excluded. The warning identifies
+  both boundary poses without proposing that either one be deleted.
 - **Inherited motion:** model-space pivot/orientation jumps use the severe
   abrupt-change thresholds. A clean child is not blamed for parent movement;
   overlapping parent warnings are inspection clues, never proof of one culprit.
@@ -90,7 +96,9 @@ Local Rotation and Translation are classified. Scale contributes to hierarchy
 evaluation but has no separate local diagnostic. Global tracks contribute to
 model-space samples; their local patterns and editing remain in the existing
 global timeline. Inspection measures pivots/orientations, not every skinned
-vertex; camera-facing rotations, game physics, and loop seams are not diagnosed.
+vertex; camera-facing rotations and game physics are not diagnosed. Loop-seam
+checks cover local Translation and Rotation; inherited-only and Scale seams
+are not separately classified.
 
 The worker samples five points per key interval, capped at 500 findings and 24,000
 hierarchy evaluations; very short global loops have a 4,000-cycle cap. Sampling
@@ -123,3 +131,37 @@ Broader legacy checks also encountered two failures in unchanged source/tests:
 inline RGB on All line expects 179 rather than the current mixed value, and a
 rest-pose export fixture fails equivalence on LevelOfDetail and AmbColor fields.
 Those are outside this change; this is not a claim that the whole suite passes.
+
+## Shield loop regression (2026-10-14)
+
+Both supplied Nurgle Walk clips span 333–900 ms. Node 42 (`F for FFS`) has no
+Translation key at the start: its first key at 467 ms is held back to 333 ms,
+then the 900 ms endpoint snaps to it on the next loop. Heavy01 has a 7.04245-unit
+position discontinuity and an 8-degree Rotation discontinuity (no closing
+rotation key); Knight22 v2 has a 5.28168-unit position discontinuity and a closed
+rotation track. Before this change both scans returned zero warnings. They now
+return two and one local loop-seam findings respectively. The remaining 27
+animations in these two files stay quiet, as do all 29 animations in their
+unoptimized Desktop counterparts. The files and scan-time MDX exports are unchanged.
+
+The broader read-only corpus scan covered 69 Walk-labelled clips across 34
+Desktop models. Besides these two examples, five other models have measurable
+loop-boundary mismatches; their artistic intent was not visually adjudicated.
+No model, node, or animation name is used by the detector.
+
+All 41 focused tests passed. The wider animation/timeline/movement run passed
+130/133; the same three failures reproduce on untouched commit `219d18d1`:
+Attachment Visibility MDL roundtrip, Popcorn LevelOfDetail export equivalence,
+and Popcorn RGB decimal formatting. These remain outside this patch.
+After rebasing onto `d85c00e2` (0.24.2), the same test results and both rebuilt
+portable checks were verified again.
+
+A portable package built from this change passed both supplied-model checks:
+one grouped marker at 900 ms in the normal Animations view, correct node/channel
+selection, compact explanation, replay crossing the loop boundary, Desired and
+restore, and actual Alt-mouse-drag camera rotation. The default and detail
+screenshots were inspected; sidebar widths remain 300 and 164 pixels. No model
+edits were made. Selecting a different bone uses the existing selection undo
+history; replay and Desired do not change the model. Test processes exited and
+the disposable package and profiles were removed. This verifies detection and
+editor interaction, not an automatic repair or user acceptance of the animation.

@@ -9,6 +9,7 @@ function explanation(finding) {
     return 'Old-pose keys hold until ' + surrounding.time + ' ms and pull back at ' + surrounding.returnTime + ' ms. To spread the movement, select these holding keys. Your pose at ' + surrounding.preserveTime + ' ms and the end poses stay unselected.';
   }
   switch (finding.kind) {
+    case 'loop-seam': return 'The end pose differs from the start pose, so this bone jumps when the animation loops from ' + finding.end + ' back to ' + finding.start + ' ms. Inspect both boundary poses and any missing boundary keys.';
     case 'holding-keys': return 'Repeated old-pose keys hold the movement until ' + finding.time + ' ms, leaving only ' + (finding.end - finding.time) + ' ms for the move. Select the holding keys to edit or delete them. The two end poses stay outside the selection.';
     case 'pose-spike': return 'The bone briefly changes pose and returns. The changed pose or its neighboring keys may be unwanted; the intended movement is uncertain.';
     case 'abrupt-change': return 'The bone jumps to this pose in ' + (finding.end - finding.start) + ' ms. This key may be too close to the previous one.';
