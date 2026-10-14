@@ -4,6 +4,7 @@ import { EditorCameraControls, zoomEditorCamera, editorCameraAngles, preserveShi
 import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
+import { drawNormalizerGuide } from './normalizer-guide.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay } from './preview-overlays.js';
 import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { drawMovementOverlay, projectMovementNodes, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
@@ -414,11 +415,13 @@ export default function Viewport(inputProps) {
       for (const entry of state.entries) {
         if (!entry) continue;
         const positions = entry.geometry.attributes.position;
-        skinGeoset(entry.geoset, state.matrices, positions.array);
+        if (p.normalizer) positions.array.set(entry.geoset.Vertices);
+        else skinGeoset(entry.geoset, state.matrices, positions.array);
         positions.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
         const normals = entry.geometry.attributes.normal;
         if (entry.geoset.Normals?.length === positions.array.length) {
-          skinGeosetNormals(entry.geoset, state.matrices, normals.array);
+          if (p.normalizer) normals.array.set(p.normalizer.normals[entry.index] || entry.geoset.Normals);
+          else skinGeosetNormals(entry.geoset, state.matrices, normals.array);
           normals.needsUpdate = true;
         } else entry.geometry.computeVertexNormals();
       }
@@ -455,7 +458,12 @@ export default function Viewport(inputProps) {
       if (down) return;
       clearHoveredGeoset();
       if (quad) surface.focus(); else host.current?.focus();
-      const action = cameraAction(event);
+      let action = cameraAction(event);
+      const guide = latest.current.normalizer;
+      if (guide && guide.mode !== 'surface' && event.button === 0 && !event.altKey) {
+        const pivot = new THREE.Vector3(...guide.center), projected = pivot.clone().project(camera), start = point(event);
+        if (projected.z >= -1 && projected.z <= 1 && screenPosition(pivot, start).distanceTo(new THREE.Vector2(start.x, start.y)) <= 15) action = 'work';
+      }
       rotating = action === 'rotate'; latest.current.onCameraGestureChange?.(rotating);
       surface.style.cursor = viewportCursor(latest.current.cameraMode, latest.current.rotationNormals ? 'rotateNormals' : latest.current.transformMode, rotating);
       controls.enabled = true;
@@ -472,6 +480,16 @@ export default function Viewport(inputProps) {
       down = { ...start, pointerId: event.pointerId, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
       controls.enabled = false; surface.setPointerCapture(event.pointerId);
       if (action === 'zoom') { down.zoom = camera.zoom; down.cameraPosition = camera.position.clone(); return; }
+      if (p.normalizer) {
+        down.action = 'normalizer';
+        const pivot = new THREE.Vector3(...p.normalizer.center), projected = pivot.clone().project(camera);
+        if (p.normalizer.mode !== 'surface' && projected.z >= -1 && projected.z <= 1 && screenPosition(pivot, start).distanceTo(new THREE.Vector2(start.x, start.y)) <= 15) {
+          down.action = 'normalizer-center'; down.pivot = pivot;
+          down.workplane = quad && boundPane.workplane || p.workplane;
+          down.workplaneEnabled = !!(quad && boundPane.workplane) || p.workplaneEnabled !== false;
+        }
+        event.preventDefault(); event.stopImmediatePropagation(); return;
+      }
       if (p.choosingZoomAnchor) { down.action = 'anchor'; state.anchorCandidate = null; return; }
       if(p.onSelectNodes&&!down.ctrl&&!p.onPickNormalReference){
         const nodes=visibleMovementPoints(projectMovementNodes(p.model,state.frame,p.sequenceIndex,camera,start.width,start.height,state.globalTime,state.matrices,p.vanilla),viewportOverlayOptions(p));
@@ -530,6 +548,11 @@ export default function Viewport(inputProps) {
         inspectHoveredGeoset(event); bindPane(activePane); return;
       }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
+      if (down.action === 'normalizer-center') {
+        const delta = translateInPlane(down, end, down, event.shiftKey);
+        latest.current.onNormalizerCenter?.(down.pivot.clone().add(delta).toArray()); invalidate(); return;
+      }
+      if (down.action === 'normalizer') return;
       if (down.action === 'anchor') {
         const distance = Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y);
         if (distance > 5) {
@@ -682,6 +705,7 @@ export default function Viewport(inputProps) {
       if (quad && down && surface.hasPointerCapture(down.pointerId)) surface.releasePointerCapture(down.pointerId);
       state.drag = null; state.anchorCandidate = null; down = null; setBox(null); controls.enabled = true; state.dirty = true; invalidate();
     }
+    state.cancelNormalizer = () => { if (down?.action?.startsWith('normalizer')) cancelGesture(); };
     const frameModel = event => { cancelGesture(); state.fit(event.detail?.selection === true); };
     const viewCamera = event => { cancelGesture(); if (quad) activatePane(panes.find(pane => pane.id === 'perspective')); if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.camera = camera; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
@@ -739,11 +763,11 @@ export default function Viewport(inputProps) {
       const selectedMap = selections(p), editable = editableGeosets(p), active = new Set(p.visibleGeosets ?? editable);
       const selectionKey = `${JSON.stringify(selectedMap, (_, value) => value instanceof Set ? [...value] : value)}|${[...active].join(',')}|${JSON.stringify(p.hiddenVertices, (_, value) => value instanceof Set ? [...value] : value)}|${p.mode}|${p.sequenceIndex}|${p.transformMode}|${JSON.stringify(visual)}`;
       const rgbState = vertexRgbPreviewState(p.model, { enabled: p.rgbPreview, sequenceIndex: p.rgbPreview ? p.rgbPreviewSequenceIndex : p.sequenceIndex, frame: state.frame, globalTime: state.globalTime });
-      const changed = state.dirty || state.nodes.some(node => node.Flags & 120) || p.playing || state.sampledFrame !== state.frame || state.sampledSequence !== p.sequenceIndex || (showMarkers && !state.sampledSkeleton) || state.sampledExplicitOverlays !== overlays.explicit;
+      const changed = state.dirty || p.normalizer !== state.sampledNormalizer || state.nodes.some(node => node.Flags & 120) || p.playing || state.sampledFrame !== state.frame || state.sampledSequence !== p.sequenceIndex || (showMarkers && !state.sampledSkeleton) || state.sampledExplicitOverlays !== overlays.explicit;
       const animOptions = { interval: p.model?.Sequences?.[p.sequenceIndex]?.Interval, globalSequences: p.model?.GlobalSequences, globalTime: state.globalTime };
       if (changed && p.model && !state.drag) {
         applyPreviewPose(p, camera);
-        state.sampledFrame = state.frame; state.sampledSequence = p.sequenceIndex; state.sampledSkeleton = showMarkers; state.sampledExplicitOverlays = overlays.explicit; state.dirty = false;
+        state.sampledNormalizer = p.normalizer; state.sampledFrame = state.frame; state.sampledSequence = p.sequenceIndex; state.sampledSkeleton = showMarkers; state.sampledExplicitOverlays = overlays.explicit; state.dirty = false;
       }
       const hidden = p.hiddenGeosets instanceof Set ? p.hiddenGeosets : new Set(p.hiddenGeosets || []);
       for (let index = 0; index < state.entries.length; index++) {
@@ -853,8 +877,10 @@ export default function Viewport(inputProps) {
         if (p.overlays?.normals || p.showNormals) {
           if (!normalCanvas) { normalCanvas = document.createElement('canvas'); normalCanvas.dataset.normalOverlay = ''; normalCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(normalCanvas); }
           normalCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); normalCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
-          const geometry = state.entries.flatMap((entry, index) => entry?.group.visible && active.has(index) ? [{ index, vertices: entry.geometry.attributes.position.array, normals: entry.geometry.attributes.normal.array }] : []);
-          drawPreviewGeometryOverlay(normalCanvas.getContext('2d'), geometry, camera, surface.clientWidth, surface.clientHeight, { normals: true, preferences: p.preferences }, state.center, state.radius, renderer.getPixelRatio());
+          const geometry = state.entries.flatMap((entry, index) => entry?.group.visible && active.has(index) ? [{ index, vertices: entry.geometry.attributes.position.array, normals: entry.geometry.attributes.normal.array,
+            normalIndices: p.normalizer ? p.normalizer.selection[index] || [] : undefined }] : []);
+          drawPreviewGeometryOverlay(normalCanvas.getContext('2d'), geometry, camera, surface.clientWidth, surface.clientHeight, { normals: true, preferences: p.preferences }, state.center, p.normalizer ? p.normalizer.radius * 2 : state.radius, renderer.getPixelRatio());
+          if (p.normalizer) drawNormalizerGuide(normalCanvas.getContext('2d'), camera, surface.clientWidth, surface.clientHeight, p.normalizer, renderer.getPixelRatio());
         } else if (normalCanvas) { normalCanvas.remove(); normalCanvas = null; }
         if (showMarkers) {
           if (!nodeCanvas) { nodeCanvas = document.createElement('canvas'); nodeCanvas.dataset.nodeOverlay = ''; nodeCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(nodeCanvas); }
@@ -971,7 +997,7 @@ export default function Viewport(inputProps) {
         const selectedGeometry = new THREE.BufferGeometry(); selectedGeometry.setAttribute('position', geometry.attributes.position); selectedGeometry.setIndex([]);
         selectedSurface = new THREE.Mesh(selectedGeometry, new THREE.MeshBasicMaterial({ color: 0xff9a22, opacity: .22, transparent: true, side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })); selectedSurface.renderOrder = 9998; selectedSurface.frustumCulled = false; group.add(selectedSurface);
       }
-      state.modelGroup.add(group); state.entries[index] = { geoset, group, geometry, meshes, layers, depth, edgeIndices, wireGeometry, wire, hiddenWire, points, hiddenPoints, selectedPoints, hiddenSelectedPoints, hoverWire, hoverPoints, selectedWire, selectedSurface };
+      state.modelGroup.add(group); state.entries[index] = { index, geoset, group, geometry, meshes, layers, depth, edgeIndices, wireGeometry, wire, hiddenWire, points, hiddenPoints, selectedPoints, hiddenSelectedPoints, hoverWire, hoverPoints, selectedWire, selectedSurface };
       updateWideWireGeometry(state.entries[index]);
     }
     const signature = `${model.Info?.Name}|${model.Geosets?.map(g => g.Vertices.length).join(',')}`;
@@ -1014,6 +1040,7 @@ export default function Viewport(inputProps) {
     return () => { cancelled = true; };
   }, [textureSignature, textureAssets, texturesNeeded, graphics.textures, graphics.antialias]);
 
+  useEffect(() => { if (!props.normalizer) runtime.current?.cancelNormalizer?.(); }, [!!props.normalizer]);
   useEffect(() => { runtime.current?.setQuad(props.quadView); }, [props.quadView, graphics.antialias]);
   useEffect(() => { if(!props.quadView && runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view, props.quadView, graphics.antialias]);
   useEffect(() => { if (props.quadView && props.viewRequest) runtime.current?.setView(props.viewRequest.view); }, [props.viewRequest]);
@@ -1023,7 +1050,7 @@ export default function Viewport(inputProps) {
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, showGrid, props.overlays?.grid, props.preferences?.grid]);
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.normalizer, props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
   return <div className="viewport" style={{ position: 'relative', width: '100%', height: '100%', minHeight: props.presentation === 'preview' ? 0 : 180, background: '#ccc', overflow: 'hidden' }}>
     <div ref={host} tabIndex={0} aria-label="3D model viewport" style={{ position: 'absolute', inset: 0, outline: 'none', cursor: viewportCursor(cameraMode, transformMode) }} />
     {!props.quadView && props.showOrientationCompass !== false && props.presentation !== 'preview' && <div className="viewport-orientation-compass" aria-label="View orientation" title="View orientation — click an axis to snap the camera" style={{ position: 'absolute', top: 31, left: 4, width: 82, height: 82, zIndex: 3, filter: 'drop-shadow(0 1px 2px #0008)' }}>
