@@ -45,7 +45,7 @@ function readView() {
     let view=await open();
     assert.match(await panel.innerText(),/Whole model/);assert.match(await panel.locator('[role=status]').innerText(),/normals rebuilt/);
     assert.notDeepEqual(view.normals,original.normals);assert.equal(view.revision,original.revision);
-    assert.equal(await page.getByLabel('Smoothing angle',{exact:true}).inputValue(),'70');
+    assert.equal(await page.getByLabel('Smoothing angle',{exact:true}).inputValue(),'85');
     assert.equal(await panel.getByRole('checkbox',{name:'Fix facing',exact:true}).isChecked(),true);
     await page.getByLabel('Smoothing angle',{exact:true}).focus();await page.keyboard.press('End');await sleep(150);
     assert.match(await panel.innerText(),/160°/);

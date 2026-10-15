@@ -2,7 +2,7 @@
 
 In Vertices, click **NormalsXL** (below **Merge Geosets**). A small panel opens in the model view and the whole visible model immediately shows the proposed result. Nothing changes until **Apply**; **Cancel**, the × button or Escape leave the model exactly as it was. With vertices selected first, only the triangles touching them change, except that a piece touching the selection which needs flipping is repaired whole.
 
-- **Smoothing angle** (default 70°): edges sharper than this stay crisp, softer ones are smoothed.
+- **Smoothing angle** (default 85°): edges sharper than this stay crisp, softer ones are smoothed.
 - **Fix facing** (on by default): flips triangles that face the wrong way so each piece faces outward.
 - **Fix facing only**: just the triangle-facing repair, as its own undo step. Only the corners of flipped triangles get new normals.
 - **Show normals**: blue direction lines.
@@ -23,4 +23,4 @@ Zero-area triangles stay in the mesh; their vertices take the shading at their p
 
 ## Evidence
 
-On 54 classic SD models (93,776 triangles) at 70°: dark corners (a vertex normal facing away from its own triangle) 9,921 → 50, visible lighting seams across smooth edges between identically skinned vertices 1,965 → 6, 84,670 → 108,186 vertices, 1,825 triangles flipped. Repeating the operation on a repaired model changes nothing. The in-repo `test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx` regression goes from 309 dark corners and 46 seams to 4 and 0.
+On 54 classic SD models (93,776 triangles) at the default 85°: dark corners (a vertex normal facing away from its own triangle) 9,921 → 193, visible lighting seams across smooth edges between identically skinned parts 1,881 → 6, 84,670 → 98,490 vertices (+16%), 1,447 triangles flipped. 85° was chosen from offline renders: low-poly SD limbs (pentagonal 72° and hexagonal 60° cross-sections) come out smooth like authored WC3 models, while cubes and other 90° corners keep hard edges. 70° gives fewer dark corners (50) but visibly faceted limbs. Repeating the operation on a repaired model changes nothing. The in-repo `test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx` regression goes from 309 dark corners and 46 seams to 4 and 0.

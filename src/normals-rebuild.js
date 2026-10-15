@@ -16,7 +16,7 @@
 import { gather } from './mesh-tools.js';
 import { forgeTangents } from './geoset-tangents.js';
 
-export const DEFAULT_SMOOTHING_ANGLE = 70;
+export const DEFAULT_SMOOTHING_ANGLE = 85;
 export const SMOOTHING_ANGLE_RANGE = Object.freeze([20, 160]);
 export const VERTEX_LIMIT = 65535;
 

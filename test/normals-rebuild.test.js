@@ -32,7 +32,7 @@ test('an inside-out closed cube is turned outward and keeps its hard corners', (
   const g = m.Geosets[0];
   assert.equal(plan.stats.trianglesFlipped, 12); assert.equal(plan.stats.piecesNeedLook, 0);
   outward(g);
-  // 90° corners are sharper than the 70° smoothing angle: 3 normals per corner.
+  // 90° corners are sharper than the default 85° smoothing angle: 3 normals per corner.
   assert.equal(g.Vertices.length / 3, 24); assert.equal(plan.stats.verticesSplit, 16);
   for (let f = 0; f < 12; f++) for (let k = 0; k < 3; k++) near(at(g.Normals, g.Faces[f * 3 + k]), faceNormal(g, f));
   assert.equal(darkCorners(g), 0);
@@ -331,4 +331,17 @@ test('geosets that show and hide differently do not smooth together', () => {
   // A static alpha of 1 is the same as having no visibility track.
   const same = fold(20, { geosets: 2 }); same.GeosetAnims = [{ GeosetId: 1, Alpha: 1 }];
   rebuildNormals(same); near(at(same.Geosets[0].Normals, 0), at(same.Geosets[1].Normals, 1));
+});
+
+test('at the default angle hexagonal and pentagonal limbs are smooth and a cube keeps hard edges', () => {
+  for (const sides of [5, 6]) {
+    const points = [], faces = [];
+    for (const z of [0, 40]) for (let i = 0; i < sides; i++) points.push(10 * Math.cos(2 * Math.PI * i / sides), 10 * Math.sin(2 * Math.PI * i / sides), z);
+    for (let i = 0; i < sides; i++) { const j = (i + 1) % sides; faces.push(i, j, j + sides, i, j + sides, i + sides); }
+    const m = model(geoset(points, faces)), plan = rebuildNormals(m), g = m.Geosets[0];
+    assert.equal(plan.stats.verticesSplit, 0, sides + ' sides');
+    for (let i = 0; i < sides; i++) near(at(g.Normals, i), [Math.cos(2 * Math.PI * i / sides), Math.sin(2 * Math.PI * i / sides), 0], 1e-4);
+  }
+  const cube = model(geoset(CUBE_POINTS, CUBE_FACES)); rebuildNormals(cube);
+  assert.equal(cube.Geosets[0].Vertices.length / 3, 24);
 });
