@@ -120,6 +120,11 @@ test('unchanged camera edits on a real model leave the document identical and ad
   assert.notDeepEqual(doc.model.Cameras,before.Cameras);
   doc.undo();assert.deepEqual(doc.model,before);
   assert.throws(()=>editPortraitCamera(doc.model,0,{name:'x'.repeat(80)},frame,sequence),/79/);
+  for(const name of ['Камера','Café','相机','tab\tname']) assert.throws(()=>changedPortraitFields(doc.model,0,{name},frame,sequence),/English letters/,name);
+  assert.deepEqual(doc.model,before);
+  doc.apply('Rename',['Cameras'],model=>editPortraitCamera(model,0,{name:'x'.repeat(79)},frame,sequence));
+  assert.equal(openDocument(doc.serialize('mdx'),'renamed.mdx').model.Cameras[0].Name,'x'.repeat(79));
+  doc.undo();
   assert.equal(CAMERA_NAME_LIMIT,79);
 });
 

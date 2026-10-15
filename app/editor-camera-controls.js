@@ -100,7 +100,9 @@ export class EditorCameraControls extends OrbitControls {
   _handleMouseMovePan(event) { super._handleMouseMovePan(this._screenDragEvent(event)); }
   _handleMouseMoveRotate(event) { super._handleMouseMoveRotate(this._screenDragEvent(event)); }
   _customWheelEvent(event) {
-    return { ...super._customWheelEvent(event), shiftKey: event.shiftKey };
+    // Windows Chromium reports Shift+wheel as horizontal scroll (deltaX, deltaY 0).
+    const shifted = event.shiftKey && !event.deltaY && event.deltaX ? { clientX: event.clientX, clientY: event.clientY, deltaMode: event.deltaMode, ctrlKey: event.ctrlKey, deltaY: event.deltaX } : event;
+    return { ...super._customWheelEvent(shifted), shiftKey: event.shiftKey };
   }
   _handleMouseWheel(event) {
     this.lensZoom = !!event.shiftKey;

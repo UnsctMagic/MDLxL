@@ -131,3 +131,21 @@ test('extreme portrait lens zoom stays inside the model camera FOV range', () =>
     assert.ok(view.fieldOfView>0 && view.fieldOfView<Math.PI);
   } finally { controls.dispose(); }
 });
+
+test('Shift+wheel reported as horizontal scroll (deltaX only) still zooms, in portrait and other viewports', () => {
+  for (const portrait of [true, false]) {
+    const {surface,camera,controls}=scene();controls.portraitDolly=()=>portrait;
+    try {
+      const zoom=camera.zoom, distance=camera.position.distanceTo(controls.target);
+      surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaX:-100,deltaY:0,deltaMode:0,clientX:100,clientY:100,shiftKey:true}));
+      assert.ok(camera.zoom>zoom,'zoomed in');
+      if (portrait) assert.ok(Math.abs(camera.position.distanceTo(controls.target)-distance)<1e-6,'portrait Shift zooms the lens, not the distance');
+      const zoomed=camera.zoom;
+      surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaX:100,deltaY:0,deltaMode:1,clientX:100,clientY:100,shiftKey:true}));
+      assert.ok(camera.zoom<zoomed,'zoomed out in line mode');
+      const unshifted=camera.zoom;
+      surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaX:-100,deltaY:0,deltaMode:0,clientX:100,clientY:100,shiftKey:false}));
+      assert.equal(camera.zoom,unshifted,'plain horizontal scroll stays ignored');
+    } finally { controls.dispose(); }
+  }
+});

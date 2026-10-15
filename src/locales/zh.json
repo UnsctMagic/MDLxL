@@ -2217,5 +2217,15 @@
   "Set Current View": "设置当前视图",
   "Create Sequence and Enter Portrait": "创建序列并进入肖像",
   "Create Portrait sequence": "创建 Portrait 序列",
-  "A camera is required. Set Current View creates Camera 01 from the current viewport.": "需要相机。“设置当前视图”会根据当前视口创建 Camera 01。"
+  "A camera is required. Set Current View creates Camera 01 from the current viewport.": "需要相机。“设置当前视图”会根据当前视口创建 Camera 01。",
+  "Near": "近",
+  "FOV °": "视角 °",
+  "Target X": "目标 X",
+  "Target Y": "目标 Y",
+  "Target Z": "目标 Z",
+  "· Game": "· 游戏",
+  "Camera names can use only English letters, digits and basic symbols.": "相机名称只能使用英文字母、数字和基本符号。",
+  "Human UI portrait simulation · {0}": "人类界面肖像模拟 · {0}",
+  "The model viewport is still loading.": "模型视口仍在加载。",
+  "Use Set Current View to create a camera first.": "请先使用“设置当前视图”创建相机。"
 }

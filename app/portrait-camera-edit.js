@@ -3,7 +3,7 @@ import { Box3, Vector3 } from 'three';
 import { allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
 import { poseNodeRole } from '../src/pose-ik.js';
 
-// MDX stores camera names in 80 one-byte characters, including the terminating zero.
+// MDX stores camera names in 80 bytes (ASCII), including the terminating zero.
 export const CAMERA_NAME_LIMIT = 79;
 // Hand-made SD portrait cameras use near clips of 1-8 units.
 export const portraitNearClip = distance => Math.min(Math.max(1, distance * .05), Math.max(.01, distance * .5));
@@ -14,7 +14,9 @@ const sameValue = (a, b) => Array.isArray(a) || ArrayBuffer.isView(a) ? a?.lengt
 export function cleanCameraName(value) {
   // MDL stores the name in double quotes; keep both save formats valid.
   const name = String(value ?? '').replace(/[\r\n\0]/g, '').replace(/"/g, "'").trim();
-  if (name.length > CAMERA_NAME_LIMIT) throw Error('A camera name can have at most 79 characters.');
+  // The MDX writer stores one byte per character; anything beyond ASCII cannot be saved.
+  if (/[^\x20-\x7e]/.test(name)) throw Error('Camera names can use only English letters, digits and basic symbols.');
+  if (new TextEncoder().encode(name).length > CAMERA_NAME_LIMIT) throw Error('A camera name can have at most 79 characters.');
   return name;
 }
 
