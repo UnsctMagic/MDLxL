@@ -1,4 +1,5 @@
 import { forgeTangents } from './geoset-tangents.js';
+import { sdNormalTargets } from './sd-normals.js';
 
 const vector = (a, id) => Array.from(a.subarray(id * 3, id * 3 + 3));
 const dot = (a, b) => a.reduce((sum, v, i) => sum + v * b[i], 0);
@@ -8,7 +9,7 @@ const finite = a => a && Array.from(a).every(Number.isFinite);
 /** Capture only the selected geosets. All previews start from these source bytes. */
 export function captureNormalSelection(model, selection) {
   const geosets = [], min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-  let count = 0;
+  let count = 0, unshadedCount = 0;
   for (const [key, picked] of Object.entries(selection)) {
     const index = Number(key), g = model.Geosets?.[index], ids = [...new Set(picked)];
     if (!ids.length) continue;
@@ -27,15 +28,17 @@ export function captureNormalSelection(model, selection) {
       const value = g.Vertices[id * 3 + axis];
       min[axis] = Math.min(min[axis], value); max[axis] = Math.max(max[axis], value);
     }
+    const layers = model.Materials?.[g.MaterialID]?.Layers;
+    if (layers?.length && layers.every(layer => layer.Shading & 1)) unshadedCount += ids.length;
     count += ids.length;
-    geosets.push({ index, ids, Vertices: g.Vertices.slice(), Normals: g.Normals.slice(), Faces: g.Faces.slice(),
+    geosets.push({ index, ids, Vertices: g.Vertices.slice(), Normals: g.Normals.slice(), Faces: g.Faces.slice(), VertexGroup: g.VertexGroup?.slice(), Groups: g.Groups?.map(ids => [...ids]),
       ...(g.Tangents?.length ? { Tangents: g.Tangents.slice(), TVertices: [g.TVertices[0].slice()] } : {}) });
   }
   if (!count) throw new Error('Select visible vertices before opening NormalsXL.');
   const center = min.map((n, axis) => (n + max[axis]) / 2);
   let radius = 0;
   for (const g of geosets) for (const id of g.ids) radius = Math.max(radius, Math.hypot(...vector(g.Vertices, id).map((v, axis) => v - center[axis])));
-  return { geosets, center, radius: Math.max(radius, 1), count };
+  return { geosets, center, radius: Math.max(radius, 1), count, unshadedCount };
 }
 
 function blendDirection(before, target, strength) {
@@ -66,19 +69,21 @@ function surfaceDirections(g) {
 }
 
 /** Preview changes without touching the document, positions, triangles or unselected normals. */
-export function previewNormals(snapshot, { mode = 'outward', center = snapshot.center, strength = 1 } = {}) {
-  if (!['outward', 'inward', 'surface'].includes(mode) || !Array.isArray(center) || center.length !== 3 || !finite(center) ||
+export function previewNormals(snapshot, { mode = 'outward', center = snapshot.center, strength = 1, weighting = 'equal', creaseAngle = 60 } = {}) {
+  if (!['outward', 'inward', 'surface', 'sd', 'seams', 'smooth'].includes(mode) || !Array.isArray(center) || center.length !== 3 || !finite(center) ||
       !Number.isFinite(strength) || strength < 0 || strength > 1) throw new Error('Invalid normalizer settings.');
+  const sd = ['sd', 'seams', 'smooth'].includes(mode) ? sdNormalTargets(snapshot, { mode, weighting, creaseAngle }) : null;
   let changed = 0, unresolved = 0;
   const geosets = snapshot.geosets.map(g => {
     const normals = g.Normals.slice(), touched = [];
     const surface = mode === 'surface' && strength > 0 ? surfaceDirections(g) : null;
     for (const id of g.ids) {
-      if (strength === 0) continue;
-      const target = surface ? unit(vector(surface, id)) :
+      if (strength === 0 || mode === 'seams' && !sd.seamIds.get(g.index).has(id)) continue;
+      const target = sd ? unit(vector(sd.directions.get(g.index), id)) : surface ? unit(vector(surface, id)) :
         unit(vector(g.Vertices, id).map((v, axis) => (v - center[axis]) * (mode === 'inward' ? -1 : 1)));
       if (!target) { unresolved++; continue; }
       const next = blendDirection(vector(g.Normals, id), target, strength);
+      if (next.every((v, axis) => Math.abs(v - g.Normals[id * 3 + axis]) <= 1e-7)) continue;
       normals.set(next, id * 3);
       if (next.some((_, axis) => normals[id * 3 + axis] !== g.Normals[id * 3 + axis])) touched.push(id);
     }
@@ -90,7 +95,7 @@ export function previewNormals(snapshot, { mode = 'outward', center = snapshot.c
     }
     return { index: g.index, ids: g.ids, normals, tangents };
   });
-  return { geosets, changed, unresolved, count: snapshot.count };
+  return { geosets, changed, unresolved, count: snapshot.count, joinedVertices: sd?.joinedVertices || 0, seamGroups: sd?.seamGroups || 0 };
 }
 
 /** Commit the already-previewed streams in the caller's single document transaction. */

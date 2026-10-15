@@ -50,6 +50,12 @@ function readView() {
     const open=async()=>{await page.getByRole('button',{name:'NormalsXL',exact:true}).click();await page.locator('.normalizer-controls').waitFor();for(let tries=0;tries<100;tries++){const v=await page.evaluate(readView);if(v.previewSynced&&v.renderFrame>0)return;await sleep(100);}throw Error('Preview did not render');};
     const panel=page.locator('.normalizer-controls');
     await selectAll(); const selected=await page.evaluate(readView); await open();
+    assert.equal(await panel.getByLabel('Normal operation').inputValue(),'sd');
+    await panel.getByLabel('Face weighting').selectOption('area');await sleep(100);
+    await panel.getByLabel('Face weighting').selectOption('equal');await sleep(100);
+    await panel.getByLabel('Normal operation').selectOption('seams');await sleep(100);
+    assert.equal(await panel.getByRole('button',{name:'Apply',exact:true}).isDisabled(),true);
+    await panel.getByLabel('Normal operation').selectOption('outward');await sleep(150);
     let view=await page.evaluate(readView);
     assert.deepEqual(view.model,original.model); assert.equal(view.revision,original.revision);
     assert.notDeepEqual(view.normals,original.normals); assert.deepEqual(view.selection,selected.selection);
@@ -58,7 +64,7 @@ function readView() {
     assert.equal(await page.getByLabel('Render mode',{exact:true}).inputValue(),'textured');
     await page.getByLabel('Render mode',{exact:true}).selectOption('solid');
     checks.push('Globe fits selection; zero normals preview without changing the document; preview mode is selectable');
-    await panel.getByRole('button',{name:'Inward',exact:true}).click(); await sleep(100);
+    await panel.getByLabel('Normal operation').selectOption('inward'); await sleep(100);
     const inward=await page.evaluate(readView);
     assert.ok(view.normals[0].every((v,i)=>Math.abs(v+inward.normals[0][i])<1e-6));
     await panel.getByRole('checkbox',{name:'Preview changes',exact:true}).uncheck(); await sleep(100);
@@ -78,7 +84,7 @@ function readView() {
     const moved=await page.evaluate(readView);assert.notDeepEqual(moved.normalizer.center,rotated.normalizer.center);assert.deepEqual(moved.model,original.model);assert.ok(moved.camera.every((v,i)=>Math.abs(v-rotated.camera[i])<1e-10),'Dragging the centre does not rotate the camera');
     await page.getByRole('button',{name:'Work mode',exact:true}).click();
     checks.push('Actual camera mouse drag and globe-centre drag preserve model data');
-    await panel.getByRole('button',{name:'Fit globe to selection',exact:true}).click(); await panel.getByRole('button',{name:'Outward',exact:true}).click(); await sleep(100);
+    await panel.getByRole('button',{name:'Fit globe to selection',exact:true}).click(); await panel.getByLabel('Normal operation').selectOption('outward'); await sleep(100);
     assert.deepEqual((await page.evaluate(readView)).normalizer.center,view.normalizer.center);
     const image=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.capturePage().then(i=>i.toPNG().toString('base64')));
     fs.writeFileSync(path.join(out,'normalizer-preview.png'),Buffer.from(image,'base64'));
@@ -89,7 +95,7 @@ function readView() {
     await open(); await page.keyboard.press('Escape'); await panel.waitFor({state:'hidden'});
     assert.deepEqual((await page.evaluate(readView)).model,original.model);
     checks.push('Cancel and Escape restore original preview, selection and sidebar width');
-    await open(); await panel.getByRole('button',{name:'Inward',exact:true}).click(); await sleep(100);
+    await open(); await panel.getByLabel('Normal operation').selectOption('inward'); await sleep(100);
     const beforeApply=await page.evaluate(readView);await panel.getByRole('button',{name:'Apply',exact:true}).click();await panel.waitFor({state:'hidden'});await sleep(150);
     const applied=await page.evaluate(readView);assert.equal(applied.revision,original.revision+1);
     assert.ok(applied.normals.every((values,g)=>values.every((v,i)=>Math.abs(v-beforeApply.normals[g][i])<1e-6)),'Rendered normals match the preview within Float32 normalization precision');
@@ -108,12 +114,12 @@ function readView() {
       for(let g=0;g<reopened.model.Geosets.length;g++)assert.ok(Array.from(reopened.model.Geosets[g].Normals).every((v,i)=>Math.abs(v-applied.normals[g][i])<1e-6));
     }
     checks.push('Real packaged Save As roundtrips authored normals through MDL and MDX');
-    await open(); await panel.getByRole('button',{name:'From surface',exact:true}).click();await sleep(100);
-    assert.equal((await page.evaluate(readView)).normalizer.mode,'surface');
+    await open(); await panel.getByLabel('Normal operation').selectOption('smooth');await sleep(100);
+    assert.equal((await page.evaluate(readView)).normalizer.mode,'smooth');
     await panel.getByRole('button',{name:'Cancel',exact:true}).click();
     await open();await panel.getByRole('button',{name:'Repair facing…',exact:true}).click();
     await page.locator('.normals-xl-prompt').waitFor();await page.keyboard.press('Escape');await page.locator('.normals-xl-prompt').waitFor({state:'hidden'});
-    checks.push('Surface rebuild previews and the existing facing repair remains available');
+    checks.push('SD rebuild, seam and softening controls preview; the existing facing repair remains available');
     await page.locator('[data-hotkey="geosetsAll"]').click();await selectAll();await open();
     const multi=await page.evaluate(readView);assert.ok(Object.keys(multi.selection).filter(k=>multi.selection[k].length).length>1);
     await page.getByRole('button',{name:'Quad View',exact:true}).click();
