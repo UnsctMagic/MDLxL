@@ -88,7 +88,7 @@ export function drawPreviewGeometryOverlay(context, geosets, camera, width, heig
   context.globalAlpha = 1;
   if (options.normals) {
     context.beginPath(); context.strokeStyle = '#0000ff'; context.lineWidth = 1;
-    for (const geo of geosets.filter(geo => !eligible || eligible.has(geo.index))) for (const [from, to] of normalSegments(geo.vertices, geo.normals, radius * .04, geo.normalIndices)) {
+    for (const geo of geosets.filter(geo => !eligible || eligible.has(geo.index))) for (const [from, to] of normalSegments(geo.vertices, geo.normals, radius * .04)) {
       const segment = projectGridSegment(camera, width, height, from, to); if (!segment) continue;
       context.moveTo(segment[0].x, segment[0].y); context.lineTo(segment[1].x, segment[1].y);
     }
@@ -164,11 +164,10 @@ export function drawPreviewGeometryOverlay(context, geosets, camera, width, heig
   context.globalAlpha = 1; context.setLineDash([]); context.restore();
 }
 
-export function normalSegments(vertices, normals, length, indices) {
+export function normalSegments(vertices, normals, length) {
   if (!normals || normals.length !== vertices.length) return [];
   const out = [];
-  for (let vertex = 0; vertex < (indices?.length ?? vertices.length / 3); vertex++) {
-    const i = (indices ? indices[vertex] : vertex) * 3;
+  for (let i = 0; i < vertices.length; i += 3) {
     const from = Array.from(vertices.subarray(i, i + 3)), direction = new Vector3().fromArray(normals, i);
     if (!direction.lengthSq()) continue;
     const to = direction.normalize().multiplyScalar(Math.max(.001, length)).add(new Vector3(...from)).toArray();

@@ -4,7 +4,6 @@ import { EditorCameraControls, zoomEditorCamera, editorCameraAngles, preserveShi
 import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
-import { drawNormalizerGuide } from './normalizer-guide.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay } from './preview-overlays.js';
 import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { drawMovementOverlay, projectMovementNodes, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
@@ -415,13 +414,11 @@ export default function Viewport(inputProps) {
       for (const entry of state.entries) {
         if (!entry) continue;
         const positions = entry.geometry.attributes.position;
-        if (p.normalizer) positions.array.set(entry.geoset.Vertices);
-        else skinGeoset(entry.geoset, state.matrices, positions.array);
+        skinGeoset(entry.geoset, state.matrices, positions.array);
         positions.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
         const normals = entry.geometry.attributes.normal;
         if (entry.geoset.Normals?.length === positions.array.length) {
-          if (p.normalizer) normals.array.set(p.normalizer.normals[entry.index] || entry.geoset.Normals);
-          else skinGeosetNormals(entry.geoset, state.matrices, normals.array);
+          skinGeosetNormals(entry.geoset, state.matrices, normals.array);
           normals.needsUpdate = true;
         } else entry.geometry.computeVertexNormals();
       }
@@ -458,12 +455,7 @@ export default function Viewport(inputProps) {
       if (down) return;
       clearHoveredGeoset();
       if (quad) surface.focus(); else host.current?.focus();
-      let action = cameraAction(event);
-      const guide = latest.current.normalizer;
-      if (guide && ['outward', 'inward'].includes(guide.mode) && event.button === 0 && !event.altKey) {
-        const pivot = new THREE.Vector3(...guide.center), projected = pivot.clone().project(camera), start = point(event);
-        if (projected.z >= -1 && projected.z <= 1 && screenPosition(pivot, start).distanceTo(new THREE.Vector2(start.x, start.y)) <= 15) action = 'work';
-      }
+      const action = cameraAction(event);
       rotating = action === 'rotate'; latest.current.onCameraGestureChange?.(rotating);
       surface.style.cursor = viewportCursor(latest.current.cameraMode, latest.current.rotationNormals ? 'rotateNormals' : latest.current.transformMode, rotating);
       controls.enabled = true;
@@ -480,18 +472,11 @@ export default function Viewport(inputProps) {
       down = { ...start, pointerId: event.pointerId, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
       controls.enabled = false; surface.setPointerCapture(event.pointerId);
       if (action === 'zoom') { down.zoom = camera.zoom; down.cameraPosition = camera.position.clone(); return; }
-      if (p.normalizer) {
-        down.action = 'normalizer';
-        const pivot = new THREE.Vector3(...p.normalizer.center), projected = pivot.clone().project(camera);
-        if (['outward', 'inward'].includes(p.normalizer.mode) && projected.z >= -1 && projected.z <= 1 && screenPosition(pivot, start).distanceTo(new THREE.Vector2(start.x, start.y)) <= 15) {
-          down.action = 'normalizer-center'; down.pivot = pivot;
-          down.workplane = quad && boundPane.workplane || p.workplane;
-          down.workplaneEnabled = !!(quad && boundPane.workplane) || p.workplaneEnabled !== false;
-        }
-        event.preventDefault(); event.stopImmediatePropagation(); return;
-      }
+      // The NormalsXL preview shows proposed geometry with new vertex indices:
+      // camera navigation only, so no edit can target the wrong vertices.
+      if (p.normalizer) { down.action = 'normalizer'; event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (p.choosingZoomAnchor) { down.action = 'anchor'; state.anchorCandidate = null; return; }
-      if(p.onSelectNodes&&!down.ctrl&&!p.onPickNormalReference){
+      if(p.onSelectNodes&&!down.ctrl){
         const nodes=visibleMovementPoints(projectMovementNodes(p.model,state.frame,p.sequenceIndex,camera,start.width,start.height,state.globalTime,state.matrices,p.vanilla),viewportOverlayOptions(p));
         const picked=pickMovementNode(nodes,start.x,start.y,p.selectedNodeIds,13,p.transformMode==='translate');
         if(picked){
@@ -501,7 +486,7 @@ export default function Viewport(inputProps) {
           invalidate();event.preventDefault();event.stopImmediatePropagation();return;
         }
       }
-      if (p.onPickNormalReference || p.transformMode === 'select' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
+      if (p.transformMode === 'select' || p.sequenceIndex >= 0 || p.playing || down.ctrl && p.onInspectGeoset) { down.action = 'select'; return; }
       const posedEditing = state.nodes.some(node => node.Flags & 120);
       if (posedEditing) applyPreviewPose(p, camera);
       const active = editableGeosets(p), selected = selections(p), snapshots = {}, selectedMap = {}, poseInverses = {}, pivot = new THREE.Vector3(); let count = 0, posedSelection = false, poseInvertible = true;
@@ -548,10 +533,6 @@ export default function Viewport(inputProps) {
         inspectHoveredGeoset(event); bindPane(activePane); return;
       }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
-      if (down.action === 'normalizer-center') {
-        const delta = translateInPlane(down, end, down, event.shiftKey);
-        latest.current.onNormalizerCenter?.(down.pivot.clone().add(delta).toArray()); invalidate(); return;
-      }
       if (down.action === 'normalizer') return;
       if (down.action === 'anchor') {
         const distance = Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y);
@@ -638,7 +619,7 @@ export default function Viewport(inputProps) {
       }
       if (start.action !== 'select') return;
       const end = point(event), distance = Math.hypot(end.x - start.x, end.y - start.y), p = latest.current;
-      if (distance <= 5 && start.ctrl && p.onInspectGeoset && !p.onPickNormalReference) {
+      if (distance <= 5 && start.ctrl && p.onInspectGeoset) {
         const geometry = state.entries.flatMap((entry, index) => entry?.group.visible ? [{ index, faces: entry.geometry.index.array, vertices: entry.geometry.attributes.position.array }] : []);
         const hit = pickPreviewGeoset(projectPreviewGeosets(geometry, camera, end.width, end.height), end.x, end.y);
         if (hit) p.onInspectGeoset(hit.index);
@@ -664,10 +645,6 @@ export default function Viewport(inputProps) {
             if (distance > 5) { if (marqueeContainsPoint([x, y], start, end, marqueeRadius)) found[geosetIndex].push(i); }
             else { const d = Math.abs(x - end.x) + Math.abs(y - end.y); if (d < closest) { closest = d; nearest = [geosetIndex, i]; } }
           }
-        }
-        if (p.onPickNormalReference) {
-          if (nearest) p.onPickNormalReference({ geosetIndex: nearest[0], vertexIndex: nearest[1] });
-          return;
         }
         if (nearest) found[nearest[0]].push(nearest[1]);
         else if (distance <= 5) {
@@ -705,7 +682,7 @@ export default function Viewport(inputProps) {
       if (quad && down && surface.hasPointerCapture(down.pointerId)) surface.releasePointerCapture(down.pointerId);
       state.drag = null; state.anchorCandidate = null; down = null; setBox(null); controls.enabled = true; state.dirty = true; invalidate();
     }
-    state.cancelNormalizer = () => { if (down?.action?.startsWith('normalizer')) cancelGesture(); };
+    state.cancelNormalizer = () => { if (down?.action === 'normalizer') cancelGesture(); };
     const frameModel = event => { cancelGesture(); state.fit(event.detail?.selection === true); };
     const viewCamera = event => { cancelGesture(); if (quad) activatePane(panes.find(pane => pane.id === 'perspective')); if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.camera = camera; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
@@ -763,11 +740,11 @@ export default function Viewport(inputProps) {
       const selectedMap = selections(p), editable = editableGeosets(p), active = new Set(p.visibleGeosets ?? editable);
       const selectionKey = `${JSON.stringify(selectedMap, (_, value) => value instanceof Set ? [...value] : value)}|${[...active].join(',')}|${JSON.stringify(p.hiddenVertices, (_, value) => value instanceof Set ? [...value] : value)}|${p.mode}|${p.sequenceIndex}|${p.transformMode}|${JSON.stringify(visual)}`;
       const rgbState = vertexRgbPreviewState(p.model, { enabled: p.rgbPreview, sequenceIndex: p.rgbPreview ? p.rgbPreviewSequenceIndex : p.sequenceIndex, frame: state.frame, globalTime: state.globalTime });
-      const changed = state.dirty || p.normalizer !== state.sampledNormalizer || state.nodes.some(node => node.Flags & 120) || p.playing || state.sampledFrame !== state.frame || state.sampledSequence !== p.sequenceIndex || (showMarkers && !state.sampledSkeleton) || state.sampledExplicitOverlays !== overlays.explicit;
+      const changed = state.dirty || state.nodes.some(node => node.Flags & 120) || p.playing || state.sampledFrame !== state.frame || state.sampledSequence !== p.sequenceIndex || (showMarkers && !state.sampledSkeleton) || state.sampledExplicitOverlays !== overlays.explicit;
       const animOptions = { interval: p.model?.Sequences?.[p.sequenceIndex]?.Interval, globalSequences: p.model?.GlobalSequences, globalTime: state.globalTime };
       if (changed && p.model && !state.drag) {
         applyPreviewPose(p, camera);
-        state.sampledNormalizer = p.normalizer; state.sampledFrame = state.frame; state.sampledSequence = p.sequenceIndex; state.sampledSkeleton = showMarkers; state.sampledExplicitOverlays = overlays.explicit; state.dirty = false;
+        state.sampledFrame = state.frame; state.sampledSequence = p.sequenceIndex; state.sampledSkeleton = showMarkers; state.sampledExplicitOverlays = overlays.explicit; state.dirty = false;
       }
       const hidden = p.hiddenGeosets instanceof Set ? p.hiddenGeosets : new Set(p.hiddenGeosets || []);
       for (let index = 0; index < state.entries.length; index++) {
@@ -874,13 +851,11 @@ export default function Viewport(inputProps) {
           const geometry = state.entries.flatMap((entry, index) => entry?.group.visible ? [{ index, faces: entry.geoset.Faces, vertices: entry.geometry.attributes.position.array }] : []);
           drawPresentationOverlay(previewCanvas.getContext('2d'), geometry, camera, surface.clientWidth, surface.clientHeight, p.previewOverlay, renderer.getPixelRatio());
         } else if (previewCanvas) { previewCanvas.remove(); previewCanvas = null; }
-        if (p.overlays?.normals || p.showNormals || p.normalizer && ['outward', 'inward'].includes(p.normalizer.mode)) {
+        if (p.overlays?.normals || p.showNormals) {
           if (!normalCanvas) { normalCanvas = document.createElement('canvas'); normalCanvas.dataset.normalOverlay = ''; normalCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(normalCanvas); }
           normalCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); normalCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
-          const geometry = state.entries.flatMap((entry, index) => entry?.group.visible && active.has(index) ? [{ index, vertices: entry.geometry.attributes.position.array, normals: entry.geometry.attributes.normal.array,
-            normalIndices: p.normalizer ? p.normalizer.selection[index] || [] : undefined }] : []);
-          drawPreviewGeometryOverlay(normalCanvas.getContext('2d'), geometry, camera, surface.clientWidth, surface.clientHeight, { normals: !!(p.overlays?.normals || p.showNormals), preferences: p.preferences }, state.center, p.normalizer ? p.normalizer.radius * 2 : state.radius, renderer.getPixelRatio());
-          if (p.normalizer) drawNormalizerGuide(normalCanvas.getContext('2d'), camera, surface.clientWidth, surface.clientHeight, p.normalizer, renderer.getPixelRatio());
+          const geometry = state.entries.flatMap((entry, index) => entry?.group.visible && active.has(index) ? [{ index, vertices: entry.geometry.attributes.position.array, normals: entry.geometry.attributes.normal.array }] : []);
+          drawPreviewGeometryOverlay(normalCanvas.getContext('2d'), geometry, camera, surface.clientWidth, surface.clientHeight, { normals: true, preferences: p.preferences }, state.center, state.radius, renderer.getPixelRatio());
         } else if (normalCanvas) { normalCanvas.remove(); normalCanvas = null; }
         if (showMarkers) {
           if (!nodeCanvas) { nodeCanvas = document.createElement('canvas'); nodeCanvas.dataset.nodeOverlay = ''; nodeCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(nodeCanvas); }
@@ -997,7 +972,7 @@ export default function Viewport(inputProps) {
         const selectedGeometry = new THREE.BufferGeometry(); selectedGeometry.setAttribute('position', geometry.attributes.position); selectedGeometry.setIndex([]);
         selectedSurface = new THREE.Mesh(selectedGeometry, new THREE.MeshBasicMaterial({ color: 0xff9a22, opacity: .22, transparent: true, side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })); selectedSurface.renderOrder = 9998; selectedSurface.frustumCulled = false; group.add(selectedSurface);
       }
-      state.modelGroup.add(group); state.entries[index] = { index, geoset, group, geometry, meshes, layers, depth, edgeIndices, wireGeometry, wire, hiddenWire, points, hiddenPoints, selectedPoints, hiddenSelectedPoints, hoverWire, hoverPoints, selectedWire, selectedSurface };
+      state.modelGroup.add(group); state.entries[index] = { geoset, group, geometry, meshes, layers, depth, edgeIndices, wireGeometry, wire, hiddenWire, points, hiddenPoints, selectedPoints, hiddenSelectedPoints, hoverWire, hoverPoints, selectedWire, selectedSurface };
       updateWideWireGeometry(state.entries[index]);
     }
     const signature = `${model.Info?.Name}|${model.Geosets?.map(g => g.Vertices.length).join(',')}`;

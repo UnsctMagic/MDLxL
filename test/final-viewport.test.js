@@ -107,8 +107,6 @@ test('normal indicators preserve split stored directions, normalize display leng
   const vertices = new Float32Array([0, 0, 0, 0, 0, 0]), normals = new Float32Array([0, 0, 2, 0, -3, 0]);
   const before = new Float32Array(normals);
   assert.deepEqual(normalSegments(vertices, normals, 5), [[[0, 0, 0], [0, 0, 5]], [[0, 0, 0], [0, -5, 0]]]);
-  assert.deepEqual(normalSegments(vertices, normals, 5, [1]), [[[0, 0, 0], [0, -5, 0]]]);
-  assert.deepEqual(normalSegments(vertices, normals, 5, []), []);
   assert.deepEqual(normals, before); assert.deepEqual(normalSegments(vertices, new Float32Array(), 5), []);
 });
 
