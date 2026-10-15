@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/PC/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const root=process.cwd(), out=path.join(root,'out/portrait-editor/ui'); fs.mkdirSync(out,{recursive:true});
   const {createDemoDocument,openDocument}=await import('../src/editor-document.js');
@@ -72,6 +72,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     await page.getByLabel('Outside dimming',{exact:true}).fill('0.35');
     await page.getByLabel('Game lighting',{exact:true}).uncheck();
     await page.getByLabel('Game lighting',{exact:true}).check();
+    assert.equal(await page.getByLabel('Experimental DNC lights',{exact:true}).isChecked(),false,'the verified MiscData light is the default');
+    await page.getByLabel('Experimental DNC lights',{exact:true}).check();
     await page.waitForFunction(()=>!document.querySelector('.portrait-settings').textContent.includes('Loading game portrait lights'));
     const lighting=await page.locator('.portrait-settings').innerText();
     if(process.env.MDLVIS_GAME_DATA)assert.match(lighting,/Game portrait lights loaded/);
