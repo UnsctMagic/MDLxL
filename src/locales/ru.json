@@ -5078,5 +5078,7 @@
   "Target Y": "Цель Y",
   "Target Z": "Цель Z",
   "· Game": "· Игра",
-  "Camera names can use only English letters, digits and basic symbols.": "В имени камеры можно использовать только латинские буквы, цифры и простые символы."
+  "Camera names can use only English letters, digits and basic symbols.": "В имени камеры можно использовать только латинские буквы, цифры и простые символы.",
+  "Editor-only data the game ignores is left out: {0}.": "Данные редактора, которые игра не использует, не сохраняются: {0}.",
+  "MDL leaves out geoset colors whose tint is off (the game ignores them): {0}. Save as MDX to keep them.": "MDL не сохраняет цвета анимаций геосетов с выключенным тонированием (игра их не использует): {0}. Сохраните как MDX, чтобы оставить их."
 }

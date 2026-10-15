@@ -2227,5 +2227,7 @@
   "Camera names can use only English letters, digits and basic symbols.": "相机名称只能使用英文字母、数字和基本符号。",
   "Human UI portrait simulation · {0}": "人类界面肖像模拟 · {0}",
   "The model viewport is still loading.": "模型视口仍在加载。",
-  "Use Set Current View to create a camera first.": "请先使用“设置当前视图”创建相机。"
+  "Use Set Current View to create a camera first.": "请先使用“设置当前视图”创建相机。",
+  "Editor-only data the game ignores is left out: {0}.": "已省略游戏不使用的编辑器数据：{0}。",
+  "MDL leaves out geoset colors whose tint is off (the game ignores them): {0}. Save as MDX to keep them.": "MDL 会省略未启用着色的几何体动画颜色（游戏不会使用）：{0}。另存为 MDX 可保留它们。"
 }

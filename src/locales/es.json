@@ -5090,5 +5090,7 @@
   "Target Y": "Objetivo Y",
   "Target Z": "Objetivo Z",
   "· Game": "· Juego",
-  "Camera names can use only English letters, digits and basic symbols.": "El nombre de la cámara solo puede usar letras inglesas, dígitos y símbolos básicos."
+  "Camera names can use only English letters, digits and basic symbols.": "El nombre de la cámara solo puede usar letras inglesas, dígitos y símbolos básicos.",
+  "Editor-only data the game ignores is left out: {0}.": "Se omiten datos del editor que el juego ignora: {0}.",
+  "MDL leaves out geoset colors whose tint is off (the game ignores them): {0}. Save as MDX to keep them.": "MDL omite los colores de animación de geoset con el tinte desactivado (el juego los ignora): {0}. Guarde como MDX para conservarlos."
 }
