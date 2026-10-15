@@ -9,7 +9,7 @@ export const wc3DncPath=name=>`Environment\\DNC\\DNC${name}\\DNC${name}Unit\\DNC
  * light records. The installed general model parser stops before that field.
  * No game/model data is rewritten or bundled by this reader.
  */
-export function readWarcraftDnc(input,name='dnc.mdx') {
+export function readWarcraftDnc(input,name='dnc.mdx',{currentLightLayout=false}={}) {
   const bytes=input instanceof Uint8Array?input:new Uint8Array(input);
   if(/\.mdl$/i.test(name)){const model=parseMDL(new TextDecoder().decode(bytes));if(!model.Lights?.length)throw Error('The selected model has no Warcraft light nodes.');return model;}
   const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),decoder=new TextDecoder();let offset=0;
@@ -43,11 +43,13 @@ export function readWarcraftDnc(input,name='dnc.mdx') {
     else if(tag==='LITE')while(offset<end){
       const start=offset,length=uint(),last=start+length,light=node();if(last>end||last<=offset)throw Error('Invalid DNC light.');
       light.LightType=uint();
-      // Current game assets add a scalar after the light type and six rendering
-      // parameters after ambient intensity. Classic lighting uses the shared fields.
-      if(model.Version>=1800)light.PreviewUnusedTypeScalar=float();
+      // Opt-in (experimental portrait rig only): current game assets appear to
+      // add a scalar after the light type and six parameters after ambient
+      // intensity. Other callers keep the established 1200 layout.
+      const current=currentLightLayout&&model.Version>=1800;
+      if(current)light.PreviewUnusedTypeScalar=float();
       light.AttenuationStart=float();light.AttenuationEnd=float();light.Color=[float(),float(),float()];light.Intensity=float();light.AmbColor=[float(),float(),float()];light.AmbIntensity=float();
-      if(model.Version>=1800)light.PreviewUnusedParameters=Array.from({length:6},float);
+      if(current)light.PreviewUnusedParameters=Array.from({length:6},float);
       else if(model.Version>=1200)light.PreviewUnusedScalar=float();
       anim(light,last);model.Lights.push(light);
     }

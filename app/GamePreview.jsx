@@ -1,4 +1,4 @@
-import { loadPortraitLights, portraitLightUniformValues } from './portrait-lighting.js';
+import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js';
 import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -125,7 +125,7 @@ export default function GamePreview(inputProps) {
   const [selectionBox, setSelectionBox] = useState(null);
   const [portraitArea, setPortraitArea] = useState({width:256,height:256});
   const [portraitSize, setPortraitSize] = useState(256), [portraitFrameVersion, setPortraitFrameVersion] = useState(0);
-  const portraitLightValues = useRef(null);
+  const portraitLight = useRef(null);
   const portraitFrame = useRef({ status: 'idle', canvas: null, url: '', error: '', promise: Promise.resolve() });
   const backgroundState = useRef({ url: null, status: 'ready', image: null, promise: Promise.resolve() });
   const layerComposite = useRef(null);
@@ -148,7 +148,7 @@ export default function GamePreview(inputProps) {
     if (props.liveMovementRevision !== revision) rendererRevisionState.current.stable = revision;
   }
   const rendererRevision = rendererRevisionState.current.stable;
-  const graphics = { ...graphicsOptions(props.preferences), ...(props.portraitMode ? { lighting: props.portraitSettings?.lighting !== false, textures: true } : {}) };
+  const graphics = { ...graphicsOptions(props.preferences), ...(props.portraitMode ? { lighting: true, textures: true } : {}) };
   const viewportBackground = viewportAppearanceOptions(props.preferences).background;
   const appearanceBackgroundUrl = props.backgroundUrl || (viewportBackground.type === 'image' ? viewportBackground.imageData : '');
   const appearanceBackgroundType = props.backgroundUrl ? props.backgroundType : appearanceBackgroundUrl ? appearanceBackgroundUrl.slice(5, appearanceBackgroundUrl.indexOf(';')) : '';
@@ -174,18 +174,21 @@ export default function GamePreview(inputProps) {
   const timelineStart = sequenceIndex < 0 ? globalPreviewId !== null ? 0 : Number(props.timelineInterval?.[0]) : NaN;
   const timelineEnd = sequenceIndex < 0 ? globalPreviewId !== null ? model.GlobalSequences[globalPreviewId] : Number(props.timelineInterval?.[1]) : NaN;
 
+  // Experimental, opt-in DNC portrait rig. The default is the verified MiscData light.
+  const portraitDnc = !!props.portraitMode && props.portraitSettings?.lighting !== false && !!props.portraitSettings?.dncLights;
   useEffect(() => {
     let active = true;
-    portraitLightValues.current = null;
-    if (!props.portraitMode || !props.portraitSettings?.lighting) return;
-    props.onPortraitLightingStatus?.('Loading game portrait lights…');
+    portraitLight.current = null; runtime.current?.scheduler.invalidate();
+    if (!portraitDnc) { latest.current.onPortraitLightingStatus?.(''); return; }
+    latest.current.onPortraitLightingStatus?.('Loading game portrait lights…');
     loadPortraitLights(window.desktop,props.modelPath).then(lights => {
       if (!active) return;
-      portraitLightValues.current = portraitLightUniformValues(lights);
-      latest.current.onPortraitLightingStatus?.('Game portrait lights loaded.'); runtime.current?.scheduler.invalidate();
-    }).catch(error => { if (active) latest.current.onPortraitLightingStatus?.(error.message + ' Basic preview lighting is active.'); });
+      portraitLight.current = portraitLightFromRig(lights);
+      latest.current.onPortraitLightingStatus?.(portraitLight.current ? 'Game portrait lights loaded.' : 'The game portrait lights have no usable direction. Standard portrait light is active.');
+      runtime.current?.scheduler.invalidate();
+    }).catch(error => { if (active) latest.current.onPortraitLightingStatus?.(error.message); });
     return () => { active = false; };
-  },[props.portraitMode,props.portraitSettings?.lighting,props.modelPath]);
+  },[portraitDnc,props.modelPath]);
 
   useEffect(() => loadPoseSymbols(() => runtime.current?.scheduler.invalidate()), []);
 
@@ -306,7 +309,7 @@ export default function GamePreview(inputProps) {
     const previewAdapter = installWarcraftPreviewAdapter(gl, ownedModel, () => ({ frame: native.getFrame(), sequenceIndex: native.getSequence(), globalTime: globalClock,
       // Installed UI\\MiscData.txt [Light] Direction=0.3,0.3,-0.25;
       // the classic portrait scene maps this to (y,-x,-z), in model space.
-      portraitLightValues: latest.current.portraitMode ? portraitLightValues.current : null,
+      portraitLight: latest.current.portraitMode ? portraitLight.current : null,
       portrait: !!latest.current.portraitMode || !!latest.current.showcase && latest.current.showcaseLight === 'portrait',
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
       viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
@@ -844,7 +847,7 @@ export default function GamePreview(inputProps) {
       }
       controls.object = camera; controls.enableRotate = true;
       if (state.portraitActive) { controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI; }
-      controls.update();      reportProjectionView(); invalidate();
+      controls.update(); reportProjectionView(); invalidate();
       if (state.portraitActive) { state.cameraDetached = true; latest.current.onPlayingChange?.(false); latest.current.onPortraitPreviewChange?.(true); }
       updatePortraitProjection();
     }
@@ -935,7 +938,8 @@ export default function GamePreview(inputProps) {
       if (!portraitBackup) portraitBackup = { perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone(), camera: camera === ortho ? 'ortho' : 'perspective', appliedView: state.appliedView, minPolarAngle: controls.minPolarAngle, maxPolarAngle: controls.maxPolarAngle };
       state.portraitActive = true; state.cameraDetached = false; latest.current.onPortraitPreviewChange?.(false); state.appliedView = 'perspective'; camera = perspective; controls.object = camera; controls.enableRotate = true;
       controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
-      if (evaluated) applyEvaluatedModelCamera(camera, controls, evaluated, PORTRAIT_ASPECT);      resize(); reportProjectionView(); invalidate();
+      if (evaluated) applyEvaluatedModelCamera(camera, controls, evaluated, PORTRAIT_ASPECT);
+      resize(); reportProjectionView(); invalidate();
     }
     function exitPortrait() {
       if (!portraitBackup) { state.portraitActive = false; resize(); return; }
@@ -1541,7 +1545,7 @@ export default function GamePreview(inputProps) {
       {portrait && !props.showcase && (composition || props.portraitSettings?.thirds) && <div aria-label="Portrait crop guides" className={'portrait-crop-guides' + (composition ? ' outside' : '') + (props.portraitSettings?.thirds ? ' thirds' : '')} style={guideStyle}/>}
       {props.showcase && <ShowcaseLayers ref={layerAPI} grid={props.showcaseGrid} gridDensity={props.showcaseGridDensity} crop={props.showcaseCrop} layers={props.showcaseLayers} activeId={props.showcaseActiveLayer} editing={props.showcaseLayerEditing} onSelect={props.onShowcaseLayerSelect} onChange={props.onShowcaseLayerChange} onError={props.onShowcaseLayerError} onInvalidate={()=>runtime.current?.scheduler.invalidate()}/>}
       {portrait && !hasCamera && <div className="portrait-message" role="status">Create or select a camera to view the portrait</div>}
-      {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III dataâ€¦</div>}
+      {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
       {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status">{frame.error}</div>}
     </div>
     {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}
