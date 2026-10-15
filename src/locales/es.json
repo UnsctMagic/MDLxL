@@ -5039,5 +5039,6 @@
   "NormalsXL would give geoset {0} more than 65,535 vertices. Split the geoset first.": "NormalsXL daría al geoset {0} más de 65 535 vértices. Divide el geoset primero.",
   "The model changed. Open NormalsXL again.": "El modelo ha cambiado. Abre NormalsXL de nuevo.",
   "Open pieces whose outside could not be worked out. Their facing was left as it was. Click to select them in the view.": "Piezas abiertas cuyo exterior no se pudo determinar. Su orientación se dejó como estaba. Haz clic para seleccionarlas en la vista.",
-  "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.": "NormalsXL: se han seleccionado las piezas que revisar. Invertir normales da la vuelta a una pieza seleccionada si mira hacia el lado equivocado."
+  "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.": "NormalsXL: se han seleccionado las piezas que revisar. Invertir normales da la vuelta a una pieza seleccionada si mira hacia el lado equivocado.",
+  "1 piece needs a look": "1 pieza que revisar"
 }

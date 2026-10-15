@@ -138,7 +138,7 @@ test('vertices that become identical are merged', () => {
   const m = model(geoset([0,0,0, 10,0,0, 10,10,0, 0,0,0, 10,10,0, 0,10,0], [0,1,2, 3,4,5]));
   m.Geosets[0].TVertices[0].set([0,0, 1,0, 1,1, 0,0, 1,1, 0,1]);
   const plan = rebuildNormals(m);
-  assert.equal(plan.stats.verticesMerged, 2); assert.equal(m.Geosets[0].Vertices.length / 3, 4);
+  assert.equal(plan.stats.verticesSplit, 0); assert.equal(m.Geosets[0].Vertices.length / 3, 4);
   assert.deepEqual(Array.from(m.Geosets[0].Faces), [0,1,2, 0,2,3]);
 });
 
@@ -297,4 +297,38 @@ test('pieces that need a look are returned as a vertex selection', () => {
   // Collapsed-only pieces are not reported.
   const flat = model(geoset([0,0,0, 1,0,0, 2,0,0, 0,0,0, 10,0,0, 0,10,0], [0,1,2, 3,4,5]));
   assert.equal(rebuildNormals(flat).stats.piecesNeedLook, 0);
+});
+
+test('a one-sided ground decal under a unit keeps facing up', () => {
+  // A tall body (the unit) standing on a small flat decal that faces +Z, as
+  // gutz.blp blood is placed: from below the decal sees open sky and from above
+  // it sees the body, but its stored normals agree with its winding.
+  const body = CUBE_POINTS.map((v, i) => i % 3 === 2 ? v * 20 + 1 : v * 3 - 10);
+  const decal = [-8,-8,0.5, 8,-8,0.5, 8,8,0.5, -8,8,0.5];
+  const m = model(geoset(body, CUBE_FACES), geoset(decal, [0,1,2, 0,2,3]));
+  m.Geosets[1].Normals.set([0,0,1, 0,0,1, 0,0,1, 0,0,1]);
+  const plan = rebuildNormals(m);
+  assert.equal(plan.stats.trianglesFlipped, 0);
+  assert.deepEqual(Array.from(m.Geosets[1].Faces), [0,1,2, 0,2,3]);
+  for (let v = 0; v < 4; v++) near(at(m.Geosets[1].Normals, v), [0, 0, 1]);
+});
+
+test('selecting one vertex of an inside-out piece repairs the whole piece', () => {
+  const m = model(geoset(CUBE_POINTS, insideOut(CUBE_FACES)));
+  const plan = rebuildNormals(m, { selection: { 0: [0] } });
+  assert.equal(plan.stats.trianglesFlipped, 12); outward(m.Geosets[0]);
+  assert.equal(darkCorners(m.Geosets[0]), 0);
+  // A correct piece touching the selection only changes near the selection.
+  const ok = model(geoset(CUBE_POINTS, CUBE_FACES));
+  assert.equal(rebuildNormals(ok, { selection: { 0: [0] } }).stats.trianglesFlipped, 0);
+});
+
+test('geosets that show and hide differently do not smooth together', () => {
+  const m = fold(20, { geosets: 2 });
+  m.GeosetAnims = [{ GeosetId: 1, Alpha: { LineType: 0, GlobalSeqId: null, Keys: [{ Frame: 0, Vector: Float32Array.of(0) }] } }];
+  rebuildNormals(m);
+  near(at(m.Geosets[0].Normals, 0), [0, 0, 1]); near(at(m.Geosets[1].Normals, 1), faceNormal(m.Geosets[1], 0));
+  // A static alpha of 1 is the same as having no visibility track.
+  const same = fold(20, { geosets: 2 }); same.GeosetAnims = [{ GeosetId: 1, Alpha: 1 }];
+  rebuildNormals(same); near(at(same.Geosets[0].Normals, 0), at(same.Geosets[1].Normals, 1));
 });

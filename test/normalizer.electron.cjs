@@ -15,7 +15,6 @@ function readView() {
     const s=hook.memoizedState?.current;
     if (!s?.renderer || !s?.entries) continue;
     const p=fiber.memoizedProps, r=s.renderer.domElement.getBoundingClientRect(), camera=s.camera;
-    const center=p.normalizer && camera.position.clone().fromArray(p.normalizer.center).project(camera);
     return {renderFrame:s.renderer.info.render.frame,normalizer:!!p.normalizer,model:structuredClone(p.model),revision:p.revision,selection:structuredClone(p.selectionByGeoset),
       camera:camera.quaternion.toArray(),normals:s.entries.map(e=>Array.from(e.geometry.attributes.normal.array)),rect:{x:r.x,y:r.y,width:r.width,height:r.height}};
   }
@@ -67,7 +66,10 @@ function readView() {
     await open();await apply.click();await panel.waitFor({state:'hidden'});await sleep(150);
     const applied=await page.evaluate(readView);assert.equal(applied.revision,original.revision+1);
     assert.match(await page.locator('.classic-status').innerText(),/NormalsXL: .* normals rebuilt/);
-    for(const g of applied.model.Geosets)for(let i=0;i<g.Normals.length;i+=3)assert.ok(Math.abs(Math.hypot(g.Normals[i],g.Normals[i+1],g.Normals[i+2])-1)<1e-4);
+    // Unshaded geosets (the demo's glowing rune) are left out: normals do not light them.
+    const shaded=g=>!applied.model.Materials[g.MaterialID].Layers.every(l=>l.Shading&1);
+    for(const g of applied.model.Geosets.filter(shaded))for(let i=0;i<g.Normals.length;i+=3)assert.ok(Math.abs(Math.hypot(g.Normals[i],g.Normals[i+1],g.Normals[i+2])-1)<1e-4);
+    assert.deepEqual(applied.model.Geosets.filter(g=>!shaded(g)),original.model.Geosets.filter(g=>!shaded(g)));
     await page.getByLabel('3D model viewport',{exact:true}).focus();await page.keyboard.press('Control+z');await sleep(100);
     assert.deepEqual((await page.evaluate(readView)).model,original.model);
     await page.keyboard.press('Control+y');await sleep(100);assert.deepEqual((await page.evaluate(readView)).model,applied.model);

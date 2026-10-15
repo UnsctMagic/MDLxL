@@ -2156,5 +2156,6 @@
   "The model changed. Open NormalsXL again.": "模型已更改。请重新打开 NormalsXL。",
   "Show normals": "显示法线",
   "Open pieces whose outside could not be worked out. Their facing was left as it was. Click to select them in the view.": "无法确定外侧的开放部件。其朝向保持不变。点击即可在视图中选中它们。",
-  "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.": "NormalsXL：已选中需要检查的部件。如果所选部件朝向错误，可用“反转法线”将其翻转。"
+  "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.": "NormalsXL：已选中需要检查的部件。如果所选部件朝向错误，可用“反转法线”将其翻转。",
+  "1 piece needs a look": "1 个部件需要检查"
 }

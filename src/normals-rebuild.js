@@ -6,9 +6,9 @@
  * vertex streams for the affected geosets. applyNormalRebuild() commits a plan;
  * call it inside EditorDocument.apply so the result is one undo step.
  *
- * Analysis welds vertices by position and skinning across all included
- * geosets, so lighting matches across UV seams and geoset borders but never
- * joins parts bound to different bones. Each triangle corner
+ * Analysis welds vertices by position, skinning and geoset visibility across
+ * all included geosets, so lighting matches across UV seams and geoset borders
+ * but never joins parts bound to different bones or shown at different times. Each triangle corner
  * joins the smoothing group of its neighbours across edges flatter than the
  * smoothing angle. A vertex index used by several groups is split into copies
  * that keep every per-vertex stream; copies that end up identical are merged.
@@ -139,9 +139,16 @@ export function analyzeNormals(model, { geosets, selection = null } = {}) {
   // Vertices only weld when their skinning matches (same bone set; for HD the
   // same bones and weights). Coincident parts bound to different bones move
   // apart in animation, so they never share an edge, smoothing or facing.
+  // Geosets that show and hide differently (GeosetAnim alpha: swap parts,
+  // decay stages) are separate parts too.
+  const visibilityKey = index => {
+    const alpha = model.GeosetAnims?.find(anim => anim.GeosetId === index)?.Alpha;
+    if (alpha == null || typeof alpha === 'number' && alpha === 1) return '1';
+    return JSON.stringify(alpha, (_, value) => ArrayBuffer.isView(value) ? Array.from(value) : value);
+  };
   const skin = new Int32Array(N), skinIds = new Map();
   for (const slot of slots) {
-    const g = slot.g, weights = g.SkinWeights?.length === slot.count * 8 ? g.SkinWeights : null;
+    const g = slot.g, weights = g.SkinWeights?.length === slot.count * 8 ? g.SkinWeights : null, visible = visibilityKey(slot.index);
     for (let v = 0; v < slot.count; v++) {
       let key;
       if (weights) {
@@ -149,6 +156,7 @@ export function analyzeNormals(model, { geosets, selection = null } = {}) {
         for (let k = 0; k < 4; k++) if (weights[v * 8 + 4 + k]) pairs.push(weights[v * 8 + k] + ':' + weights[v * 8 + 4 + k]);
         key = 'w' + pairs.sort().join(',');
       } else key = 'g' + [...new Set(g.Groups?.[g.VertexGroup?.[v]] || [])].sort((a, b) => a - b).join(',');
+      key += '|' + visible;
       if (!skinIds.has(key)) skinIds.set(key, skinIds.size);
       skin[slot.base + v] = skinIds.get(key);
     }
@@ -314,10 +322,10 @@ function facing(A) {
       bvh ||= buildBVH(P, tv, Array.from({ length: T }, (_, t) => t).filter(t => !degenerate[t]));
       const { front, back } = visibility(A, bvh, list, sign, major);
       // Stored normals that already agree with the winding are authored intent
-      // (cape and cloak interiors, for example): only overwhelming evidence flips them.
+      // (cape interiors, ground decals seen only from above): never flipped.
       const authored = storedAgreement(list, sign, major) >= .7;
-      const decisive = back - front >= .4 && back >= .5, overwhelming = back >= .85 && front <= .1;
-      if (decisive && (!authored || overwhelming)) { reverse = true; decision = 'reversed'; reason = authored ? 'overwhelming' : 'visibility'; }
+      const decisive = back - front >= .4 && back >= .5;
+      if (decisive && !authored) { reverse = true; decision = 'reversed'; reason = 'visibility'; }
       else if (decisive) reason = 'authored';
       else if (back - front > .15) { decision = 'unsure'; reason = 'unsure'; }
       else reason = 'visibility';
@@ -377,9 +385,16 @@ function facing(A) {
  */
 export function planNormalRebuild(A, { smoothingAngle = DEFAULT_SMOOTHING_ANGLE, fixFacing = true, facingOnly = false } = {}) {
   if (!Number.isFinite(smoothingAngle) || smoothingAngle < 0 || smoothingAngle > 180) fail('Invalid smoothing angle.');
-  const { T, tv, tw, normal, angle, degenerate, editable, twin, copyOf, slots } = A;
+  const { T, tv, tw, normal, angle, degenerate, twin, copyOf, slots } = A;
   const face = fixFacing || facingOnly ? facing(A) : null;
-  // Only triangles in scope may change winding.
+  // Scope: the triangles touching the selection. Facing is decided per piece,
+  // so a piece that touches the selection and needs flipping is repaired whole
+  // (and its normals rebuilt with it); half a flipped piece would face both ways.
+  const editable = A.editable.slice();
+  if (face) for (const piece of face.pieces) {
+    if (piece.triangles.some(t => editable[t]) && piece.triangles.some(t => face.orientation[t] < 0)) for (const t of piece.triangles) editable[t] = 1;
+  }
+  for (let t = 0; t < T; t++) if (copyOf[t] >= 0 && editable[copyOf[t]]) editable[t] = 1;
   const orientation = new Int8Array(T).fill(1);
   let flipped = 0;
   if (face) for (let t = 0; t < T; t++) if (face.orientation[t] < 0 && editable[t] && !twin[t] && !degenerate[t]) { orientation[t] = -1; flipped++; }
@@ -423,7 +438,7 @@ export function planNormalRebuild(A, { smoothingAngle = DEFAULT_SMOOTHING_ANGLE,
     return length > 1e-12 ? sum.map(v => v / length) : null;
   };
 
-  const stats = { normalsRebuilt: 0, verticesSplit: 0, verticesMerged: 0, trianglesFlipped: flipped, piecesNeedLook: 0 };
+  const stats = { normalsRebuilt: 0, verticesSplit: 0, trianglesFlipped: flipped, piecesNeedLook: 0 };
   // Pieces whose outside could not be decided, as a vertex selection in the
   // original indices (remapVertexState carries it through the plan).
   const look = {};
@@ -517,7 +532,7 @@ export function planNormalRebuild(A, { smoothingAngle = DEFAULT_SMOOTHING_ANGLE,
       const a = final.Normals.subarray(v * 3, v * 3 + 3), b = g.Normals.subarray(sourceOf[v] * 3, sourceOf[v] * 3 + 3), length = Math.hypot(b[0], b[1], b[2]);
       if (!(length > 1e-12 && (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / length >= tolerance)) stats.normalsRebuilt++;
     }
-    stats.verticesSplit += keptCopies; stats.verticesMerged += count - (keep.length - keptCopies);
+    stats.verticesSplit += keptCopies;
     if (final.Tangents?.length) {
       const rebuilt = forgeTangents({ ...final, Faces: outFaces }), refresh = new Set(touchedOut);
       // Reversed triangles change UV handedness even where normals stay.

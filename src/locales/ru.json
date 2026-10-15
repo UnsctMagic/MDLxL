@@ -5027,5 +5027,6 @@
   "NormalsXL would give geoset {0} more than 65,535 vertices. Split the geoset first.": "NormalsXL дал бы геосету {0} больше 65 535 вершин. Сначала разделите геосет.",
   "The model changed. Open NormalsXL again.": "Модель изменилась. Откройте NormalsXL снова.",
   "Open pieces whose outside could not be worked out. Their facing was left as it was. Click to select them in the view.": "Открытые детали, у которых не удалось определить внешнюю сторону. Их ориентация оставлена как есть. Нажмите, чтобы выделить их в окне просмотра.",
-  "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.": "NormalsXL: выделены детали, требующие проверки. Если деталь повёрнута не в ту сторону, разверните её командой «Развернуть нормали»."
+  "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.": "NormalsXL: выделены детали, требующие проверки. Если деталь повёрнута не в ту сторону, разверните её командой «Развернуть нормали».",
+  "1 piece needs a look": "Требует проверки деталей: 1"
 }

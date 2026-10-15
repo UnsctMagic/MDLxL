@@ -6,7 +6,7 @@ export const LOOK_TIP = 'Open pieces whose outside could not be worked out. Thei
 
 /** The small "need a look" indicator: clicking it selects those pieces' vertices. */
 export function LookButton({ count: pieces, onClick }) {
-  return <button type="button" className="normalizer-look" title={LOOK_TIP} onClick={onClick}>{count(pieces) + ' pieces need a look'}</button>;
+  return <button type="button" className="normalizer-look" title={LOOK_TIP} onClick={onClick}>{pieces === 1 ? '1 piece needs a look' : count(pieces) + ' pieces need a look'}</button>;
 }
 
 /** Result parts are separate strings so each one is translated on its own. */
