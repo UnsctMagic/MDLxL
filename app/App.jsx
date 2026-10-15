@@ -48,7 +48,7 @@ import { normalizePreferences } from '../src/preferences.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
 import { analyzeNormals, planNormalRebuild, applyNormalRebuild, previewNormalRebuild, remapVertexState, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
-import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
+import NormalizerControls, { normalizerStatus, LookButton } from './NormalizerControls.jsx';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
@@ -167,7 +167,7 @@ export default function App() {
   const [previewRenderModes, setPreviewRenderModes] = useState({});
   const [visibleOnly, setVisibleOnly] = useState(new Set());
   const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [hidden, setHidden] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
-  const [normalizer, setNormalizer] = useState(null);
+  const [normalizer, setNormalizer] = useState(null), [normalLook, setNormalLook] = useState(null);
   const [showAllGeosets, setShowAllGeosets] = useState(true);
   const [activeGeosetTab, setActiveGeosetTab] = useState('all');
   const [viewHoveredGeoset, setViewHoveredGeoset] = useState(null), [selectionHoveredGeoset, setSelectionHoveredGeoset] = useState(null);
@@ -939,6 +939,17 @@ export default function App() {
     } catch (error) { if (plan) return; say(error.message, true); return; }
     setSelection(previous => remapVertexState(previous, plan)); setHidden(previous => remapVertexState(previous, plan)); clearZoomAnchor();
     setNormalizer(null); say(normalizerStatus(plan.stats, facingOnly));
+    // Keep the "need a look" indicator until the model changes again.
+    setNormalLook(plan.stats.piecesNeedLook ? { doc, revision: doc.revision, count: plan.stats.piecesNeedLook, selection: remapVertexState(plan.lookSelection, plan) } : null);
+  };
+  // Select the vertices of pieces whose facing could not be decided.
+  const showNormalLook = lookSelection => {
+    const geosets = Object.keys(lookSelection).map(Number);
+    if (!geosets.length) return;
+    setNormalizer(null); setSelectedNodeIds([]);
+    const next = new Set([...selectable, ...geosets]);
+    setSelectable(next); setSelection(filterVertexSelection(lookSelection, next, doc.model)); setActiveGeoset(geosets[0]);
+    say('NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.');
   };
   function meshAction(name) {
     if (!editable || !selectionCount) return;
@@ -1396,7 +1407,7 @@ export default function App() {
         setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
       }} renderMode={normalizer?.renderMode || renderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setRenderMode}/>
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
-      {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={() => commitNormalizer(false)} onFacingOnly={() => commitNormalizer(true)} onCancel={() => setNormalizer(null)}/>}
+      {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={() => commitNormalizer(false)} onFacingOnly={() => commitNormalizer(true)} onCancel={() => setNormalizer(null)} onShowLook={showNormalLook}/>}
       {preferencesReady && mode === 'vertices' && <Viewport
         vanilla={visUI} editorDisplayMode={visUI?undefined:'vertices'}
         {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
@@ -1469,7 +1480,7 @@ export default function App() {
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status" role="status"><span>{saving ? 'Saving…' : status}</span><span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'paint' ? paintMessage('paint.hint') : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations'}</span></div>
+    <div className="classic-status" role="status"><span>{saving ? 'Saving…' : status}{!saving && mode === 'vertices' && normalLook?.doc === doc && normalLook.revision === doc.revision && <> · <LookButton count={normalLook.count} onClick={() => showNormalLook(normalLook.selection)}/></>}</span><span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'paint' ? paintMessage('paint.hint') : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations'}</span></div>
     <AppDialogs {...{
       Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,

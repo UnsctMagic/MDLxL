@@ -6,8 +6,9 @@
  * vertex streams for the affected geosets. applyNormalRebuild() commits a plan;
  * call it inside EditorDocument.apply so the result is one undo step.
  *
- * Analysis welds vertices by position across all included geosets, so lighting
- * matches across UV seams, bone groups and geoset borders. Each triangle corner
+ * Analysis welds vertices by position and skinning across all included
+ * geosets, so lighting matches across UV seams and geoset borders but never
+ * joins parts bound to different bones. Each triangle corner
  * joins the smoothing group of its neighbours across edges flatter than the
  * smoothing angle. A vertex index used by several groups is split into copies
  * that keep every per-vertex stream; copies that end up identical are merged.
@@ -121,7 +122,8 @@ export function analyzeNormals(model, { geosets, selection = null } = {}) {
       fail('NormalsXL cannot use invalid triangle indices.');
     if (!g.Faces.length) continue;
     const picked = selection ? new Set((selection[index] || []).filter(id => Number.isInteger(id) && id >= 0 && id < count)) : null;
-    slots.push({ index, g, base: vertexTotal, count, triangleBase: triangleTotal, triangles: g.Faces.length / 3, picked });
+    const twoSided = !!model.Materials?.[g.MaterialID]?.Layers?.some(layer => (layer.Shading || 0) & 16);
+    slots.push({ index, g, base: vertexTotal, count, triangleBase: triangleTotal, triangles: g.Faces.length / 3, picked, twoSided });
     vertexTotal += count; triangleTotal += g.Faces.length / 3;
   }
   if (!triangleTotal) fail('NormalsXL found no visible shaded triangles.');
@@ -134,16 +136,33 @@ export function analyzeNormals(model, { geosets, selection = null } = {}) {
     if (value < min[axis]) min[axis] = value; if (value > max[axis]) max[axis] = value;
   }
   const diagonal = Math.max(1e-6, Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2])), epsilon = diagonal * 1e-5;
-  const cell = epsilon * 2, grid = new Map(), weld = new Int32Array(N), weldPositions = [];
+  // Vertices only weld when their skinning matches (same bone set; for HD the
+  // same bones and weights). Coincident parts bound to different bones move
+  // apart in animation, so they never share an edge, smoothing or facing.
+  const skin = new Int32Array(N), skinIds = new Map();
+  for (const slot of slots) {
+    const g = slot.g, weights = g.SkinWeights?.length === slot.count * 8 ? g.SkinWeights : null;
+    for (let v = 0; v < slot.count; v++) {
+      let key;
+      if (weights) {
+        const pairs = [];
+        for (let k = 0; k < 4; k++) if (weights[v * 8 + 4 + k]) pairs.push(weights[v * 8 + k] + ':' + weights[v * 8 + 4 + k]);
+        key = 'w' + pairs.sort().join(',');
+      } else key = 'g' + [...new Set(g.Groups?.[g.VertexGroup?.[v]] || [])].sort((a, b) => a - b).join(',');
+      if (!skinIds.has(key)) skinIds.set(key, skinIds.size);
+      skin[slot.base + v] = skinIds.get(key);
+    }
+  }
+  const cell = epsilon * 2, grid = new Map(), weld = new Int32Array(N), weldPositions = [], weldSkin = [];
   for (let v = 0; v < N; v++) {
     const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2], cx = Math.floor(x / cell), cy = Math.floor(y / cell), cz = Math.floor(z / cell);
     let found = -1;
     for (let dx = -1; dx <= 1 && found < 0; dx++) for (let dy = -1; dy <= 1 && found < 0; dy++) for (let dz = -1; dz <= 1 && found < 0; dz++) {
       const list = grid.get((cx + dx) + ',' + (cy + dy) + ',' + (cz + dz));
-      if (list) for (const w of list) if (Math.hypot(weldPositions[w * 3] - x, weldPositions[w * 3 + 1] - y, weldPositions[w * 3 + 2] - z) <= epsilon) { found = w; break; }
+      if (list) for (const w of list) if (weldSkin[w] === skin[v] && Math.hypot(weldPositions[w * 3] - x, weldPositions[w * 3 + 1] - y, weldPositions[w * 3 + 2] - z) <= epsilon) { found = w; break; }
     }
     if (found < 0) {
-      found = weldPositions.length / 3; weldPositions.push(x, y, z);
+      found = weldPositions.length / 3; weldPositions.push(x, y, z); weldSkin.push(skin[v]);
       const key = cx + ',' + cy + ',' + cz; if (!grid.has(key)) grid.set(key, []); grid.get(key).push(found);
     }
     weld[v] = found;
@@ -245,7 +264,7 @@ function pairEdges(A, orientation) {
 /** Triangle facing: consistent winding per connected piece, then outward. */
 function facing(A) {
   if (A.cache.has('facing')) return A.cache.get('facing');
-  const { T, tw, tv, P, normal, area, degenerate, twin, copyOf, diagonal } = A;
+  const { T, tw, tv, P, normal, area, degenerate, twin, copyOf, diagonal, slots, slotOf } = A;
   const ones = new Int8Array(T).fill(1), pairs = pairEdges(A, ones), neighbours = Array.from({ length: T }, () => []);
   for (const [a, b, compatible] of pairs) {
     const s = (a / 3) | 0, t = (b / 3) | 0;
@@ -283,26 +302,50 @@ function facing(A) {
       volume += sign[t] * major * value; absolute += Math.abs(value);
     }
     const ratio = absolute > 0 ? volume / absolute : 0;
-    let decision = conflict ? 'conflict' : 'kept', reverse = false;
+    let decision = conflict ? 'conflict' : 'kept', reverse = false, reason = conflict ? 'conflict' : 'consistent';
     if (conflict) { /* left as authored; reported as needing a look */ }
-    else if (closed && Math.abs(ratio) > .02) { reverse = ratio < 0; decision = reverse ? 'reversed' : 'kept'; }
-    else {
+    else if (closed && Math.abs(ratio) > .02) { reverse = ratio < 0; decision = reverse ? 'reversed' : 'kept'; reason = 'volume'; }
+    else if (list.length <= 2 && list.every(t => slots[slotOf[t]].twoSided)) {
+      // A one- or two-triangle card in a two-sided material is drawn from both
+      // sides either way; flipping it cannot fix anything.
+      reason = 'two-sided card';
+    } else {
       // Open (or flat closed) piece: compare how much of the sky each side sees.
       bvh ||= buildBVH(P, tv, Array.from({ length: T }, (_, t) => t).filter(t => !degenerate[t]));
       const { front, back } = visibility(A, bvh, list, sign, major);
-      if (back - front >= .4 && back >= .5) { reverse = true; decision = 'reversed'; }
-      else if (back - front > .15) decision = 'unsure';
+      // Stored normals that already agree with the winding are authored intent
+      // (cape and cloak interiors, for example): only overwhelming evidence flips them.
+      const authored = storedAgreement(list, sign, major) >= .7;
+      const decisive = back - front >= .4 && back >= .5, overwhelming = back >= .85 && front <= .1;
+      if (decisive && (!authored || overwhelming)) { reverse = true; decision = 'reversed'; reason = authored ? 'overwhelming' : 'visibility'; }
+      else if (decisive) reason = 'authored';
+      else if (back - front > .15) { decision = 'unsure'; reason = 'unsure'; }
+      else reason = 'visibility';
     }
     if (reverse) major = -major;
     // A piece that cannot be wound consistently (a twisted or self-crossing
     // sheet) keeps its triangles as they are; any flip there is a guess.
     for (const t of list) orientation[t] = conflict ? 1 : sign[t] * major;
-    pieces.push({ triangles: list, closed, decision });
+    pieces.push({ triangles: list, closed, decision, reason });
   }
   for (let t = 0; t < T; t++) if (copyOf[t] >= 0 && !twin[t]) orientation[t] = orientation[copyOf[t]];
   const result = { orientation, pieces };
   A.cache.set('facing', result);
   return result;
+
+  // Fraction of corners whose stored normal faces the same side as the winding.
+  function storedAgreement(list, sign, major) {
+    let agree = 0, total = 0;
+    for (const t of list) {
+      const slot = slots[slotOf[t]], o = sign[t] * major;
+      for (let k = 0; k < 3; k++) {
+        const v = tv[t * 3 + k] - slot.base, n = slot.g.Normals;
+        const d = (n[v * 3] * normal[t * 3] + n[v * 3 + 1] * normal[t * 3 + 1] + n[v * 3 + 2] * normal[t * 3 + 2]) * o;
+        if (d > 1e-6) agree++; if (Math.abs(d) > 1e-6) total++;
+      }
+    }
+    return total ? agree / total : 0;
+  }
 
   function visibility(A, bvh, list, sign, major) {
     const samples = list.filter(t => area[t] > 0), step = Math.max(1, Math.floor(samples.length / 16)), delta = diagonal * 1e-4, tmin = diagonal * 1e-6;
@@ -381,8 +424,16 @@ export function planNormalRebuild(A, { smoothingAngle = DEFAULT_SMOOTHING_ANGLE,
   };
 
   const stats = { normalsRebuilt: 0, verticesSplit: 0, verticesMerged: 0, trianglesFlipped: flipped, piecesNeedLook: 0 };
-  if (face) for (const piece of face.pieces) if ((piece.decision === 'unsure' || piece.decision === 'conflict') && piece.triangles.some(t => editable[t])) stats.piecesNeedLook++;
-  if (facingOnly && !flipped) return { geosets: [], stats: { ...stats, changed: false }, settings: { smoothingAngle, fixFacing, facingOnly } };
+  // Pieces whose outside could not be decided, as a vertex selection in the
+  // original indices (remapVertexState carries it through the plan).
+  const look = {};
+  if (face) for (const piece of face.pieces) {
+    if (piece.decision !== 'unsure' && piece.decision !== 'conflict' || !piece.triangles.some(t => editable[t]) || !piece.triangles.some(t => A.area[t] > 0)) continue;
+    stats.piecesNeedLook++;
+    for (const t of piece.triangles) { const slot = slots[A.slotOf[t]]; for (let k = 0; k < 3; k++) (look[slot.index] ||= new Set()).add(tv[t * 3 + k] - slot.base); }
+  }
+  const lookSelection = Object.fromEntries(Object.entries(look).map(([index, ids]) => [index, [...ids].sort((a, b) => a - b)]));
+  if (facingOnly && !flipped) return { geosets: [], stats: { ...stats, changed: false }, lookSelection, settings: { smoothingAngle, fixFacing, facingOnly } };
   const geosets = [], tolerance = Math.cos(.5 * Math.PI / 180);
   for (const slot of slots) {
     const g = slot.g, count = slot.count, first = slot.triangleBase, last = first + slot.triangles;
@@ -476,7 +527,7 @@ export function planNormalRebuild(A, { smoothingAngle = DEFAULT_SMOOTHING_ANGLE,
     geosets.push({ index: slot.index, sourceVertexCount: count, sourceFaceCount: g.Faces.length, streams: { ...final, Faces: outFaces }, sourceOf, oldToNew: { sources: Int32Array.from(sources), remap }, touched: touchedOut });
   }
   stats.changed = geosets.length > 0;
-  return { geosets, stats, settings: { smoothingAngle, fixFacing, facingOnly } };
+  return { geosets, stats, lookSelection, settings: { smoothingAngle, fixFacing, facingOnly } };
 }
 
 /** Commit a plan. Run inside EditorDocument.apply so it is one undo step. */

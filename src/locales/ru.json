@@ -5015,12 +5015,9 @@
   "{0} vertices split": "Разделено вершин: {0}",
   "{0} triangles flipped": "Развёрнуто треугольников: {0}",
   "{0} pieces need a look": "Требуют проверки деталей: {0}",
-  "Open pieces whose outside could not be worked out. Their facing was left as it was; check them in the view.": "Открытые детали, у которых не удалось определить внешнюю сторону. Их ориентация оставлена как есть; проверьте их в окне просмотра.",
   "Rebuild all normals and fix triangles that face the wrong way. With vertices selected, only the triangles touching them change.": "Перестроить все нормали и исправить неправильно повёрнутые треугольники. Если выделены вершины, изменяются только касающиеся их треугольники.",
   "NormalsXL: {0} normals rebuilt · {1} vertices split · {2} triangles flipped": "NormalsXL: перестроено нормалей: {0} · разделено вершин: {1} · развёрнуто треугольников: {2}",
-  "NormalsXL: {0} normals rebuilt · {1} vertices split · {2} triangles flipped · {3} pieces need a look": "NormalsXL: перестроено нормалей: {0} · разделено вершин: {1} · развёрнуто треугольников: {2} · требуют проверки деталей: {3}",
   "NormalsXL: {0} triangles flipped": "NormalsXL: развёрнуто треугольников: {0}",
-  "NormalsXL: {0} triangles flipped · {1} pieces need a look": "NormalsXL: развёрнуто треугольников: {0} · требуют проверки деталей: {1}",
   "NormalsXL: no triangles face the wrong way.": "NormalsXL: неправильно повёрнутых треугольников нет.",
   "NormalsXL · Fix facing": "NormalsXL · Исправить ориентацию",
   "NormalsXL needs finite positions and one normal for each vertex.": "NormalsXL требует конечных координат и одной нормали на каждую вершину.",
@@ -5028,5 +5025,7 @@
   "NormalsXL found no visible shaded triangles.": "NormalsXL не нашёл видимых освещаемых треугольников.",
   "Invalid smoothing angle.": "Неверный угол сглаживания.",
   "NormalsXL would give geoset {0} more than 65,535 vertices. Split the geoset first.": "NormalsXL дал бы геосету {0} больше 65 535 вершин. Сначала разделите геосет.",
-  "The model changed. Open NormalsXL again.": "Модель изменилась. Откройте NormalsXL снова."
+  "The model changed. Open NormalsXL again.": "Модель изменилась. Откройте NormalsXL снова.",
+  "Open pieces whose outside could not be worked out. Their facing was left as it was. Click to select them in the view.": "Открытые детали, у которых не удалось определить внешнюю сторону. Их ориентация оставлена как есть. Нажмите, чтобы выделить их в окне просмотра.",
+  "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.": "NormalsXL: выделены детали, требующие проверки. Если деталь повёрнута не в ту сторону, разверните её командой «Развернуть нормали»."
 }

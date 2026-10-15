@@ -248,3 +248,53 @@ test('a real SD model loses its dark corners and lighting seams', () => {
   const reopened = openDocument(doc.serialize('mdx'), 'knight.mdx');
   assert.deepEqual(quality(reopened.model), after);
 });
+
+test('coincident vertices bound to different bones never share a normal', () => {
+  // The same fold as above, but the second triangle is a separate part on another bone.
+  const same = fold(20, { geosets: 2 }), split = fold(20, { geosets: 2 });
+  split.Geosets[1].Groups = [[7]];
+  rebuildNormals(same); rebuildNormals(split);
+  near(at(same.Geosets[0].Normals, 0), at(same.Geosets[1].Normals, 1));
+  near(at(split.Geosets[0].Normals, 0), [0, 0, 1]); near(at(split.Geosets[1].Normals, 1), faceNormal(split.Geosets[1], 0));
+  // The same bone set in a different order is the same skinning.
+  const reordered = fold(20, { geosets: 2 });
+  reordered.Geosets[0].Groups = [[0, 3]]; reordered.Geosets[1].Groups = [[3, 0]];
+  rebuildNormals(reordered); near(at(reordered.Geosets[0].Normals, 0), at(reordered.Geosets[1].Normals, 1));
+  // HD: matching bones with different weights stay separate.
+  const hd = fold(20, { geosets: 2 });
+  hd.Geosets[0].SkinWeights = Uint8Array.from({ length: 24 }, (_, i) => [0, 3, 0, 0, 128, 127, 0, 0][i % 8]);
+  hd.Geosets[1].SkinWeights = Uint8Array.from({ length: 24 }, (_, i) => [0, 3, 0, 0, 200, 55, 0, 0][i % 8]);
+  rebuildNormals(hd); near(at(hd.Geosets[0].Normals, 0), [0, 0, 1]);
+});
+
+test('an open piece whose stored normals agree with its winding is not flipped', () => {
+  // An inside-out open box: visibility says flip, but the authored normals agree.
+  const box = CUBE_FACES.slice(0, 6 * 3).concat(CUBE_FACES.slice(8 * 3));
+  // Give the inside-out box stored normals that agree with its winding.
+  const authored = model(geoset(CUBE_POINTS, insideOut(box)));
+  rebuildNormals(authored, { fixFacing: false });
+  assert.equal(darkCorners(authored.Geosets[0]), 0);
+  assert.equal(rebuildNormals(authored).stats.trianglesFlipped, 0);
+});
+
+test('one- or two-triangle cards in two-sided materials are never flipped', () => {
+  // A two-triangle card facing into a closed box would be flipped if one-sided.
+  const card = [2,2,5, 8,2,5, 8,8,5, 2,8,5], faces = [...CUBE_FACES, 8,10,9, 8,11,10];
+  const twoSided = model(geoset([...CUBE_POINTS, ...card], faces));
+  twoSided.Materials = [{ Layers: [{ Shading: 16 }] }];
+  assert.equal(planNormalRebuild(analyzeNormals(twoSided), {}).stats.trianglesFlipped, 0);
+});
+
+test('pieces that need a look are returned as a vertex selection', () => {
+  // The minimal Möbius strip (triangles i, i+1, i+2 mod 5) cannot be wound consistently.
+  const points = Array.from({ length: 5 }, (_, i) => [10 * Math.cos(i * 1.2566), 10 * Math.sin(i * 1.2566), i % 2 ? 3 : -3]).flat();
+  const faces = Array.from({ length: 5 }, (_, i) => [i, (i + 1) % 5, (i + 2) % 5]).flat();
+  const m = model(geoset(points, faces));
+  const plan = rebuildNormals(m);
+  assert.equal(plan.stats.piecesNeedLook, 1);
+  assert.deepEqual(plan.lookSelection, { 0: [0, 1, 2, 3, 4] });
+  assert.equal(plan.stats.trianglesFlipped, 0, 'its triangles are left alone');
+  // Collapsed-only pieces are not reported.
+  const flat = model(geoset([0,0,0, 1,0,0, 2,0,0, 0,0,0, 10,0,0, 0,10,0], [0,1,2, 3,4,5]));
+  assert.equal(rebuildNormals(flat).stats.piecesNeedLook, 0);
+});

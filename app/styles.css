@@ -99,3 +99,4 @@
 .normalizer-actions{display:flex;gap:4px}
 .normalizer-actions button{padding:4px 8px}
 .normalizer-actions button:last-child{margin-left:auto}
+.normalizer-look{padding:0;border:0;background:none;color:inherit;font:inherit;text-decoration:underline dotted;cursor:pointer}

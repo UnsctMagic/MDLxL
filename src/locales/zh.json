@@ -2143,12 +2143,9 @@
   "{0} vertices split": "已拆分 {0} 个顶点",
   "{0} triangles flipped": "已翻转 {0} 个三角形",
   "{0} pieces need a look": "{0} 个部件需要检查",
-  "Open pieces whose outside could not be worked out. Their facing was left as it was; check them in the view.": "无法确定外侧的开放部件。其朝向保持不变；请在视图中检查。",
   "Rebuild all normals and fix triangles that face the wrong way. With vertices selected, only the triangles touching them change.": "重建所有法线并修正朝向错误的三角形。选中顶点时，仅更改与其相连的三角形。",
   "NormalsXL: {0} normals rebuilt · {1} vertices split · {2} triangles flipped": "NormalsXL：已重建 {0} 条法线 · 已拆分 {1} 个顶点 · 已翻转 {2} 个三角形",
-  "NormalsXL: {0} normals rebuilt · {1} vertices split · {2} triangles flipped · {3} pieces need a look": "NormalsXL：已重建 {0} 条法线 · 已拆分 {1} 个顶点 · 已翻转 {2} 个三角形 · {3} 个部件需要检查",
   "NormalsXL: {0} triangles flipped": "NormalsXL：已翻转 {0} 个三角形",
-  "NormalsXL: {0} triangles flipped · {1} pieces need a look": "NormalsXL：已翻转 {0} 个三角形 · {1} 个部件需要检查",
   "NormalsXL: no triangles face the wrong way.": "NormalsXL：没有朝向错误的三角形。",
   "NormalsXL · Fix facing": "NormalsXL · 修正朝向",
   "NormalsXL needs finite positions and one normal for each vertex.": "NormalsXL 需要有限的坐标且每个顶点一条法线。",
@@ -2157,5 +2154,7 @@
   "Invalid smoothing angle.": "无效的平滑角度。",
   "NormalsXL would give geoset {0} more than 65,535 vertices. Split the geoset first.": "NormalsXL 会使几何集 {0} 超过 65,535 个顶点。请先拆分该几何集。",
   "The model changed. Open NormalsXL again.": "模型已更改。请重新打开 NormalsXL。",
-  "Show normals": "显示法线"
+  "Show normals": "显示法线",
+  "Open pieces whose outside could not be worked out. Their facing was left as it was. Click to select them in the view.": "无法确定外侧的开放部件。其朝向保持不变。点击即可在视图中选中它们。",
+  "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way.": "NormalsXL：已选中需要检查的部件。如果所选部件朝向错误，可用“反转法线”将其翻转。"
 }

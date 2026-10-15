@@ -91,6 +91,9 @@ function readView() {
     await open();assert.match(await panel.innerText(),/Selected area/);
     await panel.getByRole('button',{name:'Cancel',exact:true}).click();
     checks.push('Selected vertices restrict the operation');
+    // The demo is clean; when a model reports pieces that need a look, the count selects them.
+    const look=page.locator('.normalizer-look');
+    if(await look.count()){await look.first().click();assert.ok(Object.values((await page.evaluate(readView)).selection).some(ids=>ids.length));checks.push('Need-a-look count selects those pieces');}
     assert.ok(fs.readFileSync(fixture).equals(originalBytes));assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({checks,errors},null,2));
     console.log(checks.map(c=>'PASS '+c).join('\n'));

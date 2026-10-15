@@ -573,12 +573,9 @@
     "{0} vertices split",
     "{0} triangles flipped",
     "{0} pieces need a look",
-    "Open pieces whose outside could not be worked out. Their facing was left as it was; check them in the view.",
     "Rebuild all normals and fix triangles that face the wrong way. With vertices selected, only the triangles touching them change.",
     "NormalsXL: {0} normals rebuilt · {1} vertices split · {2} triangles flipped",
-    "NormalsXL: {0} normals rebuilt · {1} vertices split · {2} triangles flipped · {3} pieces need a look",
     "NormalsXL: {0} triangles flipped",
-    "NormalsXL: {0} triangles flipped · {1} pieces need a look",
     "NormalsXL: no triangles face the wrong way.",
     "NormalsXL · Fix facing",
     "NormalsXL needs finite positions and one normal for each vertex.",
@@ -590,7 +587,9 @@
     "Show normals",
     "Apply",
     "Cancel",
-    "Whole model"
+    "Whole model",
+    "Open pieces whose outside could not be worked out. Their facing was left as it was. Click to select them in the view.",
+    "NormalsXL: selected the pieces that need a look. Reverse normals flips a selected piece if it faces the wrong way."
   ],
   "paint": [
     "Citadel Paint",
