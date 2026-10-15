@@ -14,6 +14,7 @@ import { openingTrackProposals, applyOpeningTrack } from './optimizexl-opening-t
 import { unusedTrackProposals, applyUnusedTrack } from './optimizexl-unused-tracks.js';
 import { effectVisibilityProposals } from './optimizexl-effect-visibility.js';
 import { redundantTrackProposals, applyRedundantTrack } from './optimizexl-redundant-tracks.js';
+import { constantTransformProposals, applyConstantTransform } from './optimizexl-constant-transforms.js';
 import { splineTrackProposals, applySplineTrack } from './optimizexl-spline-tracks.js';
 import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair } from './optimizexl-format.js';
 
@@ -118,7 +119,11 @@ export function findIrregularities(m){const findings=[],seq=m.Sequences,live=seq
 }
 export function sanityProposals(m){const findings=boundsProposals(m);for(const [i,e]of m.ParticleEmitters2.entries())if(e.Gravity?.Keys)findings.push({id:`gravity:${i}`,kind:'gravity',emitter:i,value:e.Gravity.Keys[0]?.Vector[0]||0,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${e.Name}: animated gravity`,detail:'Hive flags animated gravity. Choose a static value and review its particle motion.'});
  for(const {track:t,path}of tracks(m)){if(t.GlobalSeqId>=0&&m.GlobalSequences[t.GlobalSeqId]>0&&t.Keys.some(k=>k.Frame>m.GlobalSequences[t.GlobalSeqId])&&t.Keys.some(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]))findings.push({id:`outside:${path.join('.')}`,kind:'globalKeys',path,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${path.join('.')}: keys beyond global duration`,detail:'Remove keys outside the declared global sequence. Review effects and animation before approval.'});}
- const proposals=[...findings,...openingTrackProposals(m,tracks(m)),...unusedTrackProposals(m,tracks(m)),...redundantTrackProposals(m,tracks(m))];
+ const entries=tracks(m),existing=[...findings,...openingTrackProposals(m,entries),...unusedTrackProposals(m,entries),...redundantTrackProposals(m,entries)];
+ // Accepted key-level repairs retain ownership. Offer whole-track constant
+ // compaction only after their work on that track has been approved/rescanned.
+ const constants=constantTransformProposals(m,entries).filter(c=>!existing.some(p=>!p.inspectionOnly&&p.path&&same(c.path,p.path)));
+ const proposals=[...existing,...constants];
  // Static gravity replaces its entire track. It owns that track's diagnostics;
  // do not also queue key-level corrections against data it removes.
  const owned=proposals.filter(p=>!p.path||!findings.some(owner=>owner.kind==='gravity'&&p.path.join('.')===`ParticleEmitters2.${owner.emitter}.Gravity`));
@@ -149,6 +154,11 @@ function applyRepair(m,fix,settings,evidenceModel=m){
   const current=openingTrackProposals(evidenceModel,tracks(evidenceModel)).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This opening-track finding changed. Select it again.');
   applyOpeningTrack(m,current);return;
+ }
+ if(fix.kind==='constantTransform'){
+  const current=sanityProposals(evidenceModel).find(f=>f.id===fix.id&&f.kind==='constantTransform');
+  if(!current||!same(current,fix))throw Error('This constant-transform finding changed. Select it again.');
+  applyConstantTransform(m,current);return;
  }
  if(fix.kind==='unusedLocalKeys'){
   const current=unusedTrackProposals(evidenceModel,tracks(evidenceModel)).find(f=>f.id===fix.id);

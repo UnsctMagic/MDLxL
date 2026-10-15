@@ -97,5 +97,7 @@ test('table repair composes with opening, unused, exact redundant keys and timel
   assert.deepEqual(bytes,batch);
  }
  const checked=hive(batch);assert.deepEqual(checked.findings.filter(f=>/sequence extents|starts before|Missing opening|same value|not in any sequence/.test(f.message)),[]);
- assert.deepEqual(sanityProposals(openDocument(batch,'x.mdx').model),[]);
+ const remaining=sanityProposals(openDocument(batch,'x.mdx').model);
+ assert.deepEqual(remaining.map(f=>[f.kind,f.path]),[['constantTransform',['Bones','0','Scaling']]]);
+ const compacted=runOptimizeStage(batch,'sanity',{},remaining[0]);assert.deepEqual(sanityProposals(openDocument(compacted.bytes,'x.mdx').model),[]);
 });

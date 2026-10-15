@@ -63,3 +63,13 @@ EditorDocument exports an atomically remapped snapshot when live ObjectIds diffe
 - Deliver on the feature branch with the attached PR. Push when asked; merge only with explicit authorization. The current teaching pass is left unmerged for the user's later merge with Showcase.
 
 Implementation and evidence: [OptimizeXL](OPTIMIZEXL.md), [verification log](OPTIMIZEXL_VERIFICATION.md), and `test/fixtures/optimizexl-flail-baseline.json`.
+
+## Exact constant-transform compaction (2026-10-15 draft)
+
+The Vampire Dragon/BatKing model pass showed that a track can contain useful motion in one animation and only repeated static values in another. Raising angular tolerances to remove more keys can visibly move a long, scaled wing chain; that experiment is not part of this implementation.
+
+`optimizexl-constant-transforms.js` adds an explicitly selectable `constantTransform` proposal in the existing Insanity FIxer review. It retains the first key of each supported exactly constant local span, and can remove an entire channel only when every authored key matches its native default, belongs to an animation, and is not frame zero. Translation and Scaling require exact component equality; Rotation is restricted to literal `[0,0,0,1]`. Nonidentity/non-unit rotations, globals, splines, malformed/overlapping domains, duplicate times, out-of-animation poses and setup keys stay protected. A nondefault constant span without an opening key is retained. The current adjustable reducer, its endpoint policy and all strength settings are unchanged.
+
+Existing opening/unused/redundant repairs retain priority on their track. Compaction waits for supported writes to be approved and rescanned; inspection-only notices on moving spans do not block unrelated constant-span cleanup. This avoids overlapping deletions or whole-track removal against another selected repair. A candidate is re-derived from the same evidence snapshot before application, and stale changes are rejected. Independent compactions have identical individual and selected-batch results, and rescanning an applied plan does not repeat it.
+
+This is exact data compaction, not a diagnosis of jitter, a pose change or a cloth/binding repair. It does not canonicalize arbitrary quaternions, loosen motion budgets, replace key motion with global loops, merge bones, or compact bounds. Private models and their repaired counterparts remain local test inputs, never runtime lookups or committed fixtures.
