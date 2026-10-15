@@ -9,18 +9,18 @@ import { allNodes } from '../src/animation.js';
 import { clearQuickDisplay } from '../src/display-overlays.js';
 
 const view={position:[25,-200,80],target:[0,0,45],roll:.37,fieldOfView:Math.PI/4,near:1,far:1000};
-test('Set Current View creates once, updates selected camera, recalculates extents and supports undo/save',()=>{
+test('Set Current View creates once, updates selected camera without touching extents and supports undo/save',()=>{
   const doc=createDemoDocument(); doc.model.Cameras=[];
   const before=structuredClone(doc.model);
-  const index=doc.apply('Set Current View',['Cameras','Info','Geosets'],model=>setCameraFromCurrentView(model,-1,view));
+  const index=doc.apply('Set Current View',['Cameras','BindPoses'],model=>setCameraFromCurrentView(model,-1,view));
   assert.equal(index,0); assert.equal(doc.model.Cameras[0].Name,'Camera 01');
+  for(const key of ['Info','Sequences','Geosets']) assert.deepEqual(doc.model[key],before[key],key);
   assert.deepEqual(Array.from(doc.model.Cameras[0].Position),view.position);
   assert.equal(doc.model.Cameras[0].Rotation,undefined);
-  assert.ok(doc.model.Info.BoundsRadius>0);
   assert.ok(!allNodes(doc.model).includes(doc.model.Cameras[0]));
   doc.undo(); assert.deepEqual(doc.model,before); doc.redo();
   const next={...view,position:[50,-150,90]};
-  doc.apply('Set Current View',['Cameras','Info','Geosets'],model=>setCameraFromCurrentView(model,0,next));
+  doc.apply('Set Current View',['Cameras','BindPoses'],model=>setCameraFromCurrentView(model,0,next));
   assert.equal(doc.model.Cameras.length,1); assert.deepEqual(Array.from(doc.model.Cameras[0].Position),next.position);
   for(const format of ['mdl','mdx']) {
     const reopened=openDocument(doc.serialize(format),'camera.'+format);
@@ -45,7 +45,7 @@ test('Set Current View preserves existing camera animation when updating the eva
   assert.equal(model.Cameras[0].Translation.Keys.length,1);
 });
 
-test('Set Current View removes existing camera roll from every Portrait variant',()=>{
+test('Set Current View and shots keep authored camera roll (KCRL) tracks untouched',()=>{
   const doc=createDemoDocument();
   const sequence=doc.model.Sequences[0];
   doc.model.Sequences=[
@@ -53,13 +53,16 @@ test('Set Current View removes existing camera roll from every Portrait variant'
     {...structuredClone(sequence),Name:'Portrait - 1',Interval:new Uint32Array([100,199])},
     {...structuredClone(sequence),Name:'Portrait Talk - 1',Interval:new Uint32Array([300,399])},
   ];
-  doc.model.Cameras=[{Name:'Existing',Position:new Float32Array(view.position),TargetPosition:new Float32Array(view.target),FieldOfView:view.fieldOfView,NearClip:view.near,FarClip:view.far,Rotation:{LineType:1,GlobalSeqId:null,Keys:[{Frame:100,Vector:Float32Array.of(.3)},{Frame:300,Vector:Float32Array.of(.4)}]}}];
-  setCameraFromCurrentView(doc.model,0,view,300,2);
+  const rotation={LineType:1,GlobalSeqId:null,Keys:[{Frame:50,Vector:Float32Array.of(.1)},{Frame:100,Vector:Float32Array.of(.3)},{Frame:300,Vector:Float32Array.of(.4)}]};
+  doc.model.Cameras=[{Name:'Existing',Position:new Float32Array(view.position),TargetPosition:new Float32Array(view.target),FieldOfView:view.fieldOfView,NearClip:view.near,FarClip:view.far,Rotation:structuredClone(rotation)}];
+  const moved={...view,position:[60,-180,90]};
+  doc.apply('Set Current View',['Cameras','BindPoses'],model=>setCameraFromCurrentView(model,0,moved,300,2));
   const source=doc.model.Cameras[0];
-  assert.equal(source.Rotation,undefined);
+  assert.deepEqual(Array.from(source.Position),moved.position);
+  assert.deepEqual(source.Rotation,rotation);
   for(const format of ['mdl','mdx']) {
     const reopened=openDocument(doc.serialize(format),'shared-camera.'+format), camera=reopened.model.Cameras[0];
-    assert.equal(camera.Rotation,undefined);
+    assert.deepEqual(camera.Rotation.Keys.map(key=>[key.Frame,+key.Vector[0].toFixed(5)]),rotation.Keys.map(key=>[key.Frame,+key.Vector[0].toFixed(5)]));
   }
 });
 
