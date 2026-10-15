@@ -3,7 +3,7 @@ import { projectGridSegment } from './preview-overlays.js';
 
 /** Projected world-space rings share the viewport camera and do not capture navigation. */
 export function drawNormalizerGuide(context, camera, width, height, normalizer, ratio) {
-  if (normalizer.mode === 'surface') return;
+  if (!['outward', 'inward'].includes(normalizer.mode)) return;
   const { center, radius } = normalizer;
   context.save(); context.scale(ratio, ratio);
   context.strokeStyle = '#bb841e'; context.lineWidth = 1.25; context.globalAlpha = .8;

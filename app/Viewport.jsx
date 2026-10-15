@@ -460,7 +460,7 @@ export default function Viewport(inputProps) {
       if (quad) surface.focus(); else host.current?.focus();
       let action = cameraAction(event);
       const guide = latest.current.normalizer;
-      if (guide && guide.mode !== 'surface' && event.button === 0 && !event.altKey) {
+      if (guide && ['outward', 'inward'].includes(guide.mode) && event.button === 0 && !event.altKey) {
         const pivot = new THREE.Vector3(...guide.center), projected = pivot.clone().project(camera), start = point(event);
         if (projected.z >= -1 && projected.z <= 1 && screenPosition(pivot, start).distanceTo(new THREE.Vector2(start.x, start.y)) <= 15) action = 'work';
       }
@@ -483,7 +483,7 @@ export default function Viewport(inputProps) {
       if (p.normalizer) {
         down.action = 'normalizer';
         const pivot = new THREE.Vector3(...p.normalizer.center), projected = pivot.clone().project(camera);
-        if (p.normalizer.mode !== 'surface' && projected.z >= -1 && projected.z <= 1 && screenPosition(pivot, start).distanceTo(new THREE.Vector2(start.x, start.y)) <= 15) {
+        if (['outward', 'inward'].includes(p.normalizer.mode) && projected.z >= -1 && projected.z <= 1 && screenPosition(pivot, start).distanceTo(new THREE.Vector2(start.x, start.y)) <= 15) {
           down.action = 'normalizer-center'; down.pivot = pivot;
           down.workplane = quad && boundPane.workplane || p.workplane;
           down.workplaneEnabled = !!(quad && boundPane.workplane) || p.workplaneEnabled !== false;
@@ -874,12 +874,12 @@ export default function Viewport(inputProps) {
           const geometry = state.entries.flatMap((entry, index) => entry?.group.visible ? [{ index, faces: entry.geoset.Faces, vertices: entry.geometry.attributes.position.array }] : []);
           drawPresentationOverlay(previewCanvas.getContext('2d'), geometry, camera, surface.clientWidth, surface.clientHeight, p.previewOverlay, renderer.getPixelRatio());
         } else if (previewCanvas) { previewCanvas.remove(); previewCanvas = null; }
-        if (p.overlays?.normals || p.showNormals) {
+        if (p.overlays?.normals || p.showNormals || p.normalizer && ['outward', 'inward'].includes(p.normalizer.mode)) {
           if (!normalCanvas) { normalCanvas = document.createElement('canvas'); normalCanvas.dataset.normalOverlay = ''; normalCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(normalCanvas); }
           normalCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); normalCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
           const geometry = state.entries.flatMap((entry, index) => entry?.group.visible && active.has(index) ? [{ index, vertices: entry.geometry.attributes.position.array, normals: entry.geometry.attributes.normal.array,
             normalIndices: p.normalizer ? p.normalizer.selection[index] || [] : undefined }] : []);
-          drawPreviewGeometryOverlay(normalCanvas.getContext('2d'), geometry, camera, surface.clientWidth, surface.clientHeight, { normals: true, preferences: p.preferences }, state.center, p.normalizer ? p.normalizer.radius * 2 : state.radius, renderer.getPixelRatio());
+          drawPreviewGeometryOverlay(normalCanvas.getContext('2d'), geometry, camera, surface.clientWidth, surface.clientHeight, { normals: !!(p.overlays?.normals || p.showNormals), preferences: p.preferences }, state.center, p.normalizer ? p.normalizer.radius * 2 : state.radius, renderer.getPixelRatio());
           if (p.normalizer) drawNormalizerGuide(normalCanvas.getContext('2d'), camera, surface.clientWidth, surface.clientHeight, p.normalizer, renderer.getPixelRatio());
         } else if (normalCanvas) { normalCanvas.remove(); normalCanvas = null; }
         if (showMarkers) {

@@ -108,3 +108,7 @@
 .normalizer-result{font-size:11px;min-height:14px}
 .normalizer-actions button{padding:4px 8px}
 .normalizer-actions button:last-child{margin-left:auto}
+
+.normalizer-setting{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.normalizer-setting select{min-width:145px;max-width:175px}
+.normalizer-toggles{display:flex;align-items:center;gap:10px}

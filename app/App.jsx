@@ -49,7 +49,7 @@ import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
 import { correctNormalsXL } from '../src/normals-xl.js';
 import { captureNormalSelection, previewNormals, applyNormalPreview } from '../src/normalizer.js';
-import NormalizerControls from './NormalizerControls.jsx';
+import NormalizerControls, { NORMALIZER_OPERATIONS } from './NormalizerControls.jsx';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
@@ -908,7 +908,7 @@ export default function App() {
     if (!normalizer) return {};
     try { return { result: previewNormals(normalizer.snapshot, normalizer) }; }
     catch (error) { return { error: error.message }; }
-  }, [normalizer?.snapshot, normalizer?.mode, normalizer?.center, normalizer?.strength]);
+  }, [normalizer?.snapshot, normalizer?.mode, normalizer?.center, normalizer?.strength, normalizer?.weighting, normalizer?.creaseAngle]);
   const normalizerView = useMemo(() => normalizer ? {
     center: normalizer.center, radius: normalizer.snapshot.radius, mode: normalizer.mode,
     selection: Object.fromEntries(normalizer.snapshot.geosets.map(g => [g.index, g.ids])),
@@ -920,15 +920,15 @@ export default function App() {
       const target = Object.fromEntries(Object.entries(validSelection).filter(([key]) => !hiddenGeosets.has(Number(key))).map(([key, ids]) => [key, ids.filter(id => !(hidden[key] || []).includes(id))]));
       const snapshot = captureNormalSelection(model, target);
       setNormalsXL(null); setPlaying(false);
-      setNormalizer({ doc, revision: doc.revision, snapshot, center: [...snapshot.center], mode: 'outward', strength: 1, preview: true, renderMode: 'solid' });
-      say('NormalsXL: move the globe centre, choose a direction, then Apply.');
+      setNormalizer({ doc, revision: doc.revision, snapshot, center: [...snapshot.center], mode: 'sd', weighting: 'equal', creaseAngle: 60, strength: 1, preview: true, showNormals: false, renderMode: renderMode === 'wireframe' ? 'solid' : renderMode });
+      say('NormalsXL: preview SD shading, fix seams or soften edges, then Apply.');
     } catch (error) { say(error.message, true); }
   };
   const changeNormalizer = changes => setNormalizer(previous => previous && ({ ...previous, ...changes }));
   const applyNormalizer = () => {
     if (!normalizer || savingRef.current || normalizer.doc !== doc || normalizer.revision !== doc.revision || !normalResult.result) return;
     try {
-      edit('NormalsXL · ' + normalizer.mode, ['Geosets'], current => applyNormalPreview(current, normalResult.result), { rethrow: true });
+      edit('NormalsXL · ' + (NORMALIZER_OPERATIONS.find(([mode]) => mode === normalizer.mode)?.[1] || normalizer.mode), ['Geosets'], current => applyNormalPreview(current, normalResult.result), { rethrow: true });
       setNormalizer(null); say('NormalsXL: updated ' + normalResult.result.changed + ' selected normals.' + (normalResult.result.unresolved ? ' Left ' + normalResult.result.unresolved + ' without a direction unchanged.' : ''));
     } catch { /* The document transaction already reports and rolls back the error. */ }
   };
@@ -1425,7 +1425,7 @@ export default function App() {
         onPickNormalReference={normalsXL ? pickNormalsXLReference : undefined}
         normalizer={normalizerView} onNormalizerCenter={center => changeNormalizer({ center })}
         hiddenVertices={hidden} hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
-        mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : renderMode} overlays={normalsXL || normalizer ? { ...overlays, normals: true } : overlays} showVertices={!!normalsXL || showVertices}
+        mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : renderMode} overlays={normalsXL || normalizer ? { ...overlays, normals: !!normalsXL || normalizer.showNormals } : overlays} showVertices={!!normalsXL || showVertices}
         showSkeleton={overlays.bones || overlays.nodes || overlays.attachments || overlays.particles}
         showGrid={showGrid} showAxes={showAxes} shaded={normalizer ? true : shaded} view={view} cameraMode={normalsXL ? 'work' : cameraMode}
         workplane={workplane} transformMode={normalsXL ? 'select' : tool}
@@ -1476,7 +1476,7 @@ export default function App() {
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
         setSelectedBoneBillboarded, setSelectedNodeIds, setTime, singleRigNode, time
       }}/>
-      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(true)}>Nuclear Seperation</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button><button disabled={!editable || !selectionCount || !!normalsXL || !!normalizer} title="Set selected normals with a movable globe or rebuild them from the surface." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button></div>}
+      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(true)}>Nuclear Seperation</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button><button disabled={!editable || !selectionCount || !!normalsXL || !!normalizer} title="Rebuild SD shading, fix lighting seams, or soften split edges." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button></div>}
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
       {(mode !== 'animation' || animationPanel === 'movement' || cameraRotating) && geosetPicker}
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
