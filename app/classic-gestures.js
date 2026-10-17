@@ -31,6 +31,24 @@ export function moveDragPoint(gesture, pointer, shift) {
   return gesture.point;
 }
 
+/** Single view: pressing or releasing Shift mid-drag keeps the visible offset
+ * and continues from the pointer position where the lock changed. `solve`
+ * maps (from, to, shift) pointer points to a model-space [x, y, z] offset. */
+export function shiftDragOffset(latch, pointer, shift, solve) {
+  if (latch.shift !== shift) {
+    const kept = solve(latch.from, latch.pointer, latch.shift);
+    latch.base = latch.base.map((value, i) => value + kept[i]);
+    latch.from = latch.pointer; latch.shift = shift;
+  }
+  latch.pointer = pointer;
+  const offset = solve(latch.from, pointer, shift);
+  return latch.base.map((value, i) => value + offset[i]);
+}
+
+export function shiftDragLatch(start, shift) {
+  return { from: start, pointer: start, shift: !!shift, base: [0, 0, 0] };
+}
+
 export function dragScale(horizontalPixels, workplane = 'xz', constrain = false) {
   const factor = Math.max(0, 1 + horizontalPixels / 100);
   if (!constrain) return [factor, factor, factor];
