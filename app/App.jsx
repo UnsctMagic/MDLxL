@@ -77,6 +77,7 @@ import AppToolbar, { AppViewLabel } from './AppToolbar.jsx';
 import GeosetAnimationRepair from './GeosetAnimationRepair.jsx';
 import { VertexTools, GeosetPicker, RigSidebar } from './AppSidebar.jsx';
 import { GEOSET_TABS_KEY, geosetsInTab } from '../src/geoset-tabs.js';
+import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
 
@@ -167,7 +168,7 @@ export default function App() {
   const [visibleOnly, setVisibleOnly] = useState(new Set());
   const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [hidden, setHidden] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
   const [normalsXL, setNormalsXL] = useState(null);
-  const [showAllGeosets, setShowAllGeosets] = useState(true);
+  const [showAllGeosets, setShowAllGeosets] = useState(true), [hideExtras, setHideExtras] = useState(false);
   const [activeGeosetTab, setActiveGeosetTab] = useState('all');
   const [viewHoveredGeoset, setViewHoveredGeoset] = useState(null), [selectionHoveredGeoset, setSelectionHoveredGeoset] = useState(null);
   useEffect(() => { setViewHoveredGeoset(null); setSelectionHoveredGeoset(null); }, [mode, preferences.highlightSelection, preferences.viewportAppearance.geosetHighlight.viaView, preferences.viewportAppearance.geosetHighlight.viaSelection]);
@@ -250,8 +251,10 @@ export default function App() {
   const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), settings = useRef({}), textureResolutions = useRef(new WeakMap());
   const doc = session.doc, model = doc.model, geoset = model.Geosets[activeGeoset];
   const geosetTab = activeGeosetTab === 'ungrouped' || (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === activeGeosetTab) ? activeGeosetTab : 'all';
-  const tabGeosets = useMemo(() => geosetsInTab(model, geosetTab), [model, doc.revision, geosetTab]);
-  const tabVisibleGeosets = useMemo(() => geosetsInTab(model, geosetTab, { visible: true }), [model, doc.revision, geosetTab]);
+  // Hide extras only takes corpse/background geosets out of the work area; nothing is deleted.
+  const extraGeosets = useMemo(() => hideExtras ? corpseAndBackgroundGeosets(model) : new Set(), [model, doc.revision, hideExtras]);
+  const tabGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab)].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
+  const tabVisibleGeosets = useMemo(() => new Set([...geosetsInTab(model, geosetTab, { visible: true })].filter(index => !extraGeosets.has(index))), [model, doc.revision, geosetTab, extraGeosets]);
   const selectable = useMemo(() => new Set([...checkedGeosets].filter(index => tabVisibleGeosets.has(index))), [checkedGeosets, tabVisibleGeosets]);
   const selectGeosetTab = next => {
     setActiveGeosetTab(next);
@@ -1222,7 +1225,7 @@ export default function App() {
     activeGeoset, changePreferences, chooseSet, chooseSets, cleanView, Dialog, doc, edit, geosetTab,
     highlightAppearance, model, preferences, saving, selectable, selectGeosetTab, session, setContext,
     setSelectionHoveredGeoset, setShowAllGeosets, showAllGeosets, tabGeosets, tabVisibleGeosets, viewHoveredGeoset,
-    visibleOnly
+    visibleOnly, hideExtras, setHideExtras
   }}/>;
   const changeGeosetStructure = (label, sections, operation) => {
     let result;
