@@ -40,7 +40,8 @@ import { previewPresentationProps, previewOverlaySettings } from './preview-pres
 import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
 
 import { createEventPreview } from './event-preview-runtime.js';
-import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
+import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
+import { shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
 import { decodeDds } from '../src/dds.js';
 import { scalePlaybackDelta } from '../src/playback-speed.js';
@@ -446,6 +447,7 @@ export default function GamePreview(inputProps) {
           camera: camera.clone(), origin: handle.world.clone(), snapshots, frame, sequence, globalTime: globalClock, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane,
           restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
+        gesture.latch = shiftDragLatch({ x: 0, y: 0 }, event.shiftKey);
         beginRotationDrag(gesture, handle);
         gesture.dragPlane = axis?.plane || p.workplane;
         if (p.workplaneEnabled || axis?.plane) {
@@ -463,13 +465,16 @@ export default function GamePreview(inputProps) {
       const identity = JSON.stringify(targets), now = ownerWindow.performance.now();
       if (posePing?.identity !== identity || now - posePing.started > 1200) posePing = { identity, targets, started: now };
     };
+    /** Workplane off: Shift locks a free drag to the chosen XY/ZX/YZ plane; toggling it mid-drag continues from the visible position. */
+    const freeShiftDrag = (gesture, view, rect, dx, dy, shift) => shiftDragOffset(gesture.latch, { x: dx, y: dy }, shift, (from, to, held) =>
+      freeDragTranslation(view, gesture.origin, rect.width, rect.height, to.x - from.x, to.y - from.y, { shift: held, workplane: gesture.workplane || 'xy' }).toArray());
     const previewPoseGesture = (gesture, event, p, rect, dx, dy) => {
       restoreGestureTracks(gesture); posedGeometryCache = null;
       if (!poseContextValid(gesture, p)) { gesture.adjusted = true; return; }
       try {
         const sensitivity = pointerSensitivityValue(p.preferences?.pointerSensitivity);
         let offset = gesture.basis ? new THREE.Vector3().fromArray(projectedPlaneTranslation(gesture.dragPlane, gesture.basis, dx * sensitivity, dy * sensitivity, event.shiftKey))
-          : screenPlaneTranslation(gesture.camera, gesture.origin, rect.width, rect.height, dx * sensitivity, dy * sensitivity, event.shiftKey);
+          : new THREE.Vector3().fromArray(freeShiftDrag(gesture, gesture.camera, rect, dx * sensitivity, dy * sensitivity, event.shiftKey));
         if (!gesture.basis && !gesture.workplaneEnabled && !gesture.handle.free && gesture.mode === 'move') {
           let amount = movementDragAmount(gesture.handle, dx, dy, 'move', sensitivity);
           if (event.shiftKey) amount = Math.round(amount);
@@ -582,7 +587,7 @@ export default function GamePreview(inputProps) {
           }
           if (p.transformMode === 'move' || p.transformMode === 'scale') nodeGesture.space = 'world';
           if (workplaneDrag && p.transformMode === 'rotate') nodeGesture.space = 'world';
-          nodeGesture.workplaneDrag = workplaneDrag; nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;
+          nodeGesture.workplaneDrag = workplaneDrag; nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},event.shiftKey);
           beginRotationDrag(nodeGesture, active);
           controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId); invalidate();
           event.preventDefault(); event.stopImmediatePropagation(); return;
@@ -675,7 +680,7 @@ export default function GamePreview(inputProps) {
         ? movementRotationAmount(nodeGesture.rotationDrag, dragX, dragY, pointerSensitivityValue(p.preferences?.pointerSensitivity))
         : nodeGesture.basis ? 0 : movementDragAmount(nodeGesture.handle, dragX, dragY, nodeGesture.mode, pointerSensitivityValue(p.preferences?.pointerSensitivity));
       if (nodeGesture.basis) nodeGesture.values = projectedPlaneTranslation(nodeGesture.dragPlane, nodeGesture.basis, dragX * pointerSensitivityValue(p.preferences?.pointerSensitivity), dragY * pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey);
-      if(nodeGesture.screenMove)nodeGesture.values=screenPlaneTranslation(camera,nodeGesture.origin,rect.width,rect.height,dx*pointerSensitivityValue(p.preferences?.pointerSensitivity),dy*pointerSensitivityValue(p.preferences?.pointerSensitivity),event.shiftKey).toArray();
+      if(nodeGesture.screenMove)nodeGesture.values=freeShiftDrag(nodeGesture,camera,rect,dx*pointerSensitivityValue(p.preferences?.pointerSensitivity),dy*pointerSensitivityValue(p.preferences?.pointerSensitivity),event.shiftKey);
       if (event.shiftKey && !nodeGesture.freeScaleDrag) nodeGesture.amount = nodeGesture.mode === 'rotate' ? Math.round(nodeGesture.amount / 5) * 5 : nodeGesture.mode === 'move' ? Math.round(nodeGesture.amount) : Math.round(nodeGesture.amount * 20) / 20 || .05;
       restoreGestureTracks(nodeGesture);
       try {
