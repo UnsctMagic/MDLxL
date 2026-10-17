@@ -197,3 +197,19 @@ test('solid occlusion prepass is limited to views without rendered model surface
   assert.equal(needsSolidDepthPrepass('textured'), false);
   assert.equal(needsSolidDepthPrepass('solid'), false);
 });
+
+test('NormalsXL overlay draws changed normals yellow and unchanged ones light blue, skipping zero normals', async () => {
+  const { drawPreviewGeometryOverlay } = await import('../app/preview-overlays.js');
+  const { PerspectiveCamera, Vector3 } = await import('three');
+  const strokes = [];
+  let current = null;
+  const context = new Proxy({
+    beginPath() { current = { color: null, lines: 0 }; },
+    moveTo() { current.lines++; },
+    stroke() { strokes.push({ ...current, color: this.strokeStyle }); },
+  }, { get: (target, key) => key in target ? target[key] : () => {}, set: (target, key, value) => { target[key] = value; return true; } });
+  const camera = new PerspectiveCamera(50, 1, .1, 100); camera.position.set(0, -10, 0); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+  const vertices = new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0]), normals = new Float32Array([0, -1, 0, 0, 0, 0, 0, -1, 0]);
+  drawPreviewGeometryOverlay(context, [{ index: 3, vertices, normals }], camera, 100, 100, { normals: true, normalChanges: { 3: Uint8Array.from([0, 1, 1]) } }, new Vector3(), 5);
+  assert.deepEqual(strokes.map(s => [s.color, s.lines]), [['#5ccfff', 1], ['#ffd400', 1]]);
+});

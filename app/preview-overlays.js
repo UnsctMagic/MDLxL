@@ -86,7 +86,27 @@ export function drawPreviewGeometryOverlay(context, geosets, camera, width, heig
     context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.stroke();
   }
   context.globalAlpha = 1;
-  if (options.normals) {
+  if (options.normals && options.normalChanges) {
+    // NormalsXL preview: bright, longer lines; yellow where the tool changes
+    // the normal, light blue where it stays the same.
+    const shown = geosets.filter(geo => !eligible || eligible.has(geo.index));
+    for (const [color, width_, alpha, pick] of [['#5ccfff', 1, .55, 0], ['#ffd400', 1.5, 1, 1]]) {
+      context.beginPath(); context.strokeStyle = color; context.lineWidth = width_; context.globalAlpha = alpha;
+      for (const geo of shown) {
+        const changed = options.normalChanges[geo.index], v = geo.vertices, n = geo.normals;
+        if (!n || n.length !== v.length) continue;
+        for (let i = 0; i < v.length; i += 3) {
+          if ((changed?.[i / 3] ? 1 : 0) !== pick) continue;
+          const length = Math.hypot(n[i], n[i + 1], n[i + 2]); if (!length) continue;
+          const scale = radius * .07 / length, from = [v[i], v[i + 1], v[i + 2]];
+          const segment = projectGridSegment(camera, width, height, from, [from[0] + n[i] * scale, from[1] + n[i + 1] * scale, from[2] + n[i + 2] * scale]); if (!segment) continue;
+          context.moveTo(segment[0].x, segment[0].y); context.lineTo(segment[1].x, segment[1].y);
+        }
+      }
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+  } else if (options.normals) {
     context.beginPath(); context.strokeStyle = '#0000ff'; context.lineWidth = 1;
     for (const geo of geosets.filter(geo => !eligible || eligible.has(geo.index))) for (const [from, to] of normalSegments(geo.vertices, geo.normals, radius * .04)) {
       const segment = projectGridSegment(camera, width, height, from, to); if (!segment) continue;

@@ -34,7 +34,7 @@ export default function NormalizerControls({ session, plan, error, onChange, onA
     <label className="normalizer-strength" title="Edges sharper than this angle stay crisp. Softer edges are smoothed.">Smoothing angle <input aria-label="Smoothing angle" type="range" min={min} max={max} step="5" value={session.smoothingAngle} onChange={event => onChange({ smoothingAngle: Number(event.target.value) })}/><output>{session.smoothingAngle}°</output></label>
     <div className="normalizer-toggles">
       <label title="Flips triangles that face the wrong way so the whole piece faces outward."><input type="checkbox" checked={session.fixFacing} onChange={event => onChange({ fixFacing: event.target.checked })}/> Fix facing</label>
-      <label title="Show blue direction lines on the vertices."><input type="checkbox" checked={session.showNormals} onChange={event => onChange({ showNormals: event.target.checked })}/> Show normals</label>
+      <label title="Show a direction line on every vertex. Yellow lines are normals NormalsXL changes; blue lines stay the same."><input type="checkbox" checked={session.showNormals} onChange={event => onChange({ showNormals: event.target.checked })}/> Show normals</label>
     </div>
     <div className="normalizer-result" role="status">{parts.flatMap((part, i) => i ? [' · ', part] : [part])}{!error && !!stats?.piecesNeedLook && <> · <LookButton count={stats.piecesNeedLook} onClick={() => onShowLook(plan.lookSelection)}/></>}</div>
     <div className="normalizer-actions">

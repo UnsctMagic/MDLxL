@@ -2128,7 +2128,7 @@
   "Edges sharper than this angle stay crisp. Softer edges are smoothed.": "比此角度更锐利的边保持清晰，较平缓的边会被平滑。",
   "Fix facing": "修正朝向",
   "Flips triangles that face the wrong way so the whole piece faces outward.": "翻转朝向错误的三角形，使整个部件朝外。",
-  "Show blue direction lines on the vertices.": "在顶点上显示蓝色方向线。",
+  "Show a direction line on every vertex. Yellow lines are normals NormalsXL changes; blue lines stay the same.": "在每个顶点上显示方向线。黄色线是 NormalsXL 会更改的法线；蓝色线保持不变。",
   "Fix facing only": "仅修正朝向",
   "Only flip triangles that face the wrong way and rebuild the normals of their corners, as a separate undoable edit.": "仅翻转朝向错误的三角形并重建其角点的法线，作为单独的可撤销编辑。",
   "Apply the previewed result as one undoable edit.": "将预览结果作为一次可撤销的编辑应用。",

@@ -919,13 +919,28 @@ export default function App() {
     model: previewNormalRebuild(previewModel, normalPlan.plan),
     selection: remapVertexState(validSelection, normalPlan.plan), hidden: remapVertexState(hidden, normalPlan.plan),
   } : null, [normalPlan, previewModel, validSelection, hidden]);
+  // Which preview normals NormalsXL changes, so the overlay can highlight them.
+  const normalChanges = useMemo(() => {
+    if (!normalPlan.plan) return null;
+    const changes = {};
+    for (const entry of normalPlan.plan.geosets) {
+      const before = model.Geosets[entry.index]?.Normals, after = entry.streams.Normals, changed = new Uint8Array(entry.sourceOf.length);
+      for (let v = 0; v < changed.length; v++) {
+        const s = entry.sourceOf[v] * 3, a = after.subarray(v * 3, v * 3 + 3), b = before?.subarray(s, s + 3);
+        const length = b ? Math.hypot(b[0], b[1], b[2]) * Math.hypot(a[0], a[1], a[2]) : 0;
+        changed[v] = !(length > 1e-12 && (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / length > .9994) ? 1 : 0;
+      }
+      changes[entry.index] = changed;
+    }
+    return changes;
+  }, [normalPlan, model]);
   const beginNormalizer = () => {
     if (!editable || mode !== 'vertices' || normalizer) return;
     // Whole visible model, or only the triangles touching the selected vertices.
     const geosets = model.Geosets.map((g, index) => !hiddenGeosets.has(index) && isShadedGeoset(model, g) ? index : -1).filter(index => index >= 0);
     const selection = selectionCount ? Object.fromEntries(Object.entries(validSelection).filter(([key, ids]) => ids.length && !hiddenGeosets.has(Number(key)))) : null;
     setPlaying(false);
-    setNormalizer({ doc, revision: doc.revision, geosets, selection, scope: selection ? 'selection' : 'model', smoothingAngle: DEFAULT_SMOOTHING_ANGLE, fixFacing: true, showNormals: false, renderMode: renderMode === 'wireframe' ? 'solid' : renderMode });
+    setNormalizer({ doc, revision: doc.revision, geosets, selection, scope: selection ? 'selection' : 'model', smoothingAngle: DEFAULT_SMOOTHING_ANGLE, fixFacing: true, showNormals: true, renderMode: renderMode === 'wireframe' ? 'solid' : renderMode });
   };
   const changeNormalizer = changes => setNormalizer(previous => previous && ({ ...previous, ...changes }));
   const commitNormalizer = facingOnly => {
@@ -1421,7 +1436,7 @@ export default function App() {
         selectedVertices={(normalizerPreview?.selection || validSelection)[activeGeoset] || []}
         visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={normalizerPreview?.selection || validSelection}
         onSelectionChange={next => {setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, doc.model));}}
-        normalizer={!!normalizer}
+        normalizer={!!normalizer} normalChanges={normalizer?.showNormals ? normalChanges || {} : null}
         hiddenVertices={normalizerPreview?.hidden || hidden} hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
         mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : renderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
         showSkeleton={overlays.bones || overlays.nodes || overlays.attachments || overlays.particles}
