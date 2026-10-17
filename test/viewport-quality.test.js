@@ -64,10 +64,15 @@ test('native shader repairs retain SD bone bounds and derivative support for smo
 test('classic portrait uses clamped vertex lighting without changing ordinary inspection shading', () => {
   const vertex = patchWarcraftMeshVertexShader('uniform mat4 uNodesMatrices[128]; attribute vec4 aGroup; void main() { vNormal = aNormal; }');
   const fragment = patchWarcraftMeshFragmentShader('precision mediump float; uniform mat3 uTVertexAnim; uniform float uWireframe; void main() { gl_FragColor = vec4(1.); }');
-  assert.ok(vertex.includes('out float vMdlxlPortraitLight;'));
-  assert.ok(vertex.includes('vMdlxlPortraitLight = clamp(.3 + max(0., dot(vNormal, normalize(uMdlxlLightDirection))), 0., 1.)'));
-  assert.ok(fragment.includes('in float vMdlxlPortraitLight;'));
-  assert.ok(fragment.includes('if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) gl_FragColor.rgb *= vMdlxlPortraitLight; } else if (uMdlxlLegacy > .5)'));
+  // Default: the verified MiscData light, clamp(.3 + N.L), unchanged from the previous release.
+  assert.ok(vertex.includes('out vec2 vMdlxlPortraitLight;'));
+  assert.ok(vertex.includes('float mdlxlPortraitDiffuse = max(0., dot(vNormal, normalize(uMdlxlLightDirection)));'));
+  assert.ok(vertex.includes('vMdlxlPortraitLight = vec2(clamp(.3 + mdlxlPortraitDiffuse, 0., 1.), mdlxlPortraitDiffuse);'));
+  // No uniforms beyond main's: the vertex stage is near the SD skinning limit.
+  assert.deepEqual(vertex.match(/uniform [^;]+;/g), ['uniform mat4 uNodesMatrices[128];', 'uniform vec3 uMdlxlLightDirection;']);
+  assert.ok(!/uPortraitLight/.test(vertex + fragment));
+  assert.ok(fragment.includes('in vec2 vMdlxlPortraitLight;'));
+  assert.ok(fragment.includes('if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) gl_FragColor.rgb *= (uMdlxlPortrait > 1.5 ? clamp(uMdlxlAmbient + uMdlxlDiffuse * vMdlxlPortraitLight.y, 0., 1.) : vec3(vMdlxlPortraitLight.x)); } else if (uMdlxlLegacy > .5)'));
   assert.ok(fragment.includes('mdlxlEncodeSRGB(max(inspectionBase'));
 });
 

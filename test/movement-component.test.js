@@ -34,7 +34,7 @@ test('actual Movement component renders normal and Portrait mode without excepti
     const html=renderToStaticMarkup(React.createElement(Movement,{model,portraitMode,sequenceIndex:portraitMode?1:0,selectedNodeIds,time:portraitMode?2000:0}));
     assert.match(html,/Movement controller/);
     const options=html.match(/aria-label="Movement current sequence"[\s\S]*?<\/select>/)[0];
-    if(portraitMode){assert.doesNotMatch(options,/Stand|All line|Global 1/);assert.match(options,/Portrait Talk/);assert.match(options,/>Portrait</);}
+    if(portraitMode){assert.doesNotMatch(options,/All line|Global 1/);assert.match(options,/Stand/);assert.match(options,/Portrait Talk/);assert.match(options,/>Portrait</);}
     else {assert.match(options,/Stand/);assert.match(options,/All line/);assert.match(options,/Global 1/);}
     assert.match(html,/aria-label="Move"/);assert.match(html,/aria-label="Rotate"/);assert.match(html,/aria-label="Scale"/);
     assert.doesNotMatch(html,/Portrait Camera|Set Current View|>Create<\/button>/);

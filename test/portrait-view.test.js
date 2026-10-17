@@ -9,11 +9,11 @@ const require = createRequire(import.meta.url);
 const { HUMAN_PORTRAIT_RESOURCES, validateHumanPortraitResources } = require('../electron/human-portrait-frame.cjs');
 const track = (from, to) => ({ LineType:1, Keys:[{Frame:100,Vector:new Float32Array(from)},{Frame:200,Vector:new Float32Array(to)}] });
 
-test('Portrait chooses the first Portrait sequence, including Talk variants', () => {
+test('Portrait prefers an idle portrait, then Stand before Talk', () => {
   assert.equal(firstPortraitSequenceIndex({ Sequences: [
     { Name: 'Portrait Talk' }, { Name: 'Stand' }, { Name: 'Portrait Alternate' }, { Name: 'Portrait' },
-  ] }), 0);
-  assert.equal(firstPortraitSequenceIndex({ Sequences: [{ Name: 'Stand' }, { Name: 'Portrait Talk 2' }] }), 1);
+  ] }), 2);
+  assert.equal(firstPortraitSequenceIndex({ Sequences: [{ Name: 'Stand' }, { Name: 'Portrait Talk 2' }] }), 0);
 });
 
 test('tight native gold frame preserves the Warcraft logical camera aperture', () => {

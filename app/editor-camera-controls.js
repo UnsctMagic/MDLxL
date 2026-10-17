@@ -1,3 +1,4 @@
+import { MODEL_CAMERA_FOV_FACTOR } from './portrait-view.js';
 import { moveDragPoint } from './classic-gestures.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Euler, MOUSE, Quaternion, Vector3 } from 'three';
@@ -98,10 +99,31 @@ export class EditorCameraControls extends OrbitControls {
   _handleMouseDownRotate(event) { this._startScreenDrag(event);super._handleMouseDownRotate(event); }
   _handleMouseMovePan(event) { super._handleMouseMovePan(this._screenDragEvent(event)); }
   _handleMouseMoveRotate(event) { super._handleMouseMoveRotate(this._screenDragEvent(event)); }
+  _customWheelEvent(event) {
+    // Windows Chromium reports Shift+wheel as horizontal scroll (deltaX, deltaY 0).
+    const shifted = event.shiftKey && !event.deltaY && event.deltaX ? { clientX: event.clientX, clientY: event.clientY, deltaMode: event.deltaMode, ctrlKey: event.ctrlKey, deltaY: event.deltaX } : event;
+    return { ...super._customWheelEvent(shifted), shiftKey: event.shiftKey };
+  }
+  _handleMouseWheel(event) {
+    this.lensZoom = !!event.shiftKey;
+    try { super._handleMouseWheel(event); } finally { this.lensZoom = false; }
+  }
   _dollyIn(scale) { this._projectionZoom(1 / scale); }
   _dollyOut(scale) { this._projectionZoom(scale); }
   _projectionZoom(scale) {
-    zoomEditorCamera(this.object, this.object.zoom * scale);
+    if (this.portraitDolly?.() && !this.lensZoom && this.object.isPerspectiveCamera) {
+      const offset = this.object.position.clone().sub(this.target);
+      offset.multiplyScalar(1 / scale);
+      this.object.position.copy(this.target).add(offset);
+      this.object.updateMatrixWorld();
+    } else {
+      let zoom = this.object.zoom * scale;
+      if (this.portraitDolly?.() && this.object.isPerspectiveCamera) {
+        const minimum = Math.tan(this.object.fov * Math.PI / 360) / Math.tan((Math.PI - .0001) * MODEL_CAMERA_FOV_FACTOR / 2);
+        zoom = Math.max(minimum,zoom);
+      }
+      zoomEditorCamera(this.object,zoom);
+    }
     this.dispatchEvent({ type: 'change' });
   }
   _pan(x, y) {
