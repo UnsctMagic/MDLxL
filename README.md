@@ -1,4 +1,4 @@
-# MDLxL 0.25.1
+# MDLxL 0.26.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -27,7 +27,7 @@ The `dist/` build output and the FFmpeg binaries are not stored in git. After pu
 
 ## Current version
 
-Version 0.25.1 is a hotfix: with the workplane off, Shift now locks a drag to the chosen XY, ZX or YZ plane at any camera angle, and held vertices no longer jump. See [the 0.25.1 release notes](docs/RELEASE-0.25.1.md). Version 0.25.0 added a portrait camera editor in Movement, Hide extras for geosets, BITZ replacement parts in the vertex editor, and cleaner geoset pasting.
+Version 0.26.0 reworks NormalsXL: it recalculates normals the Model Studio way without adding vertices, shows the normal lines while open, and has a separate Fix facing button. Models with an unused geoset color or MDLVis editor data can now be saved as MDL. See [the 0.26.0 release notes](docs/RELEASE-0.26.0.md). Version 0.25.1 fixed the Shift plane lock with the workplane off.
 
 ## Releases
 
@@ -41,6 +41,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.26.0](docs/RELEASE-0.26.0.md) ([ES](docs/RELEASE-0.26.0-ES.md), [RU](docs/RELEASE-0.26.0-RU.md), [ZH-CN](docs/RELEASE-0.26.0-ZH-CN.md))
 - [0.25.1](docs/RELEASE-0.25.1.md) ([ES](docs/RELEASE-0.25.1-ES.md), [RU](docs/RELEASE-0.25.1-RU.md), [ZH-CN](docs/RELEASE-0.25.1-ZH-CN.md))
 - [0.25.0](docs/RELEASE-0.25.0.md) ([ES](docs/RELEASE-0.25.0-ES.md), [RU](docs/RELEASE-0.25.0-RU.md), [ZH-CN](docs/RELEASE-0.25.0-ZH-CN.md))
 - [0.24.2](docs/RELEASE-0.24.2.md) ([ES](docs/RELEASE-0.24.2-ES.md), [RU](docs/RELEASE-0.24.2-RU.md), [ZH-CN](docs/RELEASE-0.24.2-ZH-CN.md))
