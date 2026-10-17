@@ -985,7 +985,7 @@ function flattenPastedGeosetAnimation(anim) {
 }
 
 /** Append selected geometry with its required rig, textures and animation dependencies. */
-export function importGeosets(target, source, selectedIndices = source.Geosets.map((_, i) => i), anchor = null, { sameModel = false, targetGeoset = null, rigidNode = null, existingNodeMap = null, flattenGeosetAnimations = false } = {}) {
+export function importGeosets(target, source, selectedIndices = source.Geosets.map((_, i) => i), anchor = null, { sameModel = false, targetGeoset = null, rigidNode = null, existingNodeMap = null, flattenGeosetAnimations = false, newGeosets = false } = {}) {
   source = adaptPasteFormat(source, target.Version);
   if (anchor && typeof anchor === 'object') anchor = anchor.ObjectId;
   if (anchor != null && !target.Nodes?.[anchor]) throw new Error('The destination anchor node does not exist.');
@@ -1105,7 +1105,7 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
       if (g.SkinWeights?.length) g.SkinWeights = (target.Version >= 1400 ? Uint16Array : Uint8Array).from(g.SkinWeights);
     }
     const requestedTarget = indices.length === 1 && Number.isInteger(targetGeoset) && targetGeoset >= 0 ? targetGeoset : index;
-    const destination = reuseExisting && target.Geosets[requestedTarget]?.MaterialID === g.MaterialID ? requestedTarget : null;
+    const destination = reuseExisting && !newGeosets && target.Geosets[requestedTarget]?.MaterialID === g.MaterialID ? requestedTarget : null;
     if (destination != null) {
       const added = appendGeosetGeometry(target.Geosets[destination], g);
       maps.geosets.set(index, destination);
