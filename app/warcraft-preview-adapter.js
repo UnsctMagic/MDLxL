@@ -1,3 +1,4 @@
+import { portraitFragmentDeclarations, portraitFragmentLight, portraitLightDeclarations, portraitLightCalculation } from './portrait-lighting.js';
 import { sampleTrack, sampleGeosetAnimation } from '../src/animation.js';
 import { previewLighting } from '../src/preview-lighting.js';
 
@@ -10,7 +11,7 @@ export function patchWarcraftMeshFragmentShader(source) {
   const legacyLighting = hd
     ? `    if (uMdlxlLighting < .5) ${output}.rgb = pow(baseColor.rgb, vec3(1. / gamma));\n`
     : `    if (uMdlxlLighting > .5) ${output}.rgb *= .55 + .45 * max(0., dot(normalize(vNormal), normalize(uMdlxlLightDirection)));\n`;
-  const lighting = `    if (uMdlxlSurface > .5) { ${output}.rgb = vec3(.663, .714, .757); ${hd ? 'baseColor.rgb = mdlxlDecodeSRGB(vec3(.663, .714, .757));' : ''} }\n    ${hd ? '' : `if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) ${output}.rgb *= vMdlxlPortraitLight; } else `}if (uMdlxlLegacy > .5) {\n${legacyLighting}    } else if (uMdlxlLighting > .5) {
+  const lighting = `    if (uMdlxlSurface > .5) { ${output}.rgb = vec3(.663, .714, .757); ${hd ? 'baseColor.rgb = mdlxlDecodeSRGB(vec3(.663, .714, .757));' : ''} }\n    ${hd ? '' : `if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) ${output}.rgb *= ${portraitFragmentLight}; } else `}if (uMdlxlLegacy > .5) {\n${legacyLighting}    } else if (uMdlxlLighting > .5) {
         vec3 inspectionNormal = ${hd ? 'normal' : 'vNormal'};
         inspectionNormal = dot(inspectionNormal, inspectionNormal) > 1.e-12 ? normalize(inspectionNormal) : normalize(uMdlxlViewDirection);
         ${hd ? '// HD normal mapping already accounts for face orientation.' : 'if (!gl_FrontFacing) inspectionNormal = -inspectionNormal;'}
@@ -26,7 +27,7 @@ export function patchWarcraftMeshFragmentShader(source) {
   const header = source.startsWith('#version 300 es') ? '' : '#version 300 es\nprecision highp float;\nout vec4 mdlxlFragmentColor;\n#define gl_FragColor mdlxlFragmentColor\n';
   if (header) source = source.replace(/\bvarying\b/g, 'in').replace(/\btexture2D\b/g, 'texture').replace(/\btextureCube\b/g, 'texture');
   return header + source.replace('precision mediump float;', 'precision highp float;')
-    .replace(/void main\s*\(/, `${hd ? '' : 'uniform float uMdlxlPortrait;\nin float vMdlxlPortraitLight;\n'}void main(`)
+    .replace(/void main\s*\(/, `${hd ? '' : portraitFragmentDeclarations}void main(`)
     .replace(/void main\s*\(/, `vec3 mdlxlDecodeSRGB(vec3 c) { return mix(c / 12.92, pow((c + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c)); }\nvec3 mdlxlEncodeSRGB(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(vec3(.0031308), c)); }\nvoid main(`)
     .replace('uniform float uWireframe;', 'uniform float uWireframe;\nuniform vec4 uMdlvisGeosetTint;\nuniform float uMdlxlLighting;\nuniform vec3 uMdlxlLightDirection;\nuniform float uMdlxlCoverage;\nuniform float uMdlxlSurface;\nuniform vec3 uMdlxlAmbient;\nuniform vec3 uMdlxlDiffuse;\nuniform vec3 uMdlxlSpecular;\nuniform float uMdlxlPower;\nuniform float uMdlxlLegacy;\nuniform vec3 uMdlxlViewDirection;')
     .replace(/if \((?:gl_FragColor|FragColor)\[3\] < uDiscardAlphaLevel\) \{\s*discard;\s*}/, `if (uDiscardAlphaLevel > 0. && uMdlxlCoverage > .5) {\n        float edge = max(fwidth(${output}.a), .001);\n        ${output}.a = smoothstep(uDiscardAlphaLevel - edge, uDiscardAlphaLevel + edge, ${output}.a);\n        if (${output}.a <= 0.) discard;\n    } else if (${output}.a < uDiscardAlphaLevel) { discard; }`)
@@ -36,16 +37,15 @@ export function patchWarcraftMeshFragmentShader(source) {
 /** The upstream SD vertex shader skins positions but leaves normals in bind pose. */
 export function patchWarcraftMeshVertexShader(source) {
   if (source.includes('aNormal') && source.includes('uMVMatrix') && source.includes('vTextureCoord') && !source.startsWith('#version 300 es')) source = '#version 300 es\n' + source.replace(/\battribute\b/g, 'in').replace(/\bvarying\b/g, 'out');
-  if (!source.includes('aGroup') || !source.includes('vNormal = aNormal;')) return source;
-  return source.replace(/void main\s*\(/, 'uniform vec3 uMdlxlLightDirection;\nout float vMdlxlPortraitLight;\nvoid main(')
-    .replace('vNormal = aNormal;', `vec3 posedNormal = mat3(uNodesMatrices[int(aGroup[0])]) * aNormal;
-    if (aGroup[1] < \${MAX_NODES}.) posedNormal += mat3(uNodesMatrices[int(aGroup[1])]) * aNormal;
-    if (aGroup[2] < \${MAX_NODES}.) posedNormal += mat3(uNodesMatrices[int(aGroup[2])]) * aNormal;
-    if (aGroup[3] < \${MAX_NODES}.) posedNormal += mat3(uNodesMatrices[int(aGroup[3])]) * aNormal;
-    vNormal = normalize(posedNormal);
-    // Classic portrait lighting is vertex-lit, clamped, and multiplied directly
-    // into texture RGB (not the editor's linear/sRGB inspection lighting).
-    vMdlxlPortraitLight = clamp(.3 + max(0., dot(vNormal, normalize(uMdlxlLightDirection))), 0., 1.);`.replaceAll('${MAX_NODES}', /uNodesMatrices\[(\d+)\]/.exec(source)?.[1] || '256'));
+  if (!source.includes('vNormal = aNormal;')) return source;
+  const count = /uNodesMatrices\[(\d+)\]/.exec(source)?.[1] || '256';
+  const normal = source.includes('aGroup') ? `vec3 posedNormal = mat3(uNodesMatrices[int(aGroup[0])]) * aNormal;
+    if (aGroup[1] < ${count}.) posedNormal += mat3(uNodesMatrices[int(aGroup[1])]) * aNormal;
+    if (aGroup[2] < ${count}.) posedNormal += mat3(uNodesMatrices[int(aGroup[2])]) * aNormal;
+    if (aGroup[3] < ${count}.) posedNormal += mat3(uNodesMatrices[int(aGroup[3])]) * aNormal;
+    vNormal = normalize(posedNormal);` : 'vNormal = normalize(aNormal);';
+  return source.replace(/void main\s*\(/, 'uniform vec3 uMdlxlLightDirection;\n' + portraitLightDeclarations + 'void main(')
+    .replace('vNormal = aNormal;',normal + portraitLightCalculation);
 }
 
 export function previewGeosetTint(model, geosetIndex, layer, frame, sequenceIndex, globalTime = frame, hideRgb = false) {
@@ -202,10 +202,12 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           // Surface View is an inspection material: its faces must remain
           // shaded even when the authored texture layer is Unshaded.
           if (lightingLocation) this.uniform1f(lightingLocation, surface || getClock().lighting !== false && !(activeLayer?.Shading & 1) ? 1 : 0);
-          if (portraitLocation) this.uniform1f(portraitLocation, getClock().portrait ? 1 : 0);
-          if (lightDirectionLocation) this.uniform3fv(lightDirectionLocation, getClock().lightDirection || [-.65, .55, 1]);
+          // Experimental DNC rig only (2); 1 keeps the verified MiscData light.
+          const portraitLight = getClock().portrait ? getClock().portraitLight : null;
+          if (portraitLocation) this.uniform1f(portraitLocation, getClock().portrait ? portraitLight ? 2 : 1 : 0);
+          if (lightDirectionLocation) this.uniform3fv(lightDirectionLocation, getClock().portrait && getClock().portraitLight?.direction || getClock().lightDirection || [-.65, .55, 1]);
           const lighting = previewLighting(getClock().preferences);
-          for (const name of ['Ambient', 'Diffuse', 'Specular']) if (lightUniforms[name]) this.uniform3fv(lightUniforms[name], lighting[name.toLowerCase()]);
+          for (const name of ['Ambient', 'Diffuse', 'Specular']) if (lightUniforms[name]) this.uniform3fv(lightUniforms[name], portraitLight && name !== 'Specular' ? portraitLight[name === 'Ambient' ? 'ambient' : 'color'] : lighting[name.toLowerCase()]);
           if (lightUniforms.Power) this.uniform1f(lightUniforms.Power, lighting.power);
           if (lightUniforms.Legacy) this.uniform1f(lightUniforms.Legacy, lighting.preset === 'legacy' ? 1 : 0);
           if (lightUniforms.ViewDirection) this.uniform3fv(lightUniforms.ViewDirection, getClock().viewDirection || [0, 0, 1]);

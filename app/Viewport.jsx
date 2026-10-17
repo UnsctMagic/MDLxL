@@ -24,14 +24,14 @@ import { decodeBLP, getBLPImageData } from 'war3-model';
 import { advanceSequence, allNodes, inverseGeosetSkinMatrix, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
 import { decodeDds } from '../src/dds.js';
 import { decodeBlp2 } from '../src/blp2.js';
-import { applySelection, dragScale, insideTriangle, marqueeContainsPoint, moveDragPoint, planeAxes } from './classic-gestures.js';
+import { applySelection, dragScale, insideTriangle, marqueeContainsPoint, moveDragPoint, planeAxes, shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
 import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
 import { projectCompassAxes } from './viewport-compass.js';
 import { configureWideWirePattern } from '../src/wire-pattern.js';
 
-import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, projectedPlaneTranslation, quadProjectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
+import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, quadProjectedPlaneTranslation } from './viewport-math.js';
 import { createViewportGrid } from './viewport-grid.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
 import { backgroundImageRect } from '../src/viewport-appearance.js';
@@ -482,7 +482,7 @@ export default function Viewport(inputProps) {
         if(picked){
           const ids=movementNodeSelection(p.selectedNodeIds||[],picked.node.ObjectId,{multiple:true,shift:event.shiftKey,ctrl:false});
           p.onSelectNodes(ids);down.action='node';
-          if(p.onNodeTransform&&p.transformMode==='translate'&&ids.includes(picked.node.ObjectId))state.nodeDrag={ids,pivot:picked.world.clone(),workplane:quad&&boundPane.workplane||p.workplane,workplaneEnabled:!!(quad&&boundPane.workplane)||p.workplaneEnabled!==false,delta:new THREE.Vector3(),moved:false};
+          if(p.onNodeTransform&&p.transformMode==='translate'&&ids.includes(picked.node.ObjectId))state.nodeDrag={ids,pivot:picked.world.clone(),workplane:quad&&boundPane.workplane||p.workplane,workplaneEnabled:!!(quad&&boundPane.workplane)||p.workplaneEnabled!==false,delta:new THREE.Vector3(),moved:false,latch:shiftDragLatch(start,event.shiftKey)};
           invalidate();event.preventDefault();event.stopImmediatePropagation();return;
         }
       }
@@ -515,14 +515,18 @@ export default function Viewport(inputProps) {
       if (anchorIndices?.includes(anchor.vertexIndex)) pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
       down.pivotScreen = screenPosition(pivot, start);
       const lockedPlane = quad && boundPane.workplane;
-      state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null } };
+      state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null }, latch: shiftDragLatch(start, event.shiftKey) };
     }
     function translateInPlane(start, end, drag, constrain) {
-      if (!drag.workplaneEnabled) return screenPlaneTranslation(camera, drag.pivot, end.width, end.height, end.x - start.x, end.y - start.y, constrain);
+      if (!drag.workplaneEnabled) return freeDragTranslation(camera, drag.pivot, end.width, end.height, end.x - start.x, end.y - start.y, { shift: constrain, workplane: drag.workplane });
       const axes = planeAxes(drag.workplane), center = screenPosition(drag.pivot, end);
       const basis = axes.map(axis => { const value = drag.pivot.clone(); value.setComponent(axis, value.getComponent(axis) + 1); return screenPosition(value, end).sub(center).toArray(); });
       const solve = quad ? quadProjectedPlaneTranslation : projectedPlaneTranslation;
       return new THREE.Vector3().fromArray(solve(drag.workplane, basis, end.x - start.x, end.y - start.y, constrain));
+    }
+    /** Single view: Shift toggles mid-drag continue from the visible position. */
+    function shiftTranslation(end, drag, shift) {
+      return new THREE.Vector3().fromArray(shiftDragOffset(drag.latch, end, shift, (from, to, held) => translateInPlane(from, to, drag, held).toArray()));
     }
     function showBox(value) { setBox({ ...value, left: value.left + (boundPane.rect?.left || 0), top: value.top + (boundPane.rect?.top || 0) }); }
     function pointerMove(event) {
@@ -549,7 +553,7 @@ export default function Viewport(inputProps) {
       }
       if (down.action === 'select') { if (Math.hypot(dx, dy) > 5) showBox({ left: Math.min(down.x, end.x), top: Math.min(down.y, end.y), width: Math.abs(dx), height: Math.abs(dy) }); return; }
       if(down.action==='node'){
-        const drag=state.nodeDrag;if(drag){drag.delta=translateInPlane(down,end,drag,event.shiftKey);drag.moved=Math.hypot(dx,dy)>1;invalidate();}
+        const drag=state.nodeDrag;if(drag){drag.delta=quad?translateInPlane(down,end,drag,event.shiftKey):shiftTranslation(end,drag,event.shiftKey);drag.moved=Math.hypot(dx,dy)>1;invalidate();}
         return;
       }
       const drag = state.drag; if (!drag) return;
@@ -558,7 +562,7 @@ export default function Viewport(inputProps) {
       if (drag.action === 'translate') {
         translation.copy(quad
           ? translateInPlane(down, moveDragPoint(drag.move, end, event.shiftKey), drag, false)
-          : translateInPlane(down, end, drag, event.shiftKey));
+          : shiftTranslation(end, drag, event.shiftKey));
         payload.translation = translation.toArray();
       }
       if (drag.action === 'scale') { scale.fromArray(dragScale(dx, drag.workplane, event.shiftKey)); payload.scale = scale.toArray(); payload.allowSingularScale = true; }

@@ -126,15 +126,17 @@ test('text parser validates duplicates, shape, ranges, times and timing, and pre
   assert.throws(() => parseAnimationTrackText('100: 1', { globalSeqId: 2, globalSequences: [500] }), /existing global/);
 });
 
-test('global tracks keep their timing for frame edits and reject ambiguous sequence-wide changes', () => {
+test('global tracks keep their timing for frame edits and move to model sequences on Set Sequence', () => {
   const model = fixture();
   model.GeosetAnims[0].Alpha = { GlobalSeqId: 0, LineType: 0, Keys: [key(0, 1)] };
   setAnimationKey(model, [geo()], 1100, 0, 1);
   assert.deepEqual(frames(model.GeosetAnims[0].Alpha), [0, 100]);
   assert.equal(model.GeosetAnims[0].Alpha.GlobalSeqId, 0);
-  const before = structuredClone(model);
-  assert.throws(() => setAnimationSequences(model, [geo()], 1), /global sequence/);
-  assert.deepEqual(model, before);
+  setAnimationSequences(model, [geo()], 0.25, [1]);
+  const track = model.GeosetAnims[0].Alpha;
+  assert.equal(track.GlobalSeqId, null);
+  assert.deepEqual(frames(track), [100, 1000, 1300]);
+  assert.deepEqual(track.Keys.map(k => k.Vector[0]), [1, 0.25, 0.25]);
 });
 
 test('RGB and visibility keys can be authored on the selected global sequence', () => {

@@ -164,10 +164,10 @@ export function prepareClipboardPaste(model, clipboard, { parent = null, special
     if (parent != null && !target.Nodes[parent]) { parent = ensureDummyBone(target).ObjectId; repairs.add('Restore the missing paste parent with DummyBone.'); }
     const existingNodeMap = existingNodes && new Map([...existingNodes].map(([oldId, node]) => [sourceRemapped.get(oldId) ?? oldId, node.ObjectId]));
     if (sameModel && [...sourceIds].some(id => !existingNodeMap.has(sourceRemapped.get(id) ?? id))) { sameModel = false; repairs.add('Restore missing copied rig nodes.'); }
-    result = importGeosets(target, source.model, source.indices, parent, { sameModel, targetGeoset, existingNodeMap });
+    result = importGeosets(target, source.model, source.indices, parent, { sameModel, targetGeoset, existingNodeMap, flattenGeosetAnimations: !sameModel });
   } else {
     const weighted = source.indices.some(index => source.model.Geosets[index]?.SkinWeights?.length), dummy = ensureDummyBone(target, { weighted });
-    result = importGeosets(target, source.model, source.indices, null, { rigidNode: dummy.ObjectId });
+    result = importGeosets(target, source.model, source.indices, null, { rigidNode: dummy.ObjectId, flattenGeosetAnimations: !sameModel });
     applyMeshClipboardColors(target, result.geosetMap, source.rgbByGeoset);
   }
   return { model: target, result, repairs: [...repairs] };

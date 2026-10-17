@@ -1,3 +1,4 @@
+import { editorCameraSnapshot } from '../app/portrait-view.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PerspectiveCamera } from 'three';
@@ -97,4 +98,54 @@ test('reconnecting a camera detaches input recovery from its old canvas', () => 
     document.dispatchEvent(pointer('pointermove', { clientX: 180 }));
     assert.ok(camera.position.distanceTo(before) > 1, 'old lost capture cannot cancel the new canvas');
   } finally { controls.dispose(); }
+});
+
+
+test('portrait orbit changes height and wheel distance is independent of lens zoom', () => {
+  const { document,surface,camera,controls } = scene(); controls.portraitDolly = () => true;
+  try {
+    const z = camera.position.z;
+    surface.dispatchEvent(pointer('pointerdown'));
+    document.dispatchEvent(pointer('pointermove',{clientY:145}));
+    document.dispatchEvent(pointer('pointerup',{buttons:0}));
+    assert.ok(Math.abs(camera.position.z - z) > 1, 'vertical mouse drag changes camera height');
+    const before = camera.position.distanceTo(controls.target), fov = camera.fov, zoom = camera.zoom;
+    surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaY:-100,deltaMode:0,clientX:100,clientY:100,shiftKey:false}));
+    assert.ok(camera.position.distanceTo(controls.target) < before); assert.equal(camera.zoom,zoom); assert.equal(camera.fov,fov);
+    const distance = camera.position.distanceTo(controls.target);
+    surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaY:-100,deltaMode:0,clientX:100,clientY:100,shiftKey:true}));
+    assert.ok(camera.zoom > zoom); assert.ok(Math.abs(camera.position.distanceTo(controls.target) - distance) < 1e-6);
+    controls.portraitDolly = () => false;
+    const normalDistance = camera.position.distanceTo(controls.target);
+    surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaY:100,deltaMode:0,clientX:100,clientY:100,shiftKey:false}));
+    assert.ok(Math.abs(camera.position.distanceTo(controls.target) - normalDistance) < 1e-6, 'other viewports retain their lens zoom');
+  } finally { controls.dispose(); }
+});
+
+
+test('extreme portrait lens zoom stays inside the model camera FOV range', () => {
+  const {surface,camera,controls}=scene();controls.portraitDolly=()=>true;
+  try {
+    for(let i=0;i<100;i++)surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaY:100,deltaMode:0,clientX:100,clientY:100,shiftKey:true}));
+    const view=editorCameraSnapshot(camera,controls.target);
+    assert.ok(view.fieldOfView>0 && view.fieldOfView<Math.PI);
+  } finally { controls.dispose(); }
+});
+
+test('Shift+wheel reported as horizontal scroll (deltaX only) still zooms, in portrait and other viewports', () => {
+  for (const portrait of [true, false]) {
+    const {surface,camera,controls}=scene();controls.portraitDolly=()=>portrait;
+    try {
+      const zoom=camera.zoom, distance=camera.position.distanceTo(controls.target);
+      surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaX:-100,deltaY:0,deltaMode:0,clientX:100,clientY:100,shiftKey:true}));
+      assert.ok(camera.zoom>zoom,'zoomed in');
+      if (portrait) assert.ok(Math.abs(camera.position.distanceTo(controls.target)-distance)<1e-6,'portrait Shift zooms the lens, not the distance');
+      const zoomed=camera.zoom;
+      surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaX:100,deltaY:0,deltaMode:1,clientX:100,clientY:100,shiftKey:true}));
+      assert.ok(camera.zoom<zoomed,'zoomed out in line mode');
+      const unshifted=camera.zoom;
+      surface.dispatchEvent(Object.assign(new Event('wheel'),{deltaX:-100,deltaY:0,deltaMode:0,clientX:100,clientY:100,shiftKey:false}));
+      assert.equal(camera.zoom,unshifted,'plain horizontal scroll stays ignored');
+    } finally { controls.dispose(); }
+  }
 });

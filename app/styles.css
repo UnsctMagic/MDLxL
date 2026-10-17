@@ -98,3 +98,4 @@
 .normalizer-actions{display:flex;gap:4px}
 .normalizer-actions button{padding:4px 8px}
 .normalizer-actions button:last-child{margin-left:auto}
+.classic-selection-actions button[aria-pressed=true]{border-style:inset;box-shadow:inset 1px 1px 2px #555;font-weight:bold}

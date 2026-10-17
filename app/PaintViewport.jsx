@@ -24,12 +24,12 @@ import { decodePaintBlp } from '../src/paint-blp.js';
 import { advanceSequence, allNodes, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
 import { decodeDds } from '../src/dds.js';
 import { decodeBlp2 } from '../src/blp2.js';
-import { applySelection, dragScale, insideTriangle, marqueeContainsPoint, planeAxes } from './classic-gestures.js';
+import { applySelection, dragScale, insideTriangle, marqueeContainsPoint, planeAxes, shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
 import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
 
-import { applyViewPreset, applyModelCamera, updateDepthClipping, modelClipRadius, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
+import { applyViewPreset, applyModelCamera, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation } from './viewport-math.js';
 import { createViewportGrid } from './viewport-grid.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
 import { backgroundImageRect } from '../src/viewport-appearance.js';
@@ -402,10 +402,10 @@ export default function Viewport(inputProps) {
       const anchor = p.zoomAnchor, anchorIndices = anchor && selectedMap[anchor.geosetIndex];
       if (anchorIndices?.includes(anchor.vertexIndex)) pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
       down.pivotScreen = screenPosition(pivot, start);
-      state.drag = { ...down, selections: selectedMap, snapshots, pivot, workplane: p.workplane, workplaneEnabled: p.workplaneEnabled !== false, payload: null };
+      state.drag = { ...down, selections: selectedMap, snapshots, pivot, workplane: p.workplane, workplaneEnabled: p.workplaneEnabled !== false, payload: null, latch: shiftDragLatch(start, event.shiftKey) };
     }
     function translateInPlane(start, end, drag, constrain) {
-      if (!drag.workplaneEnabled) return screenPlaneTranslation(camera, drag.pivot, end.width, end.height, end.x - start.x, end.y - start.y, constrain);
+      if (!drag.workplaneEnabled) return freeDragTranslation(camera, drag.pivot, end.width, end.height, end.x - start.x, end.y - start.y, { shift: constrain, workplane: drag.workplane });
       const axes = planeAxes(drag.workplane), center = screenPosition(drag.pivot, end);
       const basis = axes.map(axis => { const value = drag.pivot.clone(); value.setComponent(axis, value.getComponent(axis) + 1); return screenPosition(value, end).sub(center).toArray(); });
       return new THREE.Vector3().fromArray(projectedPlaneTranslation(drag.workplane, basis, end.x - start.x, end.y - start.y, constrain));
@@ -442,7 +442,7 @@ export default function Viewport(inputProps) {
       const drag = state.drag; if (!drag) return;
       const payload = { selections: drag.selections, geosetIndex: latest.current.selectedGeoset, indices: drag.selections[latest.current.selectedGeoset] || [], pivot: drag.pivot.toArray() };
       const rotation = new THREE.Euler(), scale = new THREE.Vector3(1, 1, 1), translation = new THREE.Vector3();
-      if (drag.action === 'translate') { translation.copy(translateInPlane(down, end, drag, event.shiftKey)); payload.translation = translation.toArray(); }
+      if (drag.action === 'translate') { translation.fromArray(shiftDragOffset(drag.latch, end, event.shiftKey, (from, to, held) => translateInPlane(from, to, drag, held).toArray())); payload.translation = translation.toArray(); }
       if (drag.action === 'scale') { scale.fromArray(dragScale(dx, drag.workplane, event.shiftKey)); payload.scale = scale.toArray(); payload.allowSingularScale = true; }
       if (drag.action === 'rotate') {
         const a = new THREE.Vector2(down.x, down.y).sub(drag.pivotScreen), b = new THREE.Vector2(end.x, end.y).sub(drag.pivotScreen);
