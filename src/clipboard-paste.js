@@ -108,6 +108,36 @@ function repairDependencies(model, repairs, indices, nodeIds) {
   (model.GeosetAnims || []).filter(animation => indices.includes(animation.GeosetId)).forEach(tracks);
 }
 
+/** For each copied geoset whose every bound node still exists in the model
+ * under the same ID and name, map the copied IDs to those nodes. */
+function originalBindings(source, indices, existingNodes, builtWeights) {
+  const bindings = new Map();
+  for (const index of indices) {
+    const geoset = source.Geosets[index], ids = new Set((geoset.Groups || []).flat());
+    if (!builtWeights.has(index)) for (let offset = 0; offset < (geoset.SkinWeights?.length || 0); offset += 8) for (let influence = 0; influence < 4; influence++)
+      if (geoset.SkinWeights[offset + 4 + influence]) ids.add(geoset.SkinWeights[offset + influence]);
+    if (builtWeights.has(index) || !ids.size) continue;
+    const nodes = new Map();
+    for (const id of ids) {
+      const node = existingNodes.get(id), original = source.Nodes?.[id];
+      if (!node || !original || node.Name !== original.Name) break;
+      nodes.set(id, node);
+    }
+    if (nodes.size === ids.size) bindings.set(index, nodes);
+  }
+  return bindings;
+}
+
+function mergeImportResults(parts) {
+  const merged = { geosetIndices: [], geosetMap: {}, selection: {}, nodeMap: {}, materialMap: {}, textureMap: {}, warnings: [] };
+  for (const part of parts) {
+    merged.geosetIndices.push(...part.geosetIndices);
+    for (const key of ['geosetMap', 'selection', 'nodeMap', 'materialMap', 'textureMap']) Object.assign(merged[key], part[key]);
+    merged.warnings.push(...part.warnings.filter(warning => !merged.warnings.includes(warning)));
+  }
+  return merged;
+}
+
 /** Build the complete paste on copies so a repair prompt never partially edits
  * a document. Committing this model through EditorDocument.apply is one Undo. */
 export function prepareClipboardPaste(model, clipboard, { parent = null, special = false, sameModel = false, targetGeoset = null } = {}) {
@@ -115,6 +145,7 @@ export function prepareClipboardPaste(model, clipboard, { parent = null, special
   const existingNodes = sameModel ? new Map(serializedNodes(target).map(node => [node.ObjectId, node])) : null;
   if (source.model.Version !== target.Version) repairs.add(`Adapt the copied objects from MDX${source.model.Version} to MDX${target.Version}${target.Version === 800 ? ' using Classic geometry and diffuse materials' : ''}.`);
   source.model = adaptPasteFormat(source.model, target.Version);
+  const builtWeights = new Set();
   if (source.kind !== 'nodes' && !special && target.Version >= 900) {
     const targetHD = target.Geosets.some(geoset => geoset.SkinWeights?.length);
     if (targetHD) for (const index of source.indices) {
@@ -122,6 +153,7 @@ export function prepareClipboardPaste(model, clipboard, { parent = null, special
       if (!geoset.SkinWeights?.length) {
         geoset.SkinWeights = new (target.Version >= 1400 ? Uint16Array : Uint8Array)(count * 8);
         for (let offset = 0; offset < geoset.SkinWeights.length; offset += 8) geoset.SkinWeights[offset + 4] = 255;
+        builtWeights.add(index);
         repairs.add('Build HD skin weights for the copied geometry.');
       }
       if (!geoset.Tangents?.length) { geoset.Tangents = forgeTangents(geoset); repairs.add('Build tangents for the copied geometry.'); }
@@ -166,8 +198,18 @@ export function prepareClipboardPaste(model, clipboard, { parent = null, special
     if (sameModel && [...sourceIds].some(id => !existingNodeMap.has(sourceRemapped.get(id) ?? id))) { sameModel = false; repairs.add('Restore missing copied rig nodes.'); }
     result = importGeosets(target, source.model, source.indices, parent, { sameModel, targetGeoset, existingNodeMap, flattenGeosetAnimations: !sameModel });
   } else {
-    const weighted = source.indices.some(index => source.model.Geosets[index]?.SkinWeights?.length), dummy = ensureDummyBone(target, { weighted });
-    result = importGeosets(target, source.model, source.indices, null, { rigidNode: dummy.ObjectId, flattenGeosetAnimations: !sameModel });
+    // A copy pasted back into its own model keeps the bones it was bound to;
+    // geometry whose bones are gone (or never existed) goes on DummyBone.
+    const bones = sameModel ? originalBindings(source.model, source.indices, existingNodes, builtWeights) : new Map();
+    const kept = source.indices.filter(index => bones.has(index)), loose = source.indices.filter(index => !bones.has(index));
+    const weighted = loose.some(index => source.model.Geosets[index]?.SkinWeights?.length), dummy = loose.length ? ensureDummyBone(target, { weighted }) : null;
+    const parts = [];
+    if (kept.length) {
+      const existingNodeMap = new Map(kept.flatMap(index => [...bones.get(index)].map(([id, node]) => [id, node.ObjectId])));
+      parts.push(importGeosets(target, source.model, kept, null, { sameModel: true, newGeosets: true, existingNodeMap }));
+    }
+    if (loose.length) parts.push(importGeosets(target, source.model, loose, null, { rigidNode: dummy.ObjectId, flattenGeosetAnimations: !sameModel }));
+    result = parts.length === 1 ? parts[0] : mergeImportResults(parts);
     applyMeshClipboardColors(target, result.geosetMap, source.rgbByGeoset);
   }
   return { model: target, result, repairs: [...repairs] };

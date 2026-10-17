@@ -203,3 +203,38 @@ test('geosets pasted from another model take their most common RGB and no global
   assert.equal(target.model.GlobalSequences?.length || 0, globals);
   roundTrip(target);
 });
+
+test('a geoset pasted back into its own model stays on the bones it was bound to', () => {
+  const target = createDemoDocument(), clipboard = copiedMesh(target), bones = clipboard.model.Geosets[0].Groups.flat();
+  const nodes = target.model.Nodes.filter(Boolean).length, count = target.model.Geosets.length, original = structuredClone(target.model.Geosets[0]);
+  const plan = prepareClipboardPaste(target.model, clipboard, { sameModel: true }); commit(target, plan);
+  assert.deepEqual(plan.result.geosetIndices, [count]);
+  assert.deepEqual(target.model.Geosets[count].Groups.flat(), bones);
+  assert.equal(target.model.Nodes.filter(Boolean).length, nodes);
+  assert.equal(target.model.Bones.some(node => node.Name === 'DummyBone'), false);
+  assert.deepEqual(target.model.Geosets[0].Vertices, original.Vertices);
+  roundTrip(target);
+});
+
+test('a same-model paste whose bone is gone, or that has no bone, goes on DummyBone', () => {
+  const target = createDemoDocument();
+  target.apply('Own bone', [], model => { const bone = createNode(model, 'Bone'); bone.Name = 'Lone_Bone'; model.Geosets[0].Groups = [[bone.ObjectId]]; });
+  const clipboard = captureMeshSelection(target.model, {}, new Set([0, 1])), oldId = clipboard.model.Geosets[0].Groups[0][0];
+  assert.ok(!clipboard.model.Geosets[1].Groups.flat().includes(oldId));
+  target.apply('Remove bone', [], model => { model.Bones = model.Bones.filter(node => node.ObjectId !== oldId); model.Geosets[0].Groups = model.Geosets[1].Groups.map(group => [...group]); });
+  const count = target.model.Geosets.length;
+  const plan = prepareClipboardPaste(target.model, clipboard, { sameModel: true }); commit(target, plan);
+  const dummy = target.model.Bones.find(node => node.Name === 'DummyBone');
+  assert.ok(dummy);
+  const pasted = plan.result.geosetIndices.map(index => target.model.Geosets[index]);
+  assert.equal(pasted.length, 2);
+  assert.ok(pasted.some(geoset => geoset.Groups.flat().every(id => id === dummy.ObjectId)));
+  assert.ok(pasted.some(geoset => geoset.Groups.flat().every(id => target.model.Nodes[id].Name !== 'DummyBone')));
+  assert.equal(target.model.Geosets.length, count + 2);
+  roundTrip(target);
+
+  const empty = createDemoDocument(), unbound = copiedMesh(empty); unbound.model.Geosets[0].Groups = [];
+  const next = prepareClipboardPaste(empty.model, unbound, { sameModel: true });
+  const geoset = next.model.Geosets[next.result.geosetIndices[0]];
+  assert.equal(next.model.Nodes[geoset.Groups[0][0]].Name, 'DummyBone');
+});
