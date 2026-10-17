@@ -1,30 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Grid2X2, Square } from 'lucide-react';
 import Viewport, { textureFromAsset } from './Viewport.jsx';
-import ModernIcon from './ModernIcon.jsx';
 import { openDocument, validateModel } from '../src/editor-document.js';
 import { HD_UNSUPPORTED_MESSAGE } from '../src/model-version.js';
-import { collectPart, partPathKey, partRgbSnapshot, partTextureIndices, partTextureKey, positionPart, previewPart, previewPartReplacement, transformPart } from '../src/bits-and-parts.js';
+import { collectPart, partPathKey, partRgbSnapshot, partTextureIndices, partTextureKey, positionPart, previewPart, previewPartReplacement } from '../src/bits-and-parts.js';
 import CollectBit from './CollectBit.jsx';
 import PartAnimations from './PartAnimations.jsx';
 import './bits-and-parts.css';
 
 function FolderTree({ entries, selected, onSelect }) {
   return <ul>{entries.map(entry => <li key={entry.id}>{entry.type === 'folder' ? <details open><summary>{entry.name}</summary><FolderTree entries={entry.children} selected={selected} onSelect={onSelect}/></details> : <button className={entry.id === selected ? 'selected' : ''} title={entry.id} onClick={() => onSelect(entry)}>{entry.name}</button>}</li>)}</ul>;
-}
-
-function PlacementMenu({ quad, onQuad, view, onView, plane, onPlane, tool, onTool, hasPart, busy }) {
-  return <div className="parts-placement-menu" role="toolbar" aria-label={`${quad ? 'Quad' : 'Normal'} placement mini-menu`}>
-    <div className="parts-placement-layout">
-      <button type="button" title="Quad View" aria-label="Quad View" aria-pressed={quad} disabled={busy} onClick={() => onQuad(true)}><Grid2X2 size={18} aria-hidden="true"/></button>
-      <button type="button" title="Normal View" aria-label="Normal View" aria-pressed={!quad} disabled={busy} onClick={() => onQuad(false)}><Square size={18} aria-hidden="true"/></button>
-    </div>
-    {!quad && <>
-      <select aria-label="Placement view" value={view} disabled={busy} onChange={event => onView(event.target.value)}>{['perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'].map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select>
-      <fieldset className="parts-placement-planes" aria-label="Placement plane">{[['xy', 'XY'], ['xz', 'ZX'], ['yz', 'YZ']].map(([value, label]) => <label key={value}><input type="radio" name="part-workplane" aria-label={`${label} placement plane`} checked={plane === value} disabled={busy} onChange={() => onPlane(value)}/>{label}</label>)}</fieldset>
-    </>}
-    <div className="parts-placement-transforms">{[['translate', 'sb_move', 'Move'], ['rotate', 'sb_rot', 'Rotate'], ['scale', 'sb_bonescale', 'Scale'], ['zoom', 'sb_zoom', 'Zoom']].map(([value, icon, label]) => <button type="button" key={value} title={label} aria-label={label} aria-pressed={tool === value} disabled={busy || !hasPart && value !== 'zoom'} onClick={() => onTool(value)}><ModernIcon name={icon}/></button>)}</div>
-  </div>;
 }
 
 function browserBank(files) {
@@ -51,7 +35,7 @@ async function preparePartAsset(asset, name) {
 
 export default function BitsAndParts({ model, preferences, selectionByGeoset, textureAssets = new Map(), teamColor = '#ff0000', onClose, onCommit }) {
   const [collection, setCollection] = useState(null);
-  const [replacing, setReplacing] = useState(false), [placed, setPlaced] = useState(null), [quad, setQuad] = useState(true), [placementView, setPlacementView] = useState('perspective'), [placementPlane, setPlacementPlane] = useState('xy'), [placementTool, setPlacementTool] = useState('translate');
+  const [replacing, setReplacing] = useState(false), [placed, setPlaced] = useState(null);
   const [bank, setBank] = useState(null), [part, setPart] = useState(null), [assets, setAssets] = useState(new Map()), [selected, setSelected] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [missing, setMissing] = useState([]);
   const [sequence, setSequence] = useState('');
   const generation = useRef(0), picker = useRef(), dialog = useRef();
@@ -87,7 +71,6 @@ export default function BitsAndParts({ model, preferences, selectionByGeoset, te
     try { return previewPartReplacement(model, placed, selectionByGeoset, rgbSequence); }
     catch (error) { return { error: error.message }; }
   }, [replacing, model, placed, selectionByGeoset, rgbSequence]);
-  const placementSelection = useMemo(() => Object.fromEntries((placement?.geosetIndices || []).map(index => [index, Array.from({ length: placement.model.Geosets[index].Vertices.length / 3 }, (_, id) => id)])), [placement]);
   const placementAssets = useMemo(() => new Map([...assets, ...textureAssets]), [assets, textureAssets]);
   const hasSelection = Object.values(selectionByGeoset || {}).some(ids => ids.length);
   const collect = () => { try { setCollection(collectPart(model, selectionByGeoset)); setError(''); } catch (error) { setError(error.message); } };
@@ -95,15 +78,8 @@ export default function BitsAndParts({ model, preferences, selectionByGeoset, te
     try {
       previewPartReplacement(model, null, selectionByGeoset);
       setPlaced(part ? positionPart(part.model, model, selectionByGeoset) : null);
-      setReplacing(true); setQuad(true); setPlacementTool('translate'); setError('');
+      setReplacing(true); setError('');
     } catch (error) { setError(error.message); }
-  };
-  const movePart = payload => {
-    try {
-      // Viewport IDs include the remaining destination; source IDs start at 0.
-      const modelPositions = payload.modelPositions && Object.fromEntries(placement.geosetIndices.map((index, sourceIndex) => [sourceIndex, payload.modelPositions[index]]));
-      setPlaced(transformPart(placed, { ...payload, modelPositions })); setError(''); return true;
-    } catch (error) { setError(error.message); return false; }
   };
   const importPart = async () => {
     if (!part || busy) return;
@@ -132,10 +108,9 @@ export default function BitsAndParts({ model, preferences, selectionByGeoset, te
       {bank?.children.length ? <FolderTree entries={bank.children} selected={selected} onSelect={choose}/> : <p>Store MDL and MDX parts here. Nested folders such as helms/horns stay organized.</p>}
       {bank?.directory && <small className="parts-directory" title={bank.directory}>{bank.directory}</small>}
       <input hidden ref={picker} type="file" webkitdirectory="" multiple onChange={event => { try { setBank(browserBank([...event.target.files])); setError(''); } catch (error) { setError(error.message); } event.target.value = ''; }}/>
-    </aside><main><div className={`parts-preview${replacing ? ' parts-placement-preview' : ''}`}>{replacing ? placement?.model ? <Viewport key={placed ? 'replacement:' + selected : 'replacement'} model={placement.model} preferences={preferences} textureAssets={placementAssets} teamColor={teamColor} mode="textured" quadView={quad} view={placementView} cameraMode={placementTool === 'zoom' ? 'zoom' : 'work'} workplane={placementPlane} workplaneEnabled transformMode={placementTool === 'zoom' ? 'translate' : placementTool} onTransform={movePart} selectionByGeoset={placementSelection} selectableGeosets={new Set(placement.geosetIndices)} selectedGeoset={placement.geosetIndices[0] ?? -1} vertexSelection={false} showVertices={false} showSkeleton={false} showGrid={false} showAxes={false} overlays={{}} sequenceIndex={-1} time={0} playing={false} rgbPreview shaded/> : <p>{placement?.error}</p> : preview ? <Viewport key="source" presentation="preview" model={preview} preferences={preferences} revision={0} textureAssets={assets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="free" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={-1} time={0} playing={false} shaded/> : <p>{busy ? 'Loading preview…' : 'Select a part to preview it.'}</p>}
-      {replacing && <PlacementMenu quad={quad} onQuad={setQuad} view={placementView} onView={setPlacementView} plane={placementPlane} onPlane={setPlacementPlane} tool={placementTool} onTool={setPlacementTool} hasPart={!!placed} busy={busy}/>}
+    </aside><main><div className={`parts-preview${replacing ? ' parts-placement-preview' : ''}`}>{replacing ? placement?.model ? <Viewport key={placed ? 'replacement:' + selected : 'replacement'} presentation="preview" model={placement.model} preferences={preferences} revision={0} textureAssets={placementAssets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="rotate" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={-1} time={0} playing={false} rgbPreview shaded/> : <p>{placement?.error}</p> : preview ? <Viewport key="source" presentation="preview" model={preview} preferences={preferences} revision={0} textureAssets={assets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="rotate" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={-1} time={0} playing={false} shaded/> : <p>{busy ? 'Loading preview…' : 'Select a part to preview it.'}</p>}
     </div>
-      {replacing && <p className="parts-note">{part ? 'Drag to position the Bit. It inherits the replaced vertices’ bones and weights; source rig motion is not imported.' : 'The selected part is hidden. Choose a Bit to position in its place.'}</p>}
+      {replacing && <p className="parts-note">{part ? 'Apply drops the Bit at the replaced part and selects it in the vertex editor, so you can place it with Move, Rotate and Scale. It inherits the replaced vertices’ bones and weights; source rig motion is not imported.' : 'The selected part is hidden. Choose a Bit to position in its place.'}</p>}
       {part && <><strong className="parts-filename">{part.name} · {part.model.Geosets.length} geosets</strong>{!replacing && <p className="parts-note">Import the whole part at its original coordinates and scale, attached to DummyBone. Source rig motion is not imported.</p>}
       <PartAnimations model={part.model} sequence={sequence} onPreview={setSequence} busy={busy}/>
       {missing.length > 0 && <p className="parts-warning">Unavailable textures: {missing.join(', ')}. Import requires these textures unless an equivalent dependency already exists.</p>}
