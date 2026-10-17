@@ -185,3 +185,21 @@ test('a copied rig removed from the same document is restored from the clipboard
   assert.equal(plan.model.Nodes[pasted.Groups[0][0]].Name, `${clipboard.model.Nodes[oldId].Name}_import`);
   assert.deepEqual(validateModel(plan.model).filter(issue => issue.severity === 'error'), []);
 });
+
+test('geosets pasted from another model take their most common RGB and no global sequence', () => {
+  const source = createDemoDocument(), target = createDemoDocument();
+  source.apply('Global tint', [], model => {
+    model.GlobalSequences = [4000];
+    const red = [1, 0, 0], blue = [0, 0, 1];
+    model.GeosetAnims = model.GeosetAnims.filter(anim => anim.GeosetId !== 0);
+    model.GeosetAnims.push({ GeosetId: 0, Flags: 2, Alpha: { LineType: 0, GlobalSeqId: 0, Keys: [0.4, 0.4, 1].map((v, i) => ({ Frame: i * 100, Vector: new Float32Array([v]) })) },
+      Color: { LineType: 0, GlobalSeqId: 0, Keys: [red, blue, blue].map((v, i) => ({ Frame: i * 100, Vector: new Float32Array(v) })) } });
+  });
+  const globals = target.model.GlobalSequences?.length || 0, count = target.model.Geosets.length;
+  const plan = prepareClipboardPaste(target.model, copiedMesh(source)); commit(target, plan);
+  const anim = target.model.GeosetAnims.find(item => item.GeosetId === count);
+  assert.deepEqual(Array.from(anim.Color), [0, 0, 1]);
+  assert.ok(Math.abs(anim.Alpha - 0.4) < 1e-6);
+  assert.equal(target.model.GlobalSequences?.length || 0, globals);
+  roundTrip(target);
+});
