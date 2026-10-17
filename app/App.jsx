@@ -47,7 +47,8 @@ import { HotkeysProvider } from './Hotkeys.jsx';
 import { normalizePreferences } from '../src/preferences.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
-import { correctNormalsXL } from '../src/normals-xl.js';
+import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
+import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
@@ -171,7 +172,7 @@ export default function App() {
   const [previewRenderModes, setPreviewRenderModes] = useState({});
   const [visibleOnly, setVisibleOnly] = useState(new Set());
   const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [hidden, setHidden] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
-  const [normalsXL, setNormalsXL] = useState(null);
+  const [normalizer, setNormalizer] = useState(null), normalizerKeepRef = useRef(null);
   const [showAllGeosets, setShowAllGeosets] = useState(true), [hideExtras, setHideExtras] = useState(false);
   const [activeGeosetTab, setActiveGeosetTab] = useState('all');
   const [viewHoveredGeoset, setViewHoveredGeoset] = useState(null), [selectionHoveredGeoset, setSelectionHoveredGeoset] = useState(null);
@@ -338,16 +339,21 @@ export default function App() {
     const anchorGeoset = model.Geosets[zoomAnchor.geosetIndex];
     if (mode !== 'vertices' || tool !== 'scale' || !anchorGeoset || zoomAnchor.vertexIndex < 0 || zoomAnchor.vertexIndex >= anchorGeoset.Vertices.length / 3 || !validSelection[zoomAnchor.geosetIndex]?.includes(zoomAnchor.vertexIndex)) clearZoomAnchor();
   }, [zoomAnchor, mode, tool, model, doc.revision, validSelection]);
-  // Reference picks are transient: keep the target selection and its history intact.
-  useEffect(() => { setNormalsXL(null); }, [session.id, doc.revision, mode, selection, selectable, hidden, dialog, settingsTab, saving]);
+  // The NormalsXL preview is transient: any other change discards it, except
+  // its own Fix facing edit, after which the panel stays open on the result.
   useEffect(() => {
-    if (!normalsXL) return;
+    const keep = normalizerKeepRef.current === doc.revision;
+    normalizerKeepRef.current = null;
+    if (!keep) setNormalizer(null);
+  }, [session.id, doc.revision, mode, selection, selectable, hidden, showAllGeosets, activeGeosetTab, dialog, settingsTab, saving]);
+  useEffect(() => {
+    if (!normalizer) return;
     const cancel = event => {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setNormalsXL(null); }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setNormalizer(null); }
     };
     window.addEventListener('keydown', cancel, true);
     return () => window.removeEventListener('keydown', cancel, true);
-  }, [!!normalsXL]);
+  }, [!!normalizer]);
   const editable = !doc.readOnly && mode !== 'animation' && mode !== 'paint' && mode !== 'showcase' && !saving;
   const edit = (label, sections, operation, options = {}) => {
     if (savingRef.current) return false;
@@ -670,7 +676,7 @@ export default function App() {
   function restoreSessionView(target) {
     const viewState = target.viewState || (target.viewState = defaultSessionView(target.doc));
     setActiveGeosetTab(viewState.activeGeosetTab || 'all'); setMode(viewState.mode); setAnimationPanel(viewState.animationPanel); setSelectable(new Set(viewState.selectable)); setVisibleOnly(new Set(viewState.visibleOnly)); setSelection(structuredClone(viewState.selection)); setHidden(structuredClone(viewState.hidden)); setActiveGeoset(viewState.activeGeoset); setUvSet(viewState.uvSet); setSelectedNodeIds([...viewState.selectedNodeIds]); setGlobalSeqId(viewState.globalSeqId); setSequence(viewState.sequence); setTime(viewState.time); setRGBPreview(viewState.rgbPreview); setRGBSequence(viewState.rgbSequence); setRenderMode(viewState.renderMode); setShowAllGeosets(viewState.showAllGeosets);
-    setPlaying(false); setAttachSourceIds([]); setLiveUV(null); setNormalsXL(null); setDialog(null); setContext(null); setRepairReceipt(null); setPortraitEnabled(false); setShowcaseSession(null); setCleanViews({}); rangeAnchor.current = 0;
+    setPlaying(false); setAttachSourceIds([]); setLiveUV(null); setNormalizer(null); setDialog(null); setContext(null); setRepairReceipt(null); setPortraitEnabled(false); setShowcaseSession(null); setCleanViews({}); rangeAnchor.current = 0;
   }
   function activateSession(next, { remember = true } = {}) {
     if (!next || next === session || savingRef.current) return;
@@ -938,25 +944,64 @@ export default function App() {
     } catch (error) { refresh(); say(error.message, true); }
   };
   const transform = payload => { if (restPose) { if (restrictions.translation && payload.translation?.some(value=>value!==0) || restrictions.rotation && payload.rotation?.some(value=>value!==0) || restrictions.scaling && payload.scale?.some(value=>value!==1)) return false; if(payload.translation&&!payload.modelPositions)payload={...payload,translation:constrainMovementVector(payload.translation,{workplaneEnabled,workplane})}; } const picked = filterVertexSelection(payload.selections || validSelection, selectable, model); const result = edit('Transform vertices', ['Geosets'], m => { for (const [gi, ids] of Object.entries(picked)) if (ids.length) { const positions=payload.modelPositions?.[gi]; if(positions)setVertexPositions(m.Geosets[gi],ids,positions); else transformVertices(m.Geosets[gi], ids, payload.translation || [0, 0, 0], payload.scale || [1, 1, 1], payload.rotation || [0, 0, 0], payload.pivot || centroid, {allowSingularScale:payload.allowSingularScale===true}); } }); return result; };
-  const beginNormalsXL = () => {
-    if (!editable || mode !== 'vertices' || !selectionCount) return;
-    setNormalsXL({ doc, revision: doc.revision, target: structuredClone(validSelection), references: [] });
-    say('NormalsXL: click one vertex whose normal already faces the desired direction.');
+  // NormalsXL: analyse once per opening (and after Fix facing), re-plan on
+  // each angle change, and preview the plan on a copy of the model. Apply
+  // commits it as one edit. Vertex indices never change, so selection and
+  // hidden vertices carry over as they are.
+  const normalAnalysis = useMemo(() => {
+    if (!normalizer) return null;
+    try { return { analysis: analyzeNormals(normalizer.doc.model, { geosets: normalizer.geosets, selection: normalizer.selection }) }; }
+    catch (error) { return { error: error.message }; }
+  }, [normalizer?.doc, normalizer?.revision, normalizer?.geosets, normalizer?.selection]);
+  const normalPlan = useMemo(() => {
+    if (!normalAnalysis?.analysis) return normalAnalysis || {};
+    try { return { plan: planNormalRebuild(normalAnalysis.analysis, { smoothingAngle: normalizer.smoothingAngle }) }; }
+    catch (error) { return { error: error.message }; }
+  }, [normalAnalysis, normalizer?.smoothingAngle]);
+  const normalizerModel = useMemo(() => normalPlan.plan ? previewNormalRebuild(previewModel, normalPlan.plan) : null, [normalPlan, previewModel]);
+  // Which normals NormalsXL visibly changes, so the overlay can highlight them.
+  const normalChanges = useMemo(() => {
+    if (!normalPlan.plan) return null;
+    const changes = {};
+    for (const { index, Normals: after } of normalPlan.plan.geosets) {
+      const before = model.Geosets[index]?.Normals, changed = new Uint8Array(after.length / 3);
+      for (let v = 0; v < changed.length; v++) {
+        const a = after.subarray(v * 3, v * 3 + 3), b = before?.subarray(v * 3, v * 3 + 3), length = b ? Math.hypot(b[0], b[1], b[2]) * Math.hypot(a[0], a[1], a[2]) : 0;
+        changed[v] = !(length > 1e-12 && (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / length >= Math.cos(Math.PI / 180)) ? 1 : 0;
+      }
+      changes[index] = changed;
+    }
+    return changes;
+  }, [normalPlan, model]);
+  const beginNormalizer = () => {
+    if (!editable || mode !== 'vertices' || normalizer) return;
+    // Whole visible model, or only the selected vertices.
+    const geosets = model.Geosets.map((g, index) => !hiddenGeosets.has(index) && isShadedGeoset(model, g) ? index : -1).filter(index => index >= 0);
+    const selection = selectionCount ? Object.fromEntries(Object.entries(validSelection).filter(([key, ids]) => ids.length && !hiddenGeosets.has(Number(key)))) : null;
+    setPlaying(false);
+    setNormalizer({ doc, revision: doc.revision, geosets, selection, scope: selection ? 'selection' : 'model', smoothingAngle: DEFAULT_SMOOTHING_ANGLE, showNormals: true, flipped: null, renderMode: renderMode === 'wireframe' ? 'solid' : renderMode });
   };
-  const pickNormalsXLReference = reference => {
-    if (!normalsXL || savingRef.current || normalsXL.doc !== doc || normalsXL.revision !== doc.revision) return;
-    const references = [reference];
-    let result;
-    try {
-      edit('NormalsXL', ['Geosets'], current => { result = correctNormalsXL(current, normalsXL.target, references); return result; }, { rethrow: true });
-    } catch { setNormalsXL({ ...normalsXL, references: [] }); return; }
-    setNormalsXL(null);
-    say(result.reversedNormals || result.recalculatedNormals || result.reversedFaces
-      ? 'NormalsXL: reversed ' + result.reversedNormals + ' normals and ' + result.reversedFaces + ' triangles; adjusted ' + result.recalculatedNormals + ' normals.'
-      : 'NormalsXL: selected normals and triangles already face the chosen direction.');
+  const changeNormalizer = changes => setNormalizer(previous => previous && ({ ...previous, ...changes }));
+  const normalizerReady = () => normalizer && !savingRef.current && normalizer.doc === doc && normalizer.revision === doc.revision && normalAnalysis?.analysis;
+  const applyNormalizer = () => {
+    const plan = normalPlan.plan;
+    if (!normalizerReady() || !plan) return;
+    if (!plan.stats.changed) { setNormalizer(null); say('No changes needed.'); return; }
+    try { edit('NormalsXL', ['Geosets'], current => applyNormalRebuild(current, plan), { rethrow: true }); } catch { return; }
+    clearZoomAnchor(); setNormalizer(null); say(normalizerStatus(plan.stats));
   };
-  const normalsXLSelection = {};
-  for (const reference of normalsXL?.references || []) (normalsXLSelection[reference.geosetIndex] ||= []).push(reference.vertexIndex);
+  // Fix facing is its own undo step; the panel stays open on the new model.
+  const fixNormalizerFacing = () => {
+    if (!normalizerReady()) return;
+    let plan;
+    try { plan = planFacingFix(normalAnalysis.analysis, { smoothingAngle: normalizer.smoothingAngle }); } catch (error) { say(error.message, true); return; }
+    if (plan.stats.changed) {
+      normalizerKeepRef.current = doc.revision + 1;
+      try { edit('NormalsXL · Fix facing', ['Geosets'], current => applyNormalRebuild(current, plan), { rethrow: true }); } catch { normalizerKeepRef.current = null; return; }
+    }
+    setNormalizer(previous => previous && ({ ...previous, revision: doc.revision, flipped: plan.stats.trianglesFlipped }));
+    say(normalizerStatus(plan.stats, true));
+  };
   function meshAction(name) {
     if (!editable || !selectionCount) return;
     if (mode === 'uv') {
@@ -1108,7 +1153,7 @@ export default function App() {
     if(replacement)setHidden({});setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds(result.boneIds);selectMode('vertices');if(replacement){setTool('translate');setCameraMode('work');}setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
     say(replacement?'Part replaced using its existing bone bindings. Place it with the vertex editor tools.':'Part imported and attached to DummyBone.');return result;
   }
-  commands.current = { 'paint:select':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'select'})), 'paint:draw':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'draw'})), open, recent:showRecent, openRecent, clearRecent, save: () => mode==='paint'?savePaintProject():save(), saveAs: () => mode==='paint'?savePaintProject():doc.hdViewOnly?save(true):setDialog({type:'saveFormat'}), new: () => install(newSession(createStarterDocument(preferences.newModelVersion))), recovery: listRecovery, gameData, undo: () => undo(false), redo: () => undo(true), copy, paste: () => paste(), pasteSpecial: () => { if (clipboard.current?.kind !== 'nodes') { setAnchor(''); setDialog({ type: 'pasteSpecial' }); } }, selectAll, clear: () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'clear'})); if (normalsXL) { setNormalsXL(null); return; } if (mode === 'bones' && attachSourceIds.length) { setAttachSourceIds([]); return; } if ((mode === 'vertices' || rigWorkspace) && !window.dispatchEvent(new Event('mdlxl-cancel-gesture', { cancelable: true }))) return; if(mode==='uv')return uvAction('select-none');setSelectedNodeIds([]); setSelection({}); }, history: showHistory, grid: () => setShowGrid(v => !v), frame: toggleTextured, frameSelection: () => setViewRenderMode('solid'), fit: () => frame(false), fitSelection: () => frame(true), vertices: () => selectMode('vertices'), bones: () => {setMovementMode('select');selectMode('bones');}, uv: () => selectMode('uv'), paint: () => {setRenderMode('textured');setView('perspective');selectMode('paint');}, animation: () => selectAnimationPanel('movement'), animations: () => selectAnimationPanel('animations'), textureLibrary: () => openLibrary(), help: () => setDialog({ type: 'help' }), diagnostics: () => setDialog({ type: 'diagnostics' }), about: () => setDialog({ type: 'about' }), ...Object.fromEntries(resources.map(kind => [kind, () => setDialog({ type: 'resource', kind })])), ...Object.fromEntries(views.map(name => [name, () => setView(name)])) };
+  commands.current = { 'paint:select':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'select'})), 'paint:draw':()=>window.dispatchEvent(new CustomEvent('mdlxl-paint-tool',{detail:'draw'})), open, recent:showRecent, openRecent, clearRecent, save: () => mode==='paint'?savePaintProject():save(), saveAs: () => mode==='paint'?savePaintProject():doc.hdViewOnly?save(true):setDialog({type:'saveFormat'}), new: () => install(newSession(createStarterDocument(preferences.newModelVersion))), recovery: listRecovery, gameData, undo: () => undo(false), redo: () => undo(true), copy, paste: () => paste(), pasteSpecial: () => { if (clipboard.current?.kind !== 'nodes') { setAnchor(''); setDialog({ type: 'pasteSpecial' }); } }, selectAll, clear: () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'clear'})); if (normalizer) { setNormalizer(null); return; } if (mode === 'bones' && attachSourceIds.length) { setAttachSourceIds([]); return; } if ((mode === 'vertices' || rigWorkspace) && !window.dispatchEvent(new Event('mdlxl-cancel-gesture', { cancelable: true }))) return; if(mode==='uv')return uvAction('select-none');setSelectedNodeIds([]); setSelection({}); }, history: showHistory, grid: () => setShowGrid(v => !v), frame: toggleTextured, frameSelection: () => setViewRenderMode('solid'), fit: () => frame(false), fitSelection: () => frame(true), vertices: () => selectMode('vertices'), bones: () => {setMovementMode('select');selectMode('bones');}, uv: () => selectMode('uv'), paint: () => {setRenderMode('textured');setView('perspective');selectMode('paint');}, animation: () => selectAnimationPanel('movement'), animations: () => selectAnimationPanel('animations'), textureLibrary: () => openLibrary(), help: () => setDialog({ type: 'help' }), diagnostics: () => setDialog({ type: 'diagnostics' }), about: () => setDialog({ type: 'about' }), ...Object.fromEntries(resources.map(kind => [kind, () => setDialog({ type: 'resource', kind })])), ...Object.fromEntries(views.map(name => [name, () => setView(name)])) };
   Object.assign(commands.current, {
     forge:()=>setDialog({type:'forge'}), optimizeModel:()=>openOptimizeXL(), bitsAndParts:()=>setDialog({type:'bitsAndParts'}), particles:()=>openParticles(),
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
@@ -1411,9 +1456,9 @@ export default function App() {
       <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
         setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
-      }}/>
+      }} renderMode={normalizer?.renderMode || renderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setRenderMode}/>
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
-      {normalsXL && <div className="normals-xl-prompt" role="status"><span><b>NormalsXL · Pick 1 normal</b> Click one vertex whose normal correctly faces out of the surface (or into it). This pick corrects the original selection.</span><button onClick={() => setNormalsXL(null)}>Cancel</button></div>}
+      {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport
         vanilla={visUI} editorDisplayMode={visUI?undefined:'vertices'}
         {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
@@ -1423,17 +1468,17 @@ export default function App() {
         highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView} onViewChange={setView}
         preferences={preferences} onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={!!dialog || (!!settingsTab && settingsTab !== 'visuals')} key={session.id}
-        hoveredGeoset={highlightedFromSelection} model={previewModel} revision={doc.revision} selectedGeoset={activeGeoset}
-        selectedVertices={(normalsXL ? normalsXLSelection : validSelection)[activeGeoset] || []}
-        visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={normalsXL ? normalsXLSelection : validSelection}
+        hoveredGeoset={highlightedFromSelection} model={normalizerModel || previewModel} revision={doc.revision} selectedGeoset={activeGeoset}
+        selectedVertices={validSelection[activeGeoset] || []}
+        visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={validSelection}
         onSelectionChange={next => {setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, doc.model));}}
-        onPickNormalReference={normalsXL ? pickNormalsXLReference : undefined}
+        normalizer={!!normalizer} normalChanges={normalizer?.showNormals ? normalChanges || {} : null}
         hiddenVertices={hidden} hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
-        mode={cleanView ? 'textured' : renderMode} overlays={normalsXL ? { ...overlays, normals: true } : overlays} showVertices={!!normalsXL || showVertices}
+        mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : renderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
         showSkeleton={overlays.bones || overlays.nodes || overlays.attachments || overlays.particles}
-        showGrid={showGrid} showAxes={showAxes} shaded={shaded} view={view} cameraMode={normalsXL ? 'work' : cameraMode}
-        workplane={workplane} transformMode={normalsXL ? 'select' : tool}
-        zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalsXL && choosingZoomAnchor}
+        showGrid={showGrid} showAxes={showAxes} shaded={normalizer ? true : shaded} view={view} cameraMode={cameraMode}
+        workplane={workplane} transformMode={tool}
+        zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalizer && choosingZoomAnchor}
         onChooseZoomAnchor={next => { if (tool === 'scale' && validSelection[next.geosetIndex]?.includes(next.vertexIndex)) { setZoomAnchor(next); setChoosingZoomAnchor(false); say('Anchor vertex selected.'); } }}
         rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} sequenceIndex={-1} time={0} playing={false}
         teamColor={teamColor} textureAssets={session.assets} onTransform={transform}/>}
@@ -1480,7 +1525,7 @@ export default function App() {
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
         setSelectedBoneBillboarded, setSelectedNodeIds, setTime, singleRigNode, time
       }}/>
-      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(true)}>Nuclear Seperation</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button><button disabled={!editable || !selectionCount || !!normalsXL} onClick={beginNormalsXL}>NormalsXL</button><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button></div>}
+      {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(true)}>Nuclear Seperation</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button><button disabled={!editable || !!normalizer} title="Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button></div>}
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
       {(mode !== 'animation' || animationPanel === 'movement' || cameraRotating) && geosetPicker}
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
