@@ -2883,7 +2883,6 @@
   "Another key already exists at that time. Choose an empty frame.": "Ya hay otra clave en ese instante. Elija un fotograma vacío.",
   "Select an animation before setting sequence values.": "Seleccione una animación antes de establecer valores para la secuencia.",
   "The animation interval is invalid.": "El intervalo de animación no es válido.",
-  "This track uses a global sequence. Change it to Model sequences in Text tracks before using Set Sequence or Set All.": "Esta pista usa una secuencia global. Cámbiela a Secuencias del modelo en Pistas en texto antes de usar Establecer en secuencia o Establecer en todas.",
   "Check the geosets you want to bake.": "Marque los geosets a los que quiera aplicar los valores.",
   "Checked geosets have pending text edits. Use Bake Text or Discard text before BAKE or ALL.": "Los geosets marcados tienen cambios de texto pendientes. Use Aplicar texto o Descartar texto antes de APLICAR o TODAS.",
   "Select a valid interpolation.": "Seleccione una interpolación válida.",

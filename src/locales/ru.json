@@ -2818,7 +2818,6 @@
   "Another key already exists at that time. Choose an empty frame.": "В это время уже есть другой ключ. Выберите свободный кадр.",
   "Select an animation before setting sequence values.": "Выберите анимацию перед заданием её значений.",
   "The animation interval is invalid.": "Недопустимый интервал анимации.",
-  "This track uses a global sequence. Change it to Model sequences in Text tracks before using Set Sequence or Set All.": "Дорожка использует глобальную последовательность. Выберите «Анимации модели» в разделе «Текстовые дорожки» перед командами «Задать в анимации» или «Задать во всех».",
   "Check the geosets you want to bake.": "Отметьте геосеты, к которым нужно применить значения.",
   "Checked geosets have pending text edits. Use Bake Text or Discard text before BAKE or ALL.": "У отмеченных геосетов есть неприменённые изменения текста. Сначала используйте «Применить текст» или «Отменить текст», затем ПРИМЕНИТЬ или КО ВСЕМ.",
   "Select a valid interpolation.": "Выберите допустимую интерполяцию.",

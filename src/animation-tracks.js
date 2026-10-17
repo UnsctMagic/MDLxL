@@ -212,8 +212,16 @@ function prepareSequenceTracks(model, targets, value, sequenceIndices) {
   if (!intervals.length || intervals.some(interval => !interval)) throw new Error('Select an animation before setting sequence values.');
   for (const interval of intervals) { validFrame(interval[0]); validFrame(interval[1]); if (interval[1] < interval[0]) throw new Error('The animation interval is invalid.'); }
   return targets.map(target => {
-    const vector = vectorValue(value, target.property), track = trackForEdit(model, target);
-    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) throw new Error('This track uses a global sequence. Change it to Model sequences in Text tracks before using Set Sequence or Set All.');
+    const vector = vectorValue(value, target.property);
+    let track = trackForEdit(model, target);
+    // Setting sequence values moves a global-sequence track onto model
+    // sequences, holding its first value in the animations left untouched.
+    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) {
+      const first = track.Keys[0]?.Vector ?? fallback(target.property);
+      const held = (typeof first === 'number' ? [first] : Array.from(first)).map(v => Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1);
+      track = { LineType: lineDefault(target.property), GlobalSeqId: null, Keys: [] };
+      for (const seq of model.Sequences || []) if (seq.Interval) putKey(track, validFrame(seq.Interval[0]), held);
+    }
     track.Keys = track.Keys.filter(k => !intervals.some(([start, end]) => k.Frame >= start && k.Frame <= end));
     for (const [start, end] of intervals) { putKey(track, start, vector); putKey(track, end, vector); }
     return { target, track };

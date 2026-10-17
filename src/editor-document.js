@@ -948,8 +948,35 @@ export function appendGeosetGeometry(target, source) {
   return Array.from({ length: sourceCount }, (_, index) => targetCount + index);
 }
 
+// The key value used most often (earliest wins a tie).
+function mostCommonKeyValue(track) {
+  const counts = new Map();
+  for (const key of track.Keys) {
+    const id = Array.from(key.Vector, v => Math.round(v * 1e4)).join(',');
+    const entry = counts.get(id) || counts.set(id, { value: key.Vector, count: 0 }).get(id);
+    entry.count++;
+  }
+  let best = null;
+  for (const entry of counts.values()) if (!best || entry.count > best.count) best = entry;
+  return best?.value;
+}
+/** Parts pasted from another model take one RGB, the geoset's most common, and
+ * never bring a global sequence along on their geoset animation. */
+function flattenPastedGeosetAnimation(anim) {
+  const flatten = (property, keep) => {
+    const track = anim[property];
+    if (!track?.Keys || keep(track)) return;
+    const value = mostCommonKeyValue(track) ?? anim._MdxDefaults?.[property];
+    if (value == null) delete anim[property];
+    else anim[property] = property === 'Color' ? new Float32Array(value) : (value.length ? value[0] : value);
+    if (anim._MdxDefaults) { delete anim._MdxDefaults[property]; if (!Object.keys(anim._MdxDefaults).length) delete anim._MdxDefaults; }
+  };
+  flatten('Color', () => false);
+  flatten('Alpha', track => track.GlobalSeqId == null || track.GlobalSeqId === -1);
+}
+
 /** Append selected geometry with its required rig, textures and animation dependencies. */
-export function importGeosets(target, source, selectedIndices = source.Geosets.map((_, i) => i), anchor = null, { sameModel = false, targetGeoset = null, rigidNode = null, existingNodeMap = null } = {}) {
+export function importGeosets(target, source, selectedIndices = source.Geosets.map((_, i) => i), anchor = null, { sameModel = false, targetGeoset = null, rigidNode = null, existingNodeMap = null, flattenGeosetAnimations = false } = {}) {
   source = adaptPasteFormat(source, target.Version);
   if (anchor && typeof anchor === 'object') anchor = anchor.ObjectId;
   if (anchor != null && !target.Nodes?.[anchor]) throw new Error('The destination anchor node does not exist.');
@@ -1081,7 +1108,9 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
     }
   }
   for (const [index, anim] of source.GeosetAnims.entries()) if (createdGeosets.has(anim.GeosetId)) {
-    const copy = clone(anim); copy.GeosetId = maps.geosets.get(anim.GeosetId); globalRef(copy);
+    const copy = clone(anim); copy.GeosetId = maps.geosets.get(anim.GeosetId);
+    if (flattenGeosetAnimations) flattenPastedGeosetAnimation(copy);
+    globalRef(copy);
     maps.geosetAnims.set(index, target.GeosetAnims.push(copy) - 1);
   }
   for (const old of createdNodes) {
