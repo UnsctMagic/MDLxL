@@ -49,6 +49,11 @@ import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
+import RibbonBox from './RibbonBox.jsx';
+import { ribbonPlacement, addRibbon, setRibbonQuick, RIBBON_ADD_SECTIONS } from '../src/ribbon-quick.js';
+import { ribbonPolygonSelection } from '../src/particle-ribbon-fit.js';
+import { prepareParticlePlacementAssets } from '../src/particle-assets.js';
+import { starterTextureAsset, RIBBON_TEXTURE } from '../src/particle-starters.js';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
@@ -173,6 +178,7 @@ export default function App() {
   const [visibleOnly, setVisibleOnly] = useState(new Set());
   const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [hidden, setHidden] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
   const [normalizer, setNormalizer] = useState(null), normalizerKeepRef = useRef(null);
+  const [ribbonBox, setRibbonBox] = useState(null), [emtrMenu, setEmtrMenu] = useState(null);
   const [showAllGeosets, setShowAllGeosets] = useState(true), [hideExtras, setHideExtras] = useState(false);
   const [activeGeosetTab, setActiveGeosetTab] = useState('all');
   const [viewHoveredGeoset, setViewHoveredGeoset] = useState(null), [selectionHoveredGeoset, setSelectionHoveredGeoset] = useState(null);
@@ -565,10 +571,45 @@ export default function App() {
   const hasPaintChanges = !!session.paintProject?.dirty;
   const previewSuspended = saving || (!!settingsTab && settingsTab !== 'visuals') || (!!dialog && dialog.type !== 'resource');
   const openLibrary = (preview = mode === 'uv') => setDialog({ type: 'library', preview, host: preview && uvWindowRef.current && !uvWindowRef.current.closed ? 'uv' : 'main', returnTo: dialog?.type === 'resource' ? dialog : null });
-  const openParticles = id => {
-    setPlaying(false);
+  const openEmitterEditor = id => {
+    setPlaying(false); setRibbonBox(null); setEmtrMenu(null);
     const selected=Number.isInteger(id)?id:selectedNodeIds.at(-1),isEffect=['ParticleEmitters2','RibbonEmitters','ParticleEmitters','ParticleEmitterPopcorns'].some(family=>model[family].some(node=>node.ObjectId===selected));
     setDialog({type:'particles',nodeId:isEffect?selected:undefined,attachmentId:selectedBone?.ObjectId,selection:validSelection});
+  };
+  const openRibbonBox = id => {
+    setPlaying(false); setEmtrMenu(null); setSelectedNodeIds([id]);
+    if (mode !== 'animation' && mode !== 'bones') selectMode('animation');
+    setRibbonBox({ id });
+  };
+  // Ribbons open the compact Ribbon box; marked weapon polygons offer a quick ribbon.
+  const openParticles = (id, anchor) => {
+    const selected = Number.isInteger(id) ? id : selectedNodeIds.at(-1);
+    if (model.RibbonEmitters.some(node => node.ObjectId === selected)) return openRibbonBox(selected);
+    if (!Number.isInteger(id) && anchor && mode === 'vertices' && !doc.readOnly && ribbonPolygonSelection(model, validSelection).polygons) {
+      const box = anchor.getBoundingClientRect(); setEmtrMenu({ x: Math.max(4, box.right - 190), y: box.bottom + 2 }); return;
+    }
+    openEmitterEditor(id);
+  };
+  const addRibbonFromSelection = async () => {
+    setEmtrMenu(null);
+    if (doc.readOnly || savingRef.current) return;
+    try {
+      const placement = ribbonPlacement(model, validSelection, sequence), recipe = placement.ribbon.recipe;
+      const prepared = await prepareParticlePlacementAssets(recipe, new Map([[RIBBON_TEXTURE.toLowerCase(), starterTextureAsset(RIBBON_TEXTURE)]]), session.assets);
+      let added; const accepted = edit('Add ribbon', RIBBON_ADD_SECTIONS, m => { added = addRibbon(m, prepared.recipe, placement); });
+      if (accepted === false || !added) return;
+      session.assets = new Map([...session.assets, ...prepared.assets]); changeOverlay('particles', true);
+      if (model.Sequences.length) { setGlobalSeqId(null); setSequence(placement.sequence); setTime(added.interval?.[0] ?? model.Sequences[placement.sequence].Interval[0]); }
+      selectMode('animation'); setSelectedNodeIds([added.id]); setRibbonBox({ id: added.id }); refresh();
+      say('Ribbon added. Drag its two ends to stretch it.');
+      if (added.convertedHD) window.dispatchEvent(new CustomEvent('mdlxl-notice', { detail: HD_CONVERTED_MESSAGE }));
+    } catch (error) { say(error.message, true); }
+  };
+  const stretchRibbon = (id, values) => {
+    setPlaying(false);
+    const result = edit('Stretch ribbon', ['Nodes'], m => { setRibbonQuick(m, id, values); });
+    if (result !== false) liveMovementRevision.current = doc.revision;
+    return result;
   };
   const inspectGeoset = index => { if(model.Geosets[index])setActiveGeoset(index); };
   const openNodeManager = () => setDialog({ type: 'resource', kind: 'Nodes' });
@@ -583,6 +624,13 @@ export default function App() {
     if (result !== false) liveMovementRevision.current = doc.revision;
     return result;
   };
+  useEffect(() => { if (ribbonBox && selectedNodeIds.at(-1) !== ribbonBox.id) setRibbonBox(null); }, [selectedNodeIds]);
+  useEffect(() => {
+    if (!emtrMenu) return;
+    const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !event.target.closest?.('.emtr-menu')) setEmtrMenu(null); };
+    window.addEventListener('pointerdown', close, true); window.addEventListener('keydown', close, true);
+    return () => { window.removeEventListener('pointerdown', close, true); window.removeEventListener('keydown', close, true); };
+  }, [emtrMenu]);
   const commitPose = payload => {
     if (restPose || !rigWorkspace || doc.readOnly || saving || globalSeqId !== null || payload.model !== model || payload.revision !== doc.revision || payload.frame !== Math.round(time) || payload.inputSequence !== sequence) return false;
     setPlaying(false);
@@ -1414,7 +1462,7 @@ export default function App() {
     poseConfig, poseViewActive, preferences, registerTimelineCommands, replayMotion, restPose, restrictions,
     rigWorkspace, saving, say, seekMotionTime, selectable, selectedNodeIds, selectMotion, sequence, session,
     setMotionAnchor, setPlaybackSpeed, setPlaying, time
-  }}/>;
+  }} ribbonKeys={ribbonBox && selectedNodeIds.at(-1) === ribbonBox.id && (mode === 'animation' || mode === 'bones')}/>;
   const activePortrait = portraitModeActive;
   const controlGroups = useMemo(() => { try { return modelControlGroups(model); } catch { return []; } }, [model, doc.revision]);
   const cameraPortraitActive = activePortrait && !!model.Cameras?.[portraitCameraIndex];
@@ -1458,6 +1506,11 @@ export default function App() {
         setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
       }} renderMode={normalizer?.renderMode || renderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setRenderMode}/>
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
+      {emtrMenu && <div className="emtr-menu" role="menu" style={{ left: emtrMenu.x, top: emtrMenu.y }}>
+        <button role="menuitem" autoFocus title="Add a glowing trail along the selected polygons. It follows the weapon and fades behind it." onClick={addRibbonFromSelection}>Add ribbon to selection</button>
+        <button role="menuitem" onClick={() => openEmitterEditor()}>Emitter Editor…</button>
+      </div>}
+      {ribbonBox && (mode === 'animation' || mode === 'bones') && selectedNodeIds.at(-1) === ribbonBox.id && <RibbonBox model={model} id={ribbonBox.id} time={time} sequenceIndex={sequence} globalSeqId={globalSeqId} restPose={restPose} disabled={doc.readOnly || saving} onEdit={edit} onClose={() => setRibbonBox(null)} onOpenEditor={openEmitterEditor} onPause={setPlaying}/>}
       {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport
         vanilla={visUI} editorDisplayMode={visUI?undefined:'vertices'}
@@ -1487,6 +1540,7 @@ export default function App() {
 
       {(mode === 'animation' || mode === 'bones') && <Suspense fallback={<div className="classic-empty-view">Loading model preview…</div>}><GamePreview
         vanilla={visUI} editorDisplayMode={displayMode}
+        ribbonEdit={ribbonBox && selectedNodeIds.at(-1) === ribbonBox.id && !doc.readOnly && !saving ? ribbonBox.id : null} onRibbonEdges={stretchRibbon}
         onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]}
         cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])}
         previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} restPose={restPose} cleanAnimationPreview={cleanAnimationPreview}

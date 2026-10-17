@@ -150,7 +150,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       if(!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
       // Paint owns its brush/clipboard shortcuts before global mesh commands.
       if(latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
-      if (event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
+      if (event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu, .emtr-menu')) return;
       if (event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);

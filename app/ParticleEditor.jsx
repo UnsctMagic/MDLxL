@@ -8,7 +8,7 @@ import {includeParticleAssets,embeddedParticleAssets,prepareParticlePlacementAss
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {EditorDocument,createNode,deleteNode} from '../src/editor-document.js';
 import {particleRecipeDocument,extractParticleRecipe,placeParticleRecipe,effectNodes} from '../src/particle-recipes.js';
-import {createStarterRecipe,starterTextureAsset,STARTER_TEXTURE,PARTICLE_STARTERS} from '../src/particle-starters.js';
+import {createStarterRecipe,starterTextureAsset,addStarterTextureAssets,STARTER_TEXTURE,STARTER_TEXTURES,RIBBON_TEXTURE,PARTICLE_STARTERS} from '../src/particle-starters.js';
 import {parseParticleData,stringifyParticleData} from '../src/particle-data.js';
 import {createParticleGesture} from '../src/particle-bindings.js';
 import ParticleClassicControls from './ParticleClassicControls.jsx';
@@ -37,8 +37,8 @@ async function keepLab(lab,mode,active=true){
   if(active)await window.desktop?.particleDraft?.(data);
 }
 async function assetsFor(recipe){
-  const assets=embeddedParticleAssets(recipe),names=recipe.native.Textures.filter(t=>t.Image&&t.Image!==STARTER_TEXTURE&&!assets.has(pathKey(t.Image))).map(t=>t.Image);
-  if(recipe.native.Textures.some(t=>t.Image===STARTER_TEXTURE))assets.set(pathKey(STARTER_TEXTURE),starterTextureAsset());
+  const assets=embeddedParticleAssets(recipe),names=recipe.native.Textures.filter(t=>t.Image&&!STARTER_TEXTURES.includes(t.Image)&&!assets.has(pathKey(t.Image))).map(t=>t.Image);
+  addStarterTextureAssets(recipe.native.Textures,assets,pathKey);
   if(names.length&&window.desktop?.resolveTextures){const sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await window.desktop.resolveTextures({names});for(const record of records||[])if(record.bytes)assets.set(pathKey(record.name),record);}
   return assets;
 }
@@ -213,7 +213,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     }catch(error){setMessage(error.message);}
   };
   const placementRecipe=useMemo(()=>placement?.ribbon?.recipe||(placement?extractParticleRecipe(model,effectNodes(model).map(item=>item.node.ObjectId),{...lab.recipe,name:lab.recipe.name,defaultSequence:sequence}):null),[!!placement,placement?.ribbon,model,activeDoc.revision,sequence]);
-  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([[pathKey(STARTER_TEXTURE),starterTextureAsset()]]):assets,[assets,placement?.ribbon]);
+  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([[pathKey(RIBBON_TEXTURE),starterTextureAsset(RIBBON_TEXTURE)]]):assets,[assets,placement?.ribbon]);
   useEffect(()=>{
     let live=true;setPreparedPlacement(null);
     if(placementRecipe)prepareParticlePlacementAssets(placementRecipe,incomingPlacementAssets,textureAssets).then(prepared=>{if(live)setPreparedPlacement({...prepared,original:placementRecipe,incoming:incomingPlacementAssets,target:textureAssets});}).catch(error=>{if(live)setPlacementError(error.message);});
