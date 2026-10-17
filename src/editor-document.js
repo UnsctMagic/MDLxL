@@ -14,7 +14,10 @@ import { prepareMdlEventObject, restoreMdxEventGlobalSequences, writeMdlEventGlo
 import { prepareMdlPopcornColors, restoreMdlPopcornRotations } from './popcorn-rotation-codec.js';
 import { writeMdlUVSets } from './uv-coordinate-codec.js';
 import { convertMdxGeosetColorTracks } from './geoset-color-codec.js';
-import { geosetColorExportIssues, prepareGeosetAnimationColors } from './geoset-animation-defaults.js';
+import { geosetColorExportIssues, prepareGeosetAnimationColors, mdlDroppedGeosetColors } from './geoset-animation-defaults.js';
+// Editor-only MDX chunks the game ignores (MDVI: MDLVis editor data). A format
+// conversion may leave them out instead of refusing to save.
+export const EDITOR_ONLY_CHUNKS = new Set(['MDVI']);
 import { GEOSET_TABS_KEY, GEOSET_TAB_KEY, geosetTabsData, normalizeGeosetTabs, readGeosetTabs, writeGeosetTabs, isGeosetTabsChunk } from './geoset-tabs.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, stripAnimationSpeed, isAnimationSpeedChunk } from './animation-speed.js';
 
@@ -510,9 +513,12 @@ export class EditorDocument {
     const stringIssues = (conversion || changed.length) && !this.readOnly ? serializationStringIssues(this.model, format, conversion ? Object.keys(SECTION_TYPES) : changed) : [];
     warnings.push(...stringIssues);
     const unknown = this._unknownSections();
-    if (conversion && unknown.length) warnings.push(`Cannot convert unrecognized source data: ${unknown.join(', ')}.`);
+    const blocking = conversion ? unknown.filter(tag => !EDITOR_ONLY_CHUNKS.has(tag)) : [];
+    const dropped = conversion ? unknown.filter(tag => EDITOR_ONLY_CHUNKS.has(tag)) : [];
+    const droppedColors = format === 'mdl' ? mdlDroppedGeosetColors(this.model.GeosetAnims) : [];
+    if (blocking.length) warnings.push(`Cannot convert unrecognized source data: ${blocking.join(', ')}.`);
     if (this.hdViewOnly) warnings.push(HD_VIEW_ONLY_MESSAGE);
-    return { format, conversion, exact: !conversion && changed.length === 0 && !this._tabsChanged && !this._speedChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: !this.hdViewOnly && ['mdl', 'mdx'].includes(format) &&(!this.readOnly || !conversion && !changed.length && !this._tabsChanged && !this._speedChanged) && !stringIssues.length && !(conversion && unknown.length) };
+    return { format, conversion, leftOut: [...dropped.length ? [`Editor-only data the game ignores is left out: ${dropped.join(', ')}.`] : [], ...droppedColors.length ? [`MDL leaves out geoset colors whose tint is off (the game ignores them): ${droppedColors.length}. Save as MDX to keep them.`] : []], exact: !conversion && changed.length === 0 && !this._tabsChanged && !this._speedChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: !this.hdViewOnly && ['mdl', 'mdx'].includes(format) &&(!this.readOnly || !conversion && !changed.length && !this._tabsChanged && !this._speedChanged) && !stringIssues.length && !blocking.length };
   }
   serialize(format = this.format, { timings = {} } = {}) {
     Object.assign(timings, { serializationMs: 0, reparsingMs: 0, verificationMs: 0, errorFormattingMs: 0 });
@@ -546,6 +552,9 @@ export class EditorDocument {
       saveModel = clone(saveModel);
       canonicalizeSerializedNodeOrder(saveModel, { preserveUnusedPivots: true });
     }
+    // MDL cannot store a color whose tint is off; the game ignores it, so the
+    // MDL snapshot leaves it out (MDX keeps it). Verify against that snapshot.
+    if (format === 'mdl' && mdlDroppedGeosetColors(saveModel.GeosetAnims).length) saveModel = { ...saveModel, GeosetAnims: prepareGeosetAnimationColors(saveModel.GeosetAnims, 'mdl') };
     const colorIssues = geosetColorExportIssues(this.model.GeosetAnims, format);
     if (colorIssues.length) {
       nextStage('errorFormattingMs');

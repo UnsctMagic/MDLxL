@@ -2,7 +2,8 @@
  * AnimVector { LineType, GlobalSeqId, Keys }. An animated MDX Color additionally
  * has its static RGB base in _MdxDefaults.Color. These are separate concepts.
  * Only disabled, unanimated null/absent/white Color values are format-equivalent.
- * Never apply this policy to tracks, active colors, or dormant nonwhite colors.
+ * Never whiten tracks, active colors, or dormant nonwhite colors; an MDL save
+ * leaves dormant ones out (see dormantGeosetColor) because MDL cannot store them.
  */
 export const hasGeosetColorTrack = anim => Array.isArray(anim?.Color?.Keys);
 export const geosetTintEnabled = anim => !!(anim?.Flags & 2);
@@ -25,8 +26,19 @@ export function setGeosetTintEnabled(anim, enabled) {
 export function prepareGeosetAnimationColors(animations, format) {
   return animations.map(anim => {
     if (defaultGeosetColor(anim)) return { ...anim, Color: format === 'mdl' ? null : new Float32Array([1, 1, 1]) };
+    if (format === 'mdl' && dormantGeosetColor(anim)) return { ...anim, Color: null };
     return anim;
   });
+}
+
+/** A color the game ignores because tint (Flags bit 2) is off. MDL has no way
+ * to store it without enabling tint, so an MDL save leaves it out; the game
+ * looks the same. MDX keeps it. */
+export const dormantGeosetColor = anim => !geosetTintEnabled(anim) && !defaultGeosetColor(anim) &&
+  (hasGeosetColorTrack(anim) || anim?.Color instanceof Float32Array && anim.Color.length === 3 && anim.Color.every(Number.isFinite));
+
+export function mdlDroppedGeosetColors(animations) {
+  return (animations || []).flatMap((anim, i) => dormantGeosetColor(anim) ? [`GeosetAnims[${i}].Color`] : []);
 }
 
 export function geosetColorExportIssues(animations, format) {
@@ -36,8 +48,6 @@ export function geosetColorExportIssues(animations, format) {
     if (!hasGeosetColorTrack(anim) && !defaultGeosetColor(anim) &&
         (!(anim.Color instanceof Float32Array) || anim.Color.length !== 3 || !anim.Color.every(Number.isFinite))) {
       issues.push(`${path}: invalid static color; expected three finite RGB values.`);
-    } else if (format === 'mdl' && !geosetTintEnabled(anim) && !defaultGeosetColor(anim)) {
-      issues.push(`${path}: ${hasGeosetColorTrack(anim) ? 'disabled tint with a color track' : 'dormant nonwhite color'} cannot be represented in MDL without enabling tint; save as MDX to preserve it.`);
     }
   }
   return issues;
