@@ -1,26 +1,37 @@
 # NormalsXL
 
-In Vertices, click **NormalsXL** (below **Merge Geosets**). A small panel opens in the model view and the whole visible model immediately shows the proposed result. Nothing changes until **Apply**; **Cancel**, the × button or Escape leave the model exactly as it was. With vertices selected first, only the triangles touching them change, except that a piece touching the selection which needs flipping is repaired whole.
+In Vertices, click **NormalsXL** (below **Merge Geosets**). A small panel opens in the model view and the whole visible model immediately shows the recalculated normals. With vertices selected first, only those vertices get new normals. Nothing changes until **Apply**; **Cancel**, the × button or Escape leave the model exactly as it was.
 
-- **Smoothing angle** (default 85°): edges sharper than this stay crisp, softer ones are smoothed.
-- **Fix facing** (on by default): flips triangles that face the wrong way so each piece faces outward.
-- **Fix facing only**: just the triangle-facing repair, as its own undo step. Only the corners of flipped triangles get new normals.
-- **Show normals**: blue direction lines.
+- **Smoothing angle** (default 90°, the Model Studio default; 0–180°).
+- **Show normals** (on): bright direction lines, yellow where the normal changes.
+- **Apply**: the previewed normals, as one undo step.
+- **Fix facing**: flips triangles that face the wrong way, as its own undo step. The panel stays open on the result.
+- One result line, for example `1,240 normals changed` or `12 triangles flipped · 1,240 normals changed`.
 
-After Apply the status bar shows one line, for example `NormalsXL: 1,240 normals rebuilt · 310 vertices split · 12 triangles flipped · 2 pieces need a look`. Apply is one undo step. Clicking **pieces need a look** (in the panel or the status bar) selects those pieces' vertices so they can be inspected or flipped with Reverse normals.
+NormalsXL never adds, removes, merges or moves vertices. Faces, UVs and skinning stay as they are, so an MDX keeps its exact byte size.
 
 ## How it works (`src/normals-rebuild.js`)
 
-1. Vertices are matched by position across all included geosets (tolerance 1e-5 of the model size), ignoring UV seams, but only when their skinning matches (same bone set; for HD the same bones and weights) and their geosets show and hide together (same GeosetAnim alpha track). Coincident parts bound to different bones (sword and hand, plate and body) move apart in animation and never share normals or decide each other's facing. This match is for analysis only; geometry is never welded.
-2. Triangles at the same three positions with opposite winding are a two-sided sheet: each side gets its own vertices, they never smooth together and they never decide which way a piece faces. Same-direction copies are treated as one triangle.
-3. Triangles are paired around every edge; where three or more meet, orientation-compatible and flattest pairs come first.
-4. Facing: within each connected piece, minority triangles are flipped to match. A closed piece with negative volume is turned inside out. An open piece is turned only when a ray visibility test clearly shows its back sees more open space than its front, and never when its stored normals already agreed with its winding (authored intent such as cape interiors or ground decals seen only from above). One- or two-triangle cards in two-sided materials are never turned. Undecided open pieces are left alone and counted under "pieces need a look". Pieces that cannot be wound consistently (twisted or self-crossing) are also left alone and counted.
-5. Triangle corners join smoothing groups across edges flatter than the smoothing angle. Each group's normal is the angle-weighted sum of its face normals.
-6. A vertex used by several groups is duplicated, copying position, every UV set, bone group, skin weights and tangents. Rebuilt vertices that end up identical in every stream are merged. A geoset that would exceed 65,535 vertices is refused.
-7. HD tangents are rebuilt for every changed vertex.
+The method is Retera's Model Studio "Recalculate normals" (`GeosetVertex.createNormalFromFaces`), the usual Hive Workshop tool:
 
-Zero-area triangles stay in the mesh; their vertices take the shading at their position. Restore normals and Smooth normals in the sidebar are unchanged.
+1. Vertices at the same position (tolerance 1e-4 of the model size, across all included geosets) form a group, but only when their skinning matches (same bone set; for HD the same bones and weights) and their geosets show and hide together (same GeosetAnim alpha). Swords never smooth into hands and swap parts stay separate.
+2. For each vertex, *own* is the sum of the unit normals of its own triangles. Its new normal is the sum of the unit normals of every triangle touching its group whose angle to *own* is below the smoothing angle.
+3. Duplicated vertices at the same spot therefore act as hard edges (each copy only picks up the faces on its side), while UV-seam duplicates smooth together.
+4. Stored normals are never read: a patch of inverted, random or zero normals comes out exactly like a clean one. Collapsed triangles are ignored; a vertex used only by them takes the shading at its position. Unshaded geosets are skipped. With a selection, only selected vertices change, but every triangle at their positions counts.
+
+**Fix facing** works per connected piece: triangles of one geoset joined by edges at the same positions. Triangles wound against the clear majority of their piece (by area; a whole patch of them, up to 40%) are flipped. A closed piece is turned the way its volume says is outward, so an inside-out closed piece is reversed. Open pieces without a clear majority, open pieces as a whole, back-to-back twin triangles and pieces that cannot be wound consistently are left alone. Flipping only swaps the corner order in Faces. The normals at positions touched by flipped triangles are then recalculated as above, and HD tangents follow.
 
 ## Evidence
 
-On 54 classic SD models (93,776 triangles) at the default 85°: dark corners (a vertex normal facing away from its own triangle) 9,921 → 193, visible lighting seams across smooth edges between identically skinned parts 1,881 → 6, 84,670 → 98,490 vertices (+16%), 1,447 triangles flipped. 85° was chosen from offline renders: low-poly SD limbs (pentagonal 72° and hexagonal 60° cross-sections) come out smooth like authored WC3 models, while cubes and other 90° corners keep hard edges. 70° gives fewer dark corners (50) but visibly faceted limbs. Repeating the operation on a repaired model changes nothing. The in-repo `test/fixtures/geoset-save/Tzeentch_Knight_Max_Reduced.mdx` regression goes from 309 dark corners and 46 seams to 4 and 0.
+54 classic SD models, Apply at each angle (dark corner = a vertex normal facing away from one of its triangles; seam = coincident same-skinning vertices on a smooth edge with normals over 10° apart):
+
+| angle | dark corners | seams | authored hard edges smoothed |
+|---|---|---|---|
+| before | 9,919 | 1,461 | — |
+| 60° | 12,094 | 1,523 | 227 / 2,587 |
+| 75° | 8,297 | 1,166 | 464 |
+| **90°** | **4,445** | **883** | 796 |
+| 120° | 4,312 | 314 | 1,665 |
+| 180° | 5,346 | 1 | 2,405 |
+
+Every MDX keeps its byte length and a second run changes nothing. Fix facing then Apply at 90° flips 1,037 triangles in 46 models and gives 3,966 dark corners. 90° was chosen from offline renders of Greenskin_Orc1, KnightNurgleChampion, Empire_Swordsman and Ogre10: bodies and limbs are smooth like authored WC3 models, while cube-like 90° corners made of duplicated vertices stay hard. 75° leaves blocky legs and arms faceted; 120° and more also smooths away authored armour edges.

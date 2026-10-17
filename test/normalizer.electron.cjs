@@ -43,12 +43,13 @@ function readView() {
     const open=async()=>{await page.getByRole('button',{name:'NormalsXL',exact:true}).click();await panel.waitFor();for(let tries=0;tries<100;tries++){const v=await page.evaluate(readView);if(v.normalizer&&v.renderFrame>0)return v;await sleep(100);}throw Error('Preview did not render');};
     // One click, no selection: the whole visible model is previewed at once.
     let view=await open();
-    assert.match(await panel.innerText(),/Whole model/);assert.match(await panel.locator('[role=status]').innerText(),/normals rebuilt/);
+    assert.match(await panel.innerText(),/Whole model/);assert.match(await panel.locator('[role=status]').innerText(),/normals changed/);
     assert.notDeepEqual(view.normals,original.normals);assert.equal(view.revision,original.revision);
-    assert.equal(await page.getByLabel('Smoothing angle',{exact:true}).inputValue(),'85');
-    assert.equal(await panel.getByRole('checkbox',{name:'Fix facing',exact:true}).isChecked(),true);
+    assert.equal(await page.getByLabel('Smoothing angle',{exact:true}).inputValue(),'90');
+    assert.equal(await panel.getByRole('checkbox',{name:'Show normals',exact:true}).isChecked(),true);
+    assert.equal(await panel.getByRole('checkbox').count(),1);
     await page.getByLabel('Smoothing angle',{exact:true}).focus();await page.keyboard.press('End');await sleep(150);
-    assert.match(await panel.innerText(),/160°/);
+    assert.match(await panel.innerText(),/180°/);
     checks.push('One click previews the whole model; the smoothing angle re-previews');
     // Actual camera drag still rotates while the preview is open.
     await page.mouse.move(view.rect.x+view.rect.width*.35,view.rect.y+view.rect.height*.75);
@@ -65,7 +66,9 @@ function readView() {
     checks.push('Cancel and Escape leave the document unchanged');
     await open();await apply.click();await panel.waitFor({state:'hidden'});await sleep(150);
     const applied=await page.evaluate(readView);assert.equal(applied.revision,original.revision+1);
-    assert.match(await page.locator('.classic-status').innerText(),/NormalsXL: .* normals rebuilt/);
+    assert.match(await page.locator('.classic-status').innerText(),/NormalsXL: .* normals changed/);
+    // No vertex is added or removed.
+    assert.deepEqual(applied.model.Geosets.map(g=>[g.Vertices.length,Array.from(g.Faces)]),original.model.Geosets.map(g=>[g.Vertices.length,Array.from(g.Faces)]));
     // Unshaded geosets (the demo's glowing rune) are left out: normals do not light them.
     const shaded=g=>!applied.model.Materials[g.MaterialID].Layers.every(l=>l.Shading&1);
     for(const g of applied.model.Geosets.filter(shaded))for(let i=0;i<g.Normals.length;i+=3)assert.ok(Math.abs(Math.hypot(g.Normals[i],g.Normals[i+1],g.Normals[i+2])-1)<1e-4);
@@ -83,19 +86,19 @@ function readView() {
       for(let g=0;g<reopened.model.Geosets.length;g++)assert.ok(Array.from(reopened.model.Geosets[g].Normals).every((v,i)=>Math.abs(v-applied.model.Geosets[g].Normals[i])<1e-5));
     }
     checks.push('Real packaged Save As roundtrips the result through MDL and MDX');
-    // Reopening on a repaired model has nothing left to do; Fix facing only is its own step.
+    // Reopening on a repaired model has nothing left to do; Fix facing on a
+    // clean model flips nothing, makes no edit and keeps the panel open.
     await open();assert.equal(await apply.isDisabled(),true);
-    await panel.getByRole('button',{name:'Fix facing only',exact:true}).click();await panel.waitFor({state:'hidden'});
+    await panel.getByRole('button',{name:'Fix facing',exact:true}).click();await sleep(150);
+    assert.match(await panel.locator('[role=status]').innerText(),/0 triangles flipped/);
     assert.equal((await page.evaluate(readView)).revision,applied.revision);
+    await panel.getByRole('button',{name:'Cancel',exact:true}).click();await panel.waitFor({state:'hidden'});
     checks.push('A repaired model needs no further changes');
     // With a selection the scope is the selected area.
     await page.getByLabel('3D model viewport',{exact:true}).focus();await page.keyboard.press('Control+a');
     await open();assert.match(await panel.innerText(),/Selected area/);
     await panel.getByRole('button',{name:'Cancel',exact:true}).click();
     checks.push('Selected vertices restrict the operation');
-    // The demo is clean; when a model reports pieces that need a look, the count selects them.
-    const look=page.locator('.normalizer-look');
-    if(await look.count()){await look.first().click();assert.ok(Object.values((await page.evaluate(readView)).selection).some(ids=>ids.length));checks.push('Need-a-look count selects those pieces');}
     assert.ok(fs.readFileSync(fixture).equals(originalBytes));assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({checks,errors},null,2));
     console.log(checks.map(c=>'PASS '+c).join('\n'));
