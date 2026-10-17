@@ -22,8 +22,8 @@ permissions: {}
 
 jobs:
   announce:
-    # This hotfix is published on Low Polyworks without a Garithos post.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.tag_name != 'v0.21.2' }}
+    # These releases are published without a Garithos post.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.release.tag_name != 'v0.21.2' && github.event.release.tag_name != 'v0.26.0') }}
     runs-on: ubuntu-latest
     steps:
       - name: Send release to MDLxL Discord
