@@ -1,0 +1,1441 @@
+{
+ "source": "Frame setups used by the game's own SD particle effects (grids and frame numbers only).",
+ "models": 3486,
+ "emitters": 3777,
+ "sheets": {
+  "doodads\\terrain\\cliffdoodad\\icecrownwaterfall\\icecrownwalls.blp": {
+   "uses": 1,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      3,
+      3,
+      1
+     ],
+     "decay": [
+      3,
+      3,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "icecrownwaterfall"
+     ]
+    }
+   ]
+  },
+  "replaceabletextures\\weather\\clouds8x8.blp": {
+   "uses": 873,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      15,
+      1
+     ],
+     "decay": [
+      16,
+      31,
+      1
+     ],
+     "uses": 191,
+     "examples": [
+      "rockchunks0",
+      "rockchunks1",
+      "rockchunks2"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      64,
+      1
+     ],
+     "uses": 127,
+     "examples": [
+      "cloudoffog",
+      "aifbtarget",
+      "orbvenom"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      48,
+      1
+     ],
+     "decay": [
+      49,
+      63,
+      1
+     ],
+     "uses": 125,
+     "examples": [
+      "arcaneobservatory",
+      "citybuildinglarge_0",
+      "citybuildinglarge_135"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "uses": 73,
+     "examples": [
+      "rainoffiretarget",
+      "banishtarget",
+      "flaktarget"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      31,
+      1
+     ],
+     "decay": [
+      32,
+      63,
+      1
+     ],
+     "uses": 67,
+     "examples": [
+      "flamestrikeembers",
+      "tornadoelemental",
+      "tornadoelementalsmall"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      31,
+      1
+     ],
+     "decay": [
+      32,
+      64,
+      1
+     ],
+     "uses": 48,
+     "examples": [
+      "frostwyrm",
+      "incineratebuff",
+      "carrionswarmmissile"
+     ]
+    }
+   ]
+  },
+  "replaceabletextures\\weather\\purpleenergy.blp": {
+   "uses": 2,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 1,
+     "life": [
+      0,
+      3,
+      4
+     ],
+     "decay": [
+      0,
+      3,
+      4
+     ],
+     "tail": [
+      0,
+      3,
+      4
+     ],
+     "tailDecay": [
+      0,
+      3,
+      4
+     ],
+     "uses": 2,
+     "examples": [
+      "energyfield",
+      "energyfieldwall"
+     ]
+    }
+   ]
+  },
+  "textures\\bloodsplash4tga.blp": {
+   "uses": 18,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      0,
+      0,
+      1
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 18,
+     "examples": [
+      "vulture",
+      "critterbloodalbatross"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds_anim1.blp": {
+   "uses": 4,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      0,
+      15,
+      1
+     ],
+     "decay": [
+      15,
+      0,
+      1
+     ],
+     "uses": 4,
+     "examples": [
+      "herolich",
+      "herolich_v1",
+      "herolichcin"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds32_anim.blp": {
+   "uses": 24,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      33,
+      1
+     ],
+     "decay": [
+      34,
+      63,
+      1
+     ],
+     "uses": 5,
+     "examples": [
+      "aisotarget",
+      "goblinsapper"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      0,
+      1
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "tail": [
+      0,
+      0,
+      1
+     ],
+     "tailDecay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 3,
+     "examples": [
+      "herokeeperofthegrove",
+      "herokeeperofthegroveghost"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      15,
+      1
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 3,
+     "examples": [
+      "herokeeperofthegrove",
+      "herokeeperofthegroveghost"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      16,
+      1
+     ],
+     "decay": [
+      17,
+      30,
+      1
+     ],
+     "uses": 3,
+     "examples": [
+      "herokeeperofthegrove",
+      "herokeeperofthegroveghost"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      28,
+      1
+     ],
+     "decay": [
+      29,
+      63,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "gryphonrider"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      0,
+      1
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "cannontowermissile",
+      "mortarteam"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds32anim128.blp": {
+   "uses": 2,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      29,
+      1
+     ],
+     "decay": [
+      30,
+      63,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "herolich_v1",
+      "herolichcin_v1"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds8x8black.blp": {
+   "uses": 25,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      40,
+      1
+     ],
+     "decay": [
+      41,
+      63,
+      1
+     ],
+     "uses": 11,
+     "examples": [
+      "infernalmeteor",
+      "infernalmeteor2",
+      "infernalmeteor3"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      64,
+      1
+     ],
+     "uses": 7,
+     "examples": [
+      "blacksmith",
+      "furbolghut",
+      "furbolghut2"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      16,
+      1
+     ],
+     "decay": [
+      17,
+      33,
+      1
+     ],
+     "uses": 4,
+     "examples": [
+      "bansheeranger",
+      "bansheeranger_portrait",
+      "evilsylvanas"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      31,
+      1
+     ],
+     "decay": [
+      32,
+      63,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "blacksmith",
+      "humanlumbermill"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      45,
+      1
+     ],
+     "decay": [
+      0,
+      32,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "blackarrowmissile"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds8x8fade.blp": {
+   "uses": 60,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "uses": 45,
+     "examples": [
+      "polymorphdoneground",
+      "polymorphfallingsheepart",
+      "polymorphtarget"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      64,
+      1
+     ],
+     "uses": 12,
+     "examples": [
+      "boatmissile",
+      "fragdriller",
+      "mortarmissile"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "tail": [
+      0,
+      0,
+      1
+     ],
+     "tailDecay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "freezingbreathmissile"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      29,
+      1
+     ],
+     "decay": [
+      30,
+      63,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "undeaddissipate"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      64,
+      1
+     ],
+     "tail": [
+      0,
+      0,
+      1
+     ],
+     "tailDecay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "mainmenu3d_exp"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds8x8fadewhite.blp": {
+   "uses": 5,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "uses": 3,
+     "examples": [
+      "illidanevil",
+      "herodemonhunter",
+      "herofemaledemonhunter"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "tail": [
+      0,
+      0,
+      1
+     ],
+     "tailDecay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "immolationtarget"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      29,
+      1
+     ],
+     "decay": [
+      30,
+      63,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "deathcoilmissile"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds8x8fire.blp": {
+   "uses": 49,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      64,
+      1
+     ],
+     "uses": 41,
+     "examples": [
+      "farm",
+      "humanbarracks",
+      "humanshipyard"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "uses": 6,
+     "examples": [
+      "immolationdamage",
+      "immolationreddamage",
+      "deathanddecaydamage"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      16,
+      1
+     ],
+     "decay": [
+      17,
+      33,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "battrollmissile",
+      "battroll"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds8x8grey.blp": {
+   "uses": 6,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "uses": 4,
+     "examples": [
+      "heroflamelord",
+      "irongolem",
+      "irongolem_portrait"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      31,
+      1
+     ],
+     "decay": [
+      32,
+      63,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "shockwavemissile"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      40,
+      1
+     ],
+     "decay": [
+      41,
+      63,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "infernalbirth"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds8x8mod.blp": {
+   "uses": 49,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "uses": 44,
+     "examples": [
+      "markofchaosdone",
+      "markofchaostarget",
+      "animatedeadtarget"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      16,
+      1
+     ],
+     "decay": [
+      17,
+      32,
+      1
+     ],
+     "uses": 3,
+     "examples": [
+      "shadowstrike",
+      "soulburnbuff",
+      "kelthuzadghost"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      64,
+      1
+     ],
+     "tail": [
+      0,
+      0,
+      1
+     ],
+     "tailDecay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "carrionswarmdamage"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      31,
+      1
+     ],
+     "decay": [
+      32,
+      64,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "locust"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds8x8modblight.blp": {
+   "uses": 7,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      31,
+      1
+     ],
+     "decay": [
+      32,
+      63,
+      1
+     ],
+     "uses": 5,
+     "examples": [
+      "bloodelfmissile",
+      "bloodelfball",
+      "herobloodsphere"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      35,
+      1
+     ],
+     "decay": [
+      36,
+      63,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "forcewall",
+      "forcewall45"
+     ]
+    }
+   ]
+  },
+  "textures\\clouds8x8modfire.blp": {
+   "uses": 23,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      34,
+      1
+     ],
+     "decay": [
+      35,
+      63,
+      1
+     ],
+     "uses": 15,
+     "examples": [
+      "largebuildingfire0",
+      "largebuildingfire1",
+      "elflargebuildingfire0"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      31,
+      1
+     ],
+     "decay": [
+      32,
+      63,
+      1
+     ],
+     "uses": 5,
+     "examples": [
+      "flamestrike",
+      "flamestrike1",
+      "flamestrike2"
+     ]
+    },
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      32,
+      1
+     ],
+     "decay": [
+      33,
+      63,
+      1
+     ],
+     "uses": 3,
+     "examples": [
+      "liquidfire"
+     ]
+    }
+   ]
+  },
+  "textures\\fx\\swirl\\t_fx_whisps.blp": {
+   "uses": 8,
+   "setups": [
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      0,
+      0,
+      1
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "cleansingfirecaster",
+      "cleansingfiretarget"
+     ]
+    },
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      1,
+      1,
+      1
+     ],
+     "decay": [
+      1,
+      1,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "cleansingfirecaster",
+      "cleansingfiretarget"
+     ]
+    },
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      2,
+      2,
+      1
+     ],
+     "decay": [
+      2,
+      2,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "cleansingfirecaster",
+      "cleansingfiretarget"
+     ]
+    },
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      3,
+      3,
+      1
+     ],
+     "decay": [
+      3,
+      3,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "cleansingfirecaster",
+      "cleansingfiretarget"
+     ]
+    }
+   ]
+  },
+  "textures\\fx\\v\\fadefire8x8.blp": {
+   "uses": 6,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      31,
+      1
+     ],
+     "decay": [
+      32,
+      63,
+      1
+     ],
+     "uses": 6,
+     "examples": [
+      "cleansingfirecaster",
+      "consecration",
+      "righteousfury"
+     ]
+    }
+   ]
+  },
+  "textures\\leaf4x4.blp": {
+   "uses": 9,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      0,
+      15,
+      1
+     ],
+     "decay": [
+      0,
+      15,
+      1
+     ],
+     "uses": 6,
+     "examples": [
+      "necanceldeath",
+      "nedeath",
+      "nedeathsmall"
+     ]
+    },
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      0,
+      25,
+      2
+     ],
+     "decay": [
+      0,
+      25,
+      2
+     ],
+     "uses": 3,
+     "examples": [
+      "necanceldeath",
+      "nedeath",
+      "nedeathsmall"
+     ]
+    }
+   ]
+  },
+  "textures\\orcbloodtailparticle.blp": {
+   "uses": 7,
+   "setups": [
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      3,
+      3,
+      1
+     ],
+     "decay": [
+      3,
+      3,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "orcbloodlarge0"
+     ]
+    },
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      0,
+      0,
+      1
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "tail": [
+      1,
+      1,
+      1
+     ],
+     "tailDecay": [
+      1,
+      1,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "orcbloodlarge0"
+     ]
+    }
+   ]
+  },
+  "textures\\smoke1_anim128.blp": {
+   "uses": 2,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      0,
+      8,
+      1
+     ],
+     "decay": [
+      0,
+      7,
+      1
+     ],
+     "tail": [
+      0,
+      0,
+      1
+     ],
+     "tailDecay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 2,
+     "examples": [
+      "sentryward",
+      "watcherward"
+     ]
+    }
+   ]
+  },
+  "textures\\sparkle_anim.blp": {
+   "uses": 8,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      0,
+      15,
+      1
+     ],
+     "decay": [
+      15,
+      0,
+      1
+     ],
+     "tail": [
+      0,
+      15,
+      1
+     ],
+     "tailDecay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 8,
+     "examples": [
+      "fanofknivesmissile",
+      "bloodelfspellthiefmissile",
+      "makuramissile"
+     ]
+    }
+   ]
+  },
+  "textures\\sparkle_anim128.blp": {
+   "uses": 8,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      0,
+      15,
+      1
+     ],
+     "decay": [
+      15,
+      0,
+      1
+     ],
+     "tail": [
+      0,
+      0,
+      1
+     ],
+     "tailDecay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 6,
+     "examples": [
+      "aidacaster",
+      "aitbtarget",
+      "andt"
+     ]
+    },
+    {
+     "rows": 4,
+     "columns": 4,
+     "life": [
+      0,
+      15,
+      4
+     ],
+     "decay": [
+      0,
+      15,
+      4
+     ],
+     "uses": 2,
+     "examples": [
+      "goldbottlemissile"
+     ]
+    }
+   ]
+  },
+  "textures\\spinningboard.blp": {
+   "uses": 126,
+   "setups": [
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      0,
+      3,
+      9
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 54,
+     "examples": [
+      "beastiary",
+      "greathall",
+      "orcbarracks"
+     ]
+    },
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      0,
+      3,
+      6
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 52,
+     "examples": [
+      "altarofkings",
+      "arcanesanctum",
+      "arcanevault"
+     ]
+    },
+    {
+     "rows": 2,
+     "columns": 2,
+     "life": [
+      0,
+      25,
+      2
+     ],
+     "decay": [
+      0,
+      0,
+      1
+     ],
+     "uses": 20,
+     "examples": [
+      "centaurtent",
+      "centaurtent1",
+      "centaurtent2"
+     ]
+    }
+   ]
+  },
+  "textures\\toonsmokex.blp": {
+   "uses": 4,
+   "setups": [
+    {
+     "rows": 4,
+     "columns": 8,
+     "life": [
+      0,
+      16,
+      1
+     ],
+     "decay": [
+      17,
+      31,
+      1
+     ],
+     "uses": 4,
+     "examples": [
+      "toonboom",
+      "herotinkerfactorymissle"
+     ]
+    }
+   ]
+  },
+  "textures\\white_64_foam1.blp": {
+   "uses": 74,
+   "setups": [
+    {
+     "rows": 8,
+     "columns": 8,
+     "life": [
+      0,
+      16,
+      1
+     ],
+     "decay": [
+      17,
+      32,
+      1
+     ],
+     "uses": 1,
+     "examples": [
+      "undeadcampaign3d"
+     ]
+    }
+   ]
+  }
+ }
+}

@@ -1,11 +1,11 @@
 import React,{Suspense,lazy,useCallback,useMemo,useRef,useState} from 'react';
 import {particleExampleNames,particleExamplePair} from '../src/particle-examples.js';
-import {starterTextureAsset,STARTER_TEXTURE} from '../src/particle-starters.js';
+import {starterTextureAsset,STARTER_TEXTURES} from '../src/particle-starters.js';
 import {particleRecipeDocument} from '../src/particle-recipes.js';
 import {addParticleDemonstration} from '../src/particle-sweep.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 function Pair({pairs,time,preferences,dark,onChoose}){
- const [index,setIndex]=useState(0),[images,setImages]=useState({}),[error,setError]=useState(''),busy=useRef(false),camera=useRef(null),assets=useMemo(()=>new Map([[STARTER_TEXTURE.toLowerCase(),starterTextureAsset()]]),[]);
+ const [index,setIndex]=useState(0),[images,setImages]=useState({}),[error,setError]=useState(''),busy=useRef(false),camera=useRef(null),assets=useMemo(()=>new Map(STARTER_TEXTURES.map(name=>[name.toLowerCase(),starterTextureAsset(name)])),[]);
  const model=useMemo(()=>{if(index>=pairs.length)return null;const next=particleRecipeDocument(pairs[index].recipe).model;if(pairs[index].motion)addParticleDemonstration(next,[0,5000]);return next;},[pairs,index]);
  const prefs=useMemo(()=>({...preferences,graphics:{...preferences.graphics,pauseWhenHidden:false},viewportAppearance:{...preferences.viewportAppearance,background:{type:'color',color:dark?'#24282c':'#d0d0d0'}}}),[preferences,dark]);
  const ready=useCallback(async api=>{if(!api||busy.current||index>=pairs.length)return;busy.current=true;try{await api.whenReady();if(camera.current)api.setCameraView(camera.current);else {api.fit();camera.current=api.cameraView();}const image=api.captureFrame({maxDimension:400}).toDataURL('image/png');setImages(old=>({...old,[index]:image}));}catch(e){setError(e.message);}finally{busy.current=false;setIndex(n=>n+1);}},[index,pairs]);
