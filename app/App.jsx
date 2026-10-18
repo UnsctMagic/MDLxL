@@ -140,6 +140,7 @@ export default function App() {
   const [session, setSession] = useState(newSession);
   const [sessions, setSessions] = useState(() => [session]);
   const [tick, setTick] = useState(0), [status, setStatus] = useState('Ready');
+  const [fileDrag, setFileDrag] = useState(false), fileDragTimer = useRef();
   const [repairReceipt, setRepairReceipt] = useState(null);
   const [mode, setMode] = useState('vertices'), [cameraMode, setCameraMode] = useState('work'), [view, setStoredView] = useState('orthographic'), [portraitView, setPortraitView] = useState('perspective'), [storedWorkplane, setStoredWorkplane] = useState('xy');
   const [adjustingInput, setAdjustingInput] = useState(null);
@@ -738,6 +739,25 @@ export default function App() {
         setRenderMode('textured');setView('perspective');setMode('paint');say(paintMessage('paint.projectOpened'));refresh();return;
       }
       const opened = openDocument(bytes, record.name); if (!opened.model || opened.version == null) throw new Error('This file has no readable model header. The current model was kept.'); install(newSession(opened, record.path || null));
+    } catch (error) { say(error.message, true); }
+  }
+  // Files dragged from Explorer open like File > Open: with their real path, so
+  // neighbouring textures resolve, Save writes back and Recent Files remembers them.
+  function dragFiles(event) {
+    event.preventDefault();
+    if (![...(event.dataTransfer?.types || [])].includes('Files')) return;
+    event.dataTransfer.dropEffect = 'copy'; setFileDrag(true);
+    clearTimeout(fileDragTimer.current); fileDragTimer.current = setTimeout(() => setFileDrag(false), 250);
+  }
+  async function dropFiles(event) {
+    event.preventDefault(); clearTimeout(fileDragTimer.current); setFileDrag(false);
+    const dropped = [...event.dataTransfer.files], models = dropped.filter(file => /\.(mdl|mdx|mdlxlpaint)$/i.test(file.name));
+    try {
+      if (!models.length) { if (dropped.length) await loadTextures(dropped); return; }
+      const showcase = mode === 'showcase', paths = models.map(file => window.desktop?.droppedPath?.(file) || '');
+      const records = paths.some(Boolean) ? await window.desktop.openDropped(paths.filter(Boolean), showcase) : [];
+      records.push(...models.filter((_, index) => !paths[index]));
+      if (showcase) await loadShowcaseModel(records[0]); else await queueModelRecords(records);
     } catch (error) { say(error.message, true); }
   }
   function queueModelRecords(records) {
@@ -1441,7 +1461,7 @@ export default function App() {
       onRepair={repairDuplicateAnimations} onUndo={undoDuplicateRepair} onAccept={() => setRepairReceipt(null)} onOpen={open} onSave={() => save(true)}/>
     {dialog?.type === 'closeTab' && <Dialog title="Close model tab?" onClose={() => setDialog(null)} footer={<><button disabled={saving} onClick={async()=>{const target=dialog.target;if(await saveSessionWork(target)){setDialog(null);removeSession(target);}}}>Save</button><button disabled={saving} onClick={()=>{const target=dialog.target;setDialog(null);removeSession(target);}}>Don't save</button><button disabled={saving} onClick={()=>setDialog(null)}>Cancel</button></>}><p>Save changes to {dialog.target.doc.name} before closing its tab?</p></Dialog>}
   </>;
-  return <HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog?'dialog':mode==='paint'?'paint':'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const records = [...event.dataTransfer.files], record = records.find(file => /\.(mdl|mdx|mdlxlpaint)$/i.test(file.name)); if(record&&mode==='showcase')loadShowcaseModel(record);else if (record) loadFile(record); else loadTextures(records).catch(error => say(error.message, true)); }} onClick={() => context && setContext(null)}>
+  return <HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog?'dialog':mode==='paint'?'paint':'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
       activateSession, animationPanel, cameraMode, changePreferences, clearDisplay, commandEnabled, commands, copy,
