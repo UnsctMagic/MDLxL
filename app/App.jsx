@@ -50,7 +50,10 @@ import { SelectionHistory } from '../src/selection-history.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
 import RibbonBox from './RibbonBox.jsx';
-import { ribbonPlacement, addRibbon, applyRibbonEdit, ribbonEditFrame, ribbonSizeKeyed, RIBBON_ADD_SECTIONS } from '../src/ribbon-quick.js';
+import { ribbonPlacement, addRibbon, setRibbonQuick, RIBBON_ADD_SECTIONS } from '../src/ribbon-quick.js';
+import { ribbonSizeAt, setRibbonSizeKey as writeRibbonSizeKey } from '../src/ribbon-timing.js';
+import RibbonTrack from './RibbonTrack.jsx';
+import RibbonTextDialog from './RibbonTextDialog.jsx';
 import { ribbonPolygonSelection } from '../src/particle-ribbon-fit.js';
 import { prepareParticlePlacementAssets } from '../src/particle-assets.js';
 import { starterTextureAsset, RIBBON_TEXTURE } from '../src/particle-starters.js';
@@ -178,7 +181,7 @@ export default function App() {
   const [visibleOnly, setVisibleOnly] = useState(new Set());
   const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [hidden, setHidden] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
   const [normalizer, setNormalizer] = useState(null), normalizerKeepRef = useRef(null);
-  const [ribbonBox, setRibbonBox] = useState(null), [emtrMenu, setEmtrMenu] = useState(null);
+  const [ribbonBox, setRibbonBox] = useState(null), [emtrMenu, setEmtrMenu] = useState(null), [ribbonSizeKey, setRibbonSizeKey] = useState(null), [ribbonManual, setRibbonManual] = useState(null);
   const [showAllGeosets, setShowAllGeosets] = useState(true), [hideExtras, setHideExtras] = useState(false);
   const [activeGeosetTab, setActiveGeosetTab] = useState('all');
   const [viewHoveredGeoset, setViewHoveredGeoset] = useState(null), [selectionHoveredGeoset, setSelectionHoveredGeoset] = useState(null);
@@ -609,10 +612,8 @@ export default function App() {
   };
   const stretchRibbon = (id, values) => {
     setPlaying(false);
-    const at = ribbonEditFrame(model, { time, sequenceIndex: sequence, globalSeqId, restPose }), keyed = !values.move && ribbonSizeKeyed(model.RibbonEmitters.find(node => node.ObjectId === id));
-    const result = edit(values.move ? 'Move ribbon' : keyed ? 'Set ribbon size key' : 'Stretch ribbon', ['Nodes', 'PivotPoints'], m => { applyRibbonEdit(m, id, values, at); });
-    // A keyed size is rebuilt from the model so the preview cannot drift from the saved keys.
-    if (result !== false && !keyed) liveMovementRevision.current = doc.revision;
+    const result = edit(values.move ? 'Move ribbon' : 'Stretch ribbon', ['Nodes', 'PivotPoints'], m => { setRibbonQuick(m, id, values); });
+    if (result !== false) liveMovementRevision.current = doc.revision;
     return result;
   };
   const inspectGeoset = index => { if(model.Geosets[index])setActiveGeoset(index); };
@@ -629,6 +630,22 @@ export default function App() {
     return result;
   };
   useEffect(() => { if (ribbonBox && selectedNodeIds.at(-1) !== ribbonBox.id) setRibbonBox(null); }, [selectedNodeIds]);
+  // Smooth Size belongs to one ribbon, one animation and one key.
+  useEffect(() => { if (ribbonSizeKey && (ribbonBox?.id !== ribbonSizeKey.id || sequence !== ribbonSizeKey.sequenceIndex || !['animation', 'bones'].includes(mode))) setRibbonSizeKey(null); }, [ribbonBox, sequence, mode]);
+  const startRibbonSize = frame => {
+    if (!ribbonBox || sequence < 0) return;
+    try { setPlaying(false); setTime(frame); setRibbonSizeKey({ id: ribbonBox.id, frame, sequenceIndex: sequence, ...ribbonSizeAt(model, ribbonBox.id, frame, sequence) }); say('Adjust the green ends, then Commit.'); }
+    catch (error) { say(error.message, true); }
+  };
+  const commitRibbonSize = () => {
+    const key = ribbonSizeKey; if (!key) return;
+    if (edit('Set ribbon size key', ['Nodes'], m => { writeRibbonSizeKey(m, key.id, key.frame, key.sequenceIndex, key); }) !== false) setRibbonSizeKey(null);
+  };
+  useEffect(() => {
+    if (!ribbonSizeKey) return;
+    const key = event => { if (event.key === 'Escape') { setRibbonSizeKey(null); } else if (event.key === 'Enter' && !event.target.closest?.('input,textarea,select,button')) commitRibbonSize(); };
+    window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key);
+  }, [ribbonSizeKey]);
   useEffect(() => {
     if (!emtrMenu) return;
     const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !event.target.closest?.('.emtr-menu')) setEmtrMenu(null); };
@@ -1514,7 +1531,16 @@ export default function App() {
         <button role="menuitem" autoFocus title="Add a glowing trail along the selected polygons. It follows the weapon and fades behind it." onClick={addRibbonFromSelection}>Add ribbon to selection</button>
         <button role="menuitem" onClick={() => openEmitterEditor()}>Emitter Editor…</button>
       </div>}
-      {ribbonBox && (mode === 'animation' || mode === 'bones') && selectedNodeIds.at(-1) === ribbonBox.id && <RibbonBox model={model} id={ribbonBox.id} time={time} sequenceIndex={sequence} globalSeqId={globalSeqId} restPose={restPose} disabled={doc.readOnly || saving} onEdit={edit} onClose={() => setRibbonBox(null)} onOpenEditor={openEmitterEditor} onPause={setPlaying}/>}
+      {ribbonBox && (mode === 'animation' || mode === 'bones') && selectedNodeIds.at(-1) === ribbonBox.id && <>
+        <RibbonBox model={model} id={ribbonBox.id} disabled={doc.readOnly || saving || !!ribbonSizeKey} onEdit={edit} onClose={() => setRibbonBox(null)} onOpenEditor={openEmitterEditor} onManual={setRibbonManual} onPause={setPlaying}/>
+        <RibbonTrack model={model} id={ribbonBox.id} sequenceIndex={globalSeqId === null && !restPose ? sequence : -1} time={time} disabled={doc.readOnly || saving || !!ribbonSizeKey} onEdit={(...args) => { setPlaying(false); return edit(...args); }} onSeek={frame => { setPlaying(false); setTime(frame); }} onSmoothSize={startRibbonSize} onError={message => say(message, true)}/>
+        {ribbonSizeKey && <div className="ribbon-size-banner" role="status" aria-label="Smooth Size">
+          <b>Adjust the scale at this specific key, frame {ribbonSizeKey.frame}, and the ribbon will grow/shrink smoothly between keys.</b>
+          <span>Drag the green ends in the view.</span>
+          <button onClick={commitRibbonSize} title="Write this size key. Ctrl+Z undoes it.">Commit</button><button onClick={() => setRibbonSizeKey(null)} title="Discard (Esc).">Cancel</button>
+        </div>}
+      </>}
+      {ribbonManual != null && <RibbonTextDialog doc={doc} id={ribbonManual} onEdit={edit} onClose={() => setRibbonManual(null)}/>}
       {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport
         vanilla={visUI} editorDisplayMode={visUI?undefined:'vertices'}
@@ -1545,6 +1571,7 @@ export default function App() {
       {(mode === 'animation' || mode === 'bones') && <Suspense fallback={<div className="classic-empty-view">Loading model preview…</div>}><GamePreview
         vanilla={visUI} editorDisplayMode={displayMode}
         ribbonEdit={ribbonBox && selectedNodeIds.at(-1) === ribbonBox.id && !doc.readOnly && !saving ? ribbonBox.id : null} onRibbonEdges={stretchRibbon}
+        ribbonSizeKey={ribbonSizeKey && ribbonSizeKey.id === ribbonBox?.id ? ribbonSizeKey : null} onRibbonSizeDraft={values => setRibbonSizeKey(key => key && { ...key, ...values })}
         onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]}
         cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])}
         previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} restPose={restPose} cleanAnimationPreview={cleanAnimationPreview}

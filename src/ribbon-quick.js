@@ -1,6 +1,5 @@
 import {fitRibbonToPolygons} from './particle-ribbon-fit.js';
 import {placeTimedParticleRecipe} from './particle-placement.js';
-import {sampleAnimationProperty,setAnimationKey} from './animation-tracks.js';
 
 /** Sections an added ribbon touches; one undo step restores the model. */
 export const RIBBON_ADD_SECTIONS=['Nodes','Textures','Materials','TextureAnims','GlobalSequences','PivotPoints'];
@@ -66,41 +65,3 @@ export function setRibbonQuick(model,id,change){
  return node;
 }
 
-/** Where an edit lands: an animation frame, or the static value when nothing is chosen. */
-export function ribbonEditFrame(model,{time=0,sequenceIndex=-1,globalSeqId=null,restPose=false}={}){
- const frame=Math.round(time),global=!restPose&&Number.isInteger(globalSeqId)&&globalSeqId>=0?globalSeqId:null;
- const sequence=restPose||global!==null?-1:sequenceIndex>=0?sequenceIndex:model.Sequences.findIndex(item=>frame>=item.Interval[0]&&frame<=item.Interval[1]);
- return {frame,sequenceIndex:sequence,globalSeqId:global,animated:!restPose&&(sequence>=0||global!==null)};
-}
-
-export const ribbonSizeKeyed=node=>!!(node?.HeightAbove?.Keys||node?.HeightBelow?.Keys);
-
-/** Box values at this frame: a keyed size shows the size the ribbon has right now. */
-export function ribbonFrameValues(model,id,at){
- const node=model.RibbonEmitters.find(item=>item.ObjectId===id);if(!node)return null;
- const values=ribbonQuickValues(node);
- if(ribbonSizeKeyed(node)&&at.animated){
-  const sample=property=>Number(sampleAnimationProperty(model,{kind:'node',id,property},at.frame,at.sequenceIndex,at.globalSeqId));
-  values.above=sample('HeightAbove');values.below=sample('HeightBelow');values.size=values.above+values.below;
- }
- return {...values,sizeKeyed:ribbonSizeKeyed(node)};
-}
-
-/** Size edits write keys at this frame once size is keyed; everything else edits the whole value. */
-export function applyRibbonEdit(model,id,change,at){
- const node=model.RibbonEmitters.find(item=>item.ObjectId===id);
- if(!node)throw Error('The ribbon was removed.');
- const sizing=change.size!=null||change.above!=null||change.below!=null||change.sizeKey;
- if(!sizing||!(change.sizeKey||ribbonSizeKeyed(node)))return setRibbonQuick(model,id,change);
- if(!at.animated)throw Error('Choose an animation to set a size key.');
- const now=ribbonFrameValues(model,id,at),finite=value=>{if(!Number.isFinite(value))throw Error('Enter a number.');return Math.max(0,value);};
- let above=now.above,below=now.below;
- if(change.size!=null){const size=Math.max(.01,finite(change.size)),total=above+below;above=total>0?size*above/total:size/2;below=total>0?size*below/total:size/2;}
- if(change.above!=null)above=finite(change.above);
- if(change.below!=null)below=finite(change.below);
- setAnimationKey(model,[{kind:'node',id,property:'HeightAbove'}],at.frame,above,at.sequenceIndex,at.globalSeqId);
- setAnimationKey(model,[{kind:'node',id,property:'HeightBelow'}],at.frame,below,at.sequenceIndex,at.globalSeqId);
- const {size,above:_a,below:_b,sizeKey,...rest}=change;
- if(Object.keys(rest).length)setRibbonQuick(model,id,rest);
- return model.RibbonEmitters.find(item=>item.ObjectId===id);
-}

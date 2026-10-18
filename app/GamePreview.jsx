@@ -2,7 +2,8 @@ import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js
 import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ribbonEditFrame, ribbonFrameValues, applyRibbonEdit } from '../src/ribbon-quick.js';
+import { ribbonQuickValues, setRibbonQuick } from '../src/ribbon-quick.js';
+import { ribbonSizeAt, setRibbonSizeKey } from '../src/ribbon-timing.js';
 import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles, zoomEditorCamera } from './editor-camera-controls.js';
 import { viewportCursor, showcaseCursor } from './viewport-cursors.js';
 import { createPreviewSceneGL } from './preview-scene-gl.js';
@@ -262,7 +263,7 @@ export default function GamePreview(inputProps) {
     host.current.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: graphicsOptions(latest.current.preferences).antialias, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let ribbonHandles = null, ribbonGesture = null, ribbonAxis = null;
+    let ribbonHandles = null, ribbonGesture = null, ribbonAxis = null, ribbonSizeDraft = null;
     let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
@@ -1276,36 +1277,58 @@ export default function GamePreview(inputProps) {
         drawModelCameraOverlay(cameraCanvas.getContext('2d'), ownedModel, camera, canvas.clientWidth, canvas.clientHeight, canvas.width / Math.max(1, canvas.clientWidth), native.getFrame(), poseSequence, globalClock, radius, visualOptions(p.preferences).node, p.portraitMode ? PORTRAIT_ASPECT : 4 / 3);
       } else if (cameraCanvas) { cameraCanvas.remove(); cameraCanvas = null; }
       // Ribbon box: drag the two ends to stretch the strip, or the strip itself to move it.
+      // Smooth Size turns the ends green: they then shape one size key, which App commits.
       const ribbonNode = p.ribbonEdit != null && p.onRibbonEdges && !p.suspended ? ownedModel.RibbonEmitters?.find(node => node.ObjectId === p.ribbonEdit) : null;
+      const sizeKey = ribbonNode && p.ribbonSizeKey?.id === ribbonNode.ObjectId ? p.ribbonSizeKey : null;
+      if (ribbonSizeDraft && (!sizeKey || ribbonSizeDraft.id !== sizeKey.id)) {
+        const draftNode = ownedModel.RibbonEmitters?.find(node => node.ObjectId === ribbonSizeDraft.id);
+        if (draftNode) { draftNode.HeightAbove = ribbonSizeDraft.HeightAbove; draftNode.HeightBelow = ribbonSizeDraft.HeightBelow; }
+        ribbonSizeDraft = null; invalidate();
+      }
+      if (sizeKey) {
+        if (!ribbonSizeDraft) ribbonSizeDraft = { id: sizeKey.id, HeightAbove: structuredClone(ribbonNode.HeightAbove), HeightBelow: structuredClone(ribbonNode.HeightBelow), stamp: null };
+        const stamp = [sizeKey.frame, sizeKey.sequenceIndex, sizeKey.above, sizeKey.below].join(':');
+        if (!ribbonGesture && ribbonSizeDraft.stamp !== stamp) {
+          ribbonNode.HeightAbove = structuredClone(ribbonSizeDraft.HeightAbove); ribbonNode.HeightBelow = structuredClone(ribbonSizeDraft.HeightBelow);
+          try { setRibbonSizeKey(ownedModel, sizeKey.id, sizeKey.frame, sizeKey.sequenceIndex, sizeKey); } catch {}
+          ribbonSizeDraft.stamp = stamp; invalidate();
+        }
+      }
       const ribbonMatrix = ribbonNode && native.rendererData?.nodes?.[ribbonNode.ObjectId]?.matrix;
       if (ribbonMatrix) {
         if (!ribbonHandles) ribbonHandles = ['move', 'above', 'below'].map(part => {
           const element = ownerDocument.createElement('div'); element.className = part === 'move' ? 'ribbon-strip-handle' : 'ribbon-end-handle'; element.dataset.ribbonEnd = part;
           element.setAttribute('aria-label', { move: 'Drag ribbon', above: 'Drag ribbon upper end', below: 'Drag ribbon lower end' }[part]);
-          element.title = part === 'move' ? 'Drag the ribbon to move it on the weapon.' : 'Drag to stretch the ribbon along the weapon. With size keys, this sets a size key at this frame.';
           const node = () => ownedModel.RibbonEmitters?.find(item => item.ObjectId === latest.current.ribbonEdit);
-          const editFrame = () => { const current = latest.current, frame = Math.round(native.getFrame()); return ribbonEditFrame(ownedModel, { time: frame, sequenceIndex: movementSequence(current, frame), globalSeqId: current.globalSeqId, restPose: current.restPose }); };
+          const keyOf = () => latest.current.ribbonSizeKey?.id === latest.current.ribbonEdit ? latest.current.ribbonSizeKey : null;
           const restore = (gesture, redraw = true) => {
             const current = node(); if (current) Object.assign(current, structuredClone(gesture.baseline));
-            if (ownedModel.PivotPoints) ownedModel.PivotPoints[gesture.id] = structuredClone(gesture.baseline.PivotPoint);
+            if (ownedModel.PivotPoints && gesture.baseline.PivotPoint) ownedModel.PivotPoints[gesture.id] = structuredClone(gesture.baseline.PivotPoint);
             if (redraw) invalidate();
           };
           const change = gesture => part === 'move' ? { move: gesture.value } : { [part]: gesture.value };
+          const preview = gesture => {
+            restore(gesture, false);
+            if (gesture.key) { const values = { above: gesture.key.above, below: gesture.key.below, [part]: gesture.value }; try { setRibbonSizeKey(ownedModel, gesture.id, gesture.key.frame, gesture.key.sequenceIndex, values); } catch { restore(gesture, false); } }
+            else setRibbonQuick(ownedModel, gesture.id, change(gesture));
+            invalidate();
+          };
           const end = (event, commit) => {
             const gesture = ribbonGesture; if (!gesture || gesture.part !== part) return; ribbonGesture = null;
             if (element.hasPointerCapture?.(event.pointerId)) element.releasePointerCapture(event.pointerId);
             if (!commit || gesture.value == null) { restore(gesture); return; }
-            // The owned preview already shows the committed result, so the renderer is kept.
-            if (latest.current.onRibbonEdges?.(gesture.id, change(gesture)) === false) restore(gesture); else invalidate();
+            // Smooth Size keeps a draft until Commit; otherwise the owned preview already shows the committed result.
+            if (gesture.key) { latest.current.onRibbonSizeDraft?.({ [part]: gesture.value }); invalidate(); }
+            else if (latest.current.onRibbonEdges?.(gesture.id, change(gesture)) === false) restore(gesture); else invalidate();
           };
           element.addEventListener('pointerdown', event => {
-            event.preventDefault(); event.stopPropagation(); const current = node();
+            event.preventDefault(); event.stopPropagation(); const current = node(), key = part === 'move' ? null : keyOf();
             if (event.button !== 0 || !current || !ribbonAxis) return;
             element.setPointerCapture(event.pointerId); latest.current.onPlayingChange?.(false);
-            const at = editFrame(), values = ribbonFrameValues(ownedModel, current.ObjectId, at);
+            const values = key ? ribbonSizeAt(ownedModel, current.ObjectId, key.frame, key.sequenceIndex) : ribbonQuickValues(current);
             const parent = native.rendererData?.nodes?.[current.Parent]?.matrix, toLocal = new THREE.Matrix3().setFromMatrix4(parent ? new THREE.Matrix4().fromArray(parent) : new THREE.Matrix4()).invert();
-            ribbonGesture = { part, id: current.ObjectId, at, x: event.clientX, y: event.clientY, axis: { ...ribbonAxis }, toLocal, right: new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion), up: new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion),
-              start: part === 'move' ? 0 : values[part], value: null, baseline: { HeightAbove: structuredClone(current.HeightAbove), HeightBelow: structuredClone(current.HeightBelow), PivotPoint: structuredClone(current.PivotPoint || ownedModel.PivotPoints?.[current.ObjectId]) } };
+            ribbonGesture = { part, id: current.ObjectId, key, x: event.clientX, y: event.clientY, axis: { ...ribbonAxis }, toLocal, right: new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion), up: new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion),
+              start: part === 'move' ? 0 : values[part], value: null, baseline: key ? { HeightAbove: structuredClone(ribbonSizeDraft?.HeightAbove ?? current.HeightAbove), HeightBelow: structuredClone(ribbonSizeDraft?.HeightBelow ?? current.HeightBelow) } : { HeightAbove: structuredClone(current.HeightAbove), HeightBelow: structuredClone(current.HeightBelow), PivotPoint: structuredClone(current.PivotPoint || ownedModel.PivotPoints?.[current.ObjectId]) } };
           });
           element.addEventListener('pointermove', event => {
             const gesture = ribbonGesture; if (!gesture || gesture.part !== part || !node()) return;
@@ -1319,9 +1342,7 @@ export default function GamePreview(inputProps) {
               const along = (dx * gesture.axis.dx + dy * gesture.axis.dy) * unit;
               gesture.value = Math.max(0, gesture.start + (part === 'above' ? along : -along));
             }
-            restore(gesture, false);
-            try { applyRibbonEdit(ownedModel, gesture.id, change(gesture), gesture.at); } catch { restore(gesture, false); }
-            invalidate();
+            preview(gesture);
           });
           element.addEventListener('pointerup', event => end(event, true));
           element.addEventListener('pointercancel', event => end(event, false));
@@ -1338,11 +1359,16 @@ export default function GamePreview(inputProps) {
           ribbonAxis = length > 1e-6 ? { dx: (b.x - a.x) / length, dy: (b.y - a.y) / length, unitsPerPixel } : { dx: 0, dy: -1, unitsPerPixel };
         }
         for (const element of ribbonHandles) {
+          element.classList.toggle('size-key', !!sizeKey);
           if (element.dataset.ribbonEnd === 'move') {
             const a = ends.below, b = ends.above, length = Math.hypot(b.x - a.x, b.y - a.y);
-            element.hidden = !a.visible || !b.visible || length < 16;
+            element.hidden = !!sizeKey || !a.visible || !b.visible || length < 16;
+            element.title = 'Drag the ribbon to move it on the weapon.';
             element.style.left = a.x + 'px'; element.style.top = a.y + 'px'; element.style.width = Math.max(0, length) + 'px'; element.style.transform = 'rotate(' + Math.atan2(b.y - a.y, b.x - a.x) + 'rad)';
-          } else { const point = ends[element.dataset.ribbonEnd]; element.hidden = !point.visible; element.style.left = point.x + 'px'; element.style.top = point.y + 'px'; }
+          } else {
+            const point = ends[element.dataset.ribbonEnd]; element.hidden = !point.visible; element.style.left = point.x + 'px'; element.style.top = point.y + 'px';
+            element.title = sizeKey ? 'Drag to set the ribbon size at this key. Commit writes it.' : 'Drag to stretch the ribbon along the weapon, in every frame.';
+          }
         }
       } else if (ribbonHandles) { ribbonHandles.forEach(element => element.remove()); ribbonHandles = null; ribbonGesture = null; }
       const selectedControls = !!p.onNodeTransform && !!p.selectedNodeIds?.length && ['move', 'rotate', 'scale'].includes(p.transformMode), poseVisible = !!p.poseConfig?.enabled && !p.restPose;

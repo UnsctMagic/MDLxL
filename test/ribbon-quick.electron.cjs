@@ -36,8 +36,13 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const added=await read(),ribbon=added.model.RibbonEmitters.at(-1);
   assert.equal(added.undo,before.undo+1,'One undo step adds the ribbon');assert.equal(added.model.RibbonEmitters.length,before.model.RibbonEmitters.length+1);
   assert.equal(added.model.Textures[added.model.Materials[ribbon.MaterialID].Layers[0].TextureID].Image,RIBBON_TEXTURE);
-  // Only the simple settings and the visibility switch show before Advanced is opened.
-  for(const label of ['Ribbon color','Ribbon intensity','Ribbon lasts','Ribbon size','Ribbon visible at this frame'])assert.ok(await page.getByLabel(label,{exact:true}).isVisible(),label);
+  // Only the simple settings show before Advanced is opened.
+  for(const label of ['Ribbon color','Ribbon intensity','Ribbon lasts','Ribbon size'])assert.ok(await page.getByLabel(label,{exact:true}).isVisible(),label);
+  // The ribbon track: one on/off part covering the whole animation.
+  const track=page.getByRole('group',{name:'Ribbon visible',exact:true});await track.waitFor();
+  const shows=()=>track.getByRole('slider',{name:/^Ribbon shows at frame/}),hides=()=>track.getByRole('slider',{name:/^Ribbon hides at frame/});
+  assert.equal(await shows().count(),1);assert.equal(await hides().count(),1);
+  const spans=()=>page.evaluate(id=>{const {doc}=ribbonProbe(),r=doc.model.RibbonEmitters.find(n=>n.ObjectId===id);return r.Visibility.Keys.map(k=>[k.Frame,k.Vector[0]]);},ribbon.ObjectId);
   for(const label of ['Ribbon upper end','Ribbon smoothness','Ribbon gravity'])assert.equal(await page.getByLabel(label,{exact:true}).isVisible(),false,label+' stays in Advanced');
   await page.waitForTimeout(400);
   const keys=await page.locator('.classic-reel-key').count();assert.ok(keys>=2,'Visibility keys are on the timeline: '+keys);
@@ -72,29 +77,57 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   const shifted=Object.values(movedRibbon.model.RibbonEmitters.at(-1).PivotPoint),base=Object.values(pivot0);assert.ok(Math.hypot(...shifted.map((v,i)=>v-base[i]))>1,'Pivot moved');
   assert.equal(movedRibbon.model.RibbonEmitters.at(-1).HeightAbove,stretched.HeightAbove);
   after=movedRibbon;
-  // A size key at this frame makes the size animatable; the timeline shows the new keys.
-  const keysBefore=await page.locator('.classic-reel-key').count();
-  await page.getByRole('button',{name:'Set ribbon size key',exact:true}).click();
-  now=await read();assert.equal(now.undo,after.undo+1);assert.ok(now.model.RibbonEmitters.at(-1).HeightAbove.Keys?.length>0,'Size is keyed');
-  assert.equal(await page.getByRole('button',{name:'Set ribbon size key',exact:true}).getAttribute('aria-pressed'),'true');
-  await page.waitForTimeout(300);assert.ok(await page.locator('.classic-reel-key').count()>=keysBefore,'Size keys are on the timeline');
-  await page.getByRole('button',{name:'Undo',exact:true}).first().click().catch(async()=>{await page.keyboard.press('Control+Z');});
+  // Visibility: drag the "shows" diamond later with the mouse.
+  const bar=await track.locator('.ribbon-track-bar').boundingBox(),d0=await shows().boundingBox();
+  await page.mouse.move(d0.x+d0.width/2,d0.y+d0.height/2);await page.mouse.down();await page.mouse.move(bar.x+bar.width*.3,d0.y+d0.height/2,{steps:8});await page.mouse.up();
+  now=await read();assert.equal(now.undo,after.undo+1,'One undo step per diamond drag');
+  const firstShow=Number((await shows().first().getAttribute('aria-label')).match(/\d+$/)[0]);
+  assert.ok((await spans()).some(([frame,value])=>frame===firstShow&&value===1),'A show key at the dragged frame');
+  // Another on/off part: show, disappear, show, disappear.
+  await track.getByRole('button',{name:'+ On/off part',exact:true}).click();
+  assert.equal(await shows().count(),2);assert.equal(await hides().count(),2);after=await read();assert.equal(after.undo,now.undo+1);
+  await page.screenshot({path:path.join(out,'3b-track.png')});
+
+  // Smooth Size: right-click the track, adjust the green ends, Commit; Ctrl+Z undoes it.
+  await page.mouse.click(bar.x+bar.width*.6,bar.y+bar.height/2,{button:'right'});
+  const smooth=page.getByRole('menuitem',{name:/^Smooth Size at frame/});const keyFrame=Number((await smooth.textContent()).match(/\d+$/)[0]);await smooth.click();
+  const banner=page.getByRole('status',{name:'Smooth Size',exact:true});await banner.waitFor();
+  assert.match(await banner.textContent(),/Adjust the scale at this specific key.*grow\/shrink smoothly between keys/);
+  assert.equal(await upper.getAttribute('class'),'ribbon-end-handle size-key','Ends turn neon green');
+  assert.equal(await page.locator('.ribbon-strip-handle').isVisible(),false,'The move strip hides while sizing a key');
+  await page.waitForTimeout(200);const g=await upper.boundingBox(),gl=await lower.boundingBox(),gd={x:g.x-gl.x,y:g.y-gl.y},glen=Math.hypot(gd.x,gd.y);
+  await page.mouse.move(g.x+g.width/2,g.y+g.height/2);await page.mouse.down();await page.mouse.move(g.x+g.width/2+gd.x/glen*30,g.y+g.height/2+gd.y/glen*30,{steps:6});await page.mouse.up();
+  assert.equal((await read()).undo,after.undo,'Nothing is written before Commit');
+  await banner.getByRole('button',{name:'Commit',exact:true}).click();
+  now=await read();const keyed=now.model.RibbonEmitters.at(-1);assert.equal(now.undo,after.undo+1);
+  assert.ok(keyed.HeightAbove.Keys.some(k=>k.Frame===keyFrame),'Size key written at frame '+keyFrame);assert.equal(keyed.HeightAbove.LineType,1,'Grows smoothly between keys');
+  assert.equal(await banner.count(),0);assert.ok(await track.locator('.ribbon-track-size-key').count()>=1,'Green size key on the track');
+  await page.keyboard.press('Control+Z');now=await read();assert.equal(now.undo,after.undo,'Ctrl+Z removes the size key');assert.equal(typeof now.model.RibbonEmitters.at(-1).HeightAbove,'number');
+  // Cancel discards the draft.
+  await page.mouse.click(bar.x+bar.width*.6,bar.y+bar.height/2,{button:'right'});await page.getByRole('menuitem',{name:/^Smooth Size at frame/}).click();await banner.waitFor();
+  await page.keyboard.press('Escape');assert.equal(await banner.count(),0);assert.equal((await read()).undo,after.undo);
+
+  // Adjust Manually: the exact MDL text, applied as one undo step.
+  await box.getByRole('button',{name:'Adjust Manually',exact:true}).click();
+  const manual=page.getByRole('dialog',{name:'Adjust ribbon manually',exact:true}),text=manual.getByLabel('Ribbon MDL text',{exact:true});
+  const mdl=await text.inputValue();assert.match(mdl,/^RibbonEmitter "Weapon ribbon" \{/);assert.match(mdl,/Visibility \d+ \{\n\t\tDontInterp,/);
+  await text.fill(mdl.replace(/LifeSpan [0-9.]+/,'LifeSpan 0.75'));await manual.getByRole('button',{name:'Apply',exact:true}).click();
+  now=await read();assert.equal(now.model.RibbonEmitters.at(-1).LifeSpan,.75);assert.equal(now.undo,after.undo+1);assert.equal(await manual.count(),0);
+  await box.getByRole('button',{name:'Adjust Manually',exact:true}).click();await text.fill(mdl.replace(/MaterialID \d+/,'MaterialID 999'));await manual.getByRole('button',{name:'Apply',exact:true}).click();
+  await manual.getByRole('alert').waitFor();assert.equal((await read()).undo,now.undo,'Invalid text changes nothing');await manual.getByRole('button',{name:'Cancel',exact:true}).click();
   after=await read();
 
   // Normal mouse camera rotation still works next to the handles.
   const camera=()=>page.evaluate(()=>{const c=ribbonProbe().runtime.controls.object;return [...c.position.toArray(),...c.quaternion.toArray()];});
   const canvas=await page.locator('.game-preview-root canvas').first().boundingBox(),cameraBefore=await camera();
-  await page.keyboard.down('Alt');await page.mouse.move(canvas.x+60,canvas.y+canvas.height-60);await page.mouse.down();await page.mouse.move(canvas.x+160,canvas.y+canvas.height-90,{steps:8});await page.mouse.up();await page.keyboard.up('Alt');await page.waitForTimeout(200);
+  await page.keyboard.down('Alt');await page.mouse.move(canvas.x+60,canvas.y+canvas.height*.45);await page.mouse.down();await page.mouse.move(canvas.x+160,canvas.y+canvas.height*.4,{steps:8});await page.mouse.up();await page.keyboard.up('Alt');await page.waitForTimeout(200);
   const cameraAfter=await camera();assert.ok(cameraAfter.some((v,i)=>Math.abs(v-cameraBefore[i])>1e-3),'Mouse drag rotates the camera');
   assert.equal((await read()).undo,after.undo,'Camera drag does not edit');
 
-  // Visibility: switch the ribbon off from the current frame.
-  const vis=page.getByLabel('Ribbon visible at this frame',{exact:true});assert.equal(await vis.isChecked(),true);
-  await vis.uncheck();now=await read();assert.equal(now.undo,after.undo+1);assert.equal(await vis.isChecked(),false);
-
   // Play Attack with the ribbon on: the newest trail piece sits at the blade and uses the bright edge of the picture.
   await page.getByLabel('Movement current sequence',{exact:true}).selectOption({label:'Attack'});await page.waitForTimeout(200);
-  if(!(await vis.isChecked()))await vis.check();
+  assert.equal(await shows().count(),0,'Hidden in Attack until a part is added');
+  await track.getByRole('button',{name:'+ On/off part',exact:true}).click();assert.equal(await shows().count(),1);
   await page.getByRole('button',{name:'Play',exact:true}).click();await page.waitForTimeout(700);
   const trail=await page.evaluate(id=>{const {runtime}=ribbonProbe(),e=runtime.native.ribbonsController.emitters.find(item=>item.props.ObjectId===id);const n=e.creationTimes.length;return {n,newest:e.texCoords[(n-1)*4],oldest:e.texCoords[0]};},stretched.ObjectId);
   await page.getByRole('button',{name:'Stop',exact:true}).click();
