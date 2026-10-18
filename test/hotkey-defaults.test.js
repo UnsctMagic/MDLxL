@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { COMMANDS } from '../src/commands.js';
-import { assignHotkey, effectiveBindings, normalizeChord, normalizePreferences } from '../src/preferences.js';
+import { assignHotkey, effectiveBindings, hotkeyConflicts, normalizeChord, normalizePreferences } from '../src/preferences.js';
 import { contextualHotkeyDefaults, coreHotkeyDefaults, normalizeHotkeySequence, hotkeyCode, hotkeySequence, HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
 
 const leader = { key: ' ', code: 'Space', ctrlKey: true, altKey: true };
 test('every core action has a unique default and original MDLVis shortcuts retain their command', () => {
   const assigned = new Map();
-  for (const action of COMMANDS) {
+  for (const action of COMMANDS.filter(action => action.scope !== 'forge-shapes')) {
     assert.ok(action.defaultKeys.length, `${action.id} needs a default`);
     for (const key of action.defaultKeys) { assert.equal(assigned.has(key), false, `${key} already belongs to ${assigned.get(key)}`); assigned.set(key, action.id); }
   }
@@ -26,7 +26,7 @@ test('contextual defaults are unique, independent of discovery order, and stable
   const reversed = contextualHotkeyDefaults([...COMMANDS, ...contextual.toReversed()]);
   const byId = actions => Object.fromEntries(actions.map(action => [action.id, action.defaultKeys]));
   assert.deepEqual(byId(first), byId(reversed));
-  const codes = first.flatMap(action => action.defaultKeys); assert.equal(new Set(codes).size, codes.length);
+  const codes = first.filter(action => action.scope !== 'forge-shapes').flatMap(action => action.defaultKeys); assert.equal(new Set(codes).size, codes.length);
   const saved = JSON.parse(JSON.stringify(first.filter(action => action.contextual)));
   const next = contextualHotkeyDefaults([...COMMANDS, { id:'new:control', contextual:true }, ...saved]);
   const updated = byId(next);
@@ -55,6 +55,8 @@ test('Forge contextual controls drop generated codes but remain available for cu
   assert.deepEqual(bindings['forge:effect:tool:Dome'], []);
   assert.deepEqual(bindings['paint:custom:control'], [hotkeySequence('BCD')]);
   assert.deepEqual(bindings['forge:shape:extrude'], ['E']);
+  assert.deepEqual(bindings['forge:shape:cut'], ['C']);
+
   const assigned = assignHotkey({}, actions, 'forge:shape:add:Cube', 'F8');
   assert.equal(assigned.ok, true);
   assert.deepEqual(effectiveBindings(actions, assigned.hotkeys)['forge:shape:add:Cube'], ['F8']);
@@ -97,4 +99,20 @@ test('Escape, invalid keys, timeout, focus cancellation and IME cancel an incomp
   sequence.feed(leader, 0); sequence.cancel(); assert.equal(sequence.feed({key:'A'}, 30).pending, false);
   sequence.feed(leader, 0); assert.equal(sequence.feed({key:'a',isComposing:true}, 10).consume, false); assert.equal(sequence.active, false);
   sequence.feed(leader, 0); sequence.feed({key:'A'}, 10); assert.equal(sequence.feed({key:'Backspace'}, 20).code, '');
+});
+
+
+test('Forge owns nearby single keys without replacing other editors or allowing ambiguous local assignments', () => {
+  const expected = { add:'G', 'mode:Shape':'1', 'mode:Edges':'2', 'mode:Vertices':'3', extrude:'E', inset:'X', duplicate:'D', cut:'C' };
+  for (const [id, key] of Object.entries(expected)) {
+    const action = COMMANDS.find(a => a.id === 'forge:shape:'+id);
+    assert.equal(action.scope, 'forge-shapes');
+    assert.deepEqual(action.defaultKeys, [key]);
+  }
+  const result = assignHotkey({}, COMMANDS, 'forge:shape:cut', 'C');
+  assert.equal(result.ok, true);
+  assert.deepEqual(effectiveBindings(COMMANDS, result.hotkeys).Collapse, ['C']);
+  assert.deepEqual(hotkeyConflicts(COMMANDS, {}, 'forge:shape:cut', 'E'), ['forge:shape:extrude']);
+  const global = [...COMMANDS, {id:'global:test',scope:'global',defaultKeys:['F8']}];
+  assert.deepEqual(hotkeyConflicts(global, {}, 'forge:shape:cut', 'F8'), ['global:test']);
 });

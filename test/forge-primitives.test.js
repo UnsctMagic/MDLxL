@@ -11,8 +11,15 @@ test('Forge editor starters use Z-up height and preserve corner UVs', () => {
   assert.deepEqual(bounds, [[-110, 130], [-60, 100], [-40, 100]]);
   assert.deepEqual(editor.TVertices, original.TVertices);
   assert.deepEqual(editor.Faces, original.Faces);
-  const plane = buildForgePrimitive({ shape: 'Plane', zUp: true }).geosets[0];
-  assert.ok(Array.from(plane.Normals).filter((_, i) => i % 3 === 1).every(n => Math.abs(n + 1) < 1e-6), 'flat shapes face the editor front view');
+  for (const shape of FLAT_FORGE_SHAPES) for (const thickness of [0, 10]) {
+    const flat = buildForgePrimitive({ shape, thickness, zUp: true }).geosets[0];
+    const z = Array.from(flat.Vertices).filter((_, i) => i % 3 === 2);
+    assert.ok(Math.abs(Math.min(...z) + thickness / 2) < 1e-5 && Math.abs(Math.max(...z) - thickness / 2) < 1e-5, `${shape} lies in the ground plane`);
+    if (!thickness) assert.ok(Array.from(flat.Normals).filter((_, i) => i % 3 === 2).every(n => Math.abs(n - 1) < 1e-6), `${shape} faces upward`);
+  }
+  const ring = buildForgePrimitive({ shape: 'Torus', zUp: true }).geosets[0];
+  const spans = [0, 1, 2].map(axis => { const values = Array.from(ring.Vertices).filter((_, i) => i % 3 === axis); return Math.max(...values) - Math.min(...values); });
+  assert.ok(spans[2] < Math.min(spans[0], spans[1]), 'torus rests flat on the ground');
 });
 
 test('all primitives stay modest, have usable UV triangles and regular geometry at every complexity', () => {
