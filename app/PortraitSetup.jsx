@@ -15,7 +15,7 @@ export default function PortraitSetup({ model, missingSequence, missingCamera, s
         </select></label>
         <p>Copies the source's visibility and RGB animation over the new length. Bone movement is left blank.</p>
       </>}
-      {missingCamera && <><p>A camera is required. Set Current View creates Camera 01 from the current viewport and calculates extents.</p><button disabled={disabled} onClick={onSetCamera}>Set Current View</button></>}
+      {missingCamera && <><p>A camera is required. Set Current View creates Camera 01 from the current viewport.</p><button disabled={disabled} onClick={onSetCamera}>Set Current View</button></>}
       {disabled && <p>This model is read-only; the missing requirements cannot be created.</p>}
       {error && <p role="alert">{error}</p>}
     </div>

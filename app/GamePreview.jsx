@@ -1,3 +1,4 @@
+import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js';
 import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -39,16 +40,18 @@ import { previewPresentationProps, previewOverlaySettings } from './preview-pres
 import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
 
 import { createEventPreview } from './event-preview-runtime.js';
-import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
+import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, screenPlaneTranslation } from './viewport-math.js';
+import { shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
 import { decodeDds } from '../src/dds.js';
 import { scalePlaybackDelta } from '../src/playback-speed.js';
-import { HUMAN_FRAME_CROP, HUMAN_FRAME_SIZE, HUMAN_TILE_LAYOUT, PORTRAIT_ASPECT, PORTRAIT_RECT, applyEvaluatedModelCamera, editorCameraSnapshot, evaluateModelCamera, portraitCaptureLayout } from './portrait-view.js';
+import { HUMAN_FRAME_CROP, HUMAN_FRAME_SIZE, HUMAN_TILE_LAYOUT, PORTRAIT_ASPECT, PORTRAIT_RECT, applyEvaluatedModelCamera, editorCameraSnapshot, evaluateModelCamera, portraitCaptureLayout, portraitCompositionRect } from './portrait-view.js';
 import './portrait-view.css';
 import ShowcaseLayers from './ShowcaseLayers.jsx';
 
 const pathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 let humanFramePromise;
+const portraitComposition = props => !!props.portraitMode && !props.showcase && !!props.portraitSettings?.composition;
 const portraitHasFrame = props => props.portraitMode && props.showcasePortraitFrame !== false;
 
 function textureCanvas(texture) {
@@ -79,7 +82,13 @@ async function loadHumanFrame() {
   return { canvas: frame, url: frame.toDataURL('image/png') };
 }
 
-function composePortraitCapture(modelCanvas, frameCanvas) {
+function composePortraitCapture(modelCanvas, frameCanvas, composition = false) {
+  if (composition) {
+    const crop = portraitCompositionRect(modelCanvas.width, modelCanvas.height), cropped = document.createElement('canvas');
+    cropped.width = Math.round(crop.width); cropped.height = Math.round(crop.height);
+    cropped.getContext('2d').drawImage(modelCanvas, crop.x, crop.y, crop.width, crop.height, 0, 0, cropped.width, cropped.height);
+    modelCanvas = cropped;
+  }
   const layout = portraitCaptureLayout(modelCanvas.width, modelCanvas.height), snapshot = document.createElement('canvas');
   snapshot.width = snapshot.height = layout.size;
   const context = snapshot.getContext('2d'); context.fillStyle = '#000000'; context.fillRect(0, 0, layout.size, layout.size);
@@ -115,7 +124,9 @@ export default function GamePreview(inputProps) {
   const [error, setError] = useState(''), [warnings, setWarnings] = useState([]), [eventWarnings, setEventWarnings] = useState([]), [adjustingSensitivity, setAdjustingSensitivity] = useState(null), [gestureLabel, setGestureLabel] = useState('');
   const [backgroundError, setBackgroundError] = useState('');
   const [selectionBox, setSelectionBox] = useState(null);
+  const [portraitArea, setPortraitArea] = useState({width:256,height:256});
   const [portraitSize, setPortraitSize] = useState(256), [portraitFrameVersion, setPortraitFrameVersion] = useState(0);
+  const portraitLight = useRef(null);
   const portraitFrame = useRef({ status: 'idle', canvas: null, url: '', error: '', promise: Promise.resolve() });
   const backgroundState = useRef({ url: null, status: 'ready', image: null, promise: Promise.resolve() });
   const layerComposite = useRef(null);
@@ -164,6 +175,22 @@ export default function GamePreview(inputProps) {
   const timelineStart = sequenceIndex < 0 ? globalPreviewId !== null ? 0 : Number(props.timelineInterval?.[0]) : NaN;
   const timelineEnd = sequenceIndex < 0 ? globalPreviewId !== null ? model.GlobalSequences[globalPreviewId] : Number(props.timelineInterval?.[1]) : NaN;
 
+  // Experimental, opt-in DNC portrait rig. The default is the verified MiscData light.
+  const portraitDnc = !!props.portraitMode && props.portraitSettings?.lighting !== false && !!props.portraitSettings?.dncLights;
+  useEffect(() => {
+    let active = true;
+    portraitLight.current = null; runtime.current?.scheduler.invalidate();
+    if (!portraitDnc) { latest.current.onPortraitLightingStatus?.(''); return; }
+    latest.current.onPortraitLightingStatus?.('Loading game portrait lights…');
+    loadPortraitLights(window.desktop,props.modelPath).then(lights => {
+      if (!active) return;
+      portraitLight.current = portraitLightFromRig(lights);
+      latest.current.onPortraitLightingStatus?.(portraitLight.current ? 'Game portrait lights loaded.' : 'The game portrait lights have no usable direction. Standard portrait light is active.');
+      runtime.current?.scheduler.invalidate();
+    }).catch(error => { if (active) latest.current.onPortraitLightingStatus?.(error.message); });
+    return () => { active = false; };
+  },[portraitDnc,props.modelPath]);
+
   useEffect(() => loadPoseSymbols(() => runtime.current?.scheduler.invalidate()), []);
 
   useEffect(() => {
@@ -171,7 +198,7 @@ export default function GamePreview(inputProps) {
     const PreviewResizeObserver = root.current.ownerDocument.defaultView?.ResizeObserver || ResizeObserver;
     const resize = () => {
       const width = root.current?.clientWidth || 1, height = root.current?.clientHeight || 1;
-      setPortraitSize(Math.max(1, Math.floor(Math.min(width - 16, height - 16))));
+      setPortraitSize(Math.max(1, Math.floor(Math.min(width - 16, height - 16)))); setPortraitArea({width,height});
     };
     const observer = new PreviewResizeObserver(resize); observer.observe(root.current); resize(); return () => observer.disconnect();
   }, [props.portraitMode, props.showcasePortraitFrame]);
@@ -283,9 +310,10 @@ export default function GamePreview(inputProps) {
     const previewAdapter = installWarcraftPreviewAdapter(gl, ownedModel, () => ({ frame: native.getFrame(), sequenceIndex: native.getSequence(), globalTime: globalClock,
       // Installed UI\\MiscData.txt [Light] Direction=0.3,0.3,-0.25;
       // the classic portrait scene maps this to (y,-x,-z), in model space.
+      portraitLight: latest.current.portraitMode ? portraitLight.current : null,
       portrait: !!latest.current.portraitMode || !!latest.current.showcase && latest.current.showcaseLight === 'portrait',
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
-      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', lighting: latest.current.portraitMode || (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
+      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
     try {
       native = new ModelRenderer(ownedModel); installParticleNativeCompatibility(native); native.initGL(gl); previewAdapter.ready(native);
       // Layered WC3 materials redraw the same triangles at identical depth.
@@ -303,6 +331,7 @@ export default function GamePreview(inputProps) {
     const ortho = new THREE.OrthographicCamera(-100, 100, 100, -100, .2, 1000); ortho.up.set(0, 0, 1);
     let camera = perspective;
     const controls = new EditorCameraControls(camera, canvas);
+    controls.portraitDolly = () => !!latest.current.portraitMode && !latest.current.showcase;
     controls.keepWorldUp=()=>!!latest.current.showcase&&!latest.current.portraitMode;
     controls.lockScreenAxis=!!latest.current.showcase; controls.enableDamping = false;
     controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: null, RIGHT: THREE.MOUSE.PAN };
@@ -418,6 +447,7 @@ export default function GamePreview(inputProps) {
           camera: camera.clone(), origin: handle.world.clone(), snapshots, frame, sequence, globalTime: globalClock, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane,
           restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
+        gesture.latch = shiftDragLatch({ x: 0, y: 0 }, event.shiftKey);
         beginRotationDrag(gesture, handle);
         gesture.dragPlane = axis?.plane || p.workplane;
         if (p.workplaneEnabled || axis?.plane) {
@@ -435,13 +465,16 @@ export default function GamePreview(inputProps) {
       const identity = JSON.stringify(targets), now = ownerWindow.performance.now();
       if (posePing?.identity !== identity || now - posePing.started > 1200) posePing = { identity, targets, started: now };
     };
+    /** Workplane off: Shift locks a free drag to the chosen XY/ZX/YZ plane; toggling it mid-drag continues from the visible position. */
+    const freeShiftDrag = (gesture, view, rect, dx, dy, shift) => shiftDragOffset(gesture.latch, { x: dx, y: dy }, shift, (from, to, held) =>
+      freeDragTranslation(view, gesture.origin, rect.width, rect.height, to.x - from.x, to.y - from.y, { shift: held, workplane: gesture.workplane || 'xy' }).toArray());
     const previewPoseGesture = (gesture, event, p, rect, dx, dy) => {
       restoreGestureTracks(gesture); posedGeometryCache = null;
       if (!poseContextValid(gesture, p)) { gesture.adjusted = true; return; }
       try {
         const sensitivity = pointerSensitivityValue(p.preferences?.pointerSensitivity);
         let offset = gesture.basis ? new THREE.Vector3().fromArray(projectedPlaneTranslation(gesture.dragPlane, gesture.basis, dx * sensitivity, dy * sensitivity, event.shiftKey))
-          : screenPlaneTranslation(gesture.camera, gesture.origin, rect.width, rect.height, dx * sensitivity, dy * sensitivity, event.shiftKey);
+          : new THREE.Vector3().fromArray(freeShiftDrag(gesture, gesture.camera, rect, dx * sensitivity, dy * sensitivity, event.shiftKey));
         if (!gesture.basis && !gesture.workplaneEnabled && !gesture.handle.free && gesture.mode === 'move') {
           let amount = movementDragAmount(gesture.handle, dx, dy, 'move', sensitivity);
           if (event.shiftKey) amount = Math.round(amount);
@@ -554,7 +587,7 @@ export default function GamePreview(inputProps) {
           }
           if (p.transformMode === 'move' || p.transformMode === 'scale') nodeGesture.space = 'world';
           if (workplaneDrag && p.transformMode === 'rotate') nodeGesture.space = 'world';
-          nodeGesture.workplaneDrag = workplaneDrag; nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;
+          nodeGesture.workplaneDrag = workplaneDrag; nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},event.shiftKey);
           beginRotationDrag(nodeGesture, active);
           controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId); invalidate();
           event.preventDefault(); event.stopImmediatePropagation(); return;
@@ -647,7 +680,7 @@ export default function GamePreview(inputProps) {
         ? movementRotationAmount(nodeGesture.rotationDrag, dragX, dragY, pointerSensitivityValue(p.preferences?.pointerSensitivity))
         : nodeGesture.basis ? 0 : movementDragAmount(nodeGesture.handle, dragX, dragY, nodeGesture.mode, pointerSensitivityValue(p.preferences?.pointerSensitivity));
       if (nodeGesture.basis) nodeGesture.values = projectedPlaneTranslation(nodeGesture.dragPlane, nodeGesture.basis, dragX * pointerSensitivityValue(p.preferences?.pointerSensitivity), dragY * pointerSensitivityValue(p.preferences?.pointerSensitivity), event.shiftKey);
-      if(nodeGesture.screenMove)nodeGesture.values=screenPlaneTranslation(camera,nodeGesture.origin,rect.width,rect.height,dx*pointerSensitivityValue(p.preferences?.pointerSensitivity),dy*pointerSensitivityValue(p.preferences?.pointerSensitivity),event.shiftKey).toArray();
+      if(nodeGesture.screenMove)nodeGesture.values=freeShiftDrag(nodeGesture,camera,rect,dx*pointerSensitivityValue(p.preferences?.pointerSensitivity),dy*pointerSensitivityValue(p.preferences?.pointerSensitivity),event.shiftKey);
       if (event.shiftKey && !nodeGesture.freeScaleDrag) nodeGesture.amount = nodeGesture.mode === 'rotate' ? Math.round(nodeGesture.amount / 5) * 5 : nodeGesture.mode === 'move' ? Math.round(nodeGesture.amount) : Math.round(nodeGesture.amount * 20) / 20 || .05;
       restoreGestureTracks(nodeGesture);
       try {
@@ -790,13 +823,24 @@ export default function GamePreview(inputProps) {
     function resize() {
       const rect=latest.current.pixelAligned?host.current?.getBoundingClientRect():null;
       const width = Math.max(1, rect?.width || host.current?.clientWidth || 1), height = Math.max(1, rect?.height || host.current?.clientHeight || 1), pixelRatio = latest.current.showcase ? graphicsOptions(latest.current.preferences).pixelRatio : viewportPixelRatio(graphicsOptions(latest.current.preferences), ownerWindow.devicePixelRatio);
-      canvas.height = Math.round(height * pixelRatio); canvas.width = portraitHasFrame(latest.current) ? Math.round(canvas.height * PORTRAIT_ASPECT) : Math.round(width * pixelRatio); gl.viewport(0, 0, canvas.width, canvas.height);
+      canvas.height = Math.round(height * pixelRatio); canvas.width = portraitHasFrame(latest.current) && !portraitComposition(latest.current) ? Math.round(canvas.height * PORTRAIT_ASPECT) : Math.round(width * pixelRatio); gl.viewport(0, 0, canvas.width, canvas.height);
       perspective.aspect = portraitHasFrame(latest.current) ? PORTRAIT_ASPECT : width / height; perspective.updateProjectionMatrix();
       const aspect = portraitHasFrame(latest.current) ? PORTRAIT_ASPECT : width / height;
       const half = orthographicHalfHeight(radius, aspect);
       ortho.left = -half * aspect; ortho.right = -ortho.left; ortho.top = half; ortho.bottom = -half; ortho.updateProjectionMatrix();
-      drawBackground(); reportProjectionView();
+      updatePortraitProjection(); drawBackground(); reportProjectionView();
       scheduler?.resize();
+    }
+    function updatePortraitProjection() {
+      if (portraitComposition(latest.current)) {
+        const crop = portraitCompositionRect(canvas.width,canvas.height);
+        perspective.setViewOffset(crop.width,crop.height,-crop.x,-crop.y,canvas.width,canvas.height);
+        if (camera === ortho) {
+          const height = orthographicHalfHeight(radius,PORTRAIT_ASPECT), factor = canvas.height / crop.height;
+          ortho.top = height * factor; ortho.bottom = -ortho.top;
+          ortho.right = height * factor * canvas.width / canvas.height; ortho.left = -ortho.right; ortho.updateProjectionMatrix();
+        }
+      } else if (!latest.current.showcase && perspective.view?.enabled) perspective.clearViewOffset();
     }
     function setView(next) {
       state.appliedView = next;
@@ -808,10 +852,9 @@ export default function GamePreview(inputProps) {
       }
       controls.object = camera; controls.enableRotate = true;
       if (state.portraitActive) { controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI; }
-      controls.update();
-      if (state.portraitActive) controls.minPolarAngle = controls.maxPolarAngle = controls.getPolarAngle();
-      reportProjectionView(); invalidate();
-      if (state.portraitActive) { state.cameraDetached = true; latest.current.onPlayingChange?.(false); }
+      controls.update(); reportProjectionView(); invalidate();
+      if (state.portraitActive) { state.cameraDetached = true; latest.current.onPlayingChange?.(false); latest.current.onPortraitPreviewChange?.(true); }
+      updatePortraitProjection();
     }
     const viewCamera = event => { if (latest.current.suspended)return;if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
@@ -898,10 +941,9 @@ export default function GamePreview(inputProps) {
     };
     function enterPortrait(evaluated) {
       if (!portraitBackup) portraitBackup = { perspective: perspective.clone(), ortho: ortho.clone(), target: controls.target.clone(), camera: camera === ortho ? 'ortho' : 'perspective', appliedView: state.appliedView, minPolarAngle: controls.minPolarAngle, maxPolarAngle: controls.maxPolarAngle };
-      state.portraitActive = true; state.cameraDetached = false; state.appliedView = 'perspective'; camera = perspective; controls.object = camera; controls.enableRotate = true;
+      state.portraitActive = true; state.cameraDetached = false; latest.current.onPortraitPreviewChange?.(false); state.appliedView = 'perspective'; camera = perspective; controls.object = camera; controls.enableRotate = true;
       controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
       if (evaluated) applyEvaluatedModelCamera(camera, controls, evaluated, PORTRAIT_ASPECT);
-      controls.minPolarAngle = controls.maxPolarAngle = controls.getPolarAngle();
       resize(); reportProjectionView(); invalidate();
     }
     function exitPortrait() {
@@ -911,10 +953,11 @@ export default function GamePreview(inputProps) {
       controls.minPolarAngle = portraitBackup.minPolarAngle; controls.maxPolarAngle = portraitBackup.maxPolarAngle;
       portraitBackup = null; state.portraitActive = false; controls.update(); resize(); reportProjectionView(); invalidate();
     }
+    const cameraView = () => editorCameraSnapshot(camera, controls.target, perspective, portraitComposition(latest.current) ? portraitCompositionRect(canvas.width,canvas.height).height / canvas.height : 1);
     const cameraStarted = () => {
       const p = latest.current;
       if (!p.portraitMode || !state.portraitActive) return;
-      cameraGestureStart = { position: camera.position.clone(), target: controls.target.clone(), snapshot: editorCameraSnapshot(camera, controls.target) };
+      cameraGestureStart = { position: camera.position.clone(), target: controls.target.clone(), snapshot: cameraView() };
       state.cameraEditing = true; state.cameraDetached = true; p.onPlayingChange?.(false);
     };
     const cameraEnded = () => {
@@ -923,10 +966,13 @@ export default function GamePreview(inputProps) {
       if (!started || !p.portraitMode || !state.portraitActive) { state.cameraEditing = false; return; }
       // Keep the navigated projection unchanged. Set Current View converts it
       // back to WC3 camera units exactly once.
-      state.cameraEditing = false; reportProjectionView(); invalidate();
+      state.cameraEditing = false;
+      const next = cameraView();
+      if (JSON.stringify(next) !== JSON.stringify(started.snapshot)) p.onPortraitPreviewChange?.(true);
+      reportProjectionView(); invalidate();
     };
     controls.addEventListener('start', cameraStarted); controls.addEventListener('end', cameraEnded);
-    const state = { native, controls, particleSourceModel:rendererModel, updateParticles: (source,field,id)=>{if(particleAuthor)particleAuthor.updateSource(source,field,id);else updateParticlePreview(native,source);invalidate();}, setView, setCameraPreset, fit, resize, updateUV, drawBackground, enterPortrait, exitPortrait, portraitActive: false, cameraEditing: false, cameraDetached: false, cameraView: () => editorCameraSnapshot(camera, controls.target, perspective), refreshCursor: () => { canvas.style.cursor = cursorFor(latest.current); }, setCameraAngles: values => { if (state.portraitActive || latest.current.suspended) return; if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); cameraChanged(); } } }; runtime.current = state;
+    const state = { native, controls, particleSourceModel:rendererModel, updateParticles: (source,field,id)=>{if(particleAuthor)particleAuthor.updateSource(source,field,id);else updateParticlePreview(native,source);invalidate();}, setView, setCameraPreset, fit, resize, updateUV, drawBackground, enterPortrait, exitPortrait, portraitActive: false, cameraEditing: false, cameraDetached: false, cameraView, refreshCursor: () => { canvas.style.cursor = cursorFor(latest.current); }, setCameraAngles: values => { if (state.portraitActive || latest.current.suspended) return; if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); cameraChanged(); } } }; runtime.current = state;
     observer = new ownerWindow.ResizeObserver(resize); observer.observe(host.current);
     const saved = cameraMemory.current || latest.current.cameraHandoff?.current;
     // UV edits may rebuild geometry/materials, but never own the user's view.
@@ -1138,7 +1184,7 @@ export default function GamePreview(inputProps) {
           const clipRadius = modelClipRadius(ownedModel, center, radius);
           updateDepthClipping(camera, center, clipRadius, gridDepthExtent(center, gridOptions(p.preferences).extent));
         }
-        camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+        updatePortraitProjection(); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
         // Depth changes belong to the real projection, never to orbit framing.
         if (p.showcase) {
           displayCamera.projectionMatrix.copy(camera.projectionMatrix);
@@ -1364,7 +1410,7 @@ export default function GamePreview(inputProps) {
       effectDefinitions() { return eventPreview.definitions; },
       recordingDimensions({crop,maxDimension,aspect}={}) {
         resize();
-        const source=portraitHasFrame(latest.current)?composePortraitCapture(canvas,portraitFrame.current.canvas):canvas;
+        const source=portraitHasFrame(latest.current)?composePortraitCapture(canvas,portraitFrame.current.canvas,portraitComposition(latest.current)):canvas;
         return recordingDimensions(source.width,source.height,crop,maxDimension,aspect);
       },
       async prepareRecording() {
@@ -1396,7 +1442,7 @@ export default function GamePreview(inputProps) {
       recordingFrame(time, options) { latest.current.showcase?.seekRecording(time); render(performance.now(), 0, { captureOnly: true }); return state.captureApi.captureFrame(options); },
       copyVisibleFrame(destination, crop) {
         const context = destination.getContext('2d');
-        let source = portraitHasFrame(latest.current) ? composePortraitCapture(canvas, portraitFrame.current.canvas) : canvas;
+        let source = portraitHasFrame(latest.current) ? composePortraitCapture(canvas, portraitFrame.current.canvas, portraitComposition(latest.current)) : canvas;
         if (latest.current.showcaseLayers?.length) {
           if (source === canvas) {
             const composite = layerComposite.current ||= document.createElement('canvas');
@@ -1435,13 +1481,14 @@ export default function GamePreview(inputProps) {
         if (background.status !== 'ready') throw new Error('The selected preview background is still loading.');
         const saved = { width: canvas.width, height: canvas.height };
         const limits = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
-        const requestedDimension = portraitHasFrame(latest.current) && Number(maxDimension) > 0 ? Number(maxDimension) * PORTRAIT_RECT.height / HUMAN_FRAME_SIZE : maxDimension;
+        const outsideScale = portraitComposition(latest.current) ? Math.max(saved.width,saved.height) / portraitCompositionRect(saved.width,saved.height).height : 1;
+        const requestedDimension = portraitHasFrame(latest.current) && Number(maxDimension) > 0 ? Number(maxDimension) * PORTRAIT_RECT.height / HUMAN_FRAME_SIZE * outsideScale : maxDimension;
         const dimensions = captureDimensions(saved.width, saved.height, requestedDimension, Math.min(8192, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), ...limits));
         try {
           canvas.width = dimensions.width; canvas.height = dimensions.height; drawBackground();
           if (render(performance.now(), 0, { captureOnly: true }) === false) throw new Error('The animation preview could not render a capture.');
           const captured = composePreviewCapture(backgroundCanvas, canvas);
-          const result = portraitHasFrame(latest.current) ? composePortraitCapture(captured, portraitFrame.current.canvas) : captured;
+          const result = portraitHasFrame(latest.current) ? composePortraitCapture(captured, portraitFrame.current.canvas, portraitComposition(latest.current)) : captured;
           layerAPI.current?.paint(result.getContext('2d'),result.width,result.height,showcaseSample?.globalTime || 0,{time:showcaseSample?.presentationTime || 0,enabled:true});
           return result;
         } finally {
@@ -1483,24 +1530,27 @@ export default function GamePreview(inputProps) {
   useEffect(() => { if (props.cameraAnglesRequest) runtime.current?.setCameraAngles(props.cameraAnglesRequest); }, [props.cameraAnglesRequest]);
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
-  useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, props.showGrid, props.overlays?.grid, props.preferences?.grid]);
+  useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, props.showGrid, props.overlays?.grid, props.preferences?.grid, props.portraitSettings?.composition]);
   useEffect(() => { runtime.current?.drawBackground(); }, [props.preferences?.visuals?.background, props.preferences?.viewportAppearance?.background]);
   useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
   useEffect(() => { if (model) runtime.current?.updateUV(model); }, [model, revision, props.uvRevision]);
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
 
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
   const marqueeColor = previewOverlaySettings(props.previewOverlay).color;
   const frame = portraitFrame.current, portrait = !!props.portraitMode, framed = portraitHasFrame(props), hasCamera = !!model?.Cameras?.[props.portraitCameraIndex];
+  const composition = portraitComposition(props), crop = portraitCompositionRect(portraitArea.width,portraitArea.height);
+  const guideStyle = composition ? {left:crop.x,top:crop.y,width:crop.width,height:crop.height,'--portrait-mask':props.portraitSettings.mask} : {left:'calc(100% * 8 / 184)',top:'calc(100% * 9 / 184)',width:'calc(100% * 167 / 184)',height:'calc(100% * 170 / 184)'};
   return <div ref={root} className={`game-preview-root${framed ? ' portrait-preview-root' : ''}`} style={{ minHeight: props.presentation === 'preview' ? 0 : 180, background: props.showcase && portrait ? viewportBackground.color : undefined }}>
-    <div ref={stage} className={`game-preview-stage${framed ? ' portrait-preview-stage' : ''}`} style={framed ? { width: portraitSize, height: portraitSize } : undefined}>
-      <div ref={host} className={`game-preview-surface${framed ? ' portrait-model-surface' : ''}`} />
-      {selectionBox && <div className={`game-preview-selection-layer${framed ? ' portrait-model-surface' : ''}`}><div data-selection-marquee="" style={{ position: 'absolute', zIndex: 90, pointerEvents: 'none', boxSizing: 'border-box', border: `1px dashed ${marqueeColor}`, background: `${marqueeColor}24`, boxShadow: '0 0 0 1px #fff', ...selectionBox }} /></div>}
-      {framed && frame.status === 'ready' && <img className="portrait-human-frame" src={frame.url} alt="" aria-hidden="true" data-frame-version={portraitFrameVersion}/>}
+    <div ref={stage} className={`game-preview-stage${composition ? ' portrait-composition-stage' : framed ? ' portrait-preview-stage' : ''}`} style={framed && !composition ? { width: portraitSize, height: portraitSize } : undefined}>
+      <div ref={host} className={`game-preview-surface${composition ? ' portrait-composition-surface' : framed ? ' portrait-model-surface' : ''}`} />
+      {selectionBox && <div className={`game-preview-selection-layer${composition ? ' portrait-composition-surface' : framed ? ' portrait-model-surface' : ''}`}><div data-selection-marquee="" style={{ position: 'absolute', zIndex: 90, pointerEvents: 'none', boxSizing: 'border-box', border: `1px dashed ${marqueeColor}`, background: `${marqueeColor}24`, boxShadow: '0 0 0 1px #fff', ...selectionBox }} /></div>}
+      {framed && !composition && frame.status === 'ready' && <img className="portrait-human-frame" src={frame.url} alt="" aria-hidden="true" data-frame-version={portraitFrameVersion}/>}
+      {portrait && !props.showcase && (composition || props.portraitSettings?.thirds) && <div aria-label="Portrait crop guides" className={'portrait-crop-guides' + (composition ? ' outside' : '') + (props.portraitSettings?.thirds ? ' thirds' : '')} style={guideStyle}/>}
       {props.showcase && <ShowcaseLayers ref={layerAPI} grid={props.showcaseGrid} gridDensity={props.showcaseGridDensity} crop={props.showcaseCrop} layers={props.showcaseLayers} activeId={props.showcaseActiveLayer} editing={props.showcaseLayerEditing} onSelect={props.onShowcaseLayerSelect} onChange={props.onShowcaseLayerChange} onError={props.onShowcaseLayerError} onInvalidate={()=>runtime.current?.scheduler.invalidate()}/>}
       {portrait && !hasCamera && <div className="portrait-message" role="status">Create or select a camera to view the portrait</div>}
-      {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III dataâ€¦</div>}
+      {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
       {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status">{frame.error}</div>}
     </div>
     {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}

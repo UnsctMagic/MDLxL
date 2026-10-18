@@ -97,9 +97,8 @@ test('batch validates every input and channel before modifying any geoset animat
   const model = fixture().model;
   model.GeosetAnims[0].Flags |= 2;
   model.GeosetAnims[0].Color = { GlobalSeqId: 0, LineType: 1, Keys: [{ Frame: 0, Vector: new Float32Array([1, 0, 0]) }] };
-  const before = structuredClone(model);
-  assert.throws(() => bakeGeosetAnimationSettings(model, settings), /global sequence/);
-  assert.deepEqual(model, before);
+  bakeGeosetAnimationSettings(model, settings);
+  assert.equal(model.GeosetAnims[0].Color.GlobalSeqId, null);
   model.Sequences = [];
   assert.throws(() => bakeGeosetAnimationSettings(model, settings), /Select an animation/);
 });

@@ -199,15 +199,28 @@ test('animated RGB/alpha keep global sequence, interpolation, tangents, bases an
   }
 });
 
-test('dormant nonwhite and disabled tracks survive MDX but explicitly block lossy MDL', () => {
+test('dormant nonwhite and disabled tracks survive MDX; MDL leaves them out and says so', () => {
   for (const color of [vector([.125, .25, .875]), { LineType: 1, GlobalSeqId: null, Keys: [{ Frame: 0, Vector: vector([.125, .25, .875]) }] }]) {
     const doc = createDemoDocument();
     doc.apply('Dormant data', ['GeosetAnims'], m => { m.GeosetAnims[0].Flags = 1; m.GeosetAnims[0].Color = color; });
     const before = structuredClone(doc.model);
     assertModelEquivalent(before, openDocument(prepareModelSave(doc, 'mdx').bytes, 'saved.mdx').model);
-    assert.throws(() => prepareModelSave(doc, 'mdl'), /Cannot export geoset colors.*(dormant nonwhite|disabled tint with a color track)/);
+    const mdl = prepareModelSave(doc, 'mdl');
+    assert.match(mdl.notes.join(' '), /MDL leaves out geoset colors whose tint is off .*: 1\./);
+    const reopened = openDocument(mdl.bytes, 'saved.mdl').model.GeosetAnims[0];
+    assert.equal(reopened.Flags & 2, 0); assert.equal(reopened.Flags & 1, 1);
+    assert.equal(reopened.Color == null || Array.from(reopened.Color).every(n => n === 1), true);
     assert.deepEqual(doc.model, before); assert(doc.dirty);
   }
+});
+
+test('real model with a dormant color saves as MDL and back to MDX', () => {
+  const doc = createDemoDocument();
+  doc.apply('Dormant data', ['GeosetAnims'], m => { m.GeosetAnims[0].Flags = 0; m.GeosetAnims[0].Color = vector([1, 0, 0]); });
+  const mdl = openDocument(prepareModelSave(doc, 'mdl').bytes, 'saved.mdl');
+  assert.equal(mdl.readOnly, false);
+  openDocument(prepareModelSave(mdl, 'mdx').bytes, 'again.mdx');
+  assert.deepEqual(prepareModelSave(doc, 'mdx').notes, []);
 });
 
 test('active malformed colors and real reference/nonfinite errors are never whitened or accepted', () => {

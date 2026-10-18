@@ -155,6 +155,15 @@ if(singleInstanceLock)app.on('second-instance',(_event,commandLine,workingDirect
 });
 async function selectOpen(){const result=await dialog.showOpenDialog(win,{filters,properties:['openFile']});if(result.canceled)return [];return Promise.all(result.filePaths.map(file=>readModel(file)));}
 ipcMain.handle('model:open',selectOpen);
+// Files dragged from Explorer onto the window; the Showcase keeps them out of Recent Files like its own Open.
+ipcMain.handle('model:openDropped',async(_,paths,showcase=false)=>{
+  const files=modelPathsFromArguments((Array.isArray(paths)?paths:[]).filter(file=>typeof file==='string'&&path.isAbsolute(file)));
+  if(!files.length)throw new Error('Choose an MDL, MDX, or MDLxL Paint Project.');
+  const records=[];let failure=null;
+  for(const file of showcase?files.slice(0,1):files)try{records.push(await readModel(file,!showcase));}catch(error){failure||=error;console.error(`Could not open ${file}: ${error.message}`);}
+  if(!records.length)throw failure;
+  return records;
+});
 ipcMain.handle('preview:openModel',async event=>{
   captureOwner(event);
   const result=await dialog.showOpenDialog(win,{title:'Load Showcase model',filters:[{name:'Warcraft model',extensions:['mdl','mdx']}],properties:['openFile']});

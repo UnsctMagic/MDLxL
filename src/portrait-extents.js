@@ -1,4 +1,5 @@
 import { repairBounds } from './optimizexl-bounds.js';
+import { createChanges } from './history-store.js';
 
 /** Portrait edits move the rendered rig without moving its bind-pose vertices.
  * WC3 culls against sequence/geoset animation extents, so refresh those from
@@ -22,4 +23,13 @@ export function recalculatePortraitExtents(model, indices = model.Sequences?.fla
     });
   }
   repairBounds(model, { targets }, { includeGlobalKeys: true });
+}
+
+const RIG_KEYS = ['Bones', 'Helpers', 'Attachments', 'EventObjects', 'CollisionShapes', 'ParticleEmitters', 'ParticleEmitters2', 'ParticleEmitterPopcorns', 'Lights', 'RibbonEmitters', 'PivotPoints', 'GlobalSequences', 'Sequences'];
+/** Refresh portrait extents only when an edit actually changed the rig, so an
+ * unchanged commit never rewrites authored bounds. */
+export function refreshPortraitExtentsAfterRigEdit(before, model) {
+  if (before && RIG_KEYS.every(key => !createChanges({ [key]: before[key] }, { [key]: model[key] }, { ignore: path => path.length === 3 && path[2] === 'PivotPoint' }).length)) return false;
+  recalculatePortraitExtents(model);
+  return true;
 }

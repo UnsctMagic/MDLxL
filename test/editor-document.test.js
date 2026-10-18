@@ -286,6 +286,17 @@ test('unsupported version 1700 and truncated input remain exact-copy read-only d
   }
 });
 
+test('MDLVis editor data (MDVI) does not block MDL conversion and is reported as left out', () => {
+  const doc = openDocument(Buffer.concat([Buffer.from(createDemoDocument().serialize('mdx')), chunk('MDVI', Buffer.alloc(12, 1))]));
+  const impact = doc.saveImpact('mdl');
+  assert.equal(impact.canSave, true);
+  assert.deepEqual(impact.leftOut, ['Editor-only data the game ignores is left out: MDVI.']);
+  assert.equal(openDocument(doc.serialize('mdl'), 'converted.mdl').readOnly, false);
+  // Same-format saves keep it byte-for-byte.
+  assert.deepEqual(doc.saveImpact('mdx').leftOut, []);
+  assert.ok(Buffer.from(doc.serialize('mdx')).includes(Buffer.from('MDVI')));
+});
+
 test('format conversion reports opaque-data loss and never silently changes version', () => {
   const doc = openDocument(Buffer.concat([Buffer.from(createDemoDocument().serialize('mdx')), chunk('XTRA', Buffer.from('editor metadata'))]));
   const impact = doc.saveImpact('mdl');
