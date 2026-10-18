@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from 'three';
 import { allNodes } from '../src/animation.js';
-import { createPoseSample, poseChainIds, poseNodeControl, poseControlPoint, poseAffectedPins, poseNodeRole, poseRole, samplePoseChain } from '../src/pose-ik.js';
+import { createPoseSample, poseChainIds, poseDuplicatesBody, poseNodeControl, poseControlPoint, poseAffectedPins, poseNodeRole, poseRole, samplePoseChain } from '../src/pose-ik.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { pickMovementNode } from './movement-overlay.js';
 import { boneHighlightColors } from './rig-markers-gl.js';
@@ -37,7 +37,7 @@ export function poseHandleTarget(handle) {
 }
 const identity = handle => `${handle.kind}:${handle.kind === 'body' ? '' : handle.key ?? handle.id ?? ''}:${handle.marker ? 'marker' : 'control'}`;
 
-export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes, appearance = DEFAULT_CONTROLLER_APPEARANCE) {
+export function projectPoseHandles(model, config, frame, sequence, camera, width, height, globalTime = frame, visibleNodes, appearance = DEFAULT_CONTROLLER_APPEARANCE, mode = 'select') {
   if (!config?.enabled) return [];
   const handles = [], target = config.target, nodes = allNodes(model);
   const project = (world, fields) => {
@@ -68,6 +68,8 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
     if (handles.some(handle => handle.chain?.end === node.ObjectId)) continue;
     const body = node.ObjectId === config.body, selected = body ? target?.kind === 'body' : target?.kind === 'node' && !target.marker && target.id === node.ObjectId;
     const quiet = !body && !selected && !(config.nodes || []).includes(node.ObjectId);
+    // A Pelvis that would only repeat Body (same Move and Rotate) is left out; Scale differs, so it stays there.
+    if (!body && !selected && mode !== 'scale' && poseDuplicatesBody(model, config, node.ObjectId)) continue;
     if (quiet && visibleNodes && !visibleNodes.has(node.ObjectId)) continue;
     const matrix = matrices.get(node.ObjectId), pivot = node.PivotPoint || model.PivotPoints?.[node.ObjectId];
     if (!matrix || !pivot) continue;

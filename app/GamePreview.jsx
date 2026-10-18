@@ -1288,7 +1288,7 @@ export default function GamePreview(inputProps) {
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
         const controllerAppearance = viewportAppearanceOptions(p.preferences).controllers;
-        poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId)), controllerAppearance) : [];
+        poseHandles = poseVisible ? projectPoseHandles(markerModel, p.poseConfig, native.getFrame(), movementSequence(p, native.getFrame()), camera, width, height, globalClock, new Set(nodePoints.map(point => point.node.ObjectId)), controllerAppearance, p.transformMode) : [];
         const limb = !p.poseConfig?.picking && poseHandles.find(handle => handle.visible && handle.key === p.poseConfig?.target?.key && handle.kind === 'endpoint' && handle.x >= 0 && handle.x <= width && handle.y >= 0 && handle.y <= height);
         if (limb && p.onPosePin && !p.suspended) {
           if (!pinButton) {
