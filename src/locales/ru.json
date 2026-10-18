@@ -5731,7 +5731,7 @@
   "Add a shape · select and edit with the vertex editor controls": "Добавьте фигуру · выделяйте и редактируйте инструментами редактора вершин",
   "Add a new piece to mold.": "Добавить новую деталь для лепки.",
   "Control points": "Точки управления",
-  "Select and move whole pieces. Double-click a surface to select a face.": "Выделяйте и перемещайте детали целиком. Двойной щелчок по поверхности выделяет грань.",
+  "Select and move whole pieces. Double-click a surface to select a face; Shift+double-click adds more faces.": "Выделяйте и перемещайте детали целиком. Двойной щелчок по поверхности выделяет грань; Shift+двойной щелчок добавляет ещё грани.",
   "Edges": "Рёбра",
   "Edge": "Ребро",
   "Select and move the edges of a piece.": "Выделяйте и перемещайте рёбра детали.",

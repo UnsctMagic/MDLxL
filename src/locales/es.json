@@ -5743,7 +5743,7 @@
   "Add a shape · select and edit with the vertex editor controls": "Añade una forma · selecciona y edita con los controles del editor de vértices",
   "Add a new piece to mold.": "Añade una pieza nueva para modelar.",
   "Control points": "Puntos de control",
-  "Select and move whole pieces. Double-click a surface to select a face.": "Selecciona y mueve piezas enteras. Haz doble clic en una superficie para seleccionar una cara.",
+  "Select and move whole pieces. Double-click a surface to select a face; Shift+double-click adds more faces.": "Selecciona y mueve piezas enteras. Haz doble clic en una superficie para seleccionar una cara; Mayús+doble clic añade más caras.",
   "Edges": "Aristas",
   "Edge": "Arista",
   "Select and move the edges of a piece.": "Selecciona y mueve las aristas de una pieza.",

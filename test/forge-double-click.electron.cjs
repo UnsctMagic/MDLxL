@@ -48,6 +48,13 @@ function visibleFaces(state, index = 0) {
     checks.push('Double-click in the initial Move tool selects exactly one visible face without changing geometry; Face button and Alt+2 removed');
     await capture('face-selected');
     const firstSelection = state.selection;
+    await page.keyboard.down('Shift'); state = await pick(targets[1]); await page.keyboard.up('Shift');
+    assert.equal(mode(state), 'Faces'); assert.equal(state.modelingOverlay[0].selectedFaceIndices.length, 12); assert.equal(state.tool, 'translate'); assert.deepEqual(state.model.Geosets, original);
+    assert.equal(await d.locator('.forge-editor-status').innerText(), '2 faces selected');
+    await page.keyboard.down('Shift'); state = await pick(targets[2]); await page.keyboard.up('Shift');
+    assert.equal(state.modelingOverlay[0].selectedFaceIndices.length, 18); assert.deepEqual(state.model.Geosets, original);
+    state = await pick(targets[0]); face(state); assert.deepEqual(state.selection, firstSelection);
+    checks.push('Shift+double-click adds more faces; a plain double-click goes back to one face');
     await click('Move'); state = await pick(targets[1]); face(state); assert.notDeepEqual(state.selection, firstSelection); assert.deepEqual(state.model.Geosets, original);
     for (const button of ['Edge', 'Vertex', 'Shape']) { await click(button); state = await pick(targets[2]); face(state); assert.deepEqual(state.model.Geosets, original); }
     checks.push('Double-click switches directly from Shape, Edge, Vertex and Move to the chosen face');

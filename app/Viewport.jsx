@@ -722,7 +722,7 @@ export default function Viewport(inputProps) {
       if (!p.onDoubleClickParts || editClicks < 2 || event.button !== 0 || cameraAction(event) !== 'work') return;
       editClicks = 0;
       const end = point(event);
-      p.onDoubleClickParts({ start: end, end, camera, grabThrough: false, mode: p.mode });
+      p.onDoubleClickParts({ start: { ...end, shift: event.shiftKey }, end, camera, grabThrough: false, mode: p.mode });
     }
     function cancelGesture() {
       editClicks = 0;
