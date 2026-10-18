@@ -3,9 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'..'),out=process.env.MDLXL_TEST_OUT||path.join(root,'out/shaping-tools-check');
 const source=fs.readFileSync(path.join(root,'test/forge-face-editing.electron.cjs'),'utf8');
-let helper=source.slice(source.indexOf('function readView'),source.indexOf('(async()=>{'));
-helper=helper.replace('return {surfaceColors:',"return {moldHandles:(p.editHandles?.points||[]).map(h=>{const v=camera.position.clone().fromArray(h.position).project(camera);return {...h,x:r.x+(v.x+1)*r.width/2,y:r.y+(1-v.y)*r.height/2};}),surfaceColors:");
-eval(helper);
+eval(source.slice(source.indexOf('function readView'),source.indexOf('(async()=>{')));
 const cuts=fs.readFileSync(path.join(root,'test/forge-cuts.electron.cjs'),'utf8');
 eval(cuts.slice(cuts.indexOf('function readDraft'),cuts.indexOf('function pointForVertex')));
 (async()=>{
