@@ -1,8 +1,18 @@
-import { Vector3 } from 'three';
+import { Raycaster, Vector2, Vector3 } from 'three';
 import { forgeShapeEdges, forgeSelectionVertices } from '../src/forge-shape-editing.js';
 import { applySelection, marqueeContainsPoint } from './classic-gestures.js';
 import { pickPreviewGeoset, projectPreviewGeosets } from './preview-selection.js';
 import { createOverlayDepth } from './preview-depth.js';
+
+export function pickForgePoint(entries, { end, camera }) {
+  const geometry = entries.map(({ mesh }, index) => ({ index, vertices: mesh.geosets[0].Vertices, faces: mesh.geosets[0].Faces }));
+  const hit = pickPreviewGeoset(projectPreviewGeosets(geometry, camera, end.width, end.height), end.x, end.y);
+  if (!hit) return null;
+  const ray = new Raycaster(); ray.setFromCamera(new Vector2(end.x / end.width * 2 - 1, 1 - end.y / end.height * 2), camera);
+  const points = hit.ids.map(id => new Vector3().fromArray(geometry[hit.index].vertices, id * 3));
+  const point = ray.ray.intersectTriangle(...points, false, new Vector3());
+  return point ? { shapeId: entries[hit.index].shape.id, faceId: entries[hit.index].mesh.faceIds[Math.floor(hit.ids[0] / 3)], point: point.toArray() } : null;
+}
 
 export function forgeVertexSelection(entries, selection, mode) {
   return Object.fromEntries(entries.map(({ shape, mesh }, gi) => {

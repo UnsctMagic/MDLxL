@@ -97,10 +97,10 @@
 .forge-display label { gap:3px; }
 .forge-section-title { border-top:1px solid var(--ui-border);margin:8px 0 3px;padding:4px 2px 1px;font-weight:bold; }
 .forge-selection-scope { margin:0;gap:2px; }
-.forge-selection-scope button { min-width:42px!important; }
-.forge-selection-actions,.forge-shape-operations { display:flex;gap:2px;margin:5px 0; }
-.forge-selection-actions button,.forge-shape-operations button { flex:1;min-width:0;padding:2px 3px;font-size:11px; }
-.forge-duplicate { width:100%; }
+
+.forge-selection-actions { display:flex;gap:2px;margin:5px 0; }
+.forge-selection-actions button { flex:1;min-width:0;padding:2px 3px;font-size:11px; }
+
 .forge-editor .forge-draft-shapes { display:flex;flex-direction:column;gap:1px;max-height:none;border:1px inset var(--ui-border);background:var(--ui-field);min-height:100px; }
 .forge-draft-shapes button { text-align:left;border:0!important;min-height:24px; }
 .forge-add-control { position:relative; }
@@ -125,20 +125,19 @@
 .forge-effect-controls .shaping-caption { margin:9px 0 4px; }
 .forge-effect-controls .shaping-more { padding-top:5px;margin-top:10px!important; }
 .forge-overlay footer { flex:none;padding:5px 8px; }
-.forge-control-points { flex:none;width:58px;box-sizing:border-box;padding:4px;background:var(--ui-panel);border-left:1px solid var(--ui-border); }
-.forge-control-points>span { display:block;text-align:center;font-size:10px;font-weight:bold;line-height:12px;margin:0 0 5px; }
-.forge-control-points .forge-selection-scope { display:flex;flex-direction:column;gap:6px; }
-/* The light theme's four :not() button selectors must not hide these modes. */
-:root .forge-overlay .forge-control-points .forge-selection-scope button { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;min-height:49px;font-weight:bold;color:#332b16!important;background:#f5dfaa!important;border:1px solid #8c784a; }
-:root .forge-overlay .forge-control-points .forge-selection-scope button.active { color:#fff!important;background:#48402d!important;border:2px solid #dba334;box-shadow:inset 0 0 0 1px #fff5; }
-.forge-control-points svg { width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round; }
-.forge-control-points circle { fill:currentColor; }
-.forge-shape-workspace button[data-hotkey^="forge:"],.shaping-simple button[data-hotkey^="forge:"],.forge-effect-controls button[data-hotkey] { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px; }
-.forge-shape-workspace button[data-hotkey^="forge:"]>.hotkey-badge,.shaping-simple button[data-hotkey^="forge:"]>.hotkey-badge,.forge-effect-controls button[data-hotkey]>.hotkey-badge { visibility:visible;position:static;display:block;font:600 9px/11px monospace;color:#25843a;background:#e5f4df;border:1px solid #39824655;border-radius:2px;padding:0 2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:none; }
-.forge-shape-workspace button[data-hotkey^="forge:"]:disabled>.hotkey-badge,.shaping-simple button[data-hotkey^="forge:"]:disabled>.hotkey-badge { visibility:visible;opacity:.5; }
-.forge-shape-operations button { min-height:36px; }
-.forge-control-points .forge-selection-scope button { min-height:64px; }
-.forge-add-control>button { flex-direction:row!important;min-height:25px; }
+.forge-control-points { margin:5px 0 2px; }
+.forge-control-points .forge-selection-scope { justify-content:center;gap:2px; }
+.forge-control-points .classic-tool { flex:0 0 25px; }
+.forge-control-points svg { stroke-width:1.8;stroke-linejoin:round; }
+:root .forge-overlay .forge-control-points .classic-tool.active { background:#f5dfaa!important;border-color:#8c784a;box-shadow:inset 0 0 0 1px #dba334; }
+.forge-shape-operations { display:contents; }
+.forge-mesh-tools:empty { display:none; }
+.forge-shape-workspace>.forge-add-menu { position:fixed;left:auto;right:174px;top:145px;margin:0;max-height:calc(100vh - 210px); }
+.forge-editor-sidebar .classic-tool { overflow:visible; }
+.shaping-simple button[data-hotkey^="forge:"],.forge-effect-controls button[data-hotkey] { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px; }
+.shaping-simple button[data-hotkey^="forge:"]>.hotkey-badge,.forge-effect-controls button[data-hotkey]>.hotkey-badge { visibility:visible;position:static;display:block;font:600 9px/11px monospace;color:#25843a;background:#e5f4df;border:1px solid #39824655;border-radius:2px;padding:0 2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:none; }
+.shaping-simple button[data-hotkey^="forge:"]:disabled>.hotkey-badge { visibility:visible;opacity:.5; }
+.forge-add-control>button { min-height:25px; }
 .forge-shape-workspace footer button { flex-direction:row!important; }
 .forge-effect-controls .shaping-segments button { min-width:0; }
 .forge-effect-controls .hotkey-badge[data-long-hint=true] { max-width:100%; }
@@ -153,3 +152,18 @@
 .forge-preview-canvas { display:flex;flex-direction:column; }
 .forge-preview-canvas .classic-sidebar:empty { display:none; }
 .forge-start { flex:1; }
+
+.forge-cut-menu { position:fixed;width:240px;padding:8px;box-sizing:border-box;background:var(--ui-panel);border:1px solid var(--ui-border);box-shadow:2px 3px 9px #0004;z-index:10;display:grid;gap:8px; }
+.forge-cut-row { display:flex;gap:4px; }
+.forge-cut-row button { flex:1; }
+.forge-cut-menu label { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+.forge-cut-menu input { width:70px; }
+.forge-cut-menu small { white-space:normal;font-size:11px;line-height:1.4; }
+.forge-cut-menu button[aria-pressed=true] { border-style:inset;font-weight:bold; }
+
+.forge-mold-tools { justify-content:center;border-bottom:1px solid var(--ui-border);padding-bottom:4px; }
+.forge-mold-bar { position:absolute;top:34px;left:100px;z-index:4;display:flex;align-items:center;gap:4px;background:var(--ui-panel);border:1px solid var(--ui-border);padding:4px;font-size:11px; }
+.forge-mold-bar button { min-width:24px;height:24px;padding:1px 6px; }
+.forge-mold-bar button[aria-pressed=true] { background:#f0d695;border-style:inset; }
+.forge-mold-bar strong { margin-right:4px; }
+.forge-mold-bar span { min-width:36px;text-align:center; }

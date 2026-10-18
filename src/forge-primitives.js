@@ -64,7 +64,7 @@ export function buildForgePrimitive(options = {}) {
   }
   if (shape !== 'ThumperXL') geometry = fullIconPerTriangle(geometry);
   geometry.scale(width, height, flat ? thickness || 1 : depth);
-  if (zUp) geometry.rotateX(Math.PI / 2);
+  if (zUp && !flat && shape !== 'Torus') geometry.rotateX(Math.PI / 2);
   geometry.applyQuaternion(new Quaternion().setFromEuler(new Euler(...rotation.map(n => n * Math.PI / 180), 'XYZ')));
   geometry.translate(...position);
   const g = { Vertices: geometry.attributes.position.array.slice(), Normals: geometry.attributes.normal.array.slice(), TVertices: [geometry.attributes.uv.array.slice()], Faces: geometry.index ? new Uint16Array(geometry.index.array) : Uint16Array.from({ length: geometry.attributes.position.count }, (_, i) => i) };

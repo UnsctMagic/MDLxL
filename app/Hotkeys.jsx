@@ -121,14 +121,19 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     const runShortcut = (chord, event) => {
       if (!root.current) return false;
       const { catalog: actions, shortcuts: bindings, activeScope: scope, onAction: dispatch } = latest.current;
-      const matching = actions.filter(action => bindings[action.id]?.includes(chord));
-      // Reject malformed persisted duplicate bindings instead of picking an arbitrary command.
-      if (matching.length !== 1) return false;
-      const action = matching[0];
       const ownerDocument = event.target?.ownerDocument || document;
       const roots = controlRoots().filter(element => element.ownerDocument === ownerDocument);
       // A main application modal also blocks controls in the detached editor.
       const modal = activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1), modalScope = modal?.getAttribute('data-hotkey-scope') || modal?.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope');
+      // Forge's shape tools own their keys only in the visible Shape workspace.
+      // Other editors keep their original bindings, even when a key is reused here.
+      const forge = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey-scope="forge-shapes"]')]).find(element => visible(element) && (!modal || modal.contains(element)));
+      const matching = actions.filter(action => bindings[action.id]?.includes(chord) && (action.scope !== 'forge-shapes' || forge));
+      const local = forge ? matching.filter(action => action.scope === 'forge-shapes') : [];
+      const candidates = local.length ? local : matching;
+      // Reject duplicate bindings within the active context.
+      if (candidates.length !== 1) return false;
+      const action = candidates[0];
       const available = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey]')]).filter(element => controlActionId(element) === action.id && visible(element) && (modal ? modal.contains(element) : !element.closest('[role="dialog"][aria-modal="true"]')));
       if (available.length && available.every(element => !enabled(element))) return false;
       const targets = available.filter(enabled);
