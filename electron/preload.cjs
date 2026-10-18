@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
   particleSourceContext: payload=>ipcRenderer.invoke('particles:sourceContext',payload),
   particleAssets: payload=>ipcRenderer.invoke('particles:assets',payload),
@@ -82,6 +82,8 @@ contextBridge.exposeInMainWorld('desktop', {
   readRecovery: id => ipcRenderer.invoke('recovery:read',id),
   openShowcaseModel: () => ipcRenderer.invoke('preview:openModel'),
   open: () => ipcRenderer.invoke('model:open'),
+  droppedPath: file => webUtils.getPathForFile(file),
+  openDropped: (paths,showcase=false) => ipcRenderer.invoke('model:openDropped',paths,showcase),
   listParts: () => ipcRenderer.invoke('parts:list'),
   readPart: id => ipcRenderer.invoke('parts:read', id),
   savePart: data => ipcRenderer.invoke('parts:save', data),

@@ -12,13 +12,13 @@ const MotionInspector = lazy(() => import('./MotionInspector.jsx'));
 // timeline). Every prop is the App value of the same name, so this markup reads exactly
 // as it did inline.
 
-/** UV mode: the UV Wrapper workspace (inline in the web build, in its own window on desktop). */
+/** The UV Wrapper workspace inside its model tab. */
 export function AppUVWorkspace({
   activeGeoset, applyGeosetDensity, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
   changeSensitivity, commitUVChanges, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
-  previewSuspended, saving, selectMode, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
+  previewSuspended, saving, closeUVWindow, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
   setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
-  validSelection, view
+  validSelection, view, uvMinimized
 }) {
   return (<Suspense fallback={null}><UVWorkspace key={session.id+':'+uvEntryId} model={model} materialModel={texturedModel} previewModel={previewModel} revision={doc.revision} activeGeoset={activeGeoset} eligibleSelection={uvEntrySelection} selectionByGeoset={validSelection}
         onSelectionChange={next => setSelection(filterVertexSelection(next, new Set(Object.keys(uvEntrySelection).map(Number)), doc.model))}
@@ -38,8 +38,8 @@ export function AppUVWorkspace({
         onWrappingChange={(textureIDs, enabled) => edit(`${enabled ? 'Enable' : 'Disable'} UV texture wrapping`, ['Textures'], current => setUVTextureWrapping(current, textureIDs, enabled))}
         onDensityApply={applyGeosetDensity}
         onGeosetChange={(index, coordId = 0) => { if (index < 0) return; setActiveGeoset(index); setUvSet(coordId); setLiveUV(null); }}
-        textureAssets={session.assets} teamColor={teamColor} preferences={preferences} onPreferences={changePreferences} readOnly={doc.readOnly || saving}
-        draftCount={Object.keys(session.uvPreviews).length} onLibrary={() => openLibrary(true)} onSavePreview={() => finishUVPreview()} onRevertPreview={() => finishUVPreview(true)} onExit={() => selectMode('vertices')}
+        textureAssets={session.assets} teamColor={teamColor} preferences={preferences} onPreferences={changePreferences} readOnly={doc.readOnly || saving} suspended={uvMinimized}
+        draftCount={Object.keys(session.uvPreviews).length} onLibrary={() => openLibrary(true)} onSavePreview={() => finishUVPreview()} onRevertPreview={() => finishUVPreview(true)} onExit={closeUVWindow}
         previewProps={{ ...cameraProps, previewMode:'textured', modelPath:session.path, key: session.id, preferences, onSensitivityChange: changeSensitivity, onPointerSensitivityChange: changePointerSensitivity, onCameraModeToggle: toggleMiddleCamera, suspended: previewSuspended,
           revision: doc.revision, teamColor, textureAssets: session.assets, view, cameraMode }} /></Suspense>);
 }

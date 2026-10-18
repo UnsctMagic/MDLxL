@@ -85,6 +85,20 @@
 .quad-pane.active>.quad-pane-label{outline:1px solid var(--ui-accent,#215e9e)}
 .quad-workspace .classic-view-label{position:relative;left:0;top:0;flex:none;height:26px;padding:2px 3px;background:#d4d0c8}
 
-/* Appears only while choosing the three NormalsXL direction references. */
-.normals-xl-prompt{position:absolute;z-index:5;top:34px;left:8px;max-width:500px;display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--ui-field,#eee);color:var(--ui-text,#111);border:1px solid var(--ui-border,#888);font-size:12px;box-shadow:0 2px 6px #0003}
-.normals-xl-prompt b{display:block;margin-bottom:3px}
+/* NormalsXL: transient controls inside the existing model view. */
+.normalizer-controls{position:absolute;z-index:6;top:34px;right:8px;width:268px;max-width:calc(100% - 20px);padding:8px;background:var(--ui-field,#eee);color:var(--ui-text,#111);border:1px solid var(--ui-border,#888);box-shadow:0 2px 8px #0004;font-size:12px;display:flex;flex-direction:column;gap:6px}
+.normalizer-heading{display:flex;align-items:center;gap:9px}
+.normalizer-heading span{flex:1;color:var(--ui-text-muted,#555);font-size:11px}
+.normalizer-heading button{padding:0 6px}
+.normalizer-strength{display:flex;align-items:center;gap:5px}
+.normalizer-strength input{flex:1;min-width:0}
+.normalizer-strength output{width:32px;text-align:right}
+.normalizer-controls label{cursor:default}
+.normalizer-result{font-size:11px;min-height:14px;line-height:1.35}
+.normalizer-actions{display:flex;gap:4px}
+.normalizer-actions button{padding:4px 8px}
+.normalizer-actions button:last-child{margin-left:auto}
+.classic-selection-actions button[aria-pressed=true]{border-style:inset;box-shadow:inset 1px 1px 2px #555;font-weight:bold}
+
+/* Outline while files are dragged over the window from Explorer. */
+.file-drop-overlay { position: fixed; inset: 3px; z-index: 10000; pointer-events: none; border: 2px dashed var(--ui-accent); border-radius: 4px; background: color-mix(in srgb, var(--ui-accent) 6%, transparent); }

@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createRequire} from 'node:module';
 import {createDemoDocument,openDocument} from '../src/editor-document.js';
-import {createStarterRecipe,starterTextureAsset,STARTER_TEXTURE} from '../src/particle-starters.js';
+import {createStarterRecipe,starterTextureAsset,STARTER_TEXTURE,RIBBON_TEXTURE} from '../src/particle-starters.js';
 import {prepareParticlePlacementAssets,includeParticleAssets,embeddedParticleAssets} from '../src/particle-assets.js';
 import {placeTimedParticleRecipe} from '../src/particle-placement.js';
 import {placeParticleRecipe,particleRecipeDocument} from '../src/particle-recipes.js';
@@ -43,14 +43,14 @@ test('identical pictures and unused conflicting assets keep original paths and t
 });
 
 test('ribbon ingredients keep the library texture path through insertion',async()=>{
- const recipe=createStarterRecipe('ribbon'),asset=starterTextureAsset();
- const target=particleRecipeDocument(createStarterRecipe()),before=structuredClone(target.model),assets=new Map([[key(STARTER_TEXTURE),modifiedAsset()]]);
- const prepared=await prepareParticlePlacementAssets(recipe,new Map([[key(STARTER_TEXTURE),asset]]),assets),name=prepared.recipe.native.Textures[0].Image;
- assert.equal(name,STARTER_TEXTURE);assert.equal(prepared.assets.size,0);
+ const recipe=createStarterRecipe('ribbon'),asset=starterTextureAsset(RIBBON_TEXTURE);
+ const target=particleRecipeDocument(createStarterRecipe()),before=structuredClone(target.model),assets=new Map([[key(STARTER_TEXTURE),modifiedAsset()],[key(RIBBON_TEXTURE),asset]]);
+ const prepared=await prepareParticlePlacementAssets(recipe,new Map([[key(RIBBON_TEXTURE),asset]]),assets),name=prepared.recipe.native.Textures[0].Image;
+ assert.equal(name,RIBBON_TEXTURE);assert.equal(prepared.assets.size,0);
  const result=placeParticleRecipe(target.model,prepared.recipe),ribbon=target.model.Nodes[result.ids[0]],material=target.model.Materials[ribbon.MaterialID];
  assert.equal(target.model.Textures[material.Layers[0].TextureID].Image,name);
  assert.deepEqual(target.model.ParticleEmitters2,before.ParticleEmitters2);assert.deepEqual(target.model.Textures.slice(0,before.Textures.length),before.Textures);
- assert.equal(recipe.native.Textures[0].Image,STARTER_TEXTURE);assert.deepEqual(assets.get(key(STARTER_TEXTURE)),modifiedAsset());
+ assert.equal(recipe.native.Textures[0].Image,RIBBON_TEXTURE);assert.deepEqual(assets.get(key(STARTER_TEXTURE)),modifiedAsset());
 });
 
 test('custom particle pictures retain their declared path in portable presets',()=>{
@@ -60,4 +60,13 @@ test('custom particle pictures retain their declared path in portable presets',(
  assert.equal(preset.embeddedAssets[0].path,name);
  const restored=embeddedParticleAssets(preset).get(key(name));
  assert.equal(restored.name,name);assert.equal(restored.source,'parts');assert.deepEqual(restored.bytes,asset.bytes);
+});
+
+test('ribbon starter picture is brightest at the emitter and fades toward the tail',()=>{
+ const recipe=createStarterRecipe('ribbon'),{bytes}=starterTextureAsset(recipe.native.Textures[0].Image),alpha=(x,y)=>bytes[18+(y*64+x)*4+3];
+ assert.equal(recipe.native.Textures[0].Image,RIBBON_TEXTURE);
+ // Ribbon U is segment age: the newest segment at the blade samples the left column.
+ for(let x=1;x<64;x++)assert.ok(alpha(x,32)<=alpha(x-1,32));
+ assert.ok(alpha(0,32)>240);assert.ok(alpha(63,32)<5);assert.ok(alpha(0,0)<alpha(0,32));
+ assert.deepEqual(starterTextureAsset().bytes,starterTextureAsset(STARTER_TEXTURE).bytes);
 });

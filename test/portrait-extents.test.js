@@ -60,14 +60,15 @@ test('portrait bounds follow moved roots; other data, animation bounds and undo 
   }
 });
 
-test('Set Current View refreshes all portrait bounds after rig edits without changing rig keys', () => {
+test('Set Current View is camera-only: authored sequence, geoset and model extents stay untouched', () => {
   const doc = fixture(), roots = modelControlRoots(doc.model).map(root => root.id);
-  applyPortraitModelTransform(doc.model, roots, 3500, 1, { mode: 'rotate', axis: 'Y', amount: 65 });
-  const bones = structuredClone(doc.model.Bones), stand = structuredClone(doc.model.Sequences[0]);
-  setCameraFromCurrentView(doc.model, -1, { position: [400, -200, 100], target: [0, 0, 80], fieldOfView: Math.PI / 4, near: 1, far: 2000 });
+  // Rig edits refresh portrait bounds themselves (App's portrait edit hook).
+  doc.apply('Rotate portrait', ['Nodes'], model => { applyPortraitModelTransform(model, roots, 3500, 1, { mode: 'rotate', axis: 'Y', amount: 65 }); recalculatePortraitExtents(model); });
   for (const index of [1, 2]) checkPortrait(doc.model, index);
-  assert.deepEqual(doc.model.Bones, bones);
-  assert.deepEqual(doc.model.Sequences[0], stand);
+  const before = structuredClone(doc.model);
+  doc.apply('Set Current View', ['Cameras', 'BindPoses'], model => setCameraFromCurrentView(model, -1, { position: [400, -200, 100], target: [0, 0, 80], fieldOfView: Math.PI / 4, near: 1, far: 2000 }));
+  for (const key of ['Bones', 'Sequences', 'Geosets', 'GeosetAnims', 'Info']) assert.deepEqual(doc.model[key], before[key], key);
+  assert.equal(doc.model.Cameras.length, 1);
 });
 
 test('new portraits include shared global motion instead of inheriting bind-pose bounds', () => {

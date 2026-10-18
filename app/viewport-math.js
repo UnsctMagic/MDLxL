@@ -117,6 +117,23 @@ export function quadProjectedPlaneTranslation(workplane, basis, dx, dy, constrai
   return projectedPlaneTranslation(workplane, basis, dx, dy);
 }
 
+/** Screen pixels (y down) covered by one model unit along each axis of a
+ * XY/ZX/YZ plane, measured at a point. */
+export function planeScreenBasis(camera, point, width, height, workplane = 'xy') {
+  const origin = point.clone().project(camera);
+  return planeAxes(workplane).map(axis => {
+    const end = point.clone().add(new Vector3().setComponent(axis, 1)).project(camera);
+    return [(end.x - origin.x) * width / 2, (origin.y - end.y) * height / 2];
+  });
+}
+
+/** Single view with the workplane off (MDLVis): a plain drag follows the
+ * screen; Shift locks it to the chosen XY/ZX/YZ plane, whatever the camera angle. */
+export function freeDragTranslation(camera, pivot, width, height, dx, dy, { shift = false, workplane = 'xy' } = {}) {
+  if (!shift) return screenPlaneTranslation(camera, pivot, width, height, dx, dy);
+  return new Vector3().fromArray(projectedPlaneTranslation(workplane, planeScreenBasis(camera, pivot, width, height, workplane), dx, dy));
+}
+
 /** Free mesh dragging uses the view plane through the selection pivot. */
 export function screenPlaneTranslation(camera, pivot, width, height, dx, dy, constrain = false) {
   if (constrain) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }

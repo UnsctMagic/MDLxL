@@ -17,11 +17,17 @@ export const HUMAN_TILE_LAYOUT = Object.freeze([
 // unused health/mana wells. This changes presentation size, never projection.
 export const HUMAN_FRAME_CROP = Object.freeze({ x: 414, y: 116, width: 184, height: 184 });
 
+export function portraitPreviewSequences(model) {
+  const sequences = model?.Sequences || [], indices = sequences.map((_, index) => index);
+  return {
+    idle: indices.filter(index => /portrait/i.test(sequences[index].Name || '') && !/talk/i.test(sequences[index].Name || '')),
+    talk: indices.filter(index => /portrait/i.test(sequences[index].Name || '') && /talk/i.test(sequences[index].Name || '')),
+    stand: indices.filter(index => /^stand(?:\s|$)/i.test(sequences[index].Name || '')),
+  };
+}
 export function firstPortraitSequenceIndex(model) {
-  return (model?.Sequences || []).findIndex(sequence => {
-    const name = String(sequence?.Name || '');
-    return /portrait/i.test(name);
-  });
+  const choices = portraitPreviewSequences(model);
+  return choices.idle[0] ?? choices.stand[0] ?? choices.talk[0] ?? (model?.Sequences?.length ? 0 : -1);
 }
 
 const finiteVector = value => value?.length >= 3 && Array.from(value).slice(0, 3).every(Number.isFinite);
@@ -67,7 +73,7 @@ export function applyEvaluatedModelCamera(camera, controls, evaluated, aspect) {
   controls.object = camera; controls.update(); return true;
 }
 
-export function editorCameraSnapshot(camera, target, perspectiveCamera = camera) {
+export function editorCameraSnapshot(camera, target, perspectiveCamera = camera, cropScale = 1) {
   const orthographic = !!camera?.isOrthographicCamera, projectionCamera = orthographic ? perspectiveCamera : camera;
   // An axis view has no FOV. Encode it with the conventional WC3 model-camera
   // FOV and solve distance from its visible height instead of inheriting a
@@ -87,7 +93,7 @@ export function editorCameraSnapshot(camera, target, perspectiveCamera = camera)
   const roll = Math.atan2(forward.dot(new Vector3().crossVectors(levelUp, viewUp)), levelUp.dot(viewUp));
   if (orthographic) {
     const halfHeight = Math.abs(Number(camera.top) - Number(camera.bottom)) / (2 * Math.max(.0001, Number(camera.zoom) || 1));
-    const distance = halfHeight / Math.max(.000001, Math.tan(effectiveFov / 2));
+    const distance = halfHeight * cropScale / Math.max(.000001, Math.tan(effectiveFov / 2));
     position.copy(target).addScaledVector(forward, -distance);
   }
   const distance = position.distanceTo(target);
@@ -170,4 +176,9 @@ export function portraitCaptureLayout(innerWidth, innerHeight) {
       height: size * PORTRAIT_RECT.height / HUMAN_FRAME_SIZE,
     },
   };
+}
+
+export function portraitCompositionRect(width, height) {
+  const cropHeight = Math.min(width, height) * .65, cropWidth = cropHeight * PORTRAIT_ASPECT;
+  return { x: (width - cropWidth) / 2, y: (height - cropHeight) / 2, width: cropWidth, height: cropHeight };
 }

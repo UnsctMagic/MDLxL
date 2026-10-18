@@ -66,7 +66,7 @@ test('parent wireframe expansion is a real two-pixel quad under perspective', ()
   assert.ok(Math.abs((points[0].y-points[1].y)*250-2)<.0001);
   assert.deepEqual(Array.from(result.slice(12,18)),Array.from(result.slice(18,24)));
 });
-test('Portrait remains an editable Movement view with gated sequences and no playback re-entry', () => {
+test('Portrait remains an editable Movement view with local sequences and no playback re-entry', () => {
   const app=readFileSync(new URL('../app/App.jsx',import.meta.url),'utf8');
   const preview=readFileSync(new URL('../app/GamePreview.jsx',import.meta.url),'utf8');
   const movement=readFileSync(new URL('../app/MovementControllerRecomp.jsx',import.meta.url),'utf8');
@@ -88,7 +88,7 @@ test('Animations can enter and leave portrait framing without exposing Movement 
   const toolbar=readFileSync(new URL('../app/PortraitToolbar.jsx',import.meta.url),'utf8');
   assert.match(app,/portraitEnabled && mode === 'animation'/);
   assert.match(app,/mode === 'animation' && <PortraitToolbar/);
-  assert.match(app,/allowControlModel=\{animationPanel === 'movement'\}/);
+  assert.match(app,/allowControlModel=\{animationPanel === 'movement' && portraitSequenceIndices\(model\)\.includes\(sequence\)\}/);
   assert.match(toolbar,/active \? 'Full Model View' : 'Portrait Frame View'/);
   assert.match(toolbar,/active && allowControlModel && <button[^>]*>Control Model<\/button>/);
 });

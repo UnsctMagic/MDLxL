@@ -1,6 +1,7 @@
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
+import { isolateGlobalSequence } from './global-sequence-preview.js';
 
 export const movementProperties = { move: 'Translation', rotate: 'Rotation', scale: 'Scaling' };
 const defaults = { Translation: [0, 0, 0], Rotation: [0, 0, 0, 1], Scaling: [1, 1, 1] };
@@ -315,9 +316,44 @@ export function applyMovementPose(model, changes, time, sequenceIndex, restricti
   return prepared.length;
 }
 
+/** A global sequence edited on its own: every other animation is frozen as
+ * in the preview, and its own tracks play on a private 0..duration timeline. */
+export function globalMovementView(model, globalSeqId) {
+  const duration = model.GlobalSequences?.[globalSeqId];
+  if (!Number.isInteger(globalSeqId) || globalSeqId < 0 || !(duration > 0)) throw new Error('Select an existing global sequence before editing its keyframes.');
+  const view = isolateGlobalSequence(structuredClone(model), globalSeqId);
+  for (const node of allNodes(view)) for (const property of Object.values(movementProperties)) if (node[property]?.GlobalSeqId === globalSeqId) node[property].GlobalSeqId = null;
+  view.Sequences = [...(view.Sequences || []), { Name: `Global ${globalSeqId + 1}`, Interval: new Uint32Array([0, duration]) }];
+  return { model: view, sequenceIndex: view.Sequences.length - 1, duration };
+}
+
+function applyGlobalMovementTransform(model, ids, time, change) {
+  const { globalSeqId } = change, { model: view, sequenceIndex, duration } = globalMovementView(model, globalSeqId);
+  const frame = Math.round(Number(time));
+  if (!(frame >= 0 && frame <= duration)) throw new Error('The playhead must be inside the selected global sequence.');
+  const nodes = selectedNodes(model, ids), viewNodes = new Map(allNodes(view).map(node => [node.ObjectId, node]));
+  const snapshot = (node, property) => JSON.stringify(viewNodes.get(node.ObjectId)[property] ?? null);
+  const before = new Map(nodes.map(node => [node.ObjectId, Object.values(movementProperties).map(property => snapshot(node, property))]));
+  const result = applyMovementTransform(view, ids, frame, sequenceIndex, { ...change, globalSeqId: null });
+  for (const node of nodes) Object.values(movementProperties).forEach((property, index) => {
+    const edited = viewNodes.get(node.ObjectId)[property];
+    if (!edited?.Keys || snapshot(node, property) === before.get(node.ObjectId)[index]) return;
+    const original = node[property];
+    // A WC3 track belongs to one timeline; keys of the model's sequences
+    // cannot also be global, so never overwrite them with a global track.
+    if (original?.Keys?.length && original.GlobalSeqId !== globalSeqId) {
+      const owner = Number.isInteger(original.GlobalSeqId) && original.GlobalSeqId >= 0 ? `Global ${original.GlobalSeqId + 1}` : "the model's animations";
+      throw new Error(`${node.Name || `Node ${node.ObjectId}`} already has ${property} keys in ${owner}. A ${property} track can play in only one place, so add a new bone or helper for Global ${globalSeqId + 1}.`);
+    }
+    node[property] = { ...edited, GlobalSeqId: globalSeqId };
+  });
+  return result;
+}
+
 /** Apply an incremental XYZ transform at the selected frame, never a pivot edit. */
 export function applyMovementTransform(model, ids, time, sequenceIndex, change = {}) {
   if (change.restPose) return applyRestPoseTransform(model, ids, change);
+  if (Number.isInteger(change.globalSeqId) && change.globalSeqId >= 0) return applyGlobalMovementTransform(model, ids, time, change);
   const { mode = 'rotate', space = 'local', axis, amount = 0 } = change;
   const property = movementProperties[mode];
   if (!property) throw new Error('Choose Move, Rotate, or Scale.');

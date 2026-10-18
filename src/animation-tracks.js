@@ -8,13 +8,14 @@ const NODE_CHANNELS = {
   ParticleEmitterPopcorns: ['Visibility', 'Color', 'Alpha'],
   // Ribbon RGB and Particle2 lifecycle RGB remain in EMTR: the current
   // codec only supports their static colors, so exposing keyframes loses data.
-  Lights: ['Visibility', 'Color', 'AmbColor'], RibbonEmitters: ['Visibility', 'Alpha'],
+  Lights: ['Visibility', 'Color', 'AmbColor'], RibbonEmitters: ['Visibility', 'Alpha', 'HeightAbove', 'HeightBelow'],
 };
 const isTrack = value => value && Array.isArray(value.Keys);
 const clone = value => structuredClone(value);
 const dimensions = property => property === 'Color' || property === 'AmbColor' ? 3 : 1;
 const fallback = property => dimensions(property) === 3 ? [1, 1, 1] : 1;
-const lineDefault = property => dimensions(property) === 3 ? 1 : 0;
+// Ribbon size grows smoothly between keys; on/off and alpha channels step.
+const lineDefault = property => dimensions(property) === 3 || property === 'HeightAbove' || property === 'HeightBelow' ? 1 : 0;
 const keyId = target => `${target.kind}:${target.id}:${target.kind === 'material' ? target.layer + ':' : ''}${target.property}`;
 export const animationTrackId = keyId;
 
@@ -24,7 +25,9 @@ function validFrame(frame) {
 }
 function vectorValue(value, property) {
   const array = typeof value === 'number' ? [value] : Array.from(value || []);
-  if (array.length !== dimensions(property) || array.some(v => !Number.isFinite(v) || v < 0 || v > 1)) throw new Error(`${property === 'Alpha' || property === 'Visibility' ? 'Visibility / alpha' : 'RGB'} values must be between 0 and 1.`);
+  // Ribbon ends are distances; every other channel here is a 0..1 amount.
+  if ((property === 'HeightAbove' || property === 'HeightBelow') && (array.length !== 1 || !Number.isFinite(array[0]) || array[0] < 0)) throw new Error('Ribbon size values must be 0 or more.');
+  if (property !== 'HeightAbove' && property !== 'HeightBelow' && (array.length !== dimensions(property) || array.some(v => !Number.isFinite(v) || v < 0 || v > 1))) throw new Error(`${property === 'Alpha' || property === 'Visibility' ? 'Visibility / alpha' : 'RGB'} values must be between 0 and 1.`);
   return new Float32Array(array);
 }
 function channelAllowed(model, target) {
@@ -212,8 +215,16 @@ function prepareSequenceTracks(model, targets, value, sequenceIndices) {
   if (!intervals.length || intervals.some(interval => !interval)) throw new Error('Select an animation before setting sequence values.');
   for (const interval of intervals) { validFrame(interval[0]); validFrame(interval[1]); if (interval[1] < interval[0]) throw new Error('The animation interval is invalid.'); }
   return targets.map(target => {
-    const vector = vectorValue(value, target.property), track = trackForEdit(model, target);
-    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) throw new Error('This track uses a global sequence. Change it to Model sequences in Text tracks before using Set Sequence or Set All.');
+    const vector = vectorValue(value, target.property);
+    let track = trackForEdit(model, target);
+    // Setting sequence values moves a global-sequence track onto model
+    // sequences, holding its first value in the animations left untouched.
+    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) {
+      const first = track.Keys[0]?.Vector ?? fallback(target.property);
+      const held = (typeof first === 'number' ? [first] : Array.from(first)).map(v => Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1);
+      track = { LineType: lineDefault(target.property), GlobalSeqId: null, Keys: [] };
+      for (const seq of model.Sequences || []) if (seq.Interval) putKey(track, validFrame(seq.Interval[0]), held);
+    }
     track.Keys = track.Keys.filter(k => !intervals.some(([start, end]) => k.Frame >= start && k.Frame <= end));
     for (const [start, end] of intervals) { putKey(track, start, vector); putKey(track, end, vector); }
     return { target, track };

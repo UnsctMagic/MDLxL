@@ -35,7 +35,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     page.on('pageerror', error => failures.push(error.message));
     await app.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];
-      window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive();
+      window.webContents.setBackgroundThrottling(false); window.setFocusable(false); window.setSkipTaskbar(true); window.setIgnoreMouseEvents(true); window.setOpacity(0); window.setPosition(-3000, 0); window.showInactive();
     });
     return { app, page };
   }
@@ -85,15 +85,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         await dialog.waitFor();
         await dialog.getByRole('button', { name: translate('Close Particle Library', locale), exact: true }).click();
         await dialog.getByLabel(translate('Particle context', locale), { exact: true }).selectOption('On model');
-        await dialog.getByLabel(translate('Particle editor mode', locale), { exact: true }).selectOption('Classic');
-        const name = dialog.locator('input[type="text"][value="Materials"]');
-        assert.equal(await name.inputValue(), 'Materials', 'user emitter names stay literal');
+        assert.ok((await dialog.getByLabel(translate('Effect ingredient', locale), { exact: true }).locator('option').allTextContents()).some(text => text.includes('Materials')), 'user emitter names stay literal');
         const transport = dialog.locator('.pe-transport button').first();
         assert.equal(await transport.textContent(), translate('Pause', locale));
         await transport.click();
-        await dialog.locator('[data-particle-rotation] input[type="number"]').first().focus();
         assert.equal(await transport.textContent(), translate('Play', locale));
-        assert.equal(await dialog.locator('[data-particle-rotation]').count(), 1);
         await page.screenshot({ path: path.join(output, `${locale}-particles.png`) });
         await dialog.getByRole('button', { name: translate('Close Particle Editor', locale), exact: true }).click();
         await dialog.waitFor({ state: 'hidden' });

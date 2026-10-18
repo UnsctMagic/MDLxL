@@ -286,6 +286,17 @@ test('unsupported version 1700 and truncated input remain exact-copy read-only d
   }
 });
 
+test('MDLVis editor data (MDVI) does not block MDL conversion and is reported as left out', () => {
+  const doc = openDocument(Buffer.concat([Buffer.from(createDemoDocument().serialize('mdx')), chunk('MDVI', Buffer.alloc(12, 1))]));
+  const impact = doc.saveImpact('mdl');
+  assert.equal(impact.canSave, true);
+  assert.deepEqual(impact.leftOut, ['Editor-only data the game ignores is left out: MDVI.']);
+  assert.equal(openDocument(doc.serialize('mdl'), 'converted.mdl').readOnly, false);
+  // Same-format saves keep it byte-for-byte.
+  assert.deepEqual(doc.saveImpact('mdx').leftOut, []);
+  assert.ok(Buffer.from(doc.serialize('mdx')).includes(Buffer.from('MDVI')));
+});
+
 test('format conversion reports opaque-data loss and never silently changes version', () => {
   const doc = openDocument(Buffer.concat([Buffer.from(createDemoDocument().serialize('mdx')), chunk('XTRA', Buffer.from('editor metadata'))]));
   const impact = doc.saveImpact('mdl');
@@ -359,4 +370,24 @@ test('validator catches matrix, UV, animated texture and global sequence referen
   model.Materials[0].Layers[0].TextureID = { LineType: 0, GlobalSeqId: 88, Keys: [{ Frame: 0, Vector: new Int32Array([999]) }] };
   const codes = new Set(validateModel(model).map((d) => d.code));
   for (const code of ['BONE_REFERENCE', 'UV_COUNT', 'TEXTURE_REFERENCE', 'GLOBAL_SEQUENCE_REFERENCE']) assert.ok(codes.has(code));
+});
+
+test('a new global sequence is saved right after Sequences, never at the end of the file', async () => {
+  const { createGlobalSequence } = await import('../src/sequence-editor.js');
+  const chunkTags = bytes => { const tags = []; for (let offset = 4; offset + 8 <= bytes.length; offset += 8 + bytes.readUInt32LE(offset + 4)) tags.push(bytes.toString('latin1', offset, offset + 4)); return tags; };
+  const plain = createDemoDocument();
+  for (const format of ['mdx', 'mdl']) {
+    const doc = openDocument(Buffer.from(plain.serialize(format)), `plain.${format}`);
+    assert.equal(doc.model.GlobalSequences.length, 0);
+    doc.apply('Create global sequence', ['GlobalSequences'], model => createGlobalSequence(model));
+    const saved = Buffer.from(doc.serialize(format));
+    if (format === 'mdx') {
+      const tags = chunkTags(saved);
+      assert.equal(tags[tags.indexOf('SEQS') + 1], 'GLBS');
+    } else {
+      const text = saved.toString('utf8'), at = text.indexOf('GlobalSequences 1');
+      assert.ok(at > 0 && at < text.search(/^(Textures|Materials|Geoset) /m), 'GlobalSequences comes before textures, materials and geosets');
+    }
+    assert.deepEqual(openDocument(saved, `again.${format}`).model.GlobalSequences, [1000]);
+  }
 });

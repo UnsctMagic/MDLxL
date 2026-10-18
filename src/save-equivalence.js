@@ -4,7 +4,9 @@ import { equivalentGeosetColorDefaults } from './geoset-animation-defaults.js';
 // the file format's precision; no decimal epsilon may hide changed key values.
 const ignored = new Set(['_GeosetTabId','_AnimationSpeed','_AnimationSpeedFrame','_AnimationSpeedEvents','Nodes','PivotPoint','TotalGroupsCount','NumGeosets','NumGeosetAnims','NumBones','NumHelpers','NumLights','NumAttachments','NumEvents','NumParticleEmitters','NumParticleEmitters2','NumRibbonEmitters']);
 const defaults = { AnimationFile:'',Path:'',PriorityPlane:0,Gravity:0,SyncPoint:0,Flags:0,SelectionFlags:0,Variant:0,Shader:'',Name:'',LevelOfDetail:0,Alpha:1,EmissiveGain:1,FresnelOpacity:0,FresnelTeamColor:0,ShaderTypeId:0,ShadowIntensity:0,ShadowCasting:0,ShadowCastingStart:0,ShadowCastingEnd:0,QuadraticFalloff:0.0005,LinearFalloff:0,Damping:0.00001,_MdxTextureId:0 };
-const equalNumber = (a,b) => Object.is(a,b) || Object.is(Math.fround(a),Math.fround(b));
+// Signed zero is the same coordinate; record reuse and MDL text can change its sign.
+// Keep float32 comparisons exact so genuinely different values still fail verification.
+const equalNumber = (a,b) => a === b || Object.is(Math.fround(a),Math.fround(b));
 // Node-type bits (Bone 0x100 through RibbonEmitter 0x4000) only restate the
 // section a node belongs to: the MDX chunk or the MDL block keyword decides
 // what the node is. MDL has no other spelling for them, so a reader derives
