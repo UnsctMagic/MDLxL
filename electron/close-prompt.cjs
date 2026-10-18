@@ -1,4 +1,3 @@
-const { BrowserWindow } = require('electron');
 const APPLICATION_THEMES = require('../src/application-themes.json');
 
 const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -35,6 +34,8 @@ addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault
 
 // Resolves 'save', 'cancel' or 'close'. Closing the prompt window itself cancels.
 function showClosePrompt(parent, { title, message, detail, labels, theme }) {
+  // Loaded on use so main.cjs stays loadable where Electron is stubbed or absent.
+  const { BrowserWindow } = require('electron');
   return new Promise(resolve => {
     const prompt = new BrowserWindow({
       parent, modal: true, show: false, width: 340, height: 220, useContentSize: true, title,
