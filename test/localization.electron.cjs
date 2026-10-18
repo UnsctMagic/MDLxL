@@ -83,14 +83,31 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         await sendMenu(app, 'particles');
         const dialog = page.getByRole('dialog', { name: translate('Particle Editor', locale), exact: true });
         await dialog.waitFor();
-        await dialog.getByRole('button', { name: translate('Close Particle Library', locale), exact: true }).click();
+        // The library opens only while no emitter is selected; the first pass below selects one.
+        await dialog.locator('.pe-toolbar').waitFor();
+        const closeLibrary = dialog.getByRole('button', { name: translate('Close Particle Library', locale), exact: true });
+        if (await closeLibrary.count()) await closeLibrary.click();
         await dialog.getByLabel(translate('Particle context', locale), { exact: true }).selectOption('On model');
         assert.ok((await dialog.getByLabel(translate('Effect ingredient', locale), { exact: true }).locator('option').allTextContents()).some(text => text.includes('Materials')), 'user emitter names stay literal');
         const transport = dialog.locator('.pe-transport button').first();
         assert.equal(await transport.textContent(), translate('Pause', locale));
         await transport.click();
         assert.equal(await transport.textContent(), translate('Play', locale));
+        // The reworked Emitter Editor: Look tab, life table and Adjust Manually.
+        const ingredient = dialog.getByLabel(translate('Effect ingredient', locale), { exact: true });
+        await ingredient.selectOption({ index: await ingredient.evaluate(select => [...select.options].findIndex(option => option.textContent.includes('Materials'))) });
+        await dialog.locator('.pe-life-table').waitFor();
+        assert.equal(await dialog.locator('.pe-tool-tabs button').first().textContent(), translate('Look', locale));
+        assert.equal(await dialog.locator('.pe-manual').textContent(), translate('Adjust Manually', locale));
+        assert.equal(await dialog.locator('.pe-life-table thead th').first().textContent(), translate('Over its life', locale));
+        assert.deepEqual(await dialog.locator('.pe-life-table thead button').allTextContents(), ['Born', 'Halfway', 'End'].map(text => translate(text, locale)));
         await page.screenshot({ path: path.join(output, `${locale}-particles.png`) });
+        await dialog.locator('.pe-manual').click();
+        const manual = page.locator('.emitter-text-dialog');
+        assert.equal(await manual.locator('.emitter-text-heading span').textContent(), translate('Exact MDL text of this emitter', locale));
+        await page.screenshot({ path: path.join(output, `${locale}-emitter-text.png`) });
+        await manual.locator('.emitter-text-actions button').last().click();
+        await manual.waitFor({ state: 'hidden' });
         await dialog.getByRole('button', { name: translate('Close Particle Editor', locale), exact: true }).click();
         await dialog.waitFor({ state: 'hidden' });
         assert.equal(await page.evaluate(() => JSON.stringify(testDocument().model)), before);
@@ -113,6 +130,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   assert.deepEqual(fs.readFileSync(fixture), original);
   assert.deepEqual(fs.readFileSync(repairFixture), repairOriginal);
   assert.deepEqual(failures, [], 'No renderer exceptions');
-  console.log('PASS: seven language switches, translated native menus, unchanged model data/sidebar widths, particle controls in Russian, Spanish, Chinese and Mordor, and tint-conflict focus in Russian and Spanish.');
+  console.log('PASS: seven language switches, translated native menus, unchanged model data/sidebar widths, particle controls and Emitter Editor labels in Russian, Spanish, Chinese and Mordor, and tint-conflict focus in Russian and Spanish.');
   console.log(`Screenshots: ${output}`);
 })().catch(error => { console.error(error); process.exitCode = 1; });
