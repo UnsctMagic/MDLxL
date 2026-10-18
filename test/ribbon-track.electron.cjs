@@ -81,8 +81,11 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.keyboard.press('Control+Z');assert.equal((await read()).undo,pairs.undo);
   // Adjust Manually: exact MDL text, one undo step; invalid text changes nothing.
   await editor.getByRole('button',{name:'Adjust Manually',exact:true}).click();
-  const manual=page.getByRole('dialog',{name:'Adjust ribbon manually',exact:true}),text=manual.getByLabel('Ribbon MDL text',{exact:true}),mdl=await text.inputValue();
+  const manual=page.getByRole('dialog',{name:'Adjust emitter manually',exact:true}),text=manual.getByLabel('Emitter MDL text',{exact:true}),mdl=await text.inputValue();
   assert.match(mdl,/^RibbonEmitter "Weapon ribbon" \{/);
+  // Hovering a word explains it in plain language.
+  const word=await manual.locator('.emitter-text-mirror span',{hasText:/^RibbonEmitter$/}).first().boundingBox();await page.mouse.move(word.x+word.width/2,word.y+word.height/2);
+  const tip=manual.getByRole('tooltip');await tip.waitFor();assert.match(await tip.textContent(),/A ribbon: a glowing strip/);await page.screenshot({path:path.join(out,'3-hover.png')});
   await text.fill(mdl.replace(/LifeSpan [0-9.]+/,'LifeSpan 0.75'));await manual.getByRole('button',{name:'Apply',exact:true}).click();
   now=await read();assert.equal(now.model.RibbonEmitters.at(-1).LifeSpan,.75);assert.equal(now.undo,pairs.undo+1);
   await editor.getByRole('button',{name:'Adjust Manually',exact:true}).click();await text.fill(mdl.replace(/MaterialID \d+/,'MaterialID 999'));await manual.getByRole('button',{name:'Apply',exact:true}).click();

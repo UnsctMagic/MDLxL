@@ -6,11 +6,11 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
  try{
   app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH||path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',...(process.env.MDLXL_ELECTRON_PATH?[]:[root])],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
   const page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
-  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1100,760);w.setPosition(-3000,0);w.showInactive();});
+  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1100,760);w.setFocusable(false);w.setSkipTaskbar(true);w.setIgnoreMouseEvents(true);w.setOpacity(0);w.setPosition(-3000,0);w.showInactive();});
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).waitFor();
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});
   await editor.getByRole('button',{name:'New',exact:true}).click();await page.getByRole('button',{name:'Soft sparks',exact:true}).click();await page.locator('.pe-library').waitFor({state:'hidden'});
-  await editor.getByRole('button',{name:'Picture',exact:true}).click();await page.getByRole('button',{name:'Pause',exact:true}).click();
+  await editor.getByRole('button',{name:'Look',exact:true}).click();await page.getByRole('button',{name:'Pause',exact:true}).click();
   const read=()=>page.evaluate(()=>{const el=document.querySelector('.pe-window');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState;if(v?.doc?.model&&v?.recipe)return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps};}throw Error('Lab missing');});
   const runtime=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState?.current;if(v?.native&&v?.controls){const p=v.native.particlesController.emitters[0];return {texture:p.props.TextureID,replaceable:p.props.ReplaceableId,images:v.native.model.Textures.map(t=>t.Image),count:p.particles.length,camera:v.controls.object.position.toArray()};}}return null;});
   const original=await read();

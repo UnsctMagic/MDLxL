@@ -1,12 +1,13 @@
 import {sampleAnimationProperty,setAnimationKey} from './animation-tracks.js';
 
-/** On/off parts and size keys of one ribbon inside one animation. */
-const node=(model,id)=>{const found=model.RibbonEmitters.find(item=>item.ObjectId===id);if(!found)throw Error('The ribbon was removed.');return found;};
+/** On/off parts of any emitter, and a ribbon's size keys, inside one animation. */
+const FAMILIES=['ParticleEmitters2','RibbonEmitters','ParticleEmitters','ParticleEmitterPopcorns'];
+const node=(model,id)=>{const found=FAMILIES.flatMap(family=>model[family]||[]).find(item=>item.ObjectId===id);if(!found)throw Error('The emitter was removed.');return found;};
 const clipOf=(model,sequenceIndex)=>{const clip=model.Sequences[sequenceIndex];if(!clip)throw Error('Choose an animation first.');return Array.from(clip.Interval,Math.round);};
 const globalTrack=track=>Number.isInteger(track?.GlobalSeqId)&&track.GlobalSeqId>=0;
 
 /** Visible parts as [shows, hides] frame pairs. A part that lasts to the end hides at the last frame. */
-export function ribbonSpans(model,id,sequenceIndex){
+export function emitterSpans(model,id,sequenceIndex){
  const ribbon=node(model,id),[start,end]=clipOf(model,sequenceIndex);
  if(globalTrack(ribbon.Visibility))return {start,end,spans:[],global:true};
  const target={kind:'node',id,property:'Visibility'},on=frame=>Number(sampleAnimationProperty(model,target,frame,sequenceIndex))>0;
@@ -28,9 +29,9 @@ export function normalizeSpans(spans,start,end){
  * Rewrites only this animation's visibility keys: on at each part's first frame, off where it ends.
  * Other animations keep their keys. Visibility steps (no interpolation), as on/off should in game.
  */
-export function setRibbonSpans(model,id,sequenceIndex,spans){
+export function setEmitterSpans(model,id,sequenceIndex,spans){
  const ribbon=node(model,id),[start,end]=clipOf(model,sequenceIndex),parts=normalizeSpans(spans,start,end);
- if(globalTrack(ribbon.Visibility))throw Error('This ribbon uses a global sequence for visibility. Use Adjust Manually.');
+ if(globalTrack(ribbon.Visibility))throw Error('This emitter uses a global sequence for visibility. Use Adjust Manually.');
  const keys=new Map();
  if(ribbon.Visibility?.Keys){for(const key of ribbon.Visibility.Keys)if(key.Frame<start||key.Frame>end)keys.set(key.Frame,key.Vector[0]>0?1:0);}
  else{

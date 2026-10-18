@@ -12,7 +12,7 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   const real=samples.find(item=>item.age>=.2&&item.age<=.7)||samples[0];
   const proxy=real||guide&&{owner:emitter.ObjectId,points:[[-10,-10],[-10,10],[10,-10],[10,10]].map(p=>[guide.origin[0]+p[0],guide.origin[1]+p[1],guide.origin[2]])};
   const sample=pinned||proxy;
-  const stage=tool==='Life'?lifeStage:undefined;
+  const stage=tool==='Look'?lifeStage:undefined;
   const value=field=>particleValue(emitter,field,{...options,stage:field==='ParticleScaling'?stage:undefined});
   function start(event,field,reference,basis) {
     event.preventDefault();event.stopPropagation();event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus();
@@ -41,9 +41,9 @@ export default function ParticleStageTools({snapshot,tool,emitter,options,lifeSt
   }}><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
   return <svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Particle stage handles">
     {snapshot.anchor&&<g className="pe-move-emitter">{handle(snapshot.anchor.point,'Translation','Move emitter',snapshot.anchor)}<text x={snapshot.anchor.point[0]+12} y={snapshot.anchor.point[1]+20}>Move</text></g>}
-    {!ribbon&&(tool==='Basics'||tool==='Life')&&sample&&<g className="pe-size-proxy"><polygon points={[sample.points[0],sample.points[1],sample.points[3],sample.points[2]].map(p=>p.slice(0,2).join(',')).join(' ')}/>{[0,1,2,3].map(index=><React.Fragment key={index}>{handle(sample.points[index],'ParticleScaling',index===2?'Resize particle':'Resize particle corner '+(index+1))}</React.Fragment>)}<text x={sample.points[0][0]} y={sample.points[0][1]-8}>{pinned?'Pinned sample':tool==='Life'?['Young','Middle','End'][lifeStage]:'Size'}</text></g>}
+    {!ribbon&&tool==='Look'&&sample&&<g className="pe-size-proxy"><polygon points={[sample.points[0],sample.points[1],sample.points[3],sample.points[2]].map(p=>p.slice(0,2).join(',')).join(' ')}/>{[0,1,2,3].map(index=><React.Fragment key={index}>{handle(sample.points[index],'ParticleScaling',index===2?'Resize particle':'Resize particle corner '+(index+1))}</React.Fragment>)}<text x={sample.points[0][0]} y={sample.points[0][1]-8}>{pinned?'Pinned sample':tool==='Look'?['Young','Middle','End'][lifeStage]:'Size'}</text></g>}
     {ribbon&&guide?.upper&&guide?.lower&&<g className={sizeKey?'pe-size-key':undefined}><line x1={guide.lower[0]} y1={guide.lower[1]} x2={guide.upper[0]} y2={guide.upper[1]}/>{snapshot.anchor&&!sizeKey&&<line className="pe-ribbon-grab" x1={guide.lower[0]} y1={guide.lower[1]} x2={guide.upper[0]} y2={guide.upper[1]} onPointerDown={event=>start(event,'Translation',snapshot.anchor.point,snapshot.anchor)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort}><title>Drag the ribbon to move it</title></line>}{handle(guide.upper,'HeightAbove','Ribbon upper edge',particleAxisMapping(guide.upper,guide.upperUnit))}{handle(guide.lower,'HeightBelow','Ribbon lower edge',particleAxisMapping(guide.lower,guide.lowerUnit))}</g>}
-    {!ribbon&&tool==='Shape'&&guide?.area&&<g><polygon points={guide.area.map(p=>p.slice(0,2).join(',')).join(' ')}/>
+    {!ribbon&&tool==='Motion'&&guide?.area&&<g><polygon points={guide.area.map(p=>p.slice(0,2).join(',')).join(' ')}/>
       {handle(guide.widthHandle,'Width','Spawn width handle',particleAxisMapping(guide.widthHandle,guide.widthUnit))}
       {handle(guide.lengthHandle,'Length','Spawn length handle',particleAxisMapping(guide.lengthHandle,guide.lengthUnit))}
       <line x1={guide.origin[0]} y1={guide.origin[1]} x2={guide.aim[0]} y2={guide.aim[1]}/>
