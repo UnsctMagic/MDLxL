@@ -4,7 +4,7 @@ const APPLICATION_THEMES = require('../src/application-themes.json');
 const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
 // The native Windows message box cannot color its buttons, so the close prompt
-// is a small themed window: Save, a yellow CANCEL? and, set apart below, a red Close.
+// is a small themed window: a green Save, a yellow CANCEL? and, set apart below, a red Close.
 function closePromptHtml({ message, detail, labels, theme }) {
   const { colors, scheme } = APPLICATION_THEMES[theme] || APPLICATION_THEMES.light;
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
@@ -16,12 +16,12 @@ p{margin:0 0 6px;overflow-wrap:anywhere}
 .detail{color:${colors.muted};margin-bottom:14px}
 button{display:block;width:100%;min-height:30px;margin:0 0 8px;font:inherit;font-weight:bold;border:1px solid ${colors.border};border-radius:2px;cursor:pointer}
 button:focus-visible{outline:2px solid ${colors.link};outline-offset:2px}
-.save{background:${colors.surface};color:${colors.text}}
-.save:hover{background:${colors.hover}}
-.cancel{background:#f5c400;border-color:#a88600;color:#1b1600;letter-spacing:.04em}
-.cancel:hover{background:#ffd633}
-.close{margin:22px 0 0;background:#c62828;border-color:#8a1515;color:#fff}
-.close:hover{background:#dd3333}
+.save{background:#5a9a66;border-color:#3f7349;color:#fff}
+.save:hover{background:#66a872}
+.cancel{background:#e3c46a;border-color:#ad9248;color:#2b2106;letter-spacing:.04em}
+.cancel:hover{background:#eacf7f}
+.close{margin:22px 0 0;background:#bd5a55;border-color:#8c403c;color:#fff}
+.close:hover{background:#c86762}
 </style></head><body>
 <p><b>${escapeHtml(message)}</b></p><p class="detail">${escapeHtml(detail)}</p>
 <button class="save" data-action="save" autofocus>${escapeHtml(labels.save)}</button>

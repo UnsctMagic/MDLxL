@@ -1,5 +1,5 @@
 // Run after building dist. Optional: MDLXL_PLAYWRIGHT_MODULE points to an external Playwright install.
-// Drives the themed close prompt hidden: Save, a yellow CANCEL? and a red Close set apart below.
+// Drives the themed close prompt hidden: a green Save, a yellow CANCEL? and a red Close set apart below.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -49,16 +49,17 @@ const root = path.resolve(__dirname, '..');
       return { text: button.textContent, top: box.top, bottom: box.bottom, background: style.backgroundColor, color: style.color };
     }));
     assert.deepEqual(layout.map(button => button.text), ['Save', 'CANCEL?', 'Close']);
-    const [, cancel, close] = layout;
+    const [save, cancel, close] = layout;
     assert.ok(cancel.bottom < close.top, 'CANCEL? sits above Close');
     assert.ok(close.top - cancel.bottom >= 20, 'Close is set apart from CANCEL?');
-    assert.equal(cancel.background, 'rgb(245, 196, 0)', 'the whole CANCEL? button is yellow');
-    assert.equal(close.background, 'rgb(198, 40, 40)', 'the whole Close button is red');
+    assert.equal(save.background, 'rgb(90, 154, 102)', 'the whole Save button is green');
+    assert.equal(cancel.background, 'rgb(227, 196, 106)', 'the whole CANCEL? button is yellow');
+    assert.equal(close.background, 'rgb(189, 90, 85)', 'the whole Close button is red');
     await prompt.getByRole('button', { name: 'CANCEL?' }).click();
     await closedPrompt(prompt);
     await editor.waitForTimeout(200);
     assert.equal(editor.isClosed(), false, 'CANCEL? keeps the editor open');
-    console.log('PASS CANCEL? is a yellow button above a red Close and keeps the editor open');
+    console.log('PASS green Save, yellow CANCEL? above a red Close and keeps the editor open');
 
     prompt = await openPrompt();
     await prompt.keyboard.down('Escape');
