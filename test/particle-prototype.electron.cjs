@@ -168,19 +168,16 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.getByRole('button',{name:'Play',exact:true}).click();
     console.log('Direct life changeover endpoints and one-undo native burst timing passed');
     await page.getByRole('button',{name:'Look',exact:true}).click();
-    await page.getByRole('button',{name:/^Frames…/}).click();const framesWindow=page.getByRole('dialog',{name:'Frames',exact:true});
-    await framesWindow.getByRole('button',{name:'Add picture row',exact:true}).click();
-    await framesWindow.getByRole('button',{name:'Add picture column',exact:true}).click();
-    const grid=framesWindow.getByRole('button',{name:'Frame grid',exact:true}),gridBox=await grid.boundingBox();
-    await grid.click({position:{x:gridBox.width*.75,y:gridBox.height*.75}});
-    assert.equal(await framesWindow.getByRole('status').first().textContent(),'Click the last frame.');await page.waitForTimeout(400);await page.screenshot({path:path.join(out,'frames-window.png')});
-    assert.equal((await readLab()).model.ParticleEmitters2[0].LifeSpanUVAnim[1],4);
-    const beforeGrid=await readLab();
-    await framesWindow.getByRole('button',{name:'Remove picture row',exact:true}).click();
-    assert.deepEqual((await readLab()).model,beforeGrid.model,'Grid correction must wait for explicit confirmation');
-    await framesWindow.getByRole('button',{name:'Split and fit them',exact:true}).click();
-    assert.equal((await readLab()).model.ParticleEmitters2[0].LifeSpanUVAnim[1],2);
-    await framesWindow.getByRole('button',{name:'Close frames',exact:true}).click();
+    // Frames only for sprite sheets: pick a grid, then drag across the frames that play.
+    const framesPick=page.getByLabel('Picture frames',{exact:true});assert.equal(await framesPick.inputValue(),'1x1');assert.equal(await page.getByRole('listbox',{name:'Frames that play',exact:true}).count(),0,'A plain picture shows no frames');
+    await framesPick.selectOption('2x2');let framed=(await readLab()).model.ParticleEmitters2[0];assert.equal(framed.Rows,2);assert.equal(framed.Columns,2);
+    {const life=Object.values(framed.LifeSpanUVAnim),decay=Object.values(framed.DecayUVAnim);assert.equal(life[0],0);assert.equal(decay[1],4);assert.equal(life[1],decay[0],'Every frame plays once across the life, split at the halfway point');}
+    const cells=page.getByRole('listbox',{name:'Frames that play',exact:true}).getByRole('option');assert.equal(await cells.count(),4);
+    const one=await cells.nth(1).boundingBox(),two=await cells.nth(2).boundingBox(),beforeStrip=await readLab();
+    await page.mouse.move(one.x+one.width/2,one.y+one.height/2);await page.mouse.down();await page.mouse.move(two.x+two.width/2,two.y+two.height/2,{steps:4});await page.mouse.up();
+    framed=(await readLab()).model.ParticleEmitters2[0];assert.deepEqual([Object.values(framed.LifeSpanUVAnim)[0],Object.values(framed.DecayUVAnim)[1]],[1,3],'Frames 1 to 2 play');assert.equal((await readLab()).undo,beforeStrip.undo+1);
+    await page.waitForTimeout(300);await page.screenshot({path:path.join(out,'frame-strip.png')});
+    await framesPick.selectOption('1x1');assert.equal((await readLab()).model.ParticleEmitters2[0].Rows,1);
     await page.getByRole('button',{name:'Compare blend looks',exact:true}).click();
     await page.waitForFunction(()=>document.querySelectorAll('.pe-blend-pair img').length===10,{},{timeout:30000});
     await page.locator('.pe-blend-pair').last().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'picture-blends.png')});
@@ -192,7 +189,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.getByRole('button',{name:'Keep brightness',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.pe-window .re-status')?.textContent.includes('Lighting and fog flags are saved'),{},{timeout:8000});assert.match(await page.locator('.pe-window .re-status').innerText(),/Lighting and fog flags are saved/);await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();assert.equal((await readLab()).model.ParticleEmitters2[0].Flags,beforeFlags.model.ParticleEmitters2[0].Flags);await page.getByText('Orientation and draw options',{exact:true}).click();
     const beforeTeam=await readLab();await page.getByRole('button',{name:'Team glow',exact:true}).click();await page.waitForTimeout(150);
     assert.equal((await readLab()).model.ParticleEmitters2[0].ReplaceableId,2);
-    await page.getByRole('button',{name:/^Frames…/}).click();const teamGrid=page.getByRole('dialog',{name:'Frames',exact:true}).getByRole('button',{name:'Frame grid',exact:true});await page.waitForTimeout(300);const teamPixels=await teamGrid.evaluate(c=>Array.from(c.getContext('2d').getImageData(100,100,1,1).data));assert.ok(teamPixels[0]>0,'Team picture grid renders its native replacement');await page.getByRole('button',{name:'Close frames',exact:true}).click();
+    await page.waitForTimeout(300);const teamPixels=await page.getByRole('button',{name:'Team glow',exact:true}).first().locator('xpath=ancestor::div[contains(@class,"pe-picture-tool")]').locator('.pe-picture-tile[aria-pressed="true"] canvas').evaluate(c=>Array.from(c.getContext('2d').getImageData(24,24,1,1).data));assert.ok(teamPixels[0]>0,'Team picture renders its native replacement');
     await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await readLab()).model,beforeTeam.model);
     if(!await page.getByRole('button',{name:'Load picture…',exact:true}).isVisible())await page.getByText('Choose picture',{exact:true}).click();
     await page.getByRole('button',{name:'Load picture…',exact:true}).click();

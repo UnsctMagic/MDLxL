@@ -15,6 +15,8 @@ import useMovableWindow from './useMovableWindow.js';
 import ParticleCluelessControls from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import ParticleKeyTrack from './ParticleKeyTrack.jsx';
+import {detectPictureGrid} from './sprite-detect.js';
+import {spriteGridValues} from '../src/sprite-frames.js';
 import {translate} from '../src/localization.js';
 import EmitterTextDialog from './EmitterTextDialog.jsx';
 import {ribbonSizeAt,setRibbonSizeKey,removeRibbonSizeKey,setEmitterSpans} from '../src/emitter-timing.js';
@@ -113,9 +115,17 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const teamPicture=id=>{
     cancel();
     const index=apply('Choose team picture',m=>{let index=m.Textures.findIndex(t=>t.ReplaceableId===id&&!t.Image);if(index<0)index=m.Textures.push({Image:'',ReplaceableId:id,Flags:0})-1;const emitter=m.ParticleEmitters2.find(n=>n.ObjectId===emitterId);emitter.TextureID=index;emitter.ReplaceableId=id;return index;},['Nodes','Textures']);
-    if(index!==false)setStructure(v=>v+1);
+    if(index!==false){setStructure(v=>v+1);fitFrames(null,'',id);}
   };
-  const choosePicture=index=>{if(patch({TextureID:index,ReplaceableId:0})!==false)setStructure(v=>v+1);};
+  // A sprite sheet gets its frames set up right away; a plain picture has none.
+  const fitFrames=async(asset,name,replaceableId=0)=>{
+    try{
+      const grid=await detectPictureGrid(asset,{name,replaceableId}),doc=latest.current.activeDoc,id=latest.current.emitterId,current=doc.model.ParticleEmitters2.find(n=>n.ObjectId===id);
+      if(!current||(current.Rows===grid.rows&&current.Columns===grid.columns))return;
+      if(apply(grid.rows*grid.columns>1?'Use sprite frames':'Use one picture',m=>{const node=m.ParticleEmitters2.find(n=>n.ObjectId===id);Object.assign(node,spriteGridValues(node,grid.rows,grid.columns));})!==false){setStructure(v=>v+1);setMessage(grid.rows*grid.columns>1?'Found '+grid.rows*grid.columns+' frames. They play across the particle\'s life.':'');}
+    }catch{}
+  };
+  const choosePicture=index=>{if(patch({TextureID:index,ReplaceableId:0})!==false){setStructure(v=>v+1);const image=model.Textures[index]?.Image;fitFrames(assets.get(pathKey(image)),image);}};
   const removePicture=index=>{
     cancel();const result=apply('Remove particle picture',m=>removeParticlePicture(m,emitterId,index),['Nodes','Textures','Materials']);
     if(result===false)return;
@@ -130,7 +140,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       const nextAsset={...asset,name,bytes,...(asset.libraryKey&&asset.source!=='custom'?{}:{origin:'particle-custom',source:'parts'})};
       if(latest.current.activeDoc!==activeDoc||latest.current.emitterId!==emitterId)return;
       cancel();const result=apply('Choose particle picture',m=>{let index=m.Textures.findIndex(t=>t.Image===name);if(index<0)index=m.Textures.push({Image:name,ReplaceableId:0,Flags:0})-1;const emitter=m.ParticleEmitters2.find(n=>n.ObjectId===emitterId);emitter.TextureID=index;emitter.ReplaceableId=0;},['Nodes','Textures']);
-      if(result===false)return;const next=new Map(assets);if(!next.has(pathKey(name)))next.set(pathKey(name),nextAsset);if(context==='Lab')setLab(old=>({...old,assets:next}));else onPlacedAssets?.(next);setStructure(v=>v+1);
+      if(result===false)return;const next=new Map(assets);if(!next.has(pathKey(name)))next.set(pathKey(name),nextAsset);if(context==='Lab')setLab(old=>({...old,assets:next}));else onPlacedAssets?.(next);setStructure(v=>v+1);await fitFrames(nextAsset,name);
   };
   const importPicture=async()=>{
     try{const list=await window.desktop.textures();if(list?.length)await usePicture(list[0]);}catch(error){setMessage(error.message);}
