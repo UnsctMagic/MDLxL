@@ -2893,7 +2893,7 @@
   "Add a shape · select and edit with the vertex editor controls": "添加形状 · 使用顶点编辑器控件选择和编辑",
   "Add a new piece to mold.": "添加一个新部件进行塑形。",
   "Control points": "控制点",
-  "Select and move whole pieces. Double-click a surface to select a face.": "选择并移动整个部件。双击表面可选择一个面。",
+  "Select and move whole pieces. Double-click a surface to select a face; Shift+double-click adds more faces.": "选择并移动整个部件。双击表面可选择一个面；按住 Shift 双击可添加更多面。",
   "Edges": "边",
   "Edge": "边",
   "Select and move the edges of a piece.": "选择并移动部件的边。",

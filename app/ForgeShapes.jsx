@@ -107,8 +107,11 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
     requestTool({ tool: 'select' });
   };
   const selectFace = event => {
-    const selection = pickForgeParts(entries, {}, 'Faces', event);
-    if (!Object.values(selection).some(ids => ids.length)) return;
+    const picked = pickForgeParts(entries, {}, 'Faces', event);
+    if (!Object.values(picked).some(ids => ids.length)) return;
+    // Shift+double-click adds the face to faces already chosen.
+    const keep = event.start?.shift && draft.mode === 'Faces';
+    const selection = keep ? Object.fromEntries(entries.map(({ shape }) => [shape.id, [...new Set([...(draft.selection[shape.id] || []), ...picked[shape.id]])]])) : picked;
     setDraft({ ...draft, selection, mode: 'Faces' });
     requestTool({ tool: 'translate' });
   };
@@ -281,7 +284,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
       editHandles={handles}
       shapingTools={<ForgeMoldTools active={mold?.tool} disabled={!selected.length} onChoose={openMold}/>}
       viewportTools={<ForgeMoldControls state={mold} error={moldResult?.error} onChange={setMold} onApply={applyMold} onCancel={cancelMold}/>}
-      controlPoints={<div className="forge-selection-scope" role="group" aria-label="Control points">{[['Shape','Shape','M4 7 12 3 20 7 20 17 12 21 4 17Z M4 7 12 11 20 7 M12 11V21','Select and move whole pieces. Double-click a surface to select a face.'],['Edges','Edge','M4 18 20 6 M4 15V21 M20 3V9','Select and move the edges of a piece.'],['Vertices','Vertex','M5 5H19V19H5Z','Select and move individual points to reshape a piece.']].map(([mode,label,path,description]) => <Tool action={'forge:shape:mode:'+mode} title={label} key={mode} description={description} active={draft.mode===mode} onClick={() => chooseMode(mode)}><svg viewBox="0 0 24 24" className="modern-retro-icon modern-retro-gold" aria-hidden="true"><path d={path}/>{mode==='Vertices' && [[5,5],[19,5],[5,19],[19,19]].map(([x,y])=><circle key={x+','+y} cx={x} cy={y} r="2.5"/>)}</svg></Tool>)}</div>}
+      controlPoints={<div className="forge-selection-scope" role="group" aria-label="Control points">{[['Shape','Shape','M4 7 12 3 20 7 20 17 12 21 4 17Z M4 7 12 11 20 7 M12 11V21','Select and move whole pieces. Double-click a surface to select a face; Shift+double-click adds more faces.'],['Edges','Edge','M4 18 20 6 M4 15V21 M20 3V9','Select and move the edges of a piece.'],['Vertices','Vertex','M5 5H19V19H5Z','Select and move individual points to reshape a piece.']].map(([mode,label,path,description]) => <Tool action={'forge:shape:mode:'+mode} title={label} key={mode} description={description} active={draft.mode===mode} onClick={() => chooseMode(mode)}><svg viewBox="0 0 24 24" className="modern-retro-icon modern-retro-gold" aria-hidden="true"><path d={path}/>{mode==='Vertices' && [[5,5],[19,5],[5,19],[19,19]].map(([x,y])=><circle key={x+','+y} cx={x} cy={y} r="2.5"/>)}</svg></Tool>)}</div>}
       operations={<div className="forge-shape-operations">
         <div className="forge-add-control"><Tool action="forge:shape:add" title="Add shape" description="Add a new piece to mold." active={palette} onClick={() => setPalette(!palette)}><PackagePlus className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool></div>
         <Tool action="forge:shape:extrude" title="Extrude" description="Extrude: drag the selected face to extend it; release to finish. Escape cancels." disabled={!!cut || !faceCount || draft.mode==='Shape'} active={extrudeReady} onClick={() => faceOperation('Extrude')}><ArrowUpFromLine className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>
