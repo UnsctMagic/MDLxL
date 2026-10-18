@@ -33,7 +33,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     console.log('runtime',state);console.log('stage',await page.locator('.pe-stage-tools').getAttribute('viewBox'));assert.ok(state?.particles>0,'Starter must have visible simulated particles');
     const handle=page.getByRole('slider',{name:'Resize particle',exact:true});
     await handle.waitFor();
-    const beforeSize=await page.getByRole('slider',{name:'Middle size',exact:true}).inputValue();
+    const beforeSize=await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue();
     await page.locator('.pe-window').getByRole('button',{name:'Pause',exact:true}).click();
     const point=await handle.locator('circle').boundingBox();
     await page.mouse.move(point.x+point.width/2,point.y+point.height/2);await page.mouse.down();
@@ -46,23 +46,22 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     const heldElapsed=(Number(await page.getByLabel('Particle preview playhead',{exact:true}).inputValue())-heldTime+5000)%5000;
     assert.ok(heldElapsed>=2000,'Playback advances beyond the sample lifetime during its held gesture');
     assert.equal(await page.locator('.pe-size-proxy polygon').getAttribute('points'),pinnedPoints,'Proxy remains pinned while its source particle ages and dies');
-    assert.equal(await page.getByRole('slider',{name:'Middle size',exact:true}).inputValue(),beforeSize,'Stationary pointer does not change data during playback');
+    assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'Stationary pointer does not change data during playback');
     assert.equal(await page.locator('.pe-size-proxy text').textContent(),'Pinned sample');
     await page.mouse.move(point.x+point.width/2+40,point.y+point.height/2-20,{steps:4});await page.mouse.up();
-    assert.ok(Number(await page.getByRole('slider',{name:'Middle size',exact:true}).inputValue())>Number(beforeSize));
+    assert.ok(Number(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue())>Number(beforeSize));
     await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();
-    assert.equal(await page.getByRole('slider',{name:'Middle size',exact:true}).inputValue(),beforeSize,'One undo restores whole stage gesture');
+    assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'One undo restores whole stage gesture');
     if(await page.getByRole('button',{name:'Pause',exact:true}).count())await page.getByRole('button',{name:'Pause',exact:true}).click();
     const cancelPoint=await handle.locator('circle').boundingBox();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2,cancelPoint.y+cancelPoint.height/2);await page.mouse.down();
     await page.mouse.move(cancelPoint.x+cancelPoint.width/2+50,cancelPoint.y+cancelPoint.height/2-20);
     await page.keyboard.press('Escape');await page.mouse.up();
-    assert.equal(await page.getByRole('slider',{name:'Middle size',exact:true}).inputValue(),beforeSize,'Escape restores value');
+    assert.equal(await page.getByRole('spinbutton',{name:'Halfway size',exact:true}).inputValue(),beforeSize,'Escape restores value');
     assert.equal(await page.getByRole('dialog',{name:'Particle Editor',exact:true}).isVisible(),true,'Escape cancels gesture without closing editor');
     await page.locator('.pe-window').getByRole('button',{name:'Play',exact:true}).click();
     console.log('Stage gesture: pinned, committed in one undo, cancelled without document change');
-    const slider=page.getByRole('slider',{name:'Middle size',exact:true});await slider.scrollIntoViewIfNeeded();const bounds=await slider.boundingBox();
-    await page.mouse.move(bounds.x+bounds.width*.3,bounds.y+bounds.height/2);await page.mouse.down();await page.mouse.move(bounds.x+bounds.width*.65,bounds.y+bounds.height/2,{steps:8});await page.mouse.up();
+    const size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});await size.fill(String(Number(await size.inputValue())+5));await size.press('Enter');
     await page.waitForTimeout(200);
     assert.equal(await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).isEnabled(),true);
     await page.getByRole('button',{name:'Save preset',exact:true}).click();
@@ -87,7 +86,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     const beforeMode=await readLab();
     assert.deepEqual((await readLab()).model,beforeMode.model,'UI mode changes preserve the canonical model');
     const layout=await page.locator('.pe-body').evaluate(body=>({body:body.getBoundingClientRect().width,stage:body.querySelector('.pe-preview-pane').getBoundingClientRect().width,controls:body.querySelectorAll('.pe-clueless-controls input[type=range]').length}));
-    assert.ok(layout.stage/layout.body>=2/3);assert.ok(layout.controls>0);
+    assert.ok(layout.stage/layout.body>=2/3);
     const beforeExamples=await readLab(),targetBeforeExamples=await readModel();await page.locator('.pe-window').getByRole('button',{name:'New',exact:true}).click();await page.getByRole('button',{name:'Compare examples',exact:true}).click();
     for(const label of ['Smoke','Sparks','Magic glow','Impact burst','Weapon sweep']){await page.getByRole('dialog',{name:'Particle examples',exact:true}).getByRole('button',{name:label,exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.pe-example-pair img').length===2,{},{timeout:30000});await page.screenshot({path:path.join(out,'example-'+label.replaceAll(' ','-')+'.png')});}
     assert.deepEqual(await readLab(),beforeExamples);assert.deepEqual(await readModel(),targetBeforeExamples);await page.getByRole('button',{name:'Close examples',exact:true}).click();console.log('Five native example comparisons preserve Lab and model');
@@ -107,13 +106,12 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.equal(afterAim.undo,afterWidth.undo+1);
     await page.screenshot({path:path.join(out,'shape-handles.png')});
     await page.getByRole('button',{name:'Look',exact:true}).click();
-    const opacity=page.getByRole('slider',{name:'Young opacity',exact:true});await opacity.scrollIntoViewIfNeeded();const opacityBox=await opacity.boundingBox(),beforeOpacity=await readLab();
-    await page.mouse.move(opacityBox.x+opacityBox.width*.5,opacityBox.y+opacityBox.height/2);await page.mouse.down();await page.mouse.move(opacityBox.x+opacityBox.width*.2,opacityBox.y+opacityBox.height/2,{steps:6});await page.mouse.up();
+    const seeThrough=page.getByRole('spinbutton',{name:'Born see-through',exact:true}),beforeOpacity=await readLab();await seeThrough.fill('40');await seeThrough.press('Enter');
     const afterOpacity=await readLab();
     assert.notEqual(afterOpacity.model.ParticleEmitters2[0].Alpha[0],beforeOpacity.model.ParticleEmitters2[0].Alpha[0]);
     assert.equal(afterOpacity.model.ParticleEmitters2[0].Alpha[1],beforeOpacity.model.ParticleEmitters2[0].Alpha[1]);
     assert.equal(afterOpacity.undo,beforeOpacity.undo+1);
-    const middle=page.getByRole('slider',{name:'Middle changeover',exact:true}),middleBox=await middle.boundingBox(),beforeMiddle=await readLab();
+    const middle=page.getByRole('slider',{name:'Halfway point',exact:true}),middleBox=await middle.boundingBox(),beforeMiddle=await readLab();
     await page.mouse.move(middleBox.x+middleBox.width/2,middleBox.y+middleBox.height/2);await page.mouse.down();await page.mouse.move(middleBox.x+middleBox.width/2+35,middleBox.y+middleBox.height/2,{steps:6});await page.mouse.up();
     const afterMiddle=await readLab();assert.ok(afterMiddle.model.ParticleEmitters2[0].Time>beforeMiddle.model.ParticleEmitters2[0].Time);assert.equal(afterMiddle.undo,beforeMiddle.undo+1);
     await middle.press('Home');assert.equal((await readLab()).model.ParticleEmitters2[0].Time,0);await middle.press('End');assert.equal((await readLab()).model.ParticleEmitters2[0].Time,1);
@@ -170,18 +168,19 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.getByRole('button',{name:'Play',exact:true}).click();
     console.log('Direct life changeover endpoints and one-undo native burst timing passed');
     await page.getByRole('button',{name:'Look',exact:true}).click();
-    await page.getByRole('button',{name:'Add picture row',exact:true}).click();
-    await page.getByRole('button',{name:'Add picture column',exact:true}).click();
-    const grid=page.getByRole('button',{name:'Picture frame grid',exact:true}),gridBox=await grid.boundingBox();
+    await page.getByRole('button',{name:/^Frames…/}).click();const framesWindow=page.getByRole('dialog',{name:'Frames',exact:true});
+    await framesWindow.getByRole('button',{name:'Add picture row',exact:true}).click();
+    await framesWindow.getByRole('button',{name:'Add picture column',exact:true}).click();
+    const grid=framesWindow.getByRole('button',{name:'Frame grid',exact:true}),gridBox=await grid.boundingBox();
     await grid.click({position:{x:gridBox.width*.75,y:gridBox.height*.75}});
-    await page.getByRole('button',{name:/Through cell/}).click();
-    await grid.click({position:{x:gridBox.width*.75,y:gridBox.height*.75}});
+    assert.equal(await framesWindow.getByRole('status').first().textContent(),'Click the last frame.');await page.waitForTimeout(400);await page.screenshot({path:path.join(out,'frames-window.png')});
     assert.equal((await readLab()).model.ParticleEmitters2[0].LifeSpanUVAnim[1],4);
     const beforeGrid=await readLab();
-    await page.getByRole('button',{name:'Remove picture row',exact:true}).click();
+    await framesWindow.getByRole('button',{name:'Remove picture row',exact:true}).click();
     assert.deepEqual((await readLab()).model,beforeGrid.model,'Grid correction must wait for explicit confirmation');
-    await page.getByRole('button',{name:'Change grid and bound these ranges',exact:true}).click();
+    await framesWindow.getByRole('button',{name:'Split and fit them',exact:true}).click();
     assert.equal((await readLab()).model.ParticleEmitters2[0].LifeSpanUVAnim[1],2);
+    await framesWindow.getByRole('button',{name:'Close frames',exact:true}).click();
     await page.getByRole('button',{name:'Compare blend looks',exact:true}).click();
     await page.waitForFunction(()=>document.querySelectorAll('.pe-blend-pair img').length===10,{},{timeout:30000});
     await page.locator('.pe-blend-pair').last().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'picture-blends.png')});
@@ -193,7 +192,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.getByRole('button',{name:'Keep brightness',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.pe-window .re-status')?.textContent.includes('Lighting and fog flags are saved'),{},{timeout:8000});assert.match(await page.locator('.pe-window .re-status').innerText(),/Lighting and fog flags are saved/);await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();assert.equal((await readLab()).model.ParticleEmitters2[0].Flags,beforeFlags.model.ParticleEmitters2[0].Flags);await page.getByText('Orientation and draw options',{exact:true}).click();
     const beforeTeam=await readLab();await page.getByRole('button',{name:'Team glow',exact:true}).click();await page.waitForTimeout(150);
     assert.equal((await readLab()).model.ParticleEmitters2[0].ReplaceableId,2);
-    const teamPixels=await page.locator('.pe-picture-grid').evaluate(c=>Array.from(c.getContext('2d').getImageData(128,128,1,1).data));assert.ok(teamPixels[0]>0,'Team picture grid renders its native replacement');
+    await page.getByRole('button',{name:/^Frames…/}).click();const teamGrid=page.getByRole('dialog',{name:'Frames',exact:true}).getByRole('button',{name:'Frame grid',exact:true});await page.waitForTimeout(300);const teamPixels=await teamGrid.evaluate(c=>Array.from(c.getContext('2d').getImageData(100,100,1,1).data));assert.ok(teamPixels[0]>0,'Team picture grid renders its native replacement');await page.getByRole('button',{name:'Close frames',exact:true}).click();
     await page.locator('.pe-window').getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await readLab()).model,beforeTeam.model);
     if(!await page.getByRole('button',{name:'Load picture…',exact:true}).isVisible())await page.getByText('Choose picture',{exact:true}).click();
     await page.getByRole('button',{name:'Load picture…',exact:true}).click();
@@ -321,7 +320,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     assert.equal(await page.getByRole('button',{name:'Portable picture sparks',exact:true}).count(),2);
     await page.getByRole('button',{name:'Portable picture sparks copy',exact:true}).click();await page.locator('.pe-library').waitFor({state:'hidden'});
     await page.getByRole('button',{name:'Look',exact:true}).click();
-    await page.getByRole('slider',{name:'Middle size',exact:true}).press('ArrowRight');
+    {const size=page.getByRole('spinbutton',{name:'Halfway size',exact:true});await size.fill(String(Number(await size.inputValue())+1));await size.press('Enter');}
     const recoveredExpected=await readLab();assert.equal(recoveredExpected.dirty,true);
     // Exercise the native close handshake before the 800 ms autosave debounce.
     const closed=app.waitForEvent('close');await app.evaluate(({BrowserWindow,dialog})=>{dialog.showMessageBoxSync=()=>2;BrowserWindow.getAllWindows()[0].close();});await closed;
