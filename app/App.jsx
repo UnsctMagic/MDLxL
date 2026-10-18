@@ -83,6 +83,7 @@ import { GEOSET_TABS_KEY, geosetsInTab } from '../src/geoset-tabs.js';
 import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
+import ModelTabs from './ModelTabs.jsx';
 
 const normalize = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 const views = ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'];
@@ -1458,7 +1459,7 @@ export default function App() {
   // invariant remains strict; malformed models get a choice instead of a crash.
   if (repairBlocked) return <>
     <input ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" hidden onChange={event => { if (event.target.files[0]) loadFile(event.target.files[0]); event.target.value = ''; }}/>
-    <div className="repair-model-tabs"><div className="model-tabs" role="tablist" aria-label="Open models">{sessions.map(item => <div className={`model-tab${item === session ? ' active' : ''}`} key={item.id}><button type="button" role="tab" aria-selected={item === session} title={item.path || item.doc.name} onClick={() => activateSession(item)}><span className="model-tab-dirty" aria-hidden="true">{sessionDirty(item) ? '●' : ''}</span><span>{item.doc.name}</span></button><button type="button" className="model-tab-close" aria-label={`Close ${item.doc.name}`} onClick={()=>requestCloseSession(item)}>×</button></div>)}</div></div>
+    <div className="repair-model-tabs"><ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/></div>
     <GeosetAnimationRepair key={session.id} model={model} name={doc.name} groups={duplicateAnimations} receipt={repairReceipt} busy={saving} status={status}
       unavailable={doc.readOnly ? 'This model is read-only; repair is disabled to preserve unsupported data.' : !window.desktop?.repairGeosetAnimations || !session.path ? 'Save a local copy first. Automatic backup and disk Undo require the desktop build.' : hasUVPreview || hasTrackDrafts || session.paintProject ? 'Pending UV, animation-text or paint work is retained. Repair the original model in a separate model session first.' : ''}
       onRepair={repairDuplicateAnimations} onUndo={undoDuplicateRepair} onAccept={() => setRepairReceipt(null)} onOpen={open} onSave={() => save(true)}/>

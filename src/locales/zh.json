@@ -165,6 +165,8 @@
   "Connected Bones": "关联骨骼",
   "Grabthrough": "穿透选择",
   "Open models": "已打开模型",
+  "Scroll model tabs left": "向左滚动模型标签",
+  "Scroll model tabs right": "向右滚动模型标签",
   "This model is read-only; repair is disabled to preserve unsupported data.": "此模型为只读；为保留不受支持的数据，已禁用修复。",
   "Convert between MDX800 and MDX1000; unsupported data blocks conversion": "在 MDX800 与 MDX1000 之间转换；不受支持的数据会阻止转换",
   "Editors and open models": "编辑器和已打开模型",
