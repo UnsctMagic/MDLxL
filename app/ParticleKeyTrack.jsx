@@ -42,7 +42,8 @@ export default function ParticleKeyTrack({model,emitter,ribbon,sequence,start,en
  };
  const release=event=>{const d=drag.current;if(!d)return;drag.current=null;event.currentTarget.releasePointerCapture?.(event.pointerId);setDraft(null);if(JSON.stringify(d.spans)!==JSON.stringify(timing.spans))onSpans(d.spans);};
  const context=(event,item)=>{event.preventDefault();event.stopPropagation();if(!disabled)setMenu({x:event.clientX,y:event.clientY,...item});};
- return <><div className="pe-key-track ribbon" ref={box}>
+ // Any point on the track can get a size key, independent of the on/off diamonds.
+ return <><div className="pe-key-track ribbon" ref={box} title="Right-click anywhere on the track for Smooth Size at that frame." onContextMenu={event=>context(event,{frame:frameAt(event.clientX)})}>
   {range}
   {spans.map(([a,b],index)=><div key={'s'+index} className="pe-key-span" style={{left:left(a,start,span),width:`calc((100% - 12px) * ${(b-a)/span})`}}/>)}
   {spans.flatMap(([a,b],index)=>[a,b].map((at,side)=><div key={index+':'+side} role="slider" tabIndex={0} aria-label={(side?'Ribbon hides at frame ':'Ribbon shows at frame ')+at} aria-valuenow={at} aria-valuemin={start} aria-valuemax={end}

@@ -69,6 +69,16 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await target.click({button:'right'});await page.getByRole('menuitem',{name:'Smooth Size at frame '+keyFrame,exact:true}).click();await banner.waitFor();
   await page.keyboard.press('Escape');assert.equal(await banner.count(),0,'Esc cancels');assert.equal(await editor.count(),1,'Esc does not close the editor while sizing');assert.equal((await read()).undo,pairs.undo);
 
+  // Any point on the track, away from the diamonds, can get a size key.
+  const h=await hides().first().boundingBox(),n=await shows().nth(1).boundingBox(),freeX=(h.x+h.width+n.x)/2;
+  await page.mouse.click(freeX,h.y+h.height/2,{button:'right'});
+  const free=page.getByRole('menuitem',{name:/^Smooth Size at frame \d+$/}),freeFrame=Number((await free.textContent()).match(/\d+$/)[0]);
+  assert.ok(freeFrame>await frameOf(hides().first())&&freeFrame<await frameOf(shows().nth(1)),'The frame under the pointer, between the diamonds');
+  assert.equal(await page.getByRole('menuitem',{name:'Remove this pair',exact:true}).count(),0,'No pair actions off a diamond');
+  await free.click();await banner.waitFor();await banner.getByRole('button',{name:'Commit',exact:true}).click();
+  now=await read();assert.equal(now.undo,pairs.undo+1);assert.ok(now.model.RibbonEmitters.at(-1).HeightAbove.Keys.some(k=>k.Frame===freeFrame),'Size key at the free frame '+freeFrame);
+  assert.equal(await editor.getByRole('button',{name:'Size key at frame '+freeFrame,exact:true}).count(),1);
+  await page.keyboard.press('Control+Z');assert.equal((await read()).undo,pairs.undo);
   // Adjust Manually: exact MDL text, one undo step; invalid text changes nothing.
   await editor.getByRole('button',{name:'Adjust Manually',exact:true}).click();
   const manual=page.getByRole('dialog',{name:'Adjust ribbon manually',exact:true}),text=manual.getByLabel('Ribbon MDL text',{exact:true}),mdl=await text.inputValue();
