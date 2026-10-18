@@ -99,3 +99,6 @@
 .normalizer-actions button{padding:4px 8px}
 .normalizer-actions button:last-child{margin-left:auto}
 .classic-selection-actions button[aria-pressed=true]{border-style:inset;box-shadow:inset 1px 1px 2px #555;font-weight:bold}
+
+/* Outline while files are dragged over the window from Explorer. */
+.file-drop-overlay { position: fixed; inset: 3px; z-index: 10000; pointer-events: none; border: 2px dashed var(--ui-accent); border-radius: 4px; background: color-mix(in srgb, var(--ui-accent) 6%, transparent); }
