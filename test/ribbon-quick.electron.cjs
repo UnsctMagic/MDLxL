@@ -65,6 +65,21 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   assert.equal(after.model.Geosets,before.model.Geosets);
   const moved=await upper.boundingBox();assert.ok(Math.hypot(moved.x-u.x,moved.y-u.y)>20,'Handle follows the new end');
   await page.screenshot({path:path.join(out,'3-stretched.png')});
+  // Drag the strip itself to move the whole ribbon.
+  const strip=page.locator('.ribbon-strip-handle'),s0=await strip.boundingBox(),pivot0=stretched.PivotPoint;
+  await page.mouse.move(s0.x+s0.width/2,s0.y+s0.height/2);await page.mouse.down();await page.mouse.move(s0.x+s0.width/2+25,s0.y+s0.height/2+15,{steps:6});await page.mouse.up();
+  let movedRibbon=(await read());assert.equal(movedRibbon.undo,after.undo+1,'One undo step per move');
+  const shifted=Object.values(movedRibbon.model.RibbonEmitters.at(-1).PivotPoint),base=Object.values(pivot0);assert.ok(Math.hypot(...shifted.map((v,i)=>v-base[i]))>1,'Pivot moved');
+  assert.equal(movedRibbon.model.RibbonEmitters.at(-1).HeightAbove,stretched.HeightAbove);
+  after=movedRibbon;
+  // A size key at this frame makes the size animatable; the timeline shows the new keys.
+  const keysBefore=await page.locator('.classic-reel-key').count();
+  await page.getByRole('button',{name:'Set ribbon size key',exact:true}).click();
+  now=await read();assert.equal(now.undo,after.undo+1);assert.ok(now.model.RibbonEmitters.at(-1).HeightAbove.Keys?.length>0,'Size is keyed');
+  assert.equal(await page.getByRole('button',{name:'Set ribbon size key',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.waitForTimeout(300);assert.ok(await page.locator('.classic-reel-key').count()>=keysBefore,'Size keys are on the timeline');
+  await page.getByRole('button',{name:'Undo',exact:true}).first().click().catch(async()=>{await page.keyboard.press('Control+Z');});
+  after=await read();
 
   // Normal mouse camera rotation still works next to the handles.
   const camera=()=>page.evaluate(()=>{const c=ribbonProbe().runtime.controls.object;return [...c.position.toArray(),...c.quaternion.toArray()];});
@@ -94,7 +109,17 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   // EMTR on the selected ribbon reopens the box, not the big editor.
   await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();await box.waitFor();
   await box.getByText('Advanced settings',{exact:true}).click();await page.getByRole('button',{name:'Emitter Editor…',exact:true}).click();
-  await page.getByRole('dialog',{name:'Particle Editor',exact:true}).waitFor();assert.equal(await box.count(),0);
+  const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});await editor.waitFor();assert.equal(await box.count(),0);
+  for(const name of ['Basics','Appearance','Sweep'])assert.equal(await editor.getByRole('button',{name,exact:true}).count(),0,name+' tab is gone for ribbons');
+  for(const label of ['Picture cell','Ribbon material','Emitting'])assert.equal(await editor.getByLabel(label).count(),0,label);
+  assert.ok(await editor.getByLabel('Ribbon size',{exact:true}).isVisible());
+  assert.equal(await editor.getByLabel('Preview speed',{exact:true}).inputValue(),'0.25','Slower preview by default');
+  const marks=editor.locator('.pe-key-mark');assert.ok(await marks.count()>=1,'The playhead shows the ribbon keys');
+  await marks.first().click();assert.equal(await editor.getByRole('button',{name:'Play',exact:true}).count(),1,'Jumping to a key pauses');
+  await editor.getByRole('button',{name:'Play',exact:true}).click();await editor.getByRole('button',{name:'Pause',exact:true}).waitFor();
+  await editor.getByLabel('Ribbon lasts',{exact:true}).focus();await page.keyboard.press('ArrowLeft');
+  await editor.getByRole('button',{name:'Play',exact:true}).waitFor();
+  await page.screenshot({path:path.join(out,'5-emitter-editor.png')});
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({ok:true,out,keys},null,1));
  }finally{const child=app?.process();await Promise.race([app?.close().catch(()=>{}),new Promise(done=>setTimeout(done,8000))]);if(child&&child.exitCode==null)child.kill();}

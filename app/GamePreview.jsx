@@ -2,7 +2,7 @@ import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js
 import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ribbonQuickValues, setRibbonQuick } from '../src/ribbon-quick.js';
+import { ribbonEditFrame, ribbonFrameValues, applyRibbonEdit } from '../src/ribbon-quick.js';
 import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles, zoomEditorCamera } from './editor-camera-controls.js';
 import { viewportCursor, showcaseCursor } from './viewport-cursors.js';
 import { createPreviewSceneGL } from './preview-scene-gl.js';
@@ -1275,37 +1275,53 @@ export default function GamePreview(inputProps) {
         if (cameraCanvas.height !== canvas.height) cameraCanvas.height = canvas.height;
         drawModelCameraOverlay(cameraCanvas.getContext('2d'), ownedModel, camera, canvas.clientWidth, canvas.clientHeight, canvas.width / Math.max(1, canvas.clientWidth), native.getFrame(), poseSequence, globalClock, radius, visualOptions(p.preferences).node, p.portraitMode ? PORTRAIT_ASPECT : 4 / 3);
       } else if (cameraCanvas) { cameraCanvas.remove(); cameraCanvas = null; }
-      // Ribbon box: the two ends of the strip can be dragged along the weapon.
+      // Ribbon box: drag the two ends to stretch the strip, or the strip itself to move it.
       const ribbonNode = p.ribbonEdit != null && p.onRibbonEdges && !p.suspended ? ownedModel.RibbonEmitters?.find(node => node.ObjectId === p.ribbonEdit) : null;
       const ribbonMatrix = ribbonNode && native.rendererData?.nodes?.[ribbonNode.ObjectId]?.matrix;
       if (ribbonMatrix) {
-        if (!ribbonHandles) ribbonHandles = ['above', 'below'].map(edge => {
-          const element = ownerDocument.createElement('div'); element.className = 'ribbon-end-handle'; element.dataset.ribbonEnd = edge;
-          element.setAttribute('aria-label', edge === 'above' ? 'Drag ribbon upper end' : 'Drag ribbon lower end'); element.title = 'Drag to stretch the ribbon along the weapon.';
+        if (!ribbonHandles) ribbonHandles = ['move', 'above', 'below'].map(part => {
+          const element = ownerDocument.createElement('div'); element.className = part === 'move' ? 'ribbon-strip-handle' : 'ribbon-end-handle'; element.dataset.ribbonEnd = part;
+          element.setAttribute('aria-label', { move: 'Drag ribbon', above: 'Drag ribbon upper end', below: 'Drag ribbon lower end' }[part]);
+          element.title = part === 'move' ? 'Drag the ribbon to move it on the weapon.' : 'Drag to stretch the ribbon along the weapon. With size keys, this sets a size key at this frame.';
           const node = () => ownedModel.RibbonEmitters?.find(item => item.ObjectId === latest.current.ribbonEdit);
-          const restore = gesture => { const current = node(); if (current) { current.HeightAbove = gesture.baseline.HeightAbove; current.HeightBelow = gesture.baseline.HeightBelow; } invalidate(); };
+          const editFrame = () => { const current = latest.current, frame = Math.round(native.getFrame()); return ribbonEditFrame(ownedModel, { time: frame, sequenceIndex: movementSequence(current, frame), globalSeqId: current.globalSeqId, restPose: current.restPose }); };
+          const restore = (gesture, redraw = true) => {
+            const current = node(); if (current) Object.assign(current, structuredClone(gesture.baseline));
+            if (ownedModel.PivotPoints) ownedModel.PivotPoints[gesture.id] = structuredClone(gesture.baseline.PivotPoint);
+            if (redraw) invalidate();
+          };
+          const change = gesture => part === 'move' ? { move: gesture.value } : { [part]: gesture.value };
           const end = (event, commit) => {
-            const gesture = ribbonGesture; if (!gesture || gesture.edge !== edge) return; ribbonGesture = null;
+            const gesture = ribbonGesture; if (!gesture || gesture.part !== part) return; ribbonGesture = null;
             if (element.hasPointerCapture?.(event.pointerId)) element.releasePointerCapture(event.pointerId);
             if (!commit || gesture.value == null) { restore(gesture); return; }
             // The owned preview already shows the committed result, so the renderer is kept.
-            if (latest.current.onRibbonEdges?.(gesture.id, { [edge]: gesture.value }) === false) restore(gesture); else invalidate();
+            if (latest.current.onRibbonEdges?.(gesture.id, change(gesture)) === false) restore(gesture); else invalidate();
           };
           element.addEventListener('pointerdown', event => {
             event.preventDefault(); event.stopPropagation(); const current = node();
             if (event.button !== 0 || !current || !ribbonAxis) return;
             element.setPointerCapture(event.pointerId); latest.current.onPlayingChange?.(false);
-            const values = ribbonQuickValues(current);
-            ribbonGesture = { edge, id: current.ObjectId, x: event.clientX, y: event.clientY, axis: { ...ribbonAxis }, start: values[edge], value: null, baseline: { HeightAbove: structuredClone(current.HeightAbove), HeightBelow: structuredClone(current.HeightBelow) } };
+            const at = editFrame(), values = ribbonFrameValues(ownedModel, current.ObjectId, at);
+            const parent = native.rendererData?.nodes?.[current.Parent]?.matrix, toLocal = new THREE.Matrix3().setFromMatrix4(parent ? new THREE.Matrix4().fromArray(parent) : new THREE.Matrix4()).invert();
+            ribbonGesture = { part, id: current.ObjectId, at, x: event.clientX, y: event.clientY, axis: { ...ribbonAxis }, toLocal, right: new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion), up: new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion),
+              start: part === 'move' ? 0 : values[part], value: null, baseline: { HeightAbove: structuredClone(current.HeightAbove), HeightBelow: structuredClone(current.HeightBelow), PivotPoint: structuredClone(current.PivotPoint || ownedModel.PivotPoints?.[current.ObjectId]) } };
           });
           element.addEventListener('pointermove', event => {
-            const gesture = ribbonGesture, current = node(); if (!gesture || gesture.edge !== edge || !current) return;
-            // Like the move gizmo: pixels along the on-screen direction, at the camera's units per pixel.
-            // Dividing by the projected length would explode when the blade points at the camera.
-            const along = ((event.clientX - gesture.x) * gesture.axis.dx + (event.clientY - gesture.y) * gesture.axis.dy) * gesture.axis.unitsPerPixel;
-            gesture.value = Math.max(0, gesture.start + (edge === 'above' ? along : -along));
-            current.HeightAbove = structuredClone(gesture.baseline.HeightAbove); current.HeightBelow = structuredClone(gesture.baseline.HeightBelow);
-            setRibbonQuick(ownedModel, gesture.id, { [edge]: gesture.value }); invalidate();
+            const gesture = ribbonGesture; if (!gesture || gesture.part !== part || !node()) return;
+            const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y, unit = gesture.axis.unitsPerPixel;
+            if (part === 'move') {
+              // Screen drag in the camera plane, turned into the weapon's rest space so every animation follows.
+              gesture.value = gesture.right.clone().multiplyScalar(dx * unit).addScaledVector(gesture.up, -dy * unit).applyMatrix3(gesture.toLocal).toArray();
+            } else {
+              // Like the move gizmo: pixels along the on-screen direction, at the camera's units per pixel.
+              // Dividing by the projected length would explode when the blade points at the camera.
+              const along = (dx * gesture.axis.dx + dy * gesture.axis.dy) * unit;
+              gesture.value = Math.max(0, gesture.start + (part === 'above' ? along : -along));
+            }
+            restore(gesture, false);
+            try { applyRibbonEdit(ownedModel, gesture.id, change(gesture), gesture.at); } catch { restore(gesture, false); }
+            invalidate();
           });
           element.addEventListener('pointerup', event => end(event, true));
           element.addEventListener('pointercancel', event => end(event, false));
@@ -1321,7 +1337,13 @@ export default function GamePreview(inputProps) {
           const unitsPerPixel = camera.isPerspectiveCamera ? 2 * world.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height : (camera.top - camera.bottom) / camera.zoom / height;
           ribbonAxis = length > 1e-6 ? { dx: (b.x - a.x) / length, dy: (b.y - a.y) / length, unitsPerPixel } : { dx: 0, dy: -1, unitsPerPixel };
         }
-        for (const element of ribbonHandles) { const point = ends[element.dataset.ribbonEnd]; element.hidden = !point.visible; element.style.left = `${point.x}px`; element.style.top = `${point.y}px`; }
+        for (const element of ribbonHandles) {
+          if (element.dataset.ribbonEnd === 'move') {
+            const a = ends.below, b = ends.above, length = Math.hypot(b.x - a.x, b.y - a.y);
+            element.hidden = !a.visible || !b.visible || length < 16;
+            element.style.left = a.x + 'px'; element.style.top = a.y + 'px'; element.style.width = Math.max(0, length) + 'px'; element.style.transform = 'rotate(' + Math.atan2(b.y - a.y, b.x - a.x) + 'rad)';
+          } else { const point = ends[element.dataset.ribbonEnd]; element.hidden = !point.visible; element.style.left = point.x + 'px'; element.style.top = point.y + 'px'; }
+        }
       } else if (ribbonHandles) { ribbonHandles.forEach(element => element.remove()); ribbonHandles = null; ribbonGesture = null; }
       const selectedControls = !!p.onNodeTransform && !!p.selectedNodeIds?.length && ['move', 'rotate', 'scale'].includes(p.transformMode), poseVisible = !!p.poseConfig?.enabled && !p.restPose;
       if (overlayOptions.bones || overlayOptions.boneLines || overlayOptions.nodes || overlayOptions.attachments || overlayOptions.particles || overlayOptions.ribbons || overlayOptions.sounds || overlayOptions.events || selectedControls || poseVisible) {

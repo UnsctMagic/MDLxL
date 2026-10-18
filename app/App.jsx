@@ -50,7 +50,7 @@ import { SelectionHistory } from '../src/selection-history.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
 import RibbonBox from './RibbonBox.jsx';
-import { ribbonPlacement, addRibbon, setRibbonQuick, RIBBON_ADD_SECTIONS } from '../src/ribbon-quick.js';
+import { ribbonPlacement, addRibbon, applyRibbonEdit, ribbonEditFrame, ribbonSizeKeyed, RIBBON_ADD_SECTIONS } from '../src/ribbon-quick.js';
 import { ribbonPolygonSelection } from '../src/particle-ribbon-fit.js';
 import { prepareParticlePlacementAssets } from '../src/particle-assets.js';
 import { starterTextureAsset, RIBBON_TEXTURE } from '../src/particle-starters.js';
@@ -574,7 +574,9 @@ export default function App() {
   const openEmitterEditor = id => {
     setPlaying(false); setRibbonBox(null); setEmtrMenu(null);
     const selected=Number.isInteger(id)?id:selectedNodeIds.at(-1),isEffect=['ParticleEmitters2','RibbonEmitters','ParticleEmitters','ParticleEmitterPopcorns'].some(family=>model[family].some(node=>node.ObjectId===selected));
-    setDialog({type:'particles',nodeId:isEffect?selected:undefined,attachmentId:selectedBone?.ObjectId,selection:validSelection});
+    // Edit the model's own effects on its animation first; the Library stays one click away.
+    const first=['ParticleEmitters2','RibbonEmitters','ParticleEmitters','ParticleEmitterPopcorns'].flatMap(family=>model[family]).sort((a,b)=>a.ObjectId-b.ObjectId)[0];
+    setDialog({type:'particles',nodeId:isEffect?selected:first?.ObjectId,attachmentId:selectedBone?.ObjectId,selection:validSelection});
   };
   const openRibbonBox = id => {
     setPlaying(false); setEmtrMenu(null); setSelectedNodeIds([id]);
@@ -607,8 +609,10 @@ export default function App() {
   };
   const stretchRibbon = (id, values) => {
     setPlaying(false);
-    const result = edit('Stretch ribbon', ['Nodes'], m => { setRibbonQuick(m, id, values); });
-    if (result !== false) liveMovementRevision.current = doc.revision;
+    const at = ribbonEditFrame(model, { time, sequenceIndex: sequence, globalSeqId, restPose }), keyed = !values.move && ribbonSizeKeyed(model.RibbonEmitters.find(node => node.ObjectId === id));
+    const result = edit(values.move ? 'Move ribbon' : keyed ? 'Set ribbon size key' : 'Stretch ribbon', ['Nodes', 'PivotPoints'], m => { applyRibbonEdit(m, id, values, at); });
+    // A keyed size is rebuilt from the model so the preview cannot drift from the saved keys.
+    if (result !== false && !keyed) liveMovementRevision.current = doc.revision;
     return result;
   };
   const inspectGeoset = index => { if(model.Geosets[index])setActiveGeoset(index); };

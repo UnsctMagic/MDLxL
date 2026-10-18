@@ -8,13 +8,14 @@ const NODE_CHANNELS = {
   ParticleEmitterPopcorns: ['Visibility', 'Color', 'Alpha'],
   // Ribbon RGB and Particle2 lifecycle RGB remain in EMTR: the current
   // codec only supports their static colors, so exposing keyframes loses data.
-  Lights: ['Visibility', 'Color', 'AmbColor'], RibbonEmitters: ['Visibility', 'Alpha'],
+  Lights: ['Visibility', 'Color', 'AmbColor'], RibbonEmitters: ['Visibility', 'Alpha', 'HeightAbove', 'HeightBelow'],
 };
 const isTrack = value => value && Array.isArray(value.Keys);
 const clone = value => structuredClone(value);
 const dimensions = property => property === 'Color' || property === 'AmbColor' ? 3 : 1;
 const fallback = property => dimensions(property) === 3 ? [1, 1, 1] : 1;
-const lineDefault = property => dimensions(property) === 3 ? 1 : 0;
+// Ribbon size grows smoothly between keys; on/off and alpha channels step.
+const lineDefault = property => dimensions(property) === 3 || property === 'HeightAbove' || property === 'HeightBelow' ? 1 : 0;
 const keyId = target => `${target.kind}:${target.id}:${target.kind === 'material' ? target.layer + ':' : ''}${target.property}`;
 export const animationTrackId = keyId;
 
@@ -24,7 +25,9 @@ function validFrame(frame) {
 }
 function vectorValue(value, property) {
   const array = typeof value === 'number' ? [value] : Array.from(value || []);
-  if (array.length !== dimensions(property) || array.some(v => !Number.isFinite(v) || v < 0 || v > 1)) throw new Error(`${property === 'Alpha' || property === 'Visibility' ? 'Visibility / alpha' : 'RGB'} values must be between 0 and 1.`);
+  // Ribbon ends are distances; every other channel here is a 0..1 amount.
+  if ((property === 'HeightAbove' || property === 'HeightBelow') && (array.length !== 1 || !Number.isFinite(array[0]) || array[0] < 0)) throw new Error('Ribbon size values must be 0 or more.');
+  if (property !== 'HeightAbove' && property !== 'HeightBelow' && (array.length !== dimensions(property) || array.some(v => !Number.isFinite(v) || v < 0 || v > 1))) throw new Error(`${property === 'Alpha' || property === 'Visibility' ? 'Visibility / alpha' : 'RGB'} values must be between 0 and 1.`);
   return new Float32Array(array);
 }
 function channelAllowed(model, target) {
