@@ -1,0 +1,99 @@
+/* AnimXL is an editor of its own: a large window in the MDLxL theme (panel, field, border,
+   selection and accent colours from Settings). Only the previews and the timeline stay dark like the viewport. */
+.resource-editor .re-window.ax-window{width:calc(100vw - 24px);height:calc(100vh - 24px);min-width:680px;min-height:480px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px);resize:both;overflow:hidden}
+.resource-editor .ax-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px 2px}
+.resource-editor .ax-toolbar label{display:inline-flex;align-items:center;gap:4px;margin-right:8px}
+.resource-editor .ax-window button[aria-pressed="true"]{background:var(--ui-selected,#c5d6ec);color:var(--ui-selected-text,#101820)}
+.resource-editor .ax-body{flex:1;min-height:0;display:flex;gap:6px;padding:0 2px}
+.resource-editor .ax-preview-pane{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.resource-editor .ax-previews{flex:1;min-height:0;display:flex;gap:4px}
+.resource-editor .ax-preview{flex:1;min-width:0;min-height:0;position:relative;border:1px solid var(--ui-border,#8b8b87);background:#000}
+.resource-editor .ax-badge{position:absolute!important;inset:auto auto auto 4px!important;top:4px!important;z-index:2;padding:1px 6px;background:var(--ui-trim,#000080);color:#fff;font-weight:bold;pointer-events:none}
+.resource-editor .ax-badge-new{background:var(--ui-accent,#71b5f3);color:#111}
+.resource-editor .ax-preview>*{position:absolute;inset:0}
+.resource-editor .ax-strip{position:relative;height:56px;border:1px solid var(--ui-border,#8b8b87);background:#14171c;cursor:pointer;touch-action:none}
+.resource-editor .ax-strip i{position:absolute;top:50%;font-style:normal;pointer-events:none}
+.resource-editor .ax-key{width:8px;height:8px;margin:-4px 0 0 -4px;background:#c48700;transform:rotate(45deg)}
+.resource-editor .ax-thunk{margin:-8px 0 0 -6px;color:#cf5f12;font-size:13px;line-height:16px}
+.resource-editor .ax-head{top:0!important;bottom:0;width:2px;margin-left:-1px;background:#ffe14d;box-shadow:0 0 4px #ffe14d}
+.resource-editor .ax-controls{width:380px;flex:none;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:6px;padding:6px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid var(--ui-border,#8b8b87)}
+.resource-editor .ax-controls fieldset{margin:0;min-width:0;padding:4px 6px 6px;border:1px solid var(--ui-border,#8b8b87);display:flex;flex-direction:column;gap:4px}
+.resource-editor .ax-slider{display:flex;flex-direction:column}
+.resource-editor .ax-slider-row,.resource-editor .ax-ends{display:flex;justify-content:space-between}
+.resource-editor .ax-ends{color:var(--ui-muted,#555);font-size:10px}
+.resource-editor .ax-slider input{width:100%;margin:1px 0}
+.resource-editor .ax-bones{display:flex;flex-direction:column;gap:3px}
+.resource-editor .ax-chips{display:flex;flex-wrap:wrap;gap:3px}
+.resource-editor .ax-chips small{color:var(--ui-muted,#555)}
+.resource-editor .ax-chip{min-height:19px!important;padding:0 5px!important}
+.resource-editor .ax-footer{display:flex;align-items:center;gap:4px;padding:4px 2px 2px}
+.resource-editor .ax-status{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.resource-editor .ax-time{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--ui-muted,#333)}
+.resource-editor .ax-row{display:flex;gap:4px;align-items:center}
+.resource-editor .ax-row select{flex:1;min-width:0}
+.resource-editor .ax-foot{width:2px;height:10px;margin:-5px 0 0 -1px;background:#3f8f50}
+.resource-editor .ax-flinch{margin:-8px 0 0 -5px;color:#c62f1e;font-size:12px;line-height:16px;font-weight:bold}
+.resource-editor .ax-chip-flinch{color:var(--ui-danger,#9b2216)}
+.resource-editor .ax-note{color:var(--ui-muted,#444)}
+.resource-editor .ax-strip i.ax-thunk,.resource-editor .ax-strip i.ax-flinch{cursor:ew-resize}
+.resource-editor .ax-also{display:flex;flex-direction:column;gap:1px;max-height:120px;overflow-y:auto;border:1px solid var(--ui-border,#a0a0a0);background:var(--ui-field,#fff);padding:2px 4px}
+.resource-editor .ax-also label{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.resource-editor .ax-section{border:1px solid var(--ui-border,#8b8b87);padding:2px 6px 4px}
+.resource-editor .ax-section>summary{cursor:pointer;font-weight:bold;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resource-editor .ax-section>summary small{font-weight:normal;color:var(--ui-muted,#555)}
+.resource-editor .ax-section-body{display:flex;flex-direction:column;gap:4px;padding-top:2px}
+.resource-editor .ax-dense{margin:0;padding:4px 6px;background:var(--ui-field,#ffffe1);border:1px solid var(--ui-border,#a0a0a0)}
+.resource-editor .ax-check{display:flex;gap:4px;align-items:center}
+.resource-editor .ax-key{cursor:ew-resize}
+.resource-editor .ax-key-moved{background:#cf5f12;outline:1px solid #7a3608}
+.resource-editor .ax-user-preset{display:inline-flex;gap:1px}
+.resource-editor .ax-row input[aria-label='Preset name']{flex:1;min-width:0}
+.resource-editor .ax-sound{display:flex;flex-direction:column;gap:2px}
+.resource-editor .ax-sound .ax-row input{flex:1;min-width:0}
+.resource-editor .ax-field{display:flex;gap:4px;align-items:center}
+.resource-editor .ax-field select{flex:1;min-width:0}
+/* Presets are ordinary buttons. */
+.resource-editor .ax-presets{display:flex;flex-wrap:wrap;gap:4px}
+.resource-editor .ax-window .ax-preset{flex:1 1 auto;min-height:23px;padding:0 8px}
+/* Effect cards: plain theme panels; a switched-on card takes the selection colour and the accent edge. */
+.resource-editor .ax-cards{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.resource-editor .ax-window .ax-card{position:relative;display:flex;min-width:0;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-surface,#f0f0f0)}
+.resource-editor .ax-window .ax-card:hover{background:var(--ui-hover,#e7e3db)}
+.resource-editor .ax-window .ax-card-main,.resource-editor .ax-window .ax-card-main:hover,.resource-editor .ax-window .ax-card-main:active,.resource-editor .ax-window .ax-card-main[aria-pressed="true"]{flex:1;min-width:0;min-height:44px;display:flex;align-items:center;justify-content:flex-start;gap:6px;padding:4px 6px;border:0!important;background:transparent!important;color:var(--ui-text,#16191e)!important;box-shadow:none!important;text-align:left;cursor:pointer}
+.resource-editor .ax-window svg.ax-icon,.resource-editor .ax-window svg.ax-graph{display:block!important}
+.resource-editor .ax-window .ax-icon{width:30px;height:22px;flex:none;fill:none;stroke:var(--ui-muted,#555);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.resource-editor .ax-icon .ax-fill{fill:var(--ui-muted,#555);stroke:none}
+.resource-editor .ax-card-text{display:flex;flex-direction:column;min-width:0}
+.resource-editor .ax-window .ax-card-text b{font-size:12px;line-height:14px;white-space:normal}
+.resource-editor .ax-window .ax-card-text small{font-size:10px;line-height:12px;color:var(--ui-muted,#555);padding-right:30px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.resource-editor .ax-window .ax-card-on{background:var(--ui-selected,#c5d6ec);box-shadow:inset 3px 0 var(--ui-accent,#71b5f3)}
+.resource-editor .ax-window .ax-card-on .ax-card-main{color:var(--ui-selected-text,#101820)!important}
+.resource-editor .ax-window .ax-card-on .ax-icon{stroke:var(--ui-selected-text,#101820)}
+.resource-editor .ax-window .ax-card-on .ax-icon .ax-fill{fill:var(--ui-selected-text,#101820)}
+.resource-editor .ax-window .ax-card-on .ax-card-text small{color:var(--ui-selected-text,#101820)}
+.resource-editor .ax-window .ax-card-selected{outline:2px solid var(--ui-accent,#71b5f3);outline-offset:-2px}
+/* The on/off switch: a small value box in the bottom corner, the same width in every language. */
+.resource-editor .ax-window .ax-card-switch{position:absolute;bottom:4px;right:4px;min-width:26px;min-height:0;height:16px;padding:0 4px;font-size:10px;line-height:14px;cursor:pointer}
+.resource-editor .ax-window .ax-card-switch:empty{width:24px;min-width:24px;padding:0}
+.resource-editor .ax-window .ax-card-switch:empty::before{content:"";display:block;width:7px;height:7px;margin:0 auto;border:1px solid var(--ui-muted,#555);border-radius:50%}
+.resource-editor .ax-window .ax-card-on .ax-card-switch{background:var(--ui-accent,#71b5f3);border-color:var(--ui-accent,#71b5f3);color:#111;font-weight:bold}
+.resource-editor .ax-tray{display:flex;flex-direction:column;gap:5px;padding:6px;border:1px solid var(--ui-border,#8b8b87);background:var(--ui-surface,#f0f0f0)}
+.resource-editor .ax-tray-title b{font-size:12px}
+.resource-editor .ax-tray-title small{display:block;color:var(--ui-muted,#555);line-height:13px}
+.resource-editor .ax-controls .ax-hint{margin:0;text-align:center}
+/* Motion graph on the timeline: grey dashed = original, orange = AnimXL. */
+.resource-editor .ax-graph{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.resource-editor .ax-graph-shaped{fill:#ff8a2a40;stroke:#ff8a2a;stroke-width:1.6;vector-effect:non-scaling-stroke}
+.resource-editor .ax-graph-original{fill:none;stroke:#c9d2dc;stroke-width:1.2;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+/* Sections: the part of the timeline AnimXL works on. */
+.resource-editor .ax-section-bar{display:flex;align-items:center;gap:6px;min-height:24px}
+.resource-editor .ax-section-bar .ax-section-on{font-weight:bold}
+.resource-editor .ax-section-bar small{color:var(--ui-muted,#555)}
+.resource-editor .ax-strip i.ax-band{top:0;bottom:0;margin:0;background:#ffe14d33;border-left:2px solid #ffe14d;border-right:2px solid #ffe14d}
+.resource-editor .ax-strip i.ax-dim{top:0;bottom:0;margin:0;background:#000a}
+.resource-editor .ax-strip-picking{cursor:col-resize;outline:2px solid #ffe14d;outline-offset:-2px}
+/* Apply to: Auto or the bones you select in the preview. */
+.resource-editor .ax-target{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.resource-editor .ax-target>span{color:var(--ui-muted,#555);margin-right:2px}
+.resource-editor .ax-target>b{min-width:18px;padding:0 5px;border-radius:9px;background:var(--ui-accent,#71b5f3);color:#111;text-align:center}
+.resource-editor .ax-controls .ax-selection{font-weight:bold}

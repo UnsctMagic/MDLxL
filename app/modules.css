@@ -51,7 +51,7 @@
 .classic-modules>.toolbar-modules>button>img{width:40px;height:40px;max-width:40px;max-height:40px;object-fit:contain}
 .classic-modules .pressed-keys-tool>span,.classic-modules .module-icon-badge{position:absolute;left:1px;right:1px;bottom:1px;height:50%;display:flex;align-items:center;justify-content:center;background:transparent;font:900 12px/1 Tahoma,Arial,sans-serif;text-shadow:0 1px #000}
 .classic-modules .module-icon-badge{color:#39ff14}
-.classic-modules :is(.library-tool,.forge-tool,.bits-tool,.optimizer-tool) .module-icon-badge{font-size:10px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
+.classic-modules :is(.library-tool,.forge-tool,.bits-tool,.optimizer-tool,.animxl-tool) .module-icon-badge{font-size:10px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
 .classic-modules .library-tool .module-icon-badge{color:#ffc928}
 .classic-modules .forge-tool .module-icon-badge{color:#54c8ff}
 .classic-modules .bits-tool .module-icon-badge{color:#f0f3f5}
@@ -66,3 +66,4 @@
 
 .official-website{display:block;margin-top:12px;font-size:11px;opacity:.7}.official-website a{color:var(--ui-link);text-decoration:none}.official-website a:hover{text-decoration:underline}.update-summary{padding-left:20px;max-height:240px;overflow:auto}.update-summary li{margin:6px 0}
 .classic-modal.update-overlay{z-index:1100}
+.classic-modules .animxl-tool .module-icon-badge{color:#ff5c5c}

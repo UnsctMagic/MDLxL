@@ -43,7 +43,7 @@ test('Spanish covers the full Russian catalog and both packs preserve data place
 });
 
 test('all paint messages, commands, view controls, and particle controls have reviewed translations', () => {
-  const brands = new Set(['BitsAndParts', 'Citadel Paint', 'OptimizeXL']);
+  const brands = new Set(['BitsAndParts', 'Citadel Paint', 'OptimizeXL', 'AnimXL']);
   for (const [locale, pack] of Object.entries(packs)) {
     for (const [id, source] of Object.entries(PAINT_MESSAGES)) {
       let index = 0;
