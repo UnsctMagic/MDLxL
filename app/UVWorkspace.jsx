@@ -87,7 +87,7 @@ function Splitter({ orientation, label, value, minimum, maximum, defaultValue, o
 
 export default function UVWorkspace({ model: sourceModel, materialModel: suppliedMaterialModel, previewModel: suppliedPreviewModel, revision = 0, activeGeoset = -1, eligibleSelection: suppliedEligibleSelection = {}, selectionByGeoset: suppliedSelectionByGeoset = {}, onSelectionChange,
   onPreviewSelectionChange, onUVChanges, onPreviewChanges, onUncouple, onGeosetChange, onWrappingChange, onMaterialPreset, textureAssets, teamColor, preferences, onPreferences,
-  draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, onDensityApply, onExit }) {
+  draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, suspended = false, onDensityApply, onExit }) {
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
   const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false);
   const [projectionPreset, setProjectionPreset] = useState({ name: '', revision: 0 });
@@ -96,6 +96,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const [sidePercent, setSidePercent] = useState(() => storedLayout(LAYOUT_KEYS.side, UV_SIDE_DEFAULT, clampUVSidePercent));
   const [previewPercent, setPreviewPercent] = useState(() => storedLayout(LAYOUT_KEYS.preview, UV_PREVIEW_DEFAULT, clampUVPreviewPercent));
   const [rightHeaderHeight, setRightHeaderHeight] = useState(69);
+  const [leftHeaderHeight, setLeftHeaderHeight] = useState(38);
   const [densityOpen, setDensityOpen] = useState(false), [densityValue, setDensityValue] = useState(0), [densityResult, setDensityResult] = useState(null);
   const projectionView = useRef(null), workspaceBody = useRef(null), sidePanel = useRef(null), header = useRef(null);
   const activePreviewPercent = previewPercent;
@@ -117,7 +118,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const previewModel = useMemo(() => replaceDensityGeoset(basePreviewModel), [basePreviewModel, densityChanges]);
   const eligibleSelection = densityChanges ? { ...suppliedEligibleSelection, ...Object.fromEntries(densityChanges.map(change => [change.index, unique([...(suppliedEligibleSelection[change.index] || []), ...change.selectedVertices])])) } : suppliedEligibleSelection;
   const selectionByGeoset = densityChanges ? { ...suppliedSelectionByGeoset, ...Object.fromEntries(densityChanges.map(change => [change.index, change.selectedVertices])) } : suppliedSelectionByGeoset;
-  const editingLocked = readOnly || densityOpen;
+  const editingLocked = readOnly || densityOpen || suspended;
   const selectionKey = JSON.stringify(selectionByGeoset), eligibilityKey = JSON.stringify(eligibleSelection);
   const previewDomain = useMemo(() => previewMeshDomain(model), [model, revision]);
   const materialEntries = useMemo(() => relevantUVMaterials(materialModel, eligibleSelection), [materialModel, revision, eligibilityKey]);
@@ -139,7 +140,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   useEffect(() => {
     const element = header.current, ownerWindow = element?.ownerDocument.defaultView;
     if (!element || !ownerWindow?.ResizeObserver) return;
-    const measure = () => setRightHeaderHeight(Math.ceil(element.getBoundingClientRect().height));
+    const measure = () => { setRightHeaderHeight(Math.ceil(element.getBoundingClientRect().height)); setLeftHeaderHeight(Math.ceil(element.querySelector('.uv-map-header').getBoundingClientRect().height)); };
     const observer = new ownerWindow.ResizeObserver(measure); observer.observe(element); measure();
     return () => observer.disconnect();
   }, []);
@@ -246,7 +247,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
       <div className="uv-material-controls"><label><select aria-label="UV material" value={current?.materialID ?? ''} disabled={densityOpen} onChange={event => chooseMaterial(event.target.value)}>{materialEntries.map(entry => <option key={entry.materialID} value={entry.materialID}>{entry.label}</option>)}</select></label><MaterialProperties model={materialModel} materialID={current?.materialID} disabled={editingLocked} onChange={(_, preset, tint) => onMaterialPreset?.(model.Geosets[current.geosetIndices[0]].MaterialID, preset, tint)} compact filterModes/></div>
     </header>
     {(materialError || materialPreview?.warnings?.length > 0) && <div className="uv-workspace-warning" role="status">{materialError || materialPreview.warnings.join(' · ')}</div>}
-    <div ref={workspaceBody} className="uv-workspace-body" style={{ '--uv-side-width': `${sidePercent}%`, '--uv-right-header-height': `${rightHeaderHeight}px` }}>
+    <div ref={workspaceBody} className="uv-workspace-body" style={{ '--uv-side-width': `${sidePercent}%`, '--uv-right-header-height': `${rightHeaderHeight}px`, '--uv-left-header-height': `${leftHeaderHeight}px` }}>
       <section className="uv-map-pane" aria-label="UV texture map">
         {densityOpen && <div className="uv-density-popup" role="dialog" aria-modal="false" aria-label="Triangle density"><strong>{densityTargets.length === 1 ? `Geoset ${densityTargets[0].index + 1} triangle density` : 'Triangle density'}</strong><MeshDensitySlider compact targets={densityTargets} value={densityValue} onChange={value => { setDensityValue(value); setDensityResult(null); }} onResult={setDensityResult}/><div><button onClick={() => { setDensityOpen(false); setDensityValue(0); setDensityResult(null); }}>Cancel</button><button className="primary" disabled={!densityValue || !densityResult || densityResult.trianglesAfter === densityResult.trianglesBefore} onClick={() => { const changes = densityResult.changes; setDensityOpen(false); setDensityValue(0); setDensityResult(null); onDensityApply(changes); }}>Apply</button></div></div>}
         {combined?.eligibleVertices.length ? <UVEditor key="selected-geosets" geoset={combined.geoset} uvSet={0} revision={revision} textureUrl={materialPreview?.url} textureSize={materialPreview ? [materialPreview.width, materialPreview.height] : undefined} textureWrapping={!imageLayers.length || wrappingEnabled} viewTileLimit={viewTileLimit}
