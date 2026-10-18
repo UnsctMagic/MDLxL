@@ -1,4 +1,4 @@
-# MDLxL 0.26.0
+# MDLxL 0.27.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -27,7 +27,7 @@ The `dist/` build output and the FFmpeg binaries are not stored in git. After pu
 
 ## Current version
 
-Version 0.26.0 reworks NormalsXL: it recalculates normals the Model Studio way without adding vertices, shows the normal lines while open, and has a separate Fix facing button. Models with an unused geoset color or MDLVis editor data can now be saved as MDL. See [the 0.26.0 release notes](docs/RELEASE-0.26.0.md). Version 0.25.1 fixed the Shift plane lock with the workplane off.
+Version 0.27.0 adds AnimXL (experimental), which shapes animations with physics-style effects, reworks the Emitter Editor into Look and Motion tabs with sprite-sheet frames and ribbon play tracks, and makes Forge shaping direct with handles in the view. With the Workplane off, Move shows the axis arrows and plane squares in every editor; model tabs stay tidy with many models open; dropped files open like File > Open. See [the 0.27.0 release notes](docs/RELEASE-0.27.0.md). Version 0.26.0 reworked NormalsXL.
 
 ## Releases
 
@@ -41,6 +41,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.27.0](docs/RELEASE-0.27.0.md) ([ES](docs/RELEASE-0.27.0-ES.md), [RU](docs/RELEASE-0.27.0-RU.md), [ZH-CN](docs/RELEASE-0.27.0-ZH-CN.md))
 - [0.26.0](docs/RELEASE-0.26.0.md) ([ES](docs/RELEASE-0.26.0-ES.md), [RU](docs/RELEASE-0.26.0-RU.md), [ZH-CN](docs/RELEASE-0.26.0-ZH-CN.md))
 - [0.25.1](docs/RELEASE-0.25.1.md) ([ES](docs/RELEASE-0.25.1-ES.md), [RU](docs/RELEASE-0.25.1-RU.md), [ZH-CN](docs/RELEASE-0.25.1-ZH-CN.md))
 - [0.25.0](docs/RELEASE-0.25.0.md) ([ES](docs/RELEASE-0.25.0-ES.md), [RU](docs/RELEASE-0.25.0-RU.md), [ZH-CN](docs/RELEASE-0.25.0-ZH-CN.md))
