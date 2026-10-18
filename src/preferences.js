@@ -218,8 +218,13 @@ export function effectiveBindings(catalog = [], overrides = {}) {
 }
 export function hotkeyConflicts(catalog, overrides, actionId, chord) {
   const key = normalizeChord(chord); if (!key) return [];
-  // Keep assignments unique across scopes as well, so opening a dialog cannot silently change their meaning.
-  return Object.entries(effectiveBindings(catalog, overrides)).filter(([id, keys]) => id !== actionId && keys.includes(key)).map(([id]) => id);
+  const action = catalog.find(action => action.id === actionId);
+  const overlaps = other => {
+    if ((action?.scope === 'forge-shapes') === (other?.scope === 'forge-shapes')) return true;
+    const shared = action?.scope === 'forge-shapes' ? other : action;
+    return shared?.scope === 'global' || shared?.allowInModal === true;
+  };
+  return Object.entries(effectiveBindings(catalog, overrides)).filter(([id, keys]) => id !== actionId && keys.includes(key) && overlaps(catalog.find(action => action.id === id))).map(([id]) => id);
 }
 export function assignHotkey(overrides, catalog, actionId, chord, { replace = false } = {}) {
   const key = normalizeChord(chord), hotkeys = { ...record(overrides) };

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ModernIcon, { hasModernIcon } from './ModernIcon.jsx';
 
-export function Tool({ icon, title, onClick, active, disabled, children, flip, action, badge, className = '' }) {
-  return <button data-hotkey={action} type="button" className={`classic-tool${active ? ' active' : ''}${className ? ' ' + className : ''}`} title={title} aria-label={title} aria-pressed={active === undefined ? undefined : !!active} disabled={disabled} onClick={onClick}>{icon ? hasModernIcon(icon) ? <ModernIcon name={icon} flip={flip}/> : <img src={`./classic/${icon}${/\.(png|gif|svg)$/.test(icon)?'':'.png'}`} alt="" draggable={false} style={flip ? { transform: 'scaleX(-1)' } : undefined}/> : children}{badge && <span className="module-icon-badge" aria-hidden="true">{badge}</span>}</button>;
+export function Tool({ icon, title, description, onClick, active, disabled, children, flip, action, badge, className = '' }) {
+  return <button data-hotkey={action} type="button" className={`classic-tool${active ? ' active' : ''}${className ? ' ' + className : ''}`} title={description || title} aria-label={title} aria-pressed={active === undefined ? undefined : !!active} disabled={disabled} onClick={onClick}>{icon ? hasModernIcon(icon) ? <ModernIcon name={icon} flip={flip}/> : <img src={`./classic/${icon}${/\.(png|gif|svg)$/.test(icon)?'':'.png'}`} alt="" draggable={false} style={flip ? { transform: 'scaleX(-1)' } : undefined}/> : children}{badge && <span className="module-icon-badge" aria-hidden="true">{badge}</span>}</button>;
 }
 
 export function Coordinate({ axis, displayAxis=axis, value, disabled, onCommit }) {

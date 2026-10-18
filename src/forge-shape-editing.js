@@ -165,6 +165,110 @@ export function insetForgeFaces(source, selected, distance) {
   return shape;
 }
 
+// The cut frame follows the selected surface; shape cuts use the whole piece.
+export function forgeCutFrame(shape, faceId, turned = false, selected) {
+  const face = shape.faces.find(f => f.id === faceId) || [...shape.faces].sort((a, b) => Math.hypot(...b.triangles.reduce((n, t) => add(n, triangleNormal(shape, t.vertices)), [0, 0, 0])) - Math.hypot(...a.triangles.reduce((n, t) => add(n, triangleNormal(shape, t.vertices)), [0, 0, 0])))[0];
+  if (!face) throw Error('Choose a piece to cut.');
+  const edges = face.vertices.map((id, i) => sub(shape.vertices[face.vertices[(i + 1) % face.vertices.length]], shape.vertices[id]));
+  const longest = edges.sort((a, b) => Math.hypot(...b) - Math.hypot(...a))[0];
+  const direction = unit(turned ? cross(forgeFaceNormal(shape, face), longest) : longest);
+  const values = forgeSelectionVertices(shape, selected || ['shape'], selected ? 'Faces' : 'Shape').map(id => dot(shape.vertices[id], direction));
+  return { direction, min: Math.min(...values), max: Math.max(...values) };
+}
+
+export function cutForgeShape(source, frame, fractions, selected) {
+  const span = frame.max - frame.min, epsilon = Math.max(1, span) * 1e-8;
+  const cuts = [...new Set(fractions.filter(n => Number.isFinite(n) && n > 1e-6 && n < 1 - 1e-6).map(n => Math.round(n * 1e8) / 1e8))].sort((a, b) => a - b).map(n => frame.min + span * n);
+  if (!cuts.length || span < epsilon) return source;
+  const shape = { ...source, vertices: source.vertices.map(p => [...p]), faces: [] }, intersections = new Map(), origins = new Map(), edgeSplits = new Map();
+  const targets = selected && new Set(selected);
+  let changed = false;
+  const project = id => dot(shape.vertices[id], frame.direction);
+  const clip = (polygon, value, cutIndex, sign) => {
+    const result = [];
+    for (let i = 0; i < polygon.length; i++) {
+      const a = polygon[i], b = polygon[(i + 1) % polygon.length], da = project(a.id) - value, db = project(b.id) - value;
+      if (sign * da >= -epsilon) result.push(a);
+      if (da * db < 0 && Math.abs(da) > epsilon && Math.abs(db) > epsilon) {
+        const t = da / (da - db), key = cutIndex + ':' + forgeEdgeKey(a.id, b.id);
+        if (!intersections.has(key)) { intersections.set(key, shape.vertices.length); shape.vertices.push(add(shape.vertices[a.id], mul(sub(shape.vertices[b.id], shape.vertices[a.id]), t))); }
+        const id = intersections.get(key);
+        if (targets) {
+          const first = origins.get(a.id), second = origins.get(b.id);
+          const edge = first && (first.includes(b.id) || second && forgeEdgeKey(...first) === forgeEdgeKey(...second)) ? first : second?.includes(a.id) ? second : !first && !second ? [a.id, b.id] : null;
+          if (edge) { origins.set(id, edge); const key = forgeEdgeKey(...edge); if (!edgeSplits.has(key)) edgeSplits.set(key, new Set()); edgeSplits.get(key).add(id); }
+        }
+        result.push({ id, uv: a.uv.map((n, k) => n + (b.uv[k] - n) * t), normal: a.normal && b.normal ? unit(a.normal.map((n, k) => n + (b.normal[k] - n) * t)) : undefined });
+      }
+    }
+    return result.filter((p, i) => p.id !== result[(i + result.length - 1) % result.length]?.id);
+  };
+  for (const face of source.faces) {
+    if (targets && !targets.has(face.id)) { shape.faces.push(face); continue; }
+    const values = face.triangles.flatMap(t => t.vertices.map(project));
+    if (!cuts.some(value => Math.min(...values) < value - epsilon && Math.max(...values) > value + epsilon)) { shape.faces.push(face); continue; }
+    changed = true;
+    const bands = new Map();
+    for (const triangle of face.triangles) {
+      let pieces = [{ band: 0, polygon: triangle.vertices.map((id, i) => ({ id, uv: triangle.uv.slice(i * 2, i * 2 + 2), normal: triangle.normals?.slice(i * 3, i * 3 + 3) })) }];
+      cuts.forEach((value, index) => {
+        pieces = pieces.flatMap(piece => {
+          const values = piece.polygon.map(p => project(p.id) - value);
+          if (Math.max(...values) <= epsilon) return [piece];
+          if (Math.min(...values) >= -epsilon) return [{ ...piece, band: index + 1 }];
+          return [{ band: piece.band, polygon: clip(piece.polygon, value, index, -1) }, { band: index + 1, polygon: clip(piece.polygon, value, index, 1) }].filter(p => p.polygon.length >= 3);
+        });
+      });
+      for (const { band, polygon } of pieces) for (let i = 1; i + 1 < polygon.length; i++) {
+        const corners = [polygon[0], polygon[i], polygon[i + 1]], vertices = corners.map(p => p.id);
+        if (Math.hypot(...triangleNormal(shape, vertices)) < epsilon * epsilon) continue;
+        if (!bands.has(band)) bands.set(band, []);
+        bands.get(band).push({ vertices, uv: corners.flatMap(p => p.uv), normals: corners.every(p => p.normal) ? corners.flatMap(p => p.normal) : undefined });
+      }
+    }
+    let first = true;
+    for (const triangles of bands.values()) {
+      const adjacency = new Map(), remaining = new Set(triangles.map((_, i) => i));
+      triangles.forEach((t, index) => t.vertices.forEach((a, i) => { const key = forgeEdgeKey(a, t.vertices[(i + 1) % 3]); if (!adjacency.has(key)) adjacency.set(key, []); adjacency.get(key).push(index); }));
+      while (remaining.size) {
+        const queue = [remaining.values().next().value], component = [];
+        while (queue.length) { const index = queue.pop(); if (!remaining.delete(index)) continue; const t = triangles[index]; component.push(t); t.vertices.forEach((a, i) => queue.push(...adjacency.get(forgeEdgeKey(a, t.vertices[(i + 1) % 3])))); }
+        const edges = boundaryEdges(component), loop = edges.length ? [edges[0][0]] : [];
+        for (let i = 0; i < edges.length; i++) { const edge = edges.find(e => e[0] === loop.at(-1)); if (!edge) break; loop.push(edge[1]); }
+        if (loop.length !== edges.length + 1 || loop[0] !== loop.at(-1)) throw Error('This surface could not be divided cleanly.');
+        loop.pop(); shape.faces.push({ ...face, id: first ? face.id : shape.nextFaceId++, vertices: loop, triangles: component }); first = false;
+      }
+    }
+  }
+  // Split shared border edges on neighboring faces without dividing those faces.
+  // This keeps later movement/extrusion connected and preserves each triangle's UV seam.
+  if (targets && changed) {
+    const ordered = (a, b) => [...(edgeSplits.get(forgeEdgeKey(a, b)) || [])].sort((i, j) => dot(sub(shape.vertices[i], shape.vertices[j]), sub(shape.vertices[b], shape.vertices[a])));
+    shape.faces = shape.faces.map(face => {
+      if (!source.faces.includes(face) || targets.has(face.id)) return face;
+      if (!face.triangles.some(t => t.vertices.some((a, i) => edgeSplits.has(forgeEdgeKey(a, t.vertices[(i + 1) % 3]))))) return face;
+      const triangles = face.triangles.flatMap(triangle => {
+        const corners = triangle.vertices.map((id, i) => ({ id, uv: triangle.uv.slice(i * 2, i * 2 + 2), normal: triangle.normals?.slice(i * 3, i * 3 + 3) }));
+        const pieces = [corners];
+        for (let i = 0; i < 3; i++) {
+          const a = corners[i], b = corners[(i + 1) % 3], edge = sub(shape.vertices[b.id], shape.vertices[a.id]);
+          let start = a.id;
+          for (const id of ordered(a.id, b.id)) {
+            const t = dot(sub(shape.vertices[id], shape.vertices[a.id]), edge) / dot(edge, edge);
+            const point = { id, uv: a.uv.map((n, k) => n + (b.uv[k] - n) * t), normal: a.normal && b.normal ? unit(a.normal.map((n, k) => n + (b.normal[k] - n) * t)) : undefined };
+            const index = pieces.findIndex(p => p.some((v, k) => v.id === start && p[(k + 1) % 3].id === b.id));
+            const piece = pieces[index], corner = piece.findIndex(p => p.id === start), [first, last, opposite] = [0, 1, 2].map(k => piece[(corner + k) % 3]);
+            pieces.splice(index, 1, [first, point, opposite], [point, last, opposite]); start = id;
+          }
+        }
+        return pieces.map(p => ({ ...triangle, vertices: p.map(v => v.id), uv: p.flatMap(v => v.uv), normals: p.every(v => v.normal) ? p.flatMap(v => v.normal) : undefined }));
+      });
+      return { ...face, vertices: face.vertices.flatMap((a, i) => [a, ...ordered(a, face.vertices[(i + 1) % face.vertices.length])]), triangles };
+    });
+  }
+  return changed ? shape : source;
+}
+
 export function transformForgeSelection(source, selected, mode, { translation = [0, 0, 0], scale = [1, 1, 1], quaternion = [0, 0, 0, 1], center = [0, 0, 0] } = {}) {
   if ([...translation, ...scale, ...quaternion, ...center].some(v => !Number.isFinite(v)) || scale.some(v => v <= 1e-5)) throw Error('Use finite transforms and a positive scale.');
   if (Math.hypot(...translation) < 1e-8 && scale.every(v => Math.abs(v - 1) < 1e-8) && Math.hypot(...quaternion.slice(0, 3)) < 1e-8) return source;

@@ -134,6 +134,16 @@ export function freeDragTranslation(camera, pivot, width, height, dx, dy, { shif
   return new Vector3().fromArray(projectedPlaneTranslation(workplane, planeScreenBasis(camera, pivot, width, height, workplane), dx, dy));
 }
 
+/** A face follows its normal; when viewed head-on, dragging up pulls it outward. */
+export function normalDragTranslation(camera, pivot, normal, width, height, dx, dy) {
+  const origin = pivot.clone().project(camera), tip = pivot.clone().add(normal).project(camera);
+  const x = (tip.x - origin.x) * width / 2, y = (origin.y - tip.y) * height / 2;
+  const unit = screenPlaneTranslation(camera, pivot, width, height, 1, 0).length();
+  const lengthSq = x * x + y * y;
+  const amount = lengthSq * unit * unit > .0225 ? (dx * x + dy * y) / lengthSq : -dy * unit;
+  return normal.clone().multiplyScalar(amount);
+}
+
 /** Free mesh dragging uses the view plane through the selection pivot. */
 export function screenPlaneTranslation(camera, pivot, width, height, dx, dy, constrain = false) {
   if (constrain) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
