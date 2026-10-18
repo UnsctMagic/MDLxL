@@ -25,6 +25,7 @@ const {savePreviewCapture}=require('./preview-capture.cjs');
 const {PreviewRecordingStore}=require('./preview-ffmpeg.cjs');
 const {saveForgeAssets}=require('./forge-assets.cjs');
 const {normalizeModelCloseState,needsModelClosePrompt,modelClosePrompt,modelCloseAction}=require('./model-close.cjs');
+const {showClosePrompt}=require('./close-prompt.cjs');
 const {saveOptimizeXLPair}=require('./optimizexl-save.cjs');
 const {BackgroundLibrary}=require('./preview-backgrounds.cjs');
 const {PaintTextureLibrary}=require('./paint-textures.cjs');
@@ -111,7 +112,7 @@ function decodeThumbnail(asset){
 ipcMain.on('texture:decoderReady',(event,ready)=>{if(event.sender!==win?.webContents)return;textureDecoder=ready?event.sender:null;if(!ready){texturePreviews.cancel();rejectThumbnailRequests('Texture preview decoder closed.');}});
 ipcMain.on('texture:decoded',(event,payload)=>{const request=thumbnailRequests.get(payload?.requestId);if(!request||request.sender!==event.sender)return;clearTimeout(request.timer);thumbnailRequests.delete(payload.requestId);if(payload.error)request.reject(Error(String(payload.error).slice(0,500)));else request.resolve(payload.url);});
 const textureOperations=new Set();
-const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet();
+const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet(),closePromptWindows=new WeakSet();
 const openedPaths=new Set();
 const geosetRepairs=require('./geoset-repair.cjs').createGeosetRepairStore(openedPaths);
 const filters=[{name:'Models and Paint Projects',extensions:['mdl','mdx','mdlxlpaint']},{name:'Warcraft III models',extensions:['mdl','mdx']},{name:'MDLxL Paint Project',extensions:['mdlxlpaint']}];
@@ -413,6 +414,14 @@ function refreshMenu(){
   const bindings=preferenceApi.effectiveBindings(commandCatalog,settings.preferences.hotkeys);
   Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(bindings,id=>{if(win&&!win.isDestroyed())win.webContents.send('menu',id);},process.platform,recents,text=>translateText(text,settings.preferences.language),nativeEditorState)));
 }
+// Headless test runs keep the scriptable native message box; people get the
+// themed prompt whose Cancel and Close are colored and set apart.
+async function askModelClose(current){
+  const prompt=modelClosePrompt(modelCloseState);
+  if(process.env.MDLVIS_HEADLESS==='1'&&process.env.MDLXL_STYLED_CLOSE_PROMPT!=='1')return modelCloseAction(dialog.showMessageBoxSync(current,prompt));
+  const language=settings.preferences?.language,t=text=>translateText(text,language);
+  return showClosePrompt(current,{title:t(prompt.title),message:t(prompt.message),detail:t(prompt.detail),labels:{save:t('Save'),cancel:t('CANCEL?'),close:t('Close')},theme:settings.preferences?.theme});
+}
 function flushBeforeClose(current,discardedDirty=false){
   if(closingWindows.has(current))return;
   closingWindows.add(current);
@@ -524,7 +533,7 @@ async function createWindow(bounds={}){
   current.webContents.on('did-create-window',child=>{child.setMenu(null);if(process.env.MDLVIS_HEADLESS!=='1')child.maximize();else child.webContents.setBackgroundThrottling(false);child.webContents.setWindowOpenHandler(()=>({action:'deny'}));child.webContents.on('will-navigate',event=>event.preventDefault());});
   win.webContents.on('will-navigate',(event,url)=>{if(url!==win.webContents.getURL())event.preventDefault();});
   refreshMenu();
-  win.on('close',event=>{if(current!==win||readyToClose.has(current))return;let discardedDirty=false;if(needsModelClosePrompt(modelCloseState)){event.preventDefault();const action=modelCloseAction(dialog.showMessageBoxSync(win,modelClosePrompt(modelCloseState)));if(action==='save'){saveBeforeClose(current);return;}if(action==='cancel'){updater?.cancelClose();return;}discardedDirty=modelCloseState.dirty;modelCloseState={...modelCloseState,dirty:false};current.setDocumentEdited(false);}event.preventDefault();flushBeforeClose(current,discardedDirty);});
+  win.on('close',async event=>{if(current!==win||readyToClose.has(current))return;event.preventDefault();if(closePromptWindows.has(current))return;let discardedDirty=false;if(needsModelClosePrompt(modelCloseState)){closePromptWindows.add(current);let action;try{action=await askModelClose(current);}finally{closePromptWindows.delete(current);}if(current.isDestroyed())return;if(action==='save'){saveBeforeClose(current);return;}if(action==='cancel'){updater?.cancelClose();return;}discardedDirty=modelCloseState.dirty;modelCloseState={...modelCloseState,dirty:false};current.setDocumentEdited(false);}flushBeforeClose(current,discardedDirty);});
   win.webContents.on('will-prevent-unload',event=>{if(!modelCloseState.dirty)event.preventDefault();});
   current.webContents.on('render-process-gone',async(_,details)=>{
     if(current!==win||current.isDestroyed())return;
