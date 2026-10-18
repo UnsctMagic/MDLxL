@@ -35,7 +35,7 @@ export default function ParticleCluelessControls({model,emitter,frame,globalTime
   // Two tabs, every field once. On/off timing lives on the play track; text editing is Adjust Manually.
   return <div className="pe-clueless-controls">
     {tool==='Look'&&<><ParticlePictureTool {...{model,emitter,assets,preferences,teamColor,sequence,frame,update,onImport,onLibrary,onChoosePicture,onRemovePicture,onTeamPicture,onDemo,demo}}/>
-      <ParticleFrameStrip {...{emitter,asset,teamColor,patch}} pictureName={model.Textures[emitter.TextureID]?.Image} replaceableId={emitter.ReplaceableId||model.Textures[emitter.TextureID]?.ReplaceableId||0}/>
+      <ParticleFrameStrip {...{emitter,asset,teamColor,patch,onImport}} pictureName={model.Textures[emitter.TextureID]?.Image} replaceableId={emitter.ReplaceableId||model.Textures[emitter.TextureID]?.ReplaceableId||0}/>
       <LifeTable {...{emitter,lifeStage,setLifeStage,begin,change,finish,cancel}}/>
       <ParticleLifeMarker value={emitter.Time} {...{begin,change,finish,cancel}} onSelect={setLifeStage}/></>}
     {tool==='Motion'&&<><ParticleTimingTool {...{emitter,options,begin,change,finish,cancel,update,patch,onSeek}}/>

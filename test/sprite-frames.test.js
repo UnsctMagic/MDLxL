@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {detectSpriteGrid,framesAcrossLife,playedFrames,spriteGridValues} from '../src/sprite-frames.js';
+import {detectSpriteGrid,framesAcrossLife,playedFrames,spriteGridValues,suggestedSetups,setupValues,setupLabel} from '../src/sprite-frames.js';
 import {starterTextureAsset} from '../src/particle-starters.js';
 
 const image=(width,height,paint)=>{const data=new Uint8ClampedArray(width*height*4);for(let y=0;y<height;y++)for(let x=0;x<width;x++){const v=paint(x,y),i=(y*width+x)*4;data[i]=data[i+1]=data[i+2]=Math.round(255*v);data[i+3]=255;}return {width,height,data};};
@@ -30,4 +30,14 @@ test('chosen frames play once across the whole life',()=>{
  assert.deepEqual(playedFrames({...emitter,...some}),{first:3,last:6,repeat:2});
  const one=framesAcrossLife(emitter,5,5);assert.deepEqual([...one.LifeSpanUVAnim],[5,6,1]);assert.deepEqual([...one.DecayUVAnim],[5,6,1]);
  const late=framesAcrossLife({Time:.8},0,9);assert.deepEqual([...late.LifeSpanUVAnim],[0,8,1],'More frames before a late halfway point');
+ assert.deepEqual(playedFrames({Rows:4,Columns:4,LifeSpanUVAnim:[0,15,1],DecayUVAnim:[15,0,1]}),{first:0,last:15,repeat:1},'A backwards range still reads');
+});
+
+test('the game\'s own frame setups are suggested for its sprite sheets',()=>{
+ const clouds=suggestedSetups('ReplaceableTextures\\Weather\\Clouds8x8.blp');
+ assert.ok(clouds.length>=1);assert.equal(clouds[0].rows*clouds[0].columns,64);
+ assert.deepEqual(suggestedSetups('Textures\\clouds8x8.blp').length>0||suggestedSetups('Custom\\Clouds8x8.blp').length>0,true,'Found by file name in another folder');
+ const values=setupValues(clouds[0]);assert.deepEqual([...values.LifeSpanUVAnim],clouds[0].life);assert.equal(values.Rows,clouds[0].rows);
+ assert.match(setupLabel(clouds[0]),/^Like .+ · \d+→\d+$/);
+ assert.deepEqual(suggestedSetups('Textures\\Star.blp'),[]);
 });

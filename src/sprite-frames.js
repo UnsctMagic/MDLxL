@@ -1,3 +1,4 @@
+import catalog from './sprite-sheet-frames.json' with {type:'json'};
 /**
  * Sprite sheets: one picture holding several frames in a grid. Frames are only offered when the
  * picture really is one, and choosing frames is a single range that plays across the particle's life.
@@ -37,17 +38,19 @@ export function detectSpriteGrid(image){
  return filled>=Math.max(2,Math.ceil(rows*columns*.6))?{rows,columns}:{rows:1,columns:1};
 }
 
-/** The chosen frames, first to last, read back from the emitter. */
+/**
+ * The chosen frames, first to last, read back from the emitter. A range stores its first frame and the
+ * frame after its last one, as the Emitter Editor preview and the reference viewer play it.
+ */
 export function playedFrames(emitter){
- const count=Math.max(1,(emitter.Rows||1)*(emitter.Columns||1));
- const life=emitter.LifeSpanUVAnim||[0,0,1],decay=emitter.DecayUVAnim||[0,0,1];
- const end=(range)=>range[1]>range[0]?range[1]-1:range[0];
- const first=Math.min(life[0],decay[0]),last=Math.max(end(life),end(decay));
- return {first:Math.min(first,count-1),last:Math.min(Math.max(first,last),count-1),repeat:Math.max(1,life[2]||1)};
+ const count=Math.max(1,(emitter.Rows||1)*(emitter.Columns||1)),clamp=n=>Math.max(0,Math.min(count-1,n));
+ const shown=range=>{const [a=0,b=0]=range||[];return b>a?[a,b-1]:[a,a];};
+ const frames=[...shown(emitter.LifeSpanUVAnim),...shown(emitter.DecayUVAnim)];
+ return {first:clamp(Math.min(...frames)),last:clamp(Math.max(...frames)),repeat:Math.max(1,emitter.LifeSpanUVAnim?.[2]||1)};
 }
 
 /**
- * Plays frames first..last once across the whole life: the frames before the halfway point play
+ * Plays frames first..last once across the whole life: the frames up to the halfway point play
  * from Born to Halfway, the rest from Halfway to End. Streak frames follow the same frames.
  */
 export function framesAcrossLife(emitter,first,last,repeat=1){
@@ -59,6 +62,32 @@ export function framesAcrossLife(emitter,first,last,repeat=1){
 
 /** Switches a picture to a frame grid with every frame playing, or back to one plain picture. */
 export function spriteGridValues(emitter,rows,columns){
- const values={Rows:rows,Columns:columns};
- return {...values,...framesAcrossLife(emitter,0,rows*columns-1,1)};
+ return {Rows:rows,Columns:columns,...framesAcrossLife(emitter,0,rows*columns-1,1)};
+}
+
+const shortName=name=>String(name||'').replaceAll('/','\\').toLowerCase();
+const fileName=name=>shortName(name).split('\\').pop();
+const byFile=new Map(Object.entries(catalog.sheets).map(([path,entry])=>[fileName(path),entry]));
+
+/** How the game's own effects use this sprite sheet, most common first (empty for other pictures). */
+export function suggestedSetups(picture){
+ const entry=catalog.sheets[shortName(picture)]||byFile.get(fileName(picture));
+ if(!entry)return [];
+ // Setups that only differ in streak frames look the same here; keep the most used one of each.
+ const seen=new Map();
+ for(const setup of entry.setups){const id=[setup.rows,setup.columns,...setup.life,...setup.decay].join(',');const known=seen.get(id);if(known){known.uses+=setup.uses;for(const example of setup.examples)if(known.examples.length<3&&!known.examples.includes(example))known.examples.push(example);}else seen.set(id,{...setup,examples:[...setup.examples]});}
+ return [...seen.values()];
+}
+
+/** A game setup as the values it writes on the emitter. */
+export function setupValues(setup){
+ const values={Rows:setup.rows,Columns:setup.columns,LifeSpanUVAnim:new Uint32Array(setup.life),DecayUVAnim:new Uint32Array(setup.decay)};
+ values.TailUVAnim=new Uint32Array(setup.tail||setup.life);values.TailDecayUVAnim=new Uint32Array(setup.tailDecay||setup.decay);
+ return values;
+}
+
+/** Short button text, for example "Like rockchunks0 · 0→31". */
+export function setupLabel(setup){
+ const {first,last}=playedFrames({Rows:setup.rows,Columns:setup.columns,LifeSpanUVAnim:setup.life,DecayUVAnim:setup.decay});
+ return `Like ${setup.examples[0]||'the game'} · ${first===last?'frame '+first:first+'→'+last}`;
 }

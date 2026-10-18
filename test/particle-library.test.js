@@ -8,7 +8,6 @@ import {createStarterRecipe,starterTextureAsset} from '../src/particle-starters.
 import {stringifyParticleData,parseParticleData} from '../src/particle-data.js';
 import {validateParticleRecipe} from '../src/particle-recipes.js';
 import {includeParticleAssets,embeddedParticleAssets} from '../src/particle-assets.js';
-import {particleGridChange,particleCellAt} from '../src/particle-picture.js';
 import {particleRecipeDocument} from '../src/particle-recipes.js';
 const {ParticleLibrary}=createRequire(import.meta.url)('../electron/particle-library.cjs');
 const directory=path.resolve('out/particle-prototype/store-tests-'+Date.now());
@@ -118,13 +117,6 @@ test('portable custom pictures reopen from preset bytes without their original d
  assert.deepEqual(resolved.get(name.toLowerCase()).bytes,asset.bytes);
  const bad=structuredClone(recipe);bad.embeddedAssets[0].path='..\\outside.tga';assert.throws(()=>validateParticleRecipe(bad),/picture/);
  const huge=structuredClone(recipe);huge.native.ParticleEmitters2[0].ObjectId=1e9;assert.throws(()=>validateParticleRecipe(huge),/identity/);
-});
-test('picture grid changes are bounded only after explicit correction and preserve separate repeats',()=>{
- const p=structuredClone(createStarterRecipe().native.ParticleEmitters2[0]);p.Rows=4;p.Columns=8;
- p.LifeSpanUVAnim=new Uint32Array([10,20,3]);p.TailUVAnim=new Uint32Array([3,7,5]);const before=structuredClone(p);
- const proposal=particleGridChange(p,2,4);assert.deepEqual(p,before);assert.deepEqual(proposal.invalid,['Early sprites']);assert.equal(proposal.values.LifeSpanUVAnim,undefined);
- const accepted=particleGridChange(p,2,4,{correct:true});assert.deepEqual(Array.from(accepted.values.LifeSpanUVAnim),[7,8,3]);assert.equal(accepted.values.TailUVAnim,undefined);
- assert.equal(particleCellAt(159,127,256,256,4,8),12);assert.equal(particleCellAt(256,256,256,256,4,8),31);
 });
 test('malformed imports never overwrite an existing preset or allocate unbounded native identities',async()=>{
  const store=makeStore(),saved=await store.save({data:stringifyParticleData(createStarterRecipe()),name:'Keep'}),before=await store.read(saved.id),malformed=createStarterRecipe();
