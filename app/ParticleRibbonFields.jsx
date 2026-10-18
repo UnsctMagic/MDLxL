@@ -49,16 +49,3 @@ export function RibbonFields({model,id,disabled,onEdit,onPause,flat=false,childr
  </>;
 }
 
-export default function RibbonBox({model,id,onClose,onOpenEditor,onManual,...props}){
- const node=model.RibbonEmitters.find(item=>item.ObjectId===id);
- if(!node)return null;
- return <section className="ribbon-box" aria-label="Ribbon" onKeyDown={e=>{if(e.key==='Escape'&&e.target.type!=='number'){e.stopPropagation();onClose();}}}>
-  <div className="ribbon-box-heading"><b>Ribbon</b><span title={node.Name}>{node.Name}</span><button aria-label="Close ribbon" title="Close this box. Click the ribbon or Edit effect to open it again." onClick={onClose}>×</button></div>
-  <RibbonFields model={model} id={id} {...props}>
-   <div className="ribbon-box-actions">
-    <button title="Edit the exact MDL text of this ribbon, for experienced users. Apply is one undo step." onClick={()=>onManual(id)}>Adjust Manually</button>
-    <button title="Open this ribbon in the Emitter Editor." onClick={()=>onOpenEditor(id)}>Emitter Editor…</button>
-   </div>
-  </RibbonFields>
- </section>;
-}

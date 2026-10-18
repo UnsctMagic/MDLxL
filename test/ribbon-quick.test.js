@@ -1,13 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createDemoDocument} from '../src/editor-document.js';
-import {ribbonPlacement,addRibbon,ribbonQuickValues,setRibbonQuick,RIBBON_ADD_SECTIONS} from '../src/ribbon-quick.js';
+import {ribbonQuickValues,setRibbonQuick} from '../src/ribbon-quick.js';
+import {fitRibbonToPolygons} from '../src/particle-ribbon-fit.js';
+import {placeTimedParticleRecipe} from '../src/particle-placement.js';
+const SECTIONS=['Nodes','Textures','Materials','TextureAnims','GlobalSequences','PivotPoints'];
+const addTestRibbon=(doc,selection,sequence)=>{const ribbon=fitRibbonToPolygons(doc.model,selection),placement={ribbon,position:[0,0,0],motion:'target',fit:true,sequence,sequences:[sequence],parent:ribbon.parent==null?'':String(ribbon.parent)};let added;doc.apply('Add ribbon',SECTIONS,m=>{added=placeTimedParticleRecipe(m,ribbon.recipe,placement,{convertHD:true});});return {placement,id:added.ids[0]};};
 import {RIBBON_TEXTURE} from '../src/particle-starters.js';
 
 const quickRibbon=(sequence=0)=>{
  const doc=createDemoDocument(),geo=doc.model.Geosets[0],selection={0:Array.from(new Set(geo.Faces.slice(0,12)))};
- const placement=ribbonPlacement(doc.model,selection,sequence);let added;
- doc.apply('Add ribbon',RIBBON_ADD_SECTIONS,m=>{added=addRibbon(m,placement.ribbon.recipe,placement);});
+ const {placement,id}=addTestRibbon(doc,selection,sequence),added={id};
  return {doc,placement,id:added.id,node:()=>doc.model.RibbonEmitters.find(n=>n.ObjectId===added.id)};
 };
 
@@ -19,9 +22,6 @@ test('a quick ribbon is added in one step, visible only in the chosen animation'
  assert.ok(ribbonQuickValues(ribbon).size>0);
 });
 
-test('a quick ribbon falls back to the first animation when none is chosen',()=>{
- assert.equal(quickRibbon(-1).placement.sequence,0);
-});
 
 test('Ribbon box values edit the ribbon and keep its split along the weapon',()=>{
  const {doc,id,node}=quickRibbon();

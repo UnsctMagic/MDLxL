@@ -1,20 +1,3 @@
-import {fitRibbonToPolygons} from './particle-ribbon-fit.js';
-import {placeTimedParticleRecipe} from './particle-placement.js';
-
-/** Sections an added ribbon touches; one undo step restores the model. */
-export const RIBBON_ADD_SECTIONS=['Nodes','Textures','Materials','TextureAnims','GlobalSequences','PivotPoints'];
-
-/** Recipe for a ribbon along the marked polygons, visible in one animation. */
-export function ribbonPlacement(model,selection,sequence){
- const ribbon=fitRibbonToPolygons(model,selection),index=model.Sequences[sequence]?sequence:0;
- return {ribbon,position:[0,0,0],motion:'target',fit:true,sequence:index,sequences:model.Sequences.length?[index]:[],parent:ribbon.parent==null?'':String(ribbon.parent)};
-}
-
-export function addRibbon(model,recipe,placement){
- const result=placeTimedParticleRecipe(model,recipe,placement,{convertHD:true});
- return {id:result.ids[0],interval:result.interval,convertedHD:result.convertedHD};
-}
-
 const peak=value=>typeof value==='number'?value:value?.Keys?.length?Math.max(...value.Keys.map(key=>key.Vector[0])):0;
 const keyed=value=>!!value?.Keys;
 const mapKeys=(track,map)=>({...track,Keys:track.Keys.map(key=>({...key,Vector:new Float32Array(map(Array.from(key.Vector))),...(key.InTan?{InTan:new Float32Array(map(Array.from(key.InTan),true))}:{}),...(key.OutTan?{OutTan:new Float32Array(map(Array.from(key.OutTan),true))}:{})}))});

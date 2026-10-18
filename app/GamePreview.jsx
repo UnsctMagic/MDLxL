@@ -2,8 +2,6 @@ import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js
 import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ribbonQuickValues, setRibbonQuick } from '../src/ribbon-quick.js';
-import { ribbonSizeAt, setRibbonSizeKey } from '../src/ribbon-timing.js';
 import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles, zoomEditorCamera } from './editor-camera-controls.js';
 import { viewportCursor, showcaseCursor } from './viewport-cursors.js';
 import { createPreviewSceneGL } from './preview-scene-gl.js';
@@ -263,7 +261,6 @@ export default function GamePreview(inputProps) {
     host.current.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: graphicsOptions(latest.current.preferences).antialias, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let ribbonHandles = null, ribbonGesture = null, ribbonAxis = null, ribbonSizeDraft = null;
     let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
@@ -1276,101 +1273,6 @@ export default function GamePreview(inputProps) {
         if (cameraCanvas.height !== canvas.height) cameraCanvas.height = canvas.height;
         drawModelCameraOverlay(cameraCanvas.getContext('2d'), ownedModel, camera, canvas.clientWidth, canvas.clientHeight, canvas.width / Math.max(1, canvas.clientWidth), native.getFrame(), poseSequence, globalClock, radius, visualOptions(p.preferences).node, p.portraitMode ? PORTRAIT_ASPECT : 4 / 3);
       } else if (cameraCanvas) { cameraCanvas.remove(); cameraCanvas = null; }
-      // Ribbon box: drag the two ends to stretch the strip, or the strip itself to move it.
-      // Smooth Size turns the ends green: they then shape one size key, which App commits.
-      const ribbonNode = p.ribbonEdit != null && p.onRibbonEdges && !p.suspended ? ownedModel.RibbonEmitters?.find(node => node.ObjectId === p.ribbonEdit) : null;
-      const sizeKey = ribbonNode && p.ribbonSizeKey?.id === ribbonNode.ObjectId ? p.ribbonSizeKey : null;
-      if (ribbonSizeDraft && (!sizeKey || ribbonSizeDraft.id !== sizeKey.id)) {
-        const draftNode = ownedModel.RibbonEmitters?.find(node => node.ObjectId === ribbonSizeDraft.id);
-        if (draftNode) { draftNode.HeightAbove = ribbonSizeDraft.HeightAbove; draftNode.HeightBelow = ribbonSizeDraft.HeightBelow; }
-        ribbonSizeDraft = null; invalidate();
-      }
-      if (sizeKey) {
-        if (!ribbonSizeDraft) ribbonSizeDraft = { id: sizeKey.id, HeightAbove: structuredClone(ribbonNode.HeightAbove), HeightBelow: structuredClone(ribbonNode.HeightBelow), stamp: null };
-        const stamp = [sizeKey.frame, sizeKey.sequenceIndex, sizeKey.above, sizeKey.below].join(':');
-        if (!ribbonGesture && ribbonSizeDraft.stamp !== stamp) {
-          ribbonNode.HeightAbove = structuredClone(ribbonSizeDraft.HeightAbove); ribbonNode.HeightBelow = structuredClone(ribbonSizeDraft.HeightBelow);
-          try { setRibbonSizeKey(ownedModel, sizeKey.id, sizeKey.frame, sizeKey.sequenceIndex, sizeKey); } catch {}
-          ribbonSizeDraft.stamp = stamp; invalidate();
-        }
-      }
-      const ribbonMatrix = ribbonNode && native.rendererData?.nodes?.[ribbonNode.ObjectId]?.matrix;
-      if (ribbonMatrix) {
-        if (!ribbonHandles) ribbonHandles = ['move', 'above', 'below'].map(part => {
-          const element = ownerDocument.createElement('div'); element.className = part === 'move' ? 'ribbon-strip-handle' : 'ribbon-end-handle'; element.dataset.ribbonEnd = part;
-          element.setAttribute('aria-label', { move: 'Drag ribbon', above: 'Drag ribbon upper end', below: 'Drag ribbon lower end' }[part]);
-          const node = () => ownedModel.RibbonEmitters?.find(item => item.ObjectId === latest.current.ribbonEdit);
-          const keyOf = () => latest.current.ribbonSizeKey?.id === latest.current.ribbonEdit ? latest.current.ribbonSizeKey : null;
-          const restore = (gesture, redraw = true) => {
-            const current = node(); if (current) Object.assign(current, structuredClone(gesture.baseline));
-            if (ownedModel.PivotPoints && gesture.baseline.PivotPoint) ownedModel.PivotPoints[gesture.id] = structuredClone(gesture.baseline.PivotPoint);
-            if (redraw) invalidate();
-          };
-          const change = gesture => part === 'move' ? { move: gesture.value } : { [part]: gesture.value };
-          const preview = gesture => {
-            restore(gesture, false);
-            if (gesture.key) { const values = { above: gesture.key.above, below: gesture.key.below, [part]: gesture.value }; try { setRibbonSizeKey(ownedModel, gesture.id, gesture.key.frame, gesture.key.sequenceIndex, values); } catch { restore(gesture, false); } }
-            else setRibbonQuick(ownedModel, gesture.id, change(gesture));
-            invalidate();
-          };
-          const end = (event, commit) => {
-            const gesture = ribbonGesture; if (!gesture || gesture.part !== part) return; ribbonGesture = null;
-            if (element.hasPointerCapture?.(event.pointerId)) element.releasePointerCapture(event.pointerId);
-            if (!commit || gesture.value == null) { restore(gesture); return; }
-            // Smooth Size keeps a draft until Commit; otherwise the owned preview already shows the committed result.
-            if (gesture.key) { latest.current.onRibbonSizeDraft?.({ [part]: gesture.value }); invalidate(); }
-            else if (latest.current.onRibbonEdges?.(gesture.id, change(gesture)) === false) restore(gesture); else invalidate();
-          };
-          element.addEventListener('pointerdown', event => {
-            event.preventDefault(); event.stopPropagation(); const current = node(), key = part === 'move' ? null : keyOf();
-            if (event.button !== 0 || !current || !ribbonAxis) return;
-            element.setPointerCapture(event.pointerId); latest.current.onPlayingChange?.(false);
-            const values = key ? ribbonSizeAt(ownedModel, current.ObjectId, key.frame, key.sequenceIndex) : ribbonQuickValues(current);
-            const parent = native.rendererData?.nodes?.[current.Parent]?.matrix, toLocal = new THREE.Matrix3().setFromMatrix4(parent ? new THREE.Matrix4().fromArray(parent) : new THREE.Matrix4()).invert();
-            ribbonGesture = { part, id: current.ObjectId, key, x: event.clientX, y: event.clientY, axis: { ...ribbonAxis }, toLocal, right: new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion), up: new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion),
-              start: part === 'move' ? 0 : values[part], value: null, baseline: key ? { HeightAbove: structuredClone(ribbonSizeDraft?.HeightAbove ?? current.HeightAbove), HeightBelow: structuredClone(ribbonSizeDraft?.HeightBelow ?? current.HeightBelow) } : { HeightAbove: structuredClone(current.HeightAbove), HeightBelow: structuredClone(current.HeightBelow), PivotPoint: structuredClone(current.PivotPoint || ownedModel.PivotPoints?.[current.ObjectId]) } };
-          });
-          element.addEventListener('pointermove', event => {
-            const gesture = ribbonGesture; if (!gesture || gesture.part !== part || !node()) return;
-            const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y, unit = gesture.axis.unitsPerPixel;
-            if (part === 'move') {
-              // Screen drag in the camera plane, turned into the weapon's rest space so every animation follows.
-              gesture.value = gesture.right.clone().multiplyScalar(dx * unit).addScaledVector(gesture.up, -dy * unit).applyMatrix3(gesture.toLocal).toArray();
-            } else {
-              // Like the move gizmo: pixels along the on-screen direction, at the camera's units per pixel.
-              // Dividing by the projected length would explode when the blade points at the camera.
-              const along = (dx * gesture.axis.dx + dy * gesture.axis.dy) * unit;
-              gesture.value = Math.max(0, gesture.start + (part === 'above' ? along : -along));
-            }
-            preview(gesture);
-          });
-          element.addEventListener('pointerup', event => end(event, true));
-          element.addEventListener('pointercancel', event => end(event, false));
-          element.addEventListener('keydown', event => { if (event.key === 'Escape' && ribbonGesture) { event.stopPropagation(); end(event, false); } });
-          host.current.appendChild(element); return element;
-        });
-        const width = canvas.clientWidth, height = canvas.clientHeight, matrix = new THREE.Matrix4().fromArray(ribbonMatrix), pivot = new THREE.Vector3().fromArray(ribbonNode.PivotPoint || [0, 0, 0]);
-        const interp = native.ribbonsController.interp, above = interp.animVectorVal(ribbonNode.HeightAbove, 0), below = interp.animVectorVal(ribbonNode.HeightBelow, 0);
-        const project = y => { const point = pivot.clone().add(new THREE.Vector3(0, y, 0)).applyMatrix4(matrix).project(camera); return { x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2, visible: point.z >= -1 && point.z <= 1 }; };
-        const ends = { above: project(above), below: project(-below) };
-        if (!ribbonGesture) {
-          const a = above + below > 1e-3 ? ends.below : project(0), b = above + below > 1e-3 ? ends.above : project(1), length = Math.hypot(b.x - a.x, b.y - a.y), world = pivot.clone().applyMatrix4(matrix);
-          const unitsPerPixel = camera.isPerspectiveCamera ? 2 * world.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360) / camera.zoom / height : (camera.top - camera.bottom) / camera.zoom / height;
-          ribbonAxis = length > 1e-6 ? { dx: (b.x - a.x) / length, dy: (b.y - a.y) / length, unitsPerPixel } : { dx: 0, dy: -1, unitsPerPixel };
-        }
-        for (const element of ribbonHandles) {
-          element.classList.toggle('size-key', !!sizeKey);
-          if (element.dataset.ribbonEnd === 'move') {
-            const a = ends.below, b = ends.above, length = Math.hypot(b.x - a.x, b.y - a.y);
-            element.hidden = !!sizeKey || !a.visible || !b.visible || length < 16;
-            element.title = 'Drag the ribbon to move it on the weapon.';
-            element.style.left = a.x + 'px'; element.style.top = a.y + 'px'; element.style.width = Math.max(0, length) + 'px'; element.style.transform = 'rotate(' + Math.atan2(b.y - a.y, b.x - a.x) + 'rad)';
-          } else {
-            const point = ends[element.dataset.ribbonEnd]; element.hidden = !point.visible; element.style.left = point.x + 'px'; element.style.top = point.y + 'px';
-            element.title = sizeKey ? 'Drag to set the ribbon size at this key. Commit writes it.' : 'Drag to stretch the ribbon along the weapon, in every frame.';
-          }
-        }
-      } else if (ribbonHandles) { ribbonHandles.forEach(element => element.remove()); ribbonHandles = null; ribbonGesture = null; }
       const selectedControls = !!p.onNodeTransform && !!p.selectedNodeIds?.length && ['move', 'rotate', 'scale'].includes(p.transformMode), poseVisible = !!p.poseConfig?.enabled && !p.restPose;
       if (overlayOptions.bones || overlayOptions.boneLines || overlayOptions.nodes || overlayOptions.attachments || overlayOptions.particles || overlayOptions.ribbons || overlayOptions.sounds || overlayOptions.events || selectedControls || poseVisible) {
         if (!connectorCanvas) { connectorCanvas = ownerDocument.createElement('canvas'); connectorCanvas.dataset.connectorOverlay = ''; connectorCanvas.style.cssText = 'position:absolute;z-index:15;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(connectorCanvas); }
@@ -1607,7 +1509,7 @@ export default function GamePreview(inputProps) {
       compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
-      disposed = true; pinButton?.remove(); ribbonHandles?.forEach(element => element.remove()); canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.antialias, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 

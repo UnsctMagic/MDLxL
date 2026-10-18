@@ -50,7 +50,6 @@ export function classicTimelineTargets(model, { tracks = null, nodeIds = [], geo
     let included;
     if (activeController.startsWith('materialVisibility:')) included = target.kind === 'material' && activeController === `materialVisibility:${target.id}:${target.layer}`;
     else if (!highlightKeyframes) included = !!timelineReadTrack(model, target)?.Keys?.length;
-    else if (activeController === 'ribbon') included = target.kind === 'node' && nodes.has(target.id) && ['Visibility', 'Alpha', 'HeightAbove', 'HeightBelow'].includes(target.property);
     else if (activeController === 'nodeVisibility') included = target.kind === 'node' && nodes.has(target.id) && target.property === 'Visibility';
     else if (activeController === 'animations') included = target.kind === 'geoset' ? geosets.has(target.id) && ['Alpha', 'Color'].includes(target.property) : target.kind === 'node' && nodes.has(target.id) && appearance.has(target.property);
     else included = target.kind === 'node' && nodes.has(target.id) && target.property === transforms[activeController];

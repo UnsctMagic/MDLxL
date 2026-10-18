@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createDemoDocument,openDocument} from '../src/editor-document.js';
-import {ribbonPlacement,addRibbon,RIBBON_ADD_SECTIONS} from '../src/ribbon-quick.js';
+import {fitRibbonToPolygons} from '../src/particle-ribbon-fit.js';
+import {placeTimedParticleRecipe} from '../src/particle-placement.js';
+const SECTIONS=['Nodes','Textures','Materials','TextureAnims','GlobalSequences','PivotPoints'];
+const addTestRibbon=(doc,selection,sequence)=>{const ribbon=fitRibbonToPolygons(doc.model,selection),placement={ribbon,position:[0,0,0],motion:'target',fit:true,sequence,sequences:[sequence],parent:ribbon.parent==null?'':String(ribbon.parent)};let added;doc.apply('Add ribbon',SECTIONS,m=>{added=placeTimedParticleRecipe(m,ribbon.recipe,placement,{convertHD:true});});return {placement,id:added.ids[0]};};
 import {ribbonSpans,setRibbonSpans,addSpan,normalizeSpans,ribbonSizeKeys,ribbonSizeAt,setRibbonSizeKey,removeRibbonSizeKey} from '../src/ribbon-timing.js';
 
 const quickRibbon=(sequence=0)=>{
  const doc=createDemoDocument(),geo=doc.model.Geosets[0],selection={0:Array.from(new Set(geo.Faces.slice(0,12)))};
- const placement=ribbonPlacement(doc.model,selection,sequence);let added;
- doc.apply('Add ribbon',RIBBON_ADD_SECTIONS,m=>{added=addRibbon(m,placement.ribbon.recipe,placement);});
+ const {placement,id}=addTestRibbon(doc,selection,sequence),added={id};
  return {doc,id:added.id,interval:Array.from(doc.model.Sequences[sequence].Interval)};
 };
 

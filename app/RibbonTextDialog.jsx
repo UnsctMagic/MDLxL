@@ -9,7 +9,7 @@ export default function RibbonTextDialog({doc,id,onEdit,onClose}){
   try{const parsed=parseRibbonMdlText(doc,id,text);if(onEdit('Adjust ribbon manually',['Nodes'],m=>{applyRibbonNode(m,id,parsed);})!==false)onClose();}
   catch(problem){setError(problem.message);}
  };
- return <div className="classic-modal" onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onClose();}}}>
+ return <div className="classic-modal" onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')onClose();}}>
   <section className="classic-modal-window ribbon-text-dialog" role="dialog" aria-label="Adjust ribbon manually">
    <div className="ribbon-box-heading"><b>Adjust Manually</b><span>Exact MDL text of this ribbon</span><button aria-label="Close manual ribbon text" onClick={onClose}>×</button></div>
    <p className="ribbon-text-help">This is exactly what the model saves for this ribbon. Keyframes are <code>frame: value,</code> lines. Colors are written Blue, Green, Red. Apply checks the text like opening an SD model; Ctrl+Z undoes it.</p>
