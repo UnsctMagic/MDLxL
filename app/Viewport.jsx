@@ -7,7 +7,7 @@ import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay } from './preview-overlays.js';
 import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
-import { drawMovementOverlay, projectMovementNodes, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
+import { drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
 import { visibleMovementPoints } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { projectPreviewGeosets, pickPreviewGeoset } from './preview-selection.js';
@@ -32,7 +32,7 @@ import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture,
 import { projectCompassAxes } from './viewport-compass.js';
 import { configureWideWirePattern } from '../src/wire-pattern.js';
 
-import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, projectedPlaneTranslation, quadProjectedPlaneTranslation } from './viewport-math.js';
+import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, planeScreenBasis, projectedPlaneTranslation, quadProjectedPlaneTranslation } from './viewport-math.js';
 import { createViewportGrid } from './viewport-grid.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
 import { backgroundImageRect } from '../src/viewport-appearance.js';
@@ -190,7 +190,7 @@ export default function Viewport(inputProps) {
     ambient.position.set(0, 0, 300); scene.add(ambient);
     const key = new THREE.DirectionalLight(0xffeed7, 2.8); key.position.set(200, -280, 350); scene.add(key);
     scene.add(key.target);
-    let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, rotating = false;
+    let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, rotating = false;
     let grid = createViewportGrid(); scene.add(grid);
     const rigMarkers = createRigMarkersGL(renderer.getContext()); renderer.resetState();
     const platform = createPreviewPlatform(() => invalidate()); scene.add(platform);
@@ -427,6 +427,29 @@ export default function Viewport(inputProps) {
     }
     function editableGeosets(p) { return p.selectableGeosets == null ? new Set([p.selectedGeoset]) : new Set(p.selectableGeosets); }
     function selections(p) { return p.selectionByGeoset || { [p.selectedGeoset]: selectionArray(p.selectedVertices) }; }
+    /** Workplane off in a single view: the Move tool shows the POSE arrows and plane squares at the selection. */
+    function gizmoPivot(p) {
+      if (quad || p.transformMode !== 'translate' || p.workplaneEnabled !== false || !p.onTransform || p.onStartPartDrag || p.normalizer || p.presentation === 'preview' || p.sequenceIndex >= 0 || p.playing) return null;
+      const active = editableGeosets(p), pivot = new THREE.Vector3(); let count = 0;
+      for (const [key, ids] of Object.entries(selections(p))) {
+        const entry = state.entries[key], position = entry?.geometry.attributes.position, hidden = new Set(p.hiddenVertices?.[key] || []);
+        if (!active.has(Number(key)) || !entry?.group.visible) continue;
+        for (const i of selectionArray(ids)) if (Number.isInteger(i) && i >= 0 && i < position.count && !hidden.has(i)) { pivot.add(new THREE.Vector3().fromBufferAttribute(position, i)); count++; }
+      }
+      if (!count) return null;
+      const anchor = p.zoomAnchor, anchorEntry = anchor && state.entries[anchor.geosetIndex];
+      if (anchorEntry && selectionArray(selections(p)[anchor.geosetIndex]).includes(anchor.vertexIndex)) return pivot.fromBufferAttribute(anchorEntry.geometry.attributes.position, anchor.vertexIndex);
+      return pivot.multiplyScalar(1 / count);
+    }
+    /** An arrow moves along its axis and a square within its plane, under the pointer. */
+    function gizmoTranslation(start, end, drag) {
+      const handle = drag.handle, dx = end.x - start.x, dy = end.y - start.y;
+      if (handle.plane) return new THREE.Vector3().fromArray(projectedPlaneTranslation(handle.plane, planeScreenBasis(camera, drag.pivot, end.width, end.height, handle.plane), dx, dy));
+      const axis = 'XYZ'.indexOf(handle.axis), origin = drag.pivot.clone().project(camera), tip = drag.pivot.clone().setComponent(axis, drag.pivot.getComponent(axis) + 1).project(camera);
+      const ax = (tip.x - origin.x) * end.width / 2, ay = (origin.y - tip.y) * end.height / 2, pixels = ax * ax + ay * ay;
+      // An axis pointing at the camera keeps its short stand-in arrow and a steady speed.
+      return new THREE.Vector3().setComponent(axis, Math.hypot(handle.projectedDx, handle.projectedDy) < 18 ? movementDragAmount(handle, dx, dy, 'move') : (dx * ax + dy * ay) / pixels);
+    }
     function screenPosition(value, rect) { const projected = value.clone().project(camera); return new THREE.Vector2((projected.x + 1) * rect.width / 2, (1 - projected.y) * rect.height / 2); }
     function anchorVertexInMarquee(p, start, end) {
       const active = editableGeosets(p), selected = selections(p), screen = new THREE.Vector3(), radius = Math.max(5, visualOptions(p.preferences).vertexSize / 2);
@@ -479,7 +502,8 @@ export default function Viewport(inputProps) {
       if (p.normalizer) { down.action = 'normalizer'; event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (p.choosingZoomAnchor) { down.action = 'anchor'; state.anchorCandidate = null; return; }
       if (p.onStartPartDrag) { down.action = 'parts'; down.parts = p.onStartPartDrag({ start, end: start, camera, grabThrough: false }); return; }
-      if(p.onSelectNodes&&!down.ctrl){
+      const gizmoHandle = state.gizmoHandles?.length ? pickMovementHandle(state.gizmoHandles, start.x, start.y, 'move') : null;
+      if(p.onSelectNodes&&!down.ctrl&&!gizmoHandle){
         const nodes=visibleMovementPoints(projectMovementNodes(p.model,state.frame,p.sequenceIndex,camera,start.width,start.height,state.globalTime,state.matrices,p.vanilla),viewportOverlayOptions(p));
         const picked=pickMovementNode(nodes,start.x,start.y,p.selectedNodeIds,13,p.transformMode==='translate');
         if(picked){
@@ -518,9 +542,10 @@ export default function Viewport(inputProps) {
       if (anchorIndices?.includes(anchor.vertexIndex)) pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
       down.pivotScreen = screenPosition(pivot, start);
       const lockedPlane = quad && boundPane.workplane;
-      state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null }, latch: shiftDragLatch(start, event.shiftKey) };
+      state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, handle: gizmoHandle, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null }, latch: shiftDragLatch(start, event.shiftKey) };
     }
     function translateInPlane(start, end, drag, constrain) {
+      if (drag.handle) return gizmoTranslation(start, end, drag);
       if (!drag.workplaneEnabled) return freeDragTranslation(camera, drag.pivot, end.width, end.height, end.x - start.x, end.y - start.y, { shift: constrain, workplane: drag.workplane });
       const axes = planeAxes(drag.workplane), center = screenPosition(drag.pivot, end);
       const basis = axes.map(axis => { const value = drag.pivot.clone(); value.setComponent(axis, value.getComponent(axis) + 1); return screenPosition(value, end).sub(center).toArray(); });
@@ -879,6 +904,13 @@ export default function Viewport(inputProps) {
           if (!editCanvas) { editCanvas = document.createElement('canvas'); editCanvas.dataset.editHandles = ''; editCanvas.setAttribute('aria-label', 'Shaping handles'); editCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(editCanvas); }
           drawEditHandles(editCanvas, p.editHandles, camera, surface.clientWidth, surface.clientHeight, renderer.getPixelRatio());
         } else if (editCanvas) { editCanvas.remove(); editCanvas = null; }
+        const gizmoAt = gizmoPivot(p), gizmoScreen = gizmoAt?.clone().project(camera);
+        state.gizmoHandles = gizmoScreen ? movementAxisHandles({ world: gizmoAt, x: (gizmoScreen.x + 1) * surface.clientWidth / 2, y: (1 - gizmoScreen.y) * surface.clientHeight / 2, visible: gizmoScreen.z >= -1 && gizmoScreen.z <= 1 }, camera, surface.clientWidth, surface.clientHeight, state.radius, 'world', 'move') : [];
+        if (state.gizmoHandles.length) {
+          if (!gizmoCanvas) { gizmoCanvas = document.createElement('canvas'); gizmoCanvas.dataset.moveGizmo = ''; gizmoCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2'; overlayHost.appendChild(gizmoCanvas); }
+          gizmoCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); gizmoCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
+          drawMovementGizmo(gizmoCanvas.getContext('2d'), state.gizmoHandles, renderer.getPixelRatio(), state.drag?.handle?.axis, viewportAppearanceOptions(p.preferences).controllers);
+        } else if (gizmoCanvas) { gizmoCanvas.remove(); gizmoCanvas = null; }
         if (p.presentation === 'preview' && previewOverlaySettings(p.previewOverlay).mode !== 'none') {
           if (!previewCanvas) { previewCanvas = document.createElement('canvas'); previewCanvas.dataset.geometryOverlay = ''; previewCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(previewCanvas); }
           previewCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); previewCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
@@ -953,7 +985,7 @@ export default function Viewport(inputProps) {
       renderer.domElement.removeEventListener('webglcontextlost', contextLost);
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
       window.removeEventListener('mdlxl-cancel-gesture', cancelCommand);
-      cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
+      cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };
   }, [graphics.antialias]);
 
@@ -1059,7 +1091,7 @@ export default function Viewport(inputProps) {
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, showGrid, props.overlays?.grid, props.preferences?.grid]);
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.normalizer, props.normalChanges, props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.editHandles, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.normalizer, props.normalChanges, props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.editHandles, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, props.workplaneEnabled, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
   return <div className="viewport" style={{ position: 'relative', width: '100%', height: '100%', minHeight: props.presentation === 'preview' ? 0 : 180, background: '#ccc', overflow: 'hidden' }}>
     <div ref={host} tabIndex={0} aria-label="3D model viewport" style={{ position: 'absolute', inset: 0, outline: 'none', cursor: viewportCursor(cameraMode, transformMode) }} />
     {!props.quadView && props.showOrientationCompass !== false && props.presentation !== 'preview' && <div className="viewport-orientation-compass" aria-label="View orientation" title="View orientation — click an axis to snap the camera" style={{ position: 'absolute', top: 31, left: 4, width: 82, height: 82, zIndex: 3, filter: 'drop-shadow(0 1px 2px #0008)' }}>
