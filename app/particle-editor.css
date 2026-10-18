@@ -65,11 +65,8 @@
 .pe-life-table thead button{width:100%;padding:2px 4px}.pe-life-table input[type=number]{width:100%;box-sizing:border-box}.pe-life-table input[type=color]{width:100%;height:22px;padding:0}
 .pe-life-table col.pe-life-label{width:30%}.pe-life-frames{display:flex;gap:6px;align-items:center;justify-content:center}.pe-life-frames button{flex:1;padding:2px 6px;white-space:nowrap}.pe-life-frames span{color:var(--ui-text-muted,#555)}
 .pe-frame-strip{display:flex;flex-direction:column;gap:6px;margin:6px 0}
-.pe-frame-row{display:flex;gap:6px;align-items:flex-start}.pe-frame-preview{flex:none;width:48px;height:48px;background:#222;border:1px solid var(--ui-border,#888)}
 .pe-frame-cells{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:3px;max-height:124px;overflow-y:auto;overflow-x:hidden;user-select:none;touch-action:none}
 .pe-frame-cell{position:relative;flex:none;width:36px;height:36px;background:#222;border:2px solid transparent;cursor:pointer;opacity:.45}.pe-frame-cell.chosen{border-color:#ffce5a;opacity:1}.pe-frame-cell canvas{display:block;width:36px;height:36px}
 .pe-frame-cell span{position:absolute;left:1px;top:0;font-size:9px;color:#fff;text-shadow:0 0 2px #000;pointer-events:none}
-.pe-frame-heading{display:flex;gap:8px;align-items:baseline}.pe-frame-heading span{color:var(--ui-text-muted,#555);font-size:11px}
-.pe-frame-suggestions{display:flex;flex-wrap:wrap;gap:4px}.pe-frame-suggestions button{padding:2px 8px}.pe-frame-suggestions button[aria-pressed=true]{border-color:#ffce5a;box-shadow:inset 0 0 0 1px #ffce5a}
 .pe-frame-grid{display:flex;gap:10px;align-items:center}.pe-frame-step{display:flex;gap:3px;align-items:center}.pe-frame-step button{padding:0 6px}.pe-frame-step output{min-width:16px;text-align:center}
-.pe-frame-hint{color:var(--ui-text-muted,#555)}.pe-frame-load,.pe-frame-found{align-self:flex-start;padding:2px 8px}
+.pe-frame-pick{display:flex;align-items:center;gap:8px}.pe-frame-pick label{flex:1;display:flex;align-items:center;gap:6px}.pe-frame-pick select{flex:1}.pe-frame-preview{flex:none;width:40px;height:40px;background:#222;border:1px solid var(--ui-border,#888)}

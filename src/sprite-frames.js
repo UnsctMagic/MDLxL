@@ -86,8 +86,29 @@ export function setupValues(setup){
  return values;
 }
 
-/** Short button text, for example "Like rockchunks0 · 0→31". */
-export function setupLabel(setup){
+/** A plain name for what a frame setup does on screen. */
+export function patternName(setup){
+ const total=setup.rows*setup.columns,[la,lb,lr=1]=setup.life,[da,db,dr=1]=setup.decay;
  const {first,last}=playedFrames({Rows:setup.rows,Columns:setup.columns,LifeSpanUVAnim:setup.life,DecayUVAnim:setup.decay});
- return `Like ${setup.examples[0]||'the game'} · ${first===last?'frame '+first:first+'→'+last}`;
+ if(first===last)return 'Still frame';
+ if(da>db)return 'Forward, then backward';
+ if(Math.max(lr,dr)>=2)return Math.max(lr,dr)>=8?'Fast loop':'Looping';
+ if(da<=la+1&&db>la+1)return 'Plays twice';
+ if((last-first+1)/total>=.9)return 'Whole animation';
+ if(last<total*.6)return 'First half';
+ if(first>=total*.4)return 'Second half';
+ return 'Part of the animation';
+}
+
+/** The game's patterns for this sheet as clear choices; look-alikes are merged, most used first. */
+export function framePatterns(picture){
+ const byName=new Map();
+ for(const setup of suggestedSetups(picture)){const name=patternName(setup),known=byName.get(name);if(known)known.uses+=setup.uses;else byName.set(name,{name,uses:setup.uses,values:setupValues(setup)});}
+ return [...byName.values()].sort((a,b)=>b.uses-a.uses);
+}
+
+/** Whether the emitter currently plays exactly these frame values. */
+export function playsPattern(emitter,values){
+ const same=(a,b)=>String(Array.from(a||[]).slice(0,3))===String(Array.from(b||[]).slice(0,3));
+ return emitter.Rows===values.Rows&&emitter.Columns===values.Columns&&same(emitter.LifeSpanUVAnim,values.LifeSpanUVAnim)&&same(emitter.DecayUVAnim,values.DecayUVAnim);
 }

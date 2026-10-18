@@ -170,10 +170,11 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.getByRole('button',{name:'Look',exact:true}).click();
     // Own frames: set the grid with the steppers, then drag across the frames that play.
     assert.equal(await page.getByRole('listbox',{name:'Frames that play',exact:true}).count(),0,'A plain picture shows no frames');
+    await page.getByLabel('Frames',{exact:true}).selectOption('Custom…');
     await page.getByRole('button',{name:'More rows',exact:true}).click();await page.getByRole('button',{name:'More columns',exact:true}).click();let framed=(await readLab()).model.ParticleEmitters2[0];assert.equal(framed.Rows,2);assert.equal(framed.Columns,2);
     {const life=Object.values(framed.LifeSpanUVAnim),decay=Object.values(framed.DecayUVAnim);assert.equal(life[0],0);assert.equal(decay[1],4);assert.equal(life[1],decay[0],'Every frame plays once across the life, split at the halfway point');}
     const cells=page.getByRole('listbox',{name:'Frames that play',exact:true}).getByRole('option');assert.equal(await cells.count(),4);
-    const one=await cells.nth(1).boundingBox(),two=await cells.nth(2).boundingBox(),beforeStrip=await readLab();
+    await cells.nth(2).scrollIntoViewIfNeeded();const one=await cells.nth(1).boundingBox(),two=await cells.nth(2).boundingBox(),beforeStrip=await readLab();
     await page.mouse.move(one.x+one.width/2,one.y+one.height/2);await page.mouse.down();await page.mouse.move(two.x+two.width/2,two.y+two.height/2,{steps:4});await page.mouse.up();
     framed=(await readLab()).model.ParticleEmitters2[0];assert.deepEqual([Object.values(framed.LifeSpanUVAnim)[0],Object.values(framed.DecayUVAnim)[1]],[1,3],'Frames 1 to 2 play');assert.equal((await readLab()).undo,beforeStrip.undo+1);
     await page.waitForTimeout(300);await page.screenshot({path:path.join(out,'frame-strip.png')});

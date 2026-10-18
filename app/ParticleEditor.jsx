@@ -16,7 +16,7 @@ import ParticleCluelessControls from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import ParticleKeyTrack from './ParticleKeyTrack.jsx';
 import {detectPictureGrid} from './sprite-detect.js';
-import {spriteGridValues,suggestedSetups,setupValues} from '../src/sprite-frames.js';
+import {spriteGridValues,framePatterns} from '../src/sprite-frames.js';
 import {translate} from '../src/localization.js';
 import EmitterTextDialog from './EmitterTextDialog.jsx';
 import {ribbonSizeAt,setRibbonSizeKey,removeRibbonSizeKey,setEmitterSpans} from '../src/emitter-timing.js';
@@ -121,9 +121,9 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const fitFrames=async(asset,name,replaceableId=0)=>{
     try{
       // The game's own sprite sheets get the setup the game uses most; other pictures are looked at.
-      const known=!replaceableId&&suggestedSetups(name)[0],grid=known?{rows:known.rows,columns:known.columns}:await detectPictureGrid(asset,{name,replaceableId}),doc=latest.current.activeDoc,id=latest.current.emitterId,current=doc.model.ParticleEmitters2.find(n=>n.ObjectId===id);
+      const known=!replaceableId&&framePatterns(name)[0]?.values,grid=known?{rows:known.Rows,columns:known.Columns}:await detectPictureGrid(asset,{name,replaceableId}),doc=latest.current.activeDoc,id=latest.current.emitterId,current=doc.model.ParticleEmitters2.find(n=>n.ObjectId===id);
       if(!current||(!known&&current.Rows===grid.rows&&current.Columns===grid.columns))return;
-      if(apply(grid.rows*grid.columns>1?'Use sprite frames':'Use one picture',m=>{const node=m.ParticleEmitters2.find(n=>n.ObjectId===id);Object.assign(node,known?setupValues(known):spriteGridValues(node,grid.rows,grid.columns));})!==false){setStructure(v=>v+1);setMessage(grid.rows*grid.columns>1?'Found '+grid.rows*grid.columns+' frames. They play across the particle\'s life.':'');}
+      if(apply(grid.rows*grid.columns>1?'Use sprite frames':'Use one picture',m=>{const node=m.ParticleEmitters2.find(n=>n.ObjectId===id);Object.assign(node,known||spriteGridValues(node,grid.rows,grid.columns));})!==false){setStructure(v=>v+1);setMessage(grid.rows*grid.columns>1?'Found '+grid.rows*grid.columns+' frames. They play across the particle\'s life.':'');}
     }catch{}
   };
   const choosePicture=index=>{if(patch({TextureID:index,ReplaceableId:0})!==false){setStructure(v=>v+1);const image=model.Textures[index]?.Image;fitFrames(assets.get(pathKey(image)),image);}};
