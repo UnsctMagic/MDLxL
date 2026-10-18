@@ -577,7 +577,7 @@ export default function App() {
   const controlsWholeModel = ids => portraitModeActive && portraitSequenceIndices(model).includes(sequence) && controlModelIds.length > 0 && ids.length === controlModelIds.length && controlModelIds.every(id => ids.includes(id));
   const moveNodes = payload => {
     const pose=payload.restPose??restPose;
-    const change = {...payload, restPose:pose, workplaneEnabled: payload.workplaneEnabled ?? workplaneEnabled, workplane:payload.workplane??workplane, restrictions};
+    const change = {...payload, restPose:pose, workplaneEnabled: payload.workplaneEnabled ?? workplaneEnabled, workplane:payload.workplane??workplane, restrictions, globalSeqId: pose ? null : globalSeqId};
     if (movementRestricted(payload.mode || movementMode, restrictions)) return false;
     setPlaying(false); if (!pose) setTime(payload.time ?? time);
     const ids = payload.nodeIds || selectedNodeIds, controlModel = controlsWholeModel(ids) && ['move', 'rotate'].includes(change.mode);
@@ -1529,7 +1529,7 @@ export default function App() {
         portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
         liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
         selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}}
-        onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace || !restPose && globalSeqId !== null ? undefined : moveNodes}
+        onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 
     </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <aside className="classic-sidebar">
