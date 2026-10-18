@@ -214,8 +214,17 @@ function surgicalMdl(original, sections, generated, keys) {
   const fresh = scanMdlSections(generated);
   const replacements = new Map();
   for (const key of keys) replacements.set(key, Buffer.concat(fresh.filter((s) => s.key === key).flatMap((s) => [generated.subarray(s.start, s.end), Buffer.from('\n')])));
+  // As in MDX, a section new to this file goes before the first later one
+  // instead of after PivotPoints at the end of the text.
+  const order = new Map(); fresh.forEach((section, index) => { if (section.key && !order.has(section.key)) order.set(section.key, index); });
+  const present = new Set(sections.map(section => section.key));
+  const pending = [...replacements.keys()].filter(key => !present.has(key) && replacements.get(key).length).sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity));
   const parts = []; const inserted = new Set(); let cursor = 0;
   for (const section of sections) {
+    if (pending.length && order.has(section.key) && (order.get(pending[0]) ?? Infinity) < order.get(section.key)) {
+      parts.push(original.subarray(cursor, section.start)); cursor = section.start;
+      while (pending.length && (order.get(pending[0]) ?? Infinity) < order.get(section.key)) { const key = pending.shift(); parts.push(replacements.get(key)); inserted.add(key); }
+    }
     if (!replacements.has(section.key)) continue;
     parts.push(original.subarray(cursor, section.start));
     if (!inserted.has(section.key)) { parts.push(replacements.get(section.key)); inserted.add(section.key); }
@@ -242,8 +251,15 @@ function surgicalMdx(original, container, generated, keys) {
   if (fresh.hasErrors) throw new Error('Generated MDX has an invalid chunk structure.');
   const tags = new Set(keys.map((key) => SECTION_TYPES[key][1]));
   const replacements = new Map([...tags].map((tag) => [tag, Buffer.concat(fresh.chunks.filter((chunk) => chunk.tag === tag).map((chunk) => generated.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize)))]));
+  // A section new to this file goes where the writer places it, before the
+  // first later section. MdlVis reads GLBS only after SEQS; a GLBS appended at
+  // the end of the file made MdlVis lose the global sequence and hang.
+  const order = new Map(); fresh.chunks.forEach((chunk, index) => { if (!order.has(chunk.tag)) order.set(chunk.tag, index); });
+  const present = new Set(container.chunks.map(chunk => chunk.tag));
+  const pending = [...tags].filter(tag => !present.has(tag)).sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity));
   const inserted = new Set(); const parts = [original.subarray(0, 4)];
   for (const chunk of container.chunks) {
+    while (pending.length && order.has(chunk.tag) && (order.get(pending[0]) ?? Infinity) < order.get(chunk.tag)) { const tag = pending.shift(); parts.push(replacements.get(tag)); inserted.add(tag); }
     if (!tags.has(chunk.tag)) parts.push(original.subarray(chunk.offset, chunk.payloadOffset + chunk.declaredSize));
     else if (!inserted.has(chunk.tag)) { parts.push(replacements.get(chunk.tag)); inserted.add(chunk.tag); }
   }

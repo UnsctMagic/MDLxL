@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { allNodes, sampleNodeMatrices } from '../src/animation.js';
 import { nodeKind } from '../src/editor-commands.js';
 import {
-  applyMovementPose, applyMovementTransform, constrainMovementVector, deleteMovementControllers,
+  applyMovementPose, applyMovementTransform, constrainMovementVector, deleteMovementControllers, globalMovementView,
   movementControllerType, movementPlaneAxis, movementProperties, movementRestricted,
   setMovementBezierHandles, setMovementControllerType, setMovementHermiteCurve,
 } from '../src/movement.js';
@@ -71,9 +71,11 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
   }, [createOpen, onCreateOpen]);
   const frame = Math.round(time), globalDomain = !restPose && Number.isInteger(globalSeqId) && globalSeqId >= 0;
   const editSequenceIndex = restPose || globalDomain ? -1 : sequenceIndex >= 0 ? sequenceIndex : (model.Sequences || []).findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
-  const summary = useMemo(() => movementSelectionSummary(model, selectedNodeIds, selectionByGeoset, { time: frame, sequenceIndex: editSequenceIndex, restPose }), [model, revision, selectedNodeIds, selectionByGeoset, frame, editSequenceIndex, restPose]);
-  const editableNodes = !disabled && !globalDomain && selected.length > 0 && (restPose || editSequenceIndex >= 0);
-  const poseTarget = !restPose && poseConfig?.enabled && poseConfig.target;
+  // A global sequence is measured as the preview shows it: other animation frozen.
+  const globalView = useMemo(() => globalDomain && model.GlobalSequences?.[globalSeqId] > 0 ? globalMovementView(model, globalSeqId) : null, [model, revision, globalDomain, globalSeqId]);
+  const summary = useMemo(() => movementSelectionSummary(globalView?.model ?? model, selectedNodeIds, selectionByGeoset, { time: frame, sequenceIndex: globalView?.sequenceIndex ?? editSequenceIndex, restPose }), [model, globalView, revision, selectedNodeIds, selectionByGeoset, frame, editSequenceIndex, restPose]);
+  const editableNodes = !disabled && selected.length > 0 && (restPose || editSequenceIndex >= 0 || !!globalView);
+  const poseTarget = !restPose && !globalDomain && poseConfig?.enabled && poseConfig.target;
   const connected = poseTarget && poseNodeControl(model, poseConfig, poseTarget, 'move').joints.length > 0;
   const coordinateCenter = useMemo(() => connected ? poseControlPoint(model, poseConfig, poseTarget.id, sampleNodeMatrices(model, frame, editSequenceIndex, frame)).toArray() : summary.center, [connected, model, revision, poseConfig, poseTarget, frame, editSequenceIndex, summary.center]);
   const blocked = mode => poseTarget && mode !== 'select' ? poseTarget.kind === 'bend' && mode === 'scale' || movementRestricted((poseTarget.kind === 'endpoint' || connected) && mode === 'move' || poseTarget.kind === 'bend' ? 'rotate' : mode, restrictions) : movementRestricted(mode, restrictions) || restPose && mode !== 'move' && mode !== 'select';
@@ -87,8 +89,8 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
   useEffect(() => { setIncoming(vectorText(selectedKey?.InTan || selectedKey?.Vector)); setOutgoing(vectorText(selectedKey?.OutTan || selectedKey?.Vector)); }, [selectedKey, revision, controllerType]);
 
   const poseResult = useRef(null);
-  const run = (label, mutate) => {
-    if (disabled || globalDomain) return false;
+  const run = (label, mutate, globalEdit = false) => {
+    if (disabled || globalDomain && !globalEdit) return false;
     setError(''); onPlayingChange?.(false); poseResult.current = null;
     try {
       let cause;
@@ -103,6 +105,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
   };
   const options = { restPose, workplaneEnabled, workplane, restrictions };
   const transform = (current, change) => {
+    if (globalDomain) return applyMovementTransform(current, selectedNodeIds, frame, -1, { ...change, globalSeqId });
     if (poseTarget && selected.length === 1) {
       const chain = poseConfig.chains.find(item => item.key === poseTarget.key);
       const id = poseTarget.kind === 'body' ? poseConfig.body : poseTarget.kind === 'node' ? poseTarget.id : chain?.end;
@@ -122,7 +125,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
   const commitPosition = (index, value) => {
     if (!coordinateCenter || blocked('move')) return;
     const translation = [0, 0, 0]; translation[index] = value - coordinateCenter[index];
-    if (summary.source === 'nodes') run(controlModel ? 'Control Model' : restPose ? 'Move rest-pose pivots' : 'Move bones and nodes', current => transform(current, { ...options, mode: 'move', space: 'world', values: translation }));
+    if (summary.source === 'nodes') run(controlModel ? 'Control Model' : restPose ? 'Move rest-pose pivots' : 'Move bones and nodes', current => transform(current, { ...options, mode: 'move', space: 'world', values: translation }), true);
     else if (restPose && onVertexTransform) { onPlayingChange?.(false); onVertexTransform({ translation: constrainMovementVector(translation, options), selections: selectionByGeoset }); }
   };
   const coordinateValues = ['rotate', 'scale'].includes(transformMode) ? values : coordinateCenter;
@@ -132,7 +135,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
     const transformValues = transformMode === 'scale' ? [1, 1, 1] : [0, 0, 0];
     transformValues[index] = value;
     setValues(previous => previous.map((entry, i) => i === index ? value : entry));
-    if (!blocked(transformMode)) run(controlModel ? 'Control Model' : `${titles[transformMode]} bones and nodes`, current => transform(current, { ...options, mode: transformMode, space: transformMode === 'rotate' ? transformSpace : 'world', values: transformValues }));
+    if (!blocked(transformMode)) run(controlModel ? 'Control Model' : `${titles[transformMode]} bones and nodes`, current => transform(current, { ...options, mode: transformMode, space: transformMode === 'rotate' ? transformSpace : 'world', values: transformValues }), true);
   };
   const chooseNode = event => {
     if (event.target.value === '') { if (!multiselect) onSelectNodes?.([]); return; }

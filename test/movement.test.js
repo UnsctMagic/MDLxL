@@ -523,3 +523,28 @@ test('Move plane squares use the requested swapped red/green colors', () => {
   const expected={xy:'Y',xz:'X',yz:'Z'};
   for(const pad of handles.filter(h=>h.plane))assert.equal(pad.color,handles.find(h=>h.axis===expected[pad.plane]).color);
 });
+
+test('move, rotate and scale in a global sequence write keys on a global track', () => {
+  const model = fixture(); model.GlobalSequences = [1000]; model.Nodes = [...model.Bones];
+  assert.equal(applyMovementTransform(model, [0], 250, -1, { mode: 'rotate', space: 'local', values: [0, 0, 90], globalSeqId: 0 }), 1);
+  const spin = model.Bones[0].Rotation;
+  assert.equal(spin.GlobalSeqId, 0);
+  assert.deepEqual(spin.Keys.map(key => key.Frame), [0, 250, 1000]);
+  nearVector(spin.Keys[1].Vector, rotation([0, 0, 1], 90));
+  nearVector(spin.Keys[2].Vector, [0, 0, 0, 1]);
+  // The end of the loop is its own key, never folded back onto frame 0.
+  applyMovementTransform(model, [0], 1000, -1, { mode: 'move', space: 'world', values: [0, 0, 5], globalSeqId: 0 });
+  assert.equal(model.Bones[0].Translation.GlobalSeqId, 0);
+  assert.deepEqual(model.Bones[0].Translation.Keys.map(key => [key.Frame, Array.from(key.Vector)]), [[0, [0, 0, 0]], [1000, [0, 0, 5]]]);
+  assert.equal(model.Bones[1].Rotation, undefined);
+  assert.throws(() => applyMovementTransform(model, [0], 1001, -1, { mode: 'rotate', values: [0, 0, 5], globalSeqId: 0 }), /inside the selected global sequence/);
+  assert.throws(() => applyMovementTransform(model, [0], 10, -1, { mode: 'rotate', values: [0, 0, 5], globalSeqId: 3 }), /existing global sequence/);
+});
+
+test('a global edit never takes over a track the model sequences already animate', () => {
+  const model = fixture(); model.GlobalSequences = [1000]; model.Nodes = [...model.Bones];
+  model.Bones[1].Rotation = track([100, [0, 0, 0, 1]], [1000, rotation([0, 0, 1], 45)]);
+  const before = structuredClone(model.Bones[1].Rotation);
+  assert.throws(() => applyMovementTransform(model, [2], 500, -1, { mode: 'rotate', values: [0, 0, 30], globalSeqId: 0 }), /Child already has Rotation keys in the model's animations/);
+  assert.deepEqual(model.Bones[1].Rotation, before);
+});

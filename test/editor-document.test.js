@@ -371,3 +371,23 @@ test('validator catches matrix, UV, animated texture and global sequence referen
   const codes = new Set(validateModel(model).map((d) => d.code));
   for (const code of ['BONE_REFERENCE', 'UV_COUNT', 'TEXTURE_REFERENCE', 'GLOBAL_SEQUENCE_REFERENCE']) assert.ok(codes.has(code));
 });
+
+test('a new global sequence is saved right after Sequences, never at the end of the file', async () => {
+  const { createGlobalSequence } = await import('../src/sequence-editor.js');
+  const chunkTags = bytes => { const tags = []; for (let offset = 4; offset + 8 <= bytes.length; offset += 8 + bytes.readUInt32LE(offset + 4)) tags.push(bytes.toString('latin1', offset, offset + 4)); return tags; };
+  const plain = createDemoDocument();
+  for (const format of ['mdx', 'mdl']) {
+    const doc = openDocument(Buffer.from(plain.serialize(format)), `plain.${format}`);
+    assert.equal(doc.model.GlobalSequences.length, 0);
+    doc.apply('Create global sequence', ['GlobalSequences'], model => createGlobalSequence(model));
+    const saved = Buffer.from(doc.serialize(format));
+    if (format === 'mdx') {
+      const tags = chunkTags(saved);
+      assert.equal(tags[tags.indexOf('SEQS') + 1], 'GLBS');
+    } else {
+      const text = saved.toString('utf8'), at = text.indexOf('GlobalSequences 1');
+      assert.ok(at > 0 && at < text.search(/^(Textures|Materials|Geoset) /m), 'GlobalSequences comes before textures, materials and geosets');
+    }
+    assert.deepEqual(openDocument(saved, `again.${format}`).model.GlobalSequences, [1000]);
+  }
+});

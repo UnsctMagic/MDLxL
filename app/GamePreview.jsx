@@ -397,6 +397,9 @@ export default function GamePreview(inputProps) {
       const sequences = p.model.Sequences || [];
       return sequences[p.sequenceIndex] ? p.sequenceIndex : sequences.findIndex(item => frame >= item.Interval[0] && frame <= item.Interval[1]);
     };
+    // Move/Rotate/Scale edit a global sequence on the renderer's private
+    // 0..duration reel; POSE stays limited to the model's sequences.
+    const nodeEditSequence = (p, frame) => !p.restPose && Number.isInteger(p.globalSeqId) && p.globalSeqId >= 0 ? globalPreviewId !== null ? timelineSequenceIndex : -1 : movementSequence(p, frame);
     const beginRotationDrag = (gesture, active) => {
       if (gesture.mode !== 'rotate') return;
       const view = camera.getWorldDirection(new THREE.Vector3());
@@ -560,7 +563,7 @@ export default function GamePreview(inputProps) {
       }
       if (event.button === 0 && work && !(event.ctrlKey && p.onInspectGeoset) && pickable.length) {
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
-        const editSequence = movementSequence(p, Math.round(native.getFrame()));
+        const editSequence = nodeEditSequence(p, Math.round(native.getFrame()));
         const picked = pickMovementNode(pickable, x, y, p.selectedNodeIds,13,p.transformMode==='move');
         const selected = pickable.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         const gizmo = selected && !p.workplaneEnabled ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
@@ -1333,7 +1336,7 @@ export default function GamePreview(inputProps) {
         // Swivel follows the limb, so world/local XYZ rotation bubbles would
         // advertise the wrong axes. Grab the elbow/knee itself to turn it.
         const bendSwivel = activePose?.kind === 'bend' && handleMode === 'rotate';
-        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && !bendSwivel && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || movementSequence(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
+        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && !bendSwivel && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || (activePose ? movementSequence : nodeEditSequence)(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
         if (pinButton && limb && !pinButton.hidden) {
           // Hold still under the pointer. Keyboard focus keeps the same side
           // of the limb, while still following camera pan/zoom.
