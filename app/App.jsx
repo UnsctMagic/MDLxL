@@ -513,6 +513,21 @@ export default function App() {
     if (!child) { say('The OptimizeXL window could not be opened.', true); return; }
     setPlaying(false); setDialog({ type:'optimizeModel', child });
   };
+  // Animations does not show the bones picked in Movement or Bones, yet any
+  // node selection takes Visibility & Color away from the checked geosets.
+  // Park those bones on entering Animations and give them back on leaving
+  // unless Animations picked its own nodes; neither step is an undo entry.
+  const parkNodeSelection = () => {
+    if (selectedNodeIds.length) { session.parkedNodeIds = selectedNodeIds; poseSelectionOnly.current = true; setSelectedNodeIdsState([]); }
+    setMaterialVisibility(null);
+  };
+  const returnParkedNodes = () => {
+    const parked = session.parkedNodeIds; delete session.parkedNodeIds;
+    if (!parked || selectedNodeIds.length) return false;
+    const existing = new Set(model.Nodes.filter(Boolean).map(node => node.ObjectId)), ids = parked.filter(id => existing.has(id));
+    if (!ids.length) return false;
+    poseSelectionOnly.current = true; setSelectedNodeIdsState(ids); return true;
+  };
   const selectMode = async next => {
     if (savingRef.current || next === mode && next !== 'uv') { if (next === 'vertices') setUVFocused(false); return; }
     // Function-key mode changes can remove a focused blur-committed field
@@ -532,13 +547,15 @@ export default function App() {
     setUVFocused(next === 'uv');
     if (next !== 'vertices') clearZoomAnchor();
     if (next !== 'bones') { setAttachSourceIds([]); setBoneCreateOpen(false); }
+    if (next !== 'animation') returnParkedNodes();
     setMode(next === 'uv' ? 'vertices' : next); setPlaying(false); setLiveUV(null);
     if (next === 'uv') { setUVWindow({ minimized: false, expanded: true, position: null }); setGlobalSeqId(null); setSequence(-1); setTime(0); }
     if (next === 'animation' && mode !== next && sequence < 0 && globalSeqId === null && model.Sequences.length) { setSequence(0); setTime(model.Sequences[0].Interval[0]); }
   };
   const selectAnimationPanel = async panel => {
+    if (panel === 'animations' && !(mode === 'animation' && animationPanel === 'animations')) parkNodeSelection();
     if (panel === 'movement') setCleanViews(previous => ({ ...previous, animation: false }));
-    if (panel === 'movement' && !selectedNodeIds.length && model.Nodes?.length) setSelectedNodeIds([model.Nodes[0].ObjectId]);
+    if (panel === 'movement' && !returnParkedNodes() && !selectedNodeIds.length && model.Nodes?.length) setSelectedNodeIds([model.Nodes[0].ObjectId]);
     setAnimationPanel(panel);
     await selectMode('animation');
   };
