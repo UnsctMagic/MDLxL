@@ -17,6 +17,7 @@ import { openOptimizeXLWindow } from './detached-window.js';
 import UVWindow from './UVWindow.jsx';
 import './optimizexl.css';
 import { applyApplicationTheme } from './theme.js';
+import { detectRenderer } from './renderer-detection.js';
 import PressedKeys from './PressedKeys.jsx';
 import AppDialogs from './AppDialogs.jsx';
 import useUpdates from './useUpdates.js';
@@ -45,7 +46,7 @@ import './material-properties.css';
 import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { HotkeysProvider } from './Hotkeys.jsx';
-import { normalizePreferences } from '../src/preferences.js';
+import { normalizePreferences, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
@@ -1296,6 +1297,9 @@ export default function App() {
   };
   useEffect(() => { const pending=sessions.filter(item=>sessionDirty(item)||!item.path);window.desktop?.setDirty({dirty:hasAnyUnsavedWork,saved:pending.length===0,name:pending.length>1?`${pending.length} open models`:pending[0]?.doc.name||doc.name}); document.title = `${hasUnsavedWork ? '* ' : ''}${session.path || doc.name} — MDLxL`; }, [doc, tick, sessions, session.path, hasUnsavedWork, hasAnyUnsavedWork]);
   useEffect(() => { applyApplicationTheme(preferences); }, [preferences]);
+  // Without a graphics card the processor draws every frame. Lighten such a
+  // PC once; later choices in Graphics settings are kept.
+  useEffect(() => { if (preferencesReady && !preferencesRef.current.graphics.softwareLow && detectRenderer().software) changePreferences(previous => ({ ...previous, graphics: { ...previous.graphics, ...SOFTWARE_RENDERING_GRAPHICS } })); }, [preferencesReady]);
   useEffect(() => { const handler = event => { if (latest.current.sessions.some(sessionDirty)) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, []);
   useEffect(() => {
     if (!doc.dirty && doc.revision === 0 && !hasUVPreview && !hasTrackDrafts && session.checkpoint === 0) return;
