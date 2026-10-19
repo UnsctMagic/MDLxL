@@ -2,21 +2,51 @@ import { exportConfiguration, importConfiguration } from '../src/portable-settin
 import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
 import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
-import { BUILT_IN_VIEWPORT_PRESETS, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
+import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
 import { wireDashArray } from '../src/wire-pattern.js';
 import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS } from '../src/tree-appearance.js';
 import { CONTROLLER_SHAPES, PIN_STYLES, controllerShapePoints } from '../src/controller-appearance.js';
 import './settings.css';
 import { updateStatusText } from './UpdatePrompt.jsx';
+import { BONE_INFLUENCE_TIP } from './bone-display.js';
 import { detectRenderer } from './renderer-detection.js';
 
+// Appearance shows one page at a time; each section names the page it sits on.
+export const APPEARANCE_PAGES = Object.freeze(['Presets', 'Interface', 'Viewport', 'Wires', 'Vertices', 'Bones & skeleton', 'Bone influence', 'Controllers', 'Lists & folders', 'Quadview', 'Editor helpers', 'Citadel Paint']);
+const APPEARANCE_PAGE_OF = Object.freeze({ 'Folders & lists': 'Lists & folders', 'Node colors': 'Lists & folders', 'Sound folder colors': 'Lists & folders', 'Viewport background': 'Viewport', 'Highlight Geoset': 'Viewport', 'Wire style': 'Wires', 'Selected geoset': 'Wires', 'Other visible geosets': 'Wires', 'Hidden vertices': 'Vertices', 'Selected vertices': 'Vertices', 'Unselected vertices': 'Vertices' });
+const AppearancePage = createContext(null);
+let lastAppearancePage = 'Presets';
 function AppearanceSection({ title, children, palette }) {
-  const [open, setOpen] = useState(title === 'Presets');
-  return <details className="settings-appearance-section" open={open} onToggle={event => setOpen(event.currentTarget.open)}><summary>{title}</summary><div className="settings-appearance-content">{palette}{children}</div></details>;
+  const page = useContext(AppearancePage);
+  if (page && (APPEARANCE_PAGE_OF[title] || title) !== page) return null;
+  return <section className="settings-appearance-section"><h4>{title}</h4><div className="settings-appearance-content">{palette}{children}</div></section>;
+}
+export const BONE_STYLE_TIP = 'How bones are drawn. Cubes and shaded lines is the classic look; Joint and cone puts a ball on each joint and a cone pointing to the child; Stick draws thick bars.';
+export const BONE_CONNECTOR_TIP = 'How the link between two joints is drawn. Shaded fades from dark at the parent to light at the child; Tapered narrows towards the child. The selected chain is highlighted in the same shape.';
+export const WIRE_MODE_TIP = 'All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.';
+const BONE_STYLE_LABELS = [['cubes', 'Cubes and shaded lines'], ['joint', 'Joint and cone'], ['stick', 'Stick']];
+const BONE_COLOR_LABELS = [['bone', 'Bone'], ['root', 'Root bone'], ['selected', 'Selected bone'], ['parent', 'Parent bone'], ['child', 'Child bones']];
+const INFLUENCE_COLOR_LABELS = [['ghost', 'Ghost'], ['direct', 'Moved by the bone'], ['follow', 'Follows through child bones']];
+
+/** A small chain drawn the way the viewport draws bones: an ordinary link, then the selected bone and its child highlighted. */
+function BonePreview({ bones, background }) {
+  const joints = [[18, 50], [70, 26], [128, 42], [184, 14]], fills = [bones.root, bones.parent, bones.selected, bones.child];
+  const link = (a, b, highlight) => {
+    const width = (highlight ? bones.highlightThickness : bones.thickness) * (bones.style === 'stick' ? 2 : 1), shape = bones.style === 'joint' ? 'cone' : bones.connector;
+    const fill = highlight || 'url(#settings-bone-shade)';
+    if (shape === 'shaded') return <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={fill} strokeWidth={width}/>;
+    const length = Math.hypot(b[0] - a[0], b[1] - a[1]), nx = -(b[1] - a[1]) / length, ny = (b[0] - a[0]) / length, half = (shape === 'cone' ? Math.max(10, width * 3.4) : width * 1.7) / 2;
+    return <polygon points={[[a[0] + nx * half, a[1] + ny * half], [b[0] + nx * .5, b[1] + ny * .5], [b[0] - nx * .5, b[1] - ny * .5], [a[0] - nx * half, a[1] - ny * half]].map(p => p.join(',')).join(' ')} fill={fill} stroke={shape === 'cone' ? '#000000' : 'none'} strokeWidth=".8"/>;
+  };
+  return <svg className="settings-bone-preview" viewBox="0 0 204 64" role="img" aria-label="Bone appearance preview" style={{ background }}>
+    <defs><linearGradient id="settings-bone-shade" gradientUnits="userSpaceOnUse" x1={joints[0][0]} y1={joints[0][1]} x2={joints[1][0]} y2={joints[1][1]}><stop offset="0" stopColor="#000000"/><stop offset="1" stopColor="#ffffff"/></linearGradient></defs>
+    {link(joints[0], joints[1], null)}{link(joints[1], joints[2], bones.selected)}{link(joints[2], joints[3], bones.child)}
+    {joints.map((p, i) => bones.style === 'cubes' ? <rect key={i} x={p[0] - 5} y={p[1] - 5} width="10" height="10" fill={fills[i]} stroke="#111111" strokeWidth=".6"/> : <circle key={i} cx={p[0]} cy={p[1]} r={bones.style === 'stick' ? 3.5 : 6} fill={fills[i]} stroke="#111111" strokeWidth=".6"/>)}
+  </svg>;
 }
 const colorValues = value => Object.fromEntries(Object.entries(value).filter(([, color]) => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)));
 const sameValues = (a, b) => Object.keys(b).every(key => a?.[key] === b[key]);
@@ -118,6 +148,8 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   }
   const context = useHotkeys(), catalog = suppliedCatalog || context.catalog;
   const prefs = normalizePreferences(preferences);
+  const [appearancePage, setAppearancePageState] = useState(() => APPEARANCE_PAGES.includes(lastAppearancePage) ? lastAppearancePage : 'Presets');
+  const setAppearancePage = page => { lastAppearancePage = page; setAppearancePageState(page); };
   const [tab, setTab] = useState(initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
   const [recording, setRecording] = useState(null), [recorded, setRecorded] = useState(''), [message, setMessage] = useState(''), [resetConfirm, setResetConfirm] = useState(false), [presetName, setPresetName] = useState('');
   const [sequenceCode, setSequenceCode] = useState(null), sequence = useRef(null), sequenceTimer = useRef(null);
@@ -283,6 +315,8 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <button onClick={()=>commit({capture:{fps:30,recordingQuality:'medium',screenshotQuality:'medium'}})}>Restore capture defaults</button>
       </div>}
       {tab === 'visuals' && <div className="settings-page settings-appearance-page">
+        <nav className="settings-appearance-nav" aria-label="Appearance pages">{APPEARANCE_PAGES.map(page => <button key={page} type="button" aria-pressed={page === appearancePage} onClick={() => setAppearancePage(page)}>{page}</button>)}</nav>
+        <div className="settings-appearance-detail"><AppearancePage.Provider value={appearancePage}>
         <AppearanceSection title="Presets">
         <label className="settings-select"><span>Appearance preset</span><select aria-label="Viewport appearance preset" value={prefs.viewportPreset} onChange={event => applyViewportPreset(event.target.value)}>
           {Object.values(BUILT_IN_VIEWPORT_PRESETS).map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
@@ -319,7 +353,6 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <input ref={viewportImageInput} hidden type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" onChange={event => { loadViewportBackground(event.target.files[0]); event.target.value=''; }}/>
         <div className="settings-inline-actions"><button onClick={() => viewportImageInput.current?.click()}>Choose background image…</button>{prefs.viewportAppearance.background.imageData && <><span className="settings-muted" title={prefs.viewportAppearance.background.imageName}>{prefs.viewportAppearance.background.imageName || 'Saved image'}</span><button onClick={() => viewportPart('background',{type:'color',imageData:'',imageName:''})}>Remove image</button></>}</div>
         {prefs.viewportAppearance.background.imageData && <div className="settings-graphics-grid"><label className="settings-select"><span>Image display</span><select aria-label="Background image display mode" value={prefs.viewportAppearance.background.display} onChange={event => viewportPart('background',{display:event.target.value})}><option value="fit">Fit</option><option value="fill">Fill</option><option value="stretch">Stretch</option><option value="center">Center / actual size</option></select></label><Numeric id="appearance:background:opacity" label="Image opacity" value={prefs.viewportAppearance.background.opacity} min={0} max={1} step={.05} onChange={opacity => viewportPart('background',{opacity})}/></div>}
-        <Toggle id="appearance:xray-vertices" label="Show occluded vertices in General View (X-Ray)" checked={prefs.viewportAppearance.xrayVertices} onChange={xrayVertices => viewport({xrayVertices})} description="Off by default: General View hides vertices behind model geometry. Wireframe View remains see-through."/>
         </AppearanceSection>
         <AppearanceSection title="Highlight Geoset" palette={partPalette('geosetHighlight', 'Highlight Geoset')}>
           <label className="settings-color"><span>Color</span><input type="color" aria-label="Highlight Geoset color" value={prefs.viewportAppearance.geosetHighlight.color} onChange={event => viewportPart('geosetHighlight', { color: event.target.value })}/><code>{prefs.viewportAppearance.geosetHighlight.color}</code></label>
@@ -328,6 +361,10 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           <label><input type="checkbox" checked={prefs.viewportAppearance.geosetHighlight.viaSelection} disabled={!prefs.viewportAppearance.geosetHighlight.viaView} onChange={event => viewportPart('geosetHighlight', { viaSelection: event.target.checked })}/>Highlight via Selection</label>
         </AppearanceSection>
         <div className="settings-appearance-grid">
+          <AppearanceSection title="Wire style">
+            <label className="settings-select" title={WIRE_MODE_TIP}><span>Wire style</span><select aria-label="Wire style" title={WIRE_MODE_TIP} value={prefs.viewportAppearance.wireMode} onChange={event => viewport({ wireMode: event.target.value })}><option value="all">All edges</option><option value="hidden-line">Hidden-line</option></select></label>
+            <Numeric id="appearance:size:occludedOpacity" label="Hidden wire intensity" value={prefs.visuals.occludedOpacity} min={0} max={1} step={0.05} onChange={occludedOpacity => visual({ occludedOpacity })}/>
+          </AppearanceSection>
           {[['selectedGeoset','Selected geoset'],['otherGeoset','Other visible geosets']].map(([part,label]) => <AppearanceSection key={part} title={label} palette={partPalette(part, label)}>
             <label className="settings-color"><span>Wire color</span><input type="color" aria-label={`${label} wire color`} value={prefs.viewportAppearance[part].color} onChange={event => viewportPart(part,{color:event.target.value})}/><code>{prefs.viewportAppearance[part].color}</code></label>
             <Numeric id={`appearance:${part}:thickness`} label="Wire thickness" value={prefs.viewportAppearance[part].thickness} min={.5} max={4} step={.25} unit="px" onChange={thickness => viewportPart(part,{thickness})}/>
@@ -335,6 +372,9 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
             <label className="settings-select"><span>Wire style</span><select aria-label={`${label} wire style`} value={prefs.viewportAppearance[part].style} onChange={event => viewportPart(part,{style:event.target.value})}><option value="solid">Solid</option><option value="dotted">Dotted</option><option value="dashed">Striped</option></select></label>
             {prefs.viewportAppearance[part].style !== 'solid' && <Numeric id={`appearance:${part}:spacing`} label="Line spacing" value={prefs.viewportAppearance[part].spacing} min={2} max={32} step={1} unit="px" onChange={spacing => viewportPart(part,{spacing})}/>}<WireLinePreview wire={prefs.viewportAppearance[part]} background={prefs.viewportAppearance.background.color} label={label}/>
           </AppearanceSection>)}
+          <AppearanceSection title="Hidden vertices">
+            <Toggle id="appearance:xray-vertices" label="Show occluded vertices in General View (X-Ray)" checked={prefs.viewportAppearance.xrayVertices} onChange={xrayVertices => viewport({xrayVertices})} description="Off by default: General View hides vertices behind model geometry. Wireframe View remains see-through."/>
+          </AppearanceSection>
           {[['selectedVertex','Selected vertices'],['unselectedVertex','Unselected vertices']].map(([part,label]) => <AppearanceSection key={part} title={label} palette={partPalette(part, label)}>
             <label className="settings-color"><span>Marker color</span><input type="color" aria-label={`${label} color`} value={prefs.viewportAppearance[part].color} onChange={event => viewportPart(part,{color:event.target.value})}/><code>{prefs.viewportAppearance[part].color}</code></label>
             <Numeric id={`appearance:${part}:size`} label="Marker size" value={prefs.viewportAppearance[part].size} min={2} max={16} step={1} unit="px" onChange={size => viewportPart(part,{size})}/>
@@ -361,15 +401,30 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </AppearanceSection>
         <AppearanceSection title="Editor helpers" palette={palette('Editor helpers', prefs.visuals, helpersFor, visual)}><div className="settings-color-grid">{APPEARANCE_HELPER_COLORS.map(([key, label]) => <label className="settings-color" key={key}><span>{label}</span><input data-hotkey={`appearance:color:${key}`} type="color" aria-label={`${label} color`} value={prefs.visuals[key]} onChange={event => visual({ [key]: event.target.value })}/><code>{prefs.visuals[key]}</code></label>)}</div>
         <label>Emitter marker<select aria-label="Emitter marker" value={prefs.emitterMarker} onChange={event=>commit({emitterMarker:event.target.value})}><option value="pentagram">Pentagram in a circle</option><option value="tetrahedron">Normal node</option><option value="cube">Cube</option></select></label>
-        <div className="settings-graphics-grid">{[['keyframeSize', 'Keyframe marker size', 4, 24, 1, 'px'], ['helperSize', 'Node marker size', 3, 18, 1, 'px'], ['occludedOpacity', 'Hidden wire intensity', 0, 1, 0.05, '']].map(([key, label, min, max, step, unit]) => <Numeric key={key} id={`appearance:size:${key}`} label={label} value={prefs.visuals[key]} min={min} max={max} step={step} unit={unit} onChange={value => visual({ [key]: value })}/>)}</div>
+        <div className="settings-graphics-grid">{[['keyframeSize', 'Keyframe marker size', 4, 24, 1, 'px'], ['helperSize', 'Node marker size', 3, 18, 1, 'px']].map(([key, label, min, max, step, unit]) => <Numeric key={key} id={`appearance:size:${key}`} label={label} value={prefs.visuals[key]} min={min} max={max} step={step} unit={unit} onChange={value => visual({ [key]: value })}/>)}</div>
         </AppearanceSection>
         <AppearanceSection title="Citadel Paint" palette={palette('Citadel Paint', prefs.citadelPaint, paintFor, change => commit({ citadelPaint: { ...prefs.citadelPaint, ...change } }))}><div className="settings-appearance-grid">
           {[['brushTipLight','Brush tips — light theme'],['brushTipDark','Brush tips — dark themes'],['brushCursor','Brush cursor'],['geosetSelection','Geoset selection'],['geosetBorder','Geoset border'],['lampSelection','Selected lamp']].map(([key,label])=><label className="settings-color" key={key}><span>{label}</span><input type="color" aria-label={'Citadel '+label} value={prefs.citadelPaint[key]} onChange={e=>commit({citadelPaint:{...prefs.citadelPaint,[key]:e.target.value}})}/></label>)}
           <Numeric label="Citadel border thickness" id="citadel:borderThickness" min={1} max={6} value={prefs.citadelPaint.borderThickness} onChange={borderThickness=>commit({citadelPaint:{...prefs.citadelPaint,borderThickness}})}/>
           <button onClick={()=>commit({citadelPaint:DEFAULT_PAINT_APPEARANCE})}>Reset Citadel colours</button>
         </div></AppearanceSection>
+        <AppearanceSection title="Bones & skeleton">
+          <BonePreview bones={prefs.viewportAppearance.bones} background={prefs.viewportAppearance.background.color}/>
+          <label className="settings-select" title={BONE_STYLE_TIP}><span>Bone style</span><select aria-label="Bone style" title={BONE_STYLE_TIP} value={prefs.viewportAppearance.bones.style} onChange={event => viewportPart('bones', { style: event.target.value })}>{BONE_STYLE_LABELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {prefs.viewportAppearance.bones.style === 'joint' ? <p className="settings-hint">Joint and cone always links joints with cones.</p> : <label className="settings-select" title={BONE_CONNECTOR_TIP}><span>Connector style</span><select aria-label="Connector style" title={BONE_CONNECTOR_TIP} value={prefs.viewportAppearance.bones.connector} onChange={event => viewportPart('bones', { connector: event.target.value })}><option value="shaded">Shaded</option><option value="tapered">Tapered</option></select></label>}
+          <AppearanceColors colors={BONE_COLOR_LABELS} value={prefs.viewportAppearance.bones} prefix="Bones" onChange={change => viewportPart('bones', change)}/>
+          <div className="settings-graphics-grid"><Numeric id="appearance:bones:thickness" label="Connector thickness" value={prefs.viewportAppearance.bones.thickness} min={1} max={12} unit="px" onChange={thickness => viewportPart('bones', { thickness })}/><Numeric id="appearance:bones:highlight" label="Chain highlight thickness" value={prefs.viewportAppearance.bones.highlightThickness} min={1} max={16} unit="px" onChange={highlightThickness => viewportPart('bones', { highlightThickness })}/></div>
+          <button onClick={() => viewport({ bones: DEFAULT_BONE_APPEARANCE })}>Reset bones and skeleton</button>
+        </AppearanceSection>
+        <AppearanceSection title="Bone influence">
+          <p className="settings-hint">{BONE_INFLUENCE_TIP}</p>
+          <Numeric id="appearance:influence:opacity" label="Ghost opacity" value={Math.round(prefs.viewportAppearance.boneInfluence.opacity * 100)} min={5} max={95} unit="%" onChange={opacity => viewportPart('boneInfluence', { opacity: opacity / 100 })}/>
+          <AppearanceColors colors={INFLUENCE_COLOR_LABELS} value={prefs.viewportAppearance.boneInfluence} prefix="Bone influence" onChange={change => viewportPart('boneInfluence', change)}/>
+          <button onClick={() => viewport({ boneInfluence: DEFAULT_BONE_INFLUENCE })}>Reset Bone influence</button>
+        </AppearanceSection>
+        </AppearancePage.Provider>
         <button data-hotkey="appearance:reset" onClick={() => commit({ theme: 'light', accent: APPLICATION_THEMES.light.accent, viewportPreset: 'mdlvis-vanilla', viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance, visuals: DEFAULT_VISUALS })}>Restore Lordaeron and helper defaults</button>
-      </div>}
+      </div></div>}
       {tab === 'grid' && <div className="settings-page">
         <h3>XYZ grid</h3><p>Configure the grid shared by the 3D viewport and animation preview. Use Display → Grid to show or hide it.</p>
         <div className="settings-inline-actions"><span>Preset:</span>{[['classic', 'Classic'], ['fine', 'Fine'], ['world', 'Large model'], ['xyz', 'Three planes']].map(([key, label]) => <button key={key} data-hotkey={`grid:preset:${key}`} onClick={() => grid(GRID_PRESETS[key])}>{label}</button>)}</div>

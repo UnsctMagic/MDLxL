@@ -17,6 +17,14 @@ function quadDefaults(background) {
   return { background: { ...background }, grid: { enabled: true, spacing: 24, majorEvery: 4, thickness: 1, opacity: .55, majorOpacity: .85, minorColor: mix(.25), majorColor: mix(.45), axisColor: mix(.7) } };
 }
 
+// How bones, their connectors and the Bone influence view are drawn. The
+// colours match the classic MDLVis rig; every preset starts from them.
+export const BONE_STYLES = Object.freeze(['cubes', 'joint', 'stick']);
+export const BONE_CONNECTORS = Object.freeze(['shaded', 'tapered']);
+export const WIRE_MODES = Object.freeze(['all', 'hidden-line']);
+export const DEFAULT_BONE_APPEARANCE = Object.freeze({ style: 'cubes', connector: 'shaded', bone: '#4cff59', root: '#4cb259', selected: '#ff0000', parent: '#000000', child: '#ffff00', thickness: 3, highlightThickness: 6 });
+export const DEFAULT_BONE_INFLUENCE = Object.freeze({ opacity: .5, ghost: '#a9b6c1', direct: '#f08c1f', follow: '#facc80' });
+
 const profile = (theme, value) => Object.freeze({
   controllers: Object.freeze(controllerAppearanceForTheme(theme)),
   tree: Object.freeze(treeAppearanceForTheme(theme)),
@@ -27,6 +35,9 @@ const profile = (theme, value) => Object.freeze({
   background: Object.freeze({ ...value.background }),
   quadView: Object.freeze({ background: Object.freeze({ ...value.background }), grid: Object.freeze(quadDefaults(value.background).grid) }),
   xrayVertices: value.xrayVertices === true,
+  bones: DEFAULT_BONE_APPEARANCE,
+  wireMode: 'all',
+  boneInfluence: DEFAULT_BONE_INFLUENCE,
   geosetHighlight: Object.freeze({ color: theme === 'light' ? '#39ff14' : controllerAppearanceForTheme(theme).color, type: 'wire-vertices', viaView: true, viaSelection: true }),
 });
 
@@ -121,6 +132,20 @@ function normalizeVertex(value, fallback) {
   };
 }
 
+function normalizeBones(value, fallback) {
+  const input = record(value), base = { ...DEFAULT_BONE_APPEARANCE, ...record(fallback) };
+  return {
+    style: choice(input.style, BONE_STYLES, base.style), connector: choice(input.connector, BONE_CONNECTORS, base.connector),
+    ...Object.fromEntries(['bone', 'root', 'selected', 'parent', 'child'].map(key => [key, color(input[key], base[key])])),
+    thickness: number(input.thickness, 1, 12, base.thickness), highlightThickness: number(input.highlightThickness, 1, 16, base.highlightThickness),
+  };
+}
+
+function normalizeBoneInfluence(value, fallback) {
+  const input = record(value), base = { ...DEFAULT_BONE_INFLUENCE, ...record(fallback) };
+  return { opacity: number(input.opacity, .05, .95, base.opacity), ...Object.fromEntries(['ghost', 'direct', 'follow'].map(key => [key, color(input[key], base[key])])) };
+}
+
 function normalizeBackground(value, fallback) {
   const input = record(value);
   const imageData = typeof input.imageData === 'string' && input.imageData.length <= MAX_VIEWPORT_BACKGROUND_DATA_LENGTH && /^data:image\/(?:png|jpeg|webp);base64,/i.test(input.imageData) ? input.imageData : '';
@@ -165,6 +190,9 @@ export function normalizeViewportAppearance(value, fallback = DEFAULT_VIEWPORT_A
       },
     },
     xrayVertices: typeof input.xrayVertices === 'boolean' ? input.xrayVertices : base.xrayVertices === true,
+    bones: normalizeBones(input.bones, base.bones),
+    wireMode: choice(input.wireMode, WIRE_MODES, base.wireMode || 'all'),
+    boneInfluence: normalizeBoneInfluence(input.boneInfluence, base.boneInfluence),
   };
 }
 

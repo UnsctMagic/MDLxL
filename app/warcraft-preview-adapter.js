@@ -13,7 +13,7 @@ export function patchWarcraftMeshFragmentShader(source) {
     : `    if (uMdlxlLighting > .5) ${output}.rgb *= .55 + .45 * max(0., dot(normalize(vNormal), normalize(uMdlxlLightDirection)));\n`;
   // Bone influence tints the Surface grey: pale amber for parts that move with
   // the selected bones, strong amber for the parts those bones move directly.
-  const lighting = `    float mdlxlLayerAlpha = ${output}.a;\n    vec3 mdlxlSurfaceColor = vec3(.663, .714, .757);\n    if (uMdlxlInfluenceOn > .5) mdlxlSurfaceColor = mix(mix(mdlxlSurfaceColor, vec3(.98, .8, .5), clamp(vMdlxlInfluence.y, 0., 1.)), vec3(.94, .55, .12), clamp(vMdlxlInfluence.x, 0., 1.));\n    if (uMdlxlSurface > .5) { ${output}.rgb = mdlxlSurfaceColor; ${hd ? 'baseColor.rgb = mdlxlDecodeSRGB(mdlxlSurfaceColor);' : ''} }\n    ${hd ? '' : `if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) ${output}.rgb *= ${portraitFragmentLight}; } else `}if (uMdlxlLegacy > .5) {\n${legacyLighting}    } else if (uMdlxlLighting > .5) {
+  const lighting = `    float mdlxlLayerAlpha = ${output}.a;\n    vec3 mdlxlSurfaceColor = vec3(.663, .714, .757);\n    if (uMdlxlInfluenceOn > .5) mdlxlSurfaceColor = mix(mix(uMdlxlGhostColor, uMdlxlFollowColor, clamp(vMdlxlInfluence.y, 0., 1.)), uMdlxlDirectColor, clamp(vMdlxlInfluence.x, 0., 1.));\n    if (uMdlxlSurface > .5) { ${output}.rgb = mdlxlSurfaceColor; ${hd ? 'baseColor.rgb = mdlxlDecodeSRGB(mdlxlSurfaceColor);' : ''} }\n    ${hd ? '' : `if (uMdlxlPortrait > .5) { if (uMdlxlLighting > .5) ${output}.rgb *= ${portraitFragmentLight}; } else `}if (uMdlxlLegacy > .5) {\n${legacyLighting}    } else if (uMdlxlLighting > .5) {
         vec3 inspectionNormal = ${hd ? 'normal' : 'vNormal'};
         inspectionNormal = dot(inspectionNormal, inspectionNormal) > 1.e-12 ? normalize(inspectionNormal) : normalize(uMdlxlViewDirection);
         ${hd ? '// HD normal mapping already accounts for face orientation.' : 'if (!gl_FrontFacing) inspectionNormal = -inspectionNormal;'}
@@ -31,7 +31,7 @@ export function patchWarcraftMeshFragmentShader(source) {
   return header + source.replace('precision mediump float;', 'precision highp float;')
     .replace(/void main\s*\(/, `${hd ? '' : portraitFragmentDeclarations}void main(`)
     .replace(/void main\s*\(/, `vec3 mdlxlDecodeSRGB(vec3 c) { return mix(c / 12.92, pow((c + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c)); }\nvec3 mdlxlEncodeSRGB(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(vec3(.0031308), c)); }\nvoid main(`)
-    .replace('uniform float uWireframe;', 'uniform float uWireframe;\nuniform vec4 uMdlvisGeosetTint;\nuniform float uMdlxlLighting;\nuniform vec3 uMdlxlLightDirection;\nuniform float uMdlxlCoverage;\nuniform float uMdlxlSurface;\nuniform vec3 uMdlxlAmbient;\nuniform vec3 uMdlxlDiffuse;\nuniform vec3 uMdlxlSpecular;\nuniform float uMdlxlPower;\nuniform float uMdlxlLegacy;\nuniform vec3 uMdlxlViewDirection;\nuniform float uMdlxlInfluenceOn;\nuniform float uMdlxlGhostAlpha;\nuniform float uMdlxlInfluencePart;\nin vec2 vMdlxlInfluence;')
+    .replace('uniform float uWireframe;', 'uniform float uWireframe;\nuniform vec4 uMdlvisGeosetTint;\nuniform float uMdlxlLighting;\nuniform vec3 uMdlxlLightDirection;\nuniform float uMdlxlCoverage;\nuniform float uMdlxlSurface;\nuniform vec3 uMdlxlAmbient;\nuniform vec3 uMdlxlDiffuse;\nuniform vec3 uMdlxlSpecular;\nuniform float uMdlxlPower;\nuniform float uMdlxlLegacy;\nuniform vec3 uMdlxlViewDirection;\nuniform float uMdlxlInfluenceOn;\nuniform float uMdlxlGhostAlpha;\nuniform float uMdlxlInfluencePart;\nuniform vec3 uMdlxlGhostColor;\nuniform vec3 uMdlxlDirectColor;\nuniform vec3 uMdlxlFollowColor;\nin vec2 vMdlxlInfluence;')
     .replace(/if \((?:gl_FragColor|FragColor)\[3\] < uDiscardAlphaLevel\) \{\s*discard;\s*}/, `if (uDiscardAlphaLevel > 0. && uMdlxlCoverage > .5) {\n        float edge = max(fwidth(${output}.a), .001);\n        ${output}.a = smoothstep(uDiscardAlphaLevel - edge, uDiscardAlphaLevel + edge, ${output}.a);\n        if (${output}.a <= 0.) discard;\n    } else if (${output}.a < uDiscardAlphaLevel) { discard; }`)
     .replace(/}\s*$/, `${lighting}    ${output} *= uMdlvisGeosetTint;\n    // Ghost passes keep the unaffected half of each face, hot passes the rest,\n    // so the two layers meet without gaps. Blended layers keep their cut-outs.\n    if (uMdlxlInfluenceOn > .5 && ((vMdlxlInfluence.y >= .5) != (uMdlxlInfluencePart > .5) || uMdlxlInfluenceOn > 1.5 && mdlxlLayerAlpha < .1)) discard;\n    // 2 keeps a blended layer's own cut-out; opaque layers may carry junk alpha.\n    if (uMdlxlInfluenceOn > .5) ${output}.a = uMdlvisGeosetTint.a * (uMdlxlInfluenceOn > 1.5 ? mdlxlLayerAlpha : 1.) * mix(uMdlxlGhostAlpha, .82, clamp(vMdlxlInfluence.y, 0., 1.));\n}\n`);
 }
@@ -119,6 +119,8 @@ function createSolidTexture(gl, rgba) {
 
 const BONE_INFLUENCE_TEXTURE_UNIT = 8;
 const BONE_INFLUENCE_GHOST_ALPHA = .5;
+// Default Bone influence colours as 0-1 sRGB, like the Surface grey (Settings → Appearance → Bone influence).
+const BONE_INFLUENCE_COLORS = Object.freeze({ ghost: [.663, .714, .757], direct: [.94, .55, .12], follow: [.98, .8, .5] });
 const BONE_INFLUENCE_PASSES = ['ghost-depth', 'ghost', 'hot-depth', 'hot'];
 // Particles and ribbons draw once per frame, in the last colour pass.
 const effectsPass = pass => pass === null || pass === 'blended' || pass === 'hot';
@@ -144,7 +146,8 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
     }
     context.activeTexture(context.TEXTURE0);
     if (influenceLocations.map) context.uniform1i(influenceLocations.map, BONE_INFLUENCE_TEXTURE_UNIT);
-    if (influenceLocations.ghost) context.uniform1f(influenceLocations.ghost, BONE_INFLUENCE_GHOST_ALPHA);
+    if (influenceLocations.ghost) context.uniform1f(influenceLocations.ghost, influence.opacity ?? BONE_INFLUENCE_GHOST_ALPHA);
+    for (const [key, fallback] of Object.entries(BONE_INFLUENCE_COLORS)) if (influenceLocations[key + 'Color']) context.uniform3fv(influenceLocations[key + 'Color'], influence.colors?.[key] || fallback);
   };
   return {
     ready(renderer) {
@@ -157,7 +160,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       surfaceLocation = gl.getUniformLocation(native.shaderProgram, 'uMdlxlSurface');
       lightUniforms = Object.fromEntries(['Ambient', 'Diffuse', 'Specular', 'Power', 'Legacy', 'ViewDirection'].map(name => [name, gl.getUniformLocation(native.shaderProgram, `uMdlxl${name}`)]));
       if (!location) throw new Error('The Warcraft preview shader is incompatible with geoset color editing.');
-      influenceLocations = { on: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceOn'), map: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceMap'), ghost: gl.getUniformLocation(native.shaderProgram, 'uMdlxlGhostAlpha'), part: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluencePart') };
+      influenceLocations = { on: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceOn'), map: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceMap'), ghost: gl.getUniformLocation(native.shaderProgram, 'uMdlxlGhostAlpha'), part: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluencePart'), ...Object.fromEntries(['Ghost', 'Direct', 'Follow'].map(name => [name.toLowerCase() + 'Color', gl.getUniformLocation(native.shaderProgram, `uMdlxl${name}Color`)])) };
       byIndexBuffer = new Map(native.indexBuffer.map((buffer, index) => [buffer, index]));
       setLayerProps = native.setLayerProps; setLayerPropsHD = native.setLayerPropsHD;
       if (classicSkinnedMaterials.size) {

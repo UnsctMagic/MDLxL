@@ -64,7 +64,8 @@ export default function AppToolbar({
   </>;
 }
 
-export const BONE_INFLUENCE_TIP = 'Bone influence: the model turns see-through so the skeleton stays visible. Parts the selected bone moves turn orange; parts that follow it through child bones turn pale orange.';
+import { BONE_INFLUENCE_TIP } from './bone-display.js';
+export { BONE_INFLUENCE_TIP };
 
 /** The view direction / render mode row above the editor viewport. Props as for AppToolbar. */
 export function AppViewLabel({

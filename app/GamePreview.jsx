@@ -310,15 +310,24 @@ export default function GamePreview(inputProps) {
     const turntableRotation = new THREE.Quaternion(), turntableOffset = new THREE.Vector3();
     let displayCamera;
     const displayLight = () => new THREE.Vector3(...(latest.current.showcaseLight === 'portrait' ? [.3,-.3,.25] : [-.65,.55,1])).applyQuaternion(turntableRotation);
-    let influenceCache = null;
-    const boneInfluence = (ids = []) => { const key = ids.join(','); return influenceCache?.key === key ? influenceCache : influenceCache = { key, map: boneInfluenceMap(ownedModel, ids) }; };
+    let influenceCache = null, influenceLook = null;
+    const srgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const boneInfluence = (ids = [], preferences) => {
+      const key = ids.join(',');
+      if (influenceCache?.key !== key) influenceCache = { key, map: boneInfluenceMap(ownedModel, ids) };
+      if (influenceLook?.preferences !== preferences) {
+        const look = viewportAppearanceOptions(preferences).boneInfluence;
+        influenceLook = { preferences, opacity: look.opacity, colors: { ghost: srgb(look.ghost), direct: srgb(look.direct), follow: srgb(look.follow) } };
+      }
+      return { ...influenceCache, opacity: influenceLook.opacity, colors: influenceLook.colors };
+    };
     const previewAdapter = installWarcraftPreviewAdapter(gl, ownedModel, () => ({ frame: native.getFrame(), sequenceIndex: native.getSequence(), globalTime: globalClock,
       // Installed UI\\MiscData.txt [Light] Direction=0.3,0.3,-0.25;
       // the classic portrait scene maps this to (y,-x,-z), in model space.
       portraitLight: latest.current.portraitMode ? portraitLight.current : null,
       portrait: !!latest.current.portraitMode || !!latest.current.showcase && latest.current.showcaseLight === 'portrait',
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
-      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
+      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds, latest.current.preferences) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
     try {
       native = new ModelRenderer(ownedModel); installParticleNativeCompatibility(native); native.initGL(gl); previewAdapter.ready(native);
       // Layered WC3 materials redraw the same triangles at identical depth.

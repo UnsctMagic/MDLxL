@@ -63,7 +63,8 @@ test('every mesh vertex shader writes the influence without new uniform vectors'
 test('the fragment stage tints Surface grey and ghosts unaffected parts only in Bone influence', () => {
   const sd = patchWarcraftMeshFragmentShader('precision mediump float;\nvarying vec2 vTextureCoord;\nuniform mat3 uTVertexAnim;\nuniform float uWireframe;\nvoid main(void) {\n    gl_FragColor = vec4(1.);\n}\n');
   assert.ok(sd.includes('in vec2 vMdlxlInfluence;'));
-  assert.ok(sd.includes('if (uMdlxlInfluenceOn > .5) mdlxlSurfaceColor = mix(mix(mdlxlSurfaceColor, vec3(.98, .8, .5), clamp(vMdlxlInfluence.y, 0., 1.)), vec3(.94, .55, .12), clamp(vMdlxlInfluence.x, 0., 1.));'));
+  assert.ok(sd.includes('if (uMdlxlInfluenceOn > .5) mdlxlSurfaceColor = mix(mix(uMdlxlGhostColor, uMdlxlFollowColor, clamp(vMdlxlInfluence.y, 0., 1.)), uMdlxlDirectColor, clamp(vMdlxlInfluence.x, 0., 1.));'));
+  for (const name of ['Ghost', 'Direct', 'Follow']) assert.ok(sd.includes(`uniform vec3 uMdlxl${name}Color;`), name);
   assert.ok(sd.includes('if (uMdlxlSurface > .5) { gl_FragColor.rgb = mdlxlSurfaceColor;'));
   assert.ok(sd.includes('if (uMdlxlInfluenceOn > .5) gl_FragColor.a = uMdlvisGeosetTint.a * (uMdlxlInfluenceOn > 1.5 ? mdlxlLayerAlpha : 1.) * mix(uMdlxlGhostAlpha, .82, clamp(vMdlxlInfluence.y, 0., 1.));'));
   assert.ok(sd.indexOf('gl_FragColor *= uMdlvisGeosetTint;') < sd.indexOf('gl_FragColor.a = uMdlvisGeosetTint.a'));
@@ -94,7 +95,8 @@ test('Bone influence is offered in Movement only and explains itself', () => {
 });
 
 test('Bone influence keeps the skeleton and hidden vertices drawn through the ghost', () => {
-  assert.match(preview, /boneInfluence: latest\.current\.mode === 'influence' \? boneInfluence\(latest\.current\.selectedNodeIds\) : null/);
+  assert.match(preview, /boneInfluence: latest\.current\.mode === 'influence' \? boneInfluence\(latest\.current\.selectedNodeIds, latest\.current\.preferences\) : null/);
+  assert.match(preview, /influenceLook = \{ preferences, opacity: look\.opacity, colors: \{ ghost: srgb\(look\.ghost\), direct: srgb\(look\.direct\), follow: srgb\(look\.follow\) \} \};/);
   assert.match(preview, /wireframeMarkers: p\.mode === 'wireframe' \|\| p\.mode === 'vertices' \|\| p\.mode === 'influence'/);
   assert.match(preview, /showHiddenVertices = p\.mode === 'wireframe' \|\| p\.mode === 'vertices' \|\| p\.mode === 'influence'/);
 });

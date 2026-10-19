@@ -21,8 +21,8 @@
 .settings-appearance-content>.settings-color-grid,.settings-appearance-content>.settings-graphics-grid{margin:6px 0 12px}
 .settings-appearance-content>.settings-inline-actions{margin:6px 0}
 .settings-appearance-content>.settings-number,.settings-appearance-content>.settings-select,.settings-appearance-content>.settings-color{margin:8px 0}
-.settings-appearance-page>.settings-appearance-grid{align-items:start;margin:0 0 8px;gap:8px}
-.settings-appearance-page>.settings-appearance-grid>.settings-appearance-section{margin:0}
+.settings-appearance-detail .settings-appearance-grid{align-items:start;margin:0 0 8px;gap:8px}
+.settings-appearance-detail .settings-appearance-grid>.settings-appearance-section{margin:0}
 
 .settings-appearance-set { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--ui-border); }
 .settings-appearance-set select { width: 180px; max-width: 65%; }
@@ -33,3 +33,15 @@
 .settings-appearance-content .settings-color code { color: var(--ui-muted); }
 .settings-appearance-page .settings-toggle { margin: 10px 0; }
 @media (max-width:620px) { .settings-controller-shapes { grid-template-columns: 1fr; } }
+
+/* Appearance: a page list on the left, only the chosen page on the right. */
+.settings-appearance-page{display:grid;grid-template-columns:150px minmax(0,1fr);gap:0 12px;align-items:start}
+.settings-appearance-nav{display:flex;flex-direction:column;gap:2px;position:sticky;top:0;grid-row:span 2}
+.settings-appearance-nav button{text-align:left;padding:5px 9px;min-height:26px;white-space:nowrap}
+.settings-appearance-nav button[aria-pressed=true]{background:var(--ui-surface,#f3f1eb);font-weight:bold;box-shadow:inset 3px 0 var(--ui-link,#1f5fa8)}
+.settings-appearance-detail{min-width:0}
+.settings-appearance-detail .settings-appearance-grid:empty{display:none}
+.settings-appearance-section>h4{margin:0;padding:7px 10px;font-size:12px;font-weight:600;background:var(--ui-surface);color:var(--ui-text)}
+.settings-appearance-page>button[data-hotkey="appearance:reset"]{grid-column:2;justify-self:start;margin-top:4px}
+.settings-bone-preview{display:block;width:204px;height:64px;margin:4px 0 10px;border:1px solid var(--ui-border,#888)}
+@media(max-width:620px){.settings-appearance-page{grid-template-columns:1fr}.settings-appearance-nav{flex-direction:row;flex-wrap:wrap;position:static;grid-row:auto}.settings-appearance-page>button[data-hotkey="appearance:reset"]{grid-column:1}}

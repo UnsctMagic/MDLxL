@@ -55,14 +55,15 @@ export function createPixelLineBatch(context) {
   data.fill(0); raster.priority.fill(0);
   const colors = new Map(), patterns = new WeakMap();
   return {
-    draw(from, to, { color = '#ffffff', width: lineWidth = 1, ratio = 1, dash = [], opacity = 1, layer = 1, depth = null, hiddenOpacity = opacity, showHidden = true } = {}) {
+    draw(from, to, { color = '#ffffff', width: lineWidth = 1, ratio = 1, dash = [], opacity = 1, layer = 1, depth = null, hiddenOpacity = opacity, showHidden = true, hiddenDash = null } = {}) {
       const clipped = clipLine(from.x * ratio, from.y * ratio, to.x * ratio, to.y * ratio, width, height);
       if (!clipped) return;
       let [x, y, x1, y1, start, end] = clipped;
       const dx = Math.abs(x1 - x), dy = Math.abs(y1 - y), count = Math.max(dx, dy);
       const thickness = Math.max(1, Math.round(lineWidth * ratio));
-      let pattern = patterns.get(dash);
-      if (!pattern) { const values = dash.map(value => Math.max(1, Math.round(value * ratio))); pattern = { values, cycle: values.reduce((sum, value) => sum + value, 0) }; patterns.set(dash, pattern); }
+      const patternFor = values => { let result = patterns.get(values); if (!result) { const scaled = values.map(value => Math.max(1, Math.round(value * ratio))); result = { values: scaled, cycle: scaled.reduce((sum, value) => sum + value, 0) }; patterns.set(values, result); } return result; };
+      // Hidden-line wires dash only the stretches the mesh hides.
+      const visiblePattern = patternFor(dash), hiddenPattern = hiddenDash ? patternFor(hiddenDash) : visiblePattern;
       let rgb = colors.get(color);
       if (rgb === undefined) { rgb = new Color(color).getHex(); colors.set(color, rgb); }
       const red = rgb >> 16 & 255, green = rgb >> 8 & 255, blue = rgb & 255;
@@ -79,7 +80,7 @@ export function createPixelLineBatch(context) {
             hidden = depth.isOccluded({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, z: from.z + (to.z - from.z) * t });
           }
         }
-        const offset = pattern.cycle ? step % pattern.cycle : 0;
+        const pattern = hidden ? hiddenPattern : visiblePattern, offset = pattern.cycle ? step % pattern.cycle : 0;
         let phase = 0, on = true;
         for (const segment of pattern.values) { if (offset < phase + segment) break; phase += segment; on = !on; }
         if (on && (!hidden || showHidden)) for (let oy = 0; oy < thickness; oy++) for (let ox = 0; ox < thickness; ox++) {

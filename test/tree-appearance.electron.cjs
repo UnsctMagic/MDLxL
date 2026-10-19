@@ -17,20 +17,22 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.setSize(1600, 1000); w.setPosition(-3000, 0); w.webContents.setBackgroundThrottling(false); w.showInactive(); });
     await page.getByText('Opened ' + path.basename(file), { exact: true }).waitFor();
     const menu = command => app.evaluate(({ BrowserWindow }, c) => BrowserWindow.getAllWindows()[0].webContents.send('menu', c), command);
-    const settings = async () => { await menu('appearanceSettings'); await page.locator('.settings-appearance-section').first().waitFor(); };
+    // Appearance shows one page at a time and reopens on the last page used.
+    const openPage = name => page.locator('.settings-appearance-nav').getByRole('button', { name, exact: true }).click();
+    const settings = async () => { await menu('appearanceSettings'); await page.locator('.settings-appearance-nav').waitFor(); await openPage('Presets'); };
     const done = () => page.getByRole('button', { name: 'Done', exact: true }).click();
     const rgb = hex => 'rgb(' + [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(', ') + ')';
     const style = (locator, key) => locator.evaluate((el, k) => getComputedStyle(el)[k], key);
     await settings();
     const sections = page.locator('.settings-appearance-section');
-    assert.equal(await sections.count(), 15);
-    assert.equal(await sections.evaluateAll(elements => elements.filter(el => el.open).length), 1, 'only Presets starts expanded');
-    const folders = sections.filter({ has: page.locator('summary', { hasText: /^Folders & lists$/ }) });
-    assert.equal(await folders.evaluate(el => el.open), false);
-    await page.locator('.settings-appearance-section > summary').filter({ hasText: /^Interface$/ }).click();
+    assert.equal(await page.locator('.settings-appearance-nav button').count(), 12);
+    assert.deepEqual(await sections.locator('h4').allTextContents(), ['Presets'], 'only Presets shows first');
+    const folders = sections.filter({ has: page.locator('h4', { hasText: /^Folders & lists$/ }) });
+    assert.equal(await folders.count(), 0);
+    await openPage('Interface');
     await page.getByLabel('UI accent', { exact: true }).fill('#123456');
-    assert.equal(await folders.evaluate(el => el.open), false, 'editing another category preserves collapse state');
-    await page.getByText('Folders & lists', { exact: true }).click();
+    assert.equal(await folders.count(), 0, 'editing another page keeps its own page open');
+    await openPage('Lists & folders');
     await page.screenshot({ path: path.join(out, 'appearance-controls.png') });
     await done();
     await menu('Nodes');
@@ -52,19 +54,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       console.log(preset.name + ': node and sound folder palettes verified');
     }
     await settings();
-    for (const title of ['Folders & lists', 'Node colors', 'Sound folder colors']) {
-      await page.locator('.settings-appearance-section > summary').filter({ hasText: new RegExp('^' + title + '$') }).click();
-    }
+    await openPage('Lists & folders');
     await page.getByLabel('Tree List background', { exact: true }).fill('#102030');
     await page.getByLabel('Tree List text', { exact: true }).fill('#f0e0d0');
     await page.getByLabel('Node Bones', { exact: true }).fill('#ffaa22');
     await page.getByLabel('Folder Human', { exact: true }).fill('#bbddff');
     await page.getByLabel('List font size', { exact: true }).fill('17');
+    await openPage('Presets');
     await page.getByLabel('Custom viewport preset name').fill('My folders');
     await page.getByRole('button', { name: 'Save as custom preset', exact: true }).click();
     const custom = await page.getByLabel('Viewport appearance preset').inputValue();
     await page.getByLabel('Viewport appearance preset').selectOption('mdlvis-vanilla');
     await page.getByLabel('Viewport appearance preset').selectOption(custom);
+    await openPage('Lists & folders');
     assert.equal(await page.getByLabel('List font size', { exact: true }).inputValue(), '17');
     await done();
     assert.equal(await style(page.locator('.re-node-window .re-list'), 'backgroundColor'), rgb('#102030'));

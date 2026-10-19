@@ -6,6 +6,10 @@ import { previewOverlayGeometry, previewOverlaySettings } from './preview-presen
 import { wireDashArray } from '../src/wire-pattern.js';
 import { createPixelLineBatch, drawPixelLine } from './pixel-lines.js';
 
+// Hidden-line wireframe: edges behind the mesh are drawn as faint dashes.
+export const HIDDEN_LINE_DASH = Object.freeze([4, 3]);
+export const HIDDEN_LINE_FADE = .35;
+
 export function previewOverlayOptions(overlays, showNodes = false, editorMode, vanilla = false) {
   const markers = !!showNodes;
   const grouped = !vanilla && overlays?.events !== undefined;
@@ -129,7 +133,7 @@ export function drawPreviewGeometryOverlay(context, geosets, camera, width, heig
     if (options.wires) {
       for (const { index, faces, points } of projectedGeosets) {
         const wire = selected.has(index) ? appearance.selectedGeoset : appearance.otherGeoset;
-        const dash = wireDashArray(wire);
+        const dash = wireDashArray(wire), hiddenDash = appearance.wireMode === 'hidden-line' ? HIDDEN_LINE_DASH : null, hiddenFade = hiddenDash ? HIDDEN_LINE_FADE : 1;
         const seen = new Set();
         for (let i = 0; i < faces.length; i += 3) for (let j = 0; j < 3; j++) {
           const ia = faces[i + j], ib = faces[i + (j + 1) % 3], key = Math.min(ia, ib) + ':' + Math.max(ia, ib);
@@ -137,7 +141,7 @@ export function drawPreviewGeometryOverlay(context, geosets, camera, width, heig
           const a = points[ia], b = points[ib]; if (!a?.visible || !b?.visible) continue;
           if (wireBatch) {
             wireBatch.draw(a, b, { color: wire.color, width: wire.thickness, ratio, dash, opacity: wire.opacity,
-              depth, hiddenOpacity: wire.opacity * visual.occludedOpacity, showHidden: options.showHiddenWires !== false });
+              depth, hiddenOpacity: wire.opacity * visual.occludedOpacity * hiddenFade, showHidden: options.showHiddenWires !== false, hiddenDash });
             continue;
           }
           const count = Math.max(1, Math.min(64, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 12)));
@@ -145,10 +149,10 @@ export function drawPreviewGeometryOverlay(context, geosets, camera, width, heig
             const t = (part + .5) / count, midpoint = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t };
             const hidden = depth.isOccluded(midpoint);
             if (hidden && options.showHiddenWires === false) continue;
-            const opacity = wire.opacity * (hidden ? visual.occludedOpacity : 1);
+            const opacity = wire.opacity * (hidden ? visual.occludedOpacity * hiddenFade : 1);
             const from = { x: a.x + (b.x - a.x) * part / count, y: a.y + (b.y - a.y) * part / count };
             const to = { x: a.x + (b.x - a.x) * (part + 1) / count, y: a.y + (b.y - a.y) * (part + 1) / count };
-            if (hidden) { context.globalAlpha = opacity; drawPixelLine(context, from, to, { color: wire.color, width: wire.thickness, ratio, dash }); }
+            if (hidden) { context.globalAlpha = opacity; drawPixelLine(context, from, to, { color: wire.color, width: wire.thickness, ratio, dash: hiddenDash || dash }); }
             else visibleSegments.push({ from, to, wire, dash, opacity });
           }
         }
