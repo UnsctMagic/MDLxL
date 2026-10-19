@@ -237,17 +237,19 @@ export async function restorePaintProject(bytes, decodePng = decodePaintPng) {
   return { project, files, modelName:manifest.modelName, originalModelBytes:files.get(manifest.modelFiles?.original)||legacyModel, workingModelBytes:files.get(manifest.modelFiles?.working)||legacyModel, modelBytes:files.get(manifest.modelFiles?.working)||legacyModel, sourceTextures };
 }
 
-/** Bring an edited copy of the texture back, e.g. from Photoshop or GIMP. Many
- * editors drop transparency when copying, so an opaque image keeps the current
- * alpha, and alpha that came back unchanged is not applied a second time. */
+/** Bring an edited copy of the texture back, e.g. from Photoshop or GIMP. The
+ * result shows the pasted alpha. Many editors drop transparency when copying,
+ * so a fully opaque image keeps the current alpha instead. The paint layer is
+ * opaque afterwards; the alpha mask carries the transparency, taking into
+ * account whether this texture also keeps the original skin's alpha. */
 export function pastePaintTexture(project,targetId,coatId,image){
   const target=paintProjectTarget(project,targetId);if(!target)throw Error('Choose a destination texture.');
   const {width,height}=target.base,resized=image.width!==width||image.height!==height,raster=resized?resizePaintRaster(image,width,height):clonePaintRaster(image);
-  const current=compositePaintTarget(project,targetId),mask=target.alphaMask?.data;let opaque=true;
+  const current=compositePaintTarget(project,targetId),mask=target.alphaMask?.data,preserve=target.preserveSourceAlpha??true;let opaque=true;
   for(let i=3;i<raster.data.length;i+=4)if(raster.data[i]!==255){opaque=false;break;}
   for(let i=3;i<raster.data.length;i+=4){
-    const keep=mask?mask[i]:255,base=target.base.data[i];
-    raster.data[i]=opaque||raster.data[i]===current.data[i]?keep:base?Math.min(255,Math.round(raster.data[i]*255/base)):255;
+    const wanted=opaque?current.data[i]:raster.data[i],under=preserve?target.base.data[i]:255;
+    raster.data[i]=preserve&&wanted===current.data[i]&&mask?mask[i]:under?Math.min(255,Math.round(wanted*255/under)):255;
   }
   return replacePaintTexture(project,targetId,coatId,raster,'Paste texture')?{resized}:false;
 }

@@ -51,3 +51,17 @@ test('pasting a transparent image applies its alpha once and fits other sizes',(
   assert.deepEqual(pastePaintTexture(value,target.id,value.activeCoatId,image),{resized:true});
   const after=compositePaintTarget(value);assert.deepEqual([...after.data.slice(0,4)],[10,20,30,128]);
 });
+
+test('a Citadel copy keeps a transparent background pasted back from GIMP',()=>{
+  // Citadel copies take alpha from the paint layers, not from the original skin.
+  const value=project(),target=value.targets[0];target.preserveSourceAlpha=false;
+  const coat=paintProjectCoat(value);for(let i=0;i<coat.raster.data.length;i+=4)if((i/4)%8>=4)coat.raster.data.set([0,180,255,255],i);
+  // The transparent background comes from the source skin, as in an eye or glow texture.
+  for(let i=3;i<target.base.data.length;i+=4)if((i>>2)%8<4)target.base.data[i]=0;
+  const before=compositePaintTarget(value),image=clonePaintRaster(before);
+  for(let y=0;y<8;y++)image.data.set([255,255,0,128],(y*8+6)*4);
+  pastePaintTexture(value,target.id,value.activeCoatId,image);
+  const after=compositePaintTarget(value);
+  for(let p=0;p<64;p++){const x=p%8,a=after.data[p*4+3];assert.equal(a,x<4?0:x===6?128:255,`pixel ${p}`);}
+  assert.deepEqual([...after.data.slice((8+5)*4,(8+5)*4+4)],[0,180,255,255]);
+});
