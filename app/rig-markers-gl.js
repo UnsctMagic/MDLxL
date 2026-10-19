@@ -1,6 +1,7 @@
 import { Color, Matrix4, Vector3 } from 'three';
 import { visualOptions } from '../src/preferences.js';
 import { NODE_SYMBOLS, NODE_SYMBOL_COLORS } from './node-marker-symbols.js';
+import { boneDisplayColor, boneDisplayOptions, JOINT_SPHERE, STICK_JOINT } from './bone-display.js';
 
 const CUBE = { vertices: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]], faces: [[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]] };
 const TETRA = { vertices: [[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]], faces: [[0,2,1],[0,1,3],[0,3,2],[1,2,3]] };
@@ -52,8 +53,8 @@ export function markerStyle(point, byId, preferences, highlightColors = new Map(
   }
   if (point.overlayKind === 'particles' || vanilla && point.overlayKind === 'ribbons') return { shape: vanilla?TETRA:preferences?.emitterMarker==='tetrahedron'?TETRA:preferences?.emitterMarker==='cube'?CUBE:PENTAGRAM, color: highlighted || visual.particle };
   if (point.overlayKind === 'bones') {
-    const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
-    return { shape: CUBE, color: highlighted || (hasParentBone ? '#4cff59' : '#4cb259') };
+    const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones', bones = boneDisplayOptions(preferences);
+    return { shape: bones.style === 'joint' ? JOINT_SPHERE : bones.style === 'stick' ? STICK_JOINT : CUBE, color: boneDisplayColor(bones, highlighted, hasParentBone) };
   }
   if (point.helperNode) return { shape: CUBE, color: highlighted || visual.bone };
   if (point.eventNode) return { shape: TETRA, color: highlighted || visual.event };
@@ -102,22 +103,22 @@ export function rigMarkerGeometry(nodes, selectedIds, options = {}) {
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
     const { shape, color } = markerStyle(point, byId, options.preferences, highlights, options.vanilla), topology = markerTopology(shape);
-    const emphasized = highlights.get(point.node.ObjectId) === '#000000';
-    markers.push({ point, shape, color, topology, emphasized });
+    const role = highlights.get(point.node.ObjectId), emphasized = role === '#000000';
+    // Selected and child highlights stay flat (unshaded), whatever colour the user picked.
+    markers.push({ point, shape, color, topology, emphasized, flat: shape.billboard || role === '#ff0000' || role === '#ffff00' });
     triangleCount += topology.triangles.length; edgeCount += topology.edges.length; if (emphasized) emphasizedCount += topology.edges.length;
   }
   const triangles = new Float32Array(triangleCount * 6), edges = new Float32Array(edgeCount * 6), emphasizedEdges = new Float32Array(emphasizedCount * 6);
   const vertex = new Vector3(), side = new Vector3(), normal = new Vector3(), shade = new Color(), rgb = [0,0,0];
   let t = 0, e = 0, m = 0;
   const write = (target, at, positions, id, color) => { target[at] = positions[id*3]; target[at+1] = positions[id*3+1]; target[at+2] = positions[id*3+2]; target[at+3] = color[0]; target[at+4] = color[1]; target[at+5] = color[2]; return at + 6; };
-  for (const { point, shape, color, topology, emphasized } of markers) {
+  for (const { point, shape, color, topology, emphasized, flat } of markers) {
     const baseColor = new Color(color), edgeRgb = baseColor.clone().convertLinearToSRGB().toArray();
     const markerSize = rigMarkerSize(point, shape, options), rotation = shape.billboard ? (point.billboardRotation || point.rotation) : point.rotation;
     const positions = new Float64Array(shape.vertices.length * 3);
     shape.vertices.forEach((value, id) => { vertex.set(value[0], value[1], value[2]).multiplyScalar(markerSize).applyQuaternion(rotation).add(point.world); positions[id*3] = vertex.x; positions[id*3+1] = vertex.y; positions[id*3+2] = vertex.z; });
     // Shade in linear RGB, then encode for the canvas. Multiplying encoded
     // green made the side faces far darker than the fixed-angle reference.
-    const flat = shape.billboard || color === '#ff0000' || color === '#ffff00';
     if (flat) shade.copy(baseColor).convertLinearToSRGB().toArray(rgb);
     let corner = 0;
     shape.faces.forEach((face, index) => {

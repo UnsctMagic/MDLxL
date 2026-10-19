@@ -7,7 +7,7 @@ import { markerStyle } from '../app/rig-markers-gl.js';
 
 test('category symbols follow each editor and Animations Nodes gates only enabled categories',()=>{
   for(const mode of ['bones','movement','animations'])for(const enabled of [false,true])for(const nodes of [false,true]){
-    const display={...defaultEditorDisplay()[mode],particles:enabled,sounds:enabled,events:enabled,nodes}, before=structuredClone(display), options=previewOverlayOptions(display,false,mode);
+    const display={...defaultEditorDisplay()[mode],bones:false,particles:enabled,sounds:enabled,events:enabled,nodes}, before=structuredClone(display), options=previewOverlayOptions(display,false,mode);
     for(const kind of ['particles','ribbons','sounds','events'])assert.equal(options[kind],enabled&&(mode!=='animations'||nodes),mode+': '+kind);
     assert.equal(options.bones,false);assert.equal(options.nodes,false);assert.deepEqual(display,before);
   }
@@ -17,8 +17,8 @@ test('ribbons and event types keep distinct symbols within shared controls',()=>
   const kinds=movementNodeCategories(model);
   assert.deepEqual([0,1,2,3,4,5,6,7,8].map(id=>kinds.get(id)||'nodes'),['bones','attachments','particles','ribbons','sounds','events','events','events','nodes']);
   const points=[...kinds].map(([id,overlayKind])=>({node:{ObjectId:id},overlayKind}));
-  assert.deepEqual(visibleMovementPoints(points,previewOverlayOptions(defaultEditorDisplay().movement,false,'movement')).map(p=>p.node.ObjectId),[2,3]);
-  assert.equal(visibleMovementPoints(points,previewOverlayOptions(defaultEditorDisplay().animations,false,'animations')).length,0);
+  assert.deepEqual(visibleMovementPoints(points,previewOverlayOptions(defaultEditorDisplay().movement,false,'movement')).map(p=>p.node.ObjectId),[0,2,3]);
+  assert.deepEqual(visibleMovementPoints(points,previewOverlayOptions(defaultEditorDisplay().animations,false,'animations')).map(p=>p.node.ObjectId),[0]);
   const symbols=['SPLxTEST','FPTxTEST','UBRxTEST'].map(Name=>markerStyle({node:{ObjectId:0,Name},overlayKind:'events'},new Map(),{}).shape);
   assert.equal(new Set(symbols).size,3);
   for(const shape of symbols)assert.ok(shape.billboard&&shape.faces.length>40);

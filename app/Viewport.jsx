@@ -5,7 +5,7 @@ import { EditorCameraControls, zoomEditorCamera, editorCameraAngles, preserveShi
 import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
-import { drawPreviewGeometryOverlay, drawPresentationOverlay } from './preview-overlays.js';
+import { drawPreviewGeometryOverlay, drawPresentationOverlay, HIDDEN_LINE_DASH, HIDDEN_LINE_FADE } from './preview-overlays.js';
 import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
 import { visibleMovementPoints } from './preview-overlays.js';
@@ -835,7 +835,9 @@ export default function Viewport(inputProps) {
         // surface meshes are absent; otherwise it turns alpha planes opaque.
         entry.depth.visible = needsSolidDepthPrepass(p.mode);
         configureWideLine(entry.wire.material, activeAppearance, surface.clientWidth, surface.clientHeight);
-        configureWideLine(entry.hiddenWire.material, activeAppearance, surface.clientWidth, surface.clientHeight, visual.occludedOpacity);
+        // Hidden-line wireframe draws the edges the mesh hides as faint dashes.
+        const hiddenLine = appearance.wireMode === 'hidden-line';
+        configureWideLine(entry.hiddenWire.material, hiddenLine ? { ...activeAppearance, style: 'dashed', spacing: HIDDEN_LINE_DASH[0] } : activeAppearance, surface.clientWidth, surface.clientHeight, visual.occludedOpacity * (hiddenLine ? HIDDEN_LINE_FADE : 1));
         if (editOverlay) {
           configureWideLine(entry.wire.material, { color: '#303030', thickness: 1, opacity: .7, style: 'solid' }, surface.clientWidth, surface.clientHeight);
           configureWideLine(entry.selectedWire.material, { color: '#ff9a22', thickness: 1.7, opacity: 1, style: 'solid' }, surface.clientWidth, surface.clientHeight);

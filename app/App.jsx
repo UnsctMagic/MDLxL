@@ -73,7 +73,7 @@ import { markPaintProjectSaved, restorePaintProject, travelPaintHistory } from '
 import { enumeratePaintTargets, installFreshPaintLayer, paintTargetsForGeoset } from '../src/paint-targets.js';
 import { paintMessage } from '../src/paint-messages.js';
 import { decodePaintImage } from './paint-raster.js';
-import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay } from '../src/display-overlays.js';
+import { clearQuickDisplay, defaultPoseDisplay, saveEditorDisplay, setEditorDisplay, storedEditorDisplay, textureToggleTarget } from '../src/display-overlays.js';
 import { setCameraFromCurrentView, createPortraitCamera, makePortraitCamera, editPortraitCamera, framePortraitSubject, portraitShot, changedPortraitFields } from './portrait-camera-edit.js';
 import { firstPortraitSequenceIndex, evaluateModelCamera } from './portrait-view.js';
 import PortraitToolbar from './PortraitToolbar.jsx';
@@ -95,7 +95,7 @@ const sessionDirty = session => !!session && (session.doc.dirty || Object.keys(s
 const defaultSessionView = doc => {
   const selectable = initialGeosetSelection(doc.model.Geosets.length);
   const citadel = doc.model.Textures.some(texture => /^MDLxL_Citadel[\\/]/i.test(texture.Image || ''));
-  return { mode: 'vertices', animationPanel: 'movement', selectable, selection: {}, hidden: {}, activeGeoset: selectable.size ? 0 : -1, activeGeosetTab: 'all', uvSet: 0, selectedNodeIds: [], globalSeqId: null, sequence: -1, time: 0, rgbPreview: false, rgbSequence: -1, renderMode: citadel ? 'textured' : 'wireframe', showAllGeosets: !citadel };
+  return { mode: 'vertices', animationPanel: 'movement', selectable, selection: {}, hidden: {}, activeGeoset: selectable.size ? 0 : -1, activeGeosetTab: 'all', uvSet: 0, selectedNodeIds: [], globalSeqId: null, sequence: -1, time: 0, rgbPreview: false, rgbSequence: -1, renderMode: citadel ? 'textured' : 'wireframe', movementRenderMode: 'influence', showAllGeosets: !citadel };
 };
 const newSession = (doc = blank(), path = null, assets = builtinTextureAssets()) => ({ doc, path, assets, uvPreviews: {}, animationDrafts: {}, paintProject: null, paintOriginalModelBytes: null, paintWorkingModel: null, paintWorkingRevision: 0, id: crypto.randomUUID(), checkpoint: 0, viewState: defaultSessionView(doc) });
 export async function readInputBytes(file){
@@ -178,7 +178,7 @@ export default function App() {
   const setGrabThrough = value => setGrabThroughByEditor(previous => ({...previous,[mode]:value}));
   const cameraProps = {onCameraAnglesChange:receiveCameraAngles,cameraAnglesRequest,onCameraGestureChange:setCameraGesture,onSensitivityIndicator:setAdjustingInput,grabThrough};
   useEffect(()=>setCameraGesture(false),[mode,session.id]);
-  const [tool, setTool] = useState('select'), [teamColor, setTeamColor] = useState('#ff0303'), [renderMode, setRenderMode] = useState('wireframe');
+  const [tool, setTool] = useState('select'), [teamColor, setTeamColor] = useState('#ff0303'), [renderMode, setRenderMode] = useState('wireframe'), [movementRenderMode, setMovementRenderMode] = useState('influence'), untexturedModes = useRef({});
   const [previewRenderModes, setPreviewRenderModes] = useState({});
   const [visibleOnly, setVisibleOnly] = useState(new Set());
   const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [hidden, setHidden] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
@@ -238,7 +238,8 @@ export default function App() {
   const [rgbPreview, setRGBPreview] = useState(false), [rgbSequence, setRGBSequence] = useState(-1);
   const [background, setBackground] = useState(() => localStorage.getItem('mdlvis-preview-background') || '');
   const [xlCleanViews, setXLCleanViews] = useState({}), [visCleanViews, setVISCleanViews] = useState({});
-  const [xlOverlayModes, setXLOverlayModes] = useState(defaultEditorDisplay), [visOverlayModes, setVISOverlayModes] = useState(()=>defaultEditorDisplay(true));
+  const [xlOverlayModes, setXLOverlayModes] = useState(()=>storedEditorDisplay()), [visOverlayModes, setVISOverlayModes] = useState(()=>storedEditorDisplay(true));
+  useEffect(() => saveEditorDisplay(xlOverlayModes, visOverlayModes), [xlOverlayModes, visOverlayModes]);
   const normalCleanViews = visUI ? visCleanViews : xlCleanViews, setNormalCleanViews = visUI ? setVISCleanViews : setXLCleanViews;
   const normalOverlayModes = visUI ? visOverlayModes : xlOverlayModes, setNormalOverlayModes = visUI ? setVISOverlayModes : setXLOverlayModes;
   const displayMode = mode === 'animation' ? animationPanel : mode;
@@ -337,7 +338,7 @@ export default function App() {
   const selectionHistory = useMemo(() => new SelectionHistory(doc), [doc]);
   const selectionState = { selectable, visibleOnly, selection, hidden, activeGeoset, uvSet, selectedNodeIds };
   useLayoutEffect(() => { const record = !poseSelectionOnly.current; poseSelectionOnly.current = false; if (selectionHistory.observe(selectionState, { record })) setTick(value => value + 1); }, [selectionHistory, selectable, visibleOnly, selection, hidden, activeGeoset, uvSet, selectedNodeIds, doc.revision]);
-  latest.current = { session, sessions, showcaseSession, doc, model, selection, checkedGeosets, activeGeosetTab, selectable, visibleOnly, hidden, mode, animationPanel, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, showAllGeosets, uvEntrySelection, uvEntryId, dialog, settingsTab, preferencesReady };
+  latest.current = { session, sessions, showcaseSession, doc, model, selection, checkedGeosets, activeGeosetTab, selectable, visibleOnly, hidden, mode, animationPanel, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets, uvEntrySelection, uvEntryId, dialog, settingsTab, preferencesReady };
   const refresh = () => setTick(value => value + 1);
   const say = (message, error = false) => setStatus((error ? 'Error: ' : '') + message);
   const selectBackground = value => { setBackground(value); localStorage.setItem('mdlvis-preview-background', value); };
@@ -637,13 +638,21 @@ export default function App() {
   const selectAll = () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'all'})); if(uvEditing)return uvAction('select-all'); if (mode === 'animation' || mode === 'bones') { setSelectedNodeIds(model.Nodes.filter(Boolean).map(node => node.ObjectId)); return; } const next = {}; for (const gi of selectable) { const invisible = new Set(hidden[gi] || []); next[gi] = Array.from({ length: model.Geosets[gi]?.Vertices.length / 3 || 0 }, (_, i) => i).filter(i => !invisible.has(i)); } setSelection(next); };
   const frame = selectionOnly => window.dispatchEvent(new CustomEvent('mdlvis-frame', { detail: { selection: !!selectionOnly } }));
   const isPreviewMode = cleanAnimationPreview || mode==='uv';
-  const effectiveRenderMode = mode === 'uv' ? 'textured' : isPreviewMode ? (previewRenderModes[mode] || 'textured') : cleanView ? 'textured' : renderMode;
+  // Movement keeps its own render mode (Bone influence by default); the other
+  // editors share the ordinary one, which never holds Bone influence.
+  const boneInfluenceAvailable = mode === 'animation' && animationPanel === 'movement';
+  const viewRenderMode = boneInfluenceAvailable ? movementRenderMode : renderMode === 'influence' ? 'wireframe' : renderMode;
+  const setChosenRenderMode = boneInfluenceAvailable ? setMovementRenderMode : setRenderMode;
+  const effectiveRenderMode = mode === 'uv' ? 'textured' : isPreviewMode ? (previewRenderModes[mode] || 'textured') : cleanView ? 'textured' : viewRenderMode;
   const setViewRenderMode = next => {
     if (uvEditing) return;
     if (isPreviewMode) setPreviewRenderModes(previous=>({...previous,[mode]:next}));
-    else { setRenderMode(next); setCleanViews(previous=>({...previous,[mode]:false})); }
+    else { setChosenRenderMode(next); setCleanViews(previous=>({...previous,[mode]:false})); }
   };
-  const toggleTextured = () => { const next=effectiveRenderMode==='textured'?'wireframe':'textured';setViewRenderMode(next); };
+  // F swaps between Textured View and whichever view the user last chose here.
+  const textureToggleContext = isPreviewMode ? `preview:${mode}` : boneInfluenceAvailable ? 'movement' : 'editor';
+  if (effectiveRenderMode !== 'textured') untexturedModes.current[textureToggleContext] = effectiveRenderMode;
+  const toggleTextured = () => setViewRenderMode(textureToggleTarget(effectiveRenderMode, untexturedModes.current[textureToggleContext], boneInfluenceAvailable ? 'influence' : 'wireframe'));
   const uvAction = (kind, value) => window.dispatchEvent(new CustomEvent('mdlvis-uv-action', { detail: { kind, value } }));
 
   function releaseUnusedTextureUrls() {
@@ -699,12 +708,12 @@ export default function App() {
   }
   function rememberSessionView(target = session) {
     if (!target) return;
-    const view=target===latest.current.session?latest.current:{ mode, animationPanel, checkedGeosets, activeGeosetTab, selectable, visibleOnly, selection, hidden, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, showAllGeosets };
-    target.viewState = { mode:view.mode, animationPanel:view.animationPanel, selectable:new Set(view.checkedGeosets), activeGeosetTab:view.activeGeosetTab, visibleOnly:new Set(view.visibleOnly), selection:structuredClone(view.selection), hidden:structuredClone(view.hidden), activeGeoset:view.activeGeoset, uvSet:view.uvSet, selectedNodeIds:[...view.selectedNodeIds], globalSeqId:view.globalSeqId, sequence:view.sequence, time:view.time, rgbPreview:view.rgbPreview, rgbSequence:view.rgbSequence, renderMode:view.renderMode, showAllGeosets:view.showAllGeosets, uvEntrySelection:structuredClone(view.uvEntrySelection), uvEntryId:view.uvEntryId };
+    const view=target===latest.current.session?latest.current:{ mode, animationPanel, checkedGeosets, activeGeosetTab, selectable, visibleOnly, selection, hidden, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets };
+    target.viewState = { mode:view.mode, animationPanel:view.animationPanel, selectable:new Set(view.checkedGeosets), activeGeosetTab:view.activeGeosetTab, visibleOnly:new Set(view.visibleOnly), selection:structuredClone(view.selection), hidden:structuredClone(view.hidden), activeGeoset:view.activeGeoset, uvSet:view.uvSet, selectedNodeIds:[...view.selectedNodeIds], globalSeqId:view.globalSeqId, sequence:view.sequence, time:view.time, rgbPreview:view.rgbPreview, rgbSequence:view.rgbSequence, renderMode:view.renderMode, movementRenderMode:view.movementRenderMode, showAllGeosets:view.showAllGeosets, uvEntrySelection:structuredClone(view.uvEntrySelection), uvEntryId:view.uvEntryId };
   }
   function restoreSessionView(target) {
     const viewState = target.viewState || (target.viewState = defaultSessionView(target.doc));
-    setActiveGeosetTab(viewState.activeGeosetTab || 'all'); setMode(viewState.mode); setAnimationPanel(viewState.animationPanel); setSelectable(new Set(viewState.selectable)); setVisibleOnly(new Set(viewState.visibleOnly)); setSelection(structuredClone(viewState.selection)); setHidden(structuredClone(viewState.hidden)); setActiveGeoset(viewState.activeGeoset); setUvSet(viewState.uvSet); setSelectedNodeIds([...viewState.selectedNodeIds]); setGlobalSeqId(viewState.globalSeqId); setSequence(viewState.sequence); setTime(viewState.time); setRGBPreview(viewState.rgbPreview); setRGBSequence(viewState.rgbSequence); setRenderMode(viewState.renderMode); setShowAllGeosets(viewState.showAllGeosets);
+    setActiveGeosetTab(viewState.activeGeosetTab || 'all'); setMode(viewState.mode); setAnimationPanel(viewState.animationPanel); setSelectable(new Set(viewState.selectable)); setVisibleOnly(new Set(viewState.visibleOnly)); setSelection(structuredClone(viewState.selection)); setHidden(structuredClone(viewState.hidden)); setActiveGeoset(viewState.activeGeoset); setUvSet(viewState.uvSet); setSelectedNodeIds([...viewState.selectedNodeIds]); setGlobalSeqId(viewState.globalSeqId); setSequence(viewState.sequence); setTime(viewState.time); setRGBPreview(viewState.rgbPreview); setRGBSequence(viewState.rgbSequence); setRenderMode(viewState.renderMode); setMovementRenderMode(viewState.movementRenderMode || 'influence'); setShowAllGeosets(viewState.showAllGeosets);
     setUVWindowState(target.uvWindow || null); setUVFocused(false); setUVEntrySelection(viewState.uvEntrySelection || {}); setUVEntryId(viewState.uvEntryId || 0);
     setPlaying(false); setAttachSourceIds([]); setLiveUV(null); setNormalizer(null); setDialog(null); setContext(null); setRepairReceipt(null); setPortraitEnabled(false); setShowcaseSession(null); setCleanViews({}); rangeAnchor.current = 0;
   }
@@ -1028,7 +1037,7 @@ export default function App() {
     const geosets = model.Geosets.map((g, index) => !hiddenGeosets.has(index) && isShadedGeoset(model, g) ? index : -1).filter(index => index >= 0);
     const selection = selectionCount ? Object.fromEntries(Object.entries(validSelection).filter(([key, ids]) => ids.length && !hiddenGeosets.has(Number(key)))) : null;
     setPlaying(false);
-    setNormalizer({ doc, revision: doc.revision, geosets, selection, scope: selection ? 'selection' : 'model', smoothingAngle: DEFAULT_SMOOTHING_ANGLE, showNormals: true, flipped: null, renderMode: renderMode === 'wireframe' ? 'solid' : renderMode });
+    setNormalizer({ doc, revision: doc.revision, geosets, selection, scope: selection ? 'selection' : 'model', smoothingAngle: DEFAULT_SMOOTHING_ANGLE, showNormals: true, flipped: null, renderMode: viewRenderMode === 'wireframe' ? 'solid' : viewRenderMode });
   };
   const changeNormalizer = changes => setNormalizer(previous => previous && ({ ...previous, ...changes }));
   const normalizerReady = () => normalizer && !savingRef.current && normalizer.doc === doc && normalizer.revision === doc.revision && normalAnalysis?.analysis;
@@ -1509,7 +1518,7 @@ export default function App() {
       <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
         setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
-      }} renderMode={normalizer?.renderMode || renderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setRenderMode}/>
+      }} boneInfluenceAvailable={boneInfluenceAvailable && !normalizer} renderMode={normalizer?.renderMode || viewRenderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setChosenRenderMode}/>
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
       {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
       {preferencesReady && mode === 'vertices' && <Viewport
@@ -1527,7 +1536,7 @@ export default function App() {
         onSelectionChange={next => {setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, doc.model));}}
         normalizer={!!normalizer} normalChanges={normalizer?.showNormals ? normalChanges || {} : null}
         hiddenVertices={hidden} hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
-        mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : renderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
+        mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : viewRenderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
         showSkeleton={overlays.bones || overlays.nodes || overlays.attachments || overlays.particles}
         showGrid={showGrid} showAxes={showAxes} shaded={normalizer ? true : shaded} view={view} cameraMode={cameraMode}
         workplane={workplane} transformMode={tool}
@@ -1548,7 +1557,7 @@ export default function App() {
         onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset} highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView}
         selectedGeoset={activeGeoset} selectionByGeoset={validSelection} visibleGeosets={displayedGeosets} selectableGeosets={selectable}
         onSelectionChange={next=>setSelection(filterVertexSelection(next,selectable,doc.model))} hiddenGeosets={hiddenGeosets} modelPath={session.path}
-        mode={cleanView ? 'textured' : renderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={cameraPortraitActive ? false : showAxes} workplane={workplane}
+        mode={cleanView ? 'textured' : viewRenderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={cameraPortraitActive ? false : showAxes} workplane={workplane}
         backgroundUrl={backgroundLibrary.url} backgroundType={backgroundLibrary.type} onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]}
         overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection}
         preferences={preferences} onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}

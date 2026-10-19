@@ -67,8 +67,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const shot = async name => { console.log('Screenshot: ' + name); await paint(); const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64')); fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(png, 'base64')); };
     const prefs = () => page.evaluate(() => poseProbe().props.preferences);
     const menu = action => app.evaluate(({ BrowserWindow }, value) => BrowserWindow.getAllWindows()[0].webContents.send('menu', value), action);
-    const section = title => page.locator('.settings-appearance-section').filter({ has: page.locator('summary', { hasText: new RegExp('^' + title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') }) });
-    const openSection = async title => { const item = section(title); if (!await item.evaluate(el => el.open)) await item.locator('summary').click(); };
+    // Appearance sections live on pages chosen from the list on the left.
+    const PAGE_OF = { 'Folders & lists': 'Lists & folders', 'Node colors': 'Lists & folders', 'Sound folder colors': 'Lists & folders', 'Viewport background': 'Viewport', 'Highlight Geoset': 'Viewport', 'Wire style': 'Wires', 'Selected geoset': 'Wires', 'Other visible geosets': 'Wires', 'Hidden vertices': 'Vertices', 'Selected vertices': 'Vertices', 'Unselected vertices': 'Vertices' };
+    const openPage = name => page.locator('.settings-appearance-nav').getByRole('button', { name, exact: true }).click();
+    const openSection = title => openPage(PAGE_OF[title] || title);
     const restrict = page.getByRole('button', { name: 'Restrict POSE', exact: true });
     assert.equal(await restrict.getAttribute('aria-pressed'), 'false');
     const restrictBox = await restrict.boundingBox(), setupBox = await page.getByRole('button', { name: 'POSE setup', exact: true }).boundingBox();
@@ -126,8 +128,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.locator('.settings-tabs').getByRole('tab').first().innerText(), 'Configuration');
     assert.equal(await page.locator('.settings-page h3').first().innerText(), 'Updates');
     await shot('configuration'); await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
-    assert.equal(await page.locator('.settings-appearance-section[open]').count(), 1); await shot('appearance-collapsed');
+    assert.equal(await page.locator('.settings-appearance-nav [aria-pressed="true"]').count(), 1); await shot('appearance-collapsed');
     const { BUILT_IN_VIEWPORT_PRESETS } = await import('../src/viewport-appearance.js');
+    await openPage('Presets');
     for (const preset of Object.values(BUILT_IN_VIEWPORT_PRESETS)) {
       await page.getByLabel('Viewport appearance preset').selectOption(preset.id); await paint();
       assert.equal((await prefs()).theme, preset.theme); assert.deepEqual((await prefs()).viewportAppearance.controllers, preset.appearance.controllers);
@@ -144,8 +147,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     mixed = await prefs(); assert.equal(mixed.viewportAppearance.controllers.pinStyle, 'round'); assert.equal(mixed.viewportAppearance.controllers.size, 22); assert.equal(mixed.viewportAppearance.controllers.symbols, false);
     result.checks.push('all seven global themes change live controllers; Lordaeron interface with independent Blackrock controllers, four shapes and three Pin styles');
 
-    const titles = await page.locator('.settings-appearance-section > summary').allTextContents();
-    for (const title of titles.filter(title => !['Presets', 'Controllers'].includes(title))) {
+    const titles = [];
+    for (const name of await page.locator('.settings-appearance-nav button').allTextContents()) { await openPage(name); titles.push(...await page.locator('.settings-appearance-section > h4').allTextContents()); }
+    // Bone, wire-style and hidden-vertex settings are the same in every preset, so they have no set picker.
+    for (const title of titles.filter(title => !['Presets', 'Controllers', 'Wire style', 'Hidden vertices', 'Bones & skeleton', 'Bone influence'].includes(title))) {
       await openSection(title); const select = page.getByLabel(title + ' appearance set', { exact: true }); assert.equal(await select.count(), 1, title + ' has a set picker');
       const previous = await prefs(); await select.selectOption('nord'); await paint(); const next = await prefs();
       assert.deepEqual(next.viewportAppearance.controllers, previous.viewportAppearance.controllers, title + ' leaves controller customisations intact');
