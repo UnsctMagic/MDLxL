@@ -1,4 +1,5 @@
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Brush,Stamp,Eraser,FingerprintPattern,Undo2,Redo2,Scissors,BookmarkPlus,Focus,Pipette} from 'lucide-react';
 import {PAINT_BRUSH_SHAPES} from '../src/paint-brush-shapes.js';
 import {paintRampColor} from '../src/paint-palette.js';
@@ -14,11 +15,12 @@ const shortcuts=[['B / T / E / N','Paint / Stamp / Erase / Smudge'],['D / I','Bl
 
 /** Recent strokes, newest first; each can be undone or restored on its own. */
 function StrokeHistory({strokes,disabled,onToggle}){
-  const [open,setOpen]=useState(false),root=useRef();
-  useEffect(()=>{if(!open)return;const close=e=>{if(!root.current?.contains(e.target))setOpen(false);},key=e=>{if(e.key==='Escape')setOpen(false);};window.addEventListener('pointerdown',close,true);window.addEventListener('keydown',key,true);return()=>{window.removeEventListener('pointerdown',close,true);window.removeEventListener('keydown',key,true);};},[open]);
+  const [open,setOpen]=useState(null),root=useRef(),list=useRef();
+  useEffect(()=>{if(!open)return;const close=e=>{if(!root.current?.contains(e.target)&&!list.current?.contains(e.target))setOpen(null);},key=e=>{if(e.key==='Escape')setOpen(null);};window.addEventListener('pointerdown',close,true);window.addEventListener('keydown',key,true);return()=>{window.removeEventListener('pointerdown',close,true);window.removeEventListener('keydown',key,true);};},[open]);
   const recent=strokes.slice(-40).reverse();
-  return <span className="studio-strokes" ref={root}><button aria-label="Strokes" title="Stroke history: undo or restore single strokes; everything else stays (Shift+Z undoes the last stroke)" aria-expanded={open} disabled={disabled} onClick={()=>setOpen(v=>!v)}>Strokes<PaintKey>Shift+Z</PaintKey></button>
-    {open&&<div className="studio-stroke-list" role="dialog" aria-label="Stroke history">{recent.length?recent.map((entry,i)=><p key={strokes.length-i} className={entry.strokeUndone?'studio-stroke-undone':''}><span>{entry.label}</span>{entry.date&&<small>{new Date(entry.date).toLocaleTimeString()}</small>}<button onClick={()=>onToggle(entry)}>{entry.strokeUndone?'Restore stroke':'Undo stroke'}</button></p>):<small>No strokes yet.</small>}</div>}
+  return <span className="studio-strokes" ref={root}><button aria-label="Strokes" title="Stroke history: undo or restore single strokes; everything else stays (Shift+Z undoes the last stroke)" aria-expanded={!!open} disabled={disabled} onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setOpen(v=>v?null:{left:r.left,bottom:window.innerHeight-r.top+6});}}>Strokes<PaintKey>Shift+Z</PaintKey></button>
+    {/* Portal: the footer's stacking context would put the list under the views. */}
+    {open&&createPortal(<div ref={list} className="studio-stroke-list" role="dialog" aria-label="Stroke history" style={open}>{recent.length?recent.map((entry,i)=><p key={strokes.length-i} className={entry.strokeUndone?'studio-stroke-undone':''}><span>{entry.label}</span>{entry.date&&<small>{new Date(entry.date).toLocaleTimeString()}</small>}<button onClick={()=>onToggle(entry)}>{entry.strokeUndone?'Restore stroke':'Undo stroke'}</button></p>):<small>No strokes yet.</small>}</div>,document.body)}
   </span>;
 }
 
