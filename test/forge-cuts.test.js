@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildForgePrimitive } from '../src/forge-primitives.js';
+import { buildForgePrimitive, TRIANGLE_ICON_UV } from '../src/forge-primitives.js';
 import { createForgeShape, forgeShapeMesh, forgeFaceNormal, forgeCutFrame, cutForgeShape, extrudeForgeFaces } from '../src/forge-shape-editing.js';
 const make = shape => createForgeShape(buildForgePrimitive({ shape, width: 160, height: 70, depth: 20, zUp: true, complexity: 1 }));
 const top = shape => shape.faces.filter(face => forgeFaceNormal(shape, face)[2] > .999);
@@ -44,7 +44,8 @@ test('face cuts divide only the selected top and keep neighboring sides connecte
     for(const face of source.faces.filter(f=>!selected.includes(f.id))) {
       const matching=shape.faces.filter(f=>forgeFaceNormal(shape,f).every((n,i)=>Math.abs(n-forgeFaceNormal(source,face)[i])<1e-6));
       assert.equal(matching.length,1);assert.equal(matching[0].id,face.id);
-      // Adjacent triangles retain their original texture interpolation at every new corner.
+      // Icon faces show the whole icon on every triangle; textured faces keep their mapping at every new corner.
+      if(face.triangles.every(t=>t.uv.every((n,i)=>n===TRIANGLE_ICON_UV[i]))) {assert.ok(matching[0].triangles.every(t=>t.uv.every((n,i)=>n===TRIANGLE_ICON_UV[i])));continue;}
       for(const triangle of matching[0].triangles)for(let k=0;k<3;k++) {
         const p=shape.vertices[triangle.vertices[k]];
         assert.ok(face.triangles.some(original=>{
@@ -66,5 +67,26 @@ test('a later face cut uses that section bounds, and multiple selected sides rem
   for(const turned of [false,true]) {
     const selected=source.faces.filter(f=>forgeFaceNormal(source,f)[2]>.999||forgeFaceNormal(source,f)[1]<-.999).map(f=>f.id);
     const shape=cutForgeShape(source,forgeCutFrame(source,selected[0],turned,selected),[.2,.4,.6,.8],selected);check(shape,true);
+  }
+});
+
+test('cut sections are plain four-corner faces, and extruding one grows one plain wall per side',()=>{
+  const source=make('Cube'), selected=[top(source)[0].id], shape=cutForgeShape(source,forgeCutFrame(source,selected[0],false,selected),[.25,.5,.75],selected);
+  for(const band of top(shape)){assert.equal(band.vertices.length,4,'no extra points where the cut crossed the old diagonal');assert.equal(band.triangles.length,2);}
+  assert.equal(shape.vertices.length,source.vertices.length+6,'only the cut points on the border are added');
+  for(const face of shape.faces)assert.equal(face.triangles.length,face.vertices.length-2,'fewest triangles for every face');
+  const band=top(shape)[0], raised=extrudeForgeFaces(shape,[band.id],[0,0,25]); check(raised,true);
+  const walls=raised.faces.slice(shape.faces.length);assert.equal(walls.length,4);assert.ok(walls.every(w=>w.vertices.length===4&&w.triangles.length===2));
+});
+test('cutting sections across again gives a grid of plain quads, and neighbors avoid needle triangles',()=>{
+  const source=make('Cube'), selected=[top(source)[0].id], bands=cutForgeShape(source,forgeCutFrame(source,selected[0],false,selected),[.25,.5,.75],selected);
+  const ids=top(bands).map(f=>f.id), grid=cutForgeShape(bands,forgeCutFrame(bands,ids[0],true,ids),[.5],ids);check(grid,true);
+  assert.equal(top(grid).length,8);
+  for(const cell of top(grid)){assert.equal(cell.vertices.length,4);assert.equal(cell.triangles.length,2);}
+  // The long sides gain points only along their top edge; their triangles spread out instead of fanning from one corner.
+  for(const face of grid.faces.filter(f=>Math.abs(forgeFaceNormal(grid,f)[1])>.999)){
+    assert.equal(face.triangles.length,face.vertices.length-2);
+    const corners=new Map();for(const t of face.triangles)for(const id of t.vertices)corners.set(id,(corners.get(id)||0)+1);
+    assert.ok(Math.max(...corners.values())<=3,'no corner fans out to every new point');
   }
 });

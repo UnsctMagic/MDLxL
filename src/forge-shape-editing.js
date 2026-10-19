@@ -114,20 +114,129 @@ export function forgeSelectionNormal(shapes, selection) {
   return unit(shapes.reduce((n, s) => add(n, s.faces.filter(f => selection[s.id]?.includes(f.id)).reduce((v, f) => add(v, forgeFaceNormal(s, f)), [0, 0, 0])), [0, 0, 0]));
 }
 
-function quad(shape, ids) {
-  return { id: shape.nextFaceId++, vertices: ids, triangles: [[ids[0], ids[1], ids[2]], [ids[0], ids[2], ids[3]]].map(vertices => ({ vertices, uv: [...TRIANGLE_ICON_UV] })) };
+// Fewest, best-shaped triangles for a flat outline (no inner points): clip the
+// ear with the widest smallest angle, then swap diagonals while that widens it.
+function tidyTriangles(points) {
+  const scale = Math.max(1e-12, ...points.map(p => Math.hypot(p[0] - points[0][0], p[1] - points[0][1])));
+  const signed = points.reduce((s, p, i) => { const q = points[(i + 1) % points.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0);
+  const sign = Math.sign(signed), epsilon = scale * scale * 1e-9;
+  if (Math.abs(signed) <= epsilon) return null;
+  const area = (a, b, c) => sign * ((points[b][0] - points[a][0]) * (points[c][1] - points[a][1]) - (points[b][1] - points[a][1]) * (points[c][0] - points[a][0]));
+  const angle = (p, a, b) => {
+    const u = [points[a][0] - points[p][0], points[a][1] - points[p][1]], v = [points[b][0] - points[p][0], points[b][1] - points[p][1]];
+    return Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v) || 1))));
+  };
+  const quality = ([a, b, c]) => Math.min(angle(a, b, c), angle(b, c, a), angle(c, a, b));
+  const ring = points.map((_, i) => i), triangles = [];
+  while (ring.length > 3) {
+    let best;
+    ring.forEach((j, k) => {
+      const tri = [ring[(k + ring.length - 1) % ring.length], j, ring[(k + 1) % ring.length]];
+      if (area(...tri) <= epsilon || ring.some(m => !tri.includes(m) && area(tri[0], tri[1], m) >= -epsilon && area(tri[1], tri[2], m) >= -epsilon && area(tri[2], tri[0], m) >= -epsilon)) return;
+      const q = quality(tri);
+      if (!best || q > best.q) best = { k, q, tri };
+    });
+    if (!best) return null;
+    triangles.push(best.tri); ring.splice(best.k, 1);
+  }
+  if (area(...ring) <= epsilon) return null;
+  triangles.push(ring);
+  for (let pass = 0, flipped = true; flipped && pass < 4 * points.length; pass++) {
+    flipped = false;
+    for (let i = 0; i < triangles.length && !flipped; i++) for (let j = i + 1; j < triangles.length && !flipped; j++) for (let k = 0; k < 3 && !flipped; k++) {
+      const [x, y, a] = [0, 1, 2].map(n => triangles[i][(k + n) % 3]), m = triangles[j].indexOf(y);
+      if (m < 0 || triangles[j][(m + 1) % 3] !== x) continue;
+      const b = triangles[j][(m + 2) % 3], next = [[x, b, a], [b, y, a]];
+      if (next.some(t => area(...t) <= epsilon) || Math.min(...next.map(quality)) <= Math.min(quality(triangles[i]), quality(triangles[j])) + 1e-9) continue;
+      [triangles[i], triangles[j]] = next; flipped = true;
+    }
+  }
+  return triangles;
+}
+
+// A flat face whose corners all lie on its outline can be re-triangulated
+// freely. Forge icon faces give every triangle the whole icon; other faces need
+// one even texture mapping so new corners can sample it exactly.
+function flatLayout(vertices, face) {
+  const outline = new Set(face.vertices);
+  if (face.vertices.length < 3 || outline.size !== face.vertices.length || face.triangles.some(t => t.vertices.some(id => !outline.has(id)))) return null;
+  const normal = forgeFaceNormal({ vertices }, face), origin = vertices[face.vertices[0]];
+  const distances = face.vertices.map(id => Math.hypot(...sub(vertices[id], origin))), size = Math.max(...distances);
+  if (!(size > 0) || Math.hypot(...normal) < .5 || face.vertices.some(id => Math.abs(dot(sub(vertices[id], origin), normal)) > size * 1e-6)) return null;
+  const u = unit(sub(vertices[face.vertices[distances.indexOf(size)]], origin)), v = cross(normal, u);
+  const flat = id => { const d = sub(vertices[id], origin); return [dot(d, u), dot(d, v)]; };
+  const icon = face.triangles.every(t => t.uv.length === 6 && t.uv.every((n, i) => Math.abs(n - TRIANGLE_ICON_UV[i]) < 1e-6));
+  let texture = null;
+  if (!icon) {
+    const twice = ([a, b, c]) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    const reference = face.triangles.reduce((best, t) => Math.abs(twice(t.vertices.map(flat))) > Math.abs(twice(best.vertices.map(flat))) ? t : best);
+    const corners = reference.vertices.map(flat), whole = twice(corners);
+    if (Math.abs(whole) < size * size * 1e-9) return null;
+    texture = p => {
+      const w = [twice([p, corners[1], corners[2]]), twice([corners[0], p, corners[2]]), twice([corners[0], corners[1], p])].map(n => n / whole);
+      return [0, 1].map(i => w.reduce((s, n, k) => s + n * reference.uv[k * 2 + i], 0));
+    };
+    if (face.triangles.some(t => t.vertices.some((id, k) => texture(flat(id)).some((n, i) => Math.abs(n - t.uv[k * 2 + i]) > 1e-4)))) return null;
+  }
+  const first = face.triangles[0].normals?.slice(0, 3);
+  const normals = first && face.triangles.every(t => t.normals && t.normals.every((n, i) => Math.abs(n - first[i % 3]) < 1e-4)) ? first : undefined;
+  const ring = face.vertices.map(flat), turn = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const convex = ring.every((p, i) => turn(ring[(i + ring.length - 1) % ring.length], p, ring[(i + 1) % ring.length]) >= -size * size * 1e-9);
+  const lay = ids => {
+    const indices = tidyTriangles(ids.map(flat));
+    return indices && indices.map(tri => {
+      const corners = tri.map(i => ids[i]);
+      return { vertices: corners, uv: texture ? corners.flatMap(id => texture(flat(id))) : [...TRIANGLE_ICON_UV], normals: normals && corners.flatMap(() => normals) };
+    });
+  };
+  return { convex, lay };
+}
+
+// One wall per straight border run. Cuts leave extra points along a border
+// (where the cut crossed a triangle diagonal); those must not split the wall.
+function wall(shape, run, copies) {
+  const top = run.map(id => copies.get(id)).reverse(), triangles = [];
+  for (let i = 0; i + 1 < run.length; i++) {
+    const [a, b] = [run[i], run[i + 1]], [c, d] = [copies.get(b), copies.get(a)];
+    triangles.push({ vertices: [a, b, c], uv: [...TRIANGLE_ICON_UV] }, { vertices: [a, c, d], uv: [...TRIANGLE_ICON_UV] });
+  }
+  return { id: shape.nextFaceId++, vertices: [...run, ...top], triangles };
+}
+
+// Points where a visible line inside the region meets the border (grid cells,
+// crossing cuts) still divide the walls.
+function straightRuns(shape, edges, faces) {
+  const outgoing = new Map(), incoming = new Map(), count = new Map(), border = new Set(edges.map(([a, b]) => forgeEdgeKey(a, b))), joints = new Set();
+  for (const [a, b] of edges) { outgoing.set(a, b); incoming.set(b, a); count.set(a, (count.get(a) || 0) + 1); count.set(b, (count.get(b) || 0) + 1); }
+  for (const face of faces) face.vertices.forEach((a, i) => { const b = face.vertices[(i + 1) % face.vertices.length]; if (!border.has(forgeEdgeKey(a, b))) joints.add(a).add(b); });
+  const direction = (a, b) => unit(sub(shape.vertices[b], shape.vertices[a]));
+  const continues = id => {
+    if (joints.has(id) || count.get(id) !== 2 || !incoming.has(id) || !outgoing.has(id)) return false;
+    const u = direction(incoming.get(id), id), v = direction(id, outgoing.get(id));
+    return dot(u, v) > 1 - 1e-9 && Math.hypot(...cross(u, v)) < 1e-6;
+  };
+  // Every run starts at a corner; a closed border always has one.
+  const runs = [];
+  for (const [a, b] of edges) {
+    if (continues(a)) continue;
+    const run = [a, b];
+    while (continues(run.at(-1)) && run.length <= edges.length) run.push(outgoing.get(run.at(-1)));
+    runs.push(run);
+  }
+  return runs;
 }
 
 function detachedCap(source, selected) {
   const shape = structuredClone(source), faces = shape.faces.filter(f => selected.includes(f.id)), edges = boundaryEdges(faces), copies = new Map();
   if (!faces.length) throw Error('Select faces to extend.');
   if (!edges.length) throw Error('Select an open region of faces to extend.');
+  const runs = straightRuns(shape, edges, faces);
   for (const id of new Set(faces.flatMap(f => f.triangles.flatMap(t => t.vertices)))) { copies.set(id, shape.vertices.length); shape.vertices.push([...shape.vertices[id]]); }
   for (const face of faces) {
     face.vertices = face.vertices.map(id => copies.get(id));
     face.triangles = face.triangles.map(t => ({ ...t, normals: undefined, vertices: t.vertices.map(id => copies.get(id)) }));
   }
-  for (const [a, b] of edges) shape.faces.push(quad(shape, [a, b, copies.get(b), copies.get(a)]));
+  for (const run of runs) shape.faces.push(wall(shape, run, copies));
   return { shape, copies, edges };
 }
 
@@ -180,34 +289,70 @@ export function cutForgeShape(source, frame, fractions, selected) {
   const span = frame.max - frame.min, epsilon = Math.max(1, span) * 1e-8;
   const cuts = [...new Set(fractions.filter(n => Number.isFinite(n) && n > 1e-6 && n < 1 - 1e-6).map(n => Math.round(n * 1e8) / 1e8))].sort((a, b) => a - b).map(n => frame.min + span * n);
   if (!cuts.length || span < epsilon) return source;
-  const shape = { ...source, vertices: source.vertices.map(p => [...p]), faces: [] }, intersections = new Map(), origins = new Map(), edgeSplits = new Map();
+  const shape = { ...source, vertices: source.vertices.map(p => [...p]), faces: [] }, intersections = new Map(), onEdge = new Map(), edgeSplits = new Map();
   const targets = selected && new Set(selected);
   let changed = false;
   const project = id => dot(shape.vertices[id], frame.direction);
+  // A cut point is keyed by the original edge it lies on, so every face sharing
+  // that edge (and every later piece of it) reuses the same point.
+  const crossing = (a, b, da, db, cutIndex) => {
+    const t = da / (da - db), edge = onEdge.get(a) || onEdge.get(b) || [a, b], key = cutIndex + ':' + forgeEdgeKey(...edge);
+    if (!intersections.has(key)) { intersections.set(key, shape.vertices.length); shape.vertices.push(add(shape.vertices[a], mul(sub(shape.vertices[b], shape.vertices[a]), t))); }
+    const id = intersections.get(key);
+    onEdge.set(id, edge);
+    if (targets) { const key = forgeEdgeKey(...edge); if (!edgeSplits.has(key)) edgeSplits.set(key, new Set()); edgeSplits.get(key).add(id); }
+    return { id, t };
+  };
   const clip = (polygon, value, cutIndex, sign) => {
     const result = [];
     for (let i = 0; i < polygon.length; i++) {
       const a = polygon[i], b = polygon[(i + 1) % polygon.length], da = project(a.id) - value, db = project(b.id) - value;
       if (sign * da >= -epsilon) result.push(a);
       if (da * db < 0 && Math.abs(da) > epsilon && Math.abs(db) > epsilon) {
-        const t = da / (da - db), key = cutIndex + ':' + forgeEdgeKey(a.id, b.id);
-        if (!intersections.has(key)) { intersections.set(key, shape.vertices.length); shape.vertices.push(add(shape.vertices[a.id], mul(sub(shape.vertices[b.id], shape.vertices[a.id]), t))); }
-        const id = intersections.get(key);
-        if (targets) {
-          const first = origins.get(a.id), second = origins.get(b.id);
-          const edge = first && (first.includes(b.id) || second && forgeEdgeKey(...first) === forgeEdgeKey(...second)) ? first : second?.includes(a.id) ? second : !first && !second ? [a.id, b.id] : null;
-          if (edge) { origins.set(id, edge); const key = forgeEdgeKey(...edge); if (!edgeSplits.has(key)) edgeSplits.set(key, new Set()); edgeSplits.get(key).add(id); }
-        }
+        const { id, t } = crossing(a.id, b.id, da, db, cutIndex);
         result.push({ id, uv: a.uv.map((n, k) => n + (b.uv[k] - n) * t), normal: a.normal && b.normal ? unit(a.normal.map((n, k) => n + (b.normal[k] - n) * t)) : undefined });
       }
     }
     return result.filter((p, i) => p.id !== result[(i + result.length - 1) % result.length]?.id);
+  };
+  // Flat convex faces are cut along their outline: each section is one plain
+  // face with only its own corners, never extra points from old diagonals.
+  const cleanCut = face => {
+    const layout = flatLayout(shape.vertices, face);
+    if (!layout?.convex) return null;
+    let pieces = [{ band: 0, ids: [...face.vertices] }];
+    cuts.forEach((value, index) => {
+      pieces = pieces.flatMap(piece => {
+        const values = piece.ids.map(id => project(id) - value);
+        if (Math.max(...values) <= epsilon) return [piece];
+        if (Math.min(...values) >= -epsilon) return [{ ...piece, band: index + 1 }];
+        const side = sign => {
+          const ids = [];
+          piece.ids.forEach((a, i) => {
+            const j = (i + 1) % piece.ids.length, da = values[i], db = values[j];
+            if (sign * da >= -epsilon) ids.push(a);
+            if (da * db < 0 && Math.abs(da) > epsilon && Math.abs(db) > epsilon) ids.push(crossing(a, piece.ids[j], da, db, index).id);
+          });
+          return ids.filter((id, i) => id !== ids[(i + ids.length - 1) % ids.length]);
+        };
+        return [{ band: piece.band, ids: side(-1) }, { band: index + 1, ids: side(1) }].filter(p => p.ids.length >= 3);
+      });
+    });
+    const faces = [];
+    for (const piece of pieces.sort((a, b) => a.band - b.band)) {
+      const triangles = layout.lay(piece.ids);
+      if (!triangles) return null;
+      faces.push({ ...face, vertices: piece.ids, triangles });
+    }
+    return faces.map((f, i) => i ? { ...f, id: shape.nextFaceId++ } : f);
   };
   for (const face of source.faces) {
     if (targets && !targets.has(face.id)) { shape.faces.push(face); continue; }
     const values = face.triangles.flatMap(t => t.vertices.map(project));
     if (!cuts.some(value => Math.min(...values) < value - epsilon && Math.max(...values) > value + epsilon)) { shape.faces.push(face); continue; }
     changed = true;
+    const clean = cleanCut(face);
+    if (clean) { shape.faces.push(...clean); continue; }
     const bands = new Map();
     for (const triangle of face.triangles) {
       let pieces = [{ band: 0, polygon: triangle.vertices.map((id, i) => ({ id, uv: triangle.uv.slice(i * 2, i * 2 + 2), normal: triangle.normals?.slice(i * 3, i * 3 + 3) })) }];
@@ -246,6 +391,10 @@ export function cutForgeShape(source, frame, fractions, selected) {
     const ordered = (a, b) => [...(edgeSplits.get(forgeEdgeKey(a, b)) || [])].sort((i, j) => dot(sub(shape.vertices[i], shape.vertices[j]), sub(shape.vertices[b], shape.vertices[a])));
     shape.faces = shape.faces.map(face => {
       if (!source.faces.includes(face) || targets.has(face.id)) return face;
+      const outline = face.vertices.flatMap((a, i) => [a, ...ordered(a, face.vertices[(i + 1) % face.vertices.length])]);
+      if (outline.length === face.vertices.length) return face;
+      const tidy = flatLayout(shape.vertices, face)?.lay(outline);
+      if (tidy) return { ...face, vertices: outline, triangles: tidy };
       if (!face.triangles.some(t => t.vertices.some((a, i) => edgeSplits.has(forgeEdgeKey(a, t.vertices[(i + 1) % 3]))))) return face;
       const triangles = face.triangles.flatMap(triangle => {
         const corners = triangle.vertices.map((id, i) => ({ id, uv: triangle.uv.slice(i * 2, i * 2 + 2), normal: triangle.normals?.slice(i * 3, i * 3 + 3) }));
