@@ -5761,5 +5761,7 @@
   "{0} faces selected": "Выбрано граней: {0}",
   "Shapes": "Фигуры",
   "{0} key follow below, one per line: \"frame: value\".": "Ниже ключей: {0}, по одному в строке: «кадр: значение».",
-  "{0} keys follow below, one per line: \"frame: value\".": "Ниже ключей: {0}, по одному в строке: «кадр: значение»."
+  "{0} keys follow below, one per line: \"frame: value\".": "Ниже ключей: {0}, по одному в строке: «кадр: значение».",
+  "Bone influence": "Влияние костей",
+  "Bone influence: the model turns see-through so the skeleton stays visible. Parts the selected bone moves turn orange; parts that follow it through child bones turn pale orange.": "Влияние костей: модель становится прозрачной, чтобы скелет оставался виден. Части, которые двигает выбранная кость, становятся оранжевыми; части, которые следуют за ней через дочерние кости, — светло-оранжевыми."
 }

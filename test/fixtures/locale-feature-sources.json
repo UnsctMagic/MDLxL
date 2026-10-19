@@ -887,7 +887,9 @@
     "{0} faces selected",
     "Shapes",
     "{0} key follow below, one per line: \"frame: value\".",
-    "{0} keys follow below, one per line: \"frame: value\"."
+    "{0} keys follow below, one per line: \"frame: value\".",
+    "Bone influence",
+    "Bone influence: the model turns see-through so the skeleton stays visible. Parts the selected bone moves turn orange; parts that follow it through child bones turn pale orange."
   ],
   "paint": [
     "Citadel Paint",

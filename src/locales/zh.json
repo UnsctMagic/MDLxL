@@ -2933,5 +2933,7 @@
   "{0} faces selected": "已选择 {0} 个面",
   "Shapes": "形状",
   "{0} key follow below, one per line: \"frame: value\".": "下面有 {0} 个关键帧，每行一个：“帧: 值”。",
-  "{0} keys follow below, one per line: \"frame: value\".": "下面有 {0} 个关键帧，每行一个：“帧: 值”。"
+  "{0} keys follow below, one per line: \"frame: value\".": "下面有 {0} 个关键帧，每行一个：“帧: 值”。",
+  "Bone influence": "骨骼影响",
+  "Bone influence: the model turns see-through so the skeleton stays visible. Parts the selected bone moves turn orange; parts that follow it through child bones turn pale orange.": "骨骼影响：模型变为半透明，骨架始终可见。所选骨骼直接移动的部分显示为橙色；通过子骨骼跟随移动的部分显示为浅橙色。"
 }

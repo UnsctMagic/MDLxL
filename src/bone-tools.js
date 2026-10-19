@@ -142,12 +142,12 @@ export function setBoneBillboarded(model, id, enabled) {
   bone.Flags = (bone.Flags || 0) & ~120 | (enabled ? 8 : 0);
 }
 
-export function boneVertexHighlights(model, selectedNodeIds = []) {
-  const boneIds = new Set([...(model.Bones || []), ...(model.Helpers || [])].map(node => node.ObjectId));
-  const selected = new Set(selectedNodeIds.filter(id => boneIds.has(id)));
-  if (!selected.size) return new Map();
-  const descendants = new Set();
-  for (const node of [...(model.Bones || []), ...(model.Helpers || [])]) {
+// Selected bones/helpers, and the bones/helpers below them that follow along.
+function selectedBoneFamily(model, selectedNodeIds = []) {
+  const bones = [...(model.Bones || []), ...(model.Helpers || [])], boneIds = new Set(bones.map(node => node.ObjectId));
+  const selected = new Set(selectedNodeIds.filter(id => boneIds.has(id))), descendants = new Set();
+  if (!selected.size) return { selected, descendants };
+  for (const node of bones) {
     if (selected.has(node.ObjectId)) continue;
     const seen = new Set([node.ObjectId]);
     for (let parent = node.Parent; parent != null && !seen.has(parent); parent = model.Nodes?.[parent]?.Parent) {
@@ -155,6 +155,25 @@ export function boneVertexHighlights(model, selectedNodeIds = []) {
       seen.add(parent);
     }
   }
+  return { selected, descendants };
+}
+
+/**
+ * One RGBA texel per node ObjectId for the Bone influence view: red marks the
+ * selected bones, green marks every bone that moves with them.
+ */
+export function boneInfluenceMap(model, selectedNodeIds = [], size = 256) {
+  const { selected, descendants } = selectedBoneFamily(model, selectedNodeIds), map = new Uint8Array(size * 4);
+  for (const id of [...selected, ...descendants]) {
+    if (!Number.isInteger(id) || id < 0 || id >= size) continue;
+    map[id * 4] = selected.has(id) ? 255 : 0; map[id * 4 + 1] = 255; map[id * 4 + 3] = 255;
+  }
+  return map;
+}
+
+export function boneVertexHighlights(model, selectedNodeIds = []) {
+  const { selected, descendants } = selectedBoneFamily(model, selectedNodeIds);
+  if (!selected.size) return new Map();
   const colors = new Map();
   (model.Geosets || []).forEach((geoset, geosetIndex) => {
     const vertices = new Map(), count = (geoset.Vertices?.length || 0) / 3;

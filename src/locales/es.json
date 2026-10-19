@@ -5773,5 +5773,7 @@
   "{0} faces selected": "Caras seleccionadas: {0}",
   "Shapes": "Formas",
   "{0} key follow below, one per line: \"frame: value\".": "Debajo sigue {0} fotograma clave, uno por línea: «fotograma: valor».",
-  "{0} keys follow below, one per line: \"frame: value\".": "Fotogramas clave que siguen: {0}, uno por línea: «fotograma: valor»."
+  "{0} keys follow below, one per line: \"frame: value\".": "Fotogramas clave que siguen: {0}, uno por línea: «fotograma: valor».",
+  "Bone influence": "Influencia de huesos",
+  "Bone influence: the model turns see-through so the skeleton stays visible. Parts the selected bone moves turn orange; parts that follow it through child bones turn pale orange.": "Influencia de huesos: el modelo se vuelve transparente para que el esqueleto siga visible. Las partes que mueve el hueso seleccionado se vuelven naranjas; las que lo siguen a través de huesos hijos se vuelven naranja claro."
 }

@@ -8,7 +8,7 @@ import { createPreviewSceneGL } from './preview-scene-gl.js';
 import { projectPreviewGeosets, pickPreviewGeoset, selectPreviewUVCoordinates, selectPreviewVertices } from './preview-selection.js';
 import { cameraLeftLight, improveNativeTexture, captureDimensions, nativeTeamColor, viewportPixelRatio } from './viewport-quality.js';
 import { boneHighlightColors, createRigMarkersGL } from './rig-markers-gl.js';
-import { boneVertexHighlights } from '../src/bone-tools.js';
+import { boneInfluenceMap, boneVertexHighlights } from '../src/bone-tools.js';
 import { billboardCameraCorrection } from './preview-pose.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
 import { drawCollisionSpheres } from './optimizexl-overlays.js';
@@ -310,13 +310,15 @@ export default function GamePreview(inputProps) {
     const turntableRotation = new THREE.Quaternion(), turntableOffset = new THREE.Vector3();
     let displayCamera;
     const displayLight = () => new THREE.Vector3(...(latest.current.showcaseLight === 'portrait' ? [.3,-.3,.25] : [-.65,.55,1])).applyQuaternion(turntableRotation);
+    let influenceCache = null;
+    const boneInfluence = (ids = []) => { const key = ids.join(','); return influenceCache?.key === key ? influenceCache : influenceCache = { key, map: boneInfluenceMap(ownedModel, ids) }; };
     const previewAdapter = installWarcraftPreviewAdapter(gl, ownedModel, () => ({ frame: native.getFrame(), sequenceIndex: native.getSequence(), globalTime: globalClock,
       // Installed UI\\MiscData.txt [Light] Direction=0.3,0.3,-0.25;
       // the classic portrait scene maps this to (y,-x,-z), in model space.
       portraitLight: latest.current.portraitMode ? portraitLight.current : null,
       portrait: !!latest.current.portraitMode || !!latest.current.showcase && latest.current.showcaseLight === 'portrait',
       lightDirection: latest.current.portraitMode ? [.3,-.3,.25] : latest.current.showcase ? displayLight().toArray() : cameraLeftLight(camera, controls.target, radius).direction.toArray(),
-      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
+      viewDirection: (displayCamera || camera).getWorldDirection(new THREE.Vector3()).negate().toArray(), preferences: latest.current.preferences, hiddenGeosets: latest.current.hiddenGeosets, hideRgbGeoset: latest.current.hideRgbGeoset, surface: latest.current.mode === 'solid', boneInfluence: latest.current.mode === 'influence' ? boneInfluence(latest.current.selectedNodeIds) : null, lighting: latest.current.portraitMode ? latest.current.portraitSettings?.lighting !== false : (latest.current.showcase ? latest.current.showcaseLight !== 'none' : latest.current.shaded !== false && graphicsOptions(latest.current.preferences).lighting) }));
     try {
       native = new ModelRenderer(ownedModel); installParticleNativeCompatibility(native); native.initGL(gl); previewAdapter.ready(native);
       // Layered WC3 materials redraw the same triangles at identical depth.
@@ -1243,7 +1245,7 @@ export default function GamePreview(inputProps) {
       overlayOptions.selectedGeoset = p.selectedGeoset;
       overlayOptions.wires ||= p.mode === 'wireframe' || p.mode === 'vertices';
       overlayOptions.showHiddenWires = p.mode === 'wireframe' || p.mode === 'vertices';
-      overlayOptions.showHiddenVertices = p.mode === 'wireframe' || p.mode === 'vertices' || viewportAppearanceOptions(p.preferences).xrayVertices || p.mode === 'textured' && p.grabThrough === true;
+      overlayOptions.showHiddenVertices = p.mode === 'wireframe' || p.mode === 'vertices' || p.mode === 'influence' || viewportAppearanceOptions(p.preferences).xrayVertices || p.mode === 'textured' && p.grabThrough === true;
       overlayOptions.vertices ||= p.mode === 'vertices';
       let poseMatrices;
       const getPoseMatrices = () => poseMatrices ||= new Map((native.rendererData?.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
@@ -1355,7 +1357,7 @@ export default function GamePreview(inputProps) {
         const activeAxis = nodeGesture?.mode === 'move' && nodeGesture.handle.mode === 'move' ? nodeGesture.handle.axis : null;
         const focusedPose = poseVisible && !p.poseConfig.picking && overlayOptions.focusedBoneLines;
         const poseSkeleton = focusedPose ? projectPoseSkeleton(projectedNodes, poseHandles, p.poseConfig) : null;
-        const markerOptions = { ...overlayOptions, activeAxis, preferences: p.preferences, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), ...(focusedPose ? { boneLines: false, bones: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
+        const markerOptions = { ...overlayOptions, activeAxis, preferences: p.preferences, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), ...(focusedPose ? { boneLines: false, bones: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices' || p.mode === 'influence', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
         drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
