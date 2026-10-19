@@ -385,9 +385,10 @@ export function deleteFreeVertices(model, geosetIndices) {
   };
 }
 
-function unionAnimatedExtents(target, source) {
+export function unionAnimatedExtents(target, source) {
   for (let index = 0; index < (target.Anims?.length || 0); index++) {
-    const a = target.Anims[index], b = source.Anims[index];
+    const a = target.Anims[index], b = source.Anims?.[index];
+    if (!b) continue;
     // Native models use inverted FLT_MAX bounds for an empty animation extent
     // (for example Footman's Decay Bone). It contributes no box to the union.
     if (b.MinimumExtent.some((value, axis) => value > b.MaximumExtent[axis])) continue;
