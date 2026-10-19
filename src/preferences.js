@@ -42,7 +42,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   pointerSensitivity: 1,
   rightScrollAdjust: true,
   highlightSelection: false,
-  theme: 'light', accent: '#71b5f3', panelScale: 1, panelWidth: 164, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
+  theme: 'light', accent: '#71b5f3', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
   cameraBindings: CAMERA_PRESETS.classic.cameraBindings,
   visuals: DEFAULT_VISUALS, grid: DEFAULT_GRID,
   viewportPreset: DEFAULT_VIEWPORT_PRESET_ID, viewportAppearance: DEFAULT_VIEWPORT_APPEARANCE, viewportPresets: Object.freeze([]),
@@ -107,6 +107,8 @@ export function cameraBindings(preferences) {
 export function uvTransformSensitivity(preferences) { return bounded(preferences?.uvSensitivity, 0.01, 4, DEFAULT_PREFERENCES.uvSensitivity); }
 // Nested resource, section, track, and vector identities remain intact when persisted.
 export const MAX_HOTKEY_ID_LENGTH = 2048;
+/** Right-hand editor panel width in CSS px; the panel's left edge drags between these. */
+export const PANEL_WIDTH_MIN = 180, PANEL_WIDTH_MAX = 640, PANEL_WIDTH_DEFAULT = 240;
 /** Adopt the requested follow-up raster/grid defaults once for older profiles.
  * Later explicit settings remain user-controlled; lighting is never migrated. */
 export function migrateFollowupPreferences(value = {}) {
@@ -161,7 +163,8 @@ export function normalizePreferences(value = {}) {
     highlightSelection: boolean(input.highlightSelection, false),
     theme: Object.hasOwn(APPLICATION_THEMES, input.theme) ? input.theme : 'light',
     accent: /^#[0-9a-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : '#71b5f3',
-    panelScale: bounded(input.panelScale, 1, 1.75, 1), panelWidth: bounded(input.panelWidth, 162, 420, 164),
+    panelScale: bounded(input.panelScale, 1, 1.75, 1), // 164 was the narrow default before every editor panel became draggable.
+    panelWidth: bounded(input.panelWidth === 164 ? PANEL_WIDTH_DEFAULT : input.panelWidth, PANEL_WIDTH_MIN, PANEL_WIDTH_MAX, PANEL_WIDTH_DEFAULT),
     newModelVersion: input.newModelVersion === 1000 ? 1000 : 800, uvRepeat: boolean(input.uvRepeat, false),
     uvSensitivity: uvTransformSensitivity(input), fineSensitivity: bounded(input.fineSensitivity, 0.01, 1, DEFAULT_PREFERENCES.fineSensitivity),
     cameraBindings: cameraBindings(input), visuals: legacyVisuals, grid: gridOptions(input),

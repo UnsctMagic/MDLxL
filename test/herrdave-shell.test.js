@@ -53,7 +53,7 @@ test('old profiles adopt sharp grid/raster defaults once, preserving lighting an
   const lighting={preset:'custom',ambient:[80,90,100],diffuse:[170,180,190],specular:[0,0,0],power:3};
   const next=normalizePreferences({lighting,panelWidth:178,visuals:{gridMajor:'#404958',background:'#112233'},grid:{opacity:.65,majorOpacity:.9,followWorkplane:true,planes:{xy:false,xz:true}},graphics:{antialias:true}});
   assert.deepEqual(next.lighting,lighting);assert.equal(next.visuals.background,'#112233');
-  assert.equal(next.panelWidth,164);assert.equal(next.visuals.gridMajor,'#000000');assert.equal(next.grid.opacity,1);assert.equal(next.grid.majorOpacity,1);assert.equal(next.grid.small,true);assert.equal(next.grid.followWorkplane,false);assert.equal(next.grid.planes.xz,true);assert.equal(next.grid.planes.xy,false);assert.equal(next.graphics.antialias,false);
+  assert.equal(next.panelWidth,240);assert.equal(next.visuals.gridMajor,'#000000');assert.equal(next.grid.opacity,1);assert.equal(next.grid.majorOpacity,1);assert.equal(next.grid.small,true);assert.equal(next.grid.followWorkplane,false);assert.equal(next.grid.planes.xz,true);assert.equal(next.grid.planes.xy,false);assert.equal(next.graphics.antialias,false);
   const explicit=normalizePreferences({...next,graphics:{...next.graphics,antialias:true}});assert.equal(explicit.graphics.antialias,true);
   assert.deepEqual(importConfiguration(exportConfiguration(next)),next);
 });

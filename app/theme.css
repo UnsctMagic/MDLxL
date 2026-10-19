@@ -49,7 +49,11 @@
 :root[data-theme] :is(input[type=checkbox],input[type=radio],input[type=range]){accent-color:var(--ui-accent)}
 :root[data-theme] :is(button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible){outline-color:var(--ui-accent)}
 :root[data-theme] :is(button.active,button[aria-pressed=true],.settings-tabs button[aria-selected=true],.re-list button.re-selected,.geoset-row.selected){border-color:var(--ui-accent);box-shadow:inset 3px 0 var(--ui-accent)}
-:root[data-theme] .classic-sidebar{width:var(--panel-width);min-width:var(--panel-width);zoom:var(--panel-scale)}
+/* Every editor's right-hand panel shares one width; its left edge drags (SidebarResizer). */
+:root[data-theme] .classic-sidebar{width:var(--panel-width);min-width:var(--panel-width);flex:0 0 var(--panel-width);zoom:var(--panel-scale)}
+.sidebar-resizer{position:sticky;top:0;z-index:5;height:0}
+.sidebar-resizer::before{content:'';position:absolute;left:-2px;top:-2px;width:6px;height:100vh;cursor:col-resize}
+.sidebar-resizer:hover::before,.sidebar-resizer.dragging::before{background:color-mix(in srgb,var(--ui-accent,#71b5f3) 55%,transparent)}
 .classic-toolbar .language-switch{margin-right:4px}
 .compact-input-strength{margin-left:auto;display:flex;gap:4px;font-size:10px;font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 6px;color:var(--ui-muted)}
 .compact-input-strength>span{border:3px solid transparent;padding:2px 5px}.compact-input-strength>span.adjusting{border-color:#20b342;background:var(--ui-field);color:var(--ui-text)}
