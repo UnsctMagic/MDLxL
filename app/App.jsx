@@ -191,6 +191,8 @@ export default function App() {
   const [sequence, setSequence] = useState(-1), [time, setTime] = useState(0), [playing, setPlaying] = useState(false), [playbackSpeed, setPlaybackSpeed] = useState(100), [dialog, setDialog] = useState(null), [context, setContext] = useState(null);
   useEffect(()=>setAdjustingInput(null),[mode,settingsTab,dialog?.type]);
   const [animationPanel, setAnimationPanel] = useState('movement'), [selectedNodeIds, setSelectedNodeIdsState] = useState([]), [movementMode, setMovementMode] = useState('select'), [movementSpace, setMovementSpace] = useState('local'), [showNodes, setShowNodes] = useState(true);
+  // Leaving Movement or Animations ends a camera drag the preview never finished.
+  useEffect(()=>setCameraGesture(false),[animationPanel]);
   const poseConfig = session.pose || { enabled: false, chains: [], body: null, pins: [], target: null };
   const poseSelectionOnly = useRef(false);
   const changePose = value => { if (value.enabled) session.poseView ||= poseView; session.pose = value; setTick(tick => tick + 1); };
@@ -1554,7 +1556,7 @@ export default function App() {
       }}/>}
       <RigSidebar {...{
         activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen,
-        cameraRotating, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, Dialog,
+        cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, Dialog,
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps, multipleNodes,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
@@ -1562,7 +1564,7 @@ export default function App() {
       }}/>
       {mode === 'vertices' && !cameraRotating && <div className="classic-geoset-operations"><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(false)}>Seperate by Loose parts</button><button disabled={!editable || !selectionCount} onClick={() => separateSelectedGeosets(true)}>Nuclear Seperation</button><button disabled={!editable || !selectionCount} onClick={mergeSelectedGeosets}>Merge Geosets</button><button disabled={!editable || !!normalizer} title="Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change." onClick={beginNormalizer}>NormalsXL</button><button disabled={!editable || !selectable.size} onClick={deleteSelectedGeosetFreeVertices}>Delete free vertices</button></div>}
       {(mode === 'vertices' || mode === 'bones') && grabThroughToggle}
-      {(mode !== 'animation' || animationPanel === 'movement' || cameraRotating) && geosetPicker}
+      {(mode !== 'animation' || animationPanel === 'movement' || cameraGesture) && geosetPicker}
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}

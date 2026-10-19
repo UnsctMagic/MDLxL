@@ -44,7 +44,7 @@ export function GeosetPicker({
 
 /** Bones mode (Movement controller with the rig tools) and Animation mode (Movement or Animations panel). */
 export function RigSidebar({
-  activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen, cameraRotating,
+  activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen, cameraGesture,
   controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, Dialog, doc, edit, geosetPicker,
   globalSeqId, materialVisibility, mode, model, movementControllerProps, multipleNodes, parentedRigNodes,
   renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes, selectionCount,
@@ -53,7 +53,9 @@ export function RigSidebar({
 }) {
   return <>
       {mode === 'bones' && <Suspense fallback={<p>Loading controller…</p>}><MovementController key={session.id} {...movementControllerProps()} onDeleteNode={deleteSelectedNode} onRenameNode={renameSelectedNode} onBillboarded={setSelectedBoneBillboarded} onCreateRigNode={createBoneOrAttachment} onAttach={beginAttach} onDetach={detachSelectedNode} onSoftBind={() => bindSelectedVertices('soft')} onHardBind={() => bindSelectedVertices('hard')} onDetachVertices={() => bindSelectedVertices('detach')} attachActive={attachSourceIds.length > 0} createOpen={boneCreateOpen} onCreateOpen={setBoneCreateOpen} canDeleteNode={!!singleRigNode} canAttach={selectedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1)} canDetach={parentedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1)} canBind={!!selectedBone && selectionCount > 0} /></Suspense>}
-      {mode === 'animation' && (!cameraRotating || animationPanel === 'movement') && <Suspense fallback={<p>Loading controller…</p>}>
+      {/* Rotate camera mode carries over between tabs, so only an active camera
+          drag may swap the Animations controls for the camera view. */}
+      {mode === 'animation' && (!cameraGesture || animationPanel === 'movement') && <Suspense fallback={<p>Loading controller…</p>}>
 
         {animationPanel === 'movement' ? <MovementController key={session.id} {...movementControllerProps()} portraitMode={activePortrait} controlModel={controlsWholeModel(selectedNodeIds)} /> : <>
           <AnimationController Dialog={Dialog} materialVisibility={materialVisibility} selectedNodeIds={selectedNodeIds} globalSeqId={globalSeqId} key={session.id} model={model} revision={doc.revision} sequenceIndex={sequence} time={time} selectedGeosets={[...selectable]} onEdit={edit} onTimelineChange={selectTimeline} onSeek={value => { setPlaying(false); setTime(value); }} disabled={doc.readOnly || saving} />
