@@ -7,7 +7,7 @@ import { viewportCursor, showcaseCursor } from './viewport-cursors.js';
 import { createPreviewSceneGL } from './preview-scene-gl.js';
 import { projectPreviewGeosets, pickPreviewGeoset, selectPreviewUVCoordinates, selectPreviewVertices } from './preview-selection.js';
 import { cameraLeftLight, improveNativeTexture, captureDimensions, nativeTeamColor, viewportPixelRatio } from './viewport-quality.js';
-import { createRigMarkersGL } from './rig-markers-gl.js';
+import { boneHighlightColors, createRigMarkersGL } from './rig-markers-gl.js';
 import { boneVertexHighlights } from '../src/bone-tools.js';
 import { billboardCameraCorrection } from './preview-pose.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
@@ -1287,7 +1287,8 @@ export default function GamePreview(inputProps) {
         const width = canvas.clientWidth, height = canvas.clientHeight;
         const projectedNodes = projectMovementNodes(markerModel, native.getFrame(), poseSequence, camera, width, height, globalClock, getPoseMatrices(),p.vanilla)
           .filter(point=>!p.vanilla || !p.cleanAnimationPreview || point.overlayKind!=='particles' || p.selectedNodeIds?.includes(point.node.ObjectId));
-        nodePoints = visibleMovementPoints(projectedNodes, overlayOptions);
+        const focusHighlights = overlayOptions.focusedBoneMarkers && !(poseVisible && !p.poseConfig.picking) ? boneHighlightColors(projectedNodes, p.selectedNodeIds) : null;
+        nodePoints = visibleMovementPoints(projectedNodes, overlayOptions, focusHighlights);
         const selectedPoint = projectedNodes.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         if (selectedControls && selectedPoint && !nodePoints.includes(selectedPoint)) nodePoints.push(selectedPoint);
         const controllerAppearance = viewportAppearanceOptions(p.preferences).controllers;

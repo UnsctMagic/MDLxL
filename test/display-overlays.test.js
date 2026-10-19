@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay } from '../src/display-overlays.js';
-import { previewOverlayOptions } from '../app/preview-overlays.js';
+import { previewOverlayOptions, visibleMovementPoints } from '../app/preview-overlays.js';
+import { boneHighlightColors } from '../app/rig-markers-gl.js';
 
 test('Movement enables only Emitters; Animations enables all effect categories and hides symbols', () => {
   const state = defaultEditorDisplay();
@@ -98,4 +99,17 @@ test('POSE defaults hide symbols and geometry markers while preserving normal se
   assert.equal(pose.focusedSkeleton,true);assert.equal(pose.grid,true);assert.equal(pose.shaded,false);
   const changed = setEditorDisplay({ movement:pose },'movement','particles',true);
   assert.equal(changed.movement.particles,true);assert.deepEqual(normal,before);
+});
+
+test('Focused Skeleton bones can be clicked with Bones off', () => {
+  const point = (ObjectId, Parent, overlayKind = 'bones') => ({ node: { ObjectId, Parent }, overlayKind });
+  const points = [point(0), point(1, 0), point(2, 1), point(3, 2), point(4, 0), point(5, 1, 'attachments')];
+  const options = previewOverlayOptions({ bones: false, focusedSkeleton: true, attachments: false });
+  assert.equal(options.bones, false);
+  // Bone 1 selected: parent 0, children 2 and 3 are shown and pickable; sibling 4 and the attachment are not.
+  const ids = visibleMovementPoints(points, options, boneHighlightColors(points, [1])).map(item => item.node.ObjectId);
+  assert.deepEqual(ids, [0, 1, 2, 3]);
+  assert.deepEqual(visibleMovementPoints(points, options, boneHighlightColors(points, [])), []);
+  assert.deepEqual(visibleMovementPoints(points, options).map(item => item.node.ObjectId), []);
+  assert.deepEqual(visibleMovementPoints(points, previewOverlayOptions({ bones: true })).map(item => item.node.ObjectId), [0, 1, 2, 3, 4]);
 });
