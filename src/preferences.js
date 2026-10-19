@@ -46,7 +46,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   cameraBindings: CAMERA_PRESETS.classic.cameraBindings,
   visuals: DEFAULT_VISUALS, grid: DEFAULT_GRID,
   viewportPreset: DEFAULT_VIEWPORT_PRESET_ID, viewportAppearance: DEFAULT_VIEWPORT_APPEARANCE, viewportPresets: Object.freeze([]),
-  graphics: Object.freeze({ pixelRatio: 1.5, antialias: false, maxFps: 60, textures: true, lighting: true, particles: true, pauseWhenHidden: true }),
+  graphics: Object.freeze({ pixelRatio: 1.5, antialias: false, maxFps: 60, textures: true, lighting: true, particles: true, pauseWhenHidden: true, softwareLow: false }),
   lighting: normalizePreviewLighting(), platform: Object.freeze({enabled:false,shape:"square",size:1.5,height:0,color:"#303030",textureUrl:""}),
   hotkeys: Object.freeze({}),
 });
@@ -172,11 +172,12 @@ export function normalizePreferences(value = {}) {
     viewportPreset, viewportAppearance, viewportPresets, citadelPaint: normalizePaintAppearance(input.citadelPaint),
     rightScrollAdjust: boolean(input.rightScrollAdjust, DEFAULT_PREFERENCES.rightScrollAdjust),
     graphics: {
-      pixelRatio: choice(graphic.pixelRatio, [1, 1.5, 2], defaults.pixelRatio),
+      pixelRatio: choice(graphic.pixelRatio, [0.5, 0.75, 1, 1.5, 2], defaults.pixelRatio),
       antialias: boolean(graphic.antialias, defaults.antialias),
       maxFps: choice(graphic.maxFps, [30, 60, 120], defaults.maxFps),
       textures: boolean(graphic.textures, defaults.textures), lighting: boolean(graphic.lighting, defaults.lighting),
       particles: boolean(graphic.particles, defaults.particles), pauseWhenHidden: boolean(graphic.pauseWhenHidden, defaults.pauseWhenHidden),
+      softwareLow: boolean(graphic.softwareLow, defaults.softwareLow),
     }, lighting: normalizePreviewLighting(input.lighting), platform: {enabled:input.platform?.enabled===true,shape:["square","disc","hexagon"].includes(input.platform?.shape)?input.platform.shape:"square",size:bounded(input.platform?.size,.1,10,1.5),height:bounded(input.platform?.height,-100000,100000,0),color:/^#[0-9a-f]{6}$/i.test(input.platform?.color)?input.platform.color:"#303030",textureUrl:typeof input.platform?.textureUrl==="string" && /^data:image\/(png|jpeg|webp);base64,/i.test(input.platform.textureUrl) && input.platform.textureUrl.length<3000000 ? input.platform.textureUrl:""}, hotkeys,
   };
 }
@@ -262,6 +263,9 @@ export function canHandleHotkeyEvent(event, action = {}) {
   if (isTextEditingTarget(event.target) && !action.allowInInput) return false;
   return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
 }
+// Applied once when no graphics card draws the views: every frame is then
+// rendered by the processor, so fewer frames matter most. Sharpness stays.
+export const SOFTWARE_RENDERING_GRAPHICS = Object.freeze({ antialias: false, maxFps: 30, softwareLow: true });
 export const GRAPHICS_PRESETS = Object.freeze({
   fast: Object.freeze({ pixelRatio: 1, antialias: false, maxFps: 30, textures: false, lighting: false, particles: false, pauseWhenHidden: true }),
   balanced: DEFAULT_PREFERENCES.graphics,

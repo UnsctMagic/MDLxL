@@ -14,9 +14,9 @@ function validatePreferences(value) {
   if (own(value, 'graphics')) {
     const graphics = value.graphics;
     if (!record(graphics)) throw Error('Invalid graphical settings.');
-    if (own(graphics, 'pixelRatio') && ![1, 1.5, 2].includes(graphics.pixelRatio)) throw Error('Invalid render resolution.');
+    if (own(graphics, 'pixelRatio') && ![0.5, 0.75, 1, 1.5, 2].includes(graphics.pixelRatio)) throw Error('Invalid render resolution.');
     if (own(graphics, 'maxFps') && ![30, 60, 120].includes(graphics.maxFps)) throw Error('Invalid frame rate limit.');
-    for (const key of ['antialias', 'textures', 'lighting', 'particles', 'pauseWhenHidden']) {
+    for (const key of ['antialias', 'textures', 'lighting', 'particles', 'pauseWhenHidden', 'softwareLow']) {
       if (own(graphics, key) && typeof graphics[key] !== 'boolean') throw Error(`Invalid graphical setting: ${key}.`);
     }
   }
