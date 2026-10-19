@@ -67,6 +67,16 @@ test('the fragment stage tints Surface grey and ghosts unaffected parts only in 
   assert.ok(sd.includes('if (uMdlxlSurface > .5) { gl_FragColor.rgb = mdlxlSurfaceColor;'));
   assert.ok(sd.includes('if (uMdlxlInfluenceOn > .5) gl_FragColor.a = uMdlvisGeosetTint.a * (uMdlxlInfluenceOn > 1.5 ? mdlxlLayerAlpha : 1.) * mix(uMdlxlGhostAlpha, .82, clamp(vMdlxlInfluence.y, 0., 1.));'));
   assert.ok(sd.indexOf('gl_FragColor *= uMdlvisGeosetTint;') < sd.indexOf('gl_FragColor.a = uMdlvisGeosetTint.a'));
+  // Ghost and highlighted passes split every face at the same threshold, so they meet without gaps.
+  assert.ok(sd.includes('if (uMdlxlInfluenceOn > .5 && ((vMdlxlInfluence.y >= .5) != (uMdlxlInfluencePart > .5) || uMdlxlInfluenceOn > 1.5 && mdlxlLayerAlpha < .1)) discard;'));
+});
+
+test('Bone influence draws one smooth ghost layer, then the highlighted parts over it', () => {
+  const adapter = readFileSync(new URL('../app/warcraft-preview-adapter.js', import.meta.url), 'utf8');
+  assert.match(adapter, /const BONE_INFLUENCE_PASSES = \['ghost-depth', 'ghost', 'hot-depth', 'hot'\];/);
+  assert.ok(adapter.includes("if (pass === 'hot-depth') { gl.depthMask(true); gl.clear(gl.DEPTH_BUFFER_BIT); }"), 'clear() obeys the depth mask');
+  assert.match(adapter, /if \(depthOnly\) \{ this\.disable\(this\.BLEND\); this\.colorMask\(false, false, false, false\); this\.depthMask\(true\); \}/);
+  assert.match(adapter, /const effectsPass = pass => pass === null \|\| pass === 'blended' \|\| pass === 'hot';/);
 });
 
 test('Bone influence is offered in Movement only and explains itself', () => {

@@ -31,9 +31,9 @@ export function patchWarcraftMeshFragmentShader(source) {
   return header + source.replace('precision mediump float;', 'precision highp float;')
     .replace(/void main\s*\(/, `${hd ? '' : portraitFragmentDeclarations}void main(`)
     .replace(/void main\s*\(/, `vec3 mdlxlDecodeSRGB(vec3 c) { return mix(c / 12.92, pow((c + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c)); }\nvec3 mdlxlEncodeSRGB(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(vec3(.0031308), c)); }\nvoid main(`)
-    .replace('uniform float uWireframe;', 'uniform float uWireframe;\nuniform vec4 uMdlvisGeosetTint;\nuniform float uMdlxlLighting;\nuniform vec3 uMdlxlLightDirection;\nuniform float uMdlxlCoverage;\nuniform float uMdlxlSurface;\nuniform vec3 uMdlxlAmbient;\nuniform vec3 uMdlxlDiffuse;\nuniform vec3 uMdlxlSpecular;\nuniform float uMdlxlPower;\nuniform float uMdlxlLegacy;\nuniform vec3 uMdlxlViewDirection;\nuniform float uMdlxlInfluenceOn;\nuniform float uMdlxlGhostAlpha;\nin vec2 vMdlxlInfluence;')
+    .replace('uniform float uWireframe;', 'uniform float uWireframe;\nuniform vec4 uMdlvisGeosetTint;\nuniform float uMdlxlLighting;\nuniform vec3 uMdlxlLightDirection;\nuniform float uMdlxlCoverage;\nuniform float uMdlxlSurface;\nuniform vec3 uMdlxlAmbient;\nuniform vec3 uMdlxlDiffuse;\nuniform vec3 uMdlxlSpecular;\nuniform float uMdlxlPower;\nuniform float uMdlxlLegacy;\nuniform vec3 uMdlxlViewDirection;\nuniform float uMdlxlInfluenceOn;\nuniform float uMdlxlGhostAlpha;\nuniform float uMdlxlInfluencePart;\nin vec2 vMdlxlInfluence;')
     .replace(/if \((?:gl_FragColor|FragColor)\[3\] < uDiscardAlphaLevel\) \{\s*discard;\s*}/, `if (uDiscardAlphaLevel > 0. && uMdlxlCoverage > .5) {\n        float edge = max(fwidth(${output}.a), .001);\n        ${output}.a = smoothstep(uDiscardAlphaLevel - edge, uDiscardAlphaLevel + edge, ${output}.a);\n        if (${output}.a <= 0.) discard;\n    } else if (${output}.a < uDiscardAlphaLevel) { discard; }`)
-    .replace(/}\s*$/, `${lighting}    ${output} *= uMdlvisGeosetTint;\n    // 2 keeps a blended layer's own cut-out; opaque layers may carry junk alpha.\n    if (uMdlxlInfluenceOn > .5) ${output}.a = uMdlvisGeosetTint.a * (uMdlxlInfluenceOn > 1.5 ? mdlxlLayerAlpha : 1.) * mix(uMdlxlGhostAlpha, .82, clamp(vMdlxlInfluence.y, 0., 1.));\n}\n`);
+    .replace(/}\s*$/, `${lighting}    ${output} *= uMdlvisGeosetTint;\n    // Ghost passes keep the unaffected half of each face, hot passes the rest,\n    // so the two layers meet without gaps. Blended layers keep their cut-outs.\n    if (uMdlxlInfluenceOn > .5 && ((vMdlxlInfluence.y >= .5) != (uMdlxlInfluencePart > .5) || uMdlxlInfluenceOn > 1.5 && mdlxlLayerAlpha < .1)) discard;\n    // 2 keeps a blended layer's own cut-out; opaque layers may carry junk alpha.\n    if (uMdlxlInfluenceOn > .5) ${output}.a = uMdlvisGeosetTint.a * (uMdlxlInfluenceOn > 1.5 ? mdlxlLayerAlpha : 1.) * mix(uMdlxlGhostAlpha, .82, clamp(vMdlxlInfluence.y, 0., 1.));\n}\n`);
 }
 
 /** The upstream SD vertex shader skins positions but leaves normals in bind pose. */
@@ -118,7 +118,10 @@ function createSolidTexture(gl, rgba) {
 }
 
 const BONE_INFLUENCE_TEXTURE_UNIT = 8;
-const BONE_INFLUENCE_GHOST_ALPHA = .28;
+const BONE_INFLUENCE_GHOST_ALPHA = .5;
+const BONE_INFLUENCE_PASSES = ['ghost-depth', 'ghost', 'hot-depth', 'hot'];
+// Particles and ribbons draw once per frame, in the last colour pass.
+const effectsPass = pass => pass === null || pass === 'blended' || pass === 'hot';
 
 /** All hooks belong to this preview's private WebGL context, not global GL. */
 export function installWarcraftPreviewAdapter(gl, model, getClock) {
@@ -154,7 +157,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       surfaceLocation = gl.getUniformLocation(native.shaderProgram, 'uMdlxlSurface');
       lightUniforms = Object.fromEntries(['Ambient', 'Diffuse', 'Specular', 'Power', 'Legacy', 'ViewDirection'].map(name => [name, gl.getUniformLocation(native.shaderProgram, `uMdlxl${name}`)]));
       if (!location) throw new Error('The Warcraft preview shader is incompatible with geoset color editing.');
-      influenceLocations = { on: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceOn'), map: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceMap'), ghost: gl.getUniformLocation(native.shaderProgram, 'uMdlxlGhostAlpha') };
+      influenceLocations = { on: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceOn'), map: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluenceMap'), ghost: gl.getUniformLocation(native.shaderProgram, 'uMdlxlGhostAlpha'), part: gl.getUniformLocation(native.shaderProgram, 'uMdlxlInfluencePart') };
       byIndexBuffer = new Map(native.indexBuffer.map((buffer, index) => [buffer, index]));
       setLayerProps = native.setLayerProps; setLayerPropsHD = native.setLayerPropsHD;
       if (classicSkinnedMaterials.size) {
@@ -193,6 +196,17 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       render = native.render;
       native.render = function (mvMatrix, pMatrix, options) {
         try {
+          // Bone influence shows only the nearest ghost surface, so overlapping
+          // faces cannot stack into blotches. The affected parts get their own
+          // depth and draw over the ghost, so they still show through the body.
+          if (getClock().boneInfluence) {
+            for (const pass of BONE_INFLUENCE_PASSES) {
+              // The ghost colour pass leaves depth writes off, and clear() obeys that mask.
+              if (pass === 'hot-depth') { gl.depthMask(true); gl.clear(gl.DEPTH_BUFFER_BIT); }
+              meshPass = pass; render.call(this, mvMatrix, pMatrix, pass === 'ghost-depth' ? options : { ...options, env: false });
+            }
+            return;
+          }
           meshPass = 'opaque'; render.call(this, mvMatrix, pMatrix, options);
           meshPass = 'blended'; return render.call(this, mvMatrix, pMatrix, { ...options, env: false });
         } finally { meshPass = null; }
@@ -200,7 +214,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
       if (native.particlesController) {
         renderParticles = native.particlesController.render;
         native.particlesController.render = function (...args) {
-          if (meshPass === 'opaque') return;
+          if (!effectsPass(meshPass)) return;
           return renderParticles.apply(this, args);
         };
       }
@@ -216,7 +230,7 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
         };
         renderRibbons = native.ribbonsController.render;
         native.ribbonsController.render = function (...args) {
-          if (meshPass === 'opaque') return;
+          if (!effectsPass(meshPass)) return;
           const { frame, sequenceIndex, globalTime } = getClock(), replacements = [];
           for (const emitter of this.emitters || []) if (emitter.props.Color?.Keys) {
             const color = emitter.props.Color; replacements.push([emitter.props, color]);
@@ -243,12 +257,13 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           const tint = previewGeosetTint(model, geosetIndex, activeLayer, frame, sequenceIndex, globalTime, getClock().hideRgbGeoset === geosetIndex);
           if (tint[3] <= 1e-6) return;
           const blended = !!influence || (activeLayer?.FilterMode ?? 0) >= 2 || tint[3] < .999999;
-          if (meshPass && blended !== (meshPass === 'blended')) return;
+          if (meshPass && !influence && blended !== (meshPass === 'blended')) return;
           // Geoset colours would turn the influence orange yellow or green;
           // only their visibility (alpha) still applies in Bone influence.
           this.uniform4fv(location, influence ? [1, 1, 1, tint[3]] : tint);
           if (influenceLocations.on) this.uniform1f(influenceLocations.on, influence ? activeLayer?.FilterMode === 2 ? 2 : 1 : 0);
           if (influence) bindBoneInfluence(this, influence);
+          if (influenceLocations.part) this.uniform1f(influenceLocations.part, meshPass?.startsWith('hot') ? 1 : 0);
           // Surface View is an inspection material: its faces must remain
           // shaded even when the authored texture layer is Unshaded.
           if (lightingLocation) this.uniform1f(lightingLocation, surface || getClock().lighting !== false && !(activeLayer?.Shading & 1) ? 1 : 0);
@@ -261,15 +276,18 @@ export function installWarcraftPreviewAdapter(gl, model, getClock) {
           if (lightUniforms.Power) this.uniform1f(lightUniforms.Power, lighting.power);
           if (lightUniforms.Legacy) this.uniform1f(lightUniforms.Legacy, lighting.preset === 'legacy' ? 1 : 0);
           if (lightUniforms.ViewDirection) this.uniform3fv(lightUniforms.ViewDirection, getClock().viewDirection || [0, 0, 1]);
-          const coverage = activeLayer?.FilterMode === 1 && !!gl.getContextAttributes()?.antialias;
+          const coverage = !influence && activeLayer?.FilterMode === 1 && !!gl.getContextAttributes()?.antialias;
           if (coverageLocation) this.uniform1f(coverageLocation, coverage ? 1 : 0);
           if (coverage) this.enable(this.SAMPLE_ALPHA_TO_COVERAGE);
           else this.disable(this.SAMPLE_ALPHA_TO_COVERAGE);
-          if (influence || tint[3] < .999999 && (activeLayer?.FilterMode ?? 0) <= 1) {
+          const depthOnly = !!influence && meshPass?.endsWith('-depth');
+          if (influence) this.enable(this.DEPTH_TEST);
+          if (depthOnly) { this.disable(this.BLEND); this.colorMask(false, false, false, false); this.depthMask(true); }
+          else if (influence || tint[3] < .999999 && (activeLayer?.FilterMode ?? 0) <= 1) {
             this.enable(this.BLEND); this.blendFuncSeparate(this.SRC_ALPHA, this.ONE_MINUS_SRC_ALPHA, this.ONE, this.ONE_MINUS_SRC_ALPHA); this.depthMask(false);
           }
           try { return original.drawElements.apply(this, args); }
-          finally { this.disable(this.SAMPLE_ALPHA_TO_COVERAGE); }
+          finally { this.disable(this.SAMPLE_ALPHA_TO_COVERAGE); if (depthOnly) this.colorMask(true, true, true, true); }
         };
         const materialID = geosetIndex === undefined ? undefined : model.Geosets[geosetIndex]?.MaterialID;
         if (!classicSkinnedMaterials.has(materialID)) return drawLayer();
