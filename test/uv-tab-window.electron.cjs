@@ -45,7 +45,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.locator('.classic-toolbar').isVisible(), true);
     assert.equal(await page.locator('.classic-view > .viewport').isVisible(), true);
     assert.equal(await page.getByRole('dialog', { name: 'UV Wrapper', exact: true }).getAttribute('aria-modal'), 'false');
-    checks.push('UV is a nonmodal tab window; vertex viewport and toolbar remain visible');
+    assert.equal(await page.locator('.uv-tab-window.expanded').count(), 1, 'UV opens expanded');
+    checks.push('UV opens expanded as a nonmodal tab window; vertex viewport and toolbar remain visible');
     await page.waitForFunction(() => uvTestCamera());
     const cameraBefore = await page.evaluate(() => uvTestCamera());
     const preview = await page.locator('.uv-preview-canvas canvas[data-clean-model-canvas]').boundingBox();
@@ -79,7 +80,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.locator('.uv-tab-window').count(), 0);
     const otherBefore = await page.evaluate(() => uvTestModel());
     await openUV();
-    await page.getByRole('button', { name: 'Expand UV Wrapper', exact: true }).click();
+    await page.getByRole('button', { name: 'Restore UV Wrapper size', exact: true }).click();
     await page.getByRole('tab', { name: 'demo.mdx', exact: true }).click();
     assert.equal(await page.locator('.uv-tab-window.minimized').count(), 1);
     assert.deepEqual(await page.evaluate(() => uvTestModel()), edited);
@@ -95,12 +96,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for (let i = 0; i < 3; i++) {
       await page.getByRole('button', { name: 'Minimize UV Wrapper', exact: true }).click();
       await page.getByRole('tab', { name: 'demo.mdl', exact: true }).click();
-      assert.equal(await page.locator('.uv-tab-window.expanded').count(), 1);
+      assert.equal(await page.locator('.uv-tab-window:not(.expanded):not(.minimized)').count(), 1);
       assert.deepEqual(await page.evaluate(() => uvTestModel()), otherBefore);
       await page.getByRole('tab', { name: 'demo.mdx', exact: true }).click();
       await page.getByRole('button', { name: 'Restore UV Wrapper', exact: true }).click();
     }
-    await page.getByRole('button', { name: 'Expand UV Wrapper', exact: true }).click();
     await page.getByRole('button', { name: 'Restore UV Wrapper size', exact: true }).click();
     const header = await page.locator('.uv-tab-window>header').boundingBox();
     await page.mouse.move(header.x + 70, header.y + 14); await page.mouse.down(); await page.mouse.move(header.x - 120, header.y + 70, { steps: 8 }); await page.mouse.up();
