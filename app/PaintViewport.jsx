@@ -416,7 +416,9 @@ export default function Viewport(inputProps) {
         Object.assign(paintCursor.current.style, { display: latest.current.paintSelectOnly || latest.current.paintDisabled || latest.current.cameraMode!=='work' || event.buttons>1 || event.altKey || event.shiftKey || event.ctrlKey ? 'none' : 'block', left: `${cursor.x}px`, top: `${cursor.y}px`, width: `${width}px`, height: `${height}px`,transform:`translate(-50%,-50%) rotate(${decal?.angle||0}deg)` });
       }
       if (!down) {
-        const p=latest.current;if(p.paintMode&&!p.paintSelectOnly&&!p.paintDisabled&&p.cameraMode==='work'&&!event.buttons)p.onPaintHover?.(null);else p.onPaintHover?.(null);
+        // Only a stamp previews on hover. It needs the camera and cursor, not a
+        // raycast, so moving the mouse stays cheap.
+        const p=latest.current;if(p.paintMode&&p.paintDecal&&!p.paintSelectOnly&&!p.paintDisabled&&p.cameraMode==='work'&&!event.buttons&&!event.altKey&&!event.shiftKey&&!event.ctrlKey)p.onPaintHover?.(paintHit(event,true));else p.onPaintHover?.(null);
         return;
       }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
@@ -947,7 +949,7 @@ export default function Viewport(inputProps) {
     {textureMessage && <div role="status" style={{ position: 'absolute', bottom: 4, left: 5, color: '#fff0cb', fontSize: 11, pointerEvents: 'none' }}>{textureMessage}</div>}
     {backgroundMessage && <div role="status" style={{ position: 'absolute', top: 4, left: 5, color: '#5b2500', background: '#fff4d6dd', padding: '2px 5px', fontSize: 11, pointerEvents: 'none' }}>{backgroundMessage}</div>}
     {box && <div style={{ position: 'absolute', ...box, border: '1px dotted white', pointerEvents: 'none' }} />}
-    {props.paintMode && <div ref={paintCursor} className={'paint-visible-cursor'+(props.paintDecal?' paint-detail-outline':'')} aria-hidden="true" style={{display:'none',position:'absolute',pointerEvents:'none',zIndex:5}}>{props.paintDecal?<img className="paint-stamp-ghost" src={props.paintDecal.url} style={{transform:props.paintDecal.flipX?'scaleX(-1)':'none'}}/>:<img src={props.paintBrushPreview} style={{width:'100%',height:'100%',objectFit:'fill',filter:'drop-shadow(0 0 1px #000)'}}/>}</div>}
+    {props.paintMode && <div ref={paintCursor} className={'paint-visible-cursor'+(props.paintDecal?' paint-detail-outline':'')} aria-hidden="true" style={{display:'none',position:'absolute',pointerEvents:'none',zIndex:5}}>{props.paintDecal?null:<img src={props.paintBrushPreview} style={{width:'100%',height:'100%',objectFit:'fill',filter:'drop-shadow(0 0 1px #000)'}}/>}</div>}
     {error && <div role="alert" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: 30, color: '#300', background: '#ddd', textAlign: 'center', fontSize: 13 }}>{error}</div>}
   </div>;
 }

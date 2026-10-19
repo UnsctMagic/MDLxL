@@ -219,9 +219,14 @@ export default function PaintWorkspace({model,originalModel=model,revision,model
     cancelAnimationFrame(hoverFrame.current);hoverFrame.current=0;hoverHit.current=null;
     if(hover.current){hover.current=null;if(mounted.current)setPaintRevision(n=>n+1);}
   }
-  // The floating cursor is cheap and immediate. Project pixels only while a
-  // stamp is being pressed/dragged, then commit once on release.
-  function previewHover(hit){if(!placement.current)clearHover();}
+  // A stamp shows its real projected result while hovering: lit, on the
+  // surface and at the texture's own pixel size, exactly what a click places.
+  // Other tools keep the cheap floating cursor.
+  function previewHover(hit){
+    if(placement.current)return;
+    if(!hit||studioTool!=='stamp'||!material||!ready){clearHover();return;}
+    hoverHit.current=hit;if(!hoverFrame.current)hoverFrame.current=requestAnimationFrame(()=>{hoverFrame.current=0;if(!placement.current&&hoverHit.current)renderHover(hoverHit.current);});
+  }
   function renderHover(value){
       const key=value.textureView?'texture':value.viewProjectionMatrix.join(',')+':'+value.viewport.width+':'+value.viewport.height;
       if(!hover.current||hover.current.key!==key){
@@ -231,7 +236,10 @@ export default function PaintWorkspace({model,originalModel=model,revision,model
       }
       hover.current.brush=brush;
       for(const part of hover.current.parts){
-        part.coat.raster.data.set(part.before.data);const rows=createPaintDirtyRows(part.target.base.width,part.target.base.height);part.options.dirtyRows=rows;applyPoint(part,value.screen,hover.current.brush);
+        // Undo only the previous preview's rows; copying a whole large layer
+        // on every mouse move would make hovering sluggish.
+        if(part.rows){const data=part.coat.raster.data,width=part.target.base.width;for(let y=0;y<part.rows.length/2;y++){const x0=part.rows[y*2],x1=part.rows[y*2+1];if(x1>=x0)data.set(part.before.data.subarray((y*width+x0)*4,(y*width+x1+1)*4),(y*width+x0)*4);}}else part.coat.raster.data.set(part.before.data);
+        const rows=createPaintDirtyRows(part.target.base.width,part.target.base.height);part.options.dirtyRows=rows;applyPoint(part,value.screen,hover.current.brush);
         const currentRows=rows.slice();if(part.rows)mergePaintRows(rows,part.rows);part.rows=currentRows;
         const entry=hover.current.entries.get(part.target.id);updatePaintPreview(entry,rows);entry.canvas=paintRasterCanvas(entry.raster,entry.canvas,paintRowsBounds(rows,part.target.base.width,part.target.base.height));
       }
