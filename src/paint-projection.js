@@ -27,6 +27,16 @@ function faceNormal(vertices, a, b, c) {
   return [x / length, y / length, z / length];
 }
 
+/** Screen pixels covered by one texture pixel along its longest axis. Filtered
+ * sources (stamps) average this footprint instead of reading one source pixel. */
+export function paintTexelFootprint(screen,uv,width,height){
+  const t1x=(uv[1].x-uv[0].x)*width,t1y=(uv[1].y-uv[0].y)*height,t2x=(uv[2].x-uv[0].x)*width,t2y=(uv[2].y-uv[0].y)*height,det=t1x*t2y-t1y*t2x;
+  if(Math.abs(det)<1e-9)return 1;
+  const e1x=screen[1].x-screen[0].x,e1y=screen[1].y-screen[0].y,e2x=screen[2].x-screen[0].x,e2y=screen[2].y-screen[0].y;
+  const footprint=Math.max(Math.hypot(e1x*t2y-e2x*t1y,e1y*t2y-e2y*t1y),Math.hypot(e2x*t1x-e1x*t2x,e2y*t1x-e1y*t2x))/Math.abs(det);
+  return Number.isFinite(footprint)?Math.min(4096,footprint):1;
+}
+
 function targetBindings(target) {
   const unique = new Map();
   for (const binding of target?.bindings || []) unique.set(`${binding.geosetIndex}:${binding.coordId}`, binding);
@@ -156,15 +166,16 @@ export function fillPaintMask(raster,mask,brush,{materialRaster=null,mask:techni
 export function preparePaintSurface(projection, raster, flags = 0) {
   const key = `${raster.width}:${raster.height}:${flags}`;
   if (projection.surface?.key === key) return projection.surface;
-  const tileSize = 32, columns = Math.ceil(projection.width / tileSize), bins = new Map(), cellSamples = new Map(),sampleRanks=new Map();
+  const tileSize = 32, columns = Math.ceil(projection.width / tileSize), bins = new Map(), cellSamples = new Map(),sampleRanks=new Map(),footprints=new Map();
   const coverage=paintUVCoverage(projection.uvCoverage||projection.triangles.map(t=>t.uv),raster.width,raster.height,flags);
   const selectedCoverage=paintUVFilterCoverage(projection.triangles.map(t=>t.uv),raster.width,raster.height,flags);
+  let footprint=1;
   const addSample=(sx,sy,sz,pixel,cellSample=1,rank=1)=>{
     if(sx<0||sy<0||sx>=projection.width||sy>=projection.height||sz< -1||sz>1||sz>sampleDepth(projection.depth,sx,sy)+1e-7)return;
-    const bin=Math.floor(sy/tileSize)*columns+Math.floor(sx/tileSize);let values=bins.get(bin);if(!values){bins.set(bin,values=[]);cellSamples.set(bin,[]);sampleRanks.set(bin,[]);}values.push(sx,sy,pixel);cellSamples.get(bin).push(cellSample);sampleRanks.get(bin).push(rank);
+    const bin=Math.floor(sy/tileSize)*columns+Math.floor(sx/tileSize);let values=bins.get(bin);if(!values){bins.set(bin,values=[]);cellSamples.set(bin,[]);sampleRanks.set(bin,[]);footprints.set(bin,[]);}values.push(sx,sy,pixel);cellSamples.get(bin).push(cellSample);sampleRanks.get(bin).push(rank);footprints.get(bin).push(footprint);
   };
   for(const triangle of projection.triangles){
-    const [p,q,r]=triangle.screen;
+    const [p,q,r]=triangle.screen;footprint=paintTexelFootprint(triangle.screen,triangle.uv,raster.width,raster.height);
     forEachPaintUVTexel(triangle.uv,raster.width,raster.height,flags,(x,y,u,v,w,gutter)=>{
       const pixel=y*raster.width+x;if(gutter&&coverage[pixel]&&!selectedCoverage[pixel])return;
       const clipW=u*p.w+v*q.w+w*r.w;if(clipW<=1e-9)return;
@@ -176,7 +187,8 @@ export function preparePaintSurface(projection, raster, flags = 0) {
   }
   if(projection.seams?.length){
     for(const seam of projection.seams){
-      const [a,b]=seam.screen;
+      const [a,b]=seam.screen,texels=Math.hypot((seam.uv[1].x-seam.uv[0].x)*raster.width,(seam.uv[1].y-seam.uv[0].y)*raster.height);
+      footprint=texels>1e-6?Math.min(4096,Math.hypot(b.x-a.x,b.y-a.y)/texels):1;
       forEachPaintUVEdgeTexel(...seam.uv,raster.width,raster.height,flags,(x,y,from,to)=>{
         const pixel=y*raster.width+x;if(coverage[pixel]&&!selectedCoverage[pixel])return;
         const first=(1-from)*a.w,last=from*b.w,w=first+last,endFirst=(1-to)*a.w,endLast=to*b.w,endW=endFirst+endLast;if(w<=1e-9||endW<=1e-9)return;
@@ -189,8 +201,8 @@ export function preparePaintSurface(projection, raster, flags = 0) {
       });
     }
   }
-  for (const [bin, values] of bins) {bins.set(bin, new Float32Array(values));cellSamples.set(bin,new Uint8Array(cellSamples.get(bin)));sampleRanks.set(bin,new Uint8Array(sampleRanks.get(bin)));}
-  return projection.surface = { key, tileSize, columns, bins, cellSamples, sampleRanks, sampledTiles:new Set() };
+  for (const [bin, values] of bins) {bins.set(bin, new Float32Array(values));cellSamples.set(bin,new Uint8Array(cellSamples.get(bin)));sampleRanks.set(bin,new Uint8Array(sampleRanks.get(bin)));footprints.set(bin,new Float32Array(footprints.get(bin)));}
+  return projection.surface = { key, tileSize, columns, bins, cellSamples, sampleRanks, footprints, sampledTiles:new Set() };
 }
 
 /** Resolve magnified texture pixels where the brush actually touches the face.
@@ -208,14 +220,14 @@ export function paintSurfaceTile(projection,raster,flags,tx,ty){
     for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){points[offset++]=x+.5;points[offset++]=y+.5;points[offset++]=y*raster.width+x;}
     bins.set(key,points);return points;
   }
-  const points=Array.from(bins.get(key)||[]),cellSamples=Array.from(surface.cellSamples.get(key)||[]),sampleRanks=Array.from(surface.sampleRanks.get(key)||[]);
+  const points=Array.from(bins.get(key)||[]),cellSamples=Array.from(surface.cellSamples.get(key)||[]),sampleRanks=Array.from(surface.sampleRanks.get(key)||[]),footprints=Array.from(surface.footprints?.get(key)||[]);
   const address=(value,size,wrap)=>wrap?(value%size+size)%size:Math.max(0,Math.min(size-1,value));
   for(const triangle of projection.triangles){
     const [a,b,c]=triangle.screen,denominator=(b.y-c.y)*(a.x-c.x)+(c.x-b.x)*(a.y-c.y);
     if(Math.abs(denominator)<1e-9||[a,b,c].some(p=>p.w<=0))continue;
     const left=Math.max(x0,Math.floor(Math.min(a.x,b.x,c.x))),right=Math.min(x1-1,Math.ceil(Math.max(a.x,b.x,c.x))),top=Math.max(y0,Math.floor(Math.min(a.y,b.y,c.y))),bottom=Math.min(y1-1,Math.ceil(Math.max(a.y,b.y,c.y)));
     if(left>right||top>bottom)continue;
-    const [p,q,r]=triangle.uv;
+    const [p,q,r]=triangle.uv,footprint=paintTexelFootprint(triangle.screen,triangle.uv,raster.width,raster.height);
     const collapsedUV=Math.abs((q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x))<1e-12;
     for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){
       const sx=x+.5,sy=y+.5,u=((b.y-c.y)*(sx-c.x)+(c.x-b.x)*(sy-c.y))/denominator,v=((c.y-a.y)*(sx-c.x)+(a.x-c.x)*(sy-c.y))/denominator,w=1-u-v;
@@ -231,11 +243,11 @@ export function paintSurfaceTile(projection,raster,flags,tx,ty){
         // Collapsed UVs have no separable surface pixels; retain their shared
         // colour behaviour when editing an existing texture.
         cellSamples.push(collapsedUV||i===Math.round(tu)-ix&&j===Math.round(tv)-iy?1:0);
-        sampleRanks.push(0);
+        sampleRanks.push(0);footprints.push(footprint);
       }
     }
   }
-  if(points.length){bins.set(key,new Float32Array(points));surface.cellSamples.set(key,new Uint8Array(cellSamples));surface.sampleRanks.set(key,new Uint8Array(sampleRanks));}
+  if(points.length){bins.set(key,new Float32Array(points));surface.cellSamples.set(key,new Uint8Array(cellSamples));surface.sampleRanks.set(key,new Uint8Array(sampleRanks));surface.footprints?.set(key,new Float32Array(footprints));}
   return bins.get(key);
 }
 

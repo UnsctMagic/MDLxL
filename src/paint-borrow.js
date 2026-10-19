@@ -9,12 +9,16 @@ export function paintSourceLuminance(source){
   const value=weight?sum/weight:128;averages.set(source,value);return value;
 }
 export function borrowPaintPixel(source,offset,destination,pixel,mode,out){
-  const base=pixel*4,light=luma(source.data,offset),mean=paintSourceLuminance(source);
+  return borrowPaintColor(source,source.data.subarray(offset,offset+4),destination,pixel,mode,out);
+}
+/** Same as borrowPaintPixel, for an already filtered source colour. */
+export function borrowPaintColor(source,sample,destination,pixel,mode,out){
+  const base=pixel*4,light=luma(sample,0),mean=paintSourceLuminance(source);
   for(let c=0;c<3;c++){
     const color=destination.data[base+c];
     if(mode==='texture')out[c]=Math.round(Math.max(0,Math.min(255,color*light/Math.max(1,mean))));
     else if(mode==='highlights')out[c]=Math.round(color+(255-color)*Math.max(0,(light-mean)/Math.max(1,255-mean)));
-    else out[c]=source.data[offset+c];
+    else out[c]=sample[c];
   }
-  out[3]=source.data[offset+3];return out;
+  out[3]=sample[3];return out;
 }

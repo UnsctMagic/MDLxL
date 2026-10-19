@@ -1319,7 +1319,11 @@
     "Dark wood grain",
     "Cut out",
     "· Wheel zoom / Right-drag pan",
-    "Paint preset unsaved ·"
+    "Paint preset unsaved ·",
+    "Smudge",
+    "Paint / Stamp / Erase / Smudge",
+    "Smudge (N): drag to push and smear the colors already painted, like a finger in wet paint.",
+    "Drag to smear the colors under the brush. Opacity sets how strongly the paint is pulled along."
   ],
   "release015": [
     "Copy selection",

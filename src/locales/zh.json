@@ -2933,5 +2933,9 @@
   "{0} faces selected": "已选择 {0} 个面",
   "Shapes": "形状",
   "{0} key follow below, one per line: \"frame: value\".": "下面有 {0} 个关键帧，每行一个：“帧: 值”。",
-  "{0} keys follow below, one per line: \"frame: value\".": "下面有 {0} 个关键帧，每行一个：“帧: 值”。"
+  "{0} keys follow below, one per line: \"frame: value\".": "下面有 {0} 个关键帧，每行一个：“帧: 值”。",
+  "Smudge": "涂抹",
+  "Paint / Stamp / Erase / Smudge": "绘画 / 印章 / 擦除 / 涂抹",
+  "Smudge (N): drag to push and smear the colors already painted, like a finger in wet paint.": "涂抹 (N)：拖动以推开并抹开已画的颜色，就像手指划过未干的颜料。",
+  "Drag to smear the colors under the brush. Opacity sets how strongly the paint is pulled along.": "拖动以抹开笔刷下的颜色。不透明度决定颜料被拖动的强度。"
 }

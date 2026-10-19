@@ -5761,5 +5761,9 @@
   "{0} faces selected": "Выбрано граней: {0}",
   "Shapes": "Фигуры",
   "{0} key follow below, one per line: \"frame: value\".": "Ниже ключей: {0}, по одному в строке: «кадр: значение».",
-  "{0} keys follow below, one per line: \"frame: value\".": "Ниже ключей: {0}, по одному в строке: «кадр: значение»."
+  "{0} keys follow below, one per line: \"frame: value\".": "Ниже ключей: {0}, по одному в строке: «кадр: значение».",
+  "Smudge": "Палец",
+  "Paint / Stamp / Erase / Smudge": "Краска / Штамп / Ластик / Палец",
+  "Smudge (N): drag to push and smear the colors already painted, like a finger in wet paint.": "Палец (N): перетаскивайте, чтобы сдвигать и размазывать уже нанесённые цвета, как пальцем по свежей краске.",
+  "Drag to smear the colors under the brush. Opacity sets how strongly the paint is pulled along.": "Перетаскивайте, чтобы размазать цвета под кистью. Непрозрачность задаёт, насколько сильно тянется краска."
 }

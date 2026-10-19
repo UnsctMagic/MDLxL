@@ -14,6 +14,7 @@ import {usePreviewBackgrounds} from './usePreviewBackgrounds.js';
 import {paintBrushPreview} from './paint-brush-preview.js';
 import {paintDecalTransform,projectPaintDecal} from '../src/paint-decal.js';
 import {blendProjectedPaint} from '../src/paint-blend.js';
+import {smudgeProjectedPaint} from '../src/paint-smudge.js';
 import PaintStudioLayout from './PaintStudioLayout.jsx';
 import {paintMessage as msg} from '../src/paint-messages.js';
 import {addPaintProjectTarget,compositePaintTarget,createPaintProject,paintProjectCoat,paintProjectTarget,recordPaintStroke,recordPaintStrokeGroup,recordPaintUV,recordPaintSurfaceChange,travelPaintHistory} from '../src/paint-project.js';
@@ -202,12 +203,13 @@ export default function PaintWorkspace({model,originalModel=model,revision,model
       const scoped=scope==null?{...target,bindings:target.bindings.filter(b=>choices.get(b.geosetIndex)?.binding===b)}:target;
       if(!paintScope(scoped,scope).bindings.length)return null;
       const before=clonePaintRaster(coat.raster),editable=preview?{...coat,raster:clonePaintRaster(before)}:coat;
-      return {target,coat:editable,coatId:coat.id,before,projection:projectionFor(hit,scoped,scope),options:{...brushOptions(scoped,scope,hit.textureView),reference:compositePaintTarget(project,target.id),strokeBase:before.data},blend:{},changed:0};
+      return {target,coat:editable,coatId:coat.id,before,projection:projectionFor(hit,scoped,scope),options:{...brushOptions(scoped,scope,hit.textureView),reference:compositePaintTarget(project,target.id),strokeBase:before.data},blend:{},smudge:{},changed:0};
     }).filter(Boolean);
   }
   function applyPoint(part,point,settings,dragging=false){
-    if(studioTool==='blend'){
-      const changed=blendProjectedPaint(part.coat.raster,part.projection,point,settings,part.options,part.blend);
+    if(studioTool==='blend'||studioTool==='smudge'){
+      // Both read the visible result, so keep the reference current after each dab.
+      const changed=studioTool==='blend'?blendProjectedPaint(part.coat.raster,part.projection,point,settings,part.options,part.blend):smudgeProjectedPaint(part.coat.raster,part.projection,point,settings,part.options,part.smudge);
       compositePaintRasters(part.target.base,part.target.coats,{alphaMask:part.target.alphaMask,preserveSourceAlpha:part.target.preserveSourceAlpha??true,output:part.options.reference,rows:part.options.dirtyRows});return changed;
     }
     return part.options.decalRaster?projectPaintDecal(part.coat.raster,part.projection,part.options.decalRaster,point,{...paintDecalTransform(part.options.decalRaster,settings),angle:stampAngle,flipX:stampFlip},{...part.options,borrowMode,mode:settings.mode,filterColor:settings.filterColor}):stampProjectedBrush(part.coat.raster,part.projection,point,settings,{...part.options,dragging});
@@ -251,7 +253,7 @@ export default function PaintWorkspace({model,originalModel=model,revision,model
     if(tool==='select'){setPickPart(v=>!v);setRegionTool(v=>!v);onStatus?.(pickPart?'Brush ready. Shift adds to selection; Ctrl subtracts.':'Click parts to select. Shift adds; Ctrl subtracts. Q returns to the brush.');return;}
     setStudioTool(tool);setPickPart(false);setRegionTool(false);window.dispatchEvent(new CustomEvent('paint-texture-action',{detail:'paint'}));
     setBrush(value=>({...value,mode:tool==='erase'?'erase':'paint',materialId:tool==='stamp'?material?.id||null:null}));
-    onStatus?.(({paint:'Paint on the model or texture. Shift adds to selection; Ctrl subtracts.',blend:'Blend the colors under the brush. Strength limits the whole stroke.',sample:'Click the model or texture to pick its color.',erase:'Erase the active paint layer to reveal the skin beneath.',stamp:'Click to stamp; drag while pressed to position. , / . rotate, M mirrors, [ ] changes size. Hold R to start outside the edge.'})[tool]);
+    onStatus?.(({paint:'Paint on the model or texture. Shift adds to selection; Ctrl subtracts.',blend:'Blend the colors under the brush. Strength limits the whole stroke.',sample:'Click the model or texture to pick its color.',erase:'Erase the active paint layer to reveal the skin beneath.',stamp:'Click to stamp; drag while pressed to position. , / . rotate, M mirrors, [ ] changes size. Hold R to start outside the edge.',smudge:'Drag to smear the colors under the brush. Opacity sets how strongly the paint is pulled along.'})[tool]);
   }
   function chooseShape(id){const value=PAINT_BRUSH_SHAPES.find(s=>s.id===id);if(!value)return;endStroke();setShape(id);setBrush(b=>({...b,hardness:value.hardness,flow:value.flow,spacing:value.spacing}));}
   function studioHistory(redo=false){endStroke();commitPlacement();if(travelPaintHistory(project,redo))notify();}
@@ -304,7 +306,9 @@ export default function PaintWorkspace({model,originalModel=model,revision,model
     clearHover();const parts=strokeParts(hit);
     if(!parts.length){onStatus?.(region?'Choose a face inside the paint region.':msg('paint.hiddenCoat'));return;}
     if(!hit.textureView&&!hit.outside&&hit.geosetIndex!==activeGeoset){const target=parts.find(p=>p.target.bindings.some(b=>b.geosetIndex===hit.geosetIndex))?.target;if(target)project.activeTargetId=target.id;onGeosetChange?.(hit.geosetIndex);}
-    onInteractionChange?.(true);stroke.current={parts,last:null,lastStamp:null,pending:[],settings:brush,brush:brush};moveStroke(hit);
+    // Smudge needs close dabs to drag a continuous smear instead of separate prints.
+    const settings=studioTool==='smudge'?{...brush,name:'Smudge',spacing:Math.min(Number(brush.spacing)||1,.08)}:brush;
+    onInteractionChange?.(true);stroke.current={parts,last:null,lastStamp:null,pending:[],settings,brush:settings};moveStroke(hit);
   }
   function flushStroke(){
     frame.current=0;const current=stroke.current;if(!current)return;

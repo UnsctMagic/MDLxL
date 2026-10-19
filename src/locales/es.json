@@ -5773,5 +5773,9 @@
   "{0} faces selected": "Caras seleccionadas: {0}",
   "Shapes": "Formas",
   "{0} key follow below, one per line: \"frame: value\".": "Debajo sigue {0} fotograma clave, uno por línea: «fotograma: valor».",
-  "{0} keys follow below, one per line: \"frame: value\".": "Fotogramas clave que siguen: {0}, uno por línea: «fotograma: valor»."
+  "{0} keys follow below, one per line: \"frame: value\".": "Fotogramas clave que siguen: {0}, uno por línea: «fotograma: valor».",
+  "Smudge": "Difuminar",
+  "Paint / Stamp / Erase / Smudge": "Pintar / Sello / Borrar / Difuminar",
+  "Smudge (N): drag to push and smear the colors already painted, like a finger in wet paint.": "Difuminar (N): arrastra para empujar y extender los colores ya pintados, como un dedo sobre pintura fresca.",
+  "Drag to smear the colors under the brush. Opacity sets how strongly the paint is pulled along.": "Arrastra para extender los colores bajo el pincel. La opacidad define con cuánta fuerza se arrastra la pintura."
 }
