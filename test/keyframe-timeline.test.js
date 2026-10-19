@@ -196,8 +196,10 @@ test('supported visibility and RGB node families roundtrip through both codecs, 
   for (const format of ['mdl', 'mdx']) {
     const reopened = openDocument(doc.serialize(format), `families.${format}`);
     assert.equal(reopened.readOnly, false);
+    // Saving numbers nodes in the compatible order, so match them by name.
     for (const target of targets) {
-      const key = timelineReadTrack(reopened.model, target)?.Keys?.find(item => item.Frame === frame);
+      const saved = timelineTracks(reopened.model).find(item => item.kind === target.kind && item.label === target.label && item.property === target.property);
+      const key = saved && timelineReadTrack(reopened.model, saved)?.Keys?.find(item => item.Frame === frame);
       assert.ok(key, `${format}: missing ${target.label} ${target.property}`); close(key.Vector, values[target.trackId]);
     }
   }
@@ -240,6 +242,6 @@ test('Popcorn RGB uses the literal RGB order in authored MDL and retains cubic c
   close(doc.model.ParticleEmitterPopcorns[0].Color, [.2, .4, .7]);
   doc.apply('Cubic popcorn RGB', ['Nodes'], model => { model.ParticleEmitterPopcorns[0].Color = track([key(0, [.2, .4, .7], true), key(100, [.7, .4, .2], true)], 3); });
   const expected = structuredClone(doc.model.ParticleEmitterPopcorns[0].Color);
-  const text = Buffer.from(doc.serialize('mdl')).toString(); assert.match(text, /0:\s*\{\s*0\.2,\s*0\.4,\s*0\.7\s*\}/);
+  const text = Buffer.from(doc.serialize('mdl')).toString(); close(text.match(/0:\s*\{\s*([^,}]+),\s*([^,}]+),\s*([^,}]+)\s*\}/).slice(1).map(Number), [.2, .4, .7]);
   for (const format of ['mdl', 'mdx']) assert.deepEqual(openDocument(doc.serialize(format), `rgb.${format}`).model.ParticleEmitterPopcorns[0].Color, expected);
 });

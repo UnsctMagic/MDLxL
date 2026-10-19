@@ -581,8 +581,11 @@ export class EditorDocument {
     // war3-model allocates 12 bytes for an empty Reforged BindPoses array but
     // emits no BPOS chunk. Omit that empty export-only property to avoid junk
     // trailing bytes; the editable model and any nonempty bind poses stay intact.
+    // A Reforged MDL geoset may omit LevelOfDetail, which means LOD 0, but
+    // war3-model's MDX writer stores a missing one as -1. Export it as 0.
     const animations = prepareGeosetAnimationColors(saveModel.GeosetAnims, format);
-    const exportModel = format === 'mdl' ? { ...saveModel, ParticleEmitterPopcorns: prepareMdlPopcornColors(saveModel.ParticleEmitterPopcorns), GeosetAnims: animations } : { ...saveModel, GeosetAnims: convertMdxGeosetColorTracks(animations), BindPoses: saveModel.BindPoses?.length ? saveModel.BindPoses : undefined };
+    const mdxGeosets = saveModel.Version >= 900 && saveModel.Geosets.some(g => g.LevelOfDetail == null) ? saveModel.Geosets.map(g => g.LevelOfDetail == null ? { ...g, LevelOfDetail: 0 } : g) : saveModel.Geosets;
+    const exportModel = format === 'mdl' ? { ...saveModel, ParticleEmitterPopcorns: prepareMdlPopcornColors(saveModel.ParticleEmitterPopcorns), GeosetAnims: animations } : { ...saveModel, Geosets: mdxGeosets, GeosetAnims: convertMdxGeosetColorTracks(animations), BindPoses: saveModel.BindPoses?.length ? saveModel.BindPoses : undefined };
     const mdlModel = format === 'mdl' ? { ...exportModel, Geosets: exportModel.Geosets.map(g=>({...g,TVertices:g.TVertices.length?g.TVertices:[new Float32Array()]})), CollisionShapes: exportModel.CollisionShapes.map(n=>[1,3].includes(n.Shape)?{...n,Shape:0}:n) } : null;
     let generated = format === 'mdl' ? finishCompatibleMdl(Buffer.from(emptyFaceGroups(generateMDL(mdlModel)), 'utf8'), { ...saveModel, GeosetAnims: animations }) : Buffer.from(generateMDX(exportModel));
     if (format === 'mdl') generated = writeMdlUVSets(generated, scanMdlSections(generated), exportModel);
