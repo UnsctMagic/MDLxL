@@ -46,6 +46,24 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await focused.check(); assert.equal(await skeleton.isChecked(), false);
     await skeleton.check(); assert.equal(await focused.isChecked(), false);
 
+    // Focused Skeleton shows the selected bone's chain with Bones off; a real
+    // click on the next bone in that chain must select it.
+    await focused.check();
+    const picker = page.getByLabel('Movement bone or node'), bones = page.locator('input[data-hotkey="display:bones"]').first();
+    if (await bones.isChecked()) await bones.uncheck();
+    await page.locator('[data-hotkey="select"]').click();
+    await picker.selectOption(String(shoulderId)); await page.waitForTimeout(300);
+    const arm = await screenPoint(page, [50, 0, 0]), other = await screenPoint(page, [-40, -30, 0]);
+    await page.mouse.click(other.x, other.y); await page.waitForTimeout(300);
+    assert.doesNotMatch(await picker.locator('option:checked').textContent(), /Other Shoulder/, 'a bone outside the focused chain stays unpickable with Bones off');
+    await picker.selectOption(String(shoulderId)); await page.waitForTimeout(300);
+    await page.mouse.click(arm.x, arm.y); await page.waitForTimeout(300);
+    assert.match(await picker.locator('option:checked').textContent(), /Arm 1$/, 'clicking the focused child bone selects it');
+    const hand = await screenPoint(page, [75, 20, 0]);
+    await page.mouse.click(hand.x, hand.y); await page.waitForTimeout(300);
+    assert.match(await picker.locator('option:checked').textContent(), /Hand 1$/, 'the next bone down the chain is pickable too');
+    await page.screenshot({ path: path.join(out, 'focused-pick.png') });
+
     const speed = page.getByLabel('Playback speed percent');
     assert.equal(await speed.inputValue(), '100');
     await speed.fill('999'); await speed.blur(); assert.equal(await speed.inputValue(), '250');
@@ -82,6 +100,18 @@ function place(node, point) {
 }
 function sendMenu(app, command) {
   return app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), command);
+}
+// Bind-pose pivot to page coordinates, using the Movement preview's own camera.
+function screenPoint(page, world) {
+  return page.evaluate(world => {
+    const root = document.querySelector('.game-preview-root'), canvas = root.querySelector('canvas'), rect = canvas.getBoundingClientRect();
+    let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))], camera;
+    for (; fiber && !camera; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) { const state = hook.memoizedState?.current; if (state?.native && state.controls) { camera = state.controls.object; break; } }
+    camera.updateMatrixWorld();
+    const apply = (m, [x, y, z, w]) => [0, 1, 2, 3].map(r => m[r] * x + m[4 + r] * y + m[8 + r] * z + m[12 + r] * w);
+    const clip = apply(camera.projectionMatrix.elements, apply(camera.matrixWorldInverse.elements, [...world, 1]));
+    return { x: rect.left + (clip[0] / clip[3] + 1) * rect.width / 2, y: rect.top + (1 - clip[1] / clip[3]) * rect.height / 2 };
+  }, world);
 }
 async function markerFrames(page) {
   return page.locator('.classic-reel-key').evaluateAll(items => items.map(item => Number(item.dataset.frame)).sort((a, b) => a - b));

@@ -42,7 +42,10 @@ export function movementNodeCategories(model, vanilla = false) {
   return categories;
 }
 
-export const visibleMovementPoints = (points, options) => points.filter(point => options[point.overlayKind || 'nodes']);
+// Focused Skeleton shows the selected bone's parent and child chain even with
+// Bones off; whatever it shows must also be clickable.
+export const visibleMovementPoints = (points, options, focusHighlights) => points.filter(point => options[point.overlayKind || 'nodes'] ||
+  point.overlayKind === 'bones' && !!focusHighlights?.get(point.node.ObjectId));
 
 function markerPath(context, point, appearance) {
   const half = appearance.size / 2, x = Math.round(point.x), y = Math.round(point.y);
