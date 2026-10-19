@@ -2,9 +2,10 @@ export function defaultEditorDisplay(vanilla = false) {
   const base = { shaded: true, vertices: true, bones: false, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
   return {
     vertices: { ...base },
-    bones: { ...base },
-    movement: { ...base, ...(!vanilla && {particles:true}) },
-    animations: { ...base, shaded: false, vertices: false, ...(!vanilla && {particles:true,sounds:true,events:true}) },
+    // Bones is one shared switch across the rig editors (see shareBones).
+    bones: { ...base, bones: true },
+    movement: { ...base, bones: true, focusedSkeleton: true, ...(!vanilla && {particles:true}) },
+    animations: { ...base, bones: true, shaded: false, vertices: false, ...(!vanilla && {particles:true,sounds:true,events:true}) },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };
@@ -41,3 +42,22 @@ export function defaultPoseDisplay(overlays) {
     nodes: false, attachments: false, particles: false, sounds: false, events: false,
     wires: false, normals: false, cameras: false };
 }
+
+const EDITOR_DISPLAY_KEY = 'mdlxl-editor-display';
+
+/** The defaults, overlaid with the switches the user last chose (same keys only). */
+export function storedEditorDisplay(vanilla = false, storage = globalThis.localStorage) {
+  const defaults = defaultEditorDisplay(vanilla);
+  let saved = null;
+  try { saved = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null')?.[vanilla ? 'vis' : 'xl']; } catch { saved = null; }
+  if (!saved || typeof saved !== 'object') return defaults;
+  return Object.fromEntries(Object.entries(defaults).map(([mode, display]) => [mode, Object.fromEntries(Object.entries(display)
+    .map(([key, value]) => [key, typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
+}
+
+export function saveEditorDisplay(xl, vis, storage = globalThis.localStorage) {
+  try { storage?.setItem(EDITOR_DISPLAY_KEY, JSON.stringify({ xl, vis })); } catch { /* Private or full storage keeps this session's choices only. */ }
+}
+
+/** F: Textured View, or back to the view the user last chose in this editor. */
+export const textureToggleTarget = (current, lastUntextured, fallback = 'wireframe') => current === 'textured' ? lastUntextured || fallback : 'textured';

@@ -86,7 +86,10 @@ test('Bone influence is offered in Movement only and explains itself', () => {
   assert.match(movement, new RegExp(`<select aria-label="Render mode" title="${BONE_INFLUENCE_TIP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
   assert.doesNotMatch(label({ boneInfluenceAvailable: true }), /<select aria-label="Render mode" title=/);
   assert.match(app, /const boneInfluenceAvailable = mode === 'animation' && animationPanel === 'movement';/);
-  assert.match(app, /const viewRenderMode = renderMode === 'influence' && !boneInfluenceAvailable \? plainRenderMode\.current : renderMode;/);
+  // Movement keeps its own mode, Bone influence by default; other editors never get it.
+  assert.match(app, /const viewRenderMode = boneInfluenceAvailable \? movementRenderMode : renderMode === 'influence' \? 'wireframe' : renderMode;/);
+  assert.match(app, /\[movementRenderMode, setMovementRenderMode\] = useState\('influence'\)/);
+  assert.match(app, /movementRenderMode: 'influence', showAllGeosets/);
   assert.equal(app.match(/mode=\{[^}]*cleanView \? 'textured' : viewRenderMode\}/g)?.length, 2, 'both viewports leave Bone influence outside Movement');
 });
 
@@ -94,4 +97,32 @@ test('Bone influence keeps the skeleton and hidden vertices drawn through the gh
   assert.match(preview, /boneInfluence: latest\.current\.mode === 'influence' \? boneInfluence\(latest\.current\.selectedNodeIds\) : null/);
   assert.match(preview, /wireframeMarkers: p\.mode === 'wireframe' \|\| p\.mode === 'vertices' \|\| p\.mode === 'influence'/);
   assert.match(preview, /showHiddenVertices = p\.mode === 'wireframe' \|\| p\.mode === 'vertices' \|\| p\.mode === 'influence'/);
+});
+
+test('F swaps between Textured View and the view last chosen in that editor', async () => {
+  const { textureToggleTarget } = await import('../src/display-overlays.js');
+  assert.equal(textureToggleTarget('wireframe', 'wireframe'), 'textured');
+  assert.equal(textureToggleTarget('influence', 'influence', 'influence'), 'textured');
+  assert.equal(textureToggleTarget('textured', 'influence', 'influence'), 'influence');
+  assert.equal(textureToggleTarget('textured', 'solid'), 'solid');
+  assert.equal(textureToggleTarget('textured', undefined, 'influence'), 'influence');
+  assert.equal(textureToggleTarget('textured', undefined), 'wireframe');
+  assert.match(app, /if \(effectiveRenderMode !== 'textured'\) untexturedModes\.current\[textureToggleContext\] = effectiveRenderMode;/);
+  assert.match(app, /const toggleTextured = \(\) => setViewRenderMode\(textureToggleTarget\(effectiveRenderMode, untexturedModes\.current\[textureToggleContext\], boneInfluenceAvailable \? 'influence' : 'wireframe'\)\);/);
+});
+
+test('display switches the user picks survive a restart; untouched ones keep the defaults', async () => {
+  const { defaultEditorDisplay, saveEditorDisplay, setEditorDisplay, storedEditorDisplay } = await import('../src/display-overlays.js');
+  const store = new Map(), storage = { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value) };
+  assert.deepEqual(storedEditorDisplay(false, storage), defaultEditorDisplay());
+  const picked = setEditorDisplay(setEditorDisplay(defaultEditorDisplay(), 'movement', 'skeleton', true), 'movement', 'bones', false);
+  saveEditorDisplay(picked, defaultEditorDisplay(true), storage);
+  const restored = storedEditorDisplay(false, storage);
+  assert.deepEqual([restored.movement.skeleton, restored.movement.focusedSkeleton, restored.movement.bones, restored.bones.bones], [true, false, false, false]);
+  assert.deepEqual(storedEditorDisplay(true, storage), defaultEditorDisplay(true));
+  store.set('mdlxl-editor-display', '{"xl":{"movement":{"skeleton":"yes","unknown":true}}}');
+  assert.deepEqual(storedEditorDisplay(false, storage), defaultEditorDisplay(), 'only known boolean switches are restored');
+  store.set('mdlxl-editor-display', 'not json');
+  assert.deepEqual(storedEditorDisplay(false, storage), defaultEditorDisplay());
+  assert.deepEqual(storedEditorDisplay(false, { getItem() { throw new Error('blocked'); } }), defaultEditorDisplay());
 });
