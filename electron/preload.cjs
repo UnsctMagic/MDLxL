@@ -55,6 +55,8 @@ contextBridge.exposeInMainWorld('desktop', {
   textureLibraryCatalog: payload => ipcRenderer.invoke('texture:library',payload),
   textureLibraryPreview: payload => ipcRenderer.invoke('texture:libraryPreview',payload),
   copyTexturePath: value => ipcRenderer.invoke('texture:copyPath',value),
+  writePaintClipboard: bytes => ipcRenderer.invoke('paint:clipboardWrite',bytes),
+  readPaintClipboard: () => ipcRenderer.invoke('paint:clipboardRead'),
   textureLibraryPreloadStatus: () => ipcRenderer.invoke('texture:preloadStatus'),
   textureLibraryPreloadStart: payload => ipcRenderer.invoke('texture:preloadStart',payload),
   textureLibraryPreloadCancel: payload => ipcRenderer.invoke('texture:preloadCancel',payload),

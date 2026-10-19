@@ -1,4 +1,4 @@
-const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, nativeTheme, utilityProcess } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, shell, nativeTheme, utilityProcess } = require('electron');
 // Check before loading editor modules: another launch must not read a changing install.
 if (app.isPackaged && require('node:fs').existsSync(require('node:path').join(require('node:path').dirname(process.execPath), '.mdlxl-installing'))) {
   app.exit(0);
@@ -317,6 +317,14 @@ ipcMain.handle('texture:copyPath',(_,value)=>{
   if(typeof value!=='string'||!value||value.length>1024)throw Error('Invalid texture path.');
   clipboard.writeText(value);
 });
+// Paint textures travel through the system clipboard as images, so Photoshop,
+// GIMP and other editors can paste them and copy edits back.
+ipcMain.handle('paint:clipboardWrite',(_,bytes)=>{
+  if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>256*1024*1024)throw Error('Invalid texture image.');
+  const image=nativeImage.createFromBuffer(Buffer.from(bytes));if(image.isEmpty())throw Error('The texture could not be copied.');
+  clipboard.writeImage(image);
+});
+ipcMain.handle('paint:clipboardRead',()=>{const image=clipboard.readImage();return image.isEmpty()?null:new Uint8Array(image.toPNG());});
 ipcMain.handle('texture:preloadStatus',()=>texturePreviews.getStatus());
 ipcMain.handle('texture:preloadStart',(event,payload)=>{
   if(event.sender!==win?.webContents||textureDecoder!==event.sender)throw Error('Texture preview decoder is not ready.');
