@@ -524,7 +524,7 @@ export default function App() {
     if (next !== 'vertices') clearZoomAnchor();
     if (next !== 'bones') { setAttachSourceIds([]); setBoneCreateOpen(false); }
     setMode(next === 'uv' ? 'vertices' : next); setPlaying(false); setLiveUV(null);
-    if (next === 'uv') { setUVWindow({ minimized: false, expanded: false, position: null }); setGlobalSeqId(null); setSequence(-1); setTime(0); }
+    if (next === 'uv') { setUVWindow({ minimized: false, expanded: true, position: null }); setGlobalSeqId(null); setSequence(-1); setTime(0); }
     if (next === 'animation' && mode !== next && sequence < 0 && globalSeqId === null && model.Sequences.length) { setSequence(0); setTime(model.Sequences[0].Interval[0]); }
   };
   const selectAnimationPanel = async panel => {
