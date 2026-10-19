@@ -847,7 +847,7 @@
     "Add a shape · select and edit with the vertex editor controls",
     "Add a new piece to mold.",
     "Control points",
-    "Select and move whole pieces. Double-click a surface to select a face.",
+    "Select and move whole pieces. Double-click a surface to select a face; Shift+double-click adds more faces.",
     "Edges",
     "Edge",
     "Select and move the edges of a piece.",
