@@ -6,7 +6,10 @@ const trivia = new Set(['whitespace','line-comment','block-comment']);
 const raw = t => t?.raw.toString('utf8');
 const numeric = t => /^(?:[+-]?(?:\d|\.)|[+-]?(?:nan|inf(?:inity)?)$)/i.test(raw(t) || '');
 const number = t => /^[-+]?nan$/i.test(raw(t)) ? NaN : /^[+]?inf(?:inity)?$/i.test(raw(t)) ? Infinity : /^-inf(?:inity)?$/i.test(raw(t)) ? -Infinity : Number(raw(t));
-const spelling = n => Number.isNaN(n) ? 'nan' : n === Infinity ? 'inf' : n === -Infinity ? '-inf' : Object.is(n,-0) ? '-0' : String(n);
+// Model values are float32. Write the shortest decimal that reads back as the
+// same float32 (0.6, not 0.6000000238418579); other numbers keep every digit.
+const float32Spelling = n => { if (Math.fround(n) !== n || Number.isInteger(n)) return String(n); for (let p = 1; p < 9; p++) { const v = Number(n.toPrecision(p)); if (Math.fround(v) === n) return String(v); } return String(n); };
+const spelling = n => Number.isNaN(n) ? 'nan' : n === Infinity ? 'inf' : n === -Infinity ? '-inf' : Object.is(n,-0) ? '-0' : float32Spelling(n);
 
 // Preserve MDX values that have no standard MDL token as comments on their
 // owning Layer/GeosetAnim closing line. Retera must not see comment-only

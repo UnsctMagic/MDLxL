@@ -196,8 +196,11 @@ test('supported visibility and RGB node families roundtrip through both codecs, 
   for (const format of ['mdl', 'mdx']) {
     const reopened = openDocument(doc.serialize(format), `families.${format}`);
     assert.equal(reopened.readOnly, false);
+    // Saving renumbers ObjectIds into Warcraft's node-section order, so find
+    // each node again by its name rather than by its pre-save ID.
     for (const target of targets) {
-      const key = timelineReadTrack(reopened.model, target)?.Keys?.find(item => item.Frame === frame);
+      const saved = timelineTracks(reopened.model).find(item => item.kind === 'node' && item.label === target.label && item.property === target.property);
+      const key = saved && timelineReadTrack(reopened.model, saved)?.Keys?.find(item => item.Frame === frame);
       assert.ok(key, `${format}: missing ${target.label} ${target.property}`); close(key.Vector, values[target.trackId]);
     }
   }
