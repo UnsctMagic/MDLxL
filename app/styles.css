@@ -14,10 +14,12 @@
 .classic-geoset-operations { display: grid; gap: 2px; margin-top: 6px; }
 .classic-geoset-operations button { min-width: 0; padding: 2px; }
 .geoset-options .check { display: flex; align-items: center; gap: 0; padding: 1px 0; margin: 0; }
+/* Geosets options and All / Clear / Hide extras each stay on one line at any panel width. */
+.geoset-options { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
+.geoset-options .check { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.classic-selection-actions button { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.classic-sidebar { width: 148px; min-width: 148px; }
 .classic-sidebar .classic-tools { grid-template-columns: repeat(4,24px) 32px; }
-.classic-sidebar .geoset-options { flex-wrap: wrap; }
 .classic-sidebar .classic-animation-sidebar .inspector-section { max-width: 100%; }
 .classic-geosets.sidebar-section:not([open]){min-height:0}
 .classic-geosets.sidebar-section>.sidebar-section-body{padding:1px}
@@ -34,8 +36,6 @@
 .classic-toolbar-group:first-child{margin-left:0}
 .classic-toolbar-group{margin-right:5px;flex-shrink:0}
 .classic-toolbar .language-switch{margin-left:auto;margin-right:4px;flex-shrink:0}
-.classic-app.rig-workspace .classic-sidebar{width:164px;min-width:164px;flex:0 0 164px}
-.classic-app.bones-workspace .classic-sidebar{width:max(240px,var(--panel-width));min-width:max(240px,var(--panel-width));flex:0 0 max(240px,var(--panel-width))}
 .classic-app.rig-workspace .classic-geosets{min-height:0;margin-top:3px}
 .classic-app.rig-workspace .classic-geosets [role=listbox]{display:flex;flex-wrap:wrap;align-content:flex-start;min-height:72px;max-height:112px;overflow:auto}
 .classic-app.rig-workspace .classic-geosets .geoset-row{flex:0 0 31px}

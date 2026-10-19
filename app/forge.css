@@ -86,7 +86,7 @@
 .forge-editor-toolbar .classic-tool { padding:2px;width:25px;height:25px;min-width:25px; }
 .forge-editor-workspace { flex:1;min-height:0; }
 .forge-editor-workspace:has(.quad-pane) .classic-view-label { position:relative;left:0;top:0;flex:none;height:26px;padding:2px 3px;background:var(--ui-panel); }
-.forge-editor .classic-sidebar { width:164px;min-width:164px;flex:0 0 164px;box-sizing:border-box; }
+.forge-editor .classic-sidebar { box-sizing:border-box; }
 .forge-editor-sidebar input[type=number] { width:100%; }
 .forge-editor-sidebar .classic-coordinates input { flex:1; }
 .forge-editor-sidebar .classic-planes label { gap:0; }
@@ -144,7 +144,6 @@
 .forge-overlay .forge-key { visibility:visible;position:static;font:600 9px/11px monospace;color:#25843a;background:#e5f4df;border:1px solid #39824655;border-radius:2px;padding:0 2px;max-width:65px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:none; }
 .shaping-overlay { background:#0006; }
 .shaping-overlay>.forge-shape-dialog { width:min(1120px,92vw);height:min(760px,86vh);border:1px solid var(--ui-border);box-shadow:0 5px 24px #0007; }
-.shaping-simple .forge-editor-sidebar { width:240px;min-width:240px;flex-basis:240px; }
 .shaping-simple .forge-effect-controls .shaping-tools { grid-template-columns:repeat(3,1fr); }
 .forge-body { flex:1;min-height:0;grid-template-columns:minmax(260px,.7fr) minmax(500px,1.3fr); }
 .forge-mesh { display:flex;flex-direction:column;min-height:0; }

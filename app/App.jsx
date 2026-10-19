@@ -84,6 +84,7 @@ import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
 import ModelTabs from './ModelTabs.jsx';
+import SidebarResizer, { PANEL_WIDTH_EVENT } from './SidebarResizer.jsx';
 
 const normalize = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 const views = ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'];
@@ -132,6 +133,11 @@ export default function App() {
   const preferencesRef = useRef(preferences); preferencesRef.current = preferences;
   const savedPreferences = useRef(null), preferencesTimer = useRef(), saveBeforeCloseRef = useRef(async () => false), modelOpenQueue = useRef(Promise.resolve());
   function changePreferences(next) { const value = normalizePreferences(typeof next === 'function' ? next(preferencesRef.current) : next); preferencesRef.current = value; setPreferences(value); }
+  useEffect(() => {
+    const resizePanel = event => changePreferences(previous => ({ ...previous, panelWidth: event.detail }));
+    window.addEventListener(PANEL_WIDTH_EVENT, resizePanel);
+    return () => window.removeEventListener(PANEL_WIDTH_EVENT, resizePanel);
+  }, []);
   const changeSensitivity = value => changePreferences({ ...preferencesRef.current, scrollSensitivity: value });
   const changePointerSensitivity = value => changePreferences({ ...preferencesRef.current, pointerSensitivity: value });
   const toggleWheelMode = mode => changePreferences(previous => ({ ...previous, wheelMode: previous.wheelMode === mode ? 'rotate' : mode }));
@@ -1534,6 +1540,7 @@ export default function App() {
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 
     </section>{mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <aside className="classic-sidebar">
+      <SidebarResizer/>
       {cameraRotating && !activePortrait && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
         cameraRotating, centroid, commandEnabled, deleteSelectedNode, editable, hiddenCount, lockedVertexPlane,

@@ -3,7 +3,7 @@ import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
 import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { assignHotkey, CAMERA_PRESETS, chordFromEvent, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences } from '../src/preferences.js';
+import { assignHotkey, CAMERA_PRESETS, chordFromEvent, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
 import { BUILT_IN_VIEWPORT_PRESETS, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
@@ -291,7 +291,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </AppearanceSection>
         <AppearanceSection title="Interface" palette={palette('Interface', { theme: prefs.theme, accent: prefs.accent }, preset => ({ theme: preset.theme, accent: APPLICATION_THEMES[preset.theme].accent }), change => commit({ ...change, viewportPreset: 'custom' }))}>
         <label className="settings-color">UI accent <input type="color" aria-label="UI accent" value={prefs.accent} onChange={event=>commit({accent:event.target.value})}/><code>{prefs.accent}</code></label>
-        <div className="settings-graphics-grid"><Numeric id="appearance:panel-width" label="Toolbox width" value={prefs.panelWidth} min={162} max={420} unit="px" onChange={panelWidth=>commit({panelWidth})}/><Numeric id="appearance:panel-scale" label="Toolbox scale" value={prefs.panelScale} min={1} max={1.75} step={.05} unit="×" onChange={panelScale=>commit({panelScale})}/></div>
+        <div className="settings-graphics-grid"><Numeric id="appearance:panel-width" label="Toolbox width" value={prefs.panelWidth} min={PANEL_WIDTH_MIN} max={PANEL_WIDTH_MAX} unit="px" onChange={panelWidth=>commit({panelWidth})}/><Numeric id="appearance:panel-scale" label="Toolbox scale" value={prefs.panelScale} min={1} max={1.75} step={.05} unit="×" onChange={panelScale=>commit({panelScale})}/></div>
         </AppearanceSection>
         <AppearanceSection title="Controllers" palette={partPalette('controllers', 'Controllers')}>
           <ControllerPreview appearance={prefs.viewportAppearance.controllers}/>

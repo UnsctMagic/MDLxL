@@ -6,6 +6,7 @@ import { CameraTools, Coordinate, Tool, TransformTools, WorkplaneControls } from
 import { useHotkeys } from './Hotkeys.jsx';
 import { chordFromEvent, isTextEditingTarget } from '../src/preferences.js';
 import { QUAD_VIEW_OPTIONS } from './quad-view.js';
+import SidebarResizer from './SidebarResizer.jsx';
 
 // Forge uses the vertex editor itself. This component only supplies the draft
 // document and the existing controls; it owns no picking or transform math.
@@ -50,6 +51,7 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
       <Viewport model={model} preferences={preferences} mode={renderMode} view={view} onViewChange={setView} quadView={quad} viewRequest={viewRequest} onActivePaneChange={setPane} cameraMode={cameraMode} onCameraModeToggle={toggleCamera} onCameraAnglesChange={receiveAngles} cameraAnglesRequest={angleRequest} frameRequest={frameRequest} workplane={workplane} workplaneEnabled={workplaneEnabled} transformMode={previewOnly ? 'select' : tool} selectionByGeoset={selection} selectableGeosets={selectable} visibleGeosets={selectable} onSelectionChange={onSelectionChange} onSelectParts={onSelectParts} onDoubleClickParts={onDoubleClickParts} onHoverParts={onHoverParts} onStartPartDrag={onStartPartDrag} onCancelPartDrag={onCancelPartDrag} onTransform={onTransform} showVertices={vertices} showGrid={grid} frameGrid={frameGrid} showAxes={true} shaded={true} grabThrough={grabThrough} textureAssets={textureAssets} teamColor={teamColor} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} editHandles={editHandles} highlightSelection={true}/>
       {viewportTools}
     </section><aside className="classic-sidebar forge-editor-sidebar">
+      {(!previewOnly || sidebar) && <SidebarResizer/>}
       {cameraMode === 'rotate' ? <><div className="forge-section-title">Camera rotation</div><div className="classic-coordinates">{['X', 'Y', 'Z'].map(axis => <Coordinate key={axis} axis={axis} value={angles[axis.toLowerCase()]} onCommit={value => setAngleRequest({ ...angles, [axis.toLowerCase()]: value })}/>)}</div></> : !previewOnly && <>
         <div className="classic-counts"><div>Vertices: <span>{model.Geosets.reduce((n, g) => n + g.Vertices.length / 3, 0)}</span></div><div>Selected: <span>{points.length}</span></div><div>Triangles: <span>{model.Geosets.reduce((n, g) => n + g.Faces.length / 3, 0)}</span></div></div>
         <div className="classic-coordinates" data-label="Coords:">{['X', 'Y', 'Z'].map((axis, i) => <Coordinate key={axis} axis={axis} value={center[i]} disabled={!points.length || !onTransform} onCommit={value => onTransform({ selections: selection, pivot: center, translation: center.map((n, a) => a === i ? value - n : 0) })}/>)}</div>
