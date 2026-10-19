@@ -1,5 +1,6 @@
 import { sampleTrack } from './animation.js';
 import { materialPreset } from './material-presets.js';
+import { partMaterialKey } from './bits-and-parts.js';
 
 const normal = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 
@@ -115,25 +116,83 @@ export function addLibraryTexture(model, asset) {
   return model.Textures.length - 1;
 }
 
-export function applyUVPreviews(model, drafts) {
+const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
+const materialOwners = model => [...model.Geosets, ...(model.RibbonEmitters || [])];
+
+function remapTextureRefs(model, remap) {
+  for (const material of model.Materials) for (const layer of material?.Layers || []) for (const owner of [layer, layer._MdxDefaults]) if (owner) for (const slot of TEXTURE_SLOTS) {
+    const value = owner[slot];
+    if (typeof value === 'number') owner[slot] = remap(value);
+    else for (const key of value?.Keys || []) for (const field of ['Vector', 'InTan', 'OutTan']) if (key[field]) for (let i = 0; i < key[field].length; i++) key[field][i] = remap(key[field][i]);
+  }
+  for (const emitter of model.ParticleEmitters2 || []) if (typeof emitter.TextureID === 'number') emitter.TextureID = remap(emitter.TextureID);
+}
+
+function usedTextures(model) {
+  const used = new Set();
+  remapTextureRefs(model, id => { if (id >= 0) used.add(Math.round(id)); return id; });
+  return used;
+}
+
+const usedMaterials = model => new Set(materialOwners(model).map(owner => owner.MaterialID).filter(id => Number.isSafeInteger(id) && id >= 0));
+
+// Drop only the materials and textures this replacement stopped using, so
+// repeated replacements never accumulate entries. A new image takes over the
+// slot its predecessor freed; entries that were already unused stay as authored.
+function releaseReplaced(model, materialsBefore, texturesBefore, firstNewTexture) {
+  const liveMaterials = usedMaterials(model);
+  const droppedMaterials = new Set([...materialsBefore].filter(id => !liveMaterials.has(id)));
+  if (droppedMaterials.size) {
+    const index = new Map();
+    model.Materials = model.Materials.filter((material, id) => { if (droppedMaterials.has(id)) return false; index.set(id, index.size); return true; });
+    for (const owner of materialOwners(model)) if (index.has(owner.MaterialID)) owner.MaterialID = index.get(owner.MaterialID);
+  }
+  const liveTextures = usedTextures(model);
+  const freed = [...texturesBefore].filter(id => id < firstNewTexture && !liveTextures.has(id)).sort((a, b) => a - b);
+  const added = model.Textures.map((_, id) => id).filter(id => id >= firstNewTexture && liveTextures.has(id));
+  const moved = new Map(), removed = new Set(freed);
+  for (const [n, id] of added.slice(0, freed.length).entries()) {
+    model.Textures[freed[n]] = model.Textures[id]; moved.set(id, freed[n]);
+    removed.delete(freed[n]); removed.add(id);
+  }
+  for (let id = firstNewTexture; id < model.Textures.length; id++) if (!liveTextures.has(id)) removed.add(id);
+  if (!removed.size) return;
+  const index = new Map();
+  model.Textures = model.Textures.filter((texture, id) => { if (removed.has(id)) return false; index.set(id, index.size); return true; });
+  remapTextureRefs(model, id => { const target = moved.get(id) ?? id; return index.has(target) ? index.get(target) : id; });
+}
+
+// Checked geosets with the same replacement stay together on one material.
+// Their material is edited in place when nothing else uses it, an identical
+// existing material is reused, and only a shared material is copied so other
+// users keep their texture and any animated texture track.
+export function applyUVPreviews(model, drafts, { release = true } = {}) {
   const pending = Object.values(drafts);
-  const clonedMaterials = new Map();
   for (const draft of pending) validateUVPreview(model, draft);
+  const materialsBefore = release && usedMaterials(model), texturesBefore = release && usedTextures(model), firstNewTexture = model.Textures.length;
+  const groups = new Map();
   for (const draft of pending) {
-    const geoset = model.Geosets[draft.geosetIndex];
-    const textureID = addLibraryTexture(model, draft.asset);
-    const replacementKey = `${geoset.MaterialID}|${textureID}`;
-    if (clonedMaterials.has(replacementKey)) { geoset.MaterialID = clonedMaterials.get(replacementKey); continue; }
-    const material = structuredClone(model.Materials[geoset.MaterialID] || {
+    const geoset = model.Geosets[draft.geosetIndex], textureID = addLibraryTexture(model, draft.asset);
+    const key = `${geoset.MaterialID}|${textureID}`;
+    if (!groups.has(key)) groups.set(key, { materialID: geoset.MaterialID, textureID, geosets: [] });
+    groups.get(key).geosets.push(geoset);
+  }
+  for (const { materialID, textureID, geosets } of groups.values()) {
+    const original = model.Materials[materialID];
+    const material = structuredClone(original || {
       PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 0, Alpha: 1, Shading: 0, CoordId: 0 }],
     });
-    replaceTextureChain(model, geoset.MaterialID, material, textureID);
-    // Checked geosets with the same replacement stay together. Other users of
-    // the old material retain their texture and any animated texture track.
-    geoset.MaterialID = model.Materials.length;
-    clonedMaterials.set(replacementKey, geoset.MaterialID);
-    model.Materials.push(material);
+    replaceTextureChain(model, materialID, material, textureID);
+    const materialKey = value => { try { return partMaterialKey(model, value); } catch { return null; } };
+    const key = materialKey(material);
+    let target = key == null ? -1 : model.Materials.findIndex(existing => existing && materialKey(existing) === key);
+    if (target < 0 && original && materialOwners(model).every(owner => owner.MaterialID !== materialID || geosets.includes(owner))) {
+      model.Materials[materialID] = material; target = materialID;
+    }
+    if (target < 0) target = model.Materials.push(material) - 1;
+    for (const geoset of geosets) geoset.MaterialID = target;
   }
+  if (release) releaseReplaced(model, materialsBefore, texturesBefore, firstNewTexture);
   return pending.length;
 }
 
@@ -155,7 +214,7 @@ export function uvPreviewModel(model, drafts, liveUV = null) {
     preview.Geosets[draft.geosetIndex] = { ...model.Geosets[draft.geosetIndex] };
     validDrafts[draft.geosetIndex] = draft;
   }
-  if (Object.keys(validDrafts).length) applyUVPreviews(preview, validDrafts);
+  if (Object.keys(validDrafts).length) applyUVPreviews(preview, validDrafts, { release: false });
   for (const live of liveChanges) if (preview.Geosets[live?.geosetIndex]?.TVertices?.[live.uvSet] && live.values?.length === preview.Geosets[live.geosetIndex].TVertices[live.uvSet].length) {
     const geoset = { ...preview.Geosets[live.geosetIndex] };
     geoset.TVertices = geoset.TVertices.slice(); geoset.TVertices[live.uvSet] = live.values;

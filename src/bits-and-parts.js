@@ -12,7 +12,7 @@ const canonical = value => Array.isArray(value) || ArrayBuffer.isView(value) ? A
 const fingerprint = value => JSON.stringify(canonical(value));
 export const partTextureKey = texture => fingerprint({ ...texture, Image: partPathKey(texture.Image), ReplaceableId: texture.ReplaceableId || 0, Flags: texture.Flags || 0 });
 
-function partMaterialKey(model, source) {
+export function partMaterialKey(model, source) {
   const material = structuredClone(source);
   const texture = id => id == null || id === -1 ? id : partTextureKey(model.Textures[id]);
   for (const layer of material.Layers || []) {

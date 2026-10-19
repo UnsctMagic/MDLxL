@@ -39,12 +39,16 @@ test('multiple previews serialize and undo in one transaction, deduplicating cas
   let drafts = beginUVPreview(doc.model, {}, 0, asset('Textures\\Rust.blp'));
   drafts = beginUVPreview(doc.model, drafts, 1, asset('textures/rust.BLP'));
   doc.apply('Save UV previews', ['Geosets','Materials','Textures'], m => applyUVPreviews(m, drafts));
-  assert.equal(doc.model.Materials.length, originalMaterials + 2);
+  // Geoset 0 owns its material, which is edited in place. Geoset 1 shares its
+  // material with geoset 3, and its replacement is identical to geoset 0's.
+  assert.equal(doc.model.Materials.length, originalMaterials);
   assert.equal(doc.model.Textures.length, originalTextures + 1);
   for (const format of ['mdl','mdx']) {
     const reopened = openDocument(doc.serialize(format), `memory.${format}`);
     assert.equal(reopened.model.Textures.at(-1).Image, 'Textures\\Rust.blp');
-    assert.equal(reopened.model.Geosets[1].MaterialID, originalMaterials + 1);
+    assert.equal(reopened.model.Geosets[0].MaterialID, 0);
+    assert.equal(reopened.model.Geosets[1].MaterialID, 0);
+    assert.equal(reopened.model.Geosets[3].MaterialID, 1);
     assert.equal(reopened.diagnostics.filter(d => d.severity === 'error').length, 0);
   }
   doc.undo(); assert.equal(doc.model.Materials.length, originalMaterials);
@@ -354,4 +358,42 @@ test('multi-layer animated texture IDs are replaced while all authored material 
   assert.deepEqual(model.Materials[0].Layers,original.Materials[0].Layers);assert.equal(model.Geosets[1].MaterialID,0);
   check(openDocument(doc.serialize('mdx'),'modular.mdx').model);
   doc.undo();assert.deepEqual(doc.serialize('mdx'),before);
+});
+
+test('repeated texture replacements reuse material and texture slots instead of accumulating them',()=>{
+  const doc=imageLayerDocument(),model=doc.model;
+  doc.apply('Split material',['Geosets','Materials','Textures'],value=>{
+    value.Materials.push(structuredClone(value.Materials[0]));value.Geosets[1].MaterialID=4;
+    value.Textures.push({Image:'Spare.blp',ReplaceableId:0,Flags:0}); // authored and unused
+  });
+  const images=index=>model.Materials[index].Layers.map(layer=>model.Textures[layer.TextureID].Image),authored=images(0);
+  const save=name=>doc.apply('Save',['Geosets','Materials','Textures'],value=>applyUVPreviews(value,beginUVPreview(value,{},[0,2],asset(name))));
+  save('First.blp');
+  const materials=model.Materials.length,textures=model.Textures.length;
+  assert.equal(materials,5);assert.equal(textures,5);
+  for(const name of ['Second.blp','Third.blp','First.blp']){
+    save(name);
+    assert.equal(model.Materials.length,materials);assert.equal(model.Textures.length,textures);
+    assert.equal(model.Geosets[0].MaterialID,0);assert.equal(model.Geosets[2].MaterialID,0);
+    assert.deepEqual(images(0),['',name,name]);
+    assert.equal(model.Textures[4].Image,name);assert.equal(model.Textures[3].Image,'Spare.blp');
+    assert.equal(doc.diagnostics.filter(d=>d.severity==='error').length,0);
+  }
+  // Geoset 1 keeps the authored images through its own material.
+  assert.deepEqual(images(4),authored);
+});
+
+test('a replacement matching another material joins it and releases what it left',()=>{
+  const doc=imageLayerDocument(),model=doc.model;
+  doc.apply('Split geoset',['Geosets','Materials'],value=>{value.Materials.push(structuredClone(value.Materials[0]));value.Geosets[2].MaterialID=4;});
+  const save=(geosets,name)=>doc.apply('Save',['Geosets','Materials','Textures'],value=>applyUVPreviews(value,beginUVPreview(value,{},geosets,asset(name))));
+  save([0,1],'Shared.blp');
+  const materials=model.Materials.length,textures=model.Textures.length;
+  save([2],'Shared.blp');
+  // Its old material and the Armor/Trim images only it used are released.
+  assert.equal(model.Materials.length,materials-1);assert.equal(model.Textures.length,textures-2);
+  assert.equal(model.Geosets[2].MaterialID,model.Geosets[0].MaterialID);
+  assert.deepEqual(model.Textures.map(texture=>texture.Image),['','Shared.blp']);
+  assert.equal(doc.diagnostics.filter(d=>d.severity==='error').length,0);
+  doc.undo();assert.equal(model.Materials.length,materials);assert.equal(model.Textures.length,textures);
 });
