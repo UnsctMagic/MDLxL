@@ -12,3 +12,14 @@ test('Rotate camera mode carried in from another tab keeps the Animations contro
   // Switching between Movement and Animations ends any unfinished drag.
   assert.match(app, /useEffect\(\(\)=>setCameraGesture\(false\),\[animationPanel\]\);/);
 });
+
+test('Bones picked in Movement or Bones do not take Visibility & Color from the checked geosets', () => {
+  const app = readFileSync(new URL('../app/App.jsx', import.meta.url), 'utf8');
+  // Entering Animations parks the carried bones; leaving gives them back.
+  assert.match(app, /if \(panel === 'animations' && !\(mode === 'animation' && animationPanel === 'animations'\)\) parkNodeSelection\(\);/);
+  assert.match(app, /if \(panel === 'movement' && !returnParkedNodes\(\) && !selectedNodeIds\.length/);
+  assert.match(app, /if \(next !== 'animation'\) returnParkedNodes\(\);/);
+  // Neither step is an undo entry.
+  assert.match(app, /session\.parkedNodeIds = selectedNodeIds; poseSelectionOnly\.current = true;/);
+  assert.match(app, /poseSelectionOnly\.current = true; setSelectedNodeIdsState\(ids\);/);
+});
