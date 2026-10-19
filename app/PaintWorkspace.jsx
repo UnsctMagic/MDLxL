@@ -17,7 +17,7 @@ import {blendProjectedPaint} from '../src/paint-blend.js';
 import {smudgeProjectedPaint} from '../src/paint-smudge.js';
 import PaintStudioLayout from './PaintStudioLayout.jsx';
 import {paintMessage as msg} from '../src/paint-messages.js';
-import {addPaintProjectTarget,compositePaintTarget,createPaintProject,paintProjectCoat,paintProjectTarget,recordPaintStroke,recordPaintStrokeGroup,recordPaintUV,recordPaintSurfaceChange,travelPaintHistory} from '../src/paint-project.js';
+import {addPaintProjectTarget,compositePaintTarget,createPaintProject,paintProjectCoat,paintProjectTarget,paintStrokeHistory,pastePaintTexture,recordPaintStroke,recordPaintStrokeGroup,recordPaintUV,recordPaintSurfaceChange,togglePaintStroke,travelPaintHistory} from '../src/paint-project.js';
 import {fillPaintMask,interpolatePaintStroke,preparePaintProjection,prepareTexturePaintProjection,stampProjectedBrush,samePaintProjectionView} from '../src/paint-projection.js';
 import {paintGeosetMask,paintProjectModel,paintStandHidden} from '../src/paint-view.js';
 import {rgbaColor,clonePaintRaster,resizePaintRaster,compositePaintRasters,createPaintRaster,samplePaintRaster} from '../src/paint-raster.js';
@@ -265,6 +265,44 @@ export default function PaintWorkspace({model,originalModel=model,revision,model
   }
   function chooseShape(id){const value=PAINT_BRUSH_SHAPES.find(s=>s.id===id);if(!value)return;endStroke();setShape(id);setBrush(b=>({...b,hardness:value.hardness,flow:value.flow,spacing:value.spacing}));}
   function studioHistory(redo=false){endStroke();commitPlacement();if(travelPaintHistory(project,redo))notify();}
+  // Stroke history: take back one stroke while every other change stays.
+  function toggleStroke(entry,quiet=false){
+    if(!project||busy||readOnly)return null;endStroke();commitPlacement();
+    try{
+      const result=togglePaintStroke(project,entry);if(!result)return null;
+      if(result.covered){if(!quiet)onStatus?.('Later paint covers this stroke completely.');return result;}
+      for(const id of result.targets)markPaintMaterialEdited(project,paintProjectTarget(project,id));notify();
+      onStatus?.(result.undone?'Stroke undone. Everything else stays.':'Stroke restored.');return result;
+    }catch(e){onStatus?.(e.message,true);return null;}
+  }
+  function undoLastStroke(){
+    if(!project)return;
+    for(const entry of paintStrokeHistory(project).reverse()){if(entry.strokeUndone)continue;const result=toggleStroke(entry,true);if(!result||!result.covered)return;}
+    onStatus?.('No strokes to undo.');
+  }
+  // The texture travels through the system clipboard, so it can be edited in
+  // Photoshop or GIMP and pasted back with one click.
+  async function copyTexture(){
+    if(!activeTarget)return;endStroke();commitPlacement();
+    try{
+      const canvas=paintRasterCanvas(compositePaintTarget(project)),blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+      if(window.desktop?.writePaintClipboard)await window.desktop.writePaintClipboard(new Uint8Array(await blob.arrayBuffer()));else await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      onStatus?.('Texture copied to the clipboard.');
+    }catch(e){onStatus?.(e.message,true);}
+  }
+  async function pasteTexture(){
+    if(!activeTarget||busy||readOnly)return;endStroke();commitPlacement();
+    try{
+      let bytes=null;
+      if(window.desktop?.readPaintClipboard)bytes=await window.desktop.readPaintClipboard();
+      else for(const item of await navigator.clipboard.read()){const type=item.types.find(t=>t.startsWith('image/'));if(type){bytes=new Uint8Array(await(await item.getType(type)).arrayBuffer());break;}}
+      if(!bytes?.length){onStatus?.('The clipboard holds no image. Copy one in your image editor first.',true);return;}
+      const image=await decodePaintImage(bytes,'clipboard.png'),target=paintProjectTarget(project),coatId=project.activeCoatId==='__alpha'?target.coats[0].id:project.activeCoatId;
+      const result=pastePaintTexture(project,target.id,coatId,image);
+      if(result){markPaintMaterialEdited(project,target);notify();}
+      onStatus?.(result?.resized?'Pasted the clipboard image, scaled to fit the texture.':'Pasted the clipboard image into the texture.');
+    }catch(e){onStatus?.(e.message,true);}
+  }
   function studioPick(hit){
     endStroke();clearHover();
     const geo=baseModel.Geosets[hit.geosetIndex];
@@ -384,12 +422,12 @@ export default function PaintWorkspace({model,originalModel=model,revision,model
     style={{'--paint-tip':APPLICATION_THEMES[preferences?.theme]?.scheme!=='dark'?paintAppearance.brushTipLight:paintAppearance.brushTipDark,'--paint-selection':paintAppearance.geosetSelection}}
     disabled={busy||readOnly} busy={busy} dialog={dialog} viewport={viewport} original={showOriginal} onOriginal={()=>{endStroke();cancelPlacement();setShowOriginal(v=>!v);}} onFrame={()=>window.dispatchEvent(new CustomEvent('mdlvis-frame'))} navigationHint={navigationHint}
     sourceMode={sourceMode} onSourceMode={value=>{setSourceMode(value);if(value==='primer'&&!resolution)setResolution(512);}} resolution={resolution} onResolution={setResolution} onBegin={begin} onOpen={onOpenProject} split={split} onSplit={value=>{cancelPlacement();setSplit(Math.max(30,Math.min(78,value)));}}
-    selecting={pickPart} onSelectToggle={()=>chooseStudioTool('select')} shape={shape} onShape={chooseShape} palette={palette} onPalette={()=>setPalette(relatedPaintColors(brush.color))} shading={shading} onShading={()=>setShading(v=>!v)} outlines={outlines} onOutlines={()=>setOutlines(v=>!v)} colorfy={colorfy} onColorfy={()=>setColorfy(v=>!v)} onCopy={copySelection} onPaste={pasteSelection} canPaste={!!clipboard.current} onGrab={grabPatch} onInvertSelection={invertSelection} onSelectAll={selectAllParts} onTextureAction={action=>window.dispatchEvent(new CustomEvent('paint-texture-action',{detail:action}))} onNative={()=>setDialog('native')} onImport={()=>imageInput.current.click()} region={region} textureRegion={textureRegion} targetMode={targetMode} activeGeoset={activeGeoset} selectionKind={selectionKind} onSelectionKind={kind=>{endStroke();setSelectionKind(kind);setPickPart(true);setRegionTool(true);cameraProps.onWorkMode?.();}} isolate={isolate} onIsolate={setIsolate} onClearSelection={clearSelection} onFill={fillGeoset} onSeparate={separateSelection} onTextureMask={()=>setDialog('region')}
+    selecting={pickPart} onSelectToggle={()=>chooseStudioTool('select')} shape={shape} onShape={chooseShape} palette={palette} onPalette={()=>setPalette(relatedPaintColors(brush.color))} shading={shading} onShading={()=>setShading(v=>!v)} outlines={outlines} onOutlines={()=>setOutlines(v=>!v)} colorfy={colorfy} onColorfy={()=>setColorfy(v=>!v)} onCopy={copySelection} onPaste={pasteSelection} canPaste={!!clipboard.current} onCopyTexture={copyTexture} onPasteTexture={pasteTexture} strokes={project?paintStrokeHistory(project):[]} onToggleStroke={entry=>toggleStroke(entry)} onUndoStroke={undoLastStroke} onGrab={grabPatch} onInvertSelection={invertSelection} onSelectAll={selectAllParts} onTextureAction={action=>window.dispatchEvent(new CustomEvent('paint-texture-action',{detail:action}))} onNative={()=>setDialog('native')} onImport={()=>imageInput.current.click()} region={region} textureRegion={textureRegion} targetMode={targetMode} activeGeoset={activeGeoset} selectionKind={selectionKind} onSelectionKind={kind=>{endStroke();setSelectionKind(kind);setPickPart(true);setRegionTool(true);cameraProps.onWorkMode?.();}} isolate={isolate} onIsolate={setIsolate} onClearSelection={clearSelection} onFill={fillGeoset} onSeparate={separateSelection} onTextureMask={()=>setDialog('region')}
     onCrop={()=>{if(material){endStroke();setCutoutSource(material);setDialog('cutout');}}} onSaveSource={()=>{if(material)saveTexture({...material,shelfOnly:true});}} onSurface={()=>{cancelPlacement();setDialog('surface');}}
     coat={activeCoat} coats={PAINT_COATS} onCoat={id=>{cancelPlacement();endStroke();project.activeCoatId=id;notify();}} onCoatVisible={visible=>mutateCoat(c=>{c.visible=visible;})} onTarget={id=>{cancelPlacement();selectMaterial(id);}}
     textureName={textureName} width={activeTarget?.base.width} height={activeTarget?.base.height} onHistory={studioHistory} onNew={()=>{endStroke();cancelPlacement();setDialog('new');}} onSave={()=>{endStroke();commitPlacement();onSaveProject?.(project);}} onExport={()=>{endStroke();commitPlacement();onExport?.(project);}} onDone={()=>{endStroke();commitPlacement();onExit?.();}}
     shelf={<PaintTextureShelf language={preferences?.language} key={project?.id} epoch={shelfEpoch} {...shelfCallbacks} onFolderChange={setFolders}/>}
-    texture={project&&activeCanvas&&<PaintTextureCanvas outside={outside&&studioTool!=='sample'} title={textureName+' · '+activeTarget.base.width+' × '+activeTarget.base.height} onHover={previewHover} regionMask={textureRegion?.targetId===activeTarget.id?textureRegion.data:null} version={textureOverrides.get(activeTarget.textureId)?.revision} canvas={activeCanvas} geoset={baseModel.Geosets[activeGeoset]} coordId={coordId} brush={brush} brushPreview={footprint} decal={decal} textureSmoothing={scene.textureSmoothing} disabled={!geosetReady} onStart={startStroke} onMove={moveStroke} onEnd={endStroke} onCancel={cancelStroke} onUVChange={editUV} onGrab={grabPatch} onCopy={copySelection} onPaste={pasteSelection} selectedFaces={paintRegionFaces(region,activeGeoset)} onSeparate={separateSelection} onMask={data=>setTextureRegion({targetId:activeTarget.id,width:activeTarget.base.width,height:activeTarget.base.height,data})} />}
+    texture={project&&activeCanvas&&<PaintTextureCanvas outside={outside&&studioTool!=='sample'} title={textureName+' · '+activeTarget.base.width+' × '+activeTarget.base.height} onHover={previewHover} regionMask={textureRegion?.targetId===activeTarget.id?textureRegion.data:null} version={textureOverrides.get(activeTarget.textureId)?.revision} canvas={activeCanvas} geoset={baseModel.Geosets[activeGeoset]} coordId={coordId} brush={brush} brushPreview={footprint} decal={decal} textureSmoothing={scene.textureSmoothing} disabled={!geosetReady} onStart={startStroke} onMove={moveStroke} onEnd={endStroke} onCancel={cancelStroke} onUVChange={editUV} onGrab={grabPatch} onCopyTexture={copyTexture} onPasteTexture={pasteTexture} onCopy={copySelection} onPaste={pasteSelection} selectedFaces={paintRegionFaces(region,activeGeoset)} onSeparate={separateSelection} onMask={data=>setTextureRegion({targetId:activeTarget.id,width:activeTarget.base.width,height:activeTarget.base.height,data})} />}
   >
     <input hidden ref={imageInput} type="file" accept=".blp,.dds,.tga,.png,.jpg,.jpeg,.webp" onChange={async e=>{const file=e.target.files[0];if(file)await importFile(file);e.target.value='';}}/>
     {dialog==='surface'&&<div className="paint-modal-shade"><section className="paint-save-dialog" role="dialog" aria-modal="true" aria-label="Resize texture"><header><strong>Resize texture</strong><button disabled={busy} onClick={()=>setDialog(null)}>Close</button></header><p>{textureName} · {activeTarget.base.width} × {activeTarget.base.height}</p><label>Longest side<select value={surfaceSize} onChange={e=>setSurfaceSize(+e.target.value)}>{[256,512,1024,2048].map(size=><option key={size} value={size}>{size} px</option>)}</select></label><p>Keeps the current layout. More pixels allow finer new brushwork; your existing artwork stays intact.</p><p>This changes the working copy and can be undone.</p><button disabled={busy} onClick={prepareSurface}>{busy?'Resizing…':'Resize'}</button></section></div>}

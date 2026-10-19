@@ -1,5 +1,5 @@
 import { PAINT_COATS, PAINT_PROJECT_SCHEMA, PAINT_PROJECT_VERSION, isPaintResolution, isPaintRaster } from './paint-types.js';
-import { applyRasterDelta, clonePaintRaster, compositePaintRasters, createPaintRaster, rasterRegionDelta } from './paint-raster.js';
+import { applyRasterDelta, clonePaintRaster, compositePaintRasters, createPaintRaster, rasterRegionDelta, resizePaintRaster } from './paint-raster.js';
 import { storedZipArchive } from './forge-assets.js';
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
@@ -65,12 +65,13 @@ export function travelPaintHistory(project, redo = false) {
   const changes=entry.changes||[{coatId:entry.coatId,delta:entry.delta}];
   if(changes.some(change=>!paintProjectCoat(project,change.targetId||entry.targetId,change.coatId))){from.push(entry);throw Error('Paint history refers to a missing coat.');}
   for(const change of changes)applyRasterDelta(paintProjectCoat(project,change.targetId||entry.targetId,change.coatId).raster,change.delta,redo?'after':'before');to.push(entry);
+  if(entry.toggles)entry.toggles.strokeUndone=redo?entry.undoes:!entry.undoes;
   for(const targetId of new Set(changes.map(change=>change.targetId||entry.targetId))){const target=paintProjectTarget(project,targetId);target.revision=(target.revision||0)+1;}
   project.revision++; project.dirty = true; project.updatedAt = new Date().toISOString(); return entry;
 }
 
 /** Replace an entire coat including alpha as one undoable texture operation. */
-export function replacePaintTexture(project,targetId,coatId,raster) {
+export function replacePaintTexture(project,targetId,coatId,raster,label='Use as texture') {
   const target=paintProjectTarget(project,targetId),coat=paintProjectCoat(project,targetId,coatId);
   if(!target||!coat||!coat.visible)throw Error('Choose a visible paint coat.');
   if(raster.width!==target.base.width||raster.height!==target.base.height)throw Error('Texture size does not match the destination.');
@@ -78,7 +79,7 @@ export function replacePaintTexture(project,targetId,coatId,raster) {
   for(let i=0;i<raster.data.length;i+=4){coat.raster.data.set(raster.data.subarray(i,i+3),i);coat.raster.data[i+3]=255;target.alphaMask.data[i+3]=raster.data[i+3];}
   const changes=[{coatId,delta:rasterRegionDelta(before,coat.raster)},{coatId:'__alpha',delta:rasterRegionDelta(beforeAlpha,target.alphaMask)}].filter(change=>change.delta);
   if(!changes.length)return false;
-  const history=project.history,entry={targetId,coatId,label:'Use as texture',changes,delta:{byteLength:changes.reduce((sum,c)=>sum+c.delta.byteLength,0)}};
+  const history=project.history,entry={targetId,coatId,label,changes,delta:{byteLength:changes.reduce((sum,c)=>sum+c.delta.byteLength,0)}};
   for(const discarded of history.redo)history.usedBytes-=discarded.delta.byteLength;history.redo=[];history.undo.push(entry);history.usedBytes+=entry.delta.byteLength;
   while(history.undo.length>history.maxSteps||history.usedBytes>history.budgetBytes)history.usedBytes-=history.undo.shift().delta.byteLength;
   target.revision=(target.revision||0)+1;project.revision++;project.dirty=true;project.updatedAt=new Date().toISOString();return true;
@@ -234,4 +235,53 @@ export async function restorePaintProject(bytes, decodePng = decodePaintPng) {
   const legacyModel = [...files.entries()].find(([name]) => name.startsWith('model/'))?.[1] || null;
   const sourceTextures = (manifest.sourceTextures || []).map(source=>({name:source.name,bytes:files.get(source.file)})).filter(source=>source.bytes);
   return { project, files, modelName:manifest.modelName, originalModelBytes:files.get(manifest.modelFiles?.original)||legacyModel, workingModelBytes:files.get(manifest.modelFiles?.working)||legacyModel, modelBytes:files.get(manifest.modelFiles?.working)||legacyModel, sourceTextures };
+}
+
+/** Bring an edited copy of the texture back, e.g. from Photoshop or GIMP. Many
+ * editors drop transparency when copying, so an opaque image keeps the current
+ * alpha, and alpha that came back unchanged is not applied a second time. */
+export function pastePaintTexture(project,targetId,coatId,image){
+  const target=paintProjectTarget(project,targetId);if(!target)throw Error('Choose a destination texture.');
+  const {width,height}=target.base,resized=image.width!==width||image.height!==height,raster=resized?resizePaintRaster(image,width,height):clonePaintRaster(image);
+  const current=compositePaintTarget(project,targetId),mask=target.alphaMask?.data;let opaque=true;
+  for(let i=3;i<raster.data.length;i+=4)if(raster.data[i]!==255){opaque=false;break;}
+  for(let i=3;i<raster.data.length;i+=4){
+    const keep=mask?mask[i]:255,base=target.base.data[i];
+    raster.data[i]=opaque||raster.data[i]===current.data[i]?keep:base?Math.min(255,Math.round(raster.data[i]*255/base)):255;
+  }
+  return replacePaintTexture(project,targetId,coatId,raster,'Paste texture')?{resized}:false;
+}
+
+const isPaintEntry=entry=>(!entry.kind||entry.kind==='paintGroup')&&!entry.toggles;
+/** Brush strokes, stamps, fills and pastes still on the undo stack, oldest first. */
+export function paintStrokeHistory(project){return project.history.undo.filter(isPaintEntry);}
+
+/** Undo or restore one stroke on its own. UV edits, resizes and later strokes
+ * all stay: pixels that later paint covered keep that later paint. The toggle
+ * is itself one Ctrl+Z step, so it can be taken back like anything else. */
+export function togglePaintStroke(project,entry){
+  if(!isPaintEntry(entry)||!project.history.undo.includes(entry))return null;
+  const undo=!entry.strokeUndone,changes=[];
+  for(const change of entry.changes||[{coatId:entry.coatId,delta:entry.delta}]){
+    const targetId=change.targetId||entry.targetId,coat=paintProjectCoat(project,targetId,change.coatId);if(!coat)continue;
+    const d=change.delta,from=undo?d.after:d.before,to=undo?d.before:d.after,data=coat.raster.data,width=coat.raster.width;
+    const before=new Uint8ClampedArray(from.length),after=new Uint8ClampedArray(from.length);let changed=false;
+    for(let y=0;y<d.height;y++)for(let x=0;x<d.width;x++){
+      const local=(y*d.width+x)*4,offset=((d.y+y)*width+d.x+x)*4;
+      before.set(data.subarray(offset,offset+4),local);
+      const untouched=data[offset]===from[local]&&data[offset+1]===from[local+1]&&data[offset+2]===from[local+2]&&data[offset+3]===from[local+3];
+      after.set(untouched?to.subarray(local,local+4):data.subarray(offset,offset+4),local);
+      if(untouched&&from.subarray(local,local+4).some((v,c)=>v!==to[local+c]))changed=true;
+    }
+    if(!changed)continue;
+    const delta={x:d.x,y:d.y,width:d.width,height:d.height,before,after,byteLength:before.byteLength+after.byteLength+64};
+    applyRasterDelta(coat.raster,delta,'after');changes.push({targetId,coatId:change.coatId,delta});
+  }
+  if(!changes.length)return {covered:true};
+  const history=project.history,step={kind:'paintGroup',label:(undo?'Undo ':'Restore ')+entry.label,toggles:entry,undoes:undo,changes,delta:{byteLength:changes.reduce((sum,c)=>sum+c.delta.byteLength,0)},date:Date.now()};
+  for(const discarded of history.redo)history.usedBytes-=discarded.delta.byteLength;history.redo=[];history.undo.push(step);history.usedBytes+=step.delta.byteLength;
+  while(history.undo.length>history.maxSteps||history.usedBytes>history.budgetBytes)history.usedBytes-=history.undo.shift().delta.byteLength;
+  entry.strokeUndone=undo;
+  for(const targetId of new Set(changes.map(c=>c.targetId))){const target=paintProjectTarget(project,targetId);target.revision=(target.revision||0)+1;}
+  project.revision++;project.dirty=true;project.updatedAt=new Date().toISOString();return {undone:undo,targets:[...new Set(changes.map(c=>c.targetId))]};
 }
