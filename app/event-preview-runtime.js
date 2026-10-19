@@ -168,8 +168,6 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
     cancelTests() { tests.clear(); invalidate?.(); },
     render({ frame, sequenceIndex, globalTime, playback, camera, teamColor, bloodSteps = true, spawn = true }) {
       if (disposed || !loaded) return;
-      const restore = preserveGLState(gl);
-      try {
       // A frozen event key must not recreate the decal just tested. Release it
       // when the timeline moves so normal playback and scrubbing stay intact.
       for (const [id,test] of tests) if (test.completed && (test.completed.frame !== frame || test.completed.sequenceIndex !== sequenceIndex || test.completed.globalTime !== globalTime)) tests.delete(id);
@@ -181,6 +179,11 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
         if (elapsed >= test.duration) { test.completed = {frame,sequenceIndex,globalTime}; invalidate?.(); }
         else active.push({...test,ageMs:elapsed/test.duration*test.definition.lifeSpanMs,manual:true});
       }
+      // Reading WebGL state waits for the GPU process. Most frames show no
+      // event effect, so skip the save and restore when nothing will draw.
+      if (!active.length && !instances.size) return;
+      const restore = preserveGLState(gl);
+      try {
       const keys = new Set(active.map(item => item.key));
       for (const [key, state] of instances) if (!keys.has(key)) { if (state.native) destroyRenderer(state.native); if (state.vao) gl.deleteVertexArray(state.vao); instances.delete(key); }
       for (const item of active) {

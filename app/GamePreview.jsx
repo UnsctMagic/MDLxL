@@ -265,6 +265,9 @@ export default function GamePreview(inputProps) {
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
+    // A plain-color background is drawn by the clear itself, which saves a
+    // full-screen pass per frame on PCs that render without a graphics card.
+    let solidBackground=null;
     const portraitFraming=new THREE.Vector2();
     const colorLuminance=color=>{const c=new THREE.Color(color);return c.r*.2126+c.g*.7152+c.b*.0722;};
     const cursorFor = (p, active = rotating) => {
@@ -812,6 +815,8 @@ export default function GamePreview(inputProps) {
       const current = latest.current, appearance = viewportAppearanceOptions(current.preferences).background;
       drawPreviewBackground(backgroundCanvas.getContext('2d'), canvas.width, canvas.height, current.portraitMode ? null : backgroundState.current.image, current.portraitMode ? '#000000' : appearance.color, current.portraitMode ? { type: 'color', color: '#000000', display: 'fill', opacity: 1 } : current.backgroundUrl ? { display: 'fill', opacity: 1 } : appearance);
       nativeBackground.update(backgroundCanvas);
+      const image = current.portraitMode ? null : backgroundState.current.image;
+      try { solidBackground = image ? null : Array.from(backgroundCanvas.getContext('2d').getImageData(0, 0, 1, 1).data.slice(0, 3), value => value / 255); } catch { solidBackground = null; }
       if(cursorSampler){
         cursorPixels=null;
         if(!current.portraitMode&&backgroundState.current.image){
@@ -1198,8 +1203,9 @@ export default function GamePreview(inputProps) {
         native.setTeamColor(nativeTeamColor(p.teamColor || '#ed3333'));
         native.setLightPosition(p.showcase ? displayLight().normalize().multiplyScalar(radius*10).add(center).toArray() : cameraLeftLight(camera, controls.target, radius).position.toArray());
         const background = new THREE.Color(p.portraitMode ? '#000000' : visualOptions(p.preferences).background).convertLinearToSRGB();
-        gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(background.r, background.g, background.b, 1); gl.clearDepth(1); gl.depthMask(true); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        if (!p.portraitMode || p.showcase) nativeBackground.draw();
+        const backdrop = !p.portraitMode || p.showcase, clear = backdrop && solidBackground || [background.r, background.g, background.b];
+        gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(clear[0], clear[1], clear[2], 1); gl.clearDepth(1); gl.depthMask(true); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        if (backdrop && !solidBackground) nativeBackground.draw();
         if (!captureOnly) presentation.draw(camera, p.preferences, p.workplane, p.overlays?.grid ?? !!p.showGrid, center, radius, bounds.min.z, { gridOnly: true, showAxes: p.showAxes ?? p.overlays?.axes ?? !!p.showGrid });
         const wireframe = !captureOnly && (p.mode === 'wireframe' || p.mode === 'vertices');
         if (wireframe) gl.colorMask(false, false, false, false);
