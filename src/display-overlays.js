@@ -10,18 +10,29 @@ export function defaultEditorDisplay(vanilla = false) {
   };
 }
 
+// Bones, Movement and Animations share one Bones switch, so bone markers stay
+// on (or off) while the user moves between the rig editors.
+const RIG_EDITORS = ['bones', 'movement', 'animations'];
+function shareBones(overlays, mode) {
+  if (!RIG_EDITORS.includes(mode)) return overlays;
+  const bones = !!overlays[mode]?.bones;
+  return { ...overlays, ...Object.fromEntries(RIG_EDITORS.filter(editor => editor !== mode && overlays[editor])
+    .map(editor => [editor, { ...overlays[editor], bones }])) };
+}
+
 export function setEditorDisplay(overlays, mode, key, value) {
   const current = overlays?.[mode] || {};
   const resolved = typeof value === 'function' ? value(current[key]) : value;
   const next = { ...current, [key]: !!resolved };
   if (resolved && key === 'skeleton') next.focusedSkeleton = false;
   if (resolved && key === 'focusedSkeleton') next.skeleton = false;
-  return { ...overlays, [mode]: next };
+  const result = { ...overlays, [mode]: next };
+  return key === 'bones' ? shareBones(result, mode) : result;
 }
 
 // Clear the active editor's visible options without changing the model or selection.
 export function clearQuickDisplay(overlays, mode) {
-  return { ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, false])) };
+  return shareBones({ ...overlays, [mode]: Object.fromEntries(Object.keys(overlays[mode] || {}).map(key => [key, false])) }, mode);
 }
 
 // POSE starts clean, then keeps the user's own display choices separately.

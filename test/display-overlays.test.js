@@ -24,8 +24,24 @@ test('display switches belong to their respective editor', () => {
   assert.equal(movement.bones.skeleton, true);
   assert.equal(movement.movement.nodes, true);
   assert.equal(movement.vertices.bones, false);
-  assert.equal(movement.animations.bones, false);
+  assert.equal(movement.animations.skeleton, false);
+  assert.equal(movement.animations.nodes, false);
   assert.deepEqual(initial, defaultEditorDisplay());
+});
+
+test('Bones, Movement and Animations share the Bones switch', () => {
+  for (const vanilla of [false, true]) {
+    const initial = defaultEditorDisplay(vanilla);
+    const on = setEditorDisplay(initial, 'animations', 'bones', true);
+    for (const editor of ['bones', 'movement', 'animations']) assert.equal(on[editor].bones, true, editor);
+    assert.equal(on.vertices.bones, false);
+    assert.equal(on.movement.particles, initial.movement.particles);
+    const off = setEditorDisplay(on, 'movement', 'bones', value => !value);
+    for (const editor of ['bones', 'movement', 'animations']) assert.equal(off[editor].bones, false, editor);
+    const cleared = clearQuickDisplay(setEditorDisplay(initial, 'bones', 'bones', true), 'bones');
+    for (const editor of ['bones', 'movement', 'animations']) assert.equal(cleared[editor].bones, false, editor);
+    assert.deepEqual(clearQuickDisplay(on, 'vertices').movement, on.movement);
+  }
 });
 
 test('Bone markers and Skeleton retain independent controls', () => {

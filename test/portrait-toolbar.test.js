@@ -69,7 +69,7 @@ test('Set Current View and shots keep authored camera roll (KCRL) tracks untouch
 test('Clear turns off the active view, including Shadows and Grid',()=>{
   const state={vertices:{grid:true,shaded:true},bones:{grid:true},animations:{grid:true,shaded:true,vertices:true,wires:true,bones:true,skeleton:true,nodes:true,attachments:true,particles:true},uv:{vertices:true}};
   const before=structuredClone(state),next=clearQuickDisplay(state,'animations');
-  assert.deepEqual(state,before);assert.deepEqual(next.vertices,before.vertices);assert.deepEqual(next.bones,before.bones);assert.deepEqual(next.uv,before.uv);
+  assert.deepEqual(state,before);assert.deepEqual(next.vertices,before.vertices);assert.deepEqual(next.bones,{...before.bones,bones:false});assert.deepEqual(next.uv,before.uv);
   assert.ok(Object.values(next.animations).every(value=>!value));
 });
 
