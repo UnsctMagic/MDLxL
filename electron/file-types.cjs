@@ -23,6 +23,9 @@ function registryEntries({ choice, executable, brandingDirectory }) {
     [`${CLASSES}\\${PROG_ID}`, null, 'REG_SZ', 'Warcraft III model'],
     [`${CLASSES}\\${PROG_ID}\\DefaultIcon`, null, 'REG_SZ', icon],
     [`${CLASSES}\\${PROG_ID}\\shell\\open\\command`, null, 'REG_SZ', command],
+    // "Open with > Always use" makes Windows' own Applications\MDLxL.exe entry the
+    // default for .mdl/.mdx; Explorer then takes the icon from that entry instead.
+    [`${CLASSES}\\Applications\\${path.win32.basename(executable)}\\DefaultIcon`, null, 'REG_SZ', icon],
     ...EXTENSIONS.map(extension => [`${CLASSES}\\${extension}\\OpenWithProgids`, PROG_ID, 'REG_NONE', '']),
     // Paint Projects belong to MDLxL alone, so they get the file type directly.
     [`${CLASSES}\\.mdlxlpaint`, null, 'REG_SZ', PROG_ID],
@@ -60,8 +63,9 @@ class FileTypeRegistration {
   }
   async write(choice) {
     const entries = registryEntries({ choice, executable: this.executable, brandingDirectory: this.brandingDirectory });
-    const [, , , icon] = entries[1], [, , , command] = entries[2];
-    if (await this.registered() && await currentValue(this.run, entries[1][0]) === icon && await currentValue(this.run, entries[2][0]) === command) return false;
+    let current = await this.registered();
+    for (const [key, , , data] of entries.slice(1, 4)) current = current && await currentValue(this.run, key) === data;
+    if (current) return false;
     for (const entry of entries) await this.run('reg.exe', addArguments(entry));
     // Explorer caches file icons; tell it the associations changed.
     await this.run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', NOTIFY]).catch(() => {});
