@@ -251,14 +251,17 @@ export default function GamePreview(inputProps) {
 
   useEffect(() => {
     if (!model || !host.current) return;
-    const ownerDocument = host.current.ownerDocument, ownerWindow = ownerDocument.defaultView || window, detachedPreview = ownerDocument !== document;
+    // The render loop can run once more after React clears the host ref and
+    // before cleanup marks this preview disposed; keep the element it began with.
+    const hostElement = host.current;
+    const ownerDocument = hostElement.ownerDocument, ownerWindow = ownerDocument.defaultView || window, detachedPreview = ownerDocument !== document;
     const requestPreviewFrame = detachedPreview
       ? callback => ownerWindow.setTimeout(() => callback(ownerWindow.performance.now()), 16)
       : ownerWindow.requestAnimationFrame.bind(ownerWindow);
     const cancelPreviewFrame = detachedPreview ? ownerWindow.clearTimeout.bind(ownerWindow) : ownerWindow.cancelAnimationFrame.bind(ownerWindow);
-    const backgroundCanvas = ownerDocument.createElement('canvas'); backgroundCanvas.dataset.previewBackground = ''; backgroundCanvas.style.cssText = 'position:absolute;z-index:0;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(backgroundCanvas);
+    const backgroundCanvas = ownerDocument.createElement('canvas'); backgroundCanvas.dataset.previewBackground = ''; backgroundCanvas.style.cssText = 'position:absolute;z-index:0;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(backgroundCanvas);
     const canvas = ownerDocument.createElement('canvas'); canvas.dataset.cleanModelCanvas = ''; canvas.style.cssText = 'position:relative;z-index:1;width:100%;height:100%;display:block;touch-action:none;outline:none'; canvas.tabIndex = 0;
-    host.current.appendChild(canvas);
+    hostElement.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: graphicsOptions(latest.current.preferences).antialias, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
     let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
@@ -768,7 +771,10 @@ export default function GamePreview(inputProps) {
       if (event.key === 'Escape' && nodeGesture) { finishNodeGesture({ pointerId: nodeGesture.id, type: 'pointercancel', preventDefault: () => event.preventDefault(), stopImmediatePropagation: () => event.stopImmediatePropagation() }); }
     };
     const cancelGestureCapture = event => { if (event.pointerId === nodeGesture?.id || event.pointerId === selectionGesture?.id) finishNodeGesture(event); };
-    const pickParticle=event=>{const p=latest.current;if(event.button!==0)return;if(p.onParticleSurfacePlace){const rect=canvas.getBoundingClientRect(),point=particleSurfaceAnchor(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleAnchorId);if(point){event.preventDefault();event.stopImmediatePropagation();p.onParticleSurfacePlace(point);}return;}if(!p.onParticlePick)return;const rect=canvas.getBoundingClientRect(),hits=pickPreviewParticles(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleSelectedId,p.hiddenGeosets);if(hits.length){event.preventDefault();event.stopImmediatePropagation();const current=hits.findIndex(h=>h.owner===p.particleSelectedId);p.onParticlePick(hits[(current+1)%hits.length].owner,hits.map(h=>h.owner));}};
+    // The first click of a double-click may select the bone under an emitter
+    // (Bones show by default), so cycling continues from the emitter picked last.
+    let lastPickedParticle=null;
+    const pickParticle=event=>{const p=latest.current;if(event.button!==0)return;if(p.onParticleSurfacePlace){const rect=canvas.getBoundingClientRect(),point=particleSurfaceAnchor(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleAnchorId);if(point){event.preventDefault();event.stopImmediatePropagation();p.onParticleSurfacePlace(point);}return;}if(!p.onParticlePick)return;const rect=canvas.getBoundingClientRect(),hits=pickPreviewParticles(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleSelectedId,p.hiddenGeosets);if(hits.length){event.preventDefault();event.stopImmediatePropagation();const from=hits.some(h=>h.owner===p.particleSelectedId)?p.particleSelectedId:lastPickedParticle,current=hits.findIndex(h=>h.owner===from);lastPickedParticle=hits[(current+1)%hits.length].owner;p.onParticlePick(lastPickedParticle,hits.map(h=>h.owner));}};
     canvas.addEventListener('dblclick',pickParticle,true);
     canvas.addEventListener('pointermove', nodePointerMove, true); canvas.addEventListener('pointerup', finishNodeGesture, true); canvas.addEventListener('pointercancel', finishNodeGesture, true); canvas.addEventListener('keydown', cancelNodeGesture, true);
     canvas.addEventListener('lostpointercapture', endShowcaseCursor);
@@ -1239,7 +1245,7 @@ export default function GamePreview(inputProps) {
       } catch (cause) { setError(`Warcraft preview error: ${cause.message}`); return false; }
       if (!captureOnly) {
       if (p.showCollisionSpheres) {
-        if (!collisionCanvas) { collisionCanvas = ownerDocument.createElement('canvas'); collisionCanvas.dataset.collisionOverlay = ''; collisionCanvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:30'; host.current.appendChild(collisionCanvas); }
+        if (!collisionCanvas) { collisionCanvas = ownerDocument.createElement('canvas'); collisionCanvas.dataset.collisionOverlay = ''; collisionCanvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:30'; hostElement.appendChild(collisionCanvas); }
         collisionCanvas.width=canvas.width; collisionCanvas.height=canvas.height;
         drawCollisionSpheres(collisionCanvas.getContext('2d'),ownedModel,camera,native,canvas.width,canvas.height);
       } else if (collisionCanvas) { collisionCanvas.remove(); collisionCanvas=null; }
@@ -1272,7 +1278,7 @@ export default function GamePreview(inputProps) {
       } else posedGeosets = [];
       const hovered = p.hoveredGeoset == null ? null : ownedModel.Geosets[p.hoveredGeoset];
       if (hovered) {
-        if (!hoverCanvas) { hoverCanvas=ownerDocument.createElement('canvas'); hoverCanvas.dataset.geosetOverlay=''; hoverCanvas.style.cssText='position:absolute;z-index:10;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(hoverCanvas); }
+        if (!hoverCanvas) { hoverCanvas=ownerDocument.createElement('canvas'); hoverCanvas.dataset.geosetOverlay=''; hoverCanvas.style.cssText='position:absolute;z-index:10;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(hoverCanvas); }
         if (hoverCanvas.width !== canvas.width) hoverCanvas.width = canvas.width;
         if (hoverCanvas.height !== canvas.height) hoverCanvas.height = canvas.height;
         const matrices=getPoseMatrices();
@@ -1281,24 +1287,24 @@ export default function GamePreview(inputProps) {
         drawGeosetHighlight(hoverCanvas.getContext('2d'),hovered.Faces,skinGeoset(hovered,matrices),camera,canvas.width,canvas.height,referenceOnly && highlight.type === 'wire-vertices' ? { ...highlight, type: 'wire' } : highlight);
       } else if (hoverCanvas) { hoverCanvas.remove(); hoverCanvas=null; }
       if (presentationGuides || overlayOptions.normals || overlayOptions.wires || overlayOptions.vertices || Object.values(p.selectionByGeoset || {}).some(ids => ids.length || ids.size)) {
-        if (!geometryCanvas) { geometryCanvas = ownerDocument.createElement('canvas'); geometryCanvas.dataset.geometryOverlay = ''; geometryCanvas.style.cssText = 'position:absolute;z-index:20;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(geometryCanvas); }
+        if (!geometryCanvas) { geometryCanvas = ownerDocument.createElement('canvas'); geometryCanvas.dataset.geometryOverlay = ''; geometryCanvas.style.cssText = 'position:absolute;z-index:20;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(geometryCanvas); }
         if (geometryCanvas.width !== canvas.width) geometryCanvas.width = canvas.width;
         if (geometryCanvas.height !== canvas.height) geometryCanvas.height = canvas.height;
         if (presentationGuides) drawPresentationOverlay(geometryCanvas.getContext('2d'), posedGeosets, camera, canvas.clientWidth, canvas.clientHeight, p.previewOverlay, canvas.width / Math.max(1, canvas.clientWidth));
         else drawPreviewGeometryOverlay(geometryCanvas.getContext('2d'), posedGeosets, camera, canvas.clientWidth, canvas.clientHeight, overlayOptions, center, radius, canvas.width / Math.max(1, canvas.clientWidth));
       } else if (geometryCanvas) { geometryCanvas.remove(); geometryCanvas = null; }
       if (p.overlays?.cameras ?? p.showCameras) {
-        if (!cameraCanvas) { cameraCanvas = ownerDocument.createElement('canvas'); cameraCanvas.dataset.cameraOverlay = ''; cameraCanvas.style.cssText = 'position:absolute;z-index:30;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(cameraCanvas); }
+        if (!cameraCanvas) { cameraCanvas = ownerDocument.createElement('canvas'); cameraCanvas.dataset.cameraOverlay = ''; cameraCanvas.style.cssText = 'position:absolute;z-index:30;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(cameraCanvas); }
         if (cameraCanvas.width !== canvas.width) cameraCanvas.width = canvas.width;
         if (cameraCanvas.height !== canvas.height) cameraCanvas.height = canvas.height;
         drawModelCameraOverlay(cameraCanvas.getContext('2d'), ownedModel, camera, canvas.clientWidth, canvas.clientHeight, canvas.width / Math.max(1, canvas.clientWidth), native.getFrame(), poseSequence, globalClock, radius, visualOptions(p.preferences).node, p.portraitMode ? PORTRAIT_ASPECT : 4 / 3);
       } else if (cameraCanvas) { cameraCanvas.remove(); cameraCanvas = null; }
       const selectedControls = !!p.onNodeTransform && !!p.selectedNodeIds?.length && ['move', 'rotate', 'scale'].includes(p.transformMode), poseVisible = !!p.poseConfig?.enabled && !p.restPose;
       if (overlayOptions.bones || overlayOptions.boneLines || overlayOptions.nodes || overlayOptions.attachments || overlayOptions.particles || overlayOptions.ribbons || overlayOptions.sounds || overlayOptions.events || selectedControls || poseVisible) {
-        if (!connectorCanvas) { connectorCanvas = ownerDocument.createElement('canvas'); connectorCanvas.dataset.connectorOverlay = ''; connectorCanvas.style.cssText = 'position:absolute;z-index:15;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(connectorCanvas); }
+        if (!connectorCanvas) { connectorCanvas = ownerDocument.createElement('canvas'); connectorCanvas.dataset.connectorOverlay = ''; connectorCanvas.style.cssText = 'position:absolute;z-index:15;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(connectorCanvas); }
         if (connectorCanvas.width !== canvas.width) connectorCanvas.width = canvas.width;
         if (connectorCanvas.height !== canvas.height) connectorCanvas.height = canvas.height;
-        if (!nodeCanvas) { nodeCanvas = ownerDocument.createElement('canvas'); nodeCanvas.dataset.nodeOverlay = ''; nodeCanvas.style.cssText = 'position:absolute;z-index:40;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(nodeCanvas); }
+        if (!nodeCanvas) { nodeCanvas = ownerDocument.createElement('canvas'); nodeCanvas.dataset.nodeOverlay = ''; nodeCanvas.style.cssText = 'position:absolute;z-index:40;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(nodeCanvas); }
         if (nodeCanvas.width !== canvas.width) nodeCanvas.width = canvas.width;
         if (nodeCanvas.height !== canvas.height) nodeCanvas.height = canvas.height;
         const width = canvas.clientWidth, height = canvas.clientHeight;
@@ -1325,7 +1331,7 @@ export default function GamePreview(inputProps) {
               current.onPlayingChange?.(false); current.onTimeChange?.(frame);
               current.onPosePin?.(key, frame, movementSequence(current, frame));
             });
-            host.current.appendChild(pinButton);
+            hostElement.appendChild(pinButton);
           }
           if (pinButton.dataset.key !== limb.key) { pinPlacement = null; pinOffset = null; }
           const name = limb.label.toLowerCase();
@@ -1388,7 +1394,7 @@ export default function GamePreview(inputProps) {
       }
       // Motion arcs (AnimXL): model-space polylines over the view, through the live camera.
       if (p.overlayPaths?.length) {
-        if (!pathCanvas) { pathCanvas = ownerDocument.createElement('canvas'); pathCanvas.dataset.pathOverlay = ''; pathCanvas.style.cssText = 'position:absolute;z-index:41;inset:0;width:100%;height:100%;pointer-events:none'; host.current.appendChild(pathCanvas); }
+        if (!pathCanvas) { pathCanvas = ownerDocument.createElement('canvas'); pathCanvas.dataset.pathOverlay = ''; pathCanvas.style.cssText = 'position:absolute;z-index:41;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(pathCanvas); }
         if (pathCanvas.width !== canvas.width) pathCanvas.width = canvas.width;
         if (pathCanvas.height !== canvas.height) pathCanvas.height = canvas.height;
         const pw = canvas.clientWidth, ph = canvas.clientHeight, context = pathCanvas.getContext('2d'), point = new THREE.Vector3();

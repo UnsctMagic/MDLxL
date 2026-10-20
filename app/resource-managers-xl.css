@@ -59,6 +59,8 @@
 :root[data-theme] .resource-editor.re-xl .re-list :is(button,.re-tree-row):hover{background:var(--tree-hover)}
 :root[data-theme] .resource-editor.re-xl .re-list :is(button,.re-tree-row).re-selected{background:var(--tree-selected);color:var(--tree-selected-text);box-shadow:inset 3px 0 var(--tree-accent)}
 :root[data-theme] .resource-editor.re-xl .re-list small,:root[data-theme] .resource-editor.re-xl .re-event-editor .re-sound-tree small{color:var(--tree-muted);font-size:calc(var(--tree-font-size) - 2px)}
+/* The muted secondary label (e.g. "Bone") fails contrast on the selected row; it follows the selected text instead. */
+:root[data-theme] .resource-editor.re-xl .re-list :is(button,.re-tree-row).re-selected small{color:var(--tree-selected-text)}
 :root[data-theme] .resource-editor.re-xl .re-list .re-tree-expander{background:transparent;color:inherit!important}
 :root[data-theme] .resource-editor.re-xl .re-tree-line:after{border-color:var(--tree-guide)}
 :root[data-theme] .resource-editor.re-xl .re-event-editor .re-sound-tree button{font-size:var(--tree-font-size)}
