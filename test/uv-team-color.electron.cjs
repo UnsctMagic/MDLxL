@@ -35,7 +35,7 @@ async function fixture() {
 }
 
 const runtime = () => {
-  const element = document.querySelector('.game-preview-root');
+  const element = document.querySelector('.uv-tab-window .game-preview-root');
   let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
   for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
     const state = hook.memoizedState?.current;
@@ -101,35 +101,26 @@ async function visibleCanvas(page, team) {
     await main.getByLabel('Team color', { exact: true }).selectOption('#ff0303');
     for (let i = 0; i < 5; i++) await main.getByLabel(`Select geoset ${i}`, { exact: true }).check();
     await main.getByLabel('3D model viewport', { exact: true }).click(); await main.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window'); await main.locator('[data-hotkey="uv"]').click(); uv = await opened;
-    uv.setDefaultTimeout(20000); uv.on('pageerror', error => errors.push(error.message));
-    await uv.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows().find(window => window.webContents.getURL() === 'about:blank');
-      window.webContents.setBackgroundThrottling(false); window.setBounds({ x: 80, y: 60, width: 1600, height: 950 }); window.showInactive();
-    });
-    let materials = uv.getByLabel('UV material', { exact: true });
+    const uvw = main.locator('.uv-tab-window'); // in-app dialog of the main window since f7316110
+    await main.locator('[data-hotkey="uv"]').click(); uv = main;
+    await uvw.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
+    let materials = uvw.getByLabel('UV material', { exact: true });
     await materials.selectOption('0');
     const red = await waitFor(async () => { const pixels = await backdrop(uv); return pixels?.clear[0] === 255 && pixels.clear[1] === 3 && pixels; }, 'red team color in layered canvas');
     assert.deepEqual(red.clear, [255, 3, 3, 255]); assert.deepEqual(red.half, [147, 42, 62, 255]); assert.deepEqual(red.opaque, [40, 80, 120, 255]);
-    await uv.locator('.uv-texture-caption').filter({ hasText: '2 rendered layers' }).waitFor();
+    await uvw.locator('.uv-texture-caption').filter({ hasText: '2 rendered layers' }).waitFor();
     await waitFor(() => uv.evaluate(runtime), 'native preview'); const before = await uv.evaluate(runtime);
     assert.ok(Math.abs(before.team[0] - 1) < .001);
-    const bounds = await uv.locator('.game-preview-root').boundingBox();
+    const bounds = await uvw.locator('.game-preview-root').boundingBox();
     await uv.mouse.move(bounds.x + bounds.width * .55, bounds.y + bounds.height * .55); await uv.mouse.down();
     await uv.mouse.move(bounds.x + bounds.width * .75, bounds.y + bounds.height * .65, { steps: 12 }); await uv.mouse.up();
     await waitFor(async () => JSON.stringify((await uv.evaluate(runtime)).camera) !== JSON.stringify(before.camera), 'normal mouse drag rotates preview');
     const redCanvas = await visibleCanvas(uv, [255, 3, 3]); await uv.screenshot({ path: path.join(out, 'red.png') });
-    const closed = uv.waitForEvent('close'); await uv.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click(); await closed;
+    await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click(); await uvw.waitFor({ state: 'detached' });
     await main.getByLabel('Team color', { exact: true }).selectOption('#0042ff');
-    const reopened = app.waitForEvent('window'); await main.locator('[data-hotkey="uv"]').click(); uv = await reopened;
-    uv.setDefaultTimeout(20000); uv.on('pageerror', error => errors.push(error.message));
-    await uv.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows().find(window => window.webContents.getURL() === 'about:blank');
-      window.webContents.setBackgroundThrottling(false); window.setBounds({ x: 80, y: 60, width: 1600, height: 950 }); window.showInactive();
-    });
-    materials = uv.getByLabel('UV material', { exact: true }); await materials.selectOption('0');
+    await main.locator('[data-hotkey="uv"]').click();
+    await uvw.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
+    materials = uvw.getByLabel('UV material', { exact: true }); await materials.selectOption('0');
     const blue = await waitFor(async () => { const pixels = await backdrop(uv); return pixels?.clear[2] === 255 && pixels.clear[0] === 0 && pixels; }, 'blue team color in layered canvas');
     assert.deepEqual(blue.clear, [0, 66, 255, 255]); assert.deepEqual(blue.half, [20, 73, 187, 255]); assert.deepEqual(blue.opaque, red.opaque);
     await waitFor(async () => Math.abs((await uv.evaluate(runtime)).team[2] - 1) < .001, 'blue team color in native preview');

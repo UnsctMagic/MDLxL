@@ -73,8 +73,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(settingsBox, { width: 76, height: 48, rows: 2 });
 
     const movementSections = page.locator('.classic-sidebar details.sidebar-section');
-    assert.ok(await movementSections.count() >= 8);
-    assert.equal(await movementSections.evaluateAll(items => items.every(item => item.open)), true);
+    // Connected Bones only shows in Movement when the selection has bound vertices (049c06fb), and
+    // Restrictions starts collapsed (60dd7f99); every other section starts open.
+    const sectionStates = await movementSections.evaluateAll(items => items.map(item => [item.querySelector('summary')?.textContent, item.open]));
+    assert.ok(sectionStates.length >= 7, JSON.stringify(sectionStates));
+    assert.deepEqual(sectionStates.filter(([, open]) => !open).map(([title]) => title), ['Restrictions'], JSON.stringify(sectionStates));
     await movementSections.first().locator('summary').click(); assert.equal(await movementSections.first().evaluate(item => item.open), false);
     await focused.check();
     await page.screenshot({ path: path.join(out, 'movement.png') });

@@ -11,6 +11,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   try {
     const page = await app.firstWindow();
     page.setDefaultTimeout(10000);
+    // A never-shown headless window cannot be captured by page.screenshot; show it inactive and off-screen.
+    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
     page.on('pageerror', e => console.log('PAGE ERROR', e.message));
     await page.waitForSelector('[data-hotkey="animations"]', { timeout: 60000 });
     console.log('LOADED', await page.title());

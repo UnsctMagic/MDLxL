@@ -49,7 +49,7 @@ const {buildSync}=require(path.resolve('node_modules/esbuild'));
   const scope=page.locator('.showcase-sidebar');
   await scope.locator('.showcase-layer-tools').last().getByRole('button',{name:'Add',exact:true}).click();await page.getByLabel('Text content',{exact:true}).waitFor();
   await page.locator('.showcase-text-fades').evaluate(el=>el.open=true);await page.locator('.showcase-align').evaluateAll(els=>els.forEach(el=>el.open=true));await scan('showcase-text');
-  await page.getByRole('button',{name:'Load Preset',exact:true}).click();await page.locator('.showcase-dialog').waitFor();await scan('showcase-presets');await page.locator('.showcase-dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+  await scope.getByRole('button',{name:'Load',exact:true}).click();await page.locator('.showcase-dialog').waitFor();await scan('showcase-presets');await page.locator('.showcase-dialog').getByRole('button',{name:'Cancel',exact:true}).click();
   await page.locator('.showcase-list li').first().click();await page.locator('.showcase-dialog').waitFor();await scan('showcase-animation');await page.locator('.showcase-dialog').getByRole('button',{name:'Cancel',exact:true}).click();
   await page.getByRole('tab',{name:'Portrait',exact:true}).click();await scan('showcase-portrait');
   report.untranslated=await page.evaluate(()=>Object.fromEntries(['ru','es','zh','mordor'].map(locale=>[locale,[...auditText].filter(s=>uiAudit.translate(s,locale)===s)])));

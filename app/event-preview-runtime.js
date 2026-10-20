@@ -128,6 +128,12 @@ export function createEventPreview({ gl, model, modelPath, textureAssets, textur
               else warn(`Event texture unavailable: ${info.Image}`);
             }
             resources.set(key, { source, images, lifeSpanMs:definition.lifeSpanMs });
+            // Build one throwaway renderer now so its shaders compile while the
+            // effects load. Otherwise the first spawn freezes playback ~300 ms.
+            if (!disposed) { const restore = preserveGLState(gl), vao = gl.createVertexArray(); let warm;
+              try { gl.bindVertexArray(vao); warm = new ModelRenderer(structuredClone(source)); warm.initGL(gl); }
+              catch { /* the real instance reports any renderer failure */ }
+              finally { if (warm) destroyRenderer(warm); gl.deleteVertexArray(vao); restore(); } }
           } else {
             const image = await decode(asset, { Image:definition.resourcePath });
             if (disposed) break;

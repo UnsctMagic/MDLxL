@@ -19,12 +19,35 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await page.locator('[data-hotkey="geosetsClear"]').click();
     await page.getByLabel('Select geoset 0', { exact: true }).check();
-    await page.locator('[aria-label="3D model viewport"]').click();
-    await page.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window');
+    // Since 3e35aca8 the UV entry is the vertex-editor selection (the "Select New" picker is gone):
+    // box-select only the first horn (vertices 0-4) in the main viewport, then open UV.
+    await page.evaluate(() => {
+      window.mainViewport = () => {
+        const host = document.querySelector('[aria-label="3D model viewport"]');
+        let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
+        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+          const value = hook.memoizedState?.current; if (value?.renderer && value?.entries) return value;
+        }
+        throw Error('Viewport runtime not found');
+      };
+      window.mainPoints = () => {
+        const state = mainViewport(), source = state.entries[0].geometry.attributes.position.array, rect = state.controls.domElement.getBoundingClientRect();
+        return Array.from({ length: source.length / 3 }, (_, id) => {
+          const point = state.controls.target.clone().set(source[id * 3], source[id * 3 + 1], source[id * 3 + 2]).project(state.camera);
+          return { x: rect.x + (point.x + 1) * rect.width / 2, y: rect.y + (1 - point.y) * rect.height / 2 };
+        });
+      };
+    });
+    const viewport = page.locator('[aria-label="3D model viewport"]'); await viewport.focus(); await page.keyboard.press('a');
+    const mainPoints = await page.evaluate(() => mainPoints()), hornBox = mainPoints.slice(0, 5);
+    const boxLeft = Math.min(...hornBox.map(point => point.x)) - 6, boxTop = Math.min(...hornBox.map(point => point.y)) - 6;
+    const boxRight = Math.max(...hornBox.map(point => point.x)) + 6, boxBottom = Math.max(...hornBox.map(point => point.y)) + 6;
+    assert.ok(mainPoints.slice(5).every(point => point.x < boxLeft || point.x > boxRight || point.y < boxTop || point.y > boxBottom), 'the other horn lies outside the first-horn box');
+    await page.mouse.move(boxLeft, boxTop); await page.mouse.down(); await page.mouse.move(boxRight, boxBottom, { steps: 8 }); await page.mouse.up();
+    await page.waitForFunction(() => /^Selected: 5$/m.test(document.querySelector('.classic-counts')?.innerText || ''));
+    const uv = page, uvw = page.locator('.uv-tab-window'); // in-app dialog since f7316110
     await page.locator('[data-hotkey="uv"]').click();
-    const uv = await opened; uv.setDefaultTimeout(15000);
-    await uv.locator('[data-clean-model-canvas]').waitFor({ timeout: 60000 });
+    await uvw.locator('[data-clean-model-canvas]').waitFor({ timeout: 60000 });
     await uv.evaluate(() => {
       window.hornState = () => {
         const root = document.querySelector('.uv-workspace');
@@ -33,7 +56,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         throw Error('UV workspace props unavailable');
       };
       window.hornRuntime = () => {
-        const root = document.querySelector('.game-preview-root');
+        const root = document.querySelector('.uv-tab-window .game-preview-root');
         let fiber = root[Object.keys(root).find(key => key.startsWith('__reactFiber'))];
         for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
           const state = hook.memoizedState?.current;
@@ -42,7 +65,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         throw Error('Preview camera unavailable');
       };
       window.hornLocations = () => {
-        const rect = document.querySelector('[data-clean-model-canvas]').getBoundingClientRect();
+        const rect = document.querySelector('.uv-tab-window [data-clean-model-canvas]').getBoundingClientRect();
         const geo = hornState().model.Geosets[0], camera = hornRuntime().controls.object, Vector3 = camera.position.constructor;
         const points = Array.from({ length: geo.Vertices.length / 3 }, (_, id) => {
           const point = new Vector3().fromArray(geo.Vertices, id * 3).project(camera);
@@ -59,16 +82,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const initial = await uv.evaluate(() => hornLocations());
     await uv.mouse.move(initial.rect.x + initial.rect.width / 2, initial.rect.y + initial.rect.height / 2);
     await uv.mouse.wheel(0, -1200);
-    await uv.getByRole('button', { name: 'Select New', exact: true }).click();
-    await uv.locator('.uv-geoset-trigger').click();
-    await uv.locator('.uv-geoset-menu [data-geoset-index="0"]').click();
-    const locations = await uv.evaluate(() => hornLocations());
-    const firstHorn = locations.points.slice(0, 5);
-    const left = Math.min(...firstHorn.map(point => point.x)) - 6, top = Math.min(...firstHorn.map(point => point.y)) - 6;
-    const right = Math.max(...firstHorn.map(point => point.x)) + 6, bottom = Math.max(...firstHorn.map(point => point.y)) + 6;
-    await uv.mouse.move(left, top); await uv.mouse.down(); await uv.mouse.move(right, bottom, { steps: 8 }); await uv.mouse.up();
-    await uv.waitForFunction(() => document.querySelector('.uv-selection-count')?.textContent !== '0 selected');
-    await uv.getByRole('button', { name: 'Done', exact: true }).click();
     await uv.waitForFunction(() => hornState().eligibleSelection[0]?.length > 0 && hornState().eligibleSelection[0].length < 10);
     const entry = await uv.evaluate(() => hornState().eligibleSelection[0]);
     assert.ok(entry.every(id => id < 5), 'the UV work area initially contains only the first horn');
@@ -85,8 +98,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const before = await uv.evaluate(() => Array.from(hornState().model.Geosets[0].TVertices[0]));
     const firstHornUV = Array.from({ length: 5 }, (_, id) => before.slice(id * 2, id * 2 + 2).join(','));
     assert.ok(selected.every(id => firstHornUV.includes(before.slice(id * 2, id * 2 + 2).join(','))), 'the picked triangle begins directly stacked on the first horn');
-    const map = uv.locator('.uv-map-pane canvas').first(), box = await map.boundingBox();
-    await uv.getByRole('button', { name: 'Move', exact: true }).click();
+    const map = uvw.locator('.uv-map-pane canvas').first(), box = await map.boundingBox();
+    await uvw.getByRole('button', { name: 'Move', exact: true }).click();
     await uv.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await uv.mouse.down(); await uv.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 20, { steps: 5 }); await uv.mouse.up();
     await uv.waitForFunction(originalUV => hornState().model.Geosets[0].TVertices[0].some((value, index) => value !== originalUV[index]), before);

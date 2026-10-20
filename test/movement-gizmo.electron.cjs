@@ -7,6 +7,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const { projectPoseHandles } = await import('../app/pose-overlay.js');
   const { movementAxisHandles, pickMovementHandle, projectMovementNodes } = await import('../app/movement-overlay.js');
   const { openDocument } = await import('../src/editor-document.js');
+  const { viewportAppearanceOptions } = await import('../src/preferences.js');
   const out = path.resolve(process.env.MDLXL_POSE_OUT || 'out/pose-move-gizmo-ui'), fixture = path.resolve(process.env.MDLXL_POSE_FIXTURE || 'out/pose/Footman.mdx');
   const executablePath = path.resolve(process.env.MDLXL_POSE_EXE || 'out/pose-move-gizmo-package/MDLxL-win32-x64/MDLxL.exe');
   fs.mkdirSync(out, { recursive: true });
@@ -80,11 +81,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     async function position(id){const data=await page.evaluate(id=>{const n=poseProbe().runtime.native.rendererData.nodes.find(n=>n?.node.ObjectId===id);return {pivot:Array.from(n.node.PivotPoint),matrix:Array.from(n.matrix)};},id);return new Vector3().fromArray(data.pivot).applyMatrix4(new Matrix4().fromArray(data.matrix));}
     async function checkedDrag(pose,label,point,dx,dy,allowed,cancel=false){
       const before=await snap(), g=await gizmo(pose), id=pose?config.body:g.active.node.ObjectId, from=await position(id);box=await viewportBox();console.log(pose?'POSE':'Bone',label,'pick',pickMovementHandle(g.handles,point.x,point.y,'move')?.axis);
-      await page.mouse.move(box.x+point.x,box.y+point.y);await page.mouse.down();
-      const picked=pickMovementHandle(g.handles,point.x,point.y,'move');
-      if(picked){await settle();const axis=picked.plane?({xy:'Y',xz:'X',yz:'Z'})[picked.plane]:picked.axis,rgb=({X:[255,102,119],Y:[85,255,119],Z:[85,187,255]})[axis];
-        const neon=await page.locator('[data-node-overlay]').evaluate((canvas,rgb)=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let count=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>40&&rgb.every((v,j)=>Math.abs(v-pixels[i+j])<=2))count++;return count;},rgb);
-        assert.ok(neon>0,(pose?'POSE ':'Bone ')+label+' glows in its own neon color immediately on press');
+      // Since f771705c the gizmo uses the Appearance XYZ colors; a press makes that axis glow (shadow blur, wider stroke) in its own color.
+      const picked=pickMovementHandle(g.handles,point.x,point.y,'move'),axis=picked&&(picked.plane?({xy:'Y',xz:'X',yz:'Z'})[picked.plane]:picked.axis);
+      const rgb=picked&&(hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)))(viewportAppearanceOptions(await page.evaluate(()=>poseProbe().props.preferences)).controllers['axis'+axis]);
+      // The canvas stores premultiplied 8-bit color, so a faint pixel (e.g. a 16% plane square under the glow) reads back up to ~255/alpha off
+      // its true color; software rendering (WARP) rounds differently from a GPU. Match the axis color within that read-back precision.
+      const glow=()=>page.locator('[data-node-overlay]').evaluate((canvas,rgb)=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let count=0;for(let i=0;i<pixels.length;i+=4){const alpha=pixels[i+3],tolerance=Math.max(2,384/alpha);if(alpha>40&&rgb.every((v,j)=>Math.abs(v-pixels[i+j])<=tolerance))count++;}return count;},rgb);
+      await page.mouse.move(box.x+point.x,box.y+point.y);await settle();const idle=picked?await glow():0;await page.mouse.down();
+      if(picked){await settle();
+        const neon=await glow();results.measurements.push({pose,label,axis,idle,pressed:neon});
+        assert.ok(neon>idle,(pose?'POSE ':'Bone ')+label+' glows in its own axis color immediately on press');
         if(label==='X shaft middle'||label==='XY square')await shot((pose?'pose':'bone')+'-'+picked.axis+'-neon-active');
       }
       await page.mouse.move(box.x+point.x+dx,box.y+point.y+dy,{steps:4});
@@ -118,7 +124,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const h=await handleFor('endpoint',footId),data=await page.evaluate(()=>({camera:poseProbe().runtime.controls.object.toJSON(),radius:poseProbe().runtime.captureApi.showcaseView().radius})),camera=new ObjectLoader().parse(data.camera);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);box=await viewportBox();
       const controls=movementAxisHandles(h,camera,box.width,box.height,data.radius,'world','move',await handles()),pin=await page.locator('[data-pose-pin]').boundingBox();assert.ok(pin);
       for(let x=pin.x-box.x+2;x<pin.x-box.x+pin.width-2;x+=3)for(let y=pin.y-box.y+2;y<pin.y-box.y+pin.height-2;y+=3)assert.equal(pickMovementHandle(controls,x,y,'move'),null,'Pin button is outside gizmo drag areas');
-      const before=await snap();await page.locator('[data-pose-pin]').click();assert.equal(await page.locator('[data-pose-pin]').getAttribute('aria-pressed'),'true');await page.locator('[data-pose-pin]').click();assert.equal(await page.locator('[data-pose-pin]').getAttribute('aria-pressed'),'false');assert.equal((await snap()).model,before.model,'Pin placement/toggle does not alter native keys');
+      const before=await snap();const pinPressed=value=>page.waitForFunction(value=>document.querySelector('[data-pose-pin]')?.getAttribute('aria-pressed')===value,value,{timeout:5000});await page.locator('[data-pose-pin]').click();await pinPressed('true');await page.locator('[data-pose-pin]').click();await pinPressed('false');assert.equal((await snap()).model,before.model,'Pin placement/toggle does not alter native keys');
       await shot('foot-pin-spacing-'+view);results.checks.push('Pin spacing and mouse toggle at view '+view);
       await page.keyboard.down('Alt');await page.mouse.move(box.x+50,box.y+50);await page.mouse.down();await page.mouse.move(box.x+100,box.y+65,{steps:4});await page.mouse.up();await page.keyboard.up('Alt');await settle();
     }

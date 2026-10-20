@@ -24,7 +24,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     const record=page.getByRole('button',{name:'RECORD',exact:true});
     await record.waitFor();await page.waitForFunction(()=>!document.querySelector('.showcase-record').disabled);
     const controls=await page.locator('.showcase-sidebar').boundingBox(),preview=await page.locator('.showcase-preview').boundingBox();
-    assert.ok(controls.x<preview.x&&controls.width<=251,'Compact controls must occupy left side');
+    assert.ok(controls.x>=preview.x+preview.width-1&&controls.width<=251,'Compact controls must occupy the right side');
     assert.equal(await page.locator('.showcase-preview [data-geometry-overlay],.showcase-preview [data-node-overlay]').count(),0);
     const canvas=page.locator('.showcase-preview [data-clean-model-canvas]');
     const sampling=()=>canvas.evaluate(c=>({aa:c.getContext('webgl2').getContextAttributes().antialias,ratio:c.width/c.clientWidth}));
@@ -35,31 +35,23 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     const medium=await sampling();assert.equal(medium.aa,true);assert.ok(medium.ratio>1.45&&medium.ratio<1.55);
     await page.screenshot({path:path.join(out,'compact-menu.png')});
     assert.equal(await record.evaluate(b=>getComputedStyle(b).backgroundColor),'rgb(186, 32, 40)');console.log('LAYOUT AND PRESET SAMPLING',JSON.stringify({controls,preview,low,medium,high}));
-    const backgrounds=page.getByLabel('Backgrounds',{exact:true});
-    await page.waitForFunction(()=>document.querySelector('[aria-label="Backgrounds"]').options.length>1);
+    // Since ecc30f3d/2582431d the Showcase opens on a color background, sizes sequences automatically (plus Extra Time)
+    // and records a centered Z-axis turntable: the free-camera list, orbit-axis dialog and screenshot batches are gone.
+    await page.getByLabel('Background source').selectOption('folder');const backgrounds=page.getByLabel('Backgrounds',{exact:true});
+    await page.waitForFunction(()=>document.querySelector('[aria-label="Backgrounds"]')?.options.length>1);
     console.log('STEP folder');await backgrounds.selectOption({index:1});
     await page.waitForTimeout(700);
     assert.ok(await page.locator('[data-preview-background]').evaluate(c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;const colors=new Set();for(let i=0;i<d.length;i+=1024)colors.add(d[i]+','+d[i+1]+','+d[i+2]);return colors.size>16;}),'Folder background must render');
     console.log('STEP color');await page.getByLabel('Background source').selectOption('color');
     await page.getByLabel('Background color').fill('#22aa66');await page.waitForTimeout(150);
     assert.deepEqual(await page.locator('[data-preview-background]').evaluate(c=>Array.from(c.getContext('2d').getImageData(0,0,1,1).data)),[34,170,102,255]);
-    const list=page.getByRole('list',{name:'Animation sequence'}),sequence=page.getByRole('region',{name:'Sequence',exact:true});
-    console.log('STEP sequence dialog');await list.locator('li').first().click({button:'right'});
-    await page.getByRole('dialog').getByLabel('Length (seconds)').fill('11');
-    await page.getByRole('dialog').getByLabel('Speed',{exact:true}).fill('0');
-    await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
-    assert.equal(await list.locator('li.overflow').count(),1);assert.equal(await record.isDisabled(),true);
-    await page.getByText('Sequence too short',{exact:true}).waitFor();
-    await list.locator('li').first().click({button:'right'});
-    await page.getByRole('dialog').getByLabel('Length (seconds)').fill('10');await page.getByRole('dialog').getByLabel('Speed',{exact:true}).fill('100');
-    await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
-    console.log('STEP orbit');await page.getByRole('button',{name:'Orbital',exact:true}).click();
-    await page.getByRole('button',{name:'Confirm angle'}).click();
-    await page.getByRole('dialog').getByLabel('Orbit axis').selectOption('y');await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
-    assert.equal(await page.getByRole('list',{name:'Camera sequence'}).count(),0,'Orbital excludes free camera list');
+    const list=page.getByRole('list',{name:'Animation sequence'});
+    console.log('STEP length');const extra=page.getByLabel('Extra Time',{exact:true}),base=Number((await page.locator('label.showcase-extra-time:has([aria-label="Extra Time"]) output').getAttribute('title')).match(/Sequence: ([0-9.]+)s/)[1]);
+    assert.ok(base>0&&base<10,'automatic sequence length '+base);await extra.fill(String(Math.round((10-base)*100)/100));
+    await page.locator('label.showcase-extra-time:has([aria-label="Extra Time"]) output').filter({hasText:/^10s$/}).waitFor();
     console.log('STEP video');await page.getByLabel('Background source').selectOption('media');
     await page.evaluate(()=>{const play=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){window.testVideo=this;return play.apply(this,arguments);};});
-    await page.locator('.showcase-sidebar input[type=file]').setInputFiles(videoFile);
+    await page.getByRole('region',{name:'Background',exact:true}).locator('input[type=file]').setInputFiles(videoFile);
     await page.getByLabel('To (s)').waitFor();await page.getByLabel('From (s)').fill('1');await page.getByLabel('To (s)').fill('2.5');
     await page.waitForTimeout(400);
     const video=await page.evaluate(()=>({muted:window.testVideo.muted,volume:window.testVideo.volume,time:window.testVideo.currentTime}));
@@ -76,13 +68,15 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     await page.locator('.game-preview-root').evaluate(el=>{
       let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber$'))];while(f&&!f.memoizedProps?.showcase)f=f.return;
       const director=f.memoizedProps.showcase,begin=director.begin,freeze=director.freeze,sample=director.sample;
-      window.testRecordingTiming={samples:0};director.sample=(...args)=>{window.testRecordingTiming.samples++;return sample(...args);};
-      director.begin=(...args)=>{window.testRecordingTiming.started=performance.now();return begin(...args);};
-      director.freeze=(...args)=>{window.testRecordingTiming.finished=performance.now();return freeze(...args);};
+      window.testRecordingTiming={samples:0};director.sample=(...args)=>{window.testRecordingTiming.samples++;return sample.apply(director,args);};
+      director.begin=(...args)=>{window.testRecordingTiming.started=performance.now();return begin.apply(director,args);};
+      director.freeze=(...args)=>{window.testRecordingTiming.finished=performance.now();return freeze.apply(director,args);};
     });
     console.log('STEP record');await record.click();await page.waitForSelector('.showcase-capture-status');await page.waitForTimeout(2200);
     const during=await clock();assert.ok(during.presentationTime>1700&&during.presentationTime<3000,'Visible clock must follow elapsed time');
-    assert.deepEqual(during.camera.target,[650,-300,154]);
+    // The turntable (2582431d) has no free camera: it turns about the model's own center.
+    assert.ok(Number.isFinite(during.angle),'Turntable angle follows the recording clock');
+    assert.deepEqual((await record.evaluate(el=>{let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber$'))];while(f&&!f.memoizedProps?.captureAPI)f=f.return;return f.memoizedProps.captureAPI.modelCenter();})).map(Math.round),[650,-300,154]);
     await page.waitForFunction(()=>document.querySelector('.showcase-capture-status')?.textContent.includes('Creating GIF')||document.querySelector('.classic-status')?.textContent.includes('Saved')||document.querySelector('.capture-error'),{},{timeout:18000});
     const elapsed=await page.evaluate(()=>window.testRecordingTiming.finished-window.testRecordingTiming.started);assert.ok(elapsed>=9900&&elapsed<10600,'10 seconds must visibly complete in ~10 seconds: '+elapsed);
     await page.waitForFunction(()=>document.querySelector('.classic-status')?.textContent.includes('Saved')||document.querySelector('.capture-error'),{},{timeout:120000});
@@ -92,25 +86,6 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     while(at<gif.length){const marker=gif[at++];if(marker===0x3b)break;if(marker===0x21){const label=gif[at++];if(label===0xf9){assert.equal(gif[at++],4);at++;delay+=gif.readUInt16LE(at);at+=3;assert.equal(gif[at++],0);}else{while(true){const size=gif[at++];if(!size)break;at+=size;}}continue;}assert.equal(marker,0x2c);at+=9;const packed=gif[at-1];if(packed&0x80)at+=3*(1<<((packed&7)+1));at++;while(true){const size=gif[at++];if(!size)break;at+=size;}frames++;}
     assert.equal(delay,1000);assert.ok(frames>80&&frames<=101,'Captured real-time frame count '+frames);
     console.log('LIVE RECORDING',JSON.stringify({elapsed,frames,gifSeconds:delay/100,gifPath}));
-    await page.getByRole('button',{name:'Free cameras',exact:true}).click();
-    await page.getByRole('button',{name:'Fit',exact:true}).click();await page.getByRole('button',{name:'Add camera',exact:true}).click();
-    const box=await canvas.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+90,box.y+box.height/2+25,{steps:6});await page.mouse.up();
-    await page.getByRole('button',{name:'Add camera',exact:true}).click();assert.equal(await page.getByRole('list',{name:'Camera sequence'}).locator('li').count(),2);
-    await page.getByLabel('Camera speed').fill('125');await page.getByLabel('Camera curve').selectOption('arc');await page.getByLabel('Smoothness').fill('70');
-    await page.getByRole('button',{name:'Play',exact:true}).click();await page.waitForTimeout(500);assert.ok((await clock()).camera);await page.getByRole('button',{name:'Pause',exact:true}).click();
-    await page.getByRole('button',{name:'Screenshot',exact:true}).click();
-    assert.equal(await page.getByLabel('Record length seconds').count(),0);
-    await page.getByLabel('Takes',{exact:true}).fill('3');await page.getByLabel('Viewpoint').selectOption('orbital');await page.getByLabel('Screenshot axis').selectOption('z');
-    await page.getByLabel('Shots',{exact:true}).fill('2');await sequence.getByRole('button',{name:'Add',exact:true}).click();
-    await page.getByRole('dialog').getByLabel('Animation',{exact:true}).selectOption('1');await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
-    await sequence.getByRole('button',{name:'Add',exact:true}).click();await page.getByRole('dialog').getByLabel('Animation',{exact:true}).selectOption('2');await page.getByRole('dialog').getByLabel('Screenshots').fill('2');await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
-    const destination=path.join(root,'Showcase Recordings','ShowcaseTest'),before=new Set(fs.readdirSync(destination));
-    await page.screenshot({path:path.join(out,'screenshot-menu.png')});
-    await record.click();await page.waitForFunction(()=>document.querySelector('.classic-status')?.textContent.includes('Saved 7 screenshots')||document.querySelector('.capture-error'),{},{timeout:60000});
-    assert.equal(await page.locator('.capture-error').count(),0,await page.locator('.showcase-capture').innerText());
-    const folders=fs.readdirSync(destination).filter(name=>!before.has(name));assert.equal(folders.length,3);
-    const counts={};for(const folder of folders){assert.match(folder,/-screenshots-[a-f0-9-]+$/);const files=fs.readdirSync(path.join(destination,folder));counts[folder]=files.length;assert.equal(files.length,folder.startsWith('Stand-')?3:2);const hashes=files.map(file=>crypto.createHash('sha256').update(fs.readFileSync(path.join(destination,folder,file))).digest('hex'));assert.ok(new Set(hashes).size>1,'Shots must have different poses/views');}
-    console.log('SCREENSHOT BATCHES',JSON.stringify(counts));
     console.log('ERRORS',JSON.stringify(errors));assert.deepEqual(errors,[]);
     await page.screenshot({path:path.join(out,'completed-menu.png')});
   }catch(error){console.error('ORIGINAL FAILURE',error);const page=await app.firstWindow();await page.screenshot({path:path.join(out,'failure.png'),timeout:3000}).catch(()=>{});console.error((await page.locator('body').innerText({timeout:3000})).slice(-5000));throw error;}

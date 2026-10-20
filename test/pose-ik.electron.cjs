@@ -52,9 +52,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const menu = command => app.evaluate(({ BrowserWindow }, command) => BrowserWindow.getAllWindows()[0].webContents.send('menu', command), command);
     const viewportBox = () => page.locator('[data-clean-model-canvas]').boundingBox();
     async function handles() {
-      const data = await page.evaluate(() => { const { runtime, props } = poseProbe(), canvas = document.querySelector('[data-clean-model-canvas]'); return { model: poseSnapshot().model, config: props.poseConfig, frame: runtime.native.getFrame(), sequence: props.sequenceIndex, camera: runtime.controls.object.toJSON(), width: canvas.clientWidth, height: canvas.clientHeight }; });
+      const data = await page.evaluate(() => { const { runtime, props } = poseProbe(), canvas = document.querySelector('[data-clean-model-canvas]'); return { model: poseSnapshot().model, config: props.poseConfig, frame: runtime.native.getFrame(), sequence: props.sequenceIndex, camera: runtime.controls.object.toJSON(), width: canvas.clientWidth, height: canvas.clientHeight, mode: props.transformMode }; });
       const camera = new ObjectLoader().parse(data.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      return projectPoseHandles(data.model, data.config, data.frame, data.sequence, camera, data.width, data.height);
+      // Project with the active tool like the app (f8ad08cc): a Pelvis that only repeats Body is left out except in Scale.
+      return projectPoseHandles(data.model, data.config, data.frame, data.sequence, camera, data.width, data.height, undefined, undefined, undefined, data.mode);
     }
     async function handleFor(kind, endpoint) { const points = await handles(); const result = points.find(handle => !handle.marker && handle.kind === kind && (endpoint == null || (kind === 'node' ? handle.id : handle.chain?.end) === endpoint)); assert.ok(result?.visible, `Visible ${kind} ${endpoint}`); return result; }
     const historyDepth = () => page.evaluate(() => poseProbe().session.doc.historyStats.undoSteps);
@@ -115,11 +116,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.getByRole('button',{name:'Add handle',exact:true}).isEnabled(),false);assert.equal(await page.getByRole('button',{name:'Reload editor',exact:true}).count(),0);assert.equal(await page.locator('.pose-setup select').count(),0);
     await page.getByLabel('Movement bone or node').selectOption('39'); assert.equal(await page.getByRole('dialog',{name:'POSE setup',exact:true}).count(),1,'Object picker keeps Setup open');
     await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();
-    for (const [kind,id] of [['body',null],['node',33],['node',26],['node',39]]) {
+    for (const [kind,id] of [['body',null],['node',33],['node',39]]) {
       await tool('Select'); const handle=await handleFor(kind,id), box=await viewportBox(), depth=await historyDepth();
       await selectHandle(kind,id);
       const target=await page.evaluate(()=>poseProbe().props.poseConfig.target);assert.equal(target.kind,kind);if(id!=null)assert.equal(target.id,id);assert.equal(await historyDepth(),depth);
     }
+    // Footman's Pelvis only repeats Body, so its Select handle is left out (f8ad08cc); the Object picker still selects it and keeps its handle.
+    assert.ok(!(await handles()).some(handle=>!handle.marker&&handle.kind==='node'&&handle.id===26),'a Pelvis that repeats Body has no separate Select handle');
+    await page.getByLabel('Movement bone or node').selectOption('26');await settle();assert.equal((await page.evaluate(()=>poseProbe().props.poseConfig.target))?.id,26);await handleFor('node',26);
     results.checks.push('First-use root selection never crashes; one POSE click recognizes both hands/feet, head/chest/pelvis and whole-body root; Object picker does not dismiss Setup; overlapping body/chest/pelvis symbols remain independently selectable');
     await page.getByRole('checkbox', { name: 'Bones', exact: true }).check(); await selectHandle('body');
     const cycleBefore = await snap(), cycleDepth = await historyDepth(), center = await handleFor('body'), cycleBox = await viewportBox();
@@ -131,13 +135,22 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       if (cycleKey(target) === startKey) break;
     }
     assert.equal(cycleKey(stack.at(-1)), startKey, 'overlap cycle wraps to the first handle');
-    assert.ok(stack.filter(target => !target.marker).length >= 2, 'overlapping virtual handles participate');
+    // Since f8ad08cc the Pelvis that only repeats Body is folded into Body in Select/Move/Rotate; Scale shows it again (checked below).
+    assert.ok(stack.some(target => !target.marker && target.kind === 'body') && !stack.some(target => !target.marker && target.id === 26), 'the virtual Body handle participates; no duplicate Pelvis handle');
     assert.ok(stack.filter(target => target.marker).length >= 2, 'overlapping real bones participate');
     assert.equal(new Set(stack.map(cycleKey)).size, stack.length, 'each overlapping object is visited once');
     assert.deepEqual(await snap(), cycleBefore); assert.equal(await historyDepth(), cycleDepth);
     results.overlapCycle = stack;
     await tool('Move'); await page.mouse.click(cycleBox.x + center.x, cycleBox.y + center.y); await settle();
     assert.notEqual(cycleKey(await page.evaluate(() => poseProbe().props.poseConfig.target)), startKey, 'a Move-tool click also cycles after release');
+    assert.deepEqual(await snap(), cycleBefore); assert.equal(await historyDepth(), cycleDepth);
+    await tool('Scale'); const scaleStack = [];
+    for (let index = 0; index < 40; index++) {
+      await page.mouse.click(cycleBox.x + center.x, cycleBox.y + center.y); await settle();
+      const target = await page.evaluate(() => poseProbe().props.poseConfig.target); scaleStack.push(target);
+      if (scaleStack.length > 1 && cycleKey(target) === cycleKey(scaleStack[0])) break;
+    }
+    assert.ok(scaleStack.filter(target => !target.marker).length >= 2 && scaleStack.some(target => !target.marker && target.id === 26), 'overlapping virtual handles participate: in Scale the Pelvis handle is back beside Body');
     assert.deepEqual(await snap(), cycleBefore); assert.equal(await historyDepth(), cycleDepth);
     await selectHandle('endpoint', 38); await shot('09-controller-symbols');
     results.checks.push('Actual repeated clicks cycle through overlapping handles and real bones in Select and Move without authoring keys or undo; selected and hovered labels identify a control');
@@ -295,7 +308,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     for(let i=0;i<autoLegs.length;i++){const p=samplePoseChain(returned.model,autoLegs[i],500,0);assert.ok(p.end.distanceTo(autoPoses[i].end)<.004,'feet return to their ground goals');assert.ok(p.root.distanceTo(p.end)<p.lengths[0]+p.lengths[1]-.1,'knees bend again after reaching the ground');}
     for(let i=0;i<3;i++){await menu('undo');await settle();}assert.deepEqual((await snap()).model,autoBefore.model);
     // Pelvis and chest use the same body-to-limb compensation; direct FK remains available.
-    await selectHandle('node',26);await tool('Move');await drag('node',26,0,12);const pelvisPose=await snap();
+    await page.getByLabel('Movement bone or node').selectOption('26');await tool('Move');await drag('node',26,0,12);const pelvisPose=await snap();
     for(let i=0;i<autoLegs.length;i++)assert.ok(samplePoseChain(pelvisPose.model,autoLegs[i],500,0).end.distanceTo(autoPoses[i].end)<.004);
     await menu('undo');await settle();await page.getByLabel('Movement bone or node').selectOption('33');await tool('Move');
     const armPoses=automatic.chains.filter(c=>c.kind==='arm').map(c=>({chain:c,pose:samplePoseChain(autoBefore.model,c,500,0)}));await drag('node',33,0,2);

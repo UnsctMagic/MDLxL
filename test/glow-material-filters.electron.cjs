@@ -39,38 +39,38 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     });
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await main.getByLabel('3D model viewport', { exact: true }).click(); await main.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window'); await main.locator('[data-hotkey="uv"]').click(); uv = await opened; uv.setDefaultTimeout(20000);
-    await uv.getByLabel('Material Properties', { exact: true }).waitFor({ timeout: 60000 });
-    await app.evaluate(({ BrowserWindow }) => {
-      const w = BrowserWindow.getAllWindows().find(w => w.webContents.getURL() === 'about:blank');
-      w.webContents.setBackgroundThrottling(false); w.setBounds({ x: -3000, y: 0, width: 1400, height: 900 }); w.showInactive();
-    });
+    uv = main; const uvw = main.locator('.uv-tab-window'); await main.locator('[data-hotkey="uv"]').click();
+    await uvw.getByLabel('Material Properties', { exact: true }).waitFor({ timeout: 60000 });
+    // The UV Wrapper is an in-app dialog of the main window (f7316110).
     await uv.evaluate(() => {
       window.glowState = () => {
         const element = document.querySelector('.uv-workspace');
         let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))]; while (fiber.return) fiber = fiber.return;
         const state = {};
-        const find = node => {
-          if (node.memoizedProps?.materialModel) state.material = node.memoizedProps.materialModel.Materials[0];
-          if (node.memoizedProps?.textureUrl) state.textureUrl = node.memoizedProps.textureUrl;
-          for (let hook = node.memoizedState; hook; hook = hook.next) {
-            const runtime = hook.memoizedState?.current;
-            if (runtime?.native && runtime.controls) {
-              state.native = runtime.native.model.Materials[0]; state.camera = Array.from(runtime.controls.object.matrixWorld.elements);
+        const find = (node, inside) => { // only the UV Wrapper dialog's subtree
+          inside = inside || !!node.stateNode?.classList?.contains?.('uv-tab-window');
+          if (inside) {
+            if (node.memoizedProps?.materialModel) state.material = node.memoizedProps.materialModel.Materials[0];
+            if (node.memoizedProps?.textureUrl) state.textureUrl = node.memoizedProps.textureUrl;
+            for (let hook = node.memoizedState; hook; hook = hook.next) {
+              const runtime = hook.memoizedState?.current;
+              if (runtime?.native && runtime.controls) {
+                state.native = runtime.native.model.Materials[0]; state.camera = Array.from(runtime.controls.object.matrixWorld.elements);
+              }
             }
           }
-          for (let child = node.child; child; child = child.sibling) find(child);
+          for (let child = node.child; child; child = child.sibling) find(child, inside);
         };
         find(fiber.stateNode.current); return state;
       };
     });
-    const dropdown = uv.getByLabel('Material Properties', { exact: true });
+    const dropdown = uvw.getByLabel('Material Properties', { exact: true });
     await uv.waitForFunction(() => glowState().textureUrl && glowState().native?.Layers.length === 2);
     assert.equal(await dropdown.inputValue(), 'Add Alpha');
-    const before = await uv.evaluate(() => glowState()), sidebar = await uv.locator('.uv-side-panel').boundingBox();
+    const before = await uv.evaluate(() => glowState()), sidebar = await uvw.locator('.uv-side-panel').boundingBox();
     const settle = () => uv.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await settle();
-    const originalPreview = await uv.locator('.uv-preview-canvas').screenshot();
+    const originalPreview = await uvw.locator('.uv-preview-canvas').screenshot();
     await uv.screenshot({ path: path.join(out, 'before.png') });
     for (const [mode, preset] of ['None', 'Transparent', 'Alpha', 'Add', 'Add Alpha', 'Modulate', 'Modulate2x'].entries()) {
       await dropdown.selectOption(preset);
@@ -82,7 +82,7 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     await uv.waitForFunction(url => glowState().textureUrl === url && glowState().native?.Layers.every(layer => layer.FilterMode === 4), before.textureUrl);
     assert.deepEqual((await uv.evaluate(() => glowState())).material, before.material);
     await settle();
-    assert.deepEqual(await uv.locator('.uv-preview-canvas').screenshot(), originalPreview, 'returning to Add Alpha restores the rendered 3D glow pixels');
+    assert.deepEqual(await uvw.locator('.uv-preview-canvas').screenshot(), originalPreview, 'returning to Add Alpha restores the rendered 3D glow pixels');
     await uv.screenshot({ path: path.join(out, 'restored.png') });
     await uv.keyboard.press('Control+z'); await uv.waitForFunction(() => glowState().native?.Layers.every(layer => layer.FilterMode === 6));
     await uv.keyboard.press('Control+y'); await uv.waitForFunction(url => glowState().textureUrl === url, before.textureUrl);
@@ -96,19 +96,19 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
     await uv.waitForFunction(url => glowState().native?.Layers.length === 2 && glowState().native.Layers.every(layer => layer.FilterMode === 4) && glowState().textureUrl === url, before.textureUrl);
     assert.deepEqual((await uv.evaluate(() => glowState())).material, before.material);
     await settle();
-    assert.deepEqual(await uv.locator('.uv-preview-canvas').screenshot(), originalPreview, 'Add -> Team Color -> Add Alpha restores the original 3D glow');
+    assert.deepEqual(await uvw.locator('.uv-preview-canvas').screenshot(), originalPreview, 'Add -> Team Color -> Add Alpha restores the original 3D glow');
     await uv.screenshot({ path: path.join(out, 'restored-through-team-color.png') });
     await dropdown.selectOption('Team Color');
     await uv.waitForFunction(() => glowState().native?.Layers[0].FilterMode === 0);
     assert.deepEqual((await uv.evaluate(() => glowState())).material, teamColor, 'returning to Team Color restores that setting too');
     await dropdown.selectOption('Add Alpha');
     await uv.waitForFunction(url => glowState().textureUrl === url, before.textureUrl);
-    const stage = uv.locator('.uv-preview-canvas canvas').first(), rect = await stage.boundingBox();
+    const stage = uvw.locator('.uv-preview-canvas canvas').first(), rect = await stage.boundingBox();
     const camera = (await uv.evaluate(() => glowState())).camera;
     await uv.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2); await uv.mouse.down();
     await uv.mouse.move(rect.x + rect.width / 2 + 90, rect.y + rect.height / 2 + 35, { steps: 12 }); await uv.mouse.up();
     await uv.waitForFunction(before => glowState().camera.some((value, index) => Math.abs(value - before[index]) > .01), camera);
-    assert.equal((await uv.locator('.uv-side-panel').boundingBox()).width, sidebar.width);
+    assert.equal((await uvw.locator('.uv-side-panel').boundingBox()).width, sidebar.width);
     const bytes = await main.evaluate(() => {
       const element = document.querySelector('.classic-app'); let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))];
       for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {

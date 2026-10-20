@@ -1,6 +1,7 @@
 import React from 'react';
 
 // Long names keep their last characters (version, extension) visible, since many models share a prefix.
+// The two flex pieces would read as two words, so the tab button carries the full name as its label.
 function TabName({ name }) {
   return name.length > 14 ? <span className="model-tab-name"><span>{name.slice(0, -8)}</span><span>{name.slice(-8)}</span></span> : <span className="model-tab-name"><span>{name}</span></span>;
 }
@@ -43,7 +44,7 @@ export default function ModelTabs({ sessions, session, activateSession, sessionD
     if (element) element.scrollLeft += direction * Math.max(80, element.clientWidth * .6);
   };
   return <div className="model-tabs-bar">
-    <div ref={strip} className="model-tabs" role="tablist" aria-label="Open models" onScroll={measure} onWheel={event => { if (strip.current) strip.current.scrollLeft += event.deltaY || event.deltaX; }}>{sessions.map(item => <div className={`model-tab${item === session ? ' active' : ''}`} key={item.id}><button type="button" role="tab" aria-selected={item === session} title={item.path || item.doc.name} onClick={() => activateSession(item)}><span className="model-tab-dirty" aria-hidden="true">{sessionDirty(item) ? '●' : ''}</span><TabName name={item.doc.name}/></button><button type="button" className="model-tab-close" aria-label={`Close ${item.doc.name}`} title={`Close ${item.doc.name}`} onClick={event => { event.stopPropagation(); requestCloseSession(item); }}>×</button></div>)}</div>
+    <div ref={strip} className="model-tabs" role="tablist" aria-label="Open models" onScroll={measure} onWheel={event => { if (strip.current) strip.current.scrollLeft += event.deltaY || event.deltaX; }}>{sessions.map(item => <div className={`model-tab${item === session ? ' active' : ''}`} key={item.id}><button type="button" role="tab" aria-selected={item === session} aria-label={item.doc.name} title={item.path || item.doc.name} onClick={() => activateSession(item)}><span className="model-tab-dirty" aria-hidden="true">{sessionDirty(item) ? '●' : ''}</span><TabName name={item.doc.name}/></button><button type="button" className="model-tab-close" aria-label={`Close ${item.doc.name}`} title={`Close ${item.doc.name}`} onClick={event => { event.stopPropagation(); requestCloseSession(item); }}>×</button></div>)}</div>
     {scroll.overflow && <><button type="button" className="model-tabs-scroll previous" title="Scroll model tabs left" aria-label="Scroll model tabs left" disabled={scroll.start} onClick={() => scrollBy(-1)}>◀</button><button type="button" className="model-tabs-scroll next" title="Scroll model tabs right" aria-label="Scroll model tabs right" disabled={scroll.end} onClick={() => scrollBy(1)}>▶</button></>}
   </div>;
 }

@@ -24,6 +24,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const app = await _electron.launch({ executablePath: path.join(cwd, 'node_modules/electron/dist/electron.exe'), args: [cwd, fixture], env: { ...process.env, MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
+    // A never-shown headless window cannot be captured by page.screenshot; show it inactive and off-screen.
+    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
     page.on('console', message => { if (message.type() === 'error' && /TypeError|ReferenceError/.test(message.text())) errors.push(message.text()); });
     await page.locator('[data-hotkey="animation"]').waitFor({ timeout: 60000 });
     await page.evaluate(() => {
@@ -48,6 +50,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await menu(); await page.getByRole('menuitem', { name: 'Find Motion Irregularities', exact: true }).click();
       await page.waitForFunction(count => window.motionScanEvents.length > count, count);
     }
+    // Selections are undoable since 70a053e8 ('Change selection' steps carry no model sections); count only model edits.
+    const modelUndoSteps = () => page.evaluate(() => { const element = document.querySelector('.classic-app'); for (let fiber = element[Object.keys(element).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) { const doc = hook.memoizedState?.doc; if (doc?.model) return doc._historyStore.undoEntries.filter(entry => entry.sections.length || entry.changes.length).length; } throw Error('Editor document not found'); });
     async function showDesired() { await menu(); await page.getByRole('menuitemcheckbox', { name: 'Show Desired' }).click(); }
     await page.locator('[data-hotkey="animations"]').click();
     await page.getByLabel('Choose animation sequence').selectOption('0');
@@ -75,18 +79,20 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.getByRole('button', { name: 'Delete selected key', exact: true }).count(), 0);
     assert.equal(await page.getByRole('button', { name: 'Select 4 holding keys', exact: true }).isEnabled(), true);
     assert.equal(await page.getByRole('group', { name: 'Movement tool' }).getByRole('button', { name: 'Rotate', exact: true }).getAttribute('aria-pressed'), 'true');
-    assert.match(await page.getByLabel('Movement controller type').innerText(), /Arm\s+Rotation/);
+    // 99716a5c removed the selected-object / channel lines from the Controller section; the picker and tool carry them.
+    assert.match(await page.getByLabel('Movement bone or node').getAttribute('title'), /Arm/);
+    assert.equal(await page.getByLabel('Controller type', { exact: true }).isEnabled(), true, 'the Rotation controller is ready to edit');
     assert.equal(await details.locator('input,select,details').count(), 0);
     assert.equal(await page.getByRole('button', { name: 'Show Keys', exact: true }).count(), 0);
     metrics.popupHeight = (await details.boundingBox()).height; assert.ok(metrics.popupHeight < 230);
     const viewBefore = await viewport.boundingBox();
-    metrics.sidebarWidth = (await sidebar.boundingBox()).width; assert.equal(metrics.sidebarWidth, 164);
+    metrics.sidebarWidth = (await sidebar.boundingBox()).width; assert.equal(metrics.sidebarWidth, 240); // default editor panel width since 99716a5c
     await page.getByRole('button', { name: 'Close motion warning', exact: true }).click();
     assert.deepEqual(await viewport.boundingBox(), viewBefore);
     await holding.click();
     await page.screenshot({ path: path.join(out, '01-holding-warning.png') });
     assert.equal(await page.locator('.classic-status').innerText().then(t => t.includes('Modified')), false);
-    assert.equal(await page.locator('[data-hotkey="undo"]').isDisabled(), true);
+    assert.equal(await modelUndoSteps(), 0);
     await page.getByRole('button', { name: 'Mark Desired', exact: true }).click();
     await page.getByRole('button', { name: 'Restore warning', exact: true }).waitFor();
     assert.equal(await holding.count(), 0);
@@ -96,7 +102,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Restore warning', exact: true }).click();
     await page.getByRole('button', { name: 'Mark Desired', exact: true }).waitFor();
     await showDesired();
-    assert.equal(await page.locator('[data-hotkey="undo"]').isDisabled(), true);
+    assert.equal(await modelUndoSteps(), 0);
     // Replace an unrelated range with only the diagnosed intermediate hold keys.
     await page.getByRole('button', { name: 'Close motion warning', exact: true }).click();
     const reelBox = await reel.boundingBox();
@@ -140,7 +146,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Select 5 holding keys', exact: true }).click();
     assert.equal(await details.count(), 0);
     assert.equal(await page.getByLabel('Current animation frame').inputValue(), '2224');
-    assert.equal(await page.locator('[data-hotkey="undo"]').isDisabled(), true, 'Selection itself adds no model undo');
+    assert.equal(await modelUndoSteps(), 0, 'Selection itself adds no model undo');
     await spike.click();
     await page.getByRole('button', { name: 'Replay section', exact: true }).click();
     await page.waitForFunction(() => +document.querySelector('[aria-label="Current animation frame"]').value > 2050);

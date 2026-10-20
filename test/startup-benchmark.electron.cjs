@@ -50,7 +50,12 @@ const root = path.resolve(__dirname, '..');
       assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.isVisible())), false);
       rows.push({ run: index + 1, viewportMs: Math.round(viewportMs), responsiveMs: Math.round(responsiveMs) });
       console.log(JSON.stringify(rows.at(-1)));
-    } finally { await app.close(); }
+    } finally {
+      // The untitled model has never been saved, so a normal close asks "Save model?" (3e5a069b); a headless run
+      // would wait on that native box forever. Destroy this test process's window, then let Electron exit.
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(window => window.destroy()));
+      await app.close();
+    }
   }
   const times = rows.map(row => row.responsiveMs).sort((a, b) => a - b);
   const report = { target, seedProfile: process.argv[4] ? path.resolve(process.argv[4]) : null, rows,

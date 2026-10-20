@@ -59,15 +59,18 @@ async function waitFor(cdp, expression) {
     await waitFor(cdp, `document.querySelectorAll('.classic-geoset-list [role="option"]').length === 5`);
     const controls = await evaluate(cdp, `(() => { const buttons = [...document.querySelectorAll('.classic-geoset-operations button')]; const list = document.querySelector('.classic-geosets'); return { labels: buttons.map(button => button.textContent.trim()), beforeList: buttons.every(button => !!(button.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING)), sidebarWidth: getComputedStyle(document.querySelector('.classic-sidebar')).width }; })()`);
     assert.deepEqual(controls.labels, ['Seperate by Loose parts', 'Nuclear Seperation', 'Merge Geosets', 'NormalsXL', 'Delete free vertices']);
+    // NormalsXL repairs the whole visible model without a selection since e1fb86b7, so it stays enabled.
     assert.equal(controls.beforeList, true);
-    assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, true, false]);
+    assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, false, false]);
     await evaluate(cdp, `document.querySelector('[data-hotkey="geosetsClear"]').click()`);
-    assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, true, true]);
+    assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, false, true]);
     await evaluate(cdp, `document.querySelector('[aria-label="Select geoset 0"]').click()`);
-    assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, true, false]);
+    assert.deepEqual(await evaluate(cdp, `[...document.querySelectorAll('.classic-geoset-operations button')].map(button => button.disabled)`), [true, true, true, false, false]);
     await evaluate(cdp, `document.querySelector('.classic-geoset-operations button:last-child').click()`);
     await waitFor(cdp, `document.querySelector('.classic-status span').textContent === 'Deleted 1 free vertex from selected geosets.'`);
     const selectAll = async () => {
+      // The geoset list renders before the viewport, which mounts once the saved preferences are read.
+      await waitFor(cdp, `!!document.querySelector('[aria-label="3D model viewport"] canvas')`);
       await evaluate(cdp, `document.querySelector('[aria-label="3D model viewport"]').focus()`);
       const data = { key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65, modifiers: 2 };
       await cdp.send('Input.dispatchKeyEvent', { ...data, type: 'rawKeyDown' });

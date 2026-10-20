@@ -3,7 +3,7 @@ import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
 import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { assignHotkey, CAMERA_PRESETS, chordFromEvent, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
+import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
 import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
@@ -212,7 +212,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
     const url=URL.createObjectURL(new Blob([JSON.stringify(exportConfiguration(prefs),null,2)],{type:'application/json'}));
     const a=document.createElement('a');a.href=url;a.download='MDLxL-configuration.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
-  const loadConfiguration=async file=>{try{if(!file)return;const next=importConfiguration(await file.text());const bindings=effectiveBindings(catalog,next.hotkeys),seen=new Map();for(const [id,keys] of Object.entries(bindings))for(const key of keys){if(seen.has(key))throw new Error('Conflicting shortcut '+key+'.');seen.set(key,id);}onChange(next);setMessage('Configuration imported. Portable settings replaced.');}catch(error){setMessage(error.message);}};
+  const loadConfiguration=async file=>{try{if(!file)return;const next=importConfiguration(await file.text());const conflict=configurationHotkeyConflict(catalog,next.hotkeys);if(conflict)throw new Error('Conflicting shortcut '+conflict+'.');onChange(next);setMessage('Configuration imported. Portable settings replaced.');}catch(error){setMessage(error.message);}};
   const loadPlatformTexture=async file=>{try{if(!file)return;if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>2000000)throw new Error('Choose a PNG, JPEG or WebP under 2 MB.');const reader=new FileReader();reader.onload=()=>commit({platform:{...prefs.platform,textureUrl:reader.result}});reader.readAsDataURL(file);}catch(error){setMessage(error.message);}};
   const loadViewportBackground = async (file, quad = false) => {
     try {

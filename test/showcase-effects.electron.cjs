@@ -13,8 +13,10 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
  try{
   clipboard=await app.evaluate(({clipboard})=>clipboard.readText());const page=await app.firstWindow();page.setDefaultTimeout(20000);
   await page.getByRole('button',{name:'Showcase',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.showcase-record')&&!document.querySelector('.showcase-record').disabled);
-  await page.getByRole('list',{name:'Animation sequence'}).locator('li').first().dblclick();await page.getByRole('dialog').getByLabel('Animation',{exact:true}).selectOption({label:'Attack - Slam'});await page.getByRole('button',{name:/^1 loop ·/}).click();
-  const length=Number(await page.getByRole('dialog').getByLabel('Length (seconds)').inputValue());assert.ok(length>=2.448&&length<2.6,length);await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
+  await page.getByRole('list',{name:'Animation sequence'}).locator('li').first().dblclick();await page.getByRole('dialog').getByLabel('Animation',{exact:true}).selectOption({label:'Attack - Slam'});await page.getByRole('dialog').getByLabel('Loops',{exact:true}).fill('1');
+  // 47e379b2/ecc30f3d replaced the "1 loop · Ns" buttons and the Length field with a Loops number beside its computed length.
+  const length=Number((await page.getByRole('dialog').locator('label:has([aria-label="Loops"]) output').innerText()).replace(/s$/,''));// b2619668/31567d99: continuous auras and global effects no longer lengthen an action; Attack - Slam (1.437 s) ends with its own particle tail at 1.9 s.
+  assert.ok(length>=1.85&&length<1.95,length);await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
   const samples=await page.locator('.showcase-workspace').evaluate(async el=>{
     let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber$'))],api;
     while(f&&!api){for(let h=f.memoizedState;h;h=h.next)if(h.memoizedState?.prepareRecording){api=h.memoizedState;break;}f=f.return;}

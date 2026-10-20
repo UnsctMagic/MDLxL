@@ -33,14 +33,14 @@ const preferenceValue = selector => `(() => {
     await main.keyboard.press('Control+a');
     const outsideBefore = await main.evaluate(preferenceValue('[aria-label="3D model viewport"]'));
 
-    const opened = app.waitForEvent('window');
+    const uvw = main.locator('.uv-tab-window'); // in-app dialog of the main window since f7316110
     await main.locator('[data-hotkey="uv"]').click();
-    let uv = await opened; uv.setDefaultTimeout(15000);
-    const map = uv.getByLabel('UV coordinate editor');
+    let uv = main;
+    const map = uvw.getByLabel('UV coordinate editor');
     await map.waitFor({ timeout: 60000 });
-    await uv.locator('.game-preview-root').waitFor({ timeout: 60000 });
+    await uvw.locator('.game-preview-root').waitFor({ timeout: 60000 });
     assert.equal(await uv.evaluate(preferenceValue('[aria-label="UV coordinate editor"]')), 1.3);
-    assert.equal(await uv.evaluate(preferenceValue('.game-preview-root')), 1.3);
+    assert.equal(await uv.evaluate(preferenceValue('.uv-tab-window .game-preview-root')), 1.3);
 
     const bounds = await map.boundingBox();
     await uv.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
@@ -49,19 +49,16 @@ const preferenceValue = selector => `(() => {
     await uv.getByRole('status').filter({ hasText: 'Scroll sensitivity: 1.59×' }).waitFor();
     await uv.mouse.up({ button: 'right' });
 
-    const closed = uv.waitForEvent('close');
-    await uv.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
-    await closed;
+    await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
+    await uvw.waitFor({ state: 'detached' });
     await main.locator('[aria-label="3D model viewport"]').waitFor();
     assert.equal(await main.evaluate(preferenceValue('[aria-label="3D model viewport"]')), outsideBefore);
 
-    const reopened = app.waitForEvent('window');
     await main.locator('[data-hotkey="uv"]').click();
-    uv = await reopened; uv.setDefaultTimeout(15000);
-    await uv.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
-    await uv.locator('.game-preview-root').waitFor({ timeout: 60000 });
+    await uvw.getByLabel('UV coordinate editor').waitFor({ timeout: 60000 });
+    await uvw.locator('.game-preview-root').waitFor({ timeout: 60000 });
     assert.equal(await uv.evaluate(preferenceValue('[aria-label="UV coordinate editor"]')), 1.3);
-    assert.equal(await uv.evaluate(preferenceValue('.game-preview-root')), 1.3);
+    assert.equal(await uv.evaluate(preferenceValue('.uv-tab-window .game-preview-root')), 1.3);
     console.log('PASS UV scroll sensitivity: starts at 1.3, stays UV-only, and resets after reopening');
   } finally {
     await app.close();

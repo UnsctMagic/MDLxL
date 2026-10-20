@@ -17,7 +17,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(output, `profile-${Date.now()}`) }, timeout: 60000 });
   let uv;
   try {
-    const main = await app.firstWindow(); main.setDefaultTimeout(15000);
+    const main = await app.firstWindow(); main.setDefaultTimeout(15000); const uvw = main.locator('.uv-tab-window');
     await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) { w.webContents.setBackgroundThrottling(false); w.setPosition(-3000, 0); w.showInactive(); } });
     await main.getByLabel('Select geoset 0', { exact: true }).waitFor({ timeout: 60000 });
     await main.getByLabel('3D model viewport', { exact: true }).waitFor({ timeout: 60000 });
@@ -48,18 +48,17 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await main.getByLabel('3D model viewport', { exact: true }).click();
     await main.keyboard.press('Control+a');
     const openUV = async () => {
-      const opened = app.waitForEvent('window');
-      await main.locator('[data-hotkey="uv"]').click(); uv = await opened; uv.setDefaultTimeout(15000);
-      await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) { w.webContents.setBackgroundThrottling(false); w.setPosition(-3000, 0); w.showInactive(); } });
-      await uv.getByLabel('UV coordinate editor').waitFor(); await installHelpers(uv);
+      // The UV Wrapper is an in-app dialog of the main window since f7316110.
+      await main.locator('[data-hotkey="uv"]').click(); uv = main;
+      await uvw.getByLabel('UV coordinate editor').waitFor(); await installHelpers(uv);
     };
     const closeUV = async () => {
-      const closed = uv.waitForEvent('close'); await uv.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click(); await closed;
+      await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click(); await uvw.waitFor({ state: 'detached' });
       await main.getByLabel('3D model viewport', { exact: true }).waitFor();
     };
     const replaceTexture = async () => {
-      await uv.getByRole('button', { name: 'Replace Texture…', exact: true }).click();
-      await uv.locator('.tl-dialog').waitFor();
+      await uvw.getByRole('button', { name: 'Replace Texture…', exact: true }).click();
+      await uvw.locator('.tl-dialog').waitFor();
       // Exercise the normal library-to-editor callback with an in-memory PNG,
       // independent of installed Warcraft archives or an external test texture.
       await uv.evaluate(async () => {
@@ -68,10 +67,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         const blob = await new Promise(resolve => canvas.toBlob(resolve));
         await ownerProps('.tl-dialog', 'onPreviewTexture').onPreviewTexture({ name: 'PreviewEdit.png', bytes: new Uint8Array(await blob.arrayBuffer()), source: 'library' });
       });
-      await uv.getByRole('button', { name: 'Revert texture', exact: true }).waitFor();
+      await uvw.getByRole('button', { name: 'Revert texture', exact: true }).waitFor();
     };
     await openUV(); await replaceTexture();
-    await uv.locator('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]').waitFor();
+    await uvw.locator('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]').waitFor();
     await uv.evaluate(() => {
       window.previewCanvasBeforeUVEdit = document.querySelector('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]');
       window.previewRevisionBeforeUVEdit = uvState().revision;
@@ -81,7 +80,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await uv.waitForTimeout(250);
     assert.equal(await uv.evaluate(() => window.previewCanvasBeforeUVEdit === document.querySelector('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]')), true,
       'A UV edit with a temporary texture must keep the live preview canvas mounted');
-    const previewCanvas = uv.locator('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]');
+    const previewCanvas = uvw.locator('.uv-live-preview .game-preview-surface canvas[data-clean-model-canvas]');
     const beforeCameraDrag = await previewCanvas.screenshot();
     const bounds = await previewCanvas.boundingBox();
     const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
@@ -129,7 +128,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await openUV();
     assert.equal(await uv.evaluate(() => uvState().draftCount), 1);
     await uv.screenshot({ path: path.join(output, 'temporary-texture-after-vertex-edits.png') });
-    await uv.getByRole('button', { name: 'Revert texture', exact: true }).click();
+    await uvw.getByRole('button', { name: 'Revert texture', exact: true }).click();
     await uv.waitForFunction(() => uvState().draftCount === 0);
     await closeUV();
     const reverted = JSON.parse(await main.evaluate(() => JSON.stringify(modelState()))), originalModel = JSON.parse(baseline);
@@ -141,7 +140,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(reverted.Geosets[0].Vertices, topologyEdited.Geosets[0].Vertices);
     assert.equal(await main.locator('.classic-sidebar').evaluate(e => getComputedStyle(e).width), sidebarWidth);
     // A second preview commits the new texture with the edited geometry intact.
-    await openUV(); await replaceTexture(); await uv.getByRole('button', { name: 'Save texture', exact: true }).click();
+    await openUV(); await replaceTexture(); await uvw.getByRole('button', { name: 'Save texture', exact: true }).click();
     await uv.waitForFunction(() => uvState().draftCount === 0);
     await closeUV();
     const committed = await main.evaluate(() => JSON.stringify(modelState()));

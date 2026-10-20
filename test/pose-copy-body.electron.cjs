@@ -64,6 +64,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       }
       throw Error('Cannot select limb ' + chain.key);
     }
+    // Restrict is on by default since 32c2278e; this test is about limbs leading the body, so switch it off.
+    const restrict = page.getByRole('button', { name: 'Restrict POSE', exact: true });
+    if (await restrict.getAttribute('aria-pressed') === 'true') await restrict.click();
+    assert.equal(await restrict.getAttribute('aria-pressed'), 'false');
     for (const kind of ['arm', 'leg']) {
       const chain = config.chains.find(chain => chain.kind === kind);
       await select(chain); await tool('Move'); await settle();

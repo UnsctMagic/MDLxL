@@ -134,7 +134,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     }
     for (const format of ['mdx', 'mdl']) {
       await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, path.join(out, 'saved.' + format));
-      await page.keyboard.press('Control+o'); await page.getByRole('tab', { name: 'saved.' + format, exact: true }).waitFor();
+      await page.keyboard.press('Control+o'); await page.getByRole('tab', { name: 'saved.' + format, exact: true, selected: true }).waitFor(); // the Save As tab keeps the same name
       await page.getByRole('button', { name: 'Animations', exact: true }).click();
       await page.getByLabel('Choose animation sequence', { exact: true }).selectOption('0');
       await waitFor(state => JSON.stringify(state.interval) === JSON.stringify(adjusted.interval), 'Reopened ' + format + ' keeps its saved timing');

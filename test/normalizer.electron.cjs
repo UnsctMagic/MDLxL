@@ -80,18 +80,21 @@ function readView() {
     for(const format of ['MDX','MDL']){
       const saved=path.join(out,'saved.'+format.toLowerCase());
       await app.evaluate(({dialog},saved)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:saved});},saved);
-      await page.keyboard.press('Control+Shift+s');await page.getByRole('button',{name:'Save '+format+'…',exact:true}).click();
-      for(let tries=0;tries<100&&!fs.existsSync(saved);tries++)await sleep(50);
+      fs.rmSync(saved,{force:true});const saveButton=page.getByRole('button',{name:'Save '+format+'…',exact:true});
+      await page.keyboard.press('Control+Shift+s');await saveButton.click();
+      // The Save as dialog closes only after the save finishes; the next Save As must not start before that.
+      await saveButton.waitFor({state:'detached'});assert.ok(fs.existsSync(saved),'saved '+format);
       const reopened=openDocument(fs.readFileSync(saved),'saved.'+format.toLowerCase());
       for(let g=0;g<reopened.model.Geosets.length;g++)assert.ok(Array.from(reopened.model.Geosets[g].Normals).every((v,i)=>Math.abs(v-applied.model.Geosets[g].Normals[i])<1e-5));
     }
     checks.push('Real packaged Save As roundtrips the result through MDL and MDX');
     // Reopening on a repaired model has nothing left to do; Fix facing on a
     // clean model flips nothing, makes no edit and keeps the panel open.
-    await open();assert.equal(await apply.isDisabled(),true);
+    // Undo, Redo and both saves advance the revision, so compare with the revision just before Fix facing.
+    const clean=await open();assert.equal(await apply.isDisabled(),true);
     await panel.getByRole('button',{name:'Fix facing',exact:true}).click();await sleep(150);
     assert.match(await panel.locator('[role=status]').innerText(),/0 triangles flipped/);
-    assert.equal((await page.evaluate(readView)).revision,applied.revision);
+    const unchanged=await page.evaluate(readView);assert.equal(unchanged.revision,clean.revision);assert.deepEqual(unchanged.model,clean.model);
     await panel.getByRole('button',{name:'Cancel',exact:true}).click();await panel.waitFor({state:'hidden'});
     checks.push('A repaired model needs no further changes');
     // With a selection the scope is the selected area.

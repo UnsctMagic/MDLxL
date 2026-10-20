@@ -25,6 +25,8 @@ function sameOrientation(actual, expected, message) {
     const page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));
     await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setPosition(-3000,0);w.showInactive();});
     await page.getByRole('button',{name:'Quad View',exact:true}).waitFor({timeout:60000});
+    // The view label renders before the viewport, which mounts once the saved preferences are read.
+    await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({timeout:60000});
     await page.waitForFunction(()=>document.querySelector('.classic-counts')?.textContent.includes('Vertices: 8'));
     // Read existing React runtime refs for assertions; no production test API.
     await page.evaluate(()=>{
@@ -103,7 +105,13 @@ function sameOrientation(actual, expected, message) {
     for(const id of ['front','top','side','perspective']){await activate(id);cameras[id]=await page.evaluate(()=>cameraState());}
     await activate('front');await page.keyboard.press('a');await clickVertex();await idle();
     const r=await page.locator('[data-viewport="front"]').boundingBox();
-    await page.mouse.move(r.x+20,r.y+35);await page.mouse.down();await page.mouse.move(r.x+r.width-20,r.y+r.height-20,{steps:3});await page.mouse.up();await idle();
+    // Frame the marquee around the projected vertices (CSS pixels), not fixed pane insets: at 125%/150%
+    // Windows scaling the window and its panes are smaller and fixed insets can cut off a corner vertex.
+    const points=await page.evaluate(()=>{const s=viewportState(),v=s.controls.target.clone(),position=s.entries[0].geometry.attributes.position,b=s.controls.domElement.getBoundingClientRect();
+      return Array.from({length:position.count},(_,i)=>{const p=v.fromBufferAttribute(position,i).project(s.camera);return{x:b.x+(p.x+1)*b.width/2,y:b.y+(1-p.y)*b.height/2};});});
+    assert.equal(points.length,8);assert.ok(points.every(p=>p.x>r.x+4&&p.x<r.x+r.width-4&&p.y>r.y+4&&p.y<r.y+r.height-4),'all vertices are visible in Front: '+JSON.stringify({r,points}));
+    const pad=12,mx0=Math.max(r.x+2,Math.min(...points.map(p=>p.x))-pad),my0=Math.max(r.y+2,Math.min(...points.map(p=>p.y))-pad),mx1=Math.min(r.x+r.width-2,Math.max(...points.map(p=>p.x))+pad),my1=Math.min(r.y+r.height-2,Math.max(...points.map(p=>p.y))+pad);
+    await page.mouse.move(mx0,my0);await page.mouse.down();await page.mouse.move(mx1,my1,{steps:3});await page.mouse.up();await idle();
     assert.equal(await page.evaluate(()=>viewportState().entries[0].selectedPoints.geometry.index.count),8,'marquee selects visible vertices');
     await clickVertex();await idle();
     await page.mouse.move(r.x+r.width/2,r.y+r.height/2);await page.mouse.wheel(0,-220);await idle();
@@ -117,6 +125,8 @@ function sameOrientation(actual, expected, message) {
     await toggle();await idle();sameCamera(await page.evaluate(()=>cameraState()),single,'single-view camera restored');
     assert.deepEqual(await page.evaluate(()=>coordinates()),beforeCancel);assert.equal(await page.evaluate(()=>viewportState().entries[0].selectedPoints.geometry.index.count),1);
     await toggle();await idle();
+    // The earlier drags and the orbit can leave vertex 0 just outside the Perspective pane; frame it there first.
+    await activate('perspective');await page.getByRole('button',{name:'Fit',exact:true}).click();await idle();
     await activate('perspective');await page.keyboard.press('a');await clickVertex();await idle();
     assert.equal(await page.evaluate(()=>viewportState().entries[0].selectedPoints.geometry.index.count),1,'Perspective selection');
     await activate('front');
@@ -217,8 +227,11 @@ function sameOrientation(actual, expected, message) {
     }
     await toggle();await idle();await page.evaluate(()=>{draws={};});
     assert.equal(await page.evaluate(()=>{const r=document.querySelector('[aria-label="3D model viewport"]').getBoundingClientRect();return document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.tagName;}),'CANVAS','single view uses the original canvas input surface');
-    // With Workplane off, classic Shift follows the current displacement.
+    // With Workplane off, single-view Shift keeps the drag inside the chosen XY/ZX/YZ plane and no longer
+    // re-picks a screen direction on every move (1da5373a); Quad View keeps its own sideways/up latch.
     await page.keyboard.press('m');
+    const singlePlane=await page.evaluate(()=>['XY','ZX','YZ'].find(plane=>document.querySelector(`[aria-label="${plane} workplane"]`)?.checked));
+    const singleHidden={XY:2,ZX:1,YZ:0}[singlePlane];assert.notEqual(singleHidden,undefined,'a single-view plane is chosen');
     const singleBefore=await page.evaluate(()=>({coordinates:coordinates(),point:vertexPoint(),camera:cameraState()}));
     const sr=await page.locator('[aria-label="3D model viewport"]').boundingBox(),sx=Math.round(sr.x+sr.width/2),sy=Math.round(sr.y+sr.height/2);
     await page.mouse.move(sx,sy);await page.keyboard.down('Shift');await page.mouse.down();
@@ -227,7 +240,8 @@ function sameOrientation(actual, expected, message) {
     assert.ok(singleHorizontal.point.x<singleBefore.point.x-2,'single-view Shift initially follows horizontal motion');
     await page.mouse.move(sx-25,sy-65);await idle();
     const singleVertical=await page.evaluate(()=>({coordinates:Array.from(viewportState().entries[0].geometry.attributes.position.array.slice(0,3)),point:vertexPoint()}));
-    assert.ok(Math.abs(singleVertical.point.x-singleBefore.point.x)<1e-3,'single-view Shift does not keep a horizontal latch');
+    assert.ok(singleVertical.point.x<singleBefore.point.x-2,'single-view Shift keeps the horizontal part instead of re-picking a direction');
+    assert.equal(singleVertical.coordinates[singleHidden],singleBefore.coordinates[singleHidden],'single-view Shift stays in the '+singlePlane+' plane');
     assert.ok(singleVertical.point.y<singleBefore.point.y-2,'single-view Shift follows vertical motion');
     await page.mouse.up();await page.keyboard.up('Shift');await idle();
     assert.deepEqual(await page.evaluate(()=>coordinates()),singleVertical.coordinates);
@@ -252,17 +266,21 @@ function sameOrientation(actual, expected, message) {
     await dropdown.selectOption('front');await activate('front');
     const fr=await page.locator('[data-viewport="front"]').boundingBox(),cx=fr.x+fr.width/2,cy=fr.y+fr.height/2;
     await page.screenshot({path:path.join(out,'quad-locked-planes.png')});
+    // The Vertices editor opens with its Grid display off (e42ae07a); the Quadview grid lines need it on.
+    await page.getByLabel('Grid',{exact:true}).check();await idle();
     const coarse=await page.evaluate(()=>viewportState().grid.userData.spacing);
     await page.mouse.move(cx,cy);for(let n=0;n<3;n++){await page.mouse.wheel(0,-350);await idle();}
     assert.ok(await page.evaluate(()=>viewportState().grid.userData.spacing)<coarse,'zoom reveals finer grid');
     await page.getByRole('button',{name:'Fit',exact:true}).click();await idle();
     // Appearance presets, custom edits, and their saved bundle reach the actual renderer.
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('menu','appearanceSettings'));
-    await page.getByLabel('Quadview appearance',{exact:true}).waitFor();
+    // Appearance shows one page at a time (74514a0c): presets on Presets, the Quadview controls on Quadview.
+    const openPage=name=>page.locator('.settings-appearance-nav').getByRole('button',{name,exact:true}).click();
+    await page.locator('.settings-appearance-nav').waitFor();
     const {BUILT_IN_VIEWPORT_PRESETS}=await import('../src/viewport-appearance.js');
     for(const preset of Object.values(BUILT_IN_VIEWPORT_PRESETS)){
-      await page.getByLabel('Viewport appearance preset',{exact:true}).selectOption(preset.id);await idle();
-      assert.equal(await page.getByLabel('Quadview background color',{exact:true}).inputValue(),preset.appearance.quadView.background.color);
+      await openPage('Presets');await page.getByLabel('Viewport appearance preset',{exact:true}).selectOption(preset.id);await idle();
+      await openPage('Quadview');assert.equal(await page.getByLabel('Quadview background color',{exact:true}).inputValue(),preset.appearance.quadView.background.color);
       assert.equal(await page.evaluate(()=>viewportState().scene.background.getHexString()),preset.appearance.quadView.background.color.slice(1));
       const colors=await page.evaluate(()=>viewportState().grid.children.map(item=>item.material.color.getHexString()));
       assert.ok(colors.includes(preset.appearance.quadView.grid.minorColor.slice(1)),preset.id+' grid palette');
@@ -272,12 +290,12 @@ function sameOrientation(actual, expected, message) {
     await page.getByLabel('Quadview minimum cell size',{exact:true}).fill('36');await idle();
     assert.equal(await page.evaluate(()=>viewportState().scene.background.getHexString()),'203040');
     assert.ok(await page.evaluate(()=>viewportState().grid.children.some(item=>item.material.color.getHexString()==='6789ab')));
-    await page.getByLabel('Custom viewport preset name',{exact:true}).fill('Quad test appearance');await page.getByRole('button',{name:'Save as custom preset',exact:true}).click();
+    await openPage('Presets');await page.getByLabel('Custom viewport preset name',{exact:true}).fill('Quad test appearance');await page.getByRole('button',{name:'Save as custom preset',exact:true}).click();
     const custom=await page.getByLabel('Viewport appearance preset',{exact:true}).inputValue();assert.ok(custom.startsWith('custom-'));
     await page.getByLabel('Viewport appearance preset',{exact:true}).selectOption('mdlvis-vanilla');await page.getByLabel('Viewport appearance preset',{exact:true}).selectOption(custom);await idle();
-    assert.equal(await page.getByLabel('Quadview minimum cell size',{exact:true}).inputValue(),'36');
+    await openPage('Quadview');assert.equal(await page.getByLabel('Quadview minimum cell size',{exact:true}).inputValue(),'36');
     assert.equal(await page.evaluate(()=>viewportState().scene.background.getHexString()),'203040');
-    await page.getByLabel('Quadview appearance',{exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'quad-appearance-settings.png')});
+    await page.locator('.settings-appearance-section').filter({has:page.locator('h4',{hasText:/^Quadview$/})}).scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'quad-appearance-settings.png')});
     await page.getByRole('button',{name:'Done',exact:true}).click();await idle();await page.screenshot({path:path.join(out,'quad-custom-appearance.png')});
     await dropdown.selectOption('top');await idle();
     await page.evaluate(()=>{window.previewCameraState=()=>{

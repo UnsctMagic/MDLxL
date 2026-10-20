@@ -233,6 +233,12 @@ export function hotkeyConflicts(catalog, overrides, actionId, chord) {
   };
   return Object.entries(effectiveBindings(catalog, overrides)).filter(([id, keys]) => id !== actionId && keys.includes(key) && overlaps(catalog.find(action => action.id === id))).map(([id]) => id);
 }
+/** The first shortcut an imported configuration gives to two commands that can fire together, or null.
+ * Forge shape keys may share letters with editor commands, as in the defaults. */
+export function configurationHotkeyConflict(catalog, overrides) {
+  for (const [id, keys] of Object.entries(effectiveBindings(catalog, overrides))) for (const key of keys) if (hotkeyConflicts(catalog, overrides, id, key).length) return key;
+  return null;
+}
 export function assignHotkey(overrides, catalog, actionId, chord, { replace = false } = {}) {
   const key = normalizeChord(chord), hotkeys = { ...record(overrides) };
   if (key === HOTKEY_LEADER) return { ok: false, hotkeys, conflicts: [], error: 'Ctrl+Alt+Space starts a Hotkeys sequence. Follow it with a three-character code, or choose another shortcut.' };

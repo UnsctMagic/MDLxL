@@ -176,7 +176,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       window.previewFacing = () => { const camera = previewRuntime().controls.object; return camera.getWorldDirection(camera.position.clone()).toArray(); };
     });
     const previewReady = () => page.waitForFunction(() => { try { return !!previewRuntime().captureApi?.isReady; } catch { return false; } });
-    const showBones = () => app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].webContents.send('menu', 'display:bones'); });
+    // Bones is on by default and shared by Bones/Movement/Animations (PR #238), so switch it on rather than toggling it.
+    const showBones = async () => { const bones = page.locator('input[data-hotkey="display:bones"]').first(); if (!await bones.isChecked()) await bones.check(); assert.equal(await bones.isChecked(), true, 'Bones display on'); };
     const rotatePreview = async () => {
       await page.getByLabel('View direction', { exact: true }).selectOption('perspective'); await page.getByRole('button', { name: 'Fit', exact: true }).click(); await idle();
       const canvas = await page.locator('[data-clean-model-canvas]').boundingBox(), before = await page.evaluate(() => previewFacing());

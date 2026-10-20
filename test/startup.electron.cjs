@@ -66,7 +66,7 @@ const root = path.resolve(__dirname, '..');
         await page.waitForFunction(() => !!document.querySelector('[aria-label="3D model viewport"] canvas'));
         assert.deepEqual(await app.evaluate(() => ({ lists: startupTest.lists, discoveries: startupTest.discoveries })), { lists: 0, discoveries: 0 });
         assert.equal(await page.locator('[role="dialog"]').count(), 0);
-        assert.equal(await page.locator('.pressed-keys-tool img').getAttribute('src'), './classic/pasbtn-magical-sentry.png');
+        assert.equal(await page.locator('.pressed-keys-tool img').getAttribute('src'), './classic/btn-magical-sentry.png');
         const grid = page.locator('[data-hotkey="grid"]');
         const checked = await grid.isChecked();
         await grid.dispatchEvent('click');
@@ -86,7 +86,8 @@ const root = path.resolve(__dirname, '..');
         await page.waitForFunction(() => !!document.querySelector('.classic-app'));
       }
       // Give the pending IPC a turn, then release the real recovery metadata read.
-      await page.waitForFunction(async () => (await window.desktop.getSettings()).preferences != null);
+      // waitForFunction treats an async predicate's Promise as truthy, so poll the IPC result.
+      for (let tries = 0; !(await page.evaluate(async () => (await window.desktop.getSettings()).preferences != null)); tries++) { if (tries > 200) throw new Error('Settings never loaded.'); await page.waitForTimeout(50); }
       assert.equal(await app.evaluate(() => startupTest.lists), 1, 'manual Recovery and crash recovery still enumerate drafts');
       await app.evaluate(() => startupTest.releaseRecovery());
       await page.getByRole('dialog', { name: 'Recovery', exact: true }).waitFor();
@@ -106,12 +107,12 @@ const root = path.resolve(__dirname, '..');
       if (!crash) {
         await command('selectAll');
         await page.waitForFunction(() => !document.querySelector('[data-hotkey="uv"]').disabled);
-        const nextWindow = app.waitForEvent('window');
+        // UV Wrapper is an in-app dialog of the model tab since f7316110, not a separate window.
         await page.locator('[data-hotkey="uv"]').dispatchEvent('click');
-        const uv = await nextWindow;
-        uv.on('pageerror', error => errors.push(error.message));
+        const uv = page.locator('.uv-tab-window');
         await uv.locator('.uv-preview-footer').waitFor();
-        assert.equal(await uv.locator('.uv-workspace').evaluate(element => getComputedStyle(element).display), 'flex', 'detached UV styles are present on first open');
+        assert.equal(await uv.locator('.uv-workspace').evaluate(element => getComputedStyle(element).display), 'flex', 'deferred UV styles are present on first open');
+        assert.equal(app.windows().length, 1, 'UV Wrapper opens inside the main window');
         assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.isVisible())), false);
       }
       assert.deepEqual(errors, []);

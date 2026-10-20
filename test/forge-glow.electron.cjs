@@ -12,17 +12,10 @@ const readModel = (selector = '[aria-label="3D model viewport"]') => {
   for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Geosets) return JSON.parse(JSON.stringify(fiber.memoizedProps.model));
   throw Error('Model unavailable');
 };
-const previewRig = ({ check = false } = {}) => {
-  const el = document.querySelector('.forge-glow-preview .game-preview-root'); let fiber = el[Object.keys(el).find(k => k.startsWith('__reactFiber'))];
-  for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-    const state = hook.memoizedState?.current;
-    if (!state?.native || !state.controls) continue;
-    const native = state.native, bone = native.rendererData.model.Bones.at(-1), matrix = Array.from(native.rendererData.nodes[bone.ObjectId].matrix), camera = state.controls.object;
-    if (check) { const facing = camera.matrixWorld.elements.slice(8, 11), normal = matrix.slice(0, 3); return Math.abs(normal.reduce((sum, v, i) => sum + v * facing[i], 0) / Math.hypot(...normal) / Math.hypot(...facing)) > .999; }
-    return { matrix, pivot: Array.from(bone.PivotPoint), camera: Array.from(camera.matrixWorld.elements) };
-  }
-  throw Error('Native preview rig unavailable');
-};
+// Glow Up previews in Forge's vertex-editor viewport (0d2fabf3); reuse the shared Forge viewport reader.
+const faceEditing = fs.readFileSync(path.join(root, 'test/forge-face-editing.electron.cjs'), 'utf8');
+eval(faceEditing.slice(faceEditing.indexOf('function readView'), faceEditing.indexOf('(async()=>{')));
+const glowEditor = '.forge-dialog > .forge-editor', glowViewport = glowEditor + ' [aria-label="3D model viewport"]';
 (async () => {
   fs.mkdirSync(out, { recursive: true });
   const { createStarterDocument } = await import('../src/starter-model.js');
@@ -45,33 +38,31 @@ const previewRig = ({ check = false } = {}) => {
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Control+a');
     await page.waitForFunction(() => document.querySelector('.classic-counts')?.textContent.includes('Selected: 8'));
-    await open(); await page.locator('.forge-glow-preview canvas').first().waitFor();
+    await open(); await page.locator(glowViewport).waitFor();
     assert.equal(await page.getByLabel('Glow attachment', { exact: true }).inputValue(), '0');
     await range(page.getByLabel('Glow width slider', { exact: true }), 120); await range(page.getByLabel('Glow height slider', { exact: true }), 80); await range(page.getByLabel('Glow intensity', { exact: true }), 40);
     assert.equal(await page.getByLabel('Glow width', { exact: true }).inputValue(), '120');
     assert.deepEqual(await page.evaluate(readModel), base, 'preview must not edit the document');
-    const preview = await page.evaluate(readModel, '.forge-glow-preview .game-preview-root'); assert.equal(preview.Materials.at(-1).Layers[0].Alpha, .4);
+    const preview = await page.evaluate(readModel, glowViewport); assert.equal(preview.Materials.at(-1).Layers[0].Alpha, .4); assert.equal(preview.Bones.at(-1).Flags, 264, 'billboarded glow bone in the preview');
     const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const stage = page.locator('.forge-glow-preview .game-preview-root');
+    const stage = page.locator(glowViewport);
     await range(page.getByLabel('Glow intensity', { exact: true }), 0); await settle(); const dark = await stage.screenshot({ path: path.join(out, 'alpha-0.png') });
     await range(page.getByLabel('Glow intensity', { exact: true }), 100); await settle(); const bright = await stage.screenshot({ path: path.join(out, 'alpha-100.png') });
     assert.notDeepEqual(dark, bright, 'intensity changes the rendered glow pixels');
     await range(page.getByLabel('Glow intensity', { exact: true }), 40); await settle();
-    const viewport = await page.locator('.forge-glow-preview canvas').first().boundingBox();
+    const viewport = await stage.boundingBox();
     for (const [dx, dy] of [[95, 35], [-65, -55]]) {
-      const before = await page.evaluate(previewRig), x = viewport.x + viewport.width / 2, y = viewport.y + viewport.height / 2;
-      await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 12 }); await page.mouse.up();
-      await settle(); const after = await page.evaluate(previewRig);
-      assert.ok(after.camera.slice(0, 12).some((v, i) => Math.abs(v - before.camera[i]) > .01), 'left mouse drag rotates the preview camera');
-      await page.waitForFunction(previewRig, { check: true }, { timeout: 3000 }); const pose = await page.evaluate(previewRig);
-      const normal = pose.matrix.slice(0, 3), facing = pose.camera.slice(8, 11), dot = normal.reduce((sum, v, i) => sum + v * facing[i], 0) / Math.hypot(...normal) / Math.hypot(...facing);
-      assert.ok(Math.abs(dot) > .999, `packaged native billboard faces the orbited camera: ${JSON.stringify({ dot, normal, facing, pose })}`);
-      assert.ok(pose.matrix.slice(12, 15).every(v => Math.abs(v) < .0001), 'centered origin pivot stays in place');
+      // The vertex editor's normal camera control: Alt + left drag.
+      const before = await page.evaluate(readView, glowEditor), x = viewport.x + viewport.width / 2, y = viewport.y + viewport.height / 2;
+      await page.keyboard.down('Alt'); await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 12 }); await page.mouse.up(); await page.keyboard.up('Alt');
+      await settle(); const after = await page.evaluate(readView, glowEditor);
+      assert.ok(after.quaternion.some((v, i) => Math.abs(v - before.quaternion[i]) > .01), 'Alt + left mouse drag rotates the preview camera');
+      assert.deepEqual(after.model, before.model, 'rotating the camera does not change the preview');
     }
     await page.screenshot({ path: path.join(out, '02-billboard.png') });
     await page.getByLabel('Glow type', { exact: true }).selectOption('plane'); await page.getByLabel('Glow plane', { exact: true }).selectOption('xy');
     await page.screenshot({ path: path.join(out, '03-flat.png') });
-    for (const type of ['lockX', 'lockY', 'lockZ']) { await page.getByLabel('Glow type', { exact: true }).selectOption(type); const model = await page.evaluate(readModel, '.forge-glow-preview .game-preview-root'); assert.equal(model.Bones.at(-1).Flags, { lockX: 272, lockY: 288, lockZ: 320 }[type]); }
+    for (const type of ['lockX', 'lockY', 'lockZ']) { await page.getByLabel('Glow type', { exact: true }).selectOption(type); const model = await page.evaluate(readModel, glowViewport); assert.equal(model.Bones.at(-1).Flags, { lockX: 272, lockY: 288, lockZ: 320 }[type]); }
     await page.getByRole('button', { name: 'Cancel', exact: true }).click(); assert.deepEqual(await page.evaluate(readModel), base, 'Cancel preserves document');
     await open(); await range(page.getByLabel('Glow width slider', { exact: true }), 120); await range(page.getByLabel('Glow height slider', { exact: true }), 80); await range(page.getByLabel('Glow intensity', { exact: true }), 40);
     await page.getByRole('button', { name: 'Add', exact: true }).click(); await page.locator('.forge-dialog').waitFor({ state: 'detached' });
@@ -84,8 +75,8 @@ const previewRig = ({ check = false } = {}) => {
     }
     await page.keyboard.press('Control+z'); assert.deepEqual(await page.evaluate(readModel), base, 'one-step undo');
     const afterSidebar = await page.locator('.classic-sidebar').first().boundingBox(); assert.equal(afterSidebar.width, sidebar.width); assert.equal(hash(), beforeHash); assert.deepEqual(errors, []);
-    fs.writeFileSync(path.join(out, 'verification.json'), JSON.stringify({ executable, mouseDragOrbit: true, billboardFollowsCamera: true, noSelectionGate: true, sizeSliders: true, alpha: .4, types: ['billboard', 'plane', 'lockX', 'lockY', 'lockZ'], independentPreview: true, cancel: true, oneStepUndo: true, saves: ['MDL', 'MDX'], sidebarWidth: sidebar.width, fixtureSHA256: beforeHash, rendererErrors: errors }, null, 2));
-    console.log('PASS packaged Glow Up: mouse-drag camera orbit, billboard facing, selection, types, dimensions, alpha, rig preservation, Cancel, Add, undo, MDL/MDX Save As, unchanged sidebar and fixture.');
+    fs.writeFileSync(path.join(out, 'verification.json'), JSON.stringify({ executable, mouseDragOrbit: true, billboardFlags: 264, noSelectionGate: true, sizeSliders: true, alpha: .4, types: ['billboard', 'plane', 'lockX', 'lockY', 'lockZ'], independentPreview: true, cancel: true, oneStepUndo: true, saves: ['MDL', 'MDX'], sidebarWidth: sidebar.width, fixtureSHA256: beforeHash, rendererErrors: errors }, null, 2));
+    console.log('PASS packaged Glow Up: mouse-drag camera orbit, billboarded glow bone, selection, types, dimensions, alpha, rig preservation, Cancel, Add, undo, MDL/MDX Save As, unchanged sidebar and fixture.');
   } catch (e) { const page = await app.firstWindow(); fs.writeFileSync(path.join(out, 'failure.txt'), await page.locator('body').innerText()); await page.screenshot({ path: path.join(out, 'failure.png') }); throw e; }
   finally { await app.evaluate(({ app }) => app.exit(0)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

@@ -75,8 +75,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
         }
       }
     };
-    check(await save('camera-repaired'));
-    console.log('PASS packaged Set Current View repairs portrait bounds through Save As');
+    // Since fc8e20d9 Set Current View is camera-only: authored extents, bounds and rig stay as they were.
+    const viewed = await save('camera-view'), authored = openDocument(original, fixture).model;
+    for (const key of ['Bones', 'Sequences', 'Geosets', 'GeosetAnims', 'Info']) assert.deepEqual(viewed[key], authored[key], key + ' unchanged by Set Current View');
+    assert.ok(viewed.Cameras.length >= 1, 'portrait camera kept');
+    console.log('PASS packaged Set Current View changes only the camera through Save As');
     await page.getByRole('button', { name: 'Camera rotation', exact: true }).click();
     const cameraBefore = await page.evaluate(() => portraitRuntime().controls.object.position.toArray());
     const box = await page.locator('.game-preview-root canvas[tabindex]').boundingBox();

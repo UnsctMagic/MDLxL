@@ -50,13 +50,9 @@ async function fixture() {
     await main.getByLabel('Select geoset 0', { exact: true }).check();
     await main.getByLabel('3D model viewport', { exact: true }).click();
     await main.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window');
-    await main.locator('[data-hotkey="uv"]').click(); uv = await opened; uv.setDefaultTimeout(20000);
-    await uv.getByLabel('Material Properties', { exact: true }).waitFor({ timeout: 60000 });
-    await app.evaluate(({ BrowserWindow }) => {
-      const w = BrowserWindow.getAllWindows().find(w => w.webContents.getURL() === 'about:blank');
-      w.webContents.setBackgroundThrottling(false); w.setBounds({ x: -3000, y: 0, width: 1600, height: 1000 }); w.showInactive();
-    });
+    uv = main; const uvw = main.locator('.uv-tab-window'); // in-app dialog since f7316110
+    await main.locator('[data-hotkey="uv"]').click();
+    await uvw.getByLabel('Material Properties', { exact: true }).waitFor({ timeout: 60000 });
     await uv.evaluate(() => {
       window.currentUVFiber = () => {
         const element = document.querySelector('.uv-workspace');
@@ -88,15 +84,15 @@ async function fixture() {
         return find(currentUVFiber()) || null;
       };
     });
-    const dropdown = uv.getByLabel('Material Properties', { exact: true });
+    const dropdown = uvw.getByLabel('Material Properties', { exact: true });
     const modes = ['None', 'Transparent', 'Alpha', 'Add', 'Add Alpha', 'Modulate', 'Modulate2x'];
     assert.deepEqual(await dropdown.locator('option').allTextContents(), ['-Current-', 'Team Color Overlay', 'Color Tint', 'Team Color', ...modes]);
     assert.equal(await dropdown.inputValue(), 'Alpha');
     const original = await uv.evaluate(() => visibleMaterial().layers[0]);
-    const layout = await uv.locator('.uv-side-panel').boundingBox();
+    const layout = await uvw.locator('.uv-side-panel').boundingBox();
     const replace = async name => {
-      await uv.getByRole('button', { name: 'Replace Texture…', exact: true }).click();
-      const dialog = uv.getByRole('dialog', { name: 'Material and Texture Library', exact: true });
+      await uvw.getByRole('button', { name: 'Replace Texture…', exact: true }).click();
+      const dialog = uvw.getByRole('dialog', { name: 'Material and Texture Library', exact: true });
       await dialog.waitFor();
       await dialog.getByLabel('Texture source', { exact: true }).selectOption('custom');
       await dialog.getByLabel('Vibe search', { exact: true }).uncheck();
@@ -104,7 +100,7 @@ async function fixture() {
       await dialog.locator('.tl-tile').filter({ hasText: name.replace(/\.[^.]+$/, '') }).first().click();
       await dialog.getByRole('button', { name: 'Preview Texture in Editor', exact: true }).click();
       await dialog.waitFor({ state: 'detached' });
-      await uv.getByRole('button', { name: 'Save texture', exact: true }).waitFor();
+      await uvw.getByRole('button', { name: 'Save texture', exact: true }).waitFor();
       assert.equal(await dropdown.isEnabled(), true);
     };
     await replace('Replacement.tga');
@@ -129,16 +125,16 @@ async function fixture() {
     await uv.waitForFunction(() => visibleMaterial().layers.length === 2);
     await uv.keyboard.press('Control+y');
     await uv.waitForFunction(() => visibleMaterial().layers.length === 1 && visibleMaterial().layers[0].FilterMode === 6);
-    await uv.getByRole('button', { name: 'Save texture', exact: true }).click();
-    await uv.getByRole('button', { name: 'Save texture', exact: true }).waitFor({ state: 'detached' });
+    await uvw.getByRole('button', { name: 'Save texture', exact: true }).click();
+    await uvw.getByRole('button', { name: 'Save texture', exact: true }).waitFor({ state: 'detached' });
     await replace('Second.tga');
     assert.equal(await dropdown.inputValue(), 'Modulate2x');
-    await uv.getByRole('button', { name: 'Revert texture', exact: true }).click();
-    await uv.getByRole('button', { name: 'Save texture', exact: true }).waitFor({ state: 'detached' });
+    await uvw.getByRole('button', { name: 'Revert texture', exact: true }).click();
+    await uvw.getByRole('button', { name: 'Save texture', exact: true }).waitFor({ state: 'detached' });
     state = await uv.evaluate(() => visibleMaterial());
     assert.equal(state.textures[state.layers[0].TextureID].Image, 'Replacement.tga');
     assert.equal(state.layers[0].FilterMode, 6);
-    const finalLayout = await uv.locator('.uv-side-panel').boundingBox();
+    const finalLayout = await uvw.locator('.uv-side-panel').boundingBox();
     assert.equal(finalLayout.width, layout.width);
     const { openDocument } = await import('../src/editor-document.js');
     const bytes = await main.evaluate(() => {

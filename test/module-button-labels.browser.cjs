@@ -25,7 +25,7 @@ const ready=new Promise((resolve,reject)=>{
     await page.goto(`http://127.0.0.1:${port}/`);
     const toolbar=page.locator('.toolbar-modules');
     await toolbar.waitFor();
-    assert.deepEqual(await toolbar.locator('.module-icon-badge,.pressed-keys-tool>span:not(.hotkey-badge)').allTextContents(),['LIBR','FRG','BITZ','OPXL','EMTR','KEY','VIS']);
+    assert.deepEqual(await toolbar.locator('.module-icon-badge,.pressed-keys-tool>span:not(.hotkey-badge)').allTextContents(),['LIBR','FRG','BITZ','OPXL','EMTR','ANIM','KEY','VIS']);
     assert.deepEqual(await toolbar.locator('.library-tool,.forge-tool,.bits-tool,.optimizer-tool').evaluateAll(buttons=>buttons.map(button=>{
       const style=getComputedStyle(button.querySelector('.module-icon-badge'));
       return [style.color,style.backgroundColor];

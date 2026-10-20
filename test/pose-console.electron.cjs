@@ -48,10 +48,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'POSE', exact: true }).click(); await settle();
     await page.getByRole('button', { name: 'Fit', exact: true }).click(); await settle();
     const config = await page.evaluate(() => poseProbe().props.poseConfig);
-    async function handles() {
+    async function handles(mode) {
       const data = await page.evaluate(() => { const { runtime, props } = poseProbe(), canvas = document.querySelector('[data-clean-model-canvas]'); return { model: poseSnapshot().model, config: props.poseConfig, camera: runtime.controls.object.toJSON(), width: canvas.clientWidth, height: canvas.clientHeight, appearance: props.preferences.viewportAppearance.controllers }; });
       const camera = new ObjectLoader().parse(data.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      return projectPoseHandles(data.model, data.config, 500, 0, camera, data.width, data.height, 500, undefined, data.appearance);
+      return projectPoseHandles(data.model, data.config, 500, 0, camera, data.width, data.height, 500, undefined, data.appearance, mode);
     }
     async function select(chain) {
       await tool('Select');
@@ -72,14 +72,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const openPage = name => page.locator('.settings-appearance-nav').getByRole('button', { name, exact: true }).click();
     const openSection = title => openPage(PAGE_OF[title] || title);
     const restrict = page.getByRole('button', { name: 'Restrict POSE', exact: true });
-    assert.equal(await restrict.getAttribute('aria-pressed'), 'false');
+    assert.equal(await restrict.getAttribute('aria-pressed'), 'true', 'Restrict is on by default (32c2278e)');
     const restrictBox = await restrict.boundingBox(), setupBox = await page.getByRole('button', { name: 'POSE setup', exact: true }).boundingBox();
     assert.ok(restrictBox.x < setupBox.x && Math.abs(restrictBox.y - setupBox.y) < 1, 'Restrict sits immediately left of Setup');
     const sections = await page.locator('.movement-controller > details > summary').allTextContents();
     assert.ok(sections.indexOf('Controller') < sections.indexOf('Restrictions'));
     assert.equal(await page.locator('.movement-controller > details').filter({ has: page.locator('summary', { hasText: /^Restrictions$/ }) }).evaluate(el => el.open), false);
     assert.equal(await page.getByLabel('Controller type', { exact: true }).evaluate(el => el.tagName), 'SELECT');
-    console.log('Check passed'); result.checks.push('permanent console, Restrict off by default, Controller dropdown above collapsed Restrictions');
+    console.log('Check passed'); result.checks.push('permanent console, Restrict on by default, Controller dropdown above collapsed Restrictions');
 
     for (const kind of ['arm', 'leg']) for (const limited of [true, false]) {
       if ((await restrict.getAttribute('aria-pressed') === 'true') !== limited) await restrict.click();
@@ -96,8 +96,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     await page.getByRole('checkbox', { name: 'Focused Skeleton', exact: true }).check();
     await tool('Select');
-    const pelvis = (await handles()).find(handle => handle.label === 'Pelvis'), view = await canvas.boundingBox();
-    for (let i = 0; i < 25; i++) { const target = await page.evaluate(() => poseProbe().props.poseConfig.target); if (target?.kind === pelvis.kind && target.id === pelvis.id && !target.marker) break; await page.mouse.click(view.x + pelvis.x, view.y + pelvis.y); await settle(); }
+    // Footman's Pelvis only repeats Body, so Select/Move/Rotate leave its handle out (f8ad08cc; Scale keeps it). Select it with the Object picker.
+    const pelvis = (await handles('scale')).find(handle => handle.label === 'Pelvis');
+    assert.ok(pelvis && !(await handles('select')).some(handle => handle.label === 'Pelvis'), 'duplicate Pelvis handle is folded into Body in Select');
+    await page.getByLabel('Movement bone or node').selectOption(String(pelvis.id)); await settle();
     await paint();
     assert.equal(await page.evaluate(() => poseProbe().props.poseConfig.target.id), pelvis.id);
     assert.equal(await page.locator('[data-node-overlay]').evaluate(el => el.getContext('2d').getTransform().isIdentity), true, 'drawing restores canvas transform');

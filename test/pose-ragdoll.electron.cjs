@@ -52,9 +52,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const menu = command => command === 'undo' ? page.keyboard.press('Control+z') : command === 'redo' ? page.keyboard.press('Control+y') : app.evaluate(({ BrowserWindow }, command) => { BrowserWindow.getAllWindows()[0].webContents.send('menu', command); return true; }, command);
     const viewportBox = () => page.locator('[data-clean-model-canvas]').boundingBox();
     async function handles() {
-      const data = await page.evaluate(() => { const { runtime, props } = poseProbe(), canvas = document.querySelector('[data-clean-model-canvas]'); return { model: poseSnapshot().model, config: props.poseConfig, frame: runtime.native.getFrame(), sequence: props.sequenceIndex, camera: runtime.controls.object.toJSON(), width: canvas.clientWidth, height: canvas.clientHeight }; });
+      const data = await page.evaluate(() => { const { runtime, props } = poseProbe(), canvas = document.querySelector('[data-clean-model-canvas]'); return { model: poseSnapshot().model, config: props.poseConfig, frame: runtime.native.getFrame(), sequence: props.sequenceIndex, camera: runtime.controls.object.toJSON(), width: canvas.clientWidth, height: canvas.clientHeight, mode: props.transformMode }; });
       const camera = new ObjectLoader().parse(data.camera); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      return projectPoseHandles(data.model, data.config, data.frame, data.sequence, camera, data.width, data.height);
+      // Project with the active tool like the app (f8ad08cc): a Pelvis that only repeats Body is left out except in Scale.
+      return projectPoseHandles(data.model, data.config, data.frame, data.sequence, camera, data.width, data.height, undefined, undefined, undefined, data.mode);
     }
     async function handleFor(kind, endpoint) { const points = await handles(); const result = points.find(handle => !handle.marker && handle.kind === kind && (endpoint == null || (kind === 'node' ? handle.id : handle.chain?.end) === endpoint)); assert.ok(result?.visible, `Visible ${kind} ${endpoint}`); return result; }
     const historyDepth = () => page.evaluate(() => poseProbe().session.doc.historyStats.undoSteps);
@@ -100,7 +101,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const targetNow=()=>page.evaluate(()=>poseProbe().props.poseConfig.target);
     const isTarget=(target,kind,h)=>target?.kind===kind&&!target.marker&&(kind==='node'?target.id===h.id:!h.key||target.key===h.key);
     async function selectHandle(kind,id) {
-      await tool('Select'); const h=await handleFor(kind,id),b=await viewportBox();
+      await tool('Select');
+      // A Pelvis that only repeats Body has no Select handle (f8ad08cc); the Object picker still selects it and keeps its handle.
+      if(kind==='node'&&!(await handles()).some(handle=>!handle.marker&&handle.kind==='node'&&handle.id===id)){await page.getByLabel('Movement bone or node').selectOption(String(id));await settle();if(isTarget(await targetNow(),kind,{id}))return;}
+      const h=await handleFor(kind,id),b=await viewportBox();
       const visited=[];
       for(let i=0;i<45;i++) { visited.push(await targetNow()); if(isTarget(await targetNow(),kind,h))return; await page.mouse.click(b.x+h.x,b.y+h.y);await settle(); }
       fs.writeFileSync(path.join(out,'pick-mismatch.json'),JSON.stringify({kind,id,h,b,visited,handles:await handles()},null,2));

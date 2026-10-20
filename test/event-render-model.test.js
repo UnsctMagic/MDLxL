@@ -74,3 +74,16 @@ test('HD event resources report that HD models are unsupported instead of render
     for (const change of [shader, skin]) assert.throws(() => parseEventRenderModel(resource(change).serialize(format), `HD.${format}`), /^Error: HD models aren't supported yet\.$/);
   }
 });
+
+test('current-game 1800 spawn effects preview as particle-only scenes; 1800 geometry stays unsupported', () => {
+  // Warcraft III 3.0.1 serves SD spawn models such as HumanBloodKnight as 1800
+  // with only VERS, MODL, SEQS, TEXS, HELP, PIVT and PRE2 chunks.
+  for (const version of [1300, 1400, 1600, 1800]) {
+    const parsed = parseEventRenderModel(encoded(particleModel(version)), 'Blood.mdx');
+    assert.equal(parsed.Version, version); assert.equal(parsed.ParticleEmitters2.length, 1);
+  }
+  const mesh = createDemoDocument().model; mesh.Version = 1800;
+  assert.throws(() => parseEventRenderModel(encoded(mesh), 'Mesh.mdx'), /Format 1800 event preview currently supports ParticleEmitter2 scenes only/);
+  const unknown = particleModel(); unknown.Version = 1700;
+  assert.throws(() => parseEventRenderModel(encoded(unknown), 'Odd.mdx'), /format 1700 needs a compatible Warcraft renderer/);
+});

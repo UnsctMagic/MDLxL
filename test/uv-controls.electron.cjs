@@ -31,30 +31,31 @@ async function chord(cdp,key,code,virtualKey){const data={key,code,windowsVirtua
     await waitFor(main,`!!document.querySelector('[aria-label="Select geoset 3"]')`);
     await click(main,'[data-hotkey="geosetsClear"]');
     await click(main,'[aria-label="Select geoset 3"]');
+    await waitFor(main,`!!document.querySelector('[aria-label="3D model viewport"]')`);
     await evaluate(main,`document.querySelector('[aria-label="3D model viewport"]').focus()`);
     await chord(main,'a','KeyA',65);
     await waitFor(main,`!document.querySelector('[data-hotkey="uv"]').disabled`);
     await click(main,'[data-hotkey="uv"]');
-    uv=await connect((await target(port,item=>item.type==='page'&&(item.title?.includes('UV')||item.url==='about:blank'))).webSocketDebuggerUrl);
-    await waitFor(uv,`!!document.querySelector('.uv-preview-footer [aria-label="Selected Only"]')`);
-    await waitFor(uv,`!!document.querySelector('.game-preview-root')`);
-    const buttons=await evaluate(uv,`[...document.querySelectorAll('.uv-preview-footer>button')].map(e=>e.textContent.trim())`);
-    assert.deepEqual(buttons,['Select New','Live Select','Selected Only','Hide RGB']);
-    const state=`(() => { const e=document.querySelector('.game-preview-root'); let f=e[Object.keys(e).find(k=>k.startsWith('__reactFiber'))]; for(;f;f=f.return)if(f.memoizedProps?.uvOnlySelected!==undefined){const p=f.memoizedState?.next?.next?.next?.memoizedState?.current||f.memoizedProps;return {only:p.uvOnlySelected,hidden:p.hiddenGeosets?[...p.hiddenGeosets]:null,rgb:p.hideRgbGeoset,model:p.model.GeosetAnims[3]?.Color};}throw Error('Preview props unavailable'); })()`;
+    uv=main; // the UV Wrapper is an in-app dialog of the main window since f7316110
+    await waitFor(uv,`!!document.querySelector('.uv-tab-window .uv-preview-footer [aria-label="Selected Only"]')`);
+    await waitFor(uv,`!!document.querySelector('.uv-tab-window .game-preview-root')`);
+    const buttons=await evaluate(uv,`[...document.querySelectorAll('.uv-tab-window .uv-preview-footer>button')].map(e=>e.textContent.trim())`);
+    assert.deepEqual(buttons,['Live Select','Selected Only','Hide RGB']); // Select New was removed in 3e35aca8
+    const state=`(() => { const e=document.querySelector('.uv-tab-window .game-preview-root'); let f=e[Object.keys(e).find(k=>k.startsWith('__reactFiber'))],top=f; while(top.return)top=top.return; if(top.stateNode.current!==top)f=f.alternate||f; for(;f;f=f.return)if(f.memoizedProps?.uvOnlySelected!==undefined){const p=f.memoizedProps;return {only:p.uvOnlySelected,hidden:p.hiddenGeosets?[...p.hiddenGeosets]:null,rgb:p.hideRgbGeoset,model:p.model.GeosetAnims[3]?.Color};}throw Error('Preview props unavailable'); })()`;
     const before=await evaluate(uv,state);
     assert.equal(before.only,false);assert.equal(before.hidden,null);assert.equal(before.rgb,null);
-    await click(uv,'[aria-label="Selected Only"]');
+    await click(uv,'.uv-tab-window [aria-label="Selected Only"]');
     const isolated=await waitFor(uv,`(${state}).only && (${state}).hidden?.length===47 && !(${state}).hidden.includes(3)`);
     assert.equal(isolated,true);
-    await click(uv,'.uv-preview-footer button:last-child');
+    await click(uv,'.uv-tab-window .uv-preview-footer button:last-child');
     assert.equal(await waitFor(uv,`(${state}).rgb===3`),true);
-    await click(uv,'[aria-label="Selected Only"]');
+    await click(uv,'.uv-tab-window [aria-label="Selected Only"]');
     assert.equal(await waitFor(uv,`!(${state}).only && (${state}).hidden===null && (${state}).rgb===3`),true);
-    await click(uv,'.uv-preview-footer button:last-child');
+    await click(uv,'.uv-tab-window .uv-preview-footer button:last-child');
     assert.equal(await waitFor(uv,`(${state}).rgb===null`),true);
     const after=await evaluate(uv,state);
     assert.deepEqual(after.model,before.model);
     assert.ok(fs.readFileSync(fixture).equals(original));
     console.log('PASS hidden Electron UV: controls, selected-only isolation, per-geoset RGB toggle independent of visibility, original model unchanged');
-  }finally{uv?.close();main?.close();electron.kill();}
+  }finally{main?.close();electron.kill();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
