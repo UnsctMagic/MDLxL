@@ -13,6 +13,7 @@ import { repairContextMotion, scanModelMotionContext } from './optimizexl-motion
 import { openingTrackProposals, applyOpeningTrack } from './optimizexl-opening-tracks.js';
 import { unusedTrackProposals, applyUnusedTrack } from './optimizexl-unused-tracks.js';
 import { effectVisibilityProposals } from './optimizexl-effect-visibility.js';
+import { skinCollapseProposals } from './optimizexl-skin-collapse.js';
 import { redundantTrackProposals, applyRedundantTrack } from './optimizexl-redundant-tracks.js';
 import { splineTrackProposals, applySplineTrack } from './optimizexl-spline-tracks.js';
 import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair } from './optimizexl-format.js';
@@ -122,7 +123,7 @@ export function sanityProposals(m){const findings=boundsProposals(m);for(const [
  // Static gravity replaces its entire track. It owns that track's diagnostics;
  // do not also queue key-level corrections against data it removes.
  const owned=proposals.filter(p=>!p.path||!findings.some(owner=>owner.kind==='gravity'&&p.path.join('.')===`ParticleEmitters2.${owner.emitter}.Gravity`));
- return [...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...sequenceTimelineProposals(m,tracks(m))];}
+ return [...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...sequenceTimelineProposals(m,tracks(m)),...skinCollapseProposals(m)];}
 function applyRepair(m,fix,settings,evidenceModel=m){
  if(!fix)return;
  if(fix.kind==='batch'){
@@ -135,6 +136,8 @@ function applyRepair(m,fix,settings,evidenceModel=m){
   for(const f of catalog)if(selected.has(f.id)){const entry=selected.get(f.id);applyRepair(m,entry.fix,entry.settings||{},baseline);}
   return;
  }
+ // Skinning compatibility is a review flag; its rebinding is the author's choice.
+ if(fix.kind==='skinCollapse')throw Error('This finding needs inspection; rebind these vertices to ordinary bones.');
  if(fix.kind==='motion'){repairMotionIrregularity(m,fix,evidenceModel);return;}
  if(fix.kind==='visibilityInterpolation'||fix.kind==='sequenceTimeline'){
   const current=(fix.kind==='visibilityInterpolation'?visibilityInterpolationProposals:sequenceTimelineProposals)(evidenceModel,tracks(evidenceModel)).find(f=>f.id===fix.id);
