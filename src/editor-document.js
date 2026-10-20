@@ -1013,7 +1013,6 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   if (rigidNode && typeof rigidNode === 'object') rigidNode = rigidNode.ObjectId;
   if (rigidNode != null && !target.Nodes?.[rigidNode]) throw new Error('The rigid paste anchor node does not exist.');
   const rigid = rigidNode != null, reuseExisting = sameModel && anchor == null && !rigid;
-  const reuseDependencies = reuseExisting || rigid;
   const indices = [...new Set(selectedIndices)];
   if (!indices.length) return { geosetIndices: [], selection: {}, nodeMap: {}, materialMap: {}, textureMap: {}, warnings: [] };
   for (const index of indices) if (!source.Geosets?.[index]) throw new Error(`Source geoset ${index} does not exist.`);
@@ -1056,7 +1055,7 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   const materialRef = (old) => {
     if (!source.Materials[old]) throw new Error(`Source geoset references missing material ${old}.`);
     if (!maps.materials.has(old)) {
-      if (reuseDependencies) {
+      if (reuseExisting) {
         const original = fingerprint(target.Materials[old]) === fingerprint(source.Materials[old]) ? old : -1;
         const existing = original >= 0 ? original : target.Materials.findIndex((material) => fingerprint(material) === fingerprint(source.Materials[old]));
         if (existing >= 0) { maps.materials.set(old, existing); return existing; }
@@ -1073,7 +1072,11 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
           layer.TVertexAnimId = maps.textureAnims.get(texAnim);
         }
       }
-      globalRef(material); maps.materials.set(old, target.Materials.push(material) - 1);
+      globalRef(material);
+      // A rigid import has a separate dependency table. Compare only after
+      // texture, texture-animation and global-sequence IDs are remapped.
+      const existing = rigid ? target.Materials.findIndex(candidate => fingerprint(candidate) === fingerprint(material)) : -1;
+      maps.materials.set(old, existing >= 0 ? existing : target.Materials.push(material) - 1);
     }
     return maps.materials.get(old);
   };

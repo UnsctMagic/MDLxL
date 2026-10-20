@@ -165,3 +165,23 @@ test('cross-model paste creates no donor rig nodes, binds every vertex to DummyB
   }
   for (const format of ['mdl', 'mdx']) assert.equal(openDocument(target.serialize(format), `tabs.${format}`).diagnostics.some(item => item.severity === 'error'), false);
 });
+
+test('rigid paste compares destination material dependencies after remapping and still reuses true matches', () => {
+  const source = createDemoDocument(), target = createDemoDocument();
+  source.model.Textures[0].Image = 'Textures\\Donor.blp';
+  target.model.Textures[0].Image = 'Textures\\Destination.blp';
+  const originalMaterial = structuredClone(target.model.Materials[0]);
+  const paste = () => target.apply('Rigid dependency import', sections, model => {
+    const dummy = ensureDummyBone(model);
+    return importGeosets(model, source.model, [0], null, { rigidNode: dummy.ObjectId });
+  });
+  const first = paste(), imported = target.model.Geosets[first.geosetIndices[0]];
+  assert.notEqual(imported.MaterialID, 0);
+  assert.equal(target.model.Textures[target.model.Materials[imported.MaterialID].Layers[0].TextureID].Image, 'Textures\\Donor.blp');
+  assert.deepEqual(target.model.Materials[0], originalMaterial);
+  const counts = [target.model.Textures.length, target.model.Materials.length];
+  const second = paste();
+  assert.equal(target.model.Geosets[second.geosetIndices[0]].MaterialID, imported.MaterialID);
+  assert.deepEqual([target.model.Textures.length, target.model.Materials.length], counts);
+  assert.equal(openDocument(target.serialize('mdx')).readOnly, false);
+});

@@ -171,3 +171,32 @@ test('disabled dormant RGB and missing color records are preserved in MDX withou
   assert.equal(target.GeosetAnims.some(record => record.GeosetId === result.geosetIndices[1]), false);
   assert.deepEqual(sampleGeosetAnimation(target, result.geosetIndices[4], target.Sequences[result.sequenceIndices[0]].Interval[0], result.sequenceIndices[0]).color, [1, 1, 1]);
 });
+
+test('collection remaps reversed material dependencies before reusing materials', () => {
+  const doc = createStarterDocument();
+  doc.apply('Two separately textured pieces', [], model => {
+    model.Geosets.push(structuredClone(model.Geosets[0]));
+    model.Geosets[0].MaterialID = 1;
+    model.Textures[0].Image = 'Textures\\InfernalCannon.blp';
+    model.Textures.push({ ...model.Textures[0], Image: 'Doodads\\Cinematic\\ArthasIllidanFight\\IllidanCineStuff.blp' });
+    model.Materials.push(structuredClone(model.Materials[0]));
+    model.Materials[1].Layers[0].TextureID = 1;
+  });
+  const before = doc.serialize('mdx');
+  const selected = Object.fromEntries(doc.model.Geosets.map((geoset, index) => [index, Array.from({ length: geoset.Vertices.length / 3 }, (_, vertex) => vertex)]));
+  const collected = collectPart(doc.model, selected);
+  const texturePath = (model, index) => model.Textures[model.Materials[model.Geosets[index].MaterialID].Layers[0].TextureID].Image;
+  for (const model of [collected, previewPart(collected), openDocument(serializeCollectedPart(collected)).model]) {
+    assert.equal(model.Materials.length, 2);
+    assert.equal(model.Textures.length, 2);
+    for (let index = 0; index < 2; index++) {
+      assert.equal(texturePath(model, index), texturePath(doc.model, index));
+      for (const key of ['Vertices', 'Faces', 'Normals', 'TVertices']) assert.deepEqual(model.Geosets[index][key], doc.model.Geosets[index][key]);
+    }
+    assert.deepEqual(errors(model), []);
+  }
+  const target = createStarterDocument().model;
+  const imported = commitPart(target, openDocument(serializeCollectedPart(collected)).model);
+  for (let index = 0; index < 2; index++) assert.equal(texturePath(target, imported.geosetIndices[index]), texturePath(doc.model, index));
+  assert.deepEqual(doc.serialize('mdx'), before);
+});
