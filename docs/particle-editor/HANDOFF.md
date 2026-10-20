@@ -26,7 +26,7 @@ The prototype includes pinned size/spawn/aim/spread handles; life samples and na
 | Marked weapon polygons, native ribbon fit and detected binding | `src/particle-ribbon-fit.js`, `app/ParticlePlacementControls.jsx` |
 | CASC index and exact-source dependency resolution | `electron/particle-library-worker.mjs`, `electron/particle-source.cjs` |
 | Preset store, source metadata and revision-bound thumbnails | `electron/particle-library.cjs`, `app/ParticleThumbnailQueue.jsx` |
-| Hash-bound observed appearance names | `src/particle-reviewed-names.json` |
+| Hash-bound observed appearance names, keyed by source model path and emitter name (`*` = whole-model group), so they survive index rebuilds and game patches that leave the model unchanged | `src/particle-reviewed-names.json`, `electron/particle-review.cjs` |
 
 Only the adapter touches private pinned renderer internals. Do not edit imported libraries. Preserve source bytes and canonical fields; do not repair models to make previews work. Live updates must verify the renderer owns the current model before applying changed parent references. Lab selections must not call the main model selection callback. Muting and demonstration motion live only in preview clones.
 

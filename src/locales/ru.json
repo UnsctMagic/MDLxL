@@ -2967,7 +2967,7 @@
   "Delete keys at the current frame or in the selected interval.": "Удалить ключи текущего кадра или выбранного интервала.",
   "Clear the selected interval, or the whole animation interval when no range is selected.": "Очистить выбранный интервал или всю анимацию, если диапазон не выбран.",
   "Event model has damaged MDX chunks.": "Повреждены блоки MDX модели эффекта.",
-  "Format 1200 event preview currently supports ParticleEmitter2 scenes only.": "Предпросмотр эффектов формата 1200 поддерживает только сцены ParticleEmitter2.",
+  "Format {0} event preview currently supports ParticleEmitter2 scenes only.": "Предпросмотр эффектов формата {0} поддерживает только сцены ParticleEmitter2.",
   "Event model has an invalid version chunk.": "В модели эффекта неверный блок версии.",
   "Invalid event model: {0}": "Некорректная модель эффекта: {0}",
   "Event particle emitter has invalid rendering parameters.": "У источника частиц эффекта неверные параметры отображения.",

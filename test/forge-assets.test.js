@@ -37,3 +37,11 @@ test('manual sidecar imports by basename satisfy a reopened model and missing pa
  assert.deepEqual(missingForgeAssetPaths(new Map(),model),[name]);
  assert.equal(isForgeAssetPath(name),true);assert.equal(isForgeAssetPath('MDLxL_Forge/../../outside.tga'),false);assert.equal(isForgeAssetPath('Textures/white.blp'),false);
 });
+test('Forge commit computes bounds for the new geosets only and grows the model bounds to include them',()=>{
+ const doc=createDemoDocument(),existing=doc.model.Geosets.map(g=>structuredClone({MinimumExtent:[...g.MinimumExtent].map(v=>v-5),MaximumExtent:[...g.MaximumExtent].map(v=>v+5),BoundsRadius:g.BoundsRadius+9}));
+ doc.model.Geosets.forEach((g,i)=>Object.assign(g,{MinimumExtent:new Float32Array(existing[i].MinimumExtent),MaximumExtent:new Float32Array(existing[i].MaximumExtent),BoundsRadius:existing[i].BoundsRadius}));
+ const mesh=buildForgeMesh({width:1,height:1,mask:new Uint8Array([1]),detail:0}),result=doc.apply('Forge',[],m=>commitForge(m,mesh,{texturePath:'piece.tga'}));
+ doc.model.Geosets.slice(0,existing.length).forEach((g,i)=>{assert.deepEqual([...g.MinimumExtent],[...new Float32Array(existing[i].MinimumExtent)]);assert.deepEqual([...g.MaximumExtent],[...new Float32Array(existing[i].MaximumExtent)]);assert.equal(g.BoundsRadius,existing[i].BoundsRadius);});
+ for(const i of result.geosetIndices){const g=doc.model.Geosets[i];for(let v=0;v<g.Vertices.length;v++)assert.ok(g.Vertices[v]>=g.MinimumExtent[v%3]-1e-4&&g.Vertices[v]<=g.MaximumExtent[v%3]+1e-4);}
+ for(const g of doc.model.Geosets)for(let k=0;k<3;k++){assert.ok(doc.model.Info.MinimumExtent[k]<=g.MinimumExtent[k]+1e-4);assert.ok(doc.model.Info.MaximumExtent[k]>=g.MaximumExtent[k]-1e-4);}
+});

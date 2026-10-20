@@ -4,6 +4,7 @@ import { generateMDX, generateMDL } from 'war3-model';
 import { createDemoDocument, createNode, openDocument } from '../src/editor-document.js';
 import { parseEventRenderModel } from '../app/event-render-model.js';
 import { createStarterDocument } from '../src/starter-model.js';
+import { translate } from '../src/localization.js';
 
 function particleModel(version = 1200) {
   const model = createDemoDocument().model;
@@ -84,6 +85,9 @@ test('current-game 1800 spawn effects preview as particle-only scenes; 1800 geom
   }
   const mesh = createDemoDocument().model; mesh.Version = 1800;
   assert.throws(() => parseEventRenderModel(encoded(mesh), 'Mesh.mdx'), /Format 1800 event preview currently supports ParticleEmitter2 scenes only/);
+  // The message is a {0} template, so every catalog translates it for any format.
+  const message = (() => { try { parseEventRenderModel(encoded(mesh), 'Mesh.mdx'); } catch (error) { return error.message; } })();
+  for (const locale of ['es', 'ru', 'zh']) assert.match(translate(message, locale), /^(?!Format).*1800/, locale);
   const unknown = particleModel(); unknown.Version = 1700;
   assert.throws(() => parseEventRenderModel(encoded(unknown), 'Odd.mdx'), /format 1700 needs a compatible Warcraft renderer/);
 });

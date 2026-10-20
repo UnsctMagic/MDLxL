@@ -3027,7 +3027,7 @@
   "Delete keys at the current frame or in the selected interval.": "Eliminar claves en el fotograma actual o en el intervalo seleccionado.",
   "Clear the selected interval, or the whole animation interval when no range is selected.": "Borrar el intervalo seleccionado o toda la animación si no hay un intervalo seleccionado.",
   "Event model has damaged MDX chunks.": "El modelo de evento tiene bloques MDX dañados.",
-  "Format 1200 event preview currently supports ParticleEmitter2 scenes only.": "La vista previa de eventos del formato 1200 solo admite escenas ParticleEmitter2 por ahora.",
+  "Format {0} event preview currently supports ParticleEmitter2 scenes only.": "La vista previa de eventos del formato {0} solo admite escenas ParticleEmitter2 por ahora.",
   "Event model has an invalid version chunk.": "El modelo de evento tiene un bloque de versión no válido.",
   "Invalid event model: {0}": "Modelo de evento no válido: {0}",
   "Event particle emitter has invalid rendering parameters.": "El emisor de partículas del evento tiene parámetros de renderizado no válidos.",
