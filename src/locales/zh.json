@@ -3140,5 +3140,6 @@
   "Appearance pages": "外观页面",
   "How bones are drawn. Cubes and shaded lines is the classic look; Joint and cone puts a ball on each joint and a cone pointing to the child; Stick draws thick bars.": "骨骼的绘制方式。“立方体与渐变线”是经典外观；“关节与锥体”在每个关节放一个球并用指向子骨骼的锥体连接；“棍状”绘制粗棍。",
   "How the link between two joints is drawn. Shaded fades from dark at the parent to light at the child; Tapered narrows towards the child. The selected chain is highlighted in the same shape.": "两个关节之间连接线的绘制方式。“渐变”从父骨骼处的深色过渡到子骨骼处的浅色；“锥形”向子骨骼逐渐变细。选中的骨链以相同形状高亮。",
-  "All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.": "“所有边”以相同方式绘制每条线。“隐藏线”将网格背后的线绘制为淡色虚线，使线框视图中模型的正面清晰可读。"
+  "All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.": "“所有边”以相同方式绘制每条线。“隐藏线”将网格背后的线绘制为淡色虚线，使线框视图中模型的正面清晰可读。",
+  "Format {0} event preview currently supports ParticleEmitter2 scenes only.": "{0} 格式的事件预览目前仅支持 ParticleEmitter2 场景。"
 }

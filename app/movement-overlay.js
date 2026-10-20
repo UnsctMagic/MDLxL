@@ -7,7 +7,6 @@ import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } fro
 import { boneDisplayColor, boneDisplayOptions, drawBoneLink } from './bone-display.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
-const NEON_COLORS = { X: '#ff6677', Y: '#55ff77', Z: '#55bbff' };
 const PLANE_COLORS = { xy: 'Y', xz: 'X', yz: 'Z' };
 const AXES = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 const WORKPLANE_NORMALS = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
@@ -109,7 +108,7 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
 export function drawMovementGizmo(context, handles, ratio = 1, activeAxis = null, appearance = null) {
   context.save(); context.scale(ratio, ratio);
   for (const handle of handles.filter(handle => handle.plane)) {
-    const active = handle.axis === activeAxis, color = appearance?.['axis' + PLANE_COLORS[handle.plane]] || (active ? NEON_COLORS[PLANE_COLORS[handle.plane]] : handle.color);
+    const active = handle.axis === activeAxis, color = appearance?.['axis' + PLANE_COLORS[handle.plane]] || handle.color;
     context.save(); context.shadowColor = color; context.shadowBlur = active ? 8 : 0;
     context.beginPath(); handle.polygon.forEach((point, index) => context[index ? 'lineTo' : 'moveTo'](point.x, point.y)); context.closePath();
     context.fillStyle = color; context.globalAlpha = active ? .45 : .16; context.fill(); context.globalAlpha = 1;
@@ -117,7 +116,7 @@ export function drawMovementGizmo(context, handles, ratio = 1, activeAxis = null
     context.shadowBlur = active ? 8 : 0; context.strokeStyle = color; context.lineWidth = active ? 2.5 : 1.5; context.stroke(); context.restore();
   }
   for (const handle of handles.filter(handle => !handle.plane)) {
-    const active = handle.mode === 'move' && handle.axis === activeAxis, color = appearance?.['axis' + handle.axis] || (active ? NEON_COLORS[handle.axis] : handle.color);
+    const active = handle.mode === 'move' && handle.axis === activeAxis, color = appearance?.['axis' + handle.axis] || handle.color;
     context.save();
     const length = Math.hypot(handle.dx, handle.dy), ux = handle.dx / length, uy = handle.dy / length;
     context.beginPath(); context.moveTo(handle.startX + (handle.mode === 'move' ? ux * 24 : 0), handle.startY + (handle.mode === 'move' ? uy * 24 : 0)); context.lineTo(handle.x, handle.y);

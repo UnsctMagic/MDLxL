@@ -4,8 +4,8 @@ const crypto = require('node:crypto');
 const { Worker } = require('node:worker_threads');
 const THUMBNAIL_VERSION = 'native-4.0.1-authoring-5';
 const {particleSourceState}=require('./particle-source.cjs');
-const reviewedNames = require('../src/particle-reviewed-names.json');
-const reviewFor = item => {const review=reviewedNames[item.id];return review&&item.sources?.some(source=>source.contentHash===review.naming.sourceContentHash)?review:{};};
+const {reviewFor:sourceReview}=require('./particle-review.cjs');
+const reviewFor = item => sourceReview(item)||{};
 const ID = /^(?:wc3-[a-f0-9]{24}|my-[a-f0-9-]{36}|work-[a-f0-9]{64})$/;
 const atomic = async(file,data) => {
   await fs.mkdir(path.dirname(file),{recursive:true});
@@ -28,7 +28,8 @@ class ParticleLibrary {
     let items=[],coverage=null;
     if(current) {
       const base=path.join(this.directory,current.sourceKey);
-      items=JSON.parse(await fs.readFile(path.join(base,'catalog.json'),'utf8'));
+      const file=path.join(base,'catalog.json'),{mtimeMs}=await fs.stat(file);items=JSON.parse(await fs.readFile(file,'utf8'));
+      this.reviewSamples={file,mtimeMs,ids:new Map(items.map(item=>[item.id,reviewFor(item).previewSample]).filter(([,sample])=>sample))};
       const manifest=JSON.parse(await fs.readFile(path.join(base,'manifest.json'),'utf8'));
       coverage={sourceKey:manifest.sourceKey,candidateAssets:manifest.candidateAssets,parsedAssets:manifest.parsedAssets,processed:manifest.processed.length,recipes:manifest.recipeCount,extractionComplete:manifest.extractionComplete,failures:manifest.failures.length,missingDependencies:manifest.missingDependencies.length,unsupported:manifest.unsupported.length,fullyPreviewableRecipes:manifest.fullyPreviewableRecipes,insertableRecipes:manifest.insertableRecipes,reviewedNames:manifest.reviewedNames};
     }
@@ -66,8 +67,15 @@ class ParticleLibrary {
     if(id.startsWith('wc3-')&&!current)return null;
     try {
       const file=id.startsWith('work-')?path.join(this.directory,'working',id.slice(5)+'.json'):path.join(this.directory,id.startsWith('my-')?'mine':current.sourceKey,id+'.json'),info=await fs.stat(file,{bigint:true});
-      return crypto.createHash('sha256').update(JSON.stringify([THUMBNAIL_VERSION,id.startsWith('wc3-')?current.sourceKey:null,info.size.toString(),info.mtimeNs.toString(),reviewedNames[id]?.previewSample])).digest('hex');
+      return crypto.createHash('sha256').update(JSON.stringify([THUMBNAIL_VERSION,id.startsWith('wc3-')?current.sourceKey:null,info.size.toString(),info.mtimeNs.toString(),id.startsWith('wc3-')?await this.reviewedSample(id,current):undefined])).digest('hex');
     }catch(error){if(error.code==='ENOENT')return null;throw error;}
+  }
+  // Reviewed previews are found through the indexed sources, so map ids once per catalog revision.
+  async reviewedSample(id,current) {
+    const file=path.join(this.directory,current.sourceKey,'catalog.json'),mtimeMs=await fs.stat(file).then(info=>info.mtimeMs,error=>{if(error.code==='ENOENT')return null;throw error;});
+    if(mtimeMs===null)return undefined;
+    if(this.reviewSamples?.file!==file||this.reviewSamples.mtimeMs!==mtimeMs)this.reviewSamples={file,mtimeMs,ids:new Map(JSON.parse(await fs.readFile(file,'utf8')).map(item=>[item.id,reviewFor(item).previewSample]).filter(([,sample])=>sample))};
+    return this.reviewSamples.ids.get(id);
   }
   async thumbnails(ids){
     if(!Array.isArray(ids)||ids.length>72||ids.some(id=>!ID.test(id)))throw Error('Invalid thumbnail request.');

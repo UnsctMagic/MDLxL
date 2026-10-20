@@ -1,5 +1,5 @@
 {
-  "wc3-36c27f3f36f86e4cd78ec84b": {
+  "war3.w3mod:abilities\\spells\\human\\flamestrike\\flamestrikeembers.mdx|BlizParticleLowFire": {
     "name": "Orange ember patch",
     "categories": [
       "Fire"
@@ -20,7 +20,7 @@
       "time": 592.8888888888889
     }
   },
-  "wc3-84bfc51951bbdb498a0e06ae": {
+  "war3.w3mod:abilities\\spells\\human\\flamestrike\\flamestrikeembers.mdx|BlizParticleLowSmoke": {
     "name": "Low black smoke",
     "categories": [
       "Smoke"
@@ -41,7 +41,7 @@
       "time": 592.8888888888889
     }
   },
-  "wc3-7e9456278c033c9f05c8922e": {
+  "war3.w3mod:abilities\\spells\\demon\\rainoffire\\rainoffiretarget.mdx|BlizParticle01x01": {
     "name": "Red pointed burst",
     "categories": [
       "Bursts",
@@ -63,7 +63,7 @@
       "time": 766.3333333333334
     }
   },
-  "wc3-5026d69b598d0325292d673a": {
+  "war3.w3mod:abilities\\spells\\demon\\rainoffire\\rainoffiretarget.mdx|BlizParticle01x02": {
     "name": "Orange fire bloom",
     "categories": [
       "Fire",
@@ -85,7 +85,7 @@
       "time": 1133
     }
   },
-  "wc3-ed4931734010fbc22cfaf16f": {
+  "war3.w3mod:abilities\\spells\\human\\flamestrike\\flamestrike1.mdx|BlizParticleLowFire": {
     "name": "Narrow flame column",
     "categories": [
       "Fire"
@@ -106,7 +106,7 @@
       "time": 1592.6666666666667
     }
   },
-  "wc3-ef401066f00c970a0336138c": {
+  "war3.w3mod:abilities\\spells\\human\\flamestrike\\flamestrike1.mdx|BlizParticleLowSmoke": {
     "name": "Dark smoke column",
     "categories": [
       "Smoke"
@@ -127,7 +127,7 @@
       "time": 1592.6666666666667
     }
   },
-  "wc3-292a55895a123e48ca3d0237": {
+  "war3.w3mod:abilities\\spells\\human\\flamestrike\\flamestrike.mdx|BlizParticleLowSmoke": {
     "name": "Layered dark smoke",
     "categories": [
       "Smoke"
@@ -148,7 +148,7 @@
       "time": 1592.6666666666667
     }
   },
-  "wc3-3540bb584dab009ee1a21451": {
+  "war3.w3mod:abilities\\weapons\\steammissile\\steammissile.mdx|BlizParticle02": {
     "name": "White steam puff",
     "categories": [
       "Smoke"
@@ -169,7 +169,7 @@
       "time": 333.3333333333333
     }
   },
-  "wc3-3d01165deed4bee22e35bc57": {
+  "war3.w3mod:abilities\\weapons\\steammissile\\steammissile.mdx|BlizParticle04": {
     "name": "Bright white cloud",
     "categories": [
       "Smoke",
@@ -190,7 +190,7 @@
       "time": 833.6666666666666
     }
   },
-  "wc3-d6544670a0b2a7ad491e4602": {
+  "war3.w3mod:abilities\\spells\\human\\blizzard\\blizzardtarget.mdx|BlizParticle02": {
     "name": "Icy blue streak",
     "categories": [
       "Trails"
@@ -211,7 +211,7 @@
       "time": 766.3333333333334
     }
   },
-  "wc3-7ca9ff4b23e6104e6d926d03": {
+  "war3.w3mod:abilities\\spells\\human\\blizzard\\blizzardtarget.mdx|BlizParticle03": {
     "name": "Fine blue streaks",
     "categories": [
       "Trails"
@@ -232,7 +232,7 @@
       "time": 766.3333333333334
     }
   },
-  "wc3-12bb6842d8470078c7636076": {
+  "war3.w3mod:abilities\\spells\\undead\\frostnova\\frostnovatarget.mdx|BlizParticle03explodering": {
     "name": "Cyan frost bloom",
     "categories": [
       "Bursts",
@@ -254,7 +254,7 @@
       "time": 166.66666666666666
     }
   },
-  "wc3-27267a4bd1764751581fe669": {
+  "war3.w3mod:abilities\\spells\\undead\\frostnova\\frostnovatarget.mdx|BlizParticle03up": {
     "name": "Blue mist ring",
     "categories": [
       "Smoke",
@@ -275,7 +275,7 @@
       "time": 333.3333333333333
     }
   },
-  "wc3-06e3f6ea70a801344a69d627": {
+  "war3.w3mod:abilities\\spells\\items\\scrollofrejuvenation\\scrollmanahealth.mdx|BlizRibbon02": {
     "name": "Curved violet ribbon",
     "categories": [
       "Trails"
@@ -297,7 +297,7 @@
       "time": 474
     }
   },
-  "wc3-ba229c2838b0b257600283ef": {
+  "war3.w3mod:abilities\\spells\\items\\scrollofrejuvenation\\scrollmanahealth.mdx|BlizRibbon04": {
     "name": "Forked violet ribbon",
     "categories": [
       "Trails"
@@ -318,7 +318,7 @@
       "time": 474
     }
   },
-  "wc3-a28e9a07002485432b188464": {
+  "war3.w3mod:abilities\\spells\\human\\heal\\healtarget.mdx|BlizParticle03": {
     "name": "Small golden stars",
     "categories": [
       "Sparks",
@@ -340,7 +340,7 @@
       "time": 611
     }
   },
-  "wc3-0f369ae7474568f8255e097e": {
+  "war3.w3mod:abilities\\spells\\human\\heal\\healtarget.mdx|BlizParticle04": {
     "name": "Golden light shafts",
     "categories": [
       "Glows",
@@ -362,7 +362,7 @@
       "time": 407.3333333333333
     }
   },
-  "wc3-39600c5b2eecd95f87471610": {
+  "war3.w3mod:abilities\\spells\\human\\massteleport\\massteleportcaster.mdx|BlizParticle01": {
     "name": "Blue beams and motes",
     "categories": [
       "Magic",
@@ -384,7 +384,7 @@
       "time": 1099.6666666666665
     }
   },
-  "wc3-2430c1305fefba06952a6bf0": {
+  "war3.w3mod:abilities\\spells\\human\\massteleport\\massteleporttarget.mdx|BlizParticle01": {
     "name": "Blue light shafts",
     "categories": [
       "Magic",
@@ -405,7 +405,7 @@
       "time": 1292.5555555555557
     }
   },
-  "wc3-61290219d41d1f18371624ab": {
+  "war3.w3mod:abilities\\spells\\undead\\impale\\impalemisstarget.mdx|BlizParticle01": {
     "name": "Scattered ochre dust",
     "categories": [
       "Smoke",
@@ -427,7 +427,7 @@
       "time": 46044.77777777778
     }
   },
-  "wc3-ecfdfe5020141bcceac8d179": {
+  "war3.w3mod:objects\\spawnmodels\\undead\\impaletargetdust\\impaletargetdust.mdx|BlizParticle05standdust05": {
     "name": "Thick tan dust cloud",
     "categories": [
       "Smoke"
@@ -448,7 +448,7 @@
       "time": 45600.333333333336
     }
   },
-  "wc3-ff5d7f4abb575fa9e0ab169f": {
+  "war3.w3mod:abilities\\spells\\orc\\lightningshield\\lightningshieldtarget.mdx|BlizRibbon04": {
     "name": "Curved blue filament",
     "categories": [
       "Trails"
@@ -469,7 +469,7 @@
       "time": 1633.6666666666667
     }
   },
-  "wc3-832b1486de5f28fa3ad32b04": {
+  "war3.w3mod:abilities\\spells\\orc\\lightningshield\\lightningshieldtarget.mdx|BlizRibbon06": {
     "name": "Fine blue filament",
     "categories": [
       "Trails"
@@ -489,7 +489,7 @@
       "time": 1633.6666666666667
     }
   },
-  "wc3-f0e148b8f08a36daa1facfd6": {
+  "war3.w3mod:abilities\\spells\\undead\\deathcoil\\deathcoilmissile.mdx|BlizParticle DeathA01": {
     "name": "Green luminous cloud",
     "categories": [
       "Glows",
@@ -510,7 +510,7 @@
       "time": 740.6666666666666
     }
   },
-  "wc3-24c497f6f1d64cac21ac2a30": {
+  "war3.w3mod:abilities\\spells\\orc\\bloodlust\\bloodlustspecial.mdx|BlizParticleBurp": {
     "name": "Golden rune ring",
     "categories": [
       "Magic",
@@ -532,7 +532,7 @@
       "time": 407.1111111111111
     }
   },
-  "wc3-bccaa486e36ed86994053c3a": {
+  "war3.w3mod:abilities\\spells\\orc\\bloodlust\\bloodlustspecial.mdx|BlizParticlestand": {
     "name": "Red and gold starburst",
     "categories": [
       "Bursts",
@@ -554,7 +554,7 @@
       "time": 777.6666666666667
     }
   },
-  "wc3-a74d47f53bdbd60ed33734b8": {
+  "war3.w3mod:abilities\\weapons\\poisonarrow\\poisonarrowmissile.mdx|BlizParticle01": {
     "name": "Lime green starburst",
     "categories": [
       "Bursts",
@@ -576,7 +576,7 @@
       "time": 303.44444444444446
     }
   },
-  "wc3-d84fc314568b430afbae8a46": {
+  "war3.w3mod:abilities\\weapons\\poisonarrow\\poisonarrowmissile.mdx|BlizParticle03": {
     "name": "Overlapping green rings",
     "categories": [
       "Magic"
@@ -596,7 +596,7 @@
       "time": 29.333333333333332
     }
   },
-  "wc3-3e2c9dccfe2ad904fb00c6f8": {
+  "war3.w3mod:abilities\\spells\\other\\soulburn\\soulburnbuff.mdx|BlizParticle01orangesmoke": {
     "name": "White-hot orange flare",
     "categories": [
       "Fire",
@@ -618,7 +618,7 @@
       "time": 2310.777777777778
     }
   },
-  "wc3-1777f75b555ec605b2d8d8c9": {
+  "war3.w3mod:abilities\\spells\\other\\soulburn\\soulburnbuff.mdx|BlizParticle08shockwaves": {
     "name": "Soft golden ring",
     "categories": [
       "Magic"
@@ -639,7 +639,7 @@
       "time": 555.6666666666666
     }
   },
-  "wc3-ababf6b623f2e1656d5bc9cd": {
+  "war3.w3mod:abilities\\weapons\\gargoylemissile\\gargoylemissile.mdx|BlizParticle02trail": {
     "name": "Wispy green streaks",
     "categories": [
       "Trails",
@@ -661,7 +661,7 @@
       "time": 444.44444444444446
     }
   },
-  "wc3-838fc48f5ca1aa51639306d7": {
+  "war3.w3mod:units\\creeps\\golemstatue\\golemstatue.mdx|BlizParticle01": {
     "name": "Drifting gray dust",
     "categories": [
       "Smoke"
@@ -682,7 +682,7 @@
       "time": 31900
     }
   },
-  "wc3-b77c9b1c56c50dec1ffcfd04": {
+  "war3.w3mod:units\\creeps\\direwolf\\direwolf.mdx|*": {
     "name": "Twin blue sweeping ribbons",
     "categories": [
       "Trails"
@@ -704,7 +704,7 @@
       "time": 68766.5
     }
   },
-  "wc3-eb436de856fa4d1e5ddf2d62": {
+  "war3.w3mod:units\\orc\\heroblademaster\\heroblademaster.mdx|*": {
     "name": "Golden slash and spark burst",
     "categories": [
       "Trails",

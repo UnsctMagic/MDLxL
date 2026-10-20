@@ -251,7 +251,7 @@ export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 
     model.Geosets.push(g); geosetIndices.push(index);
     if (i) model.GeosetAnims.push({ GeosetId: index, Flags: 2, Alpha: 1, Color: new Float32Array(trimColor) });
   }
-  recalculateExtents(model);
+  recalculateExtents(model, geosetIndices);
   for (const i of geosetIndices) model.Geosets[i].Anims = (model.Sequences || []).map(() => ({ MinimumExtent: model.Geosets[i].MinimumExtent.slice(), MaximumExtent: model.Geosets[i].MaximumExtent.slice(), BoundsRadius: model.Geosets[i].BoundsRadius }));
   if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; model.Info.NumBones = model.Bones.length; }
   return { geosetIndices, boneId: bone.ObjectId, textureId, extraAssets };
