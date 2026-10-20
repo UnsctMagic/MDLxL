@@ -32,6 +32,7 @@ const {PaintTextureLibrary}=require('./paint-textures.cjs');
 const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
 const {modelPathsFromArguments}=require('./external-model-open.cjs');
 const {Updater,externalURL}=require('./updater.cjs');
+const {FileTypeRegistration}=require('./file-types.cjs');
 let updater, startupUpdateChecked=false;
 let bitsAndPartsLibrary;
 function getBitsAndPartsLibrary() { return bitsAndPartsLibrary ||= new BitsAndPartsLibrary(path.join(app.isPackaged ? path.dirname(process.execPath) : app.getAppPath(), 'BitsAndParts')); }
@@ -55,6 +56,9 @@ if (app.isPackaged && require('node:fs').existsSync(path.join(path.dirname(proce
 let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
 let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.resolve();
 let settingsStore,preferenceApi,commandCatalog;
+// Test runs (own profile or headless) must not point Explorer at a temporary build.
+const fileTypes=app.isPackaged&&process.platform==='win32'&&!process.env.MDLXL_PROFILE&&process.env.MDLVIS_HEADLESS!=='1'?new FileTypeRegistration({executable:process.execPath,brandingDirectory:path.join(__dirname,'../dist/branding')}):null;
+function registerFileTypes(){fileTypes?.apply(settings.preferences?.fileIcon).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
@@ -399,6 +403,7 @@ ipcMain.handle('updates:revert',async event=>{
   if(answer.response!==0)return updater.status();
   const result=await updater.prepareRevert();if(result.state==='ready'&&win&&!win.isDestroyed())win.close();return updater.status();
 });
+ipcMain.handle('app:openDefaultApps',()=>shell.openExternal('ms-settings:defaultapps?registeredAppUser=MDLxL'));
 ipcMain.handle('app:openLink',(_,url)=>{if(!externalURL(url))throw Error('Unsupported website link.');return shell.openExternal(url);});
 ipcMain.handle('settings:configure',(_,value)=>{
   if(value&&['gameData','gameDataSources'].some(key=>Object.prototype.hasOwnProperty.call(value,key)))throw Error('Use the game data pickers to change asset sources.');
@@ -407,13 +412,14 @@ ipcMain.handle('settings:configure',(_,value)=>{
 ipcMain.on('app:close',event=>{if(win&&!win.isDestroyed()&&event.sender===win.webContents)win.close();});
 async function updateSettings(value){
   const previousHotkeys=JSON.stringify(settings.preferences?.hotkeys);
-  const previousLanguage=settings.preferences?.language;
+  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon;
   settings=await settingsStore.configure(value);
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))texturePreviews.cancel();
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameDataSources')){
     texturePreviews.cancel();await texturePreviews.settle();await resetTextureSources();
   }
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
+  if(previousFileIcon!==settings.preferences.fileIcon)registerFileTypes();
   if(JSON.stringify(settings.preferences.hotkeys)!==previousHotkeys || previousLanguage!==settings.preferences.language)refreshMenu();
   return publicSettings();
 }
@@ -531,6 +537,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   // Discover game data only when textures are requested or the user rescans.
   // A blank editor starts without registry queries or a drive-search process.
   await createWindow();
+  registerFileTypes();
 });
 async function createWindow(bounds={}){
   externalModelsReady=false;
