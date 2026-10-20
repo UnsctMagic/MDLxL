@@ -54,6 +54,11 @@ export function createPixelLineBatch(context) {
   const data = raster.image.data;
   data.fill(0); raster.priority.fill(0);
   const colors = new Map(), patterns = new WeakMap();
+  const colorValue = value => {
+    let rgb = colors.get(value);
+    if (rgb === undefined) { rgb = new Color(value).getHex(); colors.set(value,rgb); }
+    return rgb;
+  };
   return {
     draw(from, to, { color = '#ffffff', width: lineWidth = 1, ratio = 1, dash = [], opacity = 1, layer = 1, depth = null, hiddenOpacity = opacity, showHidden = true, hiddenDash = null } = {}) {
       const clipped = clipLine(from.x * ratio, from.y * ratio, to.x * ratio, to.y * ratio, width, height);
@@ -64,13 +69,14 @@ export function createPixelLineBatch(context) {
       const patternFor = values => { let result = patterns.get(values); if (!result) { const scaled = values.map(value => Math.max(1, Math.round(value * ratio))); result = { values: scaled, cycle: scaled.reduce((sum, value) => sum + value, 0) }; patterns.set(values, result); } return result; };
       // Hidden-line wires dash only the stretches the mesh hides.
       const visiblePattern = patternFor(dash), hiddenPattern = hiddenDash ? patternFor(hiddenDash) : visiblePattern;
-      let rgb = colors.get(color);
-      if (rgb === undefined) { rgb = new Color(color).getHex(); colors.set(color, rgb); }
-      const red = rgb >> 16 & 255, green = rgb >> 8 & 255, blue = rgb & 255;
+      const gradient = typeof color === 'function';
+      let rgb = gradient ? 0 : colorValue(color);
       const alpha = Math.max(0, Math.min(255, Math.round(opacity * 255)));
       const hiddenAlpha = Math.max(0, Math.min(255, Math.round(hiddenOpacity * 255)));
       let error = dx - dy, group = -1, hidden = false;
       for (let step = 0; step <= count; step++) {
+        if (gradient) rgb = colorValue(color(count ? step / count : 0));
+        const red = rgb >> 16 & 255, green = rgb >> 8 & 255, blue = rgb & 255;
         if (depth) {
           const nextGroup = Math.floor(step / Math.max(1, Math.round(12 * ratio)));
           if (nextGroup !== group) {

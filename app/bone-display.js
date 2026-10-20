@@ -55,11 +55,14 @@ const shade = progress => { const value = Math.round(progress * 255); return `rg
  * Tapered narrows towards the child; Joint + cone always draws a Maya-style
  * cone. A highlighted chain keeps the same shape in the highlight colour.
  */
-export function drawBoneLink(context, from, to, { bones = DEFAULT_BONE_APPEARANCE, highlight = null, ratio = 1 } = {}) {
+export function drawBoneLink(context, from, to, { bones = DEFAULT_BONE_APPEARANCE, highlight = null, ratio = 1, pixelBatch = null } = {}) {
   const color = highlight ? bones[boneHighlightRole(highlight)] || highlight : null;
   const width = (highlight ? bones.highlightThickness : bones.thickness) * (bones.style === 'stick' ? 2 : 1);
   const shape = bones.style === 'joint' ? 'cone' : bones.connector;
-  if (shape === 'shaded') return drawPixelLine(context, from, to, { color: color || shade, width, ratio });
+  if (shape === 'shaded') {
+    const options = { color: color || shade, width, ratio };
+    return pixelBatch ? pixelBatch.draw(from,to,options) : drawPixelLine(context,from,to,options);
+  }
   const x0 = from.x * ratio, y0 = from.y * ratio, x1 = to.x * ratio, y1 = to.y * ratio, length = Math.hypot(x1 - x0, y1 - y0);
   if (length < 1) return;
   const start = (shape === 'cone' ? Math.max(10, width * 3.4) : width * 1.7) * ratio / 2, end = Math.max(.5, ratio / 2);
