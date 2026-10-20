@@ -145,13 +145,26 @@ test('dependency namespaces stay in the source variant and preserve fallback ord
 });
 
 test('observed stock names overlay exact source identities and user names survive rescan',async()=>{
- const reviews=JSON.parse(await fs.readFile(new URL('../src/particle-reviewed-names.json',import.meta.url))),[id,review]=Object.entries(reviews)[0],sourceKey='a'.repeat(64),root=path.join(directory,'curated'),cache=path.join(root,sourceKey);
- await fs.mkdir(cache,{recursive:true});const item={id,name:'Generated name',collection:'Warcraft',sources:[{contentHash:review.naming.sourceContentHash}],naming:{state:'review-needed'}};
+ const reviews=JSON.parse(await fs.readFile(new URL('../src/particle-reviewed-names.json',import.meta.url))),[key,review]=Object.entries(reviews)[0],[physicalPath,emitterName]=key.split('|'),id='wc3-'+'b'.repeat(24),sourceKey='a'.repeat(64),root=path.join(directory,'curated'),cache=path.join(root,sourceKey);
+ await fs.mkdir(cache,{recursive:true});const item={id,name:'Generated name',collection:'Warcraft',sources:[{physicalPath,emitterName,emitterIds:[0],contentHash:review.naming.sourceContentHash}],naming:{state:'review-needed'}};
  await fs.writeFile(path.join(root,'current.json'),JSON.stringify({sourceKey}));await fs.writeFile(path.join(cache,'catalog.json'),JSON.stringify([item]));await fs.writeFile(path.join(cache,'manifest.json'),JSON.stringify({sourceKey,processed:[],failures:[],missingDependencies:[],unsupported:[]}));
  const store=new ParticleLibrary({directory:root,discover:async()=>({cascFolders:[]})}),before=await fs.readFile(path.join(cache,'catalog.json'),'utf8');
  let catalog=await store.catalog();assert.equal(catalog.items[0].name,review.name);assert.equal(catalog.coverage.reviewedNames,1);assert.equal(await fs.readFile(path.join(cache,'catalog.json'),'utf8'),before);
  await store.annotate({id,name:'My reviewed name',tags:['mine']});await fs.writeFile(path.join(cache,'catalog.json'),JSON.stringify([{...item,name:'Rescanned automatic name'}]));catalog=await store.catalog();assert.equal(catalog.items[0].name,'My reviewed name');assert.deepEqual(catalog.items[0].tags,['mine']);
  await fs.writeFile(path.join(root,'metadata.json'),'{}');item.sources[0].contentHash='changed';await fs.writeFile(path.join(cache,'catalog.json'),JSON.stringify([item]));catalog=await store.catalog();assert.equal(catalog.items[0].name,'Generated name');assert.equal(catalog.coverage.reviewedNames,0);
+});
+
+test('reviewed names follow the source emitter, not the recipe id, across game patches',async()=>{
+ const {reviewFor,reviewKey}=createRequire(import.meta.url)('../electron/particle-review.cjs'),reviews=JSON.parse(await fs.readFile(new URL('../src/particle-reviewed-names.json',import.meta.url)));
+ for(const key of Object.keys(reviews))assert.match(key,/^war3\.w3mod:[^|A-Z]+\.mdx\|(?:\*|[^|]+)$/,key);
+ const [key,review]=Object.entries(reviews).find(([key])=>!key.endsWith('|*')),[physicalPath,emitterName]=key.split('|'),source={physicalPath:physicalPath.toUpperCase(),emitterName,emitterIds:[7],contentHash:review.naming.sourceContentHash};
+ assert.equal(reviewKey(source),key);
+ // A rebuilt index gives the recipe a new id and may move or merge sources; the name stays.
+ assert.deepEqual(reviewFor({id:'wc3-'+'c'.repeat(24),sources:[{physicalPath:'war3.w3mod:other.mdx',emitterName,emitterIds:[0],contentHash:'0'.repeat(64)},source]}),review);
+ assert.deepEqual(reviewFor({sources:[{...source,emitterName:emitterName+'2'}]}),null);
+ assert.deepEqual(reviewFor({sources:[{...source,emitterIds:[7,8],emitterName:undefined}]}),reviews[key.split('|')[0]+'|*']??null);
+ // A patch that changes the model itself needs a new review.
+ assert.deepEqual(reviewFor({sources:[{...source,contentHash:'f'.repeat(64)}]}),null);
 });
 
 test('source-context preview is bound to the exact indexed model and source namespaces',async()=>{
