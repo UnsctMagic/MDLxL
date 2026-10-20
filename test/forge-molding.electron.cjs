@@ -21,8 +21,8 @@ eval(cuts.slice(cuts.indexOf('function readDraft'),cuts.indexOf('function pointF
  assert.equal(await d.getByRole('group',{name:'Shaping tools',exact:true}).getByRole('button').count(),5);
  assert.equal(await d.getByRole('group',{name:'Shaping controls',exact:true}).count(),0);
  assert.equal(await d.getByRole('button',{name:/mirror|symmetry/i}).count(),0);
- const gold=await d.getByRole('button',{name:'Bend',exact:true}).boundingBox(),blue=await d.getByRole('button',{name:'Move',exact:true}).boundingBox();assert.ok(gold.y<blue.y);assert.equal(sidebar.width,164);
- checks.push('Five compact gold tools above blue tools; no popup, mirror or default controls; sidebar stays 164px');
+ const gold=await d.getByRole('button',{name:'Bend',exact:true}).boundingBox(),blue=await d.getByRole('button',{name:'Move',exact:true}).boundingBox();assert.ok(gold.y<blue.y);assert.equal(sidebar.width,240);
+ checks.push('Five compact gold tools above blue tools; no popup, mirror or default controls; sidebar stays at the shared 240px default');
  for(const [name,key]of [['Bend','4'],['Bulge / Pinch','v'],['Taper','t'],['Bevel','b'],['Twist','5']]){
    await page.keyboard.press(key);await page.waitForTimeout(200);
    assert.equal(await d.getByRole('button',{name,exact:true}).getAttribute('aria-pressed'),'true');

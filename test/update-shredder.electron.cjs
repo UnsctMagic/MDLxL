@@ -22,7 +22,7 @@ const root = path.resolve(__dirname, '..');
     dialog.showMessageBoxSync=(...args)=>{shredderTest.closePrompts++;return process.env.MDLXL_REAL_SAVE_PROMPT==='1'?nativeSavePrompt(...args):1;};
     const {Updater}=require('./updater.cjs');
     Updater.prototype.initialize=async function(){shredderTest.updater=this;return this.publish({canInstall:true});};
-    Updater.prototype.check=async function(){return this.publish({state:'available',currentVersion:'0.20.1',release:{version:'0.20.2',summary:['Model saving improved.'],notes:{},url:'https://github.com/UnsctMagic/MDLxL/releases/tag/v0.20.2'}});};
+    Updater.prototype.check=async function(){this.release={version:'0.20.2'};return this.publish({state:'available',currentVersion:'0.20.1',release:{version:'0.20.2',summary:['Model saving improved.'],notes:{},url:'https://github.com/UnsctMagic/MDLxL/releases/tag/v0.20.2'}});};
     Updater.prototype.prepare=async function(){shredderTest.installs++;this.publish({state:'downloading',total:100,received:3});return new Promise(resolve=>{shredderTest.finish=()=>resolve(this.publish({state:'ready'}));});};
     app.on('browser-window-created',(_,win)=>win.webContents.setBackgroundThrottling(false));
     })();
@@ -113,9 +113,14 @@ const root = path.resolve(__dirname, '..');
     await page.clock.fastForward(45000);
     assert.equal(await page.locator('.update-shredder').getAttribute('data-phase'),'gone','the departure is final');
     await app.evaluate(() => shredderTest.finish());
-    await page.waitForFunction(async () => (await window.desktop.updateStatus()).state === 'available');
+    // Cancelling the close prompt returns the update to "available". An async page predicate
+    // is a truthy Promise to waitForFunction and never waits, so poll the real status here.
+    for (const end = Date.now() + 15000; (await page.evaluate(() => window.desktop.updateStatus())).state !== 'available';) {
+      if (Date.now() > end) throw Error('The update did not return to available after the close prompt was cancelled.');
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
     assert.ok(await app.evaluate(() => shredderTest.closePrompts) > 0,'the normal unsaved-model prompt still runs');
-    assert.equal(await page.locator('.update-shredder-layer').count(),0);
+    await page.locator('.update-shredder-layer').waitFor({state:'detached'});
     await page.locator('[data-hotkey="update:later"]').click({force:true});
     assert.equal(await page.locator('.update-overlay').count(),0);
     await app.evaluate(() => {shredderTest.updater.publish({state:'available'});shredderTest.updater.publish({state:'downloading',total:0,received:0});});

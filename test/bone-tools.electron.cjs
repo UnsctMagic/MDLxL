@@ -19,6 +19,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setPosition(-3000, 0); window.showInactive(); });
     await page.getByRole('button', { name: 'Quad View', exact: true }).waitFor({ timeout: 60000 });
+    // The view label renders before the viewport, which mounts once the saved preferences are read.
+    await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({ timeout: 60000 });
     console.log('Vertex viewport ready');
     await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
     const before = await page.evaluate(() => {
@@ -54,7 +56,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     before.position.forEach((value, index) => assert.ok(Math.abs(value - after.position[index]) < 1e-5));
     before.target.forEach((value, index) => assert.ok(Math.abs(value - after.target[index]) < 1e-5));
     assert.equal(after.zoom, before.zoom);
-    for (const label of ['Bones', 'Emitters', 'Nodes']) assert.equal(await page.getByLabel(label, { exact: true }).isChecked(), true);
+    // Bones opens with only bone markers on (e42ae07a made each editor's display independent; b61434b5 turns Bones on in the rig editors).
+    // Its display list has no Nodes switch since 3297c3b2.
+    for (const [label, checked] of [['Bones', true], ['Emitters', false]]) assert.equal(await page.getByLabel(label, { exact: true }).isChecked(), checked, label);
     await page.getByRole('button', { name: 'Create', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Bone' }).click();
     assert.match(await page.getByLabel('Movement bone or node').inputValue(), /^[0-9]+$/);

@@ -38,6 +38,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(organized.helperNames, ['Bone_Chest']);
     assert.equal(organized.boneColor, 'rgb(76, 255, 89)');
     assert.equal(organized.helperColor, 'rgb(138, 43, 226)');
+    // Saving renumbers ObjectIds in Retera type order, Bones before Helpers (2bfe7f64), so use the loaded helper's id.
+    const loadedHelperId = await picker.locator('optgroup[label="Helpers"] option').filter({ hasText: /^Bone_Chest$/ }).getAttribute('value');
+    assert.notEqual(loadedHelperId, null); helperId = Number(loadedHelperId);
     await picker.selectOption(String(helperId));
     assert.equal(await picker.getAttribute('data-node-kind'), 'helper');
     assert.equal(await picker.evaluate(element => element.style.color), 'rgb(138, 43, 226)');

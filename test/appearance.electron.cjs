@@ -122,7 +122,8 @@ const { buildSync } = require(path.join(process.cwd(), 'node_modules/esbuild'));
     await menu('configurationSettings');
     await page.getByRole('button', { name: 'Import configuration…', exact: true }).waitFor();
     await page.locator('input[type=file][accept=".json,application/json"]').setInputFiles({ name: 'appearance.json', mimeType: 'application/json', buffer: Buffer.from(configuration) });
-    await page.waitForFunction(() => document.querySelector('.settings-message')?.textContent?.match(/Configuration (imported|exceeds)/));
+    // Wait for the import result (success or the reason it was refused), then require success below.
+    await page.waitForFunction(() => document.querySelector('.settings-message')?.textContent?.trim());
     const message = await page.locator('.settings-message').innerText();
     if (!message.includes('Configuration imported.')) result.gaps.push('Large background import: ' + message);
     await page.getByRole('button', { name: 'Close Settings', exact: true }).click();

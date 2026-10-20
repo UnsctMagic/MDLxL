@@ -195,6 +195,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button',{name:'Animations',exact:true}).click();await wait(s=>s.ready,'Animations ready');
     assert.equal(await quick.getByLabel('Nodes',{exact:true}).isChecked(),false);
     for(const name of ['Emitters','Events','Sounds'])assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),true);
+    // Bones is shared by Bones, Movement and Animations (c85bedaf) and this test switched it on in Bones; hide it so only node symbols could draw the node overlay.
+    assert.equal(await quick.getByLabel('Bones',{exact:true}).isChecked(),true,'Bones carries over from the Bones editor');await quick.getByLabel('Bones',{exact:true}).uncheck();
     await installDecalProbe();await page.getByRole('button',{name:'Play',exact:true}).click();await wait(s=>s.particles[0]>0&&s.ribbons[0]>1&&s.audio.length>audioBefore+2&&s.decals>0,'Animation defaults play all categories');assert.equal((await read()).nodes,0);await screenshot('animations-default.png');
     await quick.getByLabel('Nodes',{exact:true}).check();await wait(s=>s.nodes>0,'Animations Nodes reveals enabled symbols');await screenshot('animations-symbols.png');
     for(const name of ['Emitters','Events','Sounds']){await quick.getByLabel(name,{exact:true}).uncheck();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);}

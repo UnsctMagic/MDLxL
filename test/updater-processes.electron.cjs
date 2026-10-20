@@ -1,9 +1,10 @@
-// Native Windows regression: real Electron processes keep the portable EXE locked.
+// Native Windows regression: a locked portable EXE is reported and preserved, and the
+// installer waits for real Electron processes of this installation before replacing it.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
-const {execFile} = require('node:child_process');
+const {execFile, spawn} = require('node:child_process');
 const {promisify} = require('node:util');
 const {_electron} = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 const {digest} = require('../electron/updater.cjs');
@@ -38,11 +39,20 @@ async function waitForFile(file) {
   await fs.writeFile(installer,installerSource);
   let owner, remaining;
   const install = () => run(ps, ['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',installer,planFile], {windowsHide:true,env});
+  let holder, starting;
   try {
     remaining = await _electron.launch({executablePath:exe,env:{...env,MDLXL_PROFILE:path.join(root,'remaining-profile')}});
     await remaining.firstWindow();
+    // The installer publishes files with an atomic replace, which Windows allows for a
+    // running EXE (the editor's own processes are waited for instead). A handle without
+    // delete sharing, such as a scanner reading the file, still locks it.
+    const held = path.join(root,'exe-held'), release = path.join(root,'exe-release'), hold = path.join(root,'hold.ps1');
+    await fs.writeFile(hold, "param($File,$Held,$Release)\n$stream=[IO.File]::Open($File,'Open','Read','Read')\ntry{[IO.File]::WriteAllText($Held,'');while(!(Test-Path -LiteralPath $Release)){Start-Sleep -Milliseconds 50}}finally{$stream.Dispose()}\n");
+    holder = run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',hold,exe,held,release],{windowsHide:true});
+    await waitForFile(held);
     await fs.writeFile(planFile, JSON.stringify(plan));
     await install();
+    await fs.writeFile(release,''); await holder; holder = null;
     const failed = JSON.parse(await fs.readFile(result,'utf8'));
     assert.equal(failed.ok,false);
     assert.match(failed.error,/being used by another process/);
@@ -60,22 +70,36 @@ ${marker}`));
     await owner.firstWindow();
     plan.pid = await owner.evaluate(() => process.pid);
     await fs.writeFile(planFile,JSON.stringify(plan));
+    // The editor hands the installer its installation lock (Updater.launchInstaller).
+    const lock = path.join(target,'.mdlxl-installing');
+    await fs.mkdir(lock); await fs.writeFile(path.join(lock,'owner.json'),JSON.stringify({planFile,pid:plan.pid}));
     const installing = install();
     await pause(500);
     await owner.evaluate(({app}) => app.exit(0)); owner = null;
     await waitForFile(path.join(root,'verification-started'));
-    remaining = await _electron.launch({executablePath:exe,env:{...env,MDLXL_PROFILE:path.join(root,'remaining-profile')}});
-    await remaining.firstWindow();
+    // A desktop relaunch during installation leaves through the startup guard without
+    // opening the editor (the installation lock is present).
+    const relaunch = spawn(exe, [], {env:{...env,MDLXL_PROFILE:path.join(root,'remaining-profile')},stdio:'ignore',windowsHide:true});
+    const exitCode = await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(Error('Relaunch did not exit through the installation guard.')), 30000); relaunch.once('exit', code => { clearTimeout(timer); resolve(code); }); relaunch.once('error', reject); });
+    assert.equal(exitCode,0);
+    // A relaunch that has loaded this EXE but not yet left the guard must be waited for.
+    starting = spawn(exe, ['-e','setInterval(()=>{},1000)'], {env:{...env,ELECTRON_RUN_AS_NODE:'1'},stdio:'ignore',windowsHide:true});
+    await new Promise((resolve, reject) => { starting.once('spawn', resolve); starting.once('error', reject); });
     await fs.writeFile(path.join(root,'continue-verification'),'');
     await pause(3000);
-    assert.equal(await digest(exe),before,'Installer waits for the app reopened during verification');
+    assert.equal(await digest(exe),before,'Installer waits for a launch of this EXE that is still running during verification');
     await assert.rejects(fs.access(result));
-    await remaining.evaluate(({app}) => app.exit(0)); remaining = null;
+    starting.kill(); starting = null;
     await installing;
     assert.equal(JSON.parse(await fs.readFile(result,'utf8')).ok,true);
     assert.equal(await digest(exe),hash);
-    console.log('PASS locked EXE failure reporting and successful replacement after an app reopened during verification closes');
+    await assert.rejects(fs.access(lock),'the installation lock is released after installing');
+    console.log('PASS locked EXE failure reporting and guarded relaunch, and successful replacement after a launch running during verification closes');
   } finally {
+    if (holder) { await fs.writeFile(path.join(root,'exe-release'),'').catch(() => {}); await holder.catch(() => {}); }
+    if (starting) starting.kill();
+    // Never leave the paused test installer waiting after a failure.
+    await fs.writeFile(path.join(root,'continue-verification'),'').catch(() => {});
     for (const app of [owner,remaining]) if (app) await app.evaluate(({app}) => app.exit(0)).catch(() => {});
     // Only processes launched from this disposable test installation are owned here.
     const cleanup = path.join(root,'close.ps1');

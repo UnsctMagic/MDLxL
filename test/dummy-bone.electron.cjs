@@ -55,6 +55,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         throw Error('Active model was not found.');
       };
     });
+    // The tab appears before the first frame mounts the 3D viewport (about a second later without a graphics card).
+    await page.waitForFunction(() => { try { return !!pasteSummary(); } catch { return false; } });
     const before = await page.evaluate(() => pasteSummary()), sidebarWidth = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     if (scenario === 'node-order') assert.equal(before.ordered, false, 'fixture reproduces the general node-order rejection');
     else assert.ok(before.parent != null && before.parent !== -1, 'fixture reproduces the root-bone rejection');

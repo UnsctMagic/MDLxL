@@ -33,6 +33,8 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
     try{
       const page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
       await page.waitForFunction(()=>!!document.querySelector('.classic-app canvas'));
+      // waitForFunction treats an async predicate's Promise as truthy and returns at once.
+      const until=async check=>{for(const end=Date.now()+15000;!(await check());await new Promise(resolve=>setTimeout(resolve,100)))if(Date.now()>end)throw Error('Timed out waiting for updater state.');};
       const command=id=>app.evaluate(({BrowserWindow},id)=>BrowserWindow.getAllWindows()[0].webContents.send('menu',id),id);
       if(scenario==='startup'){
         const prompt=page.locator('[role="dialog"]').filter({has:page.locator('[data-hotkey="update:install"]')});
@@ -47,6 +49,7 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
         await help.locator('[data-hotkey="close"]').dispatchEvent('click');
         await command('about');const about=page.getByRole('dialog',{name:'About MDLxL'});await about.waitFor();assert.equal(await about.locator('.official-website a').count(),1);await about.locator('[data-hotkey="close"]').dispatchEvent('click');
         await command('settings');await page.locator('.settings-window').waitFor();
+        await page.locator('.settings-window [data-hotkey="tab:configuration"]').dispatchEvent('click');
         assert.equal(await page.locator('[data-hotkey="updates:startup"]').isChecked(),false);
         assert.equal(await page.locator('[data-hotkey="updates:revert"]').isEnabled(),true);
         await page.locator('[data-hotkey="updates:check"]').dispatchEvent('click');
@@ -58,11 +61,12 @@ const appRoot=process.env.MDLXL_TEST_APP_ROOT||root;
           assert.equal(await prompt.locator('a').count(),5);
           await prompt.locator('a').first().dispatchEvent('click');assert.match((await app.evaluate(()=>updaterTest.links)).at(-1),/RELEASE-0.19.0.md$/);
           await page.locator('[data-hotkey="update:install"]').dispatchEvent('click');
-          await page.waitForFunction(async()=>(await window.desktop.updateStatus()).state==='available');
+          // The prepared update is cancelled by the close confirmation and returns to "available".
+          await until(async()=>await app.evaluate(()=>updaterTest.installs)===1&&(await page.evaluate(()=>window.desktop.updateStatus())).state==='available');
           assert.equal(await app.evaluate(()=>updaterTest.installs),1);assert.ok(await app.evaluate(()=>updaterTest.closePrompts)>0,'cancel uses the existing close confirmation');
           await page.locator('[data-hotkey="update:later"]').dispatchEvent('click');
           await page.locator('[data-hotkey="updates:startup"]').dispatchEvent('click');
-          await page.waitForFunction(async()=>(await window.desktop.getSettings()).preferences.checkUpdatesOnStartup===true);
+          await until(async()=>(await page.evaluate(()=>window.desktop.getSettings())).preferences.checkUpdatesOnStartup===true);
         }
       }
       assert.deepEqual(errors,[]);console.log('PASS updater UI '+scenario);

@@ -7,7 +7,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
 (async () => {
   const [model, sequence = 'Attack - 1', ...presets] = process.argv.slice(2);
-  const rows = ['Original', ...(presets.length ? presets : ['Natural', 'Heavy'])];
+  const rows = ['Original', ...(presets.length ? presets : ['Default', 'Heavy'])];
   const out = path.resolve(process.env.MDLXL_ANIMXL_OUT || 'out/anim-xl-filmstrip'), frames = 9;
   const executablePath = path.resolve(process.env.MDLXL_ANIMXL_EXE || 'out/pkg/MDLxL-win32-x64/MDLxL.exe');
   fs.mkdirSync(out, { recursive: true });

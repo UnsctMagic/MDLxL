@@ -79,17 +79,14 @@ async function setRange(locator, value) {
     await main.locator('[data-hotkey="geosetsClear"]').click();
     await main.getByLabel('Select geoset 0', { exact: true }).check(); await main.getByLabel('Select geoset 2', { exact: true }).check();
     await main.getByLabel('3D model viewport', { exact: true }).click(); await main.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window'); await main.locator('[data-hotkey="uv"]').click(); uv = await opened;
-    uv.setDefaultTimeout(15000); uv.on('pageerror', error => errors.push(error.message));
-    const uvWindow = await app.browserWindow(uv);
-    await uvWindow.evaluate(window => { window.webContents.setBackgroundThrottling(false); window.setBounds({ x: -4000, y: 0, width: 1600, height: 1000 }); window.showInactive(); });
-    await uv.getByLabel('UV coordinate editor').waitFor();
+    uv = main; const uvw = main.locator('.uv-tab-window'); await main.locator('[data-hotkey="uv"]').click(); // in-app dialog since f7316110
+    await uvw.getByLabel('UV coordinate editor').waitFor();
     await uv.evaluate('window.ownerOf = ' + ownerOf.toString());
     await uv.evaluate('window.readDensityPreview = ' + readPreview.toString());
     await uv.waitForFunction(() => window.readDensityPreview().model.Geosets.length === 3);
     const initial = await uv.evaluate(readPreview);
-    assert.equal(await uv.locator('.uv-density-popup').count(), 0); checks.push('Compact default UV workspace');
-    const triangles = uv.getByRole('button', { name: 'Triangles', exact: true }), popup = uv.locator('.uv-density-popup');
+    assert.equal(await uvw.locator('.uv-density-popup').count(), 0); checks.push('Compact default UV workspace');
+    const triangles = uvw.getByRole('button', { name: 'Triangles', exact: true }), popup = uvw.locator('.uv-density-popup');
     const previewAt = async (amount, count) => {
       await triangles.click(); await popup.waitFor(); assert.equal(await popup.locator('select').count(), 0);
       assert.equal(await popup.locator('.mesh-density-labels').evaluate(element => getComputedStyle(element).display), 'grid', 'density slider styles must be present in the detached window');
@@ -116,7 +113,7 @@ async function setRange(locator, value) {
     assert.deepEqual(next.TVertices[0].slice(0, source.TVertices[0].length), source.TVertices[0]);
     assert.deepEqual(one.model.Geosets.slice(1), initial.model.Geosets.slice(1));
     assert.ok(!one.selection[0].includes(3));
-    const canvas = uv.locator('.uv-preview-canvas .game-preview-surface canvas').first(), bounds = await canvas.boundingBox();
+    const canvas = uvw.locator('.uv-preview-canvas .game-preview-surface canvas').first(), bounds = await canvas.boundingBox();
     await uv.mouse.move(bounds.x + bounds.width * .6, bounds.y + bounds.height * .6); await uv.mouse.down();
     await uv.mouse.move(bounds.x + bounds.width * .6 + 65, bounds.y + bounds.height * .6 + 35, { steps: 8 }); await uv.mouse.up();
     const rotated = await uv.evaluate(readPreview); assert.notDeepEqual(rotated.camera, one.camera); checks.push('Real mouse rotation while density preview is open');
@@ -134,13 +131,13 @@ async function setRange(locator, value) {
     assert.deepEqual((await uv.evaluate(readPreview)).model.Geosets, applied.model.Geosets); checks.push('Undo/redo preserves selected subdivision');
     assert.ok(fs.readFileSync(fixture).equals(original), 'Preview and Apply leave the input file unchanged before Save');
     const point = (await uv.evaluate(readUV)).points[9]; await uv.mouse.click(point.x, point.y);
-    await uv.getByRole('button', { name: 'Move', exact: true }).click();
+    await uvw.getByRole('button', { name: 'Move', exact: true }).click();
     await uv.mouse.move(point.x, point.y); await uv.mouse.down(); await uv.mouse.move(point.x + 35, point.y + 18, { steps: 6 }); await uv.mouse.up();
     const stretched = await uv.evaluate(readPreview);
     assert.notDeepEqual(stretched.model.Geosets[0].TVertices[0], applied.model.Geosets[0].TVertices[0]);
     assert.deepEqual(stretched.model.Geosets[0].Vertices, applied.model.Geosets[0].Vertices);
     assert.deepEqual(stretched.model.Nodes, initial.model.Nodes); checks.push('New UV control point can stretch the texture without changing the surface or rig');
-    await uv.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
+    await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
     await main.keyboard.press('Control+s');
     await main.waitForFunction(() => !document.querySelector('.classic-status')?.textContent.includes('Saving'));
     await main.waitForTimeout(700);

@@ -17,7 +17,7 @@ async function waitFor(check,timeout=30000){const end=Date.now()+timeout;while(D
   // Only these disposable fixture copies expose a debug port after the restart.
   const entry=path.join(target,'resources/app/electron/main.cjs');await fs.writeFile(entry,`require('electron').app.commandLine.appendSwitch('remote-debugging-port','0');
 require('electron').dialog.showMessageBox=async()=>({response:0});require('electron').dialog.showMessageBoxSync=()=>2;
-require('electron').app.on('browser-window-created',(_,win)=>win.webContents.on('ipc-message',(_,channel)=>{if(channel==='updates:startup')win.webContents.send('menu','settings');}));
+require('electron').app.on('browser-window-created',(_,win)=>win.webContents.on('ipc-message',(_,channel)=>{if(channel==='updates:startup')win.webContents.send('menu','configurationSettings');}));
 require('./updater.cjs').Updater.prototype.response=async function(url){
  const fs=require('node:fs/promises'),path=require('node:path'),fixture=path.resolve(__dirname,'../../../..');
  if(url.includes('api.github.com'))return new Response(await fs.readFile(path.join(fixture,'release.json')));
@@ -26,7 +26,9 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
 };
 `+await fs.readFile(entry,'utf8'));
   const baseline=JSON.parse(await fs.readFile(path.join(target,MANIFEST),'utf8'));baseline.files['resources/app/electron/main.cjs']=await digest(entry);baseline.files['resources/app/electron/update-install.ps1']=await digest(path.join(target,'resources/app/electron/update-install.ps1'));await fs.writeFile(path.join(target,MANIFEST),JSON.stringify(baseline));
-  await fs.cp(target,source,{recursive:true});
+  // The future release is a clean package: user content beside the installed copy
+  // (for example Showcase Recordings) is never part of an official ZIP.
+  await fs.cp(target,source,{recursive:true,filter:file=>!/^(?:Showcase Recordings|resources[\\/]app[\\/]profile|\.mdlxl-previous)(?:[\\/]|$)/i.test(path.relative(target,file))});
   const current=JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version;
   const version=current.split('.').map((part,index)=>index===2?Number(part)+1:part).join('.'), info=JSON.parse(await fs.readFile(path.join(source,'resources/app/package.json'),'utf8'));info.version=version;await fs.writeFile(path.join(source,'resources/app/package.json'),JSON.stringify(info));
   // Keep a valid PE image but force a real running-executable replacement.
@@ -39,12 +41,15 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
   const release={tag_name:'v'+version,html_url:'https://github.com/UnsctMagic/MDLxL/releases/tag/v'+version,body:'- Verified portable update.',assets:[{name:`MDLxL-${version}-win32-x64.zip`,size:(await fs.stat(archive)).size,digest:'sha256:'+await digest(archive),browser_download_url:`https://github.com/UnsctMagic/MDLxL/releases/download/v${version}/MDLxL-${version}-win32-x64.zip`}]};
   await fs.writeFile(path.join(fixture,'release.json'),JSON.stringify(release));
   const launcher=path.join(fixture,'launch.ps1');await fs.writeFile(launcher,'param($Executable,$Directory)\nStart-Process -FilePath $Executable -WorkingDirectory $Directory -WindowStyle Hidden\n');
-  await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',launcher,path.join(target,'MDLxL.exe'),target],{windowsHide:true,env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile}});
+  // Stage the download inside this disposable fixture instead of the user's TEMP folder.
+  const temp=path.join(fixture,'temp');await fs.mkdir(temp,{recursive:true});
+  await run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',launcher,path.join(target,'MDLxL.exe'),target],{windowsHide:true,env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile,TEMP:temp,TMP:temp}});
   async function connect(){const port=await waitFor(async()=>{try{const port=(await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];const response=await fetch('http://127.0.0.1:'+port+'/json/version');return response.ok?port:false;}catch{return false;}});return chromium.connectOverCDP('http://127.0.0.1:'+port);}
   const initialBrowser=await connect();ownedBrowser=initialBrowser;const initial=await waitFor(()=>initialBrowser.contexts()[0]?.pages()[0]);initial.setDefaultTimeout(15000);await initial.waitForFunction(()=>!!document.querySelector('.classic-app canvas'));
   assert.equal((await initial.evaluate(()=>window.desktop.updateStatus())).currentVersion,current);
   await initial.locator('[data-hotkey="updates:check"]').dispatchEvent('click');await initial.locator('[data-hotkey="update:install"]').waitFor();
-  const updating=initial.waitForEvent('close');await initial.locator('[data-hotkey="update:install"]').dispatchEvent('click');
+  // The window closes only after the full package is copied, extracted and verified.
+  const updating=initial.waitForEvent('close',{timeout:300000});await initial.locator('[data-hotkey="update:install"]').dispatchEvent('click');
   await updating;await waitFor(async()=>JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version===version);
   await initialBrowser.close();ownedBrowser=null;
   const updatedBrowser=await connect();ownedBrowser=updatedBrowser;const page=await waitFor(()=>updatedBrowser.contexts()[0]?.pages()[0]);await page.waitForFunction(()=>!!window.desktop?.updateStatus);
@@ -53,7 +58,7 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
   await waitFor(async()=>(await page.evaluate(()=>window.desktop.updateStatus())).state==='current');
   assert.equal(await page.locator('[data-hotkey="update:install"]').count(),0,'No repeat update prompt after the restarted version checks the same release');
   await page.locator('.settings-window').waitFor();assert.equal(await page.locator('[data-hotkey="updates:revert"]').isEnabled(),true);
-  const closing=page.waitForEvent('close');
+  const closing=page.waitForEvent('close',{timeout:300000});
   await page.locator('[data-hotkey="updates:revert"]').dispatchEvent('click');
   await closing;
   // Do not send Browser.close during MDLxL's asynchronous shutdown.

@@ -20,19 +20,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Select geoset 0', {exact:true}).check();
     await page.locator('[aria-label="3D model viewport"]').click();
     await page.keyboard.press('Control+a');
-    const opened = app.waitForEvent('window');
-    await page.locator('[data-hotkey="uv"]').click(); uv = await opened; uv.setDefaultTimeout(15000);
+    uv = page; const uvw = page.locator('.uv-tab-window');
+    await page.locator('[data-hotkey="uv"]').click();
     await app.evaluate(({BrowserWindow}) => {for(const window of BrowserWindow.getAllWindows()){window.webContents.setBackgroundThrottling(false);window.setPosition(-3000,0);window.showInactive();}});
-    await uv.locator('.uv-grid-toolbar').waitFor();
-    const viewLimit = uv.getByLabel('UV map tile limit');
+    await uvw.locator('.uv-grid-toolbar').waitFor();
+    const viewLimit = uvw.getByLabel('UV map tile limit');
     assert.equal(await viewLimit.inputValue(), '7');
-    const wrapButton = uv.getByRole('button', {name:'Disable Wrapping', exact:true});
+    const wrapButton = uvw.getByRole('button', {name:/^(Enable|Disable) Wrapping$/}); // label follows the fixture's texture flags
     const [wrapBox, limitBox] = await Promise.all([wrapButton.boundingBox(), viewLimit.boundingBox()]);
-    assert.ok(wrapBox && limitBox && limitBox.x > wrapBox.x && Math.abs(limitBox.y - wrapBox.y) < 8, '7x7 view limit is beside Disable Wrapping');
+    assert.ok(wrapBox && limitBox && limitBox.x > wrapBox.x && Math.abs(limitBox.y - wrapBox.y) < 8, '7x7 view limit is beside the wrapping button');
     await viewLimit.fill('12');
     assert.equal(await viewLimit.inputValue(), '12');
-    if(await uv.getByRole('button', {name:'Disable Wrapping', exact:true}).isVisible())await uv.getByRole('button', {name:'Disable Wrapping', exact:true}).click();
-    await uv.getByRole('button', {name:'Enable Wrapping', exact:true}).waitFor();
+    if(await uvw.getByRole('button', {name:'Disable Wrapping', exact:true}).isVisible())await uvw.getByRole('button', {name:'Disable Wrapping', exact:true}).click();
+    await uvw.getByRole('button', {name:'Enable Wrapping', exact:true}).waitFor();
     await uv.evaluate(() => {
       window.uvState = () => {
         const root = document.querySelector('.uv-workspace');
@@ -42,7 +42,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         throw Error('UV workspace props not found');
       };
       window.nativeState = () => {
-        const root = document.querySelector('.game-preview-root');
+        const root = document.querySelector('.uv-tab-window .game-preview-root');
         if (!root) return null;
         let fiber = root[Object.keys(root).find(key=>key.startsWith('__reactFiber'))];
         for (;fiber;fiber=fiber.return) for(let h=fiber.memoizedState;h;h=h.next) if(h.memoizedState?.current?.native) return h.memoizedState.current.native;
@@ -64,11 +64,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await uv.waitForFunction(()=>uvState().model.Geosets[0].TVertices[0][0]>1);
     await uv.screenshot({path:path.join(out,'before.png')});
     const shifted = await uv.evaluate(()=>JSON.stringify(uvState().model));
-    const order = await uv.locator('.uv-grid-toolbar > button').allTextContents();
-    assert.deepEqual(order.slice(0,2), ['Enable Wrapping','Grid']);
-    await uv.getByRole('button', {name:'Enable Wrapping', exact:true}).click();
+    const order = await uvw.locator('.uv-grid-toolbar > button').allTextContents();
+    assert.deepEqual(order.slice(0,2), ['Enable Wrapping','Triangles']); // Triangles density follows wrapping since 629109aa
+    await uvw.getByRole('button', {name:'Enable Wrapping', exact:true}).click();
     await uv.waitForFunction(()=>sampling()?.every(v=>v===10497)); // REPEAT
-    assert.ok(await uv.getByRole('button',{name:'Disable Wrapping',exact:true}).isEnabled());
+    assert.ok(await uvw.getByRole('button',{name:'Disable Wrapping',exact:true}).isEnabled());
     const after = await uv.evaluate(()=>JSON.stringify(uvState().model));
     const expected = JSON.parse(shifted);
     const material=expected.Materials[expected.Geosets[0].MaterialID];
@@ -76,17 +76,17 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(JSON.parse(after), expected);
     await uv.screenshot({path:path.join(out,'enabled.png')});
     // Both states stay clickable: exercise the actual button in each direction.
-    await uv.getByRole('button',{name:'Disable Wrapping',exact:true}).click();
+    await uvw.getByRole('button',{name:'Disable Wrapping',exact:true}).click();
     await uv.waitForFunction(()=>sampling()?.every(v=>v===33071));
     assert.equal(await uv.evaluate(()=>JSON.stringify(uvState().model)), shifted);
     const unusedTextureSpaceIsBlack = await uv.evaluate(() => {
-      const canvas = document.querySelector('[aria-label="UV coordinate editor"]'), context = canvas?.getContext('2d');
+      const canvas = document.querySelector('.uv-tab-window [aria-label="UV coordinate editor"]'), context = canvas?.getContext('2d');
       return context && [[1, 1], [canvas.width - 2, 1], [1, canvas.height - 2], [canvas.width - 2, canvas.height - 2]]
         .every(([x, y]) => Array.from(context.getImageData(x, y, 1, 1).data).slice(0, 3).every(value => value === 0));
     });
     assert.ok(unusedTextureSpaceIsBlack, 'clamped UV space outside the base tile is black');
     await uv.screenshot({path:path.join(out,'disabled.png')});
-    await uv.getByRole('button',{name:'Enable Wrapping',exact:true}).click();
+    await uvw.getByRole('button',{name:'Enable Wrapping',exact:true}).click();
     await uv.waitForFunction(()=>sampling()?.every(v=>v===10497));
     assert.equal(await uv.evaluate(()=>JSON.stringify(uvState().model)), after);
     await uv.keyboard.press('Control+z');

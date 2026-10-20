@@ -151,10 +151,12 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
     await page.waitForFunction(()=>document.querySelector('.showcase-capture-status')?.textContent.includes('Capturing GIF frames'),null,{timeout:30000});await stop.click();await ready();await app.evaluate(()=>global.frameDelay=0);
     cancelled=await events();assert.ok(cancelled.some(row=>row.channel==='preview:recordFrame'));assert.ok(cancelled.some(row=>row.channel==='preview:recordDiscard'));assert.ok(cancelled.every(row=>!['preview:recordFinish','preview:recordSave'].includes(row.channel)));
     console.log('PASS STOP cancels preparation, live recording and frame capture without finish/save');
+    // Recordings land beside the shared package, so earlier runs' GIFs stay there; count only this take's file.
+    const directory=path.join(packaged,'Showcase Recordings','ShowcaseActions'),gifs=()=>fs.existsSync(directory)?fs.readdirSync(directory).filter(name=>name.endsWith('.gif')):[],earlier=new Set(gifs());
     await reset();await record.click();await page.waitForFunction(()=>document.querySelector('.showcase-record')?.textContent==='RECORD',null,{timeout:90000});
     await page.waitForFunction(()=>![...document.querySelectorAll('.showcase-capture-status')].some(node=>node.textContent.includes('Making GIFs')),null,{timeout:120000});
     assert.ok((await events()).some(row=>row.channel==='preview:recordFinish'));assert.ok((await events()).some(row=>row.channel==='preview:recordSave'));
-    const directory=path.join(packaged,'Showcase Recordings','ShowcaseActions'),files=fs.readdirSync(directory).filter(name=>name.endsWith('.gif'));assert.equal(files.length,1);
+    const files=gifs().filter(name=>!earlier.has(name));assert.equal(files.length,1);
     const bytes=fs.readFileSync(path.join(directory,files[0]));let offset=13+(bytes[10]&128?3*(1<<((bytes[10]&7)+1)):0),duration=0,frames=0;
     const blocks=()=>{while(bytes[offset])offset+=bytes[offset]+1;offset++;};
     while(offset<bytes.length){const type=bytes[offset++];if(type===0x3b)break;
