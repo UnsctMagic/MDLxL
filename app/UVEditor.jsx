@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { applySelection, connectedVertices, insideTriangle } from './classic-gestures.js';
 import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText, wheelPixels } from './viewport-performance.js';
-import { cameraBindings, uvTransformSensitivity, visualOptions } from '../src/preferences.js';
+import { cameraBindings, isTextEditingTarget, uvTransformSensitivity, visualOptions } from '../src/preferences.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { eligibleUVVertices, eligibleUVFaces, restrictUVChange } from '../src/uv-selection.js';
 import { collapseUVCoordinates, foldUVCoordinates } from '../src/uv-tools.js';
@@ -274,6 +274,14 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     }
     const contextMenu = event => event.preventDefault();
     const cancelKey = event => { if (event.key === 'Escape' && s.drag) { cancelGesture(); event.preventDefault(); } };
+    const nudgeKey = event => {
+      const key = event.detail, p = current.current, workspace = container.closest('.uv-workspace') || container;
+      if (!workspace.contains(key.target) || isTextEditingTarget(key.target) || key.target.closest?.('[role="separator"]') || key.defaultPrevented || key.isComposing || key.ctrlKey || key.metaKey || key.altKey || p.suspended || s.drag || !selection().length) return;
+      const direction = { Numpad7: [-1, -1], Numpad8: [0, -1], Numpad9: [1, -1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad1: [-1, 1], Numpad2: [0, 1], Numpad3: [1, 1] }[key.code];
+      if (!direction) return;
+      key.preventDefault(); key.stopImmediatePropagation(); event.preventDefault();
+      action({ detail: { kind: 'move', value: direction.map(value => value * .005) } });
+    };
     const unbindScroll = bindScrollSensitivity(element, {
       getPreferences: () => current.current.preferences,
       onChange: value => current.current.onSensitivityChange?.(value),
@@ -287,11 +295,11 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     });
     element.addEventListener('pointerdown', pointerDown); element.addEventListener('pointermove', pointerMove); element.addEventListener('pointerup', pointerUp); element.addEventListener('pointercancel', cancelGesture); element.addEventListener('contextmenu', contextMenu);
     ownerDocument.addEventListener('visibilitychange', draw);
-    window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey);
+    window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey); window.addEventListener('mdlxl-uv-key', nudgeKey);
     return () => {
       observer.disconnect(); unbindScroll(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
       element.removeEventListener('pointerdown', pointerDown); element.removeEventListener('pointermove', pointerMove); element.removeEventListener('pointerup', pointerUp); element.removeEventListener('pointercancel', cancelGesture); element.removeEventListener('contextmenu', contextMenu);
-      window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey);
+      window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-uv-key', nudgeKey);
     };
   }, []);
   useEffect(() => { state.current.resize?.(); }, [graphics.pixelRatio, suspended, graphics.pauseWhenHidden]);
