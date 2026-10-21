@@ -1,4 +1,4 @@
-# MDLxL 0.28.1
+# MDLxL 0.28.2
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -27,7 +27,7 @@ The `dist/` build output and the FFmpeg binaries are not stored in git. After pu
 
 ## Current version
 
-Version 0.28.1 is a hotfix: the UV Wrapper texture warning no longer flickers on slower PCs, all reviewed particle effect names are back and now survive library rebuilds and game updates, and the unsupported spawned-effect message is translated again for every model format. It builds on 0.28.0, which adds the Bone influence view to Movement (a see-through ghost with the skeleton on top, and the selected bone's parts in orange) and makes Settings → Appearance one page at a time, with bone styles, connector styles, Hidden-line wires and bone colors that apply again. Sort My Mess lists what a model has before you choose fixes, Citadel Paint gains sharper stamps, Smudge, clipboard round trips and stroke history, Forge cuts and extrusions keep the simplest geometry, and OptimizeXL warns about skinned vertices that blend a bone scaled to zero. Configuration import works again, spawned effects from Warcraft III 3.0.1 preview again, and MDLxL runs better on PCs without a graphics card.
+Version 0.28.2 reduces the cost of displaying Bones, Skeleton and attachment markers while preserving their artwork and controls. Collected Bits keep their own materials when saved or reused, loose vertices can be welded before creating triangles, and project credits and technical attributions have been updated. It includes all changes merged since 0.28.1.
 
 ## Releases
 
@@ -41,6 +41,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.28.2](docs/RELEASE-0.28.2.md) ([ES](docs/RELEASE-0.28.2-ES.md), [RU](docs/RELEASE-0.28.2-RU.md), [ZH-CN](docs/RELEASE-0.28.2-ZH-CN.md))
 - [0.28.1](docs/RELEASE-0.28.1.md) ([ES](docs/RELEASE-0.28.1-ES.md), [RU](docs/RELEASE-0.28.1-RU.md), [ZH-CN](docs/RELEASE-0.28.1-ZH-CN.md))
 - [0.28.0](docs/RELEASE-0.28.0.md) ([ES](docs/RELEASE-0.28.0-ES.md), [RU](docs/RELEASE-0.28.0-RU.md), [ZH-CN](docs/RELEASE-0.28.0-ZH-CN.md))
 - [0.27.0](docs/RELEASE-0.27.0.md) ([ES](docs/RELEASE-0.27.0-ES.md), [RU](docs/RELEASE-0.27.0-RU.md), [ZH-CN](docs/RELEASE-0.27.0-ZH-CN.md))
