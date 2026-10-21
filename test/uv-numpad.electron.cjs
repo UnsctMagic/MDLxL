@@ -23,8 +23,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => {
       const win = BrowserWindow.getAllWindows()[0];
-      win.setBounds({ x: -3000, y: 0, width: 1440, height: 1000 }); win.showInactive();
-    });
+      win.setContentSize(1440, 1000);
+      win.webContents.setBackgroundThrottling(false);
+      return { visible: win.isVisible(), focused: win.isFocused() };
+    }).then(state => assert.deepEqual(state, { visible: false, focused: false }));
     await page.getByLabel('3D model viewport', { exact: true }).waitFor();
     await page.evaluate(() => {
       window.uvProps = (selector, key) => {
@@ -47,16 +49,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('3D model viewport', { exact: true }).focus();
     await page.keyboard.press('Control+a');
     await page.locator('[data-hotkey="uv"]').click();
+    assert.equal(await page.getByLabel('Numpad nudge multiplier', { exact: true }).count(), 0);
+    assert.equal(await page.locator('#uv-layout-console,#uv-layout-inspector').count(), 0);
+    checks.push('Original UI has no nudge slider or layout console');
     const canvas = page.getByLabel('UV coordinate editor', { exact: true });
     await canvas.waitFor();
     await page.evaluate(() => uvProps('.uv-editor', 'geoset').onSelectVertices([0, 1]));
     await page.waitForFunction(() => uvProps('.uv-editor', 'geoset').selectedVertices.length === 2);
     const baseline = await page.evaluate(() => uvValues()), modelBefore = await page.evaluate(() => modelSnapshot());
     const selected = await page.evaluate(() => uvProps('.uv-editor', 'geoset').selectedVertices);
-    const assertOffset = async (dx, dy, multiplier = 5) => {
+    const assertOffset = async (dx, dy) => {
       const actual = await page.evaluate(() => uvValues());
       baseline.forEach((value, index) => {
-        const delta = selected.includes(Math.floor(index / 2)) ? (index % 2 ? dy : dx) * .001 * multiplier : 0;
+        const delta = selected.includes(Math.floor(index / 2)) ? (index % 2 ? dy : dx) * .005 : 0;
         assert.ok(Math.abs(actual[index] - (value + delta)) < 1e-6, `UV ${index}: ${actual[index]} != ${value + delta}`);
       });
       const before = JSON.parse(modelBefore), after = JSON.parse(await page.evaluate(() => modelSnapshot()));
@@ -74,23 +79,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await cdp.send('Input.dispatchKeyEvent', { ...data, type: 'rawKeyDown', autoRepeat: repeat });
       await cdp.send('Input.dispatchKeyEvent', { ...data, type: 'keyUp' });
     };
-    const multiplier = page.getByRole('slider', { name: 'Numpad nudge multiplier', exact: true });
-    assert.equal(await multiplier.getAttribute('min'), '1');
-    assert.equal(await multiplier.getAttribute('max'), '30');
-    assert.equal(await multiplier.inputValue(), '5');
-    assert.equal(await multiplier.locator('..').locator('output').textContent(), '×5');
-    const titleBounds = await page.locator('.uv-toolbox > .uv-panel-title').boundingBox();
-    const sliderBounds = await multiplier.boundingBox();
-    assert.ok(titleBounds.height <= 40 && sliderBounds.x >= titleBounds.x && sliderBounds.x + sliderBounds.width <= titleBounds.x + titleBounds.width, 'Slider stays inside the existing compact Tools title row');
-    await multiplier.press('Home'); assert.equal(await multiplier.inputValue(), '1');
-    await key(6, true); await assertOffset(1, 0, 1); await undo();
-    await multiplier.press('End'); assert.equal(await multiplier.inputValue(), '30');
-    await key(9, true); await assertOffset(1, -1, 30); await undo();
-    await multiplier.press('Home');
-    for (let i = 0; i < 4; i++) await multiplier.press('ArrowRight');
-    assert.equal(await multiplier.inputValue(), '5');
-    assert.equal(await page.evaluate(() => modelSnapshot()), modelBefore);
-    checks.push('Compact slider defaults to ×5, supports ×1 through ×30, and numpad edits immediately use the chosen multiplier');
     for (const numLock of [true, false]) {
       for (const [digit, dx, dy] of [[7, -1, -1], [8, 0, -1], [9, 1, -1], [4, -1, 0], [6, 1, 0], [1, -1, 1], [2, 0, 1], [3, 1, 1]]) {
         await canvas.focus(); await key(digit, numLock);
@@ -138,17 +126,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(before => modelSnapshot() !== before, modelBefore);
     await undo();
     checks.push('Existing mouse Move and Undo remain usable');
+    const capturePreview = () => app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true })).toPNG().toString('base64'));
     const preview = page.locator('.uv-preview-canvas canvas[data-clean-model-canvas]');
-    await preview.waitFor(); const imageBefore = await preview.screenshot(), box = await preview.boundingBox();
+    await preview.waitFor(); const imageBefore = await capturePreview(), box = await preview.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down(); await page.mouse.move(box.x + box.width * .7, box.y + box.height * .65, { steps: 12 }); await page.mouse.up();
-    assert.ok(!(await preview.screenshot()).equals(imageBefore), 'Live preview rotates with the mouse');
+    assert.notEqual(await capturePreview(), imageBefore, 'Live preview rotates with the mouse');
     checks.push('Live model preview rotates with an actual mouse drag');
+    assert.deepEqual(await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; return { visible: win.isVisible(), focused: win.isFocused() }; }), { visible: false, focused: false });
     assert.deepEqual(errors, []); assert.ok(fs.readFileSync(fixture).equals(original));
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ passed: true, checks, rendererErrors: errors, fixtureUnchanged: true }, null, 2));
     console.log('PASS ' + checks.join('; '));
   } catch (error) {
-    if (page) await page.screenshot({ path: path.join(out, 'failure.png') }).catch(() => {});
+    if (page) await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined, { stayHidden: true })).toPNG().toString('base64')).then(data => fs.writeFileSync(path.join(out, 'failure.png'), Buffer.from(data, 'base64'))).catch(() => {});
     throw error;
   } finally {
     await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
