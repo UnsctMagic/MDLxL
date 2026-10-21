@@ -29,6 +29,8 @@ test('bone markers follow the chosen style and the user colours, keeping highlig
   const classic = prefsWith({});
   assert.equal(markerStyle(child, byId, classic).color, '#4cff59');
   assert.equal(markerStyle(root, byId, classic).color, '#4cb259');
+  assert.equal(markerStyle({ ...child, helperNode: true }, byId, prefsWith({ style: 'joint' })).shape, JOINT_SPHERE);
+  assert.equal(markerStyle({ ...child, helperNode: true }, byId, prefsWith({ style: 'stick' })).shape, STICK_JOINT);
   assert.equal(markerStyle(child, byId, classic).shape.faces.length, 6, 'Cubes keeps the cube');
   const joint = prefsWith({ style: 'joint', bone: '#112233', selected: '#00ffff' });
   assert.equal(markerStyle(child, byId, joint).shape, JOINT_SPHERE);
@@ -93,4 +95,35 @@ test('Appearance shows one page at a time, with Bones & skeleton and Bone influe
   for (const label of ['aria-label="Bone style"', 'aria-label="Connector style"', 'aria-label="Wire style"', 'label="Ghost opacity"', 'label="Chain highlight thickness"']) assert.ok(settings.includes(label), label);
   assert.match(settings, /title=\{BONE_STYLE_TIP\}/); assert.match(settings, /title=\{BONE_CONNECTOR_TIP\}/); assert.match(settings, /title=\{WIRE_MODE_TIP\}/);
   assert.ok(!settings.includes("['occludedOpacity', 'Hidden wire intensity'"), 'Hidden wire intensity moved to Wires');
+});
+
+
+test('each appearance owns distinct green, purple and pink markers and custom colours round trip', () => {
+  const colors = [];
+  for (const preset of Object.values(BUILT_IN_VIEWPORT_PRESETS)) {
+    const { bones, selectedVertex, unselectedVertex } = preset.appearance;
+    const ordinary = [bones.bone, bones.root, bones.helper, bones.ref];
+    assert.equal(new Set(ordinary).size, ordinary.length, preset.name);
+    for (const c of ordinary) assert.ok(![selectedVertex.color, unselectedVertex.color].includes(c), preset.name + ' differs from vertices');
+    const rgb = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+    const [r,g,b] = rgb(bones.bone); assert.ok(g > r && g > b, preset.name + ' green bones');
+    const [hr,hg,hb] = rgb(bones.helper); assert.ok(hb > hr && hr > hg, preset.name + ' purple helpers');
+    const [rr,rg,rb] = rgb(bones.ref); assert.ok(rr > rb && rb > rg, preset.name + ' pink refs');
+    colors.push(bones.helper + bones.ref);
+    const missing = structuredClone(preset.appearance); delete missing.bones.helper; delete missing.bones.ref;
+    const migrated = normalizePreferences({ rendererRevision: 3, theme: preset.theme, viewportPreset: preset.id, viewportAppearance: missing });
+    assert.equal(migrated.viewportAppearance.bones.helper, bones.helper);
+    assert.equal(migrated.viewportAppearance.bones.ref, bones.ref);
+  }
+  assert.equal(new Set(colors).size, 7);
+  const appearance = structuredClone(BUILT_IN_VIEWPORT_PRESETS['blender-style'].appearance);
+  appearance.bones.helper = '#c144ff'; appearance.bones.ref = '#ff22aa';
+  const prefs = normalizePreferences({ rendererRevision: 3, theme: 'dark', viewportAppearance: appearance,
+    viewportPresets: [{ id: 'custom-rig', name: 'My rig colors', theme: 'dark', appearance }] });
+  assert.deepEqual(normalizePreferences(JSON.parse(JSON.stringify(prefs))), prefs);
+  const helper = { node: { ObjectId: 0 }, overlayKind: 'bones', helperNode: true };
+  const ref = { node: { ObjectId: 1 }, overlayKind: 'attachments' };
+  assert.equal(markerStyle(helper, new Map(), prefs).color, '#c144ff');
+  assert.equal(markerStyle(ref, new Map(), prefs).color, '#ff22aa');
+  assert.equal(markerStyle(ref, new Map(), prefs, new Map([[1, '#ff0000']])).color, appearance.bones.selected);
 });

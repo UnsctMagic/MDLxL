@@ -29,7 +29,7 @@ export const BONE_STYLE_TIP = 'How bones are drawn. Cubes and shaded lines is th
 export const BONE_CONNECTOR_TIP = 'How the link between two joints is drawn. Shaded fades from dark at the parent to light at the child; Tapered narrows towards the child. The selected chain is highlighted in the same shape.';
 export const WIRE_MODE_TIP = 'All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.';
 const BONE_STYLE_LABELS = [['cubes', 'Cubes and shaded lines'], ['joint', 'Joint and cone'], ['stick', 'Stick']];
-const BONE_COLOR_LABELS = [['bone', 'Bone'], ['root', 'Root bone'], ['selected', 'Selected bone'], ['parent', 'Parent bone'], ['child', 'Child bones']];
+const BONE_COLOR_LABELS = [['bone', 'Bone'], ['root', 'Root bone'], ['helper', 'Helpers'], ['ref', 'Refs'], ['selected', 'Selected bone'], ['parent', 'Parent bone'], ['child', 'Child bones']];
 const INFLUENCE_COLOR_LABELS = [['ghost', 'Ghost'], ['direct', 'Moved by the bone'], ['follow', 'Follows through child bones']];
 
 /** A small chain drawn the way the viewport draws bones: an ordinary link, then the selected bone and its child highlighted. */
@@ -408,13 +408,13 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           <Numeric label="Citadel border thickness" id="citadel:borderThickness" min={1} max={6} value={prefs.citadelPaint.borderThickness} onChange={borderThickness=>commit({citadelPaint:{...prefs.citadelPaint,borderThickness}})}/>
           <button onClick={()=>commit({citadelPaint:DEFAULT_PAINT_APPEARANCE})}>Reset Citadel colours</button>
         </div></AppearanceSection>
-        <AppearanceSection title="Bones & skeleton">
+        <AppearanceSection title="Bones & skeleton" palette={partPalette('bones', 'Bones & skeleton')}>
           <BonePreview bones={prefs.viewportAppearance.bones} background={prefs.viewportAppearance.background.color}/>
           <label className="settings-select" title={BONE_STYLE_TIP}><span>Bone style</span><select aria-label="Bone style" title={BONE_STYLE_TIP} value={prefs.viewportAppearance.bones.style} onChange={event => viewportPart('bones', { style: event.target.value })}>{BONE_STYLE_LABELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           {prefs.viewportAppearance.bones.style === 'joint' ? <p className="settings-hint">Joint and cone always links joints with cones.</p> : <label className="settings-select" title={BONE_CONNECTOR_TIP}><span>Connector style</span><select aria-label="Connector style" title={BONE_CONNECTOR_TIP} value={prefs.viewportAppearance.bones.connector} onChange={event => viewportPart('bones', { connector: event.target.value })}><option value="shaded">Shaded</option><option value="tapered">Tapered</option></select></label>}
           <AppearanceColors colors={BONE_COLOR_LABELS} value={prefs.viewportAppearance.bones} prefix="Bones" onChange={change => viewportPart('bones', change)}/>
           <div className="settings-graphics-grid"><Numeric id="appearance:bones:thickness" label="Connector thickness" value={prefs.viewportAppearance.bones.thickness} min={1} max={12} unit="px" onChange={thickness => viewportPart('bones', { thickness })}/><Numeric id="appearance:bones:highlight" label="Chain highlight thickness" value={prefs.viewportAppearance.bones.highlightThickness} min={1} max={16} unit="px" onChange={highlightThickness => viewportPart('bones', { highlightThickness })}/></div>
-          <button onClick={() => viewport({ bones: DEFAULT_BONE_APPEARANCE })}>Reset bones and skeleton</button>
+          <button onClick={() => viewport({ bones: (BUILT_IN_VIEWPORT_PRESETS[prefs.viewportPreset] || Object.values(BUILT_IN_VIEWPORT_PRESETS).find(preset => preset.theme === prefs.theme)).appearance.bones })}>Reset bones and skeleton</button>
         </AppearanceSection>
         <AppearanceSection title="Bone influence">
           <p className="settings-hint">{BONE_INFLUENCE_TIP}</p>

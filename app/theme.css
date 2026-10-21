@@ -89,3 +89,10 @@ html[lang=mordor] .language-switch,html[lang=mordor] .language-switch *{font-fam
 :root[data-palette] :is(.resource-editor .re-list button.re-selected small,.paint-start-options button[aria-pressed=true] span){color:var(--ui-selected-text)}
 
 :root[data-palette]{--functional-axis-x:var(--ui-channel-r);--functional-axis-y:var(--ui-channel-g);--functional-axis-z:var(--ui-channel-b);--ui-disabled:var(--ui-muted)}
+
+/* Outline colored UI text, leaving grayscale text transparent at the stroke.
+   Relative color resolves per element, including dynamically chosen colors. */
+:root body *:not(svg):not(svg *), :root body svg text {
+  -webkit-text-stroke: .2px rgb(from currentColor 0 0 0 / clamp(0, calc((max(r, g, b) - min(r, g, b) - 16) / 16), 1));
+  paint-order: stroke fill;
+}

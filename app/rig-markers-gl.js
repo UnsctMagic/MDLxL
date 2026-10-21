@@ -21,7 +21,8 @@ const MARKER_LIGHT = new Vector3(-.35, -.45, 1.2).normalize();
 export function boneHighlightColors(nodes, selectedIds) {
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point]));
   const boneIds = new Set(nodes.filter(point => point.overlayKind === 'bones').map(point => point.node.ObjectId));
-  const selected = new Set((selectedIds || []).filter(id => boneIds.has(id)));
+  const selectableIds = new Set(nodes.filter(point => point.overlayKind === 'bones' || point.overlayKind === 'attachments').map(point => point.node.ObjectId));
+  const selected = new Set((selectedIds || []).filter(id => selectableIds.has(id)));
   if (!selected.size) return new Map();
   const parents = new Set(), children = new Set(), byParent = new Map();
   for (const point of nodes) {
@@ -46,24 +47,22 @@ export function boneHighlightColors(nodes, selectedIds) {
 export function markerStyle(point, byId, preferences, highlightColors = new Map(), vanilla = false, visual = visualOptions(preferences)) {
   const highlighted = highlightColors.get(point.node.ObjectId);
   const symbolKind = point.overlayKind === 'events' ? ({SPL:'blood',FPT:'foot',UBR:'uber'}[point.node.Name?.slice(0,3).toUpperCase()]) : point.overlayKind;
+  const bones = boneDisplayOptions(preferences);
+  if (point.overlayKind === 'attachments') return { shape: vanilla ? TETRA : NODE_SYMBOLS.attachments, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.ref };
+  if (point.helperNode) return { shape: bones.style === 'joint' ? JOINT_SPHERE : bones.style === 'stick' ? STICK_JOINT : CUBE, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.helper };
   if (!vanilla && NODE_SYMBOL_COLORS[symbolKind]) return { shape:NODE_SYMBOLS[symbolKind], color:highlighted || NODE_SYMBOL_COLORS[symbolKind] };
-  if (point.overlayKind === 'attachments') {
-    const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
-    return { shape: TETRA, color: highlighted || (hasParentBone ? visual.node : '#6666e5') };
-  }
   if (point.overlayKind === 'particles' || vanilla && point.overlayKind === 'ribbons') return { shape: vanilla?TETRA:preferences?.emitterMarker==='tetrahedron'?TETRA:preferences?.emitterMarker==='cube'?CUBE:PENTAGRAM, color: highlighted || visual.particle };
   if (point.overlayKind === 'bones') {
-    const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones', bones = boneDisplayOptions(preferences);
+    const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
     return { shape: bones.style === 'joint' ? JOINT_SPHERE : bones.style === 'stick' ? STICK_JOINT : CUBE, color: boneDisplayColor(bones, highlighted, hasParentBone) };
   }
-  if (point.helperNode) return { shape: CUBE, color: highlighted || visual.bone };
   if (point.eventNode) return { shape: TETRA, color: highlighted || visual.event };
   return { shape: TETRA, color: highlighted || point.displayColor || visual.node };
 }
 
 export function rigMarkerVisible(point, options, highlights) {
   const kind = point.overlayKind || 'nodes';
-  return !!options[kind] || kind === 'bones' && !!options.focusedBoneMarkers && !!highlights.get(point.node.ObjectId);
+  return (point.helperNode ? !!(options.helpers ?? options.bones) : !!options[kind]) || kind === 'bones' && !!options.focusedBoneMarkers && !!highlights.get(point.node.ObjectId);
 }
 
 export function rigMarkerSize(point, shape, options = {}, visual = visualOptions(options.preferences)) {

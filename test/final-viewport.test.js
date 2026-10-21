@@ -67,7 +67,7 @@ test('bone/helper cubes retain reference size, roots differ, attachments are tet
   const context = new Proxy({ rect(...args) { boxes.push(args); }, fill() { colors.push(this.fillStyle); }, fillRect(...args) { pixels.push({ color: this.fillStyle, box: args }); } }, { get: (o, k) => k in o ? o[k] : () => {} });
   drawMovementOverlay(context, points, [], [], 400, 400, 1, { bones: true, nodes: true, attachments: true, boneLines: true });
   assert.deepEqual(boxes.map(box => box.slice(2)), [[18, 18], [18, 18], [18, 18]]);
-  assert.ok(colors.includes('#4cff59')); assert.ok(colors.includes('#b2b2ff')); assert.ok(colors.includes('#4cb259'));
+  assert.ok(colors.includes('#4cff59')); assert.ok(colors.includes('#8a2be2')); assert.ok(colors.includes('#ff39cf')); assert.ok(colors.includes('#4cb259'));
   assert.ok(pixels.some(pixel => pixel.color === 'rgb(0,0,0)'));
   assert.ok(pixels.some(pixel => pixel.color === 'rgb(255,255,255)'));
   assert.ok(pixels.every(pixel => pixel.box[2] === 3 && pixel.box[3] === 3)); assert.deepEqual(model, before);
