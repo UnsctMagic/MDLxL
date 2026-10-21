@@ -2,6 +2,11 @@ const EMPTY_MAP = Object.freeze({}), EMPTY_IDS = Object.freeze([]), EMPTY_PREFER
 const CLEAN_DISPLAY = Object.freeze(Object.fromEntries(['bones', 'skeleton', 'nodes', 'attachments', 'particles', 'emitters', 'boneLines', 'wires', 'vertices', 'grid', 'axes', 'normals', 'cameras'].map(key => [key, false])));
 const preferenceCache = new WeakMap();
 
+/** Camera-facing node transforms belong to viewing, never placement/editing. */
+export function previewBillboarding(props) {
+  return props.presentation === 'preview' && !props.restPose && !props.previewSelectionMode && props.particleAnchorId == null;
+}
+
 /** Preview presentation is readonly and independent of the editing display.
  * Keep the model, animation clock, authored alpha and camera unchanged. */
 export function previewPresentationProps(props) {

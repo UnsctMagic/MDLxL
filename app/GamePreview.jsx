@@ -36,7 +36,7 @@ import { createVideoPreviewBackground } from './video-preview-background.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, previewOverlayOptions, visibleMovementPoints } from './preview-overlays.js';
 import { installNodeEffectControls } from './node-effect-controls.js';
 import { createEventSoundPreview } from './event-sound-preview.js';
-import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
+import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
 
 import { createEventPreview } from './event-preview-runtime.js';
@@ -300,7 +300,10 @@ export default function GamePreview(inputProps) {
     // Marker categories retain emitter membership even when effect simulation is
     // disabled; the shared node objects still receive the same live poses.
     const markerModel = { ...ownedModel };
-    const hasBillboardedNodes = allNodes(ownedModel).some(node => (node.Flags || 0) & 120);
+    const billboardNodes = allNodes(ownedModel).filter(node => (node.Flags || 0) & 120).map(node => ({ node, flags: node.Flags }));
+    const hasBillboardedNodes = billboardNodes.length > 0;
+    let billboardPreview = previewBillboarding(props);
+    for (const { node, flags } of billboardNodes) node.Flags = billboardPreview ? flags : flags & ~120;
     // Only the renderer's private clone changes; saved model data remains intact.
     const particlesEnabled = props.showParticles ?? graphics.particles;
     if (!graphics.lighting) for (const material of ownedModel.Materials || []) for (const layer of material.Layers || []) layer.Shading = (layer.Shading || 0) | 1;
@@ -1083,6 +1086,12 @@ export default function GamePreview(inputProps) {
     function render(now, delta, { captureOnly = false } = {}) {
       if (disposed) return;
       const p = latest.current;
+      const viewingBillboards = previewBillboarding(p);
+      if (viewingBillboards !== billboardPreview) {
+        for (const { node, flags } of billboardNodes) node.Flags = viewingBillboards ? flags : flags & ~120;
+        billboardPreview = viewingBillboards;
+        resetPreviewEffects(native);
+      }
       if (nodeGesture?.pose && !poseContextValid(nodeGesture, p)) finishNodeGesture({ pointerId: nodeGesture.id, type: 'pointercancel', preventDefault() {}, stopImmediatePropagation() {} });
       const sharedGlobals = !p.showcase && p.syncPlayback && Number.isFinite(p.playbackGlobalTime);
       let showcaseNext;
