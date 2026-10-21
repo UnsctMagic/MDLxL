@@ -84,7 +84,8 @@ explicit approval. No dependencies, services, background processes or global edi
   the inspected standard/tool/package locations. Its actual loading is unverified;
   the import and nesting guidance were checked against the official documentation.
 - Passed: `git diff --check`. No dependency installation, app build or application
-  test run was needed for this documentation-only patch. Required PR CI is pending.
+  test run was needed for this documentation-only patch. Required PR CI is tracked
+  on PR #255 for each pushed head; consult its live result before merging.
 - Remaining context overhead: personal/global instructions and client tool/skill
   metadata still load independently. Existing long topic guides are selective;
   the older private Claude branch convention remains untouched.
