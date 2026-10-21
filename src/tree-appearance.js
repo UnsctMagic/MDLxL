@@ -49,7 +49,7 @@ export function treeAppearanceForTheme(id = 'light') {
   return {
     background: c.field, text: c.text, muted: c.muted, border: c.border, guide: c.border,
     hover: c.hover, selected: c.selected, selectedText: c['selected-text'], accent: theme.accent, fontSize: 12,
-    nodes: { bone: id === 'light' ? '#267447' : rig.bone, helper: rig.helper, attachment: id === 'light' ? '#be1596' : rig.ref, light: yellow, emitter: violet, sound: green, splat: red, footprint: orange, ubersplat: gold, spawn: teal, collision: neutral },
+    nodes: { bone: id === 'light' ? '#166534' : rig.bone, helper: id === 'light' ? '#6b21a8' : rig.helper, attachment: id === 'light' ? '#be185d' : rig.ref, light: yellow, emitter: violet, sound: green, splat: red, footprint: orange, ubersplat: gold, spawn: teal, collision: neutral },
     folders: { default: c.link, Human: blue, Orc: orange, Undead: violet, NightElf: green, Naga: teal, Demon: red, Creeps: gold, Abilities: violet, Sound: teal, Unavailable: neutral },
   };
 }

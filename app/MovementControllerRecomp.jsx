@@ -11,7 +11,7 @@ import { movementSelectionSummary } from '../src/movement-selection.js';
 import { poseControlPoint, poseNodeControl, withPoseResult, poseNodeConstraints, samplePoseChain, solvePoseLimb, solvePoseNode } from '../src/pose-ik.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { rigNodeListGroups, rigNodeListKind } from '../src/rig-node-order.js';
-import { boneDisplayOptions } from './bone-display.js';
+import { viewportAppearanceOptions } from '../src/preferences.js';
 import './movement.css';
 import ModernIcon from './ModernIcon.jsx';
 import BoneToolIcon from './BoneToolIcon.jsx';
@@ -156,11 +156,12 @@ export default function MovementController({ vanilla = false, objectDisplay, onO
     if (onRenameNode?.(selected[0].ObjectId, nameText) === false) setNameText(selected[0].Name || '');
   };
   const selectedKind = selected.length === 1 ? rigNodeListKind(model, selected[0]) : null;
-  const rigColors = boneDisplayOptions(preferences), boneListColor = rigColors.bone;
+  const nodeColors = viewportAppearanceOptions(preferences).tree.nodes;
+  const rigColors = { bone: nodeColors.bone, helper: nodeColors.helper, ref: nodeColors.attachment }, boneListColor = rigColors.bone;
   const isRef = node => model.Attachments?.some(ref => ref.ObjectId === node.ObjectId);
   const listColor = selectedKind === 'bone' ? boneListColor : selectedKind === 'helper' ? rigColors.helper : selected.length === 1 && isRef(selected[0]) ? rigColors.ref : undefined;
   const option = (node, color) => <option key={node.ObjectId} value={node.ObjectId} translate="no" style={{ color }}>{selectedNodeIds.includes(node.ObjectId) ? '✓ ' : ''}{node.Name || `Node ${node.ObjectId}`}</option>;
-  const nodePicker = <select className="movement-object-picker" data-node-kind={selectedKind || undefined} style={listColor ? { color: listColor } : undefined} aria-label="Movement bone or node" title={selected.map(node => node.Name || `Node ${node.ObjectId}`).join(', ')} value={selected.length === 1 ? selected[0].ObjectId : ''} onChange={chooseNode}>
+  const nodePicker = <select className="movement-object-picker" data-node-kind={selectedKind || undefined} style={restPose ? { color: '#000' } : listColor ? { color: listColor } : undefined} aria-label="Movement bone or node" title={selected.map(node => node.Name || `Node ${node.ObjectId}`).join(', ')} value={selected.length === 1 ? selected[0].ObjectId : ''} onChange={chooseNode}>
     <option value="">{selected.length > 1 ? `${selected.length} objects selected` : 'No selection'}</option>
     {!!nodeGroups.bones.length && <optgroup label="Bones" style={{ color: boneListColor }}>{nodeGroups.bones.map(node => option(node, boneListColor))}</optgroup>}
     {!!nodeGroups.others.length && <optgroup label="Other Objects">{nodeGroups.others.map(node => option(node, isRef(node) ? rigColors.ref : undefined))}</optgroup>}
