@@ -129,21 +129,27 @@ test('as-is import retains out-of-sequence keys and relative timing without samp
   assert.equal(target.Sequences[result.sequenceIndices[2]].Interval[0] - target.Sequences[result.sequenceIndices[0]].Interval[0], 4000);
 });
 
-test('library saves original texture names and bytes, lists them, and preserves an existing Bit on collision', async t => {
+test('library saves only the Bit and its original texture paths, ignoring texture payloads and collisions', async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-collect-bit-')); t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const library = new BitsAndPartsLibrary(path.join(directory, 'BitsAndParts'));
   const model = collectedPartModel(collectPart(donor().model, selection), { name: 'My Bit' });
   const asset = { name: 'Textures\\My Bit\\Original Skin.PNG', bytes: new Uint8Array([1, 2, 3]) };
   model.Textures[0].Image = asset.name;
+  await fs.mkdir(path.join(library.directory, 'Textures', 'My Bit'), { recursive: true });
+  const existing = path.join(library.directory, 'Textures', 'My Bit', 'Original Skin.PNG');
+  await fs.writeFile(existing, 'existing texture must stay unchanged');
   const bytes = serializeCollectedPart(model), entry = await library.save({ name: 'My Bit', bytes, assets: [asset] });
   assert.equal(entry.id, 'My Bit.mdx'); assert.equal((await library.list()).children.some(item => item.id === entry.id), true);
   assert.deepEqual(new Uint8Array((await library.read(entry.id)).bytes), new Uint8Array(bytes));
   assert.equal(openDocument((await library.read(entry.id)).bytes).model.Textures[0].Image, asset.name);
-  assert.deepEqual(new Uint8Array(await fs.readFile(path.join(library.directory, asset.name))), asset.bytes);
+  assert.equal(await fs.readFile(existing, 'utf8'), 'existing texture must stay unchanged');
+  const second = await library.save({ name: 'Second Bit', bytes, assets: [{ name: 'Other/unused.blp', bytes: [4] }] });
+  assert.deepEqual(new Uint8Array((await library.read(second.id)).bytes), new Uint8Array(bytes));
+  assert.deepEqual((await fs.readdir(library.directory)).sort(), ['My Bit.mdx', 'Second Bit.mdx', 'Textures']);
   await assert.rejects(library.save({ name: 'My Bit', bytes, assets: [] }), /already exists/);
   assert.deepEqual(new Uint8Array((await library.read(entry.id)).bytes), new Uint8Array(bytes));
   await assert.rejects(library.save({ name: '../escape', bytes }), /filename/);
-  await assert.rejects(library.save({ name: 'Bad asset', bytes, assets: [{ ...asset, name: '..\\outside.tga' }] }), /relative texture path/);
+  await assert.rejects(library.save({ name: 'Invalid model', bytes: [1, 2, 3] }), /readable MDX/);
 });
 
 test('collection preserves source paths and import reuses equivalent destination textures', () => {
