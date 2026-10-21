@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import Viewport from './Viewport.jsx';
-import { collectedPartModel, partPathKey, partTextureIndices, previewPart, serializeCollectedPart } from '../src/bits-and-parts.js';
+import { collectedPartModel, previewPart, serializeCollectedPart } from '../src/bits-and-parts.js';
 import PartAnimations from './PartAnimations.jsx';
 import { validateModel } from '../src/editor-document.js';
 
-export default function CollectBit({ source, preferences, textureAssets, teamColor, prepareAsset, onClose, onSaved }) {
+export default function CollectBit({ source, preferences, textureAssets, teamColor, onClose, onSaved }) {
   const [name, setName] = useState(''), [sequence, setSequence] = useState(''), [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const preview = useMemo(() => previewPart(source), [source]);
@@ -12,18 +12,10 @@ export default function CollectBit({ source, preferences, textureAssets, teamCol
   const save = async () => {
     setBusy(true); setError('');
     try {
-      const model = collectedPartModel(source, { name }), assets = [];
-      for (const index of partTextureIndices(model)) {
-        const texture = model.Textures[index];
-        if (texture.ReplaceableId || !texture.Image || /\.w3mod:/i.test(texture.Image)) continue;
-        const asset = textureAssets.get(partPathKey(texture.Image));
-        if (!asset) throw Error(`Missing texture: ${texture.Image}. Load it before collecting this Bit.`);
-        const prepared = await prepareAsset(asset, texture.Image);
-        if (!assets.some(existing => existing.name === prepared.name)) assets.push(prepared);
-      }
+      const model = collectedPartModel(source, { name });
       const issues = validateModel(model).filter(issue => issue.severity === 'error');
       if (issues.length) throw Error(issues[0].message);
-      const result = await window.desktop.savePart({ name: name.trim(), bytes: serializeCollectedPart(model), assets });
+      const result = await window.desktop.savePart({ name: name.trim(), bytes: serializeCollectedPart(model) });
       await onSaved(result);
     } catch (error) { setError(error.message); } finally { setBusy(false); }
   };
@@ -35,6 +27,6 @@ export default function CollectBit({ source, preferences, textureAssets, teamCol
       <PartAnimations model={source} sequence={sequence} onPreview={value => { setSequence(value); setPlaying(false); }} busy={busy} collecting/>
     </aside><main><div className="parts-preview"><Viewport presentation="preview" model={preview} preferences={preferences} revision={0} textureAssets={textureAssets} teamColor={teamColor} mode="textured" view="perspective" cameraMode="rotate" showGrid={false} showSkeleton={false} showVertices={false} overlays={{}} selectedGeoset={-1} sequenceIndex={sequence === '' ? -1 : Number(sequence)} time={sequence === '' ? 0 : interval?.[0] || 0} playing={playing} shaded/></div>
       <button disabled={sequence === ''} onClick={() => setPlaying(value => !value)}>{playing ? 'Pause preview' : 'Play preview'}</button>
-    </main></div>{error && <div className="parts-error" role="alert">{error}</div>}<footer><span>Saved in BitsAndParts with its textures.</span><button onClick={onClose} disabled={busy}>Cancel</button><button className="parts-import" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Saving…' : 'Save Bit'}</button></footer>
+    </main></div>{error && <div className="parts-error" role="alert">{error}</div>}<footer><span>Saved in BitsAndParts with original texture paths.</span><button onClick={onClose} disabled={busy}>Cancel</button><button className="parts-import" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Saving…' : 'Save Bit'}</button></footer>
   </section></div>;
 }
