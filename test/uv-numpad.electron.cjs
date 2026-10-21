@@ -53,10 +53,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForFunction(() => uvProps('.uv-editor', 'geoset').selectedVertices.length === 2);
     const baseline = await page.evaluate(() => uvValues()), modelBefore = await page.evaluate(() => modelSnapshot());
     const selected = await page.evaluate(() => uvProps('.uv-editor', 'geoset').selectedVertices);
-    const assertOffset = async (dx, dy) => {
+    const assertOffset = async (dx, dy, multiplier = 5) => {
       const actual = await page.evaluate(() => uvValues());
       baseline.forEach((value, index) => {
-        const delta = selected.includes(Math.floor(index / 2)) ? (index % 2 ? dy : dx) * .001 : 0;
+        const delta = selected.includes(Math.floor(index / 2)) ? (index % 2 ? dy : dx) * .001 * multiplier : 0;
         assert.ok(Math.abs(actual[index] - (value + delta)) < 1e-6, `UV ${index}: ${actual[index]} != ${value + delta}`);
       });
       const before = JSON.parse(modelBefore), after = JSON.parse(await page.evaluate(() => modelSnapshot()));
@@ -74,6 +74,23 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await cdp.send('Input.dispatchKeyEvent', { ...data, type: 'rawKeyDown', autoRepeat: repeat });
       await cdp.send('Input.dispatchKeyEvent', { ...data, type: 'keyUp' });
     };
+    const multiplier = page.getByRole('slider', { name: 'Numpad nudge multiplier', exact: true });
+    assert.equal(await multiplier.getAttribute('min'), '1');
+    assert.equal(await multiplier.getAttribute('max'), '30');
+    assert.equal(await multiplier.inputValue(), '5');
+    assert.equal(await multiplier.locator('..').locator('output').textContent(), '×5');
+    const titleBounds = await page.locator('.uv-toolbox > .uv-panel-title').boundingBox();
+    const sliderBounds = await multiplier.boundingBox();
+    assert.ok(titleBounds.height <= 40 && sliderBounds.x >= titleBounds.x && sliderBounds.x + sliderBounds.width <= titleBounds.x + titleBounds.width, 'Slider stays inside the existing compact Tools title row');
+    await multiplier.press('Home'); assert.equal(await multiplier.inputValue(), '1');
+    await key(6, true); await assertOffset(1, 0, 1); await undo();
+    await multiplier.press('End'); assert.equal(await multiplier.inputValue(), '30');
+    await key(9, true); await assertOffset(1, -1, 30); await undo();
+    await multiplier.press('Home');
+    for (let i = 0; i < 4; i++) await multiplier.press('ArrowRight');
+    assert.equal(await multiplier.inputValue(), '5');
+    assert.equal(await page.evaluate(() => modelSnapshot()), modelBefore);
+    checks.push('Compact slider defaults to ×5, supports ×1 through ×30, and numpad edits immediately use the chosen multiplier');
     for (const numLock of [true, false]) {
       for (const [digit, dx, dy] of [[7, -1, -1], [8, 0, -1], [9, 1, -1], [4, -1, 0], [6, 1, 0], [1, -1, 1], [2, 0, 1], [3, 1, 1]]) {
         await canvas.focus(); await key(digit, numLock);
