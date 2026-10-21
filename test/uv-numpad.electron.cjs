@@ -59,6 +59,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const baseline = await page.evaluate(() => uvValues()), modelBefore = await page.evaluate(() => modelSnapshot());
     const selected = await page.evaluate(() => uvProps('.uv-editor', 'geoset').selectedVertices);
     const assertOffset = async (dx, dy) => {
+      await page.waitForFunction(({ baseline, selected, dx, dy }) => uvValues().every((value, index) => Math.abs(value - baseline[index] - (selected.includes(Math.floor(index / 2)) ? (index % 2 ? dy : dx) * .005 : 0)) < 1e-6), { baseline, selected, dx, dy });
       const actual = await page.evaluate(() => uvValues());
       baseline.forEach((value, index) => {
         const delta = selected.includes(Math.floor(index / 2)) ? (index % 2 ? dy : dx) * .005 : 0;
@@ -71,6 +72,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const undo = async () => {
       await canvas.focus(); await page.keyboard.press('Control+z');
       await page.waitForFunction(before => modelSnapshot() === before, modelBefore);
+      await page.waitForFunction(before => uvValues().every((value, index) => value === before[index]), baseline);
     };
     const cdp = await page.context().newCDPSession(page);
     const key = async (digit, numLock, repeat = false) => {
@@ -114,6 +116,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.evaluate(() => modelSnapshot()), modelBefore);
     checks.push('Number row, text input, main viewport and Ctrl chords do not nudge UVs');
     await canvas.focus(); await page.keyboard.press('Escape');
+    await page.waitForFunction(() => uvProps('.uv-editor', 'geoset').selectedVertices.length === 0);
     await key(6, true);
     assert.equal(await page.evaluate(() => modelSnapshot()), modelBefore);
     await page.keyboard.press('Control+a');
