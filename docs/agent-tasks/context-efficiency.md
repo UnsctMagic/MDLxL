@@ -14,9 +14,13 @@ explicit approval. No dependencies, services, background processes or global edi
 
 ## Revision and local state
 
+- Review: [PR #255](https://github.com/UnsctMagic/MDLxL/pull/255), open and attached
+  to the Codex chat; feature branch is pushed. Merge is not authorized.
 - Base: online main `01d99e3114373dee1e3de2b655736cb1127faccc` (v0.28.4).
 - The supplied C: checkout was clean at `73f9025a` (v0.26.0); left untouched.
-  Work uses the isolated `D:\Codex\mdlxl-context-efficiency-20261021\repo` clone.
+  Preparation used `D:\Codex\mdlxl-context-efficiency-20261021\repo` on D:.
+  This disposable checkout is cleaned after handoff; obtain the pushed branch and
+  note in the next tool's approved workspace rather than assuming this path exists.
 - Documentation revision: the commit containing this note. Resolve it with
   `git log -1 --format=%H -- docs/agent-tasks/context-efficiency.md`, then compare
   current HEAD and diffs. A branch name alone does not identify the snapshot.
@@ -87,7 +91,7 @@ explicit approval. No dependencies, services, background processes or global edi
 
 ## Blockers and next action
 
-No implementation blocker. Open and attach the feature PR, inspect its CI, then
+No implementation blocker. Check the latest head of PR #255 and its CI, then
 wait for explicit merge approval. On an authorized merge, verify the PR and online
 main before marking this task completed and removing its active-index entry.
 No release or application changes are part of this task.
