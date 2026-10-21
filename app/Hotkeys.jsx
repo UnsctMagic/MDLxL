@@ -153,6 +153,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     const keydown = event => {
       if (event.target?.closest?.('[data-hotkey-recording]')) { cancel(); return; }
       if(!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
+      // The focused UV workspace owns numpad nudges before global number shortcuts.
+      if(!window.dispatchEvent(new CustomEvent('mdlxl-uv-key',{detail:event,cancelable:true}))){cancel();return;}
       // Paint owns its brush/clipboard shortcuts before global mesh commands.
       if(latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
       if (event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
