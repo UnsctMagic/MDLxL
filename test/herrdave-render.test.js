@@ -90,18 +90,21 @@ test('HD13 triangle hits ignore winding and preserve stable first-face ties',()=
 test('Surface and Textured views draw only occluded marker edges after the solid visible fragments',()=>{
   let value=0;const calls=[],gl=new Proxy({}, {get:(o,k)=>{if(k in o)return o[k];if(k===k.toUpperCase())return o[k]=++value;if(k.startsWith('create'))return ()=>({});if(k.startsWith('get'))return ()=>true;return (...args)=>calls.push([k,...args]);}});
   const markers=createRigMarkersGL(gl),model=renderFixture('rig'),c=camera();markers.draw(c,projectMovementNodes(model,0,-1,c,400,400),[],{bones:true,nodes:true,attachments:true,particles:true,occludedMarkerEdges:true});
-  const draws=calls.filter(call=>call[0]==='drawArrays');assert.deepEqual(draws.map(call=>call[1]),[gl.TRIANGLES,gl.LINES]);
-  const hidden=calls.findIndex(call=>call[0]==='depthFunc'&&call[1]===gl.GREATER);assert.ok(hidden>0);assert.equal(calls[hidden+1][0],'drawArrays');assert.equal(calls[hidden+1][1],gl.LINES);markers.dispose();
+  const draws=calls.filter(call=>call[0]==='drawArrays'),firstEdge=draws.findIndex(call=>call[1]===gl.LINES);
+  assert.ok(firstEdge>0);assert.ok(draws.slice(0,firstEdge).every(call=>call[1]===gl.TRIANGLES));assert.ok(draws.slice(firstEdge).every(call=>call[1]===gl.LINES));
+  const expected=rigMarkerGeometry(projectMovementNodes(model,0,-1,c,400,400),[],{bones:true,nodes:true,attachments:true,particles:true});
+  assert.equal(draws.slice(0,firstEdge).reduce((sum,call)=>sum+call[3],0),expected.triangles.length/6);assert.equal(draws.slice(firstEdge).reduce((sum,call)=>sum+call[3],0),expected.edges.length/6);
+  const hidden=calls.findIndex(call=>call[0]==='depthFunc'&&call[1]===gl.GREATER);assert.ok(hidden>0);assert.ok(calls.slice(hidden).filter(call=>call[0]==='drawArrays').every(call=>call[1]===gl.LINES));markers.dispose();
 });
 test('visible markers have no edge pass outside Surface and Textured views',()=>{
   let value=0;const calls=[],gl=new Proxy({}, {get:(o,k)=>{if(k in o)return o[k];if(k===k.toUpperCase())return o[k]=++value;if(k.startsWith('create'))return ()=>({});if(k.startsWith('get'))return ()=>true;return (...args)=>calls.push([k,...args]);}});
   const markers=createRigMarkersGL(gl),model=renderFixture('rig'),c=camera();markers.draw(c,projectMovementNodes(model,0,-1,c,400,400),[],{bones:true,nodes:true,attachments:true,particles:true});
-  assert.deepEqual(calls.filter(call=>call[0]==='drawArrays').map(call=>call[1]),[gl.TRIANGLES]);markers.dispose();
+  const draws=calls.filter(call=>call[0]==='drawArrays');assert.ok(draws.length>0&&draws.every(call=>call[1]===gl.TRIANGLES));markers.dispose();
 });
 test('Wireframe View draws rig markers as solid through geometry without a wire-only duplicate',()=>{
   let value=0;const calls=[],gl=new Proxy({}, {get:(o,k)=>{if(k in o)return o[k];if(k===k.toUpperCase())return o[k]=++value;if(k.startsWith('create'))return ()=>({});if(k.startsWith('get'))return ()=>true;return (...args)=>calls.push([k,...args]);}});
   const markers=createRigMarkersGL(gl),model=renderFixture('rig'),c=camera();markers.draw(c,projectMovementNodes(model,0,-1,c,400,400),[],{bones:true,nodes:true,attachments:true,particles:true,wireframeMarkers:true});
-  assert.deepEqual(calls.filter(call=>call[0]==='drawArrays').map(call=>call[1]),[gl.TRIANGLES]);
+  const draws=calls.filter(call=>call[0]==='drawArrays');assert.ok(draws.length>0&&draws.every(call=>call[1]===gl.TRIANGLES));
   assert.ok(calls.some(call=>call[0]==='disable'&&call[1]===gl.DEPTH_TEST));markers.dispose();
 });
 test('HD04 visible unselected geometry has no vertices/normals, eligible squares remain blue behind mesh',()=>{

@@ -5,6 +5,7 @@ import { samplePreviewMatrices } from './preview-pose.js';
 import { visualOptions, viewportAppearanceOptions } from '../src/preferences.js';
 import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
 import { boneDisplayColor, boneDisplayOptions, drawBoneLink } from './bone-display.js';
+import { createPixelLineBatch } from './pixel-lines.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
 const PLANE_COLORS = { xy: 'Y', xz: 'X', yz: 'Z' };
@@ -143,13 +144,25 @@ function convexHull(points) {
   return [...half(sorted).slice(0, -1), ...half(sorted.reverse()).slice(0, -1)];
 }
 
+const symbolHulls = new WeakMap();
+function connectorMaskVertices(shape) {
+  if (!shape.billboard) return shape.vertices;
+  let vertices = symbolHulls.get(shape);
+  if (!vertices) {
+    vertices = convexHull(shape.vertices.map((point,index) => ({ x:point[0],y:point[1],index }))).map(point => shape.vertices[point.index]);
+    symbolHulls.set(shape,vertices);
+  }
+  return vertices;
+}
+
 /** Connectors occupy their own pixel layer below mesh wires and point overlays.
  * Remove only the projected polyhedron footprints so GL markers remain in front. */
 export function drawBoneConnectors(context, nodes, selectedIds, camera, width, height, ratio = 1, options = {}) {
   context.clearRect(0, 0, width * ratio, height * ratio);
   if (!options.boneLines) return;
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point]));
-  const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds), bones = boneDisplayOptions(options.preferences);
+  const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds), bones = boneDisplayOptions(options.preferences), visual = visualOptions(options.preferences);
+  const pixelBatch = bones.style !== 'joint' && bones.connector === 'shaded' && context.canvas?.width && context.createImageData && context.putImageData ? createPixelLineBatch(context) : null;
   for (const point of nodes) {
     const parent = byId.get(point.node.Parent);
     if (!point.visible || !parent?.visible) continue;
@@ -157,14 +170,15 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
     if (!line) continue;
     const appearance = boneConnectionAppearance(parent, point, highlights);
     if (!boneConnectionVisible(parent, point, highlights, options.focusedBoneLines)) continue;
-    drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio });
+    drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio, pixelBatch });
   }
+  pixelBatch?.flush();
   context.save(); context.setTransform(1, 0, 0, 1, 0, 0); context.globalCompositeOperation = 'destination-out';
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
-    const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla).shape;
-    const size = rigMarkerSize(point, shape, options);
-    const hull = convexHull(shape.vertices.map(vertex => {
+    const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual).shape;
+    const size = rigMarkerSize(point, shape, options, visual);
+    const hull = convexHull(connectorMaskVertices(shape).map(vertex => {
       const p = new Vector3(...vertex).multiplyScalar(size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world).project(camera);
       return { x: (p.x + 1) * width * ratio / 2, y: (1 - p.y) * height * ratio / 2 };
     }));
