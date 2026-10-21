@@ -5,7 +5,6 @@ import {
 } from '../src/animation-tracks.js';
 import { setSequenceOptions } from '../src/animation.js';
 import { clampAlphaPercentText } from '../src/animation-controller-inputs.js';
-import { wheelOptionIndex } from '../src/dropdown-wheel.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
 import SidebarSection from './SidebarSection.jsx';
 import {
@@ -76,7 +75,7 @@ export default function AnimationController({
   const [speedMenu, setSpeedMenu] = useState(false);
   const [notice, setNotice] = useState(''), [error, setError] = useState('');
   const [moveSpeedDrafts, setMoveSpeedDrafts] = useState({});
-  const sequenceNameInput = useRef(null), sequenceSelect = useRef(null);
+  const sequenceNameInput = useRef(null);
   const globalDomain = Number.isInteger(globalSeqId) && globalSeqId >= 0 && model.GlobalSequences?.[globalSeqId] > 0;
   const sequence = globalDomain ? null : model.Sequences?.[sequenceIndex];
   const frame = Math.round(time);
@@ -296,14 +295,6 @@ export default function AnimationController({
     if (!commit('Rename animation sequence', ['Sequences'], current => setSequenceName(current, sequenceIndex, sequenceNameText), 'Sequence renamed.')) setSequenceNameText(sequence.Name);
   }
 
-  function wheelSequence(event) {
-    const select = sequenceSelect.current;
-    if (!select || event.ctrlKey || event.metaKey || !event.deltaY) return;
-    event.preventDefault(); event.stopPropagation();
-    const index = wheelOptionIndex(select.options, select.selectedIndex, event.deltaY);
-    if (index !== select.selectedIndex) onTimelineChange?.(select.options[index].value);
-  }
-
   const noLocalSequence = disabled || !sequence || globalDomain;
   const moveApplied = !globalDomain && !!sequence && Number(sequence.MoveSpeed) > 0;
   // setAnimationKey/setAnimationSequences create a missing geoset animation
@@ -317,7 +308,7 @@ export default function AnimationController({
   const mixedOrPartial = alpha === '' || Number.isFinite(alphaNumber) && alphaNumber !== 0 && alphaNumber !== 100;
   const currentValue = globalDomain ? `global:${globalSeqId}` : sequenceIndex;
   return <section className="animation-controller" aria-label="Animations toolbox">
-    <SidebarSection title="Current Sequence"><label className="ac-current"><span className="ac-sequence-combo"><input ref={sequenceNameInput} aria-label="Animation sequence name" className={globalDomain ? 'global-sequence-value' : ''} value={sequenceNameText} disabled={!sequence} readOnly={globalDomain || !sequence} onWheel={wheelSequence} onChange={event => setSequenceNameText(event.target.value)} onBlur={commitSequenceName} onKeyDown={enterBlurs}/><select ref={sequenceSelect} data-hotkey="animationSequence" aria-label="Choose animation sequence" value={currentValue} onChange={event => onTimelineChange?.(event.target.value)} title="Choose animation sequence">
+    <SidebarSection title="Current Sequence"><label className="ac-current"><span className="ac-sequence-combo"><input ref={sequenceNameInput} aria-label="Animation sequence name" className={globalDomain ? 'global-sequence-value' : ''} value={sequenceNameText} disabled={!sequence} readOnly={globalDomain || !sequence} onChange={event => setSequenceNameText(event.target.value)} onBlur={commitSequenceName} onKeyDown={enterBlurs}/><select data-hotkey="animationSequence" aria-label="Choose animation sequence" value={currentValue} onChange={event => onTimelineChange?.(event.target.value)} title="Choose animation sequence">
       <option value={-1}>All line</option>
       {(model.Sequences || []).map((item, index) => <option key={index} value={index} translate="no">{item.Name}</option>)}
       {(model.GlobalSequences || []).map((duration, index) => <option className="global-sequence-value" style={{ color: '#d00000' }} key={`global:${index}`} value={`global:${index}`}>{duration}</option>)}
