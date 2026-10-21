@@ -9,7 +9,8 @@ export function wheelOptionIndex(options, index, deltaY) {
 }
 export function bindDropdownWheel(targetDocument) {
   const wheel = event => {
-    const select = event.target.closest?.('select');
+    // The editable animation name and its arrow share the same dropdown.
+    const select = event.target.closest?.('select') || event.target.closest?.('.ac-sequence-combo')?.querySelector('select');
     if (!select || select.disabled || select.multiple || select.size>1 || event.ctrlKey || event.metaKey || !event.deltaY) return;
     event.preventDefault(); event.stopImmediatePropagation();
     const index = wheelOptionIndex(select.options, select.selectedIndex, event.deltaY);
