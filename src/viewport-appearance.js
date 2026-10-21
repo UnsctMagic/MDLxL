@@ -1,5 +1,5 @@
 import themes from './application-themes.json' with { type: 'json' };
-import { normalizeTreeAppearance, treeAppearanceForTheme } from './tree-appearance.js';
+import { normalizeTreeAppearance, treeAppearanceForTheme, rigNodeColorsForTheme } from './tree-appearance.js';
 import { controllerAppearanceForTheme, normalizeControllerAppearance } from './controller-appearance.js';
 
 const color = (value, fallback) => /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback;
@@ -18,11 +18,12 @@ function quadDefaults(background) {
 }
 
 // How bones, their connectors and the Bone influence view are drawn. The
-// colours match the classic MDLVis rig; every preset starts from them.
+// colours keep their rig identities while each preset owns its shades.
 export const BONE_STYLES = Object.freeze(['cubes', 'joint', 'stick']);
 export const BONE_CONNECTORS = Object.freeze(['shaded', 'tapered']);
 export const WIRE_MODES = Object.freeze(['all', 'hidden-line']);
-export const DEFAULT_BONE_APPEARANCE = Object.freeze({ style: 'cubes', connector: 'shaded', bone: '#4cff59', root: '#4cb259', selected: '#ff0000', parent: '#000000', child: '#ffff00', thickness: 3, highlightThickness: 6 });
+export const DEFAULT_BONE_APPEARANCE = Object.freeze({ style: 'cubes', connector: 'shaded', ...rigNodeColorsForTheme(), selected: '#ff0000', parent: '#000000', child: '#ffff00', thickness: 3, highlightThickness: 6 });
+export const boneAppearanceForTheme = theme => ({ ...DEFAULT_BONE_APPEARANCE, ...rigNodeColorsForTheme(theme) });
 export const DEFAULT_BONE_INFLUENCE = Object.freeze({ opacity: .5, ghost: '#a9b6c1', direct: '#f08c1f', follow: '#facc80' });
 
 const profile = (theme, value) => Object.freeze({
@@ -35,7 +36,7 @@ const profile = (theme, value) => Object.freeze({
   background: Object.freeze({ ...value.background }),
   quadView: Object.freeze({ background: Object.freeze({ ...value.background }), grid: Object.freeze(quadDefaults(value.background).grid) }),
   xrayVertices: value.xrayVertices === true,
-  bones: DEFAULT_BONE_APPEARANCE,
+  bones: Object.freeze(boneAppearanceForTheme(theme)),
   wireMode: 'all',
   boneInfluence: DEFAULT_BONE_INFLUENCE,
   geosetHighlight: Object.freeze({ color: theme === 'light' ? '#39ff14' : controllerAppearanceForTheme(theme).color, type: 'wire-vertices', viaView: true, viaSelection: true }),
@@ -136,7 +137,7 @@ function normalizeBones(value, fallback) {
   const input = record(value), base = { ...DEFAULT_BONE_APPEARANCE, ...record(fallback) };
   return {
     style: choice(input.style, BONE_STYLES, base.style), connector: choice(input.connector, BONE_CONNECTORS, base.connector),
-    ...Object.fromEntries(['bone', 'root', 'selected', 'parent', 'child'].map(key => [key, color(input[key], base[key])])),
+    ...Object.fromEntries(['bone', 'root', 'helper', 'ref', 'selected', 'parent', 'child'].map(key => [key, color(input[key], base[key])])),
     thickness: number(input.thickness, 1, 12, base.thickness), highlightThickness: number(input.highlightThickness, 1, 16, base.highlightThickness),
   };
 }
@@ -206,7 +207,7 @@ export function normalizeViewportPresets(value) {
     if (!id || !name || ids.has(id) || names.has(name.toLowerCase())) continue;
     ids.add(id); names.add(name.toLowerCase());
     const theme = Object.hasOwn(themes, item.theme) ? item.theme : null;
-    const appearance = normalizeViewportAppearance(item.appearance, { ...DEFAULT_VIEWPORT_APPEARANCE, tree: treeAppearanceForTheme(theme), controllers: controllerAppearanceForTheme(theme) });
+    const appearance = normalizeViewportAppearance(item.appearance, { ...DEFAULT_VIEWPORT_APPEARANCE, tree: treeAppearanceForTheme(theme), controllers: controllerAppearanceForTheme(theme), bones: boneAppearanceForTheme(theme) });
     output.push({ id, name, appearance, ...(theme ? { theme, accent: color(item.accent, themes[theme].accent) } : {}) });
   }
   return output;

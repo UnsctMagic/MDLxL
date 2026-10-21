@@ -255,7 +255,8 @@ export default function App() {
   const setWorkplaneEnabled = next => poseViewActive ? changePoseView({ workplaneEnabled: typeof next === 'function' ? next(workplaneEnabled) : next }) : setStoredWorkplaneEnabled(next);
   const setWorkplane = next => poseViewActive ? changePoseView({ workplane: typeof next === 'function' ? next(workplane) : next }) : setStoredWorkplane(next);
   const cleanView = !!cleanViews[mode], storedOverlays = mode === 'showcase' ? {} : cleanView ? Object.fromEntries(Object.keys(overlayModes[displayMode]).map(key => [key, false])) : overlayModes[displayMode];
-  const overlays = storedOverlays.cameras ? { ...storedOverlays, cameras: false } : storedOverlays;
+  const visibleOverlays = visUI ? { ...storedOverlays, bones: true, helpers: true, attachments: true } : storedOverlays;
+  const overlays = visibleOverlays.cameras ? { ...visibleOverlays, cameras: false } : visibleOverlays;
   const panelOverlays = overlays;
   function changeOverlay(key, value) { setOverlayModes(previous => setEditorDisplay(previous, displayMode, key, value)); setCleanViews(previous => ({ ...previous, [mode]: false })); }
   const shaded = overlays.shaded, setShaded = value => changeOverlay('shaded', value);
@@ -1485,6 +1486,7 @@ export default function App() {
   // Props shared by both Movement controller render sites: Bones mode and the
   // Animation > Movement panel. Called while rendering each site, as before.
   const movementControllerProps = () => ({
+    vanilla: visUI, objectDisplay: overlays, onObjectDisplay: changeOverlay,
     poseConfig, onPoseChange: changePose, onPoseSelect: selectPose, onOpenEmitter: openParticles, restPose, selectionByGeoset: validSelection,
     workplaneEnabled, onWorkplaneEnabled: setWorkplaneEnabled, workplane, onWorkplane: setWorkplane, restrictions, onRestrictions: setRestrictions,
     multiple: multipleNodes, onMultiple: setMultipleNodes, onVertexTransform: transform, globalSeqId: restPose ? null : globalSeqId,

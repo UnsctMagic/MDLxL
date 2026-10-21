@@ -5963,5 +5963,12 @@
   "Appearance pages": "Páginas de apariencia",
   "How bones are drawn. Cubes and shaded lines is the classic look; Joint and cone puts a ball on each joint and a cone pointing to the child; Stick draws thick bars.": "Cómo se dibujan los huesos. Cubos y líneas sombreadas es el aspecto clásico; Articulación y cono pone una bola en cada articulación y un cono que apunta al hijo; Barra dibuja barras gruesas.",
   "How the link between two joints is drawn. Shaded fades from dark at the parent to light at the child; Tapered narrows towards the child. The selected chain is highlighted in the same shape.": "Cómo se dibuja la unión entre dos articulaciones. Sombreado va de oscuro en el padre a claro en el hijo; Afilado se estrecha hacia el hijo. La cadena seleccionada se resalta con la misma forma.",
-  "All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.": "Todas las aristas dibuja cada línea igual. Líneas ocultas dibuja con guiones tenues las líneas que quedan detrás de la malla, para que el frente del modelo se lea con claridad en Malla."
+  "All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.": "Todas las aristas dibuja cada línea igual. Líneas ocultas dibuja con guiones tenues las líneas que quedan detrás de la malla, para que el frente del modelo se lea con claridad en Malla.",
+  "Refs": "Refs",
+  "Visible object types": "Tipos de objeto visibles",
+  "Show reference attachment points so you can select and move them": "Mostrar puntos de referencia para seleccionarlos y moverlos",
+  "Show bones so you can select and move them": "Mostrar huesos para seleccionarlos y moverlos",
+  "Show helpers so you can select and move them": "Mostrar ayudantes para seleccionarlos y moverlos",
+  "Bones Helpers": "Huesos Ayudantes",
+  "Bones Refs": "Huesos Refs"
 }

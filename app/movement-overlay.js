@@ -86,7 +86,7 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
   for (const point of nodes) if (point.visible && rigMarkerVisible(point, options, highlights)) {
     const isSelected = selected.has(point.node.ObjectId), emitter = (point.node.Flags & 4096) !== 0;
     const bone = point.overlayKind === 'bones';
-    context.fillStyle = point.displayColor || (bone ? boneDisplayColor(bones, highlights.get(point.node.ObjectId), byId.get(point.node.Parent)?.overlayKind === 'bones') : emitter || point.overlayKind === 'particles' ? visual.particle : point.eventNode ? visual.event : visual.node);
+    context.fillStyle = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual).color;
     context.strokeStyle = isSelected ? '#fff14e' : '#17263d'; context.lineWidth = isSelected ? 2.5 : 1.5;
     context.beginPath();
     if (options.glMarkers) { /* Shape rendering shares the mesh's actual GL depth. */ }

@@ -10,8 +10,8 @@ import {
 import { movementSelectionSummary } from '../src/movement-selection.js';
 import { poseControlPoint, poseNodeControl, withPoseResult, poseNodeConstraints, samplePoseChain, solvePoseLimb, solvePoseNode } from '../src/pose-ik.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
-import { HELPER_LIST_COLOR, rigNodeListGroups, rigNodeListKind } from '../src/rig-node-order.js';
-import { visualOptions } from '../src/preferences.js';
+import { rigNodeListGroups, rigNodeListKind } from '../src/rig-node-order.js';
+import { boneDisplayOptions } from './bone-display.js';
 import './movement.css';
 import ModernIcon from './ModernIcon.jsx';
 import BoneToolIcon from './BoneToolIcon.jsx';
@@ -49,7 +49,7 @@ function PositionField({ axis, value, disabled, onCommit }) {
 }
 
 
-export default function MovementController({ poseConfig, onPoseChange, onPoseSelect, model, revision = 0, sequenceIndex = -1, time = 0, selectedNodeIds = [], selectionByGeoset = {}, onSelectNodes, onEdit, onVertexTransform, onPlayingChange, transformMode = 'move', onTransformMode, transformSpace = 'local', onTransformSpace, onOpenNodeManager, onOpenEmitter, globalSeqId = null, onTimelineChange, highlightKeyframes = false, onHighlightKeyframes, highlightChain = false, onHighlightChain, preferences, disabled = false, restPose = false, multiple, onMultiple, workplaneEnabled = false, onWorkplaneEnabled, workplane = 'xy', onWorkplane, restrictions = {}, onRestrictions, portraitMode = false, controlModel = false, portraitCameraIndex = 0, onPortraitCameraIndex, onPortraitNew, onPortraitUpdate, onDeleteNode, onRenameNode, onBillboarded, onCreateRigNode, onAttach, onDetach, onSoftBind, onHardBind, onDetachVertices, attachActive = false, createOpen = false, onCreateOpen, canDeleteNode = false, canAttach = false, canDetach = false, canBind = false }) {
+export default function MovementController({ vanilla = false, objectDisplay, onObjectDisplay, poseConfig, onPoseChange, onPoseSelect, model, revision = 0, sequenceIndex = -1, time = 0, selectedNodeIds = [], selectionByGeoset = {}, onSelectNodes, onEdit, onVertexTransform, onPlayingChange, transformMode = 'move', onTransformMode, transformSpace = 'local', onTransformSpace, onOpenNodeManager, onOpenEmitter, globalSeqId = null, onTimelineChange, highlightKeyframes = false, onHighlightKeyframes, highlightChain = false, onHighlightChain, preferences, disabled = false, restPose = false, multiple, onMultiple, workplaneEnabled = false, onWorkplaneEnabled, workplane = 'xy', onWorkplane, restrictions = {}, onRestrictions, portraitMode = false, controlModel = false, portraitCameraIndex = 0, onPortraitCameraIndex, onPortraitNew, onPortraitUpdate, onDeleteNode, onRenameNode, onBillboarded, onCreateRigNode, onAttach, onDetach, onSoftBind, onHardBind, onDetachVertices, attachActive = false, createOpen = false, onCreateOpen, canDeleteNode = false, canAttach = false, canDetach = false, canBind = false }) {
   const [localMultiple, setLocalMultiple] = useState(false), [values, setValues] = useState([0, 0, 0]), [error, setError] = useState('');
   const [curveOpen, setCurveOpen] = useState(false), [curve, setCurve] = useState({ tension: 0, continuity: 0, bias: 0 });
   const [incoming, setIncoming] = useState(''), [outgoing, setOutgoing] = useState('');
@@ -156,14 +156,15 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
     if (onRenameNode?.(selected[0].ObjectId, nameText) === false) setNameText(selected[0].Name || '');
   };
   const selectedKind = selected.length === 1 ? rigNodeListKind(model, selected[0]) : null;
-  const boneListColor = visualOptions(preferences).bone;
-  const listColor = selectedKind === 'bone' ? boneListColor : selectedKind === 'helper' ? HELPER_LIST_COLOR : undefined;
+  const rigColors = boneDisplayOptions(preferences), boneListColor = rigColors.bone;
+  const isRef = node => model.Attachments?.some(ref => ref.ObjectId === node.ObjectId);
+  const listColor = selectedKind === 'bone' ? boneListColor : selectedKind === 'helper' ? rigColors.helper : selected.length === 1 && isRef(selected[0]) ? rigColors.ref : undefined;
   const option = (node, color) => <option key={node.ObjectId} value={node.ObjectId} translate="no" style={{ color }}>{selectedNodeIds.includes(node.ObjectId) ? '✓ ' : ''}{node.Name || `Node ${node.ObjectId}`}</option>;
   const nodePicker = <select className="movement-object-picker" data-node-kind={selectedKind || undefined} style={listColor ? { color: listColor } : undefined} aria-label="Movement bone or node" title={selected.map(node => node.Name || `Node ${node.ObjectId}`).join(', ')} value={selected.length === 1 ? selected[0].ObjectId : ''} onChange={chooseNode}>
     <option value="">{selected.length > 1 ? `${selected.length} objects selected` : 'No selection'}</option>
     {!!nodeGroups.bones.length && <optgroup label="Bones" style={{ color: boneListColor }}>{nodeGroups.bones.map(node => option(node, boneListColor))}</optgroup>}
-    {!!nodeGroups.others.length && <optgroup label="Other Objects">{nodeGroups.others.map(node => option(node, undefined))}</optgroup>}
-    {!!nodeGroups.helpers.length && <optgroup label="Helpers" style={{ color: HELPER_LIST_COLOR }}>{nodeGroups.helpers.map(node => option(node, HELPER_LIST_COLOR))}</optgroup>}
+    {!!nodeGroups.others.length && <optgroup label="Other Objects">{nodeGroups.others.map(node => option(node, isRef(node) ? rigColors.ref : undefined))}</optgroup>}
+    {!!nodeGroups.helpers.length && <optgroup label="Helpers" style={{ color: rigColors.helper }}>{nodeGroups.helpers.map(node => option(node, rigColors.helper))}</optgroup>}
   </select>;
   const objectStats = <><div className="movement-object-type">Object type - {selected.length === 1 ? labels[nodeKind(model, selected[0])] || 'Node' : selected.length ? 'Multiple' : '—'}</div><div title="Vertices directly influenced by selected bones; each vertex counted once.">Child Vertices: <output>{summary.childVertexCount}</output></div><div>Selected: <output>{summary.selectedCount}</output></div></>;
 
@@ -171,6 +172,7 @@ export default function MovementController({ poseConfig, onPoseChange, onPoseSel
 
     {!restPose && <SidebarSection title="Current Sequence"><label className="movement-sequence"><select data-hotkey="animationSequence" aria-label="Movement current sequence" value={globalSeqId === null ? sequenceIndex : `global:${globalSeqId}`} onChange={event => onTimelineChange?.(event.target.value)}>{!portraitMode && <option value={-1}>All line</option>}{model.Sequences.map((item, index) => <option key={index} value={index} translate="no">{item.Name}</option>)}{(!portraitMode ? model.GlobalSequences || [] : []).map((duration, index) => <option key={`global:${index}`} value={`global:${index}`}>Global {index + 1} · {duration} ms</option>)}</select></label></SidebarSection>}
     <SidebarSection title="Object"><div className="movement-object">
+      {restPose && !vanilla && <div className="movement-object-filters" role="group" aria-label="Visible object types">{[['bones', 'Bones', 'bone'], ['helpers', 'Helpers', 'helper'], ['attachments', 'Refs', 'ref']].map(([key, label, color]) => <label key={key} title={key === 'attachments' ? 'Show reference attachment points so you can select and move them' : 'Show ' + label.toLowerCase() + ' so you can select and move them'} style={{ color: rigColors[color] }}><input type="checkbox" checked={!!objectDisplay?.[key]} onChange={event => onObjectDisplay?.(key, event.target.checked)}/>{label}</label>)}</div>}
       {restPose ? <div className="movement-object-combo"><input aria-label="Selected object name" value={nameText} disabled={disabled || selected.length !== 1} onChange={event => setNameText(event.target.value)} onBlur={commitName} onKeyDown={event => { if (event.key === 'Enter') { event.stopPropagation(); event.currentTarget.blur(); } else if (event.key === 'Escape') { event.stopPropagation(); cancelName.current = true; setNameText(selected[0]?.Name || ''); event.currentTarget.blur(); } }}/>{nodePicker}</div> : nodePicker}
       <label className="movement-check movement-list-selection" title="Toggle to allow multiple selection via drop down object menu"><input type="checkbox" checked={multiselect} onChange={event => { setLocalMultiple(event.target.checked); onMultiple?.(event.target.checked); }}/>Multiselect from List</label>
       {restPose ? objectStats : <details className="movement-object-details"><summary>Details</summary>{objectStats}</details>}

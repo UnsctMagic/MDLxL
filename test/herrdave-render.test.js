@@ -42,23 +42,23 @@ test('HD10 typed markers contain real cube/tetra vertices and preserve node pivo
   const model=renderFixture('rig'),before=structuredClone(model),nodes=projectMovementNodes(model,0,-1,camera(),400,400),byId=new Map(nodes.map(p=>[p.node.ObjectId,p]));
   assert.equal(markerStyle(byId.get(3),byId).shape.vertices.length,8);
   assert.equal(markerStyle(byId.get(4),byId,undefined,undefined,true).shape.vertices.length,4);
-  assert.equal(markerStyle(byId.get(4),byId,undefined,undefined,true).color,'#b2b2ff');
+  assert.equal(markerStyle(byId.get(4),byId,undefined,undefined,true).color,'#ff39cf');
   assert.equal(markerStyle(byId.get(4),byId).shape.billboard,true);
   assert.equal(markerStyle(byId.get(4),byId).color,'#ff39cf');
   assert.equal(markerStyle(byId.get(5),byId).color,'#ff9800');
   assert.equal(markerStyle(byId.get(6),byId).color,'#4cff59');
-  assert.equal(markerStyle(byId.get(4),byId,{visuals:{node:'#123456'}},undefined,true).color,'#123456');
+  assert.equal(markerStyle(byId.get(4),byId,{viewportAppearance:{bones:{ref:'#123456'}}},undefined,true).color,'#123456');
   assert.equal(markerStyle(byId.get(6),byId,{visuals:{particle:'#654321'}}).color,'#654321');
   const buffers=rigMarkerGeometry(nodes,[],{bones:true,nodes:true,attachments:true,particles:true});
   assert.ok(buffers.triangles.length>0&&buffers.edges.length>0);
   const z=new Set(Array.from(buffers.triangles).filter((_,i)=>i%6===2));assert.ok(z.size>2);
   assert.deepEqual(model,before);
 });
-test('Helper roots are ordinary green bones for hierarchy highlighting while refs and events retain distinct polyhedrons',()=>{
+test('Purple Helper roots retain bone hierarchy highlighting while refs stay pink in both interfaces',()=>{
   const model={Bones:[{ObjectId:1,Name:'Bone_Pelvis',Parent:0,PivotPoint:[0,0,4]}],Helpers:[{ObjectId:0,Name:'Bone_Root',PivotPoint:[0,0,0]}],Attachments:[{ObjectId:2,Parent:1,PivotPoint:[0,0,8]}],EventObjects:[{ObjectId:3,Parent:1,PivotPoint:[0,0,10]}],Geosets:[],Sequences:[],GlobalSequences:[],PivotPoints:[]};
   const points=projectMovementNodes(model,0,-1,camera(),400,400),byId=new Map(points.map(point=>[point.node.ObjectId,point])),colors=boneHighlightColors(points,[1]);
   assert.equal(points.find(point=>point.node.ObjectId===0).overlayKind,'bones');assert.equal(colors.get(0),'#000000');assert.equal(colors.get(1),'#ff0000');
-  assert.equal(markerStyle(byId.get(0),byId).color,'#4cb259');assert.equal(markerStyle(byId.get(2),byId,undefined,undefined,true).color,'#b2b2ff');assert.equal(markerStyle(byId.get(2),byId).color,'#ff39cf');assert.equal(markerStyle(byId.get(3),byId).color,'#ff9800');
+  assert.equal(markerStyle(byId.get(0),byId).color,'#8a2be2');assert.equal(markerStyle(byId.get(2),byId,undefined,undefined,true).color,'#ff39cf');assert.equal(markerStyle(byId.get(2),byId).color,'#ff39cf');assert.equal(markerStyle(byId.get(3),byId).color,'#ff9800');
 });
 test('rig marker lighting stays fixed when only the camera moves',()=>{
   const model=renderFixture('rig'),front=camera(),side=camera();
