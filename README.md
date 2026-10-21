@@ -1,4 +1,4 @@
-# MDLxL 0.28.3
+# MDLxL 0.28.4
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -27,7 +27,7 @@ The `dist/` build output and the FFmpeg binaries are not stored in git. After pu
 
 ## Current version
 
-Version 0.28.3 fixes Collect Bit saving: collected Bits keep their original texture paths and save only their MDX, without copying texture files or requiring them to be loaded. Geometry, materials, UVs and RGB animation tracks are preserved.
+Version 0.28.4 restores reference-point editing in Bones mode. A compact Bones / Helpers / Refs row remembers visibility choices, Create can add Refs, and VIS keeps all three enabled. Readable outlined text and distinct marker colors follow each Appearance preset.
 
 ## Releases
 
@@ -41,6 +41,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.28.4](docs/RELEASE-0.28.4.md) ([ES](docs/RELEASE-0.28.4-ES.md), [RU](docs/RELEASE-0.28.4-RU.md), [ZH-CN](docs/RELEASE-0.28.4-ZH-CN.md))
 - [0.28.3](docs/RELEASE-0.28.3.md) ([ES](docs/RELEASE-0.28.3-ES.md), [RU](docs/RELEASE-0.28.3-RU.md), [ZH-CN](docs/RELEASE-0.28.3-ZH-CN.md))
 - [0.28.2](docs/RELEASE-0.28.2.md) ([ES](docs/RELEASE-0.28.2-ES.md), [RU](docs/RELEASE-0.28.2-RU.md), [ZH-CN](docs/RELEASE-0.28.2-ZH-CN.md))
 - [0.28.1](docs/RELEASE-0.28.1.md) ([ES](docs/RELEASE-0.28.1-ES.md), [RU](docs/RELEASE-0.28.1-RU.md), [ZH-CN](docs/RELEASE-0.28.1-ZH-CN.md))
