@@ -25,6 +25,12 @@ The `dist/` build output and the FFmpeg binaries are not stored in git. After pu
 
 `pnpm test` runs the 57 compatibility regression tests; `pnpm run test:source` runs the full suite, including the restored historical tests. CI runs both. See [the compatibility fix status](docs/MDL-MDX-COMPATIBILITY-FIXES.md) for coverage and limitations.
 
+## Agent context
+
+Codex and Claude Code share [AGENTS.md](AGENTS.md). Use the [project map](docs/agent-map.md)
+to find a feature and the [task handovers](docs/agent-tasks/README.md) when continuing work.
+Agents maintain these documents as part of the task.
+
 ## Current version
 
 Version 0.28.4 restores reference-point editing in Bones mode. A compact Bones / Helpers / Refs row remembers visibility choices, Create can add Refs, and VIS keeps all three enabled. Readable outlined text and distinct marker colors follow each Appearance preset.
