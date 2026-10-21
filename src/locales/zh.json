@@ -3149,5 +3149,7 @@
   "Show bones so you can select and move them": "显示骨骼以便选择和移动",
   "Show helpers so you can select and move them": "显示辅助对象以便选择和移动",
   "Bones Helpers": "骨骼 辅助对象",
-  "Bones Refs": "骨骼 参考点"
+  "Bones Refs": "骨骼 参考点",
+  "Ref": "参考点",
+  "Create bone or ref": "创建骨骼或参考点"
 }

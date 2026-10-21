@@ -5958,5 +5958,7 @@
   "Show bones so you can select and move them": "Показать кости, чтобы выбирать и перемещать их",
   "Show helpers so you can select and move them": "Показать вспомогательные объекты, чтобы выбирать и перемещать их",
   "Bones Helpers": "Кости Вспомогательные",
-  "Bones Refs": "Кости Рефы"
+  "Bones Refs": "Кости Рефы",
+  "Ref": "Реф",
+  "Create bone or ref": "Создать кость или реф"
 }

@@ -400,7 +400,10 @@ export default function App() {
     if (type === 'Bone' && !selectionCount) captureAPI?.focusPoint?.([0, 0, 0]);
     const created = edit(`Create ${type.toLowerCase()}`, ['Nodes', 'PivotPoints', 'Info'], current => createRigNode(current, type, validSelection));
     setBoneCreateOpen(false);
-    if (created && created !== false) setSelectedNodeIds([created.ObjectId]);
+    if (created && created !== false) {
+      setSelectedNodeIds([created.ObjectId]);
+      if (type === 'Attachment') changeOverlay('attachments', true);
+    }
   };
   const deleteSelectedNode = () => {
     const ids=mode==='vertices'?selectedRigNodes.map(node=>node.ObjectId):singleRigNode?[singleRigNode.ObjectId]:[];

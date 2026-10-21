@@ -65,6 +65,37 @@ const { buildSync } = require('esbuild');
   try {
     await launch();
     assert.deepEqual(await checks(),[true,false,false]);
+    const order = await page.evaluate(() => {
+      const y = selector => document.querySelector(selector).getBoundingClientRect().top;
+      return [y('.movement-object-combo'),y('.movement-object-filters'),y('.movement-list-selection')];
+    });
+    assert.ok(order[0] < order[1] && order[1] < order[2], 'filters sit below the dropdown and above Multiselect');
+    const refCount = await page.evaluate(() => rigState().props.model.Attachments.length);
+    await page.getByRole('button',{name:'Create',exact:true}).click();
+    await page.getByRole('menuitem',{name:'Ref',exact:true}).click(); await idle();
+    assert.equal(await page.evaluate(() => rigState().props.model.Attachments.length),refCount+1,'Create Ref adds an actual attachment');
+    assert.equal(await page.getByLabel('Selected object name',{exact:true}).inputValue(),'New Ref');
+    assert.equal((await checks())[2],true,'new ref is visible without an extra toggle');
+    await page.evaluate(()=>document.activeElement?.blur()); await page.keyboard.press('Control+z'); await idle();
+    assert.equal(await page.evaluate(() => rigState().props.model.Attachments.length),refCount,'Undo removes the created ref');
+    await page.locator('.movement-object-filters').getByLabel('Refs',{exact:true}).uncheck();
+    await page.getByLabel('Movement bone or node',{exact:true}).selectOption(String(ref.ObjectId)); await idle();
+    const textStyles = await page.evaluate(id => {
+      const picker = document.querySelector('.movement-object-picker'), input=document.querySelector('[aria-label="Selected object name"]'), option=[...picker.options].find(o=>o.value===String(id));
+      const read = e => ({ color:getComputedStyle(e).color, stroke:getComputedStyle(e).webkitTextStrokeColor, width:getComputedStyle(e).webkitTextStrokeWidth });
+      const colored=document.createElement('span'),plain=document.createElement('span'); colored.style.color='#00ff00';plain.style.color='#16191e';colored.textContent=plain.textContent='Outline'; document.body.append(colored,plain);
+      const dynamic={colored:read(colored),plain:read(plain)};colored.remove();plain.remove();
+      return {input:read(input),option:read(option),arrow:getComputedStyle(picker).backgroundImage,neutral:getComputedStyle(document.documentElement).getPropertyValue('--ui-text').trim(),dynamic};
+    },ref.ObjectId);
+    assert.equal(textStyles.input.color,'rgb(255, 57, 207)'); assert.equal(textStyles.option.color,textStyles.input.color);
+    assert.ok(['rgb(0, 0, 0)','color(srgb 0 0 0)'].includes(textStyles.input.stroke)); assert.ok(['rgb(0, 0, 0)','color(srgb 0 0 0)'].includes(textStyles.option.stroke)); assert.ok(parseFloat(textStyles.option.width)>0);
+    assert.notEqual(textStyles.arrow,textStyles.input.color,'arrow does not inherit ref pink');
+    assert.ok(textStyles.arrow.includes('rgb(22, 25, 30)'),'arrow is painted in neutral UI text color');
+    assert.ok(['rgb(0, 0, 0)','color(srgb 0 0 0)'].includes(textStyles.dynamic.colored.stroke)); assert.ok(['rgba(0, 0, 0, 0)','color(srgb 0 0 0 / 0)'].includes(textStyles.dynamic.plain.stroke),'neutral text is unchanged');
+    await page.getByLabel('Movement bone or node',{exact:true}).click(); await idle();
+    await page.screenshot({path:path.join(out,'outlined-dropdown.png')}); await page.keyboard.press('Escape');
+    result.textStyles=textStyles;
+
     const rows=await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().top));
     assert.ok(Math.max(...rows)-Math.min(...rows)<1,'all three controls occupy one row');
     await page.getByLabel('View direction',{exact:true}).selectOption('front'); await idle();

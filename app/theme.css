@@ -89,3 +89,22 @@ html[lang=mordor] .language-switch,html[lang=mordor] .language-switch *{font-fam
 :root[data-palette] :is(.resource-editor .re-list button.re-selected small,.paint-start-options button[aria-pressed=true] span){color:var(--ui-selected-text)}
 
 :root[data-palette]{--functional-axis-x:var(--ui-channel-r);--functional-axis-y:var(--ui-channel-g);--functional-axis-z:var(--ui-channel-b);--ui-disabled:var(--ui-muted)}
+
+/* Outline colored UI text, leaving grayscale text transparent at the stroke.
+   Relative color resolves per element, including dynamically chosen colors. */
+:root body *:not(svg):not(svg *), :root body svg text {
+  -webkit-text-stroke: .65px rgb(from currentColor 0 0 0 / clamp(0, calc((max(r, g, b) - min(r, g, b) - 16) / 16), 1));
+  paint-order: stroke fill;
+}
+/* Render option text in the document so Windows' native popup does not discard
+   its category color or text outline. Keep the existing compact controls. */
+:root select:not([multiple]):not([size]), :root select:not([multiple]):not([size])::picker(select) { appearance:base-select; }
+:root select:not([multiple]):not([size]) {
+  padding-block:1px; padding-inline:3px 17px; border-radius:0;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ui-text,#000) 50%),linear-gradient(135deg,var(--ui-text,#000) 50%,transparent 50%)!important;
+  background-position:calc(100% - 7px) 50%,calc(100% - 3px) 50%; background-size:4px 4px; background-repeat:no-repeat;
+}
+:root select::picker-icon { display:none; }
+:root select::picker(select) { border:1px solid var(--ui-border,#888); border-radius:0; padding:1px; background:var(--ui-field,#fff); max-height:60vh; }
+:root select option { padding:1px 5px; min-height:18px; white-space:nowrap; }
+:root select option:checked, :root select option:hover { background:var(--ui-selected,#c5d6ec); }

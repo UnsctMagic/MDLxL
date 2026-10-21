@@ -5970,5 +5970,7 @@
   "Show bones so you can select and move them": "Mostrar huesos para seleccionarlos y moverlos",
   "Show helpers so you can select and move them": "Mostrar ayudantes para seleccionarlos y moverlos",
   "Bones Helpers": "Huesos Ayudantes",
-  "Bones Refs": "Huesos Refs"
+  "Bones Refs": "Huesos Refs",
+  "Ref": "Ref",
+  "Create bone or ref": "Crear hueso o referencia"
 }

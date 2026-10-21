@@ -15,3 +15,8 @@
 
 .movement-controller-select { display: flex; flex-direction: column; gap: 3px; margin: 4px 0; }
 .movement-controller-select select { width: 100%; min-width: 0; }
+
+/* Bones names keep their category color; only the separate arrow stays neutral. */
+.movement-object-combo .movement-object-picker { color:transparent!important; padding:0; }
+.movement-object-picker::picker(select) { min-width:220px; }
+.movement-object-picker option::checkmark { display:none; }
