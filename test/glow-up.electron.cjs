@@ -45,34 +45,50 @@ async function heroFixture(file){
   const origin=panel.getByLabel('Origin glow',{exact:true}),weapon=panel.getByLabel('Weapon glow',{exact:true});
   assert.equal(await origin.isChecked(),true);
   if(!custom){assert.equal(await weapon.isChecked(),true);assert.equal(await panel.getByLabel('Weapon',{exact:true}).locator('option:checked').textContent(),'Sword');}
-  assert.equal(await panel.locator('input[type=range]').count(),await weapon.isChecked()?5:2);
+  // As for emitters: one EMTR slider (Brightness) and drag handles in the preview.
+  assert.equal(await panel.locator('input[type=range]').count(),1);
+  const stage=emtr.locator('svg[aria-label="Glow handles"]');
   await page.waitForFunction(()=>document.querySelector('.pe-preview canvas'));await sleep(800);
-  let shown=await preview();assert.equal(shown.model.Geosets.length,original.Geosets.length+(await weapon.isChecked()?2:1));
-  await sleep(2500);await capture('glow-panel');checks.push('Glow Up panel: origin + weapon toggles, weapon pick, sizes and brightness; preview shows the glow');
-
-  const originWidth=m=>{const g=m.Geosets[original.Geosets.length],v=Object.values(g.Vertices);return v[3]-v[0];};
-  const widthBefore=originWidth(shown.model);
-  await panel.getByLabel('Origin size',{exact:true}).fill('150');await panel.getByLabel('Brightness',{exact:true}).fill('50');await sleep(600);
-  shown=await preview();assert.ok(Math.abs(originWidth(shown.model)/widthBefore-1.5)<.01,'Origin size scales the planes');
-  assert.equal(shown.model.Materials.at(-1).Layers[0].Alpha,.5);checks.push('Sliders update the live preview');
+  let shown=await preview();const weaponOn=await weapon.isChecked();assert.equal(shown.model.Geosets.length,original.Geosets.length+(weaponOn?2:1));
+  for(const label of ['Move origin glow','Resize origin glow',...(weaponOn?['Weapon glow start','Weapon glow end','Resize weapon glow']:[])])await stage.locator(`[aria-label="${label}"] circle`).waitFor();
+  await sleep(2500);await capture('glow-panel');checks.push('Glow Up panel: origin + weapon toggles, weapon pick, Brightness; drag handles in the preview like emitters');
 
   // Real left-button drags orbit the preview camera both ways.
   const box=await emtr.locator('.pe-preview canvas').first().boundingBox(),cx=box.x+box.width/2,cy=box.y+box.height/2;
-  const cam0=(await preview()).camera;await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+120,cy+40,{steps:8});await page.mouse.up();await sleep(200);
+  const cam0=(await preview()).camera;await page.mouse.move(cx,cy+box.height*.35);await page.mouse.down();await page.mouse.move(cx+120,cy+box.height*.35+40,{steps:8});await page.mouse.up();await sleep(200);
   const cam1=(await preview()).camera;assert.notDeepEqual(cam1,cam0,'drag rotates the camera');
-  await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx-160,cy-20,{steps:8});await page.mouse.up();await sleep(200);
+  await page.mouse.move(cx,cy+box.height*.35);await page.mouse.down();await page.mouse.move(cx-160,cy+box.height*.35-20,{steps:8});await page.mouse.up();await sleep(200);
   const cam2=(await preview()).camera;assert.notDeepEqual(cam2,cam1,'reverse drag rotates back');
   await sleep(1500);await capture('glow-orbit');checks.push('Mouse drags rotate the Glow Up preview in both directions');
-  // Adjusting keeps the user's view: no refit after the first one.
-  const kept=(await preview()).camera,same=(a,b)=>a.every((v,i)=>Math.abs(v-b[i])<1e-3);
-  await panel.getByLabel('Origin size',{exact:true}).fill('120');await sleep(1200);
-  assert.ok(same((await preview()).camera,kept),'slider change keeps the camera');
-  if(await weapon.isChecked()){
-   const parts=()=>preview().then(p=>p.model.Geosets.at(-1).Groups.length),before=await parts();
-   await panel.getByLabel('Glow from',{exact:true}).fill('85');await panel.getByLabel('Glow to',{exact:true}).fill('100');await sleep(1200);
-   assert.ok(await parts()<=before,'a tip-only glow uses no more squares');assert.ok(same((await preview()).camera,kept));await capture('glow-tip');
+
+  // Handle drags change the glow and never move the camera.
+  const centerOf=async label=>{const b=await stage.locator(`[aria-label="${label}"] circle`).boundingBox();return [b.x+b.width/2,b.y+b.height/2];};
+  let kept=(await preview()).camera;const same=(a,b)=>a.every((v,i)=>Math.abs(v-b[i])<1e-3);
+  const drag=async(label,dx,dy,escape)=>{const [x,y]=await centerOf(label);await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:6});if(escape)await page.keyboard.press('Escape');await page.mouse.up();await sleep(1000);};
+  const plane=m=>Object.values(m.Geosets[original.Geosets.length].Vertices).slice(12,24),width=m=>{const v=plane(m);return v[3]-v[0];},middle=m=>{const v=plane(m);return [(v[0]+v[3])/2,(v[1]+v[7])/2];};
+  const [ox,oy]=await centerOf('Move origin glow'),[ex,ey]=await centerOf('Resize origin glow'),reach=Math.hypot(ex-ox,ey-oy),away=[(ex-ox)/reach*50,(ey-oy)/reach*50];
+  let before=(await preview()).model;await drag('Resize origin glow',...away);let now=(await preview()).model;
+  assert.ok(width(now)>width(before)*1.05,'dragging the edge outward widens the ground glow');
+  await drag('Resize origin glow',-away[0],-away[1],true);assert.ok(Math.abs(width((await preview()).model)-width(now))<1e-3,'Escape cancels the drag');
+  before=now;await drag('Move origin glow',40,25);now=(await preview()).model;
+  assert.ok(Math.hypot(...middle(now).map((v,i)=>v-middle(before)[i]))>2,'Move shifts the ground glow');
+  assert.ok(same((await preview()).camera,kept),'origin handle drags keep the camera');
+  if(weaponOn){
+   // A small hero: zoom in with the wheel, as a user would, until the weapon's two handles are apart.
+   for(let i=0;i<12;i++){const [sx,sy]=await centerOf('Weapon glow start'),[tx,ty]=await centerOf('Weapon glow end');if(Math.hypot(tx-sx,ty-sy)>=40)break;await page.mouse.move(box.x+20,box.y+20);await page.mouse.wheel(0,-240);await sleep(400);}
+   kept=(await preview()).camera;
+   const squares=m=>{const g=m.Geosets.at(-1),v=Object.values(g.Vertices);return g.Groups.map((_,k)=>({c:[0,1,2].map(a=>(v[k*12+a]+v[k*12+3+a]+v[k*12+6+a]+v[k*12+9+a])/4),w:v[k*12+4]-v[k*12+1]}));};
+   const [sx,sy]=await centerOf('Weapon glow start'),[tx,ty]=await centerOf('Weapon glow end');before=(await preview()).model;
+   await drag('Weapon glow start',(tx-sx)*.7,(ty-sy)*.7);now=(await preview()).model;
+   const run=m=>{const s=squares(m);return Math.hypot(...s[0].c.map((v,i)=>v-s.at(-1).c[i]));};
+   assert.ok(run(now)<run(before)*.8&&squares(now).length<=squares(before).length,'dragging the start toward the tip shortens the weapon glow');
+   const big=m=>Math.max(...squares(m).map(s=>s.w));before=now;await drag('Resize weapon glow',30,-30);now=(await preview()).model;
+   assert.ok(big(now)>big(before)*1.1,'the corner enlarges the weapon glow');await capture('glow-tip');
   }
-  checks.push('Slider changes keep the camera; Glow from/to move the weapon glow');
+  assert.ok(same((await preview()).camera,kept),'handle drags keep the camera');
+  const value=panel.getByLabel('Brightness % value',{exact:true});await value.fill('50');await value.press('Enter');await sleep(800);
+  assert.equal((await preview()).model.Materials.at(-1).Layers[0].Alpha,.5);
+  checks.push('Handles resize and move the ground glow, place and size the weapon glow, Escape cancels; the camera stays put; Brightness is the EMTR slider');
 
   if(await weapon.isChecked()){await weapon.uncheck();await sleep(500);assert.equal((await preview()).model.Geosets.length,original.Geosets.length+1);await weapon.check();await sleep(500);}
   const undoBefore=(await read()).undo,added=await weapon.isChecked()?2:1;

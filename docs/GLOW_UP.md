@@ -1,12 +1,22 @@
 # Glow Up
 
 Open a model, open **EMTR** (Particle Editor) and click **Glow Up** next to
-Add ribbon. Tick **Origin glow**, **Weapon glow** or both, adjust the sizes and
-brightness, and click **Create**. **Glow from** and **Glow to** place the weapon
-glow along the weapon (0% butt, 100% tip; both near 100% for a spear tip). The
-preview plays the model's Stand with the glow and keeps normal mouse orbiting;
-it fits the view once and keeps the user's camera while sliders change. Create
-is one undo step; Cancel or Escape leaves the model alone. Glow Up used to be a Forge mode; Forge no longer has it.
+Add ribbon. Tick **Origin glow**, **Weapon glow** or both and click **Create**.
+Placement and size are dragged in the preview with EMTR's emitter handles
+(`GlowStageTools`, same markup, CSS, latching and keys as `ParticleStageTools`):
+
+| Handle | Like | Changes |
+| --- | --- | --- |
+| Move (green) | Move emitter | origin glow position on the ground |
+| Edge of the ground outline | Spawn width handle | origin glow size |
+| Two ends of the weapon line | Ribbon edge handles | where the weapon glow starts and ends (a spear tip: drag the start to the tip) |
+| Corners of the Size square | Particle size corners | weapon glow square size |
+
+Escape cancels a drag, arrow keys nudge a focused handle, and dragging a handle
+never moves the camera. **Brightness %** is EMTR's own `ParticleSlider`. The
+preview plays the model's Stand with the glow, orbits with the mouse, fits the
+view once and then keeps the user's camera. Create is one undo step; Cancel or
+Escape leaves the model alone. Glow Up used to be a Forge mode; Forge no longer has it.
 
 ## How heroes glow
 
@@ -58,7 +68,7 @@ Visibility: the glow geosets go dark in Death, Decay and Dissipate (Dissipate on
 - Weapon: one geoset of 1–10 squares built in YZ (Warcraft billboards face +X)
   on bones `Glow Weapon n`, Flags Bone + Billboarded, parented to the weapon.
   By default the row runs from 30% to 100% of the reach from the grip (the
-  nearest `hand` ancestor's pivot) to the tip; Glow from/to override it as
+  nearest `hand` ancestor's pivot) to the tip; the end handles override it as
   fractions of the whole weapon. The tip is the side with more of the weapon's
   length × vertices, so hammer and staff heads win over handles. Spacing
   follows the unscaled square, so Weapon size shrinks squares without adding
@@ -89,5 +99,6 @@ Goblin Tinker camera, a quote in Malfurion's sequence name).
   detection and line, mirrored pairs and marked polygons, billboard orientation
   under orbit, MDL/MDX round trip, one-step undo.
 - `test/glow-up.electron.cjs`: packaged app, hidden desktop. Glow Up beside Add
-  ribbon, trim default panel, sliders, real mouse orbit in the preview, Create,
+  ribbon, trim default panel, real mouse drags on every handle (and Escape),
+  wheel zoom, camera kept during handle drags, real mouse orbit, Create,
   undo, Forge without Glow Up.

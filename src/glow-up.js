@@ -157,7 +157,7 @@ export function weaponLine(model, { weaponId, marked, from, to } = {}) {
   const clamp = v => Math.min(1, Math.max(0, v));
   from = clamp(from ?? held + (1 - held) * .3); to = clamp(to ?? 1);
   if (from > to) [from, to] = [to, from];
-  return { start: at(buttT + length * from), end: at(buttT + length * to), parentId, from, to };
+  return { start: at(buttT + length * from), end: at(buttT + length * to), butt: at(buttT), tip: at(tipT), parentId, from, to };
 }
 
 function uniqueName(model, base) {
@@ -217,25 +217,30 @@ function addQuads(model, quads, materialId) {
   return geosetIndex;
 }
 
-function addOrigin(model, size, materialId) {
+function addOrigin(model, size, materialId, [x, y] = [0, 0]) {
   const quads = ORIGIN_LAYERS.map(({ width, height, keys, period }, k) => {
     const half = size * width / 2, z = size * height;
-    const bone = addBone(model, `Glow Origin ${k + 1}`, [0, 0, z], null, 0);
+    const bone = addBone(model, `Glow Origin ${k + 1}`, [x, y, z], null, 0);
     bone.Scaling = pulse(model, keys, period);
-    return { bone, normal: [0, 0, 1], corners: [[-half, -half, z], [half, -half, z], [half, half, z], [-half, half, z]] };
+    return { bone, normal: [0, 0, 1], corners: [[x - half, y - half, z], [x + half, y - half, z], [x + half, y + half, z], [x - half, y + half, z]] };
   });
   return addQuads(model, quads, materialId);
+}
+
+/** Square width and count for one weapon line. */
+function weaponSquares(line, size, originSize) {
+  const span = Math.hypot(...line.end.map((v, a) => v - line.start[a]));
+  // Squares are ~1.4× the glowing span: Arthas 66 → 90, Paladin 42 → 76, Gluma's blades 40 → 54.
+  const base = Math.min(.4 * originSize, Math.max(.2 * originSize, 1.4 * span));
+  // Spacing follows the unscaled square, so Weapon size shrinks the glow
+  // without crowding it. A short stretch (a spear tip) gets one to three.
+  return { quad: base * size, count: Math.max(1, Math.min(10, Math.round(span / (.2 * base)) + 1)) };
 }
 
 function addWeapon(model, lines, size, originSize, materialId) {
   const quads = [];
   for (const line of lines) {
-    const span = Math.hypot(...line.end.map((v, a) => v - line.start[a]));
-    // Squares are ~1.4× the glowing span: Arthas 66 → 90, Paladin 42 → 76, Gluma's blades 40 → 54.
-    const base = Math.min(.4 * originSize, Math.max(.2 * originSize, 1.4 * span)), quad = base * size;
-    // Spacing follows the unscaled square, so Weapon size shrinks the glow
-    // without crowding it. A short stretch (a spear tip) gets one to three.
-    const count = Math.max(1, Math.min(10, Math.round(span / (.2 * base)) + 1));
+    const { quad, count } = weaponSquares(line, size, originSize);
     for (let k = 0; k < count; k++) {
       const t = count > 1 ? k / (count - 1) : .5, center = line.start.map((v, a) => v + (line.end[a] - v) * t);
       // Full along the blade, narrower at the hilt and the tip.
@@ -254,8 +259,9 @@ function addWeapon(model, lines, size, originSize, materialId) {
  * options: origin, originSize (× fitted width), weapon, weaponIds | marked, weaponSize,
  * weaponFrom/weaponTo (0 butt … 1 tip; default from past the grip to the tip), brightness.
  */
-export function addHeroGlow(model, { origin = true, originSize = 1, weapon = false, weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, brightness = .75 } = {}) {
+export function addHeroGlow(model, { origin = true, originSize = 1, originOffset = [0, 0], weapon = false, weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, brightness = .75 } = {}) {
   if (!origin && !weapon) throw Error('Choose origin glow, weapon glow, or both.');
+  if (!(originOffset.length === 2 && originOffset.every(Number.isFinite))) throw Error('The origin glow position is invalid.');
   if (![originSize, weaponSize].every(v => Number.isFinite(v) && v >= .1 && v <= 5)) throw Error('Glow size must be between 10% and 500%.');
   if (!Number.isFinite(brightness) || brightness < 0 || brightness > 1) throw Error('Glow brightness must be between 0 and 100%.');
   if (weapon && !marked && !weaponIds.length) throw Error('Choose the weapon’s bone.');
@@ -266,7 +272,7 @@ export function addHeroGlow(model, { origin = true, originSize = 1, weapon = fal
   if (textureId < 0) textureId = model.Textures.push({ Image: '', ReplaceableId: 2, Flags: 0 }) - 1;
   const materialId = model.Materials.push({ PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 3, Shading: 17, TextureID: textureId, TVertexAnimId: null, CoordId: 0, Alpha: brightness }] }) - 1;
   const geosetIndices = [];
-  if (origin) geosetIndices.push(addOrigin(model, fitted * originSize, materialId));
+  if (origin) geosetIndices.push(addOrigin(model, fitted * originSize, materialId, originOffset));
   if (weapon) geosetIndices.push(addWeapon(model, lines, weaponSize, fitted, materialId));
   if (model.Info) {
     const added = geosetIndices.map(i => model.Geosets[i]);
@@ -275,4 +281,16 @@ export function addHeroGlow(model, { origin = true, originSize = 1, weapon = fal
     model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; model.Info.NumBones = model.Bones.length;
   }
   return { geosetIndices, materialId, textureId, size: fitted };
+}
+
+/**
+ * Where the glow's drag handles sit, in bind-pose model space: the origin
+ * glow's centre and half width (its widest plane), and per weapon line the
+ * butt, tip, glowing stretch and the middle square's half width.
+ */
+export function glowLayout(model, { originSize = 1, originOffset = [0, 0], weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo } = {}) {
+  const fitted = originGlowSize(model), size = fitted * originSize, range = { from: weaponFrom, to: weaponTo };
+  const origin = { center: [originOffset[0], originOffset[1], size * ORIGIN_LAYERS[1].height], half: size * ORIGIN_LAYERS[1].width / 2 };
+  const lines = marked ? [weaponLine(model, { marked, ...range })] : weaponIds.map(weaponId => weaponLine(model, { weaponId, ...range }));
+  return { origin, weapons: lines.map(line => ({ ...line, mid: line.start.map((v, a) => (v + line.end[a]) / 2), half: weaponSquares(line, weaponSize, fitted).quad / 2 })) };
 }

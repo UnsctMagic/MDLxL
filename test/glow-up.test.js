@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PerspectiveCamera, Vector3 } from 'three';
 import { createStarterDocument } from '../src/starter-model.js';
 import { openDocument, createNode } from '../src/editor-document.js';
-import { addHeroGlow, hasHeroGlow, originGlowSize, weaponChoices, weaponLine } from '../src/glow-up.js';
+import { addHeroGlow, glowLayout, hasHeroGlow, originGlowSize, weaponChoices, weaponLine } from '../src/glow-up.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { samplePreviewMatrices } from '../app/preview-pose.js';
 
@@ -161,4 +161,19 @@ test('From and To put a small glow on just the tip', () => {
   assert.ok(centers.every(c => c[0] > 60), 'all squares sit on the tip');
   const single = structuredClone(m); addHeroGlow(single, { origin: false, weapon: true, weaponIds: [sword.ObjectId], weaponFrom: .97, weaponTo: .97 });
   assert.equal(single.Geosets.at(-1).Groups.length, 1);
+});
+
+test('handle layout matches what Create builds, and Move shifts the ground glow', () => {
+  const doc = hero(), m = doc.model, sword = m.Bones.find(b => b.Name === 'Sword');
+  const options = { origin: true, originSize: 1.3, originOffset: [12, -7], weapon: true, weaponIds: [sword.ObjectId], weaponFrom: .5, weaponTo: .9, weaponSize: .8 };
+  const layout = glowLayout(m, options), copy = structuredClone(m), result = addHeroGlow(copy, options);
+  const origin = copy.Geosets[result.geosetIndices[0]], plane = Array.from(origin.Vertices.slice(12, 24));
+  near(layout.origin.center, quadCenters({ Vertices: plane })[0]);
+  near([layout.origin.half * 2], [plane[3] - plane[0]]);
+  const bones = origin.Groups.map(([id]) => copy.Nodes[id]);
+  assert.ok(bones.every(b => Math.abs(b.PivotPoint[0] - 12) < 1e-4 && Math.abs(b.PivotPoint[1] + 7) < 1e-4));
+  const [w] = layout.weapons, centers = quadCenters(copy.Geosets[result.geosetIndices[1]]);
+  near(w.start, centers[0]); near(w.end, centers.at(-1)); assert.equal(w.parentId, sword.ObjectId);
+  assert.ok(w.butt[0] < w.start[0] && w.tip[0] >= w.end[0]);
+  assert.throws(() => addHeroGlow(structuredClone(m), { origin: true, originOffset: [NaN, 0] }), /position/);
 });
