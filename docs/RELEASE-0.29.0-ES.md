@@ -12,12 +12,13 @@
 - Los modelos se pueden explorar con **Estilo del Editor de mundos** (raza › unidades, héroes, edificios, hechizos, objetos, decoraciones, cada uno con su icono del juego) o por las carpetas del propio juego.
 - Búsqueda instantánea entre unos 175 000 archivos. Busca `painting`, `art` o `loading screen` para encontrar solo las ilustraciones del juego.
 - Los modelos muestran una vista 3D giratoria con selector de animación. Doble clic o **Abrir en el editor** lo abre en una pestaña nueva. Los sonidos suenan al hacer clic; cualquier archivo se puede sacar con **Guardar una copia…**.
+- En **Geosets**, marca partes de un modelo del juego y pulsa **Importar al actual** para copiarlas a tu modelo, desde cualquier formato.
 - Si una textura ya está en el modelo, al añadirla se pregunta: **Usar material existente** o **Crear un material nuevo**.
 - Los selectores de texturas (Replace Texture, Material Manager, EMTR, Forge, Citadel Paint) funcionan igual que antes.
 
 ## Glow Up (ahora en EMTR)
 
-- Glow Up pasa de Forge a EMTR, junto a Añadir cinta. Crea el brillo de héroe como los héroes de Blizzard: tres planos de brillo de equipo que laten a los pies y una fila de cuadrados de brillo a lo largo del arma.
+- Glow Up pasa de Forge a la barra superior de EMTR. Crea el brillo de héroe como los héroes de Blizzard: tres planos de brillo de equipo que laten a los pies y una fila de cuadrados de brillo a lo largo del arma.
 - Casillas Origin glow y Weapon glow (con selector de arma) y un control Brightness. El tamaño y la posición se ajustan arrastrando los controles en la vista previa, como con los emisores; la vista previa se gira con el ratón. **Crear** es un solo paso de Deshacer.
 
 ## Fondo de retrato

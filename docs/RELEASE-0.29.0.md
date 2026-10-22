@@ -12,12 +12,13 @@
 - Models can be browsed **World Editor Style** (race › units, heroes, buildings, spells, items, doodads, each with its game icon) or by the game's own folders.
 - Instant search across about 175,000 files. Search `painting`, `art` or `loading screen` to find only the game's illustrations.
 - Models show a rotating 3D preview with an animation picker. Double-click or **Open in editor** opens one as a new tab. Sounds play on click; any file can be copied out with **Save a copy…**.
+- In **Geosets**, tick parts of a game model and click **Import to current** to copy them into your model, from any model format.
 - When a texture is already in the model, adding it asks: **Use existing material** or **Make a new material**.
 - The texture pickers (Replace Texture, Material Manager, EMTR, Forge, Citadel Paint) work exactly as before.
 
 ## Glow Up (now in EMTR)
 
-- Glow Up moved from Forge to EMTR, next to Add ribbon. It builds hero glow the way Blizzard's heroes do: three pulsing team-glow planes at the feet and a row of glow squares along the weapon.
+- Glow Up moved from Forge to EMTR's top bar. It builds hero glow the way Blizzard's heroes do: three pulsing team-glow planes at the feet and a row of glow squares along the weapon.
 - Switches for Origin glow and Weapon glow (with a weapon picker) and a Brightness slider. Size and place the glows by dragging their handles in the preview, like emitters; the preview turns with the mouse. **Create** is one Undo step.
 
 ## Portrait background
