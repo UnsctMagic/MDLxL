@@ -31,8 +31,9 @@ separate and are not a shared handover.
 
 - Make the smallest requested change in the existing workflow. Preserve unrelated
   work, authored model data and intended motion. Do not edit imported libraries.
-- Keep all task-controlled work, builds, caches, temporary files and reports on
-  D:. Codex uses `D:\Codex\<task>`; C: is read-only input. Keep each tool's approved
+- On the owner's Windows PC, keep all task-controlled work, builds, caches,
+  temporary files and reports on D:. Codex uses `D:\Codex\<task>`; C: is read-only
+  input. Cloud checkouts use their own temporary workspace. Keep each tool's approved
   workspace and private settings separate; do not change global configuration.
   Link existing `node_modules` with a junction rather than copying dependencies.
 - Preserve real profiles, personal libraries, settings, saves, recordings and
@@ -102,17 +103,15 @@ Update after meaningful discoveries, milestones and before handing over, not
 after every tool call. Keep one current account, mark completed tasks, and move
 durable findings into the existing topic guide. Do not load old task notes at startup.
 
-When delegating, give a bounded job, relevant paths, established findings,
-constraints and expected output. Use separate notes for concurrent tasks and
-name one owner to consolidate shared findings. Do not make every agent rediscover
-the repository. Shared files do not synchronize separate branches, worktrees,
-computers or cloud checkouts: hand over the revision, code and notes together.
-Private conversations and built-in memory stores are not shared.
+Shared files do not synchronize branches, checkouts or private memories: hand over
+the revision, code and note together. Delegation and tool-switching steps are in
+the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
 
 ## Branches, approval and releases
 
 - Continue the task's explicitly named feature branch when switching tools.
-  Otherwise use a `codex/` feature branch. Preserve unrelated local work.
+  Otherwise use the tool's own prefix: `codex/` for Codex, `claude/` for Claude
+  Code. Preserve unrelated local work.
 - Push the feature branch to `origin`, open a PR into `main`, and include its URL
   in the handover (attach it to the Codex chat when using Codex). A local-only
   commit/merge or direct push/merge to `main` is not a completed handoff.
