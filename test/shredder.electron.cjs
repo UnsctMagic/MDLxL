@@ -62,7 +62,7 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     const greet = async () => {
       await waitTip('intro:welcome');
       assert.equal((await bubble.locator('.shredder-caption').textContent()).trim(), 'Shredder');
-      assert.match(await lessonText(), /^Hi, I'm Shredder\./);
+      assert.match(await lessonText(), /^Sup, I'm Shredder\./);
       assert.deepEqual(await buttons(), ['Understood'], 'the hello has one small button');
       assert.ok(fromBird(await geometry()), 'he says it himself: ' + JSON.stringify(await geometry()));
       await understood();
@@ -87,7 +87,7 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     await move.click();
     await waitTip('key:translate');
     assert.equal((await bubble.locator('.shredder-caption').textContent()).trim(), 'Shortcut');
-    assert.equal((await lessonText()).replace(/\s+/g, ' ').trim(), 'Next time press M for Move.');
+    assert.equal((await lessonText()).replace(/\s+/g, ' ').trim(), 'Hit M for Move next time - way faster than clicking.');
     assert.deepEqual(await bubble.locator('kbd').allTextContents(), ['M'], 'keys are key caps');
     assert.deepEqual(await buttons(), ['Remind me', 'Understood']);
     const style = await bubble.evaluate(element => { const css = getComputedStyle(element); return { radius: parseFloat(css.borderTopLeftRadius), shadow: css.boxShadow }; });
@@ -100,7 +100,7 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     await page.locator('.classic-view canvas').first().hover({ position: { x: 300, y: 200 } });
     await page.keyboard.press('m');
     await bubble.waitFor({ state: 'detached', timeout: 3000 });
-    checks.push('Click Move: he says "Next time press [M] for Move." beside himself; pressing M closes it');
+    checks.push('Click Move: he says "Hit [M] for Move next time" beside himself; pressing M closes it');
 
     // Faster ways for the camera, for the default (classic) mouse buttons.
     // Someone who already turns the camera a fast way (here Alt-drag) never hears about another way of turning it.
@@ -122,14 +122,14 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     await page.locator('button[data-hotkey="camera:move"]').click();
     await waitTip('faster:pan-right');
     assert.equal((await bubble.locator('.shredder-caption').textContent()).trim(), 'Faster way');
-    assert.match(await lessonText(), /^Drag with the right mouse button to move the camera/);
+    assert.match(await lessonText(), /^Right drag moves the camera/);
     await page.mouse.move(view.x + view.width / 2, view.y + view.height / 2);
     await page.mouse.down({ button: 'right' }); await page.mouse.move(view.x + view.width / 2 + 40, view.y + view.height / 2, { steps: 4 }); await page.mouse.up({ button: 'right' });
     await bubble.waitFor({ state: 'detached', timeout: 3000 });
     await page.locator('button[data-hotkey="camera:work"]').click();
     await page.waitForTimeout(800);
     if (await visible()) await understood();
-    checks.push('The Move camera button brings "Drag with the right mouse button..."; doing it closes the tip');
+    checks.push('The Move camera button brings "Right drag moves the camera..."; doing it closes the tip');
 
     // The Zoom tool: the wheel is faster. He comes near the view to say it, but never at the mouse.
     await page.locator('button[data-hotkey="camera:zoom"]').click();
@@ -143,7 +143,7 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     await page.mouse.wheel(0, -120);
     await bubble.waitFor({ state: 'detached', timeout: 3000 });
     await page.locator('button[data-hotkey="camera:work"]').click();
-    checks.push('The Zoom tool brings "Spin the mouse wheel..." near the view but away from the mouse; spinning it closes the tip');
+    checks.push('The Zoom tool brings "Just scroll the wheel..." near the view but away from the mouse; spinning it closes the tip');
 
     // "Remind me" brings the tip back after a while; neither button counts as a use.
     await page.waitForTimeout(800);

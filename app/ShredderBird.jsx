@@ -327,7 +327,7 @@ export default function ShredderBird({ active, quiet, timing, tip, tipContent, p
   }, [active]);
   return active && createPortal(<div className="shredder-bird-layer" ref={layerRef}>
     <div className="shredder-bird-sprite" ref={sprite} data-phase="away" aria-hidden="true"><div/></div>
-    <div className="shredder-bird-hit" ref={hitRef} role="button" aria-label="Shredder the Wise" title="Shredder the Wise. Click for his notebook, or drag him anywhere."/>
+    <div className="shredder-bird-hit" ref={hitRef} role="button" aria-label="Shredder the Wise" title="Shredder the Wise - click me for my notebook, drag me wherever."/>
     <div className="shredder-ui shredder-protest" ref={protestRef} aria-hidden="true"/>
     {tipContent && <div className="shredder-ui shredder-bubble" ref={bubbleRef} role="status" aria-live="polite" data-shredder-lesson={tip?.id}
       onPointerEnter={() => { hovered.current = true; }} onPointerLeave={() => { hovered.current = false; }}>{tipContent}</div>}

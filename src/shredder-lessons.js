@@ -16,10 +16,10 @@ export const SHORTCUT_CLICKS = 1, BIND_CLICKS = 5, BIND_MENU_USES = 2;
 export const KIND_CAPTIONS = Object.freeze({ hello: 'Shredder', shortcut: 'Shortcut', faster: 'Faster way', tip: 'Tip', key: 'Your own key' });
 
 /** What he sometimes says when picked up. */
-export const PROTESTS = Object.freeze(['Hey!', 'Easy with the feathers.', 'I was comfortable there.', 'Fine. Here, then.', 'Put me down gently.']);
+export const PROTESTS = Object.freeze(['Hey!', 'Easy on the feathers -_-', 'I was comfy there...', 'Fine, here then :P', 'Dude, put me down.']);
 /** Said once, the first time he may speak after being switched on. */
 export const WELCOME = Object.freeze({ id: 'intro:welcome', kind: 'hello', area: 'everywhere', level: 1, priority: 2, once: true, args: [], keyArgs: [], learnedBy: Object.freeze([]),
-  text: "Hi, I'm Shredder. When I see a faster way to do what you're doing, I'll show you. Drag me anywhere you like, or click me for my notebook." });
+  text: "Sup, I'm Shredder. When there's a faster way to do what you're doing, I'll pop in and show you - drag me wherever, click me for my notebook." });
 
 /** Ways of moving the camera that are already fast: Shredder never suggests another one to their users. */
 export const FAST_ORBIT = Object.freeze(['cam:rotate-right', 'cam:rotate-middle', 'cam:middle-click', 'cam:rotate-alt', 'key:cameraToggle']);
@@ -36,28 +36,28 @@ export const FAST_ZOOM = Object.freeze(['cam:wheel-zoom', 'cam:zoom-right', 'cam
  */
 export const TRICKS = Object.freeze([
   // Camera: the fastest way depends on the user's mouse buttons (Settings → Mouse).
-  { id: 'faster:orbit-middle-click', area: 'camera', kind: 'faster', text: 'Click the middle mouse button to switch between turning the camera and working. Your hand stays on the mouse.', learnedBy: ['cam:middle-click'], coveredBy: FAST_ORBIT },
-  { id: 'faster:orbit-right', area: 'camera', kind: 'faster', text: 'Drag with the right mouse button to turn the camera, whatever tool you are using.', learnedBy: ['cam:rotate-right'], coveredBy: FAST_ORBIT },
-  { id: 'faster:orbit-middle', area: 'camera', kind: 'faster', text: 'Drag with the middle mouse button to turn the camera, whatever tool you are using.', learnedBy: ['cam:rotate-middle'], coveredBy: FAST_ORBIT },
-  { id: 'faster:orbit-alt', area: 'camera', kind: 'faster', fixed: ['Alt'], text: 'Hold {0} and drag with the left mouse button to turn the camera, whatever tool you are using.', learnedBy: ['cam:rotate-alt'], coveredBy: FAST_ORBIT },
-  { id: 'faster:pan-right', area: 'camera', kind: 'faster', text: 'Drag with the right mouse button to move the camera, whatever tool you are using.', learnedBy: ['cam:pan-right'], coveredBy: FAST_PAN },
-  { id: 'faster:pan-middle', area: 'camera', kind: 'faster', text: 'Drag with the middle mouse button to move the camera, whatever tool you are using.', learnedBy: ['cam:pan-middle'], coveredBy: FAST_PAN },
-  { id: 'faster:zoom-wheel', area: 'camera', kind: 'faster', text: 'Spin the mouse wheel over the 3D view to zoom, whatever tool you are using.', learnedBy: ['cam:wheel-zoom'], coveredBy: FAST_ZOOM },
-  { id: 'tip:camera-fine', area: 'camera', kind: 'tip', fixed: ['Shift'], text: 'Hold {0} while you turn or move the camera for slow, precise control.', learnedBy: ['camera-fine'] },
+  { id: 'faster:orbit-middle-click', area: 'camera', kind: 'faster', text: 'Middle click flips between turning the camera and working - no need to go for the buttons.', learnedBy: ['cam:middle-click'], coveredBy: FAST_ORBIT },
+  { id: 'faster:orbit-right', area: 'camera', kind: 'faster', text: 'Right drag turns the camera with any tool - no switching needed.', learnedBy: ['cam:rotate-right'], coveredBy: FAST_ORBIT },
+  { id: 'faster:orbit-middle', area: 'camera', kind: 'faster', text: 'Middle drag turns the camera with any tool - no switching needed.', learnedBy: ['cam:rotate-middle'], coveredBy: FAST_ORBIT },
+  { id: 'faster:orbit-alt', area: 'camera', kind: 'faster', fixed: ['Alt'], text: 'Hold {0} and left drag to turn the camera with any tool - no switching needed.', learnedBy: ['cam:rotate-alt'], coveredBy: FAST_ORBIT },
+  { id: 'faster:pan-right', area: 'camera', kind: 'faster', text: 'Right drag moves the camera with any tool - skip the Move camera button.', learnedBy: ['cam:pan-right'], coveredBy: FAST_PAN },
+  { id: 'faster:pan-middle', area: 'camera', kind: 'faster', text: 'Middle drag moves the camera with any tool - skip the Move camera button.', learnedBy: ['cam:pan-middle'], coveredBy: FAST_PAN },
+  { id: 'faster:zoom-wheel', area: 'camera', kind: 'faster', text: 'Just scroll the wheel over the view to zoom - works with any tool, skip the Zoom button.', learnedBy: ['cam:wheel-zoom'], coveredBy: FAST_ZOOM },
+  { id: 'tip:camera-fine', area: 'camera', kind: 'tip', fixed: ['Shift'], text: 'Hold {0} while you turn or move the camera - it goes slow so you can line it up exactly.', learnedBy: ['camera-fine'] },
   // Vertex editor
-  { id: 'faster:select-modifiers', area: 'vertices', kind: 'faster', fixed: ['Shift', 'Ctrl'], text: 'Add to a selection with {0} and take away from it with {1}, instead of selecting everything again.', learnedBy: ['select-modifier'] },
-  { id: 'tip:move-axis', area: 'vertices', kind: 'tip', fixed: ['Shift'], text: 'Hold {0} while you move to lock the move to one direction.', learnedBy: ['shift-move'] },
-  { id: 'tip:rotate-snap', area: 'vertices', kind: 'tip', fixed: ['Shift'], text: 'Hold {0} while you rotate to snap to 15° steps.', learnedBy: ['shift-rotate'] },
-  { id: 'tip:zoom-anchor', area: 'vertices', kind: 'tip', keys: ['anchorSelect'], text: 'Zoom anchor: select some vertices, press {0}, then drag a box over one of them. Resize then grows and shrinks toward that vertex instead of the middle.', learnedBy: ['use:anchorSelect'] },
-  { id: 'faster:geoset-range', area: 'vertices', kind: 'faster', fixed: ['Shift'], text: 'Hold {0} and click a geoset box to tick a whole range at once.', learnedBy: ['geoset-range'] },
+  { id: 'faster:select-modifiers', area: 'vertices', kind: 'faster', fixed: ['Shift', 'Ctrl'], text: 'No need to select it all again - {0} adds to the selection, {1} takes away.', learnedBy: ['select-modifier'] },
+  { id: 'tip:move-axis', area: 'vertices', kind: 'tip', fixed: ['Shift'], text: 'Hold {0} while moving - locks it to one direction, no more fixing it after.', learnedBy: ['shift-move'] },
+  { id: 'tip:rotate-snap', area: 'vertices', kind: 'tip', fixed: ['Shift'], text: 'Hold {0} while rotating - it snaps in 15° steps.', learnedBy: ['shift-rotate'] },
+  { id: 'tip:zoom-anchor', area: 'vertices', kind: 'tip', keys: ['anchorSelect'], text: 'Zoom anchor - select your vertices, hit {0}, then box one of them. Zoom now scales toward that vertex instead of the middle.', learnedBy: ['use:anchorSelect'] },
+  { id: 'faster:geoset-range', area: 'vertices', kind: 'faster', fixed: ['Shift'], text: 'Hold {0} and click a geoset box - ticks the whole range in one go.', learnedBy: ['geoset-range'] },
   // Everywhere
-  { id: 'tip:alt-badges', area: 'everywhere', kind: 'tip', fixed: ['Alt'], text: 'Hold {0} to see the key for every button.', learnedBy: ['alt-reveal'] },
-  { id: 'faster:dropdown-wheel', area: 'everywhere', kind: 'faster', text: 'Spin the mouse wheel over a list to step to the next or previous entry without opening it.', learnedBy: ['dropdown-wheel'] },
+  { id: 'tip:alt-badges', area: 'everywhere', kind: 'tip', fixed: ['Alt'], text: 'Hold {0} - every button shows its key.', learnedBy: ['alt-reveal'] },
+  { id: 'faster:dropdown-wheel', area: 'everywhere', kind: 'faster', text: 'Scroll over a list to flip to the next one - no need to open it.', learnedBy: ['dropdown-wheel'] },
   // UV editor
-  { id: 'tip:uv-fine', area: 'uv', kind: 'tip', fixed: ['Alt', 'Shift'], text: 'In the UV editor, hold {0} as you start a drag for fine control, and {1} to lock the direction.', learnedBy: ['uv-fine'] },
+  { id: 'tip:uv-fine', area: 'uv', kind: 'tip', fixed: ['Alt', 'Shift'], text: 'UV tip - hold {0} when you start dragging for fine moves, {1} locks the direction.', learnedBy: ['uv-fine'] },
   // Animation
-  { id: 'shortcut:play', area: 'animation', kind: 'shortcut', keys: ['play'], text: 'Next time press {0} to play and stop the animation.', learnedBy: ['key:play'] },
-  { id: 'faster:timeline-keys', area: 'animation', kind: 'faster', fixed: ['←', '→'], text: 'Click the timeline, then press {0} and {1} to jump straight from key to key.', learnedBy: ['timeline-arrows'] },
+  { id: 'shortcut:play', area: 'animation', kind: 'shortcut', keys: ['play'], text: '{0} plays and stops it - no need to click play.', learnedBy: ['key:play'] },
+  { id: 'faster:timeline-keys', area: 'animation', kind: 'faster', fixed: ['←', '→'], text: 'Click the timeline and use {0} {1} - jumps straight from key to key, no scrubbing.', learnedBy: ['timeline-arrows'] },
 ].map(lesson => Object.freeze({ level: 1, priority: 1, ...lesson })));
 export const trick = id => TRICKS.find(lesson => lesson.id === id);
 
@@ -97,13 +97,13 @@ export function areaFor(actionId, mode) {
 export function shortcutLesson({ actionId, label, keys, mode }) {
   const key = directKey(keys);
   return key ? { id: 'key:' + actionId, kind: 'shortcut', area: areaFor(actionId, mode), level: 1, priority: 0, clicks: SHORTCUT_CLICKS,
-    text: 'Next time press {0} for {1}.', args: [formatChord(key), label], keyArgs: [0], learnedBy: ['key:' + actionId] } : null;
+    text: 'Hit {0} for {1} next time - way faster than clicking.', args: [formatChord(key), label], keyArgs: [0], learnedBy: ['key:' + actionId] } : null;
 }
 /** For a button without a key that the user clicks a lot: give it their own key in Hotkeys. */
 export function bindLesson({ actionId, label, mode, shortcuts }) {
   const hotkeys = directKey(shortcuts?.hotkeys);
   return hotkeys ? { id: 'bind:' + actionId, kind: 'key', area: areaFor(actionId, mode), level: 1, priority: 0,
-    text: 'You use {1} a lot. Give it your own key: press {0}, search for it and press the key you want.', args: [formatChord(hotkeys), label], keyArgs: [0], learnedBy: ['key:' + actionId] } : null;
+    text: 'You click {1} a lot - give it a key. Hit {0}, search for it, press the key you want.', args: [formatChord(hotkeys), label], keyArgs: [0], learnedBy: ['key:' + actionId] } : null;
 }
 
 /** What a shortcut run proves: the key (or code) for that command, and that the command was used. */

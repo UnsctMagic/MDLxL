@@ -52,8 +52,8 @@ function TipBody({ tip, onRemind, onUnderstood }) {
     <div className="shredder-caption">{KIND_CAPTIONS[tip.kind] || KIND_CAPTIONS.tip}</div>
     <p className="shredder-text" translate="no">{pieces.map((piece, index) => piece.key ? <KeyCaps key={index} chord={piece.text}/> : piece.text)}</p>
     <div className="shredder-actions">
-      {!tip.once && <button type="button" className="shredder-secondary" title="Close this tip. It comes back a little later." onClick={onRemind}>Remind me</button>}
-      <button type="button" className="shredder-primary" title="Close this tip. Until you use it yourself, it comes back now and then." onClick={onUnderstood}>Understood</button>
+      {!tip.once && <button type="button" className="shredder-secondary" title="Closes it - I'll bring it up again in a bit." onClick={onRemind}>Remind me</button>}
+      <button type="button" className="shredder-primary" title="Closes it - I'll bring it up now and then until you actually use it." onClick={onUnderstood}>Understood</button>
     </div>
   </>;
 }
@@ -263,7 +263,7 @@ export default function Shredder({ enabled, pace = 'normal', preferences, mode, 
     <header><span className="shredder-caption">Shredder's notebook</span><button type="button" className="shredder-close" aria-label="Close" onClick={() => setNotebookOpen(false)}>×</button></header>
     <table><tbody>{summary.areas.map(row => <tr key={row.area}><td>{row.label}</td><td>{row.met ? `${row.learned} of ${row.met} learned` : 'Not visited yet'}</td></tr>)}</tbody></table>
     <p className="shredder-week">{`This week: ${summary.learnedThisWeek} learned · ${summary.learned} in all`}</p>
-    <p className="shredder-help">A way counts as learned once you have used it yourself five separate times. Drag me anywhere you like.</p>
+    <p className="shredder-help">Use a trick yourself 5 times and it counts as learned. Drag me wherever you want.</p>
     {quietUntilTomorrow && <p className="shredder-help">Quiet until tomorrow.</p>}
     {SHREDDER_TEST_VERSION && <p className="shredder-help">Test version: tips come every few seconds.</p>}
     <div className="shredder-actions">

@@ -101,7 +101,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // The hidden test desktop draws about once a second, so check what he said rather than catch the 1.8 s line on screen.
     await page.waitForFunction(() => document.querySelector('.shredder-protest')?.textContent.trim().length > 0, null, { timeout: 3000 });
     const line = (await protest.textContent()).trim();
-    assert.ok(['Hey!', 'Easy with the feathers.', 'I was comfortable there.', 'Fine. Here, then.', 'Put me down gently.'].includes(line), line);
+    assert.ok(['Hey!', 'Easy on the feathers -_-', 'I was comfy there...', 'Fine, here then :P', 'Dude, put me down.'].includes(line), line);
     await page.mouse.move(target.x, target.y, { steps: 10 });
     await page.mouse.up();
     await perched();
