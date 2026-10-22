@@ -1,15 +1,21 @@
-import React,{Suspense,lazy,useEffect,useMemo,useRef,useState} from 'react';
-import {Box,File,FileText,Film,Folder,Image,Map as MapIcon,Music,Type} from 'lucide-react';
+import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {Box,ChevronDown,ChevronRight,File,FileText,Film,Folder,FolderOpen,Image,Map as MapIcon,Music,Type} from 'lucide-react';
 import {openDocument} from '../src/editor-document.js';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
+import {createThumbnailQueue} from '../src/texture-library-session.js';
+import {buildWorldEditorCatalog,WORLD_EDITOR_FILES} from '../src/world-editor-catalog.js';
 
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const TYPE_ICON={models:Box,textures:Image,sounds:Music,text:FileText,maps:MapIcon,video:Film,fonts:Type,other:File};
 const TYPE_LABEL={all:'All file types',models:'Models',textures:'Textures',sounds:'Sounds',text:'Text & data',maps:'Maps',video:'Videos',fonts:'Fonts',other:'Other files'};
 const VARIANTS=[['classic','Classic'],['reforged','Reforged'],['forsaken-kingdom','Forsaken Kingdom'],['language','Other languages'],['other','Teen & retired'],['all','All installed']];
-const PLACEHOLDER={models:'Search models, e.g. footman or units\\human',sounds:'Search sounds, e.g. footmanyes or music',all:'Search every game file by name or folder'};
+const PLACEHOLDER={models:'Search models, e.g. footman or units\\human',worldeditor:'Search units, spells, items and doodads by name',sounds:'Search sounds, e.g. footmanyes or music',all:'Search every game file by name or folder'};
 const AUDIO={wav:'audio/wav',mp3:'audio/mpeg',ogg:'audio/ogg',flac:'audio/flac'},VIDEO={webm:'video/webm',mp4:'video/mp4'},IMAGE={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'};
+const SKIN={classic:'sd',reforged:'hd','forsaken-kingdom':'de'};
+// Folder icons for the World Editor view's top level, taken from the game's own buttons.
+const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',Orc:'ReplaceableTextures\\CommandButtons\\BTNGrunt.blp','Night Elf':'ReplaceableTextures\\CommandButtons\\BTNArcher.blp',Undead:'ReplaceableTextures\\CommandButtons\\BTNGhoul.blp',Naga:'ReplaceableTextures\\CommandButtons\\BTNNagaMyrmidon.blp','Neutral Hostile':'ReplaceableTextures\\CommandButtons\\BTNFurbolg.blp','Neutral Passive':'ReplaceableTextures\\CommandButtons\\BTNSheep.blp',Items:'ReplaceableTextures\\CommandButtons\\BTNChestOfGold.blp',Doodads:'ReplaceableTextures\\WorldEditUI\\Doodad-Prop.blp'};
+const ROW=24;
 const normalize=value=>String(value||'').replaceAll('/','\\').toLowerCase();
 const fileSize=bytes=>bytes>=1048576?(bytes/1048576).toFixed(1)+' MB':bytes>=1024?Math.round(bytes/1024)+' KB':bytes+' B';
 function remembered(key,fallback,allowed){try{const value=localStorage.getItem(key);return allowed.includes(value)?value:fallback;}catch{return fallback;}}
@@ -22,7 +28,7 @@ async function loadGameModel(entry,signature){
   if(!doc.model)throw Error('This model could not be read.');
   const names=doc.model.Textures.map(texture=>texture.Image).filter(Boolean);
   const resolved=names.length?await window.desktop.gameFilesResolve({id:entry.id,signature,names}):{found:[],missing:[]};
-  return {doc,bytes:file.bytes,textures:resolved.found,missing:resolved.missing};
+  return {entry,doc,bytes:file.bytes,textures:resolved.found,missing:resolved.missing};
 }
 function previewAssets(textures){
   const assets=builtinTextureAssets(),urls=[];
@@ -33,123 +39,235 @@ function previewAssets(textures){
   }
   return {assets,release:()=>urls.forEach(url=>URL.revokeObjectURL(url))};
 }
-function ModelView({entry,signature,preferences,onOpen,onError}){
-  const [state,setState]=useState({loading:true}),[sequence,setSequence]=useState(-1),[time,setTime]=useState(0),[playing,setPlaying]=useState(true);
-  useEffect(()=>{
-    let active=true,release=()=>{};setState({loading:true});setSequence(-1);setTime(0);setPlaying(true);
-    loadGameModel(entry,signature).then(loaded=>{
-      if(!active)return;const preview=previewAssets(loaded.textures);release=preview.release;
-      const stand=loaded.doc.model.Sequences.findIndex(item=>/^stand\b/i.test(item.Name||'')),first=stand>=0?stand:loaded.doc.model.Sequences.length?0:-1;
-      setSequence(first);setTime(loaded.doc.model.Sequences[first]?.Interval?.[0]||0);setState({loaded,assets:preview.assets});
-    }).catch(error=>{if(active)setState({error:error.message});});
-    return()=>{active=false;release();};
-  },[entry.id,signature]);
-  if(state.error)return <p className="tl-error" role="alert">{state.error}</p>;
-  if(state.loading)return <div className="gf-model-stage"><span>Loading model…</span></div>;
-  const model=state.loaded.doc.model,interval=model.Sequences[sequence]?.Interval;
-  return <>
-    <div className="gf-model-stage" title="Drag to turn the camera; scroll to zoom."><Suspense fallback={<span>Loading preview…</span>}><GamePreview key={entry.id} presentation="preview" fitModel model={model} revision={0} textureAssets={state.assets} preferences={preferences} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing&&sequence>=0} onPlayingChange={setPlaying} showParticles mode="textured" view="perspective"/></Suspense></div>
-    {model.Sequences.length>0&&<div className="gf-transport">
-      <button type="button" onClick={()=>setPlaying(value=>!value)}>{playing?'Pause':'Play'}</button>
-      <select aria-label="Model animation" value={sequence} onChange={event=>{const index=Number(event.target.value);setSequence(index);setTime(model.Sequences[index].Interval[0]);setPlaying(true);}}>{model.Sequences.map((item,index)=><option key={index} value={index}>{item.Name||'Animation '+(index+1)}</option>)}</select>
-      {interval&&<input aria-label="Animation time" type="range" min={interval[0]} max={Math.max(interval[0]+1,interval[1])} value={Math.min(Math.max(time,interval[0]),interval[1])} onChange={event=>{setPlaying(false);setTime(Number(event.target.value));}}/>}
-    </div>}
-    {state.loaded.missing.length>0&&<details className="gf-missing"><summary>{state.loaded.missing.length} texture{state.loaded.missing.length===1?'':'s'} not found</summary>{state.loaded.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
-    {state.loaded.doc.hdViewOnly&&<p className="tl-note">This is a Reforged HD model. MDLxL opens it for viewing; convert it to SD in the editor to change it.</p>}
-    <div className="tl-actions"><button type="button" className="tl-primary" onClick={()=>onOpen({name:entry.name,path:entry.path,bytes:state.loaded.bytes,textures:state.loaded.textures}).catch(error=>onError(error.message))}>Open in editor</button></div>
-  </>;
+
+// Small icons for tree rows: decoded once per session, a few at a time.
+const iconQueue=createThumbnailQueue({concurrency:3}),icons=new Map();
+function loadIcon(key,read,size=48){
+  if(!icons.has(key)){
+    const job=iconQueue(key,async()=>{const file=await read();return file?.bytes?.length?decodeTextureThumbnail({name:file.name||key,bytes:file.bytes},size):null;}).catch(()=>null);
+    icons.set(key,job);if(icons.size>6000)icons.delete(icons.keys().next().value);
+  }
+  return icons.get(key);
 }
-function FileView({entry,signature}){
+function GameIcon({iconKey,read,fallback:Fallback=File,size=16}){
+  const [url,setUrl]=useState(null);
+  useEffect(()=>{let active=true;setUrl(null);if(iconKey&&read)loadIcon(iconKey,read,Math.max(48,size)).then(value=>{if(active)setUrl(value);});return()=>{active=false;};},[iconKey]);
+  return url?<img className="gf-icon" src={url} alt="" width={size} height={size} draggable={false}/>:<Fallback size={size-1} aria-hidden="true" className="gf-icon-glyph"/>;
+}
+
+// World Editor trees are built from the game tables once per game version.
+const worldEditorTrees=new Map();
+function worldEditorTree(variant,signature){
+  const skin=SKIN[variant]||'sd',key=signature+'|'+skin;
+  if(!worldEditorTrees.has(key)){
+    const job=window.desktop.gameFilesWorldEditorSources({files:WORLD_EDITOR_FILES}).then(sources=>{
+      const catalog=buildWorldEditorCatalog(new Map(sources.files),sources.strings,{skin});
+      const index=(node,path)=>{node.key=path;if(!node.children)return 1;node.total=node.children.reduce((sum,item,at)=>sum+index(item,path+'/'+at),0);return node.total;};index(catalog.root,'we');
+      return catalog;
+    });
+    worldEditorTrees.set(key,job);job.catch(()=>worldEditorTrees.delete(key));
+  }
+  return worldEditorTrees.get(key);
+}
+
+/** Center stage: one persistent preview. A new model replaces the old one when it has loaded and the camera glides to it. */
+function ModelStage({shown,preferences,sequence,time,setTime,playing,setPlaying}){
+  if(!shown)return null;
+  return <Suspense fallback={<span className="gf-stage-note">Loading preview…</span>}><GamePreview presentation="preview" fitModel glideCamera fitSequenceExtent model={shown.doc.model} revision={shown.revision} textureAssets={shown.assets} preferences={preferences} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing&&sequence>=0} onPlayingChange={setPlaying} showParticles mode="textured" view="perspective"/></Suspense>;
+}
+function FileStage({entry,signature}){
   const [state,setState]=useState({loading:true});
   useEffect(()=>{
     let active=true,url=null;setState({loading:true});
     window.desktop.gameFilesRead({id:entry.id,signature}).then(async file=>{
       if(!active)return;const extension=entry.extension;
       if(AUDIO[extension]||VIDEO[extension]){url=URL.createObjectURL(new Blob([file.bytes],{type:AUDIO[extension]||VIDEO[extension]}));setState({media:url});}
-      else if(entry.type==='textures'){const image=await decodeTextureThumbnail({name:entry.name,bytes:file.bytes},512);if(active)setState({image});}
+      else if(entry.type==='textures'){const image=await decodeTextureThumbnail({name:entry.name,bytes:file.bytes},1024);if(active)setState({image});}
       else if(entry.type==='text'){const text=new TextDecoder().decode(file.bytes.subarray(0,262144));setState({text,clipped:file.bytes.length>262144});}
       else setState({});
     }).catch(error=>{if(active)setState({error:error.message});});
     return()=>{active=false;if(url)URL.revokeObjectURL(url);};
   },[entry.id,signature]);
-  if(state.error)return <p className="tl-error" role="alert">{state.error}</p>;
-  if(state.loading)return <div className="tl-preview"><span>Loading…</span></div>;
-  if(state.image)return <div className="tl-preview"><img src={state.image} alt={entry.name}/></div>;
-  if(state.media&&AUDIO[entry.extension])return <audio key={state.media} className="gf-audio" aria-label="Sound preview" controls autoPlay src={state.media} onError={()=>setState({error:'This sound format cannot be played here.'})}/>;
-  if(state.media)return <video key={state.media} className="gf-video" aria-label="Video preview" controls src={state.media} onError={()=>setState({error:'This video format cannot be played here.'})}/>;
-  if(state.text!=null)return <><pre className="gf-text" translate="no">{state.text}</pre>{state.clipped&&<p className="tl-note">Showing the first 256 KB.</p>}</>;
-  return <p className="tl-note">MDLxL has no viewer for this file type. Save a copy to open it in another program.</p>;
-}
-function FolderNode({node,depth,current,filters,load,onSelect}){
-  const inside=current===node.key||current.startsWith(node.key+'\\');
-  const [open,setOpen]=useState(inside&&current!==node.key),[children,setChildren]=useState(null);
-  useEffect(()=>{if(inside&&current!==node.key)setOpen(true);},[current]);
-  useEffect(()=>{let active=true;if(open)load(node.key).then(result=>{if(active)setChildren(result.folders);}).catch(()=>{});return()=>{active=false;};},[open,node.key,filters]);
-  return <div className="tl-folder-branch"><div className={'tl-folder-row'+(current===node.key?' selected':'')} style={{paddingLeft:4+depth*12}}>
-    <button type="button" className="tl-expand" onClick={()=>setOpen(value=>!value)} aria-label={(open?'Collapse ':'Expand ')+node.name}>{open?'▾':'▸'}</button>
-    <button type="button" className="tl-folder" translate="no" onClick={()=>onSelect(node.key)} title={node.path}><span translate="no">{node.name}</span><small>{node.count.toLocaleString()}</small></button>
-  </div>{open&&children?.map(child=><FolderNode key={child.key} node={child} depth={depth+1} current={current} filters={filters} load={load} onSelect={onSelect}/>)}</div>;
+  if(state.error)return <p className="tl-error gf-stage-note" role="alert">{state.error}</p>;
+  if(state.loading)return <span className="gf-stage-note">Loading…</span>;
+  if(state.image)return <img className="gf-stage-image" src={state.image} alt={entry.name}/>;
+  if(state.media&&AUDIO[entry.extension])return <div className="gf-stage-sound"><Music size={56} aria-hidden="true"/><audio key={state.media} className="gf-audio" aria-label="Sound preview" controls autoPlay src={state.media} onError={()=>setState({error:'This sound format cannot be played here.'})}/></div>;
+  if(state.media)return <video key={state.media} className="gf-stage-video" aria-label="Video preview" controls src={state.media} onError={()=>setState({error:'This video format cannot be played here.'})}/>;
+  if(state.text!=null)return <div className="gf-stage-text"><pre className="gf-text" translate="no">{state.text}</pre>{state.clipped&&<p className="tl-note">Showing the first 256 KB.</p>}</div>;
+  return <p className="tl-note gf-stage-note">MDLxL has no viewer for this file type. Save a copy to open it in another program.</p>;
 }
 
-/** The Library's browser for every installed Warcraft III file, organised like the game folders. */
+/** The Library's browser for every installed Warcraft III file: icon tree on the left, one central view. */
 export default function GameFileBrowser({preset='all',preferences,onOpenGameModel,onClose}){
   const [summary,setSummary]=useState(null),[variant,setVariant]=useState(()=>remembered('mdlvis.game-files.variant','classic',VARIANTS.map(([value])=>value))),[chosenType,setChosenType]=useState('all');
-  const [folder,setFolder]=useState(''),[query,setQuery]=useState(''),[limit,setLimit]=useState(200),[result,setResult]=useState(null),[root,setRoot]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[selected,setSelected]=useState(null),[message,setMessage]=useState('');
-  const type=preset==='all'?chosenType:preset,filters=variant+'|'+type,cache=useRef(new Map()),input=useRef(),list=useRef();
-  const browse=payload=>window.desktop.gameFilesBrowse({variant,type,...payload});
-  const loadFolder=key=>{const id=filters+'|'+key;if(!cache.current.has(id))cache.current.set(id,browse({folder:key,limit:1}).catch(error=>{cache.current.delete(id);throw error;}));return cache.current.get(id);};
+  const [style,setStyle]=useState(()=>remembered('mdlvis.game-files.style','worldeditor',['standard','worldeditor']));
+  const [query,setQuery]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
+  const [expanded,setExpanded]=useState(()=>new Set()),[children,setChildren]=useState(()=>new Map()),[root,setRoot]=useState(null),[we,setWe]=useState(null),[results,setResults]=useState(null);
+  const [selected,setSelected]=useState(null),[focusKey,setFocusKey]=useState(null),[scrollTop,setScrollTop]=useState(0),[viewHeight,setViewHeight]=useState(600);
+  const [shown,setShown]=useState(null),[loadingModel,setLoadingModel]=useState(false),[modelChoice,setModelChoice]=useState(0),[sequence,setSequence]=useState(-1),[time,setTime]=useState(0),[playing,setPlaying]=useState(true);
+  const type=preset==='all'?chosenType:preset,worldEditor=preset==='models'&&style==='worldeditor',filters=variant+'|'+type,input=useRef(),tree=useRef(),modelRequest=useRef(0),pendingOpen=useRef(null);
+  const signature=summary?.signature;
   useEffect(()=>{input.current?.focus();},[preset]);
   useEffect(()=>{
-    if(!window.desktop?.gameFilesSummary){setLoading(false);setError('Game files can be browsed in the desktop app.');return;}
-    let active=true;window.desktop.gameFilesSummary().then(value=>{if(active)setSummary(value);}).catch(error=>{if(active){setError(error.message);setLoading(false);}});return()=>{active=false;};
+    if(!window.desktop?.gameFilesSummary){setError('Game files can be browsed in the desktop app.');return;}
+    let active=true;window.desktop.gameFilesSummary().then(value=>{if(active)setSummary(value);}).catch(caught=>{if(active)setError(caught.message);});return()=>{active=false;};
   },[]);
-  useEffect(()=>{let active=true;if(summary)loadFolder('').then(value=>{if(active)setRoot(value.folders);}).catch(error=>{if(active)setError(error.message);});return()=>{active=false;};},[summary,filters]);
-  useEffect(()=>{setLimit(200);},[folder,query,filters]);
+  // Standard tree: the game folders, loaded as they are opened.
   useEffect(()=>{
-    if(!summary)return;let active=true;setLoading(true);
-    const timer=setTimeout(()=>browse({folder,query,limit}).then(value=>{if(active){setResult(value);setError('');setLoading(false);}}).catch(error=>{if(active){setError(error.message);setLoading(false);}}),query.trim()?120:0);
+    if(!signature||worldEditor)return;let active=true;setChildren(new Map());setRoot(null);
+    window.desktop.gameFilesBrowse({folder:'',variant,type,limit:10000}).then(value=>{if(active)setRoot(value);}).catch(caught=>{if(active)setError(caught.message);});
+    return()=>{active=false;};
+  },[signature,filters,worldEditor]);
+  // World Editor tree (also gives standard model rows their unit icons).
+  useEffect(()=>{
+    if(!signature||preset!=='models')return;let active=true;setWe(null);
+    worldEditorTree(variant,signature).then(value=>{if(active)setWe(value);}).catch(caught=>{if(active&&worldEditor)setError(caught.message);});
+    return()=>{active=false;};
+  },[signature,variant,preset]);
+  useEffect(()=>{setExpanded(new Set());setFocusKey(null);},[worldEditor,filters]);
+  useEffect(()=>{if(worldEditor&&!SKIN[variant])setVariant('classic');},[worldEditor,variant]);
+  // Search: World Editor names in the window, game paths in the main process.
+  useEffect(()=>{
+    const text=query.trim().toLowerCase();if(!text){setResults(null);return;}
+    if(worldEditor){
+      if(!we)return;const words=text.split(/\s+/),found=[];
+      const visit=(node,trail)=>{if(node.children){for(const item of node.children)visit(item,node.key==='we'?trail:[...trail,node.name]);return;}const haystack=(node.name+' '+node.id+' '+trail.join(' ')).toLowerCase();if(words.every(word=>haystack.includes(word)))found.push({key:node.key,name:node.name,node,detail:trail.join(' › ')});};
+      visit(we.root,[]);setResults({rows:found.slice(0,500),total:found.length});return;
+    }
+    if(!signature)return;let active=true;const timer=setTimeout(()=>window.desktop.gameFilesBrowse({query:text,variant,type,limit:500}).then(value=>{if(active)setResults({rows:value.files.map(file=>({key:'f'+file.id,name:file.name,file,detail:file.path.slice(0,file.path.length-file.name.length-1)})),total:value.total});}).catch(caught=>{if(active)setError(caught.message);}),120);
     return()=>{active=false;clearTimeout(timer);};
-  },[summary,folder,query,limit,filters]);
-  const openFolder=key=>{setFolder(key);setQuery('');setSelected(null);};
-  const openModel=async record=>{setMessage('');await onOpenGameModel(record);onClose?.();};
-  const quickOpen=async row=>{try{const loaded=await loadGameModel(row,summary.signature);await openModel({name:row.name,path:row.path,bytes:loaded.bytes,textures:loaded.textures});}catch(error){setMessage(error.message);}};
-  const rows=useMemo(()=>[...(!query.trim()?(result?.folders||[]).map(item=>({...item,folderRow:true})):[]),...(result?.files||[])],[result,query]);
-  const activate=row=>{if(row.folderRow)openFolder(row.key);else if(row.type==='models'&&onOpenGameModel)quickOpen(row);};
-  const keys=event=>{
-    const index=rows.findIndex(row=>selected&&(row.folderRow?row.key===selected.key&&selected.folderRow:row.id===selected.id&&!selected.folderRow));
-    if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=rows[Math.max(0,Math.min(rows.length-1,index+(event.key==='ArrowDown'?1:-1)))];if(next){setSelected(next);list.current?.querySelector(`[data-row="${next.folderRow?'f:'+next.key:next.id}"]`)?.scrollIntoView({block:'nearest'});}}
-    else if(event.key==='Enter'&&selected){event.preventDefault();activate(selected);}
-    else if(event.key==='Backspace'&&folder&&!query){event.preventDefault();openFolder(result?.crumbs?.at(-2)?.key||'');}
+  },[query,worldEditor,we,signature,filters]);
+
+  const readPath=path=>()=>window.desktop.gameFilesReadPath({path,variant});
+  const readFile=file=>()=>window.desktop.gameFilesRead({id:file.id,signature});
+  const modelIcon=file=>we?.modelIcons?.[normalize(file.path)];
+  const fileRow=(file,depth)=>({key:'f'+file.id,depth,name:file.name,file,detail:file.module});
+  // Visible rows: open folders only, so clicking a folder never moves anything else.
+  const rows=useMemo(()=>{
+    if(results)return results.rows.map(row=>({...row,depth:0,search:true}));
+    const list=[];
+    if(worldEditor){
+      const walk=(nodes,depth)=>{for(const node of nodes){list.push({key:node.key,depth,name:node.name,node,folder:!!node.children,count:node.total});if(node.children&&expanded.has(node.key))walk(node.children,depth+1);}};
+      if(we)walk(we.root.children,0);return list;
+    }
+    const walk=(listing,depth)=>{
+      for(const folder of listing.folders){const key='d'+folder.key;list.push({key,depth,name:folder.name,folderKey:folder.key,folder:true,count:folder.count});if(expanded.has(key)&&children.has(folder.key))walk(children.get(folder.key),depth+1);}
+      for(const file of listing.files)list.push(fileRow(file,depth));
+    };
+    if(root)walk(root,0);return list;
+  },[results,worldEditor,we,root,children,expanded]);
+  const toggle=row=>{
+    if(!row.folder)return;
+    setExpanded(previous=>{const next=new Set(previous);if(next.has(row.key))next.delete(row.key);else next.add(row.key);return next;});
+    if(row.folderKey!=null&&!children.has(row.folderKey))window.desktop.gameFilesBrowse({folder:row.folderKey,variant,type,limit:10000}).then(value=>setChildren(previous=>new Map(previous).set(row.folderKey,value))).catch(caught=>setError(caught.message));
   };
-  const saveCopy=async()=>{setMessage('');try{const saved=await window.desktop.gameFilesExport({id:selected.id,signature:summary.signature});if(saved)setMessage('Saved '+saved);}catch(error){setMessage(error.message);}};
-  const copyPath=async()=>{setMessage('');try{await window.desktop.copyTexturePath(selected.path);setMessage('Path copied.');}catch(error){setMessage(error.message);}};
-  const crumbs=result?.crumbs||[],Icon=selected&&!selected.folderRow?TYPE_ICON[selected.type]||File:null;
+  // Selecting a leaf: models load in the background and replace the shown model when ready.
+  const choose=useCallback(async(row,choice=0)=>{
+    if(!row||row.folder)return;if(pendingOpen.current!==row.key)pendingOpen.current=null;setSelected(row);setFocusKey(row.key);setMessage('');setModelChoice(choice);
+    const request=++modelRequest.current;
+    let entry=row.file||null;
+    if(row.node){
+      const model=row.node.models?.[choice];if(!model){setLoadingModel(false);return;}
+      setLoadingModel(true);entry=await window.desktop.gameFilesFindPath({path:model.path,variant}).catch(()=>null);if(request!==modelRequest.current)return;
+      if(!entry){setLoadingModel(false);setMessage('Model not found in the game files: '+model.path);return;}
+    }
+    if(!entry||entry.type!=='models'){setLoadingModel(false);return;}
+    setLoadingModel(true);
+    try{
+      const loaded=await loadGameModel(entry,signature);if(request!==modelRequest.current)return;
+      const preview=previewAssets(loaded.textures),stand=loaded.doc.model.Sequences.findIndex(item=>/^stand\b/i.test(item.Name||'')),first=stand>=0?stand:loaded.doc.model.Sequences.length?0:-1;
+      setShown(previous=>{previous?.release();return {...loaded,key:row.key+'|'+choice,assets:preview.assets,release:preview.release,revision:request};});
+      setSequence(first);setTime(loaded.doc.model.Sequences[first]?.Interval?.[0]||0);setPlaying(true);
+      if(pendingOpen.current===row.key){pendingOpen.current=null;await onOpenGameModel({name:entry.name,path:entry.path,bytes:loaded.bytes,textures:loaded.textures});onClose?.();}
+    }catch(caught){if(request===modelRequest.current)setMessage(caught.message);}
+    finally{if(request===modelRequest.current)setLoadingModel(false);}
+  },[signature,variant,onOpenGameModel,onClose]);
+  useEffect(()=>()=>shown?.release(),[]);// eslint-disable-line react-hooks/exhaustive-deps
+  const selectedEntry=selected?.file||null,selectedModels=selected?.node?.models||[];
+  const showsModel=!!shown&&(selected?.node?selectedModels.length>0:selectedEntry?.type==='models'),current=showsModel&&shown.key===selected?.key+'|'+modelChoice;
+  const openInEditor=async()=>{if(!shown)return;setMessage('');try{await onOpenGameModel({name:shown.entry.name,path:shown.entry.path,bytes:shown.bytes,textures:shown.textures});onClose?.();}catch(caught){setMessage(caught.message);}};
+  const keys=event=>{
+    const index=rows.findIndex(row=>row.key===focusKey),row=rows[index];
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+      event.preventDefault();const next=rows[Math.max(0,Math.min(rows.length-1,index<0?0:index+(event.key==='ArrowDown'?1:-1)))];if(!next)return;
+      setFocusKey(next.key);if(!next.folder)choose(next);
+      const top=rows.indexOf(next)*ROW,element=tree.current;if(element&&(top<element.scrollTop||top+ROW>element.scrollTop+element.clientHeight))element.scrollTop=top-element.clientHeight/2;
+    }else if(event.key==='ArrowRight'&&row?.folder&&!expanded.has(row.key)){event.preventDefault();toggle(row);}
+    else if(event.key==='ArrowLeft'&&row){event.preventDefault();if(row.folder&&expanded.has(row.key))toggle(row);else{const parent=rows.slice(0,index).reverse().find(item=>item.folder&&item.depth<row.depth);if(parent)setFocusKey(parent.key);}}
+    else if(event.key==='Enter'&&row){event.preventDefault();if(row.folder)toggle(row);else if(current)openInEditor();}
+  };
+  useEffect(()=>{const element=tree.current;if(!element)return;const observer=new ResizeObserver(()=>setViewHeight(element.clientHeight));observer.observe(element);return()=>observer.disconnect();},[]);
+  const first=Math.max(0,Math.floor(scrollTop/ROW)-10),last=Math.min(rows.length,Math.ceil((scrollTop+viewHeight)/ROW)+10);
+  const rowIcon=row=>{
+    if(row.folder){const path=worldEditor?(row.node?.icon||(row.depth===0?FOLDER_ICONS[row.name]:null)):null;return <GameIcon iconKey={path?'p:'+variant+':'+path:null} read={path?readPath(path):null} fallback={expanded.has(row.key)?FolderOpen:Folder}/>;}
+    if(row.node)return <GameIcon iconKey={row.node.icon?'p:'+variant+':'+row.node.icon:null} read={row.node.icon?readPath(row.node.icon):null} fallback={row.node.models?.length?Box:File}/>;
+    const file=row.file,icon=file.type==='models'?modelIcon(file):null;
+    if(icon)return <GameIcon iconKey={'p:'+variant+':'+icon} read={readPath(icon)} fallback={Box}/>;
+    return <GameIcon iconKey={file.type==='textures'&&file.size<4194304?'f:'+signature+':'+file.id:null} read={readFile(file)} fallback={TYPE_ICON[file.type]||File}/>;
+  };
+  const interval=shown?.doc.model.Sequences[sequence]?.Interval,infoIcon=selected?.node?.icon||(selectedEntry?.type==='models'?modelIcon(selectedEntry):null);
   return <>
-    <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={PLACEHOLDER[preset]||PLACEHOLDER.all} onChange={event=>setQuery(event.target.value)} aria-label="Search game files"/>
-      <select aria-label="Game version" title="Which game files to show: Classic (SD), Reforged (HD), Forsaken Kingdom, other languages or everything installed" value={variant} onChange={event=>{setVariant(event.target.value);remember('mdlvis.game-files.variant',event.target.value);}}>{VARIANTS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
+    <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={PLACEHOLDER[worldEditor?'worldeditor':preset]||PLACEHOLDER.all} onChange={event=>setQuery(event.target.value)} aria-label="Search game files"/>
+      <select aria-label="Game version" title="Which game files to show: Classic (SD), Reforged (HD), Forsaken Kingdom, other languages or everything installed" value={variant} onChange={event=>{setVariant(event.target.value);remember('mdlvis.game-files.variant',event.target.value);}}>{VARIANTS.filter(([value])=>!worldEditor||SKIN[value]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
       {preset==='all'&&<select aria-label="File type" value={chosenType} onChange={event=>setChosenType(event.target.value)}>{Object.entries(TYPE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>}
     </div>
-    <div className="tl-body"><nav className="tl-folders" aria-label="Game folders"><button type="button" className={'tl-all-folders'+(!folder?' selected':'')} onClick={()=>openFolder('')}>All game files</button>{root.map(node=><FolderNode key={filters+node.key} node={node} depth={0} current={folder} filters={filters} load={loadFolder} onSelect={openFolder}/>)}</nav>
-      <main className="tl-results gf-results"><div className="tl-result-status" aria-live="polite">{loading&&!result?'Loading game files…':loading?'Searching…':query.trim()?`${(result?.total||0).toLocaleString()} matching files`:`${(result?.folders?.length||0).toLocaleString()} folders · ${(result?.total||0).toLocaleString()} files`}</div>
-        <div className="gf-crumbs"><button type="button" onClick={()=>openFolder('')}>Game files</button>{crumbs.map(crumb=><React.Fragment key={crumb.key}><span>›</span><button type="button" translate="no" onClick={()=>openFolder(crumb.key)}>{crumb.name}</button></React.Fragment>)}{query.trim()&&<em>{folder?'searching this folder':'searching everywhere'}</em>}</div>
-        {error&&<p className="tl-error" role="alert">{error}</p>}{summary?.errors?.map((item,index)=><p key={index} className="tl-error">{item.message}</p>)}
-        {summary&&!summary.folder&&<p className="tl-note">No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.</p>}
-        {!loading&&!error&&result&&!rows.length&&<p className="tl-empty">{query.trim()?'No matching game files. Try fewer words, another game version, or All file types.':'This folder has no files of this kind.'}</p>}
-        <div ref={list} className="gf-list" role="listbox" aria-label="Game files" tabIndex={0} onKeyDown={keys}>{rows.map(row=>{const RowIcon=row.folderRow?Folder:TYPE_ICON[row.type]||File,active=selected&&(row.folderRow?selected.folderRow&&selected.key===row.key:!selected.folderRow&&selected.id===row.id);
-          return <div key={row.folderRow?'f:'+row.key:row.id} data-row={row.folderRow?'f:'+row.key:row.id} role="option" aria-selected={!!active} className={'gf-row'+(active?' selected':'')} onClick={()=>{setSelected(row);setMessage('');list.current?.focus({preventScroll:true});}} onDoubleClick={()=>activate(row)} title={row.folderRow?row.path:row.path+(row.type==='models'?'\nDouble-click to open in the editor.':'')}>
-            <RowIcon size={15} aria-hidden="true"/><span className="gf-name" translate="no">{row.name}{query.trim()&&!row.folderRow&&<small translate="no">{row.path.slice(0,row.path.length-row.name.length-1)}</small>}</span>{row.folderRow?<small>{row.count.toLocaleString()}</small>:<><span className="gf-badge" translate="no">{row.module}</span><small>{fileSize(row.size)}</small></>}
-          </div>;})}</div>
-        {result?.hasMore&&<button type="button" className="tl-more" onClick={()=>setLimit(value=>value+200)} disabled={loading}>Show more files</button>}
+    <div className="tl-body gf-body">
+      <nav className="gf-side" aria-label="Game folders">
+        {preset==='models'&&<div className="gf-style" role="group" aria-label="Folder layout">
+          <button type="button" aria-pressed={style==='standard'} title="The game's own folders, as they are stored" onClick={()=>{setStyle('standard');remember('mdlvis.game-files.style','standard');}}>Standard</button>
+          <button type="button" aria-pressed={style==='worldeditor'} title="Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset" onClick={()=>{setStyle('worldeditor');remember('mdlvis.game-files.style','worldeditor');}}>World Editor Style</button>
+        </div>}
+        <div ref={tree} className="gf-tree" role="tree" aria-label="Game files" tabIndex={0} onKeyDown={keys} onScroll={event=>setScrollTop(event.currentTarget.scrollTop)}>
+          {results&&<div className="gf-tree-status">{results.total>results.rows.length?`${results.rows.length.toLocaleString()} of ${results.total.toLocaleString()} matches`:`${results.total.toLocaleString()} matches`}</div>}
+          {!rows.length&&<p className="tl-empty">{error?'':query.trim()?'No matches. Try fewer words or another game version.':summary&&!summary.folder?'No Warcraft III game files were found. Choose your Warcraft III folder (1.30 or newer) in Settings.':'Loading game files…'}</p>}
+          <div style={{height:rows.length*ROW,position:'relative'}}>
+            {rows.slice(first,last).map((row,offset)=>{const at=first+offset,open=expanded.has(row.key);
+              return <div key={row.key} role="treeitem" aria-level={row.depth+1} aria-expanded={row.folder?open:undefined} aria-selected={selected?.key===row.key} data-row={row.key}
+                className={'gf-row'+(row.folder?' folder':'')+(selected?.key===row.key?' selected':'')+(focusKey===row.key?' focused':'')} style={{top:at*ROW,paddingLeft:6+row.depth*16}}
+                onClick={()=>{setFocusKey(row.key);tree.current?.focus({preventScroll:true});if(row.folder)toggle(row);else{if(pendingOpen.current!==row.key)pendingOpen.current=null;choose(row);}}} onDoubleClick={()=>{if(row.folder)return;if(current&&selected?.key===row.key)openInEditor();else pendingOpen.current=row.key;}}
+                title={row.file?row.file.path:row.node&&!row.folder?row.node.models?.map(model=>model.path).join('\n')||row.name:row.name}>
+                <span className="gf-twist" aria-hidden="true">{row.folder?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</span>
+                {rowIcon(row)}<span className="gf-name" translate="no">{row.name}{row.search&&row.detail&&<small translate="no">{row.detail}</small>}</span>
+                {row.folder&&row.count!=null&&<small className="gf-count">{row.count.toLocaleString()}</small>}
+              </div>;})}
+          </div>
+        </div>
+      </nav>
+      <main className="gf-stage" aria-label="Preview">
+        <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} preferences={preferences} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
+        {!showsModel&&<div className="gf-stage-layer gf-stage-content">
+          {selectedEntry&&selectedEntry.type!=='models'?<FileStage key={selectedEntry.id} entry={selectedEntry} signature={signature}/>
+            :selected?.node&&!selectedModels.length?<div className="gf-stage-sound">{selected.node.icon&&<GameIcon key={selected.node.icon} iconKey={'big:'+variant+':'+selected.node.icon} read={readPath(selected.node.icon)} size={128}/>}<p>No model for this entry.</p></div>
+            :loadingModel?<span className="gf-stage-note">Loading model…</span>
+            :<span className="gf-stage-note">{preset==='models'?'Choose a model on the left. Drag to turn the camera; it glides to each model you pick.':preset==='sounds'?'Choose a sound on the left to hear it. Arrow keys step through a folder.':'Choose a file on the left to view it.'}</span>}
+        </div>}
       </main>
-      <aside className="tl-details gf-details">{selected&&!selected.folderRow?<>
-        {selected.type==='models'?<ModelView key={selected.id} entry={selected} signature={summary.signature} preferences={preferences} onOpen={openModel} onError={setMessage}/>:<FileView key={selected.id} entry={selected} signature={summary.signature}/>}
-        <h3 translate="no"><Icon size={15} aria-hidden="true"/> {selected.name}</h3>
-        <p className="tl-version">Game version: <strong translate="no">{selected.module}</strong> · {fileSize(selected.size)}</p>
-        <code translate="no">{selected.path}</code>
-        <div className="gf-file-actions"><button type="button" onClick={copyPath}>Copy path</button><button type="button" onClick={saveCopy}>Save a copy…</button></div>
+      <aside className="gf-info">{selected&&!selected.folder?<>
+        <div className="gf-info-head">{infoIcon?<GameIcon key={infoIcon} iconKey={'p:'+variant+':'+infoIcon} read={readPath(infoIcon)} size={48}/>:null}<h3 translate="no">{selected.name}</h3></div>
+        {selected.node&&<p className="tl-version" translate="no">{selected.node.id}</p>}
+        {selectedModels.length>1&&<select aria-label="Model" value={modelChoice} onChange={event=>choose(selected,Number(event.target.value))}>{selectedModels.map((model,index)=><option key={index} value={index}>{model.label}</option>)}</select>}
+        {showsModel&&!current&&<p className="tl-note">Loading model…</p>}
+        {current&&<>
+          <p className="tl-version">Game version: <strong translate="no">{shown.entry.module}</strong> · {fileSize(shown.entry.size)}</p>
+          <code translate="no">{shown.entry.path}</code>
+          {shown.doc.model.Sequences.length>0&&<div className="gf-transport">
+            <button type="button" onClick={()=>setPlaying(value=>!value)}>{playing?'Pause':'Play'}</button>
+            <select aria-label="Model animation" value={sequence} onChange={event=>{const index=Number(event.target.value);setSequence(index);setTime(shown.doc.model.Sequences[index].Interval[0]);setPlaying(true);}}>{shown.doc.model.Sequences.map((item,index)=><option key={index} value={index}>{item.Name||'Animation '+(index+1)}</option>)}</select>
+          </div>}
+          {interval&&<input className="gf-time" aria-label="Animation time" type="range" min={interval[0]} max={Math.max(interval[0]+1,interval[1])} value={Math.min(Math.max(time,interval[0]),interval[1])} onChange={event=>{setPlaying(false);setTime(Number(event.target.value));}}/>}
+          {shown.missing.length>0&&<details className="gf-missing"><summary>{shown.missing.length} texture{shown.missing.length===1?'':'s'} not found</summary>{shown.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
+          {shown.doc.hdViewOnly&&<p className="tl-note">This is a Reforged HD model. MDLxL opens it for viewing; convert it to SD in the editor to change it.</p>}
+          <div className="tl-actions"><button type="button" className="tl-primary" onClick={openInEditor}>Open in editor</button></div>
+        </>}
+        {selectedEntry&&selectedEntry.type!=='models'&&<><p className="tl-version">Game version: <strong translate="no">{selectedEntry.module}</strong> · {fileSize(selectedEntry.size)}</p><code translate="no">{selectedEntry.path}</code></>}
+        {(selectedEntry&&selectedEntry.type!=='models'||current)&&<div className="gf-file-actions">
+          <button type="button" onClick={async()=>{setMessage('');try{await window.desktop.copyTexturePath((showsModel?shown.entry:selectedEntry).path);setMessage('Path copied.');}catch(caught){setMessage(caught.message);}}}>Copy path</button>
+          <button type="button" onClick={async()=>{setMessage('');try{const target=showsModel?shown.entry:selectedEntry,saved=await window.desktop.gameFilesExport({id:target.id,signature});if(saved)setMessage('Saved '+saved);}catch(caught){setMessage(caught.message);}}}>Save a copy…</button>
+        </div>}
         {message&&<p className={/^Saved |^Path copied/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
-      </>:selected?.folderRow?<div className="tl-empty">Double-click a folder to open it.</div>:<div className="tl-empty">{preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':preset==='sounds'?'Choose a sound to hear it. Use the arrow keys to step through a folder.':'Choose a file to view it.'}</div>}</aside>
+        {error&&<p className="tl-error" role="alert">{error}</p>}
+      </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>}</aside>
     </div>
-    <footer className="tl-footer"><span>{summary?`${summary.total.toLocaleString()} game files${summary.folder?' · '+summary.folder:''}`:''}</span><span>Arrow keys move through the list · Enter opens · Backspace goes up a folder</span></footer>
+    <footer className="tl-footer"><span>{summary?`${summary.total.toLocaleString()} game files${summary.folder?' · '+summary.folder:''}`:''}</span><span>Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor</span></footer>
   </>;
 }

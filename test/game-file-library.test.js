@@ -130,3 +130,16 @@ test('a texture already in the model can reuse a material showing it or get a ne
   assert.throws(()=>beginUVPreview(model,{},[geoset],{name:image,bytes},{material:999}),/no longer/);
   assert.equal(restoreUVPreviews(model,{[geoset]:{...reuse[geoset],material:999}})[geoset].material,undefined);
 });
+
+test('game paths from the World Editor tables resolve per version with extension fallbacks',async()=>{
+  const library=fakeLibrary(),index=await library.load(['D:\\Game']);
+  assert.equal(library.findPath(index,'Units\\Human\\Footman\\Footman.mdl','classic').sourcePath,'war3.w3mod:units\\human\\footman\\footman.mdx');
+  assert.equal(library.findPath(index,'units/human/footman/footman.mdx','reforged').sourcePath,'war3.w3mod:_hd.w3mod:units\\human\\footman\\footman.mdx');
+  assert.equal(library.findPath(index,'units\\human\\footman\\footman.mdx','forsaken-kingdom').sourcePath,'war3.w3mod:_de.w3mod:units\\human\\footman\\footman.mdx');
+  assert.equal(library.findPath(index,'Textures\\Footman.dds','classic').sourcePath,'war3.w3mod:textures\\footman.blp');
+  assert.equal(library.findPath(index,'units\\human\\footman\\footman_portrait.mdx','reforged').sourcePath,'war3.w3mod:units\\human\\footman\\footman_portrait.mdx','falls back to the base game');
+  assert.equal(library.findPath(index,'war3.w3mod:units\\unitdata.slk'),null);
+  const sources=await library.worldEditorSources(index,{files:['units\\unitdata.slk','units\\missing.slk'],isString:path=>/\.ogg$/.test(path)});
+  assert.deepEqual(sources.files.map(([path])=>path),['units\\unitdata.slk']);
+  assert.equal(sources.strings.length,1,'only the installed language');
+});

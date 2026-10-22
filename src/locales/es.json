@@ -6073,5 +6073,20 @@
   "Added Material {0} using {1}.": "Se añadió el material {0} con {1}.",
   "Kept Material {0}, which already uses {1}.": "Se mantuvo el material {0}, que ya usa {1}.",
   "This model could not be read.": "No se pudo leer este modelo.",
-  "This file has no readable model header.": "Este archivo no tiene una cabecera de modelo legible."
+  "This file has no readable model header.": "Este archivo no tiene una cabecera de modelo legible.",
+  "Standard": "Estándar",
+  "World Editor Style": "Estilo del Editor de mundos",
+  "Folder layout": "Organización de carpetas",
+  "The game's own folders, as they are stored": "Las carpetas del propio juego, tal como se guardan",
+  "Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset": "Agrupado como en el Editor de mundos: razas, unidades, edificios, hechizos, objetos y decorados por terreno",
+  "Search units, spells, items and doodads by name": "Buscar unidades, hechizos, objetos y decorados por nombre",
+  "No model for this entry.": "Esta entrada no tiene modelo.",
+  "Model not found in the game files: {0}": "Modelo no encontrado en los archivos del juego: {0}",
+  "Choose a model on the left. Drag to turn the camera; it glides to each model you pick.": "Elige un modelo a la izquierda. Arrastra para girar la cámara; se desliza hasta cada modelo que elijas.",
+  "Choose a sound on the left to hear it. Arrow keys step through a folder.": "Elige un sonido a la izquierda para oírlo. Las flechas recorren la carpeta.",
+  "Choose a file on the left to view it.": "Elige un archivo a la izquierda para verlo.",
+  "{0} matches": "{0} coincidencias",
+  "{0} of {1} matches": "{0} de {1} coincidencias",
+  "No matches. Try fewer words or another game version.": "Sin coincidencias. Prueba con menos palabras u otra versión del juego.",
+  "Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor": "Flechas: recorrer la lista · Derecha/Izquierda: abrir y cerrar carpetas · Intro o doble clic: abrir un modelo en el editor"
 }

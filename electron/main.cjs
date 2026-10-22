@@ -335,6 +335,22 @@ ipcMain.handle('gameFiles:summary',()=>gameFileOperation(gameFileIndex().then(({
 ipcMain.handle('gameFiles:browse',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{const request=gameFileRequest(payload);return request.query.trim()?library.search(index,request):library.browse(index,request);})));
 ipcMain.handle('gameFiles:read',(_,payload)=>gameFileOperation(gameFileIndex().then(async({library,index})=>{const entry=library.entry(index,payload?.id,payload?.signature);return {...library.publicEntry(entry),bytes:await library.read(index,entry)};})));
 ipcMain.handle('gameFiles:resolve',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{if(!Array.isArray(payload?.names))throw Error('Missing texture paths.');return library.resolve(index,library.entry(index,payload.id,payload.signature),payload.names);})));
+// World Editor view: the renderer builds its tree from these read-only game tables.
+const worldEditorString=path=>/^units\\[a-z]*strings\.txt$|^ui\\worldedit(?:game)?strings\.txt$/.test(path);
+ipcMain.handle('gameFiles:worldEditorSources',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{
+  const files=Array.isArray(payload?.files)?payload.files.filter(path=>typeof path==='string'&&/^(?:units|doodads|ui)\\[a-z0-9_]+\.(?:slk|txt)$/i.test(path)).slice(0,64):[];
+  return library.worldEditorSources(index,{files,isString:worldEditorString});
+})));
+ipcMain.handle('gameFiles:readPath',(_,payload)=>gameFileOperation(gameFileIndex().then(async({library,index})=>{
+  if(typeof payload?.path!=='string'||payload.path.length>260)throw Error('Invalid game path.');
+  const entry=library.findPath(index,payload.path,gameFileRequest(payload).variant);
+  return entry?{...library.publicEntry(entry),signature:index.signature,bytes:await library.read(index,entry)}:null;
+})));
+ipcMain.handle('gameFiles:findPath',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{
+  if(typeof payload?.path!=='string'||payload.path.length>260)throw Error('Invalid game path.');
+  const entry=library.findPath(index,payload.path,gameFileRequest(payload).variant);
+  return entry?{...library.publicEntry(entry),signature:index.signature}:null;
+})));
 ipcMain.handle('gameFiles:export',async(_,payload)=>{
   const {library,index}=await gameFileIndex(),entry=library.entry(index,payload?.id,payload?.signature);
   const answer=await dialog.showSaveDialog(win,{title:'Save a copy of '+entry.name,defaultPath:entry.name,buttonLabel:'Save copy'});

@@ -88,7 +88,7 @@ class GameFileLibrary {
         folder.files.push(entry.id); entries.push(entry); byName.set(sourcePath.toLowerCase(),entry);
       }
       const signature = hash('files-1|' + listing.sources.map(source => source.key).join('|'));
-      return {request:key,signature,entries,byName,folders,sources:listing.sources.map(({folder,key}) => ({folder,key})),errors:listing.errors};
+      return {request:key,signature,entries,byName,folders,sources:listing.sources.map(({folder,key,locales}) => ({folder,key,locales})),errors:listing.errors};
     })();
     this.loading = {request:key,job};
     try { const index = await job; this.index = index; this.counts.clear(); return index; }
@@ -126,7 +126,7 @@ class GameFileLibrary {
     const folders = [...node.children].filter(child => counts.get(child)).map(child => ({key:child,path:index.folders.get(child).path,name:index.folders.get(child).name,count:counts.get(child)})).sort((a,b) => a.name.localeCompare(b.name));
     const files = node.files.map(id => index.entries[id]).filter(entry => this.matches(entry,{variant,type})).sort((a,b) => a.name.localeCompare(b.name) || a.module.localeCompare(b.module));
     const crumbs = []; for (let at = key; at; at = index.folders.get(at).parent) crumbs.unshift({key:at,name:index.folders.get(at).name});
-    const start = Math.max(0,Number(offset) || 0), size = Math.min(1000,Math.max(1,Number(limit) || PAGE));
+    const start = Math.max(0,Number(offset) || 0), size = Math.min(10000,Math.max(1,Number(limit) || PAGE));
     return {signature:index.signature,folder:{key,path:node.path,name:node.name,count:counts.get(key) || 0},crumbs,folders,files:files.slice(start,start + size).map(entry => this.publicEntry(entry)),total:files.length,hasMore:start + size < files.length};
   }
   /** Every word must appear in the game path. Exact and leading file-name matches rank first. */
@@ -154,6 +154,26 @@ class GameFileLibrary {
     const bytes = await this.casc.readListed(entry.contentKey,source.folder,source.key);
     if (!bytes?.length) throw Error(entry.name + ' could not be read from the game files.');
     return bytes;
+  }
+  /** A game path (as the World Editor tables write it) in the chosen version, falling back to the base game. */
+  findPath(index, logicalPath, variant = 'classic') {
+    const logical = String(logicalPath || '').replaceAll('/','\\').toLowerCase().replace(/^\\+/,'');
+    if (!logical || logical.includes(':')) return null;
+    const modules = variant === 'reforged' ? ['war3.w3mod:_hd.w3mod:','war3.w3mod:'] : variant === 'forsaken-kingdom' ? ['war3.w3mod:_de.w3mod:','war3.w3mod:_hd.w3mod:','war3.w3mod:'] : ['war3.w3mod:'];
+    const alternates = new Set([logical,logical.replace(/\.mdl$/,'.mdx'),logical.replace(/\.blp$/,'.dds'),logical.replace(/\.dds$/,'.blp'),logical.replace(/\.blp$/,'.tga')]);
+    for (const module of modules) for (const candidate of alternates) { const entry = index.byName.get(module + candidate); if (entry) return entry; }
+    return null;
+  }
+  /** Raw World Editor tables and the installed language's strings, for the Library's World Editor view. */
+  async worldEditorSources(index, {files = [], isString = () => false} = {}) {
+    const result = {files:[],strings:[]}, decoder = new TextDecoder();
+    for (const path of files) { const entry = this.findPath(index,path,'classic'); if (entry) result.files.push([path.toLowerCase(),decoder.decode(await this.read(index,entry))]); }
+    const locale = index.sources[0]?.locales?.[0];
+    if (locale) {
+      const prefix = `war3.w3mod:_locales\\${locale}.w3mod:`;
+      for (const entry of index.entries) if (entry.sourcePath.toLowerCase().startsWith(prefix) && isString(entry.lower)) result.strings.push(decoder.decode(await this.read(index,entry)));
+    }
+    return result;
   }
   /** A model's pictures come from its own module first (Reforged, Forsaken Kingdom), then the base game. */
   async resolve(index, model, names) {

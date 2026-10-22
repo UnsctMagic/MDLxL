@@ -3259,5 +3259,21 @@
   "Added Material {0} using {1}.": "已添加使用 {1} 的材质 {0}。",
   "Kept Material {0}, which already uses {1}.": "保留已使用 {1} 的材质 {0}。",
   "This model could not be read.": "无法读取此模型。",
-  "This file has no readable model header.": "此文件没有可读取的模型头。"
+  "This file has no readable model header.": "此文件没有可读取的模型头。",
+  "Standard": "标准",
+  "World Editor Style": "世界编辑器样式",
+  "Folder layout": "文件夹布局",
+  "The game's own folders, as they are stored": "游戏自身的文件夹，按存储方式显示",
+  "Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset": "按世界编辑器分组：种族、单位、建筑、技能、物品以及按地形分类的装饰物",
+  "Search units, spells, items and doodads by name": "按名称搜索单位、技能、物品和装饰物",
+  "No model for this entry.": "此条目没有模型。",
+  "Model not found in the game files: {0}": "游戏文件中未找到模型：{0}",
+  "Choose a model on the left. Drag to turn the camera; it glides to each model you pick.": "在左侧选择模型。拖动可旋转镜头；镜头会平滑移到你选择的每个模型。",
+  "Choose a sound on the left to hear it. Arrow keys step through a folder.": "在左侧选择声音即可试听。方向键可逐个浏览文件夹。",
+  "Choose a file on the left to view it.": "在左侧选择文件即可查看。",
+  "{0} matches": "{0} 个匹配",
+  "{0} of {1} matches": "{1} 个匹配中的 {0} 个",
+  "No matches. Try fewer words or another game version.": "没有匹配。请尝试减少关键词或换一个游戏版本。",
+  "Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor": "方向键浏览列表 · 右/左键展开和折叠文件夹 · Enter 或双击在编辑器中打开模型",
+  "Model": "模型"
 }

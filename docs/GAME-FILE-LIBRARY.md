@@ -30,12 +30,37 @@ existing hotkey behaviour.
 - IPC `gameFiles:summary|browse|read|resolve|export`; reads always use the listed
   content key. Model textures resolve from the model's own module first
   (Reforged/Forsaken Kingdom), then the base game.
-- [GameFileBrowser.jsx](../app/GameFileBrowser.jsx): folder tree, list (arrow
-  keys, Enter, Backspace), details: 3D model preview (`GamePreview`, mouse
-  rotation, animations), sound/video player, image and text views, Copy path,
-  Save a copy. *Open in editor* / double-click opens a model as a new unsaved tab
-  with its module's textures (`openGameModel`; `loadTextures` keeps `gameFile`
-  assets when the ordinary game-data lookup runs).
+- [GameFileBrowser.jsx](../app/GameFileBrowser.jsx): icon tree on the left
+  (virtualized; clicking a folder only opens or closes it), one central view,
+  slim info panel on the right (icon, path, version, animation, Open in editor,
+  Copy path, Save a copy). Arrow keys step through rows, Right/Left open and
+  close folders, Enter or double-click opens a model in the editor (a
+  double-click on a model still loading opens it when it arrives).
+- **Models tab, two layouts** (buttons above the tree, remembered):
+  - *Standard*: the game folders as stored; model files show their unit icon
+    when the World Editor tables know them; textures show their own thumbnail.
+  - *World Editor Style* (default): [world-editor-catalog.js](../src/world-editor-catalog.js)
+    builds the tree from `unitui/unitdata.slk`, `unitskin.txt`, `abilitydata.slk`,
+    `abilityskin.txt`, `itemdata.slk`, `itemskin.txt`, `doodads.slk`,
+    `doodadskins.txt`, `destructabledata.slk`, `destructableskin.txt`,
+    `worldeditdata.txt`, the old `*func.txt` tables as fallbacks, and the
+    installed language's strings: race (Human, Orc, Night Elf, Undead, Naga,
+    Neutral Hostile, Neutral Passive) › Units (Normal, Heroes, Campaign,
+    Campaign heroes, Special) / Buildings (Normal, Campaign) / Spells (Normal,
+    Heroes); Items by class plus item abilities; Doodads by tileset › category,
+    with destructibles, and every-tileset doodads in each tileset. Every entry
+    keeps its game icon (`Art`) and models; spells list their Caster/Target/
+    Effect/Missile/Area/Special art, doodads their variations. Skin fields are
+    read per version (`Art:sd`, `file:hd`, `file:de`). Entries hidden from the
+    editor are left out. The tables are read by `gameFiles:worldEditorSources`;
+    `gameFiles:findPath`/`readPath` resolve the game paths per version.
+- **Camera**: one `GamePreview` stays mounted (`glideCamera`,
+  `fitSequenceExtent`). A newly picked model replaces the old one once loaded;
+  the camera keeps its turned angle and eases over 450 ms to frame the new model
+  using the playing animation's own extents (×1.3), so hidden portrait/birth
+  geometry (e.g. the Altar of Kings' portrait backdrop) does not shrink it.
+  Grabbing the camera stops the glide. The destination is read on the first
+  glide frame, when the new animation choice has arrived.
 - CASC installs only (1.30+). MPQ-only installs show the "choose your folder" note.
   Files over 64 MiB cannot be read by the helper.
 
@@ -64,7 +89,12 @@ carry `material` (index or `'new'`), honoured by `applyUVPreviews` and recovery.
 
 - `node --test test/game-file-library.test.js` (index, search, resolve, art
   rules, material choice).
+- `node --test test/world-editor-catalog.test.js` (races, units, spells, items,
+  doodads, per-version skins, function-table fallbacks).
 - `test/game-file-library.electron.cjs` (needs Warcraft III; `MDLXL_PACKAGED_EXE`
   for a package, `MDLXL_TEST_THEME=dark`): picker unchanged + material choice,
-  painting search, new material, Models browse with real mouse-drag rotation,
-  Open in editor, sound playback, arrow keys, text view, Escape, screenshots.
+  painting search, new material, World Editor tree with loaded icons, folder
+  clicks leave the view unchanged, real mouse-drag rotation, glide to a larger
+  model (frames saved), chest framing distance, spell/doodad/item search,
+  Standard tree icons, double-click opens in the editor, sound playback, arrow
+  keys, text view, Escape, screenshots.

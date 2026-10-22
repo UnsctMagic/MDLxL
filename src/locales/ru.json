@@ -6061,5 +6061,20 @@
   "Added Material {0} using {1}.": "Добавлен материал {0} с текстурой {1}.",
   "Kept Material {0}, which already uses {1}.": "Оставлен материал {0}, который уже использует {1}.",
   "This model could not be read.": "Не удалось прочитать эту модель.",
-  "This file has no readable model header.": "В этом файле нет читаемого заголовка модели."
+  "This file has no readable model header.": "В этом файле нет читаемого заголовка модели.",
+  "Standard": "Стандартно",
+  "World Editor Style": "Как в редакторе карт",
+  "Folder layout": "Вид папок",
+  "The game's own folders, as they are stored": "Папки самой игры, как они хранятся",
+  "Grouped like the World Editor: races, units, buildings, spells, items and doodads by tileset": "Как в редакторе карт: расы, юниты, здания, заклинания, предметы и декорации по тайлсетам",
+  "Search units, spells, items and doodads by name": "Поиск юнитов, заклинаний, предметов и декораций по имени",
+  "No model for this entry.": "У этой записи нет модели.",
+  "Model not found in the game files: {0}": "Модель не найдена в файлах игры: {0}",
+  "Choose a model on the left. Drag to turn the camera; it glides to each model you pick.": "Выберите модель слева. Перетаскивайте, чтобы вращать камеру; она плавно переходит к каждой выбранной модели.",
+  "Choose a sound on the left to hear it. Arrow keys step through a folder.": "Выберите звук слева, чтобы прослушать его. Стрелки переходят по папке.",
+  "Choose a file on the left to view it.": "Выберите файл слева для просмотра.",
+  "{0} matches": "Совпадений: {0}",
+  "{0} of {1} matches": "{0} из {1} совпадений",
+  "No matches. Try fewer words or another game version.": "Совпадений нет. Попробуйте меньше слов или другую версию игры.",
+  "Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor": "Стрелки — по списку · Вправо/Влево — открыть и закрыть папку · Enter или двойной щелчок — открыть модель в редакторе"
 }
