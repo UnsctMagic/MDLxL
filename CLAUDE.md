@@ -6,6 +6,10 @@
 - When the owner says "merge", merge right away. Run the merge as its own
   command, exactly `gh api repos/UnsctMagic/MDLxL/pulls/<n>/merge -X PUT -f merge_method=merge`;
   that form is pre-approved in `.claude/settings.json`.
+- The PR `Session:` line uses the session id from `get_session` with `"self"`.
+  At release, match PRs to sessions with `list_sessions` (it shows each
+  session's branch and PR) and archive each with `archive_session`; the app
+  asks the owner to approve and refuses sessions that are still working.
 - A cloud checkout cannot run the packaged Windows app or real mouse drags. Run
   the build and tests that work there, then report `ready to test` with a short
   plain-language click-through list for the owner, who is not a programmer.

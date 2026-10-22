@@ -49,6 +49,27 @@ stores the ZIP; public announcements and download instructions lead through
 the official Low Polyworks page. Garithos links its release title to that page
 and lists the English, Russian and Chinese post links.
 
+## After publishing: archive finished sessions
+
+Once the release is published (never at tag or draft time), tidy away the chat
+sessions whose work shipped in it:
+
+1. List its PRs. `<previous>` is the newest earlier published release from
+   `gh release list --exclude-drafts`, so a never-published draft's PRs count
+   toward this release: run `git fetch --tags origin`, then
+   `git log --first-parent --format=%s v<previous>..v<new> | grep -o '#[0-9]\+' | sort -u`.
+2. For each PR, `gh pr view <n> --json headRefName,body` gives its `Session:`
+   line (see AGENTS.md). Without one, the branch prefix (`claude/`, `codex/`)
+   says which tool owns it.
+3. Each tool archives only its own sessions. Claude Code uses its archive-session
+   tool; Codex archives its own tasks or chats. The other tool's sessions go in
+   the report for the owner or that tool to finish.
+4. Never archive a session that is still running, has another open PR or
+   unmerged work, or that the owner pinned or asked to keep. Archiving removes
+   its worktree, so its handover must already be in the repository. The session
+   doing the release leaves itself for the owner.
+5. Report in plain words what was archived and what was left, and why.
+
 ## Installation and one-version reversion
 
 Download, checksum verification, archive validation and file verification
