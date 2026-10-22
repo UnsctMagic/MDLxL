@@ -38,9 +38,23 @@ Step 3 gives him that body; until then he is a small placeholder icon.
    (outlines the button) and "Got it". The key shown is always your own,
    current binding. The text is translated like the rest of the app.
 
+## Test version
+
+`SHREDDER_TEST_VERSION` in `src/shredder-notebook.js` is `true` for now. In
+the test version:
+- Shredder is on by default;
+- there is no quiet start;
+- tips can come every 10 seconds;
+- a new occasion is 1 minute later;
+- a third showing waits 2 minutes.
+
+His notebook says so. Set it to `false` before release; that restores the
+release timing below and makes him off by default.
+
 ## Manners (hard rules)
 
-- **Quiet start.** Nothing in the first 2 minutes after the app starts.
+- **Quiet start.** Nothing in the first 2 minutes after the app starts with
+  him already on. Switching him on while you work lets him talk right away.
 - **He waits for a pause.** He speaks only after 1.5 seconds without mouse or
   key input, and never while a mouse button is held.
 - **Silence.** Nothing while you type in a field, play an animation, have a

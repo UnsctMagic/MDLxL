@@ -3,13 +3,15 @@ import { Bird } from 'lucide-react';
 import { useHotkeys, controlActionId } from './Hotkeys.jsx';
 import { isTextEditingTarget } from '../src/preferences.js';
 import {
-  SHREDDER_STORAGE_KEY, SHREDDER_TIMING, emptyNotebook, normalizeNotebook, startSession, recordUse, recordShown,
+  SHREDDER_STORAGE_KEY, SHREDDER_TIMING, SHREDDER_TEST_VERSION, emptyNotebook, normalizeNotebook, startSession, recordUse, recordShown,
   retireLesson, quietForToday, lessonReady, learnedIn, mayInterrupt, notebookSummary,
 } from '../src/shredder-notebook.js';
 import { SHREDDER_AREAS, BASICS_BEFORE_ADVANCED, TRICKS, trick, areaFor, shortcutLesson, shortcutSignals, trickLesson, directKey, fillLesson } from '../src/shredder-lessons.js';
 import './shredder.css';
 
 const TIMING_OVERRIDE_KEY = 'mdlxl-shredder-timing', RECENT_MS = 60 * 1000;
+// The quiet start is for opening MDLxL. Switching Shredder on while working is an invitation to talk.
+const APP_LOADED_AT = Date.now(), SWITCHED_ON_LATER_MS = 10 * 1000;
 function loadNotebook() { try { return normalizeNotebook(JSON.parse(localStorage.getItem(SHREDDER_STORAGE_KEY) || 'null')); } catch { return emptyNotebook(); } }
 function storeNotebook(notebook) { try { localStorage.setItem(SHREDDER_STORAGE_KEY, JSON.stringify(notebook)); } catch { /* He forgets this session when storage is unavailable. */ } }
 // Packaged tests shorten the waits; nothing in the app writes this key.
@@ -45,7 +47,7 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
 
   useEffect(() => {
     if (!enabled) { setTip(null); setNotebookOpen(false); setReady(false); return; }
-    const timing = loadTiming(), startedAt = Date.now();
+    const timing = loadTiming(), startedAt = Date.now() - APP_LOADED_AT > SWITCHED_ON_LATER_MS ? 0 : Date.now();
     notebook.current = startSession(loadNotebook());
     const session = notebook.current.sessions;
     let saveTimer = 0;
@@ -194,6 +196,7 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
       <p className="shredder-week">{`This week: ${summary.learnedThisWeek} learned · ${summary.learned} in all`}</p>
       <p className="shredder-help">A trick counts as learned once you have used it yourself on three separate occasions.</p>
       {quietUntilTomorrow && <p className="shredder-help">Quiet until tomorrow.</p>}
+      {SHREDDER_TEST_VERSION && <p className="shredder-help">Test version: tips come every few seconds.</p>}
       <div className="shredder-actions">
         <button type="button" disabled={quietUntilTomorrow} title="No tips until tomorrow." onClick={quietToday}>Quiet for today</button>
         <button type="button" aria-pressed={pace === 'fewer'} title="At most one tip every 10 minutes instead of every 3." onClick={() => onPreferences(previous => ({ ...previous, shredderPace: previous.shredderPace === 'fewer' ? 'normal' : 'fewer' }))}>Fewer tips</button>

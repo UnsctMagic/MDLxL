@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SHREDDER_TIMING, MAX_SHOWS, emptyNotebook, normalizeNotebook, startSession, recordUse, recordShown, retireLesson,
-  quietForToday, lessonReady, learnedIn, mayInterrupt, notebookSummary,
+  SHREDDER_TIMING, RELEASE_TIMING, TEST_TIMING, SHREDDER_TEST_VERSION, MAX_SHOWS, emptyNotebook, normalizeNotebook, startSession, recordUse, recordShown, retireLesson,
+  quietForToday, lessonReady, lessonReady as ready, learnedIn, mayInterrupt, notebookSummary,
 } from '../src/shredder-notebook.js';
 import { SHREDDER_AREAS, TRICKS, trick, areaFor, shortcutLesson, shortcutSignals, trickLesson, fillLesson } from '../src/shredder-lessons.js';
 import { COMMANDS } from '../src/commands.js';
@@ -13,12 +13,15 @@ import es from '../src/locales/es.json' with { type: 'json' };
 import zh from '../src/locales/zh.json' with { type: 'json' };
 
 const MINUTE = 60 * 1000, DAY = 24 * 60 * MINUTE, start = Date.UTC(2026, 9, 22, 9);
+// The rules are checked with the release timing; the test version only shortens the waits.
+const timing = RELEASE_TIMING;
 
 test('a lesson is learned only after three separate occasions, not after repeated use in one burst', () => {
   let notebook = startSession(emptyNotebook());
   for (let i = 0; i < 10; i++) notebook = recordUse(notebook, 'key:translate', { now: start + i * 1000, area: 'vertices' });
   assert.equal(notebook.lessons['key:translate'].occasions, 1);
   notebook = recordUse(notebook, 'key:translate', { now: start + SHREDDER_TIMING.occasionGap, area: 'vertices' });
+  assert.equal(recordUse(notebook, 'key:select', { now: start, area: 'vertices', timing }).lessons['key:select'].occasions, 1);
   assert.equal(notebook.lessons['key:translate'].occasions, 2);
   assert.equal(notebook.lessons['key:translate'].learnedAt, 0);
   notebook = startSession(notebook);
@@ -33,6 +36,7 @@ test('a lesson is learned only after three separate occasions, not after repeate
 
 test('a tip is shown at most three times, ever more rarely, and "never" retires it', () => {
   let notebook = startSession(emptyNotebook());
+  const lessonReady = (record, options) => ready(record, { ...options, timing });
   assert.equal(lessonReady(undefined, { now: start, session: 1 }), true);
   notebook = recordShown(notebook, 'key:save', { now: start, area: 'everywhere' });
   assert.equal(lessonReady(notebook.lessons['key:save'], { now: start + DAY, session: notebook.sessions }), false, 'not twice in one session');
@@ -52,7 +56,7 @@ test('a tip is shown at most three times, ever more rarely, and "never" retires 
 
 test('manners: quiet start, cooldown by pace, and quiet for today', () => {
   const notebook = emptyNotebook();
-  const ask = (now, extra = {}) => mayInterrupt({ now, notebook, sessionStartedAt: start, ...extra });
+  const ask = (now, extra = {}) => mayInterrupt({ now, notebook, sessionStartedAt: start, timing, ...extra });
   assert.equal(ask(start + MINUTE), false, 'nothing in the first two minutes');
   assert.equal(ask(start + 2 * MINUTE), true);
   assert.equal(ask(start + 4 * MINUTE, { lastTipAt: start + 2 * MINUTE }), false, 'three minutes between tips');
@@ -62,8 +66,8 @@ test('manners: quiet start, cooldown by pace, and quiet for today', () => {
   const quiet = quietForToday(notebook, start);
   assert.ok(quiet.quietUntil > start && quiet.quietUntil - start <= DAY);
   assert.equal(new Date(quiet.quietUntil).getHours(), 0, 'quiet until local midnight');
-  assert.equal(mayInterrupt({ now: quiet.quietUntil - 1, notebook: quiet, sessionStartedAt: 0 }), false);
-  assert.equal(mayInterrupt({ now: quiet.quietUntil, notebook: quiet, sessionStartedAt: 0 }), true);
+  assert.equal(mayInterrupt({ now: quiet.quietUntil - 1, notebook: quiet, sessionStartedAt: 0, timing }), false);
+  assert.equal(mayInterrupt({ now: quiet.quietUntil, notebook: quiet, sessionStartedAt: 0, timing }), true);
 });
 
 test('a damaged or foreign notebook loads as a clean one', () => {
@@ -114,11 +118,20 @@ test('the notebook summary counts learned and met lessons per area and this week
   assert.equal(summary.learnedThisWeek, 1); assert.equal(summary.learned, 2);
 });
 
-test('Shredder is off by default and his preferences survive normalizing', () => {
-  assert.equal(DEFAULT_PREFERENCES.shredder, false);
+test('the test version talks fast and starts on; the release version waits and starts off', () => {
+  assert.equal(SHREDDER_TIMING, SHREDDER_TEST_VERSION ? TEST_TIMING : RELEASE_TIMING);
+  assert.equal(TEST_TIMING.quietStart, 0);
+  assert.ok(TEST_TIMING.cooldown.normal <= 10 * 1000);
+  assert.equal(RELEASE_TIMING.quietStart, 2 * MINUTE);
+  assert.equal(RELEASE_TIMING.cooldown.normal, 3 * MINUTE);
+});
+
+test('Shredder starts on only in the test version, and his preferences survive normalizing', () => {
+  assert.equal(DEFAULT_PREFERENCES.shredder, SHREDDER_TEST_VERSION);
   assert.equal(normalizePreferences({ shredder: true, shredderPace: 'fewer' }).shredder, true);
   assert.equal(normalizePreferences({ shredder: true, shredderPace: 'fewer' }).shredderPace, 'fewer');
-  assert.equal(normalizePreferences({ shredder: 'yes', shredderPace: 'loud' }).shredder, false);
+  assert.equal(normalizePreferences({ shredder: 'yes', shredderPace: 'loud' }).shredder, SHREDDER_TEST_VERSION);
+  assert.equal(normalizePreferences({ shredder: false }).shredder, false);
   assert.equal(normalizePreferences({ shredderPace: 'loud' }).shredderPace, 'normal');
   assert.ok(COMMANDS.some(command => command.id === 'shredder'));
 });

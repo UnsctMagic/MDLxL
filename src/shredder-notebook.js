@@ -4,7 +4,7 @@
  */
 export const SHREDDER_STORAGE_KEY = 'mdlxl-shredder-notebook-v1';
 const MINUTE = 60 * 1000, DAY = 24 * 60 * MINUTE;
-export const SHREDDER_TIMING = Object.freeze({
+export const RELEASE_TIMING = Object.freeze({
   quietStart: 2 * MINUTE,
   cooldown: Object.freeze({ normal: 3 * MINUTE, fewer: 10 * MINUTE }),
   idle: 1500,
@@ -13,6 +13,19 @@ export const SHREDDER_TIMING = Object.freeze({
   occasionGap: 20 * MINUTE,
   thirdShowWait: 2 * DAY,
 });
+/** Rapid timing for trying Shredder out: no quiet start, a tip every few seconds. */
+export const TEST_TIMING = Object.freeze({
+  quietStart: 0,
+  cooldown: Object.freeze({ normal: 10 * 1000, fewer: 30 * 1000 }),
+  idle: 1000,
+  candidate: 20 * 1000,
+  bubble: 8000,
+  occasionGap: MINUTE,
+  thirdShowWait: 2 * MINUTE,
+});
+/** TEST VERSION: switch to false (release timing, off by default) before shipping. */
+export const SHREDDER_TEST_VERSION = true;
+export const SHREDDER_TIMING = SHREDDER_TEST_VERSION ? TEST_TIMING : RELEASE_TIMING;
 export const LEARNED_OCCASIONS = 3, MAX_SHOWS = 3;
 const MAX_LESSONS = 3000, MAX_ID = 300;
 
@@ -48,10 +61,10 @@ function change(notebook, id, area, update) {
 }
 
 /** Uses close together are one occasion; another app start or a 20-minute gap is a new one. */
-export function recordUse(notebook, id, { now, area, need = LEARNED_OCCASIONS }) {
+export function recordUse(notebook, id, { now, area, need = LEARNED_OCCASIONS, timing = SHREDDER_TIMING }) {
   return change(notebook, id, area, record => {
     if (record.learnedAt) return record;
-    if (record.lastUseSession !== notebook.sessions || now - record.lastOccasion >= SHREDDER_TIMING.occasionGap) {
+    if (record.lastUseSession !== notebook.sessions || now - record.lastOccasion >= timing.occasionGap) {
       record.occasions++; record.lastOccasion = now; record.lastUseSession = notebook.sessions;
     }
     if (record.occasions >= need) record.learnedAt = now;
@@ -67,11 +80,11 @@ export function quietForToday(notebook, now) {
 
 export const isLearned = record => !!record?.learnedAt;
 /** A tip may come back only while it is still useful, and ever more rarely. */
-export function lessonReady(record, { now, session }) {
+export function lessonReady(record, { now, session, timing = SHREDDER_TIMING }) {
   if (!record) return true;
   if (record.learnedAt || record.retired || record.shown >= MAX_SHOWS) return false;
   if (record.shown === 1) return record.lastShownSession !== session;
-  if (record.shown === 2) return record.lastShownSession !== session && now - record.lastShown >= SHREDDER_TIMING.thirdShowWait;
+  if (record.shown === 2) return record.lastShownSession !== session && now - record.lastShown >= timing.thirdShowWait;
   return true;
 }
 export function learnedIn(notebook, area) {

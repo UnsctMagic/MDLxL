@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
-// Shredder the Wise in the real app: off by default, one tip after a repeated
+// Shredder the Wise in the real app: on only in the test version, one tip after a repeated
 // mouse click, silence while a window is open, gone once the key is used, and a
 // notebook that opens only when the bird is clicked.
 // The lower right corner of the window, where the bird and his bubble sit.
@@ -30,20 +30,26 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     });
     await page.locator('.classic-status').waitFor();
     await page.locator('.classic-view canvas').first().waitFor();
-    assert.equal(await page.locator('.shredder').count(), 0, 'Shredder is off by default');
+    const { SHREDDER_TEST_VERSION } = await import('../src/shredder-notebook.js');
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('.shredder-bird').count(), SHREDDER_TEST_VERSION ? 1 : 0, 'on by default only in the test version');
+    assert.equal(await page.locator('.shredder-bubble, .shredder-notebook').count(), 0, 'no bubble at start');
     // SHREDDER_THEME=dark repeats the screenshots in another theme (the theme.js variables only).
     const theme = process.env.SHREDDER_THEME && require('../src/application-themes.json')[process.env.SHREDDER_THEME];
     // Preference changes re-apply the saved theme, so this runs right before each screenshot.
     const paint = () => theme && page.evaluate(theme => { document.documentElement.dataset.theme = theme.scheme; for (const [name, value] of Object.entries(theme.colors)) document.documentElement.style.setProperty(`--ui-${name}`, value); }, theme);
     const suffix = theme ? '-' + process.env.SHREDDER_THEME : '';
-    checks.push('Off by default: no bird, no bubble');
+    checks.push(SHREDDER_TEST_VERSION ? 'Test version: the bird is there from the start, no bubble' : 'Off by default: no bird, no bubble');
 
-    // Short waits for the test; the real quiet start is two minutes.
-    await page.evaluate(() => localStorage.setItem('mdlxl-shredder-timing', JSON.stringify({ quietStart: 0, idle: 300, bubble: 6000, cooldown: 0 })));
+    // Short waits for the test. The two-minute quiet start applies only when MDLxL opens with him
+    // already on; switching him on later (here after 10 s) lets him talk at once.
+    await page.evaluate(() => localStorage.setItem('mdlxl-shredder-timing', JSON.stringify({ idle: 300, bubble: 6000, cooldown: 0 })));
+    await page.waitForFunction(() => performance.now() > 11000, null, { timeout: 30000 });
     await page.keyboard.press('Control+Comma');
     await page.locator('#settings-tab-configuration').click();
     const toggle = page.locator('input[data-hotkey="configuration:shredder"]');
-    await toggle.check();
+    // Switching him off and on again picks up the shortened waits.
+    await toggle.uncheck(); await toggle.check();
     await page.keyboard.press('Escape');
     await page.locator('#settings-tab-configuration').waitFor({ state: 'detached' });
     const bird = page.locator('.classic-status .shredder-bird');
