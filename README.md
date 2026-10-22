@@ -1,4 +1,4 @@
-# MDLxL 0.29.0
+# MDLxL 0.29.1
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.29.0 adds Attachemator (standard attachment points placed like Blizzard's units), a full Warcraft III Library for textures, models, sounds and all game files, Glow Up in EMTR for hero glow, and Add Background for portraits. OptimizeXL can fix the checker's whole list at once, Forge repeats details on a surface, and perspective zoom moves the camera instead of widening the lens.
+Version 0.29.1 is a hotfix: in the Material & Texture Library, a texture that is already in the model takes one click again. A small popup lists each material that already shows it, plus New material.
 
 ## Releases
 
@@ -47,6 +47,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.29.1](docs/RELEASE-0.29.1.md) ([ES](docs/RELEASE-0.29.1-ES.md), [RU](docs/RELEASE-0.29.1-RU.md), [ZH-CN](docs/RELEASE-0.29.1-ZH-CN.md))
 - [0.29.0](docs/RELEASE-0.29.0.md) ([ES](docs/RELEASE-0.29.0-ES.md), [RU](docs/RELEASE-0.29.0-RU.md), [ZH-CN](docs/RELEASE-0.29.0-ZH-CN.md))
 - [0.28.4](docs/RELEASE-0.28.4.md) ([ES](docs/RELEASE-0.28.4-ES.md), [RU](docs/RELEASE-0.28.4-RU.md), [ZH-CN](docs/RELEASE-0.28.4-ZH-CN.md))
 - [0.28.3](docs/RELEASE-0.28.3.md) ([ES](docs/RELEASE-0.28.3-ES.md), [RU](docs/RELEASE-0.28.3-RU.md), [ZH-CN](docs/RELEASE-0.28.3-ZH-CN.md))
