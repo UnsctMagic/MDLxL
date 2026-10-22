@@ -236,7 +236,13 @@ function detachedCap(source, selected) {
     face.vertices = face.vertices.map(id => copies.get(id));
     face.triangles = face.triangles.map(t => ({ ...t, normals: undefined, vertices: t.vertices.map(id => copies.get(id)) }));
   }
+  const firstWall = shape.nextFaceId;
   for (const run of runs) shape.faces.push(wall(shape, run, copies));
+  const prior = (source.details || []).filter(detail => detail.caps.some(id => selected.includes(id)));
+  shape.details = [...(source.details || []).filter(detail => !prior.includes(detail)), {
+    caps: [...new Set([...selected, ...prior.flatMap(detail => detail.caps)])],
+    faces: [...new Set([...selected, ...prior.flatMap(detail => detail.faces), ...shape.faces.filter(f => f.id >= firstWall).map(f => f.id)])],
+  }];
   return { shape, copies, edges };
 }
 
@@ -245,6 +251,7 @@ export function extrudeForgeFaces(source, selected, translation) {
   if (Math.hypot(...translation) < 1e-8) return source;
   const { shape, copies } = detachedCap(source, selected);
   for (const id of copies.values()) shape.vertices[id] = add(shape.vertices[id], translation);
+  shape.extrusionDistances = [...new Set([...(source.extrusionDistances || []), Math.hypot(...translation)])];
   return shape;
 }
 
@@ -292,6 +299,7 @@ export function cutForgeShape(source, frame, fractions, selected) {
   const shape = { ...source, vertices: source.vertices.map(p => [...p]), faces: [] }, intersections = new Map(), onEdge = new Map(), edgeSplits = new Map();
   const targets = selected && new Set(selected);
   let changed = false;
+  const replacements = new Map();
   const project = id => dot(shape.vertices[id], frame.direction);
   // A cut point is keyed by the original edge it lies on, so every face sharing
   // that edge (and every later piece of it) reuses the same point.
@@ -352,7 +360,7 @@ export function cutForgeShape(source, frame, fractions, selected) {
     if (!cuts.some(value => Math.min(...values) < value - epsilon && Math.max(...values) > value + epsilon)) { shape.faces.push(face); continue; }
     changed = true;
     const clean = cleanCut(face);
-    if (clean) { shape.faces.push(...clean); continue; }
+    if (clean) { shape.faces.push(...clean); replacements.set(face.id, clean.map(f => f.id)); continue; }
     const bands = new Map();
     for (const triangle of face.triangles) {
       let pieces = [{ band: 0, polygon: triangle.vertices.map((id, i) => ({ id, uv: triangle.uv.slice(i * 2, i * 2 + 2), normal: triangle.normals?.slice(i * 3, i * 3 + 3) })) }];
@@ -372,6 +380,7 @@ export function cutForgeShape(source, frame, fractions, selected) {
       }
     }
     let first = true;
+    const faceStart = shape.faces.length;
     for (const triangles of bands.values()) {
       const adjacency = new Map(), remaining = new Set(triangles.map((_, i) => i));
       triangles.forEach((t, index) => t.vertices.forEach((a, i) => { const key = forgeEdgeKey(a, t.vertices[(i + 1) % 3]); if (!adjacency.has(key)) adjacency.set(key, []); adjacency.get(key).push(index); }));
@@ -384,6 +393,7 @@ export function cutForgeShape(source, frame, fractions, selected) {
         loop.pop(); shape.faces.push({ ...face, id: first ? face.id : shape.nextFaceId++, vertices: loop, triangles: component }); first = false;
       }
     }
+    replacements.set(face.id, shape.faces.slice(faceStart).map(f => f.id));
   }
   // Split shared border edges on neighboring faces without dividing those faces.
   // This keeps later movement/extrusion connected and preserves each triangle's UV seam.
@@ -414,6 +424,10 @@ export function cutForgeShape(source, frame, fractions, selected) {
       });
       return { ...face, vertices: face.vertices.flatMap((a, i) => [a, ...ordered(a, face.vertices[(i + 1) % face.vertices.length])]), triangles };
     });
+  }
+  if (changed && source.details) {
+    const remap = ids => [...new Set(ids.flatMap(id => replacements.get(id) || [id]))];
+    shape.details = source.details.map(detail => ({ caps: remap(detail.caps), faces: remap(detail.faces) }));
   }
   return changed ? shape : source;
 }

@@ -10,7 +10,7 @@ import SidebarResizer from './SidebarResizer.jsx';
 
 // Forge uses the vertex editor itself. This component only supplies the draft
 // document and the existing controls; it owns no picking or transform math.
-export default function ForgeEditor({ model, preferences, editorState = {}, selection = {}, onSelectionChange, onTransform, onSelectParts, onDoubleClickParts, onHoverParts, onStartPartDrag, onCancelPartDrag, onView, frame = 0, toolRequest, toolbar, controlPoints, sidebar, operations, status, onUndo, onRedo, canUndo, canRedo, onDelete, onDuplicate, duplicateAction, onCopy, onPaste, canCopy, textureAssets, teamColor, surfaceColors, modelingOverlay, editHandles, shapingTools, viewportTools, initialView, initialRenderMode = 'solid', initialGrid = false, frameGrid = true, wire, previewOnly = false }) {
+export default function ForgeEditor({ model, preferences, editorState = {}, selection = {}, onSelectionChange, onTransform, onSelectParts, onDoubleClickParts, onHoverParts, onStartPartDrag, onCancelPartDrag, onView, frame = 0, toolRequest, toolbar, controlPoints, sidebar, operations, status, onUndo, onRedo, canUndo, canRedo, onDelete, onDuplicate, duplicateAction, duplicateDescription, onCopy, onPaste, canCopy, textureAssets, teamColor, surfaceColors, modelingOverlay, editHandles, shapingTools, viewportTools, initialView, initialRenderMode = 'solid', initialGrid = false, frameGrid = true, wire, previewOnly = false }) {
   const [view, setStoredView] = useState(initialView || editorState.view || 'orthographic'), [quad, setQuad] = useState(!!editorState.quadView), [pane, setPane] = useState(null), [viewRequest, requestView] = useState(null);
   const [tool, setTool] = useState(editorState.tool || 'select'), [cameraMode, setCameraMode] = useState('work');
   const [workplane, setWorkplane] = useState(editorState.workplane || 'xy'), [workplaneEnabled, setWorkplaneEnabled] = useState(editorState.workplaneEnabled !== false);
@@ -21,7 +21,7 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
   const points = Object.entries(selection).flatMap(([gi, ids]) => ids.map(id => Array.from(model.Geosets[gi]?.Vertices.slice(id * 3, id * 3 + 3) || []))).filter(p => p.length === 3);
   const center = points.length ? [0, 1, 2].map(a => points.reduce((sum, p) => sum + p[a], 0) / points.length) : [0, 0, 0];
   const chooseTool = next => { setTool(next); setCameraMode('work'); };
-  React.useEffect(() => { if (toolRequest) { chooseTool(toolRequest.tool); if (toolRequest.focus) root.current?.querySelector('[aria-label="3D model viewport"] canvas')?.focus({ preventScroll: true }); } }, [toolRequest]);
+  React.useEffect(() => { if (toolRequest) { chooseTool(toolRequest.tool); if (toolRequest.focus) root.current?.querySelector('[aria-label="3D model viewport"]')?.focus({ preventScroll: true }); } }, [toolRequest]);
   React.useEffect(() => { if (wire !== undefined) setRenderMode(wire ? 'wireframe' : initialRenderMode); }, [wire]);
   const toggleCamera = () => { setCameraMode(cameraMode === 'rotate' ? 'work' : 'rotate'); if (cameraMode === 'rotate' && tool === 'rotate') setTool('select'); };
   const setView = next => { setStoredView(next); requestView({ view: next, id: Date.now() }); };
@@ -57,7 +57,7 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
         <div className="classic-coordinates" data-label="Coords:">{['X', 'Y', 'Z'].map((axis, i) => <Coordinate key={axis} axis={axis} value={center[i]} disabled={!points.length || !onTransform} onCommit={value => onTransform({ selections: selection, pivot: center, translation: center.map((n, a) => a === i ? value - n : 0) })}/>)}</div>
         <WorkplaneControls enabled={workplaneEnabled} onEnabled={setWorkplaneEnabled} value={workplane} onChange={setWorkplane} locked={quad && pane?.workplane}/>
         {controlPoints && <div className="forge-control-points">{controlPoints}</div>}
-        <div className="classic-tools forge-mesh-tools">{operations}{onDuplicate && <Tool action={duplicateAction} title="Duplicate" description="Duplicate: add a copy of the selected piece beside it." disabled={!points.length} onClick={onDuplicate}><CopyPlus className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>}</div>
+        <div className="classic-tools forge-mesh-tools">{operations}{onDuplicate && <Tool action={duplicateAction} title="Duplicate" description={duplicateDescription || 'Duplicate: add a copy of the selected piece beside it.'} disabled={!points.length} onClick={onDuplicate}><CopyPlus className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>}</div>
         {shapingTools}
         <div className="classic-tools"><TransformTools value={tool} onChange={next => { onCancelPartDrag?.(); chooseTool(next); }}/>{onDelete && <Tool action="Delete vertices" icon="sb_del" title="Delete selection" disabled={!points.length} onClick={onDelete}/>}</div>
         <label className="check grabthrough-option"><input aria-label="Grabthrough" type="checkbox" checked={grabThrough} onChange={e => setGrabThrough(e.target.checked)}/>Grabthrough</label>
