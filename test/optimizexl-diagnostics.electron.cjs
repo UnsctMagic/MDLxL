@@ -9,6 +9,8 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
     const main=await app.firstWindow();await main.getByTitle('OptimizeXL',{exact:true}).waitFor({timeout:60000});
     const pending=app.waitForEvent('window');await main.getByTitle('OptimizeXL',{exact:true}).click();const p=await pending;p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));
     await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}});
+  // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
+  await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
     const stage=name=>p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name,exact:true}).click();
     await stage('Unused data');await p.locator('.ox-hive-unused').filter({hasText:'5 Hive unused notices remain'}).waitFor();
     assert.equal(await p.getByText('No unused data to remove.',{exact:true}).count(),0);await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));await p.screenshot({path:path.join(out,'unused-routing.png')});

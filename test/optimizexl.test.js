@@ -12,7 +12,7 @@ import { sampleNodeMatrices } from '../src/animation.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
 import { prepareNuclearReduction } from '../src/optimizexl-geometry.js';
 await prepareNuclearReduction();
-const {saveOptimizeXLPair}=createRequire(import.meta.url)('../electron/optimizexl-save.cjs');
+const {backupModelFile}=createRequire(import.meta.url)('../electron/optimizexl-save.cjs');
 const fixture=()=>createStarterDocument().serialize('mdx');
 const sequence=(Name='Stand',start=0,end=1000)=>({Name,Interval:new Uint32Array([start,end]),MinimumExtent:new Float32Array(3),MaximumExtent:new Float32Array(3),BoundsRadius:0,MoveSpeed:0,NonLooping:false,Rarity:0});
 test('unused globals retain event-only references and remap tracks including index zero',()=>{
@@ -54,7 +54,7 @@ test('each candidate starts from accepted bytes; approval, skipping and Back nev
  const model=openDocument(source,'x.mdx').model,settings=simpleSettings('spheres',0,model);settings.preset=4;settings.spheres=SPHERE_PRESETS[4].spheres;
  const result=runOptimizeStage(source,'spheres',settings);assert.ok(session.propose(result,0));assert.deepEqual(session.accepted,source);
  session.approve('spheres',settings);assert.equal(openDocument(session.accepted,'x.mdx').model.CollisionShapes.length,3);
- assert.equal(session.propose(result,0),false);session.skip('nuclear');assert.equal(session.savePayload().nuclear,false);session.back();session.back();assert.deepEqual(session.accepted,original);assert.deepEqual(source,original);
+ assert.equal(session.propose(result,0),false);session.skip('nuclear');session.back();session.back();assert.deepEqual(session.accepted,original);assert.deepEqual(source,original);
 });
 test('duplicate vertices preserve distinct UVs, normals, bindings and all faces',()=>{
  const doc=createStarterDocument();doc.apply('fixture',['Geosets'],m=>{const g=m.Geosets[0];g.Vertices=new Float32Array([0,0,0,1,0,0,0,1,0,0,0,0,0,0,0]);g.Normals=new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1,0,0,1]);g.TVertices=[new Float32Array([0,0,1,0,0,1,0,0,.1,0])];g.VertexGroup=new Uint8Array(5);g.Faces=new Uint16Array([0,1,2,3,1,2,4,1,2]);});
@@ -79,18 +79,19 @@ test('nuclear is reversible at zero; real edge collapses reduce bytes and respec
  assert.ok(triangleCount(after)<triangleCount(model));assert.ok(result.saved>0);assert.ok(triangleCount(after)>=settings.target);assert.deepEqual(after.CollisionShapes,model.CollisionShapes);assert.deepEqual(runOptimizeStage(bytes,'nuclear',simpleSettings('nuclear',0,model)).bytes,bytes);
  const faces=after.Geosets[0].Faces,keys=Array.from({length:faces.length/3},(_,i)=>Array.from(faces.slice(i*3,i*3+3)).sort((a,b)=>a-b).join(':'));assert.equal(new Set(keys).size,keys.length);
 });
-test('save creates exactly two verified new files, numbers collisions, and never touches original',async()=>{
+test('backup copies the open file beside itself and never overwrites an existing file',async()=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'optimizexl-')),bytes=fixture();try{
-  const original=path.join(dir,'source.mdx');await fs.writeFile(original,bytes);const payload={name:'source.mdx',before:bytes,after:bytes,nuclear:true};
-  const [a,b]=await Promise.all([saveOptimizeXLPair(dir,payload),saveOptimizeXLPair(dir,payload)]);
-  assert.notEqual(a.before,b.before);assert.match(a.after,/NUCLEAR/);assert.equal((await fs.readdir(dir)).length,5);
-  for(const f of [original,a.before,a.after,b.before,b.after])assert.deepEqual(new Uint8Array(await fs.readFile(f)),bytes);
+  const original=path.join(dir,'source.mdx');await fs.writeFile(original,bytes);
+  const [a,b]=await Promise.all([backupModelFile(original),backupModelFile(original)]);
+  assert.deepEqual([a,b].map(f=>path.basename(f)).sort(),['source_backup.mdx','source_backup_2.mdx']);
+  for(const f of [original,a,b])assert.deepEqual(new Uint8Array(await fs.readFile(f)),bytes);
+  await assert.rejects(backupModelFile(path.join(dir,'notes.txt')),/MDL and MDX/);
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 });
-test('failed second write removes only the newly created pair and reports failure',async()=>{
+test('a backup that does not match the original is removed and reported',async()=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'optimizexl-fail-')),bytes=fixture();try{
-  const original=path.join(dir,'source.mdx');await fs.writeFile(original,bytes);let opens=0;
-  const io={...fs,open:async(...args)=>{const handle=await fs.open(...args);if(++opens===2)return {writeFile:async()=>{throw Error('disk full');},sync:()=>handle.sync(),close:()=>handle.close()};return handle;}};
-  await assert.rejects(saveOptimizeXLPair(dir,{name:'source.mdx',before:bytes,after:bytes},io),/disk full/);assert.deepEqual(await fs.readdir(dir),['source.mdx']);assert.deepEqual(new Uint8Array(await fs.readFile(original)),bytes);
+  const original=path.join(dir,'source.mdl');await fs.writeFile(original,bytes);
+  const io={...fs,copyFile:async(from,to,mode)=>{await fs.writeFile(to,'partial',{flag:'wx'});}};
+  await assert.rejects(backupModelFile(original,io),/verification failed/);assert.deepEqual(await fs.readdir(dir),['source.mdl']);
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 });

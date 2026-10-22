@@ -92,7 +92,7 @@ contextBridge.exposeInMainWorld('desktop', {
   savePart: data => ipcRenderer.invoke('parts:save', data),
   openPartsFolder: () => ipcRenderer.invoke('parts:folder'),
   save: (payload) => ipcRenderer.invoke('model:save', payload),
-  saveOptimizeXL: payload => ipcRenderer.invoke('optimizexl:save', payload),
+  backupModel: payload => ipcRenderer.invoke('model:backup', payload),
   repairGeosetAnimations: payload => ipcRenderer.invoke('model:repairGeosetAnimations', payload),
   undoGeosetRepair: id => ipcRenderer.invoke('model:undoGeosetRepair', id),
   saveArtifact: payload => ipcRenderer.invoke('artifact:save',payload),

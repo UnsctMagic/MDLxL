@@ -49,7 +49,8 @@ export default function DetachedWindow({ childWindow, title, preferences, onClos
       setContainer(root);
       childWindow.focus();
     });
-    const closed = () => { if (!closing.current) onCloseRef.current?.(); };
+    // A child may keep its window open (unsaved work) by cancelling beforeunload.
+    const closed = event => { if (!closing.current && !event?.defaultPrevented) onCloseRef.current?.(); };
     childWindow.addEventListener('beforeunload', closed);
     return () => {
       disposed = true;

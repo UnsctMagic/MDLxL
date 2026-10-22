@@ -8,6 +8,8 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
  try{
   const main=await app.firstWindow();await main.getByTitle('OptimizeXL',{exact:true}).waitFor({timeout:60000});const pending=app.waitForEvent('window');await main.getByTitle('OptimizeXL',{exact:true}).click();const p=await pending;p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1920,height:1080});w.showInactive();}});
+  // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
+  await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
   const stage=name=>p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name,exact:true}).click();
   const ready=()=>p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));
   await stage('Irregularities Fixer');await p.getByLabel('Animation',{exact:true}).selectOption({label:'Stand - 1'});
@@ -48,7 +50,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   await p.screenshot({path:path.join(out,'bounds-preview.png')});await p.getByRole('button',{name:'Approve',exact:true}).click();await p.getByText(/Hive: 0 errors · 0 severe · 0 warnings/).waitFor();await p.getByRole('button',{name:'Review redundant keys',exact:true}).click();
   assert.equal(await p.locator('.ox-controls > h2').textContent(),'Animation optimization');await p.getByRole('button',{name:'Simple',exact:true}).click();await p.getByLabel('Strength',{exact:true}).fill('100');await ready();
   const afterSize=await p.getByLabel('After preview',{exact:true}).locator('h2 small').textContent();assert.ok(parseFloat(afterSize)<105);await p.screenshot({path:path.join(out,'animation-reduction.png')});
-  await p.getByRole('button',{name:'Approve',exact:true}).click();await ready();await p.getByRole('button',{name:'Optimize New Copy',exact:true}).waitFor();assert.deepEqual(fs.readFileSync(model),source);assert.deepEqual(errors,[]);
+  await p.getByRole('button',{name:'Approve',exact:true}).click();await ready();await p.getByRole('button',{name:'Save',exact:true}).waitFor();assert.deepEqual(fs.readFileSync(model),source);assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,alignment,advancedHelp:Object.values(help).flat().length,boundsRepairApproved:true,afterSize,sourceUnchanged:true,errors},null,2));console.log('Passed Footman UI: '+afterSize+', '+scale+'x display, hover/click help and approved Hive repair.');
  }finally{await app.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

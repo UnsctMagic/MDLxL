@@ -1,6 +1,6 @@
 # OptimizeXL
 
-Open **OptimizeXL** from the existing optimizer toolbar button or command. It opens a separate editor window, using the same detached-window mechanism as UV. The main document is not edited.
+Open **OptimizeXL** from the existing optimizer toolbar button or command. It opens a separate editor window, using the same detached-window mechanism as UV. Changes reach the open model only when you choose **Save** (see below).
 
 Future examples follow the [teaching agreement](OPTIMIZEXL_TEACHING.md): reusable rules, explicit correction ownership, no conflicting overlap and preserved accepted results.
 
@@ -8,7 +8,7 @@ Hive diagnostics are classified separately from optimizer proposals. Every check
 
 ## Review workflow
 
-The left viewport and its file size stay pinned to the model as it entered OptimizeXL. The right shows the approved changes plus the current proposal. Approval never replaces the original on the left. The saving estimate compares that original with the current After. Both render surfaces align to physical screen pixels so fractional pane widths do not soften one side. Left-drag either viewport to rotate both; use the wheel to zoom both. OptimizeXL always uses wheel zoom regardless of the main editor's sensitivity-adjustment mode, without changing that saved setting. Pan, animation selection, scrubbing, playback and speed are also shared. Each adjustment is calculated from the last approved model, so lowering strength restores detail rather than simplifying an already simplified candidate.
+**Before** and **After** sit directly next to each other on the left, separated only by a one-pixel line; the controls are on the right. Before and its file size stay pinned to the model as it entered OptimizeXL. After shows the approved changes plus the current proposal. Approval never replaces the original on the left. The saving estimate compares that original with the current After. Both render surfaces align to physical screen pixels so fractional pane widths do not soften one side. Left-drag either viewport to rotate both; use the wheel to zoom both. OptimizeXL always uses wheel zoom regardless of the main editor's sensitivity-adjustment mode, without changing that saved setting. Pan, animation selection, scrubbing, playback and speed are also shared. Each adjustment is calculated from the last approved model, so lowering strength restores detail rather than simplifying an already simplified candidate.
 
 **Speed (%)** accepts 0–200: 100 is normal speed, 200 is double speed and 0 holds the current pose. Both local and global animation follow that speed. Global sequences share an independent clock between the two views, completing their own cycles while the selected animation loops. Changing animations, scrubbing or rebuilding a candidate preserves their phase. Pause freezes both clocks; Loop off stops at the selected animation's final frame.
 
@@ -30,10 +30,10 @@ Selecting a repair finding temporarily jumps to its animation and frame. Approve
 
 | Stage | What is proposed |
 | --- | --- |
+| Insanity FIxer | First stage: later reductions refuse models with broken references. Runs the bundled Hive checker, showing errors, severe findings, warnings and unused notices. **Fix everything** previews every automatic repair at once, checks again and repeats until nothing more can be fixed; **Approve all fixes** keeps the result. Single repairs can still be selected and reviewed. Besides bounds, static particle gravity, keys beyond global-sequence duration, opening keys and redundant keys, general checker repairs cover the checker's own list of findings: key order, negative and empty tracks, broken references, helpers that move vertices, bones without vertices, empty and oversized geosets, light attenuation, the Origin attachment point, overlapping or same-start animations, misspelt standard names, fading visibility and more (see `src/optimizexl-checker-repairs.js`). Repairs that need a decision (missing material or texture, loose vertices, missing Stand/Death, blend modes, file types) show a **Choice** with a default. Findings with no repair stay listed for manual editing. |
 | Duplicate data | Merge compatible complete vertex records (position, normal, every UV channel and bone bindings), duplicate matrix groups and equivalent leaf bones. Advanced supplies position, UV and normal-angle tolerances. |
 | Animation optimization | Remove redundant local step, linear and curved (Hermite/Bezier) keys. Increasing strength permits sampled position, rotation and scale differences checked against the original curve, including points between keys. Small-motion protection restores authored spans exceeding 10% of their own component range or turning excursion, so a model-sized tolerance cannot flatten small speech or other cycles. First/last authored keys and retained spline controls stay. Global tracks and ambiguous overlapping sequences are retained; approximate quaternion reduction requires normalized controls. |
 | Unused data | Remove vertices unused by faces, unreferenced resources, unused bones/helpers and orphan global sequences. Ancestors of used nodes and references from effects and events remain. |
-| Insanity FIxer | Run the bundled Hive checker, showing errors, severe findings, warnings and unused notices. Select a supported repair and review it. Proposals support invalid model/geoset/sequence bounds, static particle gravity, keys beyond global-sequence duration and missing local opening keys. Bounds warnings include a Preview fix button. Redundant-key and unused-object notices link to the relevant optimizer stages. Unsupported findings stay visible for manual editing. |
 | Irregularities Fixer | Offer suspected visibility leaks, endpoint mismatches, repeated body jitter, brief position/rotation excursions, sudden yanks and scale distortion. Compare motion speeds with other animations and nearby movement. Selecting a finding previews a full replacement of the flagged motion between retained surrounding poses; Approve keeps it and Skip leaves it unchanged. |
 | Sphereomancer | Choose or scroll through collision-sphere presets, scale the group, and edit/add/remove individual spheres in Advanced. Collision overlays appear only during this phase. |
 | Nuclear Polygon Destroyer | Reduce triangles with a 0.01%-step strength slider and attribute-aware surface simplification. Advanced exposes target polygon count, shape/texture error budget, UV/boundary, sharp-edge and skinning protections. The displayed KB saving comes from the actual candidate MDX serialization. |
@@ -52,16 +52,13 @@ Context annotates existing motion proposals without changing their corrections. 
 
 For shared combat poses, the fixer compares the skinned rig at the first and last frames of Attack and Stand Ready sequences, plus only the first frame of Death. A strict majority of agreeing endpoint poses spanning at least two animations establishes the reference; Stand Ready has no automatic priority. One proposal corrects both ends of an outlying Attack/Stand Ready sequence together, or only Death's start. It names the agreeing animations, preserves interior keys and Death's final pose, and leaves independent effects/global animation untouched. Ambiguous groups, overlapping sequence intervals and differing spline channels do not produce this automatic proposal. Global animation may legitimately show a different phase at two timeline frames even after the local endpoint poses match.
 
-## Saving: exactly two new files
+## Saving into the open file
 
-**Optimize New Copy**, at the top right, is the editor's only save action. It is available at every stage, including while a new preview is being calculated. It asks for an output folder and creates:
+**Save**, at the top right, is the editor's only save action. It is enabled once a change has been approved and not yet saved. It writes the approved result into the model you are working on, as one undoable **OptimizeXL** step in the main editor followed by its normal save (same file, same MDL or MDX format). The current unapproved preview is never included.
 
-- `Model_Before.mdx`: the model as it entered OptimizeXL, including any existing unsaved editor changes.
-- `Model_After.mdx`, or `Model_After_NUCLEAR.mdx` when a nuclear stage was approved: the approved result.
+The first save in an OptimizeXL session asks whether to keep a backup: **Back up, then save** first copies the file as it is on disk to `Name_backup.mdx` beside it (`Name_backup_2.mdx` and so on if taken; existing files are never overwritten), **Save without backup** saves straight away. Later saves in the same session save directly. No other files are written. A model that was never saved asks where to save, like the main editor.
 
-Saving includes only approved changes; the current unapproved preview is excluded. With no approvals, both copies contain the entry snapshot. Saving leaves the current stage and proposal open so you can keep reviewing. The same header button remains available after the final stage.
-
-The original and all existing files are protected by exclusive file creation. Occupied names receive a matching numeric suffix. Nuclear does not create a third copy. Both files are verified after writing. A failed save removes only newly created partial outputs. Input MDL is exported as MDX in both copies; sizes refer to MDX, not text MDL or an MPQ-compressed size.
+Saving leaves the current stage and proposal open so you can keep reviewing. Closing OptimizeXL with approved changes that are not saved asks whether to save them first.
 
 ## Current scope and evidence boundaries
 

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStarterDocument } from '../src/starter-model.js';
+import { createNode } from '../src/editor-document.js';
 import { stageAvailability } from '../src/optimizexl-availability.js';
 import { runOptimizeStage } from '../src/optimizexl.js';
 
@@ -14,7 +15,10 @@ async function check(bytes, exclusions = []) {
 }
 
 test('a clean model has no speculative stars, including protected polygons and existing spheres', async () => {
-  const bytes = createStarterDocument().serialize('mdx'), original = new Uint8Array(bytes);
+  // The checker asks every model for an Origin attachment point; a clean model has one.
+  const doc = createStarterDocument();
+  doc.apply('Origin', ['Attachments', 'PivotPoints'], m => { createNode(m, 'Attachment').Name = 'Origin Ref'; });
+  const bytes = doc.serialize('mdx'), original = new Uint8Array(bytes);
   assert.deepEqual(await check(bytes), { duplicates: false, animation: false, unused: false, sanity: false, irregularities: false, spheres: true, nuclear: false });
   const withSphere = runOptimizeStage(bytes, 'spheres', { size: 1, spheres: [[7, 2, 33, 19]] }).bytes;
   assert.deepEqual(await check(withSphere, [0]), { duplicates: false, animation: false, unused: false, sanity: false, irregularities: false, spheres: false, nuclear: false });
