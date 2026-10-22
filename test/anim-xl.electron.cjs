@@ -74,14 +74,24 @@ async function closeTestApp(app) {
     await dialog.waitFor();
     checks.push('AnimXL opens from the ANIM module button');
     await dialog.getByLabel('Animation', { exact: true }).selectOption({ label: 'Attack - 1' });
-    await page.waitForTimeout(800);
-    // Playback runs in real time at 100% and a quarter as fast at 25%.
+    // Playback runs in real time at 100% and a quarter as fast at 25%. Picking an animation first loads
+    // its effects once, which briefly stalls playback (much longer without a GPU); measure the steady
+    // rate after the time display has moved on twice in a row, summing small wrapped steps over ~1 s.
     const rate = async () => {
-      const read = async () => (await dialog.locator('.ax-time').textContent()).match(/(\d+) \/ (\d+)/).slice(1).map(Number);
-      const [a, span] = await read(), started = Date.now();
-      await page.waitForTimeout(300);
-      const [b] = await read();
-      return ((b - a + span) % span) / (Date.now() - started);
+      const read = async () => [...(await dialog.locator('.ax-time').textContent()).match(/(\d+) \/ (\d+)/).slice(1).map(Number), Date.now()];
+      const step = (from, to) => (to[0] - from[0] + from[1]) % from[1];
+      let last = await read(), moves = 0;
+      for (const until = Date.now() + 15000; moves < 2; ) {
+        assert.ok(Date.now() < until, 'AnimXL playback starts moving');
+        await page.waitForTimeout(100);
+        const next = await read(); moves = step(last, next) > 0 ? moves + 1 : 0; last = next;
+      }
+      const first = last; let played = 0;
+      while (last[2] - first[2] < 1000) {
+        await page.waitForTimeout(100);
+        const next = await read(); played += step(last, next); last = next;
+      }
+      return played / (last[2] - first[2]);
     };
     const full = await rate();
     assert.ok(full > 0.5 && full < 1.8, `100% plays in real time (rate ${full.toFixed(2)})`);

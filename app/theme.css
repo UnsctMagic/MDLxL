@@ -93,6 +93,8 @@ html[lang=mordor] .language-switch,html[lang=mordor] .language-switch *{font-fam
 /* Native popups and semantic text must follow the selected palette too. */
 :root[data-theme=light]{color-scheme:light;--ui-danger:#a31515;--ui-channel-r:#b00000;--ui-channel-g:#006b00;--ui-channel-b:#0000b0}
 :root[data-theme=dark]{--ui-danger:#ffb3a5;--ui-channel-r:#ff9797;--ui-channel-g:#83dc83;--ui-channel-b:#a6b6ff}
+/* Least brightness (0-255 luma) of user-colored text; see readableTextColor in theme.js. */
+:root[data-theme=dark]{--ui-colored-text-floor:180}
 :root[data-palette] :is(option,optgroup){background:var(--ui-field);color:var(--ui-text)}
 :root[data-palette] :is(option:disabled,optgroup:disabled){color:var(--ui-muted)}
 :root[data-palette] ::placeholder{color:var(--ui-muted);opacity:1}

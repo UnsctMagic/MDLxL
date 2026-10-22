@@ -36,8 +36,10 @@ export function clearQuickDisplay(overlays, mode) {
 }
 
 // POSE starts clean, then keeps the user's own display choices separately.
+// Its only rig switch is Bones, so Helpers (often the spine and head) follow it.
 export function defaultPoseDisplay(overlays) {
-  return { ...overlays, vertices: false, bones: false, helpers: false, skeleton: false, focusedSkeleton: true,
+  const { helpers: _helpers, ...display } = overlays || {};
+  return { ...display, vertices: false, bones: false, skeleton: false, focusedSkeleton: true,
     nodes: false, attachments: false, particles: false, sounds: false, events: false,
     wires: false, normals: false, cameras: false };
 }
