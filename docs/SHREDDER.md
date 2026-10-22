@@ -1,156 +1,160 @@
 # Shredder the Wise
 
-Shredder is a helper bird who teaches MDLxL while you work: hotkeys for the
-buttons you click, and the hidden tricks behind the tools you use. He is meant
-to be switched on for about a week and then switched off, because by then you
-know the program.
+Shredder is a bird who lives in MDLxL and teaches you to use it like a pro. He
+watches how you work, and when he sees a slower way than necessary, he flies
+over and shows you the fastest way your own settings allow. Switch him on for
+a week, learn the program, then switch him off.
 
-Turn him on in **Settings → Configuration → Shredder the Wise**. The bird then
-sits at the right end of the status bar. Click him to open his notebook.
+Switch him on or off in **Settings → Configuration → Shredder the Wise**.
 
-He is the same bird that perches on the update window (`app/UpdateShredder.jsx`).
-Step 3 gives him that body; until then he is a small placeholder icon.
+## The one rule: only faster ways
 
-## How he works
+Shredder never shows you a feature just because it exists. He compares what
+you just did with the fastest way to do it:
 
-1. **Eyes.** He listens to signals the app already has:
-   - every button with a `data-hotkey` id,
-   - the `mdlxl-hotkey-used` event the Hotkeys system fires when a shortcut runs,
-   - commands chosen from the native menu (`mdlxl-menu-command`),
-   - a few mouse gestures (Alt-drag in the viewport, wheel over a list,
-     timeline scrubbing).
+- **He never suggests a way that is not faster than one you already use.**
+  - If you turn the camera with a middle click (classic mouse), Alt-drag or W,
+    he never mentions any other way of turning it.
+  - Each "faster way" lesson lists the ways that are already as fast
+    (`coveredBy` in `src/shredder-lessons.js`). Using any of them settles it.
+- **The fastest way depends on your settings.**
+  - Camera tips follow your mouse buttons (Settings → Mouse). With the
+    classic setup, turning is a middle click and moving is a right-drag. With
+    the orbit setup, turning is a right-drag.
+  - Zoom tips only appear while the wheel zooms.
+  - Key tips always name your current key.
+- **A click on a visible button is faster than typing a code.** He never
+  teaches Ctrl+Alt+Space codes for buttons you can see. If you click a button
+  without a key often (5 times in a session, or twice from the menu), he
+  suggests giving it your own key with Ctrl+K.
 
-   A real mouse click on a button (`detail > 0`) is a click. A shortcut is a
-   key. He never guesses from screen text.
-2. **Lesson book** (`src/shredder-lessons.js`). Every lesson has an area, a
-   level, one sentence, and the signals that prove you do it yourself.
-   - **Shortcut lessons** come for free for every button that has a key:
-     "Next time press M for Move." Buttons without a direct key get their
-     Ctrl+Alt+Space code as a deeper lesson.
-   - **Trick lessons** are hand-written and come with their own triggers.
-3. **Notebook** (`src/shredder-notebook.js`, saved in browser storage under
-   `mdlxl-shredder-notebook-v1`). A lesson is learned when you do it yourself
-   5 separate times (uses at least a minute apart, 10 seconds in the test
-   version, or after another app start). Using the key while its tip is open
-   counts; "K, bro." and "Tell me later, bro." do not. A learned lesson is never
-   mentioned again. Keys you already use count from day one.
-4. **Voice.** One small bubble above the bird with one sentence and two
-   buttons: "K, bro." (it comes back now and then until learned) and "Tell me
-   later, bro." (back after 5 minutes, 30 seconds in the test version). The key
-   shown is always your own, current binding. The text is translated like the
-   rest of the app.
+## What he teaches (step 1)
+
+- **Shortcut:** the first mouse click on a button that has a key, for
+  example "Next time press M for Move." This also covers the play button
+  (Space).
+- **Faster way:**
+  - Camera mode buttons: the middle click, right-drag or Alt-drag, whichever
+    your mouse settings make fastest.
+  - The Move camera button: right- or middle-drag.
+  - The Zoom tool: the mouse wheel.
+  - Selecting again and again: Shift adds, Ctrl takes away.
+  - Ticking geosets one by one: Shift-click for a range.
+  - Opening a list for the next entry: the mouse wheel.
+  - Scrubbing the timeline: ← and →.
+- **Tip:**
+  - Zoom anchor, every time Resize is picked.
+  - Shift to lock a move, when you move the same selection again and again.
+  - Shift to snap a rotation, when you rotate the same selection again and
+    again.
+  - Shift for fine camera control, after many short camera nudges.
+  - Hold Alt to see every key.
+  - Alt and Shift in the UV editor.
+- **Your own key:** for buttons without a key that you use a lot.
+
+Paint, Forge, the managers, AnimXL, the Emitter Editor and Showcase come in
+step 2; they handle their own keys and need a hook each.
+
+## Learning
+
+His notebook (`src/shredder-notebook.js`, browser storage
+`mdlxl-shredder-notebook-v1`) counts how you really work:
+
+- A way is learned once you use it yourself **5 separate times**. Separate
+  means a minute apart (10 seconds in the test version) or after another app
+  start.
+- Using it while its tip is open counts. "Remind me" and "Understood" do not.
+- Until a way is learned, its tip comes back now and then: at most every 15
+  minutes (1 minute in the test version) and 10 times in all.
+- Doing the thing a tip talks about closes the tip at once.
+
+## The bird
+
+`app/ShredderBird.jsx` draws Shredder with his LowPolyWorks sprites
+(`app/assets/shredder`: standing and walking, flight, take-off), at about the
+size he has on the website.
+
+- **He roams the 3D view on his own:** he stands on its bottom edge, looks
+  around, leans, walks a little, hops to another spot, and now and then flies
+  off and comes back.
+- **He speaks his tips himself.** The bubble comes out of him. He flies near
+  the 3D view to say a tip, never at the mouse: he and his bubble stay clear
+  of the pointer. Afterwards he flies back.
+- **You can pick him up and put him anywhere.** Now and then he protests a
+  little ("Easy with the feathers."). He stays where you put him for a while
+  (10 minutes; 1 in the test version).
+- **Click him for his notebook:** what you have learned, and Quiet for today,
+  Fewer tips and Turn off.
+- **He is never in the way:**
+  - He roams only where nothing but the 3D picture is under him, and moves
+    along when a control, panel or tip appears there.
+  - He only roams while you pause.
+  - Only his body takes the mouse; menus draw over him.
+  - A window or dialog hides him, and so do Paint and Showcase.
+  - With reduced motion set in Windows he appears without flying.
+
+## The bubble
+
+A modern chat bubble with a tail toward him:
+
+- a small caption (Shortcut, Faster way, Tip, Your own key);
+- the sentence, with keys shown as key caps;
+- two small buttons, **Remind me** and **Understood**.
+
+It uses the theme colours, so it works in every theme. The side is chosen once,
+away from the mouse, so it never jumps when you go for its buttons. It fades
+after 8 seconds unless the mouse rests on it.
+
+## Manners
+
+- **Quiet start:** nothing in the first 2 minutes after MDLxL opens with him on.
+  Switching him on while working lets him talk at once.
+- **He waits for a pause:** about 1.5 seconds without input.
+- **Silence:** nothing while a mouse button is held, while typing in a field,
+  during playback, or in windows, Paint and Showcase.
+- **Spacing:** at most one tip every 3 minutes, or every 10 with Fewer tips.
 
 ## Test version
 
 `SHREDDER_TEST_VERSION` in `src/shredder-notebook.js` is `true` for now. In
 the test version:
-- Shredder is on by default;
+
+- he is on by default;
 - there is no quiet start;
 - tips can come every 10 seconds;
-- a new occasion is 1 minute later;
-- a third showing waits 2 minutes.
+- his visits are long;
+- the other waits above are shorter.
 
-His notebook says so. Set it to `false` before release; that restores the
-release timing below and makes him off by default.
-
-## Manners (hard rules)
-
-- **Quiet start.** Nothing in the first 2 minutes after the app starts with
-  him already on. Switching him on while you work lets him talk right away.
-- **He waits for a pause.** He speaks only after 1.5 seconds without mouse or
-  key input, and never while a mouse button is held.
-- **Silence.** Nothing while you type in a field, play an animation, have a
-  window or dialog open, save, or work in Paint or Showcase. Recordings come
-  from the 3D picture only, so the bubble can never appear in a GIF.
-- **He speaks up.** A shortcut tip comes on the first mouse click of a button;
-  a code tip on the 2nd. A trick comes the first time you are where it helps,
-  for example Zoom anchor as soon as you pick Resize with several vertices
-  selected. He says hello once, the first time he may speak.
-- **The right key closes the tip.** Using the key or trick a tip talks about
-  closes it at once.
-- **One at a time.** At most one tip every 3 minutes. "Fewer tips" makes it
-  10 minutes.
-- **He hammers it in, spaced out.** A tip comes back until you have learned
-  it: at most every 15 minutes (1 minute in the test version) and at most 10
-  times. Quiet for today, Fewer tips and Turn off are in his notebook.
-- **Short-lived.** The bubble fades after 8 seconds and pauses while the mouse
-  is over it. It never takes the keyboard and never blocks clicks elsewhere.
-- **You decide.** Notebook: Quiet for today, Fewer tips, Turn off.
-- **Codes after basics.** Ctrl+Alt+Space code tips in an area open only after
-  3 lessons in that area are learned. Tricks never wait.
-
-## Lessons in step 1
-
-Shortcut and code lessons cover every button outside dialogs, Paint and Forge.
-Tricks come before key tips. The hand-written tricks are:
-
-| Lesson | When | Learned by |
-| --- | --- | --- |
-| Hold Alt to see keys | 3 clicks on buttons that have a key within a minute | holding Alt alone |
-| Wheel over a list | 2 list changes by mouse within a minute | wheel over a list |
-| Ctrl+K opens Hotkeys | opening Settings | using the Hotkeys key |
-| W toggles camera | a click on a camera mode button | using the camera toggle key |
-| Alt-drag turns the camera | switching to Camera rotation and back within 20 s | Alt + left drag in the viewport |
-| Shift for fine camera | 2 camera drags within a minute | Shift during a camera drag |
-| Shift adds, Ctrl removes | 2 box selections within a minute | Shift or Ctrl selection |
-| Shift locks a move | picking Move | Shift while moving |
-| Shift snaps rotation to 15° | picking Rotate | Shift while rotating |
-| Zoom anchor | picking Resize (the "zoom" tool), or dragging with it | using Zoom anchor |
-| Shift-click geoset range | 3 geoset box clicks within a minute | a Shift-click on a geoset box |
-| UV keys X, Y, G | entering the UV editor | using those keys |
-| UV Alt fine, Shift lock | 2 UV drags within a minute | Alt at the start of a UV drag |
-| Space plays | entering the animation editor | using the play key |
-| Timeline ← / → | a click on the timeline | arrow keys on the timeline |
-| Bones keys R, C, T, D | entering Bones | using those keys in Bones |
-
-Key badges shown while Alt is held are limited to one short key (at most three
-characters); longer chords and Ctrl+Alt+Space codes stay in the tooltips.
-
-## The bird
-
-`app/ShredderBird.jsx` draws Shredder with his LowPolyWorks sprites
-(`app/assets/shredder`: standing/walking, flight, take-off). He visits now and
-then (in the test version after 2 seconds, staying 25-45 seconds), perches on
-the bottom edge of the 3D view, looks around, leans, walks a little, hops off
-and flies away. He is never in the way:
-
-- clicks pass through him (`pointer-events: none`), and menus draw over him;
-- he only perches where the 3D view's own picture is under him, never over a
-  control, label, panel, tip or notebook; when something appears there he
-  moves along or leaves;
-- he only walks or comes back while you pause, never while you work;
-- the mouse coming near him, or a click near him, sends him flying off;
-- a window or dialog, Paint and Showcase hide him;
-- with reduced motion set in Windows he appears and disappears without flying.
-
-The status-bar icon stays the button for his notebook.
+His notebook says so. **Set it to `false` before release.**
 
 ## Tests
 
-- `test/shredder.test.js` covers the rules: 5 uses to learn, repeats until
-  learned and their spacing, quiet start, cooldown, quiet for today, damaged notebooks, the
-  lesson texts and their translations.
-- `test/shredder-bird.electron.cjs` checks the bird: he lands with only the 3D
-  picture under him, clicks pass through, a control where he stands moves him,
-  the mouse sends him off, a window hides him, he returns only after a pause.
-- `test/shredder.electron.cjs` drives the real app:
-  - the hello, and that Settings switches him;
-  - Alt shows only short key badges;
-  - the first click on Move brings its Shift trick and the M tip;
-  - pressing the key closes the tip, and only real uses count;
-  - he stays silent while Settings is open;
-  - Tell me later, bro. brings a tip back, and doing the trick closes it;
-  - picking Resize brings Zoom anchor, and pressing 1 closes it;
-  - Alt-drag is recorded, the notebook opens and closes, Turn off works.
+- `test/shredder.test.js` covers the rules:
+  - the fastest camera method for each mouse setup;
+  - that fast ways cover slower suggestions;
+  - no code tips, 5 uses to learn, and repeats and their spacing;
+  - the manners;
+  - damaged notebooks;
+  - key caps;
+  - translations.
+- `test/shredder.electron.cjs` checks the tips in the real app:
+  - the hello;
+  - the Move key tip coming from the bird;
+  - no turning tip for an Alt-drag user;
+  - the right-drag and wheel tips, each closed by doing it;
+  - the wheel tip near the view but away from the mouse;
+  - Remind me;
+  - Zoom anchor;
+  - the notebook and Turn off.
 
-  `SHREDDER_THEME=dark` repeats its screenshots (`out/shredder/*.png`) in
-  another theme. The test shortens the waits through the
-  `mdlxl-shredder-timing` storage key; nothing in the app writes that key.
+  `SHREDDER_THEME=dark` repeats its screenshots.
+- `test/shredder-bird.electron.cjs` checks the bird in the real app:
+  - his size, and that only the 3D picture is under him;
+  - that he doesn't run from the mouse;
+  - moving along when a control appears;
+  - the notebook on a click;
+  - picking him up, his protest, and staying where put;
+  - hiding while a window is open.
 
-## Next steps
-
-- **Step 2.** The full lesson list for every area. It needs a small hook in
-  each place that handles its own keys: Paint (`mdlxl-paint-key`), Forge
-  shapes, resource managers, AnimXL, Particle Editor and Showcase.
-- **Step 3.** The bird himself: reuse the update sprite, perch on the viewport
-  edge, and point at the button he talks about.
+The tests shorten the waits through the `mdlxl-shredder-timing` storage key;
+nothing in the app writes it.

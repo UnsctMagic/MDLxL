@@ -4,7 +4,10 @@ import {
   SHREDDER_TIMING, RELEASE_TIMING, TEST_TIMING, SHREDDER_TEST_VERSION, MAX_SHOWS, LEARNED_OCCASIONS, emptyNotebook, normalizeNotebook, startSession, recordUse, recordShown, retireLesson,
   remindLater, quietForToday, lessonReady, learnedIn, mayInterrupt, notebookSummary,
 } from '../src/shredder-notebook.js';
-import { SHREDDER_AREAS, TRICKS, WELCOME, SHORTCUT_CLICKS, trick, areaFor, shortcutLesson, shortcutSignals, trickLesson, fillLesson } from '../src/shredder-lessons.js';
+import {
+  SHREDDER_AREAS, TRICKS, WELCOME, SHORTCUT_CLICKS, BIND_CLICKS, BIND_MENU_USES, KIND_CAPTIONS, FAST_ORBIT, FAST_PAN, FAST_ZOOM, PROTESTS, trick, areaFor, fastestCamera, cameraSignal,
+  shortcutLesson, bindLesson, shortcutSignals, trickLesson, fillLesson, lessonPieces,
+} from '../src/shredder-lessons.js';
 import { COMMANDS } from '../src/commands.js';
 import { DEFAULT_PREFERENCES, normalizePreferences } from '../src/preferences.js';
 import { translate } from '../src/localization.js';
@@ -37,7 +40,7 @@ test('a tip keeps coming back, spaced out, until it is learned', () => {
   const ready = (id, now) => lessonReady(notebook.lessons[id], { now, timing });
   assert.equal(lessonReady(undefined, { now: start, timing }), true);
   notebook = recordShown(notebook, 'key:save', { now: start, area: 'everywhere' });
-  assert.equal(ready('key:save', start + timing.repeat - 1), false, '"K, bro." waits the repeat gap');
+  assert.equal(ready('key:save', start + timing.repeat - 1), false, '"Understood" waits the repeat gap');
   assert.equal(ready('key:save', start + timing.repeat), true, 'then it may come back, same session or not');
   for (let i = 1; i < MAX_SHOWS; i++) notebook = recordShown(notebook, 'key:save', { now: start + i * timing.repeat, area: 'everywhere' });
   assert.equal(ready('key:save', start + 100 * timing.repeat), false, `at most ${MAX_SHOWS} times`);
@@ -47,7 +50,7 @@ test('a tip keeps coming back, spaced out, until it is learned', () => {
   assert.equal(ready('key:open', start + DAY), false);
 });
 
-test('"Tell me later, bro." brings a tip back after a short while, within the show limit', () => {
+test('"Remind me" brings a tip back after a short while, within the show limit', () => {
   let notebook = startSession(emptyNotebook());
   const ready = (record, now) => lessonReady(record, { now, timing });
   notebook = recordShown(notebook, 'trick:zoom-anchor', { now: start, area: 'vertices' });
@@ -86,14 +89,16 @@ test('a damaged or foreign notebook loads as a clean one', () => {
   assert.ok(!Object.hasOwn(normalizeNotebook({ version: 1, lessons: JSON.parse('{"__proto__":{"shown":1}}') }).lessons, '__proto__'));
 });
 
-test('shortcut lessons use the current binding: a key first, otherwise its Ctrl+Alt+Space code', () => {
+test('a key tip names the current binding; a button without a key gets "your own key", never a typed code', () => {
   const key = shortcutLesson({ actionId: 'translate', label: 'Move', keys: ['M', 'Q'], mode: 'vertices' });
   assert.equal(fillLesson(key.text, key.args), 'Next time press M for Move.');
-  assert.equal(key.level, 1); assert.equal(key.area, 'vertices');
-  const code = shortcutLesson({ actionId: 'fit', label: 'Fit model', keys: ['Ctrl+Alt+Space > A1K'], mode: 'vertices' });
-  assert.equal(fillLesson(code.text, code.args), 'Fit model has a code: press Ctrl+Alt+Space, let go, then type A1K.');
-  assert.equal(code.level, 2); assert.equal(code.area, 'camera');
-  assert.equal(shortcutLesson({ actionId: 'nothing', label: 'Nothing', keys: [], mode: 'vertices' }), null);
+  assert.deepEqual(key.keyArgs, [0]); assert.equal(key.area, 'vertices'); assert.equal(key.kind, 'shortcut');
+  // Typing Ctrl+Alt+Space and three letters is slower than one click on a visible button.
+  assert.equal(shortcutLesson({ actionId: 'fit', label: 'Fit model', keys: ['Ctrl+Alt+Space > A1K'], mode: 'vertices' }), null);
+  const bind = bindLesson({ actionId: 'fit', label: 'Fit model', mode: 'vertices', shortcuts: { hotkeys: ['Ctrl+K'] } });
+  assert.equal(fillLesson(bind.text, bind.args), 'You use Fit model a lot. Give it your own key: press Ctrl+K, search for it and press the key you want.');
+  assert.equal(bind.kind, 'key'); assert.equal(bind.area, 'camera'); assert.deepEqual(bind.learnedBy, ['key:fit']);
+  assert.ok(BIND_CLICKS >= 5 && BIND_MENU_USES < BIND_CLICKS, 'only for buttons used a lot; menu trips count sooner');
   assert.deepEqual(shortcutSignals('translate', 'M'), ['key:translate', 'use:translate']);
   assert.deepEqual(shortcutSignals('fit', 'Ctrl+Alt+Space > A1K'), ['code:fit', 'use:fit']);
   assert.equal(areaFor('save', 'uv'), 'everywhere');
@@ -101,28 +106,67 @@ test('shortcut lessons use the current binding: a key first, otherwise its Ctrl+
   assert.equal(areaFor('select', 'paint'), 'everywhere');
 });
 
-test('he speaks up: a key tip on the first click, tricks without waiting for basics, a hello said once', () => {
-  assert.equal(SHORTCUT_CLICKS, 1);
-  for (const lesson of TRICKS) assert.equal(lesson.level, 1, lesson.id);
-  assert.equal(WELCOME.once, true);
-  assert.match(WELCOME.text, /Shredder/);
+test('camera tips name the fastest way for the user\'s own mouse buttons', () => {
+  const classic = { cameraBindings: { right: 'pan', middle: 'toggle' }, wheelMode: 'rotate' }, orbit = { cameraBindings: { right: 'rotate', middle: 'pan' }, wheelMode: 'rotate' };
+  assert.equal(fastestCamera('rotate', classic), 'faster:orbit-middle-click');
+  assert.equal(fastestCamera('rotate', orbit), 'faster:orbit-right');
+  assert.equal(fastestCamera('rotate', { cameraBindings: { right: 'pan', middle: 'rotate' } }), 'faster:orbit-middle');
+  assert.equal(fastestCamera('rotate', { cameraBindings: { right: 'none', middle: 'none' } }), 'faster:orbit-alt');
+  assert.equal(fastestCamera('pan', classic), 'faster:pan-right');
+  assert.equal(fastestCamera('pan', orbit), 'faster:pan-middle');
+  assert.equal(fastestCamera('pan', { cameraBindings: { right: 'rotate', middle: 'toggle' } }), null, 'no faster pan to teach');
+  assert.equal(fastestCamera('zoom', classic), 'faster:zoom-wheel');
+  assert.equal(fastestCamera('zoom', { ...classic, wheelMode: 'scroll' }), null, 'the wheel is busy with Peon');
+  // What a gesture on the 3D view proves.
+  assert.equal(cameraSignal({ type: 'pointerdown', button: 1 }, classic), 'cam:middle-click');
+  assert.equal(cameraSignal({ type: 'pointerdown', button: 2 }, classic), 'cam:pan-right');
+  assert.equal(cameraSignal({ type: 'pointerdown', button: 2 }, orbit), 'cam:rotate-right');
+  assert.equal(cameraSignal({ type: 'pointerdown', button: 0, altKey: true }, classic), 'cam:rotate-alt');
+  assert.equal(cameraSignal({ type: 'pointerdown', button: 0 }, classic), '');
+  assert.equal(cameraSignal({ type: 'wheel', buttons: 0 }, classic), 'cam:wheel-zoom');
+  assert.equal(cameraSignal({ type: 'wheel', buttons: 2 }, classic), '', 'right-button wheel adjusts speed, not zoom');
 });
 
-test('tricks name their own learning signals and fill in the user key, or step aside without one', () => {
+test('he never suggests a way that is not faster than one the user already uses', () => {
+  // Every fast way of turning the camera covers every turning tip: a middle-click user never hears about Alt-drag.
+  const orbitTips = TRICKS.filter(lesson => lesson.id.startsWith('faster:orbit-'));
+  assert.equal(orbitTips.length, 4);
+  for (const lesson of orbitTips) for (const signal of FAST_ORBIT) assert.ok(lesson.coveredBy.includes(signal), `${lesson.id} / ${signal}`);
+  for (const lesson of TRICKS.filter(lesson => lesson.id.startsWith('faster:pan-'))) assert.deepEqual([...lesson.coveredBy], [...FAST_PAN]);
+  assert.deepEqual([...trick('faster:zoom-wheel').coveredBy], [...FAST_ZOOM]);
+  assert.ok(FAST_ORBIT.includes('cam:middle-click') && FAST_ORBIT.includes('key:cameraToggle'), 'the middle-click toggle and W are already fast');
+  // A covering signal marks the tip as known at once.
+  let notebook = startSession(emptyNotebook());
+  notebook = recordUse(notebook, 'faster:orbit-alt', { now: start, area: 'camera', need: 1 });
+  assert.equal(lessonReady(notebook.lessons['faster:orbit-alt'], { now: start + DAY, timing }), false);
+  // No more slow-way teaching: the W toggle, the Ctrl+K page on opening Settings, entering-an-editor tips.
+  for (const gone of ['trick:camera-toggle', 'trick:hotkeys-page', 'trick:uv-keys', 'trick:bones-keys', 'trick:play-space']) assert.equal(trick(gone), undefined, gone);
+});
+
+test('he speaks up: a key tip on the first click, a hello said once', () => {
+  assert.equal(SHORTCUT_CLICKS, 1);
+  for (const lesson of TRICKS) assert.equal(lesson.level, 1, lesson.id);
+  assert.equal(WELCOME.once, true); assert.equal(WELCOME.kind, 'hello');
+  assert.match(WELCOME.text, /Shredder/);
+  for (const lesson of [...TRICKS, WELCOME]) assert.ok(KIND_CAPTIONS[lesson.kind], lesson.id);
+});
+
+test('tricks name their own learning signals and fill in the user keys as key caps, or step aside without one', () => {
   for (const lesson of TRICKS) {
     assert.ok(SHREDDER_AREAS.some(([area]) => area === lesson.area), lesson.id);
     assert.ok(lesson.learnedBy.length, lesson.id);
     for (const key of lesson.keys || []) assert.ok(COMMANDS.some(command => command.id === key), key);
-    assert.equal((lesson.text.match(/\{\d\}/g) || []).length, (lesson.keys || []).length, lesson.id);
+    assert.equal((lesson.text.match(/\{\d\}/g) || []).length, (lesson.keys || []).length + (lesson.fixed || []).length, lesson.id);
   }
-  const anchor = trickLesson(trick('trick:zoom-anchor'), { anchorSelect: ['1'] });
+  const anchor = trickLesson(trick('tip:zoom-anchor'), { anchorSelect: ['1'] });
   assert.match(fillLesson(anchor.text, anchor.args), /^Zoom anchor: select some vertices, press 1, then/);
-  assert.equal(trickLesson(trick('trick:zoom-anchor'), { anchorSelect: [] }), null);
-  const camera = trickLesson(trick('trick:camera-toggle'), { cameraToggle: ['W'] });
-  assert.match(fillLesson(camera.text, camera.args), /^W switches/);
-  const bones = trickLesson(trick('trick:bones-keys'), { rotate: ['R'], Collapse: ['C'], 'Create triangle': ['T'], 'bone:detach': ['D'] });
-  assert.equal(fillLesson(bones.text, bones.args), 'In Bones, R is Hard Bind, C is Soft Bind, T is Attach and D detaches from the parent bone.');
-  assert.equal(trickLesson(trick('trick:bones-keys'), { rotate: ['R'] }), null);
+  assert.deepEqual(anchor.keyArgs, [0]);
+  assert.equal(trickLesson(trick('tip:zoom-anchor'), { anchorSelect: [] }), null);
+  const select = trickLesson(trick('faster:select-modifiers'), {});
+  assert.equal(fillLesson(select.text, select.args), 'Add to a selection with Shift and take away from it with Ctrl, instead of selecting everything again.');
+  assert.deepEqual(lessonPieces(select.text, select.args, select.keyArgs).filter(piece => piece.key).map(piece => piece.text), ['Shift', 'Ctrl']);
+  const play = trickLesson(trick('shortcut:play'), { play: ['Space'] });
+  assert.deepEqual(lessonPieces(play.text, play.args, play.keyArgs), [{ text: 'Next time press ', key: false }, { text: 'Space', key: true }, { text: ' to play and stop the animation.', key: false }]);
 });
 
 test('the notebook summary counts learned and met lessons per area and this week', () => {
@@ -155,10 +199,11 @@ test('Shredder starts on only in the test version, and his preferences survive n
 });
 
 test('every Shredder sentence is translated, with the user key and button name kept', () => {
-  const sources = [...TRICKS.map(lesson => lesson.text), ...SHREDDER_AREAS.map(([, label]) => label), 'Next time press {0} for {1}.', '{1} has a code: press Ctrl+Alt+Space, let go, then type {0}.',
-    "Shredder's notebook", '{0} of {1} learned', 'Not visited yet', 'This week: {0} learned · {1} in all', 'K, bro.', 'Tell me later, bro.', 'Quiet for today', 'Fewer tips', 'Turn off', 'Shredder the Wise',
-    'Shredder the Wise: hotkey and trick tips', 'Quiet until tomorrow.', 'No tips until tomorrow.', WELCOME.text, 'Test version: tips come every few seconds.',
-    'Close this tip. Until you use the trick yourself, it comes back now and then.', 'Close this tip and bring it back soon.', 'A trick counts as learned once you have used it yourself five separate times.'];
+  const sources = [...TRICKS.map(lesson => lesson.text), ...SHREDDER_AREAS.map(([, label]) => label), ...Object.values(KIND_CAPTIONS), ...PROTESTS, 'Next time press {0} for {1}.',
+    'You use {1} a lot. Give it your own key: press {0}, search for it and press the key you want.', "Shredder's notebook", '{0} of {1} learned', 'Not visited yet', 'This week: {0} learned · {1} in all',
+    'Remind me', 'Understood', 'Quiet for today', 'Fewer tips', 'Turn off', 'Shredder the Wise', 'Shredder the Wise: hotkey and trick tips', 'Quiet until tomorrow.', 'No tips until tomorrow.', WELCOME.text,
+    'Test version: tips come every few seconds.', 'Close this tip. It comes back a little later.', 'Close this tip. Until you use it yourself, it comes back now and then.',
+    'Shredder the Wise. Click for his notebook, or drag him anywhere.', 'A way counts as learned once you have used it yourself five separate times. Drag me anywhere you like.'];
   for (const [locale, pack] of Object.entries({ ru, es, zh })) for (const source of sources) assert.ok(pack[source]?.trim(), `${locale}: ${source}`);
   for (const locale of ['ru', 'es', 'zh']) {
     const sentence = translate('Next time press M for Move.', locale);
