@@ -52,6 +52,10 @@ setup and script definitions; [CI](../.github/workflows/ci.yml) owns the merge c
 - `.electron.cjs` files are separate interaction harnesses, outside those test
   globs. Inspect the chosen harness's setup/profile/environment requirements before
   running it. Do not label a source-only pass as packaged mouse/UI verification.
+- `pnpm run test:packaged [variant] [all|core|names]` runs those harnesses
+  (`test/*.cjs`) unattended on a hidden Windows desktop, under GPU/no-GPU/slow-CPU/
+  HiDPI variants, with each harness's env/fixtures in one table. See
+  [packaged-app tests](PACKAGED-TESTS.md).
 
 For continuation, locate the matching active note in [agent tasks](agent-tasks/README.md)
 or the existing topic handoff. Only open historical notes when their evidence is needed.
