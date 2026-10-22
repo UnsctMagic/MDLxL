@@ -73,8 +73,10 @@ existing hotkey behaviour.
   *Open in editor* (a new tab with only the checked geosets; untouched whole
   models open from their original bytes). Edits on the copy rebuild the
   preview without moving the camera (`glideKey` only changes with the model).
-  Import needs matching model formats (an HD game model into an SD model is
-  refused with the BitsAndParts message).
+  Parts in another model format are converted like a paste (`adaptPasteFormat`
+  in `commitPart`, for BitsAndParts too): the game's classic models are MDX 1000
+  and import into MDX 800 models with Classic geometry and diffuse materials.
+  Results and errors appear under the buttons.
 - CASC installs only (1.30+). MPQ-only installs show the "choose your folder" note.
   Files over 64 MiB cannot be read by the helper.
 

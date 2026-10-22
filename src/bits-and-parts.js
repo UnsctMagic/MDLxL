@@ -3,6 +3,7 @@ import { deleteGeoset, importGeosets, openDocument, recalculateExtents } from '.
 import { deleteVertices, setVertexPositions, transformVertices } from './editor-commands.js';
 import { selectedVertexCenter } from './bone-tools.js';
 import { captureMeshSelection } from './mesh-clipboard.js';
+import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, setSequenceName } from './sequence-editor.js';
 import { sampleGeosetAnimation, sampleTrack } from './animation.js';
 
@@ -129,7 +130,9 @@ export function previewPart(source) {
  * get all-or-nothing data changes; the UI wraps this in one undoable edit. */
 export function commitPart(target, source, { animations = null, rgbSequence = null, replacement = null } = {}) {
   if (!source?.Geosets?.length) throw Error('This model has no geosets to import.');
-  if (source.Version !== target.Version) throw Error('BitsAndParts requires matching model formats. Convert a copy to the destination format first.');
+  // A part in another model format is converted like a paste (MDX 800 gets
+  // Classic geometry and diffuse materials); the target keeps its format.
+  source = adaptPasteFormat(source, target.Version);
   if (source.BindPoses?.length || target.BindPoses?.length) throw Error('Parts with bind-pose matrices require baking before import.');
   const next = structuredClone(target), staged = rgbSequence === null ? selectPartAnimations(source, animations) : partRgbSnapshot(source, rgbSequence);
   const donors = replacement ? replacementVertices(target, replacement) : null;

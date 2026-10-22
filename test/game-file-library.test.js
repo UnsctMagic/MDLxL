@@ -143,3 +143,15 @@ test('game paths from the World Editor tables resolve per version with extension
   assert.deepEqual(sources.files.map(([path])=>path),['units\\unitdata.slk']);
   assert.equal(sources.strings.length,1,'only the installed language');
 });
+
+test('a part from a newer model format imports into an MDX 800 model instead of being refused',async()=>{
+  const {createStarterDocument}=await import('../src/starter-model.js');
+  const {collectPart,commitPart}=await import('../src/bits-and-parts.js');
+  const donor=createStarterDocument(1000).model,target=createStarterDocument(800).model;
+  assert.equal(donor.Version,1000);assert.equal(target.Version,800);
+  const part=collectPart(donor,{0:Array.from({length:donor.Geosets[0].Vertices.length/3},(_,vertex)=>vertex)});
+  const before=target.Geosets.length,result=commitPart(target,part);
+  assert.equal(target.Version,800,'the edited model keeps its own format');
+  assert.equal(result.geosetIndices.length,donor.Geosets.length);assert.equal(target.Geosets.length,before+donor.Geosets.length);
+  assert.ok(target.Bones.some(bone=>bone.Name==='DummyBone'));
+});

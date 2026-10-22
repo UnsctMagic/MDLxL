@@ -37,6 +37,9 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     await choice.getByRole('button',{name:'Use existing material',exact:true}).click();
     await picker.waitFor({state:'hidden'});
     checks.push('UV Replace Texture opens the unchanged texture picker; a texture already in the model asks for an existing or new material');
+    await page.getByRole('button',{name:'Save texture',exact:true}).click();
+    await page.getByText('Texture kept: the model already uses this material.').waitFor({timeout:10000});
+    checks.push('Saving a preview that reuses the existing material ends the temporary preview');
     await page.getByRole('button',{name:'Close UV Wrapper',exact:true}).click().catch(()=>{});
     // The toolbar Library button is the full viewer.
     await page.locator('[data-hotkey="textureLibrary"]').click();
@@ -116,7 +119,9 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     checks.push('Double-clicking Footman opens it in the editor as a new tab');
     // Geoset box: pick geosets of a model, split them, import them, open only them.
     const editorModel=()=>page.evaluate(()=>{const host=document.querySelector('.classic-view > .viewport');let fiber=host?.[Object.keys(host).find(key=>key.startsWith('__reactFiber'))];
-      for(;fiber;fiber=fiber.return){const model=fiber.memoizedProps?.model;if(model?.Geosets)return {geosets:model.Geosets.length,dummy:(model.Bones||[]).filter(bone=>bone.Name==='DummyBone').length};}return null;});
+      for(;fiber;fiber=fiber.return){const model=fiber.memoizedProps?.model;if(model?.Geosets)return {version:model.Version,geosets:model.Geosets.length,dummy:(model.Bones||[]).filter(bone=>bone.Name==='DummyBone').length};}return null;});
+    // Import into the MDX 800 model, while the game's classic models use a newer format.
+    await page.getByRole('tab',{name:'demo.mdx',exact:true}).click();await page.waitForTimeout(800);
     const before=await editorModel();
     await page.locator('[data-hotkey="textureLibrary"]').click();await library.waitFor();
     await row('Human').click();await row('Units').click();await row('Normal').click();await row('Footman').click();await waitModel('Footman');
@@ -145,11 +150,11 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     await library.waitFor({state:'hidden'});await page.waitForTimeout(1500);
     const opened=await editorModel();assert.equal(opened.geosets,2,'Open in editor keeps only the checked geosets');
     await page.getByRole('tab',{name:'Footman.mdx',exact:true}).first().waitFor();
-    const tabs=page.getByRole('tab',{name:'Footman.mdx',exact:true});await tabs.nth((await tabs.count())-2).click();await page.waitForTimeout(1000);
+    await page.getByRole('tab',{name:'demo.mdx',exact:true}).click();await page.waitForTimeout(1000);
     const imported=await editorModel();
-    assert.equal(imported.geosets,before.geosets+2,'two geosets were imported into the model being edited');assert.ok(imported.dummy>=1,'imported geosets hang on DummyBone');
+    assert.equal(before.version,800);assert.equal(imported.version,800,'the edited MDX 800 model keeps its format');assert.equal(imported.geosets,before.geosets+2,'two geosets were imported into the model being edited');assert.ok(imported.dummy>=1,'imported geosets hang on DummyBone');
     await shot(page,'geosets-after-import');
-    checks.push('Import to current adds the 2 checked geosets on DummyBone; Open in editor opens a tab with only those 2 geosets');
+    checks.push('Import to current adds the 2 checked geosets of a newer-format game model to an MDX 800 model on DummyBone; Open in editor opens a tab with only those 2 geosets');
     // Sounds: search, play, arrow keys.
     await page.locator('[data-hotkey="textureLibrary"]').click();await library.waitFor();
     await page.getByRole('tab',{name:'Sounds',exact:true}).click();

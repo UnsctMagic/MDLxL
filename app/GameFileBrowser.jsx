@@ -108,7 +108,7 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
   const [expanded,setExpanded]=useState(()=>new Set()),[children,setChildren]=useState(()=>new Map()),[root,setRoot]=useState(null),[we,setWe]=useState(null),[results,setResults]=useState(null);
   const [selected,setSelected]=useState(null),[focusKey,setFocusKey]=useState(null),[scrollTop,setScrollTop]=useState(0),[viewHeight,setViewHeight]=useState(600);
   const [shown,setShown]=useState(null),[loadingModel,setLoadingModel]=useState(false),[modelChoice,setModelChoice]=useState(0),[sequence,setSequence]=useState(-1),[time,setTime]=useState(0),[playing,setPlaying]=useState(true);
-  const type=preset==='all'?chosenType:preset,worldEditor=preset==='models'&&style==='worldeditor',filters=variant+'|'+type,input=useRef(),tree=useRef(),modelRequest=useRef(0),pendingOpen=useRef(null);
+  const type=preset==='all'?chosenType:preset,worldEditor=preset==='models'&&style==='worldeditor',filters=variant+'|'+type,input=useRef(),tree=useRef(),modelRequest=useRef(0),pendingOpen=useRef(null),messageRef=useRef(null);
   const signature=summary?.signature;
   useEffect(()=>{input.current?.focus();},[preset]);
   useEffect(()=>{
@@ -188,6 +188,8 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
   useEffect(()=>()=>shown?.release(),[]);// eslint-disable-line react-hooks/exhaustive-deps
   const selectedEntry=selected?.file||null,selectedModels=selected?.node?.models||[];
   const showsModel=!!shown&&(selected?.node?selectedModels.length>0:selectedEntry?.type==='models'),current=showsModel&&shown.key===selected?.key+'|'+modelChoice;
+  // Results and errors are scrolled into view next to the button that caused them.
+  useEffect(()=>{if(message)messageRef.current?.scrollIntoView({block:'nearest'});},[message]);
   // Geoset box: works on the Library's own copy of the previewed model.
   const [geosets,setGeosets]=useState(()=>new Set()),[hoveredGeoset,setHoveredGeoset]=useState(null),[highlightGeoset,setHighlightGeoset]=useState(true),[selectedOnly,setSelectedOnly]=useState(false),[geosetBusy,setGeosetBusy]=useState(false);
   useEffect(()=>{setGeosets(new Set(Array.from({length:shown?.doc.model.Geosets.length||0},(_,i)=>i)));setHoveredGeoset(null);},[shown?.key]);
@@ -292,14 +294,14 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
           {interval&&<input className="gf-time" aria-label="Animation time" type="range" min={interval[0]} max={Math.max(interval[0]+1,interval[1])} value={Math.min(Math.max(time,interval[0]),interval[1])} onChange={event=>{setPlaying(false);setTime(Number(event.target.value));}}/>}
           {shown.missing.length>0&&<details className="gf-missing"><summary>{shown.missing.length} texture{shown.missing.length===1?'':'s'} not found</summary>{shown.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
           {shown.doc.hdViewOnly&&<p className="tl-note">This is a Reforged HD model. MDLxL opens it for viewing; convert it to SD in the editor to change it.</p>}
-          <LibraryGeosets count={shown.doc.model.Geosets.length} selected={geosets} onChange={setGeosets} hovered={hoveredGeoset} onHover={setHoveredGeoset} highlight={highlightGeoset} onHighlight={setHighlightGeoset} selectedOnly={selectedOnly} onSelectedOnly={setSelectedOnly} editable={!shown.doc.readOnly&&!shown.doc.hdViewOnly} busy={geosetBusy} onSeparate={separate} onImport={importSelected} onOpen={openSelected} canImport={!!onImportGameGeosets} importReason={onImportGameGeosets?'':'The model you are editing is read-only.'}/>
+          <LibraryGeosets count={shown.doc.model.Geosets.length} selected={geosets} onChange={setGeosets} hovered={hoveredGeoset} onHover={setHoveredGeoset} highlight={highlightGeoset} onHighlight={setHighlightGeoset} selectedOnly={selectedOnly} onSelectedOnly={setSelectedOnly} editable={!shown.doc.readOnly&&!shown.doc.hdViewOnly} busy={geosetBusy} onSeparate={separate} onImport={importSelected} onOpen={openSelected} message={message} messageRef={messageRef} canImport={!!onImportGameGeosets} importReason={onImportGameGeosets?'':'The model you are editing is read-only.'}/>
         </>}
         {selectedEntry&&selectedEntry.type!=='models'&&<><p className="tl-version">Game version: <strong translate="no">{selectedEntry.module}</strong> · {fileSize(selectedEntry.size)}</p><code translate="no">{selectedEntry.path}</code></>}
         {(selectedEntry&&selectedEntry.type!=='models'||current)&&<div className="gf-file-actions">
           <button type="button" onClick={async()=>{setMessage('');try{await window.desktop.copyTexturePath((showsModel?shown.entry:selectedEntry).path);setMessage('Path copied.');}catch(caught){setMessage(caught.message);}}}>Copy path</button>
           <button type="button" onClick={async()=>{setMessage('');try{const target=showsModel?shown.entry:selectedEntry,saved=await window.desktop.gameFilesExport({id:target.id,signature});if(saved)setMessage('Saved '+saved);}catch(caught){setMessage(caught.message);}}}>Save a copy…</button>
         </div>}
-        {message&&<p className={/^(Saved |Path copied|Imported |Split into )/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
+        {message&&!current&&<p ref={messageRef} className={/^(Saved |Path copied|Imported |Split into )/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
         {error&&<p className="tl-error" role="alert">{error}</p>}
       </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>}</aside>
     </div>

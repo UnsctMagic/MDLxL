@@ -979,8 +979,13 @@ export default function App() {
     if (revert) {
       revertUVPreviews(model, session.uvPreviews); session.uvPreviews = {}; setLiveUV(null); refresh(); say('Reverted temporary textures; geometry and UV edits kept.'); return;
     }
-    const result = edit('Save UV texture previews', ['Geosets','Textures','Materials'], m => applyUVPreviews(m, session.uvPreviews));
-    if (result !== false) { session.uvPreviews = {}; setLiveUV(null); refresh(); }
+    // A preview can already match the model (an existing material chosen for
+    // the geoset that uses it): saving then changes nothing but still ends it.
+    let result;
+    try { result = edit('Save UV texture previews', ['Geosets','Textures','Materials'], m => applyUVPreviews(m, session.uvPreviews), { rethrow: true }); }
+    catch { return; }
+    session.uvPreviews = {}; setLiveUV(null); refresh();
+    if (result === false) say('Texture kept: the model already uses this material.');
   }
   const importTextures = async () => { try { if (window.desktop) say(`Loaded ${await loadTextures(await window.desktop.textures())} textures.`); else textures.current.click(); } catch (error) { say(error.message, true); } };
   const textureFolder = async () => { try { if (window.desktop) say(`Loaded ${await loadTextures(await window.desktop.textureFolder(model.Textures.map(t => t.Image)))} textures.`); else folder.current.click(); } catch (error) { say(error.message, true); } };

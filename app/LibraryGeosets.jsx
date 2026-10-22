@@ -4,7 +4,7 @@ import GeosetListBox from './GeosetListBox.jsx';
 
 // The Library's geoset box: the vertex editor's numbered list and click,
 // shift and ctrl selection, acting on the previewed copy only.
-export default function LibraryGeosets({ count, selected, onChange, hovered, onHover, highlight, onHighlight, selectedOnly, onSelectedOnly, editable, busy, onSeparate, onImport, onOpen, canImport, importReason }) {
+export default function LibraryGeosets({ count, selected, onChange, hovered, onHover, highlight, onHighlight, selectedOnly, onSelectedOnly, editable, busy, onSeparate, onImport, onOpen, canImport, importReason, message, messageRef }) {
   const anchor = useRef(0), none = !selected.size;
   function choose(index, event) {
     const shift = !!(event.shiftKey || event.nativeEvent?.shiftKey), ctrl = !!(event.ctrlKey || event.metaKey || event.nativeEvent?.ctrlKey);
@@ -33,5 +33,6 @@ export default function LibraryGeosets({ count, selected, onChange, hovered, onH
       <button disabled={none || busy} title="Opens the model with only the checked geosets as a new tab." onClick={onOpen}>Open in editor</button>
       {!canImport && importReason && <p className="tl-preview-reason">{importReason}</p>}
     </div>
+    {message && <p ref={messageRef} className={/^(Saved |Path copied|Imported |Split into )/.test(message) ? 'tl-success' : 'tl-error'} role="status">{message}</p>}
   </div>;
 }
