@@ -148,6 +148,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         if (target.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), textarea, select, [contenteditable="true"]')) { target.focus(); if (target.matches('input[type="text"], input:not([type]), textarea')) target.select?.(); }
         else { target.focus({ preventScroll: true }); target.click(); }
       } else if (typeof action.run === 'function') action.run(event); else dispatch(action.id, event);
+      // Shredder the Wise learns which shortcuts the user already knows.
+      window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used', { detail: { id: action.id, chord } }));
       return true;
     };
     const keydown = event => {
