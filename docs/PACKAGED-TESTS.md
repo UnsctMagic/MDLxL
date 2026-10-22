@@ -80,7 +80,7 @@ to every Electron launch.
 
 | Fixture | Default | Override | Used by |
 | --- | --- | --- | --- |
-| SD Footman 1800 from the Warcraft III CASC install (with `Textures/`) | `out/pose/Footman.mdx` | `MDLXL_SUITE_FOOTMAN` | pose, movement gizmo, UV wrapping, AnimXL filmstrip, event focus |
+| SD Footman 1800 from the Warcraft III CASC install (with `Textures/`) | `out/pose/Footman.mdx` | `MDLXL_SUITE_FOOTMAN` | pose, movement gizmo, UV wrapping, AnimXL filmstrip, event focus, Attachemator |
 | Classic MDX800 Footman | `out/citadel-fixture/Footman.mdx` | `MDLXL_SUITE_CITADEL_FOOTMAN` | Citadel paint |
 | Particle index (`node scripts/index-particles.mjs --output out/particle-index/particles`; rebuild after game patches) | `out/particle-index/particles` | `MDLXL_PARTICLE_INDEX` | particle-lifecycle |
 | OptimizeXL review model `WH_WOC_KnightKhorneFlail03.mdx` | `out/optimizexl-review/` | `MDLXL_OPTIMIZEXL_REVIEW_MODEL` | optimizexl-review, optimizexl-playback |

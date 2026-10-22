@@ -621,7 +621,7 @@ export default function GamePreview(inputProps) {
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
       }
-      if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
+      if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && !p.emptyDragRotates && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
         const rect = canvas.getBoundingClientRect();
         selectionGesture = { id: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey };
         controls.enabled = false; canvas.setPointerCapture(event.pointerId);
@@ -639,7 +639,9 @@ export default function GamePreview(inputProps) {
         position: camera.position.clone(), quaternion: camera.quaternion.clone(), target: controls.target.clone(), zoom: camera.zoom, adjusted: false };
       const binding = cameraBindings(p.preferences), mouseAction = value => value === 'pan' ? THREE.MOUSE.PAN : value === 'rotate' ? THREE.MOUSE.ROTATE : value === 'zoom' ? THREE.MOUSE.DOLLY : null;
       controls.mouseButtons.RIGHT = preserveShiftCameraAction(mouseAction(binding.right), event); controls.mouseButtons.MIDDLE = preserveShiftCameraAction(mouseAction(binding.middle), event);
-      const action = event.altKey || portraitCameraDrag ? 'rotate' : p.cameraMode ?? 'rotate';
+      // Tool windows that edit points (Attachemator) still spin the camera
+      // when a drag starts on empty space.
+      const action = event.altKey || portraitCameraDrag || event.button === 0 && work && p.emptyDragRotates ? 'rotate' : p.cameraMode ?? 'rotate';
       const buttonAction=event.button===0?(action==='move'?'pan':action):event.button===1?binding.middle:binding.right;
       rotating = p.showcase ? controls.enabled && controls.enableRotate && ((event.ctrlKey||event.metaKey)?buttonAction==='pan':buttonAction==='rotate')
         : event.button === 0 ? action === 'rotate' : event.button === 1 ? binding.middle === 'rotate' : binding.right === 'rotate';
@@ -1425,10 +1427,10 @@ export default function GamePreview(inputProps) {
         const activeAxis = nodeGesture?.mode === 'move' && nodeGesture.handle.mode === 'move' ? nodeGesture.handle.axis : null;
         const focusedPose = poseVisible && !p.poseConfig.picking && overlayOptions.focusedBoneLines;
         const poseSkeleton = focusedPose ? projectPoseSkeleton(projectedNodes, poseHandles, p.poseConfig) : null;
-        const markerOptions = { ...overlayOptions, activeAxis, preferences: p.preferences, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), ...(focusedPose ? { boneLines: false, bones: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices' || p.mode === 'influence', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
+        const markerOptions = { ...overlayOptions, activeAxis, preferences: p.preferences, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), ...(focusedPose ? { boneLines: false, bones: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices' || p.mode === 'influence' || !!p.markersOnTop, occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
-        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
+        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true, nodeLabels: p.nodeLabels });
         const pingAge = posePing ? ownerWindow.performance.now() - posePing.started : 1200;
         const ping = poseVisible && p.poseConfig.crosshair !== false && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
         nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);
