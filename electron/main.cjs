@@ -27,7 +27,7 @@ const {PreviewRecordingStore}=require('./preview-ffmpeg.cjs');
 const {saveForgeAssets}=require('./forge-assets.cjs');
 const {normalizeModelCloseState,needsModelClosePrompt,modelClosePrompt,modelCloseAction}=require('./model-close.cjs');
 const {showClosePrompt}=require('./close-prompt.cjs');
-const {saveOptimizeXLPair}=require('./optimizexl-save.cjs');
+const {backupModelFile}=require('./optimizexl-save.cjs');
 const {BackgroundLibrary}=require('./preview-backgrounds.cjs');
 const {PaintTextureLibrary}=require('./paint-textures.cjs');
 const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
@@ -245,15 +245,12 @@ async function saveModel(payload){
   }catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
 }
 ipcMain.handle('model:save',(_,payload)=>{const operation=saveQueue.catch(()=>{}).then(()=>saveModel(payload));saveQueue=operation;return operation;});
-ipcMain.handle('optimizexl:save',(event,payload)=>{
-  if(event.sender!==win?.webContents)throw Error('OptimizeXL saves are only available from the editor.');
-  const operation=saveQueue.catch(()=>{}).then(async()=>{
-    const {validateOptimizeXLCopies}=require('../dist/optimizexl-validation.cjs');
-    validateOptimizeXLCopies(payload);
-    const selected=await dialog.showOpenDialog(win,{title:'Save OptimizeXL Before and After copies',buttonLabel:'Save two new copies here',properties:['openDirectory','createDirectory']});
-    if(selected.canceled)return null;
-    return saveOptimizeXLPair(selected.filePaths[0],payload);
-  });saveQueue=operation;return operation;
+ipcMain.handle('model:backup',(event,payload)=>{
+  if(event.sender!==win?.webContents)throw Error('Backups are only available from the editor.');
+  const source=path.resolve(String(payload?.path||''));
+  // Only a file this editor opened or saved can be copied.
+  if(!openedPaths.has(source))throw Error('Only the open model file can be backed up.');
+  const operation=saveQueue.catch(()=>{}).then(()=>backupModelFile(source));saveQueue=operation;return operation;
 });
 for(const [channel,operationName] of [['model:repairGeosetAnimations','repair'],['model:undoGeosetRepair','undo']]){
   ipcMain.handle(channel,(event,payload)=>{

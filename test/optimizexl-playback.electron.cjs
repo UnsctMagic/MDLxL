@@ -11,6 +11,8 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   const main=await app.firstWindow();main.on('pageerror',e=>errors.push(e.message));await main.getByTitle('OptimizeXL',{exact:true}).waitFor({timeout:60000});
   const pending=app.waitForEvent('window');await main.getByTitle('OptimizeXL',{exact:true}).click();const p=await pending;p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}});
+  // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
+  await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
   await p.waitForFunction(()=>document.querySelector('.ox-savings strong'));
   const speed=p.getByLabel('Playback speed (%)',{exact:true});assert.equal(await speed.inputValue(),'100');assert.equal(await speed.getAttribute('min'),'0');assert.equal(await speed.getAttribute('max'),'200');
   await p.evaluate(()=>{
