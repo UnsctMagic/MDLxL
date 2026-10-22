@@ -31,9 +31,17 @@ export function zoomEditorCamera(camera, zoom) {
   camera.updateProjectionMatrix();
 }
 
-/** Keep the viewing position fixed while zooming. OrbitControls r183 otherwise
+/** How far a perspective camera may back away while zooming out, as a multiple
+ * of where it started. Matches the old .02 lens limit (1/50). */
+export const MAX_BACK_AWAY = 50;
+
+/** Keep the viewing position fixed while zooming in. OrbitControls r183 otherwise
  * dollies perspective cameras into the mesh, distorting close work and losing
- * depth precision. Override its two zoom hooks so mouse/touch/key zoom agree. */
+ * depth precision. Override its two zoom hooks so mouse/touch/key zoom agree.
+ * Zooming a perspective view out never widens the lens past its normal angle:
+ * a 170-degree lens stretches every nearby part toward the screen edges. The
+ * camera backs away instead, as a real camera would, and zooming in returns it
+ * to where it started before narrowing the lens again. */
 export class EditorCameraControls extends OrbitControls {
   connect(element) {
     super.connect(element);
@@ -110,12 +118,17 @@ export class EditorCameraControls extends OrbitControls {
   }
   _dollyIn(scale) { this._projectionZoom(1 / scale); }
   _dollyOut(scale) { this._projectionZoom(scale); }
+  /** Zoom by a factor (above 1 zooms in), the same way as the mouse wheel. */
+  zoomView(scale) { if (scale > 0 && scale !== 1) this._projectionZoom(scale); }
   _projectionZoom(scale) {
-    if (this.portraitDolly?.() && !this.lensZoom && this.object.isPerspectiveCamera) {
+    const perspective = this.object.isPerspectiveCamera, portrait = this.portraitDolly?.();
+    if (portrait && !this.lensZoom && perspective) {
       const offset = this.object.position.clone().sub(this.target);
       offset.multiplyScalar(1 / scale);
       this.object.position.copy(this.target).add(offset);
       this.object.updateMatrixWorld();
+    } else if (perspective && !portrait && !this.wideLensZoom?.()) {
+      this._backAwayZoom(scale);
     } else {
       let zoom = this.object.zoom * scale;
       if (this.portraitDolly?.() && this.object.isPerspectiveCamera) {
@@ -125,6 +138,29 @@ export class EditorCameraControls extends OrbitControls {
       zoomEditorCamera(this.object,zoom);
     }
     this.dispatchEvent({ type: 'change' });
+  }
+  _backAwayZoom(scale) {
+    const camera = this.object, offset = camera.position.clone().sub(this.target), distance = offset.length();
+    // Fit, a model camera or a view change moved the camera since it backed
+    // away: forget the old starting point rather than pull the camera to it.
+    let away = this._backedAway;
+    if (away && Math.abs(away.distance - distance) > distance * 1e-6) away = null;
+    let lens = camera.zoom, next = distance;
+    if (scale < 1) {
+      // A narrowed lens first widens back to normal, then the camera backs away.
+      const wanted = lens * scale;
+      lens = lens > 1 ? Math.max(1, wanted) : lens;
+      const rest = wanted / lens;
+      if (rest < 1 && distance > 0) { away ||= { start: distance }; next = Math.min(distance / rest, away.start * MAX_BACK_AWAY); }
+    } else {
+      let rest = scale;
+      if (away && distance > away.start) { next = Math.max(away.start, distance / scale); rest = scale * next / distance; }
+      if (away && next <= away.start) away = null;
+      lens *= rest;
+    }
+    if (lens !== camera.zoom) zoomEditorCamera(camera, lens);
+    if (next !== distance) { camera.position.copy(this.target).addScaledVector(offset, next / distance); camera.updateMatrixWorld(); }
+    this._backedAway = away && { start: away.start, distance: next };
   }
   _pan(x, y) {
     const factor = this.object.isPerspectiveCamera ? this.object.zoom : 1;

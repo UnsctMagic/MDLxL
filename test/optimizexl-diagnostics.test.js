@@ -27,15 +27,19 @@ for(const property of ['Translation','Rotation','Scaling'])for(const global of [
   assert.deepEqual(retained,model.Bones[0][property].Keys.filter(k=>![170,230].includes(k.Frame)));
 });
 
-test('unskinned ancestor bone warning explains retained dependencies instead of offering deletion',()=>{
+test('unskinned ancestor bone becomes a helper that keeps its children instead of being deleted',()=>{
  const d=fixture();d.apply('Unskinned parent',['Bones','PivotPoints'],m=>{
   const parent=createNode(m,'Bone');parent.Name='Rig parent';m.Bones[0].Parent=parent.ObjectId;
  });
  const source=d.serialize('mdx'),model=openDocument(source,'x.mdx').model;
  const warnings=hive(source).findings.filter(f=>f.message==='There are no vertices attached to this bone');
  assert.equal(warnings.length,1);const [classified]=classifyHiveFindings(warnings,sanityProposals(model));
- assert.equal(classified.kind,'unskinnedBone');assert.equal(classified.status,'manual');assert.match(classified.reason,/child nodes/);assert.equal(classified.fixId,undefined);
+ assert.equal(classified.fixId,'checker:unskinnedBone');assert.equal(classified.status,'preview');
  const result=runOptimizeStage(source,'unused',{nodes:true});assert.deepEqual(result.bytes,source,'The existing unused-data owner keeps this live ancestor');
+ const fix=sanityProposals(model).find(f=>f.id==='checker:unskinnedBone'),repaired=openDocument(runOptimizeStage(source,'sanity',{},fix).bytes,'x.mdx').model;
+ const helper=repaired.Helpers.find(n=>n.Name==='Rig parent');assert.ok(helper,'The bone stays as a helper');
+ assert.equal(repaired.Bones.find(n=>n.Name===model.Bones.find(b=>b.Parent!=null).Name).Parent,helper.ObjectId,'Its child keeps its parent');
+ assert.equal(hive(runOptimizeStage(source,'sanity',{},fix).bytes).findings.filter(f=>f.message==='There are no vertices attached to this bone').length,0);
 });
 test('equal key values with a meaningful cubic curve are detected but not removed',()=>{
   const d=fixture('Translation');d.model.Bones[0].Translation.LineType=3;

@@ -23,7 +23,7 @@ function soundCandidates(name, names, locales) {
 
 class CascReader {
   constructor(folder, cwd) {
-    this.process = spawn(path.join(__dirname, 'casc', 'CascBridge-0.8.0.exe'), [path.resolve(folder)], { cwd, windowsHide: true, stdio: ['pipe','pipe','pipe'] });
+    this.process = spawn(path.join(__dirname, 'casc', 'CascBridge-0.9.0.exe'), [path.resolve(folder)], { cwd, windowsHide: true, stdio: ['pipe','pipe','pipe'] });
     this.lines = []; this.waiters = []; this.error = null;
     createInterface({ input: this.process.stdout }).on('line', line => {
       const waiter = this.waiters.shift(); if (waiter) waiter.resolve(line); else this.lines.push(line);
@@ -50,9 +50,9 @@ class CascReader {
     return line === '-' ? null : Buffer.from(line,'base64');
   }
   async list(kind = "textures") {
-    const records=(await this.read(kind === 'sounds' ? '@sounds' : kind === 'models' ? '@models' : '@textures'))?.toString('utf8').split('\n').filter(Boolean)||[],names=[],keys={};
-    for(const record of records){const [name,key]=record.split('\t');names.push(name);if(/^[a-f0-9]{32}$/i.test(key))keys[name.toLowerCase()]=key;}
-    return {names,keys};
+    const records=(await this.read(kind === 'files' ? '@files' : kind === 'sounds' ? '@sounds' : kind === 'models' ? '@models' : '@textures'))?.toString('utf8').split('\n').filter(Boolean)||[],names=[],keys={},sizes=[];
+    for(const record of records){const [name,key,size]=record.split('\t');names.push(name);if(/^[a-f0-9]{32}$/i.test(key))keys[name.toLowerCase()]=key;if(kind==='files')sizes.push(Number(size)||0);}
+    return kind==='files'?{names,keys,sizes}:{names,keys};
   }
   readKey(key) { return this.read('@ckey:'+key); }
   close() { this.process.stdin.end(); this.process.kill(); }
@@ -114,6 +114,45 @@ class CascTextures {
   list(folders) {
     const operation = this.queue.catch(() => {}).then(() => this.listTextures(folders));
     this.queue = operation; return operation;
+  }
+  /** Every named file per installation, cached per build for the Library's game-file browser. */
+  listFiles(folders) {
+    const operation = this.queue.catch(() => {}).then(async () => {
+      const sources = [], errors = [];
+      for (const folder of [...new Set(folders || [])]) {
+        try {
+          const build = await fs.readFile(path.join(folder,'.build.info'));
+          const install = digest(path.resolve(folder).toLowerCase() + '|' + digest(build));
+          const file = this.directory && path.join(this.directory,install + '.files.json');
+          let listing = null, fromCache = false;
+          if (file) try {
+            if ((await fs.stat(file)).size <= 96 * 1024 * 1024) {
+              const cached = JSON.parse(await fs.readFile(file,'utf8'));
+              if (cached.version === 1 && Array.isArray(cached.names) && Array.isArray(cached.sizes) && cached.names.length === cached.sizes.length && cached.names.length <= 1000000) { listing = cached; fromCache = true; }
+            }
+          } catch {}
+          if (!listing) {
+            if (this.directory) await fs.mkdir(this.directory,{recursive:true});
+            const reader = this.openReader(folder,this.directory || __dirname);
+            try { listing = {version:1,...await reader.list('files')}; } finally { reader.close(); }
+            if (file) {
+              await fs.writeFile(file + '.tmp',JSON.stringify(listing)); await fs.rename(file + '.tmp',file);
+              const indexes = await Promise.all((await fs.readdir(this.directory)).filter(name => /^[a-f0-9]{64}\.files\.json$/.test(name)).map(async name => ({file:path.join(this.directory,name),info:await fs.stat(path.join(this.directory,name))})));
+              for (const old of indexes.sort((a,b)=>b.info.mtimeMs-a.info.mtimeMs).slice(4)) await fs.unlink(old.file);
+            }
+          }
+          const locales = [...build.toString().matchAll(/\b([a-z]{2}[A-Z]{2})\s+(?:speech|text)\?/g)].map(match => match[1].toLowerCase());
+          sources.push({folder,key:install,names:listing.names,keys:listing.keys||{},sizes:listing.sizes,locales:[...new Set(locales)],fromCache});
+        } catch (error) { errors.push({folder,message:error.message}); }
+      }
+      return {sources,errors};
+    });
+    this.queue = operation; return operation;
+  }
+  /** Read one listed file by its content key; nested module names are not always accepted by name. */
+  readListed(key,folder,install) {
+    if(!/^[a-f0-9]{32}$/i.test(key||''))throw Error('This game file has no content key.');
+    return this.readSnapshot('@ckey:'+key.toLowerCase(),folder,install);
   }
   async listTextures(folders) {
     const sources = [], errors = [];

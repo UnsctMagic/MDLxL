@@ -9,13 +9,15 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   const source=fs.readFileSync(file),model=openDocument(new Uint8Array(source),'source.mdx').model;
   const jaw=model.Bones.find(n=>n.Name==='BoneJaw'),sequence=model.Sequences.findIndex(s=>/portrait talk/i.test(s.Name));assert.ok(jaw&&sequence>=0);
   const expected=Buffer.from(runOptimizeStage(new Uint8Array(source),'animation',simpleSettings('animation',100,model)).bytes);
-  const out=path.join(proof,`case-${index}-${Date.now()}`),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const errors=[];
+  const out=path.join(proof,`case-${index}-${Date.now()}`),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const errors=[],work=path.join(out,path.basename(file));fs.copyFileSync(file,work);
   const exe=process.env.MDLXL_OPTIMIZEXL_EXE;
-  const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),file],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
+  const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),work],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
   try{
    const main=await app.firstWindow();await main.getByTitle('OptimizeXL',{exact:true}).waitFor({timeout:60000});
    const pending=app.waitForEvent('window');await main.getByTitle('OptimizeXL',{exact:true}).click();const p=await pending;p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));
    await app.evaluate(({BrowserWindow,dialog},directory)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}},copies);
+  // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
+  await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
    await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Animation optimization',exact:true}).click();
    await p.getByLabel('Strength',{exact:true}).fill('100');await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));
    const pinned=await p.locator('[aria-label="Before preview"] h2').textContent();
@@ -36,10 +38,8 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
    for(const label of ['Translation tolerance','Rotation tolerance (degrees)','Scale tolerance']){await p.getByRole('button',{name:'About '+label,exact:true}).hover();assert.match(await p.getByRole('tooltip').textContent(),/10% relative/);await p.keyboard.press('Escape');await p.getByRole('tooltip').waitFor({state:'hidden'});}
    await p.getByRole('button',{name:'Approve',exact:true}).click();
    await p.getByRole('heading',{name:'Unused data',exact:true}).waitFor();assert.equal(await p.locator('[aria-label="Before preview"] h2').textContent(),pinned);
-   await p.getByRole('button',{name:'Optimize New Copy',exact:true}).click();await p.getByText('Saved both copies:',{exact:false}).waitFor();
-   const saved=fs.readdirSync(copies);assert.equal(saved.length,2);
-   assert.deepEqual(fs.readFileSync(path.join(copies,saved.find(f=>f.includes('_Before')))),source);
-   const afterBytes=fs.readFileSync(path.join(copies,saved.find(f=>f.includes('_After'))));assert.deepEqual(afterBytes,expected);
+   await p.getByRole('button',{name:'Save',exact:true}).click();await p.getByRole('button',{name:'Save without backup',exact:true}).click();await p.getByText(/^Saved /).waitFor();
+   const afterBytes=fs.readFileSync(work),plain=x=>JSON.stringify(openDocument(new Uint8Array(x),'x.mdx').model,(k,v)=>k==='Nodes'?undefined:ArrayBuffer.isView(v)?Array.from(v):v);assert.equal(plain(afterBytes),plain(expected));
    assert.equal(openDocument(new Uint8Array(afterBytes),'after.mdx').model.Bones.find(n=>n.Name==='BoneJaw').Translation.Keys.length,7);
    await p.getByRole('button',{name:'Back',exact:true}).click();await p.getByRole('heading',{name:'Animation optimization',exact:true}).waitFor();
    assert.match(await p.locator('footer').textContent(),/Total saved: 0.00 KB/);

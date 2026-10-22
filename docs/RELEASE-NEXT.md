@@ -1,3 +1,3 @@
 # Next release — unreleased changes
 
-- Nothing yet.
+Nothing yet. Add user-facing changes here as they merge.

@@ -19,6 +19,7 @@ const {ParticleLibrary}=require('./particle-library.cjs');
 const {resolveParticleSourceAssets,resolveParticleSourceContext}=require('./particle-source.cjs');
 const {HUMAN_PORTRAIT_RESOURCES,validateHumanPortraitResources}=require('./human-portrait-frame.cjs');
 const {TextureLibrary,previewCatalog}=require('./texture-library.cjs');
+const {GameFileLibrary}=require('./game-file-library.cjs');
 const {TexturePreviewCache}=require('./texture-preview-cache.cjs');
 const {SessionJournal}=require('./session.cjs');
 const {savePreviewCapture}=require('./preview-capture.cjs');
@@ -26,7 +27,7 @@ const {PreviewRecordingStore}=require('./preview-ffmpeg.cjs');
 const {saveForgeAssets}=require('./forge-assets.cjs');
 const {normalizeModelCloseState,needsModelClosePrompt,modelClosePrompt,modelCloseAction}=require('./model-close.cjs');
 const {showClosePrompt}=require('./close-prompt.cjs');
-const {saveOptimizeXLPair}=require('./optimizexl-save.cjs');
+const {backupModelFile}=require('./optimizexl-save.cjs');
 const {BackgroundLibrary}=require('./preview-backgrounds.cjs');
 const {PaintTextureLibrary}=require('./paint-textures.cjs');
 const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
@@ -100,6 +101,7 @@ const sessionJournal=new SessionJournal(path.join(profile,'sessions'));
 const createTextureResolver=()=>new TextureResolver({ casc: new CascTextures({cacheDirectory:path.join(profile,'native-textures')}) });
 let textureResolver=createTextureResolver();
 let textureLibrary=new TextureLibrary({casc:textureResolver.casc});
+let gameFiles=new GameFileLibrary({casc:textureResolver.casc});
 const texturePreviews=new TexturePreviewCache({directory:path.join(profile,'texture-previews'),onProgress:status=>{if(win&&!win.isDestroyed())win.webContents.send('texture:preloadProgress',status);}});
 let textureDecoder=null;
 const thumbnailRequests=new Map();
@@ -243,15 +245,12 @@ async function saveModel(payload){
   }catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
 }
 ipcMain.handle('model:save',(_,payload)=>{const operation=saveQueue.catch(()=>{}).then(()=>saveModel(payload));saveQueue=operation;return operation;});
-ipcMain.handle('optimizexl:save',(event,payload)=>{
-  if(event.sender!==win?.webContents)throw Error('OptimizeXL saves are only available from the editor.');
-  const operation=saveQueue.catch(()=>{}).then(async()=>{
-    const {validateOptimizeXLCopies}=require('../dist/optimizexl-validation.cjs');
-    validateOptimizeXLCopies(payload);
-    const selected=await dialog.showOpenDialog(win,{title:'Save OptimizeXL Before and After copies',buttonLabel:'Save two new copies here',properties:['openDirectory','createDirectory']});
-    if(selected.canceled)return null;
-    return saveOptimizeXLPair(selected.filePaths[0],payload);
-  });saveQueue=operation;return operation;
+ipcMain.handle('model:backup',(event,payload)=>{
+  if(event.sender!==win?.webContents)throw Error('Backups are only available from the editor.');
+  const source=path.resolve(String(payload?.path||''));
+  // Only a file this editor opened or saved can be copied.
+  if(!openedPaths.has(source))throw Error('Only the open model file can be backed up.');
+  const operation=saveQueue.catch(()=>{}).then(()=>backupModelFile(source));saveQueue=operation;return operation;
 });
 for(const [channel,operationName] of [['model:repairGeosetAnimations','repair'],['model:undoGeosetRepair','undo']]){
   ipcMain.handle(channel,(event,payload)=>{
@@ -317,6 +316,44 @@ ipcMain.handle('texture:libraryPreview',(_,payload)=>{
   const operation=textureLibraryContext(payload).then(context=>previewCatalog(context.catalog,payload?.format==='blp'?'blp':'all'));
   textureOperations.add(operation);operation.finally(()=>textureOperations.delete(operation)).catch(()=>{});return operation;
 });
+// The Library's game-file browser reads one installation: the folder chosen in
+// Settings first, then added CASC sources, then discovered installations.
+async function gameFileIndex(){
+  const chosen=settings.gameData,library=gameFiles;
+  const discovered=await gameDataDiscovery.discover({explicitFolder:chosen});
+  const selected=selectedGameDataSources(discovered,chosen),folders=discovered.cascFolders||[],custom=discovered.customSources?.cascFolders||[];
+  const folder=[...folders.filter(item=>selected.folders.includes(item)),...custom,...folders][0];
+  const index=await library.load(folder?[folder]:[]);
+  return {library,index,folder:folder||null};
+}
+function gameFileOperation(operation){textureOperations.add(operation);operation.finally(()=>textureOperations.delete(operation)).catch(()=>{});return operation;}
+const gameFileRequest=payload=>({folder:typeof payload?.folder==='string'?payload.folder.slice(0,512):'',variant:['classic','reforged','forsaken-kingdom','language','other','all'].includes(payload?.variant)?payload.variant:'classic',type:['all','models','textures','sounds','text','maps','video','fonts','other'].includes(payload?.type)?payload.type:'all',query:typeof payload?.query==='string'?payload.query.slice(0,200):'',offset:Number.isSafeInteger(payload?.offset)?payload.offset:0,limit:Number.isSafeInteger(payload?.limit)?payload.limit:200});
+ipcMain.handle('gameFiles:summary',()=>gameFileOperation(gameFileIndex().then(({library,index,folder})=>({...library.summary(index),folder}))));
+ipcMain.handle('gameFiles:browse',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{const request=gameFileRequest(payload);return request.query.trim()?library.search(index,request):library.browse(index,request);})));
+ipcMain.handle('gameFiles:read',(_,payload)=>gameFileOperation(gameFileIndex().then(async({library,index})=>{const entry=library.entry(index,payload?.id,payload?.signature);return {...library.publicEntry(entry),bytes:await library.read(index,entry)};})));
+ipcMain.handle('gameFiles:resolve',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{if(!Array.isArray(payload?.names))throw Error('Missing texture paths.');return library.resolve(index,library.entry(index,payload.id,payload.signature),payload.names);})));
+// World Editor view: the renderer builds its tree from these read-only game tables.
+const worldEditorString=path=>/^units\\[a-z]*strings\.txt$|^ui\\worldedit(?:game)?strings\.txt$/.test(path);
+ipcMain.handle('gameFiles:worldEditorSources',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{
+  const files=Array.isArray(payload?.files)?payload.files.filter(path=>typeof path==='string'&&/^(?:units|doodads|ui)\\[a-z0-9_]+\.(?:slk|txt)$/i.test(path)).slice(0,64):[];
+  return library.worldEditorSources(index,{files,isString:worldEditorString});
+})));
+ipcMain.handle('gameFiles:readPath',(_,payload)=>gameFileOperation(gameFileIndex().then(async({library,index})=>{
+  if(typeof payload?.path!=='string'||payload.path.length>260)throw Error('Invalid game path.');
+  const entry=library.findPath(index,payload.path,gameFileRequest(payload).variant);
+  return entry?{...library.publicEntry(entry),signature:index.signature,bytes:await library.read(index,entry)}:null;
+})));
+ipcMain.handle('gameFiles:findPath',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{
+  if(typeof payload?.path!=='string'||payload.path.length>260)throw Error('Invalid game path.');
+  const entry=library.findPath(index,payload.path,gameFileRequest(payload).variant);
+  return entry?{...library.publicEntry(entry),signature:index.signature}:null;
+})));
+ipcMain.handle('gameFiles:export',async(_,payload)=>{
+  const {library,index}=await gameFileIndex(),entry=library.entry(index,payload?.id,payload?.signature);
+  const answer=await dialog.showSaveDialog(win,{title:'Save a copy of '+entry.name,defaultPath:entry.name,buttonLabel:'Save copy'});
+  if(answer.canceled||!answer.filePath)return null;
+  await fs.writeFile(answer.filePath,await library.read(index,entry));return answer.filePath;
+});
 ipcMain.handle('texture:copyPath',(_,value)=>{
   if(typeof value!=='string'||!value||value.length>1024)throw Error('Invalid texture path.');
   clipboard.writeText(value);
@@ -373,7 +410,7 @@ ipcMain.handle('settings:rescanGameData',async()=>{
   return result;
 });
 async function resetTextureSources(){
-  const previous=textureResolver;textureResolver=createTextureResolver();textureLibrary=new TextureLibrary({casc:textureResolver.casc});
+  const previous=textureResolver;textureResolver=createTextureResolver();textureLibrary=new TextureLibrary({casc:textureResolver.casc});gameFiles=new GameFileLibrary({casc:textureResolver.casc});
   await Promise.allSettled([...textureOperations]);await previous.close();
 }
 ipcMain.handle('recovery:write',(_,payload)=>recoveryStore.write(payload));

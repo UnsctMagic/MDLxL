@@ -70,10 +70,13 @@ function replaceTextureChain(model, materialID, material, textureID) {
 
 // Only the texture assignment is provisional. UV and geometry edits belong
 // to the document undo history and are preserved when the texture is reverted.
-export function beginUVPreview(model, drafts, selection, asset) {
+// material: an existing material index to assign as-is, 'new' for a separate
+// copy, or omitted for the ordinary in-place replacement.
+export function beginUVPreview(model, drafts, selection, asset, { material } = {}) {
   const checked = getUVPreviewSelection(model, selection);
   if (!checked.enabled) throw Error(checked.reason);
   if (!asset?.name || !asset.bytes?.byteLength) throw Error('Choose a readable texture.');
+  if (material != null && !validMaterialChoice(model, material)) throw Error('The chosen material is no longer in the model.');
   const pending = checked.geosetIndices.map(geosetIndex => {
     const previous = drafts[geosetIndex];
     if (previous) validateUVPreview(model, previous);
@@ -83,6 +86,7 @@ export function beginUVPreview(model, drafts, selection, asset) {
   for (const {geosetIndex} of pending) next[geosetIndex] = {
     geosetIndex,
     asset: { name: asset.name, bytes: new Uint8Array(asset.bytes), source: asset.source || 'library' },
+    ...(material != null ? { material } : {}),
   };
   return next;
 }
@@ -107,6 +111,25 @@ export function validateUVPreviewGuard(model, drafts, beforeGeosets = null) {
     throw Error('Save or Revert the temporary UV textures before deleting, replacing, or reindexing their geosets.');
   for (const draft of Object.values(drafts)) validateUVPreview(model, draft);
 }
+
+/** Index of an ordinary image texture already in the model, or -1. */
+export function existingTextureIndex(model, imagePath) {
+  return (model?.Textures || []).findIndex(texture => !texture.ReplaceableId && normal(texture.Image) === normal(imagePath));
+}
+
+/** Materials with any layer showing this texture, including animated texture IDs. */
+export function materialsUsingTexture(model, textureID) {
+  if (!(textureID >= 0)) return [];
+  return (model?.Materials || []).flatMap((material, id) => (material?.Layers || []).some(layer => layerTextureIDs(layer).some(value => Math.round(value) === textureID)) ? [id] : []);
+}
+
+/** A new single-layer material for a texture that is already in the model. */
+export function addTextureMaterial(model, textureID) {
+  if (!model.Textures[textureID]) throw Error('The texture is no longer in the model.');
+  return model.Materials.push({ PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 0, Shading: 0, TextureID: textureID, TVertexAnimId: null, CoordId: 0, Alpha: 1 }] }) - 1;
+}
+
+const validMaterialChoice = (model, material) => material === 'new' || Number.isSafeInteger(material) && material >= 0 && !!model.Materials[material];
 
 export function addLibraryTexture(model, asset) {
   if (!asset?.name) throw Error('The texture has no model path.');
@@ -173,11 +196,20 @@ export function applyUVPreviews(model, drafts, { release = true } = {}) {
   const groups = new Map();
   for (const draft of pending) {
     const geoset = model.Geosets[draft.geosetIndex], textureID = addLibraryTexture(model, draft.asset);
-    const key = `${geoset.MaterialID}|${textureID}`;
-    if (!groups.has(key)) groups.set(key, { materialID: geoset.MaterialID, textureID, geosets: [] });
+    // The user chose a material that already shows this texture.
+    if (Number.isSafeInteger(draft.material) && model.Materials[draft.material]) { geoset.MaterialID = draft.material; continue; }
+    const separate = draft.material === 'new', key = `${geoset.MaterialID}|${textureID}|${separate}`;
+    if (!groups.has(key)) groups.set(key, { materialID: geoset.MaterialID, textureID, separate, geosets: [] });
     groups.get(key).geosets.push(geoset);
   }
-  for (const { materialID, textureID, geosets } of groups.values()) {
+  for (const { materialID, textureID, separate, geosets } of groups.values()) {
+    if (separate) {
+      const material = structuredClone(model.Materials[materialID] || { PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 0, Alpha: 1, Shading: 0, CoordId: 0 }] });
+      replaceTextureChain(model, materialID, material, textureID);
+      const target = model.Materials.push(material) - 1;
+      for (const geoset of geosets) geoset.MaterialID = target;
+      continue;
+    }
     const original = model.Materials[materialID];
     const material = structuredClone(original || {
       PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 0, Alpha: 1, Shading: 0, CoordId: 0 }],
@@ -232,7 +264,7 @@ export function restoreUVPreviews(model, drafts) {
       throw Error('Invalid cached UV preview.');
     // Older recovery records may contain UV snapshots; they are no longer
     // restored by Revert texture. The document retains their actual UV edits.
-    restored[index] = { geosetIndex: draft.geosetIndex, asset: structuredClone(draft.asset) };
+    restored[index] = { geosetIndex: draft.geosetIndex, asset: structuredClone(draft.asset), ...(validMaterialChoice(model, draft.material) ? { material: draft.material } : {}) };
   }
   return restored;
 }

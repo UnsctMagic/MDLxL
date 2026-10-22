@@ -2,7 +2,8 @@ import { sampleTrack } from './animation.js';
 
 const json = value => JSON.stringify(value,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v);
 const local = t => t.GlobalSeqId == null || t.GlobalSeqId === -1 || t.GlobalSeqId === 0xffffffff;
-const distance = (a,b) => Math.max(...Array.from(a,(v,i)=>Math.abs(v-b[i])));
+// Largest component difference; NaN anywhere gives NaN, like Math.max.
+const distance = (a,b) => {let d=-Infinity;for(let i=0;i<a.length;i++){const x=Math.abs(a[i]-b[i]);if(x>d||x!==x){d=x;if(x!==x)break;}}return d;};
 // The pinned Hive checker calls an interior key unused when every component
 // differs from BOTH neighbors by less than .001. Controls still need checking.
 function redundant(keys,i) {
@@ -19,7 +20,7 @@ function authoredTurn(keys,i){
     return v<Math.min(a[j],c[j])-noise||v>Math.max(a[j],c[j])+noise;
   });
 }
-function safeCurve(baseline,candidate,property,interval,lo,hi) {
+function safeCurve(baseline,candidate,property,interval,lo,hi,cache) {
   const rotation=property==='Rotation',keys=baseline.Keys.filter(k=>k.Frame>=lo&&k.Frame<=hi);
   const width=keys[0]?.Vector?.length;
   if(![0,1,2,3].includes(baseline.LineType)||![1,3,4].includes(width))return false;
@@ -31,7 +32,9 @@ function safeCurve(baseline,candidate,property,interval,lo,hi) {
     const a=keys[i].Frame,b=keys[i+1]?.Frame??a;
     for(let j=0;j<=32;j++){
       const frame=a+(b-a)*j/32;
-      if(distance(sampleTrack(baseline,frame,options),sampleTrack(candidate,frame,options))>=.001)return false;
+      // The original curve is fixed for the whole domain: sample it once.
+      let original=cache.get(frame);if(!original)cache.set(frame,original=sampleTrack(baseline,frame,options));
+      if(distance(original,sampleTrack(candidate,frame,options))>=.001)return false;
     }
   }
   return true;
@@ -42,6 +45,8 @@ function safeCurve(baseline,candidate,property,interval,lo,hi) {
 export function redundantTrackProposals(model,entries) {
   const out=[];
   for(const {track,path}of entries){
+    // Clone and serialize the (possibly long) track once, not per animation.
+    let trackJson=null;const trackSignature=()=>trackJson??=json(track);
     const global=!local(track),duration=model.GlobalSequences[track.GlobalSeqId];
     const domains=global?(duration>0?[{interval:[0,duration],sequence:0,global:track.GlobalSeqId}]:[]):
       model.Sequences.map((s,sequence)=>({interval:Array.from(s.Interval),sequence}));
@@ -51,12 +56,12 @@ export function redundantTrackProposals(model,entries) {
       if(!noticed.length)continue;
       const preservedTurns=keys.filter((_,i)=>i>0&&i<keys.length-1&&redundant(keys,i)&&authoredTurn(keys,i)).map(k=>k.Frame);
       const overlaps=!global&&model.Sequences.some((s,i)=>i!==domain.sequence&&s.Interval[0]<=hi&&s.Interval[1]>=lo);
-      const baseline={...structuredClone(track),GlobalSeqId:null,Keys:structuredClone(keys)},candidate=structuredClone(baseline),frames=[];
+      const {Keys:_,...settings}=track,baseline={...structuredClone(settings),GlobalSeqId:null,Keys:structuredClone(keys)},candidate=structuredClone(baseline),frames=[],cache=new Map();
       if(!overlaps&&keys.every((k,i)=>!i||k.Frame>keys[i-1].Frame)){
         for(let i=1;i<candidate.Keys.length-1;){
           if(!redundant(candidate.Keys,i)||authoredTurn(candidate.Keys,i)){i++;continue;}
           const a=candidate.Keys[i-1],k=candidate.Keys[i],b=candidate.Keys[i+1];candidate.Keys.splice(i,1);
-          if(safeCurve(baseline,candidate,path.at(-1),domain.interval,a.Frame,b.Frame)){
+          if(safeCurve(baseline,candidate,path.at(-1),domain.interval,a.Frame,b.Frame,cache)){
             frames.push(k.Frame);i=Math.max(1,i-1);
           }else{candidate.Keys.splice(i,0,k);i++;}
         }
@@ -65,7 +70,7 @@ export function redundantTrackProposals(model,entries) {
       const remaining=noticed.filter(f=>!frames.includes(f));
       out.push({id:`redundant:${path.join('.')}:${global?'global'+domain.global:domain.sequence}`,kind:'redundantTracks',path,
         sequence:domain.sequence,frame:global?(model.Sequences[0]?.Interval[0]||0):noticed[0],globalSequence:global?domain.global:null,
-        frames,noticed,remaining,preservedTurns,signature:json([track,domain.interval]),...(frames.length?{}:{inspectionOnly:true}),
+        frames,noticed,remaining,preservedTurns,signature:`[${trackSignature()},${json(domain.interval)}]`,...(frames.length?{}:{inspectionOnly:true}),
         label:`${name}: ${frames.length||noticed.length} redundant ${path.at(-1)} key${(frames.length||noticed.length)===1?'':'s'}`,
         detail:frames.length?`Remove ${frames.length} Hive-redundant keys after checking the surrounding curve against the original. ${remaining.length?`${remaining.length} other notices need manual review.`:'Keep the first and last keys and every other animation.'}`:
           'Hive flags similar values, but an authored turn, overlapping animations, invalid controls or the intervening curve prevent this removal. Review manually.'});

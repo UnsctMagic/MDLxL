@@ -104,6 +104,12 @@ test('POSE defaults hide symbols and geometry markers while preserving normal se
   assert.equal(pose.focusedSkeleton,true);assert.equal(pose.grid,true);assert.equal(pose.shaded,false);
   const changed = setEditorDisplay({ movement:pose },'movement','particles',true);
   assert.equal(changed.movement.particles,true);assert.deepEqual(normal,before);
+  // POSE has no Helpers switch: helper markers (e.g. a Footman's head) follow Bones.
+  const helper = { node:{ ObjectId:39 }, overlayKind:'bones', helperNode:true };
+  assert.deepEqual(visibleMovementPoints([helper],previewOverlayOptions(defaultPoseDisplay({ ...normal, helpers:false }))),[]);
+  const bones = setEditorDisplay({ movement:defaultPoseDisplay({ ...normal, helpers:false }) },'movement','bones',true).movement;
+  assert.deepEqual(visibleMovementPoints([helper],previewOverlayOptions(bones)),[helper]);
+  assert.deepEqual(visibleMovementPoints([helper],previewOverlayOptions(clearQuickDisplay({ movement:bones },'movement').movement)),[]);
 });
 
 test('Focused Skeleton bones can be clicked with Bones off', () => {

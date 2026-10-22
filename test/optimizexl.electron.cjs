@@ -5,10 +5,10 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
  const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','optimizexl-proof');fs.mkdirSync(out,{recursive:true});
  const previousFiles=new Set(fs.readdirSync(out));
  const model=process.env.MDLXL_OPTIMIZEXL_MODEL||'C:/Users/PC/Documents/ChatGPT/MDLxL/out/Khorne_Optimized_Review/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx';
- const source=fs.readFileSync(model);
+ const source=fs.readFileSync(model),workDir=path.join(out,'work-'+Date.now()),work=path.join(workDir,path.basename(model));fs.mkdirSync(workDir,{recursive:true});fs.copyFileSync(model,work);
  const packaged=process.env.MDLXL_OPTIMIZEXL_EXE;
  const profile=path.join(out,'profile-'+Date.now());fs.mkdirSync(profile,{recursive:true});fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{wheelMode:'scroll'}}));
- const app=await _electron.launch({executablePath:packaged||path.resolve('node_modules/electron/dist/electron.exe'),args:packaged?[model]:[process.cwd(),model],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
+ const app=await _electron.launch({executablePath:packaged||path.resolve('node_modules/electron/dist/electron.exe'),args:packaged?[work]:[process.cwd(),work],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});
  const errors=[];
  try{
   const main=await app.firstWindow();main.setDefaultTimeout(20000);main.on('pageerror',e=>errors.push(e.message));
@@ -72,10 +72,10 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
   await popup.getByLabel('Strength',{exact:true}).fill('100');
   await popup.waitForFunction(()=>document.querySelector('.ox-savings strong')&&!document.querySelector('.ox-savings').textContent.includes('Updating'));
   await popup.screenshot({path:path.join(out,'04-nuclear.png')});
-  await popup.getByRole('button',{name:'Approve',exact:true}).click();await popup.getByRole('button',{name:'Optimize New Copy',exact:true}).waitFor();
+  await popup.getByRole('button',{name:'Approve',exact:true}).click();await popup.getByRole('button',{name:'Save',exact:true}).waitFor();
   await app.evaluate(({dialog},directory)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});},out);
-  await popup.getByRole('button',{name:'Optimize New Copy',exact:true}).click();await popup.waitForFunction(()=>document.querySelector('.ox-error')||Array.from(document.querySelectorAll('[role=status]')).some(el=>el.textContent.includes('Saved both copies:')));assert.deepEqual(await popup.locator('.ox-error').allTextContents(),[]);
-  assert.equal(fs.readdirSync(out).filter(n=>/\.mdx$/i.test(n)&&!previousFiles.has(n)).length,2);assert.deepEqual(fs.readFileSync(model),source);
+  await popup.getByRole('button',{name:'Save',exact:true}).click();await popup.getByRole('button',{name:'Back up, then save',exact:true}).click();await popup.waitForFunction(()=>document.querySelector('.ox-error')||Array.from(document.querySelectorAll('[role=status]')).some(el=>/^Saved /.test(el.textContent)));assert.deepEqual(await popup.locator('.ox-error').allTextContents(),[]);
+  assert.deepEqual(fs.readdirSync(workDir).sort(),[path.basename(work).replace(/\.mdx$/i,'_backup.mdx'),path.basename(work)].sort());assert.deepEqual(fs.readFileSync(model),source);
   assert.equal(JSON.parse(fs.readFileSync(path.join(profile,'settings.json'),'utf8')).preferences.wheelMode,'scroll','OptimizeXL must not change the main editor wheel preference');
   await popup.screenshot({path:path.join(out,'05-saved.png')});
   assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!packaged,errors,sourceUnchanged:true},null,2));

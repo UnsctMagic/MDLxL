@@ -96,10 +96,12 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
     else if (emitter) context.rect(point.x - 4.5, point.y - 4.5, 9, 9);
     else context.arc(point.x, point.y, isSelected ? 5 : 4, 0, Math.PI * 2);
     context.fill(); context.stroke();
-    if (isSelected) {
-      context.font = '11px Tahoma, sans-serif'; context.lineWidth = 3; context.strokeStyle = '#17263d';
-      context.strokeText(point.node.Name || `Node ${point.node.ObjectId}`, point.x + 8, point.y - 8);
-      context.fillStyle = '#fff'; context.fillText(point.node.Name || `Node ${point.node.ObjectId}`, point.x + 8, point.y - 8);
+    // Tool previews that place a few named points (Attachemator) label those points.
+    if (isSelected || options.nodeLabels?.has?.(point.node.ObjectId)) {
+      const label = point.node.Name || `Node ${point.node.ObjectId}`;
+      context.font = isSelected ? '11px Tahoma, sans-serif' : '10px Tahoma, sans-serif'; context.lineWidth = 3; context.strokeStyle = '#17263d';
+      context.strokeText(label, point.x + 8, point.y - 8);
+      context.fillStyle = isSelected ? '#fff14e' : '#fff'; context.fillText(label, point.x + 8, point.y - 8);
     }
   }
   drawMovementGizmo(context, handles, 1, options.activeAxis, viewportAppearanceOptions(options.preferences).controllers);

@@ -20,7 +20,8 @@ eval(cuts.slice(cuts.indexOf('function readDraft'),cuts.indexOf('function pointF
  const baseline=await doc(),baseView=await view(),sidebar=await d.locator('.forge-editor-sidebar').boundingBox();
  assert.equal(await d.getByRole('group',{name:'Shaping tools',exact:true}).getByRole('button').count(),5);
  assert.equal(await d.getByRole('group',{name:'Shaping controls',exact:true}).count(),0);
- assert.equal(await d.getByRole('button',{name:/mirror|symmetry/i}).count(),0);
+ // #265 added the Mirror detail tool; no other mirror or symmetry control may appear.
+ assert.equal(await d.getByRole('button',{name:/mirror|symmetry/i}).count(),1);assert.equal(await d.getByRole('button',{name:'Mirror',exact:true}).count(),1);
  const gold=await d.getByRole('button',{name:'Bend',exact:true}).boundingBox(),blue=await d.getByRole('button',{name:'Move',exact:true}).boundingBox();assert.ok(gold.y<blue.y);assert.equal(sidebar.width,240);
  checks.push('Five compact gold tools above blue tools; no popup, mirror or default controls; sidebar stays at the shared 240px default');
  for(const [name,key]of [['Bend','4'],['Bulge / Pinch','v'],['Taper','t'],['Bevel','b'],['Twist','5']]){

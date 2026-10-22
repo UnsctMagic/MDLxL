@@ -54,11 +54,21 @@ The 06/07 teaching pair exposed four authored jaw keys removed by maximum animat
 
 EditorDocument exports an atomically remapped snapshot when live ObjectIds differ from serialized type order. Optimizer round-trip checks must compare that same snapshot, including parents, matrix groups and pivots; live IDs and undo state remain stable. The historical Flail03 mounted-sphere output predates that serializer correction. Its golden hash stays unchanged. An optional historical reference must reproduce that exact hash before the regression accepts a current output differing only by the verified node-ID permutation. All other records remain subject to field comparison; missing parents, wrong groups and changed pivots are still rejected.
 
+## Checker coverage, not model coverage
+
+Repairs for Hive checker findings are taken from the bundled checker's own list of findings (`public/vendor/hive-viewer-5.12.0.js`, `sanityTest`), not from whichever model failed last. `src/optimizexl-checker-repairs.js` holds one general rule per finding; each rule mirrors the checker's condition, fixes every instance in the model and re-detects at apply time. Rules marked `exact` do not change how the model looks or plays; rules with `choices` need a decision and start on a stated default.
+
+- Every rule gets a small model broken in exactly that one way in `test/optimizexl-checker-repairs.test.js`; Fix everything must clear the finding without adding errors or severe findings.
+- Fix everything applies all automatic repairs, rescans and repeats (structural checker repairs alone first, since they can renumber nodes and geosets). Spline resampling is left out: it only clears notices and, after other key repairs, can turn a pose.
+- Prove "looks the same" by measuring skinned vertex movement across every animation against the model size, not by stills.
+- The Insanity FIxer is the first stage: later reductions refuse models with broken references.
+
 ## Permanent review and delivery contracts
 
 - Before and its size stay pinned to the original entry model. After contains approved changes plus the current proposal.
 - Findings remain reviewable and skippable; selected fixes can be previewed together. Only approved changes are saved.
-- Optimize New Copy writes the existing Before/After pair without overwriting the input. Nuclear does not introduce a third copy.
+- Before and After sit directly next to each other on the left, with the controls on the right.
+- Save writes the approved result into the open model file as one undoable edit and a normal editor save. The first save in a session offers one backup copy of the file as it is on disk (`Name_backup.mdx`, numbered if taken); no other files are written. Commit applies the approved result to the open model (same undoable step) and returns to the editor without saving. Closing with unsaved approved changes asks first.
 - Collision overlays remain confined to Sphereomancer. Preserve the compact editor, synchronized camera/playback and existing controls.
 - Both review panes render authored particle/ribbon effects regardless of the editor's particle preference, respecting their visibility tracks. Portrait animations use the existing portrait camera/frame in both panes at corresponding local frames. Mouse navigation stays paired; entering and leaving Portrait preserves the full-model camera and visible frame dimensions.
 - Deliver on the feature branch with the attached PR. Push when asked; merge only with explicit authorization. The current teaching pass is left unmerged for the user's later merge with Showcase.

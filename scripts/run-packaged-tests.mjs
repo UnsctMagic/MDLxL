@@ -37,6 +37,7 @@ const VARIANTS = {
 // Anything not listed runs with the shared env only.
 const SPECIAL = {
   'anim-xl': { env: { MDLXL_ANIMXL_EXE: exe } },
+  attachemator: { env: { MDLXL_APP: exe, MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
   'anim-xl-filmstrip': { env: { MDLXL_ANIMXL_EXE: exe }, argv: [footman], needs: [footman] },
   'appearance-contrast': { env: { MDLXL_TEST_EXE: exe } },
   'bit-collection': { env: { MDLXL_TEST_EXE: exe } },
@@ -51,9 +52,10 @@ const SPECIAL = {
   'sort-my-mess': { env: { MDLXL_SORT_EXE: exe } },
   'module-button-labels.browser': { env: { MDLXL_CHROMIUM_PATH: chrome }, needs: [chrome], hint: 'set MDLXL_CHROMIUM_PATH to chrome.exe' },
   'particle-lifecycle': { env: { MDLXL_PARTICLE_INDEX: particleIndex }, needs: [particleIndex] },
+  'optimizexl-workflow': { env: { MDLXL_OPTIMIZEXL_EXE: exe } },
   'showcase-effects': { env: { MDLXL_EFFECT_MODEL: effectModel }, needs: [effectModel && path.resolve(effectModel)], hint: 'set MDLXL_EFFECT_MODEL to WH_WOC_KnightKhorneFlail03.mdx' },
 };
-for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-glow', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
+for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-glow', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer', 'perspective-zoom', 'glow-up']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
 for (const name of ['showcase-actions', 'update-shredder', 'updater-packaged', 'updater-processes', 'geoset-merge-conflicts', 'geoset-tabs']) SPECIAL[name] = { env: { MDLXL_TEST_PACKAGE: pkg } };
 SPECIAL['updater-processes'].env.MDLXL_TEST_OUTPUT = out('updater-processes');
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
@@ -69,7 +71,7 @@ export const SKIP = {
   'pose-performance': 'needs WH_VC_NecrarchLord3.mdx (private model)',
   'pose-setup': 'needs WH_WOC_KurganWarlord3.mdx (private model)',
   'showcase-queue': 'needs KnightKhorneFlail04 / Axe01 (private models)',
-  ...Object.fromEntries(['optimizexl', 'optimizexl-bounds', 'optimizexl-cleanup', 'optimizexl-diagnostics', 'optimizexl-expression', 'optimizexl-footman', 'optimizexl-format', 'optimizexl-geosets', 'optimizexl-inspection', 'optimizexl-motion', 'optimizexl-opening', 'optimizexl-save', 'optimizexl-selection', 'optimizexl-spline'].map(name => [name, 'needs a private OptimizeXL review model'])),
+  ...Object.fromEntries(['optimizexl', 'optimizexl-bounds', 'optimizexl-cleanup', 'optimizexl-diagnostics', 'optimizexl-expression', 'optimizexl-footman', 'optimizexl-format', 'optimizexl-geosets', 'optimizexl-inspection', 'optimizexl-motion', 'optimizexl-opening', 'optimizexl-selection', 'optimizexl-spline'].map(name => [name, 'needs a private OptimizeXL review model'])),
 };
 // Rendering-, timing- and layout-heavy tests that are worth running under every variant.
 export const CORE = ['startup', 'appearance', 'appearance-contrast', 'quad-view', 'grabthrough', 'movement-chain-focus-speed', 'animation-speed', 'animations-sidebar', 'timeline-scrub', 'pose-ik', 'pose-console', 'movement-gizmo', 'uv-preview-picking', 'uv-tab-window', 'forge-shape', 'forge-house', 'citadel-studio', 'showcase', 'showcase-camera', 'particle-workflow', 'particle-picture', 'portrait-authoring', 'vertex-rgb-preview', 'tree-appearance', 'bone-tools', 'optimizexl-preview', 'anim-xl', 'model-tabs'];
