@@ -2,7 +2,7 @@ import {createPaintLampObject,paintLampDrag} from './paint-lamps.js';
 import {paintRowRanges,acknowledgePaintUpload} from '../src/paint-preview.js';
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { EditorCameraControls, zoomEditorCamera, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles } from './editor-camera-controls.js';
+import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles } from './editor-camera-controls.js';
 import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
@@ -370,7 +370,7 @@ export default function Viewport(inputProps) {
       const p = latest.current, start = point(event);
       down = { ...start, pointerId: event.pointerId, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
       controls.enabled = false; renderer.domElement.setPointerCapture(event.pointerId);
-      if (action === 'zoom') { down.zoom = camera.zoom; down.cameraPosition = camera.position.clone(); return; }
+      if (action === 'zoom') { down.zoomFactor = 1; return; }
       if(p.paintMode&&p.paintSelectOnly&&!p.paintLampPickingDisabled){
         pointer.set(start.x/start.width*2-1,1-start.y/start.height*2);raycaster.setFromCamera(pointer,camera);
         state.lampMarkers?.updateMatrixWorld(true);
@@ -437,7 +437,7 @@ export default function Viewport(inputProps) {
       }
       if (down.action === 'zoom') {
         const factor = Math.exp(-dy * .01);
-        zoomEditorCamera(camera, down.zoom * factor);
+        controls.zoomView(factor / down.zoomFactor); down.zoomFactor = factor;
         controls.update(); return;
       }
       if (down.action === 'select') { if (Math.hypot(dx, dy) > 5) setBox({ left: Math.min(down.x, end.x), top: Math.min(down.y, end.y), width: Math.abs(dx), height: Math.abs(dy) }); return; }
