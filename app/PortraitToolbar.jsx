@@ -1,6 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { evaluateModelCamera, portraitPreviewSequences, MODEL_CAMERA_FOV_FACTOR } from './portrait-view.js';
 import { CAMERA_NAME_LIMIT } from './portrait-camera-edit.js';
+import { BACKDROP_LOOK, BACKDROP_HEIGHT_RANGE, BACKDROP_SIZE_RANGE, normalizeBackdropLook } from './portrait-background.js';
+
+/** The game crop with the team glow as war3-model draws it (the shader of the
+ * preview), plus a faint bust for scale. */
+function BackdropPreview({ look, teamColor }) {
+  const canvas = useRef(null);
+  useEffect(() => {
+    const element = canvas.current, context = element?.getContext('2d');
+    if (!context) return;
+    const { width, height } = element, image = context.createImageData(width, height);
+    const hex = /^#?([0-9a-f]{6})$/i.exec(String(teamColor || ''))?.[1] || 'ff0303', color = [0, 2, 4].map(at => parseInt(hex.slice(at, at + 2), 16));
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      // Crop coordinates ±1 vertically; the glow card is square in the world.
+      const sx = (2 * (x + .5) / width - 1) * width / height, sy = 1 - 2 * (y + .5) / height;
+      const distance = Math.hypot(sx, sy - look.height) / look.size, glow = Math.sin(Math.min(1, Math.max(0, 1 - distance * 1.4)));
+      image.data.set([...color.map(value => value * glow), 255], (y * width + x) * 4);
+    }
+    context.putImageData(image, 0, 0);
+    context.fillStyle = '#fff3';
+    context.beginPath(); context.arc(width / 2, height * .4, width * .13, 0, Math.PI * 2); context.fill();
+    context.beginPath(); context.ellipse(width / 2, height * 1.02, width * .36, height * .42, 0, Math.PI, 0); context.fill();
+  }, [look.size, look.height, teamColor]);
+  return <canvas ref={canvas} className="portrait-backdrop-preview" width={98} height={100} aria-label="Background preview" role="img"/>;
+}
 
 function CameraFields({ view, name, disabled, onEdit, onPause }) {
   const values = { name, position: view.position, target: view.target, fieldOfView: view.fieldOfView * 180 / Math.PI, near: view.near, far: view.far };
@@ -34,10 +58,13 @@ function CameraFields({ view, name, disabled, onEdit, onPause }) {
   </div>;
 }
 
-export default function PortraitToolbar({ model, active, cameraIndex, disabled, allowControlModel = true, controlModel, controlGroups = [], controlModelGroup = 'all', onToggle, onCameraIndex, onSetView, onSnap, onControlModel, onControlModelGroup, frame = 0, sequenceIndex = -1, onSequence, onNew, onMakePortrait, onEdit, onShot, onPause, settings, onSettings, previewChanged, lightingStatus, onCreatePortraitSequence }) {
+export default function PortraitToolbar({ model, active, cameraIndex, disabled, allowControlModel = true, controlModel, controlGroups = [], controlModelGroup = 'all', onToggle, onCameraIndex, onSetView, onSnap, onControlModel, onControlModelGroup, frame = 0, sequenceIndex = -1, onSequence, onNew, onMakePortrait, onEdit, onShot, onPause, settings, onSettings, previewChanged, lightingStatus, onCreatePortraitSequence, hasBackground = false, onBackground, backgroundLook, teamColor }) {
   const cameras = model.Cameras || [], camera = cameras[cameraIndex], choices = portraitPreviewSequences(model);
   const missingPortrait = active && !(model.Sequences || []).some(item => /portrait/i.test(item.Name || ''));
-  const [open, setOpen] = useState(false), container = useRef(null);
+  // false, 'settings' or 'background': one popover at a time.
+  const [open, setOpen] = useState(false), container = useRef(null), [look, setLook] = useState(BACKDROP_LOOK);
+  const openBackground = () => { if (open === 'background') { setOpen(false); return; } setLook(normalizeBackdropLook(backgroundLook?.())); setOpen('background'); };
+  const placeLabel = hasBackground ? 'Refresh Background' : 'Add Background';
   useEffect(() => {
     if (!open) return;
     const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !container.current?.contains(event.target)) setOpen(false); };
@@ -58,8 +85,26 @@ export default function PortraitToolbar({ model, active, cameraIndex, disabled, 
       {!cameras.length && <option value="">No camera</option>}{cameras.map((item,index) => <option key={index} value={index}>{item.Name || 'Camera '+(index+1)}{index === 0 ? ' · Game' : ''}</option>)}
     </select>
     <button disabled={disabled} onClick={onSetView} title="Apply the preview to the selected camera, or create one. This edit can be undone. Save the model to keep it.">Set Current View{active && previewChanged ? ' *' : ''}</button>
-    <button aria-label="Portrait settings" aria-expanded={open} title="Camera, animation, lighting and composition controls" onClick={() => setOpen(value => !value)}>⋯</button>
-    {open && <div className="portrait-settings" role="dialog" aria-label="Portrait settings">
+    {onBackground && <span className="portrait-backdrop-split">
+      <button disabled={disabled || !camera} onClick={() => onBackground()} title={!camera ? 'Add a camera first (Set Current View).' : (hasBackground ? 'Move the portrait background behind the model for the selected camera, keeping its size and height, and show it only in Portrait animations.' : 'Create a Warcraft-style team-color background behind the model for the selected camera, shown only in Portrait animations.') + ' ▾ adjusts its size and height. Uses the saved camera: apply preview changes with Set Current View first. This edit can be undone.'}>{placeLabel}</button>
+      <button aria-label="Background options" aria-expanded={open === 'background'} disabled={disabled || !camera} title="Adjust the background size and height before placing it" onClick={openBackground}>▾</button>
+    </span>}
+    <button aria-label="Portrait settings" aria-expanded={open === 'settings'} title="Camera, animation, lighting and composition controls" onClick={() => setOpen(value => value === 'settings' ? false : 'settings')}>⋯</button>
+    {open === 'background' && <div className="portrait-settings portrait-backdrop-options" role="dialog" aria-label="Background options">
+      <div className="portrait-settings-heading"><strong>Background</strong><button aria-label="Close background options" onClick={() => setOpen(false)}>×</button></div>
+      <div className="portrait-backdrop-body">
+        <BackdropPreview look={look} teamColor={teamColor}/>
+        <div className="portrait-backdrop-sliders">
+          <label title="How far the glow spreads. Spotlight keeps black around the edges of the portrait; Fill covers it with color.">Size<input aria-label="Background size" type="range" min={BACKDROP_SIZE_RANGE[0]} max={BACKDROP_SIZE_RANGE[1]} step=".05" value={look.size} onChange={event => setLook(value => ({ ...value, size: Number(event.target.value) }))}/></label>
+          <small className="portrait-backdrop-ends"><span>Spotlight</span><span>Fill</span></small>
+          <label title="Move the brightest part of the glow up or down the portrait.">Height<input aria-label="Background height" type="range" min={BACKDROP_HEIGHT_RANGE[0]} max={BACKDROP_HEIGHT_RANGE[1]} step=".05" value={look.height} onChange={event => setLook(value => ({ ...value, height: Number(event.target.value) }))}/></label>
+          <small className="portrait-backdrop-ends"><span>Lower</span><span>Higher</span></small>
+          <button title="The size and height Blizzard's SD portraits use: the glow fills the whole portrait." onClick={() => setLook(BACKDROP_LOOK)}>Blizzard default</button>
+        </div>
+      </div>
+      <button disabled={disabled || !camera} onClick={() => { onBackground(look); setOpen(false); }}>{placeLabel}</button>
+    </div>}
+    {open === 'settings' && <div className="portrait-settings" role="dialog" aria-label="Portrait settings">
       <div className="portrait-settings-heading"><strong>Portrait</strong><button aria-label="Close portrait settings" onClick={() => setOpen(false)}>×</button></div>
       <div className="portrait-camera-actions"><button disabled={disabled} onClick={onNew} title="Add a camera framed on the posed head and shoulders. Existing cameras are kept.">New Camera</button><button disabled={disabled || !camera || cameraIndex === 0} onClick={onMakePortrait} title="Move this camera to first place so the game uses it. Other cameras are kept.">Make Portrait</button></div>
       {camera && <>

@@ -76,6 +76,7 @@ import { decodePaintImage } from './paint-raster.js';
 import { clearQuickDisplay, defaultPoseDisplay, saveEditorDisplay, setEditorDisplay, storedEditorDisplay, textureToggleTarget } from '../src/display-overlays.js';
 import { setCameraFromCurrentView, createPortraitCamera, makePortraitCamera, editPortraitCamera, framePortraitSubject, portraitShot, changedPortraitFields } from './portrait-camera-edit.js';
 import { firstPortraitSequenceIndex, evaluateModelCamera } from './portrait-view.js';
+import { currentBackdropLook, findPortraitBackground, normalizeBackdropLook, refreshPortraitBackground } from './portrait-background.js';
 import PortraitToolbar from './PortraitToolbar.jsx';
 import AppToolbar, { AppViewLabel } from './AppToolbar.jsx';
 import GeosetAnimationRepair from './GeosetAnimationRepair.jsx';
@@ -492,6 +493,16 @@ export default function App() {
     const view = (portraitModeActive && currentCameraView()) || evaluateModelCamera(model, model.Cameras?.[portraitCameraIndex], time, sequence);
     const index = edit(kind === 'frame' ? 'Frame portrait subject' : kind === 'front' ? 'Front portrait shot' : 'Level portrait shot', ['Cameras','BindPoses'], current => setCameraFromCurrentView(current, portraitCameraIndex, kind === 'frame' ? framePortraitSubject(current, view, time, sequence) : portraitShot(view, kind), time, sequence));
     if (index !== false) { setPlaying(false); setPortraitView('perspective'); setPortraitPreviewChanged(false); }
+  };
+  const hasPortraitBackground = useMemo(() => findPortraitBackground(model) >= 0, [model, doc.revision]);
+  // The last look placed from Background options also shapes the next Add.
+  const lastBackdropLook = () => { try { return normalizeBackdropLook(JSON.parse(localStorage.getItem('mdlxl-portrait-background-look') || 'null')); } catch { return normalizeBackdropLook(null); } };
+  const portraitBackdropLook = () => (hasPortraitBackground && currentBackdropLook(model, portraitCameraIndex, time, sequence)) || lastBackdropLook();
+  const placePortraitBackground = look => {
+    if (look) try { localStorage.setItem('mdlxl-portrait-background-look', JSON.stringify(normalizeBackdropLook(look))); } catch { /* the look still applies now */ }
+    const label = hasPortraitBackground ? 'Refresh portrait background' : 'Add portrait background';
+    // Without a chosen look, Refresh keeps the background's own size and height.
+    edit(label, ['Geosets', 'GeosetAnims', 'Materials', 'Textures', 'Bones', 'Nodes', 'PivotPoints', 'BindPoses', 'Sequences', 'Cameras', 'Info'], current => refreshPortraitBackground(current, portraitCameraIndex, { frame: time, sequenceIndex: sequence, portraitFile: /_portrait\.md[lx]$/i.test(doc.name), look, fallback: lastBackdropLook() }));
   };
   const openPortraitSequenceSetup = () => setDialog({ type: 'portraitSetup', missingCamera: !model.Cameras?.length, missingSequence: true });
   const selectControlModel = (group = controlModelGroup) => {
@@ -1512,7 +1523,7 @@ export default function App() {
       sessionDirty, sessions, setCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
       setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI
     }}/>
-    {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
+    {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
       <AppViewLabel {...{
         activeVertexPane, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
