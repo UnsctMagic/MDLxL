@@ -135,6 +135,6 @@ the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
 - A `v<version>` tag triggers **Draft release**; publishing remains manual.
   Before release/upgrade work, read [AUTO_UPDATES.md](docs/AUTO_UPDATES.md) and the
   [portable release gate](docs/UPDATER_RELEASE_GATE.md).
-- After a release is published (not at tag or draft time), archive the sessions
-  whose PRs shipped in it, as described in
+- After a release is published (not at tag or draft time), automatically
+  archive the sessions whose PRs shipped in it, without asking, as described in
   [archive finished sessions](docs/AUTO_UPDATES.md#after-publishing-archive-finished-sessions).

@@ -52,7 +52,8 @@ and lists the English, Russian and Chinese post links.
 ## After publishing: archive finished sessions
 
 Once the release is published (never at tag or draft time), tidy away the chat
-sessions whose work shipped in it:
+sessions whose work shipped in it. This is automatic: the owner has approved
+it, so do not ask before archiving.
 
 1. List its PRs. `<previous>` is the newest earlier published release from
    `gh release list --exclude-drafts`, so a never-published draft's PRs count
