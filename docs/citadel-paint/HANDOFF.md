@@ -1,5 +1,10 @@
 # Citadel Paint working lane
 
+> Historical task record. Workspace paths, session limits, release permissions and
+> test results below describe that earlier lane, not current authorization or state.
+> Check current instructions, branch and code before reusing a finding. Read only
+> relevant sections; do not resume old actions by default.
+
 Status: user accepted the overall direction and authorized final cleanup, translations,
 English/Russian PDFs, 0.17.0 release, offline upgrade and announcements on 3 October 2026.
 Review lane: [PR #73](https://github.com/KlugerA/MDLxL/pull/73).
