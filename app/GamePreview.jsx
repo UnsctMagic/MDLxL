@@ -352,6 +352,8 @@ export default function GamePreview(inputProps) {
     let camera = perspective;
     const controls = new EditorCameraControls(camera, canvas);
     controls.portraitDolly = () => !!latest.current.portraitMode && !latest.current.showcase;
+    // Showcase framing fits its crop with the lens itself, so it keeps lens zoom.
+    controls.wideLensZoom = () => !!latest.current.showcase;
     controls.keepWorldUp=()=>!!latest.current.showcase&&!latest.current.portraitMode;
     controls.lockScreenAxis=!!latest.current.showcase; controls.enableDamping = false;
     controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: null, RIGHT: THREE.MOUSE.PAN };
