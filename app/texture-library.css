@@ -17,3 +17,44 @@
 .tl-details .tl-copy-path{margin:8px 0 4px;padding:6px 9px;border:1px solid #64737c;background:#35424c;color:#eee;border-radius:2px}
 .tl-dialog .tl-preview-reason{font-size:11px;color:#b9b5a9;line-height:1.45;margin:0}
 @media(max-width:760px){.tl-dialog .tl-toolbar>input[type=search]{flex-basis:100%}.tl-dialog .tl-toolbar select{min-height:34px}}
+/* Library tabs and the game-file browser share the texture library's look. */
+.tl-tabs{display:flex;gap:2px;padding:0 16px;background:#172027;border-bottom:1px solid #46535c;flex-shrink:0}
+.tl-tabs>button{background:none;border:1px solid transparent;border-bottom:none;color:#a4b1bb;padding:7px 16px;border-radius:2px 2px 0 0;margin-bottom:-1px}
+.tl-tabs>button:hover{color:#eddfbb}
+.tl-tabs>button[aria-selected=true]{background:#27323a;border-color:#46535c;color:#eddfbb;font-weight:700}
+.gf-results{display:flex;flex-direction:column;padding-bottom:0}
+.gf-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:-4px 0 8px;color:#8fa3af}
+.gf-crumbs>button{background:none;border:none;color:#cbd7df;padding:2px 4px}
+.gf-crumbs>button:hover{color:#eddfbb;text-decoration:underline}
+.gf-crumbs>em{margin-left:8px;font-size:11px}
+.gf-list{flex:1;min-height:0;overflow:auto;border:1px solid #3d4a52;background:#1d262c;outline:none}
+.gf-list:focus-visible{outline:2px solid #cbb479;outline-offset:-2px}
+.gf-row{display:flex;align-items:center;gap:8px;padding:4px 10px;min-height:24px;cursor:pointer;color:#dfe7ec;border-bottom:1px solid #253038}
+.gf-row:hover{background:#2d3b43}
+.gf-row.selected{background:#4a4a37;color:#fff0c6}
+.gf-row>svg{flex-shrink:0;color:#a9bccb}
+.gf-row.selected>svg{color:#d3b269}
+.gf-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gf-name>small{display:block;color:#8197a5;font-size:10px;overflow:hidden;text-overflow:ellipsis}
+.gf-row>small{color:#8fa1ac;min-width:58px;text-align:right;font-size:11px}
+.gf-badge{font-size:10px;color:#b8c8d3;background:#2b3a43;border:1px solid #41545f;border-radius:2px;padding:1px 5px;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+.gf-results>.tl-more{margin:10px auto}
+.tl-details.gf-details{width:400px}
+.gf-details h3{display:flex;align-items:center;gap:6px}
+.gf-model-stage{height:300px;display:flex;align-items:center;justify-content:center;background:#111;border:1px solid #4b5860;color:#95a1a9}
+.gf-model-stage>.game-preview-root,.gf-model-stage>div{width:100%;height:100%}
+.gf-transport{display:flex;gap:6px;align-items:center;margin-top:8px}
+.gf-transport>button,.gf-transport>select,.gf-file-actions>button{border:1px solid #64737c;background:#35424c;color:#eee;border-radius:2px;padding:5px 9px}
+.gf-transport>select{flex:1;min-width:0}
+.gf-transport>input{flex:1;min-width:0;accent-color:#af9256}
+.gf-missing code{display:block}
+.gf-file-actions{display:flex;gap:6px;margin-top:10px}
+.gf-audio,.gf-video{width:100%;margin-bottom:4px}
+.gf-video{max-height:260px;background:#000}
+.gf-text{max-height:340px;overflow:auto;margin:0;padding:8px;background:#131c22;border:1px solid #3d4a52;color:#cfdbe3;font:11px/1.45 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:1000px){.tl-details.gf-details{width:300px}.gf-model-stage{height:230px}}
+@media(max-width:760px){.tl-details.gf-details{width:200px}.gf-badge{display:none}}
+.tl-material-choice{display:flex;flex-direction:column;gap:7px;margin-top:14px;padding:10px;background:#293d47;border-left:2px solid #bba067}
+.tl-material-choice>p{margin:0!important}
+.tl-material-choice>button,.tl-material-choice>select{border:1px solid #64737c;background:#35424c;color:#eee;border-radius:2px;padding:6px 10px}
+.tl-material-choice>.tl-primary{background:#695a36;border-color:#bba067;color:#fff0c6}
