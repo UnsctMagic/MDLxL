@@ -7,4 +7,9 @@
   behind the subject at about 2.4× the camera distance and filling the whole
   game crop. It is shown only in Portrait animations. When the model already
   has a background the button reads **Refresh Background** and re-places that
-  one for the current camera and fixes its visibility. One Undo step.
+  one for the current camera, keeping its size and height, and fixes its
+  visibility. One Undo step.
+- **▾** beside it opens Background options: a small preview of the game crop
+  with **Size** (Spotlight keeps black around the portrait, Fill covers it)
+  and **Height** sliders, **Blizzard default**, and the place button. The last
+  look you place is reused for the next Add.

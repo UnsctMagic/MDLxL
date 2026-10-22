@@ -116,3 +116,25 @@ test('hero team-glow planes shown in Stand are not mistaken for the background; 
   });
   assert.equal(findPortraitBackground(doc.model), -1);
 });
+
+test('Background options set the glow size and height; Refresh keeps them; a lost background starts from the Blizzard default', async () => {
+  const { currentBackdropLook, BACKDROP_LOOK } = await import('../app/portrait-background.js');
+  const doc = portraitDocument();
+  const spotlight = { size: 1.8, height: -.75 };
+  const added = doc.apply('Add', SECTIONS, model => refreshPortraitBackground(model, 0, { look: spotlight }));
+  let { points } = screen(doc.model, added.geosetIndex, 1);
+  const top = Math.max(...points.map(point => point.y)), bottom = Math.min(...points.map(point => point.y));
+  assert.ok(Math.abs((top + bottom) / 2 - spotlight.height) < .01 && Math.abs((top - bottom) / 2 - spotlight.size) < .01);
+  assert.deepEqual(Object.values(currentBackdropLook(doc.model, 0)).map(value => +value.toFixed(3)), [1.8, -.75]);
+  doc.apply('Move camera', ['Cameras'], model => { model.Cameras[0].Position = new Float32Array([-150, 120, 220]); });
+  // Seen from the moved camera the old card is off-centre, so its look is unknown.
+  assert.equal(currentBackdropLook(doc.model, 0), null);
+  const reset = doc.apply('Refresh', SECTIONS, model => refreshPortraitBackground(model, 0));
+  assert.deepEqual(reset.look, BACKDROP_LOOK);
+  doc.apply('Spotlight again', SECTIONS, model => refreshPortraitBackground(model, 0, { look: spotlight }));
+  doc.apply('Small camera move', ['Cameras'], model => { model.Cameras[0].Position[2] += 4; });
+  const kept = doc.apply('Refresh', SECTIONS, model => refreshPortraitBackground(model, 0));
+  assert.ok(Math.abs(kept.look.size - spotlight.size) < .1 && Math.abs(kept.look.height - spotlight.height) < .1, JSON.stringify(kept.look));
+  ({ points } = screen(doc.model, kept.geosetIndex, 1));
+  assert.ok(points.every(point => Math.abs(point.depth / screen(doc.model, kept.geosetIndex, 1).distance - BACKDROP_DEPTH_RATIO) < 1e-3));
+});

@@ -17,6 +17,17 @@ import { evaluateModelCamera, MODEL_CAMERA_FOV_FACTOR, PORTRAIT_ASPECT } from '.
 export const BACKDROP_DEPTH_RATIO = 2.4;
 export const BACKDROP_HALF_SIZE = 3.5;
 export const BACKDROP_BONE_NAME = 'PortraitBackdrop';
+// The look the Background options adjust: size is the half width of the glow
+// card in crop half heights (small keeps black around a spotlight, large
+// fills the crop), height moves the glow centre up or down the crop.
+export const BACKDROP_LOOK = Object.freeze({ size: BACKDROP_HALF_SIZE, height: 0 });
+export const BACKDROP_SIZE_RANGE = Object.freeze([1.2, 6]);
+export const BACKDROP_HEIGHT_RANGE = Object.freeze([-1, 1]);
+const clamp = (value, [min, max]) => Math.min(max, Math.max(min, value));
+export function normalizeBackdropLook(look) {
+  const size = Number(look?.size), height = Number(look?.height);
+  return { size: Number.isFinite(size) ? clamp(size, BACKDROP_SIZE_RANGE) : BACKDROP_LOOK.size, height: Number.isFinite(height) ? clamp(height, BACKDROP_HEIGHT_RANGE) : BACKDROP_LOOK.height };
+}
 const BACKDROP_NAME = /backdrop|background|portrait.?glow|portrait.?plane/i;
 const portraitName = name => /portrait/i.test(String(name || ''));
 
@@ -90,7 +101,8 @@ export function portraitBackgroundPose(model, frame = 0, sequenceIndex = -1) {
 /** Where the background quad belongs for a camera view. The plane is pushed
  * behind every visible model point inside the crop and kept inside the far
  * clip; farClip is returned when the camera must see farther to show it. */
-export function portraitBackgroundPlacement(model, view, frame = 0, sequenceIndex = -1, skip = -1) {
+export function portraitBackgroundPlacement(model, view, frame = 0, sequenceIndex = -1, skip = -1, look = BACKDROP_LOOK) {
+  const { size, height } = normalizeBackdropLook(look);
   const { position, forward, right, up } = cameraBasis(view), distance = new Vector3(...view.target).distanceTo(position);
   const tangent = Math.tan(view.fieldOfView * MODEL_CAMERA_FOV_FACTOR / 2), matrices = sampleNodeMatrices(model, frame, sequenceIndex, frame);
   let subject = distance;
@@ -110,7 +122,36 @@ export function portraitBackgroundPlacement(model, view, frame = 0, sequenceInde
     if (far * .9 >= subject + .1 * distance) depth = far * .9;
     else farClip = Math.ceil(depth * 1.25);
   }
-  return { center: position.clone().addScaledVector(forward, depth), right, up, normal: forward.clone().negate(), halfSize: BACKDROP_HALF_SIZE * tangent * depth, depth, farClip };
+  const center = position.clone().addScaledVector(forward, depth).addScaledVector(up, height * tangent * depth);
+  return { center, right, up, normal: forward.clone().negate(), halfSize: size * tangent * depth, depth, farClip };
+}
+
+/** The look of an existing background seen from a camera view, or null when
+ * it does not face that view inside the crop (then Refresh starts again from
+ * the Blizzard default). */
+export function measureBackdropLook(model, index, view, frame = 0, sequenceIndex = -1) {
+  const geoset = model.Geosets?.[index];
+  if (!geoset || !view) return null;
+  const { position, forward, right, up } = cameraBasis(view), tangent = Math.tan(view.fieldOfView * MODEL_CAMERA_FOV_FACTOR / 2);
+  const vertices = skinGeoset(geoset, sampleNodeMatrices(model, frame, sequenceIndex, frame)), points = [];
+  for (let start = 0; start + 2 < vertices.length; start += 3) {
+    const offset = new Vector3(vertices[start], vertices[start + 1], vertices[start + 2]).sub(position), depth = offset.dot(forward);
+    if (!(depth > 0)) return null;
+    points.push({ x: offset.dot(right) / (depth * tangent), y: offset.dot(up) / (depth * tangent) });
+  }
+  if (points.length < 3) return null;
+  const x = [Math.min(...points.map(point => point.x)), Math.max(...points.map(point => point.x))], y = [Math.min(...points.map(point => point.y)), Math.max(...points.map(point => point.y))];
+  const size = Math.min(x[1] - x[0], y[1] - y[0]) / 2, height = (y[0] + y[1]) / 2, across = (x[0] + x[1]) / 2;
+  if (!(size >= .8 && size <= 12) || Math.abs(height) > 1.5 || Math.abs(across) > 1.5) return null;
+  return normalizeBackdropLook({ size, height });
+}
+
+/** The look Refresh keeps for the model's background, or null. */
+export function currentBackdropLook(model, cameraIndex, frame = 0, sequenceIndex = -1) {
+  const index = findPortraitBackground(model), camera = model.Cameras?.[cameraIndex] || model.Cameras?.[0];
+  if (index < 0 || !camera) return null;
+  const pose = portraitBackgroundPose(model, frame, sequenceIndex);
+  return measureBackdropLook(model, index, evaluateModelCamera(model, camera, pose.frame, pose.sequenceIndex), pose.frame, pose.sequenceIndex);
 }
 
 /** Step keys at every sequence start: shown in Portrait sequences, hidden in
@@ -206,16 +247,19 @@ function placeBackdrop(model, index, placement, frame, sequenceIndex) {
 }
 
 /** Add Background / Refresh Background: one undoable edit that places the SD
- * portrait backdrop behind the subject, filling the selected camera's view,
- * and makes it visible only in Portrait sequences. */
-export function refreshPortraitBackground(model, cameraIndex, { frame = 0, sequenceIndex = -1, portraitFile = false } = {}) {
+ * portrait backdrop behind the subject for the selected camera and makes it
+ * visible only in Portrait sequences. Without a look, Refresh keeps the
+ * background's current size and height; when they cannot be measured, and
+ * for Add, the fallback look (else the Blizzard default) is used. */
+export function refreshPortraitBackground(model, cameraIndex, { frame = 0, sequenceIndex = -1, portraitFile = false, look, fallback } = {}) {
   const camera = model.Cameras?.[cameraIndex] || model.Cameras?.[0];
   if (!camera) throw Error('Add a portrait camera first (Set Current View or New Camera).');
   const visibility = backdropVisibility(model, portraitFile), pose = portraitBackgroundPose(model, frame, sequenceIndex);
   const view = evaluateModelCamera(model, camera, pose.frame, pose.sequenceIndex);
   if (!view) throw Error('The portrait camera has no valid position.');
   let index = findPortraitBackground(model);
-  const created = index < 0, placement = portraitBackgroundPlacement(model, view, pose.frame, pose.sequenceIndex, index);
+  const created = index < 0, kept = look || created ? null : measureBackdropLook(model, index, view, pose.frame, pose.sequenceIndex);
+  const placement = portraitBackgroundPlacement(model, view, pose.frame, pose.sequenceIndex, index, look || kept || fallback || BACKDROP_LOOK);
   if (placement.farClip) camera.FarClip = placement.farClip;
   if (created) index = createBackdrop(model, placement.center);
   placeBackdrop(model, index, placement, pose.frame, pose.sequenceIndex);
@@ -225,5 +269,5 @@ export function refreshPortraitBackground(model, cameraIndex, { frame = 0, seque
   animation.Alpha = visibility;
   recalculatePortraitExtents(model);
   if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; model.Info.NumBones = model.Bones?.length || 0; }
-  return { geosetIndex: index, created, farClip: placement.farClip };
+  return { geosetIndex: index, created, farClip: placement.farClip, look: normalizeBackdropLook(look || kept || fallback || BACKDROP_LOOK) };
 }
