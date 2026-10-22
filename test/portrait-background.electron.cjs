@@ -1,0 +1,64 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
+(async () => {
+  const root=process.cwd(), out=path.join(root,'out/portrait-background/ui'); fs.mkdirSync(out,{recursive:true});
+  const {createDemoDocument,openDocument}=await import('../src/editor-document.js');
+  const {createPortraitCamera,framePortraitSubject}=await import('../app/portrait-camera-edit.js');
+  const {findPortraitBackground}=await import('../app/portrait-background.js');
+  const {sampleGeosetAnimation}=await import('../src/animation.js');
+  const doc=createDemoDocument();
+  doc.apply('Portrait setup',['Sequences','Geosets','Cameras','BindPoses'],model=>{
+    model.Sequences.push({...structuredClone(model.Sequences[0]),Name:'Portrait',Interval:new Uint32Array([3000,4000])});
+    for(const geoset of model.Geosets) geoset.Anims.push(structuredClone(geoset.Anims[0]));
+    model.Cameras=[]; createPortraitCamera(model,framePortraitSubject(model,null,3000,1));
+  });
+  const fixture=path.join(out,'portrait-no-background.mdx');fs.writeFileSync(fixture,doc.serialize('mdx'));
+  const packaged=!!process.env.MDLXL_ELECTRON_PATH;
+  const app=await _electron.launch({executablePath:process.env.MDLXL_ELECTRON_PATH || path.join(root,'node_modules/electron/dist/electron.exe'),args:[...(packaged?[]:[root]),fixture],cwd:root,env:{...process.env,MDLXL_PROFILE:path.join(out,'profile-'+Date.now()),MDLVIS_HEADLESS:'1'},timeout:60000});
+  const errors=[];let page;
+  const snap=async name=>{const png=await app.evaluate(async ({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].capturePage({},{stayHidden:true,stayAwake:true})).toPNG().toString('base64'));fs.writeFileSync(path.join(out,name),Buffer.from(png,'base64'));};
+  // Share of clearly lit pixels inside the preview canvas (the portrait background is black without a backdrop).
+  const litShare=async()=>{const box=await page.locator('.game-preview-root canvas[tabindex]').boundingBox();return app.evaluate(async ({BrowserWindow},box)=>{const w=BrowserWindow.getAllWindows()[0];const image=await w.capturePage({x:Math.round(box.x),y:Math.round(box.y),width:Math.round(box.width),height:Math.round(box.height)},{stayHidden:true,stayAwake:true});const {width,height}=image.getSize(),bitmap=image.toBitmap();let lit=0,count=0;for(let y=0;y<height;y+=3)for(let x=0;x<width;x+=3){const i=(y*width+x)*4;count++;if(bitmap[i]+bitmap[i+1]+bitmap[i+2]>120)lit++;}return lit/count;},box);};
+  try {
+    page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
+    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.showInactive();});
+    await page.getByRole('button',{name:'Movement',exact:true}).click();
+    const add=page.getByRole('button',{name:'Add Background',exact:true});
+    await add.waitFor(); assert.match(await add.getAttribute('title'),/team-color background/);
+    await page.getByRole('button',{name:'Portrait Frame View',exact:true}).click();
+    await page.getByRole('button',{name:'Full Model View',exact:true}).waitFor();
+    await page.evaluate(()=>{window.portraitRuntime=()=>{const el=document.querySelector('.game-preview-root');let fiber=el[Object.keys(el).find(key=>key.startsWith('__reactFiber'))];for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const state=hook.memoizedState?.current;if(state?.native&&state.controls)return state;}throw Error('No preview runtime');};});
+    await page.waitForFunction(()=>portraitRuntime().portraitActive);
+    await page.getByRole('button',{name:'Stop',exact:true}).click();await page.waitForTimeout(600);
+    const before=await litShare();await snap('1-before.png');
+    await add.click();
+    await page.getByRole('button',{name:'Refresh Background',exact:true}).waitFor();await page.waitForTimeout(800);
+    const after=await litShare();await snap('2-added.png');
+    assert.ok(after>before+.3,`the backdrop lights the portrait (${before.toFixed(2)} -> ${after.toFixed(2)})`);
+    console.log('PASS Add Background in Movement fills the portrait',before.toFixed(2),'->',after.toFixed(2));
+    await page.getByRole('button',{name:'Refresh Background',exact:true}).click();await page.waitForTimeout(300);
+    await page.getByRole('button',{name:'Animations',exact:true}).click();
+    await page.getByRole('button',{name:'Refresh Background',exact:true}).waitFor();await snap('3-animations.png');
+    console.log('PASS Refresh Background in Animations');
+    await page.getByRole('button',{name:'Movement',exact:true}).click();
+    await page.getByRole('button',{name:'Camera rotation',exact:true}).click();
+    const view=await page.evaluate(()=>portraitRuntime().cameraView());
+    const box=await page.locator('.game-preview-root canvas[tabindex]').boundingBox(),x=box.x+box.width*.55,y=box.y+box.height*.5;
+    await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+60,y+30,{steps:12});await page.mouse.up();
+    const turned=await page.evaluate(()=>portraitRuntime().cameraView());
+    assert.ok(Math.hypot(...turned.position.map((n,i)=>n-view.position[i]))>1,'mouse drag still rotates the portrait camera');
+    await page.getByRole('button',{name:'Set Current View *',exact:true}).waitFor();await snap('4-rotated.png');
+    console.log('PASS mouse rotation still works');
+    const output=path.join(out,'with-background.mdx');await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},output);
+    await page.keyboard.press('Escape');await page.keyboard.press('Control+Shift+s');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
+    await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
+    const saved=openDocument(fs.readFileSync(output),output).model,index=findPortraitBackground(saved);
+    assert.equal(saved.Geosets.length,doc.model.Geosets.length+1);assert.equal(index,doc.model.Geosets.length);
+    assert.equal(sampleGeosetAnimation(saved,index,3500,1,3500).alpha,1);assert.equal(sampleGeosetAnimation(saved,index,1000,0,1000).alpha,0);
+    console.log('PASS saved backdrop, Portrait-only');
+    assert.deepEqual(errors,[]);
+    fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged,before,after,errors},null,2));
+  } finally { await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{}); }
+})().catch(error=>{console.error(error);process.exitCode=1;});

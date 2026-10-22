@@ -34,7 +34,7 @@ function CameraFields({ view, name, disabled, onEdit, onPause }) {
   </div>;
 }
 
-export default function PortraitToolbar({ model, active, cameraIndex, disabled, allowControlModel = true, controlModel, controlGroups = [], controlModelGroup = 'all', onToggle, onCameraIndex, onSetView, onSnap, onControlModel, onControlModelGroup, frame = 0, sequenceIndex = -1, onSequence, onNew, onMakePortrait, onEdit, onShot, onPause, settings, onSettings, previewChanged, lightingStatus, onCreatePortraitSequence }) {
+export default function PortraitToolbar({ model, active, cameraIndex, disabled, allowControlModel = true, controlModel, controlGroups = [], controlModelGroup = 'all', onToggle, onCameraIndex, onSetView, onSnap, onControlModel, onControlModelGroup, frame = 0, sequenceIndex = -1, onSequence, onNew, onMakePortrait, onEdit, onShot, onPause, settings, onSettings, previewChanged, lightingStatus, onCreatePortraitSequence, hasBackground = false, onBackground }) {
   const cameras = model.Cameras || [], camera = cameras[cameraIndex], choices = portraitPreviewSequences(model);
   const missingPortrait = active && !(model.Sequences || []).some(item => /portrait/i.test(item.Name || ''));
   const [open, setOpen] = useState(false), container = useRef(null);
@@ -58,6 +58,7 @@ export default function PortraitToolbar({ model, active, cameraIndex, disabled, 
       {!cameras.length && <option value="">No camera</option>}{cameras.map((item,index) => <option key={index} value={index}>{item.Name || 'Camera '+(index+1)}{index === 0 ? ' · Game' : ''}</option>)}
     </select>
     <button disabled={disabled} onClick={onSetView} title="Apply the preview to the selected camera, or create one. This edit can be undone. Save the model to keep it.">Set Current View{active && previewChanged ? ' *' : ''}</button>
+    {onBackground && <button disabled={disabled || !camera} onClick={onBackground} title={!camera ? 'Add a camera first (Set Current View).' : (hasBackground ? 'Move the portrait background behind the model so it fills the selected camera’s view, and show it only in Portrait animations.' : 'Create a Warcraft-style team-color background behind the model that fills the selected camera’s view, shown only in Portrait animations.') + ' Uses the saved camera: apply preview changes with Set Current View first. This edit can be undone.'}>{hasBackground ? 'Refresh Background' : 'Add Background'}</button>}
     <button aria-label="Portrait settings" aria-expanded={open} title="Camera, animation, lighting and composition controls" onClick={() => setOpen(value => !value)}>⋯</button>
     {open && <div className="portrait-settings" role="dialog" aria-label="Portrait settings">
       <div className="portrait-settings-heading"><strong>Portrait</strong><button aria-label="Close portrait settings" onClick={() => setOpen(false)}>×</button></div>
