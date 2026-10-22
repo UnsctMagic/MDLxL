@@ -68,6 +68,8 @@ wheel zoom, axis gizmos, XY/ZX/YZ workplanes and Shift constraints remain availa
 
 Select a native bone marker for ordinary Move, Rotate and Scale with POSE
 enabled. The Object picker remains the standard Movement bone selector.
+POSE has no separate Helpers switch: **Bones** also shows Helper markers, since
+rigs such as the SD Footman keep the pelvis, chest and head in Helpers.
 
 Open **Add** for the new handle symbols, or choose **New bone chain**. Click the bone you want to
 move. The connected limb is suggested and highlighted. Click **Add handle**.
