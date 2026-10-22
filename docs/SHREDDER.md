@@ -108,18 +108,18 @@ characters); longer chords and Ctrl+Alt+Space codes stay in the tooltips.
 
 ## Tests
 
-- `test/shredder.test.js` covers the rules: occasions, the 3-show limit and its
-  spacing, quiet start, cooldown, quiet for today, damaged notebooks, the
+- `test/shredder.test.js` covers the rules: 5 uses to learn, repeats until
+  learned and their spacing, quiet start, cooldown, quiet for today, damaged notebooks, the
   lesson texts and their translations.
 - `test/shredder.electron.cjs` drives the real app:
-  - it is off by default, and Settings turns it on;
-  - one tip comes after a second mouse click;
-  - Show me works, and pressing the key closes the tip;
+  - the hello, and that Settings switches him;
+  - Alt shows only short key badges;
+  - the first click on Move brings its Shift trick and the M tip;
+  - pressing the key closes the tip, and only real uses count;
   - he stays silent while Settings is open;
-  - right-click retires a tip;
-  - the Hold Alt trick works, and Alt-drag is recorded;
-  - the notebook opens and closes;
-  - Turn off works.
+  - Tell me later, bro. brings a tip back, and doing the trick closes it;
+  - picking Resize brings Zoom anchor, and pressing 1 closes it;
+  - Alt-drag is recorded, the notebook opens and closes, Turn off works.
 
   `SHREDDER_THEME=dark` repeats its screenshots (`out/shredder/*.png`) in
   another theme. The test shortens the waits through the
