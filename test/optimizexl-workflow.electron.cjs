@@ -46,7 +46,8 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   await p.getByRole('button',{name:'Close',exact:true}).click();await p.getByRole('dialog',{name:'Unsaved changes'}).waitFor();
   await p.getByRole('button',{name:'Cancel',exact:true}).click();
   // So does the window's own close button.
-  await p.close({runBeforeUnload:true});await p.getByRole('dialog',{name:'Unsaved changes'}).waitFor();assert.equal(p.isClosed(),false);
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().sort((a,b)=>b.id-a.id)[0].close());
+  await p.getByRole('dialog',{name:'Unsaved changes'}).waitFor();assert.equal(p.isClosed(),false);
   await p.getByRole('button',{name:'Cancel',exact:true}).click();
   // Save writes the open file; the first save offers one backup copy.
   await p.getByRole('button',{name:'Save',exact:true}).click();await p.getByRole('dialog',{name:'Save changes'}).waitFor();
