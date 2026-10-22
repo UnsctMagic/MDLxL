@@ -42,21 +42,32 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     const suffix = theme ? '-' + process.env.SHREDDER_THEME : '';
     checks.push(SHREDDER_TEST_VERSION ? 'Test version: the bird is there from the start, nothing but his hello' : 'Off by default: no bird, no bubble');
 
-    const bubble = page.locator('.shredder-bubble');
+    const bubble = page.locator('.shredder-bubble'), seen = [];
+    const buttons = () => bubble.getByRole('button').allTextContents();
+    const kBro = async () => { await bubble.getByRole('button', { name: 'K, bro.' }).click(); await bubble.waitFor({ state: 'detached', timeout: 3000 }); };
+    /** Waits for the tip `id`, saying "K, bro." to other tips that come first (tricks come before key tips). */
+    const waitTip = async id => {
+      for (let i = 0; i < 8; i++) {
+        await bubble.waitFor({ timeout: 15000 });
+        const current = await bubble.getAttribute('data-shredder-lesson'); seen.push(current);
+        if (current === id) return;
+        assert.deepEqual(await buttons(), ['K, bro.', 'Tell me later, bro.'], current);
+        await kBro();
+      }
+      throw new Error(`tip ${id} never came: ${seen.join(', ')}`);
+    };
     // He says hello once, the first time he may speak.
     const greeted = async () => {
-      await bubble.waitFor({ timeout: 15000 });
-      assert.equal(await bubble.getAttribute('data-shredder-lesson'), 'intro:welcome');
+      await waitTip('intro:welcome');
       assert.match(await bubble.locator('p').textContent(), /^Hi, I'm Shredder\./);
-      assert.deepEqual(await bubble.getByRole('button').allTextContents(), ['Got it']);
-      await bubble.getByRole('button', { name: 'Got it' }).click();
-      await bubble.waitFor({ state: 'detached', timeout: 3000 });
+      assert.deepEqual(await buttons(), ['K, bro.']);
+      await kBro();
     };
     if (SHREDDER_TEST_VERSION) { await greeted(); checks.push('Test version: he says hello by himself, once'); }
 
     // Short waits for the test. The two-minute quiet start applies only when MDLxL opens with him
     // already on; switching him on later (here after 10 s) lets him talk at once.
-    await page.evaluate(() => localStorage.setItem('mdlxl-shredder-timing', JSON.stringify({ idle: 300, bubble: 6000, cooldown: 0, remindLater: 5000 })));
+    await page.evaluate(() => localStorage.setItem('mdlxl-shredder-timing', JSON.stringify({ idle: 300, bubble: 6000, cooldown: 0, remindLater: 4000 })));
     await page.waitForFunction(() => performance.now() > 11000, null, { timeout: 30000 });
     await page.keyboard.press('Control+Comma');
     await page.locator('#settings-tab-configuration').click();
@@ -74,18 +85,26 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     assert.equal(Math.round(statusHeight), 20, 'the bird fits in the existing status bar');
     checks.push('Settings → Configuration switches him; only a small bird in the status bar');
 
+    // Alt shows only short key badges; long chords and Ctrl+Alt+Space codes stay in the tooltips.
+    await page.locator('.classic-view canvas').first().hover();
+    await page.keyboard.down('Alt'); await page.waitForTimeout(300);
+    const badgeTexts = await page.evaluate(() => [...document.querySelectorAll('.classic-app [data-hotkey-badge]')].filter(badge => !badge.closest('[data-hotkey^="forge:"]')).map(badge => badge.textContent));
+    await page.keyboard.up('Alt');
+    assert.ok(badgeTexts.length > 5, 'badges are still shown');
+    assert.deepEqual(badgeTexts.filter(text => text.length > 3), [], 'no long badges');
+    await bubble.waitFor({ state: 'detached', timeout: 2000 }).catch(() => {});
+    if (await bubble.count()) await kBro();
+    checks.push('Alt shows only short key badges');
+
     const move = page.locator('button[data-hotkey="translate"]').first();
     await move.click();
-    await bubble.waitFor();
+    await waitTip('key:translate');
+    assert.ok(seen.includes('trick:move-axis'), 'picking Move also brings its Shift trick: ' + seen.join(', '));
     assert.equal((await bubble.locator('p').textContent()).trim(), 'Next time press M for Move.');
-    assert.deepEqual(await bubble.getByRole('button').allTextContents(), ['Show me', 'Remind me later', "Don't mention it again"]);
+    assert.deepEqual(await buttons(), ['K, bro.', 'Tell me later, bro.']);
     await paint(); await page.screenshot({ path: path.join(out, `tip${suffix}.png`), clip: await shot(page) });
     assert.equal(await page.evaluate(() => !!document.activeElement?.closest('.shredder')), false, 'the tip never takes the keyboard');
-    checks.push('The first mouse click on Move gives one tip with the real key and three choices');
-
-    await bubble.getByRole('button', { name: 'Show me' }).click();
-    assert.equal(await move.evaluate(element => element.classList.contains('shredder-show')), true, 'Show me outlines the button');
-    checks.push('Show me outlines the Move button');
+    checks.push('The first mouse click on Move: the Shift trick and the M tip, each with K, bro. / Tell me later, bro.');
 
     await page.locator('.classic-view canvas').first().hover();
     await page.keyboard.press('m');
@@ -100,49 +119,58 @@ const shot = async page => { const size = page.viewportSize() || await page.eval
     await page.waitForTimeout(1200);
     assert.equal(await bubble.count(), 0, 'silent while Settings is open');
     await page.keyboard.press('Escape');
-    await bubble.waitFor();
-    assert.equal((await bubble.locator('p').textContent()).trim(), 'Next time press R for Rotate.');
-    checks.push('Silent while a window is open; the tip comes after it closes');
-
-    await bubble.getByRole('button', { name: "Don't mention it again" }).click();
+    await waitTip('trick:rotate-snap');
+    assert.equal((await bubble.locator('p').textContent()).trim(), 'While you rotate, hold Shift to snap to 15° steps.');
+    await bubble.getByRole('button', { name: 'Tell me later, bro.' }).click();
     await bubble.waitFor({ state: 'detached', timeout: 3000 });
+    await waitTip('key:rotate'); await kBro();
+    assert.ok(seen.includes('trick:hotkeys-page'), 'opening Settings brings the Ctrl+K trick: ' + seen.join(', '));
+    checks.push('Silent while a window is open; the tips come after it closes (including Ctrl+K for Hotkeys)');
+
     await page.waitForTimeout(600);
     const notebook = await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-notebook-v1')));
-    assert.equal(notebook.lessons['key:rotate'].retired, true);
     assert.equal(notebook.lessons['key:translate'].shown, 1);
-    assert.equal(notebook.lessons['key:translate'].occasions, 1);
-    // The third click on keyed buttons within a minute brings the Alt trick, never the retired Rotate tip.
+    assert.equal(notebook.lessons['key:translate'].occasions, 1, 'using the key once while its tip is open counts once');
+    assert.equal(notebook.lessons['key:rotate'].occasions, 0, '"K, bro." is not a use');
+    assert.equal(notebook.lessons['trick:rotate-snap'].occasions, 0, '"Tell me later, bro." is not a use');
+    assert.ok(notebook.lessons['trick:rotate-snap'].remindAfter > Date.now() - 60000);
+    checks.push('Only real uses count toward learning; K, bro. and Tell me later, bro. do not');
+
+    // The third click on keyed buttons within a minute brings the Alt trick.
     await rotate.click();
-    await bubble.waitFor();
-    assert.equal(await bubble.getAttribute('data-shredder-lesson'), 'trick:alt-badges', 'a retired tip never comes back');
+    await waitTip('trick:alt-badges');
     assert.equal((await bubble.locator('p').textContent()).trim(), 'Hold Alt to see the key on every button.');
-    checks.push("Don't mention it again retires a tip for good; the notebook is saved");
-    await bubble.getByRole('button', { name: 'Remind me later' }).click();
-    await bubble.waitFor({ state: 'detached', timeout: 3000 });
-    await rotate.click(); await page.waitForTimeout(900);
-    assert.equal(await bubble.count(), 0, 'not before the reminder time');
-    await page.waitForTimeout(4500); await rotate.click();
-    await bubble.waitFor();
-    assert.equal(await bubble.getAttribute('data-shredder-lesson'), 'trick:alt-badges');
-    checks.push('Remind me later brings the tip back after the wait, not before');
     await page.locator('.classic-view canvas').first().hover();
     await page.keyboard.down('Alt'); await page.waitForTimeout(500);
     assert.equal(await page.evaluate(() => document.documentElement.dataset.shortcutHints), 'true', 'holding Alt shows the key badges');
     await page.keyboard.up('Alt');
     await bubble.waitFor({ state: 'detached', timeout: 3000 });
-    checks.push('Holding Alt shows the badges and closes the Alt tip');
+    checks.push('Three keyed clicks bring the Hold Alt trick; holding Alt closes it');
 
-    // Picking Resize with several vertices selected is when he explains Zoom anchor; using it closes the tip.
-    await page.locator('.classic-view canvas').first().hover();
-    await page.keyboard.press('Control+a'); await page.waitForTimeout(300);
+    // "Tell me later, bro." brings the rotate trick back; doing the trick (Shift while rotating) closes it.
+    await page.waitForTimeout(4200);
+    await page.keyboard.press('m'); await page.waitForTimeout(200); await page.keyboard.press('r');
+    await waitTip('trick:rotate-snap');
+    await page.keyboard.press('Control+a'); await page.waitForTimeout(200);
+    const view = await page.locator('.classic-view canvas').first().boundingBox();
+    await page.mouse.move(view.x + view.width / 2, view.y + view.height / 2); await page.mouse.down();
+    await page.keyboard.down('Shift');
+    await page.mouse.move(view.x + view.width / 2 + 60, view.y + view.height / 2 + 30, { steps: 6 });
+    await page.keyboard.up('Shift'); await page.mouse.up();
+    await bubble.waitFor({ state: 'detached', timeout: 3000 });
+    await page.keyboard.press('Control+z');
+    checks.push('Tell me later, bro. brings the tip back; Shift while rotating closes it');
+
+    // Picking Resize (the "zoom" tool) always brings Zoom anchor, even with one vertex selected.
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
     await page.keyboard.press('z');
-    await bubble.waitFor();
-    assert.equal(await bubble.getAttribute('data-shredder-lesson'), 'trick:zoom-anchor');
-    assert.match(await bubble.locator('p').textContent(), /^Press 1 for Zoom anchor/);
+    await waitTip('trick:zoom-anchor');
+    assert.match(await bubble.locator('p').textContent(), /^Zoom anchor: select some vertices, press 1, then drag a box over one of them\./);
+    await page.keyboard.press('Control+a'); await page.waitForTimeout(300);
     await page.keyboard.press('1');
     await bubble.waitFor({ state: 'detached', timeout: 3000 });
     await page.keyboard.press('Escape');
-    checks.push('Resize with several vertices selected brings the Zoom anchor tip; pressing 1 closes it');
+    checks.push('Picking Resize brings the Zoom anchor tip, even with nothing selected; pressing 1 closes it');
 
     // Alt-drag in the viewport is heard (and still turns the camera; Shredder never consumes it).
     const canvas = page.locator('.classic-view canvas').first(), box = await canvas.boundingBox();

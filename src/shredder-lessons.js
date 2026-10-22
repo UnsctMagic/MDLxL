@@ -12,22 +12,38 @@ export const BASICS_BEFORE_ADVANCED = 3;
 export const SHORTCUT_CLICKS = 1, CODE_CLICKS = 2;
 
 /** Said once, the first time he may speak after being switched on. */
-export const WELCOME = Object.freeze({ id: 'intro:welcome', area: 'everywhere', level: 1, once: true, args: [], learnedBy: Object.freeze([]),
+export const WELCOME = Object.freeze({ id: 'intro:welcome', area: 'everywhere', level: 1, priority: 2, once: true, args: [], learnedBy: Object.freeze([]),
   text: "Hi, I'm Shredder. While you work, I point out keys and tricks you might not know yet. Click me any time for my notebook." });
 
 /**
- * Hand-written tricks, offered the first time the user is where they help.
- * `learnedBy` lists the signals that prove the user does it without help;
- * `key` names a command whose current binding fills {0}.
+ * Hand-written tricks, offered the first time the user is where they help, and
+ * again (spaced out) until the user does them. `learnedBy` lists the signals
+ * that prove it; `keys` names commands whose current bindings fill {0}, {1}...
  */
 export const TRICKS = Object.freeze([
-  { id: 'trick:alt-badges', area: 'everywhere', level: 1, need: 2, text: 'Hold Alt to see the key on every button.', learnedBy: ['alt-reveal'] },
-  { id: 'trick:dropdown-wheel', area: 'everywhere', level: 1, need: 2, text: 'Spin the mouse wheel over a list to step through it without opening it.', learnedBy: ['dropdown-wheel'] },
-  { id: 'trick:camera-toggle', area: 'camera', level: 1, key: 'cameraToggle', text: '{0} switches between working and turning the camera.', learnedBy: ['key:cameraToggle'] },
-  { id: 'trick:alt-orbit', area: 'camera', level: 1, text: 'Hold Alt and drag with the left mouse button to turn the camera, then let go to keep working.', learnedBy: ['alt-orbit'] },
-  { id: 'trick:zoom-anchor', area: 'vertices', level: 1, need: 2, key: 'anchorSelect', target: 'anchorSelect', text: 'Press {0} for Zoom anchor, then drag a box over one selected vertex. Resize then grows and shrinks toward that vertex.', learnedBy: ['use:anchorSelect'] },
-  { id: 'trick:timeline-keys', area: 'animation', level: 1, text: 'Click the timeline, then press ← and → to jump from key to key.', learnedBy: ['timeline-arrows'] },
-].map(Object.freeze));
+  // Everywhere
+  { id: 'trick:alt-badges', area: 'everywhere', text: 'Hold Alt to see the key on every button.', learnedBy: ['alt-reveal'] },
+  { id: 'trick:dropdown-wheel', area: 'everywhere', text: 'Spin the mouse wheel over a list to step through it without opening it.', learnedBy: ['dropdown-wheel'] },
+  { id: 'trick:hotkeys-page', area: 'everywhere', keys: ['hotkeys'], text: '{0} opens Hotkeys: search any command and give it your own key.', learnedBy: ['key:hotkeys'] },
+  // Camera
+  { id: 'trick:camera-toggle', area: 'camera', keys: ['cameraToggle'], text: '{0} switches between working and turning the camera.', learnedBy: ['key:cameraToggle'] },
+  { id: 'trick:alt-orbit', area: 'camera', text: 'Hold Alt and drag with the left mouse button to turn the camera, then let go to keep working.', learnedBy: ['alt-orbit'] },
+  { id: 'trick:camera-fine', area: 'camera', text: 'Hold Shift while you turn or move the camera for slow, fine control.', learnedBy: ['camera-fine'] },
+  // Vertex editor
+  { id: 'trick:select-modifiers', area: 'vertices', text: 'When you select, hold Shift to add to the selection and Ctrl to take away from it.', learnedBy: ['select-modifier'] },
+  { id: 'trick:move-axis', area: 'vertices', text: 'While you move vertices, hold Shift to lock the move to one direction.', learnedBy: ['shift-move'] },
+  { id: 'trick:rotate-snap', area: 'vertices', text: 'While you rotate, hold Shift to snap to 15° steps.', learnedBy: ['shift-rotate'] },
+  { id: 'trick:zoom-anchor', area: 'vertices', keys: ['anchorSelect'], text: 'Zoom anchor: select some vertices, press {0}, then drag a box over one of them. Resize then grows and shrinks toward that vertex instead of the middle.', learnedBy: ['use:anchorSelect'] },
+  { id: 'trick:geoset-range', area: 'vertices', text: 'Shift-click a geoset box to tick a whole range at once.', learnedBy: ['geoset-range'] },
+  // UV editor
+  { id: 'trick:uv-keys', area: 'uv', keys: ['uv:flip-u', 'uv:flip-v', 'uv:fold'], text: 'In the UV editor, {0} flips sideways, {1} flips up and down and {2} folds the selected UVs.', learnedBy: ['key:uv:flip-u', 'key:uv:flip-v', 'key:uv:fold'] },
+  { id: 'trick:uv-fine', area: 'uv', text: 'In the UV editor, hold Alt as you start a drag for fine control, and Shift to lock the direction.', learnedBy: ['uv-fine'] },
+  // Animation
+  { id: 'trick:play-space', area: 'animation', keys: ['play'], text: '{0} plays and stops the animation.', learnedBy: ['key:play'] },
+  { id: 'trick:timeline-keys', area: 'animation', text: 'Click the timeline, then press ← and → to jump from key to key.', learnedBy: ['timeline-arrows'] },
+  // Bones
+  { id: 'trick:bones-keys', area: 'bones', keys: ['rotate', 'Collapse', 'Create triangle', 'bone:detach'], text: 'In Bones, {0} is Hard Bind, {1} is Soft Bind, {2} is Attach and {3} detaches from the parent bone.', learnedBy: ['bones:rotate', 'bones:Collapse', 'bones:Create triangle', 'bones:bone:detach'] },
+].map(lesson => Object.freeze({ level: 1, priority: 1, ...lesson })));
 export const trick = id => TRICKS.find(lesson => lesson.id === id);
 
 /** The first single-chord key bound to a command, or '' when it has only a Ctrl+Alt+Space code. */
@@ -55,11 +71,10 @@ export function shortcutSignals(actionId, chord) {
   return [(hotkeyCode(chord) ? 'code:' : 'key:') + actionId, 'use:' + actionId];
 }
 
-/** The text of a trick with the user's current key filled in; null when that key was removed. */
+/** The text of a trick with the user's current keys filled in; null when one of them was removed. */
 export function trickLesson(lesson, shortcuts) {
-  if (!lesson.key) return { ...lesson, args: [] };
-  const key = directKey(shortcuts?.[lesson.key]);
-  return key ? { ...lesson, args: [formatChord(key)] } : null;
+  const args = (lesson.keys || []).map(id => directKey(shortcuts?.[id]));
+  return args.every(Boolean) ? { ...lesson, args: args.map(formatChord) } : null;
 }
 
 export const fillLesson = (text, args = []) => text.replace(/\{(\d+)\}/g, (slot, index) => args[Number(index)] ?? slot);

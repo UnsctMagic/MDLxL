@@ -13,6 +13,4 @@
 .shredder-notebook td{padding:2px 0}.shredder-notebook td:last-child{text-align:right;color:var(--ui-muted,#555)}
 .shredder-week{margin:6px 0 2px}.shredder-help{margin:2px 0;color:var(--ui-muted,#555)}
 .shredder-notebook .shredder-actions{margin-top:6px;justify-content:flex-start}
-.shredder-show{outline:2px solid var(--ui-accent,#468bc6)!important;outline-offset:1px;animation:shredder-pulse .8s ease-in-out 3}
 @keyframes shredder-appear{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
-@keyframes shredder-pulse{50%{outline-color:transparent}}

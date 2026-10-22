@@ -29,14 +29,16 @@ Step 3 gives him that body; until then he is a small placeholder icon.
      Ctrl+Alt+Space code as a deeper lesson.
    - **Trick lessons** are hand-written and come with their own triggers.
 3. **Notebook** (`src/shredder-notebook.js`, saved in browser storage under
-   `mdlxl-shredder-notebook-v1`). A lesson is learned only when you do it
-   yourself on 3 separate occasions. Separate means another app start, or at
-   least 20 minutes later. Clicking "Got it" does not count as learning. A
-   learned lesson is never mentioned again. Keys you already use count from
-   day one, so experienced users hear nothing about them.
-4. **Voice.** One small bubble above the bird with one sentence, plus "Show me"
-   (outlines the button) and "Got it". The key shown is always your own,
-   current binding. The text is translated like the rest of the app.
+   `mdlxl-shredder-notebook-v1`). A lesson is learned when you do it yourself
+   5 separate times (uses at least a minute apart, 10 seconds in the test
+   version, or after another app start). Using the key while its tip is open
+   counts; "K, bro." and "Tell me later, bro." do not. A learned lesson is never
+   mentioned again. Keys you already use count from day one.
+4. **Voice.** One small bubble above the bird with one sentence and two
+   buttons: "K, bro." (it comes back now and then until learned) and "Tell me
+   later, bro." (back after 5 minutes, 30 seconds in the test version). The key
+   shown is always your own, current binding. The text is translated like the
+   rest of the app.
 
 ## Test version
 
@@ -68,30 +70,41 @@ release timing below and makes him off by default.
   closes it at once.
 - **One at a time.** At most one tip every 3 minutes. "Fewer tips" makes it
   10 minutes.
-- **No nagging.** Each tip is shown at most 3 times ever. The 2nd showing waits
-  for another app start; the 3rd waits at least 2 more days.
+- **He hammers it in, spaced out.** A tip comes back until you have learned
+  it: at most every 15 minutes (1 minute in the test version) and at most 10
+  times. Quiet for today, Fewer tips and Turn off are in his notebook.
 - **Short-lived.** The bubble fades after 8 seconds and pauses while the mouse
   is over it. It never takes the keyboard and never blocks clicks elsewhere.
-- **You decide.**
-  - Every tip has Show me, Remind me later (back after 30 minutes, 1 minute in
-    the test version) and Don't mention it again.
-  - Notebook: Quiet for today, Fewer tips, Turn off.
+- **You decide.** Notebook: Quiet for today, Fewer tips, Turn off.
 - **Codes after basics.** Ctrl+Alt+Space code tips in an area open only after
   3 lessons in that area are learned. Tricks never wait.
 
 ## Lessons in step 1
 
 Shortcut and code lessons cover every button outside dialogs, Paint and Forge.
-The hand-written tricks are:
+Tricks come before key tips. The hand-written tricks are:
 
 | Lesson | When | Learned by |
 | --- | --- | --- |
-| Hold Alt to see keys | 3 clicks on buttons that have a key within a minute | holding Alt alone, twice |
-| Wheel over a list | 2 list changes by mouse within a minute | wheel over a list, twice |
+| Hold Alt to see keys | 3 clicks on buttons that have a key within a minute | holding Alt alone |
+| Wheel over a list | 2 list changes by mouse within a minute | wheel over a list |
+| Ctrl+K opens Hotkeys | opening Settings | using the Hotkeys key |
 | W toggles camera | a click on a camera mode button | using the camera toggle key |
 | Alt-drag turns the camera | switching to Camera rotation and back within 20 s | Alt + left drag in the viewport |
-| Zoom anchor | picking Resize (or dragging with it) with several vertices selected | using Zoom anchor, twice |
+| Shift for fine camera | 2 camera drags within a minute | Shift during a camera drag |
+| Shift adds, Ctrl removes | 2 box selections within a minute | Shift or Ctrl selection |
+| Shift locks a move | picking Move | Shift while moving |
+| Shift snaps rotation to 15° | picking Rotate | Shift while rotating |
+| Zoom anchor | picking Resize (the "zoom" tool), or dragging with it | using Zoom anchor |
+| Shift-click geoset range | 3 geoset box clicks within a minute | a Shift-click on a geoset box |
+| UV keys X, Y, G | entering the UV editor | using those keys |
+| UV Alt fine, Shift lock | 2 UV drags within a minute | Alt at the start of a UV drag |
+| Space plays | entering the animation editor | using the play key |
 | Timeline ← / → | a click on the timeline | arrow keys on the timeline |
+| Bones keys R, C, T, D | entering Bones | using those keys in Bones |
+
+Key badges shown while Alt is held are limited to one short key (at most three
+characters); longer chords and Ctrl+Alt+Space codes stay in the tooltips.
 
 ## Tests
 

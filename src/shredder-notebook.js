@@ -10,9 +10,9 @@ export const RELEASE_TIMING = Object.freeze({
   idle: 1500,
   candidate: 20 * 1000,
   bubble: 8000,
-  occasionGap: 20 * MINUTE,
-  thirdShowWait: 2 * DAY,
-  remindLater: 30 * MINUTE,
+  occasionGap: MINUTE,
+  repeat: 15 * MINUTE,
+  remindLater: 5 * MINUTE,
 });
 /** Rapid timing for trying Shredder out: no quiet start, a tip every few seconds. */
 export const TEST_TIMING = Object.freeze({
@@ -21,14 +21,15 @@ export const TEST_TIMING = Object.freeze({
   idle: 1000,
   candidate: 20 * 1000,
   bubble: 8000,
-  occasionGap: MINUTE,
-  thirdShowWait: 2 * MINUTE,
-  remindLater: MINUTE,
+  occasionGap: 10 * 1000,
+  repeat: MINUTE,
+  remindLater: 30 * 1000,
 });
 /** TEST VERSION: switch to false (release timing, off by default) before shipping. */
 export const SHREDDER_TEST_VERSION = true;
 export const SHREDDER_TIMING = SHREDDER_TEST_VERSION ? TEST_TIMING : RELEASE_TIMING;
-export const LEARNED_OCCASIONS = 3, MAX_SHOWS = 3;
+/** Learned after 5 separate uses; a tip keeps coming back (spaced out) up to 10 times until then. */
+export const LEARNED_OCCASIONS = 5, MAX_SHOWS = 10;
 const MAX_LESSONS = 3000, MAX_ID = 300;
 
 export const emptyNotebook = () => ({ version: 1, sessions: 0, quietUntil: 0, lessons: {} });
@@ -62,7 +63,7 @@ function change(notebook, id, area, update) {
   return { ...notebook, lessons };
 }
 
-/** Uses close together are one occasion; another app start or a 20-minute gap is a new one. */
+/** Uses close together are one occasion; another app start or the occasion gap makes a new one. */
 export function recordUse(notebook, id, { now, area, need = LEARNED_OCCASIONS, timing = SHREDDER_TIMING }) {
   return change(notebook, id, area, record => {
     if (record.learnedAt) return record;
@@ -83,14 +84,12 @@ export function quietForToday(notebook, now) {
 }
 
 export const isLearned = record => !!record?.learnedAt;
-/** A tip may come back only while it is still useful, and ever more rarely. */
-export function lessonReady(record, { now, session, timing = SHREDDER_TIMING }) {
+/** A tip keeps coming back until it is learned: after "Tell me later", or after the repeat gap. */
+export function lessonReady(record, { now, timing = SHREDDER_TIMING }) {
   if (!record) return true;
   if (record.learnedAt || record.retired || record.shown >= MAX_SHOWS) return false;
   if (record.remindAfter) return now >= record.remindAfter;
-  if (record.shown === 1) return record.lastShownSession !== session;
-  if (record.shown === 2) return record.lastShownSession !== session && now - record.lastShown >= timing.thirdShowWait;
-  return true;
+  return !record.shown || now - record.lastShown >= timing.repeat;
 }
 export function learnedIn(notebook, area) {
   return Object.values(notebook.lessons).filter(record => record.area === area && record.learnedAt).length;

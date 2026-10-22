@@ -24,8 +24,6 @@ function loadTiming() {
       cooldown: { normal: pick('cooldown', SHREDDER_TIMING.cooldown.normal), fewer: pick('cooldown', SHREDDER_TIMING.cooldown.fewer) } };
   } catch { return SHREDDER_TIMING; }
 }
-const visible = element => !!element?.isConnected && element.getClientRects().length > 0 && !element.closest('[hidden], [inert]');
-const controlsFor = id => [...document.querySelectorAll('[data-hotkey]')].filter(element => controlActionId(element) === id && visible(element));
 function controlLabel(element, fallback) {
   const text = element.getAttribute('data-hotkey-label') || element.getAttribute('aria-label') || (element.getAttribute('data-hotkey-base-title') || '').split('\n')[0] || element.textContent?.replace(element.querySelector('[data-hotkey-badge]')?.textContent || '\u0000', '');
   return (text || fallback || '').trim().slice(0, 80);
@@ -42,39 +40,40 @@ const within = (list, now) => { while (list.length && now - list[0] > RECENT_MS)
 export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraMode, selectionCount, playing, busy, onPreferences }) {
   const { shortcuts, catalog } = useHotkeys();
   const [tip, setTip] = useState(null), [notebookOpen, setNotebookOpen] = useState(false), [ready, setReady] = useState(false);
-  const notebook = useRef(null), latest = useRef({}), hovered = useRef(false), camera = useRef(null);
+  const notebook = useRef(null), latest = useRef({}), hovered = useRef(false), camera = useRef(null), context = useRef(null);
   latest.current = { pace, mode, tool, cameraMode, selectionCount, playing, busy, shortcuts, catalog, tip };
 
   useEffect(() => {
     if (!enabled) { setTip(null); setNotebookOpen(false); setReady(false); return; }
     const timing = loadTiming(), startedAt = Date.now() - APP_LOADED_AT > SWITCHED_ON_LATER_MS ? 0 : Date.now();
     notebook.current = startSession(loadNotebook());
-    const session = notebook.current.sessions;
     let saveTimer = 0;
     const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => storeNotebook(notebook.current), 400); };
     save(); setReady(true);
     let lastInput = 0, lastTipAt = 0, held = 0, focused = true, altDown = 0, altAlone = false, lastListPointer = 0, rotateSince = 0;
-    const clicks = new Map(), keyedClicks = [], listChanges = [];
-    /** Tips waiting for a quiet moment; the newest relevant one is said first, the hello before all. */
+    const clicks = new Map(), keyedClicks = [], listChanges = [], selections = [], cameraDrags = [], geosetClicks = [], uvDrags = [];
+    let drag = null;
+    /** Tips waiting for a quiet moment: the hello first, then tricks, then the newest key tip. */
     let candidates = [];
 
     /** A signal proves its own shortcut lesson (key:/code:) and every trick that lists it. */
     const record = (signal, area) => {
       const now = Date.now();
       if (/^(key|code):/.test(signal)) notebook.current = recordUse(notebook.current, signal, { now, area });
-      for (const lesson of TRICKS) if (lesson.learnedBy.includes(signal)) notebook.current = recordUse(notebook.current, lesson.id, { now, area: lesson.area, need: lesson.need });
+      for (const lesson of TRICKS) if (lesson.learnedBy.includes(signal)) notebook.current = recordUse(notebook.current, lesson.id, { now, area: lesson.area });
       if (latest.current.tip?.learnedBy.includes(signal)) setTip(null);
       save();
     };
     const offer = lesson => {
       if (!lesson || candidates.some(item => item.lesson.id === lesson.id) || latest.current.tip?.id === lesson.id) return;
-      if (!lessonReady(notebook.current.lessons[lesson.id], { now: Date.now(), session })) return;
+      if (!lessonReady(notebook.current.lessons[lesson.id], { now: Date.now() })) return;
       if (lesson.level > 1 && learnedIn(notebook.current, lesson.area) < BASICS_BEFORE_ADVANCED) return;
       candidates = [...candidates.slice(-5), { lesson, at: Date.now() }];
     };
-    const offerTrick = id => offer(trickLesson(trick(id), latest.current.shortcuts));
-    // Resize with several vertices selected is exactly when Zoom anchor helps.
-    const offerAnchor = () => { const p = latest.current; if (p.mode === 'vertices' && p.selectionCount > 1) offerTrick('trick:zoom-anchor'); };
+    const offerTrick = id => { const lesson = id && trick(id); if (lesson) offer(trickLesson(lesson, latest.current.shortcuts)); };
+    // Every pick of Resize (the "zoom" tool) is a moment to mention Zoom anchor.
+    const offerAnchor = () => { if (latest.current.mode === 'vertices') offerTrick('trick:zoom-anchor'); };
+    const settingsIds = new Set(['settings', 'hotkeys', 'graphics', 'appearanceSettings', 'configurationSettings', 'gridSettings', 'captureSettings']);
     const quiet = () => {
       const p = latest.current;
       return document.hidden || !focused || held > 0 || p.playing || p.busy || ['paint', 'showcase'].includes(p.mode) ||
@@ -84,16 +83,27 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
     const pointerdown = event => {
       lastInput = Date.now(); held++;
       const target = event.target, now = lastInput, p = latest.current;
-      if (event.button === 0 && inViewport(target)) {
-        if (event.altKey) record('alt-orbit', 'camera');
-        else if (p.tool === 'scale' && p.cameraMode === 'work') offerAnchor();
+      const canvas = inViewport(target), cameraDrag = canvas && (event.button === 2 || event.button === 0 && (event.altKey || p.cameraMode !== 'work'));
+      drag = { canvas, camera: cameraDrag, recorded: false };
+      if (event.button === 0 && canvas && event.altKey) record('alt-orbit', 'camera');
+      if (cameraDrag && within(cameraDrags, now) >= 2) offerTrick('trick:camera-fine');
+      if (event.button === 0 && canvas && !cameraDrag && p.mode === 'vertices') {
+        if (p.tool === 'scale') offerAnchor();
+        if (p.tool === 'select') { if (event.shiftKey || event.ctrlKey) record('select-modifier', 'vertices'); else if (within(selections, now) >= 2) offerTrick('trick:select-modifiers'); }
       }
       if (event.button === 0 && target.closest?.('.keyframe-timeline') && !target.closest('input,button,select,label')) offerTrick('trick:timeline-keys');
+      if (event.button === 0 && target.closest?.('.classic-geosets .geoset-row, .classic-geosets input[type="checkbox"]')) { if (event.shiftKey) record('geoset-range', 'vertices'); else if (within(geosetClicks, now) >= 3) offerTrick('trick:geoset-range'); }
+      if (event.button === 0 && target.closest?.('.uv-editor')) { if (event.altKey) record('uv-fine', 'uv'); else if (within(uvDrags, now) >= 2) offerTrick('trick:uv-fine'); }
       if (target.closest?.('select')) lastListPointer = now;
     };
     const pointerup = () => { lastInput = Date.now(); held = Math.max(0, held - 1); };
     // A button released outside the window sends no pointerup here.
-    const pointermove = event => { if (!event.buttons) held = 0; };
+    const pointermove = event => {
+      if (!event.buttons) { held = 0; drag = null; return; }
+      if (!drag?.canvas || drag.recorded || !event.shiftKey) return;
+      const p = latest.current, signal = drag.camera ? 'camera-fine' : p.mode !== 'vertices' ? '' : p.tool === 'translate' ? 'shift-move' : p.tool === 'rotate' ? 'shift-rotate' : '';
+      if (signal) { drag.recorded = true; record(signal, drag.camera ? 'camera' : 'vertices'); }
+    };
     const keydown = event => {
       lastInput = Date.now();
       if (event.key === 'Alt' && !event.ctrlKey && !event.shiftKey && !event.metaKey) { if (!event.repeat) { altDown = lastInput; altAlone = true; } }
@@ -112,6 +122,7 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
       clicks.set(id, times);
       if (id.startsWith('camera:')) { offerTrick('trick:camera-toggle'); return; }
       if (id === 'scale') offerAnchor();
+      if (settingsIds.has(id)) offerTrick('trick:hotkeys-page');
       const keys = p.shortcuts[id] || [], lesson = shortcutLesson({ actionId: id, label, keys, mode: p.mode });
       if (!lesson) return;
       if (directKey(keys) && within(keyedClicks, Date.now()) >= 3) offerTrick('trick:alt-badges');
@@ -129,7 +140,9 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
       const { id, chord } = event.detail || {};
       if (typeof id !== 'string') return;
       for (const signal of shortcutSignals(id, chord || '')) record(signal, areaFor(id, latest.current.mode));
+      if (latest.current.mode === 'bones') record('bones:' + id, 'bones');
       if (id === 'scale') offerAnchor();
+      if (settingsIds.has(id) && id !== 'hotkeys') offerTrick('trick:hotkeys-page');
     };
     const menu = event => {
       const id = event.detail?.id, action = typeof id === 'string' && latest.current.catalog.find(item => item.id === id);
@@ -138,13 +151,15 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
     const blur = () => { focused = false; held = 0; altAlone = false; }, focus = () => { focused = true; };
     const tick = () => {
       const now = Date.now();
-      candidates = candidates.filter(item => item.lesson.once || now - item.at <= timing.candidate);
+      // Tricks wait two minutes for a quiet moment; key tips only while the click is fresh.
+      candidates = candidates.filter(item => item.lesson.once || now - item.at <= (item.lesson.priority ? 2 * 60 * 1000 : timing.candidate));
       if (!candidates.length || latest.current.tip || now - lastInput < timing.idle || quiet()) return;
       if (!mayInterrupt({ now, notebook: notebook.current, sessionStartedAt: startedAt, lastTipAt, pace: latest.current.pace, timing })) return;
-      const next = candidates.find(item => item.lesson.once) || candidates.at(-1);
+      const top = Math.max(...candidates.map(item => item.lesson.priority || 0));
+      const next = candidates.filter(item => (item.lesson.priority || 0) === top).at(-1);
       candidates = candidates.filter(item => item !== next);
       const { lesson } = next;
-      if (!lessonReady(notebook.current.lessons[lesson.id], { now, session })) return;
+      if (!lessonReady(notebook.current.lessons[lesson.id], { now })) return;
       notebook.current = recordShown(notebook.current, lesson.id, { now, area: lesson.area });
       if (lesson.once) notebook.current = retireLesson(notebook.current, lesson.id, { area: lesson.area });
       save(); lastTipAt = now; setTip(lesson);
@@ -155,18 +170,25 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
       if (current === 'rotate') rotateSince = now;
       else if (current === 'work' && rotateSince && now - rotateSince < 20000) { rotateSince = 0; offerTrick('trick:alt-orbit'); }
     };
+    // Entering an editor or picking a tool is when its tricks help.
+    context.current = () => {
+      const { mode, tool } = latest.current;
+      if (mode === 'vertices') offerTrick({ scale: 'trick:zoom-anchor', rotate: 'trick:rotate-snap', translate: 'trick:move-axis' }[tool]);
+      else offerTrick({ uv: 'trick:uv-keys', animation: 'trick:play-space', bones: 'trick:bones-keys' }[mode]);
+    };
     offer(WELCOME);
     const listeners = [['pointerdown', pointerdown, true], ['pointerup', pointerup, true], ['pointercancel', pointerup, true], ['pointermove', pointermove, { capture: true, passive: true }], ['keydown', keydown, true], ['keyup', keyup, true],
       ['wheel', wheel, { capture: true, passive: true }], ['change', change, true], ['mdlxl-input-observed', () => { lastInput = Date.now(); }], ['click', click, true], ['mdlxl-hotkey-used', hotkey], ['mdlxl-menu-command', menu], ['blur', blur], ['focus', focus]];
     for (const [type, listener, options] of listeners) window.addEventListener(type, listener, options);
     const timer = setInterval(tick, 250);
     return () => {
-      clearInterval(timer); clearTimeout(saveTimer); camera.current = null;
+      clearInterval(timer); clearTimeout(saveTimer); camera.current = null; context.current = null;
       for (const [type, listener, options] of listeners) window.removeEventListener(type, listener, options);
       storeNotebook(notebook.current);
     };
   }, [enabled]);
   useEffect(() => { camera.current?.(); }, [cameraMode]);
+  useEffect(() => { context.current?.(); }, [mode, tool, ready]);
 
   // The bubble fades by itself; the mouse resting on it keeps it.
   useEffect(() => {
@@ -188,11 +210,6 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
 
   if (!enabled || !ready) return null;
   const update = next => { notebook.current = next; storeNotebook(next); };
-  const targets = tip?.target ? controlsFor(tip.target) : [];
-  const showMe = () => {
-    for (const element of targets) { element.classList.remove('shredder-show'); void element.offsetWidth; element.classList.add('shredder-show'); setTimeout(() => element.classList.remove('shredder-show'), 2400); }
-  };
-  const never = () => { update(retireLesson(notebook.current, tip.id, { area: tip.area })); setTip(null); };
   const later = () => { update(remindLater(notebook.current, tip.id, { now: Date.now(), area: tip.area, timing: loadTiming() })); setTip(null); };
   const quietToday = () => { update(quietForToday(notebook.current, Date.now())); setTip(null); setNotebookOpen(false); };
   const summary = notebookOpen ? notebookSummary(notebook.current, SHREDDER_AREAS, Date.now()) : null;
@@ -201,16 +218,14 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
     {tip && <div className="shredder-bubble" role="status" aria-live="polite" data-shredder-lesson={tip.id}
       onPointerEnter={() => { hovered.current = true; }} onPointerLeave={() => { hovered.current = false; }}>
       <p>{fillLesson(tip.text, tip.args)}</p>
-      <div className="shredder-actions">{tip.once ? <button type="button" onClick={() => setTip(null)}>Got it</button> : <>
-        {targets.length > 0 && <button type="button" title="Outline the button this tip is about." onClick={showMe}>Show me</button>}
-        <button type="button" title="Close this tip. It comes back a little later." onClick={later}>Remind me later</button>
-        <button type="button" title="Shredder never mentions this tip again." onClick={never}>Don't mention it again</button></>}</div>
+      <div className="shredder-actions"><button type="button" title="Close this tip. Until you use the trick yourself, it comes back now and then." onClick={() => setTip(null)}>K, bro.</button>
+        {!tip.once && <button type="button" title="Close this tip and bring it back soon." onClick={later}>Tell me later, bro.</button>}</div>
     </div>}
     {summary && <div className="shredder-notebook" role="dialog" aria-label="Shredder's notebook">
       <header><strong>Shredder's notebook</strong><button type="button" aria-label="Close" onClick={() => setNotebookOpen(false)}>×</button></header>
       <table><tbody>{summary.areas.map(row => <tr key={row.area}><td>{row.label}</td><td>{row.met ? `${row.learned} of ${row.met} learned` : 'Not visited yet'}</td></tr>)}</tbody></table>
       <p className="shredder-week">{`This week: ${summary.learnedThisWeek} learned · ${summary.learned} in all`}</p>
-      <p className="shredder-help">A trick counts as learned once you have used it yourself on three separate occasions.</p>
+      <p className="shredder-help">A trick counts as learned once you have used it yourself five separate times.</p>
       {quietUntilTomorrow && <p className="shredder-help">Quiet until tomorrow.</p>}
       {SHREDDER_TEST_VERSION && <p className="shredder-help">Test version: tips come every few seconds.</p>}
       <div className="shredder-actions">
