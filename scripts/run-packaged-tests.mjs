@@ -55,7 +55,7 @@ const SPECIAL = {
   'optimizexl-workflow': { env: { MDLXL_OPTIMIZEXL_EXE: exe } },
   'showcase-effects': { env: { MDLXL_EFFECT_MODEL: effectModel }, needs: [effectModel && path.resolve(effectModel)], hint: 'set MDLXL_EFFECT_MODEL to WH_WOC_KnightKhorneFlail03.mdx' },
 };
-for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-glow', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer', 'perspective-zoom']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
+for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-glow', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer', 'perspective-zoom', 'glow-up']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
 for (const name of ['showcase-actions', 'update-shredder', 'updater-packaged', 'updater-processes', 'geoset-merge-conflicts', 'geoset-tabs']) SPECIAL[name] = { env: { MDLXL_TEST_PACKAGE: pkg } };
 SPECIAL['updater-processes'].env.MDLXL_TEST_OUTPUT = out('updater-processes');
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };

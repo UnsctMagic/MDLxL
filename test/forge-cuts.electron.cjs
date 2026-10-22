@@ -19,6 +19,8 @@ function pointForFace(view,shape,face){const points=face.vertices.map(i=>pointFo
  page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));await page.getByRole('button',{name:'Forge',exact:true}).click();const d=page.getByRole('dialog',{name:'Forge',exact:true});
  const click=async name=>{await d.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(150);};
  const view=async()=>{await page.waitForTimeout(150);return page.evaluate(readView);};const doc=()=>page.evaluate(readDraft);
+ // The draft hook can be read a render early; small pointer moves let React finish before checking.
+ const settledDoc=async ready=>{for(let i=0;i<20;i++){const value=await doc();if(ready(value))return value;await page.mouse.move(20+i,50);await page.waitForTimeout(100);}return doc();};
  const tops=shape=>shape.faces.filter(f=>forgeFaceNormal(shape,f)[2]>.999).sort((a,b)=>a.vertices.reduce((n,i)=>n+shape.vertices[i][0],0)/a.vertices.length-b.vertices.reduce((n,i)=>n+shape.vertices[i][0],0)/b.vertices.length);
  const pick=async p=>{await page.mouse.dblclick(p.x,p.y,{delay:90});await page.waitForTimeout(150);};
  await d.getByLabel('Width',{exact:true}).fill('300');await d.getByLabel('Height',{exact:true}).fill('100');await d.getByLabel('Depth',{exact:true}).fill('30');await click('Cube');
@@ -42,7 +44,7 @@ function pointForFace(view,shape,face){const points=face.vertices.map(i=>pointFo
  await click('Undo');assert.deepEqual((await doc()).shapes,base.shapes);await click('Edit Cube 1');const manualBase=await doc();await click('Cut');await click('Place cuts');v=await view();shape=manualBase.shapes[0];const front=shape.faces.find(f=>forgeFaceNormal(shape,f)[1]<-.999);
  const endpoints=[-150,150].map(x=>{const pts=front.vertices.filter(i=>Math.abs(shape.vertices[i][0]-x)<1e-4).map(i=>pointForVertex(v,shape.vertices[i]));return {x:pts.reduce((n,p)=>n+p.x,0)/pts.length,y:pts.reduce((n,p)=>n+p.y,0)/pts.length};});
  for(const fraction of [.23,.68]){const q={x:endpoints[0].x+(endpoints[1].x-endpoints[0].x)*fraction,y:endpoints[0].y+(endpoints[1].y-endpoints[0].y)*fraction};await page.mouse.move(q.x,q.y);await page.waitForTimeout(150);assert.deepEqual(await doc(),manualBase);await page.mouse.click(q.x,q.y);}
- await page.mouse.move(20,50);await click('Apply cuts');assert.equal(tops((await doc()).shapes[0]).length,3);await click('Undo');assert.deepEqual(await doc(),manualBase);
+ await page.mouse.move(20,50);await click('Apply cuts');assert.equal(tops((await settledDoc(d=>tops(d.shapes[0]).length===3)).shapes[0]).length,3);await click('Undo');assert.deepEqual(await doc(),manualBase);
  checks.push('Two individually clicked cuts preview on the surface and create three sections in a single Undo step');
  await click('Cut');await click('Place cuts');const beforeCamera=await view();await page.keyboard.down('Alt');await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x+45,p.y+20,{steps:8});await page.mouse.up();await page.keyboard.up('Alt');assert.notDeepEqual((await view()).quaternion,beforeCamera.quaternion);assert.deepEqual(await doc(),manualBase);await page.keyboard.press('Escape');assert.equal(await d.getByRole('group',{name:'Cut controls',exact:true}).count(),0);assert.deepEqual(await doc(),manualBase);
  await click('Cut');await click('Cancel cuts');assert.deepEqual(await doc(),manualBase);checks.push('Normal mouse rotation works while cutting; Escape and Cancel discard the preview without changing the draft');

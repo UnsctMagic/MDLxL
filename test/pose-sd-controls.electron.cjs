@@ -93,7 +93,15 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
       assert.equal(await pin.isVisible(), true, 'Pin returns after the gesture');
       const after = await snap();
       if (ending !== 'commit') assert.deepEqual(after, before, ending + ' leaves no keys or history');
-      else { assert.equal(after.undo, before.undo + 1); assertModelEquivalent(after.model, preview.model); }
+      else {
+        assert.equal(after.undo, before.undo + 1);
+        // The renderer's private copy drops camera-facing bits while editing (#257); only those bits may differ.
+        for (const [key, list] of Object.entries(after.model)) if (Array.isArray(list)) list.forEach((item, i) => {
+          const shown = preview.model[key]?.[i];
+          if (shown && Number.isFinite(item?.Flags) && ((item.Flags ^ (shown.Flags || 0)) & ~120) === 0) shown.Flags = item.Flags;
+        });
+        assertModelEquivalent(after.model, preview.model);
+      }
       return { before, after };
     }
     async function pinCheck(chain, view) {

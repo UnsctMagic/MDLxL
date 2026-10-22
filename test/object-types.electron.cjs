@@ -87,8 +87,10 @@ const { buildSync } = require('esbuild');
       const dynamic={colored:read(colored),plain:read(plain)};colored.remove();plain.remove();
       return {input:read(input),option:read(option),filters:[...document.querySelectorAll('.movement-object-filters label')].map(read),arrow:{color:getComputedStyle(picker).color,appearance:getComputedStyle(picker).appearance,background:getComputedStyle(picker).backgroundImage},otherSelects:[...document.querySelectorAll('select')].filter(e=>e!==picker).map(e=>({appearance:getComputedStyle(e).appearance,background:getComputedStyle(e).backgroundImage})),dynamic};
     },ref.ObjectId);
-    assert.equal(textStyles.input.color,'rgb(190, 24, 93)'); assert.equal(textStyles.option.color,textStyles.input.color);
-    assert.deepEqual(textStyles.filters.map(s=>s.color),['rgb(22, 101, 52)','rgb(107, 33, 168)','rgb(190, 24, 93)'],'option 1 text colors');
+    // readableTextColor may serialize as color(srgb …); compare the colour, not the notation.
+    const rgb=value=>{const m=String(value).match(/^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)/);return m?`rgb(${m.slice(1).map(n=>Math.round(n*255)).join(', ')})`:value;};
+    assert.equal(rgb(textStyles.input.color),'rgb(190, 24, 93)'); assert.equal(rgb(textStyles.option.color),rgb(textStyles.input.color));
+    assert.deepEqual(textStyles.filters.map(s=>rgb(s.color)),['rgb(22, 101, 52)','rgb(107, 33, 168)','rgb(190, 24, 93)'],'option 1 text colors');
     assert.ok([...textStyles.filters,textStyles.input,textStyles.option].every(s=>parseFloat(s.width)===.2),'option 1 fine outline');
     assert.ok(['rgb(0, 0, 0)','color(srgb 0 0 0)'].includes(textStyles.input.stroke)); assert.ok(['rgb(0, 0, 0)','color(srgb 0 0 0)'].includes(textStyles.option.stroke)); assert.ok(parseFloat(textStyles.option.width)>0);
     assert.equal(textStyles.arrow.color,'rgb(0, 0, 0)','the original small object-picker arrow is black');
@@ -126,7 +128,7 @@ const { buildSync } = require('esbuild');
       const colors=await page.evaluate(()=>objectColors());
       assert.equal(colors.find(c=>c.id===helper.ObjectId).color,preset.appearance.bones.helper,preset.name+' helper');
       assert.equal(colors.find(c=>c.id===ref.ObjectId).color,preset.appearance.bones.ref,preset.name+' ref');
-      assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>e.style.color)),[preset.appearance.tree.nodes.bone,preset.appearance.tree.nodes.helper,preset.appearance.tree.nodes.attachment].map(hex=>'rgb('+[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', ')+')'),preset.name+' text palette');
+      assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():e.style.color;})),[preset.appearance.tree.nodes.bone,preset.appearance.tree.nodes.helper,preset.appearance.tree.nodes.attachment].map(hex=>hex.toLowerCase()),preset.name+' text palette (readable lift of the preset colour, #267)');
       result.palettes.push({name:preset.name,colors});
       if(['mdlvis-vanilla','blender-style'].includes(preset.id))await page.screenshot({path:path.join(out,preset.id==='mdlvis-vanilla'?'lordaeron.png':'blackrock.png')});
     }
@@ -148,7 +150,7 @@ const { buildSync } = require('esbuild');
     await page.locator('.vis-toggle').click(); await idle(); assert.deepEqual(await checks(),[false,true,true],'XL choices survive VIS switch');
     await close(); await launch(); assert.deepEqual(await checks(),[false,true,true],'object choices persist after app reopen');
     const restored=await page.evaluate(()=>objectColors()); assert.equal(restored.find(c=>c.id===helper.ObjectId).color,'#b940ff'); assert.equal(restored.find(c=>c.id===ref.ObjectId).color,'#ff22aa');
-    assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>getComputedStyle(e).color)),['rgb(27, 104, 55)','rgb(113, 35, 173)','rgb(193, 25, 100)'],'custom text colors persist after reopen');
+    assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():getComputedStyle(e).color;})),['#1b6837','#7123ad','#c11964'],'custom text colors persist after reopen (dark themes lift them for contrast, #267)');
     assert.deepEqual(fs.readFileSync(fixture),original,'fixture bytes unchanged'); assert.deepEqual(errors,[]);
     result.pass=true; fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2)); console.log('PASS object row, ref/helper mouse moves, typed coordinates, undo, all palettes, custom colors, VIS, app reopen and camera rotation');
   } finally { await close(); fs.rmSync(profile,{recursive:true,force:true}); fs.rmSync(fixture,{force:true}); }
