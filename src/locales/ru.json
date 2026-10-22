@@ -6073,5 +6073,11 @@
   "Fewer tips": "Реже подсказки",
   "At most one tip every 10 minutes instead of every 3.": "Не больше одной подсказки раз в 10 минут вместо 3.",
   "Turn off": "Выключить",
-  "Shredder flies away. Turn him on again in Settings → Configuration.": "Шреддер улетает. Снова включить его можно в «Настройки → Конфигурация»."
+  "Shredder flies away. Turn him on again in Settings → Configuration.": "Шреддер улетает. Снова включить его можно в «Настройки → Конфигурация».",
+  "Hi, I'm Shredder. While you work, I point out keys and tricks you might not know yet. Click me any time for my notebook.": "Привет, я Шреддер. Пока вы работаете, я подсказываю клавиши и приёмы, которых вы, может быть, ещё не знаете. Нажмите на меня в любой момент, чтобы открыть мой блокнот.",
+  "Remind me later": "Напомни позже",
+  "Don't mention it again": "Больше не говори об этом",
+  "Close this tip. It comes back a little later.": "Закрыть подсказку. Она вернётся чуть позже.",
+  "Shredder never mentions this tip again.": "Шреддер больше никогда не скажет об этом.",
+  "Test version: tips come every few seconds.": "Тестовая версия: подсказки приходят каждые несколько секунд."
 }

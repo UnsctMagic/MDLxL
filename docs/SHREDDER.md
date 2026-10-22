@@ -60,8 +60,12 @@ release timing below and makes him off by default.
 - **Silence.** Nothing while you type in a field, play an animation, have a
   window or dialog open, save, or work in Paint or Showcase. Recordings come
   from the 3D picture only, so the bubble can never appear in a GIF.
-- **A habit, not one click.** A shortcut tip comes on the 2nd click of the same
-  button in one session; a code tip on the 3rd.
+- **He speaks up.** A shortcut tip comes on the first mouse click of a button;
+  a code tip on the 2nd. A trick comes the first time you are where it helps,
+  for example Zoom anchor as soon as you pick Resize with several vertices
+  selected. He says hello once, the first time he may speak.
+- **The right key closes the tip.** Using the key or trick a tip talks about
+  closes it at once.
 - **One at a time.** At most one tip every 3 minutes. "Fewer tips" makes it
   10 minutes.
 - **No nagging.** Each tip is shown at most 3 times ever. The 2nd showing waits
@@ -69,10 +73,11 @@ release timing below and makes him off by default.
 - **Short-lived.** The bubble fades after 8 seconds and pauses while the mouse
   is over it. It never takes the keyboard and never blocks clicks elsewhere.
 - **You decide.**
-  - Right-click a tip: "never show this one again".
+  - Every tip has Show me, Remind me later (back after 30 minutes, 1 minute in
+    the test version) and Don't mention it again.
   - Notebook: Quiet for today, Fewer tips, Turn off.
-- **Basics first.** Deeper (level 2) lessons in an area open only after 3
-  lessons in that area are learned.
+- **Codes after basics.** Ctrl+Alt+Space code tips in an area open only after
+  3 lessons in that area are learned. Tricks never wait.
 
 ## Lessons in step 1
 
@@ -81,12 +86,12 @@ The hand-written tricks are:
 
 | Lesson | When | Learned by |
 | --- | --- | --- |
-| Hold Alt to see keys | 6 clicks on buttons that have a key | holding Alt alone, twice |
-| Wheel over a list | 3 list changes by mouse within a minute | wheel over a list, twice |
-| W toggles camera | 2 clicks on the camera mode buttons | using the camera toggle key |
-| Alt-drag turns the camera (level 2) | switching to Camera rotation and back within 20 s, twice | Alt + left drag in the viewport |
-| Zoom anchor (level 2) | 2 Resize drags with several vertices selected | using Zoom anchor, twice |
-| Timeline ← / → | 3 timeline scrubs within a minute | arrow keys on the timeline |
+| Hold Alt to see keys | 3 clicks on buttons that have a key within a minute | holding Alt alone, twice |
+| Wheel over a list | 2 list changes by mouse within a minute | wheel over a list, twice |
+| W toggles camera | a click on a camera mode button | using the camera toggle key |
+| Alt-drag turns the camera | switching to Camera rotation and back within 20 s | Alt + left drag in the viewport |
+| Zoom anchor | picking Resize (or dragging with it) with several vertices selected | using Zoom anchor, twice |
+| Timeline ← / → | a click on the timeline | arrow keys on the timeline |
 
 ## Tests
 

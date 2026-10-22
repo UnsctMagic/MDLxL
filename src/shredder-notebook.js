@@ -12,6 +12,7 @@ export const RELEASE_TIMING = Object.freeze({
   bubble: 8000,
   occasionGap: 20 * MINUTE,
   thirdShowWait: 2 * DAY,
+  remindLater: 30 * MINUTE,
 });
 /** Rapid timing for trying Shredder out: no quiet start, a tip every few seconds. */
 export const TEST_TIMING = Object.freeze({
@@ -22,6 +23,7 @@ export const TEST_TIMING = Object.freeze({
   bubble: 8000,
   occasionGap: MINUTE,
   thirdShowWait: 2 * MINUTE,
+  remindLater: MINUTE,
 });
 /** TEST VERSION: switch to false (release timing, off by default) before shipping. */
 export const SHREDDER_TEST_VERSION = true;
@@ -44,14 +46,14 @@ export function normalizeNotebook(input) {
       area: typeof record.area === 'string' ? record.area.slice(0, 40) : 'everywhere',
       shown: count(record.shown), lastShown: time(record.lastShown), lastShownSession: count(record.lastShownSession),
       occasions: count(record.occasions), lastOccasion: time(record.lastOccasion), lastUseSession: count(record.lastUseSession),
-      learnedAt: time(record.learnedAt), retired: record.retired === true,
+      learnedAt: time(record.learnedAt), retired: record.retired === true, remindAfter: time(record.remindAfter),
     };
   }
   return notebook;
 }
 
 export const startSession = notebook => ({ ...notebook, sessions: notebook.sessions + 1 });
-const blank = area => ({ area, shown: 0, lastShown: 0, lastShownSession: 0, occasions: 0, lastOccasion: 0, lastUseSession: 0, learnedAt: 0, retired: false });
+const blank = area => ({ area, shown: 0, lastShown: 0, lastShownSession: 0, occasions: 0, lastOccasion: 0, lastUseSession: 0, learnedAt: 0, retired: false, remindAfter: 0 });
 function change(notebook, id, area, update) {
   const previous = notebook.lessons[id] || blank(area || 'everywhere');
   const lessons = { ...notebook.lessons, [id]: update({ ...previous }) };
@@ -71,8 +73,10 @@ export function recordUse(notebook, id, { now, area, need = LEARNED_OCCASIONS, t
     return record;
   });
 }
-export const recordShown = (notebook, id, { now, area }) => change(notebook, id, area, record => ({ ...record, shown: record.shown + 1, lastShown: now, lastShownSession: notebook.sessions }));
+export const recordShown = (notebook, id, { now, area }) => change(notebook, id, area, record => ({ ...record, shown: record.shown + 1, lastShown: now, lastShownSession: notebook.sessions, remindAfter: 0 }));
 export const retireLesson = (notebook, id, { area } = {}) => change(notebook, id, area, record => ({ ...record, retired: true }));
+/** "Remind me later": the tip may come back after a while, even in the same session. */
+export const remindLater = (notebook, id, { now, area, timing = SHREDDER_TIMING }) => change(notebook, id, area, record => ({ ...record, remindAfter: now + timing.remindLater }));
 export function quietForToday(notebook, now) {
   const midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
   return { ...notebook, quietUntil: midnight.getTime() };
@@ -83,6 +87,7 @@ export const isLearned = record => !!record?.learnedAt;
 export function lessonReady(record, { now, session, timing = SHREDDER_TIMING }) {
   if (!record) return true;
   if (record.learnedAt || record.retired || record.shown >= MAX_SHOWS) return false;
+  if (record.remindAfter) return now >= record.remindAfter;
   if (record.shown === 1) return record.lastShownSession !== session;
   if (record.shown === 2) return record.lastShownSession !== session && now - record.lastShown >= timing.thirdShowWait;
   return true;

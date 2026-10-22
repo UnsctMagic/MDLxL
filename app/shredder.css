@@ -3,7 +3,7 @@
 .shredder-bird:hover,.shredder-bird[aria-expanded=true]{border-color:var(--ui-accent,#468bc6);color:var(--ui-accent,#468bc6)}
 .shredder-bird.speaking{color:var(--ui-accent,#468bc6)}
 .shredder-bubble,.shredder-notebook{position:absolute;right:0;bottom:calc(100% + 6px);z-index:1150;white-space:normal;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#000);border:1px solid var(--ui-border,#808080);box-shadow:0 2px 8px #0004;animation:shredder-appear .15s ease-out}
-.shredder-bubble{width:260px;padding:7px 9px}
+.shredder-bubble{width:340px;max-width:calc(100vw - 16px);padding:7px 9px}
 .shredder-bubble p{margin:0 0 6px;line-height:1.4}
 .shredder-actions{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
 .shredder-notebook{width:290px;padding:6px 9px 8px}

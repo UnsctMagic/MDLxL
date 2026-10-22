@@ -3265,5 +3265,11 @@
   "Fewer tips": "减少提示",
   "At most one tip every 10 minutes instead of every 3.": "最多每 10 分钟一条提示，而不是每 3 分钟。",
   "Turn off": "关闭",
-  "Shredder flies away. Turn him on again in Settings → Configuration.": "史莱德飞走了。可在“设置 → 配置”中重新开启。"
+  "Shredder flies away. Turn him on again in Settings → Configuration.": "史莱德飞走了。可在“设置 → 配置”中重新开启。",
+  "Hi, I'm Shredder. While you work, I point out keys and tricks you might not know yet. Click me any time for my notebook.": "你好，我是史莱德。你工作时，我会指出你可能还不知道的快捷键和技巧。随时点击我即可打开我的笔记本。",
+  "Remind me later": "稍后提醒我",
+  "Don't mention it again": "不要再提",
+  "Close this tip. It comes back a little later.": "关闭此提示。稍后会再出现。",
+  "Shredder never mentions this tip again.": "史莱德不会再提这条提示。",
+  "Test version: tips come every few seconds.": "测试版：每隔几秒就会出现提示。"
 }

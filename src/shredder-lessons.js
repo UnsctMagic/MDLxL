@@ -6,20 +6,26 @@ export const SHREDDER_AREAS = Object.freeze([
   ['everywhere', 'Everywhere'], ['camera', 'Camera and view'], ['vertices', 'Vertex editor'],
   ['uv', 'UV editor'], ['animation', 'Animation and timeline'], ['bones', 'Bones'],
 ]);
-/** Deeper (level 2) lessons in an area wait until this many lessons there are learned. */
+/** Ctrl+Alt+Space code lessons (level 2) in an area wait until this many lessons there are learned. */
 export const BASICS_BEFORE_ADVANCED = 3;
-export const SHORTCUT_CLICKS = 2, CODE_CLICKS = 3;
+/** A key tip comes on the first mouse click of a button; a code tip on the second. */
+export const SHORTCUT_CLICKS = 1, CODE_CLICKS = 2;
+
+/** Said once, the first time he may speak after being switched on. */
+export const WELCOME = Object.freeze({ id: 'intro:welcome', area: 'everywhere', level: 1, once: true, args: [], learnedBy: Object.freeze([]),
+  text: "Hi, I'm Shredder. While you work, I point out keys and tricks you might not know yet. Click me any time for my notebook." });
 
 /**
- * Hand-written tricks. `learnedBy` lists the signals that prove the user does it
- * without help; `key` names a command whose current binding fills {0}.
+ * Hand-written tricks, offered the first time the user is where they help.
+ * `learnedBy` lists the signals that prove the user does it without help;
+ * `key` names a command whose current binding fills {0}.
  */
 export const TRICKS = Object.freeze([
   { id: 'trick:alt-badges', area: 'everywhere', level: 1, need: 2, text: 'Hold Alt to see the key on every button.', learnedBy: ['alt-reveal'] },
   { id: 'trick:dropdown-wheel', area: 'everywhere', level: 1, need: 2, text: 'Spin the mouse wheel over a list to step through it without opening it.', learnedBy: ['dropdown-wheel'] },
   { id: 'trick:camera-toggle', area: 'camera', level: 1, key: 'cameraToggle', text: '{0} switches between working and turning the camera.', learnedBy: ['key:cameraToggle'] },
-  { id: 'trick:alt-orbit', area: 'camera', level: 2, text: 'Hold Alt and drag with the left mouse button to turn the camera, then let go to keep working.', learnedBy: ['alt-orbit'] },
-  { id: 'trick:zoom-anchor', area: 'vertices', level: 2, need: 2, key: 'anchorSelect', target: 'anchorSelect', text: 'Press {0} for Zoom anchor, then drag a box over one selected vertex. Resize then grows and shrinks toward that vertex.', learnedBy: ['use:anchorSelect'] },
+  { id: 'trick:alt-orbit', area: 'camera', level: 1, text: 'Hold Alt and drag with the left mouse button to turn the camera, then let go to keep working.', learnedBy: ['alt-orbit'] },
+  { id: 'trick:zoom-anchor', area: 'vertices', level: 1, need: 2, key: 'anchorSelect', target: 'anchorSelect', text: 'Press {0} for Zoom anchor, then drag a box over one selected vertex. Resize then grows and shrinks toward that vertex.', learnedBy: ['use:anchorSelect'] },
   { id: 'trick:timeline-keys', area: 'animation', level: 1, text: 'Click the timeline, then press ← and → to jump from key to key.', learnedBy: ['timeline-arrows'] },
 ].map(Object.freeze));
 export const trick = id => TRICKS.find(lesson => lesson.id === id);

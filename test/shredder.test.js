@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SHREDDER_TIMING, RELEASE_TIMING, TEST_TIMING, SHREDDER_TEST_VERSION, MAX_SHOWS, emptyNotebook, normalizeNotebook, startSession, recordUse, recordShown, retireLesson,
-  quietForToday, lessonReady, lessonReady as ready, learnedIn, mayInterrupt, notebookSummary,
+  remindLater, quietForToday, lessonReady, lessonReady as ready, learnedIn, mayInterrupt, notebookSummary,
 } from '../src/shredder-notebook.js';
-import { SHREDDER_AREAS, TRICKS, trick, areaFor, shortcutLesson, shortcutSignals, trickLesson, fillLesson } from '../src/shredder-lessons.js';
+import { SHREDDER_AREAS, TRICKS, WELCOME, SHORTCUT_CLICKS, trick, areaFor, shortcutLesson, shortcutSignals, trickLesson, fillLesson } from '../src/shredder-lessons.js';
 import { COMMANDS } from '../src/commands.js';
 import { DEFAULT_PREFERENCES, normalizePreferences } from '../src/preferences.js';
 import { translate } from '../src/localization.js';
@@ -54,6 +54,19 @@ test('a tip is shown at most three times, ever more rarely, and "never" retires 
   assert.equal(lessonReady(notebook.lessons['key:open'], { now: start, session: notebook.sessions }), false);
 });
 
+test('"Remind me later" brings a tip back after a while, even in the same session, within the show limit', () => {
+  let notebook = startSession(emptyNotebook());
+  const ready = (record, now) => lessonReady(record, { now, session: notebook.sessions, timing });
+  notebook = recordShown(notebook, 'trick:zoom-anchor', { now: start, area: 'vertices' });
+  notebook = remindLater(notebook, 'trick:zoom-anchor', { now: start, area: 'vertices', timing });
+  assert.equal(ready(notebook.lessons['trick:zoom-anchor'], start + timing.remindLater - 1), false);
+  assert.equal(ready(notebook.lessons['trick:zoom-anchor'], start + timing.remindLater), true, 'same session, after the wait');
+  notebook = recordShown(notebook, 'trick:zoom-anchor', { now: start + timing.remindLater, area: 'vertices' });
+  assert.equal(notebook.lessons['trick:zoom-anchor'].remindAfter, 0, 'showing it again clears the reminder');
+  assert.equal(ready(notebook.lessons['trick:zoom-anchor'], start + 2 * timing.remindLater), false, 'without a new reminder the normal spacing applies');
+  assert.equal(normalizeNotebook(JSON.parse(JSON.stringify(remindLater(notebook, 'x', { now: start, area: 'everywhere', timing })))).lessons.x.remindAfter, start + timing.remindLater);
+});
+
 test('manners: quiet start, cooldown by pace, and quiet for today', () => {
   const notebook = emptyNotebook();
   const ask = (now, extra = {}) => mayInterrupt({ now, notebook, sessionStartedAt: start, timing, ...extra });
@@ -93,6 +106,13 @@ test('shortcut lessons use the current binding: a key first, otherwise its Ctrl+
   assert.equal(areaFor('save', 'uv'), 'everywhere');
   assert.equal(areaFor('uv:flip-u', 'uv'), 'uv');
   assert.equal(areaFor('select', 'paint'), 'everywhere');
+});
+
+test('he speaks up: a key tip on the first click, tricks without waiting for basics, a hello said once', () => {
+  assert.equal(SHORTCUT_CLICKS, 1);
+  for (const lesson of TRICKS) assert.equal(lesson.level, 1, lesson.id);
+  assert.equal(WELCOME.once, true);
+  assert.match(WELCOME.text, /Shredder/);
 });
 
 test('tricks name their own learning signals and fill in the user key, or step aside without one', () => {
@@ -139,7 +159,8 @@ test('Shredder starts on only in the test version, and his preferences survive n
 test('every Shredder sentence is translated, with the user key and button name kept', () => {
   const sources = [...TRICKS.map(lesson => lesson.text), ...SHREDDER_AREAS.map(([, label]) => label), 'Next time press {0} for {1}.', '{1} has a code: press Ctrl+Alt+Space, let go, then type {0}.',
     "Shredder's notebook", '{0} of {1} learned', 'Not visited yet', 'This week: {0} learned · {1} in all', 'Show me', 'Got it', 'Quiet for today', 'Fewer tips', 'Turn off', 'Shredder the Wise',
-    'Shredder the Wise: hotkey and trick tips', 'Right-click: never show this tip again', 'Quiet until tomorrow.', 'No tips until tomorrow.'];
+    'Shredder the Wise: hotkey and trick tips', 'Quiet until tomorrow.', 'No tips until tomorrow.', WELCOME.text, 'Remind me later', "Don't mention it again",
+    'Close this tip. It comes back a little later.', 'Shredder never mentions this tip again.', 'Test version: tips come every few seconds.'];
   for (const [locale, pack] of Object.entries({ ru, es, zh })) for (const source of sources) assert.ok(pack[source]?.trim(), `${locale}: ${source}`);
   for (const locale of ['ru', 'es', 'zh']) {
     const sentence = translate('Next time press M for Move.', locale);

@@ -6085,5 +6085,11 @@
   "Fewer tips": "Menos consejos",
   "At most one tip every 10 minutes instead of every 3.": "Como mucho un consejo cada 10 minutos en lugar de cada 3.",
   "Turn off": "Desactivar",
-  "Shredder flies away. Turn him on again in Settings → Configuration.": "Shredder se va volando. Vuelve a activarlo en Ajustes → Configuración."
+  "Shredder flies away. Turn him on again in Settings → Configuration.": "Shredder se va volando. Vuelve a activarlo en Ajustes → Configuración.",
+  "Hi, I'm Shredder. While you work, I point out keys and tricks you might not know yet. Click me any time for my notebook.": "Hola, soy Shredder. Mientras trabajas, te señalo teclas y trucos que quizá aún no conoces. Haz clic en mí cuando quieras para ver mi cuaderno.",
+  "Remind me later": "Recuérdamelo luego",
+  "Don't mention it again": "No vuelvas a mencionarlo",
+  "Close this tip. It comes back a little later.": "Cierra este consejo. Volverá un poco más tarde.",
+  "Shredder never mentions this tip again.": "Shredder no volverá a mencionar este consejo.",
+  "Test version: tips come every few seconds.": "Versión de prueba: los consejos llegan cada pocos segundos."
 }
