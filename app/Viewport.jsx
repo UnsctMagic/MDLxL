@@ -8,6 +8,8 @@ import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, HIDDEN_LINE_DASH, HIDDEN_LINE_FADE } from './preview-overlays.js';
 import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
+import {drawPoseOverlay} from './pose-overlay.js';
+import {translate} from '../src/localization.js';
 import { visibleMovementPoints } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { projectPreviewGeosets, pickPreviewGeoset } from './preview-selection.js';
@@ -190,7 +192,7 @@ export default function Viewport(inputProps) {
     ambient.position.set(0, 0, 300); scene.add(ambient);
     const key = new THREE.DirectionalLight(0xffeed7, 2.8); key.position.set(200, -280, 350); scene.add(key);
     scene.add(key.target);
-    let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, rotating = false;
+    let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, magnetButton, rotating = false;
     let grid = createViewportGrid(); scene.add(grid);
     const rigMarkers = createRigMarkersGL(renderer.getContext()); renderer.resetState();
     const platform = createPreviewPlatform(() => invalidate()); scene.add(platform);
@@ -396,8 +398,8 @@ export default function Viewport(inputProps) {
     };
 
     const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
-    let down = null, editClicks = 0;
-    function point(event) { const rect = surface.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top, width: rect.width, height: rect.height }; }
+    let down = null, editClicks = 0, partHover = null;
+    function point(event) { const rect = surface.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top, width: rect.width, height: rect.height, shift: !!event.shiftKey }; }
     function clearHoveredGeoset() {
       if (state.hoveredGeoset === null) return;
       state.hoveredGeoset = null; latest.current.onHoverGeoset?.(null);
@@ -559,7 +561,8 @@ export default function Viewport(inputProps) {
     function showBox(value) { setBox({ ...value, left: value.left + (boundPane.rect?.left || 0), top: value.top + (boundPane.rect?.top || 0) }); }
     function hoverParts(event) {
       const p = latest.current;
-      p.onHoverParts?.(!event.buttons && !event.altKey && p.cameraMode === 'work' ? { end: point(event), camera } : null);
+      partHover = !event.buttons && !event.altKey && p.cameraMode === 'work' ? { end: point(event), camera } : null;
+      p.onHoverParts?.(partHover);
     }
     function pointerMove(event) {
       if (!down) {
@@ -570,7 +573,7 @@ export default function Viewport(inputProps) {
       }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
       if (latest.current.onDoubleClickParts && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
-      if (down.action === 'parts') { if (down.traveled) down.parts?.update(end); return; }
+      if (down.action === 'parts') { down.partsEnd=end; if (down.traveled) down.parts?.update(end); return; }
       if (down.action === 'normalizer') return;
       if (down.action === 'anchor') {
         const distance = Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y);
@@ -612,6 +615,8 @@ export default function Viewport(inputProps) {
         const degrees = [0, 0, 0]; degrees[axis] = THREE.MathUtils.radToDeg(angle); payload.rotation = degrees;
         rotation.set(degrees[0] * Math.PI / 180, degrees[1] * Math.PI / 180, degrees[2] * Math.PI / 180);
       }
+      const constrained=latest.current.constrainTransform?.(payload);
+      if(constrained)Object.assign(payload,constrained);
       const vertex = new THREE.Vector3();
       for (const [key, indices] of Object.entries(drag.selections)) {
         const entry = state.entries[key], position = entry.geometry.attributes.position; position.array.set(drag.snapshots[key]);
@@ -619,6 +624,8 @@ export default function Viewport(inputProps) {
           vertex.fromArray(drag.snapshots[key], index * 3).sub(drag.pivot).multiply(scale).applyEuler(rotation).add(drag.pivot).add(translation);
           position.setXYZ(index, vertex.x, vertex.y, vertex.z);
         }
+        const positions=constrained?.modelPositions?.[key];
+        if(positions)indices.forEach((index,i)=>position.setXYZ(index,...positions.slice(i*3,i*3+3)));
         position.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
       }
       if (drag.action === 'translate' && drag.poseInverses) {
@@ -743,6 +750,11 @@ export default function Viewport(inputProps) {
     window.addEventListener('mdlxl-view-camera', viewCamera);
     const cancelKey = event => { if (!quad && event.key === 'Escape' && down) { cancelGesture(); event.preventDefault(); } };
     const gestureKey = event => {
+      if(event.key==='Shift') {
+        const shift=event.type==='keydown';
+        if(down?.action==='parts'&&down.traveled)down.parts?.update({...down.partsEnd,shift});
+        else if(!down&&partHover)latest.current.onHoverParts?.({...partHover,end:{...partHover.end,shift}});
+      }
       if (!quad) return;
       if (event.key === 'Escape' && event.type === 'keydown' && down) { cancelGesture(); event.preventDefault(); event.stopPropagation(); }
       // Modifier transitions must reset the latch even if the mouse is still.
@@ -750,9 +762,9 @@ export default function Viewport(inputProps) {
     };
     // Hotkeys consumes Escape before viewport key listeners. Its Clear command
     // gives an in-progress drag first refusal through this cancelable event.
-    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); } else if (latest.current.onCancelPartDrag?.()) event.preventDefault(); };
+    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); } else if (!event.detail?.history && latest.current.onCancelPartDrag?.()) event.preventDefault(); };
     const contextMenu = event => event.preventDefault();
-    const pointerLeave = () => { if (!down) { clearHoveredGeoset(); latest.current.onHoverParts?.(null); } };
+    const pointerLeave = () => { if (!down) { clearHoveredGeoset(); partHover=null; latest.current.onHoverParts?.(null); } };
     bindInput(singlePane);
     window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
     window.addEventListener('mdlxl-cancel-gesture', cancelCommand);
@@ -839,10 +851,12 @@ export default function Viewport(inputProps) {
         const hiddenLine = appearance.wireMode === 'hidden-line';
         configureWideLine(entry.hiddenWire.material, hiddenLine ? { ...activeAppearance, style: 'dashed', spacing: HIDDEN_LINE_DASH[0] } : activeAppearance, surface.clientWidth, surface.clientHeight, visual.occludedOpacity * (hiddenLine ? HIDDEN_LINE_FADE : 1));
         if (editOverlay) {
-          configureWideLine(entry.wire.material, { color: '#303030', thickness: 1, opacity: .7, style: 'solid' }, surface.clientWidth, surface.clientHeight);
+          configureWideLine(entry.wire.material, { color: editOverlay.preview?'#ffae38':'#303030', thickness: editOverlay.preview?2:1, opacity: editOverlay.preview?1:.7, style: 'solid' }, surface.clientWidth, surface.clientHeight);
+          entry.wire.material.depthTest = !editOverlay.preview;
           configureWideLine(entry.selectedWire.material, { color: '#ff9a22', thickness: 1.7, opacity: 1, style: 'solid' }, surface.clientWidth, surface.clientHeight);
           entry.selectedWire.visible = editOverlay.selectedEdgeIndices.length > 0;
           entry.selectedSurface.visible = !pureWireframe && editOverlay.selectedFaceIndices.length > 0;
+          entry.selectedWire.material.depthTest = entry.selectedSurface.material.depthTest = !editOverlay.preview;
           if (entry.appliedOverlay !== editOverlay) {
             entry.selectedEdgeIndices = editOverlay.selectedEdgeIndices;
             entry.selectedSurface.geometry.setIndex(editOverlay.selectedFaceIndices);
@@ -865,12 +879,12 @@ export default function Viewport(inputProps) {
             const sampled = sampleGeosetAnimation(p.model, index, rgbState.frame, rgbState.sequenceIndex, rgbState.globalTime);
             material.userData.geosetTint.value.fromArray(sampled.color);
           }
-          material.opacity = textured ? Math.max(0, Math.min(1, alpha * sampleTrack(layer.Alpha, state.frame, { ...animOptions, fallback: 1 }))) : 1;
-          const transparent = textured && ((layer.FilterMode || 0) >= 2 || material.opacity < 1);
+          material.opacity = editOverlay?.preview ? .45 : textured ? Math.max(0, Math.min(1, alpha * sampleTrack(layer.Alpha, state.frame, { ...animOptions, fallback: 1 }))) : 1;
+          const transparent = !!editOverlay?.preview || textured && ((layer.FilterMode || 0) >= 2 || material.opacity < 1);
           if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
           // Clockwise faces are culled; counterclockwise winding is front-facing.
           material.side = layer.Shading & 16 ? THREE.DoubleSide : THREE.FrontSide;
-          material.depthWrite = !textured || (!(layer.Shading & 128) && (layer.FilterMode || 0) < 2);
+          material.depthWrite = !editOverlay?.preview && (!textured || (!(layer.Shading & 128) && (layer.FilterMode || 0) < 2));
           material.blending = textured ? material.userData.layerBlending : THREE.NormalBlending;
           material.alphaTest = textured && layer.FilterMode === 1 ? .75 : 0;
           material.depthTest = !textured || !(layer.Shading & 64);
@@ -913,6 +927,28 @@ export default function Viewport(inputProps) {
           gizmoCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); gizmoCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
           drawMovementGizmo(gizmoCanvas.getContext('2d'), state.gizmoHandles, renderer.getPixelRatio(), state.drag?.handle?.axis, viewportAppearanceOptions(p.preferences).controllers);
         } else if (gizmoCanvas) { gizmoCanvas.remove(); gizmoCanvas = null; }
+        if(p.detailMagnet&&(!quad||boundPane===activePane)){
+          if(!magnetButton){
+            magnetButton=document.createElement('button');magnetButton.type='button';magnetButton.dataset.detailMagnet='';magnetButton.appendChild(document.createElement('canvas'));
+            magnetButton.style.cssText='position:absolute;z-index:4;border:0;padding:0;background:transparent;cursor:pointer;line-height:0';
+            magnetButton.addEventListener('pointerdown',event=>event.stopPropagation());
+            magnetButton.addEventListener('click',event=>{event.stopPropagation();latest.current.detailMagnet?.onToggle();});
+          }
+          if(magnetButton.parentNode!==overlayHost)overlayHost.appendChild(magnetButton);
+          const appearance=viewportAppearanceOptions(p.preferences).controllers,size=appearance.size,diameter=size*2+8,ratio=renderer.getPixelRatio(),canvas=magnetButton.firstChild;
+          magnetButton.style.width=magnetButton.style.height=diameter+'px';canvas.width=canvas.height=Math.round(diameter*ratio);canvas.style.width=canvas.style.height=diameter+'px';
+          magnetButton.setAttribute('aria-label',translate('Magnet'));magnetButton.setAttribute('aria-pressed',String(p.detailMagnet.enabled));
+          magnetButton.title=translate(p.detailMagnet.enabled?'Magnet on: stays on this surface and stops at its edges. Click to release.':'Magnet: attach this block to the nearest surface and keep it within the edges.');
+          magnetButton.dataset.shape=appearance.shape;
+          drawPoseOverlay(canvas.getContext('2d'),[{visible:true,label:'Magnet',x:size+4,y:size+4,size,shape:appearance.shape}],ratio,null,{...appearance,symbols:true,color:p.detailMagnet.enabled?appearance.pinned:appearance.color});
+          // Project the live block, not a cached sphere or a gizmo-dependent
+          // offset. The magnet stays just above its visible bounds.
+          const entry=state.entries[p.detailMagnet.geoset],positions=entry.geometry.attributes.position,points=[];
+          for(let i=0;i<positions.count;i++)points.push(new THREE.Vector3().fromBufferAttribute(positions,i).project(camera));
+          const width=surface.clientWidth,height=surface.clientHeight,minX=Math.min(...points.map(p=>(p.x+1)*width/2)),maxX=Math.max(...points.map(p=>(p.x+1)*width/2)),minY=Math.min(...points.map(p=>(1-p.y)*height/2));
+          const x=Math.max(4,Math.min(width-diameter-4,(minX+maxX)/2-diameter/2)),y=Math.max(4,Math.min(height-diameter-4,minY-diameter-6));
+          magnetButton.style.left=x+'px';magnetButton.style.top=y+'px';
+        } else if(!p.detailMagnet&&magnetButton){magnetButton.remove();magnetButton=null;}
         if (p.presentation === 'preview' && previewOverlaySettings(p.previewOverlay).mode !== 'none') {
           if (!previewCanvas) { previewCanvas = document.createElement('canvas'); previewCanvas.dataset.geometryOverlay = ''; previewCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(previewCanvas); }
           previewCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); previewCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
@@ -987,7 +1023,7 @@ export default function Viewport(inputProps) {
       renderer.domElement.removeEventListener('webglcontextlost', contextLost);
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
       window.removeEventListener('mdlxl-cancel-gesture', cancelCommand);
-      cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
+      cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); magnetButton?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };
   }, [graphics.antialias]);
 
@@ -1093,7 +1129,7 @@ export default function Viewport(inputProps) {
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, showGrid, props.overlays?.grid, props.preferences?.grid]);
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.normalizer, props.normalChanges, props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.editHandles, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, props.workplaneEnabled, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.detailMagnet, props.constrainTransform, props.normalizer, props.normalChanges, props.presentation, props.previewMode, props.previewOverlay, props.modelingOverlay, props.editHandles, props.surfaceColors, props.selectedNodeIds, model, revision, props.hoveredGeoset, selectedGeoset, selectedVertices, props.selectionByGeoset, props.selectableGeosets, props.visibleGeosets, hiddenGeosets, props.hiddenVertices, mode, showSkeleton, showGrid, props.showAxes, props.showVertices, props.overlays, props.showCameras, props.preferences, props.grabThrough, props.rgbPreview, props.rgbPreviewSequenceIndex, workplane, props.workplaneEnabled, transformMode, props.zoomAnchor, props.choosingZoomAnchor, sequenceIndex, time, playing, teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden, graphics.textures, graphics.lighting]);
   return <div className="viewport" style={{ position: 'relative', width: '100%', height: '100%', minHeight: props.presentation === 'preview' ? 0 : 180, background: '#ccc', overflow: 'hidden' }}>
     <div ref={host} tabIndex={0} aria-label="3D model viewport" style={{ position: 'absolute', inset: 0, outline: 'none', cursor: viewportCursor(cameraMode, transformMode) }} />
     {!props.quadView && props.showOrientationCompass !== false && props.presentation !== 'preview' && <div className="viewport-orientation-compass" aria-label="View orientation" title="View orientation — click an axis to snap the camera" style={{ position: 'absolute', top: 31, left: 4, width: 82, height: 82, zIndex: 3, filter: 'drop-shadow(0 1px 2px #0008)' }}>
