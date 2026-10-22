@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Quaternion, Vector3 } from 'three';
-import { DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, normalizeViewportAppearance, BUILT_IN_VIEWPORT_PRESETS } from '../src/viewport-appearance.js';
+import { BONE_STYLES, BONE_CONNECTORS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, normalizeViewportAppearance, BUILT_IN_VIEWPORT_PRESETS } from '../src/viewport-appearance.js';
 import { normalizePreferences } from '../src/preferences.js';
-import { boneDisplayColor, boneDisplayOptions, drawBoneLink, JOINT_SPHERE, STICK_JOINT } from '../app/bone-display.js';
+import { boneDisplayColor, boneDisplayOptions, drawBoneLink, BONE_DIAMOND } from '../app/bone-display.js';
 import { markerStyle, rigMarkerGeometry } from '../app/rig-markers-gl.js';
 import { createPixelLineBatch } from '../app/pixel-lines.js';
 
@@ -29,28 +29,27 @@ test('bone markers follow the chosen style and the user colours, keeping highlig
   const classic = prefsWith({});
   assert.equal(markerStyle(child, byId, classic).color, '#4cff59');
   assert.equal(markerStyle(root, byId, classic).color, '#4cb259');
-  assert.equal(markerStyle({ ...child, helperNode: true }, byId, prefsWith({ style: 'joint' })).shape, JOINT_SPHERE);
-  assert.equal(markerStyle({ ...child, helperNode: true }, byId, prefsWith({ style: 'stick' })).shape, STICK_JOINT);
+  assert.equal(markerStyle({ ...child, helperNode: true }, byId, prefsWith({ style: 'diamond' })).shape, BONE_DIAMOND);
   assert.equal(markerStyle(child, byId, classic).shape.faces.length, 6, 'Cubes keeps the cube');
-  const joint = prefsWith({ style: 'joint', bone: '#112233', selected: '#00ffff' });
-  assert.equal(markerStyle(child, byId, joint).shape, JOINT_SPHERE);
+  const joint = prefsWith({ style: 'diamond', bone: '#112233', selected: '#00ffff' });
+  assert.equal(markerStyle(child, byId, joint).shape, BONE_DIAMOND);
   assert.equal(markerStyle(child, byId, joint).color, '#112233');
   assert.equal(markerStyle(child, byId, joint, new Map([[1, '#ff0000']])).color, '#00ffff');
-  assert.equal(markerStyle(child, byId, prefsWith({ style: 'stick' })).shape, STICK_JOINT);
   assert.equal(boneDisplayColor(DEFAULT_BONE_APPEARANCE, '#ffff00', true), '#ffff00');
   assert.equal(boneDisplayOptions(joint), boneDisplayOptions(joint), 'normalised once per preferences object');
 });
 
-test('joint spheres face outward so markers shade and cull like the cube', () => {
-  for (const shape of [JOINT_SPHERE, STICK_JOINT]) for (const face of shape.faces) {
+test('diamond faces point outward and selection keeps its flat highlight', () => {
+  const shape = BONE_DIAMOND;
+  for (const face of shape.faces) {
     const [a, b, c] = face.slice(0, 3).map(i => new Vector3(...shape.vertices[i]));
     const normal = b.clone().sub(a).cross(c.clone().sub(a)), centre = face.reduce((sum, i) => sum.add(new Vector3(...shape.vertices[i])), new Vector3());
     assert.ok(normal.dot(centre) > 0);
   }
   const point = { visible: true, overlayKind: 'bones', node: { ObjectId: 1 }, world: new Vector3(), rotation: new Quaternion(), unitsPerPixel: 1 };
-  const flat = rigMarkerGeometry([point], [1], { bones: true, preferences: prefsWith({ style: 'joint', selected: '#00ff00' }) });
+  const flat = rigMarkerGeometry([point], [1], { bones: true, preferences: prefsWith({ style: 'diamond', selected: '#00ff00' }) });
   const colors = new Set(); for (let i = 3; i < flat.triangles.length; i += 6) colors.add(flat.triangles.slice(i, i + 3).join(','));
-  assert.equal(colors.size, 1, 'a selected joint stays flat in the chosen colour');
+  assert.equal(colors.size, 1, 'a selected diamond stays flat in the chosen colour');
 });
 
 function recordingContext() {
@@ -71,10 +70,40 @@ test('connectors draw shaded, tapered or as cones, and the chain highlight keeps
   assert.equal(typeof tapered.calls.find(call => call[0] === 'fill')[1], 'object', 'ordinary links keep the dark-to-light shading');
   const highlighted = recordingContext(); drawBoneLink(highlighted, from, to, { bones: { ...DEFAULT_BONE_APPEARANCE, connector: 'tapered', child: '#abcdef' }, highlight: '#ffff00' });
   assert.deepEqual(highlighted.calls.find(call => call[0] === 'fill'), ['fill', '#abcdef']);
-  const cone = recordingContext(); drawBoneLink(cone, from, to, { bones: { ...DEFAULT_BONE_APPEARANCE, style: 'joint' } });
-  assert.ok(cone.calls.some(call => call[0] === 'stroke'), 'Joint and cone outlines its cone');
-  const stick = recordingContext(); drawBoneLink(stick, from, to, { bones: { ...DEFAULT_BONE_APPEARANCE, style: 'stick' } });
+  const cone = recordingContext(); drawBoneLink(cone, from, to, { bones: { ...DEFAULT_BONE_APPEARANCE, connector: 'cone' } });
+  assert.ok(cone.calls.some(call => call[0] === 'stroke'), 'Cone outlines its link');
+  const stick = recordingContext(); drawBoneLink(stick, from, to, { bones: { ...DEFAULT_BONE_APPEARANCE, connector: 'stick' } });
   assert.equal(stick.calls[0][4], 6, 'Stick bars are twice as thick');
+});
+
+test('skeleton links and bone/helper geometry remain independent in every combination', () => {
+  assert.deepEqual(BONE_STYLES, ['cubes', 'diamond']);
+  const point = { visible: true, overlayKind: 'bones', node: { ObjectId: 1 }, world: new Vector3(), rotation: new Quaternion(), unitsPerPixel: 1 };
+  for (const connector of BONE_CONNECTORS) {
+    const links = BONE_STYLES.map(style => {
+      const context = recordingContext();
+      drawBoneLink(context, { x: 20, y: 20 }, { x: 120, y: 20 }, { bones: prefsWith({ style, connector }).viewportAppearance.bones });
+      return context.calls;
+    });
+    assert.equal(JSON.stringify(links[0]), JSON.stringify(links[1]), connector + ' ignores marker style');
+  }
+  for (const style of BONE_STYLES) for (const helperNode of [false, true]) {
+    const node = { ...point, helperNode };
+    const geometry = BONE_CONNECTORS.map(connector => rigMarkerGeometry([node], [], { bones: true, preferences: prefsWith({ style, connector }) }));
+    for (const candidate of geometry.slice(1)) assert.deepEqual(candidate, geometry[0], style + ' ignores skeleton style');
+  }
+});
+
+test('old round marker styles become cubes while keeping cone/stick skeleton links', () => {
+  for (const [style, connector] of [['joint', 'cone'], ['stick', 'stick']]) {
+    const prefs = prefsWith({ style, connector: 'tapered', helper: '#123456' });
+    assert.equal(prefs.viewportAppearance.bones.style, 'cubes');
+    assert.equal(prefs.viewportAppearance.bones.connector, connector);
+    assert.equal(prefs.viewportAppearance.bones.helper, '#123456');
+    assert.deepEqual(normalizePreferences(JSON.parse(JSON.stringify(prefs))), prefs);
+  }
+  const prefs = prefsWith({ style: 'diamond', connector: 'cone' });
+  assert.deepEqual(normalizePreferences(JSON.parse(JSON.stringify(prefs))), prefs);
 });
 
 test('Hidden-line dashes only the hidden stretch of a wire', () => {
@@ -92,7 +121,7 @@ test('Appearance shows one page at a time, with Bones & skeleton and Bone influe
   assert.match(settings, /export const APPEARANCE_PAGES = Object\.freeze\(\['Presets', 'Interface', 'Viewport', 'Wires', 'Vertices', 'Bones & skeleton', 'Bone influence', 'Controllers', 'Lists & folders', 'Quadview', 'Editor helpers', 'Citadel Paint'\]\);/);
   assert.match(settings, /if \(page && \(APPEARANCE_PAGE_OF\[title\] \|\| title\) !== page\) return null;/);
   assert.doesNotMatch(settings, /<details className="settings-appearance-section"/);
-  for (const label of ['aria-label="Bone style"', 'aria-label="Connector style"', 'aria-label="Wire style"', 'label="Ghost opacity"', 'label="Chain highlight thickness"']) assert.ok(settings.includes(label), label);
+  for (const label of ['aria-label="Bone style"', 'aria-label="Skeleton style"', 'aria-label="Wire style"', 'label="Ghost opacity"', 'label="Chain highlight thickness"']) assert.ok(settings.includes(label), label);
   assert.match(settings, /title=\{BONE_STYLE_TIP\}/); assert.match(settings, /title=\{BONE_CONNECTOR_TIP\}/); assert.match(settings, /title=\{WIRE_MODE_TIP\}/);
   assert.ok(!settings.includes("['occludedOpacity', 'Hidden wire intensity'"), 'Hidden wire intensity moved to Wires');
 });

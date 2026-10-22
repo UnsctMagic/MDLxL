@@ -19,8 +19,8 @@ function quadDefaults(background) {
 
 // How bones, their connectors and the Bone influence view are drawn. The
 // colours keep their rig identities while each preset owns its shades.
-export const BONE_STYLES = Object.freeze(['cubes', 'joint', 'stick']);
-export const BONE_CONNECTORS = Object.freeze(['shaded', 'tapered']);
+export const BONE_STYLES = Object.freeze(['cubes', 'diamond']);
+export const BONE_CONNECTORS = Object.freeze(['shaded', 'tapered', 'cone', 'stick']);
 export const WIRE_MODES = Object.freeze(['all', 'hidden-line']);
 export const DEFAULT_BONE_APPEARANCE = Object.freeze({ style: 'cubes', connector: 'shaded', ...rigNodeColorsForTheme(), selected: '#ff0000', parent: '#000000', child: '#ffff00', thickness: 3, highlightThickness: 6 });
 export const boneAppearanceForTheme = theme => ({ ...DEFAULT_BONE_APPEARANCE, ...rigNodeColorsForTheme(theme) });
@@ -135,8 +135,12 @@ function normalizeVertex(value, fallback) {
 
 function normalizeBones(value, fallback) {
   const input = record(value), base = { ...DEFAULT_BONE_APPEARANCE, ...record(fallback) };
+  // Older styles coupled round markers to cone/stick links. Keep the links,
+  // replacing only the round markers with the default cube.
+  const legacyConnector = input.style === 'joint' ? 'cone' : input.style === 'stick' ? 'stick' : null;
   return {
-    style: choice(input.style, BONE_STYLES, base.style), connector: choice(input.connector, BONE_CONNECTORS, base.connector),
+    style: choice(input.style, BONE_STYLES, choice(base.style, BONE_STYLES, 'cubes')),
+    connector: legacyConnector || choice(input.connector, BONE_CONNECTORS, base.connector),
     ...Object.fromEntries(['bone', 'root', 'helper', 'ref', 'selected', 'parent', 'child'].map(key => [key, color(input[key], base[key])])),
     thickness: number(input.thickness, 1, 12, base.thickness), highlightThickness: number(input.highlightThickness, 1, 16, base.highlightThickness),
   };

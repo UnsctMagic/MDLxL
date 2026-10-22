@@ -1,7 +1,7 @@
 import { Color, Matrix4, Vector3 } from 'three';
 import { visualOptions } from '../src/preferences.js';
 import { NODE_SYMBOLS, NODE_SYMBOL_COLORS } from './node-marker-symbols.js';
-import { boneDisplayColor, boneDisplayOptions, JOINT_SPHERE, STICK_JOINT } from './bone-display.js';
+import { boneDisplayColor, boneDisplayOptions, BONE_DIAMOND } from './bone-display.js';
 
 const CUBE = { vertices: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]], faces: [[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]] };
 const TETRA = { vertices: [[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]], faces: [[0,2,1],[0,1,3],[0,3,2],[1,2,3]] };
@@ -49,12 +49,12 @@ export function markerStyle(point, byId, preferences, highlightColors = new Map(
   const symbolKind = point.overlayKind === 'events' ? ({SPL:'blood',FPT:'foot',UBR:'uber'}[point.node.Name?.slice(0,3).toUpperCase()]) : point.overlayKind;
   const bones = boneDisplayOptions(preferences);
   if (point.overlayKind === 'attachments') return { shape: vanilla ? TETRA : NODE_SYMBOLS.attachments, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.ref };
-  if (point.helperNode) return { shape: bones.style === 'joint' ? JOINT_SPHERE : bones.style === 'stick' ? STICK_JOINT : CUBE, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.helper };
+  if (point.helperNode) return { shape: bones.style === 'diamond' ? BONE_DIAMOND : CUBE, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.helper };
   if (!vanilla && NODE_SYMBOL_COLORS[symbolKind]) return { shape:NODE_SYMBOLS[symbolKind], color:highlighted || NODE_SYMBOL_COLORS[symbolKind] };
   if (point.overlayKind === 'particles' || vanilla && point.overlayKind === 'ribbons') return { shape: vanilla?TETRA:preferences?.emitterMarker==='tetrahedron'?TETRA:preferences?.emitterMarker==='cube'?CUBE:PENTAGRAM, color: highlighted || visual.particle };
   if (point.overlayKind === 'bones') {
     const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
-    return { shape: bones.style === 'joint' ? JOINT_SPHERE : bones.style === 'stick' ? STICK_JOINT : CUBE, color: boneDisplayColor(bones, highlighted, hasParentBone) };
+    return { shape: bones.style === 'diamond' ? BONE_DIAMOND : CUBE, color: boneDisplayColor(bones, highlighted, hasParentBone) };
   }
   if (point.eventNode) return { shape: TETRA, color: highlighted || visual.event };
   return { shape: TETRA, color: highlighted || point.displayColor || visual.node };

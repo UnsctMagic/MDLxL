@@ -25,10 +25,10 @@ function AppearanceSection({ title, children, palette }) {
   if (page && (APPEARANCE_PAGE_OF[title] || title) !== page) return null;
   return <section className="settings-appearance-section"><h4>{title}</h4><div className="settings-appearance-content">{palette}{children}</div></section>;
 }
-export const BONE_STYLE_TIP = 'How bones are drawn. Cubes and shaded lines is the classic look; Joint and cone puts a ball on each joint and a cone pointing to the child; Stick draws thick bars.';
-export const BONE_CONNECTOR_TIP = 'How the link between two joints is drawn. Shaded fades from dark at the parent to light at the child; Tapered narrows towards the child. The selected chain is highlighted in the same shape.';
+export const BONE_STYLE_TIP = 'The shape of bone and helper markers: cubes or diamonds. Skeleton links have their own style setting.';
+export const BONE_CONNECTOR_TIP = 'The style of skeleton links between objects: Shaded fades from dark to light; Tapered narrows towards the child; Cone adds an outline; Stick draws thick bars. Object markers keep their own shape.';
 export const WIRE_MODE_TIP = 'All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.';
-const BONE_STYLE_LABELS = [['cubes', 'Cubes and shaded lines'], ['joint', 'Joint and cone'], ['stick', 'Stick']];
+const BONE_STYLE_LABELS = [['cubes', 'Cubes'], ['diamond', 'Diamonds']];
 const BONE_COLOR_LABELS = [['bone', 'Bone'], ['root', 'Root bone'], ['helper', 'Helpers'], ['ref', 'Refs'], ['selected', 'Selected bone'], ['parent', 'Parent bone'], ['child', 'Child bones']];
 const INFLUENCE_COLOR_LABELS = [['ghost', 'Ghost'], ['direct', 'Moved by the bone'], ['follow', 'Follows through child bones']];
 
@@ -36,16 +36,16 @@ const INFLUENCE_COLOR_LABELS = [['ghost', 'Ghost'], ['direct', 'Moved by the bon
 function BonePreview({ bones, background }) {
   const joints = [[18, 50], [70, 26], [128, 42], [184, 14]], fills = [bones.root, bones.parent, bones.selected, bones.child];
   const link = (a, b, highlight) => {
-    const width = (highlight ? bones.highlightThickness : bones.thickness) * (bones.style === 'stick' ? 2 : 1), shape = bones.style === 'joint' ? 'cone' : bones.connector;
+    const width = (highlight ? bones.highlightThickness : bones.thickness) * (bones.connector === 'stick' ? 2 : 1), shape = bones.connector;
     const fill = highlight || 'url(#settings-bone-shade)';
-    if (shape === 'shaded') return <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={fill} strokeWidth={width}/>;
+    if (shape === 'shaded' || shape === 'stick') return <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={fill} strokeWidth={width}/>;
     const length = Math.hypot(b[0] - a[0], b[1] - a[1]), nx = -(b[1] - a[1]) / length, ny = (b[0] - a[0]) / length, half = (shape === 'cone' ? Math.max(10, width * 3.4) : width * 1.7) / 2;
     return <polygon points={[[a[0] + nx * half, a[1] + ny * half], [b[0] + nx * .5, b[1] + ny * .5], [b[0] - nx * .5, b[1] - ny * .5], [a[0] - nx * half, a[1] - ny * half]].map(p => p.join(',')).join(' ')} fill={fill} stroke={shape === 'cone' ? '#000000' : 'none'} strokeWidth=".8"/>;
   };
   return <svg className="settings-bone-preview" viewBox="0 0 204 64" role="img" aria-label="Bone appearance preview" style={{ background }}>
     <defs><linearGradient id="settings-bone-shade" gradientUnits="userSpaceOnUse" x1={joints[0][0]} y1={joints[0][1]} x2={joints[1][0]} y2={joints[1][1]}><stop offset="0" stopColor="#000000"/><stop offset="1" stopColor="#ffffff"/></linearGradient></defs>
     {link(joints[0], joints[1], null)}{link(joints[1], joints[2], bones.selected)}{link(joints[2], joints[3], bones.child)}
-    {joints.map((p, i) => bones.style === 'cubes' ? <rect key={i} x={p[0] - 5} y={p[1] - 5} width="10" height="10" fill={fills[i]} stroke="#111111" strokeWidth=".6"/> : <circle key={i} cx={p[0]} cy={p[1]} r={bones.style === 'stick' ? 3.5 : 6} fill={fills[i]} stroke="#111111" strokeWidth=".6"/>)}
+    {joints.map((p, i) => bones.style === 'diamond' ? <polygon key={i} points={`${p[0]},${p[1]-6} ${p[0]+6},${p[1]} ${p[0]},${p[1]+6} ${p[0]-6},${p[1]}`} fill={fills[i]} stroke="#111111" strokeWidth=".6"/> : <rect key={i} x={p[0] - 5} y={p[1] - 5} width="10" height="10" fill={fills[i]} stroke="#111111" strokeWidth=".6"/>)}
   </svg>;
 }
 const colorValues = value => Object.fromEntries(Object.entries(value).filter(([, color]) => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)));
@@ -411,7 +411,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         <AppearanceSection title="Bones & skeleton" palette={partPalette('bones', 'Bones & skeleton')}>
           <BonePreview bones={prefs.viewportAppearance.bones} background={prefs.viewportAppearance.background.color}/>
           <label className="settings-select" title={BONE_STYLE_TIP}><span>Bone style</span><select aria-label="Bone style" title={BONE_STYLE_TIP} value={prefs.viewportAppearance.bones.style} onChange={event => viewportPart('bones', { style: event.target.value })}>{BONE_STYLE_LABELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          {prefs.viewportAppearance.bones.style === 'joint' ? <p className="settings-hint">Joint and cone always links joints with cones.</p> : <label className="settings-select" title={BONE_CONNECTOR_TIP}><span>Connector style</span><select aria-label="Connector style" title={BONE_CONNECTOR_TIP} value={prefs.viewportAppearance.bones.connector} onChange={event => viewportPart('bones', { connector: event.target.value })}><option value="shaded">Shaded</option><option value="tapered">Tapered</option></select></label>}
+          <label className="settings-select" title={BONE_CONNECTOR_TIP}><span>Skeleton style</span><select aria-label="Skeleton style" title={BONE_CONNECTOR_TIP} value={prefs.viewportAppearance.bones.connector} onChange={event => viewportPart('bones', { connector: event.target.value })}><option value="shaded">Shaded</option><option value="tapered">Tapered</option><option value="cone">Cone</option><option value="stick">Stick</option></select></label>
           <AppearanceColors colors={BONE_COLOR_LABELS} value={prefs.viewportAppearance.bones} prefix="Bones" onChange={change => viewportPart('bones', change)}/>
           <div className="settings-graphics-grid"><Numeric id="appearance:bones:thickness" label="Connector thickness" value={prefs.viewportAppearance.bones.thickness} min={1} max={12} unit="px" onChange={thickness => viewportPart('bones', { thickness })}/><Numeric id="appearance:bones:highlight" label="Chain highlight thickness" value={prefs.viewportAppearance.bones.highlightThickness} min={1} max={16} unit="px" onChange={highlightThickness => viewportPart('bones', { highlightThickness })}/></div>
           <button onClick={() => viewport({ bones: (BUILT_IN_VIEWPORT_PRESETS[prefs.viewportPreset] || Object.values(BUILT_IN_VIEWPORT_PRESETS).find(preset => preset.theme === prefs.theme)).appearance.bones })}>Reset bones and skeleton</button>
