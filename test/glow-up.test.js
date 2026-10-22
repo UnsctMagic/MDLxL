@@ -1,0 +1,148 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { PerspectiveCamera, Vector3 } from 'three';
+import { createStarterDocument } from '../src/starter-model.js';
+import { openDocument, createNode } from '../src/editor-document.js';
+import { addHeroGlow, hasHeroGlow, originGlowSize, weaponChoices, weaponLine } from '../src/glow-up.js';
+import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
+import { samplePreviewMatrices } from '../app/preview-pose.js';
+
+const near = (a, b, tolerance = 1e-3) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < tolerance, `${a} != ${b}`));
+const quadCenters = g => Array.from({ length: g.Vertices.length / 12 }, (_, q) => [0, 1, 2].map(a => [0, 1, 2, 3].reduce((sum, k) => sum + g.Vertices[(q * 4 + k) * 3 + a], 0) / 4));
+
+/** A hero-like test model: a 64 cube body, a right hand and a sword (or two). */
+function hero({ swords = ['Sword'], sequences = ['Stand', 'Death', 'Decay Flesh'] } = {}) {
+  const doc = createStarterDocument();
+  doc.apply('Rig', [], m => {
+    m.Sequences = sequences.map((Name, i) => ({ Name, Interval: new Uint32Array([i * 1000, i * 1000 + 900]), MoveSpeed: 0, NonLooping: false, Rarity: 0, MinimumExtent: new Float32Array(3), MaximumExtent: new Float32Array(3), BoundsRadius: 0 }));
+    swords.forEach((name, s) => {
+      const y = s ? 40 : -40;
+      const hand = createNode(m, 'Bone'); hand.Name = s ? 'Bone_Hand_L' : 'Bone_Hand_R'; hand.PivotPoint.set([10, y, 20]); hand.Parent = m.Bones[0].ObjectId;
+      const sword = createNode(m, 'Bone'); sword.Name = name; sword.PivotPoint.set([10, y, 20]); sword.Parent = hand.ObjectId;
+      // A sword along +X: a short pommel behind the grip, a long blade ahead.
+      const vertices = [];
+      for (const x of [2, 6, 14, 30, 46, 62, 78]) for (const [dy, dz] of [[-2, -1], [2, -1], [2, 1], [-2, 1]]) vertices.push(x, y + dy, 20 + dz);
+      const count = vertices.length / 3, faces = [];
+      for (let k = 0; k + 4 < count; k += 4) faces.push(k, k + 1, k + 5, k, k + 5, k + 4);
+      m.Geosets.push({ Vertices: new Float32Array(vertices), Normals: new Float32Array(vertices.length).fill(0).map((_, i) => i % 3 === 2 ? 1 : 0), TVertices: [new Float32Array(count * 2)], Faces: new Uint16Array(faces), VertexGroup: new Uint8Array(count), Groups: [[sword.ObjectId]], TotalGroupsCount: 1, MaterialID: 0, SelectionGroup: 0, Unselectable: false, MinimumExtent: new Float32Array([2, y - 2, 19]), MaximumExtent: new Float32Array([78, y + 2, 21]), BoundsRadius: 40, Anims: [] });
+    });
+  });
+  return doc;
+}
+
+test('origin glow is three pulsing team-glow ground planes at the feet', () => {
+  const doc = hero(), before = structuredClone(doc.model), size = originGlowSize(doc.model);
+  const result = doc.apply('Glow Up', [], m => addHeroGlow(m, { origin: true, brightness: .6 }));
+  const m = doc.model, g = m.Geosets[result.geosetIndices[0]], layer = m.Materials[g.MaterialID].Layers[0];
+  assert.equal(layer.FilterMode, 3); assert.equal(layer.Shading, 17); assert.equal(layer.Alpha, .6);
+  assert.equal(m.Textures[layer.TextureID].ReplaceableId, 2);
+  assert.equal(g.Groups.length, 3);
+  const bones = g.Groups.map(([id]) => m.Nodes[id]);
+  for (const [k, bone] of bones.entries()) {
+    assert.equal(bone.Parent, null); assert.equal(bone.Flags, 256);
+    assert.equal(bone.Scaling.LineType, 2); assert.ok(m.GlobalSequences[bone.Scaling.GlobalSeqId] > 1000);
+    const quad = Array.from(g.Vertices.slice(k * 12, k * 12 + 12));
+    // Flat, centred on the origin, pivot in the plane's middle.
+    assert.ok([2, 5, 8, 11].every(i => quad[i] === quad[2]));
+    near(quadCenters({ Vertices: quad }).flat(), Array.from(bone.PivotPoint));
+    near(bone.PivotPoint.slice(0, 2), [0, 0]);
+  }
+  // Paladin template: widths 0.89 / 1 / 0.75 of the fitted size, rising 7 → 26.
+  const widths = bones.map((_, k) => g.Vertices[k * 12 + 3] - g.Vertices[k * 12]);
+  near(widths, [.887 * size, size, .745 * size], .01);
+  assert.ok(bones[0].PivotPoint[2] < bones[1].PivotPoint[2] && bones[1].PivotPoint[2] < bones[2].PivotPoint[2]);
+  assert.equal(new Set(bones.map(b => b.Scaling.GlobalSeqId)).size, 3);
+  assert.deepEqual(m.Geosets.slice(0, before.Geosets.length), before.Geosets);
+  assert.deepEqual(m.Bones.slice(0, before.Bones.length), before.Bones);
+  assert.equal(hasHeroGlow(before), false); assert.equal(hasHeroGlow(m), true);
+  doc.undo(); assert.deepEqual(doc.model, before);
+});
+
+test('glow hides in Death, Decay and Dissipate and ignores unkeyable sequences', () => {
+  const doc = hero({ sequences: ['Stand', 'Death', 'Stand Ready', 'Decay Bone', 'Dissipate', 'Walk'] });
+  doc.apply('Glow Up', [], m => addHeroGlow(m, { origin: true }));
+  const anim = doc.model.GeosetAnims.at(-1);
+  assert.deepEqual(anim.Alpha.Keys.map(k => [k.Frame, k.Vector[0]]), [[0, 1], [1000, 0], [2000, 1], [3000, 0], [4000, 0], [5000, 1]]);
+  const stray = hero({ sequences: ['Stand'] });
+  // Blizzard's Far Seer opens with a stray sequence at an unsigned -167; a shared start stays visible.
+  const m = structuredClone(stray.model);
+  m.Sequences.unshift({ ...structuredClone(m.Sequences[0]), Name: 'nothing', Interval: new Uint32Array([4294967129, 0]) });
+  m.Sequences.push({ ...structuredClone(m.Sequences[1]), Name: 'Death', Interval: new Uint32Array([0, 500]) });
+  addHeroGlow(m, { origin: true });
+  assert.deepEqual(m.GeosetAnims.at(-1).Alpha.Keys.map(k => [k.Frame, k.Vector[0]]), [[0, 1]]);
+  const plain = hero({ sequences: ['Stand'] });
+  plain.apply('Glow Up', [], m => addHeroGlow(m, { origin: true }));
+  assert.equal(plain.model.GeosetAnims.at(-1).Alpha, 1);
+});
+
+test('the sword is found by name and glows from past the grip to the tip', () => {
+  const doc = hero(), m = doc.model, sword = m.Bones.find(b => b.Name === 'Sword');
+  const [best] = weaponChoices(m);
+  assert.deepEqual(best.ids, [sword.ObjectId]); assert.equal(best.sure, true);
+  const line = weaponLine(m, { weaponId: sword.ObjectId });
+  assert.ok(line.start[0] > 20 && line.end[0] > line.start[0] && Math.abs(line.end[0] - 78) < .5, JSON.stringify(line));
+  const result = doc.apply('Glow Up', [], model => addHeroGlow(model, { origin: false, weapon: true, weaponIds: best.ids }));
+  const g = doc.model.Geosets[result.geosetIndices[0]], centers = quadCenters(g);
+  assert.ok(centers.length >= 3);
+  centers.forEach((c, k) => {
+    const bone = doc.model.Nodes[g.Groups[k][0]];
+    assert.equal(bone.Flags, 256 | 8); assert.equal(bone.Parent, sword.ObjectId);
+    near(c, Array.from(bone.PivotPoint));
+    // Camera-facing quads are authored in YZ, facing +X.
+    assert.ok([0, 3, 6, 9].every(i => Math.abs(g.Vertices[k * 12 + i] - c[0]) < 1e-4));
+    if (k) assert.ok(c[0] > centers[k - 1][0]);
+  });
+  const width = k => g.Vertices[k * 12 + 4] - g.Vertices[k * 12 + 1];
+  assert.ok(width(centers.length - 1) < width(Math.floor(centers.length / 2)), 'the tip tapers');
+  for (const format of ['mdl', 'mdx']) {
+    const reopened = openDocument(doc.serialize(format)).model, saved = reopened.Geosets[result.geosetIndices[0]];
+    assert.deepEqual(saved.Vertices, g.Vertices);
+    assert.ok(saved.Groups.every(([id]) => reopened.Nodes[id].Flags === 264 && reopened.Nodes[reopened.Nodes[id].Parent].Name === 'Sword'));
+  }
+});
+
+test('mirrored weapons are offered together, and marked polygons come first', () => {
+  const doc = hero({ swords: ['Mesh sword_R', 'Mesh sword_L'] }), m = doc.model;
+  const [pair] = weaponChoices(m);
+  assert.equal(pair.ids.length, 2); assert.equal(pair.sure, true);
+  const result = doc.apply('Glow Up', [], model => addHeroGlow(model, { origin: true, weapon: true, weaponIds: pair.ids }));
+  const parents = new Set(doc.model.Geosets[result.geosetIndices[1]].Groups.map(([id]) => doc.model.Nodes[doc.model.Nodes[id].Parent].Name));
+  assert.deepEqual([...parents].sort(), ['Mesh sword_L', 'Mesh sword_R']);
+  const marked = { 1: Array.from({ length: 28 }, (_, i) => i) }, [first] = weaponChoices(m, marked);
+  assert.equal(first.key, 'marked');
+  const copy = structuredClone(m); addHeroGlow(copy, { origin: false, weapon: true, marked });
+  assert.ok(copy.Geosets.at(-1).Groups.every(([id]) => copy.Nodes[copy.Nodes[id].Parent].Name === 'Mesh sword_R'));
+});
+
+test('a model without a named weapon starts with weapon glow off', () => {
+  const doc = createStarterDocument();
+  assert.ok(weaponChoices(doc.model).every(c => !c.sure));
+  assert.throws(() => addHeroGlow(structuredClone(doc.model), { origin: false, weapon: true }), /weapon/);
+  assert.throws(() => addHeroGlow(structuredClone(doc.model), { origin: false, weapon: false }), /origin glow, weapon glow, or both/);
+});
+
+test('origin size follows body height, with big bodies relatively smaller', () => {
+  const small = createStarterDocument().model, tall = structuredClone(small);
+  tall.Geosets[0].Vertices = tall.Geosets[0].Vertices.map((v, i) => i % 3 === 2 ? v * 4 + 96 : v);
+  const a = originGlowSize(small), b = originGlowSize(tall);
+  assert.ok(b > a && b / a < 4, `${a} ${b}`);
+  assert.ok(a >= 150 && b <= 600);
+});
+
+test('weapon glow follows the sword and keeps facing the camera', () => {
+  const doc = hero(), m = doc.model, sword = m.Bones.find(b => b.Name === 'Sword');
+  m.Sequences = [{ Name: 'Swing', Interval: new Uint32Array([0, 1000]) }];
+  sword.Translation = { LineType: 1, GlobalSeqId: null, Keys: [{ Frame: 0, Vector: new Float32Array([0, 0, 0]) }, { Frame: 1000, Vector: new Float32Array([30, 20, 10]) }] };
+  const result = addHeroGlow(m, { origin: false, weapon: true, weaponIds: [sword.ObjectId] });
+  const g = m.Geosets[result.geosetIndices[0]];
+  for (let k = 0; k < g.Groups.length; k++) {
+    const bone = m.Nodes[g.Groups[k][0]], expected = new Vector3().fromArray(bone.PivotPoint).applyMatrix4(sampleNodeMatrices(m, 1000, 0).get(bone.Parent));
+    for (const position of [[200, 0, 0], [-130, 90, 150], [0, 200, 40]]) {
+      const camera = new PerspectiveCamera(); camera.up.set(0, 0, 1); camera.position.set(...position); camera.lookAt(expected); camera.updateMatrixWorld();
+      const points = skinGeoset(g, samplePreviewMatrices(m, 1000, 0, 1000, camera)), quad = Array.from(points.slice(k * 12, k * 12 + 12));
+      near(quadCenters({ Vertices: quad })[0], expected.toArray(), 1e-2);
+      const normal = new Vector3().fromArray(quad, 3).sub(new Vector3().fromArray(quad, 0)).cross(new Vector3().fromArray(quad, 9).sub(new Vector3().fromArray(quad, 0))).normalize();
+      assert.ok(Math.abs(normal.dot(camera.position.clone().sub(expected).normalize())) > .99, 'faces the camera');
+    }
+  }
+});

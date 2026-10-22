@@ -1167,14 +1167,6 @@ export default function App() {
     } catch (error) { say(error.message, true); }
   }
   function showHistory() { setHistoryMB(Math.round(doc.historyStats.budgetBytes / 1048576)); setHistorySteps(doc.historyStats.maxSteps); setDialog({ type: 'history' }); }
-  async function forgeGlow(settings) {
-    const { commitGlow } = await import('../src/forge-glow.js');
-    if (latest.current.session !== session || savingRef.current) return false;
-    const result = edit('Glow Up', ['Geosets', 'Materials', 'Textures', 'Bones', 'Nodes', 'PivotPoints', 'GeosetAnims', 'BindPoses', 'Info'], m => commitGlow(m, validSelection, settings));
-    if (result === false) return false;
-    setSelectable(new Set(result.geosetIndices)); setSelection({ [result.geosetIndices[0]]: [0, 1, 2, 3] }); setActiveGeoset(result.geosetIndices[0]); setSelectedNodeIds([result.boneId]); setRenderMode('textured'); setDialog(null);
-    say('Glow added with its own bone.'); return result;
-  }
   async function forgeItem({mesh,asset,texturePath,trimColor,items}) {
     const {commitForge}=await import('../src/forge.js');
     if(latest.current.session!==session || savingRef.current)return false;
@@ -1605,7 +1597,7 @@ export default function App() {
     <AppDialogs {...{
       Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
-      forgeGlow, forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
+      forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
       importPart, latest, leaveGeosetVisible, leaveVisibleAvailable, meshAction, mode, model, normalAngle, notice,
       openLibrary, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
       removeSession, resolveGeosetMerge, restoreRecovery, save, saveDataChoice, saveSessionWork, saving, say,
