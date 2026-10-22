@@ -3151,5 +3151,10 @@
   "Bones Helpers": "骨骼 辅助对象",
   "Bones Refs": "骨骼 参考点",
   "Ref": "参考点",
-  "Create bone or ref": "创建骨骼或参考点"
+  "Create bone or ref": "创建骨骼或参考点",
+  "Cubes": "立方体",
+  "Diamonds": "菱形",
+  "Skeleton style": "骨架样式",
+  "The shape of bone and helper markers: cubes or diamonds. Skeleton links have their own style setting.": "骨骼和辅助对象标记的形状：立方体或菱形。骨架连线的样式单独设置。",
+  "The style of skeleton links between objects: Shaded fades from dark to light; Tapered narrows towards the child; Cone adds an outline; Stick draws thick bars. Object markers keep their own shape.": "对象之间的骨架连线样式：渐变从暗到亮；锥形向子对象收窄；圆锥添加轮廓；棒状绘制粗线。对象标记保持各自的形状。"
 }

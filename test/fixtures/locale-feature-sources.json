@@ -1092,7 +1092,12 @@
     "Appearance pages",
     "How bones are drawn. Cubes and shaded lines is the classic look; Joint and cone puts a ball on each joint and a cone pointing to the child; Stick draws thick bars.",
     "How the link between two joints is drawn. Shaded fades from dark at the parent to light at the child; Tapered narrows towards the child. The selected chain is highlighted in the same shape.",
-    "All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe."
+    "All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.",
+    "Cubes",
+    "Diamonds",
+    "Skeleton style",
+    "The shape of bone and helper markers: cubes or diamonds. Skeleton links have their own style setting.",
+    "The style of skeleton links between objects: Shaded fades from dark to light; Tapered narrows towards the child; Cone adds an outline; Stick draws thick bars. Object markers keep their own shape."
   ],
   "paint": [
     "Citadel Paint",

@@ -5972,5 +5972,10 @@
   "Bones Helpers": "Huesos Ayudantes",
   "Bones Refs": "Huesos Refs",
   "Ref": "Ref",
-  "Create bone or ref": "Crear hueso o referencia"
+  "Create bone or ref": "Crear hueso o referencia",
+  "Cubes": "Cubos",
+  "Diamonds": "Rombos",
+  "Skeleton style": "Estilo del esqueleto",
+  "The shape of bone and helper markers: cubes or diamonds. Skeleton links have their own style setting.": "La forma de los marcadores de huesos y ayudantes: cubos o rombos. Los enlaces del esqueleto tienen su propio ajuste de estilo.",
+  "The style of skeleton links between objects: Shaded fades from dark to light; Tapered narrows towards the child; Cone adds an outline; Stick draws thick bars. Object markers keep their own shape.": "El estilo de los enlaces del esqueleto entre objetos: Sombreado va de oscuro a claro; Estrechado se afina hacia el hijo; Cono añade un contorno; Barra dibuja líneas gruesas. Los marcadores de objetos conservan su forma."
 }

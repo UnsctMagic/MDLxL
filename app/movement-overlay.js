@@ -90,7 +90,7 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
     context.strokeStyle = isSelected ? '#fff14e' : '#17263d'; context.lineWidth = isSelected ? 2.5 : 1.5;
     context.beginPath();
     if (options.glMarkers) { /* Shape rendering shares the mesh's actual GL depth. */ }
-    else if (bone && bones.style !== 'cubes') context.arc(point.x, point.y, boxSize / (bones.style === 'stick' ? 3 : 2), 0, Math.PI * 2);
+    else if ((bone || point.helperNode) && bones.style === 'diamond') { context.moveTo(point.x, point.y - boxSize / 2); context.lineTo(point.x + boxSize / 2, point.y); context.lineTo(point.x, point.y + boxSize / 2); context.lineTo(point.x - boxSize / 2, point.y); context.closePath(); }
     else if (bone || point.helperNode) context.rect(point.x - boxSize / 2, point.y - boxSize / 2, boxSize, boxSize);
     else if (point.tetrahedron) { for (const face of [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]) { const [a, b, c] = face.map(index => point.tetrahedron[index]); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.lineTo(c.x, c.y); context.lineTo(a.x, a.y); } }
     else if (emitter) context.rect(point.x - 4.5, point.y - 4.5, 9, 9);
@@ -162,7 +162,7 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
   if (!options.boneLines) return;
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point]));
   const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds), bones = boneDisplayOptions(options.preferences), visual = visualOptions(options.preferences);
-  const pixelBatch = bones.style !== 'joint' && bones.connector === 'shaded' && context.canvas?.width && context.createImageData && context.putImageData ? createPixelLineBatch(context) : null;
+  const pixelBatch = ['shaded', 'stick'].includes(bones.connector) && context.canvas?.width && context.createImageData && context.putImageData ? createPixelLineBatch(context) : null;
   for (const point of nodes) {
     const parent = byId.get(point.node.Parent);
     if (!point.visible || !parent?.visible) continue;
