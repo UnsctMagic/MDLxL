@@ -1,5 +1,20 @@
 import themes from './application-themes.json' with { type: 'json' };
 
+// Rig identities stay green, purple and pink, with shades belonging to each preset.
+const rigColors = {
+  light: ['#4cff59', '#4cb259', '#8a2be2', '#ff39cf'],
+  dark: ['#69e875', '#46b85a', '#b56aff', '#ff4fc8'],
+  'warm-dark': ['#7cdb71', '#53b760', '#b870ed', '#ff62c5'],
+  nord: ['#79dd8b', '#56b56a', '#ad74ed', '#ff58c7'],
+  'solarized-light': ['#228538', '#24692f', '#8428c4', '#d51a9d'],
+  'gruvbox-dark': ['#66df79', '#45b660', '#b96bff', '#ff52cd'],
+  'catppuccin-mocha': ['#69e898', '#48ba77', '#a851ff', '#ff48bc'],
+};
+export function rigNodeColorsForTheme(theme = 'light') {
+  const [bone, root, helper, ref] = rigColors[theme] || rigColors.light;
+  return { bone, root, helper, ref };
+}
+
 export const TREE_COLORS = Object.freeze([
   ['background', 'List background'], ['text', 'List text'], ['muted', 'Type and ID text'],
   ['border', 'List border'], ['guide', 'Hierarchy lines'], ['hover', 'Hovered row'],
@@ -30,10 +45,11 @@ const hues = {
 export function treeAppearanceForTheme(id = 'light') {
   const theme = themes[id] || themes.light, c = theme.colors;
   const [gold, neutral, blue, yellow, violet, green, red, orange, teal] = hues[id] || hues.light;
+  const rig = rigNodeColorsForTheme(id);
   return {
     background: c.field, text: c.text, muted: c.muted, border: c.border, guide: c.border,
     hover: c.hover, selected: c.selected, selectedText: c['selected-text'], accent: theme.accent, fontSize: 12,
-    nodes: { bone: gold, helper: neutral, attachment: blue, light: yellow, emitter: violet, sound: green, splat: red, footprint: orange, ubersplat: gold, spawn: teal, collision: neutral },
+    nodes: { bone: id === 'light' ? '#166534' : rig.bone, helper: id === 'light' ? '#6b21a8' : rig.helper, attachment: id === 'light' ? '#be185d' : rig.ref, light: yellow, emitter: violet, sound: green, splat: red, footprint: orange, ubersplat: gold, spawn: teal, collision: neutral },
     folders: { default: c.link, Human: blue, Orc: orange, Undead: violet, NightElf: green, Naga: teal, Demon: red, Creeps: gold, Abilities: violet, Sound: teal, Unavailable: neutral },
   };
 }

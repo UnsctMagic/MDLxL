@@ -7,6 +7,7 @@ export function viewportOverlayOptions(props) {
   return {
     explicit,
     bones: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.bones : markers,
+    helpers: props.editorDisplayMode === 'vertices' ? false : explicit ? !!(overlays.helpers ?? overlays.bones) : markers,
     nodes: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.nodes : markers,
     attachments: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.attachments : markers,
     particles: props.editorDisplayMode === 'vertices' ? false : explicit ? !!overlays.particles : markers,

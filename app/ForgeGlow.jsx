@@ -13,8 +13,8 @@ export default function ForgeGlow({ model, selection, modelPath, textureAssets, 
     if (anchor.error) return {};
     try {
       const copy = structuredClone(model); commitGlow(copy, selection, settings);
-      // Preview the vertex editor's rest positions while retaining billboard
-      // evaluation by the existing Warcraft renderer as the camera orbits.
+      // The Forge preview is the vertex viewport, which shows bind positions:
+      // drop node animation so the glow sits where it will be attached.
       for (const node of allNodes(copy)) { delete node.Translation; delete node.Rotation; delete node.Scaling; }
       return { model: copy };
     } catch (e) { return { error: e.message }; }

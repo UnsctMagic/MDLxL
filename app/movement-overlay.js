@@ -5,9 +5,9 @@ import { samplePreviewMatrices } from './preview-pose.js';
 import { visualOptions, viewportAppearanceOptions } from '../src/preferences.js';
 import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
 import { boneDisplayColor, boneDisplayOptions, drawBoneLink } from './bone-display.js';
+import { createPixelLineBatch } from './pixel-lines.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
-const NEON_COLORS = { X: '#ff6677', Y: '#55ff77', Z: '#55bbff' };
 const PLANE_COLORS = { xy: 'Y', xz: 'X', yz: 'Z' };
 const AXES = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 const WORKPLANE_NORMALS = { xy: 'Z', xz: 'Y', zx: 'Y', yz: 'X' };
@@ -86,11 +86,11 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
   for (const point of nodes) if (point.visible && rigMarkerVisible(point, options, highlights)) {
     const isSelected = selected.has(point.node.ObjectId), emitter = (point.node.Flags & 4096) !== 0;
     const bone = point.overlayKind === 'bones';
-    context.fillStyle = point.displayColor || (bone ? boneDisplayColor(bones, highlights.get(point.node.ObjectId), byId.get(point.node.Parent)?.overlayKind === 'bones') : emitter || point.overlayKind === 'particles' ? visual.particle : point.eventNode ? visual.event : visual.node);
+    context.fillStyle = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual).color;
     context.strokeStyle = isSelected ? '#fff14e' : '#17263d'; context.lineWidth = isSelected ? 2.5 : 1.5;
     context.beginPath();
     if (options.glMarkers) { /* Shape rendering shares the mesh's actual GL depth. */ }
-    else if (bone && bones.style !== 'cubes') context.arc(point.x, point.y, boxSize / (bones.style === 'stick' ? 3 : 2), 0, Math.PI * 2);
+    else if ((bone || point.helperNode) && bones.style === 'diamond') { context.moveTo(point.x, point.y - boxSize / 2); context.lineTo(point.x + boxSize / 2, point.y); context.lineTo(point.x, point.y + boxSize / 2); context.lineTo(point.x - boxSize / 2, point.y); context.closePath(); }
     else if (bone || point.helperNode) context.rect(point.x - boxSize / 2, point.y - boxSize / 2, boxSize, boxSize);
     else if (point.tetrahedron) { for (const face of [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]) { const [a, b, c] = face.map(index => point.tetrahedron[index]); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.lineTo(c.x, c.y); context.lineTo(a.x, a.y); } }
     else if (emitter) context.rect(point.x - 4.5, point.y - 4.5, 9, 9);
@@ -109,7 +109,7 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
 export function drawMovementGizmo(context, handles, ratio = 1, activeAxis = null, appearance = null) {
   context.save(); context.scale(ratio, ratio);
   for (const handle of handles.filter(handle => handle.plane)) {
-    const active = handle.axis === activeAxis, color = appearance?.['axis' + PLANE_COLORS[handle.plane]] || (active ? NEON_COLORS[PLANE_COLORS[handle.plane]] : handle.color);
+    const active = handle.axis === activeAxis, color = appearance?.['axis' + PLANE_COLORS[handle.plane]] || handle.color;
     context.save(); context.shadowColor = color; context.shadowBlur = active ? 8 : 0;
     context.beginPath(); handle.polygon.forEach((point, index) => context[index ? 'lineTo' : 'moveTo'](point.x, point.y)); context.closePath();
     context.fillStyle = color; context.globalAlpha = active ? .45 : .16; context.fill(); context.globalAlpha = 1;
@@ -117,7 +117,7 @@ export function drawMovementGizmo(context, handles, ratio = 1, activeAxis = null
     context.shadowBlur = active ? 8 : 0; context.strokeStyle = color; context.lineWidth = active ? 2.5 : 1.5; context.stroke(); context.restore();
   }
   for (const handle of handles.filter(handle => !handle.plane)) {
-    const active = handle.mode === 'move' && handle.axis === activeAxis, color = appearance?.['axis' + handle.axis] || (active ? NEON_COLORS[handle.axis] : handle.color);
+    const active = handle.mode === 'move' && handle.axis === activeAxis, color = appearance?.['axis' + handle.axis] || handle.color;
     context.save();
     const length = Math.hypot(handle.dx, handle.dy), ux = handle.dx / length, uy = handle.dy / length;
     context.beginPath(); context.moveTo(handle.startX + (handle.mode === 'move' ? ux * 24 : 0), handle.startY + (handle.mode === 'move' ? uy * 24 : 0)); context.lineTo(handle.x, handle.y);
@@ -144,13 +144,25 @@ function convexHull(points) {
   return [...half(sorted).slice(0, -1), ...half(sorted.reverse()).slice(0, -1)];
 }
 
+const symbolHulls = new WeakMap();
+function connectorMaskVertices(shape) {
+  if (!shape.billboard) return shape.vertices;
+  let vertices = symbolHulls.get(shape);
+  if (!vertices) {
+    vertices = convexHull(shape.vertices.map((point,index) => ({ x:point[0],y:point[1],index }))).map(point => shape.vertices[point.index]);
+    symbolHulls.set(shape,vertices);
+  }
+  return vertices;
+}
+
 /** Connectors occupy their own pixel layer below mesh wires and point overlays.
  * Remove only the projected polyhedron footprints so GL markers remain in front. */
 export function drawBoneConnectors(context, nodes, selectedIds, camera, width, height, ratio = 1, options = {}) {
   context.clearRect(0, 0, width * ratio, height * ratio);
   if (!options.boneLines) return;
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point]));
-  const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds), bones = boneDisplayOptions(options.preferences);
+  const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds), bones = boneDisplayOptions(options.preferences), visual = visualOptions(options.preferences);
+  const pixelBatch = ['shaded', 'stick'].includes(bones.connector) && context.canvas?.width && context.createImageData && context.putImageData ? createPixelLineBatch(context) : null;
   for (const point of nodes) {
     const parent = byId.get(point.node.Parent);
     if (!point.visible || !parent?.visible) continue;
@@ -158,14 +170,15 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
     if (!line) continue;
     const appearance = boneConnectionAppearance(parent, point, highlights);
     if (!boneConnectionVisible(parent, point, highlights, options.focusedBoneLines)) continue;
-    drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio });
+    drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio, pixelBatch });
   }
+  pixelBatch?.flush();
   context.save(); context.setTransform(1, 0, 0, 1, 0, 0); context.globalCompositeOperation = 'destination-out';
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
-    const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla).shape;
-    const size = rigMarkerSize(point, shape, options);
-    const hull = convexHull(shape.vertices.map(vertex => {
+    const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual).shape;
+    const size = rigMarkerSize(point, shape, options, visual);
+    const hull = convexHull(connectorMaskVertices(shape).map(vertex => {
       const p = new Vector3(...vertex).multiplyScalar(size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world).project(camera);
       return { x: (p.x + 1) * width * ratio / 2, y: (1 - p.y) * height * ratio / 2 };
     }));

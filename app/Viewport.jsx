@@ -6,7 +6,7 @@ import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting }
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, HIDDEN_LINE_DASH, HIDDEN_LINE_FADE } from './preview-overlays.js';
-import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
+import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, projectMovementNodes, pickMovementHandle, pickMovementNode, movementNodeSelection } from './movement-overlay.js';
 import { visibleMovementPoints } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
@@ -412,7 +412,7 @@ export default function Viewport(inputProps) {
       if (state.hoveredGeoset !== next) { state.hoveredGeoset = next; p.onHoverGeoset(next); }
     }
     function applyPreviewPose(p, poseCamera) {
-      state.matrices = samplePreviewMatrices(p.model, state.frame, p.sequenceIndex, state.globalTime, poseCamera);
+      state.matrices = samplePreviewMatrices(p.model, state.frame, p.sequenceIndex, state.globalTime, previewBillboarding(p) ? poseCamera : undefined);
       for (const entry of state.entries) {
         if (!entry) continue;
         const positions = entry.geometry.attributes.position;

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { collapseVertices, weldSelectedVertices, uncoupleVertices, deleteSelectedFaces, averageSelectedNormals } from '../src/classic-mesh.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
+import { addTriangle } from '../src/editor-commands.js';
 
 function geoset(vertices = [0, 0, 0, 2, 0, 0, 2, 2, 0, 0, 2, 0], faces = [0, 1, 2, 0, 2, 3]) {
   const count = vertices.length / 3;
@@ -135,4 +136,45 @@ test('classic uncouple, collapse and weld survive full undo/redo and MDL/MDX sav
   doc.undo(); doc.undo(); assert.deepEqual(doc.model, split);
   doc.undo(); assert.deepEqual(doc.model, initial); assert.equal(doc.dirty, false);
   doc.redo(); doc.redo(); doc.redo(); assert.deepEqual(doc.model, final);
+});
+
+test('B welds loose SD/HD vertices before the first triangle, retaining the last selected attributes', () => {
+  for (const hd of [false, true]) {
+    const g = geoset(undefined, []);
+    if (!hd) { delete g.Tangents; delete g.SkinWeights; }
+    const before = structuredClone(g), result = weldSelectedVertices(g, [0, 3]);
+    assert.deepEqual(result, { selection: [2], merged: 1, removedFaces: 0, retainedVertex: 2 });
+    assert.deepEqual([...g.Vertices], [2, 0, 0, 2, 2, 0, 0, 1, 0]);
+    assert.equal(g.Faces.length, 0);
+    const retained = [1, 2, 3];
+    for (const [name, stride] of [['Normals', 3], ['VertexGroup', 1], ['Tangents', 4], ['SkinWeights', 8]]) {
+      if (!before[name]) continue;
+      assert.deepEqual([...g[name]], retained.flatMap(i => [...before[name].slice(i * stride, (i + 1) * stride)]), name);
+    }
+    for (let uv = 0; uv < g.TVertices.length; uv++) assert.deepEqual([...g.TVertices[uv]], retained.flatMap(i => [...before.TVertices[uv].slice(i * 2, (i + 1) * 2)]));
+    for (const name of ['Groups', 'Anims', 'MaterialID', 'SelectionGroup', 'Unselectable']) assert.deepEqual(g[name], before[name], name);
+    addTriangle(g, [0, 1, result.retainedVertex]);
+    assert.deepEqual([...g.Faces], [0, 1, 2]);
+  }
+});
+
+test('loose-vertex weld and first triangle survive undo/redo and MDL/MDX save/reload', () => {
+  const doc = createDemoDocument();
+  doc.apply('Loose vertices fixture', ['Geosets'], m => { m.Geosets[0].Faces = new Uint16Array(); });
+  const initial = structuredClone(doc.model);
+  const result = doc.apply('Weld', ['Geosets'], m => weldSelectedVertices(m.Geosets[0], [0, 3]));
+  const welded = structuredClone(doc.model);
+  doc.apply('Create triangle', ['Geosets'], m => addTriangle(m.Geosets[0], [0, 1, result.retainedVertex]));
+  const final = structuredClone(doc.model);
+  for (const format of ['mdl', 'mdx']) {
+    const reopened = openDocument(doc.serialize(format));
+    assert.equal(reopened.readOnly, false);
+    assert.deepEqual(reopened.model.Geosets[0].Faces, final.Geosets[0].Faces);
+    assert.deepEqual(reopened.model.Geosets[0].Vertices, final.Geosets[0].Vertices);
+    assert.equal(reopened.diagnostics.filter(d => d.severity === 'error').length, 0);
+  }
+  doc.undo(); assert.deepEqual(doc.model, welded);
+  doc.undo(); assert.deepEqual(doc.model, initial);
+  doc.redo(); assert.deepEqual(doc.model, welded);
+  doc.redo(); assert.deepEqual(doc.model, final);
 });

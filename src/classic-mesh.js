@@ -80,7 +80,7 @@ export function weldSelectedVertices(geoset, indices, center) {
     // The old implementation missed triangles with only two equal corners.
     if (a !== b && b !== c && a !== c) faces.push(a, b, c);
   }
-  if (!faces.length) throw new Error('This weld would remove every triangle. Delete the geoset instead.');
+  if (geoset.Faces.length && !faces.length) throw new Error('This weld would remove every triangle. Delete the geoset instead.');
   const streams = gather(geoset, kept); streams.Vertices.set(center, target * 3);
   const extents = bounds(streams.Vertices), removedFaces = (geoset.Faces.length - faces.length) / 3;
   Object.assign(geoset, streams, extents, { Faces: new Uint16Array(faces) });

@@ -102,7 +102,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.press('Delete');
     assert.equal(await page.getByLabel('Movement bone or node').locator('option', { hasText: 'bone_new0' }).count(), 0);
     await page.getByRole('button', { name: 'Create', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Attachment' }).click();
+    await page.getByRole('menuitem', { name: 'Ref', exact: true }).click();
     assert.match(await page.getByLabel('Movement bone or node').getAttribute('title'), /New Ref/);
     await page.screenshot({ path: path.join(output, 'bones-tab.png') });
     assert.deepEqual(errors, []);

@@ -155,9 +155,11 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const materialSignature = current ? JSON.stringify({ material: materialModel.Materials?.[current.materialID], textures: current.layers.map(layer => layer.texture) }) : '';
 
   useEffect(() => {
-    let cancelled = false; setMaterialError(''); setMaterialPreview(null);
-    if (!current || !preferences?.graphics?.textures) return;
-    renderUVMaterialTexture(materialModel, current.materialID, textureAssets, { teamColor }).then(value => { if (!cancelled) setMaterialPreview(value); }).catch(cause => { if (!cancelled) setMaterialError(cause.message); });
+    let cancelled = false;
+    if (!current || !preferences?.graphics?.textures) { setMaterialError(''); setMaterialPreview(null); return; }
+    // Keep the previous texture and its warning until this render settles, so a
+    // slow decode never blanks the map or shifts the workspace under the pointer.
+    renderUVMaterialTexture(materialModel, current.materialID, textureAssets, { teamColor }).then(value => { if (!cancelled) { setMaterialError(''); setMaterialPreview(value); } }).catch(cause => { if (!cancelled) { setMaterialPreview(null); setMaterialError(cause.message); } });
     return () => { cancelled = true; };
   }, [current?.materialID, materialSignature, textureAssets, teamColor, preferences?.graphics?.textures]);
 

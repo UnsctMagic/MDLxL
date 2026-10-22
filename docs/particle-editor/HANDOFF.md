@@ -1,5 +1,10 @@
 # Particle Editor prototype handoff
 
+> Historical task record. Workspace paths, session limits, release permissions and
+> test results below describe that earlier lane, not current authorization or state.
+> Check current instructions, branch and code before reusing a finding. Read only
+> relevant sections; do not resume old actions by default.
+
 PR https://github.com/KlugerA/MDLxL/pull/60 merged into online `main` at `8097f79e78441e47195c57429a5396eea4e79fb0` for the 0.15.0 release. The managed checkout remains `C:\Users\PC\.codex\worktrees\particle-editor-prototype\MDLxL`. The prototype base was `c62faa4299a0b44519f992cf3765da7623e72417` (v0.14.1). The primary checkout has unrelated local changes and remains untouched.
 
 The UX follow-up is ready for another user test: direct library entry, favorites and Picture fixes; independent My work recovery; EMTR and simple markers; chosen Movement intervals; main move/bind/visibility controls; and ribbons fitted to marked weapon polygons. Ribbon creation now follows **Add ribbon → animation checkboxes → Create → visual editor**, with automatic bone binding and no frame or ghost-placement gates. Current tester, asset provenance, exact evidence and remaining boundaries are in [USER-FEEDBACK.md](USER-FEEDBACK.md); these supersede checkpoint-9 status below. Keep test windows independent of source/dist rebuilds. This is prototype evidence, not acceptance of every contract gate or Warcraft fidelity.
@@ -26,7 +31,7 @@ The prototype includes pinned size/spawn/aim/spread handles; life samples and na
 | Marked weapon polygons, native ribbon fit and detected binding | `src/particle-ribbon-fit.js`, `app/ParticlePlacementControls.jsx` |
 | CASC index and exact-source dependency resolution | `electron/particle-library-worker.mjs`, `electron/particle-source.cjs` |
 | Preset store, source metadata and revision-bound thumbnails | `electron/particle-library.cjs`, `app/ParticleThumbnailQueue.jsx` |
-| Hash-bound observed appearance names | `src/particle-reviewed-names.json` |
+| Hash-bound observed appearance names, keyed by source model path and emitter name (`*` = whole-model group), so they survive index rebuilds and game patches that leave the model unchanged | `src/particle-reviewed-names.json`, `electron/particle-review.cjs` |
 
 Only the adapter touches private pinned renderer internals. Do not edit imported libraries. Preserve source bytes and canonical fields; do not repair models to make previews work. Live updates must verify the renderer owns the current model before applying changed parent references. Lab selections must not call the main model selection callback. Muting and demonstration motion live only in preview clones.
 

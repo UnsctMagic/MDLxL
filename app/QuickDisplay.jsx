@@ -7,7 +7,7 @@ export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isE
   return <div className="quick-display" role="group" aria-label="Quick display">
     <div className="quick-display-options">
       <button title="Remove all display options; no model data is removed" onClick={onClear}>Clear</button>
-      {(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay').map(([label, action]) =>
+      {(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && !((vanilla || viewMode === 'bones') && ['display:bones', 'display:attachments'].includes(action))).map(([label, action]) =>
         <label key={action}><input type="checkbox" data-hotkey={action} checked={!!checks[action]} disabled={!isEnabled(action)} onChange={() => onCommand(action)}/>{label}</label>)}
     </div>
   </div>;

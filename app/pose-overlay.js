@@ -1,7 +1,6 @@
 import { Quaternion, Vector3 } from 'three';
-import { allNodes } from '../src/animation.js';
+import { allNodes, sampleNodeMatrices } from '../src/animation.js';
 import { createPoseSample, poseChainIds, poseDuplicatesBody, poseNodeControl, poseControlPoint, poseAffectedPins, poseNodeRole, poseRole, samplePoseChain } from '../src/pose-ik.js';
-import { samplePreviewMatrices } from './preview-pose.js';
 import { pickMovementNode } from './movement-overlay.js';
 import { boneHighlightColors } from './rig-markers-gl.js';
 import { DEFAULT_CONTROLLER_APPEARANCE, controllerShapePoints } from '../src/controller-appearance.js';
@@ -63,7 +62,7 @@ export function projectPoseHandles(model, config, frame, sequence, camera, width
       }
     } catch { /* Invalid session mappings have no visible or pickable handle. */ }
   }
-  const matrices = samplePreviewMatrices(model, frame, sequence, globalTime, camera);
+  const matrices = sampleNodeMatrices(model, frame, sequence, globalTime);
   for (const node of nodes) {
     if (handles.some(handle => handle.chain?.end === node.ObjectId)) continue;
     const body = node.ObjectId === config.body, selected = body ? target?.kind === 'body' : target?.kind === 'node' && !target.marker && target.id === node.ObjectId;

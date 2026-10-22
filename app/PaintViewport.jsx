@@ -7,7 +7,7 @@ import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting }
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay } from './preview-overlays.js';
-import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
+import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { drawMovementOverlay, projectMovementNodes } from './movement-overlay.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { projectPreviewGeosets, pickPreviewGeoset } from './preview-selection.js';
@@ -614,7 +614,7 @@ export default function Viewport(inputProps) {
       const interval = p.model?.Sequences?.[p.sequenceIndex]?.Interval;
       const animOptions = { interval, globalSequences: p.model?.GlobalSequences, globalTime: state.globalTime };
       if (changed && p.model && !state.drag && !p.paintWorkspace) {
-        state.matrices = samplePreviewMatrices(p.model, state.frame, p.sequenceIndex, state.globalTime, camera);
+        state.matrices = samplePreviewMatrices(p.model, state.frame, p.sequenceIndex, state.globalTime, previewBillboarding(p) ? camera : undefined);
         for (const entry of state.entries) {
           if (!entry) continue;
           const positions = entry.geometry.attributes.position;
