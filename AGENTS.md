@@ -48,6 +48,12 @@ separate and are not a shared handover.
 - Keep MDLxL simple and compact, in the spirit of MDLVis and the VIS button.
   Do not add unsolicited panels, dashboards, toolbars, menu redesigns or apps.
   Preserve existing sidebars, widths and controls unless explicitly requested.
+- One way of doing things. When a feature has an existing counterpart, reuse
+  its controls exactly: same handles, look, drag behaviour, keys and wording.
+  Never invent a new control scheme for a familiar job (for example sliders
+  where the app already drags). In EMTR, emitters are moved and resized by
+  dragging handles in the preview, so ribbons, glows and anything else placed
+  there are dragged the same way. Users learn one way, not one per feature.
 - Complicated or ambiguous controls need a short plain-language tooltip when
   hovering either the control or label. For example, `Billboarded` explains that
   the bone and attached parts turn toward the viewer as the camera moves.

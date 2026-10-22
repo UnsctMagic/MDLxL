@@ -133,7 +133,17 @@ export function particleStageSnapshot(native,camera,width,height,selectedId,all=
     const parentMatrix=anchorNode.Parent==null?new Matrix4():new Matrix4().fromArray(native.rendererData.nodes[anchorNode.Parent].matrix),inverse=parentMatrix.clone();
     if(Math.abs(inverse.determinant())>1e-10){inverse.invert();const local=world.clone().applyMatrix4(inverse);anchor={point:project(world.toArray()),dx:world.clone().add(screenPlaneTranslation(camera,world,width,height,1,0)).applyMatrix4(inverse).sub(local).toArray(),dy:world.clone().add(screenPlaneTranslation(camera,world,width,height,0,1)).applyMatrix4(inverse).sub(local).toArray()};}
   }
-  return {width,height,samples,guide,sweep,anchor,liveParticles:count,frame:native.getFrame()};
+  // Other stage handles (Glow Up): bind-pose points carried by a node's current
+  // transform; `radius` adds the on-screen size of a camera-facing square.
+  const marks={};
+  for(const [key,mark] of Object.entries(options.marks||{})){
+    const world=new Vector3().fromArray(mark.point),matrix=mark.node==null?null:native.rendererData.nodes[mark.node]?.matrix;
+    if(matrix)world.applyMatrix4(new Matrix4().fromArray(matrix));
+    const point=project(world.toArray());
+    if(mark.radius){const edge=project(world.clone().add(new Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(mark.radius)).toArray());point.push(Math.hypot(edge[0]-point[0],edge[1]-point[1]));}
+    marks[key]=point;
+  }
+  return {width,height,samples,guide,sweep,anchor,marks,liveParticles:count,frame:native.getFrame()};
 
 }
 const particlePictures=new WeakMap();

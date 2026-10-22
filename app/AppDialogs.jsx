@@ -20,7 +20,7 @@ const AnimXL = lazy(() => import('./AnimXL.jsx'));
 export default function AppDialogs({
   Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
   clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
-  forgeGlow, forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
+  forgeItem, gameData, gameDataPath, gameDataSources, geosetTab, grabThrough, historyMB, historySteps,
   importPart, latest, leaveGeosetVisible, leaveVisibleAvailable, meshAction, mode, model, normalAngle, notice,
   openLibrary, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
   removeSession, resolveGeosetMerge, restoreRecovery, save, saveDataChoice, saveSessionWork, saving, say,
@@ -33,7 +33,7 @@ export default function AppDialogs({
 }) {
   return <>
     {dialog?.type === 'portraitSetup' && <PortraitSetup model={model} missingCamera={dialog.missingCamera} missingSequence={dialog.missingSequence} sourceIndex={sequence >= 0 ? sequence : model.Sequences.length ? 0 : -1} disabled={doc.readOnly || saving} onCreate={completePortraitSetup} onSetCamera={setMissingPortraitCamera} onClose={() => setDialog(null)}/>}
-    {dialog?.type==='forge' && <Suspense fallback={<div className="classic-modal">Loading Forge…</div>}><Forge editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} selection={validSelection} textureAssets={session.assets} teamColor={teamColor} onCommitGlow={forgeGlow} preferences={preferences} model={model} modelPath={session.path} onClose={()=>setDialog(null)} onCommit={forgeItem}/></Suspense>}
+    {dialog?.type==='forge' && <Suspense fallback={<div className="classic-modal">Loading Forge…</div>}><Forge editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} preferences={preferences} model={model} modelPath={session.path} onClose={()=>setDialog(null)} onCommit={forgeItem}/></Suspense>}
     {dialog?.type==='bitsAndParts' && <Suspense fallback={<div className="classic-modal">Loading BitsAndParts…</div>}><BitsAndParts model={model} selectionByGeoset={mode === 'vertices' ? validSelection : null} preferences={preferences} textureAssets={session.assets} teamColor={teamColor} onClose={()=>setDialog(null)} onCommit={importPart}/></Suspense>}
     {dialog?.type==='animXL' && <Suspense fallback={<div className="classic-modal">Loading AnimXL…</div>}><AnimXL doc={doc} edit={edit} sequenceIndex={sequence} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} modelPath={session.path} selectedNodeIds={selectedNodeIds} poseRig={session.pose?.initialized ? session.pose : null} onClose={()=>setDialog(null)}/></Suspense>}
     {dialog?.type==='particles' && <Suspense fallback={<div className="classic-modal">Loading Particle Editor…</div>}><ParticleEditor onPlacedAssets={assets=>{changeOverlay('particles',true);session.assets=new Map([...session.assets,...assets]);refresh();}} doc={doc} revision={doc.revision} edit={edit} refresh={refresh} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} selectedNodeId={dialog.nodeId} attachmentNodeId={dialog.attachmentId} selectedGeometry={dialog.selection} sequenceIndex={sequence} previewFrame={time} onClose={()=>setDialog(null)} onNodeChange={id=>setSelectedNodeIds(id==null?[]:[id])}/></Suspense>}
