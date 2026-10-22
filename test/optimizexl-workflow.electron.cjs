@@ -39,7 +39,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   await p.getByRole('button',{name:'Fix everything',exact:true}).click();
   await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));
   await p.screenshot({path:path.join(out,'02-fix-everything-preview.png')});
-  assert.equal(await p.getByRole('button',{name:'Save',exact:true}).isDisabled(),true,'nothing approved yet');
+  assert.equal(await p.getByRole('button',{name:'Save',exact:true}).isDisabled(),true,'nothing approved yet');assert.equal(await p.getByRole('button',{name:'Commit',exact:true}).isDisabled(),true);
   await p.getByRole('button',{name:'Approve all fixes',exact:true}).click();
   await p.getByText(/^Hive: 0 errors · 0 severe · 0 warnings/).waitFor();
   // Close with unsaved approved work asks first.
@@ -62,8 +62,18 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   await p.getByRole('button',{name:'Save',exact:true}).click();await p.waitForFunction(()=>/Saved Broken\.mdx\./.test(document.body.textContent)&&!document.querySelector('[role=dialog]'));
   assert.equal(fs.readdirSync(out).filter(n=>/_backup.*.mdx$/i.test(n)).length,1);assert.ok(openDocument(new Uint8Array(fs.readFileSync(file)),'x.mdx').model.CollisionShapes.length>0,'the second save includes the spheres');
   await p.screenshot({path:path.join(out,'04-saved.png')});
-  const closed=p.waitForEvent('close');await p.getByRole('button',{name:'Close',exact:true}).click();await closed;
+  // Commit returns to the editor with the approved state applied, without saving.
+  // Back undoes the spheres, so the committed model differs from the saved file.
+  const onDisk=fs.readFileSync(file);await p.getByRole('button',{name:'Back',exact:true}).click();
+  assert.equal(await p.getByRole('button',{name:'Commit',exact:true}).isEnabled(),true);
+  const closed=p.waitForEvent('close');await p.getByRole('button',{name:'Commit',exact:true}).click();await closed;
+  assert.deepEqual(fs.readFileSync(file),onDisk,'Commit does not save the file');
+  await main.getByText('OptimizeXL',{exact:true}).first().waitFor();
+  await main.screenshot({path:path.join(out,'05-committed-in-editor.png')});
   assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!exe,before:[before.errors,before.severe,before.warnings],after:[check.errors,check.severe,check.warnings]},null,1));
   console.log('optimizexl-workflow passed',out);
- }finally{await app.close().catch(()=>{});}
+ }finally{
+  // Commit leaves the model modified, so a normal close would ask to save.
+  await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{});
+ }
 })().catch(error=>{console.error(error);process.exitCode=1;});

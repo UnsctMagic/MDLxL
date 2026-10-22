@@ -1312,7 +1312,10 @@
     "Approve all fixes",
     "No Hive issues found. Choose Next stage to continue.",
     "{0} larger",
-    "Repair available; choose how to fix it."
+    "Repair available; choose how to fix it.",
+    "Commit",
+    "Apply the approved changes to the open model and return to the editor. The file is not saved.",
+    "Commit keeps them in the open model without saving the file."
   ],
   "paint": [
     "Citadel Paint",

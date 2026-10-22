@@ -75,6 +75,10 @@ export default function AppDialogs({
       const {adoptOptimizeXLResult}=await import('../src/optimizexl-session.js');
       if(edit('OptimizeXL',['Info'],m=>adoptOptimizeXLResult(m,bytes),{rethrow:true})===false&&doc.dirty===false)return {name:doc.name,backup:backupPath};
       return await save()?{name:session.doc.name,backup:backupPath}:null;
+    }} onCommit={async({bytes})=>{
+      // Commit: the approved result becomes one undoable edit, not saved yet.
+      const {adoptOptimizeXLResult}=await import('../src/optimizexl-session.js');
+      edit('OptimizeXL',['Info'],m=>adoptOptimizeXLResult(m,bytes),{rethrow:true});
     }} onClose={()=>setDialog(null)}/></Suspense></DetachedWindow>}
     {settingsTab && <Suspense fallback={null}><Settings onRevertUpdate={window.desktop?.revertUpdate ? updates.revert : undefined} updateStatus={updates.status} onCheckUpdates={window.desktop?.checkUpdates ? updates.check : undefined} modelPath={session.path} preferences={preferences} initialTab={settingsTab} onTabChange={setSettingsTab} gameDataPath={gameDataPath} gameDataSources={gameDataSources} onAddGameDataSource={window.desktop?.addGameDataSource ? kind=>changeGameDataSource(kind) : undefined} onRemoveGameDataSource={window.desktop?.removeGameDataSource ? file=>changeGameDataSource(null,file) : undefined} onChooseGameData={window.desktop?.chooseGameData ? gameData : undefined} onClearGameData={window.desktop?.clearGameData ? clearGameData : undefined} onChange={changePreferences} onClose={()=>setSettingsTab(null)}/></Suspense>}
     {notice && <Dialog title="HD models" onClose={() => setNotice(null)} footer={notice.convert ? <><button onClick={() => setNotice(null)}>Open view-only</button><button onClick={() => { setNotice(null); convertToSD(notice.convert); }}>Convert to SD</button></> : <button onClick={() => setNotice(null)}>OK</button>}><p>{notice.message}</p></Dialog>}

@@ -58,7 +58,9 @@ For shared combat poses, the fixer compares the skinned rig at the first and las
 
 The first save in an OptimizeXL session asks whether to keep a backup: **Back up, then save** first copies the file as it is on disk to `Name_backup.mdx` beside it (`Name_backup_2.mdx` and so on if taken; existing files are never overwritten), **Save without backup** saves straight away. Later saves in the same session save directly. No other files are written. A model that was never saved asks where to save, like the main editor.
 
-Saving leaves the current stage and proposal open so you can keep reviewing. Closing OptimizeXL with approved changes that are not saved asks whether to save them first.
+**Commit**, next to Save, applies the approved result to the open model as the same undoable **OptimizeXL** step and returns to the editor without saving the file; save it from the editor when you are ready.
+
+Saving leaves the current stage and proposal open so you can keep reviewing. Closing OptimizeXL with approved changes that are not saved asks whether to save or commit them first.
 
 ## Current scope and evidence boundaries
 

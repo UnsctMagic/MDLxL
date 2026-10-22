@@ -6299,5 +6299,7 @@
   "Approve all fixes": "Aprobar todas las correcciones",
   "No Hive issues found. Choose Next stage to continue.": "Hive no encontró problemas. Elige Siguiente etapa para continuar.",
   "{0} larger": "{0} más grande",
-  "Repair available; choose how to fix it.": "Hay una reparación disponible; elige cómo hacerla."
+  "Repair available; choose how to fix it.": "Hay una reparación disponible; elige cómo hacerla.",
+  "Apply the approved changes to the open model and return to the editor. The file is not saved.": "Aplicar los cambios aprobados al modelo abierto y volver al editor. El archivo no se guarda.",
+  "Commit keeps them in the open model without saving the file.": "Aplicar los mantiene en el modelo abierto sin guardar el archivo."
 }

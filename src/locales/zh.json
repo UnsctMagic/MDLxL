@@ -3486,5 +3486,7 @@
   "Approve all fixes": "批准全部修复",
   "No Hive issues found. Choose Next stage to continue.": "Hive 未发现问题。选择“下一阶段”继续。",
   "{0} larger": "增大 {0}",
-  "Repair available; choose how to fix it.": "有可用修复；请选择修复方式。"
+  "Repair available; choose how to fix it.": "有可用修复；请选择修复方式。",
+  "Apply the approved changes to the open model and return to the editor. The file is not saved.": "将已批准的更改应用到打开的模型并返回编辑器。文件不会被保存。",
+  "Commit keeps them in the open model without saving the file.": "“提交”会将它们保留在打开的模型中，但不保存文件。"
 }
