@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { createPortal } from 'react-dom';
 import { ArrowUpFromLine, Scissors, PackagePlus, FlipHorizontal2, Combine } from 'lucide-react';
 import { Tool } from './EditorControls.jsx';
-import { transformVertices } from '../src/editor-commands.js';
+import { transformVertices, setVertexPositions } from '../src/editor-commands.js';
 import { buildForgePrimitive, FORGE_SHAPES, FLAT_FORGE_SHAPES, PRIMITIVE_DEFAULTS, PRIMITIVE_TEXTURE } from '../src/forge-primitives.js';
 import { thumperImage, THUMPER_TEXTURE, THUMPER_COLORS } from '../src/forge-thumper.js';
 import { encodeForgeTga } from '../src/forge.js';
@@ -14,11 +14,12 @@ import { forgeMoldHandles } from './forge-mold-handles.js';
 import { pickEditHandle } from './viewport-edit-handles.js';
 
 import { HotkeyBadge } from './Hotkeys.jsx';
-import { normalDragTranslation, planeScreenBasis, projectedPlaneTranslation } from './viewport-math.js';
+import { normalDragTranslation } from './viewport-math.js';
 import { SURFACE_COLORS, forgeModelingOverlay } from './forge-surface-colors.js';
 import { forgePartsFromVertices, forgeVertexSelection, pickForgeParts, pickForgePoint } from './forge-viewport-selection.js';
 import { createForgeShape, forgeShapeMesh, forgeSelectionVertices, forgeSelectionCenter, forgeSelectionNormal, extrudeForgeFaces, insetForgeFaces, forgeCutFrame, cutForgeShape } from '../src/forge-shape-editing.js';
-import { blendForgeFaces, forgeDetailFaces, forgeRepeatDefaults, repeatForgeDetail, snapForgeCut, snapForgeExtrusion } from '../src/forge-detail-editing.js';
+import { blendForgeFaces, forgeDetailFaces, forgeDetailPreview, forgeRepeatDefaults, repeatForgeDetail, snapForgeCut, snapForgeExtrusion } from '../src/forge-detail-editing.js';
+import {magnetizeForgeDetail,moveMagnetizedDetail,refitMagnetizedDetail,closeForgeDetail} from '../src/forge-detail-magnet.js';
 
 // Small, static previews use the same geometry as the shape being added.
 function ShapeThumbnail({ shape }) {
@@ -54,8 +55,12 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   const history = useRef([]), future = useRef([]), clipboard = useRef([]), nextId = useRef(1), viewBasis = useRef({ up: [0, 0, 1], normal: [0, -1, 0] });
   const [extrudeReady, setExtrudeReady] = useState(false), [preview, setPreview] = useState(null);
   const extrusion = useRef(null);
-  const [snap, setSnap] = useState(''), [repeat, setRepeat] = useState(null), repeatDrag = useRef(null);
-  useEffect(() => { extrusion.current = null; repeatDrag.current = null; setPreview(null); setExtrudeReady(false); setRepeat(null); setSnap(''); }, [draft]);
+  const [snap, setSnap] = useState(''), [repeat, setRepeat] = useState(null);
+  const repeatHistory=useRef([]),repeatFuture=useRef([]),[repeatHistorySize,setRepeatHistorySize]=useState([0,0]);
+  const clearRepeatHistory=()=>{repeatHistory.current=[];repeatFuture.current=[];setRepeatHistorySize([0,0]);};
+  const changeRepeat=next=>{repeatHistory.current.push(repeat);if(repeatHistory.current.length>80)repeatHistory.current.shift();repeatFuture.current=[];setRepeatHistorySize([repeatHistory.current.length,0]);setRepeat(next);setError('');};
+  const undoRepeat=redo=>{const from=redo?repeatFuture.current:repeatHistory.current,to=redo?repeatHistory.current:repeatFuture.current,previous=from.pop();if(!previous)return;to.push(repeat);setRepeat(previous);setRepeatHistorySize([repeatHistory.current.length,repeatFuture.current.length]);setError('');};
+  useEffect(() => { extrusion.current = null; setPreview(null); setExtrudeReady(false); setRepeat(null); setSnap(''); }, [draft]);
   const [cut, setCut] = useState(null), workspace = useRef(null);
   useEffect(() => { setCut(null); }, [draft]);
   const cutResult = (state, hover = false) => {
@@ -79,17 +84,20 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
     if (!mold || !moldSupport?.draft) return moldSupport;
     try { return { draft: previewForgeMold(draft, moldSupport.draft, mold) }; } catch (e) { return { error: e.message }; }
   }, [draft, mold, moldSupport]);
-  const handles = useMemo(() => mold ? forgeMoldHandles(mold) : null, [mold]);
   const repeatResult = useMemo(() => {
     if (!repeat) return null;
+    const placement = repeat.placed ? {detail:repeat.placed,originalIds:repeat.originalIds} : {...repeat,detail:repeat.source};
+    const ghost = forgeDetailPreview(placement.detail, repeat.ids, placement);
     try {
       const shape = draft.shapes.find(s => s.id === repeat.shapeId);
       if (!shape) throw Error('Select the shape containing the copied detail.');
-      const result = repeatForgeDetail(shape, repeat.ids, { ...repeat, plane: Number(repeat.plane), offset: repeat.offset.map(Number), detail: repeat.source });
-      return { draft: { ...draft, mode: 'Faces', shapes: draft.shapes.map(s => s.id === shape.id ? result.shape : s), selection: { [shape.id]: result.selection } } };
-    } catch (e) { return { error: e.message }; }
+      const result = repeatForgeDetail(shape, repeat.ids, placement);
+      return { ghost, draft: { ...draft, mode: 'Faces', shapes: draft.shapes.map(s => s.id === shape.id ? result.shape : s), selection: { [shape.id]: result.selection } } };
+    } catch (e) { return { ghost, error: e.message }; }
   }, [repeat, draft]);
-  const shown = repeatResult?.draft || moldResult?.draft || cutPreview?.draft || preview || draft;
+  const handles = useMemo(() => mold ? forgeMoldHandles(mold) : null, [mold]);
+  const displayGhost=useMemo(()=>repeatResult?.ghost && repeat?.magnet ? closeForgeDetail(repeatResult.ghost) : repeatResult?.ghost,[repeatResult,!!repeat?.magnet]);
+  const shown = displayGhost ? {...draft,shapes:[...draft.shapes,displayGhost],mode:'Faces',selection:{[displayGhost.id]:displayGhost.faces.map(f=>f.id)}} : moldResult?.draft || cutPreview?.draft || preview || draft;
   const helmet = useMemo(thumperImage, []);
   useEffect(() => {
     let active = true;
@@ -105,8 +113,8 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   const undo = redo => { const from = redo ? future.current : history.current, to = redo ? history.current : future.current, previous = from.pop(); if (!previous) return; to.push(draft); setDraft(previous); setError(''); setHistorySize([history.current.length, future.current.length]); };
   const setting = (key, value) => setSettings(s => ({ ...s, [key]: value }));
   const entries = useMemo(() => shown.shapes.map(shape => ({ shape, mesh: forgeShapeMesh(shape) })), [shown.shapes]);
-  const surfaceColors = useMemo(() => entries.map((_, i) => SURFACE_COLORS[i % SURFACE_COLORS.length]), [entries]);
-  const modelingOverlay = useMemo(() => entries.map(({ shape, mesh }) => forgeModelingOverlay(shape, mesh, shown.selection[shape.id], shown.mode)), [entries, shown.selection, shown.mode]);
+  const surfaceColors = useMemo(() => entries.map(({shape}, i) => shape.id==='repeat-preview'?0xffae38:SURFACE_COLORS[i % SURFACE_COLORS.length]), [entries]);
+  const modelingOverlay = useMemo(() => entries.map(({ shape, mesh }) => ({...forgeModelingOverlay(shape, mesh, shown.selection[shape.id], shown.mode),...(shape.id==='repeat-preview'&&{preview:true})})), [entries, shown.selection, shown.mode]);
   const model = useMemo(() => ({ Version: 800, Info: { Name: 'Forge' }, Nodes: [], Bones: [], PivotPoints: [], Sequences: [], GlobalSequences: [], GeosetAnims: [], TextureAnims: [], Textures: [{ Image: PRIMITIVE_TEXTURE }, { Image: THUMPER_TEXTURE }], Materials: [0, 1].map(TextureID => ({ Layers: [{ TextureID, Alpha: 1, Shading: 16 }] })), Geosets: entries.map(({shape, mesh}) => ({ ...mesh.geosets[0], MaterialID: shape.texturePath === THUMPER_TEXTURE ? 1 : 0 })) }), [entries]);
   const textureAssets = useMemo(() => new Map([[PRIMITIVE_TEXTURE, stock], [THUMPER_TEXTURE, { name: THUMPER_TEXTURE, bytes: encodeForgeTga(helmet) }]]), [stock, helmet]);
   const selection = useMemo(() => forgeVertexSelection(entries, shown.selection, shown.mode), [entries, shown.selection, shown.mode]);
@@ -132,20 +140,42 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
     requestTool({ tool: 'translate' });
   };
   const onSelectionChange = next => setDraft({ ...draft, selection: forgePartsFromVertices(entries, next, draft.mode) });
+  const placeRepeat = (state,ghost,magnet=state.magnet) => changeRepeat({...state,ids:ghost.faces.map(f=>f.id),magnet,placed:{...ghost,id:state.source.id,faces:[...state.source.faces.filter(face=>!state.originalIds.includes(face.id)),...ghost.faces]}});
+  const constrainRepeatTransform = payload => {
+    if(!repeat?.magnet||payload.modelPositions)return payload;
+    const gi=entries.length-1,ghost=repeatResult.ghost,mesh=structuredClone(entries[gi].mesh.geosets[0]),vertexIds=entries[gi].mesh.vertexIds,indices=payload.selections?.[gi]||selection[gi];
+    let shape,surface=repeat.magnet;
+    if(payload.translation&&!payload.rotation&&!payload.scale)shape=moveMagnetizedDetail(ghost,surface,payload.translation);
+    else {
+      mesh.Vertices=Float64Array.from(vertexIds.flatMap(id=>ghost.vertices[id]));
+      transformVertices(mesh,indices,payload.translation,payload.scale,payload.rotation,payload.pivot,{allowSingularScale:payload.allowSingularScale===true});
+      const moved=structuredClone(ghost);vertexIds.forEach((id,i)=>{moved.vertices[id]=Array.from(mesh.Vertices.slice(i*3,i*3+3));});
+      for(const face of moved.faces)for(const triangle of face.triangles)triangle.normals=undefined;
+      const fitted=refitMagnetizedDetail(moved,surface,!!payload.rotation);shape=fitted?.shape||ghost;surface=fitted?.surface||surface;
+    }
+    return {...payload,detailShape:shape,magnet:surface,modelPositions:{[gi]:indices.flatMap(i=>shape.vertices[vertexIds[i]])}};
+  };
   const transform = payload => {
     try {
-      const shapes = draft.shapes.map((shape, gi) => {
+      payload=constrainRepeatTransform(payload);
+      if(repeat && payload.detailShape){placeRepeat(repeat,payload.detailShape,payload.magnet);return;}
+      const shapes = shown.shapes.map((shape, gi) => {
         const ids = [...new Set((payload.selections?.[gi] || selection[gi] || []).map(i => entries[gi].mesh.vertexIds[i]))];
         if (!ids.length) return shape;
         const mesh = structuredClone(entries[gi].mesh.geosets[0]), affected = new Set(ids);
         const indices = entries[gi].mesh.vertexIds.flatMap((id, index) => affected.has(id) ? [index] : []);
-        transformVertices(mesh, indices, payload.translation, payload.scale, payload.rotation, payload.pivot || forgeSelectionCenter(draft.shapes, draft.selection, draft.mode), {allowSingularScale:payload.allowSingularScale===true});
+        if(repeat?.magnet)mesh.Vertices=Float64Array.from(entries[gi].mesh.vertexIds.flatMap(id=>shape.vertices[id]));
+        if(payload.modelPositions?.[gi])setVertexPositions(mesh,indices,payload.modelPositions[gi]);
+        else transformVertices(mesh, indices, payload.translation, payload.scale, payload.rotation, payload.pivot || forgeSelectionCenter(draft.shapes, draft.selection, draft.mode), {allowSingularScale:payload.allowSingularScale===true});
         const next = structuredClone(shape); next.committed = false;
         entries[gi].mesh.vertexIds.forEach((id, index) => { if (affected.has(id)) next.vertices[id] = Array.from(mesh.Vertices.slice(index*3,index*3+3)); });
         for (const face of next.faces) if (face.vertices.some(id=>affected.has(id))) face.triangles.forEach(t=>{t.normals=undefined;});
         return next;
       });
-      change({ ...draft, shapes });
+      if (repeat) {
+        const ghost=shapes.find(shape=>shape.id===repeatResult.ghost.id);
+        placeRepeat(repeat,ghost,payload.magnet||repeat.magnet);
+      } else change({ ...draft, shapes });
     } catch (e) { setError(e.message); }
   };
   const besideOffset = points => {
@@ -214,14 +244,22 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
     };
   };
   const cancelCut = () => { if (!cut) return false; setCut(null); return true; };
-  const cancelRepeat = () => { if (!repeat) return false; repeatDrag.current = null; setRepeat(null); requestTool({ tool: 'translate', focus: true }); return true; };
+  const cancelRepeat = () => { if (!repeat) return false; clearRepeatHistory();setRepeat(null); requestTool({ tool: 'translate', focus: true }); return true; };
+  const copyOffset = (source, ids, center) => {
+    const points=forgeSelectionVertices(source,ids,'Faces').map(id=>source.vertices[id]),all=forgeSelectionVertices(source,['shape'],'Shape').map(id=>source.vertices[id]);
+    const span=[0,1,2].map(a=>Math.max(...points.map(p=>p[a]))-Math.min(...points.map(p=>p[a]))),whole=[0,1,2].map(a=>Math.max(...all.map(p=>p[a]))-Math.min(...all.map(p=>p[a])));
+    const normal=forgeSelectionNormal([source],{[source.id]:ids}),axes=[2,0,1].filter(a=>Math.abs(normal[a])<.5);
+    const axis=axes.find(a=>span[a]<whole[a]*.8)??axes[0]??0,origin=forgeSelectionCenter([source],{[source.id]:ids},'Faces');
+    return [0,0,0].map((n,a)=>a===axis?(Math.sign(center[a]-origin[a])||1)*(span[a]+Math.max(...whole)*.03):0);
+  };
   const openRepeat = (mirror, copied) => {
     try {
       const source = copied?.source || selected[0];
       if (!source || !copied && (selected.length !== 1 || draft.mode === 'Shape')) throw Error('Mark a detail on one shape to copy or mirror.');
       const ids = copied?.ids || forgeDetailFaces(source, selectedFaces(source)), defaults = forgeRepeatDefaults(source, ids);
       cancelMold(); cancelCut(); cancelExtrude(); setPalette(false); setError('');
-      setRepeat({ source: structuredClone(source), shapeId: source.id, ids, axis: mirror ? defaults.axis : null, plane: defaults.center[defaults.axis], center: defaults.center, offset: [0,0,0] });
+      clearRepeatHistory();setRepeat({ source: structuredClone(source), shapeId: source.id, ids, originalIds:ids, axis: mirror ? defaults.axis : null, plane: defaults.center[defaults.axis], center: defaults.center, offset: mirror?[0,0,0]:copyOffset(source,ids,defaults.center) });
+      setFrame(n=>n+1);
       requestTool({ tool: 'translate', focus: true });
     } catch (e) { setError(e.message); }
   };
@@ -231,15 +269,21 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   };
   const paste = () => { if (clipboard.current.source) openRepeat(false, clipboard.current); else if (clipboard.current.shapes) duplicate(clipboard.current.shapes, false); };
   const applyRepeat = () => { if (repeatResult?.draft) { change(repeatResult.draft); cancelRepeat(); } };
-  const startRepeatDrag = event => {
-    const before = repeat, session = {}; repeatDrag.current = session;
-    const normal = forgeSelectionNormal([repeat.source], { [repeat.shapeId]: repeat.ids });
-    const axis = normal.map(Math.abs).indexOf(Math.max(...normal.map(Math.abs))), plane = ['yz','xz','xy'][axis];
-    const pivot = new Vector3(...(pickForgePoint(entries, event)?.point || forgeSelectionCenter([repeat.source], { [repeat.shapeId]: repeat.ids }, 'Faces')));
-    return {
-      update: end => { if (repeatDrag.current !== session) return; const delta = projectedPlaneTranslation(plane, planeScreenBasis(event.camera, pivot, end.width, end.height, plane), end.x-event.start.x, end.y-event.start.y); setRepeat({ ...before, offset: before.offset.map((n,a) => Number(n)+delta[a]) }); },
-      finish: () => { repeatDrag.current = null; }, cancel: cancelRepeat,
-    };
+  const toggleMagnet = () => {
+    if(repeat.magnet){changeRepeat({...repeat,magnet:null});return;}
+    try {const fitted=magnetizeForgeDetail(draft.shapes.find(s=>s.id===repeat.shapeId),repeatResult.ghost,repeat.originalIds);placeRepeat(repeat,fitted.shape,fitted.surface);setError('');}
+    catch(e){setError(e.message);}
+  };
+  const chooseRepeat = next => {
+    next={...next,ids:next.originalIds};
+    if(!repeat.magnet){changeRepeat(next);return;}
+    try {const fitted=magnetizeForgeDetail(draft.shapes.find(s=>s.id===repeat.shapeId),forgeDetailPreview(next.source,next.ids,next));placeRepeat(next,fitted.shape,fitted.surface);setError('');}
+    catch(e){setError(e.message);}
+  };
+  const historyAction=redo=>{
+    const event=new CustomEvent('mdlxl-cancel-gesture',{cancelable:true,detail:{history:!!repeat}});
+    if(!window.dispatchEvent(event))return;
+    if(repeat)undoRepeat(redo);else undo(redo);
   };
   const blend = () => {
     try {
@@ -263,12 +307,12 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
     const fraction = (hit.point.reduce((n, v, i) => n + v * frame.direction[i], 0) - frame.min) / (frame.max - frame.min);
     const origin = new Vector3(...hit.point).project(event.camera), tip = new Vector3(...hit.point).add(new Vector3(...frame.direction)).project(event.camera);
     const pixels = Math.hypot((tip.x-origin.x)*event.end.width/2, (tip.y-origin.y)*event.end.height/2);
-    const shape = draft.shapes.find(s => s.id === hit.shapeId), snapped = snapForgeCut(shape, frame, fraction, pixels > .001 ? 8/pixels : 0);
-    return fraction > 1e-6 && fraction < 1 - 1e-6 ? { shapeId: hit.shapeId, fraction: snapped.snapped ? snapped.fraction : Math.round(fraction * 10000) / 10000, snapped: snapped.snapped } : null;
+    const shape = draft.shapes.find(s => s.id === hit.shapeId), snapped = event.end.shift ? snapForgeCut(shape, frame, fraction, pixels > .001 ? 8/pixels : 0) : {fraction,snapped:false};
+    return fraction > 1e-6 && fraction < 1 - 1e-6 ? { shapeId: hit.shapeId, fraction: snapped.fraction, snapped: snapped.snapped } : null;
   };
   const hoverCut = event => {
     const hover = cutPosition(event);
-    setCut(previous => !previous || previous.mode !== 'manual' || previous.hover?.shapeId === hover?.shapeId && previous.hover?.fraction === hover?.fraction ? previous : { ...previous, hover });
+    setCut(previous => !previous || previous.mode !== 'manual' || previous.hover?.shapeId === hover?.shapeId && previous.hover?.fraction === hover?.fraction && previous.hover?.snapped === hover?.snapped ? previous : { ...previous, hover });
   };
   const placeCut = event => {
     let position = cut.mode === 'manual' ? cutPosition(event) : null;
@@ -292,7 +336,8 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
           const delta = normalDragTranslation(event.camera, pivot, normal, end.width, end.height, end.x - event.start.x, end.y - event.start.y).toArray();
           if (Math.hypot(...delta) < 1e-8) { session.next = before; setPreview(null); setSnap(''); return; }
           const tolerance = Math.max(normalDragTranslation(event.camera,pivot,normal,end.width,end.height,8,0).length(), normalDragTranslation(event.camera,pivot,normal,end.width,end.height,0,8).length());
-          const snapped = snapForgeExtrusion(picked, selection[picked.id], normal.toArray(), new Vector3(...delta).dot(normal), tolerance);
+          const rawDistance=new Vector3(...delta).dot(normal);
+          const snapped = end.shift ? snapForgeExtrusion(picked, selection[picked.id], normal.toArray(), rawDistance, tolerance) : {distance:rawDistance,snapped:false};
           const distance = snapped.distance; setSnap(snapped.snapped ? 'Snap: matching extrusion' : '');
           const shapes = before.shapes.map(shape => selection[shape.id].length ? { ...extrudeForgeFaces(shape, selection[shape.id], forgeSelectionNormal([shape], selection).map(n => n * distance)), committed: false } : shape);
           session.next = { ...before, shapes, selection, mode: 'Faces' }; setPreview(session.next);
@@ -332,35 +377,34 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   const paletteUI = <div className="forge-add-menu" role="group" aria-label="Add shape"><div className="forge-shape-gallery">{FORGE_SHAPES.map(shape => <button data-hotkey={'forge:shape:primitive:'+shape} key={shape} aria-label={shape} title={'Add '+shape} onClick={() => addShape(shape)}><ShapeThumbnail shape={shape}/><span>{shape}</span></button>)}</div><div className="forge-dimensions">{['width','height','depth'].map(key => <label key={key}>{key[0].toUpperCase()+key.slice(1)}<HotkeyBadge actionId={'forge:shape:parameter:'+key}/><input data-hotkey={'forge:shape:parameter:'+key} aria-label={key[0].toUpperCase()+key.slice(1)} type="number" min=".01" value={settings[key]} onChange={e => setting(key,+e.target.value)}/></label>)}</div><label>Detail<HotkeyBadge actionId="forge:shape:parameter:detail"/><input data-hotkey="forge:shape:parameter:detail" aria-label="Shape complexity" type="range" min="1" max="4" value={settings.complexity} onChange={e => setting('complexity',+e.target.value)}/>{settings.complexity}</label><details><summary data-hotkey="forge:shape:thickness">Thickness<HotkeyBadge actionId="forge:shape:thickness"/></summary><label>Flat shapes<HotkeyBadge actionId="forge:shape:parameter:thickness"/><input data-hotkey="forge:shape:parameter:thickness" aria-label="Shape thickness" type="number" min="0" step=".5" value={settings.thickness} onChange={e => setting('thickness',+e.target.value)}/></label><label>Torus (%)<HotkeyBadge actionId="forge:shape:parameter:tube"/><input data-hotkey="forge:shape:parameter:tube" aria-label="Tube thickness" type="number" min="5" max="45" value={settings.tube} onChange={e => setting('tube',+e.target.value)}/></label></details></div>;
   const cutUI = <><Tool action="forge:shape:cut" title="Cut" active={!!cut} disabled={!selected.length} description="Cut: divide the selected faces, or the whole piece in Shape mode. Preview equal sections or place your own cuts." onClick={event => cut ? cancelCut() : openCut(event)}><Scissors className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>{cut && createPortal(<div style={cut.position} className="forge-cut-menu" role="group" aria-label="Cut controls">
         <div className="forge-cut-row"><button aria-pressed={cut.mode==='equal'} onClick={() => setCut({ ...cut, mode: 'equal', hover: null })}>Equal sections</button><button aria-pressed={cut.mode==='manual'} onClick={() => setCut({ ...cut, mode: 'manual', hover: null })}>Place cuts</button></div>
-        {cut.mode==='equal' ? <label title="Preview evenly spaced sections before applying them.">Sections<input aria-label="Cut sections" type="number" min="2" max="64" value={cut.sections} onChange={e => setCut({ ...cut, sections: e.target.value })}/></label> : <small>Point to preview; click to place. Snaps to existing cuts on other panels.</small>}
+        {cut.mode==='equal' ? <label title="Preview evenly spaced sections before applying them.">Sections<input aria-label="Cut sections" type="number" min="2" max="64" value={cut.sections} onChange={e => setCut({ ...cut, sections: e.target.value })}/></label> : <small>Point to preview; click to place. Hold Shift to snap to existing cuts.</small>}
         <div className="forge-cut-row"><button title="Turn the cut lines across the selected surface." onClick={() => setCut({ ...cut, turned: !cut.turned, frames: cutFrames(!cut.turned), hover: null })}>Turn cuts</button>{cut.mode==='manual' && <button onClick={() => setCut({ ...cut, positions: {}, hover: null })}>Clear cuts</button>}</div>
         <div className="forge-cut-row"><button aria-label="Apply cuts" disabled={!!cutPreview?.error || cut.mode==='manual' && !Object.values(cut.positions).some(p=>p.length)} onClick={applyCuts}>Apply</button><button aria-label="Cancel cuts" onClick={cancelCut}>Cancel</button></div>
       </div>, workspace.current)}</>;
-  const repeatUI = repeat && <div className="forge-cut-menu forge-repeat-menu" role="group" aria-label="Repeat detail controls">
-    <div className="forge-cut-row"><button aria-pressed={repeat.axis===null} title="Copy the detail at its original size and orientation." onClick={() => setRepeat({ ...repeat, axis: null })}>Copy</button>{['X','Y','Z'].map((label,axis) => <button key={label} aria-label={'Mirror '+label} title={'Reflect the detail across the '+label+' center of the shape.'} aria-pressed={repeat.axis===axis} onClick={() => setRepeat({ ...repeat, axis, plane: repeat.center[axis], offset: [0,0,0] })}>{'Mirror '+label}</button>)}</div>
-    {repeat.axis!==null && <label title="The position of the mirror plane. Starts at the center of the unselected shape.">Mirror plane<input aria-label="Mirror plane" type="number" step="any" value={repeat.plane} onChange={e => setRepeat({ ...repeat, plane: e.target.value })}/></label>}
-    <div className="forge-repeat-offsets">{['X','Y','Z'].map((label,a) => <label key={label} title={'Move the copy along '+label+'.'}>{label}<input aria-label={'Copy '+label+' offset'} type="number" step="any" value={repeat.offset[a]} onChange={e => setRepeat({ ...repeat, offset: repeat.offset.map((n,i) => i===a ? e.target.value : n) })}/></label>)}</div>
-    <small>Drag on the surface to move the copy. Preview keeps the original in place.</small>
-    <div className="forge-cut-row"><button data-hotkey="forge:shape:commit" aria-label="Apply detail" disabled={!repeatResult?.draft} onClick={applyRepeat}>Apply</button><button aria-label="Cancel detail" onClick={cancelRepeat}>Cancel</button></div>
+  const repeatUI = repeat && <div className="forge-mold-bar forge-repeat-bar" role="group" aria-label="Repeat detail controls">
+    <button aria-label="Copy detail" aria-pressed={repeat.axis===null} title="Move the orange copy with the usual controls and Workplane setting." onClick={() => chooseRepeat({ ...repeat, placed:null, axis: null, offset:copyOffset(repeat.source,repeat.originalIds,repeat.center) })}>Copy</button>
+    {['Across','Depth','Up'].map((label,axis) => <button key={label} aria-label={'Mirror '+label.toLowerCase()} title="Choose the reflection direction; position it with the usual controls." aria-pressed={repeat.axis===axis} onClick={() => chooseRepeat({ ...repeat, placed:null, axis, plane: repeat.center[axis], offset: [0,0,0] })}>{label}</button>)}
+    <button data-hotkey="forge:shape:commit" aria-label="Apply detail" title="Keep the preview as one Undo step." disabled={!repeatResult?.draft} onClick={applyRepeat}>✓</button><button aria-label="Cancel detail" title="Discard the preview (Escape)." onClick={cancelRepeat}>×</button>
   </div>;
   return <div ref={workspace} className="forge-shape-workspace" data-hotkey-scope="forge-shapes" data-hotkey-category="MDLxL FORGE" onKeyDown={event => { if (repeat && event.key==='Escape') { event.preventDefault(); event.stopPropagation(); cancelRepeat(); } }}>
-    <ForgeEditor model={model} preferences={preferences} editorState={{ ...editorState, quadView: false }} initialView="perspective" initialGrid frameGrid={false} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} selection={selection} onSelectionChange={cut || repeat ? undefined : onSelectionChange} onSelectParts={draft.mode==='Vertices' ? undefined : event => setDraft({ ...draft, selection: pickForgeParts(entries, draft.selection, draft.mode, event) })} onDoubleClickParts={cut || repeat ? () => {} : selectFace} onHoverParts={cut?.mode === 'manual' ? hoverCut : undefined} onStartPartDrag={repeat ? startRepeatDrag : mold ? startMoldDrag : cut ? placeCut : extrudeReady ? startExtrude : undefined} onCancelPartDrag={() => cancelRepeat() || cancelMold() || cancelCut() || cancelExtrude()} onTransform={cut || repeat ? undefined : transform} onView={(up, normal) => {viewBasis.current={up,normal};}} frame={frame} toolRequest={toolRequest} textureAssets={textureAssets}
-      onUndo={() => { if (window.dispatchEvent(new Event('mdlxl-cancel-gesture', { cancelable: true }))) undo(false); }} onRedo={() => undo(true)} canUndo={!!repeat || !!mold || !!cut || extrudeReady || historySize[0]>0} canRedo={!repeat && !mold && !cut && !extrudeReady && historySize[1]>0} onDelete={remove} duplicateAction="forge:shape:duplicate" duplicateDescription="Duplicate: copy the marked detail on this shape, or a whole piece in Shape mode. Choose Copy or Mirror in the preview." onDuplicate={() => duplicate()} onCopy={copy} onPaste={paste} canCopy={selected.length>0 && (draft.mode==='Shape' || selected.length===1 && selectedFaces(selected[0]).length>0)}
+    <ForgeEditor model={model} preferences={preferences} editorState={{ ...editorState, quadView: false }} initialView="perspective" initialGrid frameGrid={false} surfaceColors={surfaceColors} modelingOverlay={modelingOverlay} selection={selection} onSelectionChange={cut || repeat ? undefined : onSelectionChange} onSelectParts={repeat || draft.mode==='Vertices' ? undefined : event => setDraft({ ...draft, selection: pickForgeParts(entries, draft.selection, draft.mode, event) })} onDoubleClickParts={cut || repeat ? () => {} : selectFace} onHoverParts={cut?.mode === 'manual' ? hoverCut : undefined} onStartPartDrag={mold ? startMoldDrag : cut ? placeCut : extrudeReady ? startExtrude : undefined} onCancelPartDrag={reason => reason==='tool' && repeat ? false : cancelRepeat() || cancelMold() || cancelCut() || cancelExtrude()} onTransform={cut ? undefined : transform} onView={(up, normal) => {viewBasis.current={up,normal};}} frame={frame} toolRequest={toolRequest} textureAssets={textureAssets}
+      onUndo={() => historyAction(false)} onRedo={() => historyAction(true)} canUndo={repeat ? true : !!mold || !!cut || extrudeReady || historySize[0]>0} canRedo={repeat ? repeatHistorySize[1]>0 : !mold && !cut && !extrudeReady && historySize[1]>0} onDelete={remove} duplicateAction="forge:shape:duplicate" duplicateDescription="Duplicate: copy the marked detail on this shape, or a whole piece in Shape mode. Choose Copy or Mirror in the preview." onDuplicate={() => duplicate()} onCopy={copy} onPaste={paste} canCopy={selected.length>0 && (draft.mode==='Shape' || selected.length===1 && selectedFaces(selected[0]).length>0)}
 
       editHandles={handles}
       shapingTools={<ForgeMoldTools active={mold?.tool} disabled={!selected.length} onChoose={openMold}/>}
       viewportTools={<><ForgeMoldControls state={mold} error={moldResult?.error} onChange={setMold} onApply={applyMold} onCancel={cancelMold}/>{repeatUI}</>}
+      detailMagnet={repeat?{geoset:entries.length-1,enabled:!!repeat.magnet,onToggle:toggleMagnet}:null} constrainTransform={repeat?.magnet?constrainRepeatTransform:undefined}
       controlPoints={<div className="forge-selection-scope" role="group" aria-label="Control points">{[['Shape','Shape','M4 7 12 3 20 7 20 17 12 21 4 17Z M4 7 12 11 20 7 M12 11V21','Select and move whole pieces. Double-click a surface to select a face; Shift+double-click adds more faces.'],['Edges','Edge','M4 18 20 6 M4 15V21 M20 3V9','Select and move the edges of a piece.'],['Vertices','Vertex','M5 5H19V19H5Z','Select and move individual points to reshape a piece.']].map(([mode,label,path,description]) => <Tool action={'forge:shape:mode:'+mode} title={label} key={mode} description={description} active={draft.mode===mode} onClick={() => chooseMode(mode)}><svg viewBox="0 0 24 24" className="modern-retro-icon modern-retro-gold" aria-hidden="true"><path d={path}/>{mode==='Vertices' && [[5,5],[19,5],[5,19],[19,19]].map(([x,y])=><circle key={x+','+y} cx={x} cy={y} r="2.5"/>)}</svg></Tool>)}</div>}
       operations={<div className="forge-shape-operations">
         <div className="forge-add-control"><Tool action="forge:shape:add" title="Add shape" description="Add a new piece to mold." active={palette} onClick={() => setPalette(!palette)}><PackagePlus className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool></div>
-        <Tool action="forge:shape:extrude" title="Extrude" description="Extrude: drag the selected face to extend it; release to finish. Escape cancels." disabled={!!cut || !faceCount || draft.mode==='Shape'} active={extrudeReady} onClick={() => faceOperation('Extrude')}><ArrowUpFromLine className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>
+        <Tool action="forge:shape:extrude" title="Extrude" description="Extrude: drag the selected face to extend it. Hold Shift to snap to matching extrusions; release to finish." disabled={!!cut || !faceCount || draft.mode==='Shape'} active={extrudeReady} onClick={() => faceOperation('Extrude')}><ArrowUpFromLine className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>
         <Tool action="forge:shape:inset" title="Inset" description="Inset: make a smaller face inside the selected face, leaving a border around it." disabled={!!cut || !faceCount || draft.mode==='Shape'} onClick={() => faceOperation('Inset')}><svg viewBox="0 0 24 24" className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}><rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/></svg></Tool>
         {cutUI}
         <Tool action="forge:shape:blend" title="Blend" description="Blend: remove dividing edges between the selected flat faces. Side planes stay separate; extrude the blended face as one surface." disabled={draft.mode==='Shape' || faceCount<2} onClick={blend}><Combine className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>
         <Tool action="forge:shape:mirror" title="Mirror" description="Mirror: mark an extrusion end or a group of faces, then reflect the whole detail onto the other side of this shape. Preview before applying." disabled={draft.mode==='Shape' || selected.length!==1 || !faceCount} active={!!repeat && repeat.axis!==null} onClick={() => openRepeat(true)}><FlipHorizontal2 className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>
       </div>}
       sidebar={<><div className="forge-section-title">Shapes</div><div className="forge-draft-shapes" role="group" aria-label="Forge shapes">{draft.shapes.map(shape => <button key={shape.id} aria-label={'Edit '+shape.name+' '+shape.id} className={draft.selection[shape.id]?.length?'active':''} onClick={e => {setDraft({...draft,mode:'Shape',selection:{...(e.shiftKey?draft.selection:{}),[shape.id]:['shape']}});}}>{shape.name} {shape.id}</button>)}</div></>}
-      status={error || repeatResult?.error || (repeat ? 'Copy / Mirror preview · drag to place · Apply to keep · Esc cancels' : '') || moldResult?.error || (mold ? 'Drag the gold handle to shape · Center / Range choose the affected area · ✓ keeps · Esc cancels' : '') || cutPreview?.error || (cut?.hover?.snapped ? 'Snap: existing cut' : '') || (cut ? 'Cut preview · Apply to keep · Esc cancels' : '') || snap || (extrudeReady ? 'Extrude ready · drag the selected face · snaps to matching extrusions · release to finish · Esc cancels' : '') || (count ? count+' '+(draft.mode==='Shape'?'shape(s)':draft.mode.toLowerCase())+' selected' : 'Add a shape · select and edit with the vertex editor controls')}/>
+      status={error || (repeatResult?.error ? 'Move the orange copy onto a matching surface.' : '') || (repeat ? 'Move the orange copy with the usual controls · ✓ keeps · Esc cancels' : '') || moldResult?.error || (mold ? 'Drag the gold handle to shape · Center / Range choose the affected area · ✓ keeps · Esc cancels' : '') || cutPreview?.error || (cut?.hover?.snapped ? 'Snap: existing cut' : '') || (cut ? 'Cut preview · Apply to keep · Esc cancels' : '') || snap || (extrudeReady ? 'Drag to extrude freely · hold Shift to snap · release to finish · Esc cancels' : '') || (count ? count+' '+(draft.mode==='Shape'?'shape(s)':draft.mode.toLowerCase())+' selected' : 'Add a shape · select and edit with the vertex editor controls')}/>
     {palette && paletteUI}
     <footer><button data-hotkey="forge:shape:cancel" aria-label="Cancel" disabled={busy} onClick={onClose}>Cancel</button><button data-hotkey={mold || repeat ? undefined : "forge:shape:commit"} aria-label="Commit shape" disabled={!!repeat || !!mold || !!cut || !draft.shapes.length || busy} onClick={() => {setDraft({...draft,selection:{},shapes:draft.shapes.map(s=>({...s,committed:true}))});requestTool({tool:'select'});setError('Shape committed · Add another shape or continue editing');}}>Commit shape</button><button data-hotkey="forge:shape:add-model" aria-label="Add to model" className="forge-primary" disabled={!!repeat || !!mold || !!cut || !draft.shapes.length || busy} onClick={addToModel}>{busy?'Working…':'Add to model'}</button></footer>
 

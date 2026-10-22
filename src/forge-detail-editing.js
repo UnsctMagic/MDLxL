@@ -40,6 +40,8 @@ function outlines(faces) {
   return loops;
 }
 
+export { outlines as forgeDetailBorders };
+
 // Keep the authored triangles and their UV seams. Only the selected coplanar
 // face boundaries disappear; perpendicular neighbors remain separate planes.
 export function blendForgeFaces(source, selected) {
@@ -83,7 +85,27 @@ export function forgeRepeatDefaults(shape, selected) {
 export function forgeDetailFaces(shape, selected) {
   const ids = new Set(selected);
   for (const detail of shape.details || []) if (detail.caps.some(id => ids.has(id))) for (const id of detail.faces) ids.add(id);
-  return shape.faces.filter(f => ids.has(f.id)).map(f => f.id);
+  const expanded = shape.faces.filter(f => ids.has(f.id)).map(f => f.id);
+  // A starter made by extruding a plane records the entire body. Marking its
+  // top must still mean that top, rather than silently selecting the whole body.
+  return expanded.length === shape.faces.length ? shape.faces.filter(f => selected.includes(f.id)).map(f => f.id) : expanded;
+}
+
+// The on-object preview exists independently of whether its border currently
+// fits the host. Moving through an invalid position must never hide the copy.
+export function forgeDetailPreview(source, selected, {axis = null, plane = 0, offset = [0,0,0]} = {}) {
+  if (![null,0,1,2].includes(axis) || !Number.isFinite(plane) || offset.length!==3 || offset.some(v=>!Number.isFinite(v))) throw Error('Use finite copy coordinates.');
+  const faces = structuredClone(source.faces.filter(f => selected.includes(f.id)));
+  if (!faces.length) throw Error('Mark a detail on one shape to copy or mirror.');
+  const vertices = source.vertices.map(p => p.map((v,a) => (a===axis ? 2*plane-v : v)+offset[a]));
+  if (axis!==null) for (const face of faces) {
+    face.vertices.reverse();
+    for (const t of face.triangles) {
+      t.vertices.reverse(); t.uv=[...t.uv.slice(4,6),...t.uv.slice(2,4),...t.uv.slice(0,2)];
+      if (t.normals) { const n=t.normals.map((v,i)=>i%3===axis?-v:v); t.normals=[...n.slice(6,9),...n.slice(3,6),...n.slice(0,3)]; }
+    }
+  }
+  return {...source,id:'repeat-preview',vertices,faces};
 }
 
 // Split only existing edges, interpolating each triangle's own UV/normal seam.
@@ -135,7 +157,7 @@ function overlaps(shape,face,a,b,normal,epsilon) {
 // A copied detail replaces the surface enclosed by its border. Cutting and
 // flood filling the host surface works across folded panels as well as a flat
 // face, and avoids overlapping caps or a floating duplicate above the shape.
-export function repeatForgeDetail(source, selected, { axis = null, plane = 0, offset = [0,0,0], detail = source } = {}) {
+export function repeatForgeDetail(source, selected, { axis = null, plane = 0, offset = [0,0,0], detail = source, originalIds = selected } = {}) {
   if (![null,0,1,2].includes(axis) || !Number.isFinite(plane) || offset.length!==3 || offset.some(v=>!Number.isFinite(v))) throw Error('Use finite copy coordinates.');
   const originals=detail.faces.filter(f=>selected.includes(f.id));
   if (!originals.length || originals.length===detail.faces.length) throw Error('Select the detail, leaving the rest of the shape unselected.');
@@ -145,7 +167,7 @@ export function repeatForgeDetail(source, selected, { axis = null, plane = 0, of
   const segments=border.map(edge=>edge.map(id=>transform(detail.vertices[id])));
   if (axis!==null)segments.forEach(edge=>edge.reverse());
   const epsilon=sizeOf(source)*1e-7;
-  if (forgeSelectionVertices(detail,selected,'Faces').every(id=>Math.hypot(...sub(transform(detail.vertices[id]),detail.vertices[id]))<=epsilon)) throw Error('Move the copy or choose a mirror axis.');
+  if (forgeSelectionVertices(detail,selected,'Faces').every(id=>Math.hypot(...sub(transform(detail.vertices[id]),source.vertices[id]))<=epsilon)) throw Error('Move the copy or choose a mirror axis.');
   let shape={...structuredClone(source),faces:source.faces.map(f=>({...structuredClone(f),repeatOriginal:f.id}))};
   // Divide only panels touched by the copied border. The existing cut owner
   // maintains shared border vertices and the neighboring texture coordinates.
@@ -153,7 +175,7 @@ export function repeatForgeDetail(source, selected, { axis = null, plane = 0, of
     const edge=unit(sub(b,a));
     for(const id of shape.faces.map(f=>f.id)) {
       const face=shape.faces.find(f=>f.id===id);
-      if(selected.includes(face.repeatOriginal))continue;
+      if(originalIds.includes(face.repeatOriginal))continue;
       const normal=forgeFaceNormal(shape,face),origin=shape.vertices[face.vertices[0]];
       if(Math.abs(dot(sub(a,origin),normal))>epsilon || Math.abs(dot(sub(b,origin),normal))>epsilon || faceVertices([face]).some(id=>Math.abs(dot(sub(shape.vertices[id],origin),normal))>epsilon) || !overlaps(shape,face,a,b,normal,epsilon))continue;
       const direction=unit(cross(edge,normal)),values=face.vertices.map(id=>dot(shape.vertices[id],direction)),min=Math.min(...values),max=Math.max(...values),value=dot(a,direction);
@@ -167,9 +189,9 @@ export function repeatForgeDetail(source, selected, { axis = null, plane = 0, of
     if(id!==undefined)return id;
     shape.vertices.push(p);active.push(shape.vertices.length-1);return shape.vertices.length-1;
   };
-  const copies=new Map(faceVertices(originals).map(id=>[id,weld(transform(detail.vertices[id]))]));
-  const patch=originals.map(face=>({ ...structuredClone(face),id:shape.nextFaceId++,vertices:face.vertices.map(id=>copies.get(id)),triangles:face.triangles.map(t=>({ ...structuredClone(t),vertices:t.vertices.map(id=>copies.get(id)),normals:t.normals?.map((v,i)=>i%3===axis?-v:v) })) }));
-  if(axis!==null)for(const face of patch){face.vertices.reverse();for(const t of face.triangles){t.vertices.reverse();t.uv=[...t.uv.slice(4,6),...t.uv.slice(2,4),...t.uv.slice(0,2)];if(t.normals)t.normals=[...t.normals.slice(6,9),...t.normals.slice(3,6),...t.normals.slice(0,3)];}}
+  const preview=forgeDetailPreview(detail,selected,{axis,plane,offset});
+  const copies=new Map(faceVertices(originals).map(id=>[id,weld(preview.vertices[id])]));
+  const patch=preview.faces.map(face=>({...face,id:shape.nextFaceId++,vertices:face.vertices.map(id=>copies.get(id)),triangles:face.triangles.map(t=>({...t,vertices:t.vertices.map(id=>copies.get(id))}))}));
   const targetCount=shape.faces.length;
   const seamPoints=[...new Set([...faceVertices(shape.faces),...copies.values()])].filter(id=>segments.some(([a,b])=>{
     const edge=sub(b,a),length2=dot(edge,edge),t=dot(sub(shape.vertices[id],a),edge)/length2;
@@ -190,7 +212,7 @@ export function repeatForgeDetail(source, selected, { axis = null, plane = 0, of
   }
   while(queue.length){
     const face=queue.pop();if(removed.has(face.id))continue;
-    if(selected.includes(face.repeatOriginal))throw Error('Place the copy away from the original detail.');
+    if(originalIds.includes(face.repeatOriginal))throw Error('Place the copy away from the original detail.');
     removed.add(face.id);
     for(const [a,b] of edges(face)){const key=forgeEdgeKey(a,b);if(!seams.has(key))for(const neighbor of byEdge.get(key)||[])if(!removed.has(neighbor.face.id))queue.push(neighbor.face);}
   }

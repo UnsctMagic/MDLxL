@@ -6,6 +6,7 @@ import { boneHighlightColors } from './rig-markers-gl.js';
 import { DEFAULT_CONTROLLER_APPEARANCE, controllerShapePoints } from '../src/controller-appearance.js';
 
 export const poseSymbols = {
+  Magnet: ['M3 2H9V12A3 3 0 0 0 15 12V2H21V12A9 9 0 0 1 3 12Z', 'M3 7H9M15 7H21'],
   Hand: ['M7 22L4 17L1 13Q0 11 2 10Q3 10 5 12L6 13V4Q6 2 8 2Q10 2 10 4V10V2Q10 0 12 0Q14 0 14 2V10V3Q14 1 16 1Q18 1 18 3V11V6Q18 4 20 4Q22 4 22 6V15Q22 19 18 22Z', 'M9 16H18'],
   Foot: ['M4 2H13V12L17 15H21Q23 15 23 18V21H2V17L4 12Z', 'M4 6H13M2 18H23'],
   Hoof: ['M6 2H18L17 12L22 19V22H2V19L7 12Z', 'M7 13H17M12 14V22'],
