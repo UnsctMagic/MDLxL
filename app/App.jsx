@@ -9,6 +9,7 @@ import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
 import { refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
 import { attachToBone, changeVertexBinding, createRigNode, deleteRigNode, detachFromBone, renameRigNode, setBoneBillboarded } from '../src/bone-tools.js';
+import { applyAttachmentPlan } from '../src/attachemator.js';
 import { builtinTextureAssets } from '../src/builtin-textures.js';
 // Keep UV window styles available before its lazy workspace mounts.
 import './uv-workspace.css';
@@ -30,6 +31,7 @@ import SidebarSection from './SidebarSection.jsx';
 import './animation-resources.css'; // keeps the stylesheet's place in the CSS order; AnimationNodes renders in AppSidebar
 const PaintWorkspace = lazy(() => import('./PaintWorkspace.jsx'));
 const ShowcaseWorkspace = lazy(() => import('./ShowcaseWorkspace.jsx'));
+const Attachemator = lazy(() => import('./Attachemator.jsx'));
 import { AppUVWorkspace, AppTextureLibrary, AppTimeline } from './AppPanels.jsx';
 import useMotionInspector from './useMotionInspector.js';
 import { rememberMotionSave } from '../src/motion-decisions.js';
@@ -213,7 +215,7 @@ export default function App() {
     } else if (session.pose?.target) session.pose = { ...session.pose, target: null };
     setSelectedNodeIdsState(value);
   };
-  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false);
+  const [attachSourceIds, setAttachSourceIds] = useState([]), [boneCreateOpen, setBoneCreateOpen] = useState(false), [attachematorOpen, setAttachematorOpen] = useState(false);
   const cameraHandoff = useRef(null);
   const cameraSessionId = useRef(session.id);
   if (cameraSessionId.current !== session.id) { cameraSessionId.current = session.id; cameraHandoff.current = null; }
@@ -405,6 +407,14 @@ export default function App() {
       setSelectedNodeIds([created.ObjectId]);
       if (type === 'Attachment') changeOverlay('attachments', true);
     }
+  };
+  const openAttachemator = () => { setBoneCreateOpen(false); setAttachSourceIds([]); setAttachematorOpen(true); };
+  const commitAttachemator = ({ rows, chosen, pivots }) => {
+    const result = edit('Attachemator', ['Nodes', 'PivotPoints', 'Info'], current => applyAttachmentPlan(current, rows, { chosen, pivots }), { rethrow: true });
+    if (result === false) return false;
+    changeOverlay('attachments', true); setSelectedNodeIds([]);
+    say(`Attachemator placed ${result.changed} attachment point${result.changed === 1 ? '' : 's'}.`);
+    return result;
   };
   const deleteSelectedNode = () => {
     const ids=mode==='vertices'?selectedRigNodes.map(node=>node.ObjectId):singleRigNode?[singleRigNode.ObjectId]:[];
@@ -1547,6 +1557,7 @@ export default function App() {
       sessionDirty, sessions, setCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
       setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI
     }}/>
+    {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
       <AppViewLabel {...{
@@ -1616,7 +1627,7 @@ export default function App() {
       }}/>}
       <RigSidebar {...{
         activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen,
-        cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, Dialog,
+        cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, Dialog, openAttachemator,
         doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps, multipleNodes,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,

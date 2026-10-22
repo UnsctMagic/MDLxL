@@ -621,7 +621,7 @@ export default function GamePreview(inputProps) {
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
       }
-      if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
+      if (event.button === 0 && work && !portraitCameraDrag && !p.previewSelectionMode && !p.emptyDragRotates && (p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset)) {
         const rect = canvas.getBoundingClientRect();
         selectionGesture = { id: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey };
         controls.enabled = false; canvas.setPointerCapture(event.pointerId);
@@ -639,7 +639,9 @@ export default function GamePreview(inputProps) {
         position: camera.position.clone(), quaternion: camera.quaternion.clone(), target: controls.target.clone(), zoom: camera.zoom, adjusted: false };
       const binding = cameraBindings(p.preferences), mouseAction = value => value === 'pan' ? THREE.MOUSE.PAN : value === 'rotate' ? THREE.MOUSE.ROTATE : value === 'zoom' ? THREE.MOUSE.DOLLY : null;
       controls.mouseButtons.RIGHT = preserveShiftCameraAction(mouseAction(binding.right), event); controls.mouseButtons.MIDDLE = preserveShiftCameraAction(mouseAction(binding.middle), event);
-      const action = event.altKey || portraitCameraDrag ? 'rotate' : p.cameraMode ?? 'rotate';
+      // Tool windows that edit points (Attachemator) still spin the camera
+      // when a drag starts on empty space.
+      const action = event.altKey || portraitCameraDrag || event.button === 0 && work && p.emptyDragRotates ? 'rotate' : p.cameraMode ?? 'rotate';
       const buttonAction=event.button===0?(action==='move'?'pan':action):event.button===1?binding.middle:binding.right;
       rotating = p.showcase ? controls.enabled && controls.enableRotate && ((event.ctrlKey||event.metaKey)?buttonAction==='pan':buttonAction==='rotate')
         : event.button === 0 ? action === 'rotate' : event.button === 1 ? binding.middle === 'rotate' : binding.right === 'rotate';
