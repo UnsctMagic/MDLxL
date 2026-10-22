@@ -409,8 +409,8 @@ export default function App() {
     }
   };
   const openAttachemator = () => { setBoneCreateOpen(false); setAttachSourceIds([]); setAttachematorOpen(true); };
-  const commitAttachemator = ({ rows, chosen, pivots }) => {
-    const result = edit('Attachemator', ['Nodes', 'PivotPoints', 'Info'], current => applyAttachmentPlan(current, rows, { chosen, pivots }), { rethrow: true });
+  const commitAttachemator = ({ rows, chosen, pivots, parents }) => {
+    const result = edit('Attachemator', ['Nodes', 'PivotPoints', 'Info'], current => applyAttachmentPlan(current, rows, { chosen, pivots, parents }), { rethrow: true });
     if (result === false) return false;
     changeOverlay('attachments', true); setSelectedNodeIds([]);
     say(`Attachemator placed ${result.changed} attachment point${result.changed === 1 ? '' : 's'}.`);

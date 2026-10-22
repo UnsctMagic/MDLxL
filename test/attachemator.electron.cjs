@@ -50,18 +50,17 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await dialog.waitFor();
     await page.locator('.atm-preview canvas').first().waitFor();
     await page.waitForTimeout(1500);
-    const rows = await page.locator('.atm-row:not(.atm-head)').allInnerTexts();
-    console.log(rows.map(text => text.replace(/\s+/g, ' ')).join('\n'));
-    const rowOf = name => page.locator('.atm-row:not(.atm-head)').filter({ has: page.locator('span[role=cell]:nth-child(2)', { hasText: new RegExp(`^${name}`) }) });
-    assert.match(await rowOf('Chest Ref').innerText(), /Add/);
-    assert.match(await rowOf('Weapon Ref').innerText(), /Add/);
-    assert.match(await rowOf('Hand Left Ref').innerText(), /Attach to/);
+    const rowOf = name => page.locator('.atm-row').filter({ has: page.locator('span[role=cell]:nth-child(2)', { hasText: new RegExp(`^${name}`) }) });
+    const boneText = name => dialog.getByLabel(new RegExp(`^Bone for ${name}`)).evaluate(select => select.selectedOptions[0].textContent);
+    assert.equal(await page.locator('.atm-row').count(), doc.model.Attachments.length + 2, 'every point is listed, plus the two missing ones');
+    for (const name of ['Chest Ref', 'Weapon Ref', 'Hand Left Ref']) assert.ok(await dialog.getByRole('checkbox', { name: `Use ${name}` }).isChecked(), name);
+    assert.equal(await boneText('Hand Left Ref'), doc.model.Bones.concat(doc.model.Helpers).find(node => node.ObjectId === original.hand).Name);
+    assert.equal(await page.getByText(/What happens|Already right|Move \d/).count(), 0, 'no change report, just points and bones');
     await page.screenshot({ path: path.join(output, '2-attachemator.png') });
 
-    // Veto the head: it must stay exactly where it was.
-    const headUse = dialog.getByRole('checkbox', { name: /^Use Head/ });
-    await headUse.uncheck();
-    assert.match(await rowOf('Head').innerText(), /Keep as is/);
+    // Veto the head: it must stay exactly where it was, on no bone.
+    await dialog.getByRole('checkbox', { name: /^Use Head/ }).uncheck();
+    assert.equal(await boneText('Head'), '(none)');
 
     const runtime = () => page.evaluate(() => {
       const host = document.querySelector('.atm-preview .game-preview-surface');
@@ -104,7 +103,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.match(await page.locator('.atm-row.is-selected').innerText(), /Hand Left/, 'clicking a point in the preview selects it');
     await page.screenshot({ path: path.join(output, '2b-clicked.png') });
 
-    // Adjust: select Chest Ref and drag its point with the mouse.
+    // Drag: select Chest Ref and drag its point with the mouse.
     await rowOf('Chest Ref').locator('span').nth(1).click();
     await page.locator('.atm-row.is-selected', { hasText: 'Chest Ref' }).waitFor(); await page.waitForTimeout(300);
     const pivotNow = await pointOf('Chest Ref');
@@ -113,8 +112,33 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.mouse.move(start.x, start.y); await page.mouse.down();
     await page.mouse.move(start.x + 30, start.y - 25, { steps: 10 }); await page.mouse.up();
     await page.waitForTimeout(300);
-    assert.match(await rowOf('Chest Ref').innerText(), /adjusted/);
+    const dragged = await pointOf('Chest Ref');
+    assert.ok(dragged.some((value, i) => Math.abs(value - pivotNow[i]) > 1), 'dragging moves the point');
     await page.screenshot({ path: path.join(output, '3-adjusted.png') });
+
+    // Another bone from the list.
+    await dialog.getByLabel('Bone for Hand Right Ref').selectOption({ label: 'Bone_Chest' });
+    assert.equal(await boneText('Hand Right Ref'), 'Bone_Chest');
+
+    // Pick: click a bone in the preview, like Bones mode's Attach.
+    await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).click();
+    await page.waitForTimeout(500);
+    const headBone = await page.evaluate(() => {
+      const host = document.querySelector('.atm-preview .game-preview-surface');
+      let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
+      for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Bones && fiber.memoizedProps?.attachSourceIds) {
+        const node = fiber.memoizedProps.model.Bones.concat(fiber.memoizedProps.model.Helpers || []).find(item => item.Name === 'Bone_Head');
+        return node ? Array.from(node.PivotPoint) : null;
+      }
+      return null;
+    });
+    const headPoint = await project(headBone);
+    await page.mouse.click(headPoint.x, headPoint.y);
+    await page.waitForTimeout(300);
+    const pickedBone = await boneText('Weapon Ref');
+    assert.notEqual(pickedBone, 'Mesh02', 'picking a bone in the preview re-attaches the point');
+    assert.equal(await rowOf('Weapon Ref').getByRole('button', { name: 'Pick' }).getAttribute('aria-pressed'), 'false');
+    await page.screenshot({ path: path.join(output, '3b-picked.png') });
 
     await dialog.getByRole('button', { name: 'Commit', exact: true }).click();
     await dialog.waitFor({ state: 'hidden' });
@@ -133,6 +157,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(find('hand left').Parent, original.hand, 'the misplaced hand point is back on the bone Blizzard used');
     assert.equal(find('head').Parent, null, 'vetoed head keeps its parent');
     assert.deepEqual(Array.from(find('head').PivotPoint), [0, 0, 20], 'vetoed head keeps its spot');
+    assert.equal(names.get(find('hand right').Parent), 'Bone_Chest', 'a bone chosen from the list is kept');
+    assert.equal(names.get(find('weapon').Parent), pickedBone, 'a picked bone is kept');
     assert.equal(saved.Attachments.length, doc.model.Attachments.length + 2);
     assert.deepEqual(errors, []);
     console.log('Attachemator passed.');

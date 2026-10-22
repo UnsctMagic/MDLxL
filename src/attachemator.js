@@ -327,22 +327,25 @@ export function planAttachments(model) {
     } else row.state = 'new';
     rows.push(row);
   }
+  // Every other point is listed as it is, so it can be moved or re-attached by hand.
+  for (const node of others) rows.push({ key: `ref:${node.ObjectId}`, name: node.Name, tip: 'Not a standard point. It stays as it is unless you move it or change its bone.', parent: node.Parent ?? null, currentParent: node.Parent ?? null, pivot: Array.from(pivotOf(model, node).toArray()), id: node.ObjectId, state: 'other' });
   return { rows, others: others.map(node => node.Name), sequence: unit.sequence, frame: unit.frame, height: unit.height };
 }
 const round = value => Math.round(value * 1e4) / 1e4;
 
-/** Applies the chosen rows. `pivots` holds the user's adjusted positions by key. */
-export function applyAttachmentPlan(model, rows, { chosen, pivots = {} } = {}) {
+/** Applies the chosen rows. `pivots` and `parents` hold the user's own spots and bones by key. */
+export function applyAttachmentPlan(model, rows, { chosen, pivots = {}, parents = {} } = {}) {
   let changed = 0;
   const ids = {};
   for (const row of rows) {
     if (row.id != null) ids[row.key] = row.id;
-    if (row.state === 'right' && !pivots[row.key] || chosen && !chosen.has(row.key)) continue;
+    const edited = !!pivots[row.key] || row.key in parents;
+    if ((row.state === 'right' || row.state === 'other') && !edited || chosen && !chosen.has(row.key)) continue;
     const pivot = new Float32Array(pivots[row.key] || row.pivot);
     let node = row.id != null ? (model.Attachments || []).find(item => item.ObjectId === row.id) : null;
     if (row.id != null && !node) throw new Error(`${row.name} is no longer in the model. Open Attachemator again.`);
     if (!node) { node = createRigNode(model, 'Attachment'); node.Name = row.name; }
-    node.Parent = row.parent ?? null;
+    node.Parent = row.key in parents ? parents[row.key] : row.parent ?? null;
     model.PivotPoints ||= [];
     model.PivotPoints[node.ObjectId] = node.PivotPoint = pivot;
     ids[row.key] = node.ObjectId;

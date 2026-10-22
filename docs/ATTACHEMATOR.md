@@ -3,10 +3,13 @@
 Bones mode → Tools → **Attachemator** places Warcraft III's standard attachment
 points (Origin, OverHead, Head, Chest, Hand Left/Right, Foot Left/Right, the rear
 feet of mounts and many-legged units, and Weapon) the way Blizzard's own units
-have them. It opens a window with a preview first. Each point can be ticked off
-(kept exactly as it is, or not added), selected and dragged with the normal
-bones-mode Move handle, and nothing changes until **Commit**, which is one
-undoable edit.
+have them. It opens a window listing every attachment point in the model with
+its bone. Each point can be dragged in the preview with the normal Bones-mode
+Move handle, given another bone from its list or with **Pick** (click a bone in
+the preview, like Bones mode's Attach), or unticked to stay exactly as it is.
+Selecting a point names its bone in the preview. Points that are not standard
+are listed too and stay as they are unless moved or re-attached. Nothing changes
+until **Commit**, which is one undoable edit.
 
 The engine is `src/attachemator.js`; the window is `app/Attachemator.jsx`.
 
