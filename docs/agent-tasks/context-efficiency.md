@@ -66,6 +66,11 @@ explicit approval. No dependencies, services, background processes or global edi
 - This real task note provides the example; the template contains placeholders only.
 - Existing motion guide and particle/paint handoffs: conditional constraints and
   historical-status clarification, with original evidence retained.
+- Claude follow-up (branch `claude/context-efficiency-claude`, stacked on this PR):
+  AGENTS.md names `claude/` for Claude Code, matching the private Claude rule;
+  the D:/C: rule is scoped to the owner's PC; the delegation paragraph that
+  repeated the task guide is replaced by a link. CLAUDE.md adds four
+  Claude-only lines (prefix, cloud test limits, repo handovers, subagent briefs).
 
 ## Verification and remaining work
 
@@ -87,8 +92,7 @@ explicit approval. No dependencies, services, background processes or global edi
   test run was needed for this documentation-only patch. Required PR CI is tracked
   on PR #255 for each pushed head; consult its live result before merging.
 - Remaining context overhead: personal/global instructions and client tool/skill
-  metadata still load independently. Existing long topic guides are selective;
-  the older private Claude branch convention remains untouched.
+  metadata still load independently. Existing long topic guides are selective.
 
 ## Blockers and next action
 
