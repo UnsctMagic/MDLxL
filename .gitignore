@@ -24,9 +24,10 @@ dist/
 electron/ffmpeg/*.exe
 electron/ffmpeg/*.dll
 
-# Retired CASC helpers. Only CascBridge-0.8.0.exe is used (see electron/casc.cjs).
+# Retired CASC helpers. Only CascBridge-0.9.0.exe is used (see electron/casc.cjs).
 electron/casc/CascBridge.exe
 electron/casc/CascBridge-0.7.0.exe
+electron/casc/CascBridge-0.8.0.exe
 
 # OS/editor noise
 .DS_Store

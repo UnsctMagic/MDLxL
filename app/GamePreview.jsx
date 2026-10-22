@@ -130,7 +130,7 @@ export default function GamePreview(inputProps) {
   const portraitFrame = useRef({ status: 'idle', canvas: null, url: '', error: '', promise: Promise.resolve() });
   const backgroundState = useRef({ url: null, status: 'ready', image: null, promise: Promise.resolve() });
   const layerComposite = useRef(null);
-  const cameraMemory = useRef(null);
+  const cameraMemory = useRef(null), glidedKey = useRef(undefined);
   const rendererSource = useRef({ input: null, build: null, revision: null });
   if (rendererSource.current.input !== model) {
     // UV Wrapper fingerprints material and texture contents. A temporary
@@ -824,6 +824,16 @@ export default function GamePreview(inputProps) {
     if (bounds.isEmpty()) bounds.set(new THREE.Vector3(-50, -50, 0), new THREE.Vector3(50, 50, 100));
     const center = bounds.getCenter(new THREE.Vector3()), boundsSize = bounds.getSize(new THREE.Vector3());
     let radius = Math.max(1, boundsSize.length() / 2);
+    // fitSequenceExtent (Library browsing): frame the playing animation's own
+    // extents, so hidden portrait or birth geometry does not shrink the model.
+    const sequenceFit = () => {
+      const p = latest.current; if (!p.fitSequenceExtent) return null;
+      const sequence = ownedModel.Sequences?.[p.sequenceIndex], low = sequence?.MinimumExtent, high = sequence?.MaximumExtent;
+      if (!low || !high || low.length < 3 || high.length < 3) return null;
+      const a = new THREE.Vector3(low[0], low[1], low[2]), b = new THREE.Vector3(high[0], high[1], high[2]), size = b.clone().sub(a);
+      if (!(size.x > 0 && size.y > 0 && size.z > 0) || !Number.isFinite(size.lengthSq())) return null;
+      return { center: a.add(b).multiplyScalar(.5).toArray(), radius: size.length() / 2 * 1.3 };
+    };
     const fitRadius = () => {
       const p = latest.current, gridVisible = p.overlays?.grid ?? !!p.showGrid;
       if (p.previewSelectionMode || p.particleAuthoring || p.fitModel) return radius;
@@ -889,7 +899,7 @@ export default function GamePreview(inputProps) {
     function fit({ initialize = false } = {}) {
       if (state.portraitActive || (latest.current.suspended && !initialize)) return;
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
-      const effect=latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null,fitCenter=effect?new THREE.Vector3(...effect.center):center;
+      const effect=latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit(),fitCenter=effect?new THREE.Vector3(...effect.center):center;
       perspective.position.copy(fitCenter).add(new THREE.Vector3(1, -1.5, .9).normalize().multiplyScalar(perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
       controls.target.copy(fitCenter); perspective.zoom = ortho.zoom = 1; resize(); setView(latest.current.view || 'perspective');
     }
@@ -1006,12 +1016,46 @@ export default function GamePreview(inputProps) {
     // UV edits may rebuild geometry/materials, but never own the user's view.
     // Preserve the active projection as well as its orbit, pan and zoom; an
     // angled/standard projection need not equal the outer editor's view prop.
+    let glideFrame = 0;
+    const glideSaved = saved && latest.current.glideCamera;
     if (saved && (latest.current.preserveCameraView || latest.current.cameraHandoff?.current === saved)) {
       camera = restorePreviewCamera(saved, perspective, ortho, controls);
       state.appliedView = latest.current.view || saved.view; resize(); reportProjectionView();
+    } else if (glideSaved) {
+      camera = restorePreviewCamera(saved, perspective, ortho, controls);
+      state.appliedView = latest.current.view || saved.view; resize(); reportProjectionView();
+      // Browsing models: keep the viewing direction and glide to frame the new
+      // model instead of snapping. Grabbing the camera stops the glide.
+      // glideKey: rebuilding the same model (edits, isolation) keeps the camera still.
+      const glideKey = latest.current.glideKey, newModel = glideKey === undefined || glideKey !== glidedKey.current; glidedKey.current = glideKey;
+      if (latest.current.glideCamera && newModel && camera === perspective) {
+        const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
+        const fromTarget = controls.target.clone(), fromPosition = perspective.position.clone();
+        const direction = fromPosition.clone().sub(fromTarget); if (direction.lengthSq() < 1e-6) direction.set(1, -1.5, .9); direction.normalize();
+        // The destination is read on the first frame, when the new model's
+        // animation choice has arrived with it.
+        let toTarget = null, toPosition = null, began = 0;
+        const duration = 450;
+        const step = now => {
+          if (disposed) return;
+          if (!toTarget) {
+            const framing = sequenceFit(); toTarget = framing ? new THREE.Vector3(...framing.center) : center.clone();
+            toPosition = toTarget.clone().addScaledVector(direction, perspectiveFitDistance(framing?.radius || fitRadius(), perspective.fov, width / height)); began = now;
+          }
+          const t = Math.min(1, (now - began) / duration), ease = t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+          controls.target.lerpVectors(fromTarget, toTarget, ease); perspective.position.lerpVectors(fromPosition, toPosition, ease);
+          controls.update(); invalidate();
+          if (t < 1) glideFrame = requestPreviewFrame(step);
+        };
+        const stopGlide = () => { cancelPreviewFrame(glideFrame); controls.removeEventListener('start', stopGlide); };
+        controls.addEventListener('start', stopGlide);
+        glideFrame = requestPreviewFrame(step);
+      }
     } else {
       fit({ initialize: true });
       if (saved && saved.view === view) { camera = restorePreviewCamera(saved, perspective, ortho, controls); reportProjectionView(); }
+      // The first browsed model is framed again once its animation choice has arrived.
+      else if (latest.current.glideCamera) { glidedKey.current = latest.current.glideKey; glideFrame = requestPreviewFrame(() => { if (!disposed) fit(); }); }
     }
     if (latest.current.portraitMode) enterPortrait(evaluateModelCamera(model, model?.Cameras?.[latest.current.portraitCameraIndex], latest.current.time, sequenceIndex, latest.current.time));
     const compareCamera = latest.current.compareCamera;
@@ -1563,7 +1607,7 @@ export default function GamePreview(inputProps) {
       compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
-      disposed = true; pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; cancelPreviewFrame(glideFrame); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.antialias, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 

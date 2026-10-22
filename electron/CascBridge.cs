@@ -25,7 +25,14 @@ class CascBridge {
    do {
     string name = Marshal.PtrToStringAnsi(data) ?? "";
     string extension = Path.GetExtension(name).ToLowerInvariant();
-    if (kind == "@sounds" ? (extension == ".wav" || extension == ".mp3" || extension == ".ogg" || extension == ".flac") : kind == "@models" ? (extension == ".mdx" || extension == ".mdl") : (extension == ".blp" || extension == ".dds" || extension == ".tga" || extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".webp")) {
+    if (kind == "@files") {
+     // Every named file for the game-file browser. CascLib 1.50 places the
+     // 64-bit content size after CKey, EKey and the tag mask (offset 304).
+     if (name.Length == 0 || ++count > 1000000) { if (count > 1000000) throw new IOException("Game file listing exceeds its file limit."); continue; }
+     byte[] key = new byte[16]; Marshal.Copy(IntPtr.Add(data,260),key,0,16);
+     long size = Marshal.ReadInt64(data,304);
+     names.Append(name).Append('\t').Append(BitConverter.ToString(key).Replace("-", "")).Append('\t').Append(size < 0 ? 0 : size).Append('\n');
+    } else if (kind == "@sounds" ? (extension == ".wav" || extension == ".mp3" || extension == ".ogg" || extension == ".flac") : kind == "@models" ? (extension == ".mdx" || extension == ".mdl") : (extension == ".blp" || extension == ".dds" || extension == ".tga" || extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".webp")) {
      if (++count > 300000) throw new IOException("Texture library exceeds its file limit.");
      // The stable CKey follows the 260-byte filename. Nested module filenames
      // are not always accepted by name lookup, but CKey lookup is unambiguous.
@@ -37,15 +44,15 @@ class CascBridge {
   } finally { if (find != IntPtr.Zero && find != new IntPtr(-1)) CascFindClose(find); Marshal.FreeHGlobal(data); }
  }
  static byte[] ReadKey(IntPtr storage, string hex) {
-  if (hex.Length != 32) throw new IOException("Invalid texture content key.");
+  if (hex.Length != 32) throw new IOException("Invalid game file content key.");
   byte[] key = new byte[16]; for (int i=0;i<16;i++) key[i]=Convert.ToByte(hex.Substring(i*2,2),16);
   IntPtr file; if (!CascOpenFileByKey(storage,key,0xffffffff,0x11,out file)) return null;
   try {
    ulong size; uint read;
    if (!CascGetFileSize64(file,out size) || size==0) return null;
-   if (size>64*1024*1024) throw new IOException("Texture exceeds 64 MiB.");
+   if (size>64*1024*1024) throw new IOException("Game file exceeds 64 MiB.");
    byte[] bytes=new byte[(uint)size];
-   if (!CascReadFile(file,bytes,(uint)size,out read) || read!=(uint)size) throw new IOException("Incomplete CASC texture ("+Marshal.GetLastWin32Error()+").");
+   if (!CascReadFile(file,bytes,(uint)size,out read) || read!=(uint)size) throw new IOException("Incomplete CASC game file ("+Marshal.GetLastWin32Error()+").");
    return bytes;
   } finally { CascCloseFile(file); }
  }
@@ -58,7 +65,7 @@ class CascBridge {
    while ((line = Console.ReadLine()) != null) {
     try {
      string name = Encoding.UTF8.GetString(Convert.FromBase64String(line)).Replace('/', '\\');
-     if (name == "@textures" || name == "@models" || name == "@sounds") { Console.WriteLine(Convert.ToBase64String(Encoding.UTF8.GetBytes(AssetNames(storage, name)))); continue; }
+     if (name == "@textures" || name == "@models" || name == "@sounds" || name == "@files") { Console.WriteLine(Convert.ToBase64String(Encoding.UTF8.GetBytes(AssetNames(storage, name)))); continue; }
      if (name.StartsWith("@ckey:")) { byte[] bytes=ReadKey(storage,name.Substring(6));Console.WriteLine(bytes==null?"-":Convert.ToBase64String(bytes));continue; }
      bool found = false;
      string dds = Path.ChangeExtension(name,".dds");
