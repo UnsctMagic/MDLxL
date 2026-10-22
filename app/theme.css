@@ -44,6 +44,21 @@
 :root[data-theme] :is(.tl-result-status,.tl-toolbar>label,.tl-tile-name,.tl-folder-row button,.tl-all-folders,.tl-details h3){color:var(--ui-text)}
 :root[data-theme] :is(.tl-folder small,.tl-tile small,.tl-result-status>span,.tl-details details,.tl-dimensions,.tl-empty,.tl-preview-reason){color:var(--ui-muted)}
 :root[data-theme] :is(.tl-folder-row.selected,.tl-all-folders.selected,.tl-tile.selected,.tl-actions>.tl-primary){background:var(--ui-selected);color:var(--ui-selected-text);border-color:var(--ui-link)}
+/* Library tabs, game-file browser and the existing-material choice use the same tokens. */
+:root[data-theme] :is(.tl-tabs,.gf-side,.gf-info,.gf-stage-content,.tl-material-choice){background:var(--ui-surface);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme] :is(.tl-tabs>button[aria-selected=true]){background:var(--ui-panel);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme] :is(.tl-tabs>button,.gf-row,.gf-info h3){color:var(--ui-text)}
+:root[data-theme] .gf-row:hover{background:var(--ui-hover)}
+:root[data-theme] :is(.gf-name>small,.gf-count,.gf-twist,.gf-icon-glyph,.gf-tree-status,.gf-stage-note){color:var(--ui-muted)}
+:root[data-theme] .gf-row.folder .gf-icon-glyph{color:var(--ui-accent,var(--ui-link))}
+:root[data-theme] :is(.gf-style>button,.gf-info>select,.gf-transport>button,.gf-transport>select,.gf-file-actions>button,.tl-material-choice>button,.tl-material-choice>select,.gf-text){background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme] :is(.gf-row.selected,.gf-style>button[aria-pressed=true],.tl-material-choice>.tl-primary){background:var(--ui-selected);color:var(--ui-selected-text);border-color:var(--ui-link)}
+:root[data-theme] .gf-info code{color:var(--ui-link)}
+:root[data-theme] :is(.gf-geosets .classic-selection-actions>button,.gf-geosets .classic-geoset-operations>button){background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme] .gf-geosets .classic-geoset-list{background:var(--ui-field);color:var(--ui-text);border-color:var(--ui-border)}
+:root[data-theme] .gf-geosets .classic-geosets-heading{color:var(--ui-text)}
+:root[data-theme] .gf-geosets .classic-geoset-count{color:var(--ui-muted)}
+:root[data-theme] .tl-material-choice{border-left-color:var(--ui-accent,var(--ui-link))}
 
 :root[data-theme=dark][data-palette=warm]{--ui-panel:#302e2b;--ui-surface:#3b3834;--ui-field:#262421;--ui-trim:#49413a;--ui-text:#eee8df;--ui-muted:#bcb2a5;--ui-border:#655d52;--ui-hover:#494239}
 :root[data-theme] :is(input[type=checkbox],input[type=radio],input[type=range]){accent-color:var(--ui-accent)}
@@ -78,6 +93,8 @@ html[lang=mordor] .language-switch,html[lang=mordor] .language-switch *{font-fam
 /* Native popups and semantic text must follow the selected palette too. */
 :root[data-theme=light]{color-scheme:light;--ui-danger:#a31515;--ui-channel-r:#b00000;--ui-channel-g:#006b00;--ui-channel-b:#0000b0}
 :root[data-theme=dark]{--ui-danger:#ffb3a5;--ui-channel-r:#ff9797;--ui-channel-g:#83dc83;--ui-channel-b:#a6b6ff}
+/* Least brightness (0-255 luma) of user-colored text; see readableTextColor in theme.js. */
+:root[data-theme=dark]{--ui-colored-text-floor:180}
 :root[data-palette] :is(option,optgroup){background:var(--ui-field);color:var(--ui-text)}
 :root[data-palette] :is(option:disabled,optgroup:disabled){color:var(--ui-muted)}
 :root[data-palette] ::placeholder{color:var(--ui-muted);opacity:1}

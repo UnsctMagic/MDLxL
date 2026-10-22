@@ -1,6 +1,15 @@
 import { visualOptions, viewportAppearanceOptions } from '../src/preferences.js';
 import APPLICATION_THEMES from '../src/application-themes.json' with { type: 'json' };
 
+// User-picked colors (rig markers) are not chosen for text. On dark themes the
+// color is lifted toward white, keeping its hue, until its luma reaches the
+// theme's --ui-colored-text-floor; light themes leave it unchanged.
+const LUMA = '(.2126 * r + .7152 * g + .0722 * b)';
+const LIFT = `clamp(0, (var(--ui-colored-text-floor, 0) - ${LUMA}) / max(1, 255 - ${LUMA}), 1)`;
+export function readableTextColor(color) {
+  return color && `rgb(from ${color} calc(r + (255 - r) * ${LIFT}) calc(g + (255 - g) * ${LIFT}) calc(b + (255 - b) * ${LIFT}))`;
+}
+
 /** One persisted theme also applies to React portals hosted in a second document. */
 export function applyApplicationTheme(preferences, targetDocument = document) {
   const root = targetDocument?.documentElement;

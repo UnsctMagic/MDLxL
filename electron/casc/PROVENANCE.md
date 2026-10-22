@@ -8,8 +8,10 @@ Upstream: https://github.com/ladislav-zezula/CascLib
 
 SHA-256: bf813181374b7b2e88de509d29081153af8ea8922a36df48b87d6d9198063944
 
-CascBridge-0.8.0.exe is compiled from ../CascBridge.cs using the Windows .NET Framework C# compiler. Boolean return values explicitly use I1 to match native C++ bool. The helper opens local storage, uses strict data checks, reads requested resource paths, and never calls online storage APIs. It is hidden and exits after 15 seconds idle.
+CascBridge-0.9.0.exe is compiled from ../CascBridge.cs using the Windows .NET Framework C# compiler. Boolean return values explicitly use I1 to match native C++ bool. The helper opens local storage, uses strict data checks, reads requested resource paths, and never calls online storage APIs. It is hidden and exits after 15 seconds idle.
 
 The integrated texture library additionally uses CascFindFirstFile / CascFindNextFile to enumerate source filenames and their content keys. The bridge reads the documented leading filename/CKey fields from an oversized native buffer, avoiding version-specific trailing structure layouts. These indexes are cached per installation/build and texture enumeration occurs when opening the library. Sound enumeration is separate, cached per build, and occurs when a sound requires an indexed lookup; it resolves the same logical audio path in the installed language module. Content-key lookup uses CASC_OPEN_BY_CKEY with strict data checks.
 
-The versioned helper filename lets the Desktop application update without replacing an executable held by an already-running editor. Only the helper the program uses, CascBridge-0.8.0.exe, is tracked in git; superseded helpers (CascBridge-0.7.0.exe and the unversioned CascBridge.exe) are no longer used and remain only in git history.
+The Library's game-file browser (0.9.0) adds an `@files` listing: every named file with its content key and 64-bit content size. The size is read from the CascLib 1.50 `CASC_FIND_DATA.FileSize` field at byte offset 304 (after the 260-byte name, CKey, EKey and tag mask); it is display information only and is never used to size a read. The listing is cached per installation/build like the texture index.
+
+The versioned helper filename lets the Desktop application update without replacing an executable held by an already-running editor. Only the helper the program uses, CascBridge-0.9.0.exe, is tracked in git; superseded helpers (CascBridge-0.8.0.exe, CascBridge-0.7.0.exe and the unversioned CascBridge.exe) are no longer used and remain only in git history.

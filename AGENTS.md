@@ -48,6 +48,12 @@ separate and are not a shared handover.
 - Keep MDLxL simple and compact, in the spirit of MDLVis and the VIS button.
   Do not add unsolicited panels, dashboards, toolbars, menu redesigns or apps.
   Preserve existing sidebars, widths and controls unless explicitly requested.
+- One way of doing things. When a feature has an existing counterpart, reuse
+  its controls exactly: same handles, look, drag behaviour, keys and wording.
+  Never invent a new control scheme for a familiar job (for example sliders
+  where the app already drags). In EMTR, emitters are moved and resized by
+  dragging handles in the preview, so ribbons, glows and anything else placed
+  there are dragged the same way. Users learn one way, not one per feature.
 - Complicated or ambiguous controls need a short plain-language tooltip when
   hovering either the control or label. For example, `Billboarded` explains that
   the bone and attached parts turn toward the viewer as the camera moves.
@@ -115,6 +121,9 @@ the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
 - Push the feature branch to `origin`, open a PR into `main`, and include its URL
   in the handover (attach it to the Codex chat when using Codex). A local-only
   commit/merge or direct push/merge to `main` is not a completed handoff.
+- Every PR description names the session that did the work in one line:
+  `Session: claude local_<id>` or `Session: codex <task or chat name/link>`.
+  Before merging, add the line if it is missing (edit the description; no commit).
 - Merge through the PR only after explicit user authorization. Until then, report
   `ready for review; awaiting merge approval`. After authorized merging, verify
   both the merged PR and its change on online `main` before reporting completion.
@@ -126,3 +135,6 @@ the [task-note guide](docs/agent-tasks/README.md#switching-tools-or-checkouts).
 - A `v<version>` tag triggers **Draft release**; publishing remains manual.
   Before release/upgrade work, read [AUTO_UPDATES.md](docs/AUTO_UPDATES.md) and the
   [portable release gate](docs/UPDATER_RELEASE_GATE.md).
+- After a release is published (not at tag or draft time), automatically
+  archive the sessions whose PRs shipped in it, without asking, as described in
+  [archive finished sessions](docs/AUTO_UPDATES.md#after-publishing-archive-finished-sessions).

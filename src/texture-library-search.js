@@ -1,5 +1,6 @@
 import {prepare, searchDetailed, norm} from './texture-library/phrase-search.mjs';
 import {russianTextureQuery} from './texture-library/russian-query.mjs';
+import {isArtworkPath,artworkQuery} from './texture-library-art.js';
 
 // These are kitbash suggestions, never claims that Warcraft contains another franchise's assets.
 const inspirations = [
@@ -58,7 +59,9 @@ export function prepareTextureLibrary(items) {
   // appearance inference pass. Never infer an HD surface from its SD counterpart.
   return prepare(items.map(item=>item.searchIndex?item:{...item,searchIndex:{version:4,traits:[]}}));
 }
-const literalFields=new WeakMap(),filteredSources=new WeakMap();
+const literalFields=new WeakMap(),filteredSources=new WeakMap(),artwork=new WeakMap();
+function isArtwork(item){let value=artwork.get(item);if(value===undefined){value=item.source==='native'&&isArtworkPath(item.sourcePath,item);artwork.set(item,value);}return value;}
+const kindMatches=(item,kind)=>kind==='all'||(kind==='art'?isArtwork(item):item.kinds.includes(kind));
 function literalFieldsFor(item) {
   let fields=literalFields.get(item);
   if(!fields){fields={text:norm(item.name+' '+item.path+' '+item.sourcePath),name:norm(item.name),leaf:norm(item.path.split(/[\\/]/).at(-1).replace(/\.[^.]+$/,''))};literalFields.set(item,fields);}
@@ -68,7 +71,7 @@ function filteredSource(items,{variant='all',kind='all',format='all',folder=''})
   let cache=filteredSources.get(items);if(!cache){cache=new Map();filteredSources.set(items,cache);}
   const key=JSON.stringify([variant,kind,format,folder]);
   if(cache.has(key))return cache.get(key);
-  const matches=items.filter(item=>(variant==='all'||item.variant===variant)&&(kind==='all'||item.kinds.includes(kind))&&textureFormatMatches(item,format)&&(item.source==='custom'?(!folder||folder==='Model folder'):folderContains(item.sourcePath,folder)));
+  const matches=items.filter(item=>(variant==='all'||item.variant===variant)&&kindMatches(item,kind)&&textureFormatMatches(item,format)&&(item.source==='custom'?(!folder||folder==='Model folder'):folderContains(item.sourcePath,folder)));
   matches.vocabulary=items.vocabulary;cache.set(key,matches);
   if(cache.size>8)cache.delete(cache.keys().next().value);
   return matches;
@@ -122,7 +125,20 @@ function inspirationScore(item,definition) {
   if(!named && (tagged.length<2 || traits.length<2))return null;
   return {score:(named?100:0)+tagged.length*12+traits.length*10,reason:[named?'Related native subject':null,...tagged.slice(0,3),...traits.slice(0,3)].filter(Boolean).join(' · ')};
 }
+function artworkResults(prepared,{query,folder,variant,format,limit}) {
+  const source=filteredSource(prepared,{variant,kind:'art',format,folder}),notice='Paintings and illustrations: loading screens, campaign art and menu paintings.';
+  const resolution=resolutionSearch(source,query);
+  if(!resolution.query.trim()){const items=[...resolution.items].sort((a,b)=>(b.priority||0)-(a.priority||0)||a.name.localeCompare(b.name));return {items:items.slice(0,limit),total:items.length,meanings:[],unknown:[],notice,hasMore:items.length>limit};}
+  // Names first (ashenvale, credits), then described content (orc, battle).
+  const literal=literalTextureLibraryResults(resolution.items,resolution.query,limit);
+  if(literal.total)return {...literal,notice};
+  const detailed=searchDetailed(resolution.items,{query:resolution.query,kind:'all',includeClose:true,resultLimit:limit});
+  return {items:detailed.items.slice(0,limit),total:detailed.totalCount,meanings:detailed.meanings,unknown:detailed.unknown,notice,hasMore:detailed.totalCount>limit};
+}
 export function searchTextureLibrary(prepared,{query='',vibe=true,folder='',variant='all',kind='all',format='all',limit=120}={}) {
+  // "painting", "art", "loading screen"… narrow a vibe search to real illustrations.
+  const art=vibe?artworkQuery(russianTextureQuery(query)):null;
+  if(art!==null||vibe&&kind==='art')return artworkResults(prepared,{query:art??query,folder,variant,format,limit});
   const source=filteredSource(prepared,{variant,kind,format,folder});
   if(!vibe){const resolution=resolutionSearch(source,query);return literalTextureLibraryResults(resolution.items,resolution.query,limit);}
   const q=norm(query);
