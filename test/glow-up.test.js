@@ -146,3 +146,19 @@ test('weapon glow follows the sword and keeps facing the camera', () => {
     }
   }
 });
+
+test('From and To put a small glow on just the tip', () => {
+  const doc = hero(), m = doc.model, sword = m.Bones.find(b => b.Name === 'Sword');
+  const full = weaponLine(m, { weaponId: sword.ObjectId });
+  assert.ok(full.from > 0 && full.from < 1 && full.to === 1);
+  const tip = weaponLine(m, { weaponId: sword.ObjectId, from: .85, to: 1 });
+  near(tip.end, full.end); assert.ok(tip.start[0] > 60, JSON.stringify(tip));
+  assert.deepEqual(weaponLine(m, { weaponId: sword.ObjectId, from: 1, to: .85 }), tip, 'reversed sliders mean the same stretch');
+  const all = addHeroGlow(structuredClone(m), { origin: false, weapon: true, weaponIds: [sword.ObjectId] }).geosetIndices;
+  const copy = structuredClone(m), small = addHeroGlow(copy, { origin: false, weapon: true, weaponIds: [sword.ObjectId], weaponFrom: .85, weaponTo: 1, weaponSize: .3 });
+  const g = copy.Geosets[small.geosetIndices[0]], centers = quadCenters(g);
+  assert.ok(centers.length >= 1 && centers.length <= 3 && all.length === 1);
+  assert.ok(centers.every(c => c[0] > 60), 'all squares sit on the tip');
+  const single = structuredClone(m); addHeroGlow(single, { origin: false, weapon: true, weaponIds: [sword.ObjectId], weaponFrom: .97, weaponTo: .97 });
+  assert.equal(single.Geosets.at(-1).Groups.length, 1);
+});

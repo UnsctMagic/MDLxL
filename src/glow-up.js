@@ -12,7 +12,7 @@ import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
 // The planes, heights and pulse keys are the Paladin/Jaina/Uther template,
 // scaled to the model. Layer three runs on its own period, as Gluma does.
 
-const WEAPON_NAME = /weapon|(^|[\s_])w_|handle|sword|sord|blade|axe|hammer|mace|club|staff|stave|spear|lance|pike|glaive|scythe|halberd|polearm|flail|maul|wand|dagger|knife|katana|scimitar|trident|bow|gun|rifle|pipe/i;
+const WEAPON_NAME = /weapon|(^|[\s_])w_|sword|sord|blade|axe|hammer|mace|club|staff|stave|spear|lance|pike|glaive|scythe|halberd|polearm|flail|maul|wand|dagger|knife|katana|scimitar|trident|bow|gun|rifle|pipe/i;
 const SIDE = /(^|[\s_.-])(l|r|left|right)(?=$|[\s_.\d-])/i;
 const HIDDEN = /death|decay|dissipate/i;
 const HERMITE = 2;
@@ -42,15 +42,22 @@ export function hasHeroGlow(model) {
  * and Gluma heroes (mean error 15%). Big bodies get relatively smaller glows.
  */
 export function originGlowSize(model) {
+  const height = bodyHeight(model);
+  if (height == null) return 250;
+  const size = 8.9 * Math.max(height, 10) ** .71;
+  return Number.isFinite(size) ? Math.min(600, Math.max(150, Math.round(size))) : 250;
+}
+
+/** 95th-percentile vertex height of the opaque body, or null without one. */
+function bodyHeight(model) {
   const height = [];
   for (const g of model.Geosets || []) {
     if (isTeamGlowGeoset(model, g) || (model.Materials?.[g.MaterialID]?.Layers || []).every(l => l.FilterMode >= 2)) continue;
     for (let i = 2; i < g.Vertices.length; i += 3) height.push(g.Vertices[i]);
   }
-  if (!height.length) return 250;
+  if (!height.length) return null;
   height.sort((a, b) => a - b);
-  const size = 8.9 * Math.max(height[Math.floor(height.length * .95)], 10) ** .71;
-  return Number.isFinite(size) ? Math.min(600, Math.max(150, Math.round(size))) : 250;
+  return height[Math.floor(height.length * .95)];
 }
 
 function principalAxis(points) {
@@ -89,7 +96,7 @@ function weaponPoints(model, id) {
 
 /** Bones with geometry, likeliest weapon first: a weapon name, held in a hand, long and thin. */
 export function weaponCandidates(model) {
-  const nodes = model.Nodes || [], found = [];
+  const nodes = model.Nodes || [], found = [], body = bodyHeight(model) ?? 100;
   for (const bone of model.Bones || []) {
     const points = weaponPoints(model, bone.ObjectId);
     if (points.length < 4) continue;
@@ -98,7 +105,8 @@ export function weaponCandidates(model) {
     let held = false;
     for (let node = nodes[bone.Parent], guard = 0; node && guard++ < 4; node = nodes[node.Parent]) if (/hand/i.test(node.Name || '')) held = true;
     const named = WEAPON_NAME.test(bone.Name || ''), slender = length / fit.thickness;
-    const score = (named ? 4 : 0) + (held ? 2 : 0) + (slender > 3 ? 1 : 0) - (/hand(?!le)|arm|leg|foot|head|chest|root|spine|neck|tail|wing/i.test(bone.Name || '') ? 5 : 0);
+    // An unnamed sword held in a hand (the Footman's Cone11) is long and thin: 2 + 1 + 1.
+    const score = (named ? 4 : 0) + (held ? 2 : 0) + (slender > 3 ? 1 : 0) + (length > .35 * body ? 1 : 0) - (/hand(?!le)|arm|leg|foot|head|chest|root|spine|neck|tail|wing/i.test(bone.Name || '') ? 5 : 0);
     found.push({ id: bone.ObjectId, name: bone.Name, score, length });
   }
   return found.sort((a, b) => b.score - a.score || b.length - a.length);
@@ -120,8 +128,12 @@ export function weaponChoices(model, marked) {
   return choices;
 }
 
-/** Where the weapon glow runs: from just past the grip to the tip, and the bone it follows. */
-export function weaponLine(model, { weaponId, marked } = {}) {
+/**
+ * Where the weapon glow runs and the bone it follows. `from` and `to` are
+ * fractions of the whole weapon, 0 at the butt and 1 at the tip; left out,
+ * the glow runs from 30% of the way from the grip to the tip, as on Blizzard's heroes.
+ */
+export function weaponLine(model, { weaponId, marked, from, to } = {}) {
   let points, parentId;
   if (marked) {
     const selected = ribbonPolygonSelection(model, marked);
@@ -141,7 +153,11 @@ export function weaponLine(model, { weaponId, marked } = {}) {
   for (const p of points) { const t = p.reduce((sum, v, a) => sum + (v - fit.center[a]) * fit.axis[a], 0); if (t > gripT) ahead++; else if (t < gripT) behind++; }
   const tipT = ahead * (fit.max - gripT) >= behind * (gripT - fit.min) ? fit.max : fit.min, reach = tipT - gripT;
   if (Math.abs(reach) < 2) throw Error('That weapon is too short for a glow.');
-  return { start: at(gripT + reach * .3), end: at(gripT + reach), parentId };
+  const buttT = tipT === fit.max ? fit.min : fit.max, length = tipT - buttT, held = (gripT - buttT) / length;
+  const clamp = v => Math.min(1, Math.max(0, v));
+  from = clamp(from ?? held + (1 - held) * .3); to = clamp(to ?? 1);
+  if (from > to) [from, to] = [to, from];
+  return { start: at(buttT + length * from), end: at(buttT + length * to), parentId, from, to };
 }
 
 function uniqueName(model, base) {
@@ -216,12 +232,14 @@ function addWeapon(model, lines, size, originSize, materialId) {
   for (const line of lines) {
     const span = Math.hypot(...line.end.map((v, a) => v - line.start[a]));
     // Squares are ~1.4× the glowing span: Arthas 66 → 90, Paladin 42 → 76, Gluma's blades 40 → 54.
-    const quad = Math.min(.4 * originSize, Math.max(.2 * originSize, 1.4 * span)) * size;
-    const count = Math.max(3, Math.min(10, Math.round(span / (.2 * quad)) + 1));
+    const base = Math.min(.4 * originSize, Math.max(.2 * originSize, 1.4 * span)), quad = base * size;
+    // Spacing follows the unscaled square, so Weapon size shrinks the glow
+    // without crowding it. A short stretch (a spear tip) gets one to three.
+    const count = Math.max(1, Math.min(10, Math.round(span / (.2 * base)) + 1));
     for (let k = 0; k < count; k++) {
-      const t = k / (count - 1), center = line.start.map((v, a) => v + (line.end[a] - v) * t);
+      const t = count > 1 ? k / (count - 1) : .5, center = line.start.map((v, a) => v + (line.end[a] - v) * t);
       // Full along the blade, narrower at the hilt and the tip.
-      const half = quad * (t < .5 ? .85 + .3 * t : 1 - .4 * ((t - .5) / .5) ** 2) / 2;
+      const half = quad * (count === 1 ? 1 : t < .5 ? .85 + .3 * t : 1 - .4 * ((t - .5) / .5) ** 2) / 2;
       const bone = addBone(model, `Glow Weapon ${quads.length + 1}`, center, line.parentId, 8);
       // Warcraft turns billboarded quads so +X faces the camera: build them in YZ.
       const [x, y, z] = center;
@@ -233,14 +251,16 @@ function addWeapon(model, lines, size, originSize, materialId) {
 
 /**
  * Add hero glow. One undo step when run inside EditorDocument.apply.
- * options: origin, originSize (× fitted width), weapon, weaponIds | marked, weaponSize, brightness.
+ * options: origin, originSize (× fitted width), weapon, weaponIds | marked, weaponSize,
+ * weaponFrom/weaponTo (0 butt … 1 tip; default from past the grip to the tip), brightness.
  */
-export function addHeroGlow(model, { origin = true, originSize = 1, weapon = false, weaponIds = [], marked, weaponSize = 1, brightness = .75 } = {}) {
+export function addHeroGlow(model, { origin = true, originSize = 1, weapon = false, weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, brightness = .75 } = {}) {
   if (!origin && !weapon) throw Error('Choose origin glow, weapon glow, or both.');
   if (![originSize, weaponSize].every(v => Number.isFinite(v) && v >= .1 && v <= 5)) throw Error('Glow size must be between 10% and 500%.');
   if (!Number.isFinite(brightness) || brightness < 0 || brightness > 1) throw Error('Glow brightness must be between 0 and 100%.');
   if (weapon && !marked && !weaponIds.length) throw Error('Choose the weapon’s bone.');
-  const fitted = originGlowSize(model), lines = !weapon ? [] : marked ? [weaponLine(model, { marked })] : weaponIds.map(weaponId => weaponLine(model, { weaponId }));
+  const fitted = originGlowSize(model), range = { from: weaponFrom, to: weaponTo };
+  const lines = !weapon ? [] : marked ? [weaponLine(model, { marked, ...range })] : weaponIds.map(weaponId => weaponLine(model, { weaponId, ...range }));
   model.Textures ||= []; model.Materials ||= []; model.Geosets ||= []; model.GeosetAnims ||= [];
   let textureId = model.Textures.findIndex(t => t.ReplaceableId === 2 && !t.Image);
   if (textureId < 0) textureId = model.Textures.push({ Image: '', ReplaceableId: 2, Flags: 0 }) - 1;

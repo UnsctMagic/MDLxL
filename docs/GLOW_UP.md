@@ -2,9 +2,11 @@
 
 Open a model, open **EMTR** (Particle Editor) and click **Glow Up** next to
 Add ribbon. Tick **Origin glow**, **Weapon glow** or both, adjust the sizes and
-brightness, and click **Create**. The preview plays the model's Stand with the
-glow and keeps normal mouse orbiting. Create is one undo step; Cancel or Escape
-leaves the model alone. Glow Up used to be a Forge mode; Forge no longer has it.
+brightness, and click **Create**. **Glow from** and **Glow to** place the weapon
+glow along the weapon (0% butt, 100% tip; both near 100% for a spear tip). The
+preview plays the model's Stand with the glow and keeps normal mouse orbiting;
+it fits the view once and keeps the user's camera while sliders change. Create
+is one undo step; Cancel or Escape leaves the model alone. Glow Up used to be a Forge mode; Forge no longer has it.
 
 ## How heroes glow
 
@@ -53,11 +55,14 @@ Visibility: the glow geosets go dark in Death, Decay and Dissipate (Dissipate on
 - One material (team glow, Additive, Unshaded + TwoSided, alpha = Brightness).
 - Origin: one geoset with three quads on bones `Glow Origin 1–3`, Scaling tracks
   as above on reused or new global sequences.
-- Weapon: one geoset of 3–10 squares built in YZ (Warcraft billboards face +X)
+- Weapon: one geoset of 1–10 squares built in YZ (Warcraft billboards face +X)
   on bones `Glow Weapon n`, Flags Bone + Billboarded, parented to the weapon.
-  The row runs from 30% to 100% of the reach from the grip (the nearest `hand`
-  ancestor's pivot) to the tip. The tip is the side with more of the weapon's
-  length × vertices, so hammer and staff heads win over handles.
+  By default the row runs from 30% to 100% of the reach from the grip (the
+  nearest `hand` ancestor's pivot) to the tip; Glow from/to override it as
+  fractions of the whole weapon. The tip is the side with more of the weapon's
+  length × vertices, so hammer and staff heads win over handles. Spacing
+  follows the unscaled square, so Weapon size shrinks squares without adding
+  more, and a short stretch gets one to three.
 - A geoset animation per geoset: alpha 0 at the start of Death/Decay/Dissipate,
   1 elsewhere. Sequence starts outside signed 32-bit (Far Seer's stray
   `nothing`) are skipped; shared starts stay visible.
@@ -65,13 +70,16 @@ Visibility: the glow geosets go dark in Death, Decay and Dissipate (Dissipate on
 
 Weapon choice lists marked polygons first (when polygons are selected in
 Vertices), then a mirrored pair such as `sword_L + sword_R`, then bones by
-likelihood: a weapon name (sword, axe, hammer, staff, club, bow, `W_handle`…),
-held under a hand, long and thin. Weapon glow starts ticked only for marked
-polygons or a weapon-named bone.
+likelihood: a weapon name (sword, axe, hammer, staff, club, bow, Gluma's
+`W_handle`…) scores 4, held under a hand 2, thin 1, longer than 35% of the
+body height 1. Weapon glow starts ticked for marked polygons or a score of 4,
+which covers an unnamed sword held in a hand (the Footman's `Cone11`).
 
 On the 84 reference models the automatic pick is the bone the author glowed on
-37 of 53 that have weapon glow; most others glow hands or bodies (Keeper, Moon
-Priestess, Lich, Dreadlord) rather than a weapon. All 84 accept the glow and
+38 of 53 that have weapon glow; most others glow hands or bodies (Keeper, Moon
+Priestess, Lich, Dreadlord) rather than a weapon. Of the unnamed bones that
+start ticked, 10 of 13 are the weapon; Keeper and Moon Priestess pick a hand
+part and the Tinker robot a body part. All 84 accept the glow and
 save as MDX and MDL, except five that fail without it (read-only HD format, a
 Goblin Tinker camera, a quote in Malfurion's sequence name).
 

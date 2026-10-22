@@ -45,7 +45,7 @@ async function heroFixture(file){
   const origin=panel.getByLabel('Origin glow',{exact:true}),weapon=panel.getByLabel('Weapon glow',{exact:true});
   assert.equal(await origin.isChecked(),true);
   if(!custom){assert.equal(await weapon.isChecked(),true);assert.equal(await panel.getByLabel('Weapon',{exact:true}).locator('option:checked').textContent(),'Sword');}
-  assert.equal(await panel.locator('input[type=range]').count(),await weapon.isChecked()?3:2);
+  assert.equal(await panel.locator('input[type=range]').count(),await weapon.isChecked()?5:2);
   await page.waitForFunction(()=>document.querySelector('.pe-preview canvas'));await sleep(800);
   let shown=await preview();assert.equal(shown.model.Geosets.length,original.Geosets.length+(await weapon.isChecked()?2:1));
   await sleep(2500);await capture('glow-panel');checks.push('Glow Up panel: origin + weapon toggles, weapon pick, sizes and brightness; preview shows the glow');
@@ -63,6 +63,16 @@ async function heroFixture(file){
   await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx-160,cy-20,{steps:8});await page.mouse.up();await sleep(200);
   const cam2=(await preview()).camera;assert.notDeepEqual(cam2,cam1,'reverse drag rotates back');
   await sleep(1500);await capture('glow-orbit');checks.push('Mouse drags rotate the Glow Up preview in both directions');
+  // Adjusting keeps the user's view: no refit after the first one.
+  const kept=(await preview()).camera,same=(a,b)=>a.every((v,i)=>Math.abs(v-b[i])<1e-3);
+  await panel.getByLabel('Origin size',{exact:true}).fill('120');await sleep(1200);
+  assert.ok(same((await preview()).camera,kept),'slider change keeps the camera');
+  if(await weapon.isChecked()){
+   const parts=()=>preview().then(p=>p.model.Geosets.at(-1).Groups.length),before=await parts();
+   await panel.getByLabel('Glow from',{exact:true}).fill('85');await panel.getByLabel('Glow to',{exact:true}).fill('100');await sleep(1200);
+   assert.ok(await parts()<=before,'a tip-only glow uses no more squares');assert.ok(same((await preview()).camera,kept));await capture('glow-tip');
+  }
+  checks.push('Slider changes keep the camera; Glow from/to move the weapon glow');
 
   if(await weapon.isChecked()){await weapon.uncheck();await sleep(500);assert.equal((await preview()).model.Geosets.length,original.Geosets.length+1);await weapon.check();await sleep(500);}
   const undoBefore=(await read()).undo,added=await weapon.isChecked()?2:1;
