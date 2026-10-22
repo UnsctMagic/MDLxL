@@ -46,5 +46,7 @@ export const COMMANDS = coreHotkeyDefaults([
     ['forge:shape:mold:Taper','Forge: Taper','T'],
     ['forge:shape:mold:Bevel','Forge: Bevel','B'],
     ['forge:shape:mold:Twist','Forge: Twist','5'],
+    ['forge:shape:mirror','Forge: Mirror detail'],
+    ['forge:shape:blend','Forge: Blend faces'],
   ]),
 ]).map(action=>action.id.startsWith('paint:')?{...action,scope:'paint'}:action.id.startsWith('forge:shape:')?{...action,scope:'forge-shapes'}:action);

@@ -157,6 +157,7 @@
 .forge-cut-menu input { width:70px; }
 .forge-cut-menu small { white-space:normal;font-size:11px;line-height:1.4; }
 .forge-cut-menu button[aria-pressed=true] { border-style:inset;font-weight:bold; }
+.forge-repeat-bar { left:100px; }
 
 .forge-mold-tools { justify-content:center;border-bottom:1px solid var(--ui-border);padding-bottom:4px; }
 .forge-mold-bar { position:absolute;top:34px;left:100px;z-index:4;display:flex;align-items:center;gap:4px;background:var(--ui-panel);border:1px solid var(--ui-border);padding:4px;font-size:11px; }
