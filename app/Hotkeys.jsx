@@ -84,7 +84,9 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         element.setAttribute('title', title); element.setAttribute('data-hotkey-tooltip', title);
         if (element.tagName !== 'BUTTON' || element.getAttribute('data-hotkey-badges') === 'false') continue;
         let badge = element.querySelector(':scope > [data-hotkey-badge]');
-        const text = keys.length ? (forgeHint ? hotkeyCode(keys[0]) : '') || hotkeyBadge(keys[0]) || formatChord(keys[0]) : '';
+        // Badges show one short key (at most three characters); longer chords and codes would spill
+        // over small buttons, so those stay in the tooltip. Forge's shape tools keep their own layout.
+        const text = forgeHint ? keys.length ? hotkeyCode(keys[0]) || hotkeyBadge(keys[0]) || formatChord(keys[0]) : '' : keys.map(hotkeyBadge).find(Boolean) || '';
         if (!text) { if (badge) badge.remove(); element.classList.remove('hotkey-control'); continue; }
         element.classList.add('hotkey-control');
         if (!badge) { badge = element.ownerDocument.createElement('span'); badge.className = 'hotkey-badge'; badge.dataset.hotkeyBadge = ''; badge.setAttribute('aria-hidden', 'true'); element.appendChild(badge); }
@@ -148,6 +150,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         if (target.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), textarea, select, [contenteditable="true"]')) { target.focus(); if (target.matches('input[type="text"], input:not([type]), textarea')) target.select?.(); }
         else { target.focus({ preventScroll: true }); target.click(); }
       } else if (typeof action.run === 'function') action.run(event); else dispatch(action.id, event);
+      // Shredder the Wise learns which shortcuts the user already knows.
+      window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used', { detail: { id: action.id, chord } }));
       return true;
     };
     const keydown = event => {

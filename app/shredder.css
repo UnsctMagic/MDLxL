@@ -1,0 +1,39 @@
+.shredder-bird-layer{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:30}
+.shredder-bird-sprite{position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;will-change:transform}
+.shredder-bird-sprite>div{width:100%;height:100%;background-repeat:no-repeat}
+/* Only his body takes the mouse: drag to carry him, click for his notebook. */
+.shredder-bird-hit{position:absolute;left:0;top:0;width:60px;height:86px;display:none;pointer-events:auto;cursor:grab;border-radius:40%}
+.shredder-bird-hit.held{cursor:grabbing}
+
+.shredder-ui{position:absolute;left:0;top:0;visibility:hidden;pointer-events:auto;box-sizing:border-box;
+  background:var(--ui-panel,#f7f7f7);color:var(--ui-text,#111);border:1px solid color-mix(in srgb,var(--ui-border,#999) 70%,transparent);
+  border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18),0 2px 6px rgba(0,0,0,.10);font-size:12.5px;line-height:1.5}
+.shredder-bubble,.shredder-protest{will-change:transform}
+.shredder-bubble{width:300px;padding:10px 12px 10px}
+.shredder-bubble::after,.shredder-protest::after{content:"";position:absolute;bottom:14px;width:12px;height:12px;background:inherit;border:inherit;border-top:0;border-right:0;transform:rotate(45deg)}
+.shredder-bubble[data-side=right]::after,.shredder-protest[data-side=right]::after{left:-7px}
+.shredder-bubble[data-side=left]::after,.shredder-protest[data-side=left]::after{right:-7px;transform:rotate(225deg)}
+.shredder-caption{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ui-accent,#3d86c6);margin-bottom:3px}
+.shredder-text{margin:0 0 9px}
+.shredder-keys{display:inline-flex;gap:2px;vertical-align:baseline;margin:0 1px}
+.shredder-keys kbd{font:600 10.5px/1 system-ui,sans-serif;padding:3px 6px 2px;border-radius:5px;border:1px solid color-mix(in srgb,var(--ui-border,#999) 80%,transparent);
+  border-bottom-width:2px;background:var(--ui-field,#fff);color:var(--ui-text,#111);white-space:nowrap}
+.shredder-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.shredder-actions button{height:22px;min-width:0;padding:0 10px;border-radius:7px;font-size:11.5px;cursor:pointer;
+  border:1px solid color-mix(in srgb,var(--ui-border,#999) 80%,transparent);background:transparent;color:var(--ui-text,#111)}
+.shredder-actions button:hover:not(:disabled){background:color-mix(in srgb,var(--ui-accent,#3d86c6) 12%,transparent)}
+.shredder-actions button:disabled{opacity:.5;cursor:default}
+.shredder-actions .shredder-primary{border-color:var(--ui-accent,#3d86c6);background:color-mix(in srgb,var(--ui-accent,#3d86c6) 18%,transparent);font-weight:600}
+.shredder-actions .shredder-primary:hover{background:color-mix(in srgb,var(--ui-accent,#3d86c6) 30%,transparent)}
+.shredder-actions button[aria-pressed=true]{border-color:var(--ui-accent,#3d86c6)}
+.shredder-protest{padding:5px 10px;font-style:italic;white-space:nowrap}
+
+.shredder-panel{width:300px;padding:10px 12px 12px}
+.shredder-panel header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.shredder-panel header .shredder-caption{margin:0}
+.shredder-close{width:20px;height:20px;min-width:0;padding:0;border:0;border-radius:6px;background:transparent;color:var(--ui-muted,#666);font-size:15px;line-height:1;cursor:pointer}
+.shredder-close:hover{background:color-mix(in srgb,var(--ui-accent,#3d86c6) 12%,transparent)}
+.shredder-panel table{width:100%;border-collapse:collapse}
+.shredder-panel td{padding:2px 0}.shredder-panel td:last-child{text-align:right;color:var(--ui-muted,#555)}
+.shredder-week{margin:8px 0 2px}.shredder-help{margin:2px 0;color:var(--ui-muted,#555)}
+.shredder-panel .shredder-actions{margin-top:9px;justify-content:flex-start}

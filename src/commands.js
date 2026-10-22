@@ -49,4 +49,5 @@ export const COMMANDS = coreHotkeyDefaults([
     ['forge:shape:mirror','Forge: Mirror detail'],
     ['forge:shape:blend','Forge: Blend faces'],
   ]),
+  ...group('Help', [['shredder','Shredder the Wise: hotkey and trick tips']]),
 ]).map(action=>action.id.startsWith('paint:')?{...action,scope:'paint'}:action.id.startsWith('forge:shape:')?{...action,scope:'forge-shapes'}:action);

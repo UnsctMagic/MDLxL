@@ -1,4 +1,5 @@
 import { normalizePreviewLighting } from './preview-lighting.js';
+import { SHREDDER_TEST_VERSION } from './shredder-notebook.js';
 import { treeAppearanceForTheme } from './tree-appearance.js';
 import { controllerAppearanceForTheme } from './controller-appearance.js';
 import APPLICATION_THEMES from './application-themes.json' with { type: 'json' };
@@ -39,7 +40,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   uvPreviewDisplay: DEFAULT_UV_PREVIEW_DISPLAY,
   uvGrid: DEFAULT_UV_GRID,
   uvViewTileLimit: DEFAULT_UV_VIEW_TILE_LIMIT,
-  language: 'en', fileIcon: 'page', checkUpdatesOnStartup: false, showPressedKeys: false, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
+  language: 'en', fileIcon: 'page', checkUpdatesOnStartup: false, showPressedKeys: false, shredder: SHREDDER_TEST_VERSION, shredderPace: 'normal', capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
   pointerSensitivity: 1,
@@ -159,7 +160,7 @@ export function normalizePreferences(value = {}) {
     uvPreviewDisplay: normalizeUVPreviewDisplay(input.uvPreviewDisplay),
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
-    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), showPressedKeys: boolean(input.showPressedKeys, false), capture: normalizeCapture(input.capture),
+    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), showPressedKeys: boolean(input.showPressedKeys, false), shredder: boolean(input.shredder, SHREDDER_TEST_VERSION), shredderPace: input.shredderPace === 'fewer' ? 'fewer' : 'normal', capture: normalizeCapture(input.capture),
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(10, Math.max(0.1, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: ['rotate', 'scroll', 'pointer'].includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(4, Math.max(0.01, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,
