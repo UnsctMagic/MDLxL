@@ -54,8 +54,6 @@
 .gf-stage-video{max-width:100%;max-height:100%;background:#000}
 .gf-stage-text{position:absolute;inset:0;padding:12px;overflow:auto}
 .gf-info{width:250px;flex-shrink:0;box-sizing:border-box;border-left:1px solid #4b5860;background:#1b252c;padding:12px;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:6px}
-.gf-info-head{display:flex;align-items:center;gap:10px}
-.gf-info-head>img{width:48px;height:48px;border:1px solid #4b5860}
 .gf-info h3{margin:0;color:#ead9ae;font-size:15px;overflow-wrap:anywhere}
 .gf-info .tl-version{margin:0}
 .gf-info code{display:block;overflow-wrap:anywhere;font:11px Consolas,monospace;color:#a8c1d1;line-height:1.5}

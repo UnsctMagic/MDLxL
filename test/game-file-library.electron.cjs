@@ -92,7 +92,8 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     for(const [query,name,detail] of [['holy light','Holy Light',/Human › Spells › Heroes/],['mushrooms','Mushrooms',/Doodads › Ashenvale › Environment/],['crown of kings','Crown of Kings +5',/Items › /]]){
       await search.fill(query);await page.waitForFunction(()=>/match/.test(document.querySelector('.gf-tree-status')?.textContent||''));
       await page.locator('.gf-row').filter({hasText:detail}).filter({hasText:name}).first().click();await waitModel(name);
-      await page.waitForFunction(()=>document.querySelector('.gf-info-head img')?.naturalWidth>0,null,{timeout:15000}).catch(()=>{throw Error(name+' shows no icon');});
+      await page.waitForFunction(()=>document.querySelector('.gf-row.selected img.gf-icon')?.naturalWidth>0,null,{timeout:15000}).catch(()=>{throw Error(name+' shows no icon in the list');});
+      assert.equal(await page.locator('.gf-stage img, .gf-info img').count(),0,'icons stay in the folder list, never in the preview');
     }
     const cameraDistance=()=>page.evaluate(()=>{const host=document.querySelector('.gf-stage .game-preview-root');let fiber=host?.[Object.keys(host).find(key=>key.startsWith('__reactFiber'))];
       for(;fiber;fiber=fiber.return)for(let hook=fiber.memoizedState;hook;hook=hook.next){const state=hook.memoizedState?.current;if(state?.native&&state?.controls)return Math.round(state.controls.object.position.distanceTo(state.controls.target));}return null;});

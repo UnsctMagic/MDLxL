@@ -41,7 +41,7 @@ test('races hold units (normal, heroes, campaign), buildings and spells with the
 
 test('items by class and doodads by tileset and category, including every-tileset doodads',()=>{
   const find=finder(buildWorldEditorCatalog(files,strings).root);
-  assert.ok(find('Items','Item abilities','Gold'));
+  assert.equal(find('Items','Item abilities'),undefined,'entries without a model stay out of the Models tab');
   assert.equal(find('Items','Artifact','Crown of Kings +5').icon,'ReplaceableTextures\\CommandButtons\\BTNHelmutPurple.blp');
   assert.deepEqual(find('Doodads').children.map(node=>node.name),['Ashenvale','Barrens']);
   assert.deepEqual(find('Doodads','Ashenvale').children.map(node=>node.name),['Environment','Props','Trees/Destructibles']);

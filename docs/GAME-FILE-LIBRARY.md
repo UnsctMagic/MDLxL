@@ -32,7 +32,7 @@ existing hotkey behaviour.
   (Reforged/Forsaken Kingdom), then the base game.
 - [GameFileBrowser.jsx](../app/GameFileBrowser.jsx): icon tree on the left
   (virtualized; clicking a folder only opens or closes it), one central view,
-  slim info panel on the right (icon, path, version, animation, Open in editor,
+  slim info panel on the right (name, path, version, animation, Open in editor,
   Copy path, Save a copy). Arrow keys step through rows, Right/Left open and
   close folders, Enter or double-click opens a model in the editor (a
   double-click on a model still loading opens it when it arrives).
@@ -49,10 +49,10 @@ existing hotkey behaviour.
     Campaign heroes, Special) / Buildings (Normal, Campaign) / Spells (Normal,
     Heroes); Items by class plus item abilities; Doodads by tileset › category,
     with destructibles, and every-tileset doodads in each tileset. Every entry
-    keeps its game icon (`Art`) and models; spells list their Caster/Target/
+    keeps its game icon (`Art`, shown only in the tree) and models; spells list their Caster/Target/
     Effect/Missile/Area/Special art, doodads their variations. Skin fields are
     read per version (`Art:sd`, `file:hd`, `file:de`). Entries hidden from the
-    editor are left out. The tables are read by `gameFiles:worldEditorSources`;
+    editor, and entries without a model, are left out. The tables are read by `gameFiles:worldEditorSources`;
     `gameFiles:findPath`/`readPath` resolve the game paths per version.
 - **Camera**: one `GamePreview` stays mounted (`glideCamera`,
   `fitSequenceExtent`). A newly picked model replaces the old one once loaded;

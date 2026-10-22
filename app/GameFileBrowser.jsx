@@ -205,7 +205,7 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
     if(icon)return <GameIcon iconKey={'p:'+variant+':'+icon} read={readPath(icon)} fallback={Box}/>;
     return <GameIcon iconKey={file.type==='textures'&&file.size<4194304?'f:'+signature+':'+file.id:null} read={readFile(file)} fallback={TYPE_ICON[file.type]||File}/>;
   };
-  const interval=shown?.doc.model.Sequences[sequence]?.Interval,infoIcon=selected?.node?.icon||(selectedEntry?.type==='models'?modelIcon(selectedEntry):null);
+  const interval=shown?.doc.model.Sequences[sequence]?.Interval;
   return <>
     <div className="tl-toolbar"><input ref={input} type="search" value={query} placeholder={PLACEHOLDER[worldEditor?'worldeditor':preset]||PLACEHOLDER.all} onChange={event=>setQuery(event.target.value)} aria-label="Search game files"/>
       <select aria-label="Game version" title="Which game files to show: Classic (SD), Reforged (HD), Forsaken Kingdom, other languages or everything installed" value={variant} onChange={event=>{setVariant(event.target.value);remember('mdlvis.game-files.variant',event.target.value);}}>{VARIANTS.filter(([value])=>!worldEditor||SKIN[value]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
@@ -237,13 +237,12 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
         <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} preferences={preferences} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
         {!showsModel&&<div className="gf-stage-layer gf-stage-content">
           {selectedEntry&&selectedEntry.type!=='models'?<FileStage key={selectedEntry.id} entry={selectedEntry} signature={signature}/>
-            :selected?.node&&!selectedModels.length?<div className="gf-stage-sound">{selected.node.icon&&<GameIcon key={selected.node.icon} iconKey={'big:'+variant+':'+selected.node.icon} read={readPath(selected.node.icon)} size={128}/>}<p>No model for this entry.</p></div>
             :loadingModel?<span className="gf-stage-note">Loading model…</span>
             :<span className="gf-stage-note">{preset==='models'?'Choose a model on the left. Drag to turn the camera; it glides to each model you pick.':preset==='sounds'?'Choose a sound on the left to hear it. Arrow keys step through a folder.':'Choose a file on the left to view it.'}</span>}
         </div>}
       </main>
       <aside className="gf-info">{selected&&!selected.folder?<>
-        <div className="gf-info-head">{infoIcon?<GameIcon key={infoIcon} iconKey={'p:'+variant+':'+infoIcon} read={readPath(infoIcon)} size={48}/>:null}<h3 translate="no">{selected.name}</h3></div>
+        <h3 translate="no">{selected.name}</h3>
         {selected.node&&<p className="tl-version" translate="no">{selected.node.id}</p>}
         {selectedModels.length>1&&<select aria-label="Model" value={modelChoice} onChange={event=>choose(selected,Number(event.target.value))}>{selectedModels.map((model,index)=><option key={index} value={index}>{model.label}</option>)}</select>}
         {showsModel&&!current&&<p className="tl-note">Loading model…</p>}

@@ -84,6 +84,8 @@ export function buildWorldEditorCatalog(files, strings = [], { skin: version = '
   for (const node of races.values()) root.children.push(node);
   const modelIcons = new Map();
   const leaf = (parent, id, name, icon, models) => {
+    // The Models tab browses models: icons only label entries in the tree.
+    if (!models.length) return;
     const node = { id, name, ...(icon ? { icon } : {}), models };
     if (icon) for (const model of models) if (!modelIcons.has(model.path.toLowerCase())) modelIcons.set(model.path.toLowerCase(), icon);
     parent.children.push(node);
