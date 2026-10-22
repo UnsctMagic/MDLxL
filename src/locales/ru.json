@@ -6076,5 +6076,19 @@
   "{0} matches": "Совпадений: {0}",
   "{0} of {1} matches": "{0} из {1} совпадений",
   "No matches. Try fewer words or another game version.": "Совпадений нет. Попробуйте меньше слов или другую версию игры.",
-  "Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor": "Стрелки — по списку · Вправо/Влево — открыть и закрыть папку · Enter или двойной щелчок — открыть модель в редакторе"
+  "Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor": "Стрелки — по списку · Вправо/Влево — открыть и закрыть папку · Enter или двойной щелчок — открыть модель в редакторе",
+  "View selected only": "Только выбранные",
+  "Shows only the checked geosets in the preview. Nothing is deleted.": "Показывает в просмотре только отмеченные геосеты. Ничего не удаляется.",
+  "Library geosets": "Геосеты библиотеки",
+  "{0} of {1} selected": "Выбрано {0} из {1}",
+  "Splits the checked geosets into one geoset per separate piece. No vertices need to be selected.": "Делит отмеченные геосеты на отдельные куски, по геосету на кусок. Выделять вершины не нужно.",
+  "Splits the checked geosets wherever triangles do not share vertices, even inside one piece. No vertices need to be selected.": "Делит отмеченные геосеты везде, где треугольники не делят вершины, даже внутри одного куска. Выделять вершины не нужно.",
+  "Import to current": "Импорт в текущую",
+  "Adds the checked geosets to the model you are editing, attached to DummyBone like other parts.": "Добавляет отмеченные геосеты в редактируемую модель, привязав к DummyBone, как другие детали.",
+  "Opens the model with only the checked geosets as a new tab.": "Открывает модель только с отмеченными геосетами в новой вкладке.",
+  "The model you are editing is read-only.": "Редактируемая модель доступна только для чтения.",
+  "The checked geosets are already single pieces.": "Отмеченные геосеты уже состоят из одного куска.",
+  "Split into {0} geosets.": "Разделено на {0} геосетов.",
+  "Imported {0} geosets into {1} on DummyBone.": "Импортировано геосетов: {0} в {1} на DummyBone.",
+  "Imported {0} geoset into {1} on DummyBone.": "Импортирован {0} геосет в {1} на DummyBone."
 }

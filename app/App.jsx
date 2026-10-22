@@ -1222,7 +1222,8 @@ export default function App() {
       setLiveUV(null); clearZoomAnchor(); say(changes.map(change => `Geoset ${change.index + 1}: ${change.trianglesBefore} → ${change.trianglesAfter} triangles.`).join(' ')); return result;
     } catch (error) { say(error.message, true); return false; }
   }
-  async function importPart({source,rgbSequence,assets,replacement}) {
+  // keepOpen: the Library stays open so more geosets can be imported in a row.
+  async function importPart({source,rgbSequence,assets,replacement,keepOpen=false}) {
     const {commitPart}=await import('../src/bits-and-parts.js');
     if(latest.current.session!==session || savingRef.current)return false;
     const target=session;
@@ -1230,7 +1231,7 @@ export default function App() {
     if(result===false)return false;
     // Select the new part in the same tick as its edit, so the selection joins the
     // import's undo step instead of becoming a separate 'Change selection'.
-    if(replacement)setHidden({});setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds(result.boneIds);selectMode('vertices');if(replacement){setTool('translate');setCameraMode('work');}setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
+    if(replacement)setHidden({});setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds(result.boneIds);selectMode('vertices');if(replacement){setTool('translate');setCameraMode('work');}setRenderMode('textured');if(!keepOpen)setDialog(null);requestAnimationFrame(()=>frame(false));
     await loadTextures(assets,target,{source:'parts'});
     if(latest.current.session!==target)return result;
     say(replacement?'Part replaced using its existing bone bindings. Place it with the vertex editor tools.':'Part imported and attached to DummyBone.');return result;
@@ -1492,7 +1493,7 @@ export default function App() {
     validSelection, view, uvMinimized: !!uvWindow?.minimized
   }}/>;
   const textureLibraryDialog = dialog?.type === 'library' && <AppTextureLibrary {...{
-    addTexture, dialog, doc, model, openGameModel, preferences, previewSelection, previewTexture, session, setDialog
+    addTexture, dialog, doc, importPart, model, openGameModel, preferences, previewSelection, previewTexture, session, setDialog
   }}/>;
   const timeline = <AppTimeline {...{
     animationPanel, closeMotion, doc, edit, globalSeqId, highlightChain, highlightKeyframes, inspectingMotion,

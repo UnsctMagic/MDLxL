@@ -46,9 +46,9 @@ export function AppUVWorkspace({
 
 /** The Texture Library dialog (App renders it only while dialog.type is 'library'). */
 export function AppTextureLibrary({
-  addTexture, dialog, doc, model, openGameModel, preferences, previewSelection, previewTexture, session, setDialog
+  addTexture, dialog, doc, importPart, model, openGameModel, preferences, previewSelection, previewTexture, session, setDialog
 }) {
-  return <Suspense fallback={<div className="classic-modal"><p>Loading texture library…</p></div>}><TextureLibrary model={model} modelPath={session.path} onClose={() => setDialog(dialog.returnTo)} onAddTexture={doc.readOnly ? undefined : addTexture} onPreviewTexture={dialog.preview ? previewTexture : undefined} previewEnabled={dialog.preview && previewSelection.enabled && !doc.readOnly} previewReason={doc.readOnly ? 'This model is read-only.' : previewSelection.reason} onOpenMaterials={() => setDialog({ type: 'resource', kind: 'Materials' })} fullLibrary={!!dialog.full} onOpenGameModel={openGameModel} preferences={preferences}/></Suspense>;
+  return <Suspense fallback={<div className="classic-modal"><p>Loading texture library…</p></div>}><TextureLibrary model={model} modelPath={session.path} onClose={() => setDialog(dialog.returnTo)} onAddTexture={doc.readOnly ? undefined : addTexture} onPreviewTexture={dialog.preview ? previewTexture : undefined} previewEnabled={dialog.preview && previewSelection.enabled && !doc.readOnly} previewReason={doc.readOnly ? 'This model is read-only.' : previewSelection.reason} onOpenMaterials={() => setDialog({ type: 'resource', kind: 'Materials' })} fullLibrary={!!dialog.full} onOpenGameModel={openGameModel} onImportGameGeosets={doc.readOnly ? undefined : ({ source, assets }) => importPart({ source, rgbSequence: null, assets, keepOpen: true })} importTargetName={doc.name} preferences={preferences}/></Suspense>;
 }
 
 /** Animation modes: the keyframe timeline, with the Motion Inspector of the Movement panel. */

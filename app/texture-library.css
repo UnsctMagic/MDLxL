@@ -70,3 +70,12 @@
 .tl-material-choice>p{margin:0!important}
 .tl-material-choice>button,.tl-material-choice>select{border:1px solid #64737c;background:#35424c;color:#eee;border-radius:2px;padding:6px 10px}
 .tl-material-choice>.tl-primary{background:#695a36;border-color:#bba067;color:#fff0c6}
+.gf-geosets{margin-top:6px;display:flex;flex-direction:column;gap:6px}
+.gf-geosets .classic-geosets-heading{font-weight:700;color:#ead9ae}
+.gf-geosets .geoset-options{display:flex;flex-direction:column;gap:3px}
+.gf-geosets .classic-selection-actions,.gf-geosets .classic-geoset-operations{display:flex;gap:4px}
+.gf-geosets .classic-selection-actions>button,.gf-geosets .classic-geoset-operations>button{flex:1;border:1px solid #64737c;background:#35424c;color:#eee;border-radius:2px;padding:4px 6px}
+.gf-geosets .classic-geoset-list{min-height:40px;max-height:180px;overflow:auto;background:#131c22;border:1px solid #3d4a52}
+.gf-geosets .classic-geoset-count{color:#8fa1ac;font-size:11px}
+.gf-geosets .gf-geoset-actions{margin-top:4px}
+.gf-info>*{flex-shrink:0}

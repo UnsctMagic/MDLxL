@@ -61,6 +61,20 @@ existing hotkey behaviour.
   geometry (e.g. the Altar of Kings' portrait backdrop) does not shrink it.
   Grabbing the camera stops the glide. The destination is read on the first
   glide frame, when the new animation choice has arrived.
+- **Geoset box** ([LibraryGeosets.jsx](../app/LibraryGeosets.jsx)), under the
+  animation controls: the vertex editor's numbered list with click, shift and
+  ctrl selection (All, Clear, Invert), *View selected only* (isolates the checked
+  geosets in the preview), *Highlight Geoset* on hover, and, acting on the
+  Library's own copy of the model without selecting vertices:
+  *Seperate by Loose parts* and *Nuclear Seperation* (`geoset-operations.js`,
+  every vertex of each checked geoset), *Import to current* (`collectPart` →
+  App `importPart`, the BitsAndParts path: geometry on DummyBone, textures,
+  materials and animations carried; the Library stays open, `keepOpen`) and
+  *Open in editor* (a new tab with only the checked geosets; untouched whole
+  models open from their original bytes). Edits on the copy rebuild the
+  preview without moving the camera (`glideKey` only changes with the model).
+  Import needs matching model formats (an HD game model into an SD model is
+  refused with the BitsAndParts message).
 - CASC installs only (1.30+). MPQ-only installs show the "choose your folder" note.
   Files over 64 MiB cannot be read by the helper.
 
@@ -96,5 +110,7 @@ carry `material` (index or `'new'`), honoured by `applyUVPreviews` and recovery.
   painting search, new material, World Editor tree with loaded icons, folder
   clicks leave the view unchanged, real mouse-drag rotation, glide to a larger
   model (frames saved), chest framing distance, spell/doodad/item search,
-  Standard tree icons, double-click opens in the editor, sound playback, arrow
+  Standard tree icons, double-click opens in the editor, geoset box (View
+  selected only, both separations, Import to current on DummyBone, Open in editor
+  with only the checked geosets), sound playback, arrow
   keys, text view, Escape, screenshots.

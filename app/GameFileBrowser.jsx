@@ -1,6 +1,9 @@
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Box,ChevronDown,ChevronRight,File,FileText,Film,Folder,FolderOpen,Image,Map as MapIcon,Music,Type} from 'lucide-react';
-import {openDocument} from '../src/editor-document.js';
+import {openDocument,deleteGeoset} from '../src/editor-document.js';
+import {separateGeosetsByLoosePart,nuclearSeparateGeosets} from '../src/geoset-operations.js';
+import {collectPart} from '../src/bits-and-parts.js';
+import LibraryGeosets from './LibraryGeosets.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
 import {createThumbnailQueue} from '../src/texture-library-session.js';
@@ -71,9 +74,9 @@ function worldEditorTree(variant,signature){
 }
 
 /** Center stage: one persistent preview. A new model replaces the old one when it has loaded and the camera glides to it. */
-function ModelStage({shown,preferences,sequence,time,setTime,playing,setPlaying}){
+function ModelStage({shown,preferences,sequence,time,setTime,playing,setPlaying,isolated,hidden,hovered,highlight}){
   if(!shown)return null;
-  return <Suspense fallback={<span className="gf-stage-note">Loading preview…</span>}><GamePreview presentation="preview" fitModel glideCamera fitSequenceExtent model={shown.doc.model} revision={shown.revision} textureAssets={shown.assets} preferences={preferences} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing&&sequence>=0} onPlayingChange={setPlaying} showParticles mode="textured" view="perspective"/></Suspense>;
+  return <Suspense fallback={<span className="gf-stage-note">Loading preview…</span>}><GamePreview presentation="preview" fitModel glideCamera glideKey={shown.key} fitSequenceExtent isolatedGeosets={isolated} hiddenGeosets={hidden} interactivePreview hoveredGeoset={hovered} highlightSelection={highlight} model={shown.doc.model} revision={shown.revision} textureAssets={shown.assets} preferences={preferences} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing&&sequence>=0} onPlayingChange={setPlaying} showParticles mode="textured" view="perspective"/></Suspense>;
 }
 function FileStage({entry,signature}){
   const [state,setState]=useState({loading:true});
@@ -98,7 +101,7 @@ function FileStage({entry,signature}){
 }
 
 /** The Library's browser for every installed Warcraft III file: icon tree on the left, one central view. */
-export default function GameFileBrowser({preset='all',preferences,onOpenGameModel,onClose}){
+export default function GameFileBrowser({preset='all',preferences,onOpenGameModel,onImportGameGeosets,importTargetName,onClose}){
   const [summary,setSummary]=useState(null),[variant,setVariant]=useState(()=>remembered('mdlvis.game-files.variant','classic',VARIANTS.map(([value])=>value))),[chosenType,setChosenType]=useState('all');
   const [style,setStyle]=useState(()=>remembered('mdlvis.game-files.style','worldeditor',['standard','worldeditor']));
   const [query,setQuery]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
@@ -185,6 +188,39 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
   useEffect(()=>()=>shown?.release(),[]);// eslint-disable-line react-hooks/exhaustive-deps
   const selectedEntry=selected?.file||null,selectedModels=selected?.node?.models||[];
   const showsModel=!!shown&&(selected?.node?selectedModels.length>0:selectedEntry?.type==='models'),current=showsModel&&shown.key===selected?.key+'|'+modelChoice;
+  // Geoset box: works on the Library's own copy of the previewed model.
+  const [geosets,setGeosets]=useState(()=>new Set()),[hoveredGeoset,setHoveredGeoset]=useState(null),[highlightGeoset,setHighlightGeoset]=useState(true),[selectedOnly,setSelectedOnly]=useState(false),[geosetBusy,setGeosetBusy]=useState(false);
+  useEffect(()=>{setGeosets(new Set(Array.from({length:shown?.doc.model.Geosets.length||0},(_,i)=>i)));setHoveredGeoset(null);},[shown?.key]);
+  const wholeGeosets=()=>Object.fromEntries([...geosets].map(index=>[index,Array.from({length:shown.doc.model.Geosets[index].Vertices.length/3},(_,vertex)=>vertex)]));
+  const geosetTotal=shown?.doc.model.Geosets.length||0,geosetKey=[...geosets].sort((a,b)=>a-b).join(',');
+  const isolation=useMemo(()=>({isolated:[...geosets].sort((a,b)=>a-b),hidden:new Set(Array.from({length:geosetTotal},(_,i)=>i).filter(i=>!geosets.has(i)))}),[geosetKey,geosetTotal]);// eslint-disable-line react-hooks/exhaustive-deps
+  const separate=nuclear=>{
+    if(!shown||!geosets.size)return;setMessage('');
+    try{
+      let result=false;shown.doc.apply(nuclear?'Nuclear Seperation':'Seperate by Loose parts',['Geosets','GeosetAnims','Gliders','Info'],model=>{result=(nuclear?nuclearSeparateGeosets:separateGeosetsByLoosePart)(model,wholeGeosets());});
+      if(!result){setMessage('The checked geosets are already single pieces.');return;}
+      setGeosets(new Set(result.geosetIndices));setShown(previous=>({...previous,revision:previous.revision+0.001}));
+      setMessage(`Split into ${result.geosetIndices.length} geosets.`);
+    }catch(caught){setMessage(caught.message);}
+  };
+  const importSelected=async()=>{
+    if(!shown||!geosets.size||!onImportGameGeosets)return;setMessage('');setGeosetBusy(true);
+    try{const part=collectPart(shown.doc.model,wholeGeosets()),result=await onImportGameGeosets({source:part,assets:shown.textures,name:shown.entry.name});if(result!==false)setMessage(`Imported ${geosets.size} geoset${geosets.size===1?'':'s'} into ${importTargetName||'the current model'} on DummyBone.`);}
+    catch(caught){setMessage(caught.message);}finally{setGeosetBusy(false);}
+  };
+  const openSelected=async()=>{
+    if(!shown||!geosets.size)return;setMessage('');setGeosetBusy(true);
+    try{
+      const count=shown.doc.model.Geosets.length,whole=geosets.size===count&&!shown.doc.revision;
+      let bytes=shown.bytes;
+      if(!whole){
+        const format=shown.entry.extension==='mdl'?'mdl':'mdx',copy=openDocument(shown.doc.serialize(format),shown.entry.name);
+        copy.apply('Keep checked geosets',['Geosets','GeosetAnims','Gliders','Info'],model=>{for(let index=count-1;index>=0;index--)if(!geosets.has(index))deleteGeoset(model,index);});
+        bytes=copy.serialize(format);
+      }
+      await onOpenGameModel({name:shown.entry.name,path:shown.entry.path,bytes,textures:shown.textures});onClose?.();
+    }catch(caught){setMessage(caught.message);}finally{setGeosetBusy(false);}
+  };
   const openInEditor=async()=>{if(!shown)return;setMessage('');try{await onOpenGameModel({name:shown.entry.name,path:shown.entry.path,bytes:shown.bytes,textures:shown.textures});onClose?.();}catch(caught){setMessage(caught.message);}};
   const keys=event=>{
     const index=rows.findIndex(row=>row.key===focusKey),row=rows[index];
@@ -234,7 +270,7 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
         </div>
       </nav>
       <main className="gf-stage" aria-label="Preview">
-        <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} preferences={preferences} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
+        <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} preferences={preferences} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying} isolated={selectedOnly&&current?isolation.isolated:undefined} hidden={selectedOnly&&current?isolation.hidden:undefined} hovered={current?hoveredGeoset:null} highlight={highlightGeoset}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
         {!showsModel&&<div className="gf-stage-layer gf-stage-content">
           {selectedEntry&&selectedEntry.type!=='models'?<FileStage key={selectedEntry.id} entry={selectedEntry} signature={signature}/>
             :loadingModel?<span className="gf-stage-note">Loading model…</span>
@@ -256,14 +292,14 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
           {interval&&<input className="gf-time" aria-label="Animation time" type="range" min={interval[0]} max={Math.max(interval[0]+1,interval[1])} value={Math.min(Math.max(time,interval[0]),interval[1])} onChange={event=>{setPlaying(false);setTime(Number(event.target.value));}}/>}
           {shown.missing.length>0&&<details className="gf-missing"><summary>{shown.missing.length} texture{shown.missing.length===1?'':'s'} not found</summary>{shown.missing.map(name=><code key={name} translate="no">{name}</code>)}</details>}
           {shown.doc.hdViewOnly&&<p className="tl-note">This is a Reforged HD model. MDLxL opens it for viewing; convert it to SD in the editor to change it.</p>}
-          <div className="tl-actions"><button type="button" className="tl-primary" onClick={openInEditor}>Open in editor</button></div>
+          <LibraryGeosets count={shown.doc.model.Geosets.length} selected={geosets} onChange={setGeosets} hovered={hoveredGeoset} onHover={setHoveredGeoset} highlight={highlightGeoset} onHighlight={setHighlightGeoset} selectedOnly={selectedOnly} onSelectedOnly={setSelectedOnly} editable={!shown.doc.readOnly&&!shown.doc.hdViewOnly} busy={geosetBusy} onSeparate={separate} onImport={importSelected} onOpen={openSelected} canImport={!!onImportGameGeosets} importReason={onImportGameGeosets?'':'The model you are editing is read-only.'}/>
         </>}
         {selectedEntry&&selectedEntry.type!=='models'&&<><p className="tl-version">Game version: <strong translate="no">{selectedEntry.module}</strong> · {fileSize(selectedEntry.size)}</p><code translate="no">{selectedEntry.path}</code></>}
         {(selectedEntry&&selectedEntry.type!=='models'||current)&&<div className="gf-file-actions">
           <button type="button" onClick={async()=>{setMessage('');try{await window.desktop.copyTexturePath((showsModel?shown.entry:selectedEntry).path);setMessage('Path copied.');}catch(caught){setMessage(caught.message);}}}>Copy path</button>
           <button type="button" onClick={async()=>{setMessage('');try{const target=showsModel?shown.entry:selectedEntry,saved=await window.desktop.gameFilesExport({id:target.id,signature});if(saved)setMessage('Saved '+saved);}catch(caught){setMessage(caught.message);}}}>Save a copy…</button>
         </div>}
-        {message&&<p className={/^Saved |^Path copied/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
+        {message&&<p className={/^(Saved |Path copied|Imported |Split into )/.test(message)?'tl-success':'tl-error'} role="status">{message}</p>}
         {error&&<p className="tl-error" role="alert">{error}</p>}
       </>:<div className="tl-empty">{error?<span className="tl-error">{error}</span>:preset==='models'?'Choose a model to view it. Double-click opens it in the editor.':'Choose a file to view it.'}</div>}</aside>
     </div>

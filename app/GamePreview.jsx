@@ -130,7 +130,7 @@ export default function GamePreview(inputProps) {
   const portraitFrame = useRef({ status: 'idle', canvas: null, url: '', error: '', promise: Promise.resolve() });
   const backgroundState = useRef({ url: null, status: 'ready', image: null, promise: Promise.resolve() });
   const layerComposite = useRef(null);
-  const cameraMemory = useRef(null);
+  const cameraMemory = useRef(null), glidedKey = useRef(undefined);
   const rendererSource = useRef({ input: null, build: null, revision: null });
   if (rendererSource.current.input !== model) {
     // UV Wrapper fingerprints material and texture contents. A temporary
@@ -1026,7 +1026,9 @@ export default function GamePreview(inputProps) {
       state.appliedView = latest.current.view || saved.view; resize(); reportProjectionView();
       // Browsing models: keep the viewing direction and glide to frame the new
       // model instead of snapping. Grabbing the camera stops the glide.
-      if (latest.current.glideCamera && camera === perspective) {
+      // glideKey: rebuilding the same model (edits, isolation) keeps the camera still.
+      const glideKey = latest.current.glideKey, newModel = glideKey === undefined || glideKey !== glidedKey.current; glidedKey.current = glideKey;
+      if (latest.current.glideCamera && newModel && camera === perspective) {
         const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
         const fromTarget = controls.target.clone(), fromPosition = perspective.position.clone();
         const direction = fromPosition.clone().sub(fromTarget); if (direction.lengthSq() < 1e-6) direction.set(1, -1.5, .9); direction.normalize();
@@ -1053,7 +1055,7 @@ export default function GamePreview(inputProps) {
       fit({ initialize: true });
       if (saved && saved.view === view) { camera = restorePreviewCamera(saved, perspective, ortho, controls); reportProjectionView(); }
       // The first browsed model is framed again once its animation choice has arrived.
-      else if (latest.current.glideCamera) glideFrame = requestPreviewFrame(() => { if (!disposed) fit(); });
+      else if (latest.current.glideCamera) { glidedKey.current = latest.current.glideKey; glideFrame = requestPreviewFrame(() => { if (!disposed) fit(); }); }
     }
     if (latest.current.portraitMode) enterPortrait(evaluateModelCamera(model, model?.Cameras?.[latest.current.portraitCameraIndex], latest.current.time, sequenceIndex, latest.current.time));
     const compareCamera = latest.current.compareCamera;

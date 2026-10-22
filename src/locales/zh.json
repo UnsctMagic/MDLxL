@@ -3275,5 +3275,19 @@
   "{0} of {1} matches": "{1} 个匹配中的 {0} 个",
   "No matches. Try fewer words or another game version.": "没有匹配。请尝试减少关键词或换一个游戏版本。",
   "Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor": "方向键浏览列表 · 右/左键展开和折叠文件夹 · Enter 或双击在编辑器中打开模型",
-  "Model": "模型"
+  "Model": "模型",
+  "View selected only": "仅显示所选",
+  "Shows only the checked geosets in the preview. Nothing is deleted.": "预览中只显示勾选的几何集。不会删除任何内容。",
+  "Library geosets": "资源库几何集",
+  "{0} of {1} selected": "已选 {0} / {1}",
+  "Splits the checked geosets into one geoset per separate piece. No vertices need to be selected.": "将勾选的几何集按独立部件拆分为多个几何集。无需选择顶点。",
+  "Splits the checked geosets wherever triangles do not share vertices, even inside one piece. No vertices need to be selected.": "在三角形不共享顶点的地方拆分勾选的几何集，即使在同一部件内。无需选择顶点。",
+  "Import to current": "导入到当前模型",
+  "Adds the checked geosets to the model you are editing, attached to DummyBone like other parts.": "将勾选的几何集添加到正在编辑的模型，并像其他部件一样绑定到 DummyBone。",
+  "Opens the model with only the checked geosets as a new tab.": "在新标签页中打开只含勾选几何集的模型。",
+  "The model you are editing is read-only.": "正在编辑的模型为只读。",
+  "The checked geosets are already single pieces.": "勾选的几何集已经是单个部件。",
+  "Split into {0} geosets.": "已拆分为 {0} 个几何集。",
+  "Imported {0} geosets into {1} on DummyBone.": "已将 {0} 个几何集导入 {1}，绑定到 DummyBone。",
+  "Imported {0} geoset into {1} on DummyBone.": "已将 {0} 个几何集导入 {1}，绑定到 DummyBone。"
 }

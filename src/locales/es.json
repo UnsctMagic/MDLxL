@@ -6088,5 +6088,19 @@
   "{0} matches": "{0} coincidencias",
   "{0} of {1} matches": "{0} de {1} coincidencias",
   "No matches. Try fewer words or another game version.": "Sin coincidencias. Prueba con menos palabras u otra versión del juego.",
-  "Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor": "Flechas: recorrer la lista · Derecha/Izquierda: abrir y cerrar carpetas · Intro o doble clic: abrir un modelo en el editor"
+  "Arrow keys move through the list · Right/Left open and close folders · Enter or double-click opens a model in the editor": "Flechas: recorrer la lista · Derecha/Izquierda: abrir y cerrar carpetas · Intro o doble clic: abrir un modelo en el editor",
+  "View selected only": "Ver solo lo seleccionado",
+  "Shows only the checked geosets in the preview. Nothing is deleted.": "Muestra solo los geosets marcados en la vista previa. No se borra nada.",
+  "Library geosets": "Geosets de la biblioteca",
+  "{0} of {1} selected": "{0} de {1} seleccionados",
+  "Splits the checked geosets into one geoset per separate piece. No vertices need to be selected.": "Divide los geosets marcados en un geoset por cada pieza separada. No hace falta seleccionar vértices.",
+  "Splits the checked geosets wherever triangles do not share vertices, even inside one piece. No vertices need to be selected.": "Divide los geosets marcados allí donde los triángulos no comparten vértices, incluso dentro de una pieza. No hace falta seleccionar vértices.",
+  "Import to current": "Importar al actual",
+  "Adds the checked geosets to the model you are editing, attached to DummyBone like other parts.": "Añade los geosets marcados al modelo que editas, unidos a DummyBone como otras piezas.",
+  "Opens the model with only the checked geosets as a new tab.": "Abre el modelo solo con los geosets marcados en una pestaña nueva.",
+  "The model you are editing is read-only.": "El modelo que editas es de solo lectura.",
+  "The checked geosets are already single pieces.": "Los geosets marcados ya son piezas únicas.",
+  "Split into {0} geosets.": "Dividido en {0} geosets.",
+  "Imported {0} geosets into {1} on DummyBone.": "Se importaron {0} geosets en {1} sobre DummyBone.",
+  "Imported {0} geoset into {1} on DummyBone.": "Se importó {0} geoset en {1} sobre DummyBone."
 }
