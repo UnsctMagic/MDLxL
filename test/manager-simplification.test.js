@@ -4,7 +4,7 @@ import { createDemoDocument, createNode, openDocument } from '../src/editor-docu
 import { setAnimationKey, sampleAnimationProperty } from '../src/animation-tracks.js';
 import { classicTimelineTargets, classicTimelineDomain } from '../src/classic-keyframes.js';
 import { clearTimelineKeys, timelineDomain } from '../src/keyframe-timeline.js';
-import { eventCatalog, assignEventData, setEventFrame, resolveEventSound } from '../app/node-event-data.js';
+import { eventCatalog, soundFolders, assignEventData, setEventFrame, resolveEventSound } from '../app/node-event-data.js';
 
 test('native sound lookup retains identity across FLAC table paths and installed OGG files', async () => {
  const file='war3.w3mod:Units/Creeps/Spider/SpiderDeath1.flac', ogg=file.replace('.flac','.ogg');
@@ -29,6 +29,32 @@ test('sound catalog uses native IDs and authored file mappings without offering 
  ]);
  assert.deepEqual(data.SND.find(n=>n.id==='DPES').files,['war3.w3mod:Units/Human/Peasant/PeasantDeath.ogg']);
  assert.equal(data.SND.some(n=>n.id==='DSPV'),false);
+});
+
+test('sounds carry their expansion and blood lists exclude footprints', () => {
+ const slk=(name,rows)=>({name,bytes:new TextEncoder().encode(rows.flatMap((row,y)=>row.map((value,x)=>`C;X${x+1};Y${y+1};K"${value}"`)).join('\n'))});
+ const data=eventCatalog([
+  slk('war3.w3mod:UI\\SoundInfo\\AnimSounds.slk',[['SoundName','AnimationEventCode','FileNames','version'],
+   ['FootmanDeath','DFOO','FootmanDeath1','0'],['AbsorbManaLaunch','MABS','Abilities/Spells/Undead/AbsorbMana/AbsorbMana.flac','1'],
+   ['StonemaulDeathVox','DSTO','Units/Creeps/Stonemaul/StonemaulDeathVox1.flac','0'],['Consecration','ACON','Abilities/Spells/Other/Consecration/Consecration.ogg','0']]),
+  slk('war3.w3mod:UI\\SoundInfo\\DialogueHumanBase.slk',[['DialogueLabel','Filepath'],['FootmanDeath1','Units/Human/Footman/FootmanDeath.ogg']]),
+  slk('Splats\\SplatData.slk',[['Name','comment','file'],['HBL0','HumanBloodLarge0','x'],['FBL0','FootprintBootSmallLeft0','x'],['FSL0','FooprintSkeletonRight','x'],['WSL0','WaterSplashLarge0','x']]),
+ ]);
+ const expansion=id=>data.SND.find(n=>n.id===id).expansion;
+ // An older death sound that reaches an OGG only through the dialogue table stays ROC.
+ assert.deepEqual(['DFOO','MABS','DSTO','ACON'].map(expansion),['ROC','TFT','RE','FK']);
+ assert.deepEqual(data.SPL.map(n=>n.id).sort(),['HBL0','WSL0']);
+ assert.deepEqual(data.FPT.map(n=>n.id).sort(),['FBL0','FSL0']);
+});
+
+test('sound groups name what a sound is for', () => {
+ const group=file=>soundFolders({files:['war3.w3mod:'+file]});
+ assert.deepEqual(group('Abilities/Spells/Human/Blizzard/x.flac'),['Spells','Human','Blizzard']);
+ assert.deepEqual(group('Abilities/Weapons/Arrow/x.flac'),['Weapons & missiles','Arrow']);
+ assert.deepEqual(group('Units/Human/Footman/x.flac'),['Units','Human','Footman']);
+ assert.deepEqual(group('Sound/Buildings/Death/x.flac'),['Buildings','Death']);
+ assert.deepEqual(group('Sound/Interface/x.flac'),['Interface']);
+ assert.deepEqual(group('Objects/Spawnmodels/Other/x.flac'),['Other','Objects','Spawnmodels','Other']);
 });
 
 test('node visibility uses ordinary held keys, preserving other sequences, channels and undo/save', () => {
