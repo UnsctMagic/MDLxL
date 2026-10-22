@@ -133,16 +133,17 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
   const checkedPreview=selectedGeosets==null?null:getUVPreviewSelection(model,selectedGeosets);
   const previewAllowed=previewEnabled&&(!checkedPreview||checkedPreview.enabled),disabledPreviewReason=previewReason||checkedPreview?.reason||'Texture preview is unavailable for this selection.';
   const act=async(callback,success,options)=>{if(!catalogFresh||!selectedAsset||!callback)return;setBusy(true);setSelectionError('');setChoice(null);try{await callback(selectedAsset,selected,options);setMessage(success);}catch(error){setSelectionError(error.message);}finally{setBusy(false);}};
-  // A texture already in the model asks whether to reuse a material that shows it or make a new one.
+  // A texture already in the model pops up one button per material that shows it, plus a new material; one click decides.
   const existingTexture=selected?existingTextureIndex(model,selected.path):-1,materialUsers=useMemo(()=>materialsUsingTexture(model,existingTexture),[model,model?.Materials?.length,existingTexture]);
   const geosetsUsing=id=>(model?.Geosets||[]).flatMap((geoset,index)=>geoset.MaterialID===id?[index+1]:[]);
-  const requestTexture=(action,callback,success)=>{if(existingTexture<0)return act(callback,success);setMessage('');setChoice({action,callback,success:action==='preview'?success:'',material:materialUsers[0]??'new'});};
+  const requestTexture=(action,callback,success)=>{if(existingTexture<0)return act(callback,success);if(!materialUsers.length)return act(callback,action==='preview'?success:'Added a new material.',action==='preview'?undefined:{material:'new'});setMessage('');setChoice({callback,success:action==='preview'?success:''});};
+  const choicePopup=useRef();
   const copyPath=async()=>{setSelectionError('');try{await window.desktop.copyTexturePath(selected.path);setMessage('Texture path copied.');}catch(error){setSelectionError(error.message);}};
   const changeVariant=value=>{setVariant(value);setFolder('');};
   const keys=event=>{
     event.stopPropagation();
-    if(event.key==='Escape'){event.preventDefault();if(!busy)onClose();}
-    if(event.key==='Tab'){const elements=[...dialog.current.querySelectorAll('button:not(:disabled),input,select,[tabindex="0"]')].filter(el=>el.getClientRects().length);const first=elements[0],last=elements.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
+    if(event.key==='Escape'){event.preventDefault();if(!busy)choice?setChoice(null):onClose();}
+    if(event.key==='Tab'){const elements=[...(choicePopup.current||dialog.current).querySelectorAll('button:not(:disabled),input,select,[tabindex="0"]')].filter(el=>el.getClientRects().length);const first=elements[0],last=elements.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
   };
   return <div className="tl-overlay" onKeyDown={keys}><section ref={dialog} className="tl-dialog" role="dialog" aria-modal="true" aria-label={fullLibrary?'Warcraft III Library':'Material and Texture Library'} data-hotkey-scope={fullLibrary?'library':undefined}>
     <header className="tl-header"><img src="./classic/wc3-library.png" alt=""/><div><h2>{fullLibrary?'Warcraft III Library':<>Material &amp; Texture Library</>}</h2><span>{LIBRARY_TABS.find(([value])=>value===tab)[2]}</span></div>{onOpenMaterials&&<button type="button" onClick={onOpenMaterials}>Material Manager</button>}<button type="button" aria-label="Close texture library" onClick={onClose} disabled={busy}>✕</button></header>
@@ -169,18 +170,17 @@ export default function TextureLibrary({model,modelPath,onClose,onAddTexture,onP
         {selected.notes&&<p>{selected.notes}</p>}{selected._match?.missing?.length>0&&<p className="tl-note">Related result. Unconfirmed: {selected._match.missing.map(value=>translate(value)).join(', ')}.</p>}
         {selected.tags?.length>0&&<div className="tl-tags">{selected.tags.slice(0,12).map(tag=><button type="button" key={tag} onClick={()=>{setQuery(tag==='chain'?'chainmail':tag.replaceAll('-',' '));setVibe(true);}}>{tag==='chain'?'chainmail':tag.replaceAll('-',' ')}</button>)}</div>}
         {selectionError&&<p className="tl-error" role="alert">{selectionError}</p>}{message&&<p className="tl-success" role="status">{message}</p>}
-        {choice&&<div className="tl-material-choice" role="group" aria-label="Material for this texture">
-          <p>{'This texture is already in the model.'} {materialUsers.length===1?'Material '+(materialUsers[0]+1)+(geosetsUsing(materialUsers[0]).length?' (geoset '+geosetsUsing(materialUsers[0]).join(', ')+')':'')+' shows it.':materialUsers.length?'Several materials show it:':'No material shows it yet.'}</p>
-          {materialUsers.length>0&&<>{materialUsers.length>1&&<select aria-label="Existing material" value={Number.isInteger(choice.material)?choice.material:materialUsers[0]} onChange={event=>setChoice(value=>({...value,material:Number(event.target.value)}))}>{materialUsers.map(id=><option key={id} value={id}>{'Material '+(id+1)+(geosetsUsing(id).length?' · geoset '+geosetsUsing(id).join(', '):'')}</option>)}</select>}
-            <button type="button" className="tl-primary" disabled={busy} title="Use the material that already shows this texture, with its blending and settings." onClick={()=>act(choice.callback,choice.success||'Using Material '+((Number.isInteger(choice.material)?choice.material:materialUsers[0])+1)+'.',{material:Number.isInteger(choice.material)?choice.material:materialUsers[0]})}>Use existing material</button></>}
-          <button type="button" className={materialUsers.length?undefined:'tl-primary'} disabled={busy} title="Make a separate material for this texture, so its settings can differ from the existing one." onClick={()=>act(choice.callback,choice.success||'Added a new material.',{material:'new'})}>Make a new material</button>
-          <button type="button" disabled={busy} onClick={()=>setChoice(null)}>Cancel</button>
-        </div>}
-        <div className="tl-actions">{!catalogFresh&&<p className="tl-note">Checking the current texture sources…</p>}{onSelectTexture?<button type="button" className="tl-primary" disabled={!catalogFresh||!selectedAsset||busy} onClick={()=>act(onSelectTexture,'')}>{selectLabel}</button>:<button type="button" disabled={!catalogFresh||!selectedAsset||busy||!onAddTexture} title={existingTexture>=0?'Already in the model: choose to reuse a material that shows it, or make a new material.':undefined} onClick={()=>requestTexture('add',onAddTexture,'Texture added to the model.')}>{used.has(selected.path.toLowerCase())?'Texture already in model…':'Add texture to model'}</button>}
+        <div className="tl-actions">{!catalogFresh&&<p className="tl-note">Checking the current texture sources…</p>}{onSelectTexture?<button type="button" className="tl-primary" disabled={!catalogFresh||!selectedAsset||busy} onClick={()=>act(onSelectTexture,'')}>{selectLabel}</button>:<button type="button" disabled={!catalogFresh||!selectedAsset||busy||!onAddTexture} title={existingTexture>=0?'Already in the model: pick a material that shows it, or make a new one.':undefined} onClick={()=>requestTexture('add',onAddTexture,'Texture added to the model.')}>{used.has(selected.path.toLowerCase())?'Texture already in model…':'Add texture to model'}</button>}
           {onPreviewTexture&&<><button type="button" className="tl-primary" disabled={!catalogFresh||!previewAllowed||!selectedAsset||busy} title={!previewAllowed?disabledPreviewReason:undefined} onClick={()=>requestTexture('preview',onPreviewTexture,'Preview texture loaded.')}>Preview Texture in Editor</button>{!previewAllowed&&<p className="tl-preview-reason">{disabledPreviewReason}</p>}</>}
         </div>
       </>:<div className="tl-empty">Choose a texture to inspect or add it to your model.</div>}</aside>
     </div>
+    {choice&&<div className="tl-choice-shade" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setChoice(null);}}><div ref={choicePopup} className="tl-choice" role="dialog" aria-modal="true" aria-label="Texture already in the model">
+      <h3>Texture already in the model</h3><p>Pick the material that should show it.</p>
+      {materialUsers.map((id,index)=><button key={id} type="button" autoFocus={index===0} className={index===0?'tl-primary':undefined} disabled={busy} title="Use this material, with its blending and settings." onClick={()=>act(choice.callback,choice.success||'Using Material '+(id+1)+'.',{material:id})}>{'Material '+(id+1)+(geosetsUsing(id).length?' · geoset '+geosetsUsing(id).join(', '):'')}</button>)}
+      <button type="button" disabled={busy} title="Make a separate material for this texture, so its settings can differ from the existing one." onClick={()=>act(choice.callback,choice.success||'Added a new material.',{material:'new'})}>New material</button>
+      <button type="button" className="tl-choice-cancel" disabled={busy} onClick={()=>setChoice(null)}>Cancel</button>
+    </div></div>}
     <footer className="tl-footer"><span>{catalog?`${catalog.nativeCount.toLocaleString()} native · ${catalog.customCount} beside model`:''}</span><span>Previews are cached. Use Settings → Warcraft III → Preload Assets to prepare the library.</span></footer>
     </>}
   </section></div>;

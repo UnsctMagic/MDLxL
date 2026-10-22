@@ -96,9 +96,10 @@ with other words stays a name fragment (`art clo`, `undead art` → Arthas).
 
 ## Texture already in the model
 
-Add or Preview of a texture already in the model shows an inline choice:
-*Use existing material* (select when several materials show it) or *Make a new
-material*. Helpers in [uv-preview.js](../src/uv-preview.js):
+Add or Preview of a texture already in the model pops up a small choice over
+the library: one button per material that shows it (*Material 12 · geoset 18*)
+and *New material*; one click decides. When no material shows it, Preview
+goes ahead without asking and Add makes a new material. Helpers in [uv-preview.js](../src/uv-preview.js):
 `existingTextureIndex`, `materialsUsingTexture`, `addTextureMaterial`; UV drafts
 carry `material` (index or `'new'`), honoured by `applyUVPreviews` and recovery.
 
