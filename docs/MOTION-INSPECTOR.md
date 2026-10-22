@@ -1,5 +1,26 @@
 # Motion warnings
 
+## Required constraints
+
+Read these before changing motion detection, timeline warnings or key selection.
+These requirements were moved from root AGENTS.md; they retain the same scope.
+
+- Motion irregularities belong beneath the existing timeline keyframe diamonds.
+  Before a warning is clicked, show no Motion Inspector panel, results list,
+  numerical inspector, scan controls, or other permanent diagnostic UI.
+- Verify the uncluttered default view as well as the explicitly opened details.
+- Motion warnings must target severe jumps or strongly evidenced stray/holding
+  keys. Ordinary speed changes, slight deviations, and intentional attack or
+  walking motion are not warnings by themselves. Check false positives against
+  the user's known-good animations; do not hard-code animation names.
+- Distinguish the observed jump from the keys constraining an intended pose.
+  Hand selection to the existing bone/channel/keyframe tools. Preserve the
+  user's intended pose, and select exact holding keys without including that
+  pose in a continuous deletion range. Removing the intended movement merely
+  to make a warning disappear is not a successful repair.
+
+## Workflow
+
 The normal Movement and Animations layouts are unchanged. Choose a named animation: a background
 worker checks its motion and adds a small amber mark beneath an affected timeline
 diamond. There is no permanent inspector, warning list, scan button, or wider
