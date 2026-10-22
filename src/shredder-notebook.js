@@ -13,6 +13,8 @@ export const RELEASE_TIMING = Object.freeze({
   occasionGap: MINUTE,
   repeat: 15 * MINUTE,
   remindLater: 5 * MINUTE,
+  // The bird: first visit, how long he stays on a perch, and how long he is away.
+  bird: Object.freeze({ first: 20 * 1000, perch: Object.freeze([60 * 1000, 2 * MINUTE]), away: Object.freeze([MINUTE, 3 * MINUTE]) }),
 });
 /** Rapid timing for trying Shredder out: no quiet start, a tip every few seconds. */
 export const TEST_TIMING = Object.freeze({
@@ -24,6 +26,7 @@ export const TEST_TIMING = Object.freeze({
   occasionGap: 10 * 1000,
   repeat: MINUTE,
   remindLater: 30 * 1000,
+  bird: Object.freeze({ first: 2000, perch: Object.freeze([25 * 1000, 45 * 1000]), away: Object.freeze([8 * 1000, 16 * 1000]) }),
 });
 /** TEST VERSION: switch to false (release timing, off by default) before shipping. */
 export const SHREDDER_TEST_VERSION = true;

@@ -106,11 +106,33 @@ Tricks come before key tips. The hand-written tricks are:
 Key badges shown while Alt is held are limited to one short key (at most three
 characters); longer chords and Ctrl+Alt+Space codes stay in the tooltips.
 
+## The bird
+
+`app/ShredderBird.jsx` draws Shredder with his LowPolyWorks sprites
+(`app/assets/shredder`: standing/walking, flight, take-off). He visits now and
+then (in the test version after 2 seconds, staying 25-45 seconds), perches on
+the bottom edge of the 3D view, looks around, leans, walks a little, hops off
+and flies away. He is never in the way:
+
+- clicks pass through him (`pointer-events: none`), and menus draw over him;
+- he only perches where the 3D view's own picture is under him, never over a
+  control, label, panel, tip or notebook; when something appears there he
+  moves along or leaves;
+- he only walks or comes back while you pause, never while you work;
+- the mouse coming near him, or a click near him, sends him flying off;
+- a window or dialog, Paint and Showcase hide him;
+- with reduced motion set in Windows he appears and disappears without flying.
+
+The status-bar icon stays the button for his notebook.
+
 ## Tests
 
 - `test/shredder.test.js` covers the rules: 5 uses to learn, repeats until
   learned and their spacing, quiet start, cooldown, quiet for today, damaged notebooks, the
   lesson texts and their translations.
+- `test/shredder-bird.electron.cjs` checks the bird: he lands with only the 3D
+  picture under him, clicks pass through, a control where he stands moves him,
+  the mouse sends him off, a window hides him, he returns only after a pause.
 - `test/shredder.electron.cjs` drives the real app:
   - the hello, and that Settings switches him;
   - Alt shows only short key badges;

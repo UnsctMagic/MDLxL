@@ -7,6 +7,7 @@ import {
   retireLesson, remindLater, quietForToday, lessonReady, learnedIn, mayInterrupt, notebookSummary,
 } from '../src/shredder-notebook.js';
 import { SHREDDER_AREAS, BASICS_BEFORE_ADVANCED, TRICKS, WELCOME, trick, areaFor, shortcutLesson, shortcutSignals, trickLesson, directKey, fillLesson } from '../src/shredder-lessons.js';
+import ShredderBird from './ShredderBird.jsx';
 import './shredder.css';
 
 const TIMING_OVERRIDE_KEY = 'mdlxl-shredder-timing', RECENT_MS = 60 * 1000;
@@ -20,7 +21,9 @@ function loadTiming() {
     const custom = JSON.parse(localStorage.getItem(TIMING_OVERRIDE_KEY) || 'null');
     if (!custom || typeof custom !== 'object') return SHREDDER_TIMING;
     const pick = (key, fallback) => Number.isFinite(custom[key]) && custom[key] >= 0 ? custom[key] : fallback;
-    return { ...SHREDDER_TIMING, quietStart: pick('quietStart', SHREDDER_TIMING.quietStart), idle: pick('idle', SHREDDER_TIMING.idle), bubble: pick('bubble', SHREDDER_TIMING.bubble), remindLater: pick('remindLater', SHREDDER_TIMING.remindLater),
+    const pair = (key, fallback) => Array.isArray(custom[key]) && custom[key].length === 2 && custom[key].every(value => Number.isFinite(value) && value >= 0) ? custom[key] : fallback;
+    return { ...SHREDDER_TIMING, bird: { first: pick('birdFirst', SHREDDER_TIMING.bird.first), perch: pair('birdPerch', SHREDDER_TIMING.bird.perch), away: pair('birdAway', SHREDDER_TIMING.bird.away) },
+      quietStart: pick('quietStart', SHREDDER_TIMING.quietStart), idle: pick('idle', SHREDDER_TIMING.idle), bubble: pick('bubble', SHREDDER_TIMING.bubble), remindLater: pick('remindLater', SHREDDER_TIMING.remindLater),
       cooldown: { normal: pick('cooldown', SHREDDER_TIMING.cooldown.normal), fewer: pick('cooldown', SHREDDER_TIMING.cooldown.fewer) } };
   } catch { return SHREDDER_TIMING; }
 }
@@ -209,12 +212,14 @@ export default function Shredder({ enabled, pace = 'normal', mode, tool, cameraM
   }, [notebookOpen]);
 
   if (!enabled || !ready) return null;
+  const birdTiming = loadTiming();
   const update = next => { notebook.current = next; storeNotebook(next); };
   const later = () => { update(remindLater(notebook.current, tip.id, { now: Date.now(), area: tip.area, timing: loadTiming() })); setTip(null); };
   const quietToday = () => { update(quietForToday(notebook.current, Date.now())); setTip(null); setNotebookOpen(false); };
   const summary = notebookOpen ? notebookSummary(notebook.current, SHREDDER_AREAS, Date.now()) : null;
   const quietUntilTomorrow = notebook.current.quietUntil > Date.now();
   return <div className="shredder" data-shredder="">
+    <ShredderBird active quiet={busy || ['paint', 'showcase'].includes(mode)} speaking={!!tip} timing={birdTiming}/>
     {tip && <div className="shredder-bubble" role="status" aria-live="polite" data-shredder-lesson={tip.id}
       onPointerEnter={() => { hovered.current = true; }} onPointerLeave={() => { hovered.current = false; }}>
       <p>{fillLesson(tip.text, tip.args)}</p>
