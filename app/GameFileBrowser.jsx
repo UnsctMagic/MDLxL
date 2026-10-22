@@ -74,9 +74,9 @@ function worldEditorTree(variant,signature){
 }
 
 /** Center stage: one persistent preview. A new model replaces the old one when it has loaded and the camera glides to it. */
-function ModelStage({shown,preferences,sequence,time,setTime,playing,setPlaying,isolated,hidden,hovered,highlight}){
+function ModelStage({shown,preferences,sequence,time,setTime,playing,setPlaying,isolated,hidden,hovered,highlight,onHover}){
   if(!shown)return null;
-  return <Suspense fallback={<span className="gf-stage-note">Loading preview…</span>}><GamePreview presentation="preview" fitModel glideCamera glideKey={shown.key} fitSequenceExtent isolatedGeosets={isolated} hiddenGeosets={hidden} interactivePreview hoveredGeoset={hovered} highlightSelection={highlight} model={shown.doc.model} revision={shown.revision} textureAssets={shown.assets} preferences={preferences} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing&&sequence>=0} onPlayingChange={setPlaying} showParticles mode="textured" view="perspective"/></Suspense>;
+  return <Suspense fallback={<span className="gf-stage-note">Loading preview…</span>}><GamePreview presentation="preview" fitModel glideCamera glideKey={shown.key} fitSequenceExtent isolatedGeosets={isolated} hiddenGeosets={hidden} interactivePreview hoveredGeoset={highlight?hovered:null} highlightSelection={highlight} onHoverGeoset={highlight?onHover:undefined} model={shown.doc.model} revision={shown.revision} textureAssets={shown.assets} preferences={preferences} sequenceIndex={sequence} time={time} onTimeChange={setTime} playing={playing&&sequence>=0} onPlayingChange={setPlaying} showParticles mode="textured" view="perspective"/></Suspense>;
 }
 function FileStage({entry,signature}){
   const [state,setState]=useState({loading:true});
@@ -272,7 +272,7 @@ export default function GameFileBrowser({preset='all',preferences,onOpenGameMode
         </div>
       </nav>
       <main className="gf-stage" aria-label="Preview">
-        <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} preferences={preferences} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying} isolated={selectedOnly&&current?isolation.isolated:undefined} hidden={selectedOnly&&current?isolation.hidden:undefined} hovered={current?hoveredGeoset:null} highlight={highlightGeoset}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
+        <div className={'gf-stage-layer'+(showsModel?'':' hidden')}><ModelStage shown={shown} preferences={preferences} sequence={sequence} time={time} setTime={setTime} playing={playing} setPlaying={setPlaying} isolated={selectedOnly&&current?isolation.isolated:undefined} hidden={selectedOnly&&current?isolation.hidden:undefined} hovered={current?hoveredGeoset:null} highlight={highlightGeoset} onHover={setHoveredGeoset}/>{loadingModel&&<span className="gf-stage-busy">Loading model…</span>}</div>
         {!showsModel&&<div className="gf-stage-layer gf-stage-content">
           {selectedEntry&&selectedEntry.type!=='models'?<FileStage key={selectedEntry.id} entry={selectedEntry} signature={signature}/>
             :loadingModel?<span className="gf-stage-note">Loading model…</span>

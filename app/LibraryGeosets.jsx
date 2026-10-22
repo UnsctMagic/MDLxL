@@ -15,12 +15,12 @@ export default function LibraryGeosets({ count, selected, onChange, hovered, onH
     <div className="classic-geosets-heading">Geosets</div>
     <div className="geoset-options">
       <label className="check" title="Shows only the checked geosets in the preview. Nothing is deleted."><input type="checkbox" checked={selectedOnly} onChange={event => onSelectedOnly(event.target.checked)}/>View selected only</label>
-      <label className="check"><input type="checkbox" checked={highlight} onChange={event => onHighlight(event.target.checked)}/>Highlight Geoset</label>
+      <label className="check" title="Lights up the geoset under the mouse, in the preview and in the list below."><input type="checkbox" aria-label="Highlight Geoset" checked={highlight} onChange={event => onHighlight(event.target.checked)}/>Highlight Geoset</label>
     </div>
     <div className="classic-selection-actions"><button onClick={() => onChange(allGeosets(count))}>All</button><button onClick={() => onChange(new Set())}>Clear</button><button onClick={() => onChange(invertGeosets(selected, count))}>Invert</button></div>
     <GeosetListBox><div className="classic-geoset-list" style={{ '--geoset-rows': Math.max(1, Math.ceil(count / 4)) }} role="listbox" aria-label="Library geosets" aria-multiselectable="true">
       {Array.from({ length: count }, (_, index) => <div key={index} className={`geoset-row${selected.has(index) ? ' selected' : ''}${hovered === index ? ' hovered' : ''}`} role="option" aria-selected={selected.has(index)}>
-        <label className="geoset-hover-target" onMouseEnter={() => onHover(index)} onMouseLeave={() => onHover(null)}><input type="checkbox" aria-label={`Geoset ${index + 1}`} checked={selected.has(index)} onChange={event => choose(index, event)}/><span>{index + 1}</span></label>
+        <label className="geoset-hover-target" onMouseEnter={() => highlight && onHover(index)} onMouseLeave={() => onHover(null)}><input type="checkbox" aria-label={`Geoset ${index + 1}`} checked={selected.has(index)} onChange={event => choose(index, event)}/><span>{index + 1}</span></label>
       </div>)}
     </div></GeosetListBox>
     <div className="classic-geoset-count">{selected.size} of {count} selected</div>

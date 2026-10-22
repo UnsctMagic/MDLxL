@@ -64,7 +64,8 @@ existing hotkey behaviour.
 - **Geoset box** ([LibraryGeosets.jsx](../app/LibraryGeosets.jsx)), under the
   animation controls: the vertex editor's numbered list with click, shift and
   ctrl selection (All, Clear, Invert), *View selected only* (isolates the checked
-  geosets in the preview), *Highlight Geoset* on hover, and, acting on the
+  geosets in the preview), *Highlight Geoset* (on by default; like the vertex
+  editor it outlines the geoset under the mouse in the preview and the list), and, acting on the
   Library's own copy of the model without selecting vertices:
   *Seperate by Loose parts* and *Nuclear Seperation* (`geoset-operations.js`,
   every vertex of each checked geoset), *Import to current* (`collectPart` →

@@ -129,6 +129,22 @@ const shot=async(page,name)=>page.screenshot({path:path.join(out,name+'.png')});
     const footmanGeosets=await boxes.count();assert.ok(footmanGeosets>=3,'the geoset box lists the model geosets');
     assert.equal(await page.locator('.gf-geosets .classic-geoset-count').innerText(),`${footmanGeosets} of ${footmanGeosets} selected`);
     await page.getByRole('button',{name:'Pause',exact:true}).click();await page.waitForTimeout(1500);
+    // Highlight Geoset (on by default) works like the vertex editor: hover in the preview or in the list.
+    assert.equal(await page.locator('.gf-geosets').getByLabel('Highlight Geoset',{exact:true}).isChecked(),true);
+    const stageBox=await page.locator('.gf-stage canvas').first().boundingBox();
+    let hoveredRow=null;
+    for(const [dx,dy] of [[0,0],[0,-.08],[0,.08],[-.05,0],[.05,0],[0,-.15],[0,.15]]){
+      await page.mouse.move(stageBox.x+stageBox.width*(.5+dx),stageBox.y+stageBox.height*(.5+dy),{steps:4});await page.waitForTimeout(600);
+      hoveredRow=await page.locator('.gf-geosets .geoset-row.hovered').count();if(hoveredRow)break;
+    }
+    assert.ok(hoveredRow,'hovering the model in the preview highlights its geoset in the list');
+    await shot(page,'geosets-hover-preview');
+    await page.mouse.move(5,5);await page.waitForTimeout(800);
+    const plain=await page.screenshot({clip});
+    await page.locator('.gf-geosets .geoset-row').nth(0).hover();await page.waitForTimeout(800);
+    assert.ok(!plain.equals(await page.screenshot({clip})),'hovering a geoset in the list highlights it in the preview');
+    await page.mouse.move(5,5);await page.waitForTimeout(500);
+    checks.push('Highlight Geoset is on by default and highlights the hovered geoset in the preview and the list');
     const fullView=await page.screenshot({clip});
     await page.locator('.gf-geosets').getByRole('button',{name:'Clear',exact:true}).click();await boxes.nth(0).check();
     await page.getByLabel('View selected only',{exact:true}).check();await page.waitForTimeout(1500);
