@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GamePreview from './GamePreview.jsx';
-import { planAttachments, applyAttachmentPlan } from '../src/attachemator.js';
+import { planAttachments, applyAttachmentPlan, attachematorStandSequence } from '../src/attachemator.js';
+import { sampleGeosetAnimation } from '../src/animation.js';
 import { applyMovementTransform } from '../src/movement.js';
 import './attachemator.css';
 
-const OVERLAYS = { attachments: true, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: true };
+const OVERLAYS = { attachments: true, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false };
 const near = value => Math.round(value);
 
 /** Places the standard attachment points like Blizzard's own units. Preview,
@@ -22,7 +23,14 @@ export default function Attachemator({ doc, modelPath, textureAssets, preference
     try { return { model, ...applyAttachmentPlan(model, plan.rows, { chosen, pivots: pivots.current }) }; }
     catch (cause) { return { model: current, ids: {}, error: cause.message }; }
   }, [current, plan, chosen, reset]);
+  const labels = useMemo(() => new Set(Object.values(draft.ids)), [draft]);
   const keyOf = id => Object.keys(draft.ids).find(key => draft.ids[key] === id);
+  // Show the unit as it stands in game: spare bodies and effect parts that the
+  // Stand animation hides would bury the points.
+  const hidden = useMemo(() => {
+    const sequence = attachematorStandSequence(current), frame = current.Sequences?.[sequence]?.Interval[0] ?? 0;
+    return sequence < 0 ? [] : (current.Geosets || []).flatMap((_, index) => sampleGeosetAnimation(current, index, frame, sequence, frame).alpha <= .01 ? [index] : []);
+  }, [current]);
   const names = useMemo(() => new Map([...(current.Bones || []), ...(current.Helpers || [])].map(node => [node.ObjectId, node.Name])), [current]);
   const previewPreferences = useMemo(() => ({ ...preferences, wheelMode: 'zoom' }), [preferences]);
   const toChange = plan.rows.filter(row => chosen.has(row.key) && (row.state !== 'right' || adjusted[row.key]));
@@ -83,8 +91,8 @@ export default function Attachemator({ doc, modelPath, textureAssets, preference
         </div>
         <section className="atm-preview" aria-label="Attachemator preview">
           <GamePreview textureAssets={textureAssets} modelPath={modelPath} preferences={previewPreferences} teamColor={teamColor} model={draft.model}
-            restPose sequenceIndex={-1} time={0} playing={false} showGrid fitModel showAxes={false} showParticles={false} overlays={OVERLAYS}
-            cameraMode="work" emptyDragRotates transformMode="move" transformSpace="world" compareCamera={camera.current} preserveCameraView
+            hiddenGeosets={hidden} restPose sequenceIndex={-1} time={0} playing={false} showGrid fitModel showAxes={false} showParticles={false} overlays={OVERLAYS}
+            cameraMode="work" emptyDragRotates markersOnTop nodeLabels={labels} transformMode="move" transformSpace="world" compareCamera={camera.current} preserveCameraView
             selectedNodeIds={selected && draft.ids[selected] != null ? [draft.ids[selected]] : []} onSelectNodes={ids => { const key = keyOf(ids.at(-1)); if (key) select(key); }}
             onNodeTransform={doc.readOnly ? undefined : move}/>
         </section>

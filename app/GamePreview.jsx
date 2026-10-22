@@ -1427,10 +1427,10 @@ export default function GamePreview(inputProps) {
         const activeAxis = nodeGesture?.mode === 'move' && nodeGesture.handle.mode === 'move' ? nodeGesture.handle.axis : null;
         const focusedPose = poseVisible && !p.poseConfig.picking && overlayOptions.focusedBoneLines;
         const poseSkeleton = focusedPose ? projectPoseSkeleton(projectedNodes, poseHandles, p.poseConfig) : null;
-        const markerOptions = { ...overlayOptions, activeAxis, preferences: p.preferences, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), ...(focusedPose ? { boneLines: false, bones: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices' || p.mode === 'influence', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
+        const markerOptions = { ...overlayOptions, activeAxis, preferences: p.preferences, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), ...(focusedPose ? { boneLines: false, bones: false } : {}), modelRadius:radius, wireframeMarkers: p.markersOnTop || p.mode === 'wireframe' || p.mode === 'vertices' || p.mode === 'influence', occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
         rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
         drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
-        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true });
+        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true, nodeLabels: p.nodeLabels });
         const pingAge = posePing ? ownerWindow.performance.now() - posePing.started : 1200;
         const ping = poseVisible && p.poseConfig.crosshair !== false && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
         nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);

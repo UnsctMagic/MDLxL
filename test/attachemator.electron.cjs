@@ -88,18 +88,27 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const turned = await runtime();
     assert.ok(before.position.some((value, i) => Math.abs(value - turned.position[i]) > 1), 'left drag on empty space turns the camera');
 
-    // Adjust: select Chest Ref and drag its point with the mouse.
-    await rowOf('Chest Ref').locator('span').nth(1).click();
-    const pivotNow = await page.evaluate(() => {
+    // Clicking a point on the model selects its row.
+    const pointOf = name => page.evaluate(name => {
       const host = document.querySelector('.atm-preview .game-preview-surface');
       let fiber = host[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
       for (; fiber; fiber = fiber.return) if (fiber.memoizedProps?.model?.Attachments && fiber.memoizedProps?.selectedNodeIds) {
-        const id = fiber.memoizedProps.selectedNodeIds[0], node = fiber.memoizedProps.model.Attachments.find(item => item.ObjectId === id);
+        const node = fiber.memoizedProps.model.Attachments.find(item => item.Name.startsWith(name));
         return node ? Array.from(node.PivotPoint) : null;
       }
       return null;
-    });
-    assert.ok(pivotNow, 'the chest point is selected in the preview');
+    }, name);
+    const handPoint = await project(await pointOf('Hand Left'));
+    await page.mouse.click(handPoint.x, handPoint.y);
+    await page.waitForTimeout(300);
+    assert.match(await page.locator('.atm-row.is-selected').innerText(), /Hand Left/, 'clicking a point in the preview selects it');
+    await page.screenshot({ path: path.join(output, '2b-clicked.png') });
+
+    // Adjust: select Chest Ref and drag its point with the mouse.
+    await rowOf('Chest Ref').locator('span').nth(1).click();
+    await page.locator('.atm-row.is-selected', { hasText: 'Chest Ref' }).waitFor(); await page.waitForTimeout(300);
+    const pivotNow = await pointOf('Chest Ref');
+    assert.ok(pivotNow, 'the chest point is in the preview');
     const start = await project(pivotNow);
     await page.mouse.move(start.x, start.y); await page.mouse.down();
     await page.mouse.move(start.x + 30, start.y - 25, { steps: 10 }); await page.mouse.up();

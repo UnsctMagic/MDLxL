@@ -114,9 +114,14 @@ function chooseParts(unit) {
   const mesh = new Map(), meshOf = id => { if (!mesh.has(id)) mesh.set(id, ownMesh(unit, id, claimed)); return mesh.get(id); };
   // Alternate bodies (a second copy of the rig in the same place) keep the copy
   // the Stand pose actually shows.
-  const unique = list => list.filter(chain => !list.some(other => other !== chain && world(other.end).distanceTo(world(chain.end)) < height * .02 && (meshOf(other.end).length > meshOf(chain.end).length || meshOf(other.end).length === meshOf(chain.end).length && other.end < chain.end)));
+  // A numbered copy (Hoof_Rear_R01) loses to the original it duplicates.
+  const copy = id => /\d+\s*$/.test(byId.get(id)?.Name || '') ? 1 : 0;
+  const better = (a, b) => copy(a.end) - copy(b.end) || meshOf(b.end).length - meshOf(a.end).length || a.end - b.end;
+  const unique = list => list.filter(chain => !list.some(other => other !== chain && world(other.end).distanceTo(world(chain.end)) < height * .02 && better(other, chain) < 0));
   const named = (id, name) => (rig?.roles?.[id] || poseNodeRole(byId.get(id))) === name;
-  const limbs = unique(chains.filter(chain => chain.label !== 'Chain' || chain.kind === 'leg' || !named(chain.end, 'Hand')));
+  // Limbs of a spare body that the Stand animation hides do not count.
+  const shown = chains.filter(chain => poseChainIds(chain).some(id => meshOf(id).length));
+  const limbs = unique((shown.length ? shown : chains).filter(chain => chain.label !== 'Chain' || chain.kind === 'leg' || !named(chain.end, 'Hand')));
   // Feet are the limbs reaching lowest; a rider's dangling legs and a
   // flyer's wing tips are not, even when the wings hang below the feet.
   const lowest = Math.min(...limbs.filter(chain => chain.kind === 'leg' || chain.label === 'Chain').map(chain => world(chain.end).z));
@@ -157,7 +162,7 @@ function chooseParts(unit) {
   const rows = which => legs.filter(chain => side(chain) === which);
   const left = rows('left'), right = rows('right'), pairs = [];
   const cost = (a, b) => Math.abs(world(a.end).x - world(b.end).x) + Math.abs(world(a.end).y + world(b.end).y) + Math.abs(world(a.end).z - world(b.end).z);
-  const options = left.flatMap(a => right.map(b => ({ a, b, cost: cost(a, b) }))).sort((a, b) => a.cost - b.cost);
+  const options = left.flatMap(a => right.map(b => ({ a, b, cost: cost(a, b) + (copy(a.end) + copy(b.end)) * height * .05 }))).sort((a, b) => a.cost - b.cost);
   const used = new Set();
   for (const { a, b, cost: gap } of options) if (!used.has(a) && !used.has(b) && (!pairs.length || gap < Math.max(height * .35, options[0].cost * 2))) { used.add(a); used.add(b); pairs.push(namedSides({ left: a, right: b }, byId)); }
   if (!pairs.length) pairs.push({ left: left[0], right: right[0] });
