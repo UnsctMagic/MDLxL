@@ -7,10 +7,11 @@
  * Normals are computed from the triangles alone; stored normals are never
  * read, so a patch of wrong normals comes out the same as a clean one.
  * For each vertex: own = sum of the unit normals of its own triangles. Its new
- * normal is the sum of the unit normals of every triangle touching a vertex at
- * the same position (same skinning, same geoset visibility) whose angle to
- * `own` is below the smoothing angle. Duplicated vertices at a hard edge only
- * pick up faces on their own side; UV-seam duplicates smooth together.
+ * normal is own plus the unit normals of the other triangles touching a vertex
+ * at the same position (same skinning, same geoset visibility) whose angle to
+ * `own` is below the smoothing angle. A vertex always keeps all of its own
+ * triangles, as the SD models do. Duplicated vertices at a hard edge only pick
+ * up faces on their own side; UV-seam duplicates smooth together.
  *
  * analyzeNormals() reads the model once and never writes to it. The plan
  * functions return new streams; applyNormalRebuild() commits a plan (call it
@@ -135,7 +136,10 @@ function vertexNormals(A, normal, vertices, smoothingAngle) {
     for (const u of members[weld[v]]) for (let i = start[u]; i < start[u + 1]; i++) {
       const t = list[i]; if (seen[t] === v) continue; seen[t] = v;
       const nx = normal[t * 3], ny = normal[t * 3 + 1], nz = normal[t * 3 + 2];
-      if (alone || nx * ox + ny * oy + nz * oz > limit) { sx += nx; sy += ny; sz += nz; }
+      // A vertex has one normal, so its own triangles always count (the SD
+      // models' 3-sided bands lean the same way); the angle only decides
+      // which triangles of other vertices at this position join in.
+      if (alone || u === v || nx * ox + ny * oy + nz * oz > limit) { sx += nx; sy += ny; sz += nz; }
     }
     const length = Math.hypot(sx, sy, sz);
     out.set(v, length > 1e-9 ? [sx / length, sy / length, sz / length] : alone ? null : [ox, oy, oz]);
@@ -191,14 +195,60 @@ export function planNormalRebuild(A, { smoothingAngle = DEFAULT_SMOOTHING_ANGLE 
  * Fix facing: in each connected piece (triangles of one geoset joined by edges
  * at the same positions), triangles wound against the piece's majority are
  * flipped, even a whole patch of them, and a closed piece that is inside out
- * (negative volume) is reversed. Back-to-back twins, open pieces without a
- * clear majority (or as a whole) and pieces that cannot be wound consistently
- * are left alone. With a selection, pieces touching it are repaired whole.
- * The normals around flipped triangles are recalculated as above.
+ * (negative volume) is reversed. An open band, sleeve or ring around a limb
+ * (two boundary loops that both go around one axis) is turned to face away
+ * from its axis, as every such piece in the SD unit models does. Back-to-back
+ * twins, other open pieces without a clear majority (or as a whole) and pieces
+ * that cannot be wound consistently are left alone. With a selection, pieces
+ * touching it are repaired whole. The normals around flipped triangles are
+ * recalculated as above.
  */
 export function planFacingFix(A, { smoothingAngle = DEFAULT_SMOOTHING_ANGLE } = {}) {
   checkAngle(smoothingAngle);
   const { T, tv, weld, normal, area, degenerate, P } = A, tw = i => weld[tv[i]];
+  const point = w => { const v = A.members[w][0] * 3; return [P[v], P[v + 1], P[v + 2]]; };
+  // Band facing: 1 or -1 (the side of `sign` that faces away from the axis), 0 = not a band or unclear.
+  const bandFacing = (piece, sign, use) => {
+    const next = new Map();
+    for (const [key, n] of use) if (n === 1) {
+      const [a, b] = key.split(',').map(Number);
+      for (const [x, y] of [[a, b], [b, a]]) { if (!next.has(x)) next.set(x, []); next.get(x).push(y); }
+    }
+    if (!next.size || [...next.values()].some(list => list.length !== 2 || list[0] === list[1])) return 0;
+    const loops = [], seen = new Set();
+    for (const start of next.keys()) if (!seen.has(start)) {
+      const loop = []; let at = start, from = -1;
+      do { seen.add(at); loop.push(at); const [x, y] = next.get(at), to = x === from ? y : x; from = at; at = to; } while (at !== start && !seen.has(at));
+      if (at !== start || loop.length < 3) return 0;
+      loops.push(loop.map(point));
+    }
+    if (loops.length !== 2) return 0;
+    const [c0, c1] = loops.map(loop => loop.reduce((c, p) => c.map((x, k) => x + p[k] / loop.length), [0, 0, 0]));
+    const axis = c1.map((x, k) => x - c0[k]), length2 = axis.reduce((s, x) => s + x * x, 0);
+    if (!(length2 > 0)) return 0;
+    const radial = p => { const d = p.map((x, k) => x - c0[k]), s = d.reduce((t, x, k) => t + x * axis[k], 0) / length2; return d.map((x, k) => x - axis[k] * s); };
+    // Both loops go once around the axis (a flap or a strip does not).
+    const e1 = radial(loops[0][0]), e2 = [axis[1] * e1[2] - axis[2] * e1[1], axis[2] * e1[0] - axis[0] * e1[2], axis[0] * e1[1] - axis[1] * e1[0]];
+    for (const loop of loops) {
+      let turn = 0, last = null;
+      for (const p of [...loop, loop[0]]) {
+        const r = radial(p), x = r[0] * e1[0] + r[1] * e1[1] + r[2] * e1[2], y = r[0] * e2[0] + r[1] * e2[1] + r[2] * e2[2];
+        if (!(Math.hypot(x, y) > 0)) return 0;
+        const angle = Math.atan2(y, x);
+        if (last !== null) turn += ((angle - last + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+        last = angle;
+      }
+      if (Math.abs(turn) < Math.PI) return 0;
+    }
+    let vote = 0, total = 0;
+    for (const t of piece) {
+      const c = [0, 1, 2].map(k => (P[tv[t * 3] * 3 + k] + P[tv[t * 3 + 1] * 3 + k] + P[tv[t * 3 + 2] * 3 + k]) / 3), r = radial(c), length = Math.hypot(...r);
+      if (!(length > 0)) continue;
+      const out = (normal[t * 3] * r[0] + normal[t * 3 + 1] * r[1] + normal[t * 3 + 2] * r[2]) / length;
+      vote += sign[t] * area[t] * out; total += area[t] * Math.abs(out);
+    }
+    return total > 0 && Math.abs(vote) > total * .5 ? Math.sign(vote) : 0;
+  };
   // Triangles at the same three positions: opposite winding = a two-sided
   // sheet (twins, never touched); same winding = copies that follow the first.
   const twin = new Uint8Array(T), copyOf = new Int32Array(T).fill(-1), byPositions = new Map();
@@ -267,6 +317,10 @@ export function planFacingFix(A, { smoothingAngle = DEFAULT_SMOOTHING_ANGLE } = 
         volume += sign[t] * major * value; absolute += Math.abs(value);
       }
       if (absolute > 0 && Math.abs(volume) / absolute > .02) { if (volume < 0) major = -major; sure = true; }
+    } else {
+      // A band around a limb faces outward, even when it is wholly inside out or half and half.
+      const band = bandFacing(piece, sign, use);
+      if (band) { major = band; sure = true; }
     }
     if (!sure) continue;
     for (const t of piece) if (sign[t] !== major) { flipped[t] = 1; trianglesFlipped++; }

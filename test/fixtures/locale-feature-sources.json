@@ -558,7 +558,7 @@
     "Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change.",
     "Only the selected vertices get new normals; the triangles around them still count. Clear the selection to recalculate the whole visible model.",
     "All visible shaded geosets are recalculated. Select vertices first to change only those.",
-    "Faces around a vertex smooth together when they differ by less than this angle. Edges made of duplicated vertices stay crisp where they are sharper.",
+    "Copies of a vertex at the same spot smooth together when their faces differ by less than this angle; sharper edges stay crisp. A vertex shared by several faces is always smooth.",
     "Flip triangles that face the wrong way, as a separate undoable edit. Their normals are recalculated to match.",
     "{0} normals changed",
     "NormalsXL: {0} normals changed",
