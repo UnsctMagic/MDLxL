@@ -2136,7 +2136,7 @@
   "Recalculate normals from the faces, like Model Studio. The vertex count never changes. With vertices selected, only those change.": "像 Model Studio 一样根据面重新计算法线。顶点数量不会改变。选中顶点时，只更改这些顶点。",
   "Only the selected vertices get new normals; the triangles around them still count. Clear the selection to recalculate the whole visible model.": "只有选中的顶点获得新法线；它们周围的三角形仍会计入。清除选择即可重新计算整个可见模型。",
   "All visible shaded geosets are recalculated. Select vertices first to change only those.": "重新计算所有可见的受光照几何集。先选择顶点即可只更改这些顶点。",
-  "Faces around a vertex smooth together when they differ by less than this angle. Edges made of duplicated vertices stay crisp where they are sharper.": "顶点周围的面在相差小于此角度时一起平滑。由重复顶点构成的边在更锐利处保持清晰。",
+  "Copies of a vertex at the same spot smooth together when their faces differ by less than this angle; sharper edges stay crisp. A vertex shared by several faces is always smooth.": "同一位置的顶点副本在其面相差小于此角度时一起平滑；更锐利的边保持清晰。由多个面共享的顶点始终平滑。",
   "Flip triangles that face the wrong way, as a separate undoable edit. Their normals are recalculated to match.": "翻转朝向错误的三角形，作为单独的可撤销编辑。其法线会相应重新计算。",
   "{0} normals changed": "已更改 {0} 条法线",
   "NormalsXL: {0} normals changed": "NormalsXL：已更改 {0} 条法线",
