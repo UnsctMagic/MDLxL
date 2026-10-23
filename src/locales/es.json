@@ -6293,6 +6293,7 @@
   "Saved {0}.": "Guardado: {0}.",
   "Backup: {0}": "Copia de seguridad: {0}",
   "Approved changes are not saved yet": "Los cambios aprobados aún no se han guardado",
+  "Original: {0} · Approved: {1} · Total saved: {2}": "Original: {0} · Aprobado: {1} · Ahorro total: {2}",
   "Save the approved changes to {0} before closing?": "¿Guardar los cambios aprobados en {0} antes de cerrar?",
   "Close without saving": "Cerrar sin guardar",
   "Save the approved changes into {0}?": "¿Guardar los cambios aprobados en {0}?",

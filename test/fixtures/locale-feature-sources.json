@@ -1304,6 +1304,7 @@
     "Save the approved changes to {0} before closing?",
     "Close without saving",
     "Save the approved changes into {0}?",
+    "Original: {0} · Approved: {1} · Total saved: {2}",
     "A backup keeps a copy of the file as it is now, next to it.",
     "Back up, then save",
     "Save without backup",

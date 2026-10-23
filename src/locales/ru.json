@@ -6281,6 +6281,7 @@
   "Saved {0}.": "Сохранено: {0}.",
   "Backup: {0}": "Резервная копия: {0}",
   "Approved changes are not saved yet": "Одобренные изменения ещё не сохранены",
+  "Original: {0} · Approved: {1} · Total saved: {2}": "Исходный: {0} · Одобрено: {1} · Всего сэкономлено: {2}",
   "Save the approved changes to {0} before closing?": "Сохранить одобренные изменения в {0} перед закрытием?",
   "Close without saving": "Закрыть без сохранения",
   "Save the approved changes into {0}?": "Сохранить одобренные изменения в {0}?",
