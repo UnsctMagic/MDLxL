@@ -60,7 +60,7 @@ for (const name of ['showcase-actions', 'update-shredder', 'updater-packaged', '
 SPECIAL['updater-processes'].env.MDLXL_TEST_OUTPUT = out('updater-processes');
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
 for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_EXE: exe, MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
-for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
+for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
 // Never run: manual tools, or private models and archives that are not generally available.
 export const SKIP = {
   'updater-release-gate': 'manual HTTP-driven release gate (never exits)',
