@@ -3493,5 +3493,18 @@
   "{0} larger": "增大 {0}",
   "Repair available; choose how to fix it.": "有可用修复；请选择修复方式。",
   "Apply the approved changes to the open model and return to the editor. The file is not saved.": "将已批准的更改应用到打开的模型并返回编辑器。文件不会被保存。",
-  "Commit keeps them in the open model without saving the file.": "“提交”会将它们保留在打开的模型中，但不保存文件。"
+  "Commit keeps them in the open model without saving the file.": "“提交”会将它们保留在打开的模型中，但不保存文件。",
+  "Auto Corpse": "自动遗骸",
+  "Auto Corpse (test)": "自动遗骸（测试）",
+  "One click: fit a corpse to the last Death frame, set visibility, and create flesh and bone decay. Undo restores the model.": "一键根据死亡动画的最后一帧放置遗骸，设置可见性和血肉、骨骼消退动画。撤销可恢复模型。",
+  "Auto Corpse needs a Death animation.": "自动遗骸需要 Death 动画。",
+  "Death has no body geometry to place a corpse beneath.": "Death 中没有可用于放置遗骸的身体几何体。",
+  "The last Death frame collapses the body to a point. A corpse needs a visible final pose.": "Death 最后一帧将身体缩为一点。遗骸需要可见的最终姿势。",
+  "The last Death pose has no measurable ground footprint.": "Death 的最终姿势没有可测量的地面轮廓。",
+  "This model has global visibility on both its body and material. Make one visibility channel local before using Auto Corpse.": "身体和材质均使用全局可见性。使用自动遗骸前，请将其中一个可见性通道设为局部。",
+  "An effect has global visibility. Make its visibility local before using Auto Corpse.": "某个特效使用全局可见性。使用自动遗骸前，请将其设为局部。",
+  "A body geoset has duplicate visibility records. Resolve them before using Auto Corpse.": "身体的某个几何组有重复的可见性记录。使用自动遗骸前，请先解决此问题。",
+  "There is no room for another decay animation in the model timeline.": "模型时间轴没有空间容纳更多消退动画。",
+  "The HD bone palette has no free slot for the corpse.": "HD 骨骼调色板没有可用于遗骸的空位。",
+  "The fitted corpse exceeds the MDX vertex limit.": "拟合后的尸体超出了 MDX 顶点限制。"
 }
