@@ -416,10 +416,27 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   function mutateCoat(change){if(!ready||!activeCoat)return;const target=paintProjectTarget(project),coat=paintProjectCoat(project);change(coat);target.revision=(target.revision||0)+1;project.dirty=true;project.revision++;notify();}
   function editUV(next){if(!geosetReady)return;endStroke();try{const selected=paintRegionFaces(region,activeGeoset);if(selected?.size){const staged=preparePaintUVSelectionChange(baseModel,project,activeTarget,activeGeoset,selected,next);recordPaintSurfaceChange(project,activeTarget.id,staged,'Move selected UVs');notify();}else{const key=activeGeoset+':'+coordId,before=baseModel.Geosets[activeGeoset].TVertices[coordId];if(recordPaintUV(project,key,before,next))notify();}}catch(e){onStatus?.(e.message,true);}}
   async function importFile(file){try{const raster=await decodePaintImage(new Uint8Array(await file.arrayBuffer()),file.name);setCutoutSource({name:file.name,raster});setDialog('cutout');}catch(e){onStatus?.(e.message,true);}}
+  const pasteImageFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.read) return;
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find(t => t.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], 'clipboard.png', { type: imageType });
+          await importFile(file);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Clipboard read error:', err);
+    }
+  };
   function saveTexture(source){setSaveSource(source);setDialog('saveTexture');}
   const activeCanvas=activeTarget?textureOverrides.get(activeTarget.textureId)?.canvas:null;
   const textureName=activeTarget?.paintName??activeTarget?.label??'';
-  shelfAPI.current={onUse:chooseMaterial,onCut:source=>{setCutoutSource(source);setDialog('cutout');},onNative:()=>{setDialog('native');},onImport:()=>{imageInput.current.click();},onStatus};
+  shelfAPI.current={onUse:chooseMaterial,onCut:source=>{setCutoutSource(source);setDialog('cutout');},onNative:()=>{setDialog('native');},onImport:async e=>{if(e?.shiftKey){await pasteImageFromClipboard();}else{imageInput.current.click();}},onStatus};
   const shelfCallbacks=useMemo(()=>Object.fromEntries(['onUse','onCut','onNative','onImport','onStatus'].map(key=>[key,(...args)=>shelfAPI.current[key]?.(...args)])),[]);
   const viewport=<PaintViewport {...cameraProps} key="paint-viewport" cameraMemory={cameraMemory} model={displayModel} revision={revision} selectedGeoset={activeGeoset} selectedVertices={emptyVertices} selectableGeosets={allGeosets} selectionByGeoset={emptySelection} hiddenVertices={emptySelection} hiddenGeosets={hiddenGeosets} mode="textured" overlays={emptyOverlays} showVertices={false} showSkeleton={false} showGrid={false} showAxes={false} shaded view={view} cameraMode={cameraMode} workplane="xy" transformMode="select" sequenceIndex={-1} time={0} playing={false} teamColor={teamColor} textureAssets={textureAssets} preferences={viewportPreferences} paintWorkspace paintMode={!!project} paintSelectOnly={pickPart} paintOutside={outside&&studioTool!=='sample'} paintRegion={region} paintColorfy={colorfy&&!showOriginal} paintPartOutlines={outlines} paintDisabled={!ready} paintOutline={{...outline,visible:outline.visible&&targetMode==='geoset'}} paintBrushSize={brush.size} paintBrushPreview={footprint} paintDecal={decal} paintLights={lights} paintLampPickingDisabled={true} onPaintInteractionChange={onInteractionChange} paintSelectedLamp={selectedLamp} paintLampTransform={lampTransform} paintLampColor={paintAppearance.lampSelection} onPaintLampSelect={id=>{setSelectedLamp(id);if(id)setPickPart(true);}} onPaintLampChange={changeLamp} paintBackground={background} paintTextureOverrides={showOriginal?noOverrides:textureOverrides} paintTextureSmoothing={scene.textureSmoothing} paintTextureRevision={paintRevision+Number(project?.revision||0)} onPaintCameraReady={api=>{cameraAPI.current=api;}} onPaintPick={studioPick} paintSelectFaces={selectionKind==='faces'} onPaintStart={startStroke} onPaintMove={moveStroke} onPaintEnd={endStroke} onPaintCancel={cancelStroke} onPaintHover={previewHover} onPaintCameraChange={()=>clearHover()}/>;
   return <PaintStudioLayout project={project} tool={studioTool} onTool={chooseStudioTool} brush={brush} onBrush={patch=>setBrush(v=>({...v,...patch}))} material={material} borrowMode={borrowMode} onBorrowMode={setBorrowMode} stampAngle={stampAngle} onStampAngle={setStampAngle} outside={outside} onOutside={setOutside} stampFlip={stampFlip} onFlip={()=>setStampFlip(v=>!v)} placing={placing} onCommit={commitPlacement} onCancel={cancelStroke}

@@ -36,6 +36,7 @@ and the old five-tool toolbar.
 6. Choose one of five native starter sources, WC3 library J, From file
    Ctrl+Shift+O, or the user's own library. Cut rectangle/ellipse/lasso/polygon/
    wand selections. Wheel zoom and middle/right-drag pan work while selecting.
+   Shift-click From file to import a copied image into the same cutout editor.
    Keep saves a PNG to the user's library; imported cutouts retain exact RGBA.
 7. **Click to stamp, repeat immediately.** The cursor shows an image ghost;
    while pressed, the real mapped preview can be dragged. Release commits one
