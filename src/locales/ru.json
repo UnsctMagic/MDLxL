@@ -165,6 +165,7 @@
   "Change geoset triangle density": "Изменить плотность треугольников геосета",
   "Connected Bones": "Связанные кости",
   "Grabthrough": "Выбор насквозь",
+  "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "Вкл.: выбор вершин насквозь, включая скрытые за моделью. Выкл.: выбор только видимых вершин.",
   "Open models": "Открытые модели",
   "Scroll model tabs left": "Прокрутить вкладки моделей влево",
   "Scroll model tabs right": "Прокрутить вкладки моделей вправо",

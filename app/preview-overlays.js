@@ -209,10 +209,31 @@ export function drawPresentationOverlay(context, geosets, camera, width, height,
   const settings = previewOverlaySettings(options), geometry = previewOverlayGeometry(geosets, options);
   context.clearRect(0, 0, width * ratio, height * ratio);
   context.save(); context.scale(ratio, ratio);
+  // Live Select without Grabthrough shows only what the camera can see, like
+  // the vertex editor: markers and wire pieces behind the mesh stay hidden.
+  const depth = settings.interactiveSelection && !settings.grabThrough ? createOverlayDepth(geosets.map(({ faces, vertices }) => {
+    const points = [];
+    for (let i = 0; i < vertices.length; i += 3) points.push(projected(camera, width, height, vertices.subarray(i, i + 3)));
+    return { faces, points };
+  }), width, height) : null;
   const drawEdges = items => {
     context.beginPath();
     for (const geo of items) for (const [a, b] of geo.edges) {
-      const segment = projectGridSegment(camera, width, height, geo.vertices.subarray(a * 3, a * 3 + 3), geo.vertices.subarray(b * 3, b * 3 + 3));
+      const from = geo.vertices.subarray(a * 3, a * 3 + 3), to = geo.vertices.subarray(b * 3, b * 3 + 3);
+      if (depth) {
+        const p = projected(camera, width, height, from), q = projected(camera, width, height, to);
+        if (!p.visible || !q.visible) continue;
+        const steps = Math.max(1, Math.min(32, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / 6)));
+        let open = false;
+        for (let step = 0; step <= steps; step++) {
+          const t = step / steps, point = { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, z: p.z + (q.z - p.z) * t };
+          if (depth.isOccluded(point)) { open = false; continue; }
+          if (open) context.lineTo(point.x, point.y); else context.moveTo(point.x, point.y);
+          open = true;
+        }
+        continue;
+      }
+      const segment = projectGridSegment(camera, width, height, from, to);
       if (!segment) continue;
       context.moveTo(segment[0].x, segment[0].y); context.lineTo(segment[1].x, segment[1].y);
     }
@@ -222,7 +243,7 @@ export function drawPresentationOverlay(context, geosets, camera, width, height,
     context.beginPath();
     for (const geo of items) for (const id of geo.pointIndices) {
       const point = projected(camera, width, height, geo.vertices.subarray(id * 3, id * 3 + 3));
-      if (point.visible) context.rect(point.x - size / 2, point.y - size / 2, size, size);
+      if (point.visible && !depth?.isOccluded(point)) context.rect(point.x - size / 2, point.y - size / 2, size, size);
     }
     context.fill(); if (outline) context.stroke();
   };

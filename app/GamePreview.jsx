@@ -732,7 +732,7 @@ export default function GamePreview(inputProps) {
         if (start.uv) {
           const point = Math.hypot(end.x - start.x, end.y - start.y) <= 5 ? { x: start.x, y: start.y } : end;
           p.onSelectionChange?.(selectPreviewUVCoordinates(geometry, p.selectionByGeoset || {}, start, point,
-            p.previewEligibleByGeoset, p.previewSelectionMode === 'vertices', rect.width, rect.height));
+            p.previewEligibleByGeoset, p.previewSelectionMode === 'vertices', rect.width, rect.height, { grabThrough: p.previewOverlay?.grabThrough !== false }));
         } else if (start.ctrl && p.onInspectGeoset && Math.hypot(end.x - start.x, end.y - start.y) <= 5) {
           const hit = pickPreviewGeoset(geometry, end.x, end.y); if (hit) p.onInspectGeoset(hit.index);
         } else {
@@ -791,7 +791,8 @@ export default function GamePreview(inputProps) {
       if (event.key === 'Escape' && (nodeGesture || selectionGesture)) cancelNodeGesture(event);
       if(event.key==='Shift')controls.shiftScreenDrag(event.shiftKey);
       if (event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
-          !event.target?.closest?.('input, textarea, select, [contenteditable="true"]') &&
+          // A checkbox keeps focus after a click but never types, so it must not block A.
+          !event.target?.closest?.('input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]') &&
           (!latest.current.previewSelectionMode || canvas.closest('.uv-workspace-body')?.dataset.pointerRegion === 'preview')) previewSelectHeld = true;
     };
     const previewKeyUp = event => {

@@ -43,9 +43,10 @@ export function selectPreviewVertices(geosets, previous, start, end, selectable,
   return next;
 }
 
-/** Pick the UVs of a visible face, or the visible vertex markers when shown.
- * The active material's mesh and available UV coordinates define pickability. */
-export function selectPreviewUVCoordinates(geosets, previous, start, end, eligibleByGeoset, showVertices, width, height) {
+/** Pick the UVs of a visible face, or the vertex markers when shown.
+ * The active material's mesh and available UV coordinates define pickability.
+ * Markers pick through the model unless Grabthrough is turned off. */
+export function selectPreviewUVCoordinates(geosets, previous, start, end, eligibleByGeoset, showVertices, width, height, { grabThrough = true } = {}) {
   const allowed = new Map(Object.entries(eligibleByGeoset || {}).map(([index, ids]) => [Number(index), new Set(ids)]));
   const pickable = geosets.filter(geo => allowed.has(geo.index));
   const polygons = showVertices ? [] : pickable.map(geo => {
@@ -60,12 +61,13 @@ export function selectPreviewUVCoordinates(geosets, previous, start, end, eligib
   const marquee = Math.hypot(end.x - start.x, end.y - start.y) > 5;
   const depth = marquee && !showVertices ? createOverlayDepth(polygons, width, height) : null;
   if (showVertices) {
+    const visible = grabThrough ? null : createOverlayDepth(geosets, width, height);
     let nearest = null, distance = 7;
     for (const geo of pickable) {
       const eligible = allowed.get(geo.index);
       for (const index of eligible) {
         const point = geo.points[index];
-        if (!point?.visible) continue;
+        if (!point?.visible || visible?.isOccludedForSelection(point)) continue;
         if (marquee) {
           if (point.x >= Math.min(start.x, end.x) && point.x <= Math.max(start.x, end.x) && point.y >= Math.min(start.y, end.y) && point.y <= Math.max(start.y, end.y)) found.get(geo.index).add(index);
         } else {
