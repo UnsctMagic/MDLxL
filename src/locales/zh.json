@@ -3480,6 +3480,7 @@
   "Saved {0}.": "已保存 {0}。",
   "Backup: {0}": "备份：{0}",
   "Approved changes are not saved yet": "已批准的更改尚未保存",
+  "Original: {0} · Approved: {1} · Total saved: {2}": "原始：{0} · 已批准：{1} · 共节省：{2}",
   "Save the approved changes to {0} before closing?": "关闭前将已批准的更改保存到 {0}？",
   "Close without saving": "不保存并关闭",
   "Save the approved changes into {0}?": "将已批准的更改保存到 {0}？",
