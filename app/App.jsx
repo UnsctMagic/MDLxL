@@ -151,7 +151,7 @@ export default function App() {
   const [showcaseSession,setShowcaseSession]=useState(null),[showcaseVisited,setShowcaseVisited]=useState(false);
   const [session, setSession] = useState(newSession);
   const [sessions, setSessions] = useState(() => [session]);
-  const [tick, setTick] = useState(0), [status, setStatus] = useState('Ready');
+  const [tick, setTick] = useState(0), [status, setStatus] = useState('Ready'), [statusAlert, setStatusAlert] = useState(0);
   const [fileDrag, setFileDrag] = useState(false), fileDragTimer = useRef();
   const [repairReceipt, setRepairReceipt] = useState(null);
   const [mode, setMode] = useState('vertices'), [cameraMode, setCameraMode] = useState('work'), [view, setStoredView] = useState('orthographic'), [portraitView, setPortraitView] = useState('perspective'), [storedWorkplane, setStoredWorkplane] = useState('xy');
@@ -344,7 +344,8 @@ export default function App() {
   useLayoutEffect(() => { const record = !poseSelectionOnly.current; poseSelectionOnly.current = false; if (selectionHistory.observe(selectionState, { record })) setTick(value => value + 1); }, [selectionHistory, selectable, visibleOnly, selection, hidden, activeGeoset, uvSet, selectedNodeIds, doc.revision]);
   latest.current = { session, sessions, showcaseSession, doc, model, selection, checkedGeosets, activeGeosetTab, selectable, visibleOnly, hidden, mode, animationPanel, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets, uvEntrySelection, uvEntryId, dialog, settingsTab, preferencesReady };
   const refresh = () => setTick(value => value + 1);
-  const say = (message, error = false) => setStatus((error ? 'Error: ' : '') + message);
+  // Each error gets a new alert number so the status bar flashes again even when the same error repeats.
+  const say = (message, error = false) => { setStatus((error ? 'Error: ' : '') + message); setStatusAlert(count => error ? count + 1 : 0); };
   const selectBackground = value => { setBackground(value); localStorage.setItem('mdlvis-preview-background', value); };
   const backgroundLibrary = usePreviewBackgrounds(mode === 'animation' || mode === 'showcase', background, selectBackground, say);
   const {validSelection,selectionCount,centroid,totalVertices,totalFaces,hiddenCount,selectedFaces} = useMemo(() => {
@@ -1639,7 +1640,7 @@ export default function App() {
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status" role="status"><span>{saving ? 'Saving…' : status}</span><span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'paint' ? paintMessage('paint.hint') : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations'}</span></div>
+    <div className="classic-status" role="status"><span key={statusAlert || 'status'} data-alert={statusAlert && !saving ? '' : undefined}>{saving ? 'Saving…' : status}</span><span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'paint' ? paintMessage('paint.hint') : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations'}</span></div>
     <AppDialogs {...{
       Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,

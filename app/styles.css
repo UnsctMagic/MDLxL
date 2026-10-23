@@ -102,3 +102,7 @@
 
 /* Outline while files are dragged over the window from Explorer. */
 .file-drop-overlay { position: fixed; inset: 3px; z-index: 10000; pointer-events: none; border: 2px dashed var(--ui-accent); border-radius: 4px; background: color-mix(in srgb, var(--ui-accent) 6%, transparent); }
+
+/* Warnings: flash red once and keep a pulsing red dot; app/alert-ping.js replays this when the text changes. */
+[data-alert]{color:var(--ui-danger,#a31515)}:is([role=alert],[data-alert]):not(:empty){animation:alert-flash 1.2s ease-out}:is([role=alert],[data-alert]):not(:empty)::before{content:"";display:inline-block;flex:0 0 8px;width:8px;height:8px;margin-right:5px;border-radius:50%;background:#e02020;vertical-align:-1px;animation:alert-ping 1s ease-out 3}
+@keyframes alert-flash{0%{background-color:#e02020;color:#fff}}@keyframes alert-ping{0%{box-shadow:0 0 0 0 #e02020cc}100%{box-shadow:0 0 0 7px #e0202000}}
