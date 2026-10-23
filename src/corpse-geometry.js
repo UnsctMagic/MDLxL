@@ -98,7 +98,9 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex) {
   function vertex(p,t) {
     const roof=top(p[0],p[1]);
     // Coverage changes height/width, never the joint-to-joint limb length.
-    const z=Number.isFinite(roof)?Math.min(p[2],roof-margin):Math.min(p[2],ground);
+    // Death meshes often penetrate the floor. Keep the corpse on the ground
+    // like the native gutz meshes, rather than burying its limbs before decay.
+    const z=Math.max(ground,Number.isFinite(roof)?Math.min(p[2],roof-margin):Math.min(p[2],ground));
     const i=vertices.length/3;vertices.push(p[0],p[1],z);uv.push(...t);return i;
   }
   function halfWidth(a,b,ids,factor=1) {

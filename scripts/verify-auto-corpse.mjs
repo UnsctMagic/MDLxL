@@ -21,6 +21,7 @@ for(const source of study.models) {
     for(const n of allNodes(before))for(const field of ['Translation','Rotation','Scaling','Parent','PivotPoint','Flags'])assert.deepEqual(nodes.get(n.ObjectId)[field],n[field]);
     for(const c of result.corpses) {
       const flesh=model.Sequences[c.flesh],bone=model.Sequences[c.bone];
+      assert.ok(Array.from(pose(model,c.corpseGeoset,c.bone,bone.Interval[0])).filter((_,i)=>i%3===2).every(z=>z>0),'Corpse must start above the terrain');
       for(let i=0;i<c.bodyGeosets.length;i++)near(pose(model,c.bodyGeosets[i],c.flesh,flesh.Interval[0]),pose(before,c.sourceBodyGeosets[i],c.death,c.sourceFrame));
       for(const [seq,ids] of [[c.flesh,c.bodyGeosets],[c.bone,[c.corpseGeoset]]])for(const id of ids) {
         const end=model.Sequences[seq].Interval[1];assert.ok(maxZ(pose(model,id,seq,end-1))<0,'Body must be buried before its last-frame hide');assert.equal(sampleGeosetAnimation(model,id,end,seq).alpha,0);

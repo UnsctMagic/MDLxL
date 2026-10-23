@@ -37,7 +37,9 @@ Bones switch on at 167 ms into Decay Flesh, matching the studied Footman. They
 remain covered by the body, which moves vertically underground. Bone decay then
 lowers the fitted corpse. Each burial distance is calculated from the highest
 posed vertex and a size-dependent clearance; both phases hide their geometry on
-the final frame. Effects and attachments are masked in those decay intervals;
+the final frame. Corpse vertices start above the ground even when the original
+Death mesh penetrates the floor, so limbs are not buried before decay begins.
+Effects and attachments are masked in those decay intervals;
 ordinary Death events and original transform animation are retained.
 
 The output uses Warcraft's `Textures\gutz.blp`, native geosets, materials, bones,

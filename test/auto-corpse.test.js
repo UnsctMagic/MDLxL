@@ -25,6 +25,7 @@ const near=(a,b,e=1e-4)=>{assert.equal(a.length,b.length);for(let i=0;i<a.length
 test('one edit freezes the literal last Death pose, then sinks flesh and bones completely',()=>{
   const d=fixture({globalMotion:true}),before=structuredClone(d.model),r=apply(d).corpses[0],m=d.model,fs=m.Sequences[r.flesh],bs=m.Sequences[r.bone];
   near(posed(m,r.bodyGeosets[0],r.flesh,fs.Interval[0]),posed(before,0,r.death,r.sourceFrame));
+  assert.ok(Array.from(posed(m,r.corpseGeoset,r.bone,bs.Interval[0])).filter((_,i)=>i%3===2).every(z=>z>0),'Corpse starts above the terrain even where the Death body intersects it');
   assert.deepEqual(m.Bones.slice(0,before.Bones.length),before.Bones);
   for(const t of [0,.25,.5,.75,1]) {
     const p=posed(m,r.bodyGeosets[0],r.flesh,fs.Interval[0]+t*(fs.Interval[1]-fs.Interval[0])),base=posed(before,0,r.death,r.sourceFrame);

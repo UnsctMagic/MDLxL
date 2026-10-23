@@ -16,6 +16,7 @@ large Ogres. The approved prior lane's body/corpse alignment is the reference.
 ## Revision
 
 - Branch: `codex/auto-corpse-placer`, base `683037ee`.
+- Review: [PR #276](https://github.com/UnsctMagic/MDLxL/pull/276), unmerged.
 - Working checkout: `D:\Codex\mdlxl-auto-corpse-20261023\repo`.
 - Test build: sibling `outputs\MDLxL-win32-x64`; no installed app replaced.
 - Session: codex codex://threads/01a165fc-409d-7423-ad0f-6d448c018b84
@@ -43,6 +44,8 @@ body width. Keep full joint lengths and body-derived widths independently.
 - All 95 passed MDX reopen; 90 passed MDL reopen. Five untouched native inputs
   already fail MDL save with `Cameras[0].Variant`; the verifier confirms the
   identical pre-existing error. Evidence: `docs/research/auto-corpse-models.json`.
+- Initial corpse vertices are checked above terrain, including Death meshes
+  that penetrate the floor; burial occurs only during the decay phases.
 - Final packaged body/corpse pairs reviewed on Footman, Ogre and the referenced
   Tzeentch warrior. Native Footman/Ogre atlas comparisons informed limb mapping.
 - Portable runtime audit: 580 runtime/assets, 55 locales, no duplicated dependencies.
