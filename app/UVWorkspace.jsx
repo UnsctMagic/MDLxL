@@ -89,7 +89,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   onPreviewSelectionChange, onUVChanges, onPreviewChanges, onUncouple, onGeosetChange, onWrappingChange, onMaterialPreset, textureAssets, teamColor, preferences, onPreferences,
   draftCount = 0, onLibrary, onSavePreview, onRevertPreview, previewProps, readOnly = false, suspended = false, onDensityApply, onExit }) {
   const [materialID, setMaterialID] = useState(null), [uvTool, setUVTool] = useState('select'), [axis, setAxis] = useState(null), [foldDirection, setFoldDirection] = useState('right-to-left');
-  const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false);
+  const [showOnlySelected, setShowOnlySelected] = useState(false), [hideRGB, setHideRGB] = useState(false), [showVerticles, setShowVerticles] = useState(false), [grabThrough, setGrabThrough] = useState(true);
   const [projectionPreset, setProjectionPreset] = useState({ name: '', revision: 0 });
   const [scrollSensitivity, setScrollSensitivity] = useState(1.3);
   const [materialPreview, setMaterialPreview] = useState(null), [materialError, setMaterialError] = useState('');
@@ -174,7 +174,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const previewPreferencesKey = JSON.stringify(previewPreferencesInput);
   const previewPreferences = useMemo(() => previewPreferencesInput, [previewPreferencesKey]);
   const liveOverlay = showVerticles
-    ? { allMesh: true, interactiveSelection: true, highlightSelection: false, size: display.size, color: preferences?.visuals?.uvSelection, eligibleByGeoset: allEligible, selectionByGeoset: allSelected }
+    ? { allMesh: true, interactiveSelection: true, highlightSelection: false, grabThrough, size: display.size, color: preferences?.visuals?.uvSelection, eligibleByGeoset: allEligible, selectionByGeoset: allSelected }
     : uvPreviewOverlay(previewDomain, allSelected, null, { ...display, mesh: liveView ? 'selected' : 'none' }, preferences?.visuals?.uvSelection);
 
   const dispatch = (kind, value) => window.dispatchEvent(new CustomEvent('mdlvis-uv-action', { detail: { kind, value } }));
@@ -278,7 +278,7 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
             onSelectionChange={densityOpen ? undefined : onPreviewSelectionChange}
             cameraMode="rotate" transformMode="select" cameraPresetRequest={projectionPreset} onProjectionViewChange={value => { projectionView.current = value; }} /></Suspense></div>
           <div className="uv-preview-footer">
-            <button aria-label="Live Select" aria-pressed={showVerticles} disabled={!current} onClick={() => setShowVerticles(value => !value)}>Live Select</button><button aria-label="Selected Only" aria-pressed={showOnlySelected} disabled={!selectedGeosets.length} onClick={() => setShowOnlySelected(value => !value)}>Selected Only</button><button aria-pressed={hideRGB} disabled={rgbTarget < 0} onClick={() => setHideRGB(value => !value)}>Hide RGB</button>
+            <button aria-label="Live Select" aria-pressed={showVerticles} disabled={!current} onClick={() => setShowVerticles(value => !value)}>Live Select</button>{showVerticles && <label className="check grabthrough-option" title="On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see."><input aria-label="Grabthrough" type="checkbox" checked={grabThrough} onChange={event => setGrabThrough(event.target.checked)}/>Grabthrough</label>}<button aria-label="Selected Only" aria-pressed={showOnlySelected} disabled={!selectedGeosets.length} onClick={() => setShowOnlySelected(value => !value)}>Selected Only</button><button aria-pressed={hideRGB} disabled={rgbTarget < 0} onClick={() => setHideRGB(value => !value)}>Hide RGB</button>
           </div>
         </section>
         <Splitter orientation="horizontal" label="Resize live model preview" value={activePreviewPercent} minimum={UV_PREVIEW_MIN} maximum={UV_PREVIEW_MAX} defaultValue={UV_PREVIEW_DEFAULT}

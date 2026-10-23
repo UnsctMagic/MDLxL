@@ -165,6 +165,7 @@
   "Change geoset triangle density": "调整多边形组三角形密度",
   "Connected Bones": "关联骨骼",
   "Grabthrough": "穿透选择",
+  "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "开启：穿透模型选择顶点，包括被模型遮挡的顶点。关闭：只选择可见的顶点。",
   "Open models": "已打开模型",
   "Scroll model tabs left": "向左滚动模型标签",
   "Scroll model tabs right": "向右滚动模型标签",

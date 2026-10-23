@@ -35,3 +35,12 @@ test('show verticles picks individual visible UV vertices and respects the entry
   assert.deepEqual(pick([face(0, 0), face(1, -.5)], {}, 21, 21, eligible, true), { 0: [0] });
   assert.deepEqual(pick([face(0, 0), face(1, -.5)], {}, 50, 49, { 0: [0, 1, 2] }, true), { 0: [] });
 });
+
+test('Live Select without Grabthrough picks only vertices the camera can see', () => {
+  const eligible = { 0: [0, 1, 2] };
+  const pickSeen = (geosets, x, y) => selectPreviewUVCoordinates(geosets, {}, { x, y }, { x, y }, eligible, true, 100, 100, { grabThrough: false });
+  assert.deepEqual(pickSeen([face(0, 0)], 21, 21), { 0: [0] }, 'a vertex on the visible surface is still picked');
+  assert.deepEqual(pickSeen([face(0, 0), face(1, -.5)], 21, 21), { 0: [] }, 'a vertex behind another surface is skipped');
+  assert.deepEqual(selectPreviewUVCoordinates([face(0, 0), face(1, -.5)], {}, { x: 0, y: 0 }, { x: 99, y: 99 }, eligible, true, 100, 100, { grabThrough: false }), { 0: [] }, 'a marquee skips hidden vertices');
+  assert.deepEqual(selectPreviewUVCoordinates([face(0, 0), face(1, -.5)], {}, { x: 0, y: 0 }, { x: 99, y: 99 }, eligible, true, 100, 100), { 0: [0, 1, 2] }, 'Grabthrough on still picks through the model');
+});

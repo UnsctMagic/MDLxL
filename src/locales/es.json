@@ -165,6 +165,7 @@
   "Change geoset triangle density": "Cambiar densidad de triángulos del geoset",
   "Connected Bones": "Huesos conectados",
   "Grabthrough": "Selección a través",
+  "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "Activado: selecciona vértices a través del modelo, incluidos los ocultos detrás. Desactivado: solo selecciona los vértices visibles.",
   "Open models": "Modelos abiertos",
   "Scroll model tabs left": "Desplazar pestañas de modelos a la izquierda",
   "Scroll model tabs right": "Desplazar pestañas de modelos a la derecha",
