@@ -1312,6 +1312,9 @@ export default function App() {
       if (id === 'bone:detach') return editable && parentedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1);
       if (['scale', 'Delete triangles', 'Uncouple', 'Weld', 'Mirror', 'Extrude', 'Detach', 'Reverse normals', 'Smooth normals', 'Restore normals'].includes(id)) return false;
     } else if (id.startsWith('bone:')) return false;
+    // N is easy to hit while wrapping UVs and would leave normals on in the main view.
+    // The UV mapper may still turn them off.
+    if (id==='normals' && uvEditing && !overlays.normals) return false;
     if (id==='uv' && uvWindow) return true;
     if (id==='uv') return Object.entries(validSelection).some(([index,ids])=>ids.length && model.Geosets[index]?.TVertices?.length);
     if (id==='anchorSelect') return editable && mode === 'vertices' && tool === 'scale' && selectionCount > 1;
@@ -1344,7 +1347,7 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, repairBlocked, repairReceipt, session.paintProject?.revision,showcaseHistoryState]);
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, repairBlocked, repairReceipt, session.paintProject?.revision,showcaseHistoryState]);
   const runCommand = id => { if(commandEnabled(id)) { if(repairBlocked && id==='saveAs') save(true); else commands.current[id]?.(); } };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
 

@@ -106,6 +106,32 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     await liveSelect.click();
     assert.equal(await grabThrough.count(), 0, 'Grabthrough hides again when Live Select is off');
-    console.log(`PASS Electron UV Grabthrough: defaults on, off hides back markers (${throughPixels} -> ${seenPixels} px) and skips hidden vertices (${throughCount} -> ${seenCount}), camera still rotates`);
+
+    // Show normals (N) cannot be switched on from the UV mapper.
+    // The Quick display box mirrors the setting at once; the main view behind the
+    // expanded UV Wrapper only redraws later, so its props would read stale.
+    const quickNormals = page.locator('.quick-display input[data-hotkey="normals"]');
+    const mainNormals = () => quickNormals.isChecked();
+    // Each press is checked on its own: two presses would cancel out and hide a toggle.
+    const pressN = async () => { await page.keyboard.press('n'); await page.waitForTimeout(400); return mainNormals(); };
+    const overUV = async () => { box = await canvas.boundingBox(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); };
+    assert.equal(await mainNormals(), false);
+    await overUV();
+    assert.equal(await pressN(), false, 'N inside the UV mapper cannot turn normals on');
+    assert.equal(await pressN(), false, 'not even on a second press');
+    assert.equal(await quickNormals.isDisabled(), true, 'the Quick display Normals box is greyed out while the UV mapper is in use');
+    await uvw.getByRole('button', { name: 'Exit UV Wrapper', exact: true }).click();
+    await uvw.waitFor({ state: 'detached' });
+    const mainView = await page.locator('[aria-label="3D model viewport"]').boundingBox();
+    await page.mouse.move(mainView.x + mainView.width / 2, mainView.y + mainView.height / 2);
+    assert.equal(await pressN(), true, 'N still turns normals on in the main view');
+    // Normals that were already on can be turned off from the UV mapper, but not back on.
+    await page.locator('[data-hotkey="uv"]').click();
+    await canvas.waitFor({ timeout: 60000 });
+    await overUV();
+    assert.equal(await pressN(), false, 'N inside the UV mapper turns normals that were on off');
+    assert.equal(await pressN(), false, 'but not back on');
+    assert.equal(await page.evaluate(() => !!document.activeElement?.closest('.quick-display')), false, 'the N shortcut does not pull focus out of the UV mapper');
+    console.log(`PASS Electron UV Grabthrough: defaults on, off hides back markers (${throughPixels} -> ${seenPixels} px) and skips hidden vertices (${throughCount} -> ${seenCount}), camera still rotates; N cannot turn normals on from the UV mapper but still works in the main view`);
   } finally { await app.evaluate(({ app }) => app.exit(0)); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
