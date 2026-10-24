@@ -23,9 +23,12 @@ async function setup(t, { organiser, worker }) {
     for await (const part of req) body += part;
     const data = JSON.parse(body);
     const system = data.messages[0].content;
-    const kind = system.includes('You are the organiser') ? 'organiser' : 'worker';
+    const kind = system.includes('SD Brain art director') ? 'art' : system.includes('You are the organiser') ? 'organiser' : 'worker';
     requests.push({ kind, data });
-    const answer = (kind === 'organiser' ? organiser : worker)(data, requests.filter(r => r.kind === kind).length);
+    const answer =
+      kind === 'art'
+        ? { delta: { content: 'Goal: a test brief.' }, finish_reason: 'stop' }
+        : (kind === 'organiser' ? organiser : worker)(data, requests.filter(r => r.kind === kind).length);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     res.end('data: ' + JSON.stringify({ choices: [answer] }) + '\n\n');
   });
@@ -121,14 +124,19 @@ test('with SD Brain on, birds get the same policy and the organiser can look at 
   const system = request => request.messages.find(m => m.role === 'system').content;
   assert.match(system(organiserRequest), /As the organiser with SD Brain on/);
   assert.ok(organiserRequest.tools.some(tool => tool.function.name === 'mdlxl_capture'));
-  assert.ok(system(workerRequest).includes('SD Brain is enabled for this task') && system(workerRequest).includes('Warcraft III SD modeling rulebook'));
+  assert.ok(system(workerRequest).includes('SD Brain is on.') && system(workerRequest).includes('Warcraft III SD modeling rulebook'));
   assert.match(userText(workerRequest), /Task settings: SD Brain on/);
+  // One art brief per user request: the organiser has it, and the bird gets it with its job.
+  assert.equal(f.requests.filter(r => r.kind === 'art').length, 1);
+  assert.match(userText(organiserRequest), /SD art brief for this request[^\n]*\nGoal: a test brief\./);
+  assert.match(userText(workerRequest), /SD art brief for this request:\nGoal: a test brief\./);
   // Off: the organiser has no capture tool and the bird gets the off state.
   await f.service.setSdBrain(false);
   await f.service.send({ id, text: 'now rename it', context });
   const lastOrganiser = f.requests.filter(r => r.kind === 'organiser' && r.data.messages.at(-1).role === 'user').at(-1).data;
   assert.ok(!lastOrganiser.tools.some(tool => tool.function.name === 'mdlxl_capture'));
   assert.match(system(f.requests.filter(r => r.kind === 'worker').at(-1).data), /SD Brain: off/);
+  assert.ok(!userText(f.requests.filter(r => r.kind === 'worker').at(-1).data).includes('SD art brief'));
 });
 
 test('a worker past half of its memory hands over to a new bird and retires', async t => {

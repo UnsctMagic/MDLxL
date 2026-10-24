@@ -215,7 +215,10 @@ export function prepareAiEdit(before, after, { scope, protectedPaths = [], anima
     const derivedCount = collection && change.after === (after[collection]?.length || 0)
       && before[collection]?.length !== after[collection]?.length
       && changes.some(c => c.path[0] === collection && allowed.some(p => contains(p, c.path)));
-    if (!allowed.some(p => contains(p, change.path)) && !derivedCount)
+    // The model's bounding box follows its geometry: allowed whenever a geoset edit is in scope.
+    const derivedBounds = change.path[0] === 'Info' && ['MinimumExtent', 'MaximumExtent', 'BoundsRadius'].includes(change.path[1])
+      && changes.some(c => c.path[0] === 'Geosets' && allowed.some(p => contains(p, c.path)));
+    if (!allowed.some(p => contains(p, change.path)) && !derivedCount && !derivedBounds)
       throw Error('Edit exceeds its scope: ' + pointer(change.path));
     let a, b;
     try {

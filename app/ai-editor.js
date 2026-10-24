@@ -8,7 +8,7 @@ import {
   applyAiEdit,
   encodeAiValue,
 } from '../src/ai-model.js';
-import { openDocument } from '../src/editor-document.js';
+import { EditorDocument, openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
@@ -284,6 +284,21 @@ export class AiEditorBridge {
       const prepared = prepareAiEdit(before, result.model, args);
       const assets = validateAiAssets(result.assets || [], result.model, state.session.assets);
       if (!prepared.changeCount) return { applied: false, changes: [], value, logs: result.logs || [] };
+      // Refuse an edit the model could not be saved with; once committed it would
+      // block every later checkpoint, review and Undo step.
+      try {
+        const probe = state.doc.captureRecoveryState({ includeHistory: false });
+        probe.model = structuredClone(before);
+        applyAiEdit(probe.model, prepared);
+        const copy = EditorDocument.restoreRecoveryState(probe);
+        // Its own format, and MDX too when the file can convert (AI checkpoints use MDX).
+        for (const format of new Set([state.doc.format, ...(state.doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
+          copy.serialize(format);
+      } catch (error) {
+        throw Error(
+          `Not applied: the model could not be saved after this edit (${error.message}). Check each new or changed geoset: Vertices and Normals as Float32Array (3 per vertex), TVertices as [Float32Array] (2 per vertex), Faces as Uint16Array of valid indices, VertexGroup as Uint8Array (1 per vertex), Groups and MaterialID valid. sd-kit commit and Forge commitForge build complete geosets.`,
+        );
+      }
       // The existing App.edit owns validation, UV-preview protection, history and refresh.
       flushSync(() => {
         host.edit(args.label, prepared.sections, model => applyAiEdit(model, prepared), {

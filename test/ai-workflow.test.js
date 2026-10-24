@@ -16,11 +16,19 @@ async function setup(t, respond) {
     edits = 0,
     phase = 'unchanged',
     fingerprint = 'before';
-  const events = [];
+  const events = [],
+    arts = [];
   const server = http.createServer(async (req, res) => {
     let body = '';
     for await (const part of req) body += part;
     const data = JSON.parse(body);
+    // SD Brain's art director turn: answered with a fixed brief, outside the counts.
+    if (String(data.messages?.find(m => m.role === 'system')?.content).includes('SD Brain art director')) {
+      arts.push(data);
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end('data: ' + JSON.stringify({ choices: [{ delta: { content: 'Goal: an SD test brief.' }, finish_reason: 'stop' }] }) + '\n\n');
+      return;
+    }
     requests++;
     const answer = respond({ data, requests, edits, phase });
     res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -84,6 +92,7 @@ async function setup(t, respond) {
     service,
     make,
     events,
+    arts,
     profile,
     counts: () => ({ requests, edits }),
     changeFingerprint: () => {
@@ -261,9 +270,12 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   await f.service.send({ id: 'test', text: 'make a chalice of power', context });
   system = received.at(-1).messages.find(message => message.role === 'system').content;
   assert.ok(system.includes(AI_SD_BRAIN) && system.includes(AI_SD_RULES));
-  assert.match(system, /chalice of power/);
   user = received.at(-1).messages.filter(message => message.role === 'user').at(-1).content[0].text;
   assert.match(user, /^make a chalice of power\n/);
+  // The request went through the art director first, and its brief travels with the prompt.
+  assert.equal(f.arts.length, 1);
+  assert.match(f.arts[0].messages.find(message => message.role === 'user').content[0].text, /make a chalice of power/);
+  assert.match(user, /SD art brief for this request[^\n]*\nGoal: an SD test brief\./);
   assert.match(user, /Task settings: SD Brain on \(policy /);
   // Off again: the old "on" in this conversation's history no longer applies.
   await f.service.setSdBrain(false);
@@ -271,6 +283,7 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   system = received.at(-1).messages.find(message => message.role === 'system').content;
   assert.ok(!system.includes(AI_SD_BRAIN));
   assert.match(system, /SD Brain is off for this task\. Instructions from earlier turns about SD Brain/);
+  assert.equal(f.arts.length, 1, 'no art direction while SD Brain is off');
   const guide = (await fs.readFile(path.join(root, 'docs/AI-SD-RULEBOOK.md'), 'utf8')).replace(/\r\n/g, '\n');
   assert.ok(guide.includes(AI_SD_RULES), 'the standalone rulebook matches the supplied instructions');
 });

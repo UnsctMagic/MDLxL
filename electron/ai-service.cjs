@@ -444,6 +444,21 @@ class AiService {
           JSON.stringify(task.steps)
         : '');
     if (organiser) prompt += '\n\n' + (await this.organiserBriefing(conversation));
+    // SD Brain: the request first becomes an art brief, once per task. Workers get
+    // the organiser task's brief with their job instead of writing their own.
+    if (sd.enabled && conversation.kind !== 'worker' && !conversation.toolsOff && !task.artBrief) {
+      recorder.event({ type: 'art', status: 'running' });
+      try {
+        task.artBrief = await this.artDirection({ text, images, context, settings, contract, signal, conversation });
+      } catch (error) {
+        if (signal.aborted) throw error;
+        task.artBrief = '';
+      }
+      recorder.event({ type: 'art', status: 'done', text: task.artBrief });
+      await this.persistConversation(conversation);
+    }
+    if (task.artBrief && conversation.kind !== 'worker')
+      prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
     prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
@@ -453,7 +468,7 @@ class AiService {
       if (organiser && name === 'mdlxl_worker') {
         const attached = workerImages;
         workerImages = [];
-        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd });
+        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd, artBrief: task.artBrief });
       }
       if (args.target && args.target !== context.target)
         throw Error('Use the target captured with the current prompt.');
@@ -641,7 +656,7 @@ class AiService {
       organiser.nextName = nextBird(organiser.birds, this.random);
     return organiser.nextName;
   }
-  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy }) {
+  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy, artBrief }) {
     const previous = this.workerLock;
     let release;
     this.workerLock = new Promise(resolve => (release = resolve));
@@ -695,6 +710,7 @@ class AiService {
       active.worker = { id: worker.id, steering };
       const text =
         `Job: ${args.job}\n\nInstructions from the organiser:\n${args.instructions}\n\nThe user's message, exactly as written:\n${userText}` +
+        (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
         (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '');
       let status = 'done',
         error;
@@ -731,6 +747,40 @@ class AiService {
       if (worker) this.emitRoster(organiser);
       release();
     }
+  }
+  // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
+  // user's words into an SD art brief. Nothing of it is kept but the brief.
+  async artDirection({ text, images, context, settings, contract, signal, conversation }) {
+    const art = { id: `${conversation.id}-art`, provider: settings.provider, transcript: [], messages: [], kind: 'art' };
+    const counts = context.counts || {},
+      model = counts.geosets
+        ? `The open model ${context.name} has ${counts.geosets} geosets and ${counts.triangles} triangles${context.selection && Object.keys(context.selection).length ? ', with a selection the user made' : ''}.`
+        : `The open model ${context.name} is empty, so this creates something new.`;
+    let reply = '';
+    const options = {
+      settings,
+      key: this.decrypt(settings.key),
+      directory: this.directory,
+      event: value => {
+        if (value.type === 'text') reply += value.text;
+      },
+      tools: [],
+      call: async () => {
+        throw Error('The art director has no tools.');
+      },
+      system: contract.AI_SD_ART_DIRECTOR,
+      prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
+      images,
+      conversation: art,
+      signal,
+      // The art director never watches the editor.
+      awareness: { enabled: false, version: 0, snapshot: () => ({ enabled: false }) },
+      steering: new AiSteering(() => {}),
+    };
+    if (settings.provider === 'codex') await runCodex(options);
+    else if (settings.provider === 'claude') await runClaude(options);
+    else await runApi(options);
+    return reply.trim().slice(0, 4000);
   }
   async handover(worker, settings, contract, context, signal, policy) {
     const conversation = await this.conversation(worker.id, settings.provider);

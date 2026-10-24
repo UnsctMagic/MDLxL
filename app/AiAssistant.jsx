@@ -151,6 +151,27 @@ function ThinkingPart({ part, live }) {
     </div>
   );
 }
+// SD Brain's art direction for the request: collapsed to one row until clicked.
+function ArtPart({ part }) {
+  const [open, setOpen] = useState(false),
+    running = part.status === 'running';
+  return (
+    <div className={'ai-thinking ai-art' + (open ? ' ai-open-part' : '') + (running ? ' ai-live' : '')}>
+      <button
+        type="button"
+        className="ai-part-toggle"
+        aria-expanded={open}
+        disabled={running || !part.text}
+        title="The SD art direction SD Brain wrote for this request. Click to show."
+        onClick={() => setOpen(!open)}
+      >
+        <Brain size={13} aria-hidden="true" />
+        {running ? 'Planning the art direction…' : part.text ? 'Art direction' : 'Art direction unavailable'}
+      </button>
+      <div className="ai-thinking-text">{part.text}</div>
+    </div>
+  );
+}
 // The chat grew past what the AI can hold, so it summarizes older messages first.
 function CompactionPart({ part }) {
   const running = part.status === 'running';
@@ -247,6 +268,8 @@ function AssistantMessage({ message, live, onOpenWorker }) {
       <ToolPart key={index} part={part} />
     ) : part.type === 'compaction' ? (
       <CompactionPart key={index} part={part} />
+    ) : part.type === 'art' ? (
+      <ArtPart key={index} part={part} />
     ) : (
       <AiMessage key={index} text={part.text} />
     ),
@@ -354,6 +377,14 @@ export default function AiAssistant({ bridge }) {
         update(message =>
           message.parts.push({ type: 'tool', id: event.callId, name: event.name, detail: event.detail, status: 'running' }),
         );
+      if (event.type === 'art')
+        update(message => {
+          const at = message.parts.findLastIndex(p => p.type === 'art' && p.status === 'running');
+          const part = { type: 'art', status: event.status, text: event.text || '' };
+          if (at >= 0) message.parts[at] = part;
+          else message.parts.push(part);
+        });
+      if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       // A steering message may have split the reply since the tool started.
       if (event.type === 'tool-result')
         setMessages(previous => {

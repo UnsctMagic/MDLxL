@@ -16,8 +16,9 @@ export const AI_AREAS = [
   {
     id: 'creation',
     description:
-      'Procedural primitives, Forge construction, detail shaping, combining and fitting reusable parts.',
+      'SD Kit solid hand-painted props (lathe, extrude, spikes, rings, gems; one painted texture), procedural primitives, Forge construction, detail shaping, combining and fitting reusable parts.',
     modules: [
+      'sd-kit',
       'forge-primitives',
       'forge',
       'forge-detail-editing',

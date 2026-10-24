@@ -37,6 +37,17 @@ test('scoped collection edits include only their exact editor-maintained counts'
   assert.throws(() => prepareAiEdit(before, after, {...options,protectedPaths:['/Info/NumGeosetAnims']}), /protected path/);
 });
 
+test('a geoset edit may update the model bounds it moves, nothing else in Info', () => {
+  const before = createStarterDocument().model, after = structuredClone(before);
+  after.Geosets[0].Vertices[0] += 500;
+  after.Info.MaximumExtent = Float32Array.from([600, 600, 600]);
+  after.Info.BoundsRadius = 900;
+  const prepared = prepareAiEdit(before, after, { scope: ['/Geosets'] });
+  assert.ok(prepared.changes.some(c => c.path.join('/') === 'Info/BoundsRadius'));
+  // Without a geometry change in scope the bounds stay protected.
+  assert.throws(() => prepareAiEdit(before, { ...before, Info: { ...before.Info, BoundsRadius: 900 } }, { scope: ['/Geosets'] }), /scope: \/Info\/BoundsRadius/);
+});
+
 test('precise UV edit is undoable and preserves geometry, rig and other data through MDX/MDL', () => {
   const doc = createStarterDocument(),
     before = structuredClone(doc.model),
