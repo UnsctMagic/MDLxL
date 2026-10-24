@@ -34,6 +34,21 @@ const ICONS = Object.freeze({
   redo: [['s', 'M16 9H8.6a5.4 5.4 0 0 0 0 10.8H13'], ['f', 'M15.4 4.6 20.4 9l-5 4.4Z']],
   copy: [['f', 'M8.4 8.4h11.6V20H8.4Z'], ['s', 'M4.4 15.6V5.2c0-.4.4-.8.8-.8h10.4']],
   paste: [['f', 'M5.4 5.6h13.2V21H5.4Z'], ['s', 'M9 3.2h6v4.2H9Z'], ['d', 'M9 12h6M9 15.6h4']],
+  // Display toggles (keyed by their view-menu action)
+  shaded: [['s', 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16Z'], ['f', 'M12 4a8 8 0 0 0 0 16Z']],
+  showVertices: [['s', 'M6 18 12 6l6 12Z'], ['f', { cx: 12, cy: 6, r: 2 }], ['f', { cx: 6, cy: 18, r: 2 }], ['f', { cx: 18, cy: 18, r: 2 }]],
+  normals: [['s', 'M3 19h18M8 19V9M16 19V9'], ['f', 'M5.8 10 8 6.4 10.2 10ZM13.8 10 16 6.4 18.2 10Z']],
+  'display:wires': [['s', 'M12 3 20 7.5v9L12 21 4 16.5v-9Z'], ['s', 'M12 12 20 7.5M12 12 4 7.5M12 12v9']],
+  grid: [['s', 'M3 8h18M3 16h18M8 3v18M16 3v18']],
+  'display:bones': [['s', 'M7.6 16.4 16.4 7.6'], ['f', { cx: 5.6, cy: 18.4, r: 2.2 }], ['f', { cx: 18.4, cy: 5.6, r: 2.2 }]],
+  'display:skeleton': [['f', { cx: 12, cy: 5, r: 2 }], ['s', 'M12 7v9M12 10l-5 3M12 10l5 3M12 16l-4 5M12 16l4 5']],
+  'display:focusedSkeleton': [['f', { cx: 12, cy: 12, r: 3 }], ['s', 'M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4']],
+  'display:nodes': [['f', 'M4 4h6v6H4ZM14 14h6v6h-6Z'], ['s', 'M10 7h4v7']],
+  'display:particles': [['s', 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6']],
+  'display:events': [['s', 'M6 21V4'], ['f', 'M6 4h11l-2 4 2 4H6Z']],
+  'display:sounds': [['f', 'M4 10v4h4l5 4V6L8 10Z'], ['s', 'M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11']],
+  'display:attachments': [['s', 'M9.5 13.5 15 8a2.5 2.5 0 0 1 3.5 3.5l-7.8 7.8a4.5 4.5 0 0 1-6.4-6.4L12 5.2']],
+  clearDisplay: [['s', 'M6 6l12 12M18 6 6 18']],
 });
 
 export function hasLookIcon(name) { return !!ICONS[name]; }

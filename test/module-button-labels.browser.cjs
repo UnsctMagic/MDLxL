@@ -32,8 +32,9 @@ const ready=new Promise((resolve,reject)=>{
       return [style.color,style.backgroundColor,style.fontSize,style.fontWeight];
     })),['rgb(208, 168, 255)','rgb(255, 208, 106)','rgb(120, 198, 255)','rgb(241, 235, 224)','rgb(147, 224, 138)','rgb(102, 222, 208)','rgb(255, 139, 123)','rgb(255, 176, 98)','rgb(255, 154, 213)'].map(color=>[color,'rgba(0, 0, 0, 0)','10px','900']));
     fs.mkdirSync(path.join(root,'out'),{recursive:true});
-    assert.equal(await page.locator('.classic-toolbar .quick-display').count(),0);
-    assert.equal(await page.locator('.editor-modules .quick-display').count(),1);
+    // New look: the display toggles sit in the top row (VIS moves them back to the editor row).
+    assert.equal(await page.locator('.classic-toolbar .quick-display').count(),1);
+    assert.equal(await page.locator('.editor-modules .quick-display').count(),0);
     await page.screenshot({path:path.join(root,'out/editor-row-quick-display.png')});
     await page.locator('.editor-modules [data-hotkey="animations"]').click();
     await page.locator('.portrait-toolbar').waitFor();

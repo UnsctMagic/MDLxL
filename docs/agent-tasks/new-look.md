@@ -69,11 +69,20 @@ Updated: 2026-10-24 (complete pass)
   `#root .classic-app.classic-app:not([data-vis-ui])`. Inline-styled swatches,
   image tiles (`:has(>img)`), list rows and the `!important` Record button keep
   their own look. Main-window chrome rules use `!important`, so they still win.
- kept in the session scratchpad (`survey.cjs`),
+- Survey script for every screen: kept in the session scratchpad (`survey.cjs`),
   pattern: launch packaged exe with `fixtures/demo.mdx`, send `menu` ids through
   `webContents.send('menu', id)`, close with dialog-scoped `[aria-label^=Close]`
   (never the model tab's close). Paint needs an MDX800 model with a texture;
   "New base coat" opens the studio without game data.
+- Decision (owner, 2026-10-25, picked mockup 10 of ten): the display toggles
+  (Shadows, Bones, Emitters, Grid…) are icon + name chips in one soft well in the
+  top row, after the team colour. `QuickDisplay.jsx` measures the room up to the
+  next item (the DPI/Scroll readout, pushed right by an auto margin) and adds
+  `quick-display-compact` (icons only, names on hover) when the names do not fit.
+  The readout gives way first, then the icons; the language picker stays. The
+  real checkbox stays in each chip as an invisible layer over it, so hotkeys,
+  `getByLabel` and clicks keep working. VIS keeps the classic row in the editor
+  row (`{visUI && quickDisplay}`). Names show at 1900 px in Animations (9 toggles).
 - Decision: with VIS on the AI icon stays reachable next to XL (classic label
   style), because VIS hides the other dock icons and the top-row AI text button
   no longer exists.

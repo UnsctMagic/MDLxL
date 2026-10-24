@@ -60,6 +60,27 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .team-picker select{border-radius:7px!important;border:0!important;min-height:26px}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar :is(.compact-input-strength,.compact-input-strength *){color:var(--ui-muted)!important;font-size:11px!important}
 
+/* Display toggles in the top row: icon + name chips in one soft well; a lit chip
+   is on. Too narrow for every name: icons only, names on hover. */
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.quick-display{flex:0 1 auto;min-width:0;overflow:hidden;display:flex;align-items:center;margin:0 6px;padding:0!important;border:0!important;background:transparent!important;min-height:0}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.quick-display>.quick-display-options{display:inline-flex;flex:none;align-items:center;gap:2px;padding:2px;border-radius:10px;background:var(--m-soft)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label{position:relative;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;border-radius:7px;color:var(--ui-muted);font-size:12px!important;white-space:nowrap;cursor:pointer}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:hover{background:var(--ui-hover)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:has(input:checked){background:var(--ui-field);color:var(--ui-text);box-shadow:var(--m-raise)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:has(input:checked) .look-icon{color:var(--lit)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:has(input:disabled){opacity:.45}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label>input:disabled{cursor:default}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:has(input:focus-visible){outline:2px solid color-mix(in srgb,var(--ui-accent) 60%,transparent)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label>input{position:absolute;inset:0;z-index:1;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display .look-icon{display:block;width:15px;height:15px;color:inherit;--sw:1.9}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>button{order:99;position:relative;display:inline-flex;align-items:center;gap:5px;height:26px;min-height:26px!important;margin-left:7px;padding:0 9px!important;color:var(--ui-muted)!important;font-size:12px!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>button::before{content:'';position:absolute;left:-5px;top:5px;bottom:5px;width:1px;background:var(--m-line)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-compact .quick-display-name{display:none}
+/* Narrow windows: the DPI/Scroll readout gives way first, then the icons; the language picker stays. */
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.compact-input-strength{flex:0 100 auto;min-width:0;overflow:hidden}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.language-switch{flex:none}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-compact .quick-display-options>:is(label,button){padding:0 7px!important}
+
 /* Editor row: soft segmented buttons, model tabs as pills. */
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules{padding:6px 10px 4px!important;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .editor-modules{gap:2px!important;align-items:center;font-size:12px}
