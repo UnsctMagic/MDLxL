@@ -92,6 +92,10 @@ test('the organiser routes jobs to named birds, follow-ups return to the same bi
     ['Jackdaw', 'done'],
   ]);
   assert.match(rows[0].report, /Report: finished "Job: Separate red garment"/);
+  // The organiser knows a bird's name before it exists, to say "I'll ask Crow to…".
+  const organiserPrompts = f.requests.filter(r => r.kind === 'organiser' && r.data.messages.at(-1).role === 'user').map(r => userText(r.data));
+  assert.match(organiserPrompts[0], /A new job would go to a new worker called Crow\./);
+  assert.match(organiserPrompts[3], /Tiny jobs go to Jackdaw\./);
   // The organiser is told the roster each turn.
   assert.match(userText(f.requests.filter(r => r.kind === 'organiser').at(-2).data), /- Crow: Thicken garment edge/);
   const crow = await f.service.readConversation(organiser.workers[0].id);

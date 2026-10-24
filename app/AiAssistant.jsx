@@ -26,6 +26,7 @@ import AiMessage from './AiMessage.jsx';
 import './ai-assistant.css';
 import { translate } from '../src/localization.js';
 import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
+import BIRDS from '../src/ai-birds.json';
 
 const providers = [
   ['codex', 'Codex / ChatGPT'],
@@ -81,6 +82,12 @@ const tools = [
   },
 ];
 const DOCK_WIDTH = 'mdlxl-ai-width';
+// A steady colour per bird, spread around the colour wheel in naming order.
+const birdColor = name => {
+  const [base, round] = String(name || '').split(' ');
+  const index = Math.max(0, BIRDS.indexOf(base)) + (Number(round) > 1 ? (Number(round) - 1) * BIRDS.length : 0);
+  return `hsl(${Math.round((index * 137.508) % 360)} 62% 46%)`;
+};
 // Each model file (or unsaved tab) has its own organiser chat.
 const modelKeyOf = (path, documentId) =>
   path ? 'file:' + String(path).replaceAll('/', '\\').toLowerCase() : 'unsaved:' + documentId;
@@ -187,12 +194,12 @@ function ToolPart({ part }) {
 function WorkerPart({ part, onOpen }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={'ai-worker-row ai-worker-' + part.status}>
+    <div className={'ai-worker-row ai-worker-' + part.status} style={{ '--bird': birdColor(part.name) }}>
       <button type="button" className="ai-part-toggle" title={'Open ' + part.name + "'s chat"} onClick={() => onOpen?.(part.workerId)}>
         <span className="ai-step-icon" aria-hidden="true">
           {part.status === 'working' ? <LoaderCircle size={13} className="ai-spin" /> : part.status === 'failed' ? <X size={13} /> : <Bird size={13} />}
         </span>
-        <b translate="no">{part.name}</b>
+        <b translate="no" style={{ color: birdColor(part.name) }}>{part.name}</b>
         <span className="ai-step-detail">{part.job}</span>
         <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'failed' ? 'stopped' : 'done'}</span>
       </button>
@@ -741,7 +748,16 @@ export default function AiAssistant({ bridge }) {
               onPointerDown={resizeStart}
             />
             <header className="ai-heading">
-              <strong>AI{viewWorker ? ' · ' + viewWorker.name : earlierView ? ' · earlier chat' : ''}</strong>
+              <strong>
+                AI
+                {viewWorker ? (
+                  <span style={{ color: birdColor(viewWorker.name) }}>{' · ' + viewWorker.name}</span>
+                ) : earlierView ? (
+                  ' · earlier chat'
+                ) : (
+                  ''
+                )}
+              </strong>
               <button
                 type="button"
                 className="ai-provider-name"
@@ -750,6 +766,49 @@ export default function AiAssistant({ bridge }) {
               >
                 <span translate="no">{providerName}</span>
               </button>
+              <select
+                        className="ai-model ai-header-model"
+                        aria-label="Chat model"
+                        title="Model"
+                        value={settings.model || ''}
+                        disabled={busy || authBusy}
+                        onChange={event =>
+                          action(async () => {
+                            const value = await window.desktop.aiConfigure({
+                              ...settings,
+                              model: event.target.value,
+                              apiKey,
+                            });
+                            setSettings(value);
+                            setApiKey('');
+                          })
+                        }
+                      >
+                        <option value="">Default model</option>
+                        {settings.model && !models.some(model => model.id === settings.model) && (
+                          <option value={settings.model} translate="no">
+                            {settings.model}
+                          </option>
+                        )}
+                        {models.map(model => (
+                          <option key={model.id} value={model.id} translate="no">
+                            {model.name}
+                          </option>
+                        ))}
+                      </select>
+              <button
+                type="button"
+                role="switch"
+                className="ai-icon-button ai-offload-switch"
+                aria-label="Offload Mode"
+                aria-checked={settings.offload !== false}
+                title={OFFLOAD_TIP + (settings.offload !== false ? ' (On: click to turn off.)' : ' (Off: the chat edits the model itself. Click to turn on.)')}
+                disabled={busy}
+                onClick={() => action(async () => setSettings(await window.desktop.aiOffload(settings.offload === false)))}
+              >
+                <Bird size={15} aria-hidden="true" />
+              </button>
+              <span className="ai-heading-gap" />
               <button
                 type="button"
                 className="ai-icon-button"
@@ -800,6 +859,7 @@ export default function AiAssistant({ bridge }) {
                         key={worker.id}
                         type="button"
                         className={'ai-roster-chip ai-roster-' + worker.status}
+                        style={{ '--bird': birdColor(worker.name) }}
                         aria-pressed={view === worker.id}
                         title={`${worker.name}: ${worker.job}. ${Math.round((worker.use || 0) * 100)}% of its memory used.${worker.status === 'working' && waiting ? ' Paused until you return to ' + waiting + '.' : ''} Click to read or talk to ${worker.name} directly.`}
                         onClick={() => setView(worker.id)}
@@ -837,17 +897,6 @@ export default function AiAssistant({ bridge }) {
                 )}
                 {settingsOpen && (
                   <div className="ai-connection">
-                    <label className="ai-check" title={OFFLOAD_TIP}>
-                      <input
-                        type="checkbox"
-                        checked={settings.offload !== false}
-                        disabled={busy}
-                        onChange={event =>
-                          action(async () => setSettings(await window.desktop.aiOffload(event.target.checked)))
-                        }
-                      />
-                      Offload Mode
-                    </label>
                     {org && (
                       <label title="What happens to this model's AI chats when you save it">
                         After saving
@@ -1026,7 +1075,7 @@ export default function AiAssistant({ bridge }) {
                               onOpenWorker={setView}
                             />
                           ) : message.from === 'organiser' ? (
-                            <details className="ai-from-organiser">
+                            <details className="ai-from-organiser" style={{ '--bird': birdColor(viewWorker?.name) }}>
                               <summary>
                                 <Bird size={12} aria-hidden="true" />
                                 {message.job === 'Handover' ? 'Asked for a handover note' : 'Job from the organiser: ' + (message.job || '')}
@@ -1271,36 +1320,6 @@ export default function AiAssistant({ bridge }) {
                       }}
                     />
                     <span className="ai-footer-end">
-                      <select
-                        className="ai-model"
-                        aria-label="Chat model"
-                        title="Model"
-                        value={settings.model || ''}
-                        disabled={busy || authBusy}
-                        onChange={event =>
-                          action(async () => {
-                            const value = await window.desktop.aiConfigure({
-                              ...settings,
-                              model: event.target.value,
-                              apiKey,
-                            });
-                            setSettings(value);
-                            setApiKey('');
-                          })
-                        }
-                      >
-                        <option value="">Default model</option>
-                        {settings.model && !models.some(model => model.id === settings.model) && (
-                          <option value={settings.model} translate="no">
-                            {settings.model}
-                          </option>
-                        )}
-                        {models.map(model => (
-                          <option key={model.id} value={model.id} translate="no">
-                            {model.name}
-                          </option>
-                        ))}
-                      </select>
                       <span className="ai-awareness">
                         <button
                           type="button"

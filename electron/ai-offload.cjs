@@ -5,29 +5,9 @@ const crypto = require('node:crypto');
 // Offload Mode building blocks: worker names, the per-model organiser registry,
 // recording of streamed replies, steering and cleanup of saved chats.
 
-// Everyday birds only; a model's organiser never reuses a name.
-const BIRDS = [
-  'Crow',
-  'Jackdaw',
-  'Sparrow',
-  'Robin',
-  'Magpie',
-  'Raven',
-  'Owl',
-  'Eagle',
-  'Hawk',
-  'Falcon',
-  'Dove',
-  'Pigeon',
-  'Swallow',
-  'Wren',
-  'Finch',
-  'Starling',
-  'Blackbird',
-  'Gull',
-  'Heron',
-  'Swan',
-];
+// Everyday birds only; a model's organiser never reuses a name. The console
+// colours each bird by its place in this list.
+const BIRDS = require('../src/ai-birds.json');
 function nextBird(used = []) {
   const taken = new Set(used.map(name => name.toLowerCase()));
   for (let round = 1; ; round++)

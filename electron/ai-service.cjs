@@ -556,8 +556,14 @@ class AiService {
       worker =>
         `- ${worker.name}${worker.tiny ? ' (tiny jobs)' : ''}: ${worker.job}; ${Math.round((worker.use || 0) * 100)}% of its memory used`,
     );
+    // Names the organiser can use before the worker exists: "I'll ask Crow to…".
+    const tiny = workers.find(worker => worker.tiny);
+    const names =
+      `\nA new job would go to a new worker called ${nextBird(conversation.birds || [])}.` +
+      (tiny ? ` Tiny jobs go to ${tiny.name}.` : ' The first tiny job starts a tiny-jobs worker with that next free name.');
     return (
       (lines.length ? 'Workers for this model:\n' + lines.join('\n') : 'No workers yet for this model.') +
+      names +
       (entry?.note && conversation.transcript.length <= 2
         ? '\n\nMemory note from earlier work on this model:\n' + entry.note
         : '')

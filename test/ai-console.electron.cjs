@@ -245,6 +245,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('the first worker is called Crow', (await page.locator('.ai-worker-row b').first().innerText()) === 'Crow');
   for (let i = 0; i < 100 && !workerRequests.length; i++) await wait(100);
   check("Crow gets the user's words exactly as written", JSON.stringify(workerRequests[0].messages).includes("The user's message, exactly as written:\\nCut the marked area into its own geoset"));
+  check('the model picker and Offload switch sit in the console header', (await page.locator('.ai-heading select[aria-label="Chat model"]').count()) === 1 && (await page.locator('.ai-heading [role="switch"][aria-label="Offload Mode"]').getAttribute('aria-checked')) === 'true');
+  check('each bird has its own colour', /hsl\(/.test((await crowChip.getAttribute('style')) || ''));
   await crowChip.click();
   await page.waitForSelector('.ai-from-organiser', { timeout: 5000 });
   await page.waitForSelector('.ai-step', { timeout: 15000 });
