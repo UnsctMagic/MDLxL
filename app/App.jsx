@@ -49,7 +49,8 @@ import './material-properties.css';
 import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { HotkeysProvider } from './Hotkeys.jsx';
-import { normalizePreferences, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
+import { APPLICATION_THEMES, normalizePreferences, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
+import { lightDarkChange } from '../src/light-dark-switch.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
@@ -142,6 +143,11 @@ export default function App() {
     window.addEventListener(PANEL_WIDTH_EVENT, resizePanel);
     return () => window.removeEventListener(PANEL_WIDTH_EVENT, resizePanel);
   }, []);
+  function switchLightDark(scheme) {
+    const change = lightDarkChange(preferencesRef.current, scheme);
+    if (!change) { say(`Already using a ${scheme} look.`); return; }
+    changePreferences({ ...preferencesRef.current, ...change }); say(`${APPLICATION_THEMES[preferencesRef.current.theme].name} loaded.`);
+  }
   const changeSensitivity = value => changePreferences({ ...preferencesRef.current, scrollSensitivity: value });
   const changePointerSensitivity = value => changePreferences({ ...preferencesRef.current, pointerSensitivity: value });
   const toggleWheelMode = mode => changePreferences(previous => ({ ...previous, wheelMode: previous.wheelMode === mode ? 'rotate' : mode }));
@@ -1241,6 +1247,7 @@ export default function App() {
     ...Object.fromEntries(SHAPE_TOOLS.map(tool=>['shape:'+tool.toLowerCase(),()=>setDialog({type:'shape',tool})])),
     ...Object.fromEntries(['set','copy','paste','copyPose','delete','clear','selectAll','previous','next'].map(id=>['keyframe:'+id,()=>timelineCommands.current[id]?.()])),
     exit: () => window.desktop?.close?.(), settings: () => setSettingsTab('mouse'), hotkeys: () => setSettingsTab('hotkeys'), graphics: () => setSettingsTab('graphics'), appearanceSettings: () => setSettingsTab('visuals'), configurationSettings: () => setSettingsTab('configuration'), gridSettings: () => setSettingsTab('grid'), gameDataSettings: () => setSettingsTab('gameData'),
+    'theme:dark': () => switchLightDark('dark'), 'theme:light': () => switchLightDark('light'),
     pressedKeys: () => changePreferences(previous=>({...previous,showPressedKeys:!previous.showPressedKeys})), captureSettings:()=>setSettingsTab('capture'),
     importTextures, textureFolder, hide, show: () => setHidden({}),
     cameraToggle: toggleCamera,

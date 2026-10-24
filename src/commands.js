@@ -49,4 +49,6 @@ export const COMMANDS = coreHotkeyDefaults([
     ['forge:shape:mirror','Forge: Mirror detail'],
     ['forge:shape:blend','Forge: Blend faces'],
   ]),
+  // Photoshop's interface-brightness keys.
+  ...group('Settings', [['theme:dark','Darker interface','Shift+F1'],['theme:light','Lighter interface','Shift+F2']]),
 ]).map(action=>action.id.startsWith('paint:')?{...action,scope:'paint'}:action.id.startsWith('forge:shape:')?{...action,scope:'forge-shapes'}:action);
