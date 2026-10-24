@@ -125,15 +125,15 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const panel = await page.locator('.ai-assistant').boundingBox(),
     viewOpen = await canvas.boundingBox(),
     size = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
-  check('console docks at the right edge, full workspace height', Math.abs(panel.x + panel.width - size.width) <= 1 && panel.height > size.height * 0.6, { panel, size });
-  check('viewport makes room instead of being covered', viewOpen.x + viewOpen.width <= panel.x + 1 && viewOpen.width < viewBefore.width, { viewOpen, panel });
+  check('console docks at the left edge, full workspace height', panel.x <= 1 && panel.height > size.height * 0.6, { panel, size });
+  check('viewport makes room instead of being covered', viewOpen.x >= panel.x + panel.width - 1 && viewOpen.width < viewBefore.width, { viewOpen, panel });
   await shot('02-open-empty');
 
   // Resize by its left edge.
   const handle = await page.locator('.ai-resize').boundingBox();
-  await drag([handle.x + 3, handle.y + 200], [handle.x - 117, handle.y + 200], { steps: 8 });
+  await drag([handle.x + 3, handle.y + 200], [handle.x + 123, handle.y + 200], { steps: 8 });
   const wider = await page.locator('.ai-assistant').boundingBox();
-  check('console resizes by dragging its left edge', wider.width - panel.width > 100, { before: panel.width, after: wider.width });
+  check('console resizes by dragging its right edge', wider.width - panel.width > 100, { before: panel.width, after: wider.width });
 
   // Provider connection.
   if (!(await page.getByLabel('AI provider', { exact: true }).isVisible()))

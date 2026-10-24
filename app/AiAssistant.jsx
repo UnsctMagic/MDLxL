@@ -499,7 +499,7 @@ export default function AiAssistant({ bridge }) {
       handle = event.currentTarget;
     handle.setPointerCapture(event.pointerId);
     const move = moveEvent => {
-      const next = Math.round(Math.max(300, Math.min(window.innerWidth * 0.6, startWidth + startX - moveEvent.clientX)));
+      const next = Math.round(Math.max(300, Math.min(window.innerWidth * 0.6, startWidth + moveEvent.clientX - startX)));
       setWidth(next);
     };
     const end = () => {

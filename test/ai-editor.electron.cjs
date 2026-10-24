@@ -630,10 +630,10 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     edge = await panel.locator('.ai-resize').boundingBox();
   await page.mouse.move(edge.x + 3, edge.y + 120);
   await page.mouse.down();
-  await page.mouse.move(edge.x - 137, edge.y + 120, { steps: 6 });
+  await page.mouse.move(edge.x + 143, edge.y + 120, { steps: 6 });
   await page.mouse.up();
   check(
-    'docked chat resizes by dragging its left edge',
+    'docked chat resizes by dragging its right edge',
     (await panel.boundingBox()).width - panelBefore.width > 100,
   );
   await app.evaluate(({ BrowserWindow }) => {

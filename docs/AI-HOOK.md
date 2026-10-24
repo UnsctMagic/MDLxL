@@ -5,7 +5,7 @@ and sign in or enter its API connection. Native connections check the account
 when chat opens. If you are signed out, setup opens and **Sign in to send** keeps
 your draft while you complete sign-in in the browser. After **Signed in.** appears,
 click **Send**. Cancelled or failed sign-in keeps the draft and attached images.
-The AI console docks at the right edge of the workspace; drag its left edge to
+The AI console docks at the left edge of the workspace; drag its right edge to
 make it wider. The viewport makes room while it is open and gets the space back
 when you close it. You can keep selecting and editing the model while it is open.
 The model chooser in the prompt box shows the available Codex models after
