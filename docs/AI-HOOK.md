@@ -5,11 +5,12 @@ and sign in or enter its API connection. Native connections check the account
 when chat opens. If you are signed out, setup opens and **Sign in to send** keeps
 your draft while you complete sign-in in the browser. After **Signed in.** appears,
 click **Send**. Cancelled or failed sign-in keeps the draft and attached images.
-The chat is a movable, resizable window;
-you can keep selecting and editing the model while it is open.
-The model chooser beside the provider shows the available Codex models after
-sign-in. **Connection** holds provider settings; **Advanced connection** contains
-the optional CLI executable path. The panel follows MDLxL's current appearance,
+The AI console docks at the left edge of the workspace; drag its right edge to
+make it wider. The viewport makes room while it is open and gets the space back
+when you close it. You can keep selecting and editing the model while it is open.
+The model chooser in the prompt box shows the available Codex models after
+sign-in. The settings button (or the provider name) opens **Connection** with the
+provider settings; **Advanced connection** contains the optional CLI executable path. The panel follows MDLxL's current appearance,
 and replies format paragraphs, lists, bold text and code without executing HTML.
 
 Viewport captures copy the renderer's current scene and selection overlays without
@@ -19,16 +20,134 @@ discovery, while **Reading MDLxL help** means reading the manual. A recoverable
 tool-error status clears when the next tool succeeds; failed tasks still show
 their actual error.
 
-The [Warcraft III SD rulebook](AI-SD-RULEBOOK.md) supplies the same default modeling
-constraints to embedded providers and external MCP clients. It preserves the
-model's authored style and the user's explicit request while discouraging
-unrequested subdivision, dense animation baking, PBR conversion and decorative
-complexity. All tools remain available. The [reference study](AI-SD-REFERENCE-STUDY.md)
-records 3,448 distinct installed Blizzard models and 705 models from the first
-100 highest-rated approved Hive SD resources, with visual-study limits and source
-links. These guides are also available through `mdlxl_help`. No extra AI requests
-are started by having the rulebook installed.
-**Continuous awareness** is an optional switch below the model/selection strip.
+### Watching and steering the AI
+
+While the AI works, the console shows what it says, its **Thinking** (live, then
+folded into **Thought process**; click to read it again) and each editor step it
+takes with a spinner, check mark or cross. Click a step to see what it sent and
+what came back. Providers that do not expose thinking simply show their text and
+steps. Claude API models from 4.6 on show a summary of their thinking.
+
+You can keep typing while it works: **Enter** sends the message into the running
+task (the button becomes **Steer**) and it appears in the chat where you sent it,
+marked "Sent while the AI was working". The AI picks it up at its next step; if it
+had just finished, the message starts a follow-up turn on the same task. **Stop**
+(the square) cancels; applied edits stay in Undo.
+
+### Offload Mode: an organiser per model and its birds
+
+Each model has its own AI chat: switch model tabs to switch chats. With **Offload
+Mode** on (the default; the bird switch in the console header, next to the model
+picker) that chat is an organiser. It does not edit the model itself: it hands each
+job to a worker with a simple bird name (the first one of a chat is a corvid, the
+rest are picked at random), and the
+worker does the work with its own memory. The organiser speaks of birds by name
+("I'll ask a Crow to…", "the Crow is still…") and each bird keeps its own colour in the chat. This keeps the organiser small and fast, so long sessions do not run
+into compacting.
+
+- Your message reaches the worker exactly as you wrote it, together with your
+  selection and drawings; the organiser only adds instructions.
+- Follow-ups go back to the bird that did the job. Small jobs share one tiny-jobs
+  bird. Name a bird ("ask Crow to…") to choose it yourself.
+- A bird whose memory is half full writes a handover note and retires; a new bird
+  takes over from the note.
+- One bird edits the model at a time.
+- The chips above the chat show the organiser and its birds (spinner: working,
+  pause: waiting for you). Click a bird to read its chat, watch its thinking and
+  steps, or talk to it directly. Retired birds and earlier chats of this model
+  stay readable under **Retired**. **New chat** starts a new organiser for the model.
+- If you switch to another model tab while a bird works, it pauses before its next
+  step ("Paused until you return to …") and carries on when you come back.
+
+After you save a model the AI worked on, MDLxL asks how to tidy its chats:
+**Keep everything**, **Keep a summary** (the organiser writes a memory note, then
+all chats, screenshots and the copies Codex or Claude keep are deleted; the next
+organiser for this model starts with the note) or **Wipe it all**. **Remember for
+this model** skips the question next time; **After saving** in the connection
+settings changes the remembered choice.
+
+With Offload Mode off, the model's chat edits directly, as one assistant.
+
+### Marker and Pen
+
+The prompt box has **Marker**, **Pen** and **Eraser**. They draw notes on the
+model for the AI and never change the model, its Undo history or saved files.
+
+- **Marker**: drag over the model to highlight an area, e.g. "cut this area into
+  its own geoset". The AI gets the vertices under the marker on the side you drew.
+- **Pen**: scribble a line or outline, also off the model, e.g. draw the muscle
+  shape you want and ask for "more shape here like this".
+- **Eraser**: drag over notes to remove them. The drawings chip above the prompt
+  undoes the last note or clears all notes on this model.
+
+The colored dot picks a color per tool (red, yellow, green, blue); the AI gets the
+color name, so colors can mean different things. Drawing uses the left button in
+Work mode; Alt+drag, the camera toggle and the other mouse buttons keep their
+normal camera actions, so you can turn the model and keep drawing. Esc or a second
+click on the tool stops drawing. Choosing a tool outside the Vertices editor
+switches to it. Notes belong to their model tab, hide while the console is closed
+and come back when it reopens. Each prompt sends them as `context.annotations`
+(model-space points, colors and covered vertices); a message sent while the AI
+works includes the current notes, and viewport captures show them.
+
+### SD Brain
+
+**SD Brain** is a switch in the AI console header, the brain icon next to the
+Offload Mode bird (off until you turn it on; it
+is remembered across restarts, providers and new chats). It is art direction for
+your prompts, not a library of models to copy:
+
+- **Art direction first.** Every request sent with SD Brain on first goes to an
+  art director: one short AI turn without tools that turns your words into an SD
+  art brief (goal, role and size with a triangle and texture budget, silhouette,
+  shape language, palette, one focal motif, what is painted rather than modelled,
+  pitfalls to avoid, and checks for the result). The brief carries the Warcraft III
+  style rules learned from Blizzard's models, so a short or weak prompt ("make a
+  sword", "evil cup") still gets a coherent SD result, and a subject Warcraft never
+  had ("a chalice worthy of Mordor") becomes SD shapes and symbols in that spirit.
+  The brief shows as a collapsed **Art direction** row in the chat; the AI that
+  does the work (or the Offload worker) receives it with your own words, which come
+  first. Edits, UV mapping, cleanup and animation get a plan and a list of what to
+  preserve instead of a new design.
+- **Build, don't copy.** The AI does not search for, load or copy Warcraft or other
+  models as a starting point unless you ask for it.
+- **SD Kit.** New props are built with `src/sd-kit.js`: solid parts (turned shapes
+  such as cups and stems, extruded outlines such as blades and emblems, spikes,
+  rings and gems) that commit as one geoset with one hand-painted texture (light
+  from above, dark creases and contact shadows, bright edges, a limited palette,
+  painted runes, rivets, eyes or gems). The AI chooses shapes and materials; the kit
+  paints, so textures no longer depend on the AI writing pixels.
+- **Saving stays possible.** An AI edit that would leave the model unsavable is
+  refused with a plain explanation, so a malformed part cannot block later review,
+  Undo or saving.
+
+- The state is captured when a task starts. Toggling during a task changes the
+  next task, not the running one; a resumed task keeps its own state. Toggling
+  starts no AI request and does not touch the model.
+- The same policy text (`src/ai-sd-rules.js`: the SD Brain behavior plus the
+  [Warcraft III SD rulebook](AI-SD-RULEBOOK.md)) goes into the trusted
+  instructions of every turn for Codex, Claude Code and API providers. When it is
+  off, each turn carries an explicit "off" state, so an earlier "on" in the chat
+  history cannot keep applying. Offload workers inherit the organiser task's
+  state, and with SD Brain on the organiser may look at a capture of the combined
+  result. External MCP clients read the current state and instructions in every
+  `mdlxl_context` result (`sdBrain`).
+- Review: with SD Brain on, `mdlxl_review finish` with outcome passed needs a
+  verdict for each criterion (fidelity, silhouette, sd-identity, coherence,
+  craftsmanship, detail-value, motion, preservation): passed, needs-correction,
+  unverified or not-applicable, each with an observation. Every `mdlxl_review
+  inspect` also returns front, back, left and right views, so a part that only
+  works from one side is seen; the user's camera view is restored afterwards.
+  A pass is refused while
+  a criterion needs correction; the same criterion failing three times stops
+  further revisions. Missing textures or a provider without image input leave
+  appearance criteria unverified. A renderer preview is not gameplay acceptance.
+- The [reference study](AI-SD-REFERENCE-STUDY.md) (3,448 distinct installed
+  Blizzard models and 646 models from 90 approved Hive SD resources whose authors
+  allow use and editing with credit, with limits, credits and source links) is
+  available through `mdlxl_help`; it is not sent with every prompt.
+
+**Continuous awareness** is an optional switch (the eye) in the prompt box.
 It starts off and remembers your choice. When on, real editor changes update the
 connected AI's context: document/revision, marked vertices, selected bones/keys,
 camera angles, workspace and animation frame. Changes are coalesced; there is no

@@ -1285,14 +1285,14 @@
   },
   "hive": {
     "source": "https://www.hiveworkshop.com/repositories/classic-sd-models.530/?order=rating&state%5Bapproved%5D=1",
-    "selection": "First 100 resources in the native highest-rating sort of the approved Classic SD category, not a manual re-sort of star averages",
+    "selection": "Approved Classic SD resources from the first 100 of Hive's native highest-rating sort whose own terms allow use and editing with credit (90 resources)",
     "snapshot": "2026-10-24T14:37:26.832Z",
-    "resources": 100,
-    "models": 705,
-    "uniqueModelHashes": 705,
+    "resources": 90,
+    "models": 646,
+    "uniqueModelHashes": 646,
     "parseFailures": 0,
     "ratingRange": [
-      4.79487,
+      4.8,
       5
     ],
     "voteRange": [
@@ -1300,122 +1300,122 @@
       174
     ],
     "summary": {
-      "count": 705,
+      "count": 646,
       "byRole": {
         "unit": {
-          "count": 194,
+          "count": 187,
           "bytes": {
-            "count": 194,
+            "count": 187,
             "min": 2471,
-            "p10": 20816.100000000002,
-            "p25": 97396.5,
-            "median": 137678.5,
-            "p75": 227799.5,
-            "p90": 320311.7,
-            "p95": 375039.2,
+            "p10": 18131.400000000005,
+            "p25": 96323.5,
+            "median": 136566,
+            "p75": 221646,
+            "p90": 314122.00000000006,
+            "p95": 372625.79999999993,
             "max": 673107
           },
           "vertices": {
-            "count": 194,
+            "count": 187,
             "min": 8,
-            "p10": 324.20000000000005,
-            "p25": 858.5,
-            "median": 1172.5,
-            "p75": 1775.5,
-            "p90": 3352.5000000000023,
-            "p95": 4964.349999999999,
+            "p10": 303.60000000000014,
+            "p25": 848.5,
+            "median": 1168,
+            "p75": 1763,
+            "p90": 3406.4,
+            "p95": 4971.7,
             "max": 13444
           },
           "triangles": {
-            "count": 194,
+            "count": 187,
             "min": 4,
-            "p10": 138.6,
-            "p25": 528.5,
-            "median": 907.5,
-            "p75": 1371,
-            "p90": 2127.1000000000026,
-            "p95": 3158.5499999999993,
+            "p10": 134,
+            "p25": 526,
+            "median": 891,
+            "p75": 1356,
+            "p90": 2081.2000000000007,
+            "p95": 3119,
             "max": 5345
           },
           "visibleTriangles": {
-            "count": 194,
+            "count": 187,
             "min": 4,
-            "p10": 131,
-            "p25": 439,
-            "median": 776.5,
-            "p75": 1250.25,
-            "p90": 1872.6000000000004,
-            "p95": 2620.4499999999985,
+            "p10": 115.20000000000005,
+            "p25": 438.5,
+            "median": 704,
+            "p75": 1238.5,
+            "p90": 1867.2,
+            "p95": 2479.999999999998,
             "max": 5290
           },
           "geosets": {
-            "count": 194,
+            "count": 187,
             "min": 1,
             "p10": 2,
-            "p25": 6,
+            "p25": 5.5,
             "median": 9,
-            "p75": 18.75,
+            "p75": 18,
             "p90": 25,
-            "p95": 28.349999999999994,
+            "p95": 28,
             "max": 45
           },
           "bones": {
-            "count": 194,
+            "count": 187,
             "min": 1,
             "p10": 6,
             "p25": 23,
-            "median": 35.5,
+            "median": 35,
             "p75": 46,
-            "p90": 69,
-            "p95": 78.39999999999998,
+            "p90": 68.4,
+            "p95": 75.69999999999999,
             "max": 300
           },
           "materials": {
-            "count": 194,
+            "count": 187,
             "min": 1,
             "p10": 2,
             "p25": 4,
             "median": 7,
             "p75": 11,
             "p90": 16,
-            "p95": 18.69999999999999,
+            "p95": 18,
             "max": 38
           },
           "textures": {
-            "count": 194,
+            "count": 187,
             "min": 1,
             "p10": 3,
             "p25": 5,
             "median": 8,
-            "p75": 11.75,
+            "p75": 11,
             "p90": 16,
             "p95": 19,
-            "max": 35
+            "max": 30
           },
           "keys": {
-            "count": 194,
+            "count": 187,
             "min": 5,
-            "p10": 85.3,
-            "p25": 1584.25,
-            "median": 2561.5,
-            "p75": 4580,
-            "p90": 6476.7,
-            "p95": 8966.199999999997,
+            "p10": 81.80000000000001,
+            "p25": 1562,
+            "median": 2544,
+            "p75": 4325.5,
+            "p90": 6438.200000000001,
+            "p95": 8432.2,
             "max": 20464
           },
           "duplicatePositionRatio": {
-            "count": 194,
+            "count": 187,
             "min": 0,
-            "p10": 0.23131689085078916,
-            "p25": 0.33689281511929875,
-            "median": 0.45898568566823345,
-            "p75": 0.567516837048087,
-            "p90": 0.7678969418312714,
-            "p95": 0.797076269051444,
+            "p10": 0.23590580217523224,
+            "p25": 0.33764272985281496,
+            "median": 0.45982142857142855,
+            "p75": 0.5922924831409102,
+            "p90": 0.7689736531655526,
+            "p95": 0.7980092874141828,
             "max": 0.8694779116465864
           },
           "maxInfluences": {
-            "count": 194,
+            "count": 187,
             "min": 1,
             "p10": 1,
             "p25": 2,
@@ -1427,53 +1427,53 @@
           }
         },
         "portrait": {
-          "count": 35,
+          "count": 31,
           "bytes": {
-            "count": 35,
+            "count": 31,
             "min": 19305,
-            "p10": 26945.2,
-            "p25": 31310.5,
-            "median": 37419,
-            "p75": 51841.5,
-            "p90": 63140.80000000001,
-            "p95": 80630.59999999995,
+            "p10": 25762,
+            "p25": 30913,
+            "median": 36626,
+            "p75": 47295.5,
+            "p90": 58489,
+            "p95": 84253,
             "max": 94176
           },
           "vertices": {
-            "count": 35,
+            "count": 31,
             "min": 213,
-            "p10": 298.8,
-            "p25": 408,
+            "p10": 294,
+            "p25": 381.5,
             "median": 586,
-            "p75": 729,
-            "p90": 1143.4,
-            "p95": 1648.8999999999971,
+            "p75": 766.5,
+            "p90": 1175,
+            "p95": 1847.5,
             "max": 2344
           },
           "triangles": {
-            "count": 35,
+            "count": 31,
             "min": 202,
-            "p10": 225,
-            "p25": 278,
-            "median": 447,
-            "p75": 681,
-            "p90": 774.4,
-            "p95": 782.3,
+            "p10": 221,
+            "p25": 275,
+            "median": 412,
+            "p75": 665,
+            "p90": 782,
+            "p95": 782.5,
             "max": 1091
           },
           "visibleTriangles": {
-            "count": 35,
+            "count": 31,
             "min": 202,
-            "p10": 225,
-            "p25": 278,
-            "median": 447,
-            "p75": 669,
-            "p90": 774.4,
-            "p95": 782.3,
+            "p10": 221,
+            "p25": 275,
+            "median": 412,
+            "p75": 653,
+            "p90": 782,
+            "p95": 782.5,
             "max": 1091
           },
           "geosets": {
-            "count": 35,
+            "count": 31,
             "min": 2,
             "p10": 3,
             "p25": 5,
@@ -1484,193 +1484,193 @@
             "max": 20
           },
           "bones": {
-            "count": 35,
+            "count": 31,
             "min": 3,
-            "p10": 3.8000000000000007,
-            "p25": 8,
-            "median": 12,
-            "p75": 14,
-            "p90": 21,
-            "p95": 23.299999999999997,
-            "max": 28
+            "p10": 3,
+            "p25": 7.5,
+            "median": 11,
+            "p75": 13,
+            "p90": 14,
+            "p95": 15.5,
+            "max": 24
           },
           "materials": {
-            "count": 35,
+            "count": 31,
             "min": 2,
             "p10": 3,
             "p25": 4,
             "median": 6,
-            "p75": 8,
-            "p90": 11,
-            "p95": 13,
+            "p75": 7.5,
+            "p90": 8,
+            "p95": 12,
             "max": 20
           },
           "textures": {
-            "count": 35,
+            "count": 31,
             "min": 1,
-            "p10": 3.4000000000000004,
+            "p10": 4,
             "p25": 4,
             "median": 6,
             "p75": 7,
-            "p90": 11.800000000000004,
-            "p95": 13.299999999999997,
+            "p90": 8,
+            "p95": 13.5,
             "max": 20
           },
           "keys": {
-            "count": 35,
+            "count": 31,
             "min": 34,
-            "p10": 113.2,
-            "p25": 167.5,
-            "median": 382,
-            "p75": 432,
-            "p90": 659.8000000000001,
-            "p95": 714.3999999999999,
+            "p10": 108,
+            "p25": 164,
+            "median": 364,
+            "p75": 406.5,
+            "p90": 537,
+            "p95": 668.5,
             "max": 768
           },
           "duplicatePositionRatio": {
-            "count": 35,
+            "count": 31,
             "min": 0.10945273631840796,
-            "p10": 0.18863723335142885,
-            "p25": 0.34058552188789065,
-            "median": 0.43478260869565216,
-            "p75": 0.5832928006176414,
-            "p90": 0.6748070183475733,
-            "p95": 0.7184194870188433,
+            "p10": 0.15654952076677317,
+            "p25": 0.36389581217883626,
+            "median": 0.445578231292517,
+            "p75": 0.5940335091529632,
+            "p90": 0.7141638225255973,
+            "p95": 0.7212565966810074,
             "max": 0.7531865585168018
           },
           "maxInfluences": {
-            "count": 35,
+            "count": 31,
             "min": 1,
             "p10": 1,
             "p25": 1,
             "median": 2,
-            "p75": 3,
-            "p90": 4,
-            "p95": 5,
-            "max": 5
+            "p75": 2,
+            "p90": 3,
+            "p95": 4,
+            "max": 4
           }
         },
         "building": {
-          "count": 174,
+          "count": 139,
           "bytes": {
-            "count": 174,
-            "min": 5657,
-            "p10": 53484.200000000004,
-            "p25": 93687.75,
-            "median": 150177,
-            "p75": 218869.5,
-            "p90": 411389.6000000001,
-            "p95": 630457.4,
+            "count": 139,
+            "min": 7324,
+            "p10": 81423.4,
+            "p25": 111688,
+            "median": 158360,
+            "p75": 245465,
+            "p90": 467864.8,
+            "p95": 635151.7999999998,
             "max": 1457664
           },
           "vertices": {
-            "count": 174,
+            "count": 139,
             "min": 1,
-            "p10": 1017.3,
-            "p25": 1870.25,
-            "median": 3111,
-            "p75": 4839.25,
-            "p90": 10226.6,
-            "p95": 14554.899999999998,
+            "p10": 1349.6,
+            "p25": 2273.5,
+            "median": 3343,
+            "p75": 5226,
+            "p90": 11130.000000000002,
+            "p95": 15000.199999999995,
             "max": 37300
           },
           "triangles": {
-            "count": 174,
+            "count": 139,
             "min": 1,
-            "p10": 575.9000000000001,
-            "p25": 1126.75,
-            "median": 1869.5,
-            "p75": 2771.75,
-            "p90": 5766.200000000001,
-            "p95": 9321.8,
+            "p10": 838.4000000000001,
+            "p25": 1271.5,
+            "median": 1971,
+            "p75": 2971.5,
+            "p90": 6406.6,
+            "p95": 9349.399999999998,
             "max": 25409
           },
           "visibleTriangles": {
-            "count": 174,
+            "count": 139,
             "min": 0,
-            "p10": 218.60000000000002,
-            "p25": 528.75,
-            "median": 873.5,
-            "p75": 1381.25,
-            "p90": 3353.800000000005,
-            "p95": 4326.099999999999,
+            "p10": 242.40000000000003,
+            "p25": 551.5,
+            "median": 859,
+            "p75": 1667.5,
+            "p90": 3902.8,
+            "p95": 4431.799999999996,
             "max": 13379
           },
           "geosets": {
-            "count": 174,
+            "count": 139,
             "min": 1,
-            "p10": 4,
-            "p25": 9.25,
-            "median": 18.5,
-            "p75": 25,
-            "p90": 32,
-            "p95": 49.349999999999994,
+            "p10": 5,
+            "p25": 14,
+            "median": 20,
+            "p75": 26,
+            "p90": 34.2,
+            "p95": 50.49999999999997,
             "max": 79
           },
           "bones": {
-            "count": 174,
+            "count": 139,
             "min": 1,
-            "p10": 4,
-            "p25": 10,
-            "median": 14,
-            "p75": 21,
-            "p90": 38.70000000000002,
-            "p95": 46,
+            "p10": 4.800000000000001,
+            "p25": 11,
+            "median": 15,
+            "p75": 24.5,
+            "p90": 40.2,
+            "p95": 46.29999999999998,
             "max": 215
           },
           "materials": {
-            "count": 174,
-            "min": 1,
-            "p10": 3,
-            "p25": 7,
+            "count": 139,
+            "min": 2,
+            "p10": 5,
+            "p25": 8,
             "median": 10,
             "p75": 12,
             "p90": 15,
-            "p95": 16,
+            "p95": 17,
             "max": 34
           },
           "textures": {
-            "count": 174,
-            "min": 2,
-            "p10": 6.600000000000001,
-            "p25": 14,
-            "median": 17,
+            "count": 139,
+            "min": 3,
+            "p10": 11.600000000000001,
+            "p25": 15,
+            "median": 18,
             "p75": 20,
             "p90": 23,
-            "p95": 24,
+            "p95": 24.099999999999994,
             "max": 64
           },
           "keys": {
-            "count": 174,
-            "min": 0,
-            "p10": 132.1,
-            "p25": 245,
-            "median": 352.5,
-            "p75": 472,
-            "p90": 1108.8000000000043,
-            "p95": 1555.8999999999999,
+            "count": 139,
+            "min": 80,
+            "p10": 224.4,
+            "p25": 284,
+            "median": 388,
+            "p75": 481,
+            "p90": 1260.4,
+            "p95": 1619.299999999999,
             "max": 12841
           },
           "duplicatePositionRatio": {
-            "count": 174,
+            "count": 139,
             "min": 0,
-            "p10": 0.24783893421511585,
-            "p25": 0.3892379721416328,
-            "median": 0.4907239428606073,
-            "p75": 0.5423473046534545,
-            "p90": 0.6340018028392446,
-            "p95": 0.7512129210658621,
+            "p10": 0.32186768486214856,
+            "p25": 0.43189611332647126,
+            "median": 0.5038789759503491,
+            "p75": 0.556746780777045,
+            "p90": 0.7050430412191183,
+            "p95": 0.771560885491094,
             "max": 0.8225806451612904
           },
           "maxInfluences": {
-            "count": 174,
+            "count": 139,
             "min": 1,
             "p10": 1,
             "p25": 1,
             "median": 1,
-            "p75": 1,
+            "p75": 2,
             "p90": 2,
-            "p95": 2.3499999999999943,
+            "p95": 3,
             "max": 5
           }
         },
@@ -1923,243 +1923,119 @@
           }
         },
         "doodad": {
-          "count": 20,
+          "count": 8,
           "bytes": {
-            "count": 20,
+            "count": 8,
             "min": 13780,
-            "p10": 14374.4,
-            "p25": 24553.25,
-            "median": 110261.5,
-            "p75": 234716.75,
-            "p90": 294664.9,
-            "p95": 357109.95000000054,
-            "max": 1108730
+            "p10": 13833.2,
+            "p25": 14288,
+            "median": 21158,
+            "p75": 30161,
+            "p90": 31085.6,
+            "p95": 31096.8,
+            "max": 31108
           },
           "vertices": {
-            "count": 20,
-            "min": 285,
+            "count": 8,
+            "min": 360,
             "p10": 360,
-            "p25": 630,
-            "median": 2306.5,
-            "p75": 5671.25,
-            "p90": 6823.600000000001,
-            "p95": 8862.900000000014,
-            "max": 27842
+            "p25": 360,
+            "median": 540,
+            "p75": 722,
+            "p90": 728,
+            "p95": 728,
+            "max": 728
           },
           "triangles": {
-            "count": 20,
+            "count": 8,
             "min": 120,
             "p10": 120,
-            "p25": 223,
-            "median": 1253,
-            "p75": 3359.25,
-            "p90": 4491.4000000000015,
-            "p95": 6007.25000000001,
-            "max": 19008
+            "p25": 120,
+            "median": 180,
+            "p75": 241,
+            "p90": 244,
+            "p95": 244,
+            "max": 244
           },
           "visibleTriangles": {
-            "count": 20,
+            "count": 8,
             "min": 120,
             "p10": 120,
-            "p25": 223,
-            "median": 431.5,
-            "p75": 1210.5,
-            "p90": 1794.0000000000002,
-            "p95": 1947.8500000000006,
-            "max": 2648
+            "p25": 120,
+            "median": 180,
+            "p75": 241,
+            "p90": 244,
+            "p95": 244,
+            "max": 244
           },
           "geosets": {
-            "count": 20,
-            "min": 1,
-            "p10": 1,
-            "p25": 1.75,
-            "median": 16,
-            "p75": 20,
-            "p90": 22.900000000000013,
-            "p95": 31.900000000000013,
-            "max": 49
-          },
-          "bones": {
-            "count": 20,
+            "count": 8,
             "min": 1,
             "p10": 1,
             "p25": 1,
-            "median": 11.5,
-            "p75": 20.25,
-            "p90": 37.90000000000001,
-            "p95": 47.40000000000002,
-            "max": 74
+            "median": 1.5,
+            "p75": 2.5,
+            "p90": 4,
+            "p95": 4,
+            "max": 4
+          },
+          "bones": {
+            "count": 8,
+            "min": 1,
+            "p10": 1,
+            "p25": 1,
+            "median": 1,
+            "p75": 1.5,
+            "p90": 3,
+            "p95": 3,
+            "max": 3
           },
           "materials": {
-            "count": 20,
+            "count": 8,
             "min": 1,
             "p10": 1,
-            "p25": 1.75,
-            "median": 8,
-            "p75": 10.25,
-            "p90": 13,
-            "p95": 13.05,
-            "max": 14
+            "p25": 1,
+            "median": 1.5,
+            "p75": 4,
+            "p90": 4,
+            "p95": 4,
+            "max": 4
           },
           "textures": {
-            "count": 20,
+            "count": 8,
             "min": 1,
             "p10": 1,
-            "p25": 3.75,
-            "median": 15,
-            "p75": 17.25,
-            "p90": 19.1,
-            "p95": 20.150000000000002,
-            "max": 23
+            "p25": 2.5,
+            "median": 3.5,
+            "p75": 10,
+            "p90": 10,
+            "p95": 10,
+            "max": 10
           },
           "keys": {
-            "count": 20,
+            "count": 8,
             "min": 0,
-            "p10": 2.9000000000000004,
-            "p25": 32,
-            "median": 295,
-            "p75": 442.25,
-            "p90": 696.6000000000001,
-            "p95": 825.2000000000004,
-            "max": 1285
+            "p10": 1.4000000000000001,
+            "p25": 2.75,
+            "median": 11,
+            "p75": 43.75,
+            "p90": 46.6,
+            "p95": 47.3,
+            "max": 48
           },
           "duplicatePositionRatio": {
-            "count": 20,
-            "min": 0.056140350877192984,
-            "p10": 0.24071264510104726,
-            "p25": 0.33357219113346354,
-            "median": 0.5005532486138474,
+            "count": 8,
+            "min": 0.8186813186813187,
+            "p10": 0.8186813186813187,
+            "p25": 0.825503663003663,
+            "median": 0.8277777777777777,
             "p75": 0.8277777777777777,
             "p90": 0.8277777777777777,
             "p95": 0.8277777777777777,
             "max": 0.8277777777777777
           },
           "maxInfluences": {
-            "count": 20,
-            "min": 1,
-            "p10": 1,
-            "p25": 1,
-            "median": 1,
-            "p75": 2,
-            "p90": 2,
-            "p95": 2.150000000000002,
-            "max": 5
-          }
-        },
-        "other": {
-          "count": 1,
-          "bytes": {
-            "count": 1,
-            "min": 18060,
-            "p10": 18060,
-            "p25": 18060,
-            "median": 18060,
-            "p75": 18060,
-            "p90": 18060,
-            "p95": 18060,
-            "max": 18060
-          },
-          "vertices": {
-            "count": 1,
-            "min": 410,
-            "p10": 410,
-            "p25": 410,
-            "median": 410,
-            "p75": 410,
-            "p90": 410,
-            "p95": 410,
-            "max": 410
-          },
-          "triangles": {
-            "count": 1,
-            "min": 327,
-            "p10": 327,
-            "p25": 327,
-            "median": 327,
-            "p75": 327,
-            "p90": 327,
-            "p95": 327,
-            "max": 327
-          },
-          "visibleTriangles": {
-            "count": 1,
-            "min": 327,
-            "p10": 327,
-            "p25": 327,
-            "median": 327,
-            "p75": 327,
-            "p90": 327,
-            "p95": 327,
-            "max": 327
-          },
-          "geosets": {
-            "count": 1,
-            "min": 3,
-            "p10": 3,
-            "p25": 3,
-            "median": 3,
-            "p75": 3,
-            "p90": 3,
-            "p95": 3,
-            "max": 3
-          },
-          "bones": {
-            "count": 1,
-            "min": 1,
-            "p10": 1,
-            "p25": 1,
-            "median": 1,
-            "p75": 1,
-            "p90": 1,
-            "p95": 1,
-            "max": 1
-          },
-          "materials": {
-            "count": 1,
-            "min": 3,
-            "p10": 3,
-            "p25": 3,
-            "median": 3,
-            "p75": 3,
-            "p90": 3,
-            "p95": 3,
-            "max": 3
-          },
-          "textures": {
-            "count": 1,
-            "min": 3,
-            "p10": 3,
-            "p25": 3,
-            "median": 3,
-            "p75": 3,
-            "p90": 3,
-            "p95": 3,
-            "max": 3
-          },
-          "keys": {
-            "count": 1,
-            "min": 10,
-            "p10": 10,
-            "p25": 10,
-            "median": 10,
-            "p75": 10,
-            "p90": 10,
-            "p95": 10,
-            "max": 10
-          },
-          "duplicatePositionRatio": {
-            "count": 1,
-            "min": 0.4853658536585366,
-            "p10": 0.4853658536585366,
-            "p25": 0.4853658536585366,
-            "median": 0.4853658536585366,
-            "p75": 0.4853658536585366,
-            "p90": 0.4853658536585366,
-            "p95": 0.4853658536585366,
-            "max": 0.4853658536585366
-          },
-          "maxInfluences": {
-            "count": 1,
+            "count": 8,
             "min": 1,
             "p10": 1,
             "p25": 1,
@@ -2173,46 +2049,46 @@
       },
       "sequenceKinds": {
         "stand": {
-          "count": 847,
+          "count": 817,
           "duration": {
-            "count": 847,
+            "count": 817,
             "min": 34,
             "p10": 1000,
             "p25": 1400,
             "median": 2000,
             "p75": 2667,
-            "p90": 4212.399999999998,
+            "p90": 4086.199999999997,
             "p95": 5267,
             "max": 18000
           },
           "keysPerTrack": {
-            "count": 846,
+            "count": 816,
             "min": 1,
             "p10": 1,
             "p25": 2,
             "median": 3,
             "p75": 5,
-            "p90": 9,
+            "p90": 8.5,
             "p95": 10,
             "max": 33
           },
-          "nonLooping": 11
+          "nonLooping": 10
         },
         "walk": {
-          "count": 245,
+          "count": 235,
           "duration": {
-            "count": 245,
+            "count": 235,
             "min": 600,
             "p10": 766,
             "p25": 800,
             "median": 1000,
             "p75": 1167,
-            "p90": 1413.7999999999993,
-            "p95": 1779.9999999999982,
+            "p90": 1334,
+            "p95": 1676.1999999999994,
             "max": 2334
           },
           "keysPerTrack": {
-            "count": 245,
+            "count": 235,
             "min": 1,
             "p10": 1,
             "p25": 2,
@@ -2225,61 +2101,61 @@
           "nonLooping": 0
         },
         "attack": {
-          "count": 499,
+          "count": 480,
           "duration": {
-            "count": 499,
-            "min": 266,
+            "count": 480,
+            "min": 400,
             "p10": 1000,
             "p25": 1000,
             "median": 1000,
-            "p75": 1134,
+            "p75": 1133,
             "p90": 1333,
-            "p95": 1600,
+            "p95": 1400,
             "max": 2367
           },
           "keysPerTrack": {
-            "count": 499,
+            "count": 480,
             "min": 1,
             "p10": 1,
             "p25": 2,
             "median": 5,
             "p75": 6,
             "p90": 7,
-            "p95": 10,
+            "p95": 9.049999999999955,
             "max": 35
           },
-          "nonLooping": 486
+          "nonLooping": 469
         },
         "death": {
-          "count": 197,
+          "count": 188,
           "duration": {
-            "count": 197,
+            "count": 188,
             "min": 200,
             "p10": 1067,
             "p25": 1667,
-            "median": 2500,
-            "p75": 3167,
-            "p90": 4933.400000000001,
+            "median": 2533,
+            "p75": 3333,
+            "p90": 5033,
             "p95": 5033,
             "max": 9400
           },
           "keysPerTrack": {
-            "count": 197,
+            "count": 188,
             "min": 1,
-            "p10": 2,
+            "p10": 1.8499999999999996,
             "p25": 2,
             "median": 4,
-            "p75": 7.5,
+            "p75": 7.625,
             "p90": 11.5,
-            "p95": 12.099999999999994,
+            "p95": 12,
             "max": 42
           },
-          "nonLooping": 197
+          "nonLooping": 188
         },
         "decay": {
-          "count": 140,
+          "count": 138,
           "duration": {
-            "count": 140,
+            "count": 138,
             "min": 6000,
             "p10": 60000,
             "p25": 60000,
@@ -2290,7 +2166,7 @@
             "max": 60000
           },
           "keysPerTrack": {
-            "count": 140,
+            "count": 138,
             "min": 1,
             "p10": 1,
             "p25": 1,
@@ -2300,49 +2176,49 @@
             "p95": 2,
             "max": 2
           },
-          "nonLooping": 139
+          "nonLooping": 137
         },
         "birth": {
-          "count": 66,
+          "count": 65,
           "duration": {
-            "count": 66,
-            "min": 33,
-            "p10": 116.5,
+            "count": 65,
+            "min": 34,
+            "p10": 220.20000000000005,
             "p25": 667,
-            "median": 1769,
+            "median": 1770,
             "p75": 2333,
             "p90": 2333,
             "p95": 2366,
             "max": 2500
           },
           "keysPerTrack": {
-            "count": 65,
+            "count": 64,
             "min": 1,
             "p10": 1,
             "p25": 2,
             "median": 3,
             "p75": 6,
-            "p90": 9.900000000000002,
+            "p90": 10.050000000000004,
             "p95": 11,
             "max": 13
           },
-          "nonLooping": 65
+          "nonLooping": 64
         },
         "spell": {
-          "count": 253,
+          "count": 241,
           "duration": {
-            "count": 253,
+            "count": 241,
             "min": 649,
             "p10": 1000,
             "p25": 1000,
             "median": 1334,
             "p75": 1667,
-            "p90": 2306.4000000000015,
+            "p90": 2333,
             "p95": 2500,
             "max": 3167
           },
           "keysPerTrack": {
-            "count": 253,
+            "count": 241,
             "min": 1,
             "p10": 1,
             "p25": 2,
@@ -2352,80 +2228,80 @@
             "p95": 10,
             "max": 24
           },
-          "nonLooping": 237
+          "nonLooping": 225
         },
         "morph": {
-          "count": 24,
+          "count": 22,
           "duration": {
-            "count": 24,
+            "count": 22,
             "min": 1000,
             "p10": 1000,
-            "p25": 1425,
-            "median": 1743.5,
-            "p75": 2220,
-            "p90": 3600.099999999999,
-            "p95": 6266.949999999994,
+            "p25": 1275,
+            "median": 1667,
+            "p75": 2000,
+            "p90": 3822.0000000000036,
+            "p95": 6533.649999999998,
             "max": 6667
           },
           "keysPerTrack": {
-            "count": 24,
+            "count": 22,
             "min": 2,
             "p10": 2,
             "p25": 3,
             "median": 4,
-            "p75": 5,
-            "p90": 7,
-            "p95": 11.674999999999988,
-            "max": 13
+            "p75": 4.875,
+            "p90": 5,
+            "p95": 6.899999999999999,
+            "max": 7
           },
-          "nonLooping": 24
+          "nonLooping": 22
         },
         "dissipate": {
-          "count": 67,
+          "count": 63,
           "duration": {
-            "count": 67,
+            "count": 63,
             "min": 41,
             "p10": 2000,
             "p25": 2000,
             "median": 2000,
             "p75": 3000,
-            "p90": 3367,
+            "p90": 3293.6000000000017,
             "p95": 3367,
             "max": 60000
           },
           "keysPerTrack": {
-            "count": 67,
+            "count": 63,
             "min": 1,
             "p10": 1,
             "p25": 1,
-            "median": 1,
+            "median": 2,
             "p75": 2.5,
             "p90": 3,
-            "p95": 3.6999999999999957,
+            "p95": 3.8999999999999986,
             "max": 19
           },
-          "nonLooping": 63
+          "nonLooping": 59
         },
         "portrait": {
-          "count": 526,
+          "count": 520,
           "duration": {
-            "count": 526,
+            "count": 520,
             "min": 667,
             "p10": 1466,
             "p25": 1700,
             "median": 2667,
             "p75": 2934,
             "p90": 3333,
-            "p95": 4124.5,
+            "p95": 4127.049999999998,
             "max": 10000
           },
           "keysPerTrack": {
-            "count": 526,
+            "count": 520,
             "min": 1,
             "p10": 1,
             "p25": 1,
             "median": 2,
-            "p75": 5.375,
+            "p75": 5.625,
             "p90": 8,
             "p95": 9,
             "max": 16
@@ -2434,18 +2310,18 @@
         }
       },
       "versions": {
-        "800": 705
+        "800": 646
       },
-      "withMultiInfluence": 258,
-      "withDuplicatePositions": 593,
-      "withTeamColor": 329,
-      "withHeroGlow": 319,
-      "withEffects": 579,
+      "withMultiInfluence": 239,
+      "withDuplicatePositions": 534,
+      "withTeamColor": 295,
+      "withHeroGlow": 283,
+      "withEffects": 533,
       "withSkinGeosets": 0,
       "withNormalMappedLayers": 0
     },
-    "uniqueSuppliedImages": 1118,
-    "textureDimensionsKnown": 1118,
+    "uniqueSuppliedImages": 1042,
+    "textureDimensionsKnown": 1042,
     "references": [
       {
         "rank": 1,
@@ -2480,20 +2356,6 @@
         "representativeHash": "d1c1cdbf801371fd5e0b906fdc588177b6a54def47174844ab68691ea439922a"
       },
       {
-        "rank": 3,
-        "title": "Lindormr Dragon",
-        "listingAuthor": "olofmoleman",
-        "url": "https://www.hiveworkshop.com/threads/lindormr-dragon.52050/",
-        "rating": 4.94545,
-        "votes": 110,
-        "models": 2,
-        "tags": [
-          "#Unit",
-          "#Neutral / Creep"
-        ],
-        "representativeHash": "accb6ab4ff0ad242c5eaee1b9609428dd857deff80c82f749f06c276d826cf99"
-      },
-      {
         "rank": 4,
         "title": "Old God Pack",
         "listingAuthor": "Explobomb",
@@ -2521,19 +2383,6 @@
           "#Destructible / Tree"
         ],
         "representativeHash": "49a8d8c97209a8769458a14f35b383127aa8e76a98ab0c60ff2f3732b3dd82e8"
-      },
-      {
-        "rank": 6,
-        "title": "Arch Angel - Elenai.",
-        "listingAuthor": "General Frank",
-        "url": "https://www.hiveworkshop.com/threads/arch-angel-elenai.50740/",
-        "rating": 4.90323,
-        "votes": 124,
-        "models": 2,
-        "tags": [
-          "#Hero"
-        ],
-        "representativeHash": "90067d9f7515159310318708e3797abee8e9b113cb0350e38c6967061d2994a1"
       },
       {
         "rank": 7,
@@ -2841,20 +2690,6 @@
         "representativeHash": "7a59ce9e426e68c7db8558ede9adcfae4973a1a6cede211b78d93a6963cead5c"
       },
       {
-        "rank": 27,
-        "title": "Icecrown Overlord",
-        "listingAuthor": "General Frank",
-        "url": "https://www.hiveworkshop.com/threads/icecrown-overlord.48381/",
-        "rating": 4.91071,
-        "votes": 56,
-        "models": 1,
-        "tags": [
-          "#Hero",
-          "#Neutral / Creep"
-        ],
-        "representativeHash": "90bb757016aba094130619080e5e50b94b1c05af1f155b896c02f31f33e89374"
-      },
-      {
         "rank": 28,
         "title": "Turalyon",
         "listingAuthor": "Tauer",
@@ -2964,21 +2799,6 @@
           "#Contest Entries"
         ],
         "representativeHash": "677d89d66cc23e377bccab2d327570580b213e47f15f47bcdaa976bc9fc92b87"
-      },
-      {
-        "rank": 35,
-        "title": "Arthas/Nerzhul merge - Lich king Arthas",
-        "listingAuthor": "General Frank",
-        "url": "https://www.hiveworkshop.com/threads/arthas-nerzhul-merge-lich-king-arthas.90625/",
-        "rating": 4.79487,
-        "votes": 117,
-        "models": 2,
-        "tags": [
-          "#Fantasy",
-          "#Hero",
-          "#Undead"
-        ],
-        "representativeHash": "487626f67e9d011a30e2afbae43cd746714fb1fde1621def0565039c6a9bdd38"
       },
       {
         "rank": 36,
@@ -3106,22 +2926,6 @@
         "representativeHash": "752a5c2ad9979df3037ce3f7b0f136ff01f4fae920f43f7466983a2fbeb108da"
       },
       {
-        "rank": 44,
-        "title": "Stormwind Buildings",
-        "listingAuthor": "bakr",
-        "url": "https://www.hiveworkshop.com/threads/stormwind-buildings.342290/",
-        "rating": 4.97059,
-        "votes": 34,
-        "models": 12,
-        "tags": [
-          "#Historic",
-          "#Fantasy",
-          "#Human",
-          "#Destructible / Tree"
-        ],
-        "representativeHash": "3aa6135cb97f2a29d84e7f44a0b448b83a14b816209b9a84f0e58cef73cb647a"
-      },
-      {
         "rank": 45,
         "title": "Starfall Empire",
         "listingAuthor": "Vinz",
@@ -3211,23 +3015,6 @@
         "representativeHash": "b139e3694e3484cf03697cb226c7e3873042ddd1a1b6d2646d3a0ad40e56fc7a"
       },
       {
-        "rank": 51,
-        "title": "Kultiras Structures and Doodads",
-        "listingAuthor": "bakr",
-        "url": "https://www.hiveworkshop.com/threads/kultiras-structures-and-doodads.338876/",
-        "rating": 5,
-        "votes": 30,
-        "models": 20,
-        "tags": [
-          "#Destructible / Tree",
-          "#Doodad / Decoration",
-          "#Realistic / Non-fiction",
-          "#Building",
-          "#Human"
-        ],
-        "representativeHash": "3c26751124c23d239a536de34292dd1fbb5fbb66132bd705ddd2d33ab2b01f0b"
-      },
-      {
         "rank": 52,
         "title": "Mars the Impaler",
         "listingAuthor": "Jab1z",
@@ -3284,20 +3071,6 @@
           "#Neutral / Creep"
         ],
         "representativeHash": "1ec0fe74f4d1eff2ba6dadc6121b8143210580ac300996250e8ba4130ebd8a4a"
-      },
-      {
-        "rank": 56,
-        "title": "Soul Harvester Scythe",
-        "listingAuthor": "Blood Raven",
-        "url": "https://www.hiveworkshop.com/threads/soul-harvester-scythe.276681/",
-        "rating": 5,
-        "votes": 30,
-        "models": 1,
-        "tags": [
-          "#Attachment",
-          "#Undead"
-        ],
-        "representativeHash": "137a59e6bdb0cb299abaede2767f7285a87b17e7d429e94fc400441880f144f9"
       },
       {
         "rank": 57,
@@ -3451,22 +3224,6 @@
           "#Human"
         ],
         "representativeHash": "ccdad0e5ae4939a1ea63bff05c7de9ad62d34ee879a3ced11959329c9c128e19"
-      },
-      {
-        "rank": 67,
-        "title": "Dwarven Buildings (Dark Iron)",
-        "listingAuthor": "bakr",
-        "url": "https://www.hiveworkshop.com/threads/dwarven-buildings-dark-iron.344306/",
-        "rating": 4.96667,
-        "votes": 30,
-        "models": 15,
-        "tags": [
-          "#Destructible / Tree",
-          "#Realistic / Non-fiction",
-          "#Building",
-          "#Dwarf"
-        ],
-        "representativeHash": "4bb8c8f6fdc0348467a51108921b756b5337a797b1c9b8e057721510fb8caec0"
       },
       {
         "rank": 68,
@@ -3838,21 +3595,6 @@
         "representativeHash": "5e3e1b68a0ba8af428e55d8106d478ec352d5dc4a5c31d68471f966b1e5c18c8"
       },
       {
-        "rank": 92,
-        "title": "Night Elf Blademistress",
-        "listingAuthor": "Nyctaeus",
-        "url": "https://www.hiveworkshop.com/threads/night-elf-blademistress.364399/",
-        "rating": 5,
-        "votes": 24,
-        "models": 1,
-        "tags": [
-          "#Fantasy",
-          "#Hero",
-          "#Night Elf"
-        ],
-        "representativeHash": "7088b4bb5efe2f59fab7422f837b7d6796e3aee26d17b42256f1e72f485c9078"
-      },
-      {
         "rank": 93,
         "title": "Goblin Emperor",
         "listingAuthor": "tillinghast",
@@ -3957,33 +3699,15 @@
           "#Undead"
         ],
         "representativeHash": "2279ab8e26277203f9707bf1d858e5bfa64c04f735106efb5049320934682409"
-      },
-      {
-        "rank": 100,
-        "title": "Spellbringers: Mad Scientist",
-        "listingAuthor": "General Frank",
-        "url": "https://www.hiveworkshop.com/threads/spellbringers-mad-scientist.336981/",
-        "rating": 4.96154,
-        "votes": 26,
-        "models": 3,
-        "tags": [
-          "#Missile",
-          "#Unit",
-          "#Historic",
-          "#Science Fiction",
-          "#Neutral / Creep",
-          "#Human",
-          "#Undead"
-        ],
-        "representativeHash": "8c5d72fb48b7fba73f814f4fecb32ca4fa2cc621c00919709358f0ccbf86af0c"
       }
-    ]
+    ],
+    "usageRule": "Included only when the author allows use and editing with credit, or states no restriction beyond crediting."
   },
   "visual": {
-    "attempted": 228,
-    "rendered": 227,
+    "attempted": 218,
+    "rendered": 217,
     "blizzard": 127,
-    "hive": 100,
+    "hive": 90,
     "failed": [
       {
         "id": "blizzard-83",
@@ -4073,12 +3797,6 @@
         ]
       },
       {
-        "id": "hive-027",
-        "missing": [
-          "Textures\\Clouds8x8.blp"
-        ]
-      },
-      {
         "id": "hive-034",
         "missing": [
           "ReplaceableTextures\\Water\\D_Water00.blp"
@@ -4146,17 +3864,11 @@
         "missing": [
           "Textures\\Clouds8x8.blp"
         ]
-      },
-      {
-        "id": "hive-100",
-        "missing": [
-          "Textures\\Clouds8x8.blp"
-        ]
       }
     ],
     "textureDecodeErrors": 0,
-    "walkModels": 32,
-    "walkFrames": 192
+    "walkModels": 30,
+    "walkFrames": 180
   },
   "limits": [
     "Installed build coverage, not a claim to contain every historical patch/version.",

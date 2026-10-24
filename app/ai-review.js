@@ -99,6 +99,7 @@ export async function reviewAiModel(bridge, args, options) {
     review.phase =
       args.outcome === 'passed' ? 'verified' : args.outcome === 'needs-correction' ? 'correcting' : 'blocked';
     review.summary = args.summary;
+    if (Array.isArray(args.criteria)) review.criteria = args.criteria;
     return reviewStatus(review);
   }
   if (args.action !== 'inspect') throw Error('Unknown review action.');
@@ -145,6 +146,22 @@ export async function reviewAiModel(bridge, args, options) {
     label: 'After the edit',
     image: (await bridge.dispatch('mdlxl_capture', { target: args.target }, options)).image,
   });
+  if (args.turnaround) {
+    // The result from every side: a part that only works from the front shows here.
+    const view = state.view;
+    try {
+      for (const side of ['front', 'back', 'left', 'right']) {
+        await bridge.dispatch('mdlxl_view', { target: args.target, view: side }, options);
+        images.push({
+          label: `After the edit; ${side} view`,
+          image: (await bridge.dispatch('mdlxl_capture', { target: args.target }, options)).image,
+        });
+      }
+    } finally {
+      bridge.requireTarget(args.target);
+      await bridge.dispatch('mdlxl_view', { target: args.target, view }, options);
+    }
+  }
   if (review.animation) {
     const interval =
       state.globalSeqId == null
@@ -194,7 +211,9 @@ export async function reviewAiModel(bridge, args, options) {
       validation,
       poses,
       pendingPreviews: !!drafts,
-      next: 'Inspect the images. Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.',
+      next: args.turnaround
+        ? 'Inspect every image, including each side view. Name the weakest visible spot from each side (gaps, clipping, flat or floating parts, unpainted or noisy texture). Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.'
+        : 'Inspect the images. Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.',
     },
     images,
   };

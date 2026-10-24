@@ -6382,5 +6382,6 @@
   "Task paused. Applied edits are kept.": "Tarea pausada. Se conservan los cambios aplicados.",
   "Resume task": "Reanudar tarea",
   "Checking the result before completing the task.": "Comprobando el resultado antes de completar la tarea.",
-  "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "Detenido. Los cambios aplicados pueden deshacerse. Reanuda la tarea desde el punto guardado."
+  "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "Detenido. Los cambios aplicados pueden deshacerse. Reanuda la tarea desde el punto guardado.",
+  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain: aplica las reglas de diseño SD de Warcraft III a tus peticiones de modelado, completa los detalles rutinarios de dirección artística y revisa el resultado. Admite SD personalizado y detallado."
 }

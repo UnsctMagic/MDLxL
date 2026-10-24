@@ -3569,5 +3569,6 @@
   "Task paused. Applied edits are kept.": "任务已暂停，已应用的修改会保留。",
   "Resume task": "继续任务",
   "Checking the result before completing the task.": "正在检查结果，然后完成任务。",
-  "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "已停止。可撤销已应用的修改。继续任务可从检查点恢复。"
+  "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "已停止。可撤销已应用的修改。继续任务可从检查点恢复。",
+  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain：将《魔兽争霸III》SD 设计规则应用到你的建模请求中，补全常规美术细节并检查结果。支持精细的自定义 SD。"
 }

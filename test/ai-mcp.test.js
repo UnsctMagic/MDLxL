@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import http from 'node:http';
 import { AI_TOOLS } from '../src/ai-tools.js';
-import { AI_SD_RULES } from '../src/ai-sd-rules.js';
 const { startMcpServer, validateArguments, toolContent } = createRequire(import.meta.url)(
   '../electron/ai-mcp.cjs',
 );
@@ -29,7 +28,9 @@ test('real MCP HTTP handshake, discover tools, execute and return tool errors', 
     ).json();
   const initialized = (await rpc('initialize', { protocolVersion: '2025-11-25' })).result;
   assert.equal(initialized.protocolVersion, '2025-11-25');
-  assert.ok(initialized.instructions.endsWith(AI_SD_RULES), 'external agents receive the shared SD rulebook');
+  // The SD Brain state is read per task from mdlxl_context, not fixed at connect time.
+  assert.match(initialized.instructions, /every mdlxl_context result has sdBrain/);
+  assert.ok(!initialized.instructions.includes('Warcraft III SD modeling rulebook'));
   assert.ok((await rpc('tools/list')).result.tools.some(t => t.name === 'mdlxl_script'));
   assert.deepEqual(
     JSON.parse((await rpc('tools/call', { name: 'mdlxl_context', arguments: {} })).result.content[0].text)

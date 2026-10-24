@@ -27,11 +27,13 @@ mouse camera controls, document validation, byte-preserving save and Undo.
   modeling toolset. Avoid unrequested HD-style complexity; do not turn observed
   counts into hard caps or use the rulebook to redesign unrelated model data.
 - Read-only research covered all 3,501 installed SD/base CASC entries (3,448
-  distinct models, 53 aliases), excluding HD/DE modules. The first 100 approved
-  resources in Hive's native highest-rating sort contain 705 distinct MDX 800
-  models; all parsed. Preserve the distinction between resources and model files.
-- Visual study: 127 native and 100 Hive representatives rendered; 32 Walk clips
-  sampled at six phases (192 poses). One native bridge render failed, and 18 Hive
+  distinct models, 53 aliases), excluding HD/DE modules. Of the first 100 approved
+  resources in Hive's native highest-rating sort, 90 allow use and editing with
+  credit and were studied (646 distinct MDX 800 models; all parsed). Resources
+  whose authors require permission or forbid AI use are not used or mentioned.
+  Preserve the distinction between resources and model files.
+- Visual study: 127 native and 90 Hive representatives rendered; 30 Walk clips
+  sampled at six phases (180 poses). One native bridge render failed, and 16 Hive
   representatives have unresolved legacy stock texture references. The guide
   records these limits; no Warcraft gameplay acceptance was claimed.
 - `src/ai-sd-rules.js` supplies one canonical rule text to `AI_SYSTEM_PROMPT` and
@@ -247,3 +249,20 @@ AI hook PR. Merge only after approval. Local source, compatibility and packaged
 checks for this continuation are complete; CI runs against the pushed revision.
 The user's existing test profile and saved models stay separate from the package.
 `test/ai-live.electron.cjs` remains the opt-in real-account acceptance harness.
+
+## SD Brain (2026-10-24, Claude)
+
+- Implemented from `D:\Codex\mdlxl-sd-rulebook-20261024\outputs\SD-BRAIN-IMPLEMENTATION-BRIEF.md` on the Claude console branch (Offload Mode, steering, Marker/Pen).
+- The rulebook is no longer appended unconditionally. `src/ai-sd-rules.js` owns `AI_SD_RULES`, the SD Brain behavior (`AI_SD_BRAIN`, interpretation, chalice lesson, review criteria), `SD_BRAIN_REVISION`, `sdBrainInstructions(policy, role)` and `sdReviewProblem(args)`.
+- `electron/ai-service.cjs`: `config.sdBrain` (default off), `setSdBrain`; `runTask` captures `task.sdBrain` and adds the instructions to every turn's system text plus a "Task settings" line; workers and handovers inherit it; the organiser gets `mdlxl_capture` while on; review finish is checked and repeated failures stop.
+- External MCP: initialize points to `mdlxl_context.sdBrain`; the service adds the current state there.
+- UI: SD Brain checkbox in the console header; tooltip localized (es/ru/zh).
+- Not verified: real Codex/Claude/API turns judging art, Warcraft III gameplay.
+
+### SD Brain as art direction (2026-10-25)
+
+- The owner's intent: SD Brain is art direction that every prompt passes through, built from what was learned from Warcraft III models; it never looks up or copies a model ("sword" must not load a sword). A weak prompt with the brain on should still give a usable result, and edit/UV requests get SD judgment too.
+- `AI_SD_ART_DIRECTOR` (src/ai-sd-rules.js): a tool-free turn (`AiService.artDirection`) writes a fixed-format brief once per task (Goal, Kind, Role and size, Parts, Silhouette, Shape language, Palette, Focal motif, Painted, Avoid, Checks; or Plan/Preserve for edits). The brief is a collapsed "Art direction" row in the chat and is appended to the builder's prompt and the Offload worker's job. A failed brief shows its reason; the task continues on the policy.
+- `src/sd-kit.js`: lathe, blade, emblem, extrude, spike, ring, sphere, box → `commit` packs UVs and paints one SD texture (top light, creases, edge highlights, metal sheen, glow spill, runes/rivets/wrap/slitEye/gem/flames). The builder policy tells the AI to build new props with it.
+- AI edits that leave the model unsavable are undone after commit with an explanation (found in baseline runs: a material without RenderMode, a geoset without extents). Geoset edits may update model bounds.
+- Verified with real Codex runs through the packaged app on a hidden desktop (out/sd-trials/rig.cjs; not part of CI): "make me a chalice worthy of mordor", "make a sword", "evil cup thing make it cool", "make a wizard hat", "make this sword more evil", "uv map this properly", brain on and off. Warcraft III gameplay not tested.

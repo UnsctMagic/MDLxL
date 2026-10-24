@@ -21,6 +21,16 @@ const {
   checkAgentExecutable,
 } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
+const {
+  AiSteering,
+  AiRecorder,
+  OrganiserRegistry,
+  RETIRE_AT,
+  nextBird,
+  contextUse,
+  deleteProviderSessions,
+  settleConversation,
+} = require('./ai-offload.cjs');
 
 class AiService {
   constructor({ root, profile, electron, getWindow }) {
@@ -37,6 +47,10 @@ class AiService {
     this.running = new Set();
     this.awareness = new AiAwareness();
     this.writes = new Map();
+    this.runningIds = new Set();
+    this.registry = new OrganiserRegistry(this.directory);
+    this.workerLock = null;
+    this.random = Math.random;
   }
   async init() {
     if (!this.contract) this.contract = import(pathToFileURL(path.join(this.root, 'src/ai-tools.js')).href);
@@ -88,6 +102,8 @@ class AiService {
       url: this.external?.url || null,
       busy: !!this.active,
       awareness: this.awareness.enabled,
+      offload: config.offload !== false,
+      sdBrain: config.sdBrain === true,
     };
   }
   async setAwareness(enabled) {
@@ -97,6 +113,17 @@ class AiService {
     await this.persist();
     this.awareness.setEnabled(enabled);
     this.emit({ type: 'awareness', enabled });
+    return this.status();
+  }
+  // The model can change while the AI works: a running task keeps the settings it
+  // started with, and the next message uses the new model.
+  async setModel(model) {
+    if (typeof model !== 'string' || model.length > 200) throw Error('Choose a model.');
+    const config = await this.configuration();
+    config.providers ||= {};
+    const provider = (config.providers[config.provider] ||= {});
+    provider.model = model.trim();
+    await this.persist();
     return this.status();
   }
   async configure(input) {
@@ -154,7 +181,7 @@ class AiService {
             : Error('AI request cancelled.'),
         );
       };
-      const timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
+      let timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
       const finish = (error, value) => {
         clearTimeout(timer);
         requestSignal.removeEventListener('abort', cancel);
@@ -165,6 +192,10 @@ class AiService {
         finish,
         signal: requestSignal,
         cancel: () => controller.abort(Error('Editor closed.')),
+        waiting: waiting => {
+          clearTimeout(timer);
+          if (!waiting) timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
+        },
       });
       requestSignal.addEventListener('abort', cancel, { once: true });
       if (requestSignal.aborted) {
@@ -194,7 +225,11 @@ class AiService {
         awareness: this.awareness,
         call: async (name, args, signal) => {
           try {
-            return await this.call(name, args, signal);
+            const result = await this.call(name, args, signal);
+            if (name !== 'mdlxl_context') return result;
+            const policy = await this.sdBrainPolicy(),
+              { sdBrainInstructions } = await this.init();
+            return { ...result, sdBrain: { ...policy, instructions: sdBrainInstructions(policy, 'external') } };
           } finally {
             this.emit({ type: 'external-done', busy: !!this.active });
           }
@@ -218,7 +253,10 @@ class AiService {
     if (this.conversations.has(id)) return this.conversations.get(id);
     let value;
     try {
-      value = JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8'));
+      // Loaded from disk means nothing of it is running in this app session.
+      value = settleConversation(
+        JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')),
+      );
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       value = { id, provider, transcript: [], messages: [] };
@@ -242,7 +280,7 @@ class AiService {
       conversation = await this.conversation(id, settings.provider),
       task = conversation.task;
     if (!task) return null;
-    if (task.status === 'running' && this.active?.id !== id) {
+    if (task.status === 'running' && !this.runningIds.has(id)) {
       task.status = 'interrupted';
       await this.persistConversation(conversation);
     }
@@ -265,7 +303,7 @@ class AiService {
       throw Error('Attach up to four images, each under 9 MB.');
     if (!context?.target) throw Error('Capture the model context before sending.');
     const settings = await this.settings(),
-      { AI_TOOLS, AI_SYSTEM_PROMPT, aiToolEditsModel } = await this.init(),
+      contract = await this.init(),
       controller = new AbortController();
     // Account discovery/model lists can work while signed out. Check the actual
     // account before recording a turn or letting a provider make a model request.
@@ -276,21 +314,86 @@ class AiService {
         return { ok: false, authRequired: true, error: error.message };
       }
     }
-    const conversation = await this.conversation(id, settings.provider),
-      reply = { role: 'assistant', text: '' };
+    const conversation = await this.conversation(id, settings.provider);
+    if (conversation.retired)
+      throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
+    const recorder = new AiRecorder(conversation, value => this.emit({ id, ...value }));
+    const steering = new AiSteering(text => recorder.split(text));
+    const active = { id, controller, steering, recorder, worker: null };
+    this.active = active;
+    const config = await this.configuration();
+    if (conversation.modelKey) await this.markActivity(conversation.modelKey);
+    try {
+      await this.runTask({
+        conversation,
+        recorder,
+        steering,
+        text,
+        images,
+        context,
+        resume,
+        settings,
+        contract,
+        signal: controller.signal,
+        organiser: conversation.kind === 'organiser' && config.offload !== false ? active : null,
+        policy: await this.sdBrainPolicy(),
+      });
+      recorder.event({ type: 'done' });
+      return { ok: true };
+    } catch (error) {
+      // A resume that cannot start is refused outright; nothing was recorded.
+      if (error.precondition) throw error;
+      if (controller.signal.aborted) {
+        recorder.separate();
+        recorder.event({
+          type: 'text',
+          text: 'Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.',
+        });
+        recorder.event({ type: 'done' });
+        return { ok: false, cancelled: true };
+      }
+      const authRequired = error.code === 'AI_AUTH_REQUIRED';
+      recorder.reply.error = error.message;
+      recorder.event({ type: 'error', text: error.message, authRequired });
+      return { ok: false, error: error.message, authRequired };
+    } finally {
+      if (this.active === active) this.active = null;
+      steering.close();
+      recorder.finish();
+      await this.persistConversation(conversation);
+      this.emit({ id, type: 'task', task: await this.taskInfo(id) });
+    }
+  }
+  // One task on one conversation: the provider turn, edit checkpoints, verification
+  // and steering. The organiser and each of its workers run through this.
+  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser, entry, policy }) {
+    const {
+      AI_TOOLS,
+      AI_SYSTEM_PROMPT,
+      AI_WORKER_TOOL,
+      AI_ORGANISER_PROMPT,
+      AI_WORKER_NOTE,
+      aiToolEditsModel,
+      sdBrainInstructions,
+      sdReviewProblem,
+    } = contract;
+    const id = conversation.id;
     let task;
     if (resume) {
       task = conversation.task;
       if (!task || !['running', 'interrupted', 'incomplete'].includes(task.status))
-        throw Error('There is no interrupted task to resume.');
+        throw Object.assign(Error('There is no interrupted task to resume.'), { precondition: true });
       if (task.checkpoint) {
         const current = await this.call('mdlxl_checkpoint', { target: context.target });
         if (
           current.fingerprint !== task.checkpoint.fingerprint ||
           (current.path || current.name) !== (task.checkpoint.path || task.checkpoint.name)
         )
-          throw Error(
-            'The model differs from this task checkpoint. Restore its model through MDLxL recovery, or send a new prompt for the current model.',
+          throw Object.assign(
+            Error(
+              'The model differs from this task checkpoint. Restore its model through MDLxL recovery, or send a new prompt for the current model.',
+            ),
+            { precondition: true },
           );
         context = (
           await this.call('mdlxl_checkpoint', {
@@ -315,28 +418,20 @@ class AiService {
         status: 'running',
         phase: 'inspecting',
         steps: [],
+        sdBrain: policy || { enabled: false },
       };
+    // SD Brain stays as it was when the task started; toggling applies to the next task.
+    const sd = (task.sdBrain ||= policy || { enabled: false });
     task.status = 'running';
     task.summary = '';
-    conversation.transcript.push(
-      {
-        role: 'user',
-        text: resume ? 'Resume task' : text,
-        document: context.name,
-        selection: context.selection,
-      },
-      reply,
-    );
-    const active = { id, controller };
-    this.active = active;
-    let responseText = '';
-    const event = value => {
-      if (value.type === 'text') {
-        responseText += value.text;
-        return;
-      }
-      this.emit({ id, ...value });
-    };
+    this.runningIds.add(id);
+    recorder.start({
+      role: 'user',
+      text: resume ? 'Resume task' : text,
+      document: context.name,
+      selection: context.selection,
+      ...entry,
+    });
     const progress = async phase => {
       task.phase = phase;
       await this.persistConversation(conversation);
@@ -348,13 +443,40 @@ class AiService {
         ? '\n\nResume the interrupted task. Inspect the current model and these completed steps before continuing; do not repeat an applied edit. A pending step may have been interrupted before its result was recorded.\n' +
           JSON.stringify(task.steps)
         : '');
+    if (organiser) prompt += '\n\n' + (await this.organiserBriefing(conversation));
+    // SD Brain: the request first becomes an art brief, once per task. Workers get
+    // the organiser task's brief with their job instead of writing their own.
+    if (sd.enabled && conversation.kind !== 'worker' && !conversation.toolsOff && !task.artBrief) {
+      recorder.event({ type: 'art', status: 'running' });
+      let failure = '';
+      try {
+        task.artBrief = await this.artDirection({ text, images, context, settings, contract, signal, conversation });
+        if (!task.artBrief) failure = 'The art director returned no brief.';
+      } catch (error) {
+        if (signal.aborted) throw error;
+        task.artBrief = '';
+        failure = error.message;
+      }
+      // Without a brief the task still runs on the SD Brain policy; the row says why.
+      recorder.event(failure ? { type: 'art', status: 'error', text: failure } : { type: 'art', status: 'done', text: task.artBrief });
+      await this.persistConversation(conversation);
+    }
+    if (task.artBrief && conversation.kind !== 'worker')
+      prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
+    prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
-    const call = async (name, args, signal) => {
-      if (controller.signal.aborted) throw Error('AI request cancelled.');
+    let workerImages = images;
+    const call = async (name, args, callSignal) => {
+      if (signal.aborted) throw Error('AI request cancelled.');
+      if (organiser && name === 'mdlxl_worker') {
+        const attached = workerImages;
+        workerImages = [];
+        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd, artBrief: task.artBrief });
+      }
       if (args.target && args.target !== context.target)
         throw Error('Use the target captured with the current prompt.');
-      const requestSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+      const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       const edit = aiToolEditsModel(name, args);
       if (edit) {
         task.unresolvedEditError = 'An edit did not finish. Inspect the current model before continuing.';
@@ -370,14 +492,36 @@ class AiService {
         task.checkpoint = checkpoint;
         task.steps.push({ tool: name, label: args.label || args.id || name, status: 'pending' });
         await progress('editing');
-      } else if (name === 'mdlxl_review')
+      } else if (name === 'mdlxl_review') {
+        // SD Brain review: a pass needs a verdict per criterion, and a criterion
+        // that keeps failing stops blind revisions.
+        if (sd.enabled) {
+          const problem = sdReviewProblem(args);
+          if (problem) throw Error(problem);
+          if (args.action === 'finish' && args.outcome === 'needs-correction') {
+            task.corrections ||= {};
+            const failed = (args.criteria || []).filter(c => c.result === 'needs-correction').map(c => c.name);
+            for (const name of failed.length ? failed : ['result']) task.corrections[name] = (task.corrections[name] || 0) + 1;
+            const repeated = Object.entries(task.corrections).filter(([, count]) => count >= 3).map(([name]) => name);
+            if (repeated.length)
+              throw Error(
+                `SD Brain review: ${repeated.join(', ')} failed three times. Do not revise blindly again; finish with outcome blocked and name the blocker.`,
+              );
+          }
+          if (args.action === 'finish' && args.outcome === 'passed') task.criteria = args.criteria;
+        }
         await progress(
           args.action === 'finish' && args.outcome === 'needs-correction' ? 'correcting' : 'verifying',
         );
+      }
       try {
         const result = await this.call(
           name,
-          { ...args, ...(name === 'mdlxl_help' ? {} : { target: context.target }) },
+          {
+            ...args,
+            ...(name === 'mdlxl_help' ? {} : { target: context.target }),
+            ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true } : {}),
+          },
           requestSignal,
         );
         if (edit || name === 'mdlxl_review') {
@@ -401,29 +545,59 @@ class AiService {
         throw error;
       }
     };
+    const tools = organiser
+      ? [
+          AI_WORKER_TOOL,
+          AI_TOOLS.find(tool => tool.name === 'mdlxl_help'),
+          // With SD Brain on the organiser looks at the combined result itself.
+          ...(sd.enabled ? [AI_TOOLS.find(tool => tool.name === 'mdlxl_capture')] : []),
+        ]
+      : conversation.toolsOff
+        ? []
+        : AI_TOOLS;
+    const system =
+      organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
+      ? AI_ORGANISER_PROMPT
+      : conversation.kind === 'worker'
+        ? AI_SYSTEM_PROMPT + '\n' + AI_WORKER_NOTE
+        : AI_SYSTEM_PROMPT;
+    // The SD Brain policy travels in the trusted instructions of every turn, so an
+    // earlier "on" can never keep governing a task that started with it off.
+    const instructions =
+      system + '\n\n' + sdBrainInstructions(sd, organiser ? 'organiser' : conversation.toolsOff ? 'note' : 'direct');
     try {
       await progress('inspecting');
-      for (let attempt = 0; attempt < 4; attempt++) {
-        responseText = '';
+      let runs = 0;
+      for (let attempt = 0; attempt < 4; ) {
+        if (attempt) recorder.separate();
         const options = {
           settings,
           key: this.decrypt(settings.key),
           directory: this.directory,
-          event,
-          tools: AI_TOOLS,
+          event: value => recorder.event(value),
+          tools,
           call,
-          system: AI_SYSTEM_PROMPT,
+          system: instructions,
           prompt,
-          images: attempt ? [] : images,
+          images: runs++ ? [] : images,
           conversation,
-          signal: controller.signal,
+          signal,
           awareness: this.awareness,
+          steering,
         };
         if (settings.provider === 'codex') await runCodex(options);
         else if (settings.provider === 'claude') await runClaude(options);
         else await runApi(options);
+        // Steering that arrived as the AI finished starts a follow-up turn on the same task.
+        const late = steering.take();
+        if (late) {
+          recorder.separate();
+          prompt = late + '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
+          continue;
+        }
+        attempt++;
         const review = task.steps.length
-          ? await this.call('mdlxl_review', { target: context.target, action: 'status' }, controller.signal)
+          ? await this.call('mdlxl_review', { target: context.target, action: 'status' }, signal)
           : { changed: false };
         if (!review.changed && task.unresolvedEditError) throw Error(task.unresolvedEditError);
         if (!review.changed || review.phase === 'verified') {
@@ -432,17 +606,15 @@ class AiService {
           task.summary = review.summary || '';
           delete task.baseline;
           delete task.images;
-          reply.text = responseText;
-          this.emit({ id, type: 'text', text: responseText });
           await this.persistConversation(conversation);
           this.emit({ id, type: 'task', task: await this.taskInfo(id) });
-          event({ type: 'done' });
-          return { ok: true };
+          return;
         }
         if (review.phase === 'blocked')
           throw Error(review.summary || 'The edited model still needs verification.');
+        if (attempt >= 4) break;
         await progress('verifying');
-        event({ type: 'notice', text: 'Checking the result before completing the task.' });
+        recorder.event({ type: 'notice', text: 'Checking the result before completing the task.' });
         prompt =
           'The edit is still unverified. Do not repeat the edit. Call mdlxl_review inspect with checksCode for the requested result and protected data, inspect the images, correct failures, then mdlxl_review finish. Current review: ' +
           JSON.stringify(review) +
@@ -453,23 +625,383 @@ class AiService {
         'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
       );
     } catch (error) {
-      task.status = controller.signal.aborted ? 'interrupted' : 'incomplete';
+      task.status = signal.aborted ? 'interrupted' : 'incomplete';
       task.summary = error.message;
-      if (controller.signal.aborted) {
-        reply.text = 'Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.';
-        this.emit({ id, type: 'text', text: reply.text });
-        event({ type: 'done' });
-        return { ok: false, cancelled: true };
-      }
-      const authRequired = error.code === 'AI_AUTH_REQUIRED';
-      reply.error = error.message;
-      event({ type: 'error', text: error.message, authRequired });
-      return { ok: false, error: error.message, authRequired };
+      throw error;
     } finally {
-      if (this.active === active) this.active = null;
-      await this.persistConversation(conversation);
-      this.emit({ id, type: 'task', task: await this.taskInfo(id) });
+      this.runningIds.delete(id);
     }
+  }
+  // The roster and memory the organiser needs for routing, added to each prompt.
+  async organiserBriefing(conversation) {
+    const workers = (conversation.workers || []).filter(worker => worker.status !== 'retired');
+    const entry = conversation.modelKey ? await this.registry.model(conversation.modelKey) : null;
+    const lines = workers.map(
+      worker =>
+        `- ${worker.name}${worker.tiny ? ' (tiny jobs)' : ''}: ${worker.job}; ${Math.round((worker.use || 0) * 100)}% of its memory used`,
+    );
+    // Names the organiser can use before the worker exists: "I'll ask Crow to…".
+    const tiny = workers.find(worker => worker.tiny);
+    const names =
+      `\nA new job would go to a new worker called ${this.pendingBird(conversation)}.` +
+      (tiny ? ` Tiny jobs go to ${tiny.name}.` : ' The first tiny job starts a tiny-jobs worker with that next free name.');
+    return (
+      (lines.length ? 'Workers for this model:\n' + lines.join('\n') : 'No workers yet for this model.') +
+      names +
+      (entry?.note && conversation.transcript.length <= 2
+        ? '\n\nMemory note from earlier work on this model:\n' + entry.note
+        : '')
+    );
+  }
+  // The next new worker's name is drawn once, so the organiser can announce it.
+  pendingBird(organiser) {
+    organiser.birds ||= [];
+    if (!organiser.nextName || organiser.birds.includes(organiser.nextName))
+      organiser.nextName = nextBird(organiser.birds, this.random);
+    return organiser.nextName;
+  }
+  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy, artBrief }) {
+    const previous = this.workerLock;
+    let release;
+    this.workerLock = new Promise(resolve => (release = resolve));
+    await previous;
+    organiser.workers ||= [];
+    organiser.birds ||= [];
+    let worker = null,
+      handover = null;
+    try {
+      const named = String(args.worker || '').trim().toLowerCase();
+      if (named) {
+        worker = organiser.workers.find(w => w.name.toLowerCase() === named);
+        if (!worker)
+          return {
+            error: `There is no worker called ${args.worker}. Workers: ${organiser.workers.filter(w => w.status !== 'retired').map(w => w.name).join(', ') || 'none yet'}.`,
+          };
+        if (worker.status === 'retired')
+          return { error: `${worker.name} is retired. Start a new worker for this job and include what it needs to know.` };
+      } else if (args.tiny) worker = organiser.workers.find(w => w.tiny && w.status !== 'retired') || null;
+      // A worker past half of its memory writes a handover note and retires.
+      if (worker && (worker.use || 0) >= RETIRE_AT) {
+        handover = { name: worker.name, note: await this.handover(worker, settings, contract, context, signal, policy) };
+        await this.retireWorker(organiser, worker);
+        worker = null;
+      }
+      if (!worker) {
+        const name = this.pendingBird(organiser);
+        delete organiser.nextName;
+        organiser.birds.push(name);
+        worker = {
+          id: `${organiser.id}-${name.toLowerCase().replace(/\s+/g, '-')}`,
+          name,
+          job: args.tiny ? 'Tiny jobs' : args.job,
+          tiny: !!args.tiny,
+          status: 'idle',
+          use: 0,
+        };
+        organiser.workers.push(worker);
+        const created = { id: worker.id, provider: settings.provider, transcript: [], messages: [], kind: 'worker', organiserId: organiser.id, modelKey: organiser.modelKey, name, tiny: worker.tiny };
+        this.conversations.set(worker.id, created);
+        await this.persistConversation(created);
+      } else if (!worker.tiny) worker.job = args.job;
+      worker.status = 'working';
+      await this.persistConversation(organiser);
+      this.emitRoster(organiser);
+      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status: 'working' });
+      const conversation = await this.conversation(worker.id, settings.provider);
+      const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
+      const steering = new AiSteering(text => recorder.split(text));
+      parentSteering.forward = steering;
+      active.worker = { id: worker.id, steering };
+      const text =
+        `Job: ${args.job}\n\nInstructions from the organiser:\n${args.instructions}\n\nThe user's message, exactly as written:\n${userText}` +
+        (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
+        (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '');
+      let status = 'done',
+        error;
+      try {
+        await this.runTask({ conversation, recorder, steering, text, images, context, resume: false, settings, contract, signal, policy, entry: { from: 'organiser', job: args.job } });
+      } catch (reason) {
+        if (signal.aborted) throw reason;
+        status = 'failed';
+        error = reason.message;
+        recorder.reply.error = reason.message;
+        recorder.event({ type: 'error', text: reason.message, worker: true });
+      } finally {
+        recorder.finish();
+        parentSteering.forward = null;
+        active.worker = null;
+        parentSteering.requeue(steering.take());
+        steering.close();
+        worker.use = contextUse(conversation);
+        worker.status = 'idle';
+        await this.persistConversation(conversation);
+      }
+      const report = recorder.report().slice(-4000);
+      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status, report });
+      return {
+        worker: worker.name,
+        status,
+        report: report || '(no report)',
+        ...(error ? { error } : {}),
+        memoryUsed: Math.round(worker.use * 100) + '%',
+        ...(handover ? { replaced: `${handover.name} retired with a handover note; ${worker.name} took over.` } : {}),
+      };
+    } finally {
+      if (worker) await this.persistConversation(organiser).catch(() => {});
+      if (worker) this.emitRoster(organiser);
+      release();
+    }
+  }
+  // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
+  // user's words into an SD art brief. Nothing of it is kept but the brief.
+  async artDirection({ text, images, context, settings, contract, signal, conversation }) {
+    const art = { id: `${conversation.id}-art`, provider: settings.provider, transcript: [], messages: [], kind: 'art' };
+    const counts = context.counts || {},
+      model = counts.geosets
+        ? `The open model ${context.name} has ${counts.geosets} geosets and ${counts.triangles} triangles${context.selection && Object.keys(context.selection).length ? ', with a selection the user made' : ''}.`
+        : `The open model ${context.name} is empty, so this creates something new.`;
+    let reply = '';
+    const options = {
+      settings,
+      key: this.decrypt(settings.key),
+      directory: this.directory,
+      event: value => {
+        if (value.type === 'text') reply += value.text;
+      },
+      tools: [],
+      call: async () => {
+        throw Error('The art director has no tools.');
+      },
+      system: contract.AI_SD_ART_DIRECTOR,
+      prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
+      images,
+      conversation: art,
+      signal,
+      // The art director never watches the editor (providers skip awareness when it is null).
+      awareness: null,
+      steering: new AiSteering(() => {}),
+    };
+    if (settings.provider === 'codex') await runCodex(options);
+    else if (settings.provider === 'claude') await runClaude(options);
+    else await runApi(options);
+    return reply.trim().slice(0, 4000);
+  }
+  async handover(worker, settings, contract, context, signal, policy) {
+    const conversation = await this.conversation(worker.id, settings.provider);
+    const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
+    const steering = new AiSteering(() => {});
+    conversation.toolsOff = true;
+    try {
+      await this.runTask({ conversation, recorder, steering, text: contract.AI_HANDOVER_PROMPT, images: [], context, resume: false, settings, contract, signal, policy, entry: { from: 'organiser', job: 'Handover' } });
+    } finally {
+      delete conversation.toolsOff;
+      steering.close();
+      recorder.finish();
+    }
+    return recorder.report() || recorder.reply.text.trim() || '(no note)';
+  }
+  async retireWorker(organiser, worker) {
+    worker.status = 'retired';
+    worker.retiredAt = new Date().toISOString();
+    const conversation = this.conversations.get(worker.id);
+    if (conversation) {
+      conversation.retired = true;
+      await this.persistConversation(conversation);
+    }
+    await this.persistConversation(organiser);
+    this.emitRoster(organiser);
+  }
+  emitRoster(organiser) {
+    this.emit({ id: organiser.id, type: 'roster', workers: organiser.workers || [] });
+  }
+  async markActivity(modelKey) {
+    const entry = await this.registry.model(modelKey);
+    if (!entry.activity) {
+      entry.activity = true;
+      await this.registry.save();
+    }
+  }
+  // The organiser chat that belongs to a model (file path, or the unsaved tab).
+  async organiser({ modelKey, name }) {
+    const settings = await this.settings(),
+      config = await this.configuration(),
+      entry = await this.registry.model(modelKey, name);
+    let conversation = null;
+    if (entry.organiser)
+      try {
+        conversation = await this.conversation(entry.organiser, settings.provider);
+      } catch {
+        // Another provider's chat stays readable among the earlier chats.
+        entry.earlier.push(entry.organiser);
+      }
+    if (!conversation) conversation = await this.createOrganiser(entry, modelKey, settings);
+    return {
+      id: conversation.id,
+      workers: conversation.workers || [],
+      earlier: entry.earlier,
+      offload: config.offload !== false,
+      hasNote: !!entry.note,
+    };
+  }
+  async createOrganiser(entry, modelKey, settings) {
+    const id = OrganiserRegistry.newId();
+    const conversation = { id, provider: settings.provider, transcript: [], messages: [], kind: 'organiser', modelKey, name: entry.name, workers: [], birds: [] };
+    this.conversations.set(id, conversation);
+    await this.persistConversation(conversation);
+    entry.organiser = id;
+    await this.registry.save();
+    return conversation;
+  }
+  async newOrganiser({ modelKey, name }) {
+    if (this.active) throw Error('Stop the current AI request before starting a new chat.');
+    const settings = await this.settings(),
+      entry = await this.registry.model(modelKey, name);
+    if (entry.organiser) entry.earlier.push(entry.organiser);
+    await this.createOrganiser(entry, modelKey, settings);
+    return this.organiser({ modelKey, name });
+  }
+  async rekey({ from, to, name }) {
+    await this.registry.rekey(from, to, name);
+    for (const conversation of this.conversations.values())
+      if (conversation.modelKey === from) {
+        conversation.modelKey = to;
+        await this.persistConversation(conversation);
+      }
+    return { ok: true };
+  }
+  async saveState({ modelKey }) {
+    const entry = await this.registry.model(modelKey);
+    return { activity: !!entry.activity, remember: entry.remember || 'ask' };
+  }
+  // SD Brain is off until the user turns it on; it applies from the next task.
+  async setSdBrain(enabled) {
+    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
+    const config = await this.configuration();
+    config.sdBrain = enabled;
+    await this.persist();
+    this.emit({ type: 'sd-brain', enabled });
+    return this.status();
+  }
+  async sdBrainPolicy() {
+    const config = await this.configuration(),
+      { SD_BRAIN_REVISION } = await this.init();
+    return { enabled: config.sdBrain === true, revision: SD_BRAIN_REVISION };
+  }
+  async setOffload(enabled) {
+    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
+    const config = await this.configuration();
+    config.offload = enabled;
+    await this.persist();
+    this.emit({ type: 'offload', enabled });
+    return this.status();
+  }
+  async setRememberedCleanup({ modelKey, remember }) {
+    if (!['ask', 'keep', 'summary', 'wipe'].includes(remember)) throw Error('Unknown choice.');
+    const entry = await this.registry.model(modelKey);
+    entry.remember = remember;
+    await this.registry.save();
+    return { remember };
+  }
+  // After a save: keep everything, keep a memory note, or delete every chat for this model.
+  async cleanup({ modelKey, mode, remember = false }) {
+    if (!['keep', 'summary', 'wipe'].includes(mode)) throw Error('Unknown cleanup choice.');
+    if (this.active) throw Error('Wait until the AI finishes before cleaning up its chats.');
+    const entry = await this.registry.model(modelKey);
+    if (remember) entry.remember = mode;
+    entry.activity = false;
+    if (mode === 'keep') {
+      await this.registry.save();
+      return { mode };
+    }
+    const settings = await this.settings();
+    let note = null;
+    if (mode === 'summary' && entry.organiser) {
+      const organiser = await this.conversation(entry.organiser, settings.provider).catch(() => null);
+      if (organiser?.transcript.length) note = await this.memoryNote(organiser, settings, entry.note);
+    }
+    const ids = [],
+      threads = [];
+    for (const organiserId of [entry.organiser, ...entry.earlier].filter(Boolean)) {
+      const organiser = await this.readConversation(organiserId);
+      ids.push(organiserId);
+      if (organiser?.threadId) threads.push(organiser.threadId);
+      for (const worker of organiser?.workers || []) {
+        const conversation = await this.readConversation(worker.id);
+        ids.push(worker.id);
+        if (conversation?.threadId) threads.push(conversation.threadId);
+      }
+    }
+    for (const id of ids) {
+      this.conversations.delete(id);
+      await this.writes.get(id)?.catch(() => {});
+      await fs.rm(path.join(this.directory, 'chat-' + id + '.json'), { force: true });
+    }
+    const providerFiles = await deleteProviderSessions(this.directory, threads);
+    entry.note = mode === 'summary' ? note || entry.note : null;
+    entry.organiser = null;
+    entry.earlier = [];
+    await this.registry.save();
+    this.emit({ type: 'organiser-reset', modelKey });
+    return { mode, removedChats: ids.length, providerFiles, note: entry.note };
+  }
+  async memoryNote(organiser, settings, previousNote) {
+    const contract = await this.init(),
+      controller = new AbortController();
+    const active = { id: organiser.id, controller, steering: null, worker: null };
+    this.active = active;
+    const recorder = new AiRecorder(organiser, value => this.emit({ id: organiser.id, ...value }));
+    const steering = new AiSteering(() => {});
+    organiser.toolsOff = true;
+    try {
+      await this.runTask({
+        conversation: organiser,
+        recorder,
+        steering,
+        text: contract.AI_MEMORY_PROMPT + (previousNote ? '\n\nThe earlier memory note to fold in:\n' + previousNote : ''),
+        images: [],
+        context: { target: 'cleanup' },
+        resume: false,
+        settings,
+        contract,
+        signal: controller.signal,
+        entry: { from: 'mdlxl' },
+      });
+      return recorder.report() || null;
+    } finally {
+      delete organiser.toolsOff;
+      steering.close();
+      if (this.active === active) this.active = null;
+    }
+  }
+  async readConversation(id) {
+    if (this.conversations.has(id)) return this.conversations.get(id);
+    try {
+      return settleConversation(JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')));
+    } catch {
+      return null;
+    }
+  }
+  steer({ id, text, annotations }) {
+    const active = this.active;
+    if (!active?.steering) return { queued: false };
+    if (typeof text !== 'string' || !text.trim() || text.length > 20000)
+      throw Error('Enter a message of 1–20000 characters.');
+    const message =
+      'The user sent this while you were working. Treat it as steering for the current task:\n' +
+      text +
+      (annotations ? '\n\nCurrent console drawings (context.annotations):\n' + JSON.stringify(annotations) : '');
+    // Steering the organiser reaches the worker it is waiting on; steering a
+    // running worker directly goes only to that worker.
+    if (active.worker && id === active.worker.id) {
+      active.worker.steering.push(text, message);
+      this.emit({ id, type: 'steer', text });
+      return { queued: true };
+    }
+    if (active.id !== id) return { queued: false };
+    active.steering.push(text, message);
+    this.emit({ id, type: 'steer', text });
+    if (active.worker) this.emit({ id: active.worker.id, type: 'steer', text });
+    return { queued: true };
   }
   cancel() {
     this.active?.controller.abort();
@@ -622,11 +1154,21 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   });
   handle('ai:send', input => service.send(input));
   handle('ai:cancel', () => service.cancel());
+  handle('ai:steer', input => service.steer(input));
+  handle('ai:organiser', input => service.organiser(input));
+  handle('ai:newOrganiser', input => service.newOrganiser(input));
+  handle('ai:rekey', input => service.rekey(input));
+  handle('ai:saveState', input => service.saveState(input));
+  handle('ai:cleanup', input => service.cleanup(input));
+  handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
+  handle('ai:offload', enabled => service.setOffload(enabled));
+  handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
+  handle('ai:model', model => service.setModel(model));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
   handle('ai:transcript', async id => {
-    const settings = await service.settings();
-    return (await service.conversation(id, settings.provider)).transcript;
+    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id || '')) throw Error('Invalid conversation ID.');
+    return (await service.readConversation(id))?.transcript || [];
   });
   handle('ai:script', payload => {
     const request = service.pending.get(payload.requestId);
@@ -719,6 +1261,11 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
         service.emit({ type: 'error', text: error.message });
       }
   });
+  ipcMain.on('ai:toolWaiting', (event, data) => {
+    own(event);
+    service.pending.get(data?.id)?.waiting(!!data.waiting);
+    service.emit({ type: 'waiting', waiting: !!data.waiting, document: String(data?.document || '') });
+  });
   ipcMain.on('ai:toolResult', (event, data) => {
     own(event);
     service.pending.get(data?.id)?.finish(data.error ? Error(data.error) : null, data.result);
@@ -735,4 +1282,4 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   });
   return service;
 }
-module.exports = { AiService, registerAiService };
+module.exports = { AiService, AiSteering, registerAiService };
