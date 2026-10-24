@@ -33,7 +33,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const warning = page.getByRole('button', { name: 'Duplicate geoset animations' });
     await warning.waitFor();
     if (await page.getByRole('dialog').count()) throw Error('A dialog opened before the warning was clicked.');
-    await page.screenshot({ path: path.join(out, '1-opened.png') }); step('warning only');
+    // It flashes red and keeps a pulsing red dot, like other warnings, and carries a warning icon.
+    const look = await warning.evaluate(element => ({ flash: getComputedStyle(element).animationName, ping: getComputedStyle(element, '::before').animationName, icon: !!element.querySelector('svg') }));
+    if (look.flash !== 'alert-flash' || look.ping !== 'alert-ping' || !look.icon) throw Error('Warning does not ping: ' + JSON.stringify(look));
+    await page.screenshot({ path: path.join(out, '1-opened.png') }); await page.waitForTimeout(3500);
+    await page.screenshot({ path: path.join(out, '1b-after-ping.png') }); step('warning only');
     // The timeline mounts and plays with the duplicate still present.
     await page.locator('[data-hotkey="animations"]').click();
     await page.waitForTimeout(800);

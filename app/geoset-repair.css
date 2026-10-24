@@ -8,5 +8,6 @@
 .geoset-repair-list{max-height:245px;overflow:auto}
 .geoset-repair-classifications{max-height:160px;overflow:auto}
 .geoset-repair-body [role=alert]{color:var(--ui-danger,#aa180a)}
-.classic-status>.status-warning{height:18px;padding:0 6px;border:1px outset var(--ui-border,#eee);background:var(--ui-panel,#d4d0c8);color:var(--ui-danger,#a31515);font:inherit;cursor:pointer;flex-shrink:0}
+.classic-status>.status-warning{height:18px;padding:0 6px;display:inline-flex;align-items:center;gap:4px;border:1px outset var(--ui-border,#eee);background:var(--ui-panel,#d4d0c8);color:var(--ui-danger,#a31515);font:inherit;cursor:pointer;flex-shrink:0}
 .classic-status>.status-warning:hover{background:var(--ui-hover,#e4e0d8)}
+.classic-status>.status-warning svg{color:#e0a000;fill:#ffd23f;stroke:#7a4b00;flex-shrink:0}
