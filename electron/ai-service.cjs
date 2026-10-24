@@ -33,8 +33,10 @@ const {
 } = require('./ai-offload.cjs');
 
 class AiService {
-  constructor({ root, profile, electron, getWindow }) {
+  constructor({ root, profile, electron, getWindow, sdBrainAvailable }) {
     this.root = root;
+    // Tests may bring SD Brain back while it is parked; otherwise src/ai-sd-rules.js decides.
+    this.sdBrainOverride = sdBrainAvailable;
     this.directory = path.join(profile, 'ai');
     this.electron = electron;
     this.getWindow = getWindow;
@@ -103,7 +105,8 @@ class AiService {
       busy: !!this.active,
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
-      sdBrain: config.sdBrain === true,
+      sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
+      sdBrainAvailable: await this.sdBrainAvailable(),
     };
   }
   async setAwareness(enabled) {
@@ -226,7 +229,7 @@ class AiService {
         call: async (name, args, signal) => {
           try {
             const result = await this.call(name, args, signal);
-            if (name !== 'mdlxl_context') return result;
+            if (name !== 'mdlxl_context' || !(await this.sdBrainAvailable())) return result;
             const policy = await this.sdBrainPolicy(),
               { sdBrainInstructions } = await this.init();
             return { ...result, sdBrain: { ...policy, instructions: sdBrainInstructions(policy, 'external') } };
@@ -463,7 +466,7 @@ class AiService {
     }
     if (task.artBrief && conversation.kind !== 'worker')
       prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
-    prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
+    if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
     let workerImages = images;
@@ -563,8 +566,9 @@ class AiService {
         : AI_SYSTEM_PROMPT;
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
-    const instructions =
-      system + '\n\n' + sdBrainInstructions(sd, organiser ? 'organiser' : conversation.toolsOff ? 'note' : 'direct');
+    const instructions = (await this.sdBrainAvailable())
+      ? system + '\n\n' + sdBrainInstructions(sd, organiser ? 'organiser' : conversation.toolsOff ? 'note' : 'direct')
+      : system;
     try {
       await progress('inspecting');
       let runs = 0;
@@ -874,7 +878,11 @@ class AiService {
     return { activity: !!entry.activity, remember: entry.remember || 'ask' };
   }
   // SD Brain is off until the user turns it on; it applies from the next task.
+  async sdBrainAvailable() {
+    return this.sdBrainOverride ?? (await this.init()).SD_BRAIN_AVAILABLE === true;
+  }
   async setSdBrain(enabled) {
+    if (enabled && !(await this.sdBrainAvailable())) throw Error('SD Brain is not available in this version.');
     if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
     const config = await this.configuration();
     config.sdBrain = enabled;
@@ -885,7 +893,7 @@ class AiService {
   async sdBrainPolicy() {
     const config = await this.configuration(),
       { SD_BRAIN_REVISION } = await this.init();
-    return { enabled: config.sdBrain === true, revision: SD_BRAIN_REVISION };
+    return { enabled: (await this.sdBrainAvailable()) && config.sdBrain === true, revision: SD_BRAIN_REVISION };
   }
   async setOffload(enabled) {
     if (typeof enabled !== 'boolean') throw Error('Choose on or off.');

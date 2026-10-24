@@ -16,6 +16,7 @@ import { sampleAiModel } from '../src/ai-sampling.js';
 import { aiAssets, validateAiAssets } from './ai-assets.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
+import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
 const settle = () => new Promise(resolve => setTimeout(resolve, 60));
@@ -216,7 +217,10 @@ export class AiEditorBridge {
       return result.value;
     }
     if (name === 'mdlxl_help') {
-      const index = Object.keys(guides).map(path => path.replace('../', ''));
+      // The SD rulebook and study stay out of help while SD Brain is parked.
+      const index = Object.keys(guides)
+        .map(path => path.replace('../', ''))
+        .filter(path => SD_BRAIN_AVAILABLE || !path.startsWith('docs/AI-SD-'));
       if (!args.topic)
         return {
           topics: index,

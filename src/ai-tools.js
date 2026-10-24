@@ -1,5 +1,5 @@
 import { SD_CRITERIA } from './ai-sd-rules.js';
-export { AI_SD_RULES, AI_SD_BRAIN, AI_SD_ART_DIRECTOR, SD_BRAIN_REVISION, SD_CRITERIA, sdBrainInstructions, sdReviewProblem } from './ai-sd-rules.js';
+export { AI_SD_RULES, AI_SD_BRAIN, AI_SD_ART_DIRECTOR, SD_BRAIN_AVAILABLE, SD_BRAIN_REVISION, SD_CRITERIA, sdBrainInstructions, sdReviewProblem } from './ai-sd-rules.js';
 
 // One provider-neutral contract, shared by the editor, embedded agents and MCP.
 const object = properties => ({ type: 'object', properties, additionalProperties: false });

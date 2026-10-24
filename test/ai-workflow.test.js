@@ -43,7 +43,7 @@ async function setup(t, respond) {
       }),
   );
   const make = () => {
-    const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
+    const service = new AiService({ root, profile, electron: {}, getWindow: () => null, sdBrainAvailable: true });
     service.emit = event => events.push(event);
     service.call = async (name, args) => {
       if (name === 'mdlxl_checkpoint')
@@ -286,6 +286,27 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   assert.equal(f.arts.length, 1, 'no art direction while SD Brain is off');
   const guide = (await fs.readFile(path.join(root, 'docs/AI-SD-RULEBOOK.md'), 'utf8')).replace(/\r\n/g, '\n');
   assert.ok(guide.includes(AI_SD_RULES), 'the standalone rulebook matches the supplied instructions');
+});
+
+test('SD Brain is parked: no switch, no art director and nothing about it in prompts', async t => {
+  const received = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  const service = f.make();
+  service.sdBrainOverride = undefined;
+  await service.configure({ provider: 'compatible', model: 'test', baseUrl: (await f.service.settings()).baseUrl });
+  const status = await service.status();
+  assert.equal(status.sdBrainAvailable, false);
+  assert.equal(status.sdBrain, false);
+  await assert.rejects(() => service.setSdBrain(true), /not available/);
+  assert.equal((await service.send({ id: 'parked', text: 'make a chalice of power', context })).ok, true);
+  const system = received.at(-1).messages.find(message => message.role === 'system').content,
+    user = received.at(-1).messages.filter(message => message.role === 'user').at(-1).content[0].text;
+  assert.ok(!/SD Brain|Warcraft III SD modeling rulebook/.test(system), 'no SD Brain text in the instructions');
+  assert.ok(!/SD Brain|SD art brief/.test(user), 'no SD Brain text in the prompt');
+  assert.equal(f.arts.length, 0, 'no art direction turn');
 });
 
 test('a failed art direction is shown with its reason and the task still runs', async t => {

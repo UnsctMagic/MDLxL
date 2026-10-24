@@ -29,6 +29,10 @@ There is no universal SD triangle, bone, texture-size or key-count cap. Use the 
 // toggling it never changes a task that is already running.
 export const SD_BRAIN_REVISION = '2026-10-25.5';
 
+// SD Brain is parked (owner, 2026-10-25): hidden and always off until it comes back.
+// Set to true to bring back the switch, the art director, the rules and the SD Kit listing.
+export const SD_BRAIN_AVAILABLE = false;
+
 // The judgment questions of an SD Brain review, in the order they are asked.
 export const SD_CRITERIA = [
   'fidelity',

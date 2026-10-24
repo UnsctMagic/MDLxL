@@ -35,7 +35,7 @@ async function setup(t, { organiser, worker }) {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => (server.closeAllConnections(), server.close(resolve))));
   const events = [];
-  const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
+  const service = new AiService({ root, profile, electron: {}, getWindow: () => null, sdBrainAvailable: true });
   service.emit = event => events.push(event);
   // Names are random in use; the first choice keeps tests readable (Crow, then Jackdaw).
   service.random = () => 0;
