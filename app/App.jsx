@@ -7,6 +7,7 @@ import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '.
 import './addons.css'; // keeps the stylesheet's place in the CSS order; Addons renders in AppToolbar
 import AiAssistant from './AiAssistant.jsx';
 import { AiEditorBridge } from './ai-editor.js';
+import { sketchStore } from '../src/ai-sketch.js';
 import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
 import { refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
@@ -147,7 +148,10 @@ export default function App() {
   const changeSensitivity = value => changePreferences({ ...preferencesRef.current, scrollSensitivity: value });
   const changePointerSensitivity = value => changePreferences({ ...preferencesRef.current, pointerSensitivity: value });
   const toggleWheelMode = mode => changePreferences(previous => ({ ...previous, wheelMode: previous.wheelMode === mode ? 'rotate' : mode }));
-  const toggleCamera = () => setCameraMode(previous => previous === 'work' ? 'rotate' : 'work');
+  // One tool owns the left mouse button: choosing an editor tool, camera mode or
+  // another tab puts the AI console's Marker/Pen/Eraser away.
+  const chooseCameraMode = next => { sketchStore.clearTool(); setCameraMode(next); };
+  const toggleCamera = () => { sketchStore.clearTool(); setCameraMode(previous => previous === 'work' ? 'rotate' : 'work'); };
   const [showcaseHistoryState,setShowcaseHistoryState]=useState({undo:false,redo:false});
   const showcaseHistoryChanged=useCallback(value=>setShowcaseHistoryState(prior=>prior.undo===value.undo&&prior.redo===value.redo?prior:value),[]);
   const [showcaseSession,setShowcaseSession]=useState(null),[showcaseVisited,setShowcaseVisited]=useState(false);
@@ -561,6 +565,7 @@ export default function App() {
   };
   const selectMode = async next => {
     if (savingRef.current || next === mode && next !== 'uv') { if (next === 'vertices') setUVFocused(false); return; }
+    sketchStore.clearTool();
     // Function-key mode changes can remove a focused blur-committed field
     // before React sees its blur. Commit that pending value while its editor
     // is still mounted (notably the final RGB channel in Animations).
@@ -592,6 +597,7 @@ export default function App() {
   };
 
   const setWorkTool = next => {
+    sketchStore.clearTool();
     const movement = next === 'translate' ? 'move' : next;
     if (uvEditing) { uvAction('tool', movement); return; }
     if (rigWorkspace && (movementRestricted(movement, restrictions) || restPose && !['select','move'].includes(movement))) return;
@@ -1296,7 +1302,7 @@ export default function App() {
     firstFrame: () => {setPlaying(false);setTime(animationDomain.start);}, lastFrame: () => {setPlaying(false);setTime(animationDomain.end);},
     nextFrame: () => {setPlaying(false);setTime(v=>Math.min(animationDomain.end,Math.round(v)+1));}, previousFrame: () => {setPlaying(false);setTime(v=>Math.max(animationDomain.start,Math.round(v)-1));},
     sensitivityUp: () => changeSensitivity(preferencesRef.current.scrollSensitivity*1.15), sensitivityDown: () => changeSensitivity(preferencesRef.current.scrollSensitivity/1.15),
-    ...Object.fromEntries(['work','zoom','rotate','move'].map(v=>['camera:'+v,()=>setCameraMode(v)])),
+    ...Object.fromEntries(['work','zoom','rotate','move'].map(v=>['camera:'+v,()=>chooseCameraMode(v)])),
     ...Object.fromEntries(['select','translate','rotate','scale'].map(v=>[v,()=>mode === 'bones' && v === 'rotate' ? bindSelectedVertices('hard') : setWorkTool(v)])),
     ...Object.fromEntries(['xy','xz','yz'].map(v=>['plane:'+v,()=>setWorkplane(v)])),
     ...Object.fromEntries(['Delete vertices','Create triangle','Delete triangles','Uncouple','Collapse','Weld','Mirror','Extrude','Detach','Reverse normals','Smooth normals','Restore normals'].map(v=>[v,()=>(mode === 'bones'||vertexNodeCenter) && v === 'Delete vertices' ? deleteSelectedNode() : mode === 'bones' && v === 'Create triangle' ? beginAttach() : mode === 'bones' && v === 'Collapse' ? bindSelectedVertices('soft') : mode==='animation' && v==='Collapse' ? timelineCommands.current.copyPose?.() : mode==='animation' && v==='Delete vertices' ? timelineCommands.current.delete?.() : meshAction(v)])),
@@ -1610,7 +1616,7 @@ export default function App() {
       dialog, displayMode, doc, hiddenCount, hide, inputStrength, menuChecks, mode, model, open, openLibrary,
       openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources, rgbPreview,
       rgbSequence, runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, selectionCount, session,
-      sessionDirty, sessions, setCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
+      sessionDirty, sessions, setCameraMode: chooseCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
       setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI
     }} aiControl={<AiAssistant bridge={aiBridge}/>}/>
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}

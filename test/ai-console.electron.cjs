@@ -222,6 +222,28 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.keyboard.press('Escape');
   await page.waitForTimeout(100);
   check('Escape turns the drawing tool off', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
+
+  // One tool owns the left mouse button, and the viewport says so.
+  const tag = page.locator('.ai-drawing-tag'),
+    editorTool = name => page.locator('.classic-tools').getByRole('button', { name, exact: true });
+  await tool('Marker').click();
+  check(
+    'while drawing, the viewport bar says so and no editor tool is lit',
+    (await tag.innerText()).includes('Marker: drawing for the AI') && (await editorTool('Select').getAttribute('aria-pressed')) === 'false',
+  );
+  await editorTool('Move').click();
+  check(
+    'picking an editor tool puts the drawing tool away',
+    (await tool('Marker').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0 && (await editorTool('Move').getAttribute('aria-pressed')) === 'true',
+  );
+  await tool('Pen').click();
+  await page.getByRole('button', { name: 'Camera rotation', exact: true }).click();
+  check('switching the camera mode puts the drawing tool away', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
+  await page.getByRole('button', { name: 'Work mode', exact: true }).click();
+  await tool('Marker').click();
+  await tag.click();
+  check('clicking the viewport tag stops drawing', (await tool('Marker').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0);
+  await editorTool('Select').click();
   check('the model is never modified by drawings', !(await page.locator('.classic-status').innerText()).includes('Modified'));
 
   // Prompt with drawings: the organiser hands it to Crow; watch and steer Crow.
