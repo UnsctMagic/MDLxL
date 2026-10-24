@@ -18,9 +18,42 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 - Base: `af1d0f12` (main, including the 0.30.1 changes).
 - Initial implementation: `6410229f02e4bd1624e26c61eb35878de75c3afd`.
   The same branch continues with the verified sign-in repair and UI refresh.
-- Checkout: `D:\Codex\mdlxl-ai-hook-20261024\source`.
+- Current research worktree: `D:\Codex\mdlxl-sd-rulebook-20261024\source` (retained with the study at the owner's request). Study outputs: `D:\Codex\mdlxl-sd-rulebook-20261024\outputs`. The existing local test remains under `D:\Codex\mdlxl-ai-hook-20261024\user-test`.
 - No AI release/version change; merge and publication require approval.
 
+## SD modeling rulebook (2026-10-24)
+
+- The user wants strong SD art direction across agents while retaining the full
+  modeling toolset. Avoid unrequested HD-style complexity; do not turn observed
+  counts into hard caps or use the rulebook to redesign unrelated model data.
+- Read-only research covered all 3,501 installed SD/base CASC entries (3,448
+  distinct models, 53 aliases), excluding HD/DE modules. The first 100 approved
+  resources in Hive's native highest-rating sort contain 705 distinct MDX 800
+  models; all parsed. Preserve the distinction between resources and model files.
+- Visual study: 127 native and 100 Hive representatives rendered; 32 Walk clips
+  sampled at six phases (192 poses). One native bridge render failed, and 18 Hive
+  representatives have unresolved legacy stock texture references. The guide
+  records these limits; no Warcraft gameplay acceptance was claimed.
+- `src/ai-sd-rules.js` supplies one canonical rule text to `AI_SYSTEM_PROMPT` and
+  the MCP initialize response. The standalone rulebook and reference study are
+  available in help and are included with the evidence JSON in offline packages.
+  No new UI, edit operation, format conversion or hard modeling budget was added.
+- Verification: 24 focused checks (23 passed, one skipped); source 1,916 tests
+  (1,894 passed, 22 skipped, zero failed); compatibility 57 passed. The package
+  verified 1,157 runtime/assets and 55 locales. All 65 packaged editor checks
+  passed, including rule delivery, help, selected edits, Undo/Redo, round trips,
+  mouse rotation and captures without panel hiding.
+- All 705 downloaded model hashes and the native build metadata remained
+  unchanged. At the owner's explicit request, keep the entire local study root:
+  original archives, extracted models/textures, raw catalogues, ranking captures,
+  renders, measurements, scripts, logs and this source worktree. Claude's entry
+  point is `D:\Codex\mdlxl-sd-rulebook-20261024\CLAUDE-HANDOFF.md`.
+- Initial CI found a CRLF-only guide-comparison failure after Windows checkout.
+  Normalize line endings in that test while retaining exact rulebook content
+  parity. The runtime policy and verified packaged behavior are unchanged.
+- Provider protocol/delivery and editor behavior were tested with fixtures. This
+  continuation did not grade generated art from a paid provider; model judgment
+  still needs the existing visual and measured review.
 ## Review fixes (Claude, 2026-10-24)
 
 Commits after `375817e` on the same branch. The AI keeps full control of program
@@ -209,9 +242,8 @@ Earlier milestones (before optional awareness and durable verification):
 
 ## Next action
 
-Owner click-through of the review fixes (see PR), then merge on approval. Codex
-or a Windows checkout should rerun `test/ai-editor.electron.cjs` and
-`test/ai-awareness.electron.cjs` against a package of the current branch.
-The local user test retains its signed-in profile and GPT-6-Luna selection.
-`test/ai-live.electron.cjs` is the opt-in real-account acceptance harness; ordinary
-CI and `test/ai-editor.electron.cjs` use fixtures without paid credentials.
+Owner review of SD-guided modeling behavior in the local test and the existing
+AI hook PR. Merge only after approval. Local source, compatibility and packaged
+checks for this continuation are complete; CI runs against the pushed revision.
+The user's existing test profile and saved models stay separate from the package.
+`test/ai-live.electron.cjs` remains the opt-in real-account acceptance harness.

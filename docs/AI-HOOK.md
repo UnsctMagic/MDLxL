@@ -90,6 +90,16 @@ and come back when it reopens. Each prompt sends them as `context.annotations`
 (model-space points, colors and covered vertices); a message sent while the AI
 works includes the current notes, and viewport captures show them.
 
+The [Warcraft III SD rulebook](AI-SD-RULEBOOK.md) supplies the same default modeling
+constraints to embedded providers and external MCP clients. It preserves the
+model's authored style and the user's explicit request while discouraging
+unrequested subdivision, dense animation baking, PBR conversion and decorative
+complexity. All tools remain available. The [reference study](AI-SD-REFERENCE-STUDY.md)
+records 3,448 distinct installed Blizzard models and 705 models from the first
+100 highest-rated approved Hive SD resources, with visual-study limits and source
+links. These guides are also available through `mdlxl_help`. No extra AI requests
+are started by having the rulebook installed.
+
 **Continuous awareness** is an optional switch (the eye) in the prompt box.
 It starts off and remembers your choice. When on, real editor changes update the
 connected AI's context: document/revision, marked vertices, selected bones/keys,
