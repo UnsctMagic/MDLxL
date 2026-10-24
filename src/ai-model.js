@@ -188,6 +188,8 @@ function protectedAnimationKeys(before, after, ranges) {
 // numeric array type; a script may change values but not the storage format.
 function keepArrayTypes(a, b, path) {
   if (ArrayBuffer.isView(a)) {
+    // Removing an optional array (for example Tangents) is allowed; replacing its type is not.
+    if (b == null) return;
     if (!ArrayBuffer.isView(b) || b.constructor !== a.constructor)
       throw Error(
         'Edit changes the array type of ' + pointer(path) + '; keep it a ' + a.constructor.name + '.',
@@ -232,17 +234,15 @@ export function prepareAiEdit(before, after, { scope, protectedPaths = [], anima
   return {
     changes,
     sections: [...new Set(changes.map(c => c.path[0]))],
-    summary: changes
-      .slice(0, 100)
-      .map(c => ({
-        path: pointer(c.path),
-        kind: c.kind,
-        ...(c.kind === 'bytes'
-          ? { bytes: c.after.byteLength }
-          : c.kind === 'splice'
-            ? { index: c.index, removed: c.before.length, added: c.after.length }
-            : {}),
-      })),
+    summary: changes.slice(0, 100).map(c => ({
+      path: pointer(c.path),
+      kind: c.kind,
+      ...(c.kind === 'bytes'
+        ? { bytes: c.after.byteLength }
+        : c.kind === 'splice'
+          ? { index: c.index, removed: c.before.length, added: c.after.length }
+          : {}),
+    })),
     changeCount: changes.length,
   };
 }

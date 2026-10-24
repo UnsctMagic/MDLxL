@@ -38,8 +38,9 @@ controls, including Save of the open model; the owner wants it as working hands.
 - Saved API key cleared when the base URL changes; a custom CLI path must name the
   provider's own CLI; disabling external MCP retires its key; idle MCP sessions
   expire after an hour (64 max).
-- AI edits may not change a numeric array's type; generated textures load before
-  the model edit commits.
+- AI edits may not change a numeric array's type (removing an optional array is
+  allowed); generated textures load only after a successful commit. An unchanged
+  saved CLI path keeps working; only a newly entered path is checked.
 - `ignoreAiAlias` replaced by `editor-document`'s `ignoreHistoryAlias`; App's AI
   host uses one `afterPaint` helper; new AI files formatted with Prettier
   (110 columns, single quotes), no behaviour change.

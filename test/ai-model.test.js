@@ -200,4 +200,10 @@ test('AI edits may change numeric values but not the numeric array type', () => 
     ).changeCount,
     1,
   );
+  // Removing an optional numeric array is not a type change.
+  assert.equal(
+    prepareAiEdit(before, { Geosets: [{ VertexGroup: new Uint8Array([0, 1]) }] }, { scope: ['/Geosets'] })
+      .changeCount,
+    1,
+  );
 });

@@ -259,13 +259,6 @@ export class AiEditorBridge {
       const prepared = prepareAiEdit(before, result.model, args);
       const assets = validateAiAssets(result.assets || [], result.model, state.session.assets);
       if (!prepared.changeCount) return { applied: false, changes: [], value, logs: result.logs || [] };
-      // Texture bytes are loaded first so the committed model never names a missing
-      // image. They are session data, not model data; Undo of the edit drops them on save.
-      if (assets.length) {
-        await host.addAssets(assets);
-        active();
-        this.requireTarget(args.target);
-      }
       // The existing App.edit owns validation, UV-preview protection, history and refresh.
       flushSync(() => {
         host.edit(args.label, prepared.sections, model => applyAiEdit(model, prepared), {
@@ -277,6 +270,8 @@ export class AiEditorBridge {
       });
       if (state.doc.revision === target.revision) throw Error('The editor could not commit the edit.');
       this.advance(args.target);
+      // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
+      if (assets.length) await host.addAssets(assets);
       return {
         applied: true,
         target: args.target,

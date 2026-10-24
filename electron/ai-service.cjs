@@ -108,9 +108,13 @@ class AiService {
     if (input.baseUrl) endpoint(input.baseUrl);
     const native = ['codex', 'claude'].includes(input.provider),
       baseUrl = String(input.baseUrl || '').trim();
-    const executable = native
-      ? checkAgentExecutable(input.provider, String(input.executable || '').trim())
-      : '';
+    // A new CLI path must name the provider's CLI; an unchanged saved path keeps working.
+    const requested = String(input.executable || '').trim();
+    const executable = !native
+      ? ''
+      : requested === (previous.executable || '')
+        ? requested
+        : checkAgentExecutable(input.provider, requested);
     // A saved key belongs to the server it was entered for; never send it to a new address.
     const next = {
       model: String(input.model || '').trim(),
