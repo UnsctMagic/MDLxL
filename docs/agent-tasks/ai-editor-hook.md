@@ -29,9 +29,9 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 - Read-only research covered all 3,501 installed SD/base CASC entries (3,448
   distinct models, 53 aliases), excluding HD/DE modules. Of the first 100 approved
   resources in Hive's native highest-rating sort, 90 allow use and editing with
-  credit and were studied (646 distinct MDX 800 models; all parsed). Ten were
-  excluded by their own terms: editing or sharing only with permission, or no AI
-  use. Preserve the distinction between resources and model files.
+  credit and were studied (646 distinct MDX 800 models; all parsed). Resources
+  whose authors require permission or forbid AI use are not used or mentioned.
+  Preserve the distinction between resources and model files.
 - Visual study: 127 native and 90 Hive representatives rendered; 30 Walk clips
   sampled at six phases (180 poses). One native bridge render failed, and 16 Hive
   representatives have unresolved legacy stock texture references. The guide

@@ -1285,7 +1285,7 @@
   },
   "hive": {
     "source": "https://www.hiveworkshop.com/repositories/classic-sd-models.530/?order=rating&state%5Bapproved%5D=1",
-    "selection": "First 100 resources in the native highest-rating sort of the approved Classic SD category; the 90 whose own terms allow free use and editing with credit were studied, 10 were excluded by their terms",
+    "selection": "Approved Classic SD resources from the first 100 of Hive's native highest-rating sort whose own terms allow use and editing with credit (90 resources)",
     "snapshot": "2026-10-24T14:37:26.832Z",
     "resources": 90,
     "models": 646,
@@ -3701,79 +3701,7 @@
         "representativeHash": "2279ab8e26277203f9707bf1d858e5bfa64c04f735106efb5049320934682409"
       }
     ],
-    "usageRule": "Included: the author allows use and editing with credit, or states no restriction beyond crediting. Excluded: the author forbids editing or sharing without permission, or forbids AI use.",
-    "excluded": [
-      {
-        "rank": 3,
-        "title": "Lindormr Dragon",
-        "listingAuthor": "olofmoleman",
-        "url": "https://www.hiveworkshop.com/threads/lindormr-dragon.52050/",
-        "reason": "do not distribute or modify without permission"
-      },
-      {
-        "rank": 6,
-        "title": "Arch Angel - Elenai.",
-        "listingAuthor": "General Frank",
-        "url": "https://www.hiveworkshop.com/threads/arch-angel-elenai.50740/",
-        "reason": "no editing, reposting or sharing without written permission; no monetised maps"
-      },
-      {
-        "rank": 27,
-        "title": "Icecrown Overlord",
-        "listingAuthor": "General Frank",
-        "url": "https://www.hiveworkshop.com/threads/icecrown-overlord.48381/",
-        "reason": "no editing, reposting or sharing without written permission; no monetised maps"
-      },
-      {
-        "rank": 35,
-        "title": "Arthas/Nerzhul merge - Lich king Arthas",
-        "listingAuthor": "General Frank",
-        "url": "https://www.hiveworkshop.com/threads/arthas-nerzhul-merge-lich-king-arthas.90625/",
-        "reason": "no editing, reposting or sharing without written permission; no monetised maps"
-      },
-      {
-        "rank": 44,
-        "title": "Stormwind Buildings",
-        "listingAuthor": "bakr",
-        "url": "https://www.hiveworkshop.com/threads/stormwind-buildings.342290/",
-        "reason": "do not edit without permission; do not upload to other sites"
-      },
-      {
-        "rank": 51,
-        "title": "Kultiras Structures and Doodads",
-        "listingAuthor": "bakr",
-        "url": "https://www.hiveworkshop.com/threads/kultiras-structures-and-doodads.338876/",
-        "reason": "do not edit without permission; do not upload to other sites"
-      },
-      {
-        "rank": 56,
-        "title": "Soul Harvester Scythe",
-        "listingAuthor": "Blood Raven",
-        "url": "https://www.hiveworkshop.com/threads/soul-harvester-scythe.276681/",
-        "reason": "do not edit or post elsewhere without permission"
-      },
-      {
-        "rank": 67,
-        "title": "Dwarven Buildings (Dark Iron)",
-        "listingAuthor": "bakr",
-        "url": "https://www.hiveworkshop.com/threads/dwarven-buildings-dark-iron.344306/",
-        "reason": "do not edit without permission; do not upload to other sites"
-      },
-      {
-        "rank": 92,
-        "title": "Night Elf Blademistress",
-        "listingAuthor": "Nyctaeus",
-        "url": "https://www.hiveworkshop.com/threads/night-elf-blademistress.364399/",
-        "reason": "prohibits AI training or AI content generation based on it"
-      },
-      {
-        "rank": 100,
-        "title": "Spellbringers: Mad Scientist",
-        "listingAuthor": "General Frank",
-        "url": "https://www.hiveworkshop.com/threads/spellbringers-mad-scientist.336981/",
-        "reason": "no editing, reposting or sharing without written permission"
-      }
-    ]
+    "usageRule": "Included only when the author allows use and editing with credit, or states no restriction beyond crediting."
   },
   "visual": {
     "attempted": 218,

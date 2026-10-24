@@ -5,7 +5,7 @@ Study date: 24 October 2026. This study grounds the [shared AI rulebook](AI-SD-R
 ## Coverage and selection
 
 - The installed Warcraft III CASC lists 15,090 model entries. Removing HD and Definitive Edition modules leaves **3,501 SD/base entries**, including regional and tileset variants. They contain **3,448 distinct model byte streams** and 53 aliases. Every entry was read; all distinct models parsed successfully with MDLxL's compatibility reader. The installed build is identified by the metadata SHA-256 in the [study data](AI-SD-STUDY-DATA.json). Historical models absent from this build are outside that coverage.
-- Hive references come from the **first 100 resources in Hive's native highest-rating order**, with the Classic SD and approved filters. Six ranking pages were captured to preserve the selection; only the first 100 were considered. Of those, **90 were studied** and 10 were left out because their authors do not allow editing or sharing without permission, or do not allow AI use (see [Usage terms](#usage-terms)). The 90 packs and variants contain **646 distinct model files**, all parsed successfully. A pack counts as one rated resource, not dozens of independent endorsements. Ratings of the studied resources range from **4.8 to 5/5**, with **24 to 174 votes** per resource. Hive's ranking is not a simple descending re-sort of the displayed star averages.
+- Hive references come from the **first 100 resources in Hive's native highest-rating order**, with the Classic SD and approved filters. Six ranking pages were captured to preserve the selection; only the first 100 were considered. Only the **90 whose authors allow use and editing with credit** were studied (see [Usage terms](#usage-terms)). The 90 packs and variants contain **646 distinct model files**, all parsed successfully. A pack counts as one rated resource, not dozens of independent endorsements. Ratings of the studied resources range from **4.8 to 5/5**, with **24 to 174 votes** per resource. Hive's ranking is not a simple descending re-sort of the displayed star averages.
 - The combined structural corpus contains **4,094 unique models**. Geometry, visible-geoset estimates, bindings, materials, texture references, sequence intervals, interpolation and key counts were inspected. Native referenced texture headers were read for 2,093 textures; 218 of 2,311 references were unresolved by the local reader. Supplied Hive image/texture files were also inventoried separately from in-game references.
 - A visual sample attempted 128 Blizzard references spread across unit, building, doodad, effect, portrait, item and UI path families, plus one representative from each studied Hive resource. **127 Blizzard and all 90 Hive representatives rendered** through MDLxL's actual Warcraft renderer and compatibility adapter. Three-quarter, game-angle and topology views were inspected. **30 Walk clips were sampled at six phases** (180 poses). The first two known-good models were used to verify the capture setup before completing the corpus.
 
@@ -79,22 +79,7 @@ The following are qualitative judgments from the rendered references, not facts 
 
 ## Usage terms
 
-Only resources whose own description allows use and editing with credit, or states no restriction beyond crediting the author, are part of this study. Resources whose authors forbid editing or sharing without permission, or forbid AI use, were removed and are not used for any number, image or finding here. The terms were read from each resource's description as included in its download on 24 October 2026; authors can change them later. Credit: every studied resource is listed below with its author and source page, which keeps the complete credits.
-
-Excluded by their terms:
-
-| Hive rank | Resource | Listing author | Reason |
-|---:|---|---|---|
-| 3 | [Lindormr Dragon ](https://www.hiveworkshop.com/threads/lindormr-dragon.52050/) | olofmoleman | do not distribute or modify without permission |
-| 6 | [Arch Angel - Elenai. ](https://www.hiveworkshop.com/threads/arch-angel-elenai.50740/) | General Frank | no editing, reposting or sharing without written permission; no monetised maps |
-| 27 | [Icecrown Overlord ](https://www.hiveworkshop.com/threads/icecrown-overlord.48381/) | General Frank | no editing, reposting or sharing without written permission; no monetised maps |
-| 35 | [Arthas/Nerzhul merge - Lich king Arthas ](https://www.hiveworkshop.com/threads/arthas-nerzhul-merge-lich-king-arthas.90625/) | General Frank | no editing, reposting or sharing without written permission; no monetised maps |
-| 44 | [Stormwind Buildings ](https://www.hiveworkshop.com/threads/stormwind-buildings.342290/) | bakr | do not edit without permission; do not upload to other sites |
-| 51 | [Kultiras Structures and Doodads ](https://www.hiveworkshop.com/threads/kultiras-structures-and-doodads.338876/) | bakr | do not edit without permission; do not upload to other sites |
-| 56 | [Soul Harvester Scythe ](https://www.hiveworkshop.com/threads/soul-harvester-scythe.276681/) | Blood Raven | do not edit or post elsewhere without permission |
-| 67 | [Dwarven Buildings (Dark Iron) ](https://www.hiveworkshop.com/threads/dwarven-buildings-dark-iron.344306/) | bakr | do not edit without permission; do not upload to other sites |
-| 92 | [Night Elf Blademistress ](https://www.hiveworkshop.com/threads/night-elf-blademistress.364399/) | Nyctaeus | prohibits AI training or AI content generation based on it |
-| 100 | [Spellbringers: Mad Scientist ](https://www.hiveworkshop.com/threads/spellbringers-mad-scientist.336981/) | General Frank | no editing, reposting or sharing without written permission |
+Only resources whose own description allows use and editing with credit, or states no restriction beyond crediting the author, are part of this study. The terms were read from each resource's description as included in its download on 24 October 2026; authors can change them later. No model, texture or image from any resource is included with MDLxL; the study keeps only measurements and written observations. Credit: every studied resource is listed below with its author and source page.
 
 ## Primary references
 
