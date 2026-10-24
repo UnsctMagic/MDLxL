@@ -640,6 +640,18 @@ export default function Viewport(inputProps) {
         }
         payload.modelPositions = modelPositions;
       }
+      // Coords follows the preview without changing the document or undo history.
+      if (latest.current.onTransformPreview) {
+        const center = [0, 0, 0]; let count = 0;
+        for (const [key, indices] of Object.entries(drag.selections)) {
+          const positions = payload.modelPositions?.[key], rendered = state.entries[key].geometry.attributes.position.array;
+          for (let slot = 0; slot < indices.length; slot++) {
+            for (let axis = 0; axis < 3; axis++) center[axis] += positions ? positions[slot * 3 + axis] : rendered[indices[slot] * 3 + axis];
+            count++;
+          }
+        }
+        latest.current.onTransformPreview(center.map(value => value / count));
+      }
       drag.payload = payload; drag.moved = drag.action === 'translate' && quad ? Math.hypot(drag.move.point.x - down.x, drag.move.point.y - down.y) > 1 : Math.hypot(dx, dy) > 1;
       invalidate();
     }
@@ -662,6 +674,7 @@ export default function Viewport(inputProps) {
       }
       const drag = state.drag; state.drag = null;
       if (drag) {
+        latest.current.onTransformPreview?.(null);
         if (drag.moved && drag.payload) latest.current.onTransform?.(drag.payload);
         state.dirty = true; state.selectionKey = ''; invalidate(); return;
       }
@@ -737,6 +750,7 @@ export default function Viewport(inputProps) {
       state.nodeDrag=null;
       rotating = false; latest.current.onCameraGestureChange?.(false);
       const drag = state.drag;
+      if (drag) latest.current.onTransformPreview?.(null);
       if (drag) for (const [key, vertices] of Object.entries(drag.snapshots)) {
         const position = state.entries[key]?.geometry.attributes.position;
         if (position) { position.array.set(vertices); position.needsUpdate = true; }
@@ -1012,6 +1026,7 @@ export default function Viewport(inputProps) {
     document.addEventListener('visibilitychange', state.scheduler.sync);
     state.scheduler.invalidate();
     return () => {
+      if (state.drag) latest.current.onTransformPreview?.(null);
       savePane();
       const remember = pane => ({ id: pane.id, view: pane.view, perspective: pane.perspective.clone(), ortho: pane.ortho.clone(), target: pane.controls.target.clone(), center: pane.center.clone(), radius: pane.radius });
       cameraMemory.current = { ...remember(singlePane), panes: panes.slice(1).map(remember) };
@@ -1029,6 +1044,7 @@ export default function Viewport(inputProps) {
 
   useEffect(() => {
     const state = runtime.current; if (!state) return;
+    if (state.drag) latest.current.onTransformPreview?.(null);
     state.drag = null; clearGroup(state.modelGroup); state.entries = []; state.nodes = allNodes(model || {}); state.selectionKey = ''; state.dirty = true;
     state.geosetAnims = new Map((model?.GeosetAnims || []).map(anim => [anim.GeosetId, anim]));
     state.scheduler?.invalidate();

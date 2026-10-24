@@ -54,9 +54,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         const rect = state.controls.domElement.getBoundingClientRect();
         return { x: rect.x + (point.x + 1) * rect.width / 2, y: rect.y + (1 - point.y) * rect.height / 2 };
       };
+      window.displayedCoords = (scope = '.classic-sidebar') => Array.from(document.querySelectorAll(scope + ' .classic-coordinates input'), input => Number(input.value));
       window.cameraFacing = () => { const s = viewportState(); return s.camera.getWorldDirection(s.controls.target.clone()).toArray(); };
     });
     const idle = () => page.waitForTimeout(180);
+    const expectCoords = (actual, expected, label) => assert.ok(actual.length === 3 && actual.every((value, axis) => Math.abs(value - expected[axis]) < .0002), label + ': ' + actual + ' != ' + expected);
     await page.getByLabel('View direction', { exact: true }).selectOption('front'); await idle();
     await viewport.focus(); const box = await viewport.boundingBox();
     await page.mouse.move(box.x + box.width - 10, box.y + box.height - 10); await page.mouse.down();
@@ -69,9 +71,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await planeRadio(plane).check(); await idle();
       const before = await page.evaluate(() => ({ c: authoredCentroid(), s: screenCentroid() }));
       await page.mouse.move(before.s.x, before.s.y); if (shift) await page.keyboard.down('Shift');
-      await page.mouse.down(); await page.mouse.move(before.s.x + 50, before.s.y - 40, { steps: 6 }); await idle(); await page.mouse.up();
+      await page.mouse.down(); await page.mouse.move(before.s.x + 50, before.s.y - 40, { steps: 6 }); await idle();
+      const liveCoords = await page.evaluate(() => displayedCoords());
+      assert.notDeepEqual(liveCoords, before.c, 'Coords updates during a vertex drag');
+      assert.deepEqual(await page.evaluate(() => authoredCentroid()), before.c, 'drag preview leaves authored vertices unchanged');
+      await page.mouse.up();
       if (shift) await page.keyboard.up('Shift'); await idle();
       const after = await page.evaluate(() => ({ c: authoredCentroid(), s: screenCentroid() }));
+      expectCoords(liveCoords, after.c, 'live Coords matches released vertex positions');
       await page.keyboard.press('Control+z'); await idle();
       assert.deepEqual(await page.evaluate(() => authoredCentroid()), before.c, 'undo restores the vertices');
       return { delta: after.c.map((value, i) => value - before.c[i]), screen: [after.s.x - before.s.x, after.s.y - before.s.y] };
@@ -122,7 +129,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         const h = (await page.evaluate(scope => gizmo(scope), scope)).handles.find(h => h.axis === axis);
         const from = h.plane ? { x: h.x, y: h.y } : { x: h.startX + h.dx * .7, y: h.startY + h.dy * .7 }, before = await page.evaluate(measure, scope);
         if (!h.plane) { const length = Math.hypot(h.dx, h.dy), ux = h.dx / length, uy = h.dy / length; move = [ux * 40 - uy * 25, uy * 40 + ux * 25]; }
-        await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(from.x + move[0], from.y + move[1], { steps: 6 }); await idle(); await page.mouse.up(); await idle();
+        await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(from.x + move[0], from.y + move[1], { steps: 6 }); await idle();
+        const liveCoords = await page.evaluate(scope => displayedCoords(scope || '.classic-sidebar'), scope);
+        expectCoords(await page.evaluate(measure, scope), before, label + ': gizmo preview does not commit');
+        await page.mouse.up(); await idle();
+        expectCoords(liveCoords, await page.evaluate(measure, scope), label + ': gizmo updates Coords while held');
         const delta = (await page.evaluate(measure, scope)).map((value, i) => value - before[i]);
         if (scope) await page.locator(scope + ' [data-hotkey="undo"]').click(); else await page.keyboard.press('Control+z');
         let restored; for (let tries = 0; tries < 10; tries++) { await idle(); restored = await page.evaluate(measure, scope); if (restored.every((value, i) => Math.abs(value - before[i]) < 1e-3)) break; }
