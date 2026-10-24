@@ -6320,5 +6320,7 @@
   "Fix duplicate geoset animations": "Corregir animaciones de geoset duplicadas",
   "Fixed duplicate geoset animations. Undo reverses it.": "Animaciones de geoset duplicadas corregidas. Deshacer lo revierte.",
   "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "El geoset {0} tiene más de una animación de geoset. Haga clic en el aviso de la barra de estado para corregirlo antes de editar sus pistas.",
-  "Not now": "Ahora no"
+  "Not now": "Ahora no",
+  "Darker interface": "Interfaz más oscura",
+  "Lighter interface": "Interfaz más clara"
 }

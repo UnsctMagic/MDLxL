@@ -51,7 +51,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   viewportPreset: DEFAULT_VIEWPORT_PRESET_ID, viewportAppearance: DEFAULT_VIEWPORT_APPEARANCE, viewportPresets: Object.freeze([]),
   graphics: Object.freeze({ pixelRatio: 1.5, antialias: false, maxFps: 60, textures: true, lighting: true, particles: true, pauseWhenHidden: true, softwareLow: false }),
   lighting: normalizePreviewLighting(), platform: Object.freeze({enabled:false,shape:"square",size:1.5,height:0,color:"#303030",textureUrl:""}),
-  hotkeys: Object.freeze({}),
+  hotkeys: Object.freeze({}), lightDarkReturn: null,
 });
 
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
@@ -140,6 +140,14 @@ export function migratePreferences(value = {}) {
   const input = migrateFollowupPreferences(value), hotkeys = migrateHotkeyBindings(input.hotkeys);
   return hotkeys === input.hotkeys ? input : { ...input, hotkeys };
 }
+/** The appearance a Shift+F1 / Shift+F2 light/dark switch replaces and later restores. */
+export const LIGHT_DARK_KEYS = Object.freeze(['theme', 'accent', 'viewportPreset', 'viewportAppearance', 'visuals', 'citadelPaint']);
+function normalizeLightDarkReturn(input) {
+  const saved = record(input.lightDarkReturn);
+  if (!Object.hasOwn(APPLICATION_THEMES, saved.theme)) return null;
+  const normalized = normalizePreferences({ ...input, ...Object.fromEntries(LIGHT_DARK_KEYS.filter(key => own(saved, key)).map(key => [key, saved[key]])), lightDarkReturn: null });
+  return Object.fromEntries(LIGHT_DARK_KEYS.map(key => [key, normalized[key]]));
+}
 export function normalizePreferences(value = {}) {
   const input = migratePreferences(value), graphic = record(input.graphics), defaults = DEFAULT_PREFERENCES.graphics;
   const sensitivity = Number(input.scrollSensitivity);
@@ -182,6 +190,7 @@ export function normalizePreferences(value = {}) {
       particles: boolean(graphic.particles, defaults.particles), pauseWhenHidden: boolean(graphic.pauseWhenHidden, defaults.pauseWhenHidden),
       softwareLow: boolean(graphic.softwareLow, defaults.softwareLow),
     }, lighting: normalizePreviewLighting(input.lighting), platform: {enabled:input.platform?.enabled===true,shape:["square","disc","hexagon"].includes(input.platform?.shape)?input.platform.shape:"square",size:bounded(input.platform?.size,.1,10,1.5),height:bounded(input.platform?.height,-100000,100000,0),color:/^#[0-9a-f]{6}$/i.test(input.platform?.color)?input.platform.color:"#303030",textureUrl:typeof input.platform?.textureUrl==="string" && /^data:image\/(png|jpeg|webp);base64,/i.test(input.platform.textureUrl) && input.platform.textureUrl.length<3000000 ? input.platform.textureUrl:""}, hotkeys,
+    lightDarkReturn: normalizeLightDarkReturn(input),
   };
 }
 

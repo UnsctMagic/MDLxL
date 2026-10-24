@@ -6308,5 +6308,7 @@
   "Fix duplicate geoset animations": "Исправить дубликаты анимаций геосетов",
   "Fixed duplicate geoset animations. Undo reverses it.": "Дубликаты анимаций геосетов исправлены. «Отменить» возвращает изменение.",
   "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "У геосета {0} больше одной анимации геосета. Нажмите предупреждение в строке состояния, чтобы исправить это перед правкой его дорожек.",
-  "Not now": "Не сейчас"
+  "Not now": "Не сейчас",
+  "Darker interface": "Тёмный интерфейс",
+  "Lighter interface": "Светлый интерфейс"
 }
