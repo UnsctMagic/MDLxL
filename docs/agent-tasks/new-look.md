@@ -2,7 +2,7 @@
 
 Status: ready for review; awaiting merge approval
 Owner / consolidator: Claude Code (side session of the mockup session)
-Updated: 2026-10-24
+Updated: 2026-10-24 (complete pass)
 
 ## Goal and completion criteria
 
@@ -56,7 +56,20 @@ Updated: 2026-10-24
   uses the new icons. Shape and tone only, no background overrides, so theme
   colours and special buttons (Record, swatches) stay. The Library (`.tl-*`) and
   BitsAndParts (`.parts-*`) keep their own designed looks.
-- Survey script for every screen: kept in the session scratchpad (`survey.cjs`),
+- Decision (owner, 2026-10-24, screenshot of the Particle editor: "not the
+  same, not modernized"; "yes all of them"): windows must use the main window's
+  controls, not just its shapes. The "Window kit" section of `new-look.css` gives
+  every button a soft filled pill (`--m-btn`, no outline), fields rounded wells,
+  tab rows one segmented control, 12px Segoe UI, 38px quiet title bars with a
+  round close button. Library and BitsAndParts now follow the theme too. The old
+  module colour fallbacks (`--panel`, `--text`, `--accent`, `--app-bg`,
+  `--panel-bg`, `--title-bg`) point at the theme inside the new look.
+- Gotcha: lazy-loaded module CSS and `:root[data-theme=light] button:not(...)…`
+  (0,6,1) beat class-only selectors, so the window sections are anchored on
+  `#root .classic-app.classic-app:not([data-vis-ui])`. Inline-styled swatches,
+  image tiles (`:has(>img)`), list rows and the `!important` Record button keep
+  their own look. Main-window chrome rules use `!important`, so they still win.
+ kept in the session scratchpad (`survey.cjs`),
   pattern: launch packaged exe with `fixtures/demo.mdx`, send `menu` ids through
   `webContents.send('menu', id)`, close with dialog-scoped `[aria-label^=Close]`
   (never the model tab's close). Paint needs an MDX800 model with a texture;
