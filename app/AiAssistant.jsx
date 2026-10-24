@@ -215,7 +215,7 @@ function WorkerPart({ part, onOpen }) {
         </span>
         <b translate="no" style={{ color: birdColor(part.name) }}>{part.name}</b>
         <span className="ai-step-detail">{part.job}</span>
-        <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'failed' ? 'stopped' : 'done'}</span>
+        <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'done' ? 'done' : 'stopped'}</span>
       </button>
       {part.report && (
         <button

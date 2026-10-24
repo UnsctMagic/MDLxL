@@ -130,9 +130,20 @@ class AiRecorder {
       .trim();
   }
   finish() {
-    for (const part of this.parts())
-      if (part.status === 'running') part.status = part.type === 'compaction' ? 'done' : 'stopped';
+    settleParts(this.parts());
   }
+}
+// Nothing is still running once a task ended or the app restarted: tool steps and
+// bird jobs left "running"/"working" become stopped, compaction is done.
+function settleParts(parts) {
+  for (const part of parts)
+    if (part.status === 'running' || part.status === 'working')
+      part.status = part.type === 'compaction' ? 'done' : 'stopped';
+}
+function settleConversation(conversation) {
+  for (const entry of conversation.transcript || []) settleParts(entry.parts || []);
+  for (const worker of conversation.workers || []) if (worker.status === 'working') worker.status = 'idle';
+  return conversation;
 }
 
 // How full a conversation's context is, 0..1. Providers report real token use;
@@ -212,6 +223,7 @@ async function deleteProviderSessions(directory, ids) {
 }
 
 module.exports = {
+  settleConversation,
   BIRDS,
   CORVIDS,
   nextBird,

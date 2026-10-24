@@ -29,6 +29,7 @@ const {
   nextBird,
   contextUse,
   deleteProviderSessions,
+  settleConversation,
 } = require('./ai-offload.cjs');
 
 class AiService {
@@ -252,7 +253,10 @@ class AiService {
     if (this.conversations.has(id)) return this.conversations.get(id);
     let value;
     try {
-      value = JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8'));
+      // Loaded from disk means nothing of it is running in this app session.
+      value = settleConversation(
+        JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')),
+      );
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       value = { id, provider, transcript: [], messages: [] };
@@ -914,7 +918,7 @@ class AiService {
   async readConversation(id) {
     if (this.conversations.has(id)) return this.conversations.get(id);
     try {
-      return JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8'));
+      return settleConversation(JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')));
     } catch {
       return null;
     }

@@ -241,3 +241,22 @@ test('only provider files named after the cleared threads are deleted', async t 
   assert.equal(await deleteProviderSessions(directory, ['aaaa-bbbb-1111', '..', '*']), 1);
   assert.deepEqual(await fs.readdir(path.join(directory, 'claude', 'projects', 'x')), ['cccc-dddd-2222.jsonl']);
 });
+
+test('a chat saved while a bird was working comes back settled after a restart', async t => {
+  const f = await setup(t, { organiser: () => say('x'), worker: () => say('y') });
+  const { id } = await f.service.organiser({ modelKey });
+  const organiser = await f.service.conversation(id, 'compatible');
+  organiser.workers = [{ id: id + '-raven', name: 'Raven', job: 'Sword', status: 'working', use: 0.1 }];
+  organiser.transcript.push(
+    { role: 'user', text: 'make a sword' },
+    { role: 'assistant', text: '', parts: [{ type: 'worker', workerId: id + '-raven', name: 'Raven', job: 'Sword', status: 'working' }, { type: 'tool', name: 'mdlxl_worker', status: 'running' }] },
+  );
+  await f.service.persistConversation(organiser);
+  // A fresh service is what the app has after a restart.
+  const { AiService: Fresh } = require('../electron/ai-service.cjs');
+  const restarted = new Fresh({ root, profile: f.profile, electron: {}, getWindow: () => null });
+  const reopened = await restarted.organiser({ modelKey });
+  assert.equal(reopened.workers[0].status, 'idle');
+  const parts = (await restarted.readConversation(id)).transcript[1].parts;
+  assert.deepEqual(parts.map(p => p.status), ['stopped', 'stopped']);
+});
