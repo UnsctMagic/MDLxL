@@ -166,6 +166,8 @@
   "Connected Bones": "Связанные кости",
   "Grabthrough": "Выбор насквозь",
   "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "Вкл.: выбор вершин насквозь, включая скрытые за моделью. Выкл.: выбор только видимых вершин.",
+  "Lines": "Линии",
+  "Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered.": "Показывать линии между вершинами. Отключите, чтобы видеть только точки вершин, когда сетка загромождена.",
   "Open models": "Открытые модели",
   "Scroll model tabs left": "Прокрутить вкладки моделей влево",
   "Scroll model tabs right": "Прокрутить вкладки моделей вправо",
