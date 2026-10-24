@@ -114,6 +114,17 @@ class AiService {
     this.emit({ type: 'awareness', enabled });
     return this.status();
   }
+  // The model can change while the AI works: a running task keeps the settings it
+  // started with, and the next message uses the new model.
+  async setModel(model) {
+    if (typeof model !== 'string' || model.length > 200) throw Error('Choose a model.');
+    const config = await this.configuration();
+    config.providers ||= {};
+    const provider = (config.providers[config.provider] ||= {});
+    provider.model = model.trim();
+    await this.persist();
+    return this.status();
+  }
   async configure(input) {
     if (this.active) throw Error('Stop the current AI request before changing providers.');
     const config = await this.configuration();
@@ -1090,6 +1101,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
   handle('ai:offload', enabled => service.setOffload(enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
+  handle('ai:model', model => service.setModel(model));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
   handle('ai:transcript', async id => {

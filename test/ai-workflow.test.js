@@ -275,6 +275,24 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   assert.ok(guide.includes(AI_SD_RULES), 'the standalone rulebook matches the supplied instructions');
 });
 
+test('the model can change while the AI works; the running task keeps its model', async t => {
+  const models = [];
+  const f = await setup(t, ({ data, requests }) => {
+    models.push(data.model);
+    return requests === 1 ? tool('mdlxl_review', { target: 'selected', action: 'status' }) : done();
+  });
+  const call = f.service.call;
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_review' && args.action === 'status' && models.length === 1) await f.service.setModel('bigger-model');
+    return call(name, args, ...rest);
+  };
+  await f.service.send({ id: 'test', text: 'check it', context });
+  assert.deepEqual(models, ['test', 'test']);
+  assert.equal((await f.service.status()).model, 'bigger-model');
+  await f.service.send({ id: 'test', text: 'next', context });
+  assert.equal(models.at(-1), 'bigger-model');
+});
+
 test('toggling SD Brain during a task keeps that task on the policy it started with', async t => {
   const systems = [];
   const f = await setup(t, ({ data, requests }) => {

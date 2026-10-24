@@ -248,6 +248,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   for (let i = 0; i < 100 && !workerRequests.length; i++) await wait(100);
   check("Crow gets the user's words exactly as written", JSON.stringify(workerRequests[0].messages).includes("The user's message, exactly as written:\\nCut the marked area into its own geoset"));
   check('the model picker and Offload switch sit in the console header', (await page.locator('.ai-heading select[aria-label="Chat model"]').count()) === 1 && (await page.locator('.ai-heading [role="switch"][aria-label="Offload Mode"]').getAttribute('aria-checked')) === 'true');
+  const modelPicker = page.locator('.ai-heading select[aria-label="Chat model"]');
+  check('the model dropdown stays readable and usable while the AI works', (await modelPicker.boundingBox()).width >= 80 && !(await modelPicker.isDisabled()), await modelPicker.boundingBox());
   const sdBox = page.locator('.ai-heading [role="switch"][aria-label="SD Brain"]');
   check('SD Brain is a header switch, off by default', (await sdBox.count()) === 1 && (await sdBox.getAttribute('aria-checked')) === 'false');
   check('the first task carried an explicit SD Brain off state', /SD Brain: off/.test(organiserRequests[0].messages[0].content) && !organiserRequests[0].messages[0].content.includes('Warcraft III SD modeling rulebook'));

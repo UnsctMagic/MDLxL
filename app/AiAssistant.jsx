@@ -783,20 +783,10 @@ export default function AiAssistant({ bridge }) {
               <select
                         className="ai-model ai-header-model"
                         aria-label="Chat model"
-                        title="The AI model that does the work."
+                        title="The AI model that does the work. A change applies from the next message."
                         value={settings.model || ''}
-                        disabled={busy || authBusy}
-                        onChange={event =>
-                          action(async () => {
-                            const value = await window.desktop.aiConfigure({
-                              ...settings,
-                              model: event.target.value,
-                              apiKey,
-                            });
-                            setSettings(value);
-                            setApiKey('');
-                          })
-                        }
+                        disabled={authBusy}
+                        onChange={event => action(async () => setSettings(await window.desktop.aiModel(event.target.value)))}
                       >
                         <option value="">Default model</option>
                         {settings.model && !models.some(model => model.id === settings.model) && (
