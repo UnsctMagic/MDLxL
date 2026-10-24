@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
 import Viewport from './Viewport.jsx';
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
@@ -280,12 +280,21 @@ export default function App() {
   const [notice, setNotice] = useState(null);
   useEffect(() => { const show = event => setNotice({ message: event.detail }); window.addEventListener('mdlxl-notice', show); return () => window.removeEventListener('mdlxl-notice', show); }, []);
   const savingRef = useRef(false);
+  // Model edits join the drawings' Undo timeline; Undo and Redo themselves do not.
+  const travelRevision = useRef(null), lastRevision = useRef(null);
+  // Undo/Redo availability also follows the drawings.
+  const sketchState = useSyncExternalStore(sketchStore.subscribe, sketchStore.get, sketchStore.get);
   const liveMovementRevision = useRef(-1);
   const [recoveries, setRecoveries] = useState([]), [historyMB, setHistoryMB] = useState(512), [historySteps, setHistorySteps] = useState(10000), [anchor, setAnchor] = useState(''), [normalAngle, setNormalAngle] = useState(90), [gameDataPath, setGameDataPath] = useState('');
   const [gameDataSources, setGameDataSources] = useState([]);
   const [zoomAnchor, setZoomAnchor] = useState(null), [choosingZoomAnchor, setChoosingZoomAnchor] = useState(false);
   const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), settings = useRef({}), textureResolutions = useRef(new WeakMap());
   const doc = session.doc, model = doc.model, geoset = model.Geosets[activeGeoset];
+  useEffect(() => {
+    const was = lastRevision.current;
+    lastRevision.current = { id: session.id, revision: doc.revision };
+    if (was?.id === session.id && was.revision !== doc.revision && travelRevision.current !== doc.revision) sketchStore.noteModelEdit(session.id);
+  }, [session.id, doc.revision]);
   const geosetTab = activeGeosetTab === 'ungrouped' || (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === activeGeosetTab) ? activeGeosetTab : 'all';
   // Hide extras only takes corpse/background geosets out of the work area; nothing is deleted.
   const extraGeosets = useMemo(() => hideExtras ? corpseAndBackgroundGeosets(model) : new Set(), [model, doc.revision, hideExtras]);
@@ -1045,6 +1054,13 @@ export default function App() {
     if (savingRef.current) return;
     if(mode==='showcase')return window.dispatchEvent(new CustomEvent('mdlxl-showcase-command',{detail:redo?'redo':'undo'}));
     try {
+      if(mode!=='paint'){
+        // Drawings for the AI share Ctrl+Z / Ctrl+Y with the model while they are shown:
+        // whichever happened last goes first, and an active drawing tool undoes drawings.
+        const sketches = sketchStore.get();
+        const step = sketches.visible ? sketchStore.step(session.id, redo, { drawingsOnly: !!sketches.tool }) : sketchStore.step(session.id, redo, { modelOnly: true });
+        if (step === 'sketch') { say(redo ? 'Redid a drawing for the AI.' : 'Undid a drawing for the AI.'); return; }
+      }
       if(mode==='paint'){
         window.dispatchEvent(new CustomEvent('mdlxl-paint-flush'));
         const entry=session.paintProject&&travelPaintHistory(session.paintProject,redo);if(!entry){say(paintMessage(redo?'paint.redoEmpty':'paint.undoEmpty'));return;}
@@ -1054,6 +1070,7 @@ export default function App() {
       let validBefore = true; try { validateUVPreviewGuard(doc.model, session.uvPreviews); } catch { validBefore = false; }
       const restored = selectionHistory.travel(redo ? 'redo' : 'undo', selectionState);
       if (!restored) return;
+      travelRevision.current = doc.revision;
       // A cached older document may already have mismatched geometry. Permit
       // travelling back through that history so it can be repaired by Undo.
       if (validBefore) {
@@ -1334,7 +1351,7 @@ export default function App() {
     if (rigWorkspace && ['select','translate','rotate','scale'].includes(id)) return !movementRestricted(id === 'translate' ? 'move' : id, restrictions) && (!restPose || ['select','translate'].includes(id));
     if (id==='exit') return !!window.desktop;
     if (['undo','redo'].includes(id)&&mode==='showcase')return showcaseHistoryState[id];
-    if (['undo','redo'].includes(id)) return mode==='paint' ? !!session.paintProject?.history?.[id==='undo'?'undo':'redo']?.length : id==='undo'?doc.canUndo:doc.canRedo;
+    if (['undo','redo'].includes(id)) { if (mode==='paint') return !!session.paintProject?.history?.[id==='undo'?'undo':'redo']?.length; const sketches = sketchStore.get(); return (id==='undo'?doc.canUndo:doc.canRedo) || sketches.visible && sketchStore.canStep(session.id, id==='redo', { drawingsOnly: !!sketches.tool }); }
     if (mode === 'animation' && ['Collapse','Delete vertices'].includes(id)) return !doc.readOnly && !saving;
     if(['forge','bitsAndParts','particles','animXL','GeosetAnims','convertVersion'].includes(id))return !doc.readOnly&&!saving;
     if(id.startsWith('shape:'))return !doc.readOnly&&!saving&&selectable.size>0;
@@ -1360,7 +1377,7 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, repairBlocked, repairReceipt, session.paintProject?.revision,showcaseHistoryState]);
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, repairBlocked, repairReceipt, session.paintProject?.revision,showcaseHistoryState,sketchState]);
   const runCommand = id => { if(commandEnabled(id)) { if(repairBlocked && id==='saveAs') return save(true); return commands.current[id]?.(); } };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.

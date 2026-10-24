@@ -244,6 +244,20 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await tag.click();
   check('clicking the viewport tag stops drawing', (await tool('Marker').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0);
   await editorTool('Select').click();
+
+  // Ctrl+Z / Ctrl+Y take drawings back and forth like any other step.
+  const drawn = await drawings();
+  await tool('Pen').click();
+  await drag([cx - 40, cy + 60], [cx + 40, cy + 65], { curve: 8 });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
+  check('Ctrl+Z undoes the last drawing', (await drawings()) === drawn);
+  await page.keyboard.press('Control+y');
+  await page.waitForTimeout(200);
+  check('Ctrl+Y redoes it', (await drawings()) === drawn + 1);
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
   check('the model is never modified by drawings', !(await page.locator('.classic-status').innerText()).includes('Modified'));
 
   // Prompt with drawings: the organiser hands it to Crow; watch and steer Crow.

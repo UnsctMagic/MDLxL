@@ -22,7 +22,7 @@ export function VertexTools({
 }) {
   const singleTriangle = Object.values(validSelection).filter(ids => ids.length).length === 1 && selectionCount === 3;
   // While the AI console's Marker, Pen or Eraser has the left button, no editor tool shows as active.
-  const drawing = !!useSyncExternalStore(sketchStore.subscribe, sketchStore.get).tool;
+  const drawing = !!useSyncExternalStore(sketchStore.subscribe, sketchStore.get, sketchStore.get).tool;
   const toolButton = (icon, name, title = name, condition = selectionCount > 0) => {const nodes=name==='Delete vertices'&&vertexNodeCenter;return <Tool action={name} icon={icon} title={nodes?'Delete object':title} disabled={!editable || !(condition||nodes) || mode === 'uv'} onClick={() => nodes?deleteSelectedNode():meshAction(name)}/>;};
   return <><div className="classic-counts"><div>Vertices: <span>{totalVertices}</span></div><div>Selected: <span>{selectionCount}</span></div><div>Hidden: <span>{hiddenCount}</span></div><div>Triangles: <span>{totalFaces}</span></div><div>Selected: <span>{selectedFaces}</span></div></div>
       <div className="classic-coordinates" data-label={preferences.language === 'zh' ? 'Coords:' : translate('Coords:')}>{['X', 'Y', 'Z'].map((axis, i) => <Coordinate key={axis} axis={axis} value={(vertexNodeCenter||centroid)[i]} disabled={!editable || !(selectionCount||vertexNodeCenter) || mode === 'uv'} onCommit={value => { const translation = [0, 0, 0]; translation[i] = value - (vertexNodeCenter||centroid)[i]; if(vertexNodeCenter)moveNodes({nodeIds:selectedNodeIds,mode:'move',values:translation,restPose:true,workplaneEnabled:false});else transform({ translation }); }}/>)}</div>

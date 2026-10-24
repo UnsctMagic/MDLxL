@@ -114,3 +114,59 @@ test('Codex and Claude compaction show as one compacting step', () => {
   assert.equal(claudeCompaction({ type: 'system', subtype: 'init' }), null);
   assert.equal(claudeCompaction({ type: 'assistant' }), null);
 });
+
+test('Ctrl+Z follows one timeline of drawings and model edits per model', () => {
+  const store = createSketchStore(),
+    ids = () => store.strokes('a').map(s => s.id);
+  const one = store.add({ ...marker });
+  store.noteModelEdit('a');
+  const two = store.add({ ...marker });
+  // Last thing first: the drawing, then the model edit (handed back), then the older drawing.
+  assert.equal(store.step('a'), 'sketch');
+  assert.deepEqual(ids(), [one]);
+  assert.equal(store.step('a'), 'model');
+  assert.equal(store.step('a'), 'sketch');
+  assert.deepEqual(ids(), []);
+  assert.equal(store.step('a'), 'model', 'nothing left: the model has its own Undo');
+  // Redo walks forward again in the same order.
+  assert.equal(store.step('a', true), 'sketch');
+  assert.equal(store.step('a', true), 'model');
+  assert.equal(store.step('a', true), 'sketch');
+  assert.deepEqual(ids(), [one, two]);
+  // With a drawing tool active only drawings are undone, skipping model edits.
+  store.noteModelEdit('a');
+  assert.equal(store.step('a', false, { drawingsOnly: true }), 'sketch');
+  assert.deepEqual(ids(), [one]);
+  assert.equal(store.canStep('a', false), false, 'next plain Undo is the model edit');
+  assert.equal(store.canStep('a', false, { drawingsOnly: true }), true);
+  // Hidden drawings: Undo goes to the model and its step moves along.
+  assert.equal(store.step('a', false, { modelOnly: true }), 'model');
+  assert.equal(store.step('a', false, { modelOnly: true }), 'model');
+  assert.equal(store.canStep('a', false), true, 'both model edits undone: the first drawing is next');
+});
+
+test('one eraser drag and Clear are single Undo steps; a new drawing ends Redo', () => {
+  const store = createSketchStore();
+  const a = store.add({ ...marker }),
+    b = store.add({ ...marker }),
+    c = store.add({ ...marker }),
+    drag = {};
+  store.remove([a], drag);
+  store.remove([b], drag);
+  assert.deepEqual(store.strokes('a').map(s => s.id), [c]);
+  assert.equal(store.step('a'), 'sketch');
+  assert.deepEqual(store.strokes('a').map(s => s.id), [a, b, c], 'the whole drag comes back in order');
+  store.clear('a');
+  assert.equal(store.strokes('a').length, 0);
+  assert.equal(store.undo('a'), 'sketch');
+  assert.equal(store.strokes('a').length, 3);
+  assert.equal(store.step('a', true), 'sketch');
+  assert.equal(store.strokes('a').length, 0);
+  assert.equal(store.step('a'), 'sketch');
+  store.add({ ...marker });
+  assert.equal(store.canStep('a', true), false, 'a new drawing ends Redo');
+  // Other models keep their own drawings and timeline.
+  store.add({ ...marker, documentId: 'b' });
+  store.step('a');
+  assert.equal(store.strokes('b').length, 1);
+});
