@@ -6309,5 +6309,14 @@
   "{0} larger": "{0} más grande",
   "Repair available; choose how to fix it.": "Hay una reparación disponible; elige cómo hacerla.",
   "Apply the approved changes to the open model and return to the editor. The file is not saved.": "Aplicar los cambios aprobados al modelo abierto y volver al editor. El archivo no se guarda.",
-  "Commit keeps them in the open model without saving the file.": "Aplicar los mantiene en el modelo abierto sin guardar el archivo."
+  "Commit keeps them in the open model without saving the file.": "Aplicar los mantiene en el modelo abierto sin guardar el archivo.",
+  "Duplicate geoset animations": "Animaciones de geoset duplicadas",
+  "Some geosets have more than one animation record. The model works; click to choose which record to keep.": "Algunos geosets tienen más de un registro de animación. El modelo funciona; haga clic para elegir qué registro conservar.",
+  "Some geosets have more than one animation record. The model works as it is; only keyframe edits on those geosets wait for this fix.": "Algunos geosets tienen más de un registro de animación. El modelo funciona tal como está; solo la edición de fotogramas clave de esos geosets espera esta corrección.",
+  "The fix is an ordinary edit: Undo reverses it, and nothing is written to disk until you save.": "La corrección es una edición normal: Deshacer la revierte y no se escribe nada en el disco hasta que guarde.",
+  "This model is read-only; the fix is disabled to preserve unsupported data.": "Este modelo es de solo lectura; la corrección está desactivada para conservar los datos no compatibles.",
+  "Fix duplicate geoset animations": "Corregir animaciones de geoset duplicadas",
+  "Fixed duplicate geoset animations. Undo reverses it.": "Animaciones de geoset duplicadas corregidas. Deshacer lo revierte.",
+  "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "El geoset {0} tiene más de una animación de geoset. Haga clic en el aviso de la barra de estado para corregirlo antes de editar sus pistas.",
+  "Not now": "Ahora no"
 }

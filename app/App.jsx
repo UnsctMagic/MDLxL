@@ -87,7 +87,6 @@ import { GEOSET_TABS_KEY, geosetsInTab } from '../src/geoset-tabs.js';
 import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
-import ModelTabs from './ModelTabs.jsx';
 import SidebarResizer, { PANEL_WIDTH_EVENT } from './SidebarResizer.jsx';
 
 const normalize = value => String(value || '').replaceAll('/', '\\').toLowerCase();
@@ -153,7 +152,6 @@ export default function App() {
   const [sessions, setSessions] = useState(() => [session]);
   const [tick, setTick] = useState(0), [status, setStatus] = useState('Ready'), [statusAlert, setStatusAlert] = useState(0);
   const [fileDrag, setFileDrag] = useState(false), fileDragTimer = useRef();
-  const [repairReceipt, setRepairReceipt] = useState(null);
   const [mode, setMode] = useState('vertices'), [cameraMode, setCameraMode] = useState('work'), [view, setStoredView] = useState('orthographic'), [portraitView, setPortraitView] = useState('perspective'), [storedWorkplane, setStoredWorkplane] = useState('xy');
   const [adjustingInput, setAdjustingInput] = useState(null);
   // VIS switches display controls while retaining editing and portrait state.
@@ -323,7 +321,6 @@ export default function App() {
     motion.setFocus(focus); setTime(focus[0]); setPlaying(true);
   };
   const duplicateAnimations = useMemo(() => scanGeosetAnimationDuplicates(model), [model, doc.revision]);
-  const repairBlocked = duplicateAnimations.length > 0 || !!repairReceipt;
   useEffect(() => { if (!model.Cameras?.[portraitCameraIndex]) setPortraitCameraIndex(model.Cameras?.length ? 0 : -1); }, [model, doc.revision, portraitCameraIndex]);
   useEffect(() => {
     if (portraitEnabled && !model.Cameras?.length) setPortraitEnabled(false);
@@ -743,7 +740,7 @@ export default function App() {
     const viewState = target.viewState || (target.viewState = defaultSessionView(target.doc));
     setActiveGeosetTab(viewState.activeGeosetTab || 'all'); setMode(viewState.mode); setAnimationPanel(viewState.animationPanel); setSelectable(new Set(viewState.selectable)); setVisibleOnly(new Set(viewState.visibleOnly)); setSelection(structuredClone(viewState.selection)); setHidden(structuredClone(viewState.hidden)); setActiveGeoset(viewState.activeGeoset); setUvSet(viewState.uvSet); setSelectedNodeIds([...viewState.selectedNodeIds]); setGlobalSeqId(viewState.globalSeqId); setSequence(viewState.sequence); setTime(viewState.time); setRGBPreview(viewState.rgbPreview); setRGBSequence(viewState.rgbSequence); setRenderMode(viewState.renderMode); setMovementRenderMode(viewState.movementRenderMode || 'influence'); setShowAllGeosets(viewState.showAllGeosets);
     setUVWindowState(target.uvWindow || null); setUVFocused(false); setUVEntrySelection(viewState.uvEntrySelection || {}); setUVEntryId(viewState.uvEntryId || 0);
-    setPlaying(false); setAttachSourceIds([]); setLiveUV(null); setNormalizer(null); setDialog(null); setContext(null); setRepairReceipt(null); setPortraitEnabled(false); setShowcaseSession(null); setCleanViews({}); rangeAnchor.current = 0;
+    setPlaying(false); setAttachSourceIds([]); setLiveUV(null); setNormalizer(null); setDialog(null); setContext(null); setPortraitEnabled(false); setShowcaseSession(null); setCleanViews({}); rangeAnchor.current = 0;
   }
   function activateSession(next, { remember = true } = {}) {
     if (!next || next === session || savingRef.current) return;
@@ -851,33 +848,15 @@ export default function App() {
   }
   useEffect(()=>{if(mode==='showcase')setShowcaseVisited(true);},[mode]);
   async function showRecent() { try { setRecentFiles(await window.desktop.recent()); setDialog({type:'recent'}); } catch(error) { say(error.message,true); } }
-  function openRecent(path) { if(repairReceipt)return;if(mode==='showcase'){window.desktop.openRecent(path,true).then(loadShowcaseModel).catch(error=>say(error.message,true));return;} window.desktop.openRecent(path).then(loadFile).catch(error=>say(error.message,true)); }
+  function openRecent(path) { if(mode==='showcase'){window.desktop.openRecent(path,true).then(loadShowcaseModel).catch(error=>say(error.message,true));return;} window.desktop.openRecent(path).then(loadFile).catch(error=>say(error.message,true)); }
   async function clearRecent() { try { setRecentFiles(await window.desktop.clearRecent()); say('Recent files history cleared.'); } catch(error) { say(error.message,true); } }
   function open() { if(mode==='showcase'){if(window.desktop)loadShowcaseModel();else files.current.click();return;} (async () => { try { if (window.desktop) { const records = await window.desktop.open(); if (records?.length) await loadFile(records[0]); } else files.current.click(); } catch (error) { say(error.message, true); } })(); }
-  async function repairDuplicateAnimations(options) {
-    if (savingRef.current) return;
-    if (!window.desktop?.repairGeosetAnimations || !session.path) throw Error('Save a local MDL or MDX copy first; automatic backup and disk Undo require the desktop build.');
-    if (hasUVPreview || hasTrackDrafts || session.paintProject) throw Error('Repair the original model in a separate model session before applying pending UV, animation-text or paint work. That work has not been discarded.');
-    savingRef.current = true; setSaving(true);
-    try {
-      const staged = EditorDocument.restoreRecoveryState(doc.captureRecoveryState({ includeHistory: false }));
-      const report = staged.apply('Repair duplicate geoset animations', ['GeosetAnims', 'Bones', 'Geosets', 'Info'], m => repairGeosetAnimations(m, options));
-      const bytes = staged.serialize(doc.format), reopened = openDocument(bytes, doc.name);
-      if (reopened.readOnly || scanGeosetAnimationDuplicates(reopened.model).length) throw Error('Repaired model failed reload verification. No file was changed.');
-      await checkpoint(session);
-      const result = await window.desktop.repairGeosetAnimations({ path: session.path, bytes, beforeBytes: doc.serialize(doc.format), expectedDiskBytes: doc.originalBytes });
-      install(newSession(reopened, result.path, session.assets), { replace: true });
-      setRepairReceipt({ ...result, bytes: undefined, report });
-    } finally { savingRef.current = false; setSaving(false); }
-  }
-  async function undoDuplicateRepair() {
-    if (savingRef.current || !repairReceipt) return;
-    savingRef.current = true; setSaving(true);
-    try {
-      const result = await window.desktop.undoGeosetRepair(repairReceipt.id);
-      install(newSession(openDocument(result.bytes, result.name), result.path, session.assets), { replace: true });
-      say('Repair undone. The pre-repair backup was restored; duplicate editing remains paused.');
-    } finally { savingRef.current = false; setSaving(false); }
+  function repairDuplicateAnimations(options) {
+    if (doc.readOnly || saving) return;
+    const report = edit('Fix duplicate geoset animations', ['GeosetAnims', 'Bones', 'Geosets', 'Info'], m => repairGeosetAnimations(m, options));
+    if (report === false) return;
+    setDialog(null);
+    say('Fixed duplicate geoset animations. Undo reverses it.');
   }
   async function save(saveAs = false, requestedFormat = session.doc.format, target = session) {
     if (savingRef.current) return false;
@@ -1298,7 +1277,6 @@ export default function App() {
     ...Object.fromEntries(['flip-u','flip-v','rotate','fold','select-connected','select-invert'].map(v=>['uv:'+v,()=>uvAction(v)])),
   });
   function commandEnabled(id) {
-    if (repairBlocked) return !saving && (id === 'exit' || !repairReceipt && ['open', 'save', 'saveAs'].includes(id));
     if (mode === 'showcase' && (['paste', 'pasteSpecial', 'optimizeModel', 'forge', 'bitsAndParts', 'particles', 'animXL', 'GeosetAnims', 'convertVersion'].includes(id) || id.startsWith('shape:') || id.startsWith('keyframe:'))) return false;
     if(id==='particles')return !saving;
     if(vertexNodeCenter&&id==='Delete vertices')return editable;
@@ -1347,8 +1325,8 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, repairBlocked, repairReceipt, session.paintProject?.revision,showcaseHistoryState]);
-  const runCommand = id => { if(commandEnabled(id)) { if(repairBlocked && id==='saveAs') save(true); else commands.current[id]?.(); } };
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState]);
+  const runCommand = id => { if(commandEnabled(id)) commands.current[id]?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
 
 
@@ -1541,16 +1519,6 @@ export default function App() {
     transformSpace: movementSpace, onTransformSpace: setMovementSpace, showNodes, onShowNodes: setShowNodes,
     showParticles: preferences.graphics.particles, onShowParticles: showParticlePreview, onOpenNodeManager: openNodeManager
   });
-  // Gate BEFORE mounting the timeline/controllers. Their duplicate-owner edit
-  // invariant remains strict; malformed models get a choice instead of a crash.
-  if (repairBlocked) return <>
-    <input ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" hidden onChange={event => { if (event.target.files[0]) loadFile(event.target.files[0]); event.target.value = ''; }}/>
-    <div className="repair-model-tabs"><ModelTabs sessions={sessions} session={session} activateSession={activateSession} sessionDirty={sessionDirty} requestCloseSession={requestCloseSession}/></div>
-    <GeosetAnimationRepair key={session.id} model={model} name={doc.name} groups={duplicateAnimations} receipt={repairReceipt} busy={saving} status={status}
-      unavailable={doc.readOnly ? 'This model is read-only; repair is disabled to preserve unsupported data.' : !window.desktop?.repairGeosetAnimations || !session.path ? 'Save a local copy first. Automatic backup and disk Undo require the desktop build.' : hasUVPreview || hasTrackDrafts || session.paintProject ? 'Pending UV, animation-text or paint work is retained. Repair the original model in a separate model session first.' : ''}
-      onRepair={repairDuplicateAnimations} onUndo={undoDuplicateRepair} onAccept={() => setRepairReceipt(null)} onOpen={open} onSave={() => save(true)}/>
-    {dialog?.type === 'closeTab' && <Dialog title="Close model tab?" onClose={() => setDialog(null)} footer={<><button disabled={saving} onClick={async()=>{const target=dialog.target;if(await saveSessionWork(target)){setDialog(null);removeSession(target);}}}>Save</button><button disabled={saving} onClick={()=>{const target=dialog.target;setDialog(null);removeSession(target);}}>Don't save</button><button disabled={saving} onClick={()=>setDialog(null)}>Cancel</button></>}><p>Save changes to {dialog.target.doc.name} before closing its tab?</p></Dialog>}
-  </>;
   return <HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog?'dialog':mode==='paint'?'paint':'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
@@ -1643,7 +1611,7 @@ export default function App() {
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status" role="status"><span key={statusAlert || 'status'} data-alert={statusAlert && !saving ? '' : undefined}>{saving ? 'Saving…' : status}</span><span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'paint' ? paintMessage('paint.hint') : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations'}</span></div>
+    <div className="classic-status" role="status"><span key={statusAlert || 'status'} data-alert={statusAlert && !saving ? '' : undefined}>{saving ? 'Saving…' : status}</span>{duplicateAnimations.length > 0 && <button className="status-warning" title="Some geosets have more than one animation record. The model works; click to choose which record to keep." onClick={() => setDialog({ type: 'geosetRepair' })}><span aria-hidden="true">⚠ </span>Duplicate geoset animations</button>}<span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'paint' ? paintMessage('paint.hint') : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations'}</span></div>
     <AppDialogs {...{
       Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,
@@ -1658,6 +1626,8 @@ export default function App() {
       settings, settingsTab, tabVisibleGeosets, teamColor, textureLibraryDialog, time, tool, undo, updates,
       validSelection, view, visibleOnly, workplane, workplaneEnabled
     }}/>
+    {dialog?.type === 'geosetRepair' && duplicateAnimations.length > 0 && <GeosetAnimationRepair key={session.id} Frame={Dialog} model={model} groups={duplicateAnimations} busy={saving}
+      unavailable={doc.readOnly ? 'This model is read-only; the fix is disabled to preserve unsupported data.' : ''} onRepair={repairDuplicateAnimations} onClose={() => setDialog(null)}/>}
     <PressedKeys enabled={preferences.showPressedKeys}/>
   </div></HotkeysProvider>;
 }

@@ -3496,5 +3496,14 @@
   "{0} larger": "增大 {0}",
   "Repair available; choose how to fix it.": "有可用修复；请选择修复方式。",
   "Apply the approved changes to the open model and return to the editor. The file is not saved.": "将已批准的更改应用到打开的模型并返回编辑器。文件不会被保存。",
-  "Commit keeps them in the open model without saving the file.": "“提交”会将它们保留在打开的模型中，但不保存文件。"
+  "Commit keeps them in the open model without saving the file.": "“提交”会将它们保留在打开的模型中，但不保存文件。",
+  "Duplicate geoset animations": "重复的几何体动画",
+  "Some geosets have more than one animation record. The model works; click to choose which record to keep.": "部分几何体有多个动画记录。模型可正常使用；点击选择要保留的记录。",
+  "Some geosets have more than one animation record. The model works as it is; only keyframe edits on those geosets wait for this fix.": "部分几何体有多个动画记录。模型可照常使用；只有这些几何体的关键帧编辑需要先修复。",
+  "The fix is an ordinary edit: Undo reverses it, and nothing is written to disk until you save.": "修复是一次普通编辑：撤销即可还原，保存之前不会写入磁盘。",
+  "This model is read-only; the fix is disabled to preserve unsupported data.": "此模型为只读；为保留不支持的数据，修复已禁用。",
+  "Fix duplicate geoset animations": "修复重复的几何体动画",
+  "Fixed duplicate geoset animations. Undo reverses it.": "已修复重复的几何体动画。撤销即可还原。",
+  "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "几何体 {0} 有多个几何体动画。编辑其轨道前，请点击状态栏中的警告进行修复。",
+  "Not now": "暂不"
 }
