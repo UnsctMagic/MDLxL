@@ -125,9 +125,9 @@ simplified to match a statistic.
   further revisions. Missing textures or a provider without image input leave
   appearance criteria unverified. A renderer preview is not gameplay acceptance.
 - The [reference study](AI-SD-REFERENCE-STUDY.md) (3,448 distinct installed
-  Blizzard models and 705 models from the first 100 highest-rated approved Hive SD
-  resources, with limits and source links) is available through `mdlxl_help`; it is
-  not sent with every prompt.
+  Blizzard models and 646 models from 90 approved Hive SD resources whose authors
+  allow use and editing with credit, with limits, credits and source links) is
+  available through `mdlxl_help`; it is not sent with every prompt.
 
 **Continuous awareness** is an optional switch (the eye) in the prompt box.
 It starts off and remembers your choice. When on, real editor changes update the

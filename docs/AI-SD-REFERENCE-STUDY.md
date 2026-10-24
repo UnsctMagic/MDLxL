@@ -5,9 +5,9 @@ Study date: 24 October 2026. This study grounds the [shared AI rulebook](AI-SD-R
 ## Coverage and selection
 
 - The installed Warcraft III CASC lists 15,090 model entries. Removing HD and Definitive Edition modules leaves **3,501 SD/base entries**, including regional and tileset variants. They contain **3,448 distinct model byte streams** and 53 aliases. Every entry was read; all distinct models parsed successfully with MDLxL's compatibility reader. The installed build is identified by the metadata SHA-256 in the [study data](AI-SD-STUDY-DATA.json). Historical models absent from this build are outside that coverage.
-- Hive references are the **first 100 resources in Hive's native highest-rating order**, with the Classic SD and approved filters. Six ranking pages were captured to preserve the selection; only the first 100 were used. Their packs and variants contain **705 distinct model files**, all parsed successfully. A pack counts as one rated resource, not dozens of independent endorsements. Ratings range from **4.79487 to 5/5**, with **24 to 174 votes** per resource. Hive's ranking is not a simple descending re-sort of the displayed star averages.
-- The combined structural corpus contains **4,153 unique models**. Geometry, visible-geoset estimates, bindings, materials, texture references, sequence intervals, interpolation and key counts were inspected. Native referenced texture headers were read for 2,093 textures; 218 of 2,311 references were unresolved by the local reader. Supplied Hive image/texture files were also inventoried separately from in-game references.
-- A visual sample attempted 128 Blizzard references spread across unit, building, doodad, effect, portrait, item and UI path families, plus one representative from each Hive resource. **127 Blizzard and all 100 Hive representatives rendered** through MDLxL's actual Warcraft renderer and compatibility adapter. Three-quarter, game-angle and topology views were inspected. **32 Walk clips were sampled at six phases** (192 poses). The first two known-good models were used to verify the capture setup before completing the corpus.
+- Hive references come from the **first 100 resources in Hive's native highest-rating order**, with the Classic SD and approved filters. Six ranking pages were captured to preserve the selection; only the first 100 were considered. Of those, **90 were studied** and 10 were left out because their authors do not allow editing or sharing without permission, or do not allow AI use (see [Usage terms](#usage-terms)). The 90 packs and variants contain **646 distinct model files**, all parsed successfully. A pack counts as one rated resource, not dozens of independent endorsements. Ratings of the studied resources range from **4.8 to 5/5**, with **24 to 174 votes** per resource. Hive's ranking is not a simple descending re-sort of the displayed star averages.
+- The combined structural corpus contains **4,094 unique models**. Geometry, visible-geoset estimates, bindings, materials, texture references, sequence intervals, interpolation and key counts were inspected. Native referenced texture headers were read for 2,093 textures; 218 of 2,311 references were unresolved by the local reader. Supplied Hive image/texture files were also inventoried separately from in-game references.
+- A visual sample attempted 128 Blizzard references spread across unit, building, doodad, effect, portrait, item and UI path families, plus one representative from each studied Hive resource. **127 Blizzard and all 90 Hive representatives rendered** through MDLxL's actual Warcraft renderer and compatibility adapter. Three-quarter, game-angle and topology views were inspected. **30 Walk clips were sampled at six phases** (180 poses). The first two known-good models were used to verify the capture setup before completing the corpus.
 
 ## Measured reference ranges
 
@@ -15,11 +15,11 @@ These are whole-model triangle totals. Families come from Blizzard paths or Hive
 
 | Family | Blizzard files | Blizzard median / P90 triangles | Hive files | Hive median / P90 triangles |
 |---|---:|---:|---:|---:|
-| unit | 405 | 476 / 804 | 194 | 907.5 / 2127.1 |
-| building | 163 | 362 / 1295.8 | 174 | 1869.5 / 5766.2 |
-| doodad | 1693 | 54 / 298.8 | 20 | 1253 / 4491.4 |
+| unit | 405 | 476 / 804 | 187 | 891 / 2081.2 |
+| building | 163 | 362 / 1295.8 | 139 | 1971 / 6406.6 |
+| doodad | 1693 | 54 / 298.8 | 8 | 180 / 244 |
 | effect | 439 | 20 / 153.6 | 187 | 50 / 1282 |
-| portrait | 343 | 301 / 436.4 | 35 | 447 / 774.4 |
+| portrait | 343 | 301 / 436.4 | 31 | 412 / 782 |
 | item | 22 | 83.5 / 135.0 | 94 | 233 / 484.5 |
 
 Native unit-family models have a median of **421 geoset-alpha-visible Stand triangles** at the sampled start frame, compared with 476 total triangles; the P90 visible estimate is 619, compared with 804 total. This is one reason a whole-file count is a poor substitute for inspecting the part being edited. The source itself remains the first comparator.
@@ -28,7 +28,7 @@ Examples from the catalogue: Footman 372 total triangles, Archer 449, Hero Palad
 
 Native unit-family bone count has a median of 34 and P90 about 67, but individual authored rigs are much larger. **836 native models** use multi-bone matrix groups. **2,731 native models** contain coincident positions within a geoset. Those measurements do not label the data defective: shared positions can carry different normals, UVs or bindings. They support preserving authored seams and testing deformations before welding or rebuilding.
 
-Among resolved native texture headers, 256x256 is the most frequent individual size (673), followed by 64x64 (274), 16x16 (266), 128x128 (212), 32x32 (154), 512x512 (144) and 512x256 (94). The full corpus includes UI, effects and cinematic assets; these are observed sizes, not one required resolution. All 705 Hive model files use MDX 800 and none contains the measured normal/ORM/emissive texture-slot additions. The current native SD/base files mostly use version 1800 and some use weighted skinning. Eleven cinematic models in the base module contain additional material slots. Therefore neither file version nor every file in a base module should be treated as an art-style classifier.
+Among resolved native texture headers, 256x256 is the most frequent individual size (673), followed by 64x64 (274), 16x16 (266), 128x128 (212), 32x32 (154), 512x512 (144) and 512x256 (94). The full corpus includes UI, effects and cinematic assets; these are observed sizes, not one required resolution. All 646 studied Hive model files use MDX 800 and none contains the measured normal/ORM/emissive texture-slot additions. The current native SD/base files mostly use version 1800 and some use weighted skinning. Eleven cinematic models in the base module contain additional material slots. Therefore neither file version nor every file in a base module should be treated as an art-style classifier.
 
 ## Animation economy
 
@@ -70,18 +70,37 @@ The following are qualitative judgments from the rendered references, not facts 
 
 ## Limits of the evidence
 
-- Visual inspection is a stratified sample, not a visual review of every one of the 4,153 models. Structural analysis covers the complete listed SD/base catalogue and every model in the chosen 100 Hive resources.
+- Visual inspection is a stratified sample, not a visual review of every one of the 4,094 models. Structural analysis covers the complete listed SD/base catalogue and every model in the 90 studied Hive resources.
 - One native wood-bridge model could not render in the research renderer because a texture lookup reached an undefined entry. Its structural data remains in the catalogue; the source was not repaired or changed.
-- Eighteen Hive representatives refer to legacy in-game textures unavailable through the local reader, including Clouds8x8 and older water frames. Their resolved geometry/materials can be inspected, but missing smoke/water must not be accepted as a faithful finished effect. There were no texture decode errors in the final rendered sample.
+- 16 Hive representatives refer to legacy in-game textures unavailable through the local reader, including Clouds8x8 and older water frames. Their resolved geometry/materials can be inspected, but missing smoke/water must not be accepted as a faithful finished effect. There were no texture decode errors in the final rendered sample.
 - The images use individually fitted neutral cameras and a dark background. They do not prove common world scale, ground integration, glow brightness on terrain, authored portrait framing, complete effect timing or Warcraft gameplay behavior. UI models and engine-supplied replaceable surfaces were not used as painted-character appearance exemplars.
 - Ratings are a dated site snapshot and can change. The ranking and model SHA-256 identities are retained in the data. Study downloads are not redistributed as part of the rulebook.
 - The shared rulebook supplies instructions; different agents can still make different judgments. MDLxL's existing scope, validation, review and Undo mechanisms remain necessary.
+
+## Usage terms
+
+Only resources whose own description allows use and editing with credit, or states no restriction beyond crediting the author, are part of this study. Resources whose authors forbid editing or sharing without permission, or forbid AI use, were removed and are not used for any number, image or finding here. The terms were read from each resource's description as included in its download on 24 October 2026; authors can change them later. Credit: every studied resource is listed below with its author and source page, which keeps the complete credits.
+
+Excluded by their terms:
+
+| Hive rank | Resource | Listing author | Reason |
+|---:|---|---|---|
+| 3 | [Lindormr Dragon ](https://www.hiveworkshop.com/threads/lindormr-dragon.52050/) | olofmoleman | do not distribute or modify without permission |
+| 6 | [Arch Angel - Elenai. ](https://www.hiveworkshop.com/threads/arch-angel-elenai.50740/) | General Frank | no editing, reposting or sharing without written permission; no monetised maps |
+| 27 | [Icecrown Overlord ](https://www.hiveworkshop.com/threads/icecrown-overlord.48381/) | General Frank | no editing, reposting or sharing without written permission; no monetised maps |
+| 35 | [Arthas/Nerzhul merge - Lich king Arthas ](https://www.hiveworkshop.com/threads/arthas-nerzhul-merge-lich-king-arthas.90625/) | General Frank | no editing, reposting or sharing without written permission; no monetised maps |
+| 44 | [Stormwind Buildings ](https://www.hiveworkshop.com/threads/stormwind-buildings.342290/) | bakr | do not edit without permission; do not upload to other sites |
+| 51 | [Kultiras Structures and Doodads ](https://www.hiveworkshop.com/threads/kultiras-structures-and-doodads.338876/) | bakr | do not edit without permission; do not upload to other sites |
+| 56 | [Soul Harvester Scythe ](https://www.hiveworkshop.com/threads/soul-harvester-scythe.276681/) | Blood Raven | do not edit or post elsewhere without permission |
+| 67 | [Dwarven Buildings (Dark Iron) ](https://www.hiveworkshop.com/threads/dwarven-buildings-dark-iron.344306/) | bakr | do not edit without permission; do not upload to other sites |
+| 92 | [Night Elf Blademistress ](https://www.hiveworkshop.com/threads/night-elf-blademistress.364399/) | Nyctaeus | prohibits AI training or AI content generation based on it |
+| 100 | [Spellbringers: Mad Scientist ](https://www.hiveworkshop.com/threads/spellbringers-mad-scientist.336981/) | General Frank | no editing, reposting or sharing without written permission |
 
 ## Primary references
 
 The model data itself is the primary evidence. Hive's [Classic SD highest-rating listing](https://www.hiveworkshop.com/repositories/classic-sd-models.530/?order=rating&state%5Bapproved%5D=1) supplies the ranked selection. Hive also explicitly distinguishes SD graphics from legacy-only compatibility in its [resource rules](https://www.hiveworkshop.com/threads/resource-submission-rules-models-skins-icons-spells-systems.237333/) and [SD texture compatibility discussion](https://www.hiveworkshop.com/threads/universal-local-fog-glow-shadow-as-a-prop.358900/). The policy interpretations above come from this study; they are not presented as Blizzard's official art manual.
 
-### The 100 selected Hive resources
+### The 90 studied Hive resources
 
 Listed author is the ranking card's primary author field; each source page retains its complete credits. Model counts include portraits/variants contained in the resource.
 
@@ -89,10 +108,8 @@ Listed author is the ranking card's primary author field; each source page retai
 |---:|---|---|---:|---:|---:|
 | 1 | [Skeleton Warriors (pack I) ](https://www.hiveworkshop.com/threads/skeleton-warriors-pack-i.336636/) | Villagerino | 5 | 74 | 26 |
 | 2 | [Wight & Spell Models ](https://www.hiveworkshop.com/threads/wight-spell-models.341155/) | Villagerino | 5 | 68 | 9 |
-| 3 | [Lindormr Dragon ](https://www.hiveworkshop.com/threads/lindormr-dragon.52050/) | olofmoleman | 4.94545 | 110 | 2 |
 | 4 | [Old God Pack ](https://www.hiveworkshop.com/threads/old-god-pack.334166/) | Explobomb | 5 | 67 | 9 |
 | 5 | [ChaosCitadel ](https://www.hiveworkshop.com/threads/chaoscitadel.95534/) | HappyTauren | 4.96104 | 77 | 1 |
-| 6 | [Arch Angel - Elenai. ](https://www.hiveworkshop.com/threads/arch-angel-elenai.50740/) | General Frank | 4.90323 | 124 | 2 |
 | 7 | [Mo'arg Overlord ](https://www.hiveworkshop.com/threads/moarg-overlord.295043/) | Murlocologist | 5 | 55 | 1 |
 | 8 | [The Lich King ](https://www.hiveworkshop.com/threads/the-lich-king.154837/) | Kwaliti | 4.87931 | 174 | 2 |
 | 9 | [Lordaeron Buildings ](https://www.hiveworkshop.com/threads/lordaeron-buildings.341580/) | bakr | 5 | 52 | 13 |
@@ -113,7 +130,6 @@ Listed author is the ranking card's primary author field; each source page retai
 | 24 | [Garrosh ](https://www.hiveworkshop.com/threads/garrosh.262422/) | Tauer | 5 | 39 | 1 |
 | 25 | [Alleria Windrunner ](https://www.hiveworkshop.com/threads/alleria-windrunner.341592/) | Tauer | 4.97674 | 43 | 1 |
 | 26 | [Doom Lord ](https://www.hiveworkshop.com/threads/doom-lord.334164/) | Explobomb | 5 | 37 | 2 |
-| 27 | [Icecrown Overlord ](https://www.hiveworkshop.com/threads/icecrown-overlord.48381/) | General Frank | 4.91071 | 56 | 1 |
 | 28 | [Turalyon ](https://www.hiveworkshop.com/threads/turalyon.341590/) | Tauer | 4.975 | 40 | 1 |
 | 29 | [Zandalari Throne of War ](https://www.hiveworkshop.com/threads/zandalari-throne-of-war.345255/) | frostwhisper | 5 | 36 | 2 |
 | 30 | [Kultiras Buildings ](https://www.hiveworkshop.com/threads/kultiras-buildings.328594/) | bakr | 4.93617 | 47 | 13 |
@@ -121,7 +137,6 @@ Listed author is the ranking card's primary author field; each source page retai
 | 32 | [Danath Trollbane ](https://www.hiveworkshop.com/threads/danath-trollbane.341594/) | Tauer | 4.97368 | 38 | 1 |
 | 33 | [Demonic Brethren (pack II) ](https://www.hiveworkshop.com/threads/demonic-brethren-pack-ii.341724/) | Villagerino | 5 | 34 | 9 |
 | 34 | [Ember Forge & Ember Knight ](https://www.hiveworkshop.com/threads/ember-forge-ember-knight.318735/) | Vinz | 5 | 34 | 3 |
-| 35 | [Arthas/Nerzhul merge - Lich king Arthas ](https://www.hiveworkshop.com/threads/arthas-nerzhul-merge-lich-king-arthas.90625/) | General Frank | 4.79487 | 117 | 2 |
 | 36 | [Divine Golem (variative) ](https://www.hiveworkshop.com/threads/divine-golem-variative.337087/) | Villagerino | 4.97222 | 36 | 4 |
 | 37 | [Tauren Buildings ](https://www.hiveworkshop.com/threads/tauren-buildings.328637/) | bakr | 4.97143 | 35 | 9 |
 | 38 | [Medieval  Trebuchet ](https://www.hiveworkshop.com/threads/medieval-trebuchet.48314/) | olofmoleman | 4.92683 | 41 | 1 |
@@ -130,19 +145,16 @@ Listed author is the ranking card's primary author field; each source page retai
 | 41 | [Cosmic Elven Wings ](https://www.hiveworkshop.com/threads/cosmic-elven-wings.315167/) | Vinz | 5 | 31 | 10 |
 | 42 | [Void Missiles ](https://www.hiveworkshop.com/threads/void-missiles.313156/) | Vinz | 5 | 31 | 12 |
 | 43 | [Cho'gall ](https://www.hiveworkshop.com/threads/chogall.295776/) | Tauer | 5 | 31 | 1 |
-| 44 | [Stormwind Buildings ](https://www.hiveworkshop.com/threads/stormwind-buildings.342290/) | bakr | 4.97059 | 34 | 12 |
 | 45 | [Starfall Empire ](https://www.hiveworkshop.com/threads/starfall-empire.319375/) | Vinz | 4.97059 | 34 | 24 |
 | 46 | [Beholder ](https://www.hiveworkshop.com/threads/beholder.217410/) | SuPa- | 4.97059 | 34 | 1 |
 | 47 | [Alterac Buildings ](https://www.hiveworkshop.com/threads/alterac-buildings.337484/) | bakr | 4.94595 | 37 | 13 |
 | 48 | [NuclearExplosion ](https://www.hiveworkshop.com/threads/nuclearexplosion.51829/) | WILL THE ALMIGHTY | 4.94595 | 37 | 1 |
 | 49 | [Kurdran and Sky'ree ](https://www.hiveworkshop.com/threads/kurdran-and-skyree.341595/) | Tauer | 5 | 30 | 2 |
 | 50 | [Rhapsody ](https://www.hiveworkshop.com/threads/rhapsody.341198/) | Villagerino | 5 | 30 | 1 |
-| 51 | [Kultiras Structures and Doodads ](https://www.hiveworkshop.com/threads/kultiras-structures-and-doodads.338876/) | bakr | 5 | 30 | 20 |
 | 52 | [Mars the Impaler ](https://www.hiveworkshop.com/threads/mars-the-impaler.336494/) | Jab1z | 5 | 30 | 3 |
 | 53 | [Eternity's Crown (1.32) ](https://www.hiveworkshop.com/threads/eternitys-crown-1-32.334147/) | Vinz | 5 | 30 | 1 |
 | 54 | [Void Teleport ](https://www.hiveworkshop.com/threads/void-teleport.315971/) | Vinz | 5 | 30 | 27 |
 | 55 | [Skaven Clanrat ](https://www.hiveworkshop.com/threads/skaven-clanrat.309120/) | Gluma | 5 | 30 | 1 |
-| 56 | [Soul Harvester Scythe ](https://www.hiveworkshop.com/threads/soul-harvester-scythe.276681/) | Blood Raven | 5 | 30 | 1 |
 | 57 | [Animated Sky Sphere ](https://www.hiveworkshop.com/threads/animated-sky-sphere.295243/) | ILH | 5 | 29 | 8 |
 | 58 | [Durotan ](https://www.hiveworkshop.com/threads/durotan.268006/) | Tauer | 5 | 29 | 1 |
 | 59 | [Diablo III: King Leoric ](https://www.hiveworkshop.com/threads/diablo-iii-king-leoric.224358/) | HappyTauren | 5 | 29 | 2 |
@@ -153,7 +165,6 @@ Listed author is the ranking card's primary author field; each source page retai
 | 64 | [Coup de Grace ](https://www.hiveworkshop.com/threads/coup-de-grace.315537/) | Vinz | 5 | 28 | 5 |
 | 65 | [HeroGlow ](https://www.hiveworkshop.com/threads/heroglow.129462/) | assasin_lord | 4.85417 | 48 | 1 |
 | 66 | [Swordmaster & Dueler ](https://www.hiveworkshop.com/threads/swordmaster-dueler.339820/) | Villagerino | 4.93939 | 33 | 5 |
-| 67 | [Dwarven Buildings (Dark Iron) ](https://www.hiveworkshop.com/threads/dwarven-buildings-dark-iron.344306/) | bakr | 4.96667 | 30 | 15 |
 | 68 | [Detheroc ](https://www.hiveworkshop.com/threads/detheroc.335229/) | Ustanak | 4.96667 | 30 | 2 |
 | 69 | [Sweep Attachments ](https://www.hiveworkshop.com/threads/sweep-attachments.333560/) | Hate | 4.96667 | 30 | 42 |
 | 70 | [Culling Slash ](https://www.hiveworkshop.com/threads/culling-slash.315815/) | Vinz | 5 | 27 | 8 |
@@ -178,7 +189,6 @@ Listed author is the ranking card's primary author field; each source page retai
 | 89 | [Valeera Sanguinar ](https://www.hiveworkshop.com/threads/valeera-sanguinar.296006/) | A.R. | 5 | 25 | 2 |
 | 90 | [Arthas Menethil (Re-Classic) ](https://www.hiveworkshop.com/threads/arthas-menethil-re-classic.341574/) | johnwar | 4.93333 | 30 | 2 |
 | 91 | [Forsaken Dread Guard ](https://www.hiveworkshop.com/threads/forsaken-dread-guard.339527/) | kangyun | 4.90625 | 32 | 2 |
-| 92 | [Night Elf Blademistress ](https://www.hiveworkshop.com/threads/night-elf-blademistress.364399/) | Nyctaeus | 5 | 24 | 1 |
 | 93 | [Goblin Emperor ](https://www.hiveworkshop.com/threads/goblin-emperor.337580/) | tillinghast | 5 | 24 | 1 |
 | 94 | [Dragonbone Golem (variative) ](https://www.hiveworkshop.com/threads/dragonbone-golem-variative.335016/) | Villagerino | 5 | 24 | 4 |
 | 95 | [Rain of Fire Vol. II ](https://www.hiveworkshop.com/threads/rain-of-fire-vol-ii.315904/) | Vinz | 5 | 24 | 2 |
@@ -186,4 +196,3 @@ Listed author is the ranking card's primary author field; each source page retai
 | 97 | [Varok Saurfang ](https://www.hiveworkshop.com/threads/varok-saurfang.302902/) | Ustanak | 5 | 24 | 2 |
 | 98 | [Footman, Captain, and Derivatives ](https://www.hiveworkshop.com/threads/footman-captain-and-derivatives.300263/) | Ujimasa Hojo | 5 | 24 | 15 |
 | 99 | [Brutal Lord ](https://www.hiveworkshop.com/threads/brutal-lord.204070/) | Tarrasque | 5 | 24 | 1 |
-| 100 | [Spellbringers: Mad Scientist ](https://www.hiveworkshop.com/threads/spellbringers-mad-scientist.336981/) | General Frank | 4.96154 | 26 | 3 |

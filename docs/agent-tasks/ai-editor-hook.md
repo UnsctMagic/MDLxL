@@ -27,11 +27,13 @@ mouse camera controls, document validation, byte-preserving save and Undo.
   modeling toolset. Avoid unrequested HD-style complexity; do not turn observed
   counts into hard caps or use the rulebook to redesign unrelated model data.
 - Read-only research covered all 3,501 installed SD/base CASC entries (3,448
-  distinct models, 53 aliases), excluding HD/DE modules. The first 100 approved
-  resources in Hive's native highest-rating sort contain 705 distinct MDX 800
-  models; all parsed. Preserve the distinction between resources and model files.
-- Visual study: 127 native and 100 Hive representatives rendered; 32 Walk clips
-  sampled at six phases (192 poses). One native bridge render failed, and 18 Hive
+  distinct models, 53 aliases), excluding HD/DE modules. Of the first 100 approved
+  resources in Hive's native highest-rating sort, 90 allow use and editing with
+  credit and were studied (646 distinct MDX 800 models; all parsed). Ten were
+  excluded by their own terms: editing or sharing only with permission, or no AI
+  use. Preserve the distinction between resources and model files.
+- Visual study: 127 native and 90 Hive representatives rendered; 30 Walk clips
+  sampled at six phases (180 poses). One native bridge render failed, and 16 Hive
   representatives have unresolved legacy stock texture references. The guide
   records these limits; no Warcraft gameplay acceptance was claimed.
 - `src/ai-sd-rules.js` supplies one canonical rule text to `AI_SYSTEM_PROMPT` and
