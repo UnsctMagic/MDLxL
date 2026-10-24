@@ -295,7 +295,7 @@ class AiService {
     }
     const conversation = await this.conversation(id, settings.provider);
     if (conversation.retired)
-      throw Error(`${conversation.name || 'This chat'} is retired. Ask the organiser, or start a new chat.`);
+      throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
     const recorder = new AiRecorder(conversation, value => this.emit({ id, ...value }));
     const steering = new AiSteering(text => recorder.split(text));
     const active = { id, controller, steering, recorder, worker: null };

@@ -128,7 +128,7 @@ test('a worker past half of its memory hands over to a new bird and retires', as
   assert.equal(workerRequests[1].data.tools, undefined);
   assert.match(userText(workerRequests[2].data), /Handover note from Crow, who worked on this before you:\nHandover: collars done/);
   assert.equal((await f.service.readConversation(organiser.workers[0].id)).retired, true);
-  await assert.rejects(() => f.service.send({ id: organiser.workers[0].id, text: 'hi', context }), /Crow is retired/);
+  await assert.rejects(() => f.service.send({ id: organiser.workers[0].id, text: 'hi', context }), /The Crow is retired/);
 });
 
 test('save cleanup keeps everything, keeps a memory note, or wipes every chat for the model', async t => {

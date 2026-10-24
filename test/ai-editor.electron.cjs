@@ -339,13 +339,13 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     bones = await tool('mdlxl_read', { path: '/Bones' });
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
   if (!(await page.getByLabel('AI provider', { exact: true }).isVisible()))
-    await page.getByTitle('Connection settings', { exact: true }).click();
+    await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
   await page.getByLabel('AI provider', { exact: true }).selectOption('compatible');
   await page.getByLabel('API key', { exact: true }).fill('fixture-test-secret');
   await page.getByLabel('API base URL', { exact: true }).fill(`http://127.0.0.1:${server.address().port}/v1`);
   await page.getByLabel('Model', { exact: true }).fill('fixture-model');
   await page.getByRole('button', { name: 'Save connection', exact: true }).click();
-  await page.getByTitle('Connection settings', { exact: true }).click();
+  await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
   check(
     'credentials are encrypted in the actual app profile',
     !fs.readFileSync(path.join(profile, 'ai', 'connections.json'), 'utf8').includes('fixture-test-secret'),

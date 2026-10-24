@@ -66,19 +66,19 @@ const tools = [
     id: 'marker',
     label: 'Marker',
     Icon: Highlighter,
-    tip: 'Marker: drag on the model to highlight an area for the AI, e.g. "cut this area into its own geoset". Your normal camera controls still work (Alt+drag rotates). Notes never change the model.',
+    tip: 'Marker: point the AI at an area. Drag over the model to paint a see-through highlight, then say what to do with it, e.g. "cut this area into its own geoset" or "smooth this". The AI gets the exact vertices under the marker. Notes never change the model. Alt+drag still rotates the camera.',
   },
   {
     id: 'pen',
     label: 'Pen',
     Icon: PenLine,
-    tip: 'Pen: scribble on or around the model to show the AI a line or shape, e.g. "give the muscle this outline". Your normal camera controls still work (Alt+drag rotates). Notes never change the model.',
+    tip: 'Pen: show the AI a line or shape. Scribble on the model or in the air around it, e.g. draw the outline of a muscle and say "give it this shape", or circle a spot and say "add a spike here". Notes never change the model. Alt+drag still rotates the camera.',
   },
   {
     id: 'eraser',
     label: 'Eraser',
     Icon: Eraser,
-    tip: 'Eraser: drag over Pen or Marker notes to remove them.',
+    tip: 'Eraser: drag over Pen or Marker notes to remove them. Use the drawings chip above the prompt to undo the last note or clear them all.',
   },
 ];
 const DOCK_WIDTH = 'mdlxl-ai-width';
@@ -92,7 +92,7 @@ const birdColor = name => {
 const modelKeyOf = (path, documentId) =>
   path ? 'file:' + String(path).replaceAll('/', '\\').toLowerCase() : 'unsaved:' + documentId;
 const OFFLOAD_TIP =
-  'Offload Mode: the chat of each model becomes an organiser. It hands every job to a worker with a bird name (Crow, Jackdaw, Sparrow…) that has its own memory, so the main chat stays small and fast and never needs compacting. Follow-ups go back to the bird that did the job; small jobs share one tiny-jobs bird. Birds retire when half full and hand over to a fresh one. Click a bird above the chat to read or talk to it directly.';
+  'Offload Mode (recommended for long sessions): the chat of each model becomes an organiser. It hands every job to a worker with a bird name (Crow, Jackdaw, Sparrow…) that has its own memory, so the main chat stays small and fast and never needs compacting. Follow-ups go back to the bird that did the job; small jobs share one tiny-jobs bird. Birds retire when half full and hand over to a fresh one. Click a bird above the chat to read or talk to it directly.';
 const CLEANUP_CHOICES = [
   ['keep', 'Keep everything', 'Save and keep every chat as it is; you can carry on with the same organiser and birds.'],
   ['summary', 'Keep a summary', 'The organiser writes a short memory note (what changed, your decisions, what is open). Then all chats and their screenshots are deleted and the birds retire. The next organiser for this model starts with the note.'],
@@ -133,7 +133,13 @@ function ThinkingPart({ part, live }) {
   });
   return (
     <div className={'ai-thinking' + (open ? ' ai-open-part' : '') + (live ? ' ai-live' : '')}>
-      <button type="button" className="ai-part-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button
+        type="button"
+        className="ai-part-toggle"
+        aria-expanded={open}
+        title="What the AI was thinking before it answered or acted. Click to read it in full; useful to see why it chose an approach."
+        onClick={() => setOpen(!open)}
+      >
         <ChevronRight size={13} aria-hidden="true" />
         {live ? 'Thinking…' : 'Thought process'}
       </button>
@@ -163,7 +169,13 @@ function ToolPart({ part }) {
     line = detailLine(part.detail);
   return (
     <div className={'ai-step ai-step-' + part.status + (open ? ' ai-open-part' : '')}>
-      <button type="button" className="ai-part-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button
+        type="button"
+        className="ai-part-toggle"
+        aria-expanded={open}
+        title="One step the AI took in the editor. Click to see exactly what it sent and what came back; useful when a result looks wrong."
+        onClick={() => setOpen(!open)}
+      >
         <span className="ai-step-icon" aria-hidden="true">
           {part.status === 'running' ? (
             <LoaderCircle size={13} className="ai-spin" />
@@ -195,7 +207,7 @@ function WorkerPart({ part, onOpen }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={'ai-worker-row ai-worker-' + part.status} style={{ '--bird': birdColor(part.name) }}>
-      <button type="button" className="ai-part-toggle" title={'Open ' + part.name + "'s chat"} onClick={() => onOpen?.(part.workerId)}>
+      <button type="button" className="ai-part-toggle" title={`The ${part.name} did this job. Click to open the ${part.name}'s chat: watch its thinking and steps, or talk to it directly.`} onClick={() => onOpen?.(part.workerId)}>
         <span className="ai-step-icon" aria-hidden="true">
           {part.status === 'working' ? <LoaderCircle size={13} className="ai-spin" /> : part.status === 'failed' ? <X size={13} /> : <Bird size={13} />}
         </span>
@@ -204,7 +216,13 @@ function WorkerPart({ part, onOpen }) {
         <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'failed' ? 'stopped' : 'done'}</span>
       </button>
       {part.report && (
-        <button type="button" className="ai-part-toggle ai-worker-report-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <button
+          type="button"
+          className="ai-part-toggle ai-worker-report-toggle"
+          aria-expanded={open}
+          title={`What the ${part.name} reported back: what it changed, what it checked and anything left open.`}
+          onClick={() => setOpen(!open)}
+        >
           <ChevronRight size={13} aria-hidden="true" />
           Report
         </button>
@@ -319,7 +337,7 @@ export default function AiAssistant({ bridge }) {
           };
           return list;
         });
-      if (event.type === 'worker') setStatus(event.status === 'working' ? `${event.name} is working: ${event.job}` : 'Organising');
+      if (event.type === 'worker') setStatus(event.status === 'working' ? `The ${event.name} is working on: ${event.job}` : 'Organising');
       if (event.type === 'text' || event.type === 'thinking')
         update(message => {
           if (event.type === 'text') message.text += event.text;
@@ -724,7 +742,7 @@ export default function AiAssistant({ bridge }) {
         type="button"
         className="ai-open"
         aria-label="AI assistant"
-        title="Open the AI console: describe what you want, draw on the model to show where"
+        title="AI console: tell an AI what to change on your model and it does it in the editor. Draw on the model to show where, and watch it work."
         aria-pressed={open}
         onClick={toggleOpen}
       >
@@ -744,7 +762,7 @@ export default function AiAssistant({ bridge }) {
               role="separator"
               aria-orientation="vertical"
               aria-label="Resize AI console"
-              title="Drag to resize the AI console"
+              title="Drag to make the AI console wider or narrower"
               onPointerDown={resizeStart}
             />
             <header className="ai-heading">
@@ -761,7 +779,7 @@ export default function AiAssistant({ bridge }) {
               <button
                 type="button"
                 className="ai-provider-name"
-                title="Change the AI connection"
+                title="Which AI you are connected to. Click to change it or sign in."
                 onClick={() => setSettingsOpen(value => !value)}
               >
                 <span translate="no">{providerName}</span>
@@ -769,7 +787,7 @@ export default function AiAssistant({ bridge }) {
               <select
                         className="ai-model ai-header-model"
                         aria-label="Chat model"
-                        title="Model"
+                        title="Which model of this AI does the work. Bigger models are smarter but slower and use more of your plan or credits; Default lets the AI choose."
                         value={settings.model || ''}
                         disabled={busy || authBusy}
                         onChange={event =>
@@ -813,7 +831,7 @@ export default function AiAssistant({ bridge }) {
                 type="button"
                 className="ai-icon-button"
                 aria-label="New chat"
-                title="New chat"
+                title="Start a fresh chat for this model. Use it for an unrelated job so the AI is not slowed down by old history. The old chat stays under Retired."
                 disabled={busy || authBusy}
                 onClick={newChat}
               >
@@ -823,7 +841,7 @@ export default function AiAssistant({ bridge }) {
                 type="button"
                 className="ai-icon-button"
                 aria-label="Connection settings"
-                title="Connection settings"
+                title="Settings: choose the AI and model, sign in, and choose what happens to AI chats when you save"
                 aria-expanded={settingsOpen}
                 onClick={() => setSettingsOpen(value => !value)}
               >
@@ -833,7 +851,7 @@ export default function AiAssistant({ bridge }) {
                 type="button"
                 className="ai-icon-button"
                 aria-label="Close AI assistant"
-                title="Close the AI console (drawings are kept)"
+                title="Close the AI console. Drawings, chats and running work are kept; open it again with the AI button."
                 onClick={() => setOpen(false)}
               >
                 <X size={15} aria-hidden="true" />
@@ -849,7 +867,7 @@ export default function AiAssistant({ bridge }) {
                       type="button"
                       className="ai-roster-chip"
                       aria-pressed={view === org.id}
-                      title="The organiser: talk here and it hands jobs to the birds"
+                      title="The organiser: talk to it here. It hands each job to a bird and tells you what the bird did."
                       onClick={() => setView(org.id)}
                     >
                       Organiser
@@ -861,7 +879,7 @@ export default function AiAssistant({ bridge }) {
                         className={'ai-roster-chip ai-roster-' + worker.status}
                         style={{ '--bird': birdColor(worker.name) }}
                         aria-pressed={view === worker.id}
-                        title={`${worker.name}: ${worker.job}. ${Math.round((worker.use || 0) * 100)}% of its memory used.${worker.status === 'working' && waiting ? ' Paused until you return to ' + waiting + '.' : ''} Click to read or talk to ${worker.name} directly.`}
+                        title={`${worker.name}: ${worker.job}. ${Math.round((worker.use || 0) * 100)}% of its memory used.${worker.status === 'working' && waiting ? ' Paused until you return to ' + waiting + '.' : ''} At 50% it writes a handover note and retires, and a new bird takes over. Click to read the ${worker.name}'s chat or talk to it directly.`}
                         onClick={() => setView(worker.id)}
                       >
                         {worker.status === 'working' ? (
@@ -876,7 +894,7 @@ export default function AiAssistant({ bridge }) {
                       <select
                         className="ai-retired"
                         aria-label="Retired chats"
-                        title="Retired birds and earlier organiser chats of this model, read only"
+                        title="Birds that retired (their memory got full, so they handed over) and earlier chats of this model. You can read them; to continue, talk to the organiser."
                         value={readOnly ? view : ''}
                         onChange={event => event.target.value && setView(event.target.value)}
                       >
@@ -898,7 +916,7 @@ export default function AiAssistant({ bridge }) {
                 {settingsOpen && (
                   <div className="ai-connection">
                     {org && (
-                      <label title="What happens to this model's AI chats when you save it">
+                      <label title="What to do with this model's AI chats when you save it: ask each time, keep them, keep a short memory note, or delete them">
                         After saving
                         <select
                           aria-label="After saving"
@@ -917,7 +935,7 @@ export default function AiAssistant({ bridge }) {
                         </select>
                       </label>
                     )}
-                    <label>
+                    <label title="Which AI service does the work: Codex or Claude with your own subscription (sign in), an API key, or another / local AI">
                       AI provider
                       <select
                         aria-label="AI provider"
@@ -937,21 +955,26 @@ export default function AiAssistant({ bridge }) {
                         <button
                           className={signedIn ? '' : 'ai-primary'}
                           disabled={busy || authBusy}
+                          title="Sign in with your own account in the browser. MDLxL never sees your password."
                           onClick={() => authenticate('login')}
                         >
                           <LogIn size={14} aria-hidden="true" />
                           Sign in
                         </button>
-                        <button disabled={busy || authBusy} onClick={() => authenticate('status')}>
+                        <button disabled={busy || authBusy} title="Check whether you are still signed in" onClick={() => authenticate('status')}>
                           Check sign-in
                         </button>
-                        <button disabled={busy || authBusy} onClick={() => authenticate('logout')}>
+                        <button disabled={busy || authBusy} title="Sign this AI account out of MDLxL" onClick={() => authenticate('logout')}>
                           Sign out
                         </button>
-                        {authBusy && <button onClick={() => window.desktop.aiCancel()}>Cancel</button>}
+                        {authBusy && (
+                          <button title="Stop waiting for the sign-in" onClick={() => window.desktop.aiCancel()}>
+                            Cancel
+                          </button>
+                        )}
                       </div>
                     ) : (
-                      <label>
+                      <label title="Your secret key from the AI service. It is stored encrypted on this PC and only sent to that service.">
                         API key
                         <input
                           type="password"
@@ -963,7 +986,7 @@ export default function AiAssistant({ bridge }) {
                       </label>
                     )}
                     {settings.provider === 'compatible' && (
-                      <label>
+                      <label title="The address of the AI server, e.g. a local LM Studio or Ollama, or a service like OpenRouter">
                         API base URL
                         <input
                           value={settings.baseUrl || ''}
@@ -974,7 +997,7 @@ export default function AiAssistant({ bridge }) {
                         />
                       </label>
                     )}
-                    <label>
+                    <label title="Which model of this AI to use. Pick from the list after Load models, or type its name.">
                       Model
                       <input
                         aria-label="Model"
@@ -994,6 +1017,7 @@ export default function AiAssistant({ bridge }) {
                     <div className="ai-row">
                       <button
                         disabled={busy || authBusy}
+                        title="Remember these connection settings"
                         onClick={() =>
                           action(async () => {
                             await saveSettings();
@@ -1003,14 +1027,18 @@ export default function AiAssistant({ bridge }) {
                       >
                         Save connection
                       </button>
-                      <button disabled={busy || authBusy || settings.provider === 'claude'} onClick={loadModels}>
+                      <button
+                        disabled={busy || authBusy || settings.provider === 'claude'}
+                        title="Ask the AI service which models you can use, to fill the model list"
+                        onClick={loadModels}
+                      >
                         Load models
                       </button>
                     </div>
                     {native && (
                       <details>
-                        <summary>Advanced connection</summary>
-                        <label>
+                        <summary title="Only needed if MDLxL cannot find the AI program on its own">Advanced connection</summary>
+                        <label title="Where the Codex or Claude program is installed, if MDLxL cannot find it by itself">
                           CLI executable (optional)
                           <input
                             value={settings.executable || ''}
@@ -1024,10 +1052,13 @@ export default function AiAssistant({ bridge }) {
                       </details>
                     )}
                     <details>
-                      <summary>Connect another AI</summary>
+                      <summary title="For AI apps outside MDLxL (e.g. Claude Desktop or Cursor) that should use MDLxL's editor tools">
+                        Connect another AI
+                      </summary>
                       <p>Connect any local AI client that supports MCP to the same editor tools.</p>
                       <div className="ai-row">
                         <button
+                          title="Let AI apps on this PC connect to MDLxL's editor tools with a private key. Turning it off makes the key useless."
                           onClick={() =>
                             action(async () => {
                               const value = await window.desktop.aiEnable(!external);
@@ -1039,6 +1070,7 @@ export default function AiAssistant({ bridge }) {
                         </button>
                         <button
                           disabled={!external}
+                          title="Copy the settings to paste into the other AI app"
                           onClick={() =>
                             action(async () => {
                               await navigator.clipboard.writeText(
@@ -1075,7 +1107,11 @@ export default function AiAssistant({ bridge }) {
                               onOpenWorker={setView}
                             />
                           ) : message.from === 'organiser' ? (
-                            <details className="ai-from-organiser" style={{ '--bird': birdColor(viewWorker?.name) }}>
+                            <details
+                              className="ai-from-organiser"
+                              title="What the organiser asked this bird to do, with your own message exactly as you wrote it. Click to read it."
+                              style={{ '--bird': birdColor(viewWorker?.name) }}
+                            >
                               <summary>
                                 <Bird size={12} aria-hidden="true" />
                                 {message.job === 'Handover' ? 'Asked for a handover note' : 'Job from the organiser: ' + (message.job || '')}
@@ -1145,7 +1181,7 @@ export default function AiAssistant({ bridge }) {
                 {error && (
                   <div className="ai-error" role="alert">
                     {error}
-                    <button type="button" className="ai-icon-button" aria-label="Dismiss" onClick={() => setError('')}>
+                    <button type="button" className="ai-icon-button" aria-label="Dismiss" title="Hide this message" onClick={() => setError('')}>
                       <X size={13} aria-hidden="true" />
                     </button>
                   </div>
@@ -1153,7 +1189,11 @@ export default function AiAssistant({ bridge }) {
                 {task?.canResume && !busy && (
                   <div className="ai-resume">
                     <span>Task paused. Applied edits are kept.</span>
-                    <button disabled={authBusy} onClick={() => send(true)}>
+                    <button
+                      disabled={authBusy}
+                      title="Carry on with the stopped task from where it was. Edits already made stay; the AI checks the model first."
+                      onClick={() => send(true)}
+                    >
                       Resume task
                     </button>
                   </div>
@@ -1164,7 +1204,7 @@ export default function AiAssistant({ bridge }) {
                       {summary && (
                         <span
                           className="ai-chip"
-                          title="The model, selection and drawings are captured when you send the prompt."
+                          title="What the AI will work on: this model, your selected vertices or bones, and the animation frame. It is captured when you press Enter."
                           translate="no"
                         >
                           {summary.name}
@@ -1180,7 +1220,7 @@ export default function AiAssistant({ bridge }) {
                         </span>
                       )}
                       {strokes.length > 0 && (
-                        <span className="ai-chip" title="Pen and Marker notes on the model; the AI sees them">
+                        <span className="ai-chip" title="Your Pen and Marker notes on this model. The AI gets them with your message and sees them in its screenshots.">
                           {translate(`${strokes.length} drawing${strokes.length === 1 ? '' : 's'}`)}
                           <button
                             type="button"
@@ -1193,7 +1233,7 @@ export default function AiAssistant({ bridge }) {
                           <button
                             type="button"
                             aria-label="Clear drawings"
-                            title="Clear all drawings on this model"
+                            title="Remove all Pen and Marker notes from this model"
                             onClick={() => sketchStore.clear(summary.documentId)}
                           >
                             <Trash2 size={12} aria-hidden="true" />
@@ -1205,7 +1245,7 @@ export default function AiAssistant({ bridge }) {
                           key={index}
                           type="button"
                           className="ai-chip ai-image-chip"
-                          title="Remove attached image"
+                          title="Remove this picture from the message"
                           onClick={() => setImages(previous => previous.filter((_, i) => i !== index))}
                         >
                           <img src={image.data} alt={image.name} />
@@ -1222,12 +1262,12 @@ export default function AiAssistant({ bridge }) {
                     placeholder={
                       readOnly
                         ? viewWorker
-                          ? `${viewWorker.name} is retired. Talk to the organiser to continue.`
+                          ? `The ${viewWorker.name} is retired. Talk to the organiser to continue.`
                           : 'An earlier chat, read only. Use the organiser to continue.'
                         : busy
                           ? 'Steer the AI while it works…'
                           : viewWorker
-                            ? `Talk to ${viewWorker.name} directly…`
+                            ? `Talk to the ${viewWorker.name} directly…`
                             : 'Ask the AI to change your model…'
                     }
                     value={prompt}
@@ -1252,7 +1292,7 @@ export default function AiAssistant({ bridge }) {
                       className="ai-tool"
                       aria-label="Attach"
                       disabled={busy || authBusy}
-                      title="Attach reference models or images"
+                      title="Attach a reference: an MDL/MDX model the AI can copy from, or a picture (PNG, JPEG, WebP) showing what you want. You can also paste pictures."
                       onClick={() => files.current.click()}
                     >
                       <Paperclip size={15} aria-hidden="true" />
@@ -1279,7 +1319,7 @@ export default function AiAssistant({ bridge }) {
                             type="button"
                             className="ai-swatch"
                             aria-label={'Color: ' + sketch.color[colorTool]}
-                            title="Color for this tool. Colors can mean different things, e.g. red = remove, green = keep."
+                            title="Colour for this tool. Give colours a meaning and tell the AI, e.g. red = remove, green = keep. The AI is told each note's colour."
                             aria-expanded={palette}
                             style={{ '--swatch': sketchStore.colorOf(colorTool) }}
                             onClick={() => setPalette(!palette)}
@@ -1327,7 +1367,7 @@ export default function AiAssistant({ bridge }) {
                           className="ai-tool"
                           aria-label="Continuous awareness"
                           aria-checked={!!settings.awareness}
-                          title="Continuous awareness: share live model, selection, camera and timeline changes with the connected AI. It never starts AI requests by itself; turning it off stops future updates."
+                          title="Continuous awareness: use this when you want the AI to see what you are doing while it works, e.g. 'watch while I pose the arm and tell me when it clips'. Every change you make (selection, camera, frame) is sent into the AI's memory, so it fills up faster and birds retire sooner. It never starts the AI by itself. Leave it off for normal jobs."
                           disabled={awarenessBusy}
                           onClick={async () => {
                             const enabled = !settings.awareness;
@@ -1351,7 +1391,7 @@ export default function AiAssistant({ bridge }) {
                         )}
                       </span>
                       {busy && (
-                        <button type="button" className="ai-stop" title="Stop the AI" onClick={() => window.desktop.aiCancel()}>
+                        <button type="button" className="ai-stop" title="Stop the AI now. Edits it already made stay and can be undone with Undo; Resume task carries on later." onClick={() => window.desktop.aiCancel()}>
                           <Square size={11} aria-hidden="true" />
                           <span className="ai-hidden-label">Stop</span>
                         </button>
@@ -1360,7 +1400,7 @@ export default function AiAssistant({ bridge }) {
                         type="button"
                         className="ai-primary ai-send"
                         aria-label={native && signedIn === false ? 'Sign in to send' : busy ? 'Steer' : 'Send'}
-                        title={busy ? 'Send this to the AI while it works' : 'Send (Enter)'}
+                        title={busy ? 'Steer: send this to the AI while it works, e.g. "keep the shoulder pads". It picks it up at its next step.' : 'Send (Enter). Shift+Enter starts a new line.'}
                         disabled={!prompt.trim() || authBusy}
                         onClick={() => send()}
                       >
@@ -1388,7 +1428,7 @@ export default function AiAssistant({ bridge }) {
             <section className="ai-cleanup" role="dialog" aria-modal="true" aria-label="Tidy up AI chats">
               <header>
                 <strong>{translate(`Tidy up the AI chats for ${cleanup.name}?`)}</strong>
-                <button type="button" aria-label="Decide later" title="Decide later: keep everything and ask again next save" onClick={() => setCleanup(null)}>
+                <button type="button" aria-label="Decide later" title="Decide later: keep everything for now and ask again at the next save" onClick={() => setCleanup(null)}>
                   <X size={14} aria-hidden="true" />
                 </button>
               </header>
@@ -1409,7 +1449,7 @@ export default function AiAssistant({ bridge }) {
                 ))}
               </div>
               {busy && <p className="ai-cleanup-note">Cleaning up is available once the AI finishes its current job.</p>}
-              <label title="Use this choice for this model from now on; change it in the AI connection settings">
+              <label title="Use this choice for this model every time you save, without asking. Change it later in the AI settings under After saving.">
                 <input type="checkbox" checked={rememberCleanup} onChange={event => setRememberCleanup(event.target.checked)} />
                 Remember for this model
               </label>

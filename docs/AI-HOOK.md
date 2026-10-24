@@ -41,7 +41,7 @@ Mode** on (the default; the bird switch in the console header, next to the model
 picker) that chat is an organiser. It does not edit the model itself: it hands each
 job to a worker with a simple bird name (Crow, Jackdaw, Sparrow, Robin…), and the
 worker does the work with its own memory. The organiser speaks of birds by name
-("I'll ask Crow to…") and each bird keeps its own colour in the chat. This keeps the organiser small and fast, so long sessions do not run
+("I'll ask a Crow to…", "the Crow is still…") and each bird keeps its own colour in the chat. This keeps the organiser small and fast, so long sessions do not run
 into compacting.
 
 - Your message reaches the worker exactly as you wrote it, together with your
