@@ -73,3 +73,10 @@ test('scope is checked after document normalization and failures preserve Undo',
   assert.throws(()=>doc.apply('Narrow AI topology edit',['Geosets'],model=>{model.Geosets[0].Faces=new Uint16Array([...model.Geosets[0].Faces,0,1,2]);},{validate:(after,before)=>prepareAiEdit(before,after,options)}),/scope.*PrimitiveCounts/);
   assert.deepEqual(doc.serialize('mdx'),original);assert.equal(doc.historyStats.undoSteps,history);
 });
+
+test('AI edits may change numeric values but not the numeric array type',()=>{
+ const before={Geosets:[{VertexGroup:new Uint8Array([0,1]),Faces:new Uint16Array([0,1,2])}]};
+ assert.throws(()=>prepareAiEdit(before,{Geosets:[{VertexGroup:[0,2],Faces:new Uint16Array([0,1,2])}]},{scope:['/Geosets']}),/array type of \/Geosets\/0\/VertexGroup/);
+ assert.throws(()=>prepareAiEdit(before,{Geosets:[{VertexGroup:new Uint8Array([0,1]),Faces:new Uint32Array([0,1,2])}]},{scope:['/Geosets/0']}),/keep it a Uint16Array/);
+ assert.equal(prepareAiEdit(before,{Geosets:[{VertexGroup:new Uint8Array([0,2]),Faces:new Uint16Array([0,1,2])}]},{scope:['/Geosets']}).changeCount,1);
+});
