@@ -448,13 +448,17 @@ class AiService {
     // the organiser task's brief with their job instead of writing their own.
     if (sd.enabled && conversation.kind !== 'worker' && !conversation.toolsOff && !task.artBrief) {
       recorder.event({ type: 'art', status: 'running' });
+      let failure = '';
       try {
         task.artBrief = await this.artDirection({ text, images, context, settings, contract, signal, conversation });
+        if (!task.artBrief) failure = 'The art director returned no brief.';
       } catch (error) {
         if (signal.aborted) throw error;
         task.artBrief = '';
+        failure = error.message;
       }
-      recorder.event({ type: 'art', status: 'done', text: task.artBrief });
+      // Without a brief the task still runs on the SD Brain policy; the row says why.
+      recorder.event(failure ? { type: 'art', status: 'error', text: failure } : { type: 'art', status: 'done', text: task.artBrief });
       await this.persistConversation(conversation);
     }
     if (task.artBrief && conversation.kind !== 'worker')
@@ -773,8 +777,8 @@ class AiService {
       images,
       conversation: art,
       signal,
-      // The art director never watches the editor.
-      awareness: { enabled: false, version: 0, snapshot: () => ({ enabled: false }) },
+      // The art director never watches the editor (providers skip awareness when it is null).
+      awareness: null,
       steering: new AiSteering(() => {}),
     };
     if (settings.provider === 'codex') await runCodex(options);

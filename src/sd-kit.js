@@ -263,14 +263,15 @@ export function builder() {
      * centred at height z on a surface radius from the axis, tilted up by tilt degrees, sunk in so no gap shows.
      * shape: almond, circle, diamond, star, shield, skull, or an outline. width and height in units; depth defaults to a quarter of the smaller. */
     emblem: o => {
-      const w = Number(o.width ?? 8), h = Number(o.height ?? w), depth = Number(o.depth ?? Math.min(w, h) * 0.25);
+      // Flush, not a protruding block: depth is at most 40% of the smaller side.
+      const w = Number(o.width ?? 8), h = Number(o.height ?? w), depth = Math.min(Number(o.depth ?? Math.min(w, h) * 0.25), Math.min(w, h) * 0.4);
       if (!(w > 0 && h > 0 && depth > 0)) throw Error('emblem needs positive width, height and depth.');
       const outlines = { almond: () => shapes.almond(w, h), circle: () => shapes.circle(Math.min(w, h) / 2, 10), diamond: () => shapes.diamond(w, h), star: () => shapes.star(Math.min(w, h) / 2, Math.min(w, h) / 4.5), shield: () => shapes.shield(w, h), skull: () => shapes.skull(w, h) };
       const outline = Array.isArray(o.outline) ? o.outline : (outlines[o.shape || 'almond'] || (() => { throw Error(`emblem shape must be one of ${Object.keys(outlines).join(', ')}, or give an outline.`); }))();
       const a = (Number(o.angle ?? 0) * Math.PI) / 180, t = (Number(o.tilt ?? 0) * Math.PI) / 180, r = Number(o.radius ?? 10), z = Number(o.z ?? 0);
       const out = [Math.cos(a) * Math.cos(t), Math.sin(a) * Math.cos(t), Math.sin(t)], up = [-Math.cos(a) * Math.sin(t), -Math.sin(a) * Math.sin(t), Math.cos(t)], side = V.cross(up, out);
       const basis = [[side[0], up[0], out[0]], [side[1], up[1], out[1]], [side[2], up[2], out[2]]];
-      const at = V.add([Math.cos(a) * r, Math.sin(a) * r, z], V.mul(out, depth * 0.15));
+      const at = V.add([Math.cos(a) * r, Math.sin(a) * r, z], V.mul(out, -depth * 0.1));
       parts.push(extrudePart({ bevel: depth * 0.3, detail: 2, ...o, outline, depth }).place({ at }, basis).orient());
       return api;
     },

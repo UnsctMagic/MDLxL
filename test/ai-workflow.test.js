@@ -288,6 +288,24 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   assert.ok(guide.includes(AI_SD_RULES), 'the standalone rulebook matches the supplied instructions');
 });
 
+test('a failed art direction is shown with its reason and the task still runs', async t => {
+  const received = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  f.service.artDirection = async () => {
+    throw Error('The provider refused the art turn.');
+  };
+  await f.service.setSdBrain(true);
+  assert.equal((await f.service.send({ id: 'test', text: 'make a hat', context })).ok, true);
+  assert.ok(f.events.some(e => e.type === 'art' && e.status === 'error' && /refused the art turn/.test(e.text)));
+  const user = received.at(-1).messages.filter(message => message.role === 'user').at(-1).content[0].text;
+  assert.ok(!user.includes('SD art brief'));
+  const part = (await f.service.conversation('test', 'compatible')).transcript.flatMap(m => m.parts || []).find(p => p.type === 'art');
+  assert.equal(part.status, 'error');
+});
+
 test('the model can change while the AI works; the running task keeps its model', async t => {
   const models = [];
   const f = await setup(t, ({ data, requests }) => {

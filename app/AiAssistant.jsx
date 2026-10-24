@@ -162,11 +162,15 @@ function ArtPart({ part }) {
         className="ai-part-toggle"
         aria-expanded={open}
         disabled={running || !part.text}
-        title="The SD art direction SD Brain wrote for this request. Click to show."
+        title={
+          part.status === 'error'
+            ? 'SD Brain could not write the art direction; the work continued without it. Click for the reason.'
+            : 'The SD art direction SD Brain wrote for this request. Click to show.'
+        }
         onClick={() => setOpen(!open)}
       >
         <Brain size={13} aria-hidden="true" />
-        {running ? 'Planning the art direction…' : part.text ? 'Art direction' : 'Art direction unavailable'}
+        {running ? 'Planning the art direction…' : part.status === 'error' || !part.text ? 'Art direction unavailable' : 'Art direction'}
       </button>
       <div className="ai-thinking-text">{part.text}</div>
     </div>

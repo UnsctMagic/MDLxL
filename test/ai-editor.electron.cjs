@@ -592,6 +592,24 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     /without changing either/,
   );
   check('verification scripts cannot change their model copy to manufacture a pass', true);
+  // A material without its render mode passes the editor's checks but cannot be saved.
+  const renderMode = (await tool('mdlxl_script', { target: context.target, code: 'return model.Materials[0].RenderMode;' })).value;
+  await assert.rejects(
+    () =>
+      tool('mdlxl_script', {
+        target: context.target,
+        edit: true,
+        label: 'Bare material',
+        scope: ['/Materials'],
+        code: 'delete model.Materials[0].RenderMode; return model;',
+      }),
+    /could not be saved after this edit .*so it was undone/,
+  );
+  check(
+    'an AI edit that would make the model unsavable is undone and explained',
+    (await tool('mdlxl_script', { target: context.target, code: 'return model.Materials[0].RenderMode;' })).value === renderMode,
+    renderMode,
+  );
   const reviewImages = await tool(
     'mdlxl_review',
     {
