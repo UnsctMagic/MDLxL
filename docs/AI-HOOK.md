@@ -104,7 +104,11 @@ when a missing choice would change the result a lot or the request clearly
 conflicts with SD (for example an HD/PBR redesign). Literal operations such as
 "mirror these and weld the seam" stay literal. Detailed, elaborate custom SD is
 supported; there is no polygon, bone, texture-size or key cap and nothing is
-simplified to match a statistic.
+simplified to match a statistic. SD is a style, not a list of subjects: things
+Warcraft never had (a Mordor chalice, a real-world object, an invented creature)
+are made in SD style through the rulebook's style rules (shape language and one
+motif, exaggerated readable proportions, solid forms with no flat flaps or gaps,
+textures painted with light, shadow and edge highlights, a limited palette).
 
 - The state is captured when a task starts. Toggling during a task changes the
   next task, not the running one; a resumed task keeps its own state. Toggling
@@ -120,7 +124,10 @@ simplified to match a statistic.
 - Review: with SD Brain on, `mdlxl_review finish` with outcome passed needs a
   verdict for each criterion (fidelity, silhouette, sd-identity, coherence,
   craftsmanship, detail-value, motion, preservation): passed, needs-correction,
-  unverified or not-applicable, each with an observation. A pass is refused while
+  unverified or not-applicable, each with an observation. Every `mdlxl_review
+  inspect` also returns front, back, left and right views, so a part that only
+  works from one side is seen; the user's camera view is restored afterwards.
+  A pass is refused while
   a criterion needs correction; the same criterion failing three times stops
   further revisions. Missing textures or a provider without image input leave
   appearance criteria unverified. A renderer preview is not gameplay acceptance.

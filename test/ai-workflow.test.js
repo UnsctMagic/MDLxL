@@ -329,8 +329,16 @@ test('with SD Brain on, a passed review needs a verdict per criterion and repeat
     if (requests === 5) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Chalice reads clearly.', criteria });
     return done();
   });
+  const call = f.service.call,
+    inspects = [];
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_review' && args.action === 'inspect') inspects.push(args);
+    return call(name, args, ...rest);
+  };
   await f.service.setSdBrain(true);
   assert.equal((await f.service.send({ id: 'test', text: 'make a chalice of power', context })).ok, true);
+  // The review always shows the result from every side.
+  assert.equal(inspects[0].turnaround, true);
   assert.match(toolErrors[0], /add criteria for fidelity, silhouette/);
   assert.match(toolErrors[1], /detail-value needs correction/);
   const task = (await f.service.conversation('test', 'compatible')).task;

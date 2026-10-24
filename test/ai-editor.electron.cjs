@@ -613,6 +613,22 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     'animation verification restores the playhead',
     (await tool('mdlxl_context', { target: context.target })).liveFrame === 500,
   );
+  const viewBefore = (await tool('mdlxl_context', { target: context.target })).view;
+  const turned = await tool(
+    'mdlxl_review',
+    { target: context.target, action: 'inspect', turnaround: true, checksCode: 'return [{name:"Sparse key kept",passed:true}];' },
+    true,
+  );
+  check(
+    'SD Brain review shows the result from the front, back, left and right',
+    turned.filter(x => x.type === 'image').length === 9 &&
+      ['front', 'back', 'left', 'right'].every(side => turned.some(x => x.type === 'text' && x.text.includes(`${side} view`))),
+    turned.filter(x => x.type === 'text').map(x => x.text.slice(0, 60)),
+  );
+  check(
+    'the side views leave the user\'s camera view as it was',
+    (await tool('mdlxl_context', { target: context.target })).view === viewBefore,
+  );
   await tool('mdlxl_review', {
     target: context.target,
     action: 'finish',

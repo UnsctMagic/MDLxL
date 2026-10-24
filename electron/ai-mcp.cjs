@@ -39,7 +39,7 @@ function validateArguments(schema, value, path = 'arguments') {
 }
 function toolContent(value) {
   if (value?.images) {
-    if (!Array.isArray(value.images) || !value.images.length || value.images.length > 12)
+    if (!Array.isArray(value.images) || !value.images.length || value.images.length > 16)
       throw Error('Invalid viewport capture batch.');
     const { images, ...metadata } = value;
     return [

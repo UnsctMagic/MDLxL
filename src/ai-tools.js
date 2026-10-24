@@ -32,6 +32,10 @@ export const AI_TOOLS = [
         'Read-only JavaScript returning named boolean checks; model, before, selection, context and api are available.',
       ),
       frames: { type: 'array', minItems: 3, maxItems: 8, items: { type: 'number' } },
+      turnaround: {
+        type: 'boolean',
+        description: 'Also return front, back, left and right views of the result. Always on while SD Brain is on.',
+      },
       outcome: { enum: ['passed', 'needs-correction', 'blocked'] },
       summary: string('Brief visual assessment or reason correction is needed.'),
       criteria: {

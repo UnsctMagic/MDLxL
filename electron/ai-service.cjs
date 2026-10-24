@@ -498,7 +498,11 @@ class AiService {
       try {
         const result = await this.call(
           name,
-          { ...args, ...(name === 'mdlxl_help' ? {} : { target: context.target }) },
+          {
+            ...args,
+            ...(name === 'mdlxl_help' ? {} : { target: context.target }),
+            ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true } : {}),
+          },
           requestSignal,
         );
         if (edit || name === 'mdlxl_review') {
