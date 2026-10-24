@@ -15,6 +15,7 @@ authorized. Advanced direct-model markup and geometric mirror remain later work.
 ## Revision and local state
 
 - Branch: codex/low-poly-surface-cutout-20261024.
+- PR: https://github.com/UnsctMagic/MDLxL/pull/289 (open; merge approval pending).
 - Base: cb6a66950ac9f965f92ae3a8cb0946b57e8ecbc8, version 0.30.1.
 - Isolated Windows checkout: D:\Codex\mdlxl-surface-cutout-20261024\repo.
 - The private ZIP and fixture files are local inputs outside the checkout.
@@ -48,13 +49,20 @@ authorized. Advanced direct-model markup and geometric mirror remain later work.
   floating-point checks.
 - Source textures, materials, authored animation records, node data and pivots
   remain unchanged. Private inputs retain their original hashes.
+- GitHub CI passed for implementation commit f71de79166b2b53940a942e222b38081b3f0e6a5.
 
 ## Handoff boundary
 
 Code and verification are ready for branch/PR review. The initiating Codex task
 holds the attached PR and the local report with screenshots and serialized-record
-audit. Disposable packages, test profiles and runtime outputs are removed after
-verification. No user installation, profile or supplied asset is replaced.
+audit. No user installation, profile or supplied asset is replaced.
+
+Cleanup is blocked by automatic approval review: both a bounded bulk removal and
+removal of the single verified disposable package directory were rejected with
+"blocked by policy"; no further reason was supplied. Generated packages, test
+output/profile folders, runtime copies and the dependency junction remain in the
+isolated D: task folder. No task-started applications or helpers remain running.
+Remove the dependency junction as a link before any enclosing recursive cleanup.
 
 Await explicit owner approval before merging. Warcraft III playback, continuous
 animation guarantees and pixel-level lighting equivalence were not exercised.
