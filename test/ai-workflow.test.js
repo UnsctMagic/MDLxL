@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { createRequire } from 'node:module';
+import { AI_SD_RULES } from '../src/ai-sd-rules.js';
 const { AiService } = createRequire(import.meta.url)('../electron/ai-service.cjs');
 const root = path.resolve(import.meta.dirname, '..');
 const context = { target: 'selected', documentId: 'model', name: 'model.mdx', selection: { 0: [1, 2] } };
@@ -204,4 +205,20 @@ test('Resume after a service restart inspects the checkpoint without repeating a
   assert.equal((await restarted.send({ id: 'test', context, resume: true })).ok, true);
   assert.equal(f.counts().edits, 1);
   assert.equal((await restarted.taskInfo('test')).canResume, false);
+});
+
+test('embedded provider and standalone guide receive the same SD rulebook without an edit', async t => {
+  let received;
+  const f = await setup(t, ({ data }) => {
+    received = data;
+    return done();
+  });
+  assert.equal((await f.service.send({ id: 'test', text: 'Explain the SD modeling constraints', context })).ok, true);
+  const system = received.messages.find(message => message.role === 'system');
+  assert.ok(system.content.endsWith(AI_SD_RULES));
+  const user = received.messages.find(message => message.role === 'user');
+  assert.ok(user.content[0].text.includes(JSON.stringify(context)));
+  assert.deepEqual(f.counts(), { requests: 1, edits: 0 });
+  const guide = await fs.readFile(path.join(root, 'docs/AI-SD-RULEBOOK.md'), 'utf8');
+  assert.ok(guide.includes(AI_SD_RULES), 'the standalone rulebook matches the supplied instructions');
 });

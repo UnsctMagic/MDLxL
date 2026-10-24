@@ -314,6 +314,15 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
         ? reply.result.content[0]
         : JSON.parse(reply.result.content[0].text);
   };
+  const { AI_SD_RULES } = await import('../src/ai-sd-rules.js');
+  const initialized = await fetch(link.url, {
+    method: 'POST',
+    headers: { ...link.headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 'sd-rules', method: 'initialize', params: { protocolVersion: '2025-11-25' } }),
+  }).then(response => response.json());
+  check('packaged external connection supplies the shared SD rulebook', initialized.result.instructions.endsWith(AI_SD_RULES));
+  const sdGuide = await tool('mdlxl_help', { topic: 'AI-SD-RULEBOOK.md' });
+  check('packaged help contains the same standalone SD rulebook', sdGuide.text.includes(AI_SD_RULES));
   let context = await tool('mdlxl_context');
   check('live model loaded', context.name === 'AI-fixture.mdx', context.name);
   await tool('mdlxl_select', { target: context.target, geosetIds: [0], activeGeoset: 0 });

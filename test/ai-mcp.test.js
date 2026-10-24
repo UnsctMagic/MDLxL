@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import http from 'node:http';
 import { AI_TOOLS } from '../src/ai-tools.js';
+import { AI_SD_RULES } from '../src/ai-sd-rules.js';
 const { startMcpServer, validateArguments, toolContent } = createRequire(import.meta.url)(
   '../electron/ai-mcp.cjs',
 );
@@ -26,10 +27,9 @@ test('real MCP HTTP handshake, discover tools, execute and return tool errors', 
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
       })
     ).json();
-  assert.equal(
-    (await rpc('initialize', { protocolVersion: '2025-11-25' })).result.protocolVersion,
-    '2025-11-25',
-  );
+  const initialized = (await rpc('initialize', { protocolVersion: '2025-11-25' })).result;
+  assert.equal(initialized.protocolVersion, '2025-11-25');
+  assert.ok(initialized.instructions.endsWith(AI_SD_RULES), 'external agents receive the shared SD rulebook');
   assert.ok((await rpc('tools/list')).result.tools.some(t => t.name === 'mdlxl_script'));
   assert.deepEqual(
     JSON.parse((await rpc('tools/call', { name: 'mdlxl_context', arguments: {} })).result.content[0].text)
