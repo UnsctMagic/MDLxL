@@ -113,6 +113,7 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   const undo = redo => { const from = redo ? future.current : history.current, to = redo ? history.current : future.current, previous = from.pop(); if (!previous) return; to.push(draft); setDraft(previous); setError(''); setHistorySize([history.current.length, future.current.length]); };
   const setting = (key, value) => setSettings(s => ({ ...s, [key]: value }));
   const entries = useMemo(() => shown.shapes.map(shape => ({ shape, mesh: forgeShapeMesh(shape) })), [shown.shapes]);
+  const cutEntries = useMemo(() => cut?.base.shapes.map(shape => ({ shape, mesh: forgeShapeMesh(shape) })) || [], [cut?.base]);
   const surfaceColors = useMemo(() => entries.map(({shape}, i) => shape.id==='repeat-preview'?0xffae38:SURFACE_COLORS[i % SURFACE_COLORS.length]), [entries]);
   const modelingOverlay = useMemo(() => entries.map(({ shape, mesh }) => ({...forgeModelingOverlay(shape, mesh, shown.selection[shape.id], shown.mode),...(shape.id==='repeat-preview'&&{preview:true})})), [entries, shown.selection, shown.mode]);
   const model = useMemo(() => ({ Version: 800, Info: { Name: 'Forge' }, Nodes: [], Bones: [], PivotPoints: [], Sequences: [], GlobalSequences: [], GeosetAnims: [], TextureAnims: [], Textures: [{ Image: PRIMITIVE_TEXTURE }, { Image: THUMPER_TEXTURE }], Materials: [0, 1].map(TextureID => ({ Layers: [{ TextureID, Alpha: 1, Shading: 16 }] })), Geosets: entries.map(({shape, mesh}) => ({ ...mesh.geosets[0], MaterialID: shape.texturePath === THUMPER_TEXTURE ? 1 : 0 })) }), [entries]);
@@ -302,8 +303,8 @@ export default function ForgeShapes({ modelPath, preferences, editorState, onClo
   };
   const cutPosition = event => {
     if (!event || !cut) return null;
-    const hit = pickForgePoint(entries, event), frame = hit && cut.frames[hit.shapeId];
-    if (!frame || cut.faces && !shown.selection[hit.shapeId]?.includes(hit.faceId)) return null;
+    const hit = pickForgePoint(cutEntries, event), frame = hit && cut.frames[hit.shapeId];
+    if (!frame || cut.faces && !cut.faces[hit.shapeId]?.includes(hit.faceId)) return null;
     const fraction = (hit.point.reduce((n, v, i) => n + v * frame.direction[i], 0) - frame.min) / (frame.max - frame.min);
     const origin = new Vector3(...hit.point).project(event.camera), tip = new Vector3(...hit.point).add(new Vector3(...frame.direction)).project(event.camera);
     const pixels = Math.hypot((tip.x-origin.x)*event.end.width/2, (tip.y-origin.y)*event.end.height/2);

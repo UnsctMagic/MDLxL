@@ -1308,7 +1308,7 @@ export default function GamePreview(inputProps) {
         drawCollisionSpheres(collisionCanvas.getContext('2d'),ownedModel,camera,native,canvas.width,canvas.height);
       } else if (collisionCanvas) { collisionCanvas.remove(); collisionCanvas=null; }
       const overlayOptions = { ...previewOverlayOptions(p.overlays, p.showNodes, p.editorDisplayMode, p.vanilla), vanilla:p.vanilla, preferences: p.preferences, workplane: p.workplane };
-      if (p.poseConfig?.picking) { overlayOptions.bones = true; overlayOptions.nodes = true; overlayOptions.attachments = true; }
+      if (p.poseConfig?.picking) { overlayOptions.bones = true; overlayOptions.helpers = true; overlayOptions.nodes = true; overlayOptions.attachments = true; }
       overlayOptions.selectableGeosets = p.selectableGeosets ?? [];
       overlayOptions.visibleGeosets = p.visibleGeosets;
       overlayOptions.grid = false;
