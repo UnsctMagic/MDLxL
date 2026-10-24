@@ -7,7 +7,7 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
-const { nextBird, AiSteering, deleteProviderSessions } = require('../electron/ai-offload.cjs');
+const { nextBird, AiSteering, deleteProviderSessions, BIRDS, CORVIDS } = require('../electron/ai-offload.cjs');
 const root = path.resolve(import.meta.dirname, '..');
 const context = { target: 'selected', documentId: 'model', name: 'Footman.mdx', selection: { 0: [1, 2] } };
 const modelKey = 'D:/Models/Footman.mdx';
@@ -34,6 +34,8 @@ async function setup(t, { organiser, worker }) {
   const events = [];
   const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
   service.emit = event => events.push(event);
+  // Names are random in use; the first choice keeps tests readable (Crow, then Jackdaw).
+  service.random = () => 0;
   service.call = async name => {
     if (name === 'mdlxl_checkpoint') return { fingerprint: 'f', context, review: { changed: false, phase: 'unchanged' } };
     if (name === 'mdlxl_review') return { changed: false, phase: 'unchanged' };
@@ -184,12 +186,18 @@ test('Offload Mode off gives the model chat the normal tools; saving a new file 
 });
 
 test('bird names are everyday birds and never reused; steering follows the running worker', () => {
-  assert.equal(nextBird([]), 'Crow');
-  assert.equal(nextBird(['Crow']), 'Jackdaw');
-  assert.equal(nextBird(['crow', 'Jackdaw', 'Sparrow']), 'Robin');
+  const first = () => 0;
+  assert.equal(nextBird([], first), 'Crow');
+  assert.equal(nextBird(['Crow'], first), 'Jackdaw');
+  assert.equal(nextBird(['crow', 'Jackdaw', 'Sparrow'], first), 'Robin');
   const all = [];
-  for (let i = 0; i < 21; i++) all.push(nextBird(all));
-  assert.equal(all[20], 'Crow 2');
+  for (let i = 0; i <= BIRDS.length; i++) all.push(nextBird(all, first));
+  assert.equal(all[BIRDS.length], 'Crow 2');
+  assert.equal(new Set(all).size, all.length);
+  // In use the first bird is a random corvid, and names are not in a fixed order.
+  const firsts = new Set(Array.from({ length: 60 }, () => nextBird([])));
+  assert.ok([...firsts].every(name => CORVIDS.includes(name)) && firsts.size > 1);
+  assert.equal(nextBird([], () => 0.99), 'Jay');
   const seen = [];
   const organiser = new AiSteering(text => seen.push('organiser:' + text));
   const worker = new AiSteering(text => seen.push('worker:' + text));

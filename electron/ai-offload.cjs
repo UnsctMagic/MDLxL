@@ -8,13 +8,16 @@ const crypto = require('node:crypto');
 // Everyday birds only; a model's organiser never reuses a name. The console
 // colours each bird by its place in this list.
 const BIRDS = require('../src/ai-birds.json');
-function nextBird(used = []) {
+// The first bird of a chat is a corvid; later ones come from the whole list.
+const CORVIDS = ['Crow', 'Raven', 'Jackdaw', 'Rook', 'Magpie', 'Jay'];
+function nextBird(used = [], random = Math.random) {
   const taken = new Set(used.map(name => name.toLowerCase()));
-  for (let round = 1; ; round++)
-    for (const bird of BIRDS) {
-      const name = round === 1 ? bird : `${bird} ${round}`;
-      if (!taken.has(name.toLowerCase())) return name;
-    }
+  for (let round = 1; ; round++) {
+    const pool = (used.length ? BIRDS : CORVIDS)
+      .map(bird => (round === 1 ? bird : `${bird} ${round}`))
+      .filter(name => !taken.has(name.toLowerCase()));
+    if (pool.length) return pool[Math.floor(random() * pool.length)];
+  }
 }
 // A worker past half of its context hands over to a fresh one.
 const RETIRE_AT = 0.5;
@@ -210,6 +213,7 @@ async function deleteProviderSessions(directory, ids) {
 
 module.exports = {
   BIRDS,
+  CORVIDS,
   nextBird,
   RETIRE_AT,
   AiSteering,

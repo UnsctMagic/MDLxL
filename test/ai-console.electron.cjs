@@ -240,9 +240,11 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('the marker names the vertices it covers', Object.values(markerNote.markedVertices || {}).flat().length > 0, markerNote);
   check('the user message notes the attached drawings', (await page.locator('.ai-role-user .ai-message-note').first().innerText()).includes('2 drawings'));
   check('the organiser only gets the worker and help tools', JSON.stringify(organiserRequests[0].tools.map(t => t.function.name)) === '["mdlxl_worker","mdlxl_help"]');
-  const crowChip = page.locator('button.ai-roster-chip', { hasText: 'Crow' });
+  // Names are random; the first bird of a chat is always a corvid.
+  const bird = await page.locator('.ai-worker-row b').first().innerText();
+  check('the first bird is a random corvid', ['Crow', 'Raven', 'Jackdaw', 'Rook', 'Magpie', 'Jay'].includes(bird), bird);
+  const crowChip = page.locator('button.ai-roster-chip', { hasText: bird });
   await crowChip.waitFor({ timeout: 10000 });
-  check('the first worker is called Crow', (await page.locator('.ai-worker-row b').first().innerText()) === 'Crow');
   for (let i = 0; i < 100 && !workerRequests.length; i++) await wait(100);
   check("Crow gets the user's words exactly as written", JSON.stringify(workerRequests[0].messages).includes("The user's message, exactly as written:\\nCut the marked area into its own geoset"));
   check('the model picker and Offload switch sit in the console header', (await page.locator('.ai-heading select[aria-label="Chat model"]').count()) === 1 && (await page.locator('.ai-heading [role="switch"][aria-label="Offload Mode"]').getAttribute('aria-checked')) === 'true');

@@ -49,6 +49,7 @@ class AiService {
     this.runningIds = new Set();
     this.registry = new OrganiserRegistry(this.directory);
     this.workerLock = null;
+    this.random = Math.random;
   }
   async init() {
     if (!this.contract) this.contract = import(pathToFileURL(path.join(this.root, 'src/ai-tools.js')).href);
@@ -559,7 +560,7 @@ class AiService {
     // Names the organiser can use before the worker exists: "I'll ask Crow to…".
     const tiny = workers.find(worker => worker.tiny);
     const names =
-      `\nA new job would go to a new worker called ${nextBird(conversation.birds || [])}.` +
+      `\nA new job would go to a new worker called ${this.pendingBird(conversation)}.` +
       (tiny ? ` Tiny jobs go to ${tiny.name}.` : ' The first tiny job starts a tiny-jobs worker with that next free name.');
     return (
       (lines.length ? 'Workers for this model:\n' + lines.join('\n') : 'No workers yet for this model.') +
@@ -568,6 +569,13 @@ class AiService {
         ? '\n\nMemory note from earlier work on this model:\n' + entry.note
         : '')
     );
+  }
+  // The next new worker's name is drawn once, so the organiser can announce it.
+  pendingBird(organiser) {
+    organiser.birds ||= [];
+    if (!organiser.nextName || organiser.birds.includes(organiser.nextName))
+      organiser.nextName = nextBird(organiser.birds, this.random);
+    return organiser.nextName;
   }
   async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering }) {
     const previous = this.workerLock;
@@ -596,7 +604,8 @@ class AiService {
         worker = null;
       }
       if (!worker) {
-        const name = nextBird(organiser.birds);
+        const name = this.pendingBird(organiser);
+        delete organiser.nextName;
         organiser.birds.push(name);
         worker = {
           id: `${organiser.id}-${name.toLowerCase().replace(/\s+/g, '-')}`,
