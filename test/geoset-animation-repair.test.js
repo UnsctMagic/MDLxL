@@ -18,9 +18,10 @@ function fixture() {
 const repair = (doc, options) => doc.apply('Repair', ['GeosetAnims', 'Bones', 'Geosets', 'Info'], model => repairGeosetAnimations(model, options));
 const values = animation => animation.Alpha.Keys.map(key => key.Vector[0]);
 
-test('duplicate preflight detects the render failure without weakening strict track editing', () => {
+test('duplicate preflight reads the first owner without weakening strict track editing', () => {
   const doc = fixture();
-  assert.throws(() => readAnimationTrack(doc.model, { kind: 'geoset', id: 0, property: 'Alpha' }), /multiple geoset animations/);
+  // Reading follows the first record, like the preview, so the model still opens.
+  assert.equal(readAnimationTrack(doc.model, { kind: 'geoset', id: 0, property: 'Alpha' }), 1);
   const [group] = scanGeosetAnimationDuplicates(doc.model);
   assert.deepEqual(group.indices, [0, 1]); assert.equal(group.suggestedOwner, 1);
   const expected = structuredClone(doc.model.GeosetAnims[1].Alpha), original = doc.serialize('mdx');

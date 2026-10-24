@@ -120,7 +120,6 @@ ipcMain.on('texture:decoded',(event,payload)=>{const request=thumbnailRequests.g
 const textureOperations=new Set();
 const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet(),closePromptWindows=new WeakSet();
 const openedPaths=new Set();
-const geosetRepairs=require('./geoset-repair.cjs').createGeosetRepairStore(openedPaths);
 const filters=[{name:'Models and Paint Projects',extensions:['mdl','mdx','mdlxlpaint']},{name:'Warcraft III models',extensions:['mdl','mdx']},{name:'MDLxL Paint Project',extensions:['mdlxlpaint']}];
 let recentQueue = Promise.resolve();
 async function persistRecents(file){
@@ -228,17 +227,26 @@ async function saveModel(payload){
   if(!payload || !['mdl','mdx'].includes(payload.format))throw new Error('Unsupported format.');
   const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
   let destination=payload.path;
-  if(!destination||payload.saveAs||!openedPaths.has(path.resolve(destination))){
-    const result=await dialog.showSaveDialog(win,{title:payload.export?'Export model':'Save model',defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});
-    if(result.canceled)return null;destination=result.filePath;
-  }
+  const choose=async title=>{const result=await dialog.showSaveDialog(win,{title,defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});return result.canceled?null:result.filePath;};
+  let chosen=!destination||payload.saveAs||!openedPaths.has(path.resolve(destination));
+  if(chosen&&!(destination=await choose(payload.export?'Export model':'Save model')))return null;
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
-  const temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
+  let temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
   try{
     await saveForgeAssets(destination,payload.forgeAssets||[]);
     await fs.writeFile(temporary,bytes,{flag:'wx'});
     const check=await fs.readFile(temporary);if(!check.equals(bytes))throw new Error('Write verification failed.');
-    await fs.rename(temporary,destination);
+    try{await fs.rename(temporary,destination);}catch(error){
+      // A read-only original (a file opened straight from a zip, for example) asks for another place instead of failing.
+      if(chosen||!['EPERM','EACCES','EROFS'].includes(error.code))throw error;
+      await fs.unlink(temporary).catch(()=>{});
+      if(!(destination=await choose('This file is read-only. Save model as')))return null;
+      if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
+      temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';chosen=true;
+      await saveForgeAssets(destination,payload.forgeAssets||[]);
+      await fs.writeFile(temporary,bytes,{flag:'wx'});
+      await fs.rename(temporary,destination);
+    }
     openedPaths.add(path.resolve(destination));await persistRecents(destination);
     initialModel={name:path.basename(destination),path:destination,bytes};
     return {name:path.basename(destination),path:destination};
@@ -252,16 +260,6 @@ ipcMain.handle('model:backup',(event,payload)=>{
   if(!openedPaths.has(source))throw Error('Only the open model file can be backed up.');
   const operation=saveQueue.catch(()=>{}).then(()=>backupModelFile(source));saveQueue=operation;return operation;
 });
-for(const [channel,operationName] of [['model:repairGeosetAnimations','repair'],['model:undoGeosetRepair','undo']]){
-  ipcMain.handle(channel,(event,payload)=>{
-    if(event.sender!==win?.webContents)throw Error('Repair is only available in the editor window.');
-    const operation=saveQueue.catch(()=>{}).then(async()=>{
-      const result=await geosetRepairs[operationName](payload);
-      initialModel={name:result.name,path:result.path,bytes:result.bytes};
-      return result;
-    });saveQueue=operation;return operation;
-  });
-}
 async function saveArtifact(payload){
   const requested=path.basename(String(payload?.name||'')),extension=path.extname(requested).toLowerCase(),allowed=new Set(['.mdlxlpaint','.zip']);
   if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip painter artifacts can be saved.');

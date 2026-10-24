@@ -6297,5 +6297,14 @@
   "{0} larger": "больше на {0}",
   "Repair available; choose how to fix it.": "Исправление доступно; выберите способ.",
   "Apply the approved changes to the open model and return to the editor. The file is not saved.": "Применить одобренные изменения к открытой модели и вернуться в редактор. Файл не сохраняется.",
-  "Commit keeps them in the open model without saving the file.": "«Применить» оставит их в открытой модели без сохранения файла."
+  "Commit keeps them in the open model without saving the file.": "«Применить» оставит их в открытой модели без сохранения файла.",
+  "Duplicate geoset animations": "Дубликаты анимаций геосетов",
+  "Some geosets have more than one animation record. The model works; click to choose which record to keep.": "У некоторых геосетов больше одной записи анимации. Модель работает; нажмите, чтобы выбрать, какую запись оставить.",
+  "Some geosets have more than one animation record. The model works as it is; only keyframe edits on those geosets wait for this fix.": "У некоторых геосетов больше одной записи анимации. Модель работает как есть; только правка ключевых кадров этих геосетов ждёт исправления.",
+  "The fix is an ordinary edit: Undo reverses it, and nothing is written to disk until you save.": "Исправление — обычная правка: «Отменить» возвращает его, и ничего не записывается на диск, пока вы не сохраните.",
+  "This model is read-only; the fix is disabled to preserve unsupported data.": "Модель доступна только для чтения; исправление отключено, чтобы сохранить неподдерживаемые данные.",
+  "Fix duplicate geoset animations": "Исправить дубликаты анимаций геосетов",
+  "Fixed duplicate geoset animations. Undo reverses it.": "Дубликаты анимаций геосетов исправлены. «Отменить» возвращает изменение.",
+  "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "У геосета {0} больше одной анимации геосета. Нажмите предупреждение в строке состояния, чтобы исправить это перед правкой его дорожек.",
+  "Not now": "Не сейчас"
 }
