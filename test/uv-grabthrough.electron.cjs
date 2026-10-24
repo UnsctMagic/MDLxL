@@ -51,16 +51,39 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         for (let offset = 0; offset < pixels.length; offset += 4) if (pixels[offset] === 8 && pixels[offset + 1] === 111 && pixels[offset + 2] === 209 && pixels[offset + 3] === 255) count++;
         return count;
       };
+      // Everything the overlay draws: markers plus the anti-aliased wire between them.
+      window.drawnPixels = () => {
+        const overlay = document.querySelector('.uv-tab-window [data-geometry-overlay]');
+        const pixels = overlay.getContext('2d').getImageData(0, 0, overlay.width, overlay.height).data;
+        let count = 0;
+        for (let offset = 0; offset < pixels.length; offset += 4) if (pixels[offset + 3]) count++;
+        return count;
+      };
     });
     await page.waitForFunction(() => uvState().selectionByGeoset[15]?.length === 248);
     const grabThrough = uvw.getByLabel('Grabthrough', { exact: true });
     assert.equal(await grabThrough.count(), 0, 'Grabthrough stays hidden until Live Select is on');
+    assert.equal(await uvw.getByLabel('Lines', { exact: true }).count(), 0, 'Lines stays hidden until Live Select is on');
 
     await liveSelect.click();
     assert.equal(await liveSelect.getAttribute('aria-pressed'), 'true');
-    await grabThrough.waitFor();
+    // Lines and Grabthrough live in a small menu behind the arrow next to Live Select.
+    const arrow = uvw.getByRole('button', { name: 'Live Select options', exact: true });
+    assert.equal(await grabThrough.count(), 0, 'the options stay tucked away until the arrow is clicked');
+    const options = async () => { if (await arrow.getAttribute('aria-expanded') !== 'true') await arrow.click(); await grabThrough.waitFor(); };
+    await options();
     assert.equal(await grabThrough.isChecked(), true, 'UV Grabthrough defaults on, like the vertex editor');
     assert.match(await grabThrough.locator('xpath=..').getAttribute('title'), /hidden behind it/, 'Grabthrough explains itself on hover');
+
+    const lines = uvw.getByLabel('Lines', { exact: true });
+    assert.equal(await lines.isChecked(), true, 'Lines defaults on');
+    assert.match(await lines.locator('xpath=..').getAttribute('title'), /lines between vertices/, 'Lines explains itself on hover');
+    const footerOrder = await uvw.locator('.uv-preview-footer > *').evaluateAll(items => items.map(item => item.getAttribute('aria-label') || item.textContent));
+    assert.deepEqual(footerOrder.slice(1), ['Selected Only', 'Hide RGB'], 'the footer keeps only buttons');
+    const menuBox = await uvw.locator('.uv-live-select-menu').boundingBox(), footerBox = await uvw.locator('.uv-preview-footer').boundingBox();
+    assert.ok(menuBox.y + menuBox.height <= footerBox.y + 4, 'the options menu opens upward over the preview');
+    await page.mouse.click(footerBox.x + footerBox.width - 6, footerBox.y + footerBox.height / 2);
+    await page.waitForFunction(() => !document.querySelector('.uv-live-select-menu'));
 
     // Turn the model with a real mouse drag so the far side faces away.
     let box = await canvas.boundingBox();
@@ -91,7 +114,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const throughCount = await marqueeAll();
     assert.ok(throughCount > 0, 'Grabthrough on: a box over the preview selects vertices');
 
-    await grabThrough.uncheck();
+    await options(); await grabThrough.uncheck();
     assert.equal(await grabThrough.isChecked(), false);
     await clearSelection();
     await page.waitForFunction(value => markerPixels() > 0 && markerPixels() < value, throughPixels);
@@ -100,12 +123,24 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.ok(seenCount > 0, 'Grabthrough off: vertices on the visible side are still selected');
     assert.ok(seenCount < throughCount, `Grabthrough off skips vertices hidden behind the model (${throughCount} -> ${seenCount})`);
 
-    await grabThrough.check();
+    await options(); await grabThrough.check();
     await clearSelection();
     assert.equal(await marqueeAll(), throughCount, 'turning Grabthrough back on picks through the model again');
 
+    // With Lines off the wire between vertices disappears; the vertex dots stay.
+    await page.waitForFunction(() => drawnPixels() > 0);
+    const drawnWithLines = await page.evaluate(() => drawnPixels());
+    await options(); await lines.uncheck();
+    await page.waitForFunction(value => drawnPixels() < value, drawnWithLines);
+    const drawnWithoutLines = await page.evaluate(() => drawnPixels());
+    assert.ok(drawnWithoutLines > 0, 'vertex dots stay visible with Lines off');
+    await options(); await lines.check();
+    await page.waitForFunction(value => drawnPixels() >= value, drawnWithLines);
+    console.log(`Lines toggle: wire hidden while vertex dots stay (${drawnWithLines} -> ${drawnWithoutLines} drawn px)`);
+
     await liveSelect.click();
     assert.equal(await grabThrough.count(), 0, 'Grabthrough hides again when Live Select is off');
+    assert.equal(await uvw.getByLabel('Lines', { exact: true }).count(), 0, 'Lines hides when Live Select is off');
 
     // Show normals (N) cannot be switched on from the UV mapper.
     // The Quick display box mirrors the setting at once; the main view behind the

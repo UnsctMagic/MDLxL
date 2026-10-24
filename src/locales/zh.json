@@ -166,6 +166,8 @@
   "Connected Bones": "关联骨骼",
   "Grabthrough": "穿透选择",
   "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "开启：穿透模型选择顶点，包括被模型遮挡的顶点。关闭：只选择可见的顶点。",
+  "Lines": "线条",
+  "Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered.": "显示顶点之间的连线。网格太杂乱时关闭，只看顶点。",
   "Open models": "已打开模型",
   "Scroll model tabs left": "向左滚动模型标签",
   "Scroll model tabs right": "向右滚动模型标签",

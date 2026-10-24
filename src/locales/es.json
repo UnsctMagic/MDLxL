@@ -166,6 +166,8 @@
   "Connected Bones": "Huesos conectados",
   "Grabthrough": "Selección a través",
   "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "Activado: selecciona vértices a través del modelo, incluidos los ocultos detrás. Desactivado: solo selecciona los vértices visibles.",
+  "Lines": "Líneas",
+  "Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered.": "Muestra las líneas entre vértices. Desactívalo para ver solo los puntos de los vértices cuando la malla esté recargada.",
   "Open models": "Modelos abiertos",
   "Scroll model tabs left": "Desplazar pestañas de modelos a la izquierda",
   "Scroll model tabs right": "Desplazar pestañas de modelos a la derecha",
