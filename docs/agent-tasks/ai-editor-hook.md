@@ -258,3 +258,11 @@ The user's existing test profile and saved models stay separate from the package
 - External MCP: initialize points to `mdlxl_context.sdBrain`; the service adds the current state there.
 - UI: SD Brain checkbox in the console header; tooltip localized (es/ru/zh).
 - Not verified: real Codex/Claude/API turns judging art, Warcraft III gameplay.
+
+### SD Brain as art direction (2026-10-25)
+
+- The owner's intent: SD Brain is art direction that every prompt passes through, built from what was learned from Warcraft III models; it never looks up or copies a model ("sword" must not load a sword). A weak prompt with the brain on should still give a usable result, and edit/UV requests get SD judgment too.
+- `AI_SD_ART_DIRECTOR` (src/ai-sd-rules.js): a tool-free turn (`AiService.artDirection`) writes a fixed-format brief once per task (Goal, Kind, Role and size, Parts, Silhouette, Shape language, Palette, Focal motif, Painted, Avoid, Checks; or Plan/Preserve for edits). The brief is a collapsed "Art direction" row in the chat and is appended to the builder's prompt and the Offload worker's job. A failed brief shows its reason; the task continues on the policy.
+- `src/sd-kit.js`: lathe, blade, emblem, extrude, spike, ring, sphere, box → `commit` packs UVs and paints one SD texture (top light, creases, edge highlights, metal sheen, glow spill, runes/rivets/wrap/slitEye/gem/flames). The builder policy tells the AI to build new props with it.
+- AI edits that leave the model unsavable are undone after commit with an explanation (found in baseline runs: a material without RenderMode, a geoset without extents). Geoset edits may update model bounds.
+- Verified with real Codex runs through the packaged app on a hidden desktop (out/sd-trials/rig.cjs; not part of CI): "make me a chalice worthy of mordor", "make a sword", "evil cup thing make it cool", "make a wizard hat", "make this sword more evil", "uv map this properly", brain on and off. Warcraft III gameplay not tested.
