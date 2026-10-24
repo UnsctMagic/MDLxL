@@ -92,7 +92,8 @@ works includes the current notes, and viewport captures show them.
 
 ### SD Brain
 
-**SD Brain** is a checkbox in the AI console header (off until you turn it on; it
+**SD Brain** is a switch in the AI console header, the brain icon next to the
+Offload Mode bird (off until you turn it on; it
 is remembered across restarts, providers and new chats). While it is on, the AI
 applies Warcraft III SD art direction to modeling requests: it turns a short or
 vague request ("make a chalice of power", "make this armor better", "fix this

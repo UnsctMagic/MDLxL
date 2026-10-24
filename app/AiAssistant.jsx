@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   ArrowUp,
   Bird,
+  Brain,
   Check,
   ChevronRight,
   Eraser,
@@ -275,7 +276,8 @@ export default function AiAssistant({ bridge }) {
     [waiting, setWaiting] = useState(null),
     [cleanup, setCleanup] = useState(null),
     [rememberCleanup, setRememberCleanup] = useState(false),
-    [savedChoice, setSavedChoice] = useState('ask');
+    [savedChoice, setSavedChoice] = useState('ask'),
+    [connected, setConnected] = useState(false);
   const id = view;
   const [dock, setDock] = useState(null),
     [width, setWidth] = useState(storedWidth),
@@ -295,6 +297,7 @@ export default function AiAssistant({ bridge }) {
       .then(value => {
         setSettings(value);
         setExternal(value.enabled);
+        setConnected(true);
       })
       .catch(reason => setError(reason.message));
     // The reply streams into the newest assistant message as parts: what the AI
@@ -768,23 +771,14 @@ export default function AiAssistant({ bridge }) {
               onPointerDown={resizeStart}
             />
             <header className="ai-heading">
-              <strong>
-                AI
-                {viewWorker ? (
-                  <span style={{ color: birdColor(viewWorker.name) }}>{' · ' + viewWorker.name}</span>
-                ) : earlierView ? (
-                  ' · earlier chat'
-                ) : (
-                  ''
-                )}
-              </strong>
+              {/* Only the connected AI's name; "AI" until the connection has loaded. */}
               <button
                 type="button"
                 className="ai-provider-name"
                 title="The connected AI. Click to change."
                 onClick={() => setSettingsOpen(value => !value)}
               >
-                <span translate="no">{providerName}</span>
+                <span translate="no">{connected ? providerName : 'AI'}</span>
               </button>
               <select
                         className="ai-model ai-header-model"
@@ -829,15 +823,17 @@ export default function AiAssistant({ bridge }) {
                 <Bird size={15} aria-hidden="true" />
               </button>
               {/* A running task keeps the setting it started with; this applies from the next one. */}
-              <label className="ai-sd-brain" title={translate(SD_BRAIN_TIP)}>
-                <input
-                  type="checkbox"
-                  aria-label="SD Brain"
-                  checked={!!settings.sdBrain}
-                  onChange={event => action(async () => setSettings(await window.desktop.aiSdBrain(event.target.checked)))}
-                />
-                SD Brain
-              </label>
+              <button
+                type="button"
+                role="switch"
+                className="ai-icon-button ai-offload-switch"
+                aria-label="SD Brain"
+                aria-checked={!!settings.sdBrain}
+                title={translate(SD_BRAIN_TIP)}
+                onClick={() => action(async () => setSettings(await window.desktop.aiSdBrain(!settings.sdBrain)))}
+              >
+                <Brain size={15} aria-hidden="true" />
+              </button>
               <span className="ai-heading-gap" />
               <button
                 type="button"
