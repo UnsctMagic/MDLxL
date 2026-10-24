@@ -1352,6 +1352,8 @@ export default function App() {
   const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, repairBlocked, repairReceipt, session.paintProject?.revision,showcaseHistoryState]);
   const runCommand = id => { if(commandEnabled(id)) { if(repairBlocked && id==='saveAs') return save(true); return commands.current[id]?.(); } };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
+  // Waits for React to commit and the viewport to paint before the AI reads the editor again.
+  const afterPaint = frames => new Promise(resolve => { const step = n => n ? requestAnimationFrame(() => step(n - 1)) : resolve(); step(frames); });
   const aiHost = useRef();
   aiHost.current = {
     state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
@@ -1368,17 +1370,17 @@ export default function App() {
     },
     selectKeys: async value => {
       await selectAnimationPanel('movement');setSelectedNodeIds([value.nodeId]);setMovementMode(({Translation:'move',Rotation:'rotate',Scaling:'scale'})[value.property]);
-      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      await afterPaint(2);
       if(!timelineCommands.current.selectKeys)throw Error('The Movement timeline is not available.');
       timelineCommands.current.selectKeys(value.frames,{kind:'node',id:value.nodeId,property:value.property});
-      await new Promise(resolve=>requestAnimationFrame(resolve));
+      await afterPaint(1);
     },
     restoreContext: async value => {
       await selectMode(value.mode);setWorkplane(value.workplane);setUvSet(value.uvSet);setActiveGeoset(value.activeGeoset);setSelectable(new Set(value.checkedGeosets));setSelection(value.selection);setSelectedNodeIds(value.selectedNodeIds);
       if(value.globalSequence!=null)selectTimeline('global:'+value.globalSequence);else selectSequence(value.sequence);
       setPlaying(false);setTime(value.liveFrame??value.frame);
-      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-      if(value.keyframes){if(value.keyframes.keys?.length){await selectAnimationPanel('movement');setMovementMode(value.keyframes.controller);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}timelineCommands.current.restoreSelection?.(value.keyframes);await new Promise(resolve=>requestAnimationFrame(resolve));}
+      await afterPaint(2);
+      if(value.keyframes){if(value.keyframes.keys?.length){await selectAnimationPanel('movement');setMovementMode(value.keyframes.controller);await afterPaint(2);}timelineCommands.current.restoreSelection?.(value.keyframes);await afterPaint(1);}
     },
     view: async value => {if(value.mode)await selectMode(value.mode);if(value.view)setView(value.view);if(value.globalSequence!==undefined)selectTimeline(value.globalSequence==null?String(value.sequence??sequence):'global:'+value.globalSequence);else if(value.sequence!==undefined)selectSequence(value.sequence);if(value.frame!==undefined){setPlaying(false);setTime(value.frame);}if(value.playing!==undefined)setPlaying(value.playing);if(value.renderMode)setViewRenderMode(value.renderMode);if(value.fit)frame(value.fit==='selection');},
     open: record => queueModelRecords([record]),

@@ -1,27 +1,260 @@
 // One provider-neutral contract, shared by the editor, embedded agents and MCP.
 const object = properties => ({ type: 'object', properties, additionalProperties: false });
 const string = description => ({ type: 'string', description });
-const target = string('Target token from the prompt context. Required for actions; never replace a stale target without asking the user.');
-const views={enum:['orthographic','perspective','front','back','left','right','top','bottom']};
-const indices={type:'array',items:{type:'integer',minimum:0}};
-const tool = (name, description, properties, required = [], readOnlyHint = true) => ({ name: `mdlxl_${name}`, description, inputSchema: { ...object(properties), required }, annotations: { readOnlyHint, destructiveHint: !readOnlyHint, openWorldHint: false } });
-export const aiToolEditsModel=(name,args)=>name==='mdlxl_patch'||name==='mdlxl_script'&&args.edit===true||name==='mdlxl_command'||name==='mdlxl_ui'&&['click','set','gesture'].includes(args.action)||name==='mdlxl_view'&&!!args.mode;
+const target = string(
+  'Target token from the prompt context. Required for actions; never replace a stale target without asking the user.',
+);
+const views = { enum: ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'] };
+const indices = { type: 'array', items: { type: 'integer', minimum: 0 } };
+const tool = (name, description, properties, required = [], readOnlyHint = true) => ({
+  name: `mdlxl_${name}`,
+  description,
+  inputSchema: { ...object(properties), required },
+  annotations: { readOnlyHint, destructiveHint: !readOnlyHint, openWorldHint: false },
+});
+export const aiToolEditsModel = (name, args) =>
+  name === 'mdlxl_patch' ||
+  (name === 'mdlxl_script' && args.edit === true) ||
+  name === 'mdlxl_command' ||
+  (name === 'mdlxl_ui' && ['click', 'set', 'gesture'].includes(args.action)) ||
+  (name === 'mdlxl_view' && !!args.mode);
 export const AI_TOOLS = [
-  tool('review', 'Required before completing model edits. inspect runs read-only checksCode against model and before (the original model), validates MDX/MDL reopening and returns actual before/after images. Return [{name,passed,actual?,expected?}] checking the requested result and protected data. Animation edits also sample/capture intermediate frames; frames may specify 3–8 times in the current sequence. After viewing the returned images, finish with outcome passed and a visual assessment, or needs-correction and fix the problem. Any further edit invalidates the review. status reads progress.', {target,action:{enum:['status','inspect','finish']},checksCode:string('Read-only JavaScript returning named boolean checks; model, before, selection, context and api are available.'),frames:{type:'array',minItems:3,maxItems:8,items:{type:'number'}},outcome:{enum:['passed','needs-correction','blocked']},summary:string('Brief visual assessment or reason correction is needed.')}, ['target','action']),
-  tool('capabilities', 'Discover the installed editor APIs by task area or search term. Returns public module exports, including procedural modeling, mesh operations, UV, rigging/IK, animation/retiming, materials, painting, particles and validation. Pass module for its actual runtime signatures; use script with api.module to combine operations directly in one Undo step. This is the full editor API, not a list of chat presets.', {query:string('Search a function/module name, such as extrude, pose, keyframe or texture.'),area:string('Optional task area from the returned area list.'),module:string('Exact module name for runtime signatures.'),offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1,maximum:100}}),
-  tool('context', 'Inspect the live document, selected vertex IDs per geoset, selected bones, animation/frame, open reference models, diagnostics and enabled editor commands. IDs are zero-based. Start here. Pass target to inspect the same captured operation without retargeting.', {target}),
-  tool('read', 'Read any model property using a JSON Pointer. Typed arrays are returned as {$type,$data}. Use a narrow path and offset/limit for large arrays. No data is silently omitted: total/truncated describe pagination.', { target, documentId: string('Optional open reference document ID.'), path: string('For example /Geosets/0/Vertices or /Bones/2/Rotation.'), offset: {type:'integer',minimum:0}, limit:{type:'integer',minimum:1,maximum:20000} }, ['path']),
-  tool('script', 'Run JavaScript against a detached, complete model and the exact selection. Available: model, selection (vertex ID arrays keyed by geoset), context, references (other open models), api.modules, await api.module(name), api.describe(name), and log(...values). Return a JSON value to inspect. Set edit:true to commit as ONE normal Undo step; specify a plain label and permitted JSON Pointer scope. This is a general scripting API for geometry, UV, rig, material, animation, emitter and all model data, not a list of presets. Read-only is the default. Code has no Node, filesystem, network, or editor DOM. For generated texture bytes, push {name,bytes:Uint8Array} into assets, using a new MDLxL_Forge/Name.tga, .blp or .dds path and reference it in model.Textures. The editor retains these images for Undo/Redo, recovery and export. Existing texture bytes cannot be overwritten. Preserve typed arrays and unrelated data. Modules use the same APIs as MDLxL; inspect signatures with api.describe before calling unfamiliar functions.', {target, code:string('JavaScript async function body; return a useful result.'), edit:{type:'boolean'}, label:string('Short Undo label describing this edit.'), scope:{type:'array',items:{type:'string'},minItems:1}, protectedPaths:{type:'array',items:{type:'string'}}, animationRanges:{type:'array',items:{type:'array',items:{type:'number'},minItems:2,maxItems:2}}, timeoutMs:{type:'integer',minimum:100,maximum:120000}}, ['target','code'], false),
-  tool('patch', 'Apply precise typed model edits atomically through normal validation and Undo. op=set replaces a property, delete removes it, splice edits array items. All paths are JSON Pointers; typed values use {$type:"Float32Array",$data:[...]}. Unrelated model data is preserved.', {target,label:string('Undo label.'),scope:{type:'array',items:{type:'string'},minItems:1},protectedPaths:{type:'array',items:{type:'string'}},animationRanges:{type:'array',items:{type:'array',items:{type:'number'},minItems:2,maxItems:2}},operations:{type:'array',minItems:1,maxItems:10000,items:{type:'object',properties:{op:{enum:['set','delete','splice']},path:{type:'string'},value:{},index:{type:'integer',minimum:0},deleteCount:{type:'integer',minimum:0},items:{type:'array'}},required:['op','path'],additionalProperties:false}}}, ['target','label','scope','operations'], false),
-  tool('select', 'Select exact vertices, bones, checked geosets or an active geoset in the real editor. keyframes selects stored keys on one node transform track in the Movement timeline using its existing selection API. The result is visible and becomes this target’s new selection. Do not silently substitute checked geosets for marked vertices.', {target,vertices:{type:'object',additionalProperties:indices},nodeIds:indices,geosetIds:indices,activeGeoset:{type:'integer',minimum:0},keyframes:{...object({nodeId:{type:'integer',minimum:0},property:{enum:['Translation','Rotation','Scaling']},frames:{type:'array',items:{type:'integer'}}}),required:['nodeId','property','frames']}}, ['target'], false),
-  tool('command', 'Invoke an existing enabled editor command by exact ID from context.commands, using the real selection and normal editor behavior. Commands that need a dialog still open that dialog. For precise parameterized edits use script/patch. Never report a dialog as a completed edit.', {target,id:string('Exact command ID.' )}, ['target','id'], false),
-  tool('view', 'Change the editor module, camera preset, render mode, animation, frame or playback in the live viewport. fit frames the model or marked vertices. Normal mouse rotation remains available. Use capture after changing a frame to inspect the result.', {target,mode:{enum:['vertices','bones','animation','uv','paint','showcase']},view:views,renderMode:{enum:['wireframe','solid','textured']},fit:{enum:['model','selection']},sequence:{type:'integer',minimum:-1},globalSequence:{type:['integer','null'],minimum:0},frame:{type:'number'},playing:{type:'boolean'}}, ['target'], false),
-  tool('sample', 'Measure actual hierarchy and skinned geometry at up to 32 animation frames in one call. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.', {target,sequence:{type:'integer',minimum:-1},globalSequence:{type:['integer','null'],minimum:0},frames:{type:'array',minItems:1,maxItems:32,items:{type:'number'}},nodeIds:indices,geosetIds:indices,vertices:{type:'object',additionalProperties:indices},offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1,maximum:1000}}, ['target']),
-  tool('capture', 'Get actual PNG viewport images. Without samples captures the current view. samples captures up to 12 labeled views/animation frames in one call so you can judge shape and motion, leaving the last requested view visible. It never edits model data. Use sample for numeric pose checks and capture for visual checks.', {target,samples:{type:'array',minItems:1,maxItems:12,items:{...object({view:views,sequence:{type:'integer',minimum:-1},globalSequence:{type:['integer','null'],minimum:0},frame:{type:'number'}})} }}, ['target']),
-  tool('assets', 'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Preview a model texture as an image. Load a listed game model or part as an open reference without switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.', {target,source:{enum:['model','textures','parts','game']},action:{enum:['search','preview','reference']},query:string('Asset search words.'),id:string('Part ID or game file ID from search.'),signature:string('Game catalog signature from search.'),textureId:{type:'integer',minimum:0},folder:string('Optional library folder.'),variant:string('Installed game variant; defaults to all.'),type:{enum:['models','textures']},offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1,maximum:100}}, ['target','source'], false),
-  tool('ui', 'Inspect and operate the program’s actual controls, including open tool dialogs, brush canvases and sliders. inspect returns current control IDs, labels, rectangles, values and options. click/set acts on one inspected control; gesture performs a mouse drag through normalized points (0..1 within that control), using the program’s normal interaction. capture returns a picture of the editor, excluding the AI window. IDs expire on another inspection. AI account/chat controls are excluded. Prefer scripts for bulk/surgical model edits. Native file dialogs require the user; document open/export accepts explicit paths.', {target,action:{enum:['inspect','capture','click','set','gesture']},id:string('Control ID returned by inspect.'),value:{type:['string','boolean']},points:{type:'array',minItems:1,maxItems:300,items:{type:'array',minItems:2,maxItems:2,items:{type:'number',minimum:0,maximum:1}}},button:{enum:['left','middle','right']},modifiers:{type:'array',items:{enum:['shift','control','alt','meta']}}}, ['action'], false),
-  tool('document', 'List open models, open a local MDL/MDX reference in another tab, export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.', {target,action:{enum:['list','open','export','validate']},path:string('Absolute local file path for open/export.'),format:{enum:['mdx','mdl']},overwrite:{type:'boolean'}}, ['action'], false),
-  tool('help', 'Read MDLxL user documentation or discover scripting modules and their real exported signatures. Use this to answer how-to questions based on the installed version. No model is required.', {topic:string('A topic from the help index; omit for the index.')}),
+  tool(
+    'review',
+    'Required before completing model edits. inspect runs read-only checksCode against model and before (the original model), validates MDX/MDL reopening and returns actual before/after images. Return [{name,passed,actual?,expected?}] checking the requested result and protected data. Animation edits also sample/capture intermediate frames; frames may specify 3–8 times in the current sequence. After viewing the returned images, finish with outcome passed and a visual assessment, or needs-correction and fix the problem. Any further edit invalidates the review. status reads progress.',
+    {
+      target,
+      action: { enum: ['status', 'inspect', 'finish'] },
+      checksCode: string(
+        'Read-only JavaScript returning named boolean checks; model, before, selection, context and api are available.',
+      ),
+      frames: { type: 'array', minItems: 3, maxItems: 8, items: { type: 'number' } },
+      outcome: { enum: ['passed', 'needs-correction', 'blocked'] },
+      summary: string('Brief visual assessment or reason correction is needed.'),
+    },
+    ['target', 'action'],
+  ),
+  tool(
+    'capabilities',
+    'Discover the installed editor APIs by task area or search term. Returns public module exports, including procedural modeling, mesh operations, UV, rigging/IK, animation/retiming, materials, painting, particles and validation. Pass module for its actual runtime signatures; use script with api.module to combine operations directly in one Undo step. This is the full editor API, not a list of chat presets.',
+    {
+      query: string('Search a function/module name, such as extrude, pose, keyframe or texture.'),
+      area: string('Optional task area from the returned area list.'),
+      module: string('Exact module name for runtime signatures.'),
+      offset: { type: 'integer', minimum: 0 },
+      limit: { type: 'integer', minimum: 1, maximum: 100 },
+    },
+  ),
+  tool(
+    'context',
+    'Inspect the live document, selected vertex IDs per geoset, selected bones, animation/frame, open reference models, diagnostics and enabled editor commands. IDs are zero-based. Start here. Pass target to inspect the same captured operation without retargeting.',
+    { target },
+  ),
+  tool(
+    'read',
+    'Read any model property using a JSON Pointer. Typed arrays are returned as {$type,$data}. Use a narrow path and offset/limit for large arrays. No data is silently omitted: total/truncated describe pagination.',
+    {
+      target,
+      documentId: string('Optional open reference document ID.'),
+      path: string('For example /Geosets/0/Vertices or /Bones/2/Rotation.'),
+      offset: { type: 'integer', minimum: 0 },
+      limit: { type: 'integer', minimum: 1, maximum: 20000 },
+    },
+    ['path'],
+  ),
+  tool(
+    'script',
+    'Run JavaScript against a detached, complete model and the exact selection. Available: model, selection (vertex ID arrays keyed by geoset), context, references (other open models), api.modules, await api.module(name), api.describe(name), and log(...values). Return a JSON value to inspect. Set edit:true to commit as ONE normal Undo step; specify a plain label and permitted JSON Pointer scope. This is a general scripting API for geometry, UV, rig, material, animation, emitter and all model data, not a list of presets. Read-only is the default. Code has no Node, filesystem, network, or editor DOM. For generated texture bytes, push {name,bytes:Uint8Array} into assets, using a new MDLxL_Forge/Name.tga, .blp or .dds path and reference it in model.Textures. The editor retains these images for Undo/Redo, recovery and export. Existing texture bytes cannot be overwritten. Preserve typed arrays and unrelated data. Modules use the same APIs as MDLxL; inspect signatures with api.describe before calling unfamiliar functions.',
+    {
+      target,
+      code: string('JavaScript async function body; return a useful result.'),
+      edit: { type: 'boolean' },
+      label: string('Short Undo label describing this edit.'),
+      scope: { type: 'array', items: { type: 'string' }, minItems: 1 },
+      protectedPaths: { type: 'array', items: { type: 'string' } },
+      animationRanges: {
+        type: 'array',
+        items: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
+      },
+      timeoutMs: { type: 'integer', minimum: 100, maximum: 120000 },
+    },
+    ['target', 'code'],
+    false,
+  ),
+  tool(
+    'patch',
+    'Apply precise typed model edits atomically through normal validation and Undo. op=set replaces a property, delete removes it, splice edits array items. All paths are JSON Pointers; typed values use {$type:"Float32Array",$data:[...]}. Unrelated model data is preserved.',
+    {
+      target,
+      label: string('Undo label.'),
+      scope: { type: 'array', items: { type: 'string' }, minItems: 1 },
+      protectedPaths: { type: 'array', items: { type: 'string' } },
+      animationRanges: {
+        type: 'array',
+        items: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
+      },
+      operations: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 10000,
+        items: {
+          type: 'object',
+          properties: {
+            op: { enum: ['set', 'delete', 'splice'] },
+            path: { type: 'string' },
+            value: {},
+            index: { type: 'integer', minimum: 0 },
+            deleteCount: { type: 'integer', minimum: 0 },
+            items: { type: 'array' },
+          },
+          required: ['op', 'path'],
+          additionalProperties: false,
+        },
+      },
+    },
+    ['target', 'label', 'scope', 'operations'],
+    false,
+  ),
+  tool(
+    'select',
+    'Select exact vertices, bones, checked geosets or an active geoset in the real editor. keyframes selects stored keys on one node transform track in the Movement timeline using its existing selection API. The result is visible and becomes this target’s new selection. Do not silently substitute checked geosets for marked vertices.',
+    {
+      target,
+      vertices: { type: 'object', additionalProperties: indices },
+      nodeIds: indices,
+      geosetIds: indices,
+      activeGeoset: { type: 'integer', minimum: 0 },
+      keyframes: {
+        ...object({
+          nodeId: { type: 'integer', minimum: 0 },
+          property: { enum: ['Translation', 'Rotation', 'Scaling'] },
+          frames: { type: 'array', items: { type: 'integer' } },
+        }),
+        required: ['nodeId', 'property', 'frames'],
+      },
+    },
+    ['target'],
+    false,
+  ),
+  tool(
+    'command',
+    'Invoke an existing enabled editor command by exact ID from context.commands, using the real selection and normal editor behavior. Commands that need a dialog still open that dialog. For precise parameterized edits use script/patch. Never report a dialog as a completed edit.',
+    { target, id: string('Exact command ID.') },
+    ['target', 'id'],
+    false,
+  ),
+  tool(
+    'view',
+    'Change the editor module, camera preset, render mode, animation, frame or playback in the live viewport. fit frames the model or marked vertices. Normal mouse rotation remains available. Use capture after changing a frame to inspect the result.',
+    {
+      target,
+      mode: { enum: ['vertices', 'bones', 'animation', 'uv', 'paint', 'showcase'] },
+      view: views,
+      renderMode: { enum: ['wireframe', 'solid', 'textured'] },
+      fit: { enum: ['model', 'selection'] },
+      sequence: { type: 'integer', minimum: -1 },
+      globalSequence: { type: ['integer', 'null'], minimum: 0 },
+      frame: { type: 'number' },
+      playing: { type: 'boolean' },
+    },
+    ['target'],
+    false,
+  ),
+  tool(
+    'sample',
+    'Measure actual hierarchy and skinned geometry at up to 32 animation frames in one call. Returns node world matrices/pivots, mesh bounds, and a paginated set of marked vertex positions, without changing the playhead or model. Useful for motion trajectories, contacts, symmetry and before/after comparisons. Uses the editor skinning API; captures are still needed to judge appearance.',
+    {
+      target,
+      sequence: { type: 'integer', minimum: -1 },
+      globalSequence: { type: ['integer', 'null'], minimum: 0 },
+      frames: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'number' } },
+      nodeIds: indices,
+      geosetIds: indices,
+      vertices: { type: 'object', additionalProperties: indices },
+      offset: { type: 'integer', minimum: 0 },
+      limit: { type: 'integer', minimum: 1, maximum: 1000 },
+    },
+    ['target'],
+  ),
+  tool(
+    'capture',
+    'Get actual PNG viewport images. Without samples captures the current view. samples captures up to 12 labeled views/animation frames in one call so you can judge shape and motion, leaving the last requested view visible. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
+    {
+      target,
+      samples: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 12,
+        items: {
+          ...object({
+            view: views,
+            sequence: { type: 'integer', minimum: -1 },
+            globalSequence: { type: ['integer', 'null'], minimum: 0 },
+            frame: { type: 'number' },
+          }),
+        },
+      },
+    },
+    ['target'],
+  ),
+  tool(
+    'assets',
+    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Preview a model texture as an image. Load a listed game model or part as an open reference without switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
+    {
+      target,
+      source: { enum: ['model', 'textures', 'parts', 'game'] },
+      action: { enum: ['search', 'preview', 'reference'] },
+      query: string('Asset search words.'),
+      id: string('Part ID or game file ID from search.'),
+      signature: string('Game catalog signature from search.'),
+      textureId: { type: 'integer', minimum: 0 },
+      folder: string('Optional library folder.'),
+      variant: string('Installed game variant; defaults to all.'),
+      type: { enum: ['models', 'textures'] },
+      offset: { type: 'integer', minimum: 0 },
+      limit: { type: 'integer', minimum: 1, maximum: 100 },
+    },
+    ['target', 'source'],
+    false,
+  ),
+  tool(
+    'ui',
+    'Inspect and operate the program’s actual controls, including open tool dialogs, brush canvases and sliders. inspect returns current control IDs, labels, rectangles, values and options. click/set acts on one inspected control; gesture performs a mouse drag through normalized points (0..1 within that control), using the program’s normal interaction. capture returns a picture of the editor, excluding the AI window. IDs expire on another inspection. AI account/chat controls are excluded. Prefer scripts for bulk/surgical model edits. Native file dialogs require the user; document open/export accepts explicit paths.',
+    {
+      target,
+      action: { enum: ['inspect', 'capture', 'click', 'set', 'gesture'] },
+      id: string('Control ID returned by inspect.'),
+      value: { type: ['string', 'boolean'] },
+      points: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 300,
+        items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: 0, maximum: 1 } },
+      },
+      button: { enum: ['left', 'middle', 'right'] },
+      modifiers: { type: 'array', items: { enum: ['shift', 'control', 'alt', 'meta'] } },
+    },
+    ['action'],
+    false,
+  ),
+  tool(
+    'document',
+    'List open models, open a local MDL/MDX reference in another tab, export the current document through the normal lossless serializer, or validate MDX/MDL round trips. Opening/exporting requires an explicit path. Export never replaces an existing file silently: set overwrite only when the user asked for it, and MDLxL still asks the user to confirm. To save the open model in place, use mdlxl_command save. Export does not mark the working document saved or change Recent files.',
+    {
+      target,
+      action: { enum: ['list', 'open', 'export', 'validate'] },
+      path: string('Absolute local file path for open/export.'),
+      format: { enum: ['mdx', 'mdl'] },
+      overwrite: { type: 'boolean' },
+    },
+    ['action'],
+    false,
+  ),
+  tool(
+    'help',
+    'Read MDLxL user documentation or discover scripting modules and their real exported signatures. Use this to answer how-to questions based on the installed version. No model is required.',
+    { topic: string('A topic from the help index; omit for the index.') },
+  ),
 ];
 
 export const AI_SYSTEM_PROMPT = `You are connected inside MDLxL, a Warcraft III model editor. Use its tools to accomplish the user's prompts, including arbitrary surgical model and animation edits. You can inspect the complete model and run general JavaScript with the editor's own libraries; you are not limited to canned operations.
