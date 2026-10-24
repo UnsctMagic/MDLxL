@@ -20,7 +20,6 @@
   --tile-on-bg:color-mix(in srgb,var(--lit) 11%,var(--ui-field));
   --tile-on-sh:inset 0 1px 0 #ffffffb0,0 0 0 1px var(--lit),0 0 0 3px color-mix(in srgb,var(--lit) 15%,transparent),0 0 12px color-mix(in srgb,var(--lit) 20%,transparent);
   --ic:color-mix(in srgb,var(--ui-text) 62%,var(--ui-panel));
-  --ic-off:color-mix(in srgb,var(--ic) 42%,transparent);
   --txt-sh:0 1px 0 #ffffffd0;
   --ic-filter:drop-shadow(0 1px 0 #ffffffe0) drop-shadow(0 -1px 0 #00000030);
   --dock-sh:0 0 0 1px #161513,inset 0 0 0 1px #c9a25259,inset 0 1px 0 #ffffff1a,0 2px 6px #00000029;
@@ -32,7 +31,6 @@
   --tile-on-bg:color-mix(in srgb,var(--lit) 14%,var(--ui-panel));
   --tile-on-sh:inset 0 1px 3px #00000066,0 0 0 1px var(--lit),0 0 0 3px color-mix(in srgb,var(--lit) 15%,transparent),0 0 12px color-mix(in srgb,var(--lit) 25%,transparent);
   --ic:color-mix(in srgb,var(--ui-text) 58%,var(--ui-panel));
-  --ic-off:color-mix(in srgb,var(--ui-text) 25%,transparent);
   --txt-sh:0 -1px 0 #000000a0;
   --ic-filter:drop-shadow(0 -1px 0 #000000b0) drop-shadow(0 1px 0 #ffffff1c);
   --dock-sh:0 0 0 1px #0d0d0c,inset 0 0 0 1px #c9a25259,inset 0 1px 0 #ffffff1a,0 2px 8px #00000066;
@@ -47,7 +45,7 @@
 /* Quiet chrome: top row, editor row, view controls, sidebar and status bar. */
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float){font:12.5px/1.45 'Segoe UI',Tahoma,sans-serif}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float) :is(button,select,input){font:inherit}
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button{border:1px solid transparent!important;border-radius:7px!important;background:transparent!important;box-shadow:none!important;color:var(--ui-text)!important;min-height:26px;padding:3px 9px;transition:background .12s}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button{border:1px solid transparent!important;border-radius:7px!important;background:transparent!important;box-shadow:none!important;color:var(--ui-text)!important;min-height:26px;padding:3px 9px}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button:hover:not(:disabled){background:var(--ui-hover)!important}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-view-label,.classic-selection-actions) button:is(.active,[aria-pressed=true]){background:var(--ui-field)!important;box-shadow:var(--m-raise)!important}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-coordinates) :is(select,input[type=text],input[type=number],input:not([type])):not(.team-picker select){border:1px solid var(--m-line)!important;border-radius:7px!important;background:var(--ui-field)!important;box-shadow:none!important;min-height:26px;padding:2px 8px!important}
@@ -64,10 +62,10 @@
 
 /* Editor row: soft segmented buttons, model tabs as pills. */
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules{padding:6px 10px 4px!important;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .editor-modules{gap:8px!important;align-items:center}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .editor-modules>button{padding:3px 12px!important;font-weight:400}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .editor-modules{gap:2px!important;align-items:center;font-size:12px}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .editor-modules>button{padding:3px 9px!important;font-weight:400}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .editor-modules>button[aria-pressed=true]{font-weight:600}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules :is(label,.quick-display){font-size:12px!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules :is(label,.quick-display){font-size:11.5px!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .module-divider{display:none}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .model-tabs-bar{border:0!important;margin-top:4px;background:transparent!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .model-tab{border:0!important;border-radius:8px!important;background:var(--m-soft)!important;padding:2px 10px!important}
@@ -94,7 +92,7 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.toolbar-modules>.vis-toggle>.module-icon-badge{color:#ff9ad5!important}
 
 /* View controls float as a soft pill. */
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label{left:12px!important;top:12px!important;display:flex;gap:4px;padding:4px!important;width:auto!important;height:auto!important;border-radius:11px;background:color-mix(in srgb,var(--ui-panel) 88%,transparent)!important;box-shadow:0 2px 10px #0002,0 0 0 1px var(--m-line)}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label{left:12px!important;top:12px!important;display:flex;gap:4px;padding:4px!important;width:auto!important;height:auto!important;border-radius:11px;background:var(--ui-panel)!important;box-shadow:0 2px 10px #0002,0 0 0 1px var(--m-line)}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label :is(select,button){min-height:26px!important;height:26px!important;border-color:transparent!important;background:transparent!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label select{width:auto!important;padding-right:24px!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .viewport-orientation-compass{top:60px!important;left:14px!important}
@@ -126,7 +124,7 @@
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button{grid-column:auto!important;width:auto!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;padding:0 4px!important;white-space:nowrap!important;overflow:visible!important;border:0!important;border-radius:5px!important;background:var(--tile-bg)!important;box-shadow:var(--tile-sh)!important;color:var(--ic)!important;font-size:11.5px!important;font-weight:600!important;letter-spacing:.2px;opacity:1!important;text-shadow:var(--txt-sh)}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:is(.span-2,.uv-button){grid-column:span 2!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button.look-icon-only{font-size:0!important}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:disabled{color:var(--ic-off)!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:disabled{color:var(--ui-muted)!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:disabled .look-icon{opacity:.32}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:is(.active,[aria-pressed=true]){background:var(--tile-on-bg)!important;box-shadow:var(--tile-on-sh)!important;color:var(--lit)!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools .look-icon{width:20px;height:20px;filter:var(--ic-filter)}

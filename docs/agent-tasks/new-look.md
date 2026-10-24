@@ -65,6 +65,17 @@ Updated: 2026-10-24
   (all seven themes, custom highlight, fold/unfold, float + drag + checkbox in the
   float + Bones mode + dock back, AI console opens from the dock, VIS on = classic
   look with float docked, orbit drag still turns the camera); see the PR.
+- Packaged suite (`default` variant): `core` 27/28 pass + 1 fixture skip after
+  fixes; also appearance-contrast, particle-workflow, rotation-interaction,
+  ai-console, geoset-tabs/-leave-visible/-operations, localization and
+  module-button-labels.browser pass. `ai-editor` fails at the provider sign-in
+  step (line ~250) on the untouched base `7adbf878` too, so it is not this work.
+- Test updates: `particle-workflow` now expects the single EMTR colour;
+  `ai-console` starts its eraser sweeps below the floating view controls.
+- Avoid repeating: no CSS transition on chrome buttons (appearance-contrast
+  switches themes instantly and measures mid-fade); keep the view-controls pill
+  opaque; keep the editor row tight (gap 2px) or it scrolls at 1440 px with the
+  AI console open.
 - Remaining: the owner's own look and feel at their screen size / DPI.
 
 ## Blockers and next action
