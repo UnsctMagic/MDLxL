@@ -219,6 +219,6 @@ test('embedded provider and standalone guide receive the same SD rulebook withou
   const user = received.messages.find(message => message.role === 'user');
   assert.ok(user.content[0].text.includes(JSON.stringify(context)));
   assert.deepEqual(f.counts(), { requests: 1, edits: 0 });
-  const guide = await fs.readFile(path.join(root, 'docs/AI-SD-RULEBOOK.md'), 'utf8');
+  const guide = (await fs.readFile(path.join(root, 'docs/AI-SD-RULEBOOK.md'), 'utf8')).replace(/\r\n/g, '\n');
   assert.ok(guide.includes(AI_SD_RULES), 'the standalone rulebook matches the supplied instructions');
 });

@@ -18,7 +18,7 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 - Base: `af1d0f12` (main, including the 0.30.1 changes).
 - Initial implementation: `6410229f02e4bd1624e26c61eb35878de75c3afd`.
   The same branch continues with the verified sign-in repair and UI refresh.
-- Current research worktree: `D:\Codex\mdlxl-sd-rulebook-20261024\source` (temporary; removed after push). Study outputs: `D:\Codex\mdlxl-sd-rulebook-20261024\outputs`. The existing local test remains under `D:\Codex\mdlxl-ai-hook-20261024\user-test`.
+- Current research worktree: `D:\Codex\mdlxl-sd-rulebook-20261024\source` (retained with the study at the owner's request). Study outputs: `D:\Codex\mdlxl-sd-rulebook-20261024\outputs`. The existing local test remains under `D:\Codex\mdlxl-ai-hook-20261024\user-test`.
 - No AI release/version change; merge and publication require approval.
 
 ## SD modeling rulebook (2026-10-24)
@@ -44,8 +44,13 @@ mouse camera controls, document validation, byte-preserving save and Undo.
   passed, including rule delivery, help, selected edits, Undo/Redo, round trips,
   mouse rotation and captures without panel hiding.
 - All 705 downloaded model hashes and the native build metadata remained
-  unchanged. Only statistics, references and comparison figures are retained;
-  source downloads and disposable profiles/build scratch are removed afterward.
+  unchanged. At the owner's explicit request, keep the entire local study root:
+  original archives, extracted models/textures, raw catalogues, ranking captures,
+  renders, measurements, scripts, logs and this source worktree. Claude's entry
+  point is `D:\Codex\mdlxl-sd-rulebook-20261024\CLAUDE-HANDOFF.md`.
+- Initial CI found a CRLF-only guide-comparison failure after Windows checkout.
+  Normalize line endings in that test while retaining exact rulebook content
+  parity. The runtime policy and verified packaged behavior are unchanged.
 - Provider protocol/delivery and editor behavior were tested with fixtures. This
   continuation did not grade generated art from a paid provider; model judgment
   still needs the existing visual and measured review.
