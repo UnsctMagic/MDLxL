@@ -70,7 +70,10 @@ Reference models remain open as ordinary tabs. Image paste also works.
 | Other AI / local model | Supply an OpenAI-compatible API base URL and model ID. HTTP is supported for localhost servers; remote endpoints use HTTPS. A local server need not require a key. |
 
 The native CLI executable is found on PATH, or can be chosen by entering its full
-path in Connection. Native providers manage their own sign-in in MDLxL's profile;
+path in Connection. A chosen path must name that provider's own CLI (`codex.exe`,
+`codex.cmd`, `claude.exe`, `claude.cmd`), so the setting cannot launch another
+program. A saved API key is cleared when the API base URL changes, so it is never
+sent to a different server. Native providers manage their own sign-in in MDLxL's profile;
 MDLxL does not extract tokens from another app. API credentials are encrypted with
 the operating system's credential storage. Each provider retains its connection
 settings. Switching providers starts a new chat. Subscription access and API
@@ -85,8 +88,10 @@ quality of an edit. MDLxL cannot make an arbitrary chat-only service execute too
 In **Connection → Connect another AI**, click **Enable connection** and **Copy
 connection JSON**. Add that configuration to a local MCP client. It describes an
 authenticated Streamable HTTP endpoint on `127.0.0.1`. It remains available while
-MDLxL is open, and keeps its port across restarts when available. Disable the
-connection to disconnect external clients.
+MDLxL is open, and keeps its port and key across restarts when available. Disable
+the connection to disconnect external clients; enabling it again issues a new key,
+so previously copied configurations stop working. Idle client sessions expire after
+an hour.
 
 Clients with an `mcpServers` configuration can use the copied JSON directly.
 Clients with other configuration formats need its URL and bearer token in their
@@ -131,6 +136,10 @@ Paint owns a separate working model: operate its controls, or leave Paint throug
 `mdlxl_view` to apply it through the ordinary editor before changing model data.
 Pending UV or animation-text previews retain the editor's existing protections.
 Normal Save includes pending previews; direct export targets the committed model.
+Export writes to the path the AI names without a save dialog, but never replaces an
+existing file silently: the AI must request `overwrite` and the user confirms the
+replacement in a native dialog. Opening references and exporting do not change
+Recent files or the model MDLxL reopens at startup.
 
 ## Scripting contract
 

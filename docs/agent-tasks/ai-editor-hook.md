@@ -1,7 +1,7 @@
 # AI editor hook
 
 Status: ready for review; awaiting merge approval
-Owner: Codex / Add AI integration to MDLxL
+Owner: Codex / Add AI integration to MDLxL; review fixes by Claude (session_01AvQdnF8d6Q4Km3pPERhTpy)
 Updated: 2026-10-24
 
 ## Goal and completion criteria
@@ -20,6 +20,32 @@ mouse camera controls, document validation, byte-preserving save and Undo.
   The same branch continues with the verified sign-in repair and UI refresh.
 - Checkout: `D:\Codex\mdlxl-ai-hook-20261024\source`.
 - No AI release/version change; merge and publication require approval.
+
+## Review fixes (Claude, 2026-10-24)
+
+Commits after `375817e` on the same branch. The AI keeps full control of program
+controls, including Save of the open model; the owner wants it as working hands.
+
+- AI export never replaces an existing file silently: `overwrite` plus a native
+  confirmation (`writeAiModel` in `electron/main.cjs`). AI reads/exports no longer
+  change Recents, the startup model or opened paths. No-overwrite export uses an
+  exclusive copy (works on FAT/exFAT) and refuses before writing textures.
+- The panel header uses `host.summary()` only while open; the full editor state
+  (timeline key scan) is built only when the AI acts. Awareness reports playback
+  as playing instead of every frame.
+- Quit waits at most 5 s for AI shutdown and always flushes settings/recovery;
+  CLIs ignoring SIGTERM are killed; `CodexProcess.close` is bounded.
+- Saved API key cleared when the base URL changes; a custom CLI path must name the
+  provider's own CLI; disabling external MCP retires its key; idle MCP sessions
+  expire after an hour (64 max).
+- AI edits may not change a numeric array's type; generated textures load before
+  the model edit commits.
+- `ignoreAiAlias` replaced by `editor-document`'s `ignoreHistoryAlias`; App's AI
+  host uses one `afterPaint` helper; new AI files formatted with Prettier
+  (110 columns, single quotes), no behaviour change.
+- Packaged tests: restart test saves through `mdlxl_command save` instead of an AI
+  overwrite (which now needs a dialog); fixture CLIs are named `codex(.cmd)`.
+- Not run in the cloud checkout: packaged Windows tests and real mouse checks.
 
 ## Findings and decisions
 
@@ -158,7 +184,9 @@ Earlier milestones (before optional awareness and durable verification):
 
 ## Next action
 
-Review the feature PR and its CI. Merge only after the owner's explicit approval.
+Owner click-through of the review fixes (see PR), then merge on approval. Codex
+or a Windows checkout should rerun `test/ai-editor.electron.cjs` and
+`test/ai-awareness.electron.cjs` against a package of the current branch.
 The local user test retains its signed-in profile and GPT-6-Luna selection.
 `test/ai-live.electron.cjs` is the opt-in real-account acceptance harness; ordinary
 CI and `test/ai-editor.electron.cjs` use fixtures without paid credentials.
