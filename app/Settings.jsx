@@ -327,6 +327,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </AppearanceSection>
         <AppearanceSection title="Interface" palette={palette('Interface', { theme: prefs.theme, accent: prefs.accent }, preset => ({ theme: preset.theme, accent: APPLICATION_THEMES[preset.theme].accent }), change => commit({ ...change, viewportPreset: 'custom' }))}>
         <label className="settings-color">UI accent <input type="color" aria-label="UI accent" value={prefs.accent} onChange={event=>commit({accent:event.target.value})}/><code>{prefs.accent}</code></label>
+        <label className="settings-color" title="The glow around the active tool in the sidebar. It follows the UI accent until you pick your own colour.">Tool highlight <input type="color" aria-label="Tool highlight" value={prefs.toolHighlight || prefs.accent} onChange={event=>commit({toolHighlight:event.target.value})}/><code>{prefs.toolHighlight || 'same as accent'}</code>{prefs.toolHighlight && <button type="button" title="Use the UI accent again" onClick={()=>commit({toolHighlight:''})}>Use accent</button>}</label>
         <div className="settings-graphics-grid"><Numeric id="appearance:panel-width" label="Toolbox width" value={prefs.panelWidth} min={PANEL_WIDTH_MIN} max={PANEL_WIDTH_MAX} unit="px" onChange={panelWidth=>commit({panelWidth})}/><Numeric id="appearance:panel-scale" label="Toolbox scale" value={prefs.panelScale} min={1} max={1.75} step={.05} unit="×" onChange={panelScale=>commit({panelScale})}/></div>
         </AppearanceSection>
         <AppearanceSection title="Controllers" palette={partPalette('controllers', 'Controllers')}>
@@ -423,7 +424,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           <button onClick={() => viewport({ boneInfluence: DEFAULT_BONE_INFLUENCE })}>Reset Bone influence</button>
         </AppearanceSection>
         </AppearancePage.Provider>
-        <button data-hotkey="appearance:reset" onClick={() => commit({ theme: 'light', accent: APPLICATION_THEMES.light.accent, viewportPreset: 'mdlvis-vanilla', viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance, visuals: DEFAULT_VISUALS })}>Restore Lordaeron and helper defaults</button>
+        <button data-hotkey="appearance:reset" onClick={() => commit({ theme: 'light', accent: APPLICATION_THEMES.light.accent, toolHighlight: '', viewportPreset: 'mdlvis-vanilla', viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance, visuals: DEFAULT_VISUALS })}>Restore Lordaeron and helper defaults</button>
       </div></div>}
       {tab === 'grid' && <div className="settings-page">
         <h3>XYZ grid</h3><p>Configure the grid shared by the 3D viewport and animation preview. Use Display → Grid to show or hide it.</p>

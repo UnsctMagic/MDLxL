@@ -59,6 +59,7 @@ import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalcu
 import { HD_VIEW_ONLY_MESSAGE, HD_BORDERLINE_MESSAGE, HD_CONVERTED_MESSAGE } from '../src/model-version.js';
 import { separateGeosetsByLoosePart, nuclearSeparateGeosets, mergeSimilarGeosets, geosetMergeConflicts, deleteFreeVertices } from '../src/geoset-operations.js';
 import './geoset-merge.css';
+import './new-look.css'; // last, so the new look sits over the classic rules (VIS keeps the classic look)
 import { transformVertices, setVertexPositions, deleteVertices, addTriangle } from '../src/editor-commands.js';
 import { detachFaces, extrudeFaces } from '../src/mesh-tools.js';
 import { captureMeshSelection } from '../src/mesh-clipboard.js';
@@ -160,6 +161,8 @@ export default function App() {
   const [adjustingInput, setAdjustingInput] = useState(null);
   // VIS switches display controls while retaining editing and portrait state.
   const [visUI, setVisUI] = useState(false);
+  // Where the detached Geosets panel floats; null = in the sidebar. Never saved, so a restart docks it back.
+  const [geosetsFloat, setGeosetsFloat] = useState(null);
   const [quadView, setQuadView] = useState(false), [activeVertexPane, setActiveVertexPane] = useState(null);
   const [vertexViewRequest, setVertexViewRequest] = useState(null);
   const setView = value => {
@@ -1464,7 +1467,7 @@ export default function App() {
     activeGeoset, changePreferences, chooseSet, chooseSets, cleanView, Dialog, doc, edit, geosetTab,
     highlightAppearance, model, preferences, saving, selectable, selectGeosetTab, session, setContext,
     setSelectionHoveredGeoset, setShowAllGeosets, showAllGeosets, tabGeosets, tabVisibleGeosets, viewHoveredGeoset,
-    visibleOnly, hideExtras, setHideExtras
+    visibleOnly, hideExtras, setHideExtras, visUI, floatAt: geosetsFloat, onFloat: setGeosetsFloat
   }}/>;
   const changeGeosetStructure = (label, sections, operation) => {
     let result;

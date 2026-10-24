@@ -20,6 +20,8 @@ export function applyApplicationTheme(preferences, targetDocument = document) {
   for (const [name, value] of Object.entries(theme.colors)) root.style.setProperty(`--ui-${name}`, value);
   const accent = /^#[0-9a-f]{6}$/i.test(preferences?.accent) ? preferences.accent : '#71b5f3';
   root.style.setProperty('--ui-accent', accent);
+  // The new look lights the active tool in this colour; it follows the accent until the user picks one.
+  root.style.setProperty('--ui-tool-highlight', /^#[0-9a-f]{6}$/i.test(preferences?.toolHighlight) ? preferences.toolHighlight : accent);
   root.style.setProperty('--panel-scale', String(preferences?.panelScale || 1));
   root.style.setProperty('--panel-width', `${preferences?.panelWidth || 240}px`);
   const appearance = viewportAppearanceOptions(preferences), tree = appearance.tree;
