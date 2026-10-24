@@ -1,5 +1,5 @@
 import { createChanges, applyChanges } from './history-store.js';
-import { ignoreHistoryAlias } from './editor-document.js';
+import { ignoreHistoryAlias, MODEL_COUNT_FIELDS } from './editor-document.js';
 
 const types = {
   Float32Array,
@@ -209,7 +209,13 @@ export function prepareAiEdit(before, after, { scope, protectedPaths = [], anima
     );
   const changes = createChanges(before, after, { ignore: ignoreHistoryAlias });
   for (const change of changes) {
-    if (!allowed.some(p => contains(p, change.path)))
+    const collection = change.path.length === 2 && change.path[0] === 'Info' && MODEL_COUNT_FIELDS[change.path[1]];
+    // These counts are owned by normalization, not authored Info fields. Permit
+    // only the exact count produced by a collection edit already in scope.
+    const derivedCount = collection && change.after === (after[collection]?.length || 0)
+      && before[collection]?.length !== after[collection]?.length
+      && changes.some(c => c.path[0] === collection && allowed.some(p => contains(p, c.path)));
+    if (!allowed.some(p => contains(p, change.path)) && !derivedCount)
       throw Error('Edit exceeds its scope: ' + pointer(change.path));
     let a, b;
     try {

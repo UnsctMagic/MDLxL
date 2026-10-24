@@ -40,6 +40,7 @@ import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings }
 import { backgroundImageRect } from '../src/viewport-appearance.js';
 import { QUAD_VIEWS, viewWorkplane, viewportRects } from './quad-view.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
+import { composeViewportLayers } from './game-preview-capture.js';
 
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 const normalizedPath = path => String(path || '').replaceAll('/', '\\').toLowerCase();
@@ -1011,7 +1012,13 @@ export default function Viewport(inputProps) {
     });
     document.addEventListener('visibilitychange', state.scheduler.sync);
     state.scheduler.invalidate();
+    state.captureApi = {captureView() {
+      if (state.disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
+      return composeViewportLayers(viewportHost, renderer.domElement);
+    }};
+    latest.current.onCaptureReady?.(state.captureApi);
     return () => {
+      latest.current.onCaptureReady?.(null);
       savePane();
       const remember = pane => ({ id: pane.id, view: pane.view, perspective: pane.perspective.clone(), ortho: pane.ortho.clone(), target: pane.controls.target.clone(), center: pane.center.clone(), radius: pane.radius });
       cameraMemory.current = { ...remember(singlePane), panes: panes.slice(1).map(remember) };
@@ -1119,6 +1126,7 @@ export default function Viewport(inputProps) {
     return () => { cancelled = true; };
   }, [textureSignature, textureAssets, texturesNeeded, graphics.textures, graphics.antialias]);
 
+  useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
   useEffect(() => { if (!props.normalizer) runtime.current?.cancelNormalizer?.(); }, [!!props.normalizer]);
   useEffect(() => { runtime.current?.setQuad(props.quadView); }, [props.quadView, graphics.antialias]);
   useEffect(() => { if(!props.quadView && runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view, props.quadView, graphics.antialias]);

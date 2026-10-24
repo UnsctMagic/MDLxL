@@ -27,7 +27,7 @@ const providers = [
 ];
 const activity = {
   mdlxl_context: 'Inspecting the model',
-  mdlxl_capabilities: 'Reading MDLxL help',
+  mdlxl_capabilities: 'Finding modeling tools',
   mdlxl_sample: 'Inspecting the model',
   mdlxl_assets: 'Checking model files',
   mdlxl_read: 'Reading model data',
@@ -126,7 +126,7 @@ export default function AiAssistant({ bridge }) {
       if (event.type === 'tool' || event.type === 'external')
         setStatus(activity[event.name?.replace(/^mcp__mdlxl__/, '')] || 'Using the editor');
       if (event.type === 'external-done' && !event.busy) setStatus('');
-      if (event.type === 'tool-result' && event.error) setStatus('The AI is checking an editor error.');
+      if (event.type === 'tool-result') setStatus(event.error ? 'The AI is checking an editor error.' : activity[event.name?.replace(/^mcp__mdlxl__/, '')] || 'Working on the model');
       if (event.type === 'notice' || event.type === 'auth') setStatus(event.text);
       if (event.type === 'error') {
         setError(event.text);
@@ -149,7 +149,7 @@ export default function AiAssistant({ bridge }) {
   }, []);
   useEffect(() => {
     if (scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
-  }, [messages, status]);
+  }, [messages]);
   const summary = open ? bridge.summary() : null;
   const native = ['codex', 'claude'].includes(settings.provider);
   const providerName = providers.find(p => p[0] === settings.provider)?.[1] || 'AI';

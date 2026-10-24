@@ -23,6 +23,20 @@ test('script results reject cycles and non-JSON values while allowing shared mod
   assert.throws(() => decodeAiValue({ $type: 'constructor', $data: [1, 2] }), /typed array/);
 });
 
+test('scoped collection edits include only their exact editor-maintained counts', () => {
+  const before = structuredClone(createStarterDocument().model), after = structuredClone(before);
+  after.GeosetAnims.push({GeosetId:0,Alpha:1,Color:new Float32Array([1,0,0]),Flags:2});
+  after.Info.NumGeosetAnims = after.GeosetAnims.length;
+  const options = {scope:['/GeosetAnims']}, prepared = prepareAiEdit(before, after, options);
+  const applied = structuredClone(before); applyAiEdit(applied, prepared);
+  assert.equal(applied.Info.NumGeosetAnims, after.GeosetAnims.length);
+  assert.deepEqual(applied.Geosets, before.Geosets);
+  assert.throws(() => prepareAiEdit(before, {...after,Info:{...after.Info,Name:'Unrequested rename'}}, options), /scope: \/Info\/Name/);
+  assert.throws(() => prepareAiEdit(before, {...after,Info:{...after.Info,NumGeosetAnims:999}}, options), /scope: \/Info\/NumGeosetAnims/);
+  assert.throws(() => prepareAiEdit(before, after, {scope:['/Geosets/0/Anims']}), /scope:/);
+  assert.throws(() => prepareAiEdit(before, after, {...options,protectedPaths:['/Info/NumGeosetAnims']}), /protected path/);
+});
+
 test('precise UV edit is undoable and preserves geometry, rig and other data through MDX/MDL', () => {
   const doc = createStarterDocument(),
     before = structuredClone(doc.model),

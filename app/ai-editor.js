@@ -349,29 +349,17 @@ export class AiEditorBridge {
         }
         return { images };
       }
-      let rect;
-      if (name === 'mdlxl_capture') {
-        const canvas = [...document.querySelectorAll('.classic-view canvas')].find(
-          el => el.getBoundingClientRect().width > 0,
-        );
-        if (!canvas) throw Error('The model viewport is not visible.');
-        const { x, y, width, height } = canvas.getBoundingClientRect();
-        rect = {
-          x: Math.max(0, Math.floor(x)),
-          y: Math.max(0, Math.floor(y)),
-          width: Math.ceil(width),
-          height: Math.ceil(height),
-        };
-      }
-      const panel = document.querySelector('section.ai-assistant'),
-        previous = panel?.style.visibility;
-      try {
-        if (panel) panel.style.visibility = 'hidden';
-        await settle();
-        return { image: await window.desktop.aiCapture(rect) };
-      } finally {
-        if (panel) panel.style.visibility = previous;
-      }
+      if (name === 'mdlxl_capture') return {image: await host.capture()};
+      // Mask the assistant only in the returned UI image. Never alter the live panel.
+      const panel = document.querySelector('section.ai-assistant'), rect = panel?.getBoundingClientRect();
+      const image = await window.desktop.aiCapture();
+      if (!rect?.width || !rect.height) return {image};
+      const source = new Image(); source.src = image; await source.decode();
+      const canvas = document.createElement('canvas'); canvas.width = source.naturalWidth; canvas.height = source.naturalHeight;
+      const context = canvas.getContext('2d'), scaleX = canvas.width / window.innerWidth, scaleY = canvas.height / window.innerHeight;
+      context.drawImage(source, 0, 0); context.fillStyle = '#ccc';
+      context.fillRect(Math.floor(rect.x * scaleX), Math.floor(rect.y * scaleY), Math.ceil(rect.width * scaleX), Math.ceil(rect.height * scaleY));
+      return {image: canvas.toDataURL('image/png')};
     }
     if (name === 'mdlxl_ui') {
       const el = this.controls.get(args.id);

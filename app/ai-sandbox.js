@@ -35,7 +35,7 @@ window.aiSandbox.onRun(async payload => {
           signatures: [...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(([^]*?)\)\s*\{/g)].map(
             match => ({ name: match[1], arguments: match[2] }),
           ),
-          source: 'Use await api.source("' + name + '") to inspect the actual implementation.',
+          source: 'Read (await api.source("' + name + '")).text for the implementation; api.source returns {module,text,offset,total,truncated}.',
         };
       },
     };

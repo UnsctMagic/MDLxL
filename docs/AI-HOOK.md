@@ -12,6 +12,13 @@ sign-in. **Connection** holds provider settings; **Advanced connection** contain
 the optional CLI executable path. The panel follows MDLxL's current appearance,
 and replies format paragraphs, lists, bold text and code without executing HTML.
 
+Viewport captures copy the renderer's current scene and selection overlays without
+hiding the assistant. Full-editor UI captures mask the assistant area in the
+returned image; the live panel stays visible. **Finding modeling tools** means API
+discovery, while **Reading MDLxL help** means reading the manual. A recoverable
+tool-error status clears when the next tool succeeds; failed tasks still show
+their actual error.
+
 **Continuous awareness** is an optional switch below the model/selection strip.
 It starts off and remembers your choice. When on, real editor changes update the
 connected AI's context: document/revision, marked vertices, selected bones/keys,

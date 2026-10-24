@@ -50,6 +50,18 @@ controls, including Save of the open model; the owner wants it as working hands.
 
 ## Findings and decisions
 
+- The visible test exposed a capture-path bug: each screenshot hid/restored the
+  AI panel. Capture the native/geometry renderer layers directly instead; mask
+  only the assistant area of full-editor images. Keep normal mouse controls.
+- Tool discovery was labeled as reading help, and successful tool results did
+  not clear a preceding error status. Distinguish discovery from manual reads
+  and clear recovered status without suppressing actual failures.
+- Animation APIs update derived Info.Num* counts. A scoped collection edit may
+  include only its exact derived count using the editor's shared count map;
+  authored Info fields and explicit protected paths remain checked. Clarify
+  canonical GeosetAnims tracks, sequence extents, api.source().text and identical
+  generated-asset/model texture paths to avoid repeated contract mistakes.
+
 - The existing add-on API only dispatches commands; it cannot inspect/edit model data.
 - Reuse `App.edit` / `EditorDocument.apply`, command enablement and selection history.
 - Bind a prompt to the active document, revision and selection; reject stale edits.
@@ -96,6 +108,18 @@ controls, including Save of the open model; the owner wants it as working hands.
 - See [AI-HOOK.md](../AI-HOOK.md) for setup, supported connections and scripting.
 
 ## Verification
+
+Capture/status repair (2026-10-24): 63 packaged editor checks passed, including
+selection pixels in renderer captures, unchanged assistant visibility/focus in
+viewport/UI and animation captures, successful-tool error-status recovery, and
+the three-second rainbow workflow without broad Info scope. The rainbow edit
+reopens as MDX/MDL and one Undo restores the whole model. Its assertion measures
+the requested sequence; the animation API also retains neutral guard keys for
+other sequences. Awareness/correction/restart acceptance: 17 passed. Full source
+suite: 1,915 tests, 1,893 passed, 22 skipped, zero failures on Windows.
+Compatibility: 57 passed. Tests used disposable profiles on the invisible desktop;
+the user's open model and signed-in profile were left alone. Installing the
+repaired test requires the user to save and close the active test first.
 
 Current continuation adds an off-by-default, persisted Continuous awareness
 switch, event-driven editor snapshots and authenticated MCP resource subscriptions.

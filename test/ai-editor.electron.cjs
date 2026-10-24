@@ -351,6 +351,31 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     'chat does not resize the workspace',
     (await page.locator('.classic-workspace').evaluate(el => el.getBoundingClientRect().width)) === sideWidth,
   );
+  await page.evaluate(() => {
+    window.aiCapturePanel = document.querySelector('.ai-assistant'); window.aiHiddenChanges = [];
+    window.aiCaptureObserver = new MutationObserver(records => {
+      for (const change of records) if ((change.oldValue || '').includes('visibility: hidden')) window.aiHiddenChanges.push(change.oldValue);
+    });
+    window.aiCaptureObserver.observe(window.aiCapturePanel,{attributes:true,attributeOldValue:true,attributeFilter:['style']});
+  });
+  await page.getByLabel('AI prompt').focus();
+  const unobstructed = await tool('mdlxl_capture', {target:context.target});
+  const uiCapture = await tool('mdlxl_ui', {target:context.target,action:'capture'});
+  const pixels = await page.evaluate(async data => {
+    const image = new Image(); image.src='data:image/png;base64,'+data; await image.decode();
+    const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+    const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);const values=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+    let red=0,blue=0;for(let i=0;i<values.length;i+=4){if(values[i]>160&&values[i+1]<120&&values[i+2]<120)red++;if(values[i+2]>160&&values[i]<120&&values[i+1]<160)blue++;}
+    return {red,blue};
+  },unobstructed.data);
+  check('viewport capture retains actual marked and unmarked vertices',pixels.red>3&&pixels.blue>3,pixels);
+  check('viewport and UI captures keep the same visible focused assistant',await page.evaluate(()=>window.aiHiddenChanges.length===0&&window.aiCapturePanel===document.querySelector('.ai-assistant')&&document.activeElement?.getAttribute('aria-label')==='AI prompt')&&uiCapture.mimeType==='image/png');
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('ai:event',{type:'tool-result',name:'mdlxl_script',error:true}));
+  await page.waitForFunction(()=>document.querySelector('.ai-status')?.textContent==='The AI is checking an editor error.');
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('ai:event',{type:'tool-result',name:'mdlxl_capabilities',error:false}));
+  await page.waitForFunction(()=>document.querySelector('.ai-status')?.textContent==='Finding modeling tools');
+  check('successful tool completion clears a previous recoverable-error status',true);
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('ai:event',{type:'done'}));
   await page.getByLabel('AI prompt').fill('mirror these vertices and weld the seam');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.waitForFunction(
@@ -370,6 +395,8 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     'prompt changed the real selected mesh',
     mirrored.value.Vertices.$data.length === 12 && mirrored.value.Faces.$data.length === 6,
   );
+  check('before/after verification never hides the assistant',await page.evaluate(()=>window.aiHiddenChanges.length===0));
+  await page.evaluate(()=>window.aiCaptureObserver.disconnect());
   check(
     'unselected geoset and rig preserved',
     equal(await tool('mdlxl_read', { path: '/Geosets/1' }), protectedData) &&
@@ -709,6 +736,11 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
       samples.samples[2].geosets[0].bounds.min[0] - samples.samples[0].geosets[0].bounds.min[0] === 6,
   );
   // Front looks along X, so X translation is intentionally invisible there.
+  await page.evaluate(()=>{
+    window.aiHiddenChanges=[];
+    window.aiCaptureObserver=new MutationObserver(records=>{for(const change of records)if((change.oldValue||'').includes('visibility: hidden'))window.aiHiddenChanges.push(change.oldValue);});
+    window.aiCaptureObserver.observe(document.querySelector('.ai-assistant'),{attributes:true,attributeOldValue:true,attributeFilter:['style']});
+  });
   const captures = await tool(
     'mdlxl_capture',
     {
@@ -729,6 +761,8 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
       captures[4].text.includes('front'),
     captures.map(c => (c.type === 'image' ? { imageHash: digest(c.data) } : { label: c.text })),
   );
+  check('native animation captures never hide the assistant',await page.evaluate(()=>window.aiHiddenChanges.length===0));
+  await page.evaluate(()=>window.aiCaptureObserver.disconnect());
   await tool('mdlxl_view', {
     target: context.target,
     mode: 'vertices',
@@ -817,6 +851,27 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     compoundValidation.results,
   );
   await tool('mdlxl_command', { target: context.target, id: 'undo' });
+  context = await tool('mdlxl_context');
+  const rainbowBefore = await tool('mdlxl_read', {path:''});
+  const rainbow = await tool('mdlxl_script', {
+    target:context.target, edit:true, label:'Three-second rainbow animation',
+    scope:['/Sequences','/GeosetAnims','/Geosets/0/Anims','/Geosets/1/Anims','/Textures','/Materials/0/Layers/0/TextureID'],
+    protectedPaths:['/Geosets/0/Vertices','/Geosets/0/Faces','/Geosets/0/VertexGroup','/Geosets/1/Vertices','/Bones'],
+    code:`const seq=await api.module('sequence-editor'),anim=await api.module('animation-tracks');
+const sequence=seq.createSequence(model,3000);seq.setSequenceName(model,sequence,'Rainbow Stand');
+const target=anim.animationTargets(model,{geosetIds:[0]}).find(t=>t.property==='Color'),[start,end]=model.Sequences[sequence].Interval;
+const colors=[[1,0,0],[1,.5,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,0,0]];
+for(let i=0;i<colors.length;i++)anim.setAnimationKey(model,[target],start+(end-start)*i/6,colors[i],sequence);
+const bytes=new Uint8Array(34);bytes[2]=2;bytes[12]=2;bytes[14]=2;bytes[16]=32;bytes[17]=0x28;bytes.fill(255,18);
+const name='MDLxL_Forge/AI_Rainbow_Test.tga';assets.push({name,bytes});model.Materials[0].Layers[0].TextureID=model.Textures.length;model.Textures.push({Image:name,ReplaceableId:0,Flags:0});
+return {duration:end-start,loop:!model.Sequences[sequence].NonLooping,keys:anim.readAnimationTrack(model,target).Keys.filter(k=>k.Frame>=start&&k.Frame<=end).map(k=>[k.Frame,Array.from(k.Vector)])};`,
+  });
+  const rainbowCount=(await tool('mdlxl_read',{path:'/Info/NumGeosetAnims'})).value;
+  check('rainbow task commits once with canonical scopes and automatic counts',rainbow.applied&&rainbow.value.duration===3000&&rainbow.value.loop&&rainbow.value.keys.length===7&&rainbowCount===1,{result:rainbow.value,count:rainbowCount});
+  const rainbowValidation=await tool('mdlxl_document',{target:context.target,action:'validate'});
+  check('rainbow animation reopens as MDX and MDL',rainbowValidation.results.every(r=>!r.error&&!r.readOnly),rainbowValidation.results);
+  await tool('mdlxl_command',{target:context.target,id:'undo'});
+  check('one Undo restores the complete model after the rainbow task',equal(await tool('mdlxl_read',{path:''}),rainbowBefore));
   await page.screenshot({ path: path.join(out, 'ai-editor.png') });
   check('no renderer errors', errors.length === 0, errors);
   const mainId = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].id),

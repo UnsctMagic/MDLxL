@@ -839,8 +839,9 @@ export function deleteNode(model, id) {
   updateCounts(model);
   return node;
 }
+export const MODEL_COUNT_FIELDS = Object.freeze({ NumGeosets: 'Geosets', NumGeosetAnims: 'GeosetAnims', NumBones: 'Bones', NumHelpers: 'Helpers', NumLights: 'Lights', NumAttachments: 'Attachments', NumEvents: 'EventObjects', NumParticleEmitters: 'ParticleEmitters', NumParticleEmitters2: 'ParticleEmitters2', NumRibbonEmitters: 'RibbonEmitters' });
 function updateCounts(model) {
-  for (const [field, key] of Object.entries({ NumGeosets: 'Geosets', NumGeosetAnims: 'GeosetAnims', NumBones: 'Bones', NumHelpers: 'Helpers', NumLights: 'Lights', NumAttachments: 'Attachments', NumEvents: 'EventObjects', NumParticleEmitters: 'ParticleEmitters', NumParticleEmitters2: 'ParticleEmitters2', NumRibbonEmitters: 'RibbonEmitters' })) model.Info[field] = model[key]?.length || 0;
+  for (const [field, key] of Object.entries(MODEL_COUNT_FIELDS)) model.Info[field] = model[key]?.length || 0;
 }
 export function duplicateGeoset(model, index) {
   if (!model.Geosets?.[index]) throw new Error('Select an existing geoset to duplicate.');
