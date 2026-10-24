@@ -200,3 +200,19 @@ test('checksum-verified legacy ZIPs get a local manifest without changing the in
   assert.equal(JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version,'0.18.8');
   updater.pending=false;await fs.rm(updater.prepared.stage,{recursive:true,force:true});
 });
+test('an installed update sends one anonymous event and keeps the installation ID', async t => {
+  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-usage-test-'));
+  t.after(() => fs.rm(profile, { recursive: true, force: true }));
+  const sent = [];
+  const fetcher = async (url, options) => { sent.push({ url, options, body: JSON.parse(options.body) }); return new Response(null, { status: 204 }); };
+  await new Updater({ currentVersion: '0.31.0', installRoot: profile, profile, packaged: true, fetcher }).reportUpdate();
+  await new Updater({ currentVersion: '0.32.0', installRoot: profile, profile, packaged: true, fetcher }).reportUpdate();
+  await new Updater({ currentVersion: '0.32.0', installRoot: profile, profile, packaged: false, fetcher }).reportUpdate();
+  assert.equal(sent.length, 2, 'development builds send nothing');
+  assert.equal(sent[0].url, 'https://lowpolyworks-vault.lowpolyworks-internal-tracker.workers.dev/api/events');
+  assert.equal(sent[0].options.headers['User-Agent'], 'MDLxL/0.31.0');
+  assert.deepEqual(Object.keys(sent[0].body).sort(), ['id', 'kind', 'version', 'visitorId']);
+  assert.equal(sent[0].body.kind, 'update'); assert.equal(sent[1].body.version, '0.32.0');
+  assert.equal(sent[0].body.visitorId, sent[1].body.visitorId); assert.notEqual(sent[0].body.id, sent[1].body.id);
+  await new Updater({ currentVersion: '0.33.0', installRoot: profile, profile, packaged: true, fetcher: async () => { throw Error('offline'); } }).reportUpdate();
+});

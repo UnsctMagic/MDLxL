@@ -7,6 +7,8 @@ const { promisify } = require('node:util');
 const run = promisify(execFile);
 const WEBSITE = 'https://www.lowpolyworks.com/mdlxl';
 const REPOSITORY = 'UnsctMagic/MDLxL';
+const USAGE = 'https://lowpolyworks-vault.lowpolyworks-internal-tracker.workers.dev/api/events';
+const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const MANIFEST = 'mdlxl-update-manifest.json';
 const PREVIOUS = '.mdlxl-previous';
 const PERSONAL = /^(?:Addons|Backgrounds|BitsAndParts|Textures)(?:\/|$)/i;
@@ -129,6 +131,17 @@ class Updater {
       const snapshot = JSON.parse(await fs.readFile(path.join(this.installRoot, PREVIOUS, 'snapshot.json'), 'utf8'));
       if (snapshot.schema === 1 && snapshot.product === 'mdlxl' && newerVersion(this.currentVersion, snapshot.version)) this.publish({ previousVersion: snapshot.version });
     } catch (error) { if (error.code !== 'ENOENT') this.publish({ error: 'The previous version could not be read.' }); }
+  }
+  // One anonymous event per installed update: a random ID for this MDLxL folder's profile and the new version.
+  // It runs after the update has started, so it can never affect installing or reverting.
+  async reportUpdate() {
+    if (!this.packaged || !versionParts(this.currentVersion)) return;
+    try {
+      const file = path.join(this.profile, 'usage-id');
+      let id = (await fs.readFile(file, 'utf8').catch(() => '')).trim();
+      if (!UUID.test(id)) { id = crypto.randomUUID(); await fs.writeFile(file, id); }
+      await this.fetcher(USAGE, { method: 'POST', headers: { 'User-Agent': `MDLxL/${this.currentVersion}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: crypto.randomUUID(), visitorId: id, kind: 'update', version: this.currentVersion }), signal: AbortSignal.timeout(10000) });
+    } catch { /* Usage counts are optional. */ }
   }
   publish(change) { this.state = { ...this.state, ...change }; this.onStatus(this.state); return this.state; }
   async response(url, timeout = 20000) {
