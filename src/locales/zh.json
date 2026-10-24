@@ -166,6 +166,8 @@
   "Connected Bones": "关联骨骼",
   "Grabthrough": "穿透选择",
   "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "开启：穿透模型选择顶点，包括被模型遮挡的顶点。关闭：只选择可见的顶点。",
+  "Lines": "线条",
+  "Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered.": "显示顶点之间的连线。网格太杂乱时关闭，只看顶点。",
   "Open models": "已打开模型",
   "Scroll model tabs left": "向左滚动模型标签",
   "Scroll model tabs right": "向右滚动模型标签",
@@ -3570,5 +3572,16 @@
   "Resume task": "继续任务",
   "Checking the result before completing the task.": "正在检查结果，然后完成任务。",
   "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "已停止。可撤销已应用的修改。继续任务可从检查点恢复。",
-  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain：将《魔兽争霸III》SD 设计规则应用到你的建模请求中，补全常规美术细节并检查结果。支持精细的自定义 SD。"
+  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain：将《魔兽争霸III》SD 设计规则应用到你的建模请求中，补全常规美术细节并检查结果。支持精细的自定义 SD。",
+  "Duplicate geoset animations": "重复的几何体动画",
+  "Some geosets have more than one animation record. The model works; click to choose which record to keep.": "部分几何体有多个动画记录。模型可正常使用；点击选择要保留的记录。",
+  "Some geosets have more than one animation record. The model works as it is; only keyframe edits on those geosets wait for this fix.": "部分几何体有多个动画记录。模型可照常使用；只有这些几何体的关键帧编辑需要先修复。",
+  "The fix is an ordinary edit: Undo reverses it, and nothing is written to disk until you save.": "修复是一次普通编辑：撤销即可还原，保存之前不会写入磁盘。",
+  "This model is read-only; the fix is disabled to preserve unsupported data.": "此模型为只读；为保留不支持的数据，修复已禁用。",
+  "Fix duplicate geoset animations": "修复重复的几何体动画",
+  "Fixed duplicate geoset animations. Undo reverses it.": "已修复重复的几何体动画。撤销即可还原。",
+  "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "几何体 {0} 有多个几何体动画。编辑其轨道前，请点击状态栏中的警告进行修复。",
+  "Not now": "暂不",
+  "Darker interface": "更暗的界面",
+  "Lighter interface": "更亮的界面"
 }

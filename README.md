@@ -52,7 +52,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
 - [0.30.1](docs/RELEASE-0.30.1.md) ([ES](docs/RELEASE-0.30.1-ES.md), [RU](docs/RELEASE-0.30.1-RU.md), [ZH-CN](docs/RELEASE-0.30.1-ZH-CN.md))
-- [0.30.0](docs/RELEASE-0.30.0.md) ([ES](docs/RELEASE-0.30.0-ES.md), [RU](docs/RELEASE-0.30.0-RU.md), [ZH-CN](docs/RELEASE-0.30.0-ZH-CN.md))
+- [0.30.0](docs/RELEASE-0.30.0.md) ([ES](docs/RELEASE-0.30.0-ES.md), [RU](docs/RELEASE-0.30.0-RU.md), [ZH-CN](docs/RELEASE-0.30.0-ZH-CN.md)) - unpublished draft, superseded by 0.30.1.
 - [0.29.2](docs/RELEASE-0.29.2.md) ([ES](docs/RELEASE-0.29.2-ES.md), [RU](docs/RELEASE-0.29.2-RU.md), [ZH-CN](docs/RELEASE-0.29.2-ZH-CN.md))
 - [0.29.1](docs/RELEASE-0.29.1.md) ([ES](docs/RELEASE-0.29.1-ES.md), [RU](docs/RELEASE-0.29.1-RU.md), [ZH-CN](docs/RELEASE-0.29.1-ZH-CN.md))
 - [0.29.0](docs/RELEASE-0.29.0.md) ([ES](docs/RELEASE-0.29.0-ES.md), [RU](docs/RELEASE-0.29.0-RU.md), [ZH-CN](docs/RELEASE-0.29.0-ZH-CN.md))

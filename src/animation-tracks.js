@@ -36,12 +36,17 @@ function channelAllowed(model, target) {
   if (target.kind !== 'node') return false;
   return Object.entries(NODE_CHANNELS).some(([name, channels]) => channels.includes(target.property) && model[name]?.some(n => n.ObjectId === target.id));
 }
-function resolveTarget(model, target, create = false) {
+// Reads follow the first record, as the preview does; writes must not guess
+// which duplicate owner the user meant, so they wait for the repair.
+export function assertSingleGeosetOwner(model, id) {
+  if ((model.GeosetAnims || []).filter(a => a.GeosetId === id).length > 1) throw new Error(`Geoset ${id + 1} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.`);
+}
+function resolveTarget(model, target, create = false, write = create) {
   if (!channelAllowed(model, target)) throw new Error('This animation target or property is no longer available.');
   if (target.kind === 'material') return model.Materials[target.id].Layers[target.layer];
   if (target.kind === 'node') return allNodes(model).find(n => n.ObjectId === target.id);
+  if (write) assertSingleGeosetOwner(model, target.id);
   const existing = (model.GeosetAnims || []).filter(a => a.GeosetId === target.id);
-  if (existing.length > 1) throw new Error(`Geoset ${target.id + 1} has multiple geoset animations. Resolve the duplicate before editing its tracks.`);
   if (existing.length) return existing[0];
   if (!create) return null;
   const anim = createVisibilityGeosetAnimation(target.id);
@@ -55,7 +60,7 @@ export function createGeosetAnimations(model, geosetIds = []) {
   let created = 0;
   for (const id of ids) {
     const existing = (model.GeosetAnims || []).filter(animation => animation.GeosetId === id);
-    if (existing.length > 1) throw new Error(`Geoset ${id + 1} has multiple geoset animations. Resolve the duplicate before editing its visibility.`);
+    assertSingleGeosetOwner(model, id);
     if (!existing.length) { resolveTarget(model, { kind: 'geoset', id, property: 'Alpha' }, true); created++; }
   }
   return created;
@@ -148,7 +153,7 @@ function commitTrack(model, target, track) {
 function applyPrepared(model, prepared) {
   // All parsing/validation happens before the first model mutation, including
   // resolving every target. EditorDocument then makes the whole edit undoable.
-  for (const { target } of prepared) resolveTarget(model, target);
+  for (const { target } of prepared) resolveTarget(model, target, false, true);
   for (const { target, track } of prepared) commitTrack(model, target, track);
   return prepared.length;
 }
@@ -299,7 +304,7 @@ export function bakeAnimationTracks(model, drafts) {
   const prepared = drafts.map(draft => {
     const { target } = draft, id = keyId(target);
     if (seen.has(id)) throw new Error('Each target track can only appear once in a bake.');
-    seen.add(id); resolveTarget(model, target);
+    seen.add(id); resolveTarget(model, target, false, true);
     const track = parseAnimationTrackText(draft.text, { property: target.property, lineType: draft.lineType, globalSeqId: draft.globalSeqId ?? null, globalSequences: model.GlobalSequences });
     return { target, track };
   });

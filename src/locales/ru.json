@@ -166,6 +166,8 @@
   "Connected Bones": "Связанные кости",
   "Grabthrough": "Выбор насквозь",
   "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "Вкл.: выбор вершин насквозь, включая скрытые за моделью. Выкл.: выбор только видимых вершин.",
+  "Lines": "Линии",
+  "Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered.": "Показывать линии между вершинами. Отключите, чтобы видеть только точки вершин, когда сетка загромождена.",
   "Open models": "Открытые модели",
   "Scroll model tabs left": "Прокрутить вкладки моделей влево",
   "Scroll model tabs right": "Прокрутить вкладки моделей вправо",
@@ -6371,5 +6373,16 @@
   "Resume task": "Продолжить задачу",
   "Checking the result before completing the task.": "Проверка результата перед завершением задачи.",
   "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "Остановлено. Применённые изменения можно отменить. Продолжите задачу с контрольной точки.",
-  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain: применяет правила дизайна SD из Warcraft III к вашим запросам на моделирование, дополняет обычные художественные детали и проверяет результат. Поддерживает детализированные пользовательские SD-модели."
+  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain: применяет правила дизайна SD из Warcraft III к вашим запросам на моделирование, дополняет обычные художественные детали и проверяет результат. Поддерживает детализированные пользовательские SD-модели.",
+  "Duplicate geoset animations": "Дубликаты анимаций геосетов",
+  "Some geosets have more than one animation record. The model works; click to choose which record to keep.": "У некоторых геосетов больше одной записи анимации. Модель работает; нажмите, чтобы выбрать, какую запись оставить.",
+  "Some geosets have more than one animation record. The model works as it is; only keyframe edits on those geosets wait for this fix.": "У некоторых геосетов больше одной записи анимации. Модель работает как есть; только правка ключевых кадров этих геосетов ждёт исправления.",
+  "The fix is an ordinary edit: Undo reverses it, and nothing is written to disk until you save.": "Исправление — обычная правка: «Отменить» возвращает его, и ничего не записывается на диск, пока вы не сохраните.",
+  "This model is read-only; the fix is disabled to preserve unsupported data.": "Модель доступна только для чтения; исправление отключено, чтобы сохранить неподдерживаемые данные.",
+  "Fix duplicate geoset animations": "Исправить дубликаты анимаций геосетов",
+  "Fixed duplicate geoset animations. Undo reverses it.": "Дубликаты анимаций геосетов исправлены. «Отменить» возвращает изменение.",
+  "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "У геосета {0} больше одной анимации геосета. Нажмите предупреждение в строке состояния, чтобы исправить это перед правкой его дорожек.",
+  "Not now": "Не сейчас",
+  "Darker interface": "Тёмный интерфейс",
+  "Lighter interface": "Светлый интерфейс"
 }

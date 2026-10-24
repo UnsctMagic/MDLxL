@@ -38,6 +38,7 @@ export function previewOverlaySettings(value) {
     mode: value?.highlightSelection ? 'selection' : value?.allMesh ? 'all' : 'none',
     interactiveSelection: value?.interactiveSelection === true,
     grabThrough: value?.grabThrough !== false,
+    showLines: value?.showLines !== false,
     size: Math.max(.25, Math.min(3, Number.isFinite(Number(value?.size)) ? Number(value.size) : 1)),
     eligibleByGeoset: value?.eligibleByGeoset || EMPTY_MAP,
     selectionByGeoset: value?.selectionByGeoset || EMPTY_MAP,
