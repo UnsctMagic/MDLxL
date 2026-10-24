@@ -51,6 +51,20 @@ authorized. Advanced direct-model markup and geometric mirror remain later work.
   remain unchanged. Private inputs retain their original hashes.
 - GitHub CI passed for implementation commit f71de79166b2b53940a942e222b38081b3f0e6a5.
 
+## Claude review (2026-10-24)
+
+Stacked follow-up branch `claude/surface-cutout-degenerate-uv` on top of #289.
+
+- Fixed: a face with collapsed (point/line) UVs anywhere in the outline's
+  bounding box blocked the whole cut, contrary to the code comment. It now
+  blocks only when it lies in or touches the outline. Regression test added.
+- Checked, not changed: generated normals are interpolated without
+  renormalising. This is deliberate and correct: the piecewise-linear field
+  matches the original triangle, and the preview shader normalises per vertex.
+- Checked, not changed: plan/preview serialise the whole model as a stale-plan
+  guard. Measured about 0.1 s per outline release on a 24-geoset SD model and
+  about 0.8 s on a synthetic 10x model. Revisit only if cutting feels slow.
+
 ## Handoff boundary
 
 Code and verification are ready for branch/PR review. The initiating Codex task

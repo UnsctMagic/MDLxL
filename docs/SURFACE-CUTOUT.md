@@ -35,6 +35,10 @@ sixteen triangles. There is no generated center/support vertex. Crossed original
 edges can require more vertices and local conformity splits. Protected neighbors
 block a required split rather than leaving a T-junction.
 
+Faces whose UVs collapse to a point or line cannot be lifted. One that lies in
+or touches the outline blocks the cut; one clear of the outline, even inside its
+bounding box, stays untouched in the source.
+
 ## Rig and appearance policy
 
 Strict mode inserts a vertex only when its participating source corners have the

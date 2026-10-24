@@ -35,6 +35,19 @@ function validateLoop(loop) {
     if (intersects(loop[i], loop[(i + 1) % loop.length], loop[j], loop[(j + 1) % loop.length])) throw Error('The outline crosses itself. Draw a simple closed outline.');
   }
 }
+function insideLoop(p, loop) {
+  let inside = false;
+  for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+    const a = loop[i], b = loop[j];
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
+}
+/** True when a (possibly collapsed) triangle lies in or touches the outline. */
+function reachesLoop(points, loop, epsilon) {
+  if (points.some(p => insideLoop(p, loop))) return true;
+  return points.some((a, k) => loop.some((c, n) => intersects(a, points[(k + 1) % 3], c, loop[(n + 1) % loop.length], epsilon)));
+}
 function boundaryDistance(p, loop) {
   return Math.min(...loop.map((a, i) => segmentDistance(p, a, loop[(i + 1) % loop.length])));
 }
@@ -133,7 +146,7 @@ function resolveTriangles(domain, target) {
     for (const seedTriangle of new Set(target.seedTriangles)) for (const [index, triangle] of resolveTriangles(domain, { ...target, seedTriangles: undefined, seedTriangle })) combined.set(index, triangle);
     return combined;
   }
-  const { triangles, clip, dimension } = domain, eligible = target.eligibleTriangleIndices == null ? null : new Set(target.eligibleTriangleIndices);
+  const { triangles, clip, dimension, loop, epsilon } = domain, eligible = target.eligibleTriangleIndices == null ? null : new Set(target.eligibleTriangleIndices);
   const candidates = new Map();
   const explicit = target.triangleIndices == null ? null : new Set(target.triangleIndices);
   for (const index of [...(explicit || []), ...(eligible || []), ...(target.seedTriangle == null ? [] : [target.seedTriangle])]) {
@@ -142,8 +155,10 @@ function resolveTriangles(domain, target) {
   for (const t of triangles) {
     if (!t.nearby || explicit && !explicit.has(t.index) || eligible && !eligible.has(t.index)) continue;
     if (Math.abs(cross(...t.local)) < dimension * dimension * 1e-14) {
-      // UV-degenerate faces cannot be lifted. Only block if their segment meets the outline's bounds.
-      throw Error('A target UV triangle is degenerate. Choose a nondegenerate UV surface.');
+      // UV-degenerate faces cannot be lifted. Block only when the face lies in or
+      // touches the outline; one clear of it stays untouched in the source.
+      if (reachesLoop(t.local, loop, epsilon)) throw Error('A target UV triangle is degenerate. Choose a nondegenerate UV surface.');
+      continue;
     }
     const inside = clip([t.local], 'keep');
     if (Math.abs(inside.reduce((sum, loop) => sum + signedArea(loop), 0)) > dimension * dimension * 1e-13) candidates.set(t.index, { ...t, inside });

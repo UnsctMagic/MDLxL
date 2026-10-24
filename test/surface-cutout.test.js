@@ -88,6 +88,33 @@ test('no-op, full selection, malformed loop, degenerate UV and stale/tampered pl
   const valid = planSurfaceCutout(model, request()); model.Geosets[0].Vertices[0] = 7;
   assert.throws(() => applySurfaceCutoutPlan(model, valid), /changed/);
 });
+test('squashed UV faces block only when they reach the outline', () => {
+  // A main face plus one face whose UVs collapse to a point or a line (common for
+  // single-colour parts and edge-on planar projections). Inside the outline's
+  // bounding box but clear of the outline, it stays untouched and cannot block.
+  const withSquashed = uvs => fixture([[0, 0], [1, 0], [0, 1], ...uvs], [0, 1, 2, 3, 4, 5]);
+  for (const uvs of [
+    [[.225, .225], [.225, .225], [.225, .225]], // point in the box corner
+    [[.221, .26], [.26, .221], [.24, .24]], // line across the box corner
+  ]) {
+    const model = withSquashed(uvs), contour = octagon();
+    const plan = planSurfaceCutout(model, request(contour, { triangleIndices: undefined }));
+    assert.deepEqual(plan.edits[0].affectedTriangles, [0]);
+    const preview = previewSurfaceCutout(model, plan), faces = preview.Geosets[0].Faces, mainFaces = [];
+    let squashedKept = false;
+    for (let i = 0; i < faces.length; i += 3) {
+      const ids = Array.from(faces.subarray(i, i + 3));
+      if (ids.join() === '3,4,5') squashedKept = true; else mainFaces.push(...ids);
+    }
+    assert.ok(squashedKept, 'squashed face is kept unchanged');
+    checkPartition(fixture().Geosets[0], { ...preview.Geosets[0], Faces: Uint16Array.from(mainFaces) }, preview.Geosets[1], contour);
+  }
+  for (const uvs of [
+    [[.3, .3], [.3, .3], [.3, .3]], // point inside the outline
+    [[.25, .1], [.25, .5], [.25, .3]], // line crossing the outline
+    [[.3, .38], [.3, .38], [.3, .38]], // point on the outline
+  ]) assert.throws(() => planSurfaceCutout(withSquashed(uvs), request(octagon(), { triangleIndices: undefined })), /degenerate/);
+});
 test('overlapping shell requires a seed; identity never follows position alone', () => {
   const model = fixture([[0, 0], [1, 0], [0, 1], [0, 0], [1, 0], [0, 1]], [0, 1, 2, 3, 4, 5]);
   assert.throws(() => planSurfaceCutout(model, request(octagon(), { triangleIndices: undefined })), /Overlapping UV instances/);
