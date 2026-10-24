@@ -41,8 +41,8 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
   };
   const frameRequest = useMemo(() => ({ ...localFrame, frame }), [localFrame, frame]);
   return <div className="forge-editor" ref={root} onKeyDown={keys}>
-    <div className="classic-toolbar forge-editor-toolbar"><CameraTools value={cameraMode} onChange={setCameraMode}/>
-      {onUndo && <div className="classic-toolbar-group"><Tool action="undo" icon="sb_undo" title="Undo" disabled={!canUndo} onClick={onUndo}/><Tool action="redo" icon="sb_undo" title="Redo" flip disabled={!canRedo} onClick={onRedo}/>{onCopy && <><Tool action="copy" icon="sb_copy" title="Copy" disabled={!canCopy} onClick={onCopy}/><Tool action="paste" icon="sb_paste" title="Paste" onClick={onPaste}/></>}</div>}
+    <div className="classic-toolbar forge-editor-toolbar"><CameraTools look value={cameraMode} onChange={setCameraMode}/>
+      {onUndo && <div className="classic-toolbar-group"><Tool look action="undo" icon="sb_undo" title="Undo" disabled={!canUndo} onClick={onUndo}/><Tool look action="redo" icon="sb_undo" title="Redo" flip disabled={!canRedo} onClick={onRedo}/>{onCopy && <><Tool look action="copy" icon="sb_copy" title="Copy" disabled={!canCopy} onClick={onCopy}/><Tool look action="paste" icon="sb_paste" title="Paste" onClick={onPaste}/></>}</div>}
       {toolbar}
       <div className="forge-display"><label className="check"><input type="checkbox" checked={vertices} onChange={e => setVertices(e.target.checked)}/>Vertices</label><label className="check"><input type="checkbox" checked={grid} onChange={e => setGrid(e.target.checked)}/>Grid</label></div>
     </div>
@@ -59,7 +59,7 @@ export default function ForgeEditor({ model, preferences, editorState = {}, sele
         {controlPoints && <div className="forge-control-points">{controlPoints}</div>}
         <div className="classic-tools forge-mesh-tools">{operations}{onDuplicate && <Tool action={duplicateAction} title="Duplicate" description={duplicateDescription || 'Duplicate: add a copy of the selected piece beside it.'} disabled={!points.length} onClick={onDuplicate}><CopyPlus className="modern-retro-icon modern-retro-gold" aria-hidden="true" strokeWidth={2.25}/></Tool>}</div>
         {shapingTools}
-        <div className="classic-tools"><TransformTools value={tool} onChange={next => { onCancelPartDrag?.('tool'); chooseTool(next); }}/>{onDelete && <Tool action="Delete vertices" icon="sb_del" title="Delete selection" disabled={!points.length} onClick={onDelete}/>}</div>
+        <div className="classic-tools"><TransformTools look value={tool} onChange={next => { onCancelPartDrag?.('tool'); chooseTool(next); }}/>{onDelete && <Tool look action="Delete vertices" icon="sb_del" title="Delete selection" disabled={!points.length} onClick={onDelete}/>}</div>
         <label className="check grabthrough-option"><input aria-label="Grabthrough" type="checkbox" checked={grabThrough} onChange={e => setGrabThrough(e.target.checked)}/>Grabthrough</label>
         <div className="forge-selection-actions"><button data-hotkey="selectAll" onClick={all}>All</button><button data-hotkey="clear" onClick={actions.clear}>Clear</button><button data-hotkey="invertSelection" onClick={invert}>Invert</button></div>
       </>}

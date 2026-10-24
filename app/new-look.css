@@ -39,12 +39,12 @@
 /* Icon parts: s = line, f = outlined shape, d = detail. */
 :root .classic-app.classic-app:not([data-vis-ui]) .look-icon{overflow:visible;flex:none}
 :root .classic-app.classic-app:not([data-vis-ui]) .look-icon *{stroke-linecap:round;stroke-linejoin:round;fill:none;stroke:currentColor;stroke-width:var(--sw,1.7)}
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-sidebar .classic-tools,.classic-app>.classic-toolbar) .has-look-icon>.look-icon{display:block}
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-sidebar .classic-tools,.classic-app>.classic-toolbar) .has-look-icon>:not(.look-icon):not(.module-icon-badge){display:none!important}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-sidebar .classic-tools,.classic-app>.classic-toolbar,.forge-editor-toolbar,.forge-overlay .classic-tools) .has-look-icon>.look-icon{display:block}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-sidebar .classic-tools,.classic-app>.classic-toolbar,.forge-editor-toolbar,.forge-overlay .classic-tools) .has-look-icon>:not(.look-icon):not(.module-icon-badge){display:none!important}
 
 /* Quiet chrome: top row, editor row, view controls, sidebar and status bar. */
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float){font:12.5px/1.45 'Segoe UI',Tahoma,sans-serif}
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float) :is(button,select,input){font:inherit}
+:root:not([lang=mordor]) .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float){font:12.5px/1.45 'Segoe UI',Tahoma,sans-serif}
+:root:not([lang=mordor]) .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float) :is(button,select,input){font:inherit}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button{border:1px solid transparent!important;border-radius:7px!important;background:transparent!important;box-shadow:none!important;color:var(--ui-text)!important;min-height:26px;padding:3px 9px}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button:hover:not(:disabled){background:var(--ui-hover)!important}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-view-label,.classic-selection-actions) button:is(.active,[aria-pressed=true]){background:var(--ui-field)!important;box-shadow:var(--m-raise)!important}
@@ -155,3 +155,52 @@
 :root .classic-app.classic-app:not([data-vis-ui]) .geosets-float>header>button:hover{background:var(--ui-hover);color:var(--ui-text)}
 :root .classic-app.classic-app:not([data-vis-ui]) .geosets-float>.classic-geosets{margin:0!important;border:0!important;border-radius:0!important;padding:6px 8px 8px!important;min-height:0}
 :root .classic-app.classic-app:not([data-vis-ui]) .geosets-float :is(.geoset-list,[role=listbox]){min-height:120px}
+
+/* ---- The rest of the program: windows, managers, settings, workspaces ----
+   Shape and tone only: rounded corners, softer edges and soft title bars. The
+   theme rules keep the colours, so special buttons (Record, swatches) stay as
+   they are. The Library and BitsAndParts keep their own designed looks. */
+:root .classic-app.classic-app:not([data-vis-ui]){--m-edge:color-mix(in srgb,var(--ui-border) 62%,transparent)}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(button,select,textarea,input:not([type=checkbox],[type=radio],[type=range],[type=color])):not(:where(.ai-assistant *,.toolbar-modules *,.viewport-orientation-compass *,.tl-dialog *,.tl-overlay *,.parts-dialog *,.parts-overlay *)){border-radius:6px;border-color:var(--m-edge);text-shadow:none}
+:root .classic-app.classic-app:not([data-vis-ui]) button:is([aria-pressed=true],[aria-selected=true],.active,.pressed):not(:where(.ai-assistant *,.toolbar-modules *,.tl-dialog *,.parts-dialog *)){border-color:color-mix(in srgb,var(--ui-accent) 70%,transparent);box-shadow:none}
+:root .classic-app.classic-app:not([data-vis-ui]) .modern-retro-icon{color:inherit}
+
+/* Windows and dialogs: soft cards with a quiet title bar instead of the blue one. */
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-modal-window,.classic-dialog,.re-window,.ax-window,.smm-window,.atm-window,.uv-tab-window,.geoset-repair-window,.showcase-dialog,.paint-save-dialog,.emitter-text-dialog,.geoset-merge-dialog,.forge-shape-dialog,.movement-curve-dialog,.pe-window,.paint-start-card){border:1px solid var(--m-line);border-radius:12px;box-shadow:0 16px 48px #0000002e,0 2px 8px #0000001a;background:var(--ui-panel)}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-modal-window,.classic-dialog,.smm-window,.atm-window,.uv-tab-window,.geoset-repair-window,.movement-curve-dialog,.ax-window)>header,:root .classic-app.classic-app:not([data-vis-ui]) :is(.re-caption,.forge-overlay header){background:var(--m-soft);color:var(--ui-text);border:0;border-bottom:1px solid var(--m-line);border-radius:11px 11px 0 0;font-weight:600}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-modal-window,.classic-dialog,.re-window,.smm-window,.atm-window,.ax-window)>footer,:root .classic-app.classic-app:not([data-vis-ui]) .re-footer{border-top:1px solid var(--m-line);border-radius:0 0 11px 11px}
+:root:not([lang=mordor]) .classic-app.classic-app:not([data-vis-ui]) :is(.classic-modal-window,.classic-dialog,.re-window,.ax-window,.smm-window,.atm-window,.uv-tab-window,.geoset-repair-window,.showcase-dialog,.paint-save-dialog,.emitter-text-dialog,.geoset-merge-dialog,.pe-window,.forge-overlay,.classic-sidebar,.classic-animation-bar,.paint-workspace,.showcase-sidebar){font-family:'Segoe UI',Tahoma,sans-serif}
+:root:not([lang=mordor]) .classic-app.classic-app:not([data-vis-ui]) :is(.classic-modal-window,.classic-dialog,.re-window,.ax-window,.smm-window,.atm-window,.uv-tab-window,.geoset-repair-window,.showcase-dialog,.paint-save-dialog,.emitter-text-dialog,.geoset-merge-dialog,.pe-window,.forge-overlay,.classic-sidebar,.classic-animation-bar,.paint-workspace,.showcase-sidebar) :is(button,input,select,textarea){font-family:inherit}
+
+/* Tabs become one soft segmented control. */
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.settings-tabs,.re-manager-tabs,.forge-modes,.pe-tool-tabs){display:flex;gap:2px;padding:3px;border:0;border-radius:10px;background:var(--m-soft)}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.settings-tabs,.re-manager-tabs,.forge-modes,.pe-tool-tabs)>button{border:1px solid transparent;border-radius:7px;background:transparent;box-shadow:none;color:var(--ui-text)}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.settings-tabs,.re-manager-tabs,.forge-modes,.pe-tool-tabs)>button:hover{background:var(--ui-hover)}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.settings-tabs,.re-manager-tabs,.forge-modes,.pe-tool-tabs)>button:is([aria-selected=true],[aria-pressed=true],.active){background:var(--ui-field);color:var(--ui-text);border-color:transparent;box-shadow:var(--m-raise);font-weight:600}
+
+/* Lists, groups and sidebar sections as soft cards. */
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.re-list,.key-list,.movement-node-list,.hotkeys-table-wrap,.module-controller .node-picks,.classic-geosets [role=listbox]){border:1px solid var(--m-line);border-radius:8px}
+:root .classic-app.classic-app:not([data-vis-ui]) fieldset:not(.classic-planes){border:1px solid var(--m-line);border-radius:8px}
+:root .classic-app.classic-app:not([data-vis-ui]) .sidebar-section:not(.classic-geosets){border:1px solid var(--m-line);border-radius:10px;margin:4px 0;background:transparent;overflow:hidden}
+:root .classic-app.classic-app:not([data-vis-ui]) .sidebar-section:not(.classic-geosets)>summary{min-height:24px;padding:2px 8px;background:var(--m-soft);font-size:12px;font-weight:600;color:var(--ui-text)}
+:root .classic-app.classic-app:not([data-vis-ui]) .sidebar-section:not(.classic-geosets)>.sidebar-section-body{padding:6px}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar:not(:has(>.classic-counts)){padding:6px 8px!important}
+
+/* Tool grids elsewhere (bones, Forge) get the same carved tiles. */
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.bone-tools>button,.bone-tools>.bone-create-anchor>button,.movement-tools>button,.forge-overlay .classic-tools>button){border:0!important;border-radius:5px!important;background:var(--tile-bg)!important;box-shadow:var(--tile-sh)!important;color:var(--ic)!important;text-shadow:var(--txt-sh)}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.bone-tools>button,.bone-tools>.bone-create-anchor>button,.movement-tools>button,.forge-overlay .classic-tools>button):is(.active,[aria-pressed=true]){background:var(--tile-on-bg)!important;box-shadow:var(--tile-on-sh)!important;color:var(--lit)!important}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.bone-tools,.movement-tools,.forge-overlay .classic-tools){gap:4px!important}
+
+/* Forge's own top row matches the main one. */
+:root .classic-app.classic-app:not([data-vis-ui]) .forge-editor-toolbar{gap:6px;padding:4px 10px!important;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important;align-items:center}
+:root .classic-app.classic-app:not([data-vis-ui]) .forge-editor-toolbar .classic-toolbar-group{gap:2px;margin-right:6px;padding:2px;border-radius:10px;background:var(--m-soft)}
+:root .classic-app.classic-app:not([data-vis-ui]) .forge-editor-toolbar .classic-tool{width:30px!important;min-width:30px!important;height:30px!important;padding:5px!important;display:inline-flex;align-items:center;justify-content:center;border-color:transparent;background:transparent}
+:root .classic-app.classic-app:not([data-vis-ui]) .forge-editor-toolbar .classic-tool:is(.active,[aria-pressed=true]){background:var(--ui-field);box-shadow:var(--m-raise)}
+:root .classic-app.classic-app:not([data-vis-ui]) .forge-editor-toolbar .look-icon{width:18px;height:18px;color:var(--ui-text)}
+:root .classic-app.classic-app:not([data-vis-ui]) .forge-editor-toolbar .classic-tool:disabled .look-icon{opacity:.35}
+:root .classic-app.classic-app:not([data-vis-ui]) .forge-overlay .classic-tools .look-icon{width:20px;height:20px;filter:var(--ic-filter)}
+:root .classic-app.classic-app:not([data-vis-ui]) .movement-tools:not(.bone-tools){display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px!important;padding:2px 0 6px!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .movement-tools.bone-tools{grid-template-columns:repeat(5,minmax(0,1fr))!important;grid-auto-rows:34px;gap:5px!important;justify-content:stretch!important}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.movement-tools>button,.bone-tools>button,.bone-tools>.bone-create-anchor>button){width:auto!important;height:34px!important;min-width:0!important;flex:none!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .bone-tools>.bone-create-anchor>button{width:100%!important}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.movement-tools,.bone-tools) img{width:18px!important;height:18px!important}

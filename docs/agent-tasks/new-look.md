@@ -48,6 +48,19 @@ Updated: 2026-10-24
   pill view controls, airy sidebar, Segoe UI). That is included, but scoped to the
   main window's toolbar, editor row, view controls, status bar and the Vertices
   sidebar, so module windows and other sidebars keep their own styling.
+- Decision (owner, 2026-10-24: "make a complete pass"): the look now covers the
+  whole program: every window and dialog (Settings, all resource managers, Particle
+  editor, AnimXL, Sort My Mess, Attachemator, Paint dialogs…) gets soft rounded
+  cards with a quiet title bar; tabs are one segmented control; sidebar sections
+  are cards; bone/movement/Forge tool grids use the carved tiles; Forge's top row
+  uses the new icons. Shape and tone only, no background overrides, so theme
+  colours and special buttons (Record, swatches) stay. The Library (`.tl-*`) and
+  BitsAndParts (`.parts-*`) keep their own designed looks.
+- Survey script for every screen: kept in the session scratchpad (`survey.cjs`),
+  pattern: launch packaged exe with `fixtures/demo.mdx`, send `menu` ids through
+  `webContents.send('menu', id)`, close with dialog-scoped `[aria-label^=Close]`
+  (never the model tab's close). Paint needs an MDX800 model with a texture;
+  "New base coat" opens the studio without game data.
 - Decision: with VIS on the AI icon stays reachable next to XL (classic label
   style), because VIS hides the other dock icons and the top-row AI text button
   no longer exists.
