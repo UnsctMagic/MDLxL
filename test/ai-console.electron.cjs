@@ -23,7 +23,14 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     console.log('SKIP: no model fixture at ' + model);
     return;
   }
-  const requests = [];
+  // Work on a copy: the test saves the model.
+  const workModel = path.join(out, 'Footman.mdx'),
+    secondModel = path.join(out, 'Second.mdx');
+  fs.copyFileSync(model, workModel);
+  fs.copyFileSync(model, secondModel);
+  // Offload Mode is on by default: the organiser hands the job to a worker (Crow).
+  const organiserRequests = [],
+    workerRequests = [];
   server = http.createServer(async (req, res) => {
     let body = '';
     for await (const part of req) body += part;
@@ -33,8 +40,6 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       return;
     }
     const data = JSON.parse(body);
-    requests.push(data);
-    const n = requests.length;
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const stream = async (kind, text, pause) => {
       for (const word of text.split(/(?<= )/)) {
@@ -42,38 +47,56 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
         await wait(pause);
       }
     };
+    const stop = () => {
+      sse(res, { choices: [{ delta: {}, finish_reason: 'stop' }] });
+      res.end();
+    };
     const callTool = (name, args) => {
       sse(res, {
         choices: [
           {
-            delta: { tool_calls: [{ index: 0, id: 'call-' + n, function: { name, arguments: JSON.stringify(args) } }] },
+            delta: { tool_calls: [{ index: 0, id: 'call-' + Math.random(), function: { name, arguments: JSON.stringify(args) } }] },
             finish_reason: 'tool_calls',
           },
         ],
       });
       res.end();
     };
+    if (String(data.messages[0]?.content).includes('You are the organiser')) {
+      organiserRequests.push(data);
+      if (!data.tools) {
+        await stream('content', 'Memory: the chest area was separated; the user wants the shoulder pads kept. ', 10);
+        return stop();
+      }
+      if (data.messages.at(-1).role === 'tool') {
+        await stream('content', 'Crow separated the marked area and kept the shoulder pads. ', 20);
+        return stop();
+      }
+      await stream('content', 'I will give this to a worker. ', 20);
+      return callTool('mdlxl_worker', { job: 'Separate marked area', instructions: 'Cut the marked chest area into its own geoset.' });
+    }
+    workerRequests.push(data);
+    const n = workerRequests.length;
     if (n === 1) {
       await stream('reasoning_content', 'The user marked an area on the chest and drew an outline with the pen. ', 60);
       await stream('content', 'I will look at the marked area first. ', 40);
       return callTool('mdlxl_context', {});
     }
     if (n === 2) {
-      // Slow thinking leaves time to steer while the AI works.
-      await stream('reasoning_content', 'The marked vertices belong to one geoset. I should check which faces use them before separating anything. ', 180);
-      return callTool('mdlxl_help', { query: 'geoset' });
+      // Slow thinking leaves time to steer, and to switch tabs so the next step pauses.
+      await stream('reasoning_content', 'The marked vertices belong to one geoset. I should check which faces use them before separating anything at all. ', 180);
+      return callTool('mdlxl_context', {});
     }
     const steered = JSON.stringify(data.messages).includes('Keep the shoulder pads');
     await stream('content', steered ? 'Understood, I will keep the shoulder pads in the original geoset. ' : 'No steering arrived. ', 30);
-    sse(res, { choices: [{ delta: {}, finish_reason: 'stop' }] });
-    res.end();
+    stop();
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const executablePath =
     process.env.MDLXL_AI_TEST_EXE || path.resolve('out/pkg-ai/MDLxL-win32-x64/MDLxL.exe');
   app = await _electron.launch({
     executablePath,
-    args: [model, '--disable-gpu-vsync', '--disable-frame-rate-limit'],
+    args: [workModel, '--disable-gpu-vsync', '--disable-frame-rate-limit'],
     env: {
       ...process.env,
       MDLXL_PROFILE: path.join(out, 'profile'),
@@ -201,13 +224,13 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('Escape turns the drawing tool off', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
   check('the model is never modified by drawings', !(await page.locator('.classic-status').innerText()).includes('Modified'));
 
-  // Prompt with drawings, live thinking and steps, then steer mid-task.
+  // Prompt with drawings: the organiser hands it to Crow; watch and steer Crow.
   await page.getByLabel('AI prompt').fill('Cut the marked area into its own geoset');
   await page.getByLabel('AI prompt').press('Enter');
-  await page.waitForSelector('.ai-thinking.ai-live', { timeout: 15000 });
-  await shot('05-thinking');
+  await page.waitForSelector('.ai-worker-row', { timeout: 15000 });
+  await shot('05-organiser');
   const context = JSON.parse(
-    requests[0].messages
+    organiserRequests[0].messages
       .find(m => m.role === 'user')
       .content[0].text.split('MDLxL context captured when this prompt was sent:\n')[1],
   );
@@ -216,16 +239,46 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const markerNote = annotations.strokes.find(s => s.tool === 'marker');
   check('the marker names the vertices it covers', Object.values(markerNote.markedVertices || {}).flat().length > 0, markerNote);
   check('the user message notes the attached drawings', (await page.locator('.ai-role-user .ai-message-note').first().innerText()).includes('2 drawings'));
+  check('the organiser only gets the worker and help tools', JSON.stringify(organiserRequests[0].tools.map(t => t.function.name)) === '["mdlxl_worker","mdlxl_help"]');
+  const crowChip = page.locator('button.ai-roster-chip', { hasText: 'Crow' });
+  await crowChip.waitFor({ timeout: 10000 });
+  check('the first worker is called Crow', (await page.locator('.ai-worker-row b').first().innerText()) === 'Crow');
+  for (let i = 0; i < 100 && !workerRequests.length; i++) await wait(100);
+  check("Crow gets the user's words exactly as written", JSON.stringify(workerRequests[0].messages).includes("The user's message, exactly as written:\\nCut the marked area into its own geoset"));
+  await crowChip.click();
+  await page.waitForSelector('.ai-from-organiser', { timeout: 5000 });
   await page.waitForSelector('.ai-step', { timeout: 15000 });
-  for (let i = 0; i < 60 && requests.length < 2; i++) await wait(100);
+  for (let i = 0; i < 100 && workerRequests.length < 2; i++) await wait(100);
+  await page.waitForSelector('.ai-thinking.ai-live', { timeout: 10000 });
+  await shot('05b-crow-thinking');
   await page.getByLabel('AI prompt').fill('Keep the shoulder pads');
   check('while busy the send button steers', (await page.locator('.ai-send').getAttribute('aria-label')) === 'Steer');
   await page.getByLabel('AI prompt').press('Enter');
   await page.waitForSelector('.ai-message-note:has-text("Sent while the AI was working")', { timeout: 5000 });
   await shot('06-steered');
-  await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('keep the shoulder pads'), null, { timeout: 30000 });
-  await page.waitForFunction(() => !document.querySelector('.ai-stop'), null, { timeout: 15000 });
-  check('steering reaches the running task', JSON.stringify(requests.at(-1).messages).includes('steering for the current task:\\nKeep the shoulder pads'));
+
+  // Pause and resume: switching to another model tab makes Crow's next step wait.
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
+  }, secondModel);
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('Second.mdx'), null, { timeout: 20000 });
+  await page.waitForSelector('.ai-paused', { timeout: 15000 });
+  check('a bird waits for its model tab instead of failing', (await page.locator('.ai-paused').innerText()).includes('Footman.mdx'));
+  const pausedAt = workerRequests.length;
+  await wait(2500);
+  check('nothing happens on the paused model while you are away', workerRequests.length === pausedAt && pausedAt === 2, { pausedAt, now: workerRequests.length });
+  await shot('06b-paused');
+  await page.locator('.model-tab [role="tab"]', { hasText: 'Footman.mdx' }).click();
+  for (let i = 0; i < 150 && workerRequests.length < 3; i++) await wait(100);
+  check('returning to the tab resumes the bird', workerRequests.length === 3);
+  await page.waitForFunction(() => !document.querySelector('.ai-stop'), null, { timeout: 30000 });
+  check('the pause banner clears', (await page.locator('.ai-paused').count()) === 0);
+  check('steering reaches the running bird', JSON.stringify(workerRequests[2].messages).includes('steering for the current task:\\nKeep the shoulder pads'));
+  await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('kept the shoulder pads'), null, { timeout: 10000 });
+  check('the organiser reports when Crow is done', (await page.locator('.ai-worker-row.ai-worker-done').count()) === 1);
+  await crowChip.click();
+  await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('keep the shoulder pads in the original geoset'), null, { timeout: 10000 });
   check('every tool step settles once the AI finishes', (await page.locator('.ai-step').count()) >= 2 && (await page.locator('.ai-step-running').count()) === 0 && (await page.locator('.ai-step-done').count()) >= 1);
   const order = await page.evaluate(() =>
     [...document.querySelectorAll('.ai-thread > article')].map(a => (a.classList.contains('ai-role-user') ? 'user' : 'ai')),
@@ -233,6 +286,9 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('the steering message sits where it was sent', JSON.stringify(order) === JSON.stringify(['user', 'ai', 'user', 'ai']), order);
   await page.locator('.ai-thinking .ai-part-toggle').first().click();
   await shot('07-done-thinking-open');
+  await page.locator('button.ai-roster-chip', { hasText: 'Organiser' }).click();
+  await page.waitForSelector('.ai-worker-row');
+  await shot('07a-organiser-done');
 
   // Compaction: a running provider summarizes the long chat; the console shows it plainly.
   const sendEvent = value =>
@@ -247,6 +303,18 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.waitForSelector('.ai-compaction:not(.ai-live)', { timeout: 5000 });
   check('finished compaction stays as a quiet note', (await page.locator('.ai-compaction').innerText()).includes('Context compacted'));
   await shot('07c-compacted');
+  // Saving offers to tidy the model's AI chats; Keep a summary leaves a memory note.
+  await canvas.click({ position: { x: 30, y: 300 } }).catch(() => {});
+  await page.keyboard.press('Control+s');
+  await page.waitForSelector('.ai-cleanup', { timeout: 20000 });
+  check('saving after AI work asks how to tidy the chats', (await page.locator('.ai-cleanup-choices button').count()) === 3);
+  await shot('07d-save-cleanup');
+  const before = organiserRequests.length;
+  await page.locator('.ai-cleanup-choices button', { hasText: 'Keep a summary' }).click();
+  await page.waitForFunction(() => !document.querySelector('.ai-cleanup') && !document.querySelector('.ai-roster'), null, { timeout: 20000 });
+  check('Keep a summary asks the organiser for a memory note without tools', organiserRequests.length === before + 1 && !organiserRequests.at(-1).tools);
+  check('the chats are cleared and a fresh organiser starts', (await page.locator('.ai-empty').count()) === 1);
+  await shot('07e-after-cleanup');
   // Closing hides the drawings without losing them.
   const withDrawings = await viewShot();
   await page.getByRole('button', { name: 'Close AI assistant', exact: true }).click();

@@ -150,7 +150,9 @@ async function runApi({
           max_tokens: 16384,
           system,
           messages: history,
-          tools: tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema })),
+          ...(tools.length
+            ? { tools: tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema })) }
+            : {}),
           ...(thinking ? { thinking } : {}),
           stream: true,
         },
@@ -163,6 +165,15 @@ async function runApi({
       for await (const data of sseEvents(response)) {
         if (data.type === 'error') throw Error(data.error?.message || 'Claude stream failed.');
         if (data.type === 'content_block_start') content[data.index] = { ...data.content_block, _json: '' };
+        // How full the context is, for retiring Offload workers at half.
+        if (data.type === 'message_start' && data.message?.usage) {
+          const u = data.message.usage;
+          event({
+            type: 'usage',
+            used: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0),
+            window: anthropicThinking(settings.model) ? 1000000 : 200000,
+          });
+        }
         if (data.type === 'content_block_delta') {
           const block = content[data.index];
           if (!block) continue;
@@ -226,10 +237,15 @@ async function runApi({
         {
           model: settings.model,
           messages: [{ role: 'system', content: system }, ...history],
-          tools: tools.map(t => ({
-            type: 'function',
-            function: { name: t.name, description: t.description, parameters: t.inputSchema },
-          })),
+          ...(tools.length
+            ? {
+                tools: tools.map(t => ({
+                  type: 'function',
+                  function: { name: t.name, description: t.description, parameters: t.inputSchema },
+                })),
+              }
+            : {}),
+          ...(settings.provider === 'openai' ? { stream_options: { include_usage: true } } : {}),
           stream: true,
         },
         key,
@@ -240,6 +256,7 @@ async function runApi({
         finishReason;
       for await (const data of sseEvents(response)) {
         if (data.error) throw Error(data.error.message || 'AI stream failed.');
+        if (data.usage?.prompt_tokens) event({ type: 'usage', used: data.usage.prompt_tokens, window: 128000 });
         const choice = data.choices?.[0];
         if (!choice) continue;
         finishReason = choice.finish_reason || finishReason;
@@ -352,7 +369,7 @@ class CodexProcess {
         '-c',
         'mcp_servers.mdlxl.required=true',
         '-c',
-        'mcp_servers.mdlxl.tool_timeout_sec=180',
+        'mcp_servers.mdlxl.tool_timeout_sec=3600',
       );
       // Sending a prompt authorizes MDLxL's own editor tools, as in the Claude
       // allowlist. This is private to this child; shell/filesystem access stays restricted.
@@ -440,6 +457,12 @@ class CodexProcess {
         this.event({ type: 'text', text: '\n\n' });
       this.messageId = p.itemId || this.messageId;
       this.event({ type: 'text', text: p.delta });
+    }
+    if (message.method === 'thread/tokenUsage/updated') {
+      const usage = p.tokenUsage || p.usage || {},
+        last = usage.last || usage.total || {};
+      const used = last.inputTokens ?? last.totalTokens;
+      if (used && usage.modelContextWindow) this.event({ type: 'usage', used, window: usage.modelContextWindow });
     }
     if (message.method === 'item/reasoning/summaryTextDelta' || message.method === 'item/reasoning/textDelta') {
       if (p.itemId && this.reasoningId && p.itemId !== this.reasoningId)
@@ -643,6 +666,8 @@ async function runClaude({
     if (settings.model) args.push('--model', settings.model);
     if (conversation.threadId) args.push('--resume', conversation.threadId);
     const env = providerEnvironment(directory, 'claude');
+    // Worker jobs and pauses outlast Claude Code's default MCP tool timeout.
+    env.MCP_TOOL_TIMEOUT = '3600000';
     await fs.mkdir(env.TEMP, { recursive: true });
     await fs.mkdir(env.CLAUDE_CONFIG_DIR, { recursive: true });
     child = spawnAgent(settings.executable || 'claude', args, { cwd: directory, env });
@@ -655,6 +680,7 @@ async function runClaude({
       idle,
       unsteer;
     const toolNames = new Map();
+    let used = 0;
     const abort = () => stopAgent(child);
     signal.addEventListener('abort', abort, { once: true });
     const writeUser = content =>
@@ -718,6 +744,10 @@ async function runClaude({
                 event({ type: 'text', text: delta.text });
               }
             }
+            if (data.type === 'assistant' && data.message?.usage) {
+              const u = data.message.usage;
+              used = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+            }
             if (data.type === 'assistant')
               for (const block of data.message?.content || [])
                 if (block.type === 'tool_use') {
@@ -740,6 +770,8 @@ async function runClaude({
                 }
             if (data.type === 'result') {
               finalResult = data;
+              const window = Object.values(data.modelUsage || {})[0]?.contextWindow || 200000;
+              if (used) event({ type: 'usage', used, window });
               if (!streamed && data.result) event({ type: 'text', text: data.result });
               results++;
               clearTimeout(idle);

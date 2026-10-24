@@ -21,37 +21,16 @@ const {
   checkAgentExecutable,
 } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
+const {
+  AiSteering,
+  AiRecorder,
+  OrganiserRegistry,
+  RETIRE_AT,
+  nextBird,
+  contextUse,
+  deleteProviderSessions,
+} = require('./ai-offload.cjs');
 
-// Messages the user sends while a task runs. Providers deliver them at their next
-// opportunity; anything left when the AI finishes starts a follow-up turn.
-class AiSteering {
-  constructor(onAccepted) {
-    this.queue = [];
-    this.listeners = new Set();
-    this.onAccepted = onAccepted;
-  }
-  push(text, message) {
-    if (this.closed) return;
-    this.onAccepted(text);
-    this.queue.push(message);
-    for (const listener of [...this.listeners]) listener();
-  }
-  take() {
-    if (!this.queue.length) return null;
-    return this.queue.splice(0).join('\n\n');
-  }
-  restore(message) {
-    this.queue.unshift(message);
-  }
-  subscribe(listener) {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-  close() {
-    this.closed = true;
-    this.listeners.clear();
-  }
-}
 class AiService {
   constructor({ root, profile, electron, getWindow }) {
     this.root = root;
@@ -67,6 +46,9 @@ class AiService {
     this.running = new Set();
     this.awareness = new AiAwareness();
     this.writes = new Map();
+    this.runningIds = new Set();
+    this.registry = new OrganiserRegistry(this.directory);
+    this.workerLock = null;
   }
   async init() {
     if (!this.contract) this.contract = import(pathToFileURL(path.join(this.root, 'src/ai-tools.js')).href);
@@ -118,6 +100,7 @@ class AiService {
       url: this.external?.url || null,
       busy: !!this.active,
       awareness: this.awareness.enabled,
+      offload: config.offload !== false,
     };
   }
   async setAwareness(enabled) {
@@ -184,7 +167,7 @@ class AiService {
             : Error('AI request cancelled.'),
         );
       };
-      const timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
+      let timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
       const finish = (error, value) => {
         clearTimeout(timer);
         requestSignal.removeEventListener('abort', cancel);
@@ -195,6 +178,10 @@ class AiService {
         finish,
         signal: requestSignal,
         cancel: () => controller.abort(Error('Editor closed.')),
+        waiting: waiting => {
+          clearTimeout(timer);
+          if (!waiting) timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
+        },
       });
       requestSignal.addEventListener('abort', cancel, { once: true });
       if (requestSignal.aborted) {
@@ -272,7 +259,7 @@ class AiService {
       conversation = await this.conversation(id, settings.provider),
       task = conversation.task;
     if (!task) return null;
-    if (task.status === 'running' && this.active?.id !== id) {
+    if (task.status === 'running' && !this.runningIds.has(id)) {
       task.status = 'interrupted';
       await this.persistConversation(conversation);
     }
@@ -295,7 +282,7 @@ class AiService {
       throw Error('Attach up to four images, each under 9 MB.');
     if (!context?.target) throw Error('Capture the model context before sending.');
     const settings = await this.settings(),
-      { AI_TOOLS, AI_SYSTEM_PROMPT, aiToolEditsModel } = await this.init(),
+      contract = await this.init(),
       controller = new AbortController();
     // Account discovery/model lists can work while signed out. Check the actual
     // account before recording a turn or letting a provider make a model request.
@@ -307,20 +294,76 @@ class AiService {
       }
     }
     const conversation = await this.conversation(id, settings.provider);
-    let reply = { role: 'assistant', text: '', parts: [] };
+    if (conversation.retired)
+      throw Error(`${conversation.name || 'This chat'} is retired. Ask the organiser, or start a new chat.`);
+    const recorder = new AiRecorder(conversation, value => this.emit({ id, ...value }));
+    const steering = new AiSteering(text => recorder.split(text));
+    const active = { id, controller, steering, recorder, worker: null };
+    this.active = active;
+    const config = await this.configuration();
+    if (conversation.modelKey) await this.markActivity(conversation.modelKey);
+    try {
+      await this.runTask({
+        conversation,
+        recorder,
+        steering,
+        text,
+        images,
+        context,
+        resume,
+        settings,
+        contract,
+        signal: controller.signal,
+        organiser: conversation.kind === 'organiser' && config.offload !== false ? active : null,
+      });
+      recorder.event({ type: 'done' });
+      return { ok: true };
+    } catch (error) {
+      // A resume that cannot start is refused outright; nothing was recorded.
+      if (error.precondition) throw error;
+      if (controller.signal.aborted) {
+        recorder.separate();
+        recorder.event({
+          type: 'text',
+          text: 'Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.',
+        });
+        recorder.event({ type: 'done' });
+        return { ok: false, cancelled: true };
+      }
+      const authRequired = error.code === 'AI_AUTH_REQUIRED';
+      recorder.reply.error = error.message;
+      recorder.event({ type: 'error', text: error.message, authRequired });
+      return { ok: false, error: error.message, authRequired };
+    } finally {
+      if (this.active === active) this.active = null;
+      steering.close();
+      recorder.finish();
+      await this.persistConversation(conversation);
+      this.emit({ id, type: 'task', task: await this.taskInfo(id) });
+    }
+  }
+  // One task on one conversation: the provider turn, edit checkpoints, verification
+  // and steering. The organiser and each of its workers run through this.
+  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser, entry }) {
+    const { AI_TOOLS, AI_SYSTEM_PROMPT, AI_WORKER_TOOL, AI_ORGANISER_PROMPT, AI_WORKER_NOTE, aiToolEditsModel } =
+      contract;
+    const id = conversation.id;
     let task;
     if (resume) {
       task = conversation.task;
       if (!task || !['running', 'interrupted', 'incomplete'].includes(task.status))
-        throw Error('There is no interrupted task to resume.');
+        throw Object.assign(Error('There is no interrupted task to resume.'), { precondition: true });
       if (task.checkpoint) {
         const current = await this.call('mdlxl_checkpoint', { target: context.target });
         if (
           current.fingerprint !== task.checkpoint.fingerprint ||
           (current.path || current.name) !== (task.checkpoint.path || task.checkpoint.name)
         )
-          throw Error(
-            'The model differs from this task checkpoint. Restore its model through MDLxL recovery, or send a new prompt for the current model.',
+          throw Object.assign(
+            Error(
+              'The model differs from this task checkpoint. Restore its model through MDLxL recovery, or send a new prompt for the current model.',
+            ),
+            { precondition: true },
           );
         context = (
           await this.call('mdlxl_checkpoint', {
@@ -348,52 +391,14 @@ class AiService {
       };
     task.status = 'running';
     task.summary = '';
-    conversation.transcript.push(
-      {
-        role: 'user',
-        text: resume ? 'Resume task' : text,
-        document: context.name,
-        selection: context.selection,
-      },
-      reply,
-    );
-    const steering = new AiSteering(text => {
-      // A steering message splits the reply where it was sent, as it appears in the chat.
-      reply = { role: 'assistant', text: '', parts: [] };
-      conversation.transcript.push({ role: 'user', text, steer: true }, reply);
+    this.runningIds.add(id);
+    recorder.start({
+      role: 'user',
+      text: resume ? 'Resume task' : text,
+      document: context.name,
+      selection: context.selection,
+      ...entry,
     });
-    const active = { id, controller, steering };
-    this.active = active;
-    // Everything the AI says, thinks and does streams to the console as it happens.
-    const event = value => {
-      if (value.type === 'text' || value.type === 'thinking') {
-        if (!value.text) return;
-        if (value.type === 'text') reply.text += value.text;
-        const last = reply.parts.at(-1);
-        if (last?.type === value.type) last.text += value.text;
-        else reply.parts.push({ type: value.type, text: value.text });
-      } else if (value.type === 'compaction') {
-        const running = conversation.transcript
-          .flatMap(entry => entry.parts || [])
-          .findLast(p => p.type === 'compaction' && p.status === 'running');
-        if (value.active && !running) reply.parts.push({ type: 'compaction', status: 'running' });
-        else if (!value.active && running) running.status = 'done';
-        else return;
-      } else if (value.type === 'tool') {
-        reply.parts.push({ type: 'tool', id: value.callId, name: value.name, detail: value.detail, status: 'running' });
-      } else if (value.type === 'tool-result') {
-        // A steering message may have split the reply since the tool started.
-        const parts = conversation.transcript.flatMap(entry => entry.parts || []);
-        const part =
-          parts.findLast(p => p.type === 'tool' && value.callId && p.id === value.callId) ||
-          parts.findLast(p => p.type === 'tool' && p.status === 'running' && p.name === value.name);
-        if (part) Object.assign(part, { status: value.error ? 'error' : 'done', summary: value.summary });
-      }
-      this.emit({ id, ...value });
-    };
-    const separate = () => {
-      if (reply.text && !reply.text.endsWith('\n\n')) event({ type: 'text', text: '\n\n' });
-    };
     const progress = async phase => {
       task.phase = phase;
       await this.persistConversation(conversation);
@@ -405,13 +410,20 @@ class AiService {
         ? '\n\nResume the interrupted task. Inspect the current model and these completed steps before continuing; do not repeat an applied edit. A pending step may have been interrupted before its result was recorded.\n' +
           JSON.stringify(task.steps)
         : '');
+    if (organiser) prompt += '\n\n' + (await this.organiserBriefing(conversation));
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
-    const call = async (name, args, signal) => {
-      if (controller.signal.aborted) throw Error('AI request cancelled.');
+    let workerImages = images;
+    const call = async (name, args, callSignal) => {
+      if (signal.aborted) throw Error('AI request cancelled.');
+      if (organiser && name === 'mdlxl_worker') {
+        const attached = workerImages;
+        workerImages = [];
+        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering });
+      }
       if (args.target && args.target !== context.target)
         throw Error('Use the target captured with the current prompt.');
-      const requestSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+      const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       const edit = aiToolEditsModel(name, args);
       if (edit) {
         task.unresolvedEditError = 'An edit did not finish. Inspect the current model before continuing.';
@@ -458,23 +470,34 @@ class AiService {
         throw error;
       }
     };
+    const tools = organiser
+      ? [AI_WORKER_TOOL, AI_TOOLS.find(tool => tool.name === 'mdlxl_help')]
+      : conversation.toolsOff
+        ? []
+        : AI_TOOLS;
+    const system =
+      organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
+      ? AI_ORGANISER_PROMPT
+      : conversation.kind === 'worker'
+        ? AI_SYSTEM_PROMPT + '\n' + AI_WORKER_NOTE
+        : AI_SYSTEM_PROMPT;
     try {
       await progress('inspecting');
       let runs = 0;
       for (let attempt = 0; attempt < 4; ) {
-        if (attempt) separate();
+        if (attempt) recorder.separate();
         const options = {
           settings,
           key: this.decrypt(settings.key),
           directory: this.directory,
-          event,
-          tools: AI_TOOLS,
+          event: value => recorder.event(value),
+          tools,
           call,
-          system: AI_SYSTEM_PROMPT,
+          system,
           prompt,
           images: runs++ ? [] : images,
           conversation,
-          signal: controller.signal,
+          signal,
           awareness: this.awareness,
           steering,
         };
@@ -484,13 +507,13 @@ class AiService {
         // Steering that arrived as the AI finished starts a follow-up turn on the same task.
         const late = steering.take();
         if (late) {
-          separate();
+          recorder.separate();
           prompt = late + '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
           continue;
         }
         attempt++;
         const review = task.steps.length
-          ? await this.call('mdlxl_review', { target: context.target, action: 'status' }, controller.signal)
+          ? await this.call('mdlxl_review', { target: context.target, action: 'status' }, signal)
           : { changed: false };
         if (!review.changed && task.unresolvedEditError) throw Error(task.unresolvedEditError);
         if (!review.changed || review.phase === 'verified') {
@@ -501,14 +524,13 @@ class AiService {
           delete task.images;
           await this.persistConversation(conversation);
           this.emit({ id, type: 'task', task: await this.taskInfo(id) });
-          event({ type: 'done' });
-          return { ok: true };
+          return;
         }
         if (review.phase === 'blocked')
           throw Error(review.summary || 'The edited model still needs verification.');
         if (attempt >= 4) break;
         await progress('verifying');
-        event({ type: 'notice', text: 'Checking the result before completing the task.' });
+        recorder.event({ type: 'notice', text: 'Checking the result before completing the task.' });
         prompt =
           'The edit is still unverified. Do not repeat the edit. Call mdlxl_review inspect with checksCode for the requested result and protected data, inspect the images, correct failures, then mdlxl_review finish. Current review: ' +
           JSON.stringify(review) +
@@ -519,38 +541,319 @@ class AiService {
         'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
       );
     } catch (error) {
-      task.status = controller.signal.aborted ? 'interrupted' : 'incomplete';
+      task.status = signal.aborted ? 'interrupted' : 'incomplete';
       task.summary = error.message;
-      if (controller.signal.aborted) {
-        separate();
-        event({ type: 'text', text: 'Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.' });
-        event({ type: 'done' });
-        return { ok: false, cancelled: true };
-      }
-      const authRequired = error.code === 'AI_AUTH_REQUIRED';
-      reply.error = error.message;
-      event({ type: 'error', text: error.message, authRequired });
-      return { ok: false, error: error.message, authRequired };
+      throw error;
     } finally {
-      if (this.active === active) this.active = null;
+      this.runningIds.delete(id);
+    }
+  }
+  // The roster and memory the organiser needs for routing, added to each prompt.
+  async organiserBriefing(conversation) {
+    const workers = (conversation.workers || []).filter(worker => worker.status !== 'retired');
+    const entry = conversation.modelKey ? await this.registry.model(conversation.modelKey) : null;
+    const lines = workers.map(
+      worker =>
+        `- ${worker.name}${worker.tiny ? ' (tiny jobs)' : ''}: ${worker.job}; ${Math.round((worker.use || 0) * 100)}% of its memory used`,
+    );
+    return (
+      (lines.length ? 'Workers for this model:\n' + lines.join('\n') : 'No workers yet for this model.') +
+      (entry?.note && conversation.transcript.length <= 2
+        ? '\n\nMemory note from earlier work on this model:\n' + entry.note
+        : '')
+    );
+  }
+  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering }) {
+    const previous = this.workerLock;
+    let release;
+    this.workerLock = new Promise(resolve => (release = resolve));
+    await previous;
+    organiser.workers ||= [];
+    organiser.birds ||= [];
+    let worker = null,
+      handover = null;
+    try {
+      const named = String(args.worker || '').trim().toLowerCase();
+      if (named) {
+        worker = organiser.workers.find(w => w.name.toLowerCase() === named);
+        if (!worker)
+          return {
+            error: `There is no worker called ${args.worker}. Workers: ${organiser.workers.filter(w => w.status !== 'retired').map(w => w.name).join(', ') || 'none yet'}.`,
+          };
+        if (worker.status === 'retired')
+          return { error: `${worker.name} is retired. Start a new worker for this job and include what it needs to know.` };
+      } else if (args.tiny) worker = organiser.workers.find(w => w.tiny && w.status !== 'retired') || null;
+      // A worker past half of its memory writes a handover note and retires.
+      if (worker && (worker.use || 0) >= RETIRE_AT) {
+        handover = { name: worker.name, note: await this.handover(worker, settings, contract, context, signal) };
+        await this.retireWorker(organiser, worker);
+        worker = null;
+      }
+      if (!worker) {
+        const name = nextBird(organiser.birds);
+        organiser.birds.push(name);
+        worker = {
+          id: `${organiser.id}-${name.toLowerCase().replace(/\s+/g, '-')}`,
+          name,
+          job: args.tiny ? 'Tiny jobs' : args.job,
+          tiny: !!args.tiny,
+          status: 'idle',
+          use: 0,
+        };
+        organiser.workers.push(worker);
+        const created = { id: worker.id, provider: settings.provider, transcript: [], messages: [], kind: 'worker', organiserId: organiser.id, modelKey: organiser.modelKey, name, tiny: worker.tiny };
+        this.conversations.set(worker.id, created);
+        await this.persistConversation(created);
+      } else if (!worker.tiny) worker.job = args.job;
+      worker.status = 'working';
+      await this.persistConversation(organiser);
+      this.emitRoster(organiser);
+      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status: 'working' });
+      const conversation = await this.conversation(worker.id, settings.provider);
+      const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
+      const steering = new AiSteering(text => recorder.split(text));
+      parentSteering.forward = steering;
+      active.worker = { id: worker.id, steering };
+      const text =
+        `Job: ${args.job}\n\nInstructions from the organiser:\n${args.instructions}\n\nThe user's message, exactly as written:\n${userText}` +
+        (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '');
+      let status = 'done',
+        error;
+      try {
+        await this.runTask({ conversation, recorder, steering, text, images, context, resume: false, settings, contract, signal, entry: { from: 'organiser', job: args.job } });
+      } catch (reason) {
+        if (signal.aborted) throw reason;
+        status = 'failed';
+        error = reason.message;
+        recorder.reply.error = reason.message;
+        recorder.event({ type: 'error', text: reason.message, worker: true });
+      } finally {
+        recorder.finish();
+        parentSteering.forward = null;
+        active.worker = null;
+        parentSteering.requeue(steering.take());
+        steering.close();
+        worker.use = contextUse(conversation);
+        worker.status = 'idle';
+        await this.persistConversation(conversation);
+      }
+      const report = recorder.report().slice(-4000);
+      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status, report });
+      return {
+        worker: worker.name,
+        status,
+        report: report || '(no report)',
+        ...(error ? { error } : {}),
+        memoryUsed: Math.round(worker.use * 100) + '%',
+        ...(handover ? { replaced: `${handover.name} retired with a handover note; ${worker.name} took over.` } : {}),
+      };
+    } finally {
+      if (worker) await this.persistConversation(organiser).catch(() => {});
+      if (worker) this.emitRoster(organiser);
+      release();
+    }
+  }
+  async handover(worker, settings, contract, context, signal) {
+    const conversation = await this.conversation(worker.id, settings.provider);
+    const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
+    const steering = new AiSteering(() => {});
+    conversation.toolsOff = true;
+    try {
+      await this.runTask({ conversation, recorder, steering, text: contract.AI_HANDOVER_PROMPT, images: [], context, resume: false, settings, contract, signal, entry: { from: 'organiser', job: 'Handover' } });
+    } finally {
+      delete conversation.toolsOff;
       steering.close();
-      for (const part of conversation.transcript.flatMap(entry => entry.parts || []))
-        if (part.status === 'running') part.status = part.type === 'compaction' ? 'done' : 'stopped';
+      recorder.finish();
+    }
+    return recorder.report() || recorder.reply.text.trim() || '(no note)';
+  }
+  async retireWorker(organiser, worker) {
+    worker.status = 'retired';
+    worker.retiredAt = new Date().toISOString();
+    const conversation = this.conversations.get(worker.id);
+    if (conversation) {
+      conversation.retired = true;
       await this.persistConversation(conversation);
-      this.emit({ id, type: 'task', task: await this.taskInfo(id) });
+    }
+    await this.persistConversation(organiser);
+    this.emitRoster(organiser);
+  }
+  emitRoster(organiser) {
+    this.emit({ id: organiser.id, type: 'roster', workers: organiser.workers || [] });
+  }
+  async markActivity(modelKey) {
+    const entry = await this.registry.model(modelKey);
+    if (!entry.activity) {
+      entry.activity = true;
+      await this.registry.save();
+    }
+  }
+  // The organiser chat that belongs to a model (file path, or the unsaved tab).
+  async organiser({ modelKey, name }) {
+    const settings = await this.settings(),
+      config = await this.configuration(),
+      entry = await this.registry.model(modelKey, name);
+    let conversation = null;
+    if (entry.organiser)
+      try {
+        conversation = await this.conversation(entry.organiser, settings.provider);
+      } catch {
+        // Another provider's chat stays readable among the earlier chats.
+        entry.earlier.push(entry.organiser);
+      }
+    if (!conversation) conversation = await this.createOrganiser(entry, modelKey, settings);
+    return {
+      id: conversation.id,
+      workers: conversation.workers || [],
+      earlier: entry.earlier,
+      offload: config.offload !== false,
+      hasNote: !!entry.note,
+    };
+  }
+  async createOrganiser(entry, modelKey, settings) {
+    const id = OrganiserRegistry.newId();
+    const conversation = { id, provider: settings.provider, transcript: [], messages: [], kind: 'organiser', modelKey, name: entry.name, workers: [], birds: [] };
+    this.conversations.set(id, conversation);
+    await this.persistConversation(conversation);
+    entry.organiser = id;
+    await this.registry.save();
+    return conversation;
+  }
+  async newOrganiser({ modelKey, name }) {
+    if (this.active) throw Error('Stop the current AI request before starting a new chat.');
+    const settings = await this.settings(),
+      entry = await this.registry.model(modelKey, name);
+    if (entry.organiser) entry.earlier.push(entry.organiser);
+    await this.createOrganiser(entry, modelKey, settings);
+    return this.organiser({ modelKey, name });
+  }
+  async rekey({ from, to, name }) {
+    await this.registry.rekey(from, to, name);
+    for (const conversation of this.conversations.values())
+      if (conversation.modelKey === from) {
+        conversation.modelKey = to;
+        await this.persistConversation(conversation);
+      }
+    return { ok: true };
+  }
+  async saveState({ modelKey }) {
+    const entry = await this.registry.model(modelKey);
+    return { activity: !!entry.activity, remember: entry.remember || 'ask' };
+  }
+  async setOffload(enabled) {
+    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
+    const config = await this.configuration();
+    config.offload = enabled;
+    await this.persist();
+    this.emit({ type: 'offload', enabled });
+    return this.status();
+  }
+  async setRememberedCleanup({ modelKey, remember }) {
+    if (!['ask', 'keep', 'summary', 'wipe'].includes(remember)) throw Error('Unknown choice.');
+    const entry = await this.registry.model(modelKey);
+    entry.remember = remember;
+    await this.registry.save();
+    return { remember };
+  }
+  // After a save: keep everything, keep a memory note, or delete every chat for this model.
+  async cleanup({ modelKey, mode, remember = false }) {
+    if (!['keep', 'summary', 'wipe'].includes(mode)) throw Error('Unknown cleanup choice.');
+    if (this.active) throw Error('Wait until the AI finishes before cleaning up its chats.');
+    const entry = await this.registry.model(modelKey);
+    if (remember) entry.remember = mode;
+    entry.activity = false;
+    if (mode === 'keep') {
+      await this.registry.save();
+      return { mode };
+    }
+    const settings = await this.settings();
+    let note = null;
+    if (mode === 'summary' && entry.organiser) {
+      const organiser = await this.conversation(entry.organiser, settings.provider).catch(() => null);
+      if (organiser?.transcript.length) note = await this.memoryNote(organiser, settings, entry.note);
+    }
+    const ids = [],
+      threads = [];
+    for (const organiserId of [entry.organiser, ...entry.earlier].filter(Boolean)) {
+      const organiser = await this.readConversation(organiserId);
+      ids.push(organiserId);
+      if (organiser?.threadId) threads.push(organiser.threadId);
+      for (const worker of organiser?.workers || []) {
+        const conversation = await this.readConversation(worker.id);
+        ids.push(worker.id);
+        if (conversation?.threadId) threads.push(conversation.threadId);
+      }
+    }
+    for (const id of ids) {
+      this.conversations.delete(id);
+      await this.writes.get(id)?.catch(() => {});
+      await fs.rm(path.join(this.directory, 'chat-' + id + '.json'), { force: true });
+    }
+    const providerFiles = await deleteProviderSessions(this.directory, threads);
+    entry.note = mode === 'summary' ? note || entry.note : null;
+    entry.organiser = null;
+    entry.earlier = [];
+    await this.registry.save();
+    this.emit({ type: 'organiser-reset', modelKey });
+    return { mode, removedChats: ids.length, providerFiles, note: entry.note };
+  }
+  async memoryNote(organiser, settings, previousNote) {
+    const contract = await this.init(),
+      controller = new AbortController();
+    const active = { id: organiser.id, controller, steering: null, worker: null };
+    this.active = active;
+    const recorder = new AiRecorder(organiser, value => this.emit({ id: organiser.id, ...value }));
+    const steering = new AiSteering(() => {});
+    organiser.toolsOff = true;
+    try {
+      await this.runTask({
+        conversation: organiser,
+        recorder,
+        steering,
+        text: contract.AI_MEMORY_PROMPT + (previousNote ? '\n\nThe earlier memory note to fold in:\n' + previousNote : ''),
+        images: [],
+        context: { target: 'cleanup' },
+        resume: false,
+        settings,
+        contract,
+        signal: controller.signal,
+        entry: { from: 'mdlxl' },
+      });
+      return recorder.report() || null;
+    } finally {
+      delete organiser.toolsOff;
+      steering.close();
+      if (this.active === active) this.active = null;
+    }
+  }
+  async readConversation(id) {
+    if (this.conversations.has(id)) return this.conversations.get(id);
+    try {
+      return JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8'));
+    } catch {
+      return null;
     }
   }
   steer({ id, text, annotations }) {
     const active = this.active;
-    if (!active?.steering || active.id !== id) return { queued: false };
+    if (!active?.steering) return { queued: false };
     if (typeof text !== 'string' || !text.trim() || text.length > 20000)
       throw Error('Enter a message of 1–20000 characters.');
     const message =
       'The user sent this while you were working. Treat it as steering for the current task:\n' +
       text +
       (annotations ? '\n\nCurrent console drawings (context.annotations):\n' + JSON.stringify(annotations) : '');
+    // Steering the organiser reaches the worker it is waiting on; steering a
+    // running worker directly goes only to that worker.
+    if (active.worker && id === active.worker.id) {
+      active.worker.steering.push(text, message);
+      this.emit({ id, type: 'steer', text });
+      return { queued: true };
+    }
+    if (active.id !== id) return { queued: false };
     active.steering.push(text, message);
     this.emit({ id, type: 'steer', text });
+    if (active.worker) this.emit({ id: active.worker.id, type: 'steer', text });
     return { queued: true };
   }
   cancel() {
@@ -705,11 +1008,18 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:send', input => service.send(input));
   handle('ai:cancel', () => service.cancel());
   handle('ai:steer', input => service.steer(input));
+  handle('ai:organiser', input => service.organiser(input));
+  handle('ai:newOrganiser', input => service.newOrganiser(input));
+  handle('ai:rekey', input => service.rekey(input));
+  handle('ai:saveState', input => service.saveState(input));
+  handle('ai:cleanup', input => service.cleanup(input));
+  handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
+  handle('ai:offload', enabled => service.setOffload(enabled));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
   handle('ai:transcript', async id => {
-    const settings = await service.settings();
-    return (await service.conversation(id, settings.provider)).transcript;
+    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id || '')) throw Error('Invalid conversation ID.');
+    return (await service.readConversation(id))?.transcript || [];
   });
   handle('ai:script', payload => {
     const request = service.pending.get(payload.requestId);
@@ -801,6 +1111,11 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
       } catch (error) {
         service.emit({ type: 'error', text: error.message });
       }
+  });
+  ipcMain.on('ai:toolWaiting', (event, data) => {
+    own(event);
+    service.pending.get(data?.id)?.waiting(!!data.waiting);
+    service.emit({ type: 'waiting', waiting: !!data.waiting, document: String(data?.document || '') });
   });
   ipcMain.on('ai:toolResult', (event, data) => {
     own(event);

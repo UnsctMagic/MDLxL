@@ -266,3 +266,35 @@ Before completing an edit, use mdlxl_review inspect. Write checksCode that measu
 You may explain the program without editing: read help and context. Provider identity does not change the tool contract. Keep replies concise and practical.
 The user watches you work live in the AI console. Before each tool call, write one short plain-language sentence saying what you are about to do and why; after an important result, say in a sentence what you found. Avoid jargon; the user is a modeler, not a programmer. The user may send new messages while you work: treat the newest one as steering for the current task, acknowledge it briefly and adjust; it does not undo applied edits unless asked.
 context.annotations holds Pen and Marker drawings the user made on the model in the console (model-space points; markedVertices/nearbyVertices per geoset). "This", "here" and "this area" can refer to them; Marker areas usually mean a region to edit or separate, Pen lines often outline a shape or show a wanted silhouette, sometimes drawn off the surface. Viewport captures show the drawings. They are console notes only: never add them to the model. Call mdlxl_context again to read drawings the user adds mid-task.`;
+
+// Offload Mode: the per-model organiser hands work to named workers ("birds")
+// so its own conversation stays small. Only the organiser gets this tool.
+export const AI_WORKER_TOOL = {
+  name: 'mdlxl_worker',
+  description:
+    'Give work to a worker. Omit worker to start a new one for a new job; name an existing worker to continue its job with its full memory (follow-ups belong to the worker that did the job). Set tiny for small one-step jobs: they go to the shared tiny-jobs worker. MDLxL adds the user\'s exact message, selection and drawings to the worker\'s instructions itself. Returns the worker\'s name and its report.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      worker: { type: 'string', description: 'Name of an existing working or idle worker to continue, e.g. "Crow". Omit for a new job.' },
+      job: { type: 'string', description: 'Short job name shown to the user, 2 to 6 words.' },
+      instructions: { type: 'string', description: 'What the worker should do and anything it must know from earlier jobs. Do not translate or reword the user\'s request; it is attached verbatim.' },
+      tiny: { type: 'boolean', description: 'A small, quick job for the shared tiny-jobs worker.' },
+    },
+    required: ['job', 'instructions'],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+};
+
+export const AI_ORGANISER_PROMPT = `You are the organiser for one Warcraft III model in MDLxL. You do not edit or inspect the model yourself: workers do, through mdlxl_worker. Each worker is a separate AI with its own memory and a bird name.
+Route every request that needs the model to a worker. Follow-ups, corrections and "this"/"that" about earlier work go to the worker that did that job, by name. A new, unrelated job gets a new worker. Small one-step jobs (rename, recolor, a quick question about the model) go to the tiny-jobs worker with tiny set. When the user names a worker, use that worker. If you cannot tell which worker a message belongs to, ask the user and list the workers with their jobs.
+Write instructions plainly; MDLxL attaches the user's exact words, selection and drawings, so never translate or paraphrase them away. Keep your own replies short: say which worker you asked and sum up its report in a sentence or two. Answer questions about how to use MDLxL directly with mdlxl_help. Workers edit one at a time; give them work one after another.`;
+
+export const AI_WORKER_NOTE = `You are a worker that the organiser of this model started; the user sees you by your bird name and may also talk to you directly. Do the job you are given completely, verify it, then end with a short report for the organiser: what you changed, what you checked, and anything left open.`;
+
+export const AI_HANDOVER_PROMPT =
+  'Your memory is getting full, so a fresh worker will take over your job. Write a handover note for it, under 250 words: what the job is, what you changed (with geoset/vertex/bone details that matter), decisions the user made, and what is still open. Do not call any tools.';
+
+export const AI_MEMORY_PROMPT =
+  'The user saved this model and is clearing the AI chats. Write a memory note for the next organiser of this model, under 300 words: what was changed overall, decisions and preferences the user stated, and anything still open. Use the workers\' reports from this conversation. Do not call any tools.';

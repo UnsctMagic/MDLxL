@@ -23,12 +23,27 @@ const finite = (value, name) => {
   if (!Number.isFinite(value)) throw Error('Invalid ' + name);
   return value;
 };
+// The view a task was captured with, in the shape host.restoreContext takes.
+const viewSnapshot = state => ({
+  mode: state.mode,
+  workplane: state.workplane,
+  uvSet: state.uvSet,
+  activeGeoset: state.activeGeoset,
+  checkedGeosets: Array.from(state.selectable || []),
+  selection: structuredClone(state.selection || {}),
+  selectedNodeIds: [...(state.selectedNodeIds || [])],
+  globalSequence: state.globalSeqId,
+  sequence: state.sequence,
+  frame: state.time,
+  keyframes: structuredClone(state.keyframes ?? null),
+});
 export class AiEditorBridge {
   constructor(host) {
     this.host = host;
     this.targets = new Map();
     this.controls = new Map();
     this.queue = Promise.resolve();
+    this.waiters = new Set();
   }
   state() {
     return this.host().state();
@@ -59,6 +74,7 @@ export class AiEditorBridge {
         globalSequence: state.globalSeqId,
         workplane: state.workplane,
         view: state.view,
+        restore: viewSnapshot(state),
       });
     if (this.targets.size > 100) this.targets.delete(this.targets.keys().next().value);
     const captured = this.targets.get(id);
@@ -137,6 +153,7 @@ export class AiEditorBridge {
     target.revision = s.doc.revision;
     target.selectionSignature = aiSelectionSignature(s);
     target.selection = structuredClone(s.selection);
+    target.restore = viewSnapshot(s);
     if (viewChanged)
       Object.assign(target, {
         sequence: s.sequence,
@@ -149,6 +166,7 @@ export class AiEditorBridge {
   }
   async call(name, args = {}, options = {}) {
     const op = this.queue.then(async () => {
+      await this.waitForTarget(args.target, options);
       let review, revision, paint;
       if (aiToolEditsModel(name, args)) {
         review = await beginAiReview(this, args.target, options);
@@ -609,7 +627,50 @@ export class AiEditorBridge {
       detach();
     };
   }
+  // Pause and resume: a step for a model tab that is not showing waits until the
+  // user returns to that tab, then carries on with the tab's working selection.
+  async waitForTarget(id, { signal, requestId } = {}) {
+    const target = id && this.targets.get(id);
+    if (!target || this.state().session.id === target.documentId) return;
+    const owner = () => this.state().sessions.find(s => s.id === target.documentId);
+    if (!owner()) throw Error('The model this task works on was closed.');
+    const document = owner().doc.name;
+    const notify = waiting => {
+      this.desktop?.aiToolWaiting?.({ id: requestId, waiting, document });
+      window.dispatchEvent(new CustomEvent('mdlxl-ai-waiting', { detail: { waiting, document, documentId: target.documentId } }));
+    };
+    notify(true);
+    try {
+      await new Promise((resolve, reject) => {
+        const finish = error => {
+          this.waiters.delete(check);
+          signal?.removeEventListener('abort', check);
+          error ? reject(error) : resolve();
+        };
+        const check = () => {
+          if (signal?.aborted) return finish(Error('AI request cancelled; no further edit was applied.'));
+          if (!owner()) return finish(Error('The model this task works on was closed.'));
+          if (this.state().session.id === target.documentId) finish();
+        };
+        this.waiters.add(check);
+        signal?.addEventListener('abort', check);
+      });
+      await settle();
+      await settle();
+      try {
+        checkAiTarget(target, this.state());
+      } catch {
+        if (target.restore && target.revision === this.state().doc.revision) {
+          await this.host().restoreContext(target.restore);
+          await settle();
+        }
+      }
+    } finally {
+      notify(false);
+    }
+  }
   editorChanged() {
+    for (const waiter of [...this.waiters]) waiter();
     if (!this.awarenessEnabled || !this.desktop || this.awarenessTimer) return;
     // Coalesce real React/editor changes; no polling or idle provider requests.
     this.awarenessTimer = setTimeout(() => {

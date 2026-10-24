@@ -34,6 +34,38 @@ marked "Sent while the AI was working". The AI picks it up at its next step; if 
 had just finished, the message starts a follow-up turn on the same task. **Stop**
 (the square) cancels; applied edits stay in Undo.
 
+### Offload Mode: an organiser per model and its birds
+
+Each model has its own AI chat: switch model tabs to switch chats. With **Offload
+Mode** on (the default; it is in the connection settings) that chat is an
+organiser. It does not edit the model itself: it hands each job to a worker with a
+simple bird name (Crow, Jackdaw, Sparrow, Robin…), and the worker does the work with
+its own memory. This keeps the organiser small and fast, so long sessions do not run
+into compacting.
+
+- Your message reaches the worker exactly as you wrote it, together with your
+  selection and drawings; the organiser only adds instructions.
+- Follow-ups go back to the bird that did the job. Small jobs share one tiny-jobs
+  bird. Name a bird ("ask Crow to…") to choose it yourself.
+- A bird whose memory is half full writes a handover note and retires; a new bird
+  takes over from the note.
+- One bird edits the model at a time.
+- The chips above the chat show the organiser and its birds (spinner: working,
+  pause: waiting for you). Click a bird to read its chat, watch its thinking and
+  steps, or talk to it directly. Retired birds and earlier chats of this model
+  stay readable under **Retired**. **New chat** starts a new organiser for the model.
+- If you switch to another model tab while a bird works, it pauses before its next
+  step ("Paused until you return to …") and carries on when you come back.
+
+After you save a model the AI worked on, MDLxL asks how to tidy its chats:
+**Keep everything**, **Keep a summary** (the organiser writes a memory note, then
+all chats, screenshots and the copies Codex or Claude keep are deleted; the next
+organiser for this model starts with the note) or **Wipe it all**. **Remember for
+this model** skips the question next time; **After saving** in the connection
+settings changes the remembered choice.
+
+With Offload Mode off, the model's chat edits directly, as one assistant.
+
 ### Marker and Pen
 
 The prompt box has **Marker**, **Pen** and **Eraser**. They draw notes on the

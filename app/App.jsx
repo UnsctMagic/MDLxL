@@ -888,6 +888,7 @@ export default function App() {
     if (target.doc.hdViewOnly) { say(HD_VIEW_ONLY_MESSAGE, true); setNotice({ message: HD_VIEW_ONLY_MESSAGE }); return false; }
     if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.'); return false; }
     savingRef.current = true; setSaving(true);
+    const previousPath = target.path;
     try {
       const pending = target.uvPreviews;
       const staged = Object.keys(pending).length ? EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({ includeHistory: false })) : target.doc;
@@ -924,6 +925,8 @@ export default function App() {
       try { await rememberMotionSave(target, bytes, target.path, savedName); }
       catch (error) { say(`Model saved; Motion Inspector decisions could not follow this save: ${error.message}`, true); }
       try { await checkpoint(target); } catch (error) { say(`Saved; recovery checkpoint failed: ${error.message}`, true); }
+      // The AI console offers to tidy this model's AI chats after a save.
+      window.dispatchEvent(new CustomEvent('mdlxl-model-saved', { detail: { documentId: target.id, path: target.path, previousPath, name: target.doc.name } }));
       if (latest.current.session.id === target.id) refresh(); return !target.doc.dirty;
     } catch (error) { say(error.message, true); return false; }
     finally { savingRef.current = false; setSaving(false); }
@@ -1366,7 +1369,7 @@ export default function App() {
     },
     state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
-    summary: () => ({documentId:session.id,mode,name:doc.name,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
+    summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
     command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
     edit,

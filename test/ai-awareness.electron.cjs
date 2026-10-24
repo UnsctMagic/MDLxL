@@ -188,6 +188,9 @@ async function close() {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   await launch(fixture);
+  // Awareness, interruption and resume are about direct editing by one chat;
+  // Offload Mode (organiser and workers) has its own test in ai-console.electron.cjs.
+  await page.evaluate(() => window.desktop.aiOffload(false));
   await page.evaluate(
     baseUrl => window.desktop.aiConfigure({ provider: 'compatible', baseUrl, model: 'workflow-fixture' }),
     `http://127.0.0.1:${server.address().port}/v1`,
@@ -304,7 +307,13 @@ async function close() {
     'completed task no longer offers Resume',
     (await page.getByRole('button', { name: 'Resume task', exact: true }).count()) === 0,
   );
-  const chatId = await page.evaluate(() => localStorage.getItem('mdlxl-ai-chat')),
+  // Each model has its own chat (its organiser); find this model's.
+  const chatId = (
+      await page.evaluate(
+        modelKey => window.desktop.aiOrganiser({ modelKey }),
+        'file:' + fixture.replaceAll('/', '\\').toLowerCase(),
+      )
+    ).id,
     task = await page.evaluate(id => window.desktop.aiTask(id), chatId);
   check(
     'completion is recorded only after the successful image review',

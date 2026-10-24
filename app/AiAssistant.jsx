@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalSto
 import { createPortal } from 'react-dom';
 import {
   ArrowUp,
+  Bird,
   Check,
   ChevronRight,
   Eraser,
@@ -13,6 +14,7 @@ import {
   LogIn,
   Paperclip,
   PenLine,
+  Pause,
   Settings2,
   Square,
   SquarePen,
@@ -48,6 +50,7 @@ const activity = {
   mdlxl_help: 'Reading MDLxL help',
   mdlxl_ui: 'Using program controls',
   mdlxl_review: 'Checking the result',
+  mdlxl_worker: 'Handing the job to a worker',
 };
 const phases = {
   inspecting: 'Inspecting the model',
@@ -78,6 +81,16 @@ const tools = [
   },
 ];
 const DOCK_WIDTH = 'mdlxl-ai-width';
+// Each model file (or unsaved tab) has its own organiser chat.
+const modelKeyOf = (path, documentId) =>
+  path ? 'file:' + String(path).replaceAll('/', '\\').toLowerCase() : 'unsaved:' + documentId;
+const OFFLOAD_TIP =
+  'Offload Mode: the chat of each model becomes an organiser. It hands every job to a worker with a bird name (Crow, Jackdaw, Sparrow…) that has its own memory, so the main chat stays small and fast and never needs compacting. Follow-ups go back to the bird that did the job; small jobs share one tiny-jobs bird. Birds retire when half full and hand over to a fresh one. Click a bird above the chat to read or talk to it directly.';
+const CLEANUP_CHOICES = [
+  ['keep', 'Keep everything', 'Save and keep every chat as it is; you can carry on with the same organiser and birds.'],
+  ['summary', 'Keep a summary', 'The organiser writes a short memory note (what changed, your decisions, what is open). Then all chats and their screenshots are deleted and the birds retire. The next organiser for this model starts with the note.'],
+  ['wipe', 'Wipe it all', 'Delete the organiser, every bird and any memory note for this model, including the copies Codex or Claude keep. The next chat starts from zero.'],
+];
 const toolName = name => name?.replace(/^mcp__mdlxl__/, '');
 const readImage = file =>
   new Promise((resolve, reject) => {
@@ -170,10 +183,38 @@ function ToolPart({ part }) {
     </div>
   );
 }
-function AssistantMessage({ message, live }) {
-  const parts = message.parts?.length ? message.parts : message.text ? [{ type: 'text', text: message.text }] : [];
+// A job the organiser gave to a bird; click it to open that bird's chat.
+function WorkerPart({ part, onOpen }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={'ai-worker-row ai-worker-' + part.status}>
+      <button type="button" className="ai-part-toggle" title={'Open ' + part.name + "'s chat"} onClick={() => onOpen?.(part.workerId)}>
+        <span className="ai-step-icon" aria-hidden="true">
+          {part.status === 'working' ? <LoaderCircle size={13} className="ai-spin" /> : part.status === 'failed' ? <X size={13} /> : <Bird size={13} />}
+        </span>
+        <b translate="no">{part.name}</b>
+        <span className="ai-step-detail">{part.job}</span>
+        <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'failed' ? 'stopped' : 'done'}</span>
+      </button>
+      {part.report && (
+        <button type="button" className="ai-part-toggle ai-worker-report-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <ChevronRight size={13} aria-hidden="true" />
+          Report
+        </button>
+      )}
+      {open && part.report && <AiMessage text={part.report} />}
+    </div>
+  );
+}
+function AssistantMessage({ message, live, onOpenWorker }) {
+  // A worker row stands for the organiser's hand-off step, so that step is not shown twice.
+  const parts = (message.parts?.length ? message.parts : message.text ? [{ type: 'text', text: message.text }] : []).filter(
+    part => !(part.type === 'tool' && toolName(part.name) === 'mdlxl_worker'),
+  );
   return parts.map((part, index) =>
-    part.type === 'thinking' ? (
+    part.type === 'worker' ? (
+      <WorkerPart key={index} part={part} onOpen={onOpenWorker} />
+    ) : part.type === 'thinking' ? (
       <ThinkingPart key={index} part={part} live={live && index === parts.length - 1} />
     ) : part.type === 'tool' ? (
       <ToolPart key={index} part={part} />
@@ -202,7 +243,14 @@ export default function AiAssistant({ bridge }) {
     [images, setImages] = useState([]),
     [messages, setMessages] = useState([]),
     [external, setExternal] = useState(false);
-  const [id, setId] = useState(() => localStorage.getItem('mdlxl-ai-chat') || crypto.randomUUID());
+  const [org, setOrg] = useState(null),
+    [view, setView] = useState(null),
+    [orgReload, setOrgReload] = useState(0),
+    [waiting, setWaiting] = useState(null),
+    [cleanup, setCleanup] = useState(null),
+    [rememberCleanup, setRememberCleanup] = useState(false),
+    [savedChoice, setSavedChoice] = useState('ask');
+  const id = view;
   const [dock, setDock] = useState(null),
     [width, setWidth] = useState(storedWidth),
     [palette, setPalette] = useState(false);
@@ -211,24 +259,16 @@ export default function AiAssistant({ bridge }) {
     files = useRef(),
     input = useRef(),
     pinned = useRef(true),
+    rekeying = useRef(Promise.resolve()),
     activeId = useRef(id);
   activeId.current = id;
-  useEffect(() => {
-    localStorage.setItem('mdlxl-ai-chat', id);
-  }, [id]);
   useEffect(() => {
     if (!window.desktop?.aiStatus) return;
     window.desktop
       .aiStatus()
-      .then(async value => {
+      .then(value => {
         setSettings(value);
         setExternal(value.enabled);
-        const [messages, task] = await Promise.all([
-          window.desktop.aiTranscript(activeId.current),
-          window.desktop.aiTask(activeId.current),
-        ]);
-        setMessages(messages);
-        setTask(task);
       })
       .catch(reason => setError(reason.message));
     // The reply streams into the newest assistant message as parts: what the AI
@@ -244,7 +284,35 @@ export default function AiAssistant({ bridge }) {
         return list;
       });
     return window.desktop.onAiEvent(event => {
+      // Roster and setting changes matter whichever chat is showing.
+      if (event.type === 'roster') setOrg(previous => (previous?.id === event.id ? { ...previous, workers: event.workers } : previous));
+      if (event.type === 'offload') setSettings(previous => ({ ...previous, offload: event.enabled }));
+      if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
       if (event.id && event.id !== activeId.current) return;
+      if (event.type === 'worker')
+        setMessages(previous => {
+          const at = previous.findLastIndex(m => m.parts?.some(p => p.type === 'worker' && p.workerId === event.workerId && p.status === 'working'));
+          if (at >= 0 && event.status !== 'working') {
+            const list = [...previous];
+            list[at] = {
+              ...list[at],
+              parts: list[at].parts.map(p =>
+                p.type === 'worker' && p.workerId === event.workerId && p.status === 'working' ? { ...p, status: event.status, report: event.report } : p,
+              ),
+            };
+            return list;
+          }
+          if (at >= 0) return previous;
+          const list = [...previous];
+          let last = list.at(-1);
+          if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
+          list[list.length - 1] = {
+            ...last,
+            parts: [...(last.parts || []), { type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status }],
+          };
+          return list;
+        });
+      if (event.type === 'worker') setStatus(event.status === 'working' ? `${event.name} is working: ${event.job}` : 'Organising');
       if (event.type === 'text' || event.type === 'thinking')
         update(message => {
           if (event.type === 'text') message.text += event.text;
@@ -305,7 +373,7 @@ export default function AiAssistant({ bridge }) {
       if (event.type === 'notice' || event.type === 'auth') setStatus(event.text);
       if (event.type === 'error') {
         setError(event.text);
-        setBusy(false);
+        if (!event.worker) setBusy(false);
         if (event.authRequired) {
           setSignedIn(false);
           setSettingsOpen(true);
@@ -321,6 +389,73 @@ export default function AiAssistant({ bridge }) {
         if (event.task?.status === 'running') setStatus(phases[event.task.phase] || 'Working on the model');
       }
     });
+  }, []);
+  const summaryNow = open ? bridge.summary() : null;
+  const modelKey = summaryNow ? modelKeyOf(summaryNow.path, summaryNow.documentId) : null;
+  useEffect(() => {
+    if (!open || !modelKey || !window.desktop?.aiOrganiser) return;
+    let live = true;
+    const name = summaryNow.name;
+    rekeying.current
+      .catch(() => {})
+      .then(() => window.desktop.aiOrganiser({ modelKey, name }))
+      .then(value => {
+        if (!live) return;
+        setOrg({ ...value, modelKey });
+        setView(value.id);
+      })
+      .catch(reason => live && setError(reason.message));
+    return () => {
+      live = false;
+    };
+  }, [open, modelKey, orgReload]);
+  useEffect(() => {
+    if (!view || !window.desktop?.aiTranscript) return;
+    let live = true;
+    Promise.all([window.desktop.aiTranscript(view), window.desktop.aiTask(view)])
+      .then(([transcript, info]) => {
+        if (!live) return;
+        pinned.current = true;
+        setMessages(transcript);
+        setTask(info);
+      })
+      .catch(reason => live && setError(reason.message));
+    return () => {
+      live = false;
+    };
+  }, [view]);
+  useEffect(() => {
+    if (!settingsOpen || !org?.modelKey || !window.desktop?.aiSaveState) return;
+    window.desktop.aiSaveState({ modelKey: org.modelKey }).then(value => setSavedChoice(value.remember), () => {});
+  }, [settingsOpen, org?.modelKey]);
+  // A bird working on another model tab waits until you return to it.
+  useEffect(() => {
+    const changed = event => setWaiting(event.detail.waiting ? event.detail.document : null);
+    window.addEventListener('mdlxl-ai-waiting', changed);
+    return () => window.removeEventListener('mdlxl-ai-waiting', changed);
+  }, []);
+  // After saving a model the AI worked on, offer to tidy its chats.
+  useEffect(() => {
+    if (!window.desktop?.aiSaveState) return;
+    const saved = event => {
+      const { documentId, path, previousPath, name } = event.detail;
+      const key = modelKeyOf(path, documentId),
+        before = modelKeyOf(previousPath, documentId);
+      // Moving the organiser to the new file name starts now, before the console reloads it.
+      rekeying.current = before === key ? Promise.resolve() : window.desktop.aiRekey({ from: before, to: key, name });
+      rekeying.current
+        .then(() => window.desktop.aiSaveState({ modelKey: key }))
+        .then(state => {
+          if (!state.activity) return;
+          if (state.remember === 'ask') {
+            setRememberCleanup(false);
+            setCleanup({ modelKey: key, name });
+          } else return window.desktop.aiCleanup({ modelKey: key, mode: state.remember });
+        })
+        .catch(reason => setError(reason.message));
+    };
+    window.addEventListener('mdlxl-model-saved', saved);
+    return () => window.removeEventListener('mdlxl-model-saved', saved);
   }, []);
   // Follow the stream unless the user scrolled up to read.
   useLayoutEffect(() => {
@@ -347,7 +482,12 @@ export default function AiAssistant({ bridge }) {
     window.addEventListener('mdlxl-cancel-gesture', cancel);
     return () => window.removeEventListener('mdlxl-cancel-gesture', cancel);
   }, []);
-  const summary = open ? bridge.summary() : null;
+  const summary = summaryNow;
+  const viewWorker = org?.workers.find(worker => worker.id === view) || null;
+  const earlierView = !!org?.earlier.includes(view);
+  const readOnly = viewWorker?.status === 'retired' || earlierView;
+  const liveWorkers = org?.workers.filter(worker => worker.status !== 'retired') || [];
+  const retiredWorkers = org?.workers.filter(worker => worker.status === 'retired') || [];
   const native = ['codex', 'claude'].includes(settings.provider);
   const providerName = providers.find(p => p[0] === settings.provider)?.[1] || 'AI';
   const strokes = summary ? sketch.strokes.filter(s => s.documentId === summary.documentId) : [];
@@ -375,7 +515,7 @@ export default function AiAssistant({ bridge }) {
       setModels([]);
       setApiKey('');
       setSignedIn(null);
-      newChat();
+      setOrgReload(n => n + 1);
     } catch (reason) {
       setError(reason.message);
     } finally {
@@ -383,13 +523,29 @@ export default function AiAssistant({ bridge }) {
       setStatus('');
     }
   }
-  function newChat() {
-    if (busy) return;
-    setId(crypto.randomUUID());
-    setMessages([]);
-    setTask(null);
-    setStatus('');
-    setError('');
+  // New chat: a fresh organiser for this model; the old one stays among the retired chats.
+  async function newChat() {
+    if (busy || !org) return;
+    try {
+      const value = await window.desktop.aiNewOrganiser({ modelKey: org.modelKey, name: summary?.name });
+      setOrg({ ...value, modelKey: org.modelKey });
+      setView(value.id);
+      setMessages([]);
+      setTask(null);
+      setStatus('');
+      setError('');
+    } catch (reason) {
+      setError(reason.message);
+    }
+  }
+  async function chooseCleanup(mode) {
+    const current = cleanup;
+    setCleanup(null);
+    try {
+      await window.desktop.aiCleanup({ modelKey: current.modelKey, mode, remember: rememberCleanup });
+    } catch (reason) {
+      setError(reason.message);
+    }
   }
   // While the AI works, a message steers the running task instead of starting a new one.
   async function steer() {
@@ -399,7 +555,7 @@ export default function AiAssistant({ bridge }) {
     try {
       const result = await window.desktop.aiSteer({ id, text, annotations: bridge.annotations() });
       if (result.queued) setPrompt('');
-      else setStatus('The AI just finished. Press Enter again to send this as a new message.');
+      else setStatus('The AI is busy with another chat. Send this when it finishes.');
     } catch (reason) {
       setError(reason.message);
     }
@@ -585,7 +741,7 @@ export default function AiAssistant({ bridge }) {
               onPointerDown={resizeStart}
             />
             <header className="ai-heading">
-              <strong>AI</strong>
+              <strong>AI{viewWorker ? ' · ' + viewWorker.name : earlierView ? ' · earlier chat' : ''}</strong>
               <button
                 type="button"
                 className="ai-provider-name"
@@ -628,8 +784,90 @@ export default function AiAssistant({ bridge }) {
               <p className="ai-empty">The AI connection is available in the desktop app.</p>
             ) : (
               <>
+                {org && (org.workers.length > 0 || org.earlier.length > 0) && (
+                  <nav className="ai-roster" aria-label="AI chats for this model">
+                    <button
+                      type="button"
+                      className="ai-roster-chip"
+                      aria-pressed={view === org.id}
+                      title="The organiser: talk here and it hands jobs to the birds"
+                      onClick={() => setView(org.id)}
+                    >
+                      Organiser
+                    </button>
+                    {liveWorkers.map(worker => (
+                      <button
+                        key={worker.id}
+                        type="button"
+                        className={'ai-roster-chip ai-roster-' + worker.status}
+                        aria-pressed={view === worker.id}
+                        title={`${worker.name}: ${worker.job}. ${Math.round((worker.use || 0) * 100)}% of its memory used.${worker.status === 'working' && waiting ? ' Paused until you return to ' + waiting + '.' : ''} Click to read or talk to ${worker.name} directly.`}
+                        onClick={() => setView(worker.id)}
+                      >
+                        {worker.status === 'working' ? (
+                          waiting ? <Pause size={11} aria-hidden="true" /> : <LoaderCircle size={11} className="ai-spin" aria-hidden="true" />
+                        ) : (
+                          <Bird size={11} aria-hidden="true" />
+                        )}
+                        <span translate="no">{worker.name}</span>
+                      </button>
+                    ))}
+                    {retiredWorkers.length + org.earlier.length > 0 && (
+                      <select
+                        className="ai-retired"
+                        aria-label="Retired chats"
+                        title="Retired birds and earlier organiser chats of this model, read only"
+                        value={readOnly ? view : ''}
+                        onChange={event => event.target.value && setView(event.target.value)}
+                      >
+                        <option value="">{translate(`Retired (${retiredWorkers.length + org.earlier.length})`)}</option>
+                        {retiredWorkers.map(worker => (
+                          <option key={worker.id} value={worker.id} translate="no">
+                            {worker.name} · {worker.job}
+                          </option>
+                        ))}
+                        {org.earlier.map((earlier, index) => (
+                          <option key={earlier} value={earlier}>
+                            {translate(`Earlier chat ${index + 1}`)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </nav>
+                )}
                 {settingsOpen && (
                   <div className="ai-connection">
+                    <label className="ai-check" title={OFFLOAD_TIP}>
+                      <input
+                        type="checkbox"
+                        checked={settings.offload !== false}
+                        disabled={busy}
+                        onChange={event =>
+                          action(async () => setSettings(await window.desktop.aiOffload(event.target.checked)))
+                        }
+                      />
+                      Offload Mode
+                    </label>
+                    {org && (
+                      <label title="What happens to this model's AI chats when you save it">
+                        After saving
+                        <select
+                          aria-label="After saving"
+                          value={savedChoice}
+                          onChange={event =>
+                            action(async () => {
+                              const value = await window.desktop.aiRememberCleanup({ modelKey: org.modelKey, remember: event.target.value });
+                              setSavedChoice(value.remember);
+                            })
+                          }
+                        >
+                          <option value="ask">Ask me</option>
+                          <option value="keep">Keep everything</option>
+                          <option value="summary">Keep a summary</option>
+                          <option value="wipe">Wipe it all</option>
+                        </select>
+                      </label>
+                    )}
                     <label>
                       AI provider
                       <select
@@ -782,7 +1020,21 @@ export default function AiAssistant({ bridge }) {
                       {messages.map((message, index) => (
                         <article key={index} className={'ai-message ai-role-' + message.role}>
                           {message.role === 'assistant' ? (
-                            <AssistantMessage message={message} live={live && index === messages.length - 1} />
+                            <AssistantMessage
+                              message={message}
+                              live={live && index === messages.length - 1}
+                              onOpenWorker={setView}
+                            />
+                          ) : message.from === 'organiser' ? (
+                            <details className="ai-from-organiser">
+                              <summary>
+                                <Bird size={12} aria-hidden="true" />
+                                {message.job === 'Handover' ? 'Asked for a handover note' : 'Job from the organiser: ' + (message.job || '')}
+                              </summary>
+                              <div className="ai-user-text" translate="no">
+                                {message.text}
+                              </div>
+                            </details>
                           ) : (
                             <>
                               <div className="ai-user-text" translate="no">
@@ -825,6 +1077,12 @@ export default function AiAssistant({ bridge }) {
                     </div>
                   )}
                 </div>
+                {waiting && (
+                  <div className="ai-account ai-paused" role="status">
+                    <Pause size={12} aria-hidden="true" />
+                    {`Paused until you return to ${waiting}`}
+                  </div>
+                )}
                 {native && signedIn !== null && !signedIn && (
                   <div className="ai-account" role="status">
                     Sign in to connect your AI. Your prompt has been kept.
@@ -910,9 +1168,18 @@ export default function AiAssistant({ bridge }) {
                   <textarea
                     ref={input}
                     rows={1}
+                    disabled={readOnly}
                     aria-label="AI prompt"
                     placeholder={
-                      busy ? 'Steer the AI while it works…' : 'Ask the AI to change your model…'
+                      readOnly
+                        ? viewWorker
+                          ? `${viewWorker.name} is retired. Talk to the organiser to continue.`
+                          : 'An earlier chat, read only. Use the organiser to continue.'
+                        : busy
+                          ? 'Steer the AI while it works…'
+                          : viewWorker
+                            ? `Talk to ${viewWorker.name} directly…`
+                            : 'Ask the AI to change your model…'
                     }
                     value={prompt}
                     onChange={event => setPrompt(event.target.value)}
@@ -1095,6 +1362,41 @@ export default function AiAssistant({ bridge }) {
             )}
           </section>,
           dock,
+        )}
+      {cleanup &&
+        createPortal(
+          <div className="ai-cleanup-shade">
+            <section className="ai-cleanup" role="dialog" aria-modal="true" aria-label="Tidy up AI chats">
+              <header>
+                <strong>{translate(`Tidy up the AI chats for ${cleanup.name}?`)}</strong>
+                <button type="button" aria-label="Decide later" title="Decide later: keep everything and ask again next save" onClick={() => setCleanup(null)}>
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </header>
+              <p>The AI worked on this model since it was last saved. Its chats and screenshots take space and slow long sessions down.</p>
+              <div className="ai-cleanup-choices">
+                {CLEANUP_CHOICES.map(([mode, label, tip]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={mode === 'summary' ? 'ai-primary' : ''}
+                    title={tip}
+                    disabled={busy && mode !== 'keep'}
+                    onClick={() => chooseCleanup(mode)}
+                  >
+                    <b>{label}</b>
+                    <span>{tip}</span>
+                  </button>
+                ))}
+              </div>
+              {busy && <p className="ai-cleanup-note">Cleaning up is available once the AI finishes its current job.</p>}
+              <label title="Use this choice for this model from now on; change it in the AI connection settings">
+                <input type="checkbox" checked={rememberCleanup} onChange={event => setRememberCleanup(event.target.checked)} />
+                Remember for this model
+              </label>
+            </section>
+          </div>,
+          document.body,
         )}
     </>
   );

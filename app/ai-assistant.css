@@ -142,3 +142,41 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-assistant button.ai-stop svg{fill:currentColor}
 .ai-tool-hint{padding:0 13px 8px;font-size:11px;color:var(--ui-muted)}
 .ai-open{min-width:28px}
+
+/* Offload Mode: the model's chats as a row of quiet chips; birds' work in the organiser's chat. */
+.ai-roster{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--ai-line);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.ai-assistant button.ai-roster-chip{min-height:24px;padding:2px 9px;border-radius:12px;border-color:var(--ai-line);background:transparent!important;color:var(--ui-muted)!important;font-size:11.5px;gap:4px;white-space:nowrap}
+.ai-assistant button.ai-roster-chip[aria-pressed=true]{background:var(--ui-selected)!important;color:var(--ui-selected-text)!important;border-color:transparent}
+.ai-roster-working{color:var(--ui-text)!important}
+.ai-assistant select.ai-retired{height:24px;margin-left:auto;padding:1px 4px;border:0;border-radius:12px;background:transparent;color:var(--ui-muted);font-size:11px;cursor:pointer}
+.ai-worker-row{margin:4px 0 6px;padding:4px 8px;border:1px solid var(--ai-line);border-radius:10px;background:var(--ai-soft);width:fit-content;max-width:100%}
+.ai-worker-row>.ai-part-toggle{color:var(--ui-text)!important}
+.ai-worker-row b{font-weight:600}
+.ai-worker-state{color:var(--ui-muted);font-size:11px;margin-left:4px}
+.ai-worker-done .ai-step-icon{color:#2f9e5b}
+.ai-worker-failed .ai-step-icon{color:#c93838}
+.ai-worker-row .ai-prose{margin:4px 0 2px 22px;font-size:12px}
+.ai-from-organiser{margin:0 0 14px;padding:6px 10px;border-radius:10px;background:var(--ai-soft);border:1px dashed var(--ai-line);color:var(--ui-muted);font-size:12px}
+.ai-from-organiser summary{display:flex;align-items:center;gap:6px;cursor:pointer}
+.ai-from-organiser .ai-user-text{margin-top:8px;background:transparent;border:0;padding:0;color:var(--ui-text)}
+.ai-paused{color:var(--ui-text)}
+.ai-check{display:flex;align-items:center;gap:8px!important;color:var(--ui-text)!important;cursor:help}
+.ai-check input{flex:0 0 auto!important;min-height:0!important}
+
+/* Save cleanup dialog: shown over the app after a save, console open or not. */
+.ai-cleanup-shade{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:#0005}
+.ai-cleanup{width:min(460px,calc(100vw - 32px));padding:16px 18px;border-radius:14px;background:var(--ui-panel,#f0f0f0);color:var(--ui-text,#16191e);border:1px solid color-mix(in srgb,var(--ui-border,#8b8b87) 40%,transparent);box-shadow:0 12px 40px #0004;font:13px/1.5 'Segoe UI',Tahoma,sans-serif}
+.ai-cleanup header{display:flex;align-items:center;gap:8px}
+.ai-cleanup header strong{flex:1;font-size:14px;font-weight:650}
+.ai-cleanup header button{border:0;background:transparent;color:var(--ui-muted);cursor:pointer;padding:4px;border-radius:6px}
+.ai-cleanup p{margin:8px 0 12px;color:var(--ui-muted)}
+.ai-cleanup-choices{display:grid;gap:6px}
+.ai-cleanup-choices button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px;border:1px solid color-mix(in srgb,var(--ui-border,#8b8b87) 40%,transparent);border-radius:10px;background:var(--ui-field,#fff);color:var(--ui-text);text-align:left;cursor:pointer;font:inherit}
+.ai-cleanup-choices button:hover:not(:disabled){background:var(--ui-hover)}
+.ai-cleanup-choices button.ai-primary{border-color:var(--ui-accent,#71b5f3)}
+.ai-cleanup-choices button:disabled{opacity:.45;cursor:default}
+.ai-cleanup-choices b{font-weight:600}
+.ai-cleanup-choices span{font-size:11.5px;color:var(--ui-muted)}
+.ai-cleanup label{display:flex;align-items:center;gap:7px;margin-top:12px;font-size:12px;color:var(--ui-muted)}
+.ai-cleanup-note{font-size:11.5px}
+.ai-worker-row .ai-step-detail{font:inherit;font-size:12px;opacity:.8}
