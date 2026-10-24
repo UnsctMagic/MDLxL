@@ -9,6 +9,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Task | State | Note / owner |
 | --- | --- | --- |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
+| Native low-poly surface cutout | Ready for review; awaiting merge approval | [Surface cutout](surface-cutout.md) / Codex |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable

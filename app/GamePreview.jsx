@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles, zoomEditorCamera } from './editor-camera-controls.js';
 import { viewportCursor, showcaseCursor } from './viewport-cursors.js';
 import { createPreviewSceneGL } from './preview-scene-gl.js';
-import { projectPreviewGeosets, pickPreviewGeoset, selectPreviewUVCoordinates, selectPreviewVertices } from './preview-selection.js';
+import { projectPreviewGeosets, pickPreviewGeoset, pickPreviewSurface, selectPreviewUVCoordinates, selectPreviewVertices } from './preview-selection.js';
 import { cameraLeftLight, improveNativeTexture, captureDimensions, nativeTeamColor, viewportPixelRatio } from './viewport-quality.js';
 import { boneHighlightColors, createRigMarkersGL } from './rig-markers-gl.js';
 import { boneInfluenceMap, boneVertexHighlights } from '../src/bone-tools.js';
@@ -402,6 +402,11 @@ export default function GamePreview(inputProps) {
     const finishLeftGesture = event => {
       if (event.type === 'pointercancel') { leftGesture = null; return; }
       if (event.button !== 0 || leftGesture?.id !== event.pointerId) return;
+      const p = latest.current;
+      if (p.onSurfacePick && !leftGesture.adjusted && Math.hypot(event.clientX - leftGesture.x, event.clientY - leftGesture.y) <= 5) {
+        const rect = canvas.getBoundingClientRect(), geometry = projectPreviewGeosets(posedGeosets, camera, rect.width, rect.height);
+        p.onSurfacePick(pickPreviewSurface(geometry, event.clientX - rect.left, event.clientY - rect.top));
+      }
       leftGesture = null;
     };
     const unbindScroll = bindScrollSensitivity(canvas, {
@@ -1324,7 +1329,7 @@ export default function GamePreview(inputProps) {
       const getPoseMatrices = () => poseMatrices ||= new Map((native.rendererData?.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
       const hidden = new Set(p.hiddenGeosets || []);
       const presentationGuides = p.presentation === 'preview' && previewOverlaySettings(p.previewOverlay).mode !== 'none';
-      const needsGeometry = presentationGuides || p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset || p.highlightSelection && p.onHoverGeoset || overlayOptions.normals || overlayOptions.wires || overlayOptions.vertices || Object.values(p.selectionByGeoset || {}).some(ids => ids.length || ids.size);
+      const needsGeometry = presentationGuides || p.onSurfacePick || p.onSelectionChange || p.onSelectNodes || p.onInspectGeoset || p.highlightSelection && p.onHoverGeoset || overlayOptions.normals || overlayOptions.wires || overlayOptions.vertices || Object.values(p.selectionByGeoset || {}).some(ids => ids.length || ids.size);
       if (needsGeometry) {
         const cacheable = !p.playing && !nodeGesture && !hasBillboardedNodes;
         const cacheKey = `${native.getFrame()}:${poseSequence}:${globalClock}:${!!p.restPose}:${!!overlayOptions.normals}`;

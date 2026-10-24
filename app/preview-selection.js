@@ -9,7 +9,7 @@ export function projectPreviewGeosets(geosets, camera, width, height) {
   }) }));
 }
 
-export function pickPreviewGeoset(geosets, x, y) {
+export function pickPreviewGeoset(geosets, x, y, includeFace = false) {
   let result = null, depth = Infinity;
   for (const geo of geosets) for (let i = 0; i < geo.faces.length; i += 3) {
     const ids = Array.from(geo.faces.subarray(i, i + 3)), points = ids.map(id => geo.points[id]);
@@ -19,10 +19,13 @@ export function pickPreviewGeoset(geosets, x, y) {
     const u = ((b.y - c.y) * (x - c.x) + (c.x - b.x) * (y - c.y)) / area;
     const v = ((c.y - a.y) * (x - c.x) + (a.x - c.x) * (y - c.y)) / area;
     const z = u * a.z + v * b.z + (1 - u - v) * c.z;
-    if (z < depth) { depth = z; result = { index: geo.index, ids }; }
+    if (z < depth) { depth = z; result = { index: geo.index, ids, ...(includeFace ? { triangleIndex: i / 3 } : {}) }; }
   }
   return result;
 }
+
+/** A face identity seed only; screen barycentrics are never used to lift UVs. */
+export const pickPreviewSurface = (geosets, x, y) => pickPreviewGeoset(geosets, x, y, true);
 
 export function selectPreviewVertices(geosets, previous, start, end, selectable, options = {}) {
   const active = selectable == null ? new Set(geosets.map(geo => geo.index)) : new Set(selectable);

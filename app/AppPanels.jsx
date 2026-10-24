@@ -14,7 +14,7 @@ const MotionInspector = lazy(() => import('./MotionInspector.jsx'));
 
 /** The UV Wrapper workspace inside its model tab. */
 export function AppUVWorkspace({
-  activeGeoset, applyGeosetDensity, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
+  activeGeoset, applyGeosetDensity, applyCutout, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
   changeSensitivity, commitUVChanges, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
   previewSuspended, saving, closeUVWindow, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
   setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,
@@ -36,7 +36,7 @@ export function AppUVWorkspace({
         onUVChanges={commitUVChanges} onPreviewChanges={changes => setLiveUV(changes?.length ? changes : null)} onUncouple={uncoupleUVSelection}
         onMaterialPreset={(id, preset, tint) => edit(preset, ['Materials', 'Textures'], current => applyMaterialPreset(current, id, preset, tint))}
         onWrappingChange={(textureIDs, enabled) => edit(`${enabled ? 'Enable' : 'Disable'} UV texture wrapping`, ['Textures'], current => setUVTextureWrapping(current, textureIDs, enabled))}
-        onDensityApply={applyGeosetDensity}
+        onDensityApply={applyGeosetDensity} onCutoutApply={applyCutout} documentToken={session.id}
         onGeosetChange={(index, coordId = 0) => { if (index < 0) return; setActiveGeoset(index); setUvSet(coordId); setLiveUV(null); }}
         textureAssets={session.assets} teamColor={teamColor} preferences={preferences} onPreferences={changePreferences} readOnly={doc.readOnly || saving} suspended={uvMinimized}
         draftCount={Object.keys(session.uvPreviews).length} onLibrary={() => openLibrary(true)} onSavePreview={() => finishUVPreview()} onRevertPreview={() => finishUVPreview(true)} onExit={closeUVWindow}

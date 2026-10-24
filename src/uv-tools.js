@@ -53,7 +53,7 @@ export function relevantUVMaterials(model, selectionByGeoset, time = 0, sequence
 
 /** Flatten geosets into one temporary UV canvas with their shared model positions. */
 function combineUVGeosetsBySet(model, geosetIndices, eligibleSelection, selectedSelection, uvSetForGeoset) {
-  const refs = [], vertices = [], coordinates = [], faces = [], eligibleVertices = [], selectedVertices = [];
+  const refs = [], faceRefs = [], vertices = [], coordinates = [], faces = [], eligibleVertices = [], selectedVertices = [];
   let offset = 0;
   for (const geosetIndex of uniqueIndices(geosetIndices)) {
     const geoset = model?.Geosets?.[geosetIndex], uvSet = uvSetForGeoset(geosetIndex), uv = geoset?.TVertices?.[uvSet];
@@ -66,11 +66,14 @@ function combineUVGeosetsBySet(model, geosetIndices, eligibleSelection, selected
       if (allowed.has(index)) eligibleVertices.push(offset + index);
       if (selected.has(index)) selectedVertices.push(offset + index);
     }
-    for (const index of geoset.Faces || []) faces.push(offset + Number(index));
+    for (let triangleIndex = 0; triangleIndex < (geoset.Faces?.length || 0) / 3; triangleIndex++) {
+      faceRefs.push({ geosetIndex, triangleIndex, uvSet });
+      for (const index of geoset.Faces.subarray(triangleIndex * 3, triangleIndex * 3 + 3)) faces.push(offset + Number(index));
+    }
     offset += count;
   }
   return {
-    refs, eligibleVertices, selectedVertices,
+    refs, faceRefs, eligibleVertices, selectedVertices,
     geoset: {
       Vertices: new Float32Array(vertices),
       TVertices: [new Float32Array(coordinates)],

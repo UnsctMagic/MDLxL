@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import Viewport from './Viewport.jsx';
+import { applySurfaceCutoutPlan } from '../src/surface-cutout.js';
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
 import {validatePaintAssignments,repairPaintMaterials} from '../src/paint-materials.js';
@@ -1227,6 +1228,17 @@ export default function App() {
     setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
     say('Forge item created and attached to DummyBone.');return result;
   }
+  function applyCutout(plan, options) {
+    if (plan.documentToken !== session.id || plan.revision !== doc.revision) throw Error('The document changed after the cut preview. Draw again.');
+    const result = edit('Cut & Separate', ['Geosets', 'GeosetAnims', 'Gliders', 'Bones', 'Info'], current => applySurfaceCutoutPlan(current, plan, options), { rethrow: true });
+    if (result === false) return false;
+    setSelection(result.selection); setSelectable(new Set(result.addedGeosetIndices)); setActiveGeoset(result.addedGeosetIndices[0]);
+    setUVEntrySelection(previous => ({
+      ...previous, ...result.selection,
+      ...Object.fromEntries(result.changedGeosetIndices.map(index => [index, [...new Set([...(previous[index] || []), ...plan.edits.find(edit => edit.target.geosetIndex === index).provenance.map(p => p.sourceIndex)])]])),
+    }));
+    setLiveUV(null); clearZoomAnchor(); return result;
+  }
   function applyGeosetDensity(changes) {
     try {
       if (!changes?.length || changes.some(change => !Number.isSafeInteger(change.index) || !model.Geosets[change.index] || !change.geoset?.Vertices?.length || !change.geoset?.Faces?.length)) throw Error('Choose a valid geoset density preview.');
@@ -1508,7 +1520,7 @@ export default function App() {
     if (result !== false) { setSelection(nextSelection); setUVEntrySelection(nextDomain); setLiveUV(null); }
   };
   const uvWorkspace = <AppUVWorkspace {...{
-    activeGeoset, applyGeosetDensity, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
+    activeGeoset, applyGeosetDensity, applyCutout, cameraMode, cameraProps, changePointerSensitivity, changePreferences,
     changeSensitivity, commitUVChanges, doc, edit, finishUVPreview, model, openLibrary, preferences, previewModel,
     previewSuspended: previewSuspended || !!uvWindow?.minimized, saving, closeUVWindow, session, setActiveGeoset, setLiveUV, setSelection, setUVEntrySelection,
     setUvSet, teamColor, texturedModel, toggleMiddleCamera, uncoupleUVSelection, uvEntryId, uvEntrySelection,

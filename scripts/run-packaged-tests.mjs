@@ -36,6 +36,7 @@ const VARIANTS = {
 // Per-test settings: env, extra argv, files that must exist (else the test is skipped), timeout (ms).
 // Anything not listed runs with the shared env only.
 const SPECIAL = {
+  'surface-cutout': { env: { MDLXL_UI_EXECUTABLE: exe } },
   'anim-xl': { env: { MDLXL_ANIMXL_EXE: exe } },
   attachemator: { env: { MDLXL_APP: exe, MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
   'anim-xl-filmstrip': { env: { MDLXL_ANIMXL_EXE: exe }, argv: [footman], needs: [footman] },

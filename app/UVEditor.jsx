@@ -12,10 +12,10 @@ import { minimumUVZoom, normalizeUVViewTileLimit } from '../src/uv-view-limit.js
 const indicesOf = selection => Array.from(selection || []);
 
 /** Classic select/move/rotate/scale tools. UV V retains Warcraft's top-down convention. */
-export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = [], eligibleVertices, hiddenVertices = [], onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, showWires = true, showVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', snapTextureFrame = false, axis = null }) {
+export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, textureSize, textureWrapping = true, viewTileLimit = 7, selectedVertices = [], eligibleVertices, hiddenVertices = [], onSelectVertices, onChange, onPreviewChange, transformMode = 'select', cameraMode = 'work', preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended = false, showWires = true, showVertices = true, uvGrid, showTextureFrame = false, textureFrameColor = '#4cff59', snapTextureFrame = false, axis = null, cutout = null }) {
   const host = useRef(null), canvas = useRef(null);
-  const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, image: null, draw: () => {} });
-  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, showWires, showVertices, uvGrid, showTextureFrame, textureFrameColor, snapTextureFrame, axis };
+  const state = useRef({ zoom: .55, panX: 0, panY: 0, centered: false, uv: new Float32Array(), drag: null, cutPoints: [], image: null, draw: () => {} });
+  const current = useRef({}); current.current = { geoset, uvSet, textureSize, textureWrapping, viewTileLimit: normalizeUVViewTileLimit(viewTileLimit), selectedVertices, eligibleVertices, hiddenVertices, onSelectVertices, onChange, onPreviewChange, transformMode, cameraMode, preferences, onSensitivityChange, onPointerSensitivityChange, onWheelModeChange, onCameraModeToggle, suspended, showWires, showVertices, uvGrid, showTextureFrame, textureFrameColor, snapTextureFrame, axis, cutout };
   const [imageError, setImageError] = useState(false), [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
   const graphics = graphicsOptions(preferences);
   const count = (geoset?.TVertices?.[uvSet]?.length || 0) / 2;
@@ -24,6 +24,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
   const eligibilityKey = eligibleVertices === undefined ? '*' : indicesOf(eligibleVertices).join(',');
   useLayoutEffect(() => { state.current.uv = new Float32Array(geoset?.TVertices?.[uvSet] || []); state.current.drag = null; current.current.onPreviewChange?.(null); state.current.draw(); }, [geoset, uvSet, geoset?.TVertices?.[uvSet], revision, textureUrl, eligibilityKey]);
   useEffect(() => { state.current.draw(); }, [selectedVertices, hiddenVertices, eligibilityKey, showWires, showVertices, uvGrid?.enabled, uvGrid?.spacing, uvGrid?.thickness, uvGrid?.color, uvGrid?.opacity, showTextureFrame, textureFrameColor, textureSize?.[0], textureSize?.[1], textureWrapping, preferences?.visuals, preferences?.theme]);
+  useEffect(() => { const s = state.current; s.cutPoints = []; s.cutHover = null; if (s.drag?.type === 'cutout') s.drag = null; s.draw(); }, [!!cutout, cutout?.mode, cutout?.gestureKey, revision, eligibilityKey]);
+  useEffect(() => { state.current.draw(); }, [cutout]);
   useEffect(() => {
     let cancelled = false; state.current.image = null; setImageError(false);
     if (!textureUrl || !graphics.textures) { state.current.draw(); return; }
@@ -127,6 +129,15 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
         const drag = s.drag; context.strokeStyle = visuals.selection; context.setLineDash([2, 2]);
         context.strokeRect(drag.x + .5, drag.y + .5, drag.endX - drag.x, drag.endY - drag.y); context.setLineDash([]);
       }
+      if (p.cutout) {
+        const outline = s.cutPoints.length ? [...s.cutPoints, ...(s.cutHover ? [s.cutHover] : [])] : p.cutout.contour || [];
+        context.save(); context.strokeStyle = '#ffcc36'; context.fillStyle = '#ffcc3628'; context.lineWidth = 2; context.beginPath();
+        outline.forEach((point, i) => context[i ? 'lineTo' : 'moveTo'](x + point[0] * sizeX, y + point[1] * sizeY));
+        if (!s.cutPoints.length || s.drag?.shape === 'ellipse') { context.closePath(); context.fill(); }
+        context.stroke();
+        for (const point of outline) context.fillRect(x + point[0] * sizeX - 2, y + point[1] * sizeY - 2, 4, 4);
+        context.restore();
+      }
     }
     s.draw = draw;
     function resize() {
@@ -136,6 +147,12 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     s.resize = resize;
     const observer = new ownerWindow.ResizeObserver(resize); observer.observe(container); resize();
     function point(event) { const rect = element.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top }; }
+    function uvPoint(event) { const p = point(event), m = mapping(); return [(p.x - m.x) / m.sizeX, (p.y - m.y) / m.sizeY]; }
+    function finishContour() {
+      const points = s.cutPoints; s.cutPoints = []; s.cutHover = null; s.drag = null;
+      if (points.length >= 3) current.current.cutout?.onContour(points);
+      draw();
+    }
     function centerOf(indices, values = s.uv) {
       const center = [0, 0]; for (const index of indices) { center[0] += values[index * 2]; center[1] += values[index * 2 + 1]; }
       if (indices.length) { center[0] /= indices.length; center[1] /= indices.length; } return center;
@@ -145,6 +162,18 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const p = current.current, { x, y } = point(event), m = mapping(), indices = selection();
       const binding = event.button === 2 ? cameraBindings(p.preferences).right : event.button === 1 ? cameraBindings(p.preferences).middle : null;
       if (binding === 'none' || binding === 'toggle') return;
+      if (p.cutout && event.button === 0) {
+        event.preventDefault(); element.focus();
+        const uv = uvPoint(event);
+        if (p.cutout.mode === 'polygon') {
+          if (s.cutPoints.length >= 3 && Math.hypot((uv[0] - s.cutPoints[0][0]) * m.sizeX, (uv[1] - s.cutPoints[0][1]) * m.sizeY) <= 9) return finishContour();
+          if (!s.cutPoints.length) p.cutout.onBegin?.();
+          s.cutPoints.push(uv); s.cutHover = null; draw(); return;
+        }
+        p.cutout.onBegin?.(); s.cutPoints = [uv]; s.cutHover = null; element.setPointerCapture(event.pointerId);
+        s.drag = { type: 'cutout', shape: p.cutout.mode, start: uv }; draw(); return;
+      }
+      if (p.cutout && s.cutPoints.length) { s.cutPoints = []; s.cutHover = null; }
       element.focus(); element.setPointerCapture(event.pointerId);
       // A 2D UV view pans for either camera-navigation mode; camera mode must never edit UVs.
       const type = binding ? (binding === 'zoom' ? 'zoom' : 'pan') : p.cameraMode === 'move' || p.cameraMode === 'rotate' ? 'pan' : p.cameraMode === 'zoom' ? 'zoom' : p.transformMode !== 'select' && indices.length ? p.transformMode : 'select';
@@ -155,7 +184,16 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY]; draw();
     }
     function pointerMove(event) {
-      const drag = s.drag, p = current.current; if (!drag) return;
+      const drag = s.drag, p = current.current;
+      if (!drag) { if (p.cutout?.mode === 'polygon' && s.cutPoints.length) { s.cutHover = uvPoint(event); draw(); } return; }
+      if (drag.type === 'cutout') {
+        const uv = uvPoint(event), m = mapping();
+        if (drag.shape === 'ellipse') {
+          const center = uv.map((v, i) => (v + drag.start[i]) / 2), radius = uv.map((v, i) => Math.abs(v - drag.start[i]) / 2);
+          s.cutPoints = Array.from({ length: p.cutout.corners }, (_, i) => [center[0] + radius[0] * Math.cos(i * 2 * Math.PI / p.cutout.corners), center[1] + radius[1] * Math.sin(i * 2 * Math.PI / p.cutout.corners)]);
+        } else if (Math.hypot((uv[0] - s.cutPoints.at(-1)[0]) * m.sizeX, (uv[1] - s.cutPoints.at(-1)[1]) * m.sizeY) >= 1 && s.cutPoints.length < 4096) s.cutPoints.push(uv);
+        draw(); return;
+      }
       const rawEnd = point(event), { x, y } = drag.type === 'select' ? rawEnd : pointerDragPoint(drag, rawEnd, drag.pointerSensitivity);
       const dx = x - drag.x, dy = y - drag.y; drag.endX = x; drag.endY = y; drag.moved = Math.hypot(dx, dy) > 1;
       if (drag.type === 'pan') { s.panX = drag.panX + dx; s.panY = drag.panY + dy; }
@@ -208,6 +246,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     function pointerUp(event) {
       const p = current.current, drag = s.drag; if (!drag) return; s.drag = null;
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+      if (drag.type === 'cutout') { finishContour(); event.preventDefault(); return; }
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type) && drag.moved) p.onChange?.(restrictUVChange(p.geoset, p.uvSet, s.uv, drag.indices));
       p.onPreviewChange?.(null);
       if (drag.type === 'select') {
@@ -229,7 +268,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       }
       draw();
     }
-    function cancelGesture() { if (s.drag?.original) s.uv.set(s.drag.original); s.drag = null; current.current.onPreviewChange?.(null); draw(); }
+    function cancelGesture() { if (s.drag?.original) s.uv.set(s.drag.original); s.drag = null; s.cutPoints = []; s.cutHover = null; current.current.onPreviewChange?.(null); draw(); }
     function fit(event) {
       cancelGesture(); s.zoom = .55; s.panX = s.panY = 0;
       const indices = selection();
@@ -245,6 +284,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const p = current.current, { kind, value } = event.detail || {};
       if (p.suspended) return;
       if (kind === 'frame') return fit();
+      if (p.cutout) return;
       const indices = selection(), all = eligible(), allowed = new Set(all);
       if (kind === 'select-all') return p.onSelectVertices?.(all);
       if (kind === 'select-none') return p.onSelectVertices?.([]);
@@ -273,10 +313,21 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       s.panX += x - (after.x + (x - before.x) / before.sizeX * after.sizeX); s.panY += y - (after.y + (y - before.y) / before.sizeY * after.sizeY); draw();
     }
     const contextMenu = event => event.preventDefault();
-    const cancelKey = event => { if (event.key === 'Escape' && s.drag) { cancelGesture(); event.preventDefault(); } };
+    const cancelKey = event => {
+      const tool = current.current.cutout;
+      if (tool && (event.key === 'Escape' || !isTextEditingTarget(event.target))) {
+        if (event.key === 'Enter' && s.cutPoints.length >= 3) { finishContour(); event.preventDefault(); }
+        if (event.key === 'Backspace' && s.cutPoints.length) { s.cutPoints.pop(); draw(); event.preventDefault(); }
+        if (event.key === 'Escape') { cancelGesture(); tool.onCancel?.(); event.preventDefault(); }
+        if (event.defaultPrevented) event.stopImmediatePropagation();
+      } else if (event.key === 'Escape' && s.drag) { cancelGesture(); event.preventDefault(); }
+    };
     const nudgeKey = event => {
       const key = event.detail, p = current.current, workspace = container.closest('.uv-workspace') || container;
-      if (!workspace.contains(key.target) || isTextEditingTarget(key.target) || key.target.closest?.('[role="separator"]') || key.defaultPrevented || key.isComposing || key.ctrlKey || key.metaKey || key.altKey || p.suspended || s.drag || !selection().length) return;
+      if (p.cutout && workspace.contains(key.target) && ['Escape', 'Enter', 'Backspace'].includes(key.key) && (key.key === 'Escape' || !isTextEditingTarget(key.target))) {
+        cancelKey(key); key.preventDefault(); event.preventDefault(); return;
+      }
+      if (!workspace.contains(key.target) || isTextEditingTarget(key.target) || key.target.closest?.('[role="separator"]') || key.defaultPrevented || key.isComposing || key.ctrlKey || key.metaKey || key.altKey || p.suspended || p.cutout || s.drag || !selection().length) return;
       const direction = { Numpad7: [-1, -1], Numpad8: [0, -1], Numpad9: [1, -1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad1: [-1, 1], Numpad2: [0, 1], Numpad3: [1, 1] }[key.code];
       if (!direction) return;
       key.preventDefault(); key.stopImmediatePropagation(); event.preventDefault();
