@@ -46,7 +46,7 @@ mouse camera controls, document validation, byte-preserving save and Undo.
   chooser, clear selection context, compact icon controls, formatted replies and
   an integrated composer. The optional executable path is under Advanced
   connection. Separate native assistant messages retain paragraph boundaries.
-- Fourteen shared tools cover exact selections, model data/scripts, existing commands,
+- Fifteen shared tools cover exact selections, model data/scripts, existing commands,
   controls, captures, reference models, export, round-trip validation and help.
   The capability index searches 188 public source modules; 45 modules across the
   core task areas were imported successfully in the packaged sandbox. Direct
@@ -69,6 +69,38 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 - See [AI-HOOK.md](../AI-HOOK.md) for setup, supported connections and scripting.
 
 ## Verification
+
+Current continuation adds an off-by-default, persisted Continuous awareness
+switch, event-driven editor snapshots and authenticated MCP resource subscriptions.
+Codex receives active-turn context injections; API/Claude tools receive current
+context at tool boundaries. Awareness starts no idle AI requests and never
+retargets an existing edit. `mdlxl_review` requires read-only result assertions,
+MDX/MDL reopen checks, before/after images and explicit visual review. Animation
+reviews include intermediate poses. Embedded completion checks this evidence;
+unfinished work is journaled before/after edits and can resume after a restart
+when the model matches its checkpoint. Original model/selection protection and
+normal camera controls remain in place. The signed-in Codex account accepted live
+context during a running turn without a second user turn. All desktop checks ran
+on the invisible test desktop; the user's visible app remained closed.
+
+- New packaged awareness/correction/restart acceptance: 17 checks passed.
+- Updated original packaged regression: 55 checks passed, including immutable
+  verification scripts, animation pose images and playhead restoration.
+- Final source suite for this continuation: 1,911 tests, 1,890 passed,
+  21 skipped, zero failures. Compatibility: 57 passed.
+- Focused awareness, native-provider and recovery checks: 14 passed, including
+  refusing a success reply when an edit fails without changing the model.
+- Real signed-in GPT-6-Luna: 23 checks across four prompts, covering exact marked
+  vertex movement, duplicate mirror/seam weld, sparse animation authoring,
+  protected-data preservation, actual review completion, Undo, program help and
+  MDX/MDL reopening. Live context injection was acknowledged without delivery
+  errors. The animation prompt encountered tool errors, corrected its call and
+  completed review successfully. Source input bytes remained unchanged.
+- Final runtime package: 1,149 runtime/asset files verified and 55 Electron
+  locale files retained. User profile and the original test model are separate
+  from the replaceable application package.
+
+Earlier milestones (before optional awareness and durable verification):
 
 - Compatibility: 57 passed, zero failures.
 - Final full source suite: 1,903 tests, 1,882 passed, 21 skipped, zero failures.

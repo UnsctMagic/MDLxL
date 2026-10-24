@@ -42,6 +42,11 @@
 .ai-target>div{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}
 .ai-target b{color:var(--ui-text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ai-target>span{margin-left:auto}
+.ai-awareness{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 13px;border-bottom:1px solid var(--ai-line);font-size:10px;color:var(--ui-muted);flex-shrink:0}
+.ai-awareness label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.ai-awareness input{margin:0;accent-color:var(--ai-accent)}
+.ai-awareness>span{color:var(--ui-link)}
+.ai-resume{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 11px 9px;font-size:11px;flex-shrink:0;color:var(--ui-muted)}
 .ai-messages{overflow:auto;flex:1;min-height:52px;padding:17px 15px 10px;user-select:text;scrollbar-width:thin}
 .ai-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:14px 15px 22px;text-align:center;color:var(--ui-muted)}
 .ai-empty-icon{width:50px;height:50px;border-radius:13px;margin-bottom:15px}

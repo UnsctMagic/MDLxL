@@ -16,10 +16,10 @@ window.aiSandbox.onRun(async payload=>{
       const source=await sources[`../src/${name}.js`]();
       return {exports:Object.fromEntries(Object.entries(exports).map(([key,value])=>[key,typeof value])),signatures:[...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(([^]*?)\)\s*\{/g)].map(match=>({name:match[1],arguments:match[2]})),source:'Use await api.source("'+name+'") to inspect the actual implementation.'};
     }};
-    const {model,selection,context,references,code}=payload,assets=[];
-    const value=await new AsyncFunction('model','selection','context','references','api','assets','log','"use strict";\n'+code)(model,selection,context,references,api,assets,(...values)=>{
+    const {model,selection,context,references,code,before}=payload,assets=[];
+    const value=await new AsyncFunction('model','selection','context','references','api','assets','before','log','"use strict";\n'+code)(model,selection,context,references,api,assets,before,(...values)=>{
       if(logs.length<100)logs.push(values.map(v=>typeof v==='string'?v:JSON.stringify(v)).join(' ').slice(0,10000));
     });
-    window.aiSandbox.finish({model,selection,assets,value,logs});
+    window.aiSandbox.finish({model,selection,assets,value,logs,...(before?{before}:{})});
   } catch(error) {window.aiSandbox.finish({error:String(error.message||error)});}
 });

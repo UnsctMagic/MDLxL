@@ -12,6 +12,36 @@ sign-in. **Connection** holds provider settings; **Advanced connection** contain
 the optional CLI executable path. The panel follows MDLxL's current appearance,
 and replies format paragraphs, lists, bold text and code without executing HTML.
 
+**Continuous awareness** is an optional switch below the model/selection strip.
+It starts off and remembers your choice. When on, real editor changes update the
+connected AI's context: document/revision, marked vertices, selected bones/keys,
+camera angles, workspace and animation frame. Changes are coalesced; there is no
+idle polling and enabling it does not start paid AI requests by itself. Codex
+receives updates in its active turn; API/Claude tool results carry the latest
+context at the next tool boundary. External MCP clients can subscribe to
+`mdlxl://editor/context`. Turning the switch off clears that live resource and
+stops future updates. Context already sent remains in the conversation.
+
+Live awareness never moves an existing edit onto a new selection. If the user
+changes the captured model or selection, delayed mutations still stop.
+
+After model edits, **Result verified** appears only after the AI runs measured,
+read-only checks against the original model, validates MDX/MDL reopening, receives
+actual before/after images, and finishes its visual review. Animation edits also
+sample and capture intermediate poses, then restore the playhead. A failed check
+requires correction and a fresh review; another edit invalidates the old review.
+The AI judges appearance and chooses task-specific assertions: the gate verifies
+that these checks ran, not that AI judgment is infallible. External clients have
+the same review tools but control their own conversation completion.
+
+Interrupted embedded tasks show **Resume task**. Checkpoints are written before
+and after edit tools, including the original model, exact target context and
+completed-step summaries. Resume verifies the current model against the saved
+checkpoint, restores its selection and continues with inspection, without blindly
+replaying an applied tool. If the model differs, recover it through MDLxL's normal
+recovery first or send a new prompt. Checkpoints do not save over model files.
+The temporary original-model snapshot is removed after verified completion.
+
 Mark vertices, select bones or timeline keys, then describe the change. For example:
 
 - “Mirror these to the other side and weld the seam. Keep the existing UVs.”
@@ -33,7 +63,6 @@ Reference models remain open as ordinary tabs. Image paste also works.
 
 | Choice | Setup |
 | --- | --- |
-| `mdlxl_capabilities` | Search installed editing libraries by task, discover exported functions and read their actual runtime signatures. |
 | Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), then click **Sign in**. Complete the provider's sign-in page in your browser. |
 | Claude Code | Install [Claude Code](https://code.claude.com/docs/en/setup), then click **Sign in**. Your plan must support Claude Code. |
 | OpenAI API | Enter an OpenAI API key and choose a model that supports tools. |
@@ -78,6 +107,8 @@ Embedded chat works without enabling this external listener.
 
 | Tool | Capability |
 | --- | --- |
+| `mdlxl_capabilities` | Search installed editing libraries by task, discover exported functions and read their actual runtime signatures. |
+| `mdlxl_review` | Run task-specific assertions against `model` and original `before`, validate files, inspect actual images/animation samples and finish or request correction. |
 | `mdlxl_context` | Live document, exact selection, animation context, references, diagnostics and enabled commands. |
 | `mdlxl_read` | Read any model field, with typed arrays and explicit pagination. |
 | `mdlxl_script` | General JavaScript using the complete model, references, captured selection and MDLxL's own modeling libraries. |

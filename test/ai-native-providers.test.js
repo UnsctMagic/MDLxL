@@ -7,6 +7,7 @@ import {createRequire} from 'node:module';
 import {AI_TOOLS} from '../src/ai-tools.js';
 const {runCodex,runClaude,CodexProcess}=createRequire(import.meta.url)('../electron/ai-providers.cjs');
 const {AiService}=createRequire(import.meta.url)('../electron/ai-service.cjs');
+const {AiAwareness}=createRequire(import.meta.url)('../electron/ai-awareness.cjs');
 
 test('editor shutdown aborts a pending external tool and its sandbox signal',async()=>{
  const sent=[],win={isDestroyed:()=>false,webContents:{send:(...args)=>sent.push(args)}};
@@ -67,6 +68,13 @@ test('signed-out Codex cannot create a turn or call an editor tool',async t=>{
  assert.equal(calls.length,0);
  const requests=(await fs.readFile(path.join(config.directory,'fixture-calls.jsonl'),'utf8')).trim().split('\n').map(line=>JSON.parse(line).method);
  assert.deepEqual(requests,['initialize','account/read']);
+});
+
+test('native Codex receives enabled live context during a running turn without another user turn',async t=>{
+ const config=await executable(t),events=[],awareness=new AiAwareness();awareness.setEnabled(true);
+ await runCodex({settings:{executable:config.executable},directory:config.directory,tools:AI_TOOLS,call:async()=>{awareness.update({frame:321,selection:{0:[2,4]}});await new Promise(resolve=>setTimeout(resolve,30));return {name:'fixture'};},system:'MDLxL tools only',prompt:'test prompt',images:[],conversation:{},signal:new AbortController().signal,event:event=>events.push(event),awareness});
+ const requests=(await fs.readFile(path.join(config.directory,'fixture-calls.jsonl'),'utf8')).trim().split('\n').map(line=>JSON.parse(line).method);
+ assert.ok(requests.includes('thread/inject_items'));assert.equal(requests.filter(method=>method==='turn/start').length,1);assert.equal(events.filter(event=>event.type==='awareness-delivered').length,1);
 });
 
 test('service preserves an unauthenticated prompt outside chat history, verifies login, and reads it after a process restart',async t=>{

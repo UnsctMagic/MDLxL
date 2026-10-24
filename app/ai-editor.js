@@ -1,4 +1,4 @@
-import { AI_TOOLS } from '../src/ai-tools.js';
+import { AI_TOOLS,aiToolEditsModel } from '../src/ai-tools.js';
 import { aiSelectionSignature, checkAiTarget, readAiModel, patchAiModel, prepareAiEdit, applyAiEdit, encodeAiValue } from '../src/ai-model.js';
 import { openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
@@ -6,6 +6,7 @@ import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { aiAssets, validateAiAssets } from './ai-assets.js';
+import {aiCheckpoint,beginAiReview,recordAiChange,reviewAiModel,reviewStatus} from './ai-review.js';
 
 const guides=import.meta.glob(['../docs/*.md','../README.md'],{query:'?raw',import:'default'});
 const settle=()=>new Promise(resolve=>setTimeout(resolve,60));
@@ -36,11 +37,26 @@ export class AiEditorBridge {
   requireTarget(id) {const target=this.targets.get(id);checkAiTarget(target,this.state());return target;}
   advance(id,viewChanged=false) {const target=this.targets.get(id),s=this.state();target.revision=s.doc.revision;target.selectionSignature=aiSelectionSignature(s);target.selection=structuredClone(s.selection);if(viewChanged)Object.assign(target,{sequence:s.sequence,frame:s.time,keyframes:structuredClone(s.keyframes),globalSequence:s.globalSeqId,workplane:s.workplane,view:s.view});}
   async call(name,args={},options={}) {
-    const op=this.queue.then(()=>this.dispatch(name,args,options));this.queue=op.catch(()=>{});return op;
+    const op=this.queue.then(async()=>{
+      let review,revision,paint;
+      if(aiToolEditsModel(name,args)) {review=await beginAiReview(this,args.target,options);revision=this.state().doc.revision;paint=this.state().session.paintWorkingRevision;}
+      let result;
+      try {result=await this.dispatch(name,args,options);return result;}
+      finally {
+        if(review&&(this.state().doc.revision!==revision||this.state().session.paintWorkingRevision!==paint))recordAiChange(review,result,this.state().model);
+        if(result&&review)result.review=reviewStatus(review);
+        this.editorChanged();
+      }
+    });this.queue=op.catch(()=>{});return op;
   }
   async dispatch(name,args,{signal,requestId}={}) {
     const active=()=>{if(signal?.aborted)throw Error('AI request cancelled; no further edit was applied.');};active();
+    if(name==='mdlxl_checkpoint') {
+      if(args.prepare)await beginAiReview(this,args.target,{signal,requestId});
+      return aiCheckpoint(this,args.target,args);
+    }
     if(!AI_TOOLS.some(t=>t.name===name))throw Error('Unknown MDLxL tool: '+name);
+    if(name==='mdlxl_review')return reviewAiModel(this,args,{signal,requestId});
     if(name==='mdlxl_context')return this.context(args.target);
     if(name==='mdlxl_capabilities') {
       if(!args.module)return aiCapabilities(args);
@@ -187,12 +203,25 @@ export class AiEditorBridge {
   }
   attach(desktop) {
     if(!desktop?.onAiTool)return ()=>{};
-    const pending=new Map();
+    const pending=new Map();this.desktop=desktop;
+    const awareness=desktop.onAiEvent(event=>{if(event.type==='awareness'){this.awarenessEnabled=event.enabled;clearTimeout(this.awarenessTimer);this.awarenessTimer=null;this.awarenessSignature=null;if(event.enabled)this.editorChanged();}});
+    desktop.aiStatus().then(value=>{this.awarenessEnabled=value.awareness;this.editorChanged();}).catch(error=>desktop.aiAwarenessError?.(error.message));
     const cancel=desktop.onAiToolCancel(id=>pending.get(id)?.abort());
     const detach=desktop.onAiTool(async request=>{
       const controller=new AbortController();pending.set(request.id,controller);
       try{desktop.aiToolResult({id:request.id,result:await this.call(request.name,request.arguments,{signal:controller.signal,requestId:request.id})});}catch(error){desktop.aiToolResult({id:request.id,error:error.message});}finally{pending.delete(request.id);}
     });
-    return ()=>{for(const controller of pending.values())controller.abort();pending.clear();cancel();detach();};
+    return ()=>{clearTimeout(this.awarenessTimer);this.awarenessEnabled=false;this.desktop=null;awareness();for(const controller of pending.values())controller.abort();pending.clear();cancel();detach();};
+  }
+  editorChanged() {
+    if(!this.awarenessEnabled||!this.desktop||this.awarenessTimer)return;
+    // Coalesce real React/editor changes; no polling or idle provider requests.
+    this.awarenessTimer=setTimeout(()=>{
+      this.awarenessTimer=null;if(!this.awarenessEnabled||!this.desktop)return;
+      const s=this.state();
+      const context={documentId:s.session.id,name:s.doc.name,revision:s.doc.revision,selection:s.selection,selectedNodeIds:s.selectedNodeIds,checkedGeosets:Array.from(s.selectable),activeGeoset:s.activeGeoset,uvSet:s.uvSet,mode:s.mode,sequence:s.sequence,sequenceName:s.model.Sequences[s.sequence]?.Name||null,frame:s.time,globalSequence:s.globalSeqId,playing:s.playing,view:s.view,camera:s.cameraAngles,renderMode:s.renderMode,keyframes:s.keyframes,paintRevision:s.session.paintWorkingRevision,dialog:s.dialog?.type||null};
+      const signature=JSON.stringify(context);if(signature===this.awarenessSignature)return;
+      this.awarenessSignature=signature;this.desktop.aiContextChanged(context);
+    },400);
   }
 }

@@ -3,6 +3,7 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {spawnAgent,stopAgent,lines,providerEnvironment}=require('./ai-process.cjs');
 const {startMcpServer,callEditorTool}=require('./ai-mcp.cjs');
+const {awarenessText}=require('./ai-awareness.cjs');
 
 function endpoint(value) {
   const url=new URL(value);
@@ -39,15 +40,17 @@ function imageParts(images=[],kind='openai') {
 function authenticationRequired() {
   return Object.assign(Error('Sign in to connect your AI. Your prompt has been kept.'),{code:'AI_AUTH_REQUIRED'});
 }
-async function runApi({settings,key,tools,call,prompt,images,system,conversation,signal,event}) {
+async function runApi({settings,key,tools,call,prompt,images,system,conversation,signal,event,awareness}) {
   const anthropic=settings.provider==='anthropic';
   const base=endpoint(settings.baseUrl||(anthropic?'https://api.anthropic.com/v1':'https://api.openai.com/v1'));
   if(!settings.model?.trim())throw Error('Choose a model in AI connection settings.');
   const history=conversation.messages||[];
   history.push({role:'user',content:[{type:'text',text:prompt},...imageParts(images,anthropic?'anthropic':'openai')]});
   conversation.messages=history;
+  let awarenessVersion=awareness?.version;
   for(let step=0;step<64;step++) {
     if(signal.aborted)throw Error('AI request cancelled.');
+    if(awareness?.enabled&&awareness.version!==awarenessVersion){history.push({role:'user',content:[{type:'text',text:awarenessText(awareness.snapshot())}]});awarenessVersion=awareness.version;}
     if(anthropic) {
       const response=await requestJson(base+'/messages',{model:settings.model,max_tokens:16384,system,messages:history,tools:tools.map(t=>({name:t.name,description:t.description,input_schema:t.inputSchema})),stream:true},key,signal,{'anthropic-version':'2023-06-01'});
       const content=[];let stopReason=null;
@@ -71,7 +74,7 @@ async function runApi({settings,key,tools,call,prompt,images,system,conversation
       const results=[];
       for(const block of calls) {
         event({type:'tool',name:block.name});
-        let result;try{result=await callEditorTool(tools,call,block.name,block.input,signal);}catch(error){result={isError:true,content:[{type:'text',text:error.message}]};}
+        let result;try{result=await callEditorTool(tools,call,block.name,block.input,signal,awareness);}catch(error){result={isError:true,content:[{type:'text',text:error.message}]};}
         results.push({type:'tool_result',tool_use_id:block.id,is_error:!!result.isError,content:result.content.map(c=>c.type==='image'?{type:'image',source:{type:'base64',media_type:c.mimeType,data:c.data}}:c)});
         event({type:'tool-result',name:block.name,error:!!result.isError,summary:result.content.find(c=>c.type==='text')?.text?.slice(0,300)});
       }
@@ -97,7 +100,7 @@ async function runApi({settings,key,tools,call,prompt,images,system,conversation
       const imageMessages=[];
       for(const toolCall of toolCalls) {
         event({type:'tool',name:toolCall.function.name});
-        let result;try{result=await callEditorTool(tools,call,toolCall.function.name,JSON.parse(toolCall.function.arguments),signal);}catch(error){result={isError:true,content:[{type:'text',text:error.message}]};}
+        let result;try{result=await callEditorTool(tools,call,toolCall.function.name,JSON.parse(toolCall.function.arguments),signal,awareness);}catch(error){result={isError:true,content:[{type:'text',text:error.message}]};}
         const textContent=result.content.filter(c=>c.type==='text').map(c=>c.text).join('\n');
         history.push({role:'tool',tool_call_id:toolCall.id,content:textContent||'Viewport image follows.'});
         for(const image of result.content.filter(c=>c.type==='image'))imageMessages.push({type:'image_url',image_url:{url:`data:${image.mimeType};base64,${image.data}`}});
@@ -163,9 +166,10 @@ class CodexProcess {
   async close(){this.signal?.removeEventListener('abort',this.abort);stopAgent(this.child);if(this.exited)await this.exited;}
 }
 async function runCodex(options) {
-  const {settings,directory,event,tools,call,system,prompt,images,conversation,signal}=options;
-  const mcp=await startMcpServer({tools,call});
+  const {settings,directory,event,tools,call,system,prompt,images,conversation,signal,awareness}=options;
+  const mcp=await startMcpServer({tools,call,awareness});
   const client=new CodexProcess(settings,{directory,event,mcp,signal});
+  let unsubscribe,updates=Promise.resolve(),pendingContext,delivering=false;
   try {
     await client.start();
     const account=await client.account();
@@ -173,15 +177,19 @@ async function runCodex(options) {
     const params={cwd:directory,approvalPolicy:'never',sandbox:'read-only',...(settings.model?{model:settings.model}:{}),developerInstructions:system};
     const result=conversation.threadId?await client.request('thread/resume',{...params,threadId:conversation.threadId}):await client.request('thread/start',params);
     conversation.threadId=result.thread.id;
+    unsubscribe=awareness?.subscribe(value=>{
+      if(signal.aborted)return;pendingContext=value;if(delivering)return;delivering=true;
+      updates=(async()=>{while(pendingContext&&!signal.aborted){const latest=pendingContext;pendingContext=null;await client.request('thread/inject_items',{threadId:conversation.threadId,items:[{type:'message',role:'user',content:[{type:'input_text',text:awarenessText(latest)}]}]});event({type:'awareness-delivered',version:latest.version});}})().catch(error=>event({type:'notice',text:'Live context delivery failed: '+error.message})).finally(()=>{delivering=false;});
+    });
     const completed=new Promise((resolve,reject)=>{client.turn=turn=>turn.status==='completed'?resolve():reject(Error(turn.error?.message||'Codex turn '+turn.status));client.turnError=reject;});
     // Install the completion listener first: short turns can finish before turn/start replies.
     completed.catch(()=>{});
     await client.request('turn/start',{threadId:conversation.threadId,input:[{type:'text',text:prompt},...(images||[]).map(url=>({type:'image',url}))]});
     await completed;
-  }finally{await client.close();await mcp.close();}
+  }finally{unsubscribe?.();await updates;await client.close();await mcp.close();}
 }
-async function runClaude({settings,directory,event,tools,call,system,prompt,images,conversation,signal}) {
-  await fs.mkdir(directory,{recursive:true});const mcp=await startMcpServer({tools,call});
+async function runClaude({settings,directory,event,tools,call,system,prompt,images,conversation,signal,awareness}) {
+  await fs.mkdir(directory,{recursive:true});const mcp=await startMcpServer({tools,call,awareness});
   const runDirectory=await fs.mkdtemp(path.join(directory,'claude-run-'));
   let child;
   try {

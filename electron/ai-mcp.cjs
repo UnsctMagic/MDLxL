@@ -1,5 +1,6 @@
 const http=require('node:http');
 const crypto=require('node:crypto');
+const {CONTEXT_URI,awarenessText}=require('./ai-awareness.cjs');
 
 function validateArguments(schema,value,path='arguments') {
   if(schema.enum&&!schema.enum.includes(value))throw Error(path+' has an unsupported value.');
@@ -26,31 +27,43 @@ function validateArguments(schema,value,path='arguments') {
 function toolContent(value) {
   if(value?.images){
     if(!Array.isArray(value.images)||!value.images.length||value.images.length>12)throw Error('Invalid viewport capture batch.');
-    return value.images.flatMap((item,index)=>[{type:'text',text:`Image ${index+1}: ${String(item.label||'Viewport')}`},...toolContent({image:item.image})]);
+    const {images,...metadata}=value;
+    return [...(Object.keys(metadata).length?[{type:'text',text:JSON.stringify(metadata)}]:[]),...images.flatMap((item,index)=>[{type:'text',text:`Image ${index+1}: ${String(item.label||'Viewport')}`},...toolContent({image:item.image})])];
   }
   if(value?.image) {
     const match=/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s.exec(value.image);
     if(!match)throw Error('Invalid viewport capture.');
-    return [{type:'image',mimeType:match[1],data:match[2]}];
+    const {image,...metadata}=value;
+    return [...(Object.keys(metadata).length?[{type:'text',text:JSON.stringify(metadata)}]:[]),{type:'image',mimeType:match[1],data:match[2]}];
   }
   return [{type:'text',text:JSON.stringify(value??null)}];
 }
-async function callEditorTool(tools,call,name,args,signal) {
+async function callEditorTool(tools,call,name,args,signal,awareness) {
   const tool=tools.find(t=>t.name===name);if(!tool)throw Error('Unknown tool: '+name);
   validateArguments(tool.inputSchema,args);
   if(signal?.aborted)throw Error('Request cancelled.');
-  try {return {content:toolContent(await call(name,args,signal))};}
+  try {const content=toolContent(await call(name,args,signal));if(awareness?.enabled)content.push({type:'text',text:awarenessText(awareness.snapshot())});return {content};}
   catch(error){return {isError:true,content:[{type:'text',text:String(error.message||error)}]};}
 }
-async function startMcpServer({tools,call,port=0,token=crypto.randomBytes(32).toString('hex'),name='MDLxL',onCall=()=>{}}) {
-  const controllers=new Set();let actualPort;
+async function startMcpServer({tools,call,port=0,token=crypto.randomBytes(32).toString('hex'),name='MDLxL',onCall=()=>{},awareness}) {
+  const controllers=new Set(),sessions=new Map();let actualPort;
+  const unsubscribe=awareness?.subscribe(()=>{
+    const data='event: message\ndata: '+JSON.stringify({jsonrpc:'2.0',method:'notifications/resources/updated',params:{uri:CONTEXT_URI}})+'\n\n';
+    for(const session of sessions.values())if(session.subscribed)for(const stream of session.streams)if(!stream.destroyed)stream.write(data);
+  });
   const server=http.createServer(async(req,res)=>{
     const send=(status,value)=>{if(res.destroyed||res.writableEnded)return;res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(value===undefined?'':JSON.stringify(value));};
     if(req.headers.origin||![`127.0.0.1:${actualPort}`,`localhost:${actualPort}`].includes(req.headers.host))return send(403,{error:'Local clients only.'});
     const bearer=Buffer.from(req.headers.authorization||''), expected=Buffer.from('Bearer '+token);
     if(bearer.length!==expected.length||!crypto.timingSafeEqual(bearer,expected))return send(401,{error:'Invalid connection token.'});
     if(req.url!=='/mcp')return send(404,{error:'Not found.'});
-    if(req.method==='DELETE')return send(200,{});
+    const sessionId=req.headers['mcp-session-id'],session=sessions.get(sessionId);
+    if(req.method==='DELETE'){if(session){for(const stream of session.streams)stream.end();sessions.delete(sessionId);}return send(200,{});}
+    if(req.method==='GET'&&awareness) {
+      if(!session)return send(404,{error:'Initialize an MCP session before subscribing.'});
+      if(!req.headers.accept?.includes('text/event-stream'))return send(406,{error:'Accept text/event-stream.'});
+      res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-store','connection':'keep-alive'});res.write(': connected\n\n');session.streams.add(res);res.on('close',()=>session.streams.delete(res));return;
+    }
     if(req.method!=='POST')return send(405,{error:'Use MCP Streamable HTTP POST.'});
     if(!req.headers['content-type']?.includes('application/json'))return send(415,{error:'Use application/json.'});
     const controller=new AbortController();controllers.add(controller);res.on('close',()=>{if(!res.writableEnded)controller.abort();});
@@ -63,10 +76,16 @@ async function startMcpServer({tools,call,port=0,token=crypto.randomBytes(32).to
       if(message.id===undefined)return send(202);
       const params=message.params||{};let result;
       switch(message.method) {
-        case 'initialize': result={protocolVersion:['2025-03-26','2025-06-18','2025-11-25'].includes(params.protocolVersion)?params.protocolVersion:'2025-11-25',capabilities:{tools:{listChanged:false}},serverInfo:{name,version:'1.0.0'},instructions:'Control the live MDLxL editor. Start with mdlxl_context. Preserve unrelated model data and use the captured target token for every action.'};break;
+        case 'initialize': {
+          if(awareness){const id=crypto.randomUUID();sessions.set(id,{streams:new Set(),subscribed:false});res.setHeader('Mcp-Session-Id',id);}
+          result={protocolVersion:['2025-03-26','2025-06-18','2025-11-25'].includes(params.protocolVersion)?params.protocolVersion:'2025-11-25',capabilities:{tools:{listChanged:false},...(awareness?{resources:{subscribe:true,listChanged:false}}:{})},serverInfo:{name,version:'1.0.0'},instructions:'Control the live MDLxL editor. Start with mdlxl_context. Preserve unrelated model data and use the captured target token for every action. Complete edits with mdlxl_review inspect and finish. Optional continuous awareness is available at mdlxl://editor/context when the user enables it; updates never change an existing edit target.'};break;
+        }
         case 'ping':result={};break;
+        case 'resources/list':result={resources:awareness?[{uri:CONTEXT_URI,name:'Live editor context',mimeType:'application/json',description:'Optional continuous awareness. Read enabled before using context.'}]:[]};break;
+        case 'resources/read':if(!awareness||params.uri!==CONTEXT_URI)throw Error('Unknown resource.');result={contents:[{uri:CONTEXT_URI,mimeType:'application/json',text:JSON.stringify(awareness.snapshot())}]};break;
+        case 'resources/subscribe':case 'resources/unsubscribe':if(!awareness||params.uri!==CONTEXT_URI||!session)throw Error('Initialize a session and use the live editor context URI.');session.subscribed=message.method==='resources/subscribe';result={};break;
         case 'tools/list':result={tools};break;
-        case 'tools/call':onCall(params.name);result=await callEditorTool(tools,call,params.name,params.arguments||{},controller.signal);break;
+        case 'tools/call':onCall(params.name);result=await callEditorTool(tools,call,params.name,params.arguments||{},controller.signal,awareness);break;
         default:return send(200,{jsonrpc:'2.0',id:message.id,error:{code:-32601,message:'Method not found.'}});
       }
       send(200,{jsonrpc:'2.0',id:message.id,result});
@@ -75,6 +94,6 @@ async function startMcpServer({tools,call,port=0,token=crypto.randomBytes(32).to
   });
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});actualPort=server.address().port;
   const url=`http://127.0.0.1:${actualPort}/mcp`;
-  return {url,port:actualPort,token,toolNames:tools.map(tool=>tool.name),config:{mcpServers:{mdlxl:{type:'http',url,headers:{Authorization:'Bearer '+token}}}},close:async()=>{for(const c of controllers)c.abort();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};
+  return {url,port:actualPort,token,toolNames:tools.map(tool=>tool.name),config:{mcpServers:{mdlxl:{type:'http',url,headers:{Authorization:'Bearer '+token}}}},close:async()=>{unsubscribe?.();for(const c of controllers)c.abort();for(const session of sessions.values())for(const stream of session.streams)stream.end();sessions.clear();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};
 }
 module.exports={startMcpServer,callEditorTool,toolContent,validateArguments};

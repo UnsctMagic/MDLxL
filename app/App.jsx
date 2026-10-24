@@ -1354,7 +1354,7 @@ export default function App() {
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   const aiHost = useRef();
   aiHost.current = {
-    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
+    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
     command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
     edit,
@@ -1371,6 +1371,13 @@ export default function App() {
       timelineCommands.current.selectKeys(value.frames,{kind:'node',id:value.nodeId,property:value.property});
       await new Promise(resolve=>requestAnimationFrame(resolve));
     },
+    restoreContext: async value => {
+      await selectMode(value.mode);setWorkplane(value.workplane);setUvSet(value.uvSet);setActiveGeoset(value.activeGeoset);setSelectable(new Set(value.checkedGeosets));setSelection(value.selection);setSelectedNodeIds(value.selectedNodeIds);
+      if(value.globalSequence!=null)selectTimeline('global:'+value.globalSequence);else selectSequence(value.sequence);
+      setPlaying(false);setTime(value.liveFrame??value.frame);
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      if(value.keyframes){if(value.keyframes.keys?.length){await selectAnimationPanel('movement');setMovementMode(value.keyframes.controller);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}timelineCommands.current.restoreSelection?.(value.keyframes);await new Promise(resolve=>requestAnimationFrame(resolve));}
+    },
     view: async value => {if(value.mode)await selectMode(value.mode);if(value.view)setView(value.view);if(value.globalSequence!==undefined)selectTimeline(value.globalSequence==null?String(value.sequence??sequence):'global:'+value.globalSequence);else if(value.sequence!==undefined)selectSequence(value.sequence);if(value.frame!==undefined){setPlaying(false);setTime(value.frame);}if(value.playing!==undefined)setPlaying(value.playing);if(value.renderMode)setViewRenderMode(value.renderMode);if(value.fit)frame(value.fit==='selection');},
     open: record => queueModelRecords([record]),
     assets: () => retainedForgeAssets(session.assets,doc.model),
@@ -1379,6 +1386,7 @@ export default function App() {
   };
   const aiBridge = useMemo(() => new AiEditorBridge(() => aiHost.current), []);
   useEffect(() => aiBridge.attach(window.desktop), [aiBridge]);
+  useEffect(() => {aiBridge.editorChanged();});
 
 
   const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,normals:overlays.normals};

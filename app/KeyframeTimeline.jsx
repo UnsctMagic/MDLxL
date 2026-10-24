@@ -165,6 +165,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     selectKeys: (frames, target) => { setContext(null); setRange(null); setKeySelection(frames.length ? { trackId: animationTrackId(target), nodeId: target.id, controller: ({ Translation: 'move', Rotation: 'rotate', Scaling: 'scale' })[target.property], frames: new Set(frames) } : null); },
     previous, next,
     selectionContext: () => ({controller:activeController,range:hasRange?bounds:null,keys:hasRange||selectedKeysById?editableKeys().map(key=>({frame:key.frame,trackId:key.trackId,target:targets.find(target=>animationTrackId(target)===key.trackId)})):[]}),
+    restoreSelection: value => {setContext(null);setRange(value.range||null);const first=value.keys?.[0];setKeySelection(!value.range&&first?{trackId:first.trackId,nodeId:first.target.id,controller:value.controller,frames:new Set(value.keys.map(key=>key.frame))}:null);},
   };
   useEffect(() => { onCommands?.(commands); });
   useEffect(() => () => onCommands?.({}), [onCommands]);

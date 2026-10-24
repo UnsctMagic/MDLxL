@@ -30,6 +30,15 @@ const sse=(res,value)=>res.write('data: '+JSON.stringify(value)+'\n\n');
     const user=[...data.messages].reverse().find(m=>m.role==='user'&&Array.isArray(m.content)&&m.content[0]?.text?.includes('MDLxL context captured'));
     const text=user.content[0].text,context=JSON.parse(text.split('MDLxL context captured when this prompt was sent:\n')[1]);
     res.writeHead(200,{'content-type':'text/event-stream'});
+    const turnMessages=data.messages.slice(data.messages.lastIndexOf(user)+1);
+    const previousCall=turnMessages.filter(m=>m.tool_calls?.length).at(-1)?.tool_calls.at(-1)?.function;
+    const previousResult=turnMessages.filter(m=>m.role==='tool').at(-1)?.content;
+    const emitTool=(name,args)=>{sse(res,{choices:[{delta:{tool_calls:[{index:0,id:'review-'+requests,function:{name,arguments:JSON.stringify(args)}}]},finish_reason:'tool_calls'}]});res.end();};
+    if(previousCall?.name==='mdlxl_script'&&previousResult?.includes('"applied":true'))return emitTool('mdlxl_review',{target:context.target,action:'inspect',checksCode:'return [{name:"Mirrored selected faces",passed:model.Geosets[0].Vertices.length===12&&model.Geosets[0].Faces.length===6},{name:"Other mesh and rig unchanged",passed:JSON.stringify(model.Geosets[1])===JSON.stringify(before.Geosets[1])&&JSON.stringify(model.Bones)===JSON.stringify(before.Bones)}];'});
+    if(previousCall?.name==='mdlxl_review'){
+      if(JSON.parse(previousCall.arguments).action==='inspect')return emitTool('mdlxl_review',{target:context.target,action:'finish',outcome:'passed',summary:'Compared the two viewport images and checked the mirrored seam.'});
+      sse(res,{choices:[{delta:{content:'Mirrored the marked vertices and welded the compatible seam.\n\n**Seam:** `X=0`\n- Other geometry preserved.\n\n<img src=x onerror="window.aiUnsafeMarkup=true">'},finish_reason:'stop'}]});res.end();return;
+    }
     if(data.messages.at(-1).role==='tool') {
       const result=JSON.parse(data.messages.at(-1).content);
       sse(res,{choices:[{delta:{content:result.applied?'Mirrored the marked vertices and welded the compatible seam.\n\n**Seam:** `X=0`\n- Other geometry preserved.\n\n<img src=x onerror="window.aiUnsafeMarkup=true">':'Editor response: '+JSON.stringify(result)},finish_reason:'stop'}]});res.end();return;
@@ -156,6 +165,13 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   context=await tool('mdlxl_context');check('animation context includes selected bone, sequence and frame',context.sequence===0&&context.frame===500&&equal(context.selectedNodeIds,[0]));
   const motion=await tool('mdlxl_script',{target:context.target,edit:true,label:'AI sparse Stand key',scope:['/Bones/0/Translation'],protectedPaths:['/Geosets','/Materials'],animationRanges:[[0,1000]],code:'const track=model.Bones[0].Translation;track.Keys.push({Frame:context.frame,Vector:new Float32Array([12,0,0])});track.Keys.sort((a,b)=>a.Frame-b.Frame);const {sampleTrack}=await api.module("animation");return {frame:context.frame,mid:sampleTrack(track,500,{interval:[0,1000],fallback:[0,0,0]}),later:sampleTrack(track,750,{interval:[0,1000],fallback:[0,0,0]})};'});
   check('sparse animation edit uses captured frame and interpolates correctly',motion.value.frame===500&&equal(motion.value.mid,[12,0,0])&&equal(motion.value.later,[6,0,0]),motion.value);
+  await assert.rejects(()=>tool('mdlxl_review',{target:context.target,action:'inspect',checksCode:'model.Bones[0].Translation.Keys[0].Vector[0]=999;return [{name:"invalid check",passed:true}];'}),/without changing either/);
+  check('verification scripts cannot change their model copy to manufacture a pass',true);
+  const reviewImages=await tool('mdlxl_review',{target:context.target,action:'inspect',checksCode:'return [{name:"Sparse key at frame 500",passed:model.Bones[0].Translation.Keys.some(k=>k.Frame===500&&k.Vector[0]===12)},{name:"Other keys preserved",passed:JSON.stringify(model.Bones[0].Translation.Keys.filter(k=>k.Frame!==500))===JSON.stringify(before.Bones[0].Translation.Keys)}];'},true);
+  const reviewReport=JSON.parse(reviewImages[0].text).review;
+  check('animation verification samples intermediate poses and returns before/after images',reviewReport.passed&&reviewReport.poses.length===1&&reviewImages.filter(x=>x.type==='image').length===5);
+  check('animation verification restores the playhead',(await tool('mdlxl_context',{target:context.target})).liveFrame===500);
+  await tool('mdlxl_review',{target:context.target,action:'finish',outcome:'passed',summary:'Checked the captured endpoint and intermediate poses.'});
   const changedBones=await tool('mdlxl_read',{path:'/Bones'});check('other animation keys and geometry preserved',equal(changedBones.value[0].Translation.Keys.filter(k=>k.Frame>=2000),bones.value[0].Translation.Keys.filter(k=>k.Frame>=2000))&&equal(await tool('mdlxl_read',{path:'/Geosets/0'}),mirrored));
   await page.getByRole('group',{name:'Movement tool',exact:true}).getByRole('button',{name:'Move',exact:true}).click();
   context=await tool('mdlxl_context');await tool('mdlxl_command',{target:context.target,id:'keyframe:selectAll'});context=await tool('mdlxl_context');check('selected timeline keys reach the AI',context.keyframes?.keys?.length>=3,context.keyframes);
