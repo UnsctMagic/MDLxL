@@ -36,6 +36,9 @@ function imageParts(images=[],kind='openai') {
     return kind==='anthropic'?{type:'image',source:{type:'base64',media_type:match[1],data:match[2]}}:{type:'image_url',image_url:{url:image}};
   });
 }
+function authenticationRequired() {
+  return Object.assign(Error('Sign in to connect your AI. Your prompt has been kept.'),{code:'AI_AUTH_REQUIRED'});
+}
 async function runApi({settings,key,tools,call,prompt,images,system,conversation,signal,event}) {
   const anthropic=settings.provider==='anthropic';
   const base=endpoint(settings.baseUrl||(anthropic?'https://api.anthropic.com/v1':'https://api.openai.com/v1'));
@@ -145,7 +148,10 @@ class CodexProcess {
       const pending=this.pending.get(message.id);if(!pending)return;clearTimeout(pending.timer);this.pending.delete(message.id);message.error?pending.reject(Error(message.error.message)):pending.resolve(message.result);return;
     }
     const p=message.params||{};
-    if(message.method==='item/agentMessage/delta')this.event({type:'text',text:p.delta});
+    if(message.method==='item/agentMessage/delta'){
+      if(p.itemId&&this.messageId&&p.itemId!==this.messageId)this.event({type:'text',text:'\n\n'});
+      this.messageId=p.itemId||this.messageId;this.event({type:'text',text:p.delta});
+    }
     if(message.method==='item/started'&&p.item?.type==='mcpToolCall')this.event({type:'tool',name:p.item.tool});
     if(message.method==='item/completed'&&p.item?.type==='mcpToolCall')this.event({type:'tool-result',name:p.item.tool,error:p.item.status==='failed'});
     if(message.method==='account/login/completed')this.login?.(p);
@@ -153,6 +159,7 @@ class CodexProcess {
     if(message.method==='error')this.event({type:'notice',text:p.error?.message||'Codex reported an error.'});
   }
   fail(error){for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(error);}this.pending.clear();this.turnError?.(error);this.loginError?.(error);}
+  async account(){return this.request('account/read',{refreshToken:true});}
   async close(){this.signal?.removeEventListener('abort',this.abort);stopAgent(this.child);if(this.exited)await this.exited;}
 }
 async function runCodex(options) {
@@ -161,6 +168,8 @@ async function runCodex(options) {
   const client=new CodexProcess(settings,{directory,event,mcp,signal});
   try {
     await client.start();
+    const account=await client.account();
+    if(!account.account&&account.requiresOpenaiAuth!==false)throw authenticationRequired();
     const params={cwd:directory,approvalPolicy:'never',sandbox:'read-only',...(settings.model?{model:settings.model}:{}),developerInstructions:system};
     const result=conversation.threadId?await client.request('thread/resume',{...params,threadId:conversation.threadId}):await client.request('thread/start',params);
     conversation.threadId=result.thread.id;
@@ -207,4 +216,4 @@ async function providerModels(settings,key,signal) {
   const response=await requestJson(base+'/models',null,key,signal,anthropic?{'anthropic-version':'2023-06-01'}:{});const data=await response.json();
   return (data.data||data.models||[]).map(item=>({id:item.id||item.name,name:item.display_name||item.id||item.name}));
 }
-module.exports={endpoint,sseEvents,runApi,runCodex,runClaude,providerModels,CodexProcess};
+module.exports={endpoint,sseEvents,runApi,runCodex,runClaude,providerModels,CodexProcess,authenticationRequired};

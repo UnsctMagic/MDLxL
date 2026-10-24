@@ -1,8 +1,16 @@
 # AI in MDLxL
 
 Click **AI** in the desktop toolbar, open **Connection**, choose a provider,
-and sign in or enter its API connection. The chat is a movable, resizable window;
+and sign in or enter its API connection. Native connections check the account
+when chat opens. If you are signed out, setup opens and **Sign in to send** keeps
+your draft while you complete sign-in in the browser. After **Signed in.** appears,
+click **Send**. Cancelled or failed sign-in keeps the draft and attached images.
+The chat is a movable, resizable window;
 you can keep selecting and editing the model while it is open.
+The model chooser beside the provider shows the available Codex models after
+sign-in. **Connection** holds provider settings; **Advanced connection** contains
+the optional CLI executable path. The panel follows MDLxL's current appearance,
+and replies format paragraphs, lists, bold text and code without executing HTML.
 
 Mark vertices, select bones or timeline keys, then describe the change. For example:
 
@@ -164,3 +172,11 @@ profile. `MDLXL_AI_TEST_EXE` selects a packaged executable and `MDLXL_AI_TEST_OU
 selects its report directory. It uses a local provider fixture, so it does not
 authenticate to a paid account. Native provider account tests are separate from
 model-editing verification.
+
+For an opt-in real-provider acceptance check, use `test/ai-live.electron.cjs` on
+the hidden desktop. Set `MDLXL_AI_LIVE_PROFILE` to the MDLxL profile whose owner
+has signed in, plus the same packaged executable and report variables above.
+This makes real model requests against generated fixtures, checking selected
+vertex edits, one Undo, mirror/weld, sparse animation keys, unchanged other data,
+program help and MDX/MDL reopening. It preserves the signed-in profile and never
+overwrites the owner's model files. Authentication must succeed before edits run.

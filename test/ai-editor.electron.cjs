@@ -32,7 +32,7 @@ const sse=(res,value)=>res.write('data: '+JSON.stringify(value)+'\n\n');
     res.writeHead(200,{'content-type':'text/event-stream'});
     if(data.messages.at(-1).role==='tool') {
       const result=JSON.parse(data.messages.at(-1).content);
-      sse(res,{choices:[{delta:{content:result.applied?'Mirrored the marked vertices and welded the compatible seam.':'Editor response: '+JSON.stringify(result)},finish_reason:'stop'}]});res.end();return;
+      sse(res,{choices:[{delta:{content:result.applied?'Mirrored the marked vertices and welded the compatible seam.\n\n**Seam:** `X=0`\n- Other geometry preserved.\n\n<img src=x onerror="window.aiUnsafeMarkup=true">':'Editor response: '+JSON.stringify(result)},finish_reason:'stop'}]});res.end();return;
     }
     const slow=text.startsWith('slow'),delay=text.startsWith('slow closing')?30000:3000,code=slow?`await new Promise(resolve=>setTimeout(resolve,${delay})); model.Geosets[0].Vertices[0]+=5; return "changed";`:'const {mirrorSelection}=await api.module("ai-mesh"); const result=mirrorSelection(model,selection,{axis:"x",plane:0,weld:true}); for(const key of Object.keys(selection))delete selection[key];Object.assign(selection,result.selection);return result.details;';
     const args={target:context.target,code,edit:true,label:slow?'Slow edit':'AI mirror selection',scope:['/Geosets/0'],protectedPaths:['/Geosets/1','/Bones','/Materials','/Textures']};
@@ -46,6 +46,57 @@ const sse=(res,value)=>res.write('data: '+JSON.stringify(value)+'\n\n');
   await page.waitForSelector('.classic-toolbar',{timeout:60000});
   await page.waitForTimeout(1000);
   check('AI panel is closed by default',await page.locator('.ai-assistant').count()===0);
+  // Exercise the native sign-in UI through real provider child processes. The
+  // browser launch is intercepted, so this never opens a window on the desktop.
+  const authScript=path.join(out,'auth-fixture.js'),authExecutable=path.join(out,'auth-fixture.cmd'),authDirectory=path.join(profile,'ai');
+  fs.writeFileSync(authScript,String.raw`
+const fs=require('node:fs'),args=process.argv.slice(2),send=value=>process.stdout.write(JSON.stringify(value)+'\n');
+require('node:readline').createInterface({input:process.stdin}).on('line',async line=>{
+ const m=JSON.parse(line);if(m.id===undefined)return;
+ if(m.method==='initialize')return send({id:m.id,result:{userAgent:'auth-fixture'}});
+ if(m.method==='account/read')return send({id:m.id,result:{account:fs.existsSync('fixture-signed-in')?{type:'chatgpt',planType:'plus'}:null,requiresOpenaiAuth:true}});
+ if(m.method==='model/list')return send({id:m.id,result:{data:[{model:'native-test',displayName:'Native test model'}]}});
+ if(m.method==='account/login/start'){
+   send({id:m.id,result:{type:'chatgpt',loginId:'fixture',authUrl:'https://auth.openai.com/fixture'}});
+   const mode=fs.readFileSync('fixture-login-mode','utf8');if(mode==='cancel')return;
+   setTimeout(()=>{if(mode==='success')fs.writeFileSync('fixture-signed-in','');send({method:'account/login/completed',params:{success:mode==='success',error:'Login declined'}});},50);return;
+ }
+ if(m.method==='thread/start')return send({id:m.id,result:{thread:{id:'native-fixture'}}});
+ if(m.method==='turn/start'){
+   send({id:m.id,result:{turn:{id:'native-turn'}}});const setting=args.find(a=>a.startsWith('mcp_servers.mdlxl.url='));
+   const response=await fetch(JSON.parse(setting.slice(setting.indexOf('=')+1)),{method:'POST',headers:{authorization:'Bearer '+process.env.MDLXL_AI_TOKEN,'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'mdlxl_context',arguments:{}}})});
+   const result=await response.json();if(result.result?.isError)process.exit(8);
+   send({method:'item/agentMessage/delta',params:{delta:'Native account connected to the live model.'}});send({method:'turn/completed',params:{turn:{status:'completed'}}});return;
+ }
+ send({id:m.id,result:{}});
+});`);
+  fs.writeFileSync(authExecutable,'@"%dp0%\\auth-fixture.js" %*\r\n');
+  await page.evaluate(executable=>window.desktop.aiConfigure({provider:'codex',executable}),authExecutable);
+  await page.reload();await page.waitForSelector('.classic-toolbar',{timeout:60000});await page.waitForTimeout(300);
+  await app.evaluate(({shell})=>{shell.openExternal=async()=>{};});
+  await page.getByRole('button',{name:'AI assistant',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.ai-account')?.textContent.includes('Sign in to connect'));
+  check('signed-out native connection opens setup instead of appearing ready',await page.getByLabel('AI provider',{exact:true}).isVisible());
+  const draft='turn this into a circle';await page.getByLabel('AI prompt').fill(draft);
+  fs.writeFileSync(path.join(authDirectory,'fixture-login-mode'),'fail');
+  await page.getByRole('button',{name:'Sign in to send',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.ai-error')?.textContent.includes('Login declined'));
+  check('failed login keeps the prompt and does not create a chat turn',await page.getByLabel('AI prompt').inputValue()===draft&&await page.locator('.ai-message').count()===0);
+  fs.writeFileSync(path.join(authDirectory,'fixture-login-mode'),'cancel');
+  await page.getByRole('button',{name:'Sign in to send',exact:true}).click();
+  await page.getByRole('button',{name:'Cancel',exact:true}).click();
+  await page.getByRole('button',{name:'Sign in to send',exact:true}).waitFor();
+  check('cancelled login keeps the prompt',await page.getByLabel('AI prompt').inputValue()===draft);
+  fs.writeFileSync(path.join(authDirectory,'fixture-login-mode'),'success');
+  await page.getByRole('button',{name:'Sign in to send',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.ai-account')?.textContent==='Signed in.');
+  check('completed login preserves the prompt for sending',await page.getByLabel('AI prompt').inputValue()===draft);
+  await page.getByLabel('Chat model',{exact:true}).selectOption('native-test');
+  check('model picker loads available native models and saves the choice',(await page.evaluate(()=>window.desktop.aiStatus())).model==='native-test');
+  await page.getByRole('button',{name:'Send',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.ai-messages')?.textContent.includes('Native account connected to the live model.'));
+  check('verified native login survives fresh provider processes and reaches live MCP',true);
+  await page.getByRole('button',{name:'Close AI assistant',exact:true}).click();
   const sideWidth=await page.locator('.classic-workspace').evaluate(el=>el.getBoundingClientRect().width);
   const connection=await page.evaluate(async()=>{await window.desktop.aiEnable(true);return window.desktop.aiConfig();});
   const link=connection.mcpServers.mdlxl;
@@ -58,7 +109,7 @@ const sse=(res,value)=>res.write('data: '+JSON.stringify(value)+'\n\n');
   await page.locator('.classic-view canvas').first().click({position:{x:20,y:120}});await page.keyboard.press('Control+A');await page.waitForTimeout(150);
   context=await tool('mdlxl_context');check('normal editor selection reaches AI context',JSON.stringify(context.selection)==='{"0":[0,1,2]}',{selection:context.selection,mode:context.mode,checked:context.checkedGeosets,pending:context.pending,focus:await page.evaluate(()=>document.activeElement?.outerHTML.slice(0,300))});
   const original=await tool('mdlxl_read',{path:'/Geosets/0'}),protectedData=await tool('mdlxl_read',{path:'/Geosets/1'}),bones=await tool('mdlxl_read',{path:'/Bones'});
-  await page.getByRole('button',{name:'AI assistant',exact:true}).click();await page.getByTitle('Connection settings',{exact:true}).click();
+  await page.getByRole('button',{name:'AI assistant',exact:true}).click();if(!await page.getByLabel('AI provider',{exact:true}).isVisible())await page.getByTitle('Connection settings',{exact:true}).click();
   await page.getByLabel('AI provider',{exact:true}).selectOption('compatible');
   await page.getByLabel('API key',{exact:true}).fill('fixture-test-secret');
   await page.getByLabel('API base URL',{exact:true}).fill(`http://127.0.0.1:${server.address().port}/v1`);await page.getByLabel('Model',{exact:true}).fill('fixture-model');
@@ -68,6 +119,7 @@ const sse=(res,value)=>res.write('data: '+JSON.stringify(value)+'\n\n');
   await page.getByLabel('AI prompt').fill('mirror these vertices and weld the seam');await page.getByRole('button',{name:'Send',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.ai-messages')?.textContent.includes('Mirrored the marked vertices'),null,{timeout:45000});
   const mirrored=await tool('mdlxl_read',{path:'/Geosets/0'});
+  check('assistant formatting is readable and provider HTML stays inert',await page.locator('.ai-prose strong').last().textContent()==='Seam:'&&await page.locator('.ai-prose code').last().textContent()==='X=0'&&await page.locator('.ai-prose img').count()===0&&!await page.evaluate(()=>window.aiUnsafeMarkup));
   check('prompt changed the real selected mesh',mirrored.value.Vertices.$data.length===12&&mirrored.value.Faces.$data.length===6);
   check('unselected geoset and rig preserved',equal(await tool('mdlxl_read',{path:'/Geosets/1'}),protectedData)&&equal(await tool('mdlxl_read',{path:'/Bones'}),bones));
   context=await tool('mdlxl_context');await tool('mdlxl_command',{target:context.target,id:'undo'});
@@ -129,4 +181,4 @@ const sse=(res,value)=>res.write('data: '+JSON.stringify(value)+'\n\n');
   check('closing the editor cancels its 30-second script immediately',Date.now()-closingAt<5000);
   fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,requests},null,2));
   console.log(JSON.stringify({passed:checks.length,requests,report:path.join(out,'verification.json')}));
-})().catch(async error=>{fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,error:error.stack},null,2));if(page){await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure-ui.txt'),await page.locator('body').innerText().catch(()=>''));}console.error(error);process.exitCode=1;}).finally(async()=>{if(app){await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.destroy();}).catch(()=>{});await app.close().catch(()=>{});}if(server)await new Promise(resolve=>{server.closeAllConnections();server.close(resolve);});for(const name of ['profile','temp','AI-fixture.mdx','AI-export.mdx'])fs.rmSync(path.join(out,name),{recursive:true,force:true});});
+})().catch(async error=>{fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,error:error.stack},null,2));if(page){await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure-ui.txt'),await page.locator('body').innerText().catch(()=>''));}console.error(error);process.exitCode=1;}).finally(async()=>{if(app){await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.destroy();}).catch(()=>{});await app.close().catch(()=>{});}if(server)await new Promise(resolve=>{server.closeAllConnections();server.close(resolve);});for(const name of ['profile','temp','AI-fixture.mdx','AI-export.mdx','auth-fixture.js','auth-fixture.cmd'])fs.rmSync(path.join(out,name),{recursive:true,force:true});});

@@ -16,7 +16,8 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 
 - Branch: `codex/ai-editor-hook`.
 - Base: `af1d0f12` (main, including the 0.30.1 changes).
-- Implementation: `6410229f02e4bd1624e26c61eb35878de75c3afd`.
+- Initial implementation: `6410229f02e4bd1624e26c61eb35878de75c3afd`.
+  The same branch continues with the verified sign-in repair and UI refresh.
 - Checkout: `D:\Codex\mdlxl-ai-hook-20261024\source`.
 - No AI release/version change; merge and publication require approval.
 
@@ -29,6 +30,11 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 - Run generated scripts in a separate hidden, sandboxed renderer, with no Node or
   editor desktop API and no network. Validate and commit results in the editor.
 - Use provider-owned authentication. Never read another application's token files.
+- A native model list is available while signed out; it does not prove that a
+  provider can answer. The first user test exposed an unsigned Codex request
+  reaching `/responses` and returning HTTP 401. Check/refresh the actual account
+  before a turn, show sign-in state, and retain the draft during failed/cancelled
+  login. Verify login completion by reading the account again.
 - Verify on a hidden desktop, including real selection, mouse rotation, Undo/Redo,
   stale targets, cancellation, provider/MCP transport, and MDX/MDL reopen.
 
@@ -36,6 +42,10 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 
 - A compact AI toolbar button opens movable chat, with native Codex/Claude sign-in,
   API providers and an optional authenticated local MCP connection.
+- The requested UI refresh uses MDLxL's light/dark palette, a visible native-model
+  chooser, clear selection context, compact icon controls, formatted replies and
+  an integrated composer. The optional executable path is under Advanced
+  connection. Separate native assistant messages retain paragraph boundaries.
 - Eleven shared tools cover exact selections, model data/scripts, existing commands,
   controls, captures, reference models, export, round-trip validation and help.
 - Detached scripts use the existing modeling libraries. Scoped edits commit through
@@ -47,8 +57,9 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 ## Verification
 
 - Compatibility: 57 passed, zero failures.
-- Full source suite: 1,893 tests, 1,872 passed, 21 skipped, zero failures.
-- Focused AI model, MCP, API and native-process checks: 21 passed.
+- Full source suite after the sign-in repair and UI refresh: 1,896 tests, 1,875 passed,
+  21 skipped, zero failures.
+- Focused AI model, MCP, API, native-process and localization checks: 43 passed.
 - Packaged Windows app on implementation revision: 32 workflow checks passed on
   a hidden desktop with a disposable profile. Real selection -> local provider
   fixture -> MCP -> sandbox -> live model was exercised, including duplicate
@@ -62,13 +73,33 @@ mouse camera controls, document validation, byte-preserving save and Undo.
   discovery and an actual MCP edit-tool call passed using an isolated profile.
 - Current Claude CLI 2.1.310: supported invocation flags and signed-out account
   handling verified. Native adapters also have child-process protocol tests.
-- Real provider sign-in and paid model generation were not exercised. Provider
-  account/plan access, model quality and Warcraft III gameplay acceptance remain
-  separate checks. No existing credentials, models or user profiles were changed.
+- Packaged regression after the sign-in repair: 37 checks passed. In addition
+  to the workflows above, this exercised setup while signed out, failed and
+  cancelled login with the draft intact, verified login across fresh provider
+  processes, and native-provider MCP access. No visible desktop was used.
+- Packaged regression after the UI refresh: 39 checks passed, adding native model
+  selection/persistence and safe formatted reply rendering. The same end-to-end
+  geometry, animation, camera rotation and cancellation checks still passed.
+- Refreshed UI with a real signed-in GPT-6-Luna edit: seven checks passed. The
+  visible model chooser selected the model, a real prompt moved exactly the four
+  marked vertices +2 Z, response paragraphs stayed separate, both light/dark
+  palettes rendered without horizontal overflow, the CLI path stayed folded,
+  and the composer remained reachable at 960 x 640. The app stayed offscreen.
+- Real ChatGPT sign-in completed through the provider-owned browser flow.
+  GPT-6-Luna then passed 17 acceptance assertions across four real prompts in
+  the packaged app on the hidden desktop: selected vertices moved +5 X with
+  exact protected-data comparisons and one Undo; selected faces duplicated
+  across X=0 with a welded seam; one root translation key at Stand frame 500
+  with all other keys/geometry unchanged and distinct rendered poses; installed
+  program help; MDX and MDL reopening without diagnostics. Fixture input bytes
+  were unchanged. Reports remain under `work/real-provider-verification`.
+- Live Claude-account/API-provider generation and Warcraft III gameplay were
+  not exercised. Their existing protocol/fixture checks remain distinct from
+  the real signed-in Codex acceptance above.
 
 ## Next action
 
 Review the feature PR and its CI. Merge only after the owner's explicit approval.
-For an account acceptance test, install the chosen CLI, open AI -> Connection,
-sign in, mark vertices and send a prompt. The desktop tests use a local provider
-fixture and do not claim real-model planning quality.
+The local user test retains its signed-in profile and GPT-6-Luna selection.
+`test/ai-live.electron.cjs` is the opt-in real-account acceptance harness; ordinary
+CI and `test/ai-editor.electron.cjs` use fixtures without paid credentials.

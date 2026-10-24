@@ -4,7 +4,7 @@ const crypto=require('node:crypto');
 const {pathToFileURL}=require('node:url');
 const {startMcpServer}=require('./ai-mcp.cjs');
 const {runModelScript}=require('./ai-sandbox.cjs');
-const {runApi,runCodex,runClaude,providerModels,CodexProcess,endpoint}=require('./ai-providers.cjs');
+const {runApi,runCodex,runClaude,providerModels,CodexProcess,endpoint,authenticationRequired}=require('./ai-providers.cjs');
 const {spawnAgent,stopAgent,lines,providerEnvironment}=require('./ai-process.cjs');
 
 class AiService {
@@ -72,6 +72,12 @@ class AiService {
     if(images.length>4||images.some(image=>typeof image!=='string'||image.length>12*1024*1024))throw Error('Attach up to four images, each under 9 MB.');
     if(!context?.target)throw Error('Capture the model context before sending.');
     const settings=await this.settings(),{AI_TOOLS,AI_SYSTEM_PROMPT}=await this.init(),controller=new AbortController();
+    // Account discovery/model lists can work while signed out. Check the actual
+    // account before recording a turn or letting a provider make a model request.
+    if(['codex','claude'].includes(settings.provider)) {
+      const auth=await this.auth('status');
+      if(!auth.loggedIn){const error=authenticationRequired();return {ok:false,authRequired:true,error:error.message};}
+    }
     const conversation=await this.conversation(id,settings.provider),reply={role:'assistant',text:''};
     conversation.transcript.push({role:'user',text,document:context.name,selection:context.selection},reply);
     const active={id,controller};this.active=active;
@@ -86,7 +92,7 @@ class AiService {
       const options={settings,key:this.decrypt(settings.key),directory:this.directory,event,tools:AI_TOOLS,call,system:AI_SYSTEM_PROMPT,prompt,images,conversation,signal:controller.signal};
       if(settings.provider==='codex')await runCodex(options);else if(settings.provider==='claude')await runClaude(options);else await runApi(options);
       event({type:'done'});return {ok:true};
-    }catch(error){if(controller.signal.aborted){event({type:'text',text:(reply.text?'\n\n':'')+'Stopped.'});event({type:'done'});return {ok:false,cancelled:true};}reply.error=error.message;event({type:'error',text:error.message});return {ok:false,error:error.message};}
+    }catch(error){if(controller.signal.aborted){event({type:'text',text:(reply.text?'\n\n':'')+'Stopped.'});event({type:'done'});return {ok:false,cancelled:true};}const authRequired=error.code==='AI_AUTH_REQUIRED';reply.error=error.message;event({type:'error',text:error.message,authRequired});return {ok:false,error:error.message,authRequired};}
     finally{if(this.active===active)this.active=null;await fs.writeFile(path.join(this.directory,'chat-'+id+'.json'),JSON.stringify(conversation),{mode:0o600});}
   }
   cancel(){this.active?.controller.abort();}
@@ -112,12 +118,13 @@ class AiService {
         const client=new CodexProcess(settings,{directory:this.directory,signal:controller.signal});
         try {
           await client.start();
-          if(action==='status'){const result=await client.request('account/read');return {account:result.account};}
+          if(action==='status'){const result=await client.account();return {account:result.account,loggedIn:!!result.account||result.requiresOpenaiAuth===false};}
           if(action==='logout'){await client.request('account/logout');return {loggedIn:false};}
-          const completed=new Promise((resolve,reject)=>{client.login=p=>p.success?resolve({loggedIn:true}):reject(Error(p.error||'Login failed.'));client.loginError=reject;});completed.catch(()=>{});
+          const completed=new Promise((resolve,reject)=>{client.login=p=>p.success?resolve():reject(Error(p.error||'Login failed.'));client.loginError=reject;});completed.catch(()=>{});
           const login=await client.request('account/login/start',{type:'chatgpt'});
           const url=new URL(login.authUrl);if(url.protocol!=='https:')throw Error('Invalid sign-in URL.');
-          await this.electron.shell.openExternal(url.href);this.emit({type:'auth',text:'Complete sign-in in your browser.'});return await completed;
+          await this.electron.shell.openExternal(url.href);this.emit({type:'auth',text:'Complete sign-in in your browser.'});await completed;
+          const result=await client.account();if(!result.account)throw authenticationRequired();return {loggedIn:true,account:result.account};
         }finally{await client.close();}
       }
       const env=providerEnvironment(this.directory,'claude');
