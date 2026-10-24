@@ -159,6 +159,7 @@ export default function App() {
   const [visUI, setVisUI] = useState(false);
   const [quadView, setQuadView] = useState(false), [activeVertexPane, setActiveVertexPane] = useState(null);
   const [vertexViewRequest, setVertexViewRequest] = useState(null);
+  const [vertexDragCenter, setVertexDragCenter] = useState(null);
   const setView = value => {
     if (quadView && mode === 'vertices') setVertexViewRequest(previous => ({ view: value, revision: (previous?.revision || 0) + 1 }));
     else setStoredView(value);
@@ -1561,7 +1562,7 @@ export default function App() {
         zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalizer && choosingZoomAnchor}
         onChooseZoomAnchor={next => { if (tool === 'scale' && validSelection[next.geosetIndex]?.includes(next.vertexIndex)) { setZoomAnchor(next); setChoosingZoomAnchor(false); say('Anchor vertex selected.'); } }}
         rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} sequenceIndex={-1} time={0} playing={false}
-        teamColor={teamColor} textureAssets={session.assets} onTransform={transform}/>}
+        teamColor={teamColor} textureAssets={session.assets} onTransform={transform} onTransformPreview={setVertexDragCenter}/>}
       {uvWindow && <UVWindow key={`uv:${session.id}`} state={uvWindow} onChange={setUVWindow} onClose={closeUVWindow}>{uvWorkspace}{dialog?.host === 'uv' && textureLibraryDialog}</UVWindow>}
       {preferencesReady && mode === 'paint' && <Suspense fallback={<div className="classic-empty-view">{paintMessage('paint.loading')}</div>}><PaintBoundary key={session.id} onSave={()=>savePaintProject()} onExit={()=>selectMode('vertices')}><PaintWorkspace key={session.id} model={session.paintWorkingModel||model} originalModel={paintOriginalModel} revision={doc.revision+session.paintWorkingRevision} modelName={doc.name} modelPath={session.path} textureAssets={session.assets} project={session.paintProject} activeGeoset={activeGeoset} onGeosetChange={setActiveGeoset} onWorkingModelChange={value=>{session.paintWorkingModel=value;session.paintWorkingRevision++;refresh();}} onProjectChange={value=>{if(!session.paintProject&&value){session.paintOriginalModelBytes=doc.serialize(doc.format);session.paintWorkingModel ||= structuredClone(model);}if(!value){session.paintWorkingModel=null;session.paintWorkingRevision++;delete session.paintAppliedRevision;}session.paintProject=value;refresh();}} onEnsureTarget={ensurePaintTarget} onSaveProject={savePaintProject} onOpenProject={open} onExport={exportPaintProject} onApply={applyPaintToModel} onExit={()=>selectMode('vertices')} onStatus={say} preferences={preferences} cameraMemory={paintCamera} cameraProps={{...cameraProps,onWorkMode:()=>setCameraMode('work'),onSensitivityChange:changeSensitivity,onPointerSensitivityChange:changePointerSensitivity,onCameraModeToggle:toggleMiddleCamera}} view={view} cameraMode={cameraMode} teamColor={teamColor} readOnly={doc.readOnly||saving||model.Version!==800}/></PaintBoundary></Suspense>}
 
@@ -1593,7 +1594,7 @@ export default function App() {
       <SidebarResizer/>
       {cameraRotating && !activePortrait && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
-        cameraRotating, centroid, commandEnabled, deleteSelectedNode, editable, hiddenCount, lockedVertexPlane,
+        cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, hiddenCount, lockedVertexPlane,
         meshAction, mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode,
         setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
         uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
