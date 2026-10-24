@@ -234,6 +234,19 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.locator('.ai-thinking .ai-part-toggle').first().click();
   await shot('07-done-thinking-open');
 
+  // Compaction: a running provider summarizes the long chat; the console shows it plainly.
+  const sendEvent = value =>
+    app.evaluate(({ BrowserWindow }, event) => BrowserWindow.getAllWindows()[0].webContents.send('ai:event', event), value);
+  await sendEvent({ type: 'compaction', active: true });
+  await page.waitForSelector('.ai-compaction.ai-live', { timeout: 5000 });
+  check('compaction shows a sad-face compacting row', (await page.locator('.ai-compaction.ai-live').innerText()).includes('Compacting context') && (await page.locator('.ai-compaction svg.lucide-frown').count()) === 1);
+  await sendEvent({ type: 'compaction', active: true });
+  check('a repeated start does not add a second row', (await page.locator('.ai-compaction').count()) === 1);
+  await shot('07b-compacting');
+  await sendEvent({ type: 'compaction', active: false });
+  await page.waitForSelector('.ai-compaction:not(.ai-live)', { timeout: 5000 });
+  check('finished compaction stays as a quiet note', (await page.locator('.ai-compaction').innerText()).includes('Context compacted'));
+  await shot('07c-compacted');
   // Closing hides the drawings without losing them.
   const withDrawings = await viewShot();
   await page.getByRole('button', { name: 'Close AI assistant', exact: true }).click();

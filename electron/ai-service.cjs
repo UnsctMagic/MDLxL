@@ -372,6 +372,13 @@ class AiService {
         const last = reply.parts.at(-1);
         if (last?.type === value.type) last.text += value.text;
         else reply.parts.push({ type: value.type, text: value.text });
+      } else if (value.type === 'compaction') {
+        const running = conversation.transcript
+          .flatMap(entry => entry.parts || [])
+          .findLast(p => p.type === 'compaction' && p.status === 'running');
+        if (value.active && !running) reply.parts.push({ type: 'compaction', status: 'running' });
+        else if (!value.active && running) running.status = 'done';
+        else return;
       } else if (value.type === 'tool') {
         reply.parts.push({ type: 'tool', id: value.callId, name: value.name, detail: value.detail, status: 'running' });
       } else if (value.type === 'tool-result') {
@@ -528,7 +535,7 @@ class AiService {
       if (this.active === active) this.active = null;
       steering.close();
       for (const part of conversation.transcript.flatMap(entry => entry.parts || []))
-        if (part.status === 'running') part.status = 'stopped';
+        if (part.status === 'running') part.status = part.type === 'compaction' ? 'done' : 'stopped';
       await this.persistConversation(conversation);
       this.emit({ id, type: 'task', task: await this.taskInfo(id) });
     }

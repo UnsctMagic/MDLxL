@@ -98,3 +98,19 @@ test('Claude API thinking is shown only for models that think adaptively', () =>
   assert.equal(anthropicThinking('claude-sonnet-4-20250514'), null);
   assert.equal(anthropicThinking('local-model'), null);
 });
+test('Codex and Claude compaction show as one compacting step', () => {
+  const { CodexProcess, claudeCompaction } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
+  const events = [];
+  const codex = new CodexProcess({}, { event: value => events.push(value) });
+  codex.receive({ method: 'item/started', params: { item: { type: 'contextCompaction', id: 'c' } } });
+  codex.receive({ method: 'item/completed', params: { item: { type: 'contextCompaction', id: 'c' } } });
+  codex.receive({ method: 'item/started', params: { item: { type: 'agentMessage', id: 'm' } } });
+  assert.deepEqual(events, [
+    { type: 'compaction', active: true },
+    { type: 'compaction', active: false },
+  ]);
+  assert.equal(claudeCompaction({ type: 'system', subtype: 'status', status: 'compacting' }), true);
+  assert.equal(claudeCompaction({ type: 'system', subtype: 'compact_boundary' }), false);
+  assert.equal(claudeCompaction({ type: 'system', subtype: 'init' }), null);
+  assert.equal(claudeCompaction({ type: 'assistant' }), null);
+});

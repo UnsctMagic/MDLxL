@@ -88,6 +88,14 @@ function anthropicThinking(model) {
     minor = Number(match[2] || 0);
   return major > 4 || (major === 4 && minor >= 6) ? { type: 'adaptive', display: 'summarized' } : null;
 }
+// Claude Code reports compaction as a status and ends it with a boundary marker.
+// Returns true/false when compaction starts/ends, otherwise null.
+function claudeCompaction(data) {
+  if (data?.type !== 'system') return null;
+  if (data.subtype === 'compact_boundary') return false;
+  if (data.subtype === 'status') return data.status === 'compacting';
+  return null;
+}
 function authenticationRequired() {
   return Object.assign(Error('Sign in to connect your AI. Your prompt has been kept.'), {
     code: 'AI_AUTH_REQUIRED',
@@ -439,6 +447,10 @@ class CodexProcess {
       this.reasoningId = p.itemId || this.reasoningId;
       this.event({ type: 'thinking', text: p.delta });
     }
+    // A full conversation is summarized before the turn can go on; it shows no output meanwhile.
+    if ((message.method === 'item/started' || message.method === 'item/completed') && /compaction/i.test(p.item?.type || ''))
+      this.event({ type: 'compaction', active: message.method === 'item/started' });
+    if (message.method === 'thread/compacted') this.event({ type: 'compaction', active: false });
     if (message.method === 'item/started' && p.item?.type === 'mcpToolCall')
       this.event({ type: 'tool', name: p.item.tool, callId: p.item.id, detail: toolDetail(p.item.arguments) });
     if (message.method === 'item/completed' && p.item?.type === 'mcpToolCall')
@@ -692,6 +704,8 @@ async function runClaude({
             }
             if (data.session_id) conversation.threadId = data.session_id;
             if (data.type !== 'result') clearTimeout(idle);
+            const compacting = claudeCompaction(data);
+            if (compacting !== null) event({ type: 'compaction', active: compacting });
             if (data.type === 'stream_event' && data.event?.type === 'message_start') newMessage = true;
             if (data.type === 'stream_event' && data.event?.type === 'content_block_delta') {
               const delta = data.event.delta;
@@ -776,6 +790,7 @@ async function providerModels(settings, key, signal) {
 }
 module.exports = {
   anthropicThinking,
+  claudeCompaction,
   endpoint,
   sseEvents,
   runApi,

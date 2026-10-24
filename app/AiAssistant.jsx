@@ -7,6 +7,7 @@ import {
   Eraser,
   Eye,
   EyeOff,
+  Frown,
   Highlighter,
   LoaderCircle,
   LogIn,
@@ -122,6 +123,20 @@ function ThinkingPart({ part, live }) {
     </div>
   );
 }
+// The chat grew past what the AI can hold, so it summarizes older messages first.
+function CompactionPart({ part }) {
+  const running = part.status === 'running';
+  return (
+    <div
+      className={'ai-compaction' + (running ? ' ai-live' : '')}
+      role="status"
+      title="The chat got too long for the AI to keep in mind, so it is summarizing older messages to make room. This can take a few minutes and some details may be lost. Use New chat for unrelated work to avoid it."
+    >
+      <Frown size={15} aria-hidden="true" />
+      {running ? 'Compacting context… the chat got too long' : 'Context compacted: older messages were summarized'}
+    </div>
+  );
+}
 function ToolPart({ part }) {
   const [open, setOpen] = useState(false),
     name = toolName(part.name),
@@ -162,6 +177,8 @@ function AssistantMessage({ message, live }) {
       <ThinkingPart key={index} part={part} live={live && index === parts.length - 1} />
     ) : part.type === 'tool' ? (
       <ToolPart key={index} part={part} />
+    ) : part.type === 'compaction' ? (
+      <CompactionPart key={index} part={part} />
     ) : (
       <AiMessage key={index} text={part.text} />
     ),
@@ -254,6 +271,24 @@ export default function AiAssistant({ bridge }) {
           list[at] = { ...list[at], parts };
           return list;
         });
+      if (event.type === 'compaction')
+        setMessages(previous => {
+          const list = [...previous],
+            at = list.findLastIndex(m => m.parts?.some(p => p.type === 'compaction' && p.status === 'running'));
+          if (event.active && at < 0) {
+            let last = list.at(-1);
+            if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
+            list[list.length - 1] = { ...last, parts: [...(last.parts || []), { type: 'compaction', status: 'running' }] };
+          } else if (!event.active && at >= 0)
+            list[at] = {
+              ...list[at],
+              parts: list[at].parts.map(p => (p.type === 'compaction' && p.status === 'running' ? { ...p, status: 'done' } : p)),
+            };
+          else return previous;
+          return list;
+        });
+      if (event.type === 'compaction')
+        setStatus(event.active ? 'Compacting context: summarizing the long chat to make room' : 'Working on the model');
       if (event.type === 'steer')
         setMessages(previous => [
           ...previous,
