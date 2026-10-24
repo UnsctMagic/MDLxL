@@ -392,7 +392,7 @@ export class EditorDocument {
     try { return this.apply('Convert to MDX'+target,['Version','Materials','Geosets'],model=>normalizeVersionFields(model,target)); }
     finally { this._versionConversion=false; }
   }
-  apply(label, sections, mutator) {
+  apply(label, sections, mutator, { validate } = {}) {
     if (this.readOnly) throw new Error(`This document is read-only (format ${this.version ?? 'unknown'} or unsupported data).`);
     if (typeof mutator !== 'function') throw new TypeError('apply requires a model mutator function.');
     if (this._applying) throw new Error('Nested document edits are not supported.');
@@ -405,6 +405,7 @@ export class EditorDocument {
       if (result && typeof result.then === 'function') throw new Error('Document edits must be synchronous.');
       if (next.Version !== before.Version && !this._versionConversion) throw new Error('Changing the model version is not supported; no automatic downgrades are performed.');
       normalizeModel(next, before);
+      validate?.(next, before);
       // Discover actual mutations first, including closed-over inspector edits
       // and changes outside the requested sections. Reference checks still run
       // against the entire model; unchanged numeric/track diagnostics can be

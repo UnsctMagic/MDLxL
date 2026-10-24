@@ -55,6 +55,7 @@ if(!singleInstanceLock) { app.exit(0); return; }
 // A launch can have passed the first check before the closing owner set the lock.
 if (app.isPackaged && require('node:fs').existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
 let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
+const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,readModel,writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>saveModel(payload,{explicitPath:true,overwrite:payload.overwrite}));saveQueue=operation;return operation;}});
 let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.resolve();
 let settingsStore,preferenceApi,commandCatalog;
 // Test runs (own profile or headless) must not point Explorer at a temporary build.
@@ -224,11 +225,11 @@ ipcMain.on('menu:state',(event,value)=>{
   nativeEditorState=next;
   if(commandCatalog)refreshMenu();
 });
-async function saveModel(payload){
+async function saveModel(payload,{explicitPath=false,overwrite=true}={}){
   if(!payload || !['mdl','mdx'].includes(payload.format))throw new Error('Unsupported format.');
   const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
   let destination=payload.path;
-  if(!destination||payload.saveAs||!openedPaths.has(path.resolve(destination))){
+  if(!explicitPath&&(!destination||payload.saveAs||!openedPaths.has(path.resolve(destination)))){
     const result=await dialog.showSaveDialog(win,{title:payload.export?'Export model':'Save model',defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});
     if(result.canceled)return null;destination=result.filePath;
   }
@@ -238,7 +239,7 @@ async function saveModel(payload){
     await saveForgeAssets(destination,payload.forgeAssets||[]);
     await fs.writeFile(temporary,bytes,{flag:'wx'});
     const check=await fs.readFile(temporary);if(!check.equals(bytes))throw new Error('Write verification failed.');
-    await fs.rename(temporary,destination);
+    if(overwrite)await fs.rename(temporary,destination);else{await fs.link(temporary,destination);await fs.unlink(temporary);}
     openedPaths.add(path.resolve(destination));await persistRecents(destination);
     initialModel={name:path.basename(destination),path:destination,bytes};
     return {name:path.basename(destination),path:destination};
@@ -581,6 +582,7 @@ async function createWindow(bounds={}){
   const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:process.env.MDLVIS_HEADLESS!=='1',backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   if(process.env.MDLVIS_HEADLESS!=='1')current.maximize();
   win=current;nativeEditorState={readOnly:true,saving:false};
+  current.once('closed',()=>{if(current===win)aiService.close().catch(error=>console.error('AI shutdown: '+error.message));});
   win.webContents.setWindowOpenHandler(({url,frameName})=> url==='about:blank' && ['MDLxL-UV','MDLxL-OptimizeXL'].includes(frameName) ? {action:'allow',overrideBrowserWindowOptions:{parent:current,modal:false,width:frameName==='MDLxL-UV'?900:1280,height:frameName==='MDLxL-UV'?700:800,minWidth:frameName==='MDLxL-UV'?500:950,minHeight:frameName==='MDLxL-UV'?400:500,show:process.env.MDLVIS_HEADLESS!=='1',title:frameName==='MDLxL-UV'?'MDLxL — UV Editor':'OptimizeXL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),autoHideMenuBar:true,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}}} : {action:'deny'});
   current.webContents.on('did-create-window',child=>{child.setMenu(null);if(process.env.MDLVIS_HEADLESS!=='1')child.maximize();else child.webContents.setBackgroundThrottling(false);child.webContents.setWindowOpenHandler(()=>({action:'deny'}));child.webContents.on('will-navigate',event=>event.preventDefault());});
   win.webContents.on('will-navigate',(event,url)=>{if(url!==win.webContents.getURL())event.preventDefault();});
@@ -607,6 +609,7 @@ async function createWindow(bounds={}){
   await current.loadFile(path.join(__dirname,'../dist/index.html'));
 }
 app.on('window-all-closed',async()=>{
+  await aiService.close();
   await updater?.shutdown();
   await particleLibrary.close();
   textureDecoder=null;rejectThumbnailRequests('Editor closed.');await texturePreviews.close();

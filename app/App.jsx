@@ -5,6 +5,8 @@ import PaintBoundary from './PaintBoundary.jsx';
 import {validatePaintAssignments,repairPaintMaterials} from '../src/paint-materials.js';
 import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '../src/paint-model-integration.js';
 import './addons.css'; // keeps the stylesheet's place in the CSS order; Addons renders in AppToolbar
+import AiAssistant from './AiAssistant.jsx';
+import { AiEditorBridge } from './ai-editor.js';
 import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
 import { refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
@@ -390,7 +392,7 @@ export default function App() {
         if (portraitModeActive && sections.includes('Nodes')) refreshPortraitExtentsAfterRigEdit(doc._committedModel, m);
         validateUVPreviewGuard(m, session.uvPreviews, guard);
         return value;
-      });
+      }, {validate:options.validate});
       selectionHistory.recordEdit(ticket, selectionState); refresh(); if (result !== false) say(label); return result;
     } catch (error) { refresh(); say(error.message, true); if(options.rethrow)throw error; return false; }
   };
@@ -1348,8 +1350,27 @@ export default function App() {
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
   const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, repairBlocked, repairReceipt, session.paintProject?.revision,showcaseHistoryState]);
-  const runCommand = id => { if(commandEnabled(id)) { if(repairBlocked && id==='saveAs') save(true); else commands.current[id]?.(); } };
+  const runCommand = id => { if(commandEnabled(id)) { if(repairBlocked && id==='saveAs') return save(true); return commands.current[id]?.(); } };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
+  const aiHost = useRef();
+  aiHost.current = {
+    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,playing,saving,keyframes:timelineCommands.current.selectionContext?.()}),
+    commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
+    command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
+    edit,
+    select: value => {
+      if(value.vertices)setSelection(filterVertexSelection(value.vertices,new Set(Object.keys(value.vertices).map(Number)),doc.model));
+      if(value.nodeIds)setSelectedNodeIds(value.nodeIds);
+      if(value.geosetIds)setSelectable(new Set(value.geosetIds));
+      if(value.activeGeoset!==undefined)setActiveGeoset(value.activeGeoset);
+    },
+    view: async value => {if(value.mode)await selectMode(value.mode);if(value.view)setView(value.view);if(value.sequence!==undefined)selectSequence(value.sequence);if(value.frame!==undefined){setPlaying(false);setTime(value.frame);}if(value.playing!==undefined)setPlaying(value.playing);},
+    open: record => queueModelRecords([record]),
+    assets: () => retainedForgeAssets(session.assets,doc.model),
+    addReference: async record => {const next=newSession(openDocument(record.bytes,record.name),record.path);setSessions(previous=>[...previous,next]);await resolveTextures(next);},
+  };
+  const aiBridge = useMemo(() => new AiEditorBridge(() => aiHost.current), []);
+  useEffect(() => aiBridge.attach(window.desktop), [aiBridge]);
 
 
   const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,normals:overlays.normals};
@@ -1560,7 +1581,7 @@ export default function App() {
       rgbSequence, runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, selectionCount, session,
       sessionDirty, sessions, setCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
       setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI
-    }}/>
+    }} aiControl={<AiAssistant bridge={aiBridge}/>}/>
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">

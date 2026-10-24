@@ -1,0 +1,179 @@
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const crypto=require('node:crypto');
+const {pathToFileURL}=require('node:url');
+const {startMcpServer}=require('./ai-mcp.cjs');
+const {runModelScript}=require('./ai-sandbox.cjs');
+const {runApi,runCodex,runClaude,providerModels,CodexProcess,endpoint}=require('./ai-providers.cjs');
+const {spawnAgent,stopAgent,lines,providerEnvironment}=require('./ai-process.cjs');
+
+class AiService {
+  constructor({root,profile,electron,getWindow}) {this.root=root;this.directory=path.join(profile,'ai');this.electron=electron;this.getWindow=getWindow;this.pending=new Map();this.conversations=new Map();this.ready=false;this.config=null;this.active=null;this.external=null;this.running=new Set();}
+  async init(){if(!this.contract)this.contract=import(pathToFileURL(path.join(this.root,'src/ai-tools.js')).href);return this.contract;}
+  async configuration() {
+    if(this.config)return this.config;
+    if(!this.loading)this.loading=(async()=>{await fs.mkdir(this.directory,{recursive:true});
+      try{this.config=JSON.parse(await fs.readFile(path.join(this.directory,'connections.json'),'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;this.config={provider:'codex',enabled:false,port:0,providers:{}};}
+      return this.config;
+    })().catch(error=>{this.loading=null;throw error;});
+    return this.loading;
+  }
+  async persist(){await fs.writeFile(path.join(this.directory,'connections.json'),JSON.stringify(this.config,null,2),{mode:0o600});}
+  encrypt(secret){if(!this.electron.safeStorage.isEncryptionAvailable())throw Error('OS credential encryption is unavailable. The key was not saved.');return this.electron.safeStorage.encryptString(secret).toString('base64');}
+  decrypt(secret){return secret?this.electron.safeStorage.decryptString(Buffer.from(secret,'base64')):'';}
+  async status(name){const config=await this.configuration();name||=config.provider;const provider=config.providers?.[name]||{};return {provider:name,model:provider.model||'',baseUrl:provider.baseUrl||'',executable:provider.executable||'',hasKey:!!provider.key,enabled:!!this.external,url:this.external?.url||null,busy:!!this.active};}
+  async configure(input) {
+    if(this.active)throw Error('Stop the current AI request before changing providers.');
+    const config=await this.configuration();
+    if(!['codex','claude','openai','anthropic','compatible'].includes(input.provider))throw Error('Unknown AI provider.');
+    const previous=config.providers?.[input.provider]||{};
+    if(input.baseUrl)endpoint(input.baseUrl);
+    const next={model:String(input.model||'').trim(),executable:String(input.executable||'').trim(),baseUrl:String(input.baseUrl||'').trim(),key:previous.key||''};
+    if(input.apiKey!==undefined&&input.apiKey!=='')next.key=this.encrypt(String(input.apiKey));
+    if(input.clearKey)next.key='';
+    config.provider=input.provider;config.providers||={};config.providers[input.provider]=next;await this.persist();return this.status();
+  }
+  async settings(){const c=await this.configuration();return {provider:c.provider,...c.providers?.[c.provider]};}
+  emit(value){const win=this.getWindow();if(win&&!win.isDestroyed())win.webContents.send('ai:event',value);}
+  call(name,args={},signal) {
+    const win=this.getWindow();if(!this.ready||!win||win.isDestroyed())return Promise.reject(Error('The MDLxL editor is not ready.'));
+    const id=crypto.randomUUID(),controller=new AbortController(),requestSignal=signal?AbortSignal.any([signal,controller.signal]):controller.signal;
+    return new Promise((resolve,reject)=>{
+      const cancel=()=>{if(!win.isDestroyed())win.webContents.send('ai:toolCancel',id);finish(controller.signal.reason instanceof Error?controller.signal.reason:Error('AI request cancelled.'));};
+      const timer=setTimeout(()=>controller.abort(Error('The editor tool timed out.')),180000);
+      const finish=(error,value)=>{clearTimeout(timer);requestSignal.removeEventListener('abort',cancel);this.pending.delete(id);error?reject(error):resolve(value);};
+      this.pending.set(id,{finish,signal:requestSignal,cancel:()=>controller.abort(Error('Editor closed.'))});requestSignal.addEventListener('abort',cancel,{once:true});
+      if(requestSignal.aborted){cancel();return;}
+      win.webContents.send('ai:tool',{id,name,arguments:args});
+    });
+  }
+  enable(enabled) {const operation=(this.enabling||Promise.resolve()).catch(()=>{}).then(()=>this.setEnabled(enabled));this.enabling=operation;return operation;}
+  async setEnabled(enabled) {
+    if(this.closing)throw Error('The editor is closing.');
+    const config=await this.configuration();
+    if(enabled&&!this.external) {
+      const {AI_TOOLS}=await this.init();
+      const token=config.token?this.decrypt(config.token):crypto.randomBytes(32).toString('hex');
+      this.external=await startMcpServer({tools:AI_TOOLS,port:config.port||0,token,call:async(name,args,signal)=>{try{return await this.call(name,args,signal);}finally{this.emit({type:'external-done',busy:!!this.active});}},onCall:name=>this.emit({type:'external',name})});
+      config.port=this.external.port;config.token=this.encrypt(token);
+    } else if(!enabled&&this.external){await this.external.close();this.external=null;}
+    config.enabled=!!enabled;await this.persist();return this.status();
+  }
+  async conversation(id,provider) {
+    if(!/^[a-zA-Z0-9_-]{1,80}$/.test(id||''))throw Error('Invalid conversation ID.');
+    if(this.conversations.has(id))return this.conversations.get(id);
+    let value;try{value=JSON.parse(await fs.readFile(path.join(this.directory,'chat-'+id+'.json'),'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;value={id,provider,transcript:[],messages:[]};}
+    if(value.provider!==provider)throw Error('Start a new chat after changing AI providers.');
+    this.conversations.set(id,value);return value;
+  }
+  async send({id,text,images=[],context}) {
+    if(this.active)throw Error('An AI request is already running.');
+    if(typeof text!=='string'||!text.trim()||text.length>100000)throw Error('Enter a prompt of 1–100000 characters.');
+    if(images.length>4||images.some(image=>typeof image!=='string'||image.length>12*1024*1024))throw Error('Attach up to four images, each under 9 MB.');
+    if(!context?.target)throw Error('Capture the model context before sending.');
+    const settings=await this.settings(),{AI_TOOLS,AI_SYSTEM_PROMPT}=await this.init(),controller=new AbortController();
+    const conversation=await this.conversation(id,settings.provider),reply={role:'assistant',text:''};
+    conversation.transcript.push({role:'user',text,document:context.name,selection:context.selection},reply);
+    const active={id,controller};this.active=active;
+    const event=value=>{if(value.type==='text')reply.text+=value.text;this.emit({id,...value});};
+    const prompt=text+'\n\nMDLxL context captured when this prompt was sent:\n'+JSON.stringify(context);
+    const call=(name,args,signal)=>{
+      if(controller.signal.aborted)throw Error('AI request cancelled.');
+      if(args.target&&args.target!==context.target)throw Error('Use the target captured with the current prompt.');
+      return this.call(name,{...args,...(name==='mdlxl_help'?{}:{target:context.target})},signal?AbortSignal.any([signal,controller.signal]):controller.signal);
+    };
+    try {
+      const options={settings,key:this.decrypt(settings.key),directory:this.directory,event,tools:AI_TOOLS,call,system:AI_SYSTEM_PROMPT,prompt,images,conversation,signal:controller.signal};
+      if(settings.provider==='codex')await runCodex(options);else if(settings.provider==='claude')await runClaude(options);else await runApi(options);
+      event({type:'done'});return {ok:true};
+    }catch(error){if(controller.signal.aborted){event({type:'text',text:(reply.text?'\n\n':'')+'Stopped.'});event({type:'done'});return {ok:false,cancelled:true};}reply.error=error.message;event({type:'error',text:error.message});return {ok:false,error:error.message};}
+    finally{if(this.active===active)this.active=null;await fs.writeFile(path.join(this.directory,'chat-'+id+'.json'),JSON.stringify(conversation),{mode:0o600});}
+  }
+  cancel(){this.active?.controller.abort();}
+  async models(){
+    if(this.active)throw Error('Stop the current AI request before loading models.');
+    const active={controller:new AbortController()};this.active=active;
+    try {
+      const settings=await this.settings(),signal=active.controller.signal;
+      if(settings.provider==='codex'){
+        const client=new CodexProcess(settings,{directory:this.directory,signal});try{await client.start();const result=await client.request('model/list');return (result.data||[]).map(m=>({id:m.model||m.id,name:m.displayName||m.model||m.id}));}finally{await client.close();}
+      }
+      return await providerModels(settings,this.decrypt(settings.key),signal);
+    }finally{if(this.active===active)this.active=null;}
+  }
+  async auth(action) {
+    if(!['login','logout','status'].includes(action))throw Error('Unknown sign-in action.');
+    if(this.active)throw Error('Stop the current AI request before signing in or out.');
+    const settings=await this.settings();
+    if(!['codex','claude'].includes(settings.provider))throw Error('This provider uses an API key.');
+    const controller=new AbortController();this.active={controller,auth:true};
+    try {
+      if(settings.provider==='codex') {
+        const client=new CodexProcess(settings,{directory:this.directory,signal:controller.signal});
+        try {
+          await client.start();
+          if(action==='status'){const result=await client.request('account/read');return {account:result.account};}
+          if(action==='logout'){await client.request('account/logout');return {loggedIn:false};}
+          const completed=new Promise((resolve,reject)=>{client.login=p=>p.success?resolve({loggedIn:true}):reject(Error(p.error||'Login failed.'));client.loginError=reject;});completed.catch(()=>{});
+          const login=await client.request('account/login/start',{type:'chatgpt'});
+          const url=new URL(login.authUrl);if(url.protocol!=='https:')throw Error('Invalid sign-in URL.');
+          await this.electron.shell.openExternal(url.href);this.emit({type:'auth',text:'Complete sign-in in your browser.'});return await completed;
+        }finally{await client.close();}
+      }
+      const env=providerEnvironment(this.directory,'claude');
+      await fs.mkdir(env.CLAUDE_CONFIG_DIR,{recursive:true});await fs.mkdir(env.TEMP,{recursive:true});
+      if(controller.signal.aborted)throw Error('Sign-in cancelled.');
+      const child=spawnAgent(settings.executable||'claude',['auth',action],{cwd:this.directory,env});let output='';
+      const abort=()=>stopAgent(child);controller.signal.addEventListener('abort',abort,{once:true});
+      try {
+        await new Promise((resolve,reject)=>{
+          child.on('error',reject);child.once('close',code=>code===0||action==='status'&&code===1?resolve():reject(Error('Claude authentication did not complete.')));
+          lines(child.stdout,line=>{output+=line+'\n';if(action==='login')this.emit({type:'auth',text:line.slice(0,1500)});});child.stderr.on('data',()=>{});child.stdin.end();
+        });
+        if(action==='status'){const status=JSON.parse(output);return {loggedIn:!!status.loggedIn,authMethod:status.authMethod};}
+        return {loggedIn:action==='login'};
+      }finally{controller.signal.removeEventListener('abort',abort);stopAgent(child);}
+    }finally{this.active=null;}
+  }
+  close(){return this.closePromise||=Promise.resolve().then(async()=>{this.closing=true;this.cancel();for(const pending of [...this.pending.values()])pending.cancel();await this.enabling?.catch(()=>{});if(this.external){await this.external.close();this.external=null;}await Promise.allSettled([...this.running]);});}
+}
+function registerAiService({root,profile,electron,getWindow,readModel,writeModel}) {
+  const service=new AiService({root,profile,electron,getWindow}),{ipcMain}=electron;
+  const own=event=>{if(event.sender!==getWindow()?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('Only the editor can use its AI connection.');};
+  const handle=(name,fn)=>ipcMain.handle(name,(event,payload)=>{own(event);const result=Promise.resolve().then(()=>fn(payload,event));service.running.add(result);result.then(()=>service.running.delete(result),()=>service.running.delete(result));return result;});
+  handle('ai:status',provider=>service.status(provider));handle('ai:configure',input=>service.configure(input));handle('ai:enable',enabled=>service.enable(enabled));
+  handle('ai:config',()=>{if(!service.external)throw Error('Enable the AI connection first.');return service.external.config;});
+  handle('ai:send',input=>service.send(input));handle('ai:cancel',()=>service.cancel());handle('ai:auth',action=>service.auth(action));handle('ai:models',()=>service.models());
+  handle('ai:transcript',async id=>{const settings=await service.settings();return (await service.conversation(id,settings.provider)).transcript;});
+  handle('ai:script',payload=>{
+    const request=service.pending.get(payload.requestId);if(!request)throw Error('The script request is no longer active.');
+    return runModelScript({BrowserWindow:electron.BrowserWindow,ipcMain,root,payload,signal:request.signal});
+  });
+  handle('ai:capture',async rect=>{
+    if(rect&&!['x','y','width','height'].every(k=>Number.isInteger(rect[k])&&rect[k]>=0))throw Error('Invalid capture rectangle.');
+    return (await getWindow().webContents.capturePage(rect)).toDataURL();
+  });
+  handle('ai:gesture',async({requestId,points,button='left',modifiers=[]})=>{
+    const request=service.pending.get(requestId),win=getWindow();if(!request)throw Error('The input request is no longer active.');
+    const [width,height]=win.getContentSize();
+    if(!Array.isArray(points)||!points.length||points.length>300||points.some(p=>!Array.isArray(p)||p.length!==2||p.some((v,i)=>!Number.isInteger(v)||v<0||v>=(i?height:width))))throw Error('Invalid editor gesture.');
+    if(!['left','middle','right'].includes(button)||modifiers.some(m=>!['shift','control','alt','meta'].includes(m)))throw Error('Invalid mouse button or modifiers.');
+    const mouse=(type,point)=>win.webContents.sendInputEvent({type,x:point[0],y:point[1],button,clickCount:1,modifiers:[...modifiers,...(type==='mouseMove'?[button+'buttondown']:[])]});
+    let last=points[0];if(request.signal?.aborted)throw Error('AI request cancelled.');mouse('mouseMove',last);mouse('mouseDown',last);
+    try {for(const point of points.slice(1)){if(request.signal?.aborted)throw Error('AI request cancelled.');last=point;mouse('mouseMove',point);await new Promise(resolve=>setTimeout(resolve,16));}}
+    finally{if(!win.isDestroyed())mouse('mouseUp',last);}
+    return {performed:true};
+  });
+  handle('ai:readModel',async({path:file})=>{
+    if(!path.isAbsolute(file||'')||!['.mdx','.mdl'].includes(path.extname(file).toLowerCase()))throw Error('Choose an absolute MDL or MDX path.');
+    return readModel(file);
+  });
+  handle('ai:writeModel',async({path:file,bytes,overwrite,format,forgeAssets})=>{
+    if(!path.isAbsolute(file||'')||!['.mdx','.mdl'].includes(path.extname(file).toLowerCase()))throw Error('Choose an absolute MDL or MDX output path.');
+    return writeModel({path:file,bytes,format,forgeAssets,overwrite:overwrite===true,export:true});
+  });
+  ipcMain.on('ai:ready',async(event,ready)=>{own(event);service.ready=!!ready;if(ready)try{const config=await service.configuration();if(config.enabled)await service.enable(true);}catch(error){service.emit({type:'error',text:error.message});}});
+  ipcMain.on('ai:toolResult',(event,data)=>{own(event);service.pending.get(data?.id)?.finish(data.error?Error(data.error):null,data.result);});
+  return service;
+}
+module.exports={AiService,registerAiService};

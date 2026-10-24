@@ -41,6 +41,10 @@ Releases are built by GitHub Actions; see [docs/AUTO_UPDATES.md](docs/AUTO_UPDAT
 
 ## Add-ons and notices
 
+The desktop **AI** button connects Codex, Claude or a compatible API to model edits,
+live selections, animation, viewport inspection and program help. External AI clients
+can use the same tools over MCP. See [AI setup and tools](docs/AI-HOOK.md).
+
 See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for component credits.
 
 ## Release history

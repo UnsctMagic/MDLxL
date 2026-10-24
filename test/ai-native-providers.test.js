@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import {AI_TOOLS} from '../src/ai-tools.js';
+const {runCodex,runClaude}=createRequire(import.meta.url)('../electron/ai-providers.cjs');
+const {AiService}=createRequire(import.meta.url)('../electron/ai-service.cjs');
+
+test('editor shutdown aborts a pending external tool and its sandbox signal',async()=>{
+ const sent=[],win={isDestroyed:()=>false,webContents:{send:(...args)=>sent.push(args)}};
+ const service=new AiService({root:'.',profile:'.',electron:{},getWindow:()=>win});service.ready=true;
+ const pending=service.call('mdlxl_script',{code:'wait'}),rejected=assert.rejects(pending,/Editor closed/);
+ const request=[...service.pending.values()][0];assert.equal(request.signal.aborted,false);
+ const closing=service.close();assert.equal(service.close(),closing);await closing;await rejected;
+ assert.equal(request.signal.aborted,true);assert.equal(service.pending.size,0);assert.equal(sent.at(-1)[0],'ai:toolCancel');
+});
+
+// A real child-process fixture verifies framing, MCP wiring and native adapter
+// lifecycle without borrowing a user's credentials or making paid requests.
+const fixture=String.raw`
+const fs=require('node:fs');const args=process.argv.slice(2),codex=args[0]==='app-server';
+const send=value=>process.stdout.write(JSON.stringify(value)+'\n');
+async function tool(url,authorization){const response=await fetch(url,{method:'POST',headers:{authorization,'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'mdlxl_read',arguments:{path:'/Info'}}})});const result=await response.json();if(!result.result?.content[0]?.text.includes('fixture'))throw Error('MCP failed');}
+if(codex){
+ require('node:readline').createInterface({input:process.stdin}).on('line',async line=>{const m=JSON.parse(line);if(m.id===undefined)return;
+ if(m.method==='initialize')return send({id:m.id,result:{userAgent:'fixture'}});
+ if(m.method==='thread/start'||m.method==='thread/resume'){if(m.params.sandbox!=='read-only'||m.params.approvalPolicy!=='never')process.exit(4);return send({id:m.id,result:{thread:{id:'codex-fixture'}}});}
+ if(m.method==='turn/start'){send({id:m.id,result:{turn:{id:'turn-fixture'}}});const setting=args.find(a=>a.startsWith('mcp_servers.mdlxl.url='));await tool(JSON.parse(setting.split('=').slice(1).join('=')),'Bearer '+process.env.MDLXL_AI_TOKEN);send({method:'item/agentMessage/delta',params:{delta:'Native Codex response'}});send({method:'turn/completed',params:{turn:{status:'completed'}}});return;}
+ send({id:m.id,result:{}});
+ });
+}else{
+ if(args[args.indexOf('--tools')+1]!==''||args[args.indexOf('--allowedTools')+1]!=='mcp__mdlxl__*'||!args.includes('--strict-mcp-config')||args.includes('--dangerously-skip-permissions'))process.exit(5);
+ let input='';process.stdin.on('data',chunk=>input+=chunk);process.stdin.on('end',async()=>{const message=JSON.parse(input);if(message.message.content[0].text!=='test prompt')process.exit(6);const config=JSON.parse(fs.readFileSync(args[args.indexOf('--mcp-config')+1],'utf8')).mcpServers.mdlxl;await tool(config.url,config.headers.Authorization);send({type:'stream_event',session_id:'claude-fixture',event:{type:'content_block_delta',delta:{type:'text_delta',text:'Native Claude response'}}});send({type:'result',session_id:'claude-fixture',is_error:false,result:'Native Claude response'});});
+}
+`;
+async function executable(t){
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'mdlxl-ai-native-'));
+ t.after(()=>fs.rm(directory,{recursive:true,force:true}));
+ const script=path.join(directory,'agent.js');await fs.writeFile(script,fixture);
+ const file=path.join(directory,process.platform==='win32'?'agent.cmd':'agent');
+ if(process.platform==='win32')await fs.writeFile(file,'@"%dp0%\\agent.js" %*\r\n');
+ else{await fs.writeFile(file,'#!'+process.execPath+'\n'+fixture);await fs.chmod(file,0o700);}
+ return {directory,executable:file};
+}
+for(const [name,run] of [['Codex',runCodex],['Claude',runClaude]])test(name+' native adapter drives its own MCP client and preserves conversation',async t=>{
+ const config=await executable(t),calls=[],events=[],conversation={};
+ await run({settings:{executable:config.executable},directory:config.directory,tools:AI_TOOLS,call:async(name,args)=>{calls.push({name,args});return {name:'fixture'};},system:'MDLxL tools only',prompt:'test prompt',images:[],conversation,signal:new AbortController().signal,event:e=>events.push(e)});
+ assert.equal(calls.length,1);assert.equal(calls[0].name,'mdlxl_read');assert.equal(conversation.threadId,name.toLowerCase()+'-fixture');assert.equal(events.filter(e=>e.type==='text').map(e=>e.text).join(''),'Native '+name+' response');
+ assert.equal((await fs.readdir(config.directory)).some(n=>n.startsWith('claude-run-')),false);
+});
