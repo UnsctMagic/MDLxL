@@ -40,6 +40,8 @@ import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings }
 import { backgroundImageRect } from '../src/viewport-appearance.js';
 import { QUAD_VIEWS, viewWorkplane, viewportRects } from './quad-view.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
+import { composeViewportLayers } from './game-preview-capture.js';
+import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
 
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 const normalizedPath = path => String(path || '').replaceAll('/', '\\').toLowerCase();
@@ -196,10 +198,13 @@ export default function Viewport(inputProps) {
     let grid = createViewportGrid(); scene.add(grid);
     const rigMarkers = createRigMarkersGL(renderer.getContext()); renderer.resetState();
     const platform = createPreviewPlatform(() => invalidate()); scene.add(platform);
+    // AI console Pen/Marker notes: display-only, never part of the model. They sit
+    // beside modelGroup (same space), which is cleared on every geometry reload.
+    const sketch = createViewportSketch({ parent: scene, entries: () => state.entries, invalidate: () => invalidate() });
     const backgroundCanvas = document.createElement('canvas'), backgroundTexture = new THREE.CanvasTexture(backgroundCanvas);
     backgroundTexture.colorSpace = THREE.SRGBColorSpace;
     const state = { renderer, scene, modelGroup, perspective, ortho, camera, controls, grid, entries: [], nodes: [], textures: new Map(), markerTextures: new Map(), checker: makeChecker(), background: { canvas: backgroundCanvas, texture: backgroundTexture, data: null, image: null, status: 'idle', drawKey: '' }, frame: 0, lastExternalTime: undefined, sequenceIndex: -1, wasPlaying: false, drag: null, anchorCandidate: null, dirty: true, radius: 100, center: new THREE.Vector3(0, 0, 40), loadedSignature: null, selectionKey: '', hoveredGeoset: null, disposed: false };
-    runtime.current = state;
+    runtime.current = state; state.sketch = sketch;
     state.teamGlow = makeTeamGlow();
     state.globalTime = 0;
     state.textureSources = new Map();
@@ -482,6 +487,15 @@ export default function Viewport(inputProps) {
       if (down) return;
       clearHoveredGeoset();
       if (quad) surface.focus(); else host.current?.focus();
+      // Pen/Marker take the left button only in Work mode; Alt, rotate mode and the
+      // other buttons keep the normal camera controls.
+      if (sketch.tool && event.button === 0 && cameraAction(event) === 'work') {
+        const start = point(event);
+        down = { ...start, pointerId: event.pointerId, action: 'sketch' };
+        controls.enabled = false; surface.setPointerCapture(event.pointerId);
+        sketch.begin(start, camera, controls.target, state.radius);
+        event.preventDefault(); event.stopImmediatePropagation(); return;
+      }
       const action = cameraAction(event);
       rotating = action === 'rotate'; latest.current.onCameraGestureChange?.(rotating);
       surface.style.cursor = viewportCursor(latest.current.cameraMode, latest.current.rotationNormals ? 'rotateNormals' : latest.current.transformMode, rotating);
@@ -571,6 +585,7 @@ export default function Viewport(inputProps) {
         if (hoveredPane) bindPane(hoveredPane);
         hoverParts(event); inspectHoveredGeoset(event); bindPane(activePane); return;
       }
+      if (down.action === 'sketch') { for (const sample of event.getCoalescedEvents?.() || [event]) sketch.move(point(sample)); return; }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
       if (latest.current.onDoubleClickParts && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
       if (down.action === 'parts') { down.partsEnd=end; if (down.traveled) down.parts?.update(end); return; }
@@ -666,6 +681,7 @@ export default function Viewport(inputProps) {
       }
       if (!start) return;
       if (surface.hasPointerCapture(event.pointerId)) surface.releasePointerCapture(event.pointerId);
+      if (start.action === 'sketch') { if (event.type === 'pointercancel') sketch.cancel(); else sketch.end(); return; }
       if (start.action === 'parts') { if (start.parts) start.parts.finish(); else latest.current.onCancelPartDrag?.(); return; }
       if(start.action==='node'){
         const drag=state.nodeDrag;state.nodeDrag=null;
@@ -747,6 +763,7 @@ export default function Viewport(inputProps) {
     function cancelGesture() {
       editClicks = 0;
       if (down?.action === 'parts') down.parts?.cancel();
+      if (down?.action === 'sketch') sketch.cancel();
       state.nodeDrag=null;
       rotating = false; latest.current.onCameraGestureChange?.(false);
       const drag = state.drag;
@@ -802,7 +819,8 @@ export default function Viewport(inputProps) {
       if (state.disposed) return;
       const p = latest.current, renderGraphics = graphicsOptions(p.preferences), visual = visualOptions(p.preferences), appearance = viewportAppearanceOptions(p.preferences);
       const lighting = previewLighting(p.preferences); configurePreviewLights(ambient, key, lighting);
-      surface.style.cursor = viewportCursor(p.cameraMode, p.rotationNormals ? 'rotateNormals' : p.transformMode, rotating);
+      surface.style.cursor = sketch.tool && !rotating ? SKETCH_CURSORS[sketch.tool] : viewportCursor(p.cameraMode, p.rotationNormals ? 'rotateNormals' : p.transformMode, rotating);
+      sketch.resolution(surface.clientWidth, surface.clientHeight);
       const overlayHost = quad ? surface : viewportHost;
       syncViewportBackground(appearance);
       ambient.visible = key.visible = renderGraphics.lighting;
@@ -1025,7 +1043,13 @@ export default function Viewport(inputProps) {
     });
     document.addEventListener('visibilitychange', state.scheduler.sync);
     state.scheduler.invalidate();
+    state.captureApi = {captureView() {
+      if (state.disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
+      return composeViewportLayers(viewportHost, renderer.domElement);
+    }};
+    latest.current.onCaptureReady?.(state.captureApi);
     return () => {
+      latest.current.onCaptureReady?.(null);
       if (state.drag) latest.current.onTransformPreview?.(null);
       savePane();
       const remember = pane => ({ id: pane.id, view: pane.view, perspective: pane.perspective.clone(), ortho: pane.ortho.clone(), target: pane.controls.target.clone(), center: pane.center.clone(), radius: pane.radius });
@@ -1034,7 +1058,7 @@ export default function Viewport(inputProps) {
         // Quad panes own their cameras. Other editors inherit the single view.
         latest.current.cameraHandoff.current = { ...remember(singlePane), camera: singlePane.camera === singlePane.ortho ? 'ortho' : 'perspective' };
       }
-      state.disposed = true; state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
+      state.disposed = true; sketch.dispose(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       renderer.domElement.removeEventListener('webglcontextlost', contextLost);
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
       window.removeEventListener('mdlxl-cancel-gesture', cancelCommand);
@@ -1135,6 +1159,8 @@ export default function Viewport(inputProps) {
     return () => { cancelled = true; };
   }, [textureSignature, textureAssets, texturesNeeded, graphics.textures, graphics.antialias]);
 
+  useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
+  useEffect(() => { runtime.current?.sketch?.configure({ enabled: props.sketchDocument != null, documentId: props.sketchDocument }); }, [props.sketchDocument, graphics.antialias]);
   useEffect(() => { if (!props.normalizer) runtime.current?.cancelNormalizer?.(); }, [!!props.normalizer]);
   useEffect(() => { runtime.current?.setQuad(props.quadView); }, [props.quadView, graphics.antialias]);
   useEffect(() => { if(!props.quadView && runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view, props.quadView, graphics.antialias]);

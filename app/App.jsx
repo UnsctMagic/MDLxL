@@ -1,10 +1,13 @@
-import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
 import Viewport from './Viewport.jsx';
 import {visiblePaintGeosets} from '../src/paint-view.js';
 import PaintBoundary from './PaintBoundary.jsx';
 import {validatePaintAssignments,repairPaintMaterials} from '../src/paint-materials.js';
 import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '../src/paint-model-integration.js';
 import './addons.css'; // keeps the stylesheet's place in the CSS order; Addons renders in AppToolbar
+import AiAssistant from './AiAssistant.jsx';
+import { AiEditorBridge } from './ai-editor.js';
+import { sketchStore } from '../src/ai-sketch.js';
 import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
 import { refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
@@ -151,7 +154,10 @@ export default function App() {
   const changeSensitivity = value => changePreferences({ ...preferencesRef.current, scrollSensitivity: value });
   const changePointerSensitivity = value => changePreferences({ ...preferencesRef.current, pointerSensitivity: value });
   const toggleWheelMode = mode => changePreferences(previous => ({ ...previous, wheelMode: previous.wheelMode === mode ? 'rotate' : mode }));
-  const toggleCamera = () => setCameraMode(previous => previous === 'work' ? 'rotate' : 'work');
+  // One tool owns the left mouse button: choosing an editor tool, camera mode or
+  // another tab puts the AI console's Marker/Pen/Eraser away.
+  const chooseCameraMode = next => { sketchStore.clearTool(); setCameraMode(next); };
+  const toggleCamera = () => { sketchStore.clearTool(); setCameraMode(previous => previous === 'work' ? 'rotate' : 'work'); };
   const [showcaseHistoryState,setShowcaseHistoryState]=useState({undo:false,redo:false});
   const showcaseHistoryChanged=useCallback(value=>setShowcaseHistoryState(prior=>prior.undo===value.undo&&prior.redo===value.redo?prior:value),[]);
   const [showcaseSession,setShowcaseSession]=useState(null),[showcaseVisited,setShowcaseVisited]=useState(false);
@@ -235,6 +241,8 @@ export default function App() {
   const setHighlightKeyframes = value => { setHighlightByPanel(previous => ({ ...previous, [animationPanel]: value })); if (animationPanel === 'movement' && !value) setHighlightChain(false); };
   const changeHighlightChain = value => { setHighlightChain(value); if (value) setHighlightByPanel(previous => ({ ...previous, movement: true })); };
   const [captureAPI, setCaptureAPI] = useState(null);
+  const viewportCaptureAPI = useRef(null);
+  const setViewportCaptureAPI = useCallback(api => { viewportCaptureAPI.current = api; }, []);
   const [recentFiles, setRecentFiles] = useState([]);
   const [uvEntrySelection, setUVEntrySelection] = useState({}), [uvEntryId,setUVEntryId] = useState(0);
   const [uvWindow, setUVWindowState] = useState(null), [uvFocused, setUVFocused] = useState(false);
@@ -278,12 +286,21 @@ export default function App() {
   const [notice, setNotice] = useState(null);
   useEffect(() => { const show = event => setNotice({ message: event.detail }); window.addEventListener('mdlxl-notice', show); return () => window.removeEventListener('mdlxl-notice', show); }, []);
   const savingRef = useRef(false);
+  // Model edits join the drawings' Undo timeline; Undo and Redo themselves do not.
+  const travelRevision = useRef(null), lastRevision = useRef(null);
+  // Undo/Redo availability also follows the drawings.
+  const sketchState = useSyncExternalStore(sketchStore.subscribe, sketchStore.get, sketchStore.get);
   const liveMovementRevision = useRef(-1);
   const [recoveries, setRecoveries] = useState([]), [historyMB, setHistoryMB] = useState(512), [historySteps, setHistorySteps] = useState(10000), [anchor, setAnchor] = useState(''), [normalAngle, setNormalAngle] = useState(90), [gameDataPath, setGameDataPath] = useState('');
   const [gameDataSources, setGameDataSources] = useState([]);
   const [zoomAnchor, setZoomAnchor] = useState(null), [choosingZoomAnchor, setChoosingZoomAnchor] = useState(false);
   const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), settings = useRef({}), textureResolutions = useRef(new WeakMap());
   const doc = session.doc, model = doc.model, geoset = model.Geosets[activeGeoset];
+  useEffect(() => {
+    const was = lastRevision.current;
+    lastRevision.current = { id: session.id, revision: doc.revision };
+    if (was?.id === session.id && was.revision !== doc.revision && travelRevision.current !== doc.revision) sketchStore.noteModelEdit(session.id);
+  }, [session.id, doc.revision]);
   const geosetTab = activeGeosetTab === 'ungrouped' || (model[GEOSET_TABS_KEY] || []).some(tab => tab.id === activeGeosetTab) ? activeGeosetTab : 'all';
   // Hide extras only takes corpse/background geosets out of the work area; nothing is deleted.
   const extraGeosets = useMemo(() => hideExtras ? corpseAndBackgroundGeosets(model) : new Set(), [model, doc.revision, hideExtras]);
@@ -395,7 +412,7 @@ export default function App() {
         if (portraitModeActive && sections.includes('Nodes')) refreshPortraitExtentsAfterRigEdit(doc._committedModel, m);
         validateUVPreviewGuard(m, session.uvPreviews, guard);
         return value;
-      });
+      }, {validate:options.validate});
       selectionHistory.recordEdit(ticket, selectionState); refresh(); if (result !== false) say(label); return result;
     } catch (error) { refresh(); say(error.message, true); if(options.rethrow)throw error; return false; }
   };
@@ -562,6 +579,7 @@ export default function App() {
   };
   const selectMode = async next => {
     if (savingRef.current || next === mode && next !== 'uv') { if (next === 'vertices') setUVFocused(false); return; }
+    sketchStore.clearTool();
     // Function-key mode changes can remove a focused blur-committed field
     // before React sees its blur. Commit that pending value while its editor
     // is still mounted (notably the final RGB channel in Animations).
@@ -593,6 +611,7 @@ export default function App() {
   };
 
   const setWorkTool = next => {
+    sketchStore.clearTool();
     const movement = next === 'translate' ? 'move' : next;
     if (uvEditing) { uvAction('tool', movement); return; }
     if (rigWorkspace && (movementRestricted(movement, restrictions) || restPose && !['select','move'].includes(movement))) return;
@@ -871,6 +890,7 @@ export default function App() {
     if (target.doc.hdViewOnly) { say(HD_VIEW_ONLY_MESSAGE, true); setNotice({ message: HD_VIEW_ONLY_MESSAGE }); return false; }
     if (Object.keys(target.animationDrafts).length) { if (target !== session) activateSession(target); setAnimationPanel('animations'); selectMode('animation'); say('Press Bake Text in Animations to apply the edited track text before saving.'); return false; }
     savingRef.current = true; setSaving(true);
+    const previousPath = target.path;
     try {
       const pending = target.uvPreviews;
       const staged = Object.keys(pending).length ? EditorDocument.restoreRecoveryState(target.doc.captureRecoveryState({ includeHistory: false })) : target.doc;
@@ -907,6 +927,8 @@ export default function App() {
       try { await rememberMotionSave(target, bytes, target.path, savedName); }
       catch (error) { say(`Model saved; Motion Inspector decisions could not follow this save: ${error.message}`, true); }
       try { await checkpoint(target); } catch (error) { say(`Saved; recovery checkpoint failed: ${error.message}`, true); }
+      // The AI console offers to tidy this model's AI chats after a save.
+      window.dispatchEvent(new CustomEvent('mdlxl-model-saved', { detail: { documentId: target.id, path: target.path, previousPath, name: target.doc.name } }));
       if (latest.current.session.id === target.id) refresh(); return !target.doc.dirty;
     } catch (error) { say(error.message, true); return false; }
     finally { savingRef.current = false; setSaving(false); }
@@ -1019,6 +1041,13 @@ export default function App() {
     if (savingRef.current) return;
     if(mode==='showcase')return window.dispatchEvent(new CustomEvent('mdlxl-showcase-command',{detail:redo?'redo':'undo'}));
     try {
+      if(mode!=='paint'){
+        // Drawings for the AI share Ctrl+Z / Ctrl+Y with the model while they are shown:
+        // whichever happened last goes first, and an active drawing tool undoes drawings.
+        const sketches = sketchStore.get();
+        const step = sketches.visible ? sketchStore.step(session.id, redo, { drawingsOnly: !!sketches.tool }) : sketchStore.step(session.id, redo, { modelOnly: true });
+        if (step === 'sketch') { say(redo ? 'Redid a drawing for the AI.' : 'Undid a drawing for the AI.'); return; }
+      }
       if(mode==='paint'){
         window.dispatchEvent(new CustomEvent('mdlxl-paint-flush'));
         const entry=session.paintProject&&travelPaintHistory(session.paintProject,redo);if(!entry){say(paintMessage(redo?'paint.redoEmpty':'paint.undoEmpty'));return;}
@@ -1028,6 +1057,7 @@ export default function App() {
       let validBefore = true; try { validateUVPreviewGuard(doc.model, session.uvPreviews); } catch { validBefore = false; }
       const restored = selectionHistory.travel(redo ? 'redo' : 'undo', selectionState);
       if (!restored) return;
+      travelRevision.current = doc.revision;
       // A cached older document may already have mismatched geometry. Permit
       // travelling back through that history so it can be repaired by Undo.
       if (validBefore) {
@@ -1277,7 +1307,7 @@ export default function App() {
     firstFrame: () => {setPlaying(false);setTime(animationDomain.start);}, lastFrame: () => {setPlaying(false);setTime(animationDomain.end);},
     nextFrame: () => {setPlaying(false);setTime(v=>Math.min(animationDomain.end,Math.round(v)+1));}, previousFrame: () => {setPlaying(false);setTime(v=>Math.max(animationDomain.start,Math.round(v)-1));},
     sensitivityUp: () => changeSensitivity(preferencesRef.current.scrollSensitivity*1.15), sensitivityDown: () => changeSensitivity(preferencesRef.current.scrollSensitivity/1.15),
-    ...Object.fromEntries(['work','zoom','rotate','move'].map(v=>['camera:'+v,()=>setCameraMode(v)])),
+    ...Object.fromEntries(['work','zoom','rotate','move'].map(v=>['camera:'+v,()=>chooseCameraMode(v)])),
     ...Object.fromEntries(['select','translate','rotate','scale'].map(v=>[v,()=>mode === 'bones' && v === 'rotate' ? bindSelectedVertices('hard') : setWorkTool(v)])),
     ...Object.fromEntries(['xy','xz','yz'].map(v=>['plane:'+v,()=>setWorkplane(v)])),
     ...Object.fromEntries(['Delete vertices','Create triangle','Delete triangles','Uncouple','Collapse','Weld','Mirror','Extrude','Detach','Reverse normals','Smooth normals','Restore normals'].map(v=>[v,()=>(mode === 'bones'||vertexNodeCenter) && v === 'Delete vertices' ? deleteSelectedNode() : mode === 'bones' && v === 'Create triangle' ? beginAttach() : mode === 'bones' && v === 'Collapse' ? bindSelectedVertices('soft') : mode==='animation' && v==='Collapse' ? timelineCommands.current.copyPose?.() : mode==='animation' && v==='Delete vertices' ? timelineCommands.current.delete?.() : meshAction(v)])),
@@ -1308,7 +1338,7 @@ export default function App() {
     if (rigWorkspace && ['select','translate','rotate','scale'].includes(id)) return !movementRestricted(id === 'translate' ? 'move' : id, restrictions) && (!restPose || ['select','translate'].includes(id));
     if (id==='exit') return !!window.desktop;
     if (['undo','redo'].includes(id)&&mode==='showcase')return showcaseHistoryState[id];
-    if (['undo','redo'].includes(id)) return mode==='paint' ? !!session.paintProject?.history?.[id==='undo'?'undo':'redo']?.length : id==='undo'?doc.canUndo:doc.canRedo;
+    if (['undo','redo'].includes(id)) { if (mode==='paint') return !!session.paintProject?.history?.[id==='undo'?'undo':'redo']?.length; const sketches = sketchStore.get(); return (id==='undo'?doc.canUndo:doc.canRedo) || sketches.visible && sketchStore.canStep(session.id, id==='redo', { drawingsOnly: !!sketches.tool }); }
     if (mode === 'animation' && ['Collapse','Delete vertices'].includes(id)) return !doc.readOnly && !saving;
     if(['forge','bitsAndParts','particles','animXL','GeosetAnims','convertVersion'].includes(id))return !doc.readOnly&&!saving;
     if(id.startsWith('shape:'))return !doc.readOnly&&!saving&&selectable.size>0;
@@ -1334,9 +1364,54 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState]);
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState,sketchState]);
   const runCommand = id => { if(commandEnabled(id)) commands.current[id]?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
+  // Waits for React to commit and the viewport to paint before the AI reads the editor again.
+  const afterPaint = frames => new Promise(resolve => { const step = n => n ? requestAnimationFrame(() => step(n - 1)) : resolve(); step(frames); });
+  const aiHost = useRef();
+  aiHost.current = {
+    capture: async () => {
+      const api = mode === 'vertices' ? viewportCaptureAPI.current : captureAPI;
+      if (!api?.captureView) throw Error('The model viewport is not visible.');
+      await api.whenReady?.();
+      return api.captureView().toDataURL('image/png');
+    },
+    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
+    // Cheap header data for the open AI panel; state() is only built when the AI acts.
+    summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
+    commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
+    command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
+    edit,
+    select: value => {
+      if(value.vertices)setSelection(filterVertexSelection(value.vertices,new Set(Object.keys(value.vertices).map(Number)),doc.model));
+      if(value.nodeIds)setSelectedNodeIds(value.nodeIds);
+      if(value.geosetIds)setSelectable(new Set(value.geosetIds));
+      if(value.activeGeoset!==undefined)setActiveGeoset(value.activeGeoset);
+    },
+    selectKeys: async value => {
+      await selectAnimationPanel('movement');setSelectedNodeIds([value.nodeId]);setMovementMode(({Translation:'move',Rotation:'rotate',Scaling:'scale'})[value.property]);
+      await afterPaint(2);
+      if(!timelineCommands.current.selectKeys)throw Error('The Movement timeline is not available.');
+      timelineCommands.current.selectKeys(value.frames,{kind:'node',id:value.nodeId,property:value.property});
+      await afterPaint(1);
+    },
+    restoreContext: async value => {
+      await selectMode(value.mode);setWorkplane(value.workplane);setUvSet(value.uvSet);setActiveGeoset(value.activeGeoset);setSelectable(new Set(value.checkedGeosets));setSelection(value.selection);setSelectedNodeIds(value.selectedNodeIds);
+      if(value.globalSequence!=null)selectTimeline('global:'+value.globalSequence);else selectSequence(value.sequence);
+      setPlaying(false);setTime(value.liveFrame??value.frame);
+      await afterPaint(2);
+      if(value.keyframes){if(value.keyframes.keys?.length){await selectAnimationPanel('movement');setMovementMode(value.keyframes.controller);await afterPaint(2);}timelineCommands.current.restoreSelection?.(value.keyframes);await afterPaint(1);}
+    },
+    view: async value => {if(value.mode)await selectMode(value.mode);if(value.view)setView(value.view);if(value.globalSequence!==undefined)selectTimeline(value.globalSequence==null?String(value.sequence??sequence):'global:'+value.globalSequence);else if(value.sequence!==undefined)selectSequence(value.sequence);if(value.frame!==undefined){setPlaying(false);setTime(value.frame);}if(value.playing!==undefined)setPlaying(value.playing);if(value.renderMode)setViewRenderMode(value.renderMode);if(value.fit)frame(value.fit==='selection');},
+    open: record => queueModelRecords([record]),
+    assets: () => retainedForgeAssets(session.assets,doc.model),
+    addAssets: records => loadTextures(records,session,{source:'forge'}),
+    addReference: async record => {const opened=openDocument(record.bytes,record.name);if(!opened.model||opened.version==null)throw Error('This reference has no readable model.');const next=newSession(opened,record.path);setSessions(previous=>[...previous,next]);if(record.textures?.length)await loadTextures(record.textures,next,{source:'gameFile'});await resolveTextures(next);return {id:next.id,name:next.doc.name};},
+  };
+  const aiBridge = useMemo(() => new AiEditorBridge(() => aiHost.current), []);
+  useEffect(() => aiBridge.attach(window.desktop), [aiBridge]);
+  useEffect(() => {aiBridge.editorChanged();});
 
 
   const menuChecks = {shaded:overlays.shaded,'display:bones':overlays.bones,'display:skeleton':overlays.skeleton,'display:focusedSkeleton':overlays.focusedSkeleton,'display:wires':overlays.wires,'display:nodes':overlays.nodes,'display:attachments':overlays.attachments,'display:particles':overlays.particles,'display:sounds':overlays.sounds,'display:events':overlays.events,showVertices:overlays.vertices,grid:overlays.grid,normals:overlays.normals};
@@ -1535,9 +1610,9 @@ export default function App() {
       dialog, displayMode, doc, hiddenCount, hide, inputStrength, menuChecks, mode, model, open, openLibrary,
       openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources, rgbPreview,
       rgbSequence, runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, selectionCount, session,
-      sessionDirty, sessions, setCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
+      sessionDirty, sessions, setCameraMode: chooseCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
       setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI
-    }}/>
+    }} aiControl={<AiAssistant bridge={aiBridge}/>}/>
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}
     <main className={`classic-workspace${mode === 'vertices' && quadView ? ' quad-workspace' : ''}${mode === 'animation' ? ' animation-workspace' : ''}${mode === 'uv' ? ' uv-immersive' : ''}${mode === 'paint' ? ' paint-immersive' : ''}${mode === 'showcase' ? ' showcase-immersive' : ''}`} inert={saving || undefined}><section className="classic-view">
@@ -1547,7 +1622,7 @@ export default function App() {
       }} boneInfluenceAvailable={boneInfluenceAvailable && !normalizer} renderMode={normalizer?.renderMode || viewRenderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setChosenRenderMode}/>
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
       {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
-      {preferencesReady && mode === 'vertices' && <Viewport
+      {preferencesReady && mode === 'vertices' && <Viewport onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
         vanilla={visUI} editorDisplayMode={visUI?undefined:'vertices'}
         {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
         cameraHandoff={cameraHandoff} quadView={quadView} viewRequest={vertexViewRequest} onActivePaneChange={setActiveVertexPane} workplaneEnabled={workplaneEnabled}

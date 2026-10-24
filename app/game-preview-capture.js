@@ -32,6 +32,27 @@ export function composePreviewCapture(backgroundCanvas, modelCanvas, createCanva
   return snapshot;
 }
 
+// Called synchronously after a normal render, before WebGL clears its buffer.
+// Copy the viewport's own layers so floating windows never need to disappear.
+export function composeViewportLayers(host, modelCanvas) {
+  const snapshot = host.ownerDocument.createElement('canvas');
+  snapshot.width = modelCanvas.width; snapshot.height = modelCanvas.height;
+  const context = snapshot.getContext('2d'), bounds = modelCanvas.getBoundingClientRect();
+  if (!context || !bounds.width || !bounds.height) throw new Error('The model viewport is not visible.');
+  const scaleX = snapshot.width / bounds.width, scaleY = snapshot.height / bounds.height;
+  const layers = [...host.querySelectorAll('canvas')].map((canvas, order) => {
+    const style = host.ownerDocument.defaultView.getComputedStyle(canvas);
+    return {canvas, order, style, z: Number(style.zIndex) || 0};
+  }).sort((a,b) => a.z - b.z || a.order - b.order);
+  for (const {canvas, style} of layers) {
+    const rect = canvas.getBoundingClientRect();
+    if (!canvas.width || !canvas.height || !rect.width || !rect.height || style.visibility === 'hidden' || style.display === 'none') continue;
+    context.globalAlpha = Number(style.opacity);
+    context.drawImage(canvas, (rect.x - bounds.x) * scaleX, (rect.y - bounds.y) * scaleY, rect.width * scaleX, rect.height * scaleY);
+  }
+  return snapshot;
+}
+
 /** Explicit preview Loop overrides the authored sequence's NonLooping flag. */
 export function previewPlaybackStep(interval, frame, delta, loop = true) {
   const [start, end] = interval, duration = end - start;
