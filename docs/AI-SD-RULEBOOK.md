@@ -1,0 +1,35 @@
+# Warcraft III SD AI rulebook
+
+This is the provider-neutral rule text supplied by MDLxL to embedded AI providers
+and external MCP clients. It is a default art direction for SD work; the user's
+explicit task and protected authored data control each edit. All modeling tools
+remain available. This rulebook does not retrain a model or guarantee its artistic
+judgment.
+
+The canonical shared text is in `src/ai-sd-rules.js`. The same text follows below
+so this document can also be supplied to another agent manually. See
+[the reference study](AI-SD-REFERENCE-STUDY.md) for the measured evidence, examples,
+selection method and limitations.
+
+---
+Warcraft III SD modeling rulebook
+
+Default to Warcraft III SD art direction for SD modeling tasks and new work in that style. An explicit user request for another style takes precedence. Preserve an existing model's style and format; do not convert HD assets to SD or change file versions just because this rulebook is present. These are modeling instructions, not permission to enlarge the task.
+
+1. Work surgically. Keep the requested selection, proportions, authored identity, UVs, rig, materials and other animations intact outside the requested edit. Use the existing script/model APIs and one Undo step for related changes. Apply authorized reversible work directly; do not add routine approval questions.
+
+2. Establish the baseline before adding detail. Inspect the actual model, visible geosets, material/texture setup and relevant animation. Match its role, race/faction, silhouette, scale and existing detail level. Compare with a suitable Warcraft SD reference. Total file triangles can include hidden corpses, variants, effects and LODs; never treat a whole-file count as the visible body budget. Do not reread the full guide on every turn.
+
+3. Spend geometry on silhouette, articulation and readable form. Use deliberate low-poly planes, strong large shapes and purposeful edge loops. Keep characteristic broad weapons, hands, feet, armor masses and clear negative spaces where the reference uses them. Do not automatically subdivide, round every edge, bevel every plate, add thickness to every cloth/wing, model texture-sized ornament, or anatomically normalize an authored stylized body. Advanced math, IK and procedural tools are welcome when their result serves the requested SD edit.
+
+4. Use painted diffuse detail and the existing Warcraft material language. Preserve UV reuse/mirroring, alpha cutouts, team-color areas, hero-glow behavior and native texture paths. Prefer painted highlights, broad value/color separation and readable motifs over dense geometry or photographic surface noise. Do not introduce a PBR/normal/roughness pipeline, giant textures, extra layers or external textures as an automatic improvement. Preserve a deliberate existing setup. SD style and legacy compatibility are separate: current Blizzard SD files can use modern versions/DDS; only target MDX 800/BLP when legacy compatibility is actually required.
+
+5. Preserve intentional splits and bindings. Coincident positions can be UV, normal, material or rig boundaries. Mirror/weld only the requested compatible seam; never mass-weld or globally recalculate normals as cleanup. Test the changed joint in posed frames. Preserve bone IDs, pivots, parent relationships, attachment points and weights unless their change is part of the task. Offline IK must produce supported model data, not a runtime dependency.
+
+6. Animate for clear gameplay poses, weight and character. Use purposeful anticipation, contact/impact and recovery, believable planted contacts and controlled secondary motion. Match the source's gait, timing and motion scale. Prefer sparse interpolated keys; do not automatically bake every frame, retime every clip, add motion to every bone or replace expressive authored motion. Check intermediate poses, loop endpoints and the transition across the seam. Preserve events, global sequences and all unrequested intervals. Stand/Walk, Attack/Death, Decay/Dissipate and portraits have different jobs; retain the model's intended sequence names, flags, timing and visibility mechanics.
+
+7. Respect each asset's job. Buildings need coherent footprint, roof/silhouette and birth/death/upgrade or work states where applicable. Doodads and items need readable efficient forms. Portraits may intentionally contain only head/shoulders, framing planes and lights; inspect the authored camera. Effects can use tiny meshes, sprites, billboards, ribbons and particles; judge timing, additive coverage and unit readability instead of a character polygon budget. Do not add hero glow or effects merely to make a model look more impressive.
+
+8. Verify the requested improvement at its intended viewing scale. Inspect textured three-quarter and game-angle views, topology where relevant, and sampled animation poses. Use the same camera/scale for before/after comparisons; missing textures, engine-supplied replaceables or placeholders cannot certify the finished appearance. Check UV seams, normals, clipping, silhouette, attachment/event behavior, transparency and loop continuity as relevant. Keep valid source quirks that do not conflict with the task. Run the normal review/round-trip checks, preserve one-step Undo, and distinguish renderer checks from actual Warcraft gameplay acceptance.
+
+There is no universal SD triangle, bone, texture-size or key-count cap. Use the source and comparable references as budgets; do not decimate, simplify or remove authored work to meet a statistical median. Do not silently import reference geometry or textures. Full evidence and examples are available in AI-SD-REFERENCE-STUDY.md through mdlxl_help; the standalone rulebook is AI-SD-RULEBOOK.md.
