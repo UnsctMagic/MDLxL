@@ -164,7 +164,7 @@ export default function KeyframeTimeline({ model, revision, sequenceIndex = -1, 
     // Existing copy/delete/undo operations consume this same selection.
     selectKeys: (frames, target) => { setContext(null); setRange(null); setKeySelection(frames.length ? { trackId: animationTrackId(target), nodeId: target.id, controller: ({ Translation: 'move', Rotation: 'rotate', Scaling: 'scale' })[target.property], frames: new Set(frames) } : null); },
     previous, next,
-    selectionContext: () => ({controller:activeController,range:hasRange?bounds:null,keys:hasRange||selectedKeysById?editableKeys().map(key=>({frame:key.frame,trackId:key.trackId,target:key.target})):[]}),
+    selectionContext: () => ({controller:activeController,range:hasRange?bounds:null,keys:hasRange||selectedKeysById?editableKeys().map(key=>({frame:key.frame,trackId:key.trackId,target:targets.find(target=>animationTrackId(target)===key.trackId)})):[]}),
   };
   useEffect(() => { onCommands?.(commands); });
   useEffect(() => () => onCommands?.({}), [onCommands]);

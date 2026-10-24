@@ -1354,7 +1354,7 @@ export default function App() {
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   const aiHost = useRef();
   aiHost.current = {
-    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,playing,saving,keyframes:timelineCommands.current.selectionContext?.()}),
+    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
     command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
     edit,
@@ -1364,10 +1364,18 @@ export default function App() {
       if(value.geosetIds)setSelectable(new Set(value.geosetIds));
       if(value.activeGeoset!==undefined)setActiveGeoset(value.activeGeoset);
     },
-    view: async value => {if(value.mode)await selectMode(value.mode);if(value.view)setView(value.view);if(value.sequence!==undefined)selectSequence(value.sequence);if(value.frame!==undefined){setPlaying(false);setTime(value.frame);}if(value.playing!==undefined)setPlaying(value.playing);},
+    selectKeys: async value => {
+      await selectAnimationPanel('movement');setSelectedNodeIds([value.nodeId]);setMovementMode(({Translation:'move',Rotation:'rotate',Scaling:'scale'})[value.property]);
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      if(!timelineCommands.current.selectKeys)throw Error('The Movement timeline is not available.');
+      timelineCommands.current.selectKeys(value.frames,{kind:'node',id:value.nodeId,property:value.property});
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+    },
+    view: async value => {if(value.mode)await selectMode(value.mode);if(value.view)setView(value.view);if(value.globalSequence!==undefined)selectTimeline(value.globalSequence==null?String(value.sequence??sequence):'global:'+value.globalSequence);else if(value.sequence!==undefined)selectSequence(value.sequence);if(value.frame!==undefined){setPlaying(false);setTime(value.frame);}if(value.playing!==undefined)setPlaying(value.playing);if(value.renderMode)setViewRenderMode(value.renderMode);if(value.fit)frame(value.fit==='selection');},
     open: record => queueModelRecords([record]),
     assets: () => retainedForgeAssets(session.assets,doc.model),
-    addReference: async record => {const next=newSession(openDocument(record.bytes,record.name),record.path);setSessions(previous=>[...previous,next]);await resolveTextures(next);},
+    addAssets: records => loadTextures(records,session,{source:'forge'}),
+    addReference: async record => {const opened=openDocument(record.bytes,record.name);if(!opened.model||opened.version==null)throw Error('This reference has no readable model.');const next=newSession(opened,record.path);setSessions(previous=>[...previous,next]);if(record.textures?.length)await loadTextures(record.textures,next,{source:'gameFile'});await resolveTextures(next);return {id:next.id,name:next.doc.name};},
   };
   const aiBridge = useMemo(() => new AiEditorBridge(() => aiHost.current), []);
   useEffect(() => aiBridge.attach(window.desktop), [aiBridge]);

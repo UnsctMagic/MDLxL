@@ -24,6 +24,10 @@ function validateArguments(schema,value,path='arguments') {
   }
 }
 function toolContent(value) {
+  if(value?.images){
+    if(!Array.isArray(value.images)||!value.images.length||value.images.length>12)throw Error('Invalid viewport capture batch.');
+    return value.images.flatMap((item,index)=>[{type:'text',text:`Image ${index+1}: ${String(item.label||'Viewport')}`},...toolContent({image:item.image})]);
+  }
   if(value?.image) {
     const match=/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s.exec(value.image);
     if(!match)throw Error('Invalid viewport capture.');

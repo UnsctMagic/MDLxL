@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import http from 'node:http';
 import {AI_TOOLS} from '../src/ai-tools.js';
-const {startMcpServer,validateArguments}=createRequire(import.meta.url)('../electron/ai-mcp.cjs');
+const {startMcpServer,validateArguments,toolContent}=createRequire(import.meta.url)('../electron/ai-mcp.cjs');
 
 test('real MCP HTTP handshake, discover tools, execute and return tool errors',async t=>{
   const seen=[],server=await startMcpServer({tools:AI_TOOLS,call:async(name,args)=>{seen.push({name,args});if(name==='mdlxl_patch')throw Error('stale target');return {selection:{0:[2,4]}};}});t.after(()=>server.close());
@@ -34,4 +34,10 @@ test('schema rejects prototype pollution, wrong types and unknown control action
   assert.throws(()=>validateArguments(schema,{target:'x',sequence:1.5}),/type/);
   assert.throws(()=>validateArguments(schema,{target:'x',view:'arbitrary'}),/unsupported/);
   assert.throws(()=>validateArguments(schema,JSON.parse('{"target":"x","__proto__":{}}')),/Unsafe/);
+});
+
+test('multiple viewport images retain their view/frame labels in MCP content',()=>{
+  const content=toolContent({images:[{label:'front; frame 0',image:'data:image/png;base64,aGVsbG8='},{label:'side; frame 500',image:'data:image/png;base64,d29ybGQ='}]});
+  assert.deepEqual(content.map(c=>c.type),['text','image','text','image']);assert.match(content[2].text,/frame 500/);assert.equal(content[3].data,'d29ybGQ=');
+  assert.throws(()=>toolContent({images:[]}),/Invalid/);
 });

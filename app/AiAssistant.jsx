@@ -7,7 +7,7 @@ import './ai-assistant.css';
 import {translate} from '../src/localization.js';
 
 const providers=[['codex','Codex / ChatGPT'],['claude','Claude Code'],['openai','OpenAI API'],['anthropic','Claude API'],['compatible','Other AI / local model']];
-const activity={mdlxl_context:'Inspecting the model',mdlxl_read:'Reading model data',mdlxl_script:'Working on the model',mdlxl_patch:'Applying a precise edit',mdlxl_select:'Selecting model elements',mdlxl_command:'Using an editor tool',mdlxl_view:'Inspecting a view',mdlxl_capture:'Checking the viewport',mdlxl_document:'Checking model files',mdlxl_help:'Reading MDLxL help',mdlxl_ui:'Using program controls'};
+const activity={mdlxl_context:'Inspecting the model',mdlxl_capabilities:'Reading MDLxL help',mdlxl_sample:'Inspecting the model',mdlxl_assets:'Checking model files',mdlxl_read:'Reading model data',mdlxl_script:'Working on the model',mdlxl_patch:'Applying a precise edit',mdlxl_select:'Selecting model elements',mdlxl_command:'Using an editor tool',mdlxl_view:'Inspecting a view',mdlxl_capture:'Checking the viewport',mdlxl_document:'Checking model files',mdlxl_help:'Reading MDLxL help',mdlxl_ui:'Using program controls'};
 const readImage=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});
 function AiWindow({header,children}) {
   const panel=useRef(),move=useMovableWindow(panel);

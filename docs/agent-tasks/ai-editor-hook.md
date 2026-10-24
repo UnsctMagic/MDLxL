@@ -46,8 +46,22 @@ mouse camera controls, document validation, byte-preserving save and Undo.
   chooser, clear selection context, compact icon controls, formatted replies and
   an integrated composer. The optional executable path is under Advanced
   connection. Separate native assistant messages retain paragraph boundaries.
-- Eleven shared tools cover exact selections, model data/scripts, existing commands,
+- Fourteen shared tools cover exact selections, model data/scripts, existing commands,
   controls, captures, reference models, export, round-trip validation and help.
+  The capability index searches 188 public source modules; 45 modules across the
+  core task areas were imported successfully in the packaged sandbox. Direct
+  operations include mesh/density, Forge construction, binding/IK, UV, materials,
+  animation, particles/ribbons and generated texture assets. Native preview/brush
+  workflows retain their own controls rather than bypassing their draft state.
+- Added local/global pose sampling across 32 frames, up to 12 labeled viewport
+  images per call, exact transform-key selection with track metadata, model texture
+  inspection and installed game/texture/personal-part library access. Opening a
+  donor keeps the original active document and prompt target. Key selection advances
+  the target's cached keyframe context as well as its selection signature.
+- Generated image bytes use the existing reserved asset paths and export/recovery
+  pipeline, with new filenames and decode validation before commit. Compound model
+  edits retain one Undo/Redo step. The AI is instructed to inspect, act, verify and
+  correct within the user's requested scope, including actual visual checks.
 - Detached scripts use the existing modeling libraries. Scoped edits commit through
   normal validation and one Undo step; protected geometry and animation keys are
   checked again after model normalization. Stale selections and cancelled scripts
@@ -57,9 +71,9 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 ## Verification
 
 - Compatibility: 57 passed, zero failures.
-- Full source suite after the sign-in repair and UI refresh: 1,896 tests, 1,875 passed,
-  21 skipped, zero failures.
-- Focused AI model, MCP, API, native-process and localization checks: 43 passed.
+- Final full source suite: 1,903 tests, 1,882 passed, 21 skipped, zero failures.
+- Final focused AI tests: 31 passed (model, capabilities, sampling, generated assets,
+  MCP, API and native-process authentication).
 - Packaged Windows app on implementation revision: 32 workflow checks passed on
   a hidden desktop with a disposable profile. Real selection -> local provider
   fixture -> MCP -> sandbox -> live model was exercised, including duplicate
@@ -96,6 +110,19 @@ mouse camera controls, document validation, byte-preserving save and Undo.
 - Live Claude-account/API-provider generation and Warcraft III gameplay were
   not exercised. Their existing protocol/fixture checks remain distinct from
   the real signed-in Codex acceptance above.
+- Final packaged regression: 52 checks passed, no renderer errors. Added actual
+  module discovery/imports, reference loading without retargeting, exact native
+  key selection, skinned motion measurements, multi-view/frame images, and one
+  script combining procedural geometry, UV/material edits, binding, an emitter
+  and its generated texture. Protected mesh/animation stayed unchanged; generated
+  texture export, whole-edit Undo/Redo and MDX/MDL reopening passed.
+- Real signed-in Codex vision requested an actual viewport image and correctly
+  described the wireframe model, red marked vertices, blue unmarked vertices and
+  gray background. Model data was unchanged.
+- A further real GPT-6-Luna prompt passed seven checks: exactly the four marked
+  vertices +3 Z, only their UV U coordinates +0.125, first material alpha 0.75,
+  protected topology/normals/rig/animation intact, direct script use, real before/
+  after image inspection and one Undo restoring the complete model.
 
 ## Next action
 

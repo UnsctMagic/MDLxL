@@ -100,9 +100,9 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   const sideWidth=await page.locator('.classic-workspace').evaluate(el=>el.getBoundingClientRect().width);
   const connection=await page.evaluate(async()=>{await window.desktop.aiEnable(true);return window.desktop.aiConfig();});
   const link=connection.mcpServers.mdlxl;
-  const tool=async(name,args={})=>{
+  const tool=async(name,args={},content=false)=>{
     const response=await fetch(link.url,{method:'POST',headers:{...link.headers,'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:crypto.randomUUID(),method:'tools/call',params:{name,arguments:args}})});
-    const reply=await response.json();if(reply.error)throw Error(reply.error.message);if(reply.result.isError)throw Error(reply.result.content[0].text);return reply.result.content[0].type==='image'?reply.result.content[0]:JSON.parse(reply.result.content[0].text);
+    const reply=await response.json();if(reply.error)throw Error(reply.error.message);if(reply.result.isError)throw Error(reply.result.content[0].text);return content?reply.result.content:reply.result.content[0].type==='image'?reply.result.content[0]:JSON.parse(reply.result.content[0].text);
   };
   let context=await tool('mdlxl_context');check('live model loaded',context.name==='AI-fixture.mdx',context.name);
   await tool('mdlxl_select',{target:context.target,geosetIds:[0],activeGeoset:0});
@@ -172,6 +172,45 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   const reference=await tool('mdlxl_script',{target:context.target,code:'const donor=Object.values(references)[0];return {name:donor.name,vertices:donor.model.Geosets[0].Vertices.length/3};'});
   check('scripts can inspect complete attached reference models',reference.value.name==='AI-fixture.mdx'&&reference.value.vertices===3);
   const help=await tool('mdlxl_help',{topic:'AI-HOOK.md'});check('AI can read the installed program guide',help.text.includes('mdlxl_script')&&help.text.includes('Mark vertices'));
+  const discovery=await tool('mdlxl_capabilities',{query:'extrude'}),rigApi=await tool('mdlxl_capabilities',{module:'pose-ik'});
+  check('task discovery exposes actual modeling and IK APIs',discovery.modules.some(m=>m.exports.includes('extrudeFaces'))&&rigApi.signatures.some(s=>s.name==='poseChainBetween'));
+  const runtimeApis=await tool('mdlxl_script',{target:context.target,timeoutMs:120000,code:'const {AI_AREAS}=await api.module("ai-capabilities");const names=[...new Set(AI_AREAS.flatMap(a=>a.modules))],loaded=[];for(const name of names){const module=await api.module(name);loaded.push({name,exports:Object.keys(module).length});}return loaded;'});
+  check('every advertised task-area module loads inside the packaged script runtime',runtimeApis.value.length>40&&runtimeApis.value.every(m=>m.exports>0),runtimeApis.value);
+  const referenceByPath=await tool('mdlxl_document',{target:context.target,action:'open',path:fixture});
+  check('AI opens donor models without switching or invalidating its task',referenceByPath.reference.id&&(await tool('mdlxl_context',{target:context.target})).documentId===activeDocument);
+  await tool('mdlxl_view',{target:context.target,mode:'animation',sequence:0,frame:500,playing:false});
+  const selectedKeys=await tool('mdlxl_select',{target:context.target,keyframes:{nodeId:0,property:'Translation',frames:[500]}});
+  check('AI selects exact native timeline keys',selectedKeys.keyframes.keys.length===1&&selectedKeys.keyframes.keys[0].frame===500&&selectedKeys.keyframes.keys[0].target.property==='Translation',selectedKeys);
+  const samples=await tool('mdlxl_sample',{target:context.target,frames:[0,500,750],nodeIds:[0],geosetIds:[0],vertices:{0:[0]}});
+  check('batch pose measurements use live skinned geometry',samples.samples[1].nodes[0].position[0]-samples.samples[0].nodes[0].position[0]===12&&samples.samples[2].geosets[0].bounds.min[0]-samples.samples[0].geosets[0].bounds.min[0]===6);
+  // Front looks along X, so X translation is intentionally invisible there.
+  const captures=await tool('mdlxl_capture',{target:context.target,samples:[{view:'right',frame:0},{view:'right',frame:500},{view:'front',frame:500}]},true);
+  check('multi-frame multi-view capture returns separate labeled real images',captures.filter(c=>c.type==='image').length===3&&captures[1].data!==captures[3].data&&captures[3].data!==captures[5].data&&captures[4].text.includes('front'),captures.map(c=>c.type==='image'?{imageHash:digest(c.data)}:{label:c.text}));
+  await tool('mdlxl_view',{target:context.target,mode:'vertices',view:'perspective',renderMode:'solid',fit:'model'});
+  context=await tool('mdlxl_context');const compositeBefore=await tool('mdlxl_read',{path:''});
+  const composite=await tool('mdlxl_script',{target:context.target,edit:true,label:'AI multi-domain construction',scope:['/Geosets','/Bones','/Helpers','/PivotPoints','/Materials','/Textures','/Info','/GeosetAnims','/ParticleEmitters2'],code:`
+    const {buildForgePrimitive}=await api.module('forge-primitives'),{commitForge}=await api.module('forge');
+    const {createRigNode,changeVertexBinding}=await api.module('bone-tools');
+    const {createStarterRecipe,starterTextureAsset}=await api.module('particle-starters'),{placeParticleRecipe}=await api.module('particle-recipes');
+    const bone=createRigNode(model,'Bone',{0:[0]});changeVertexBinding(model,model.Geosets[0],[0],bone.ObjectId,'hard');
+    model.Geosets[0].TVertices[0][0]+=.125;model.Materials[0].Layers[0].Alpha=.75;
+    const picture=starterTextureAsset();assets.push(picture);
+    commitForge(model,buildForgePrimitive({shape:'Circle',width:20,height:20,position:[60,0,0]}),{texturePath:picture.name});
+    const effect=placeParticleRecipe(model,createStarterRecipe('sparks'),{parent:bone.ObjectId,position:[0,0,10]});
+    return {bone:bone.ObjectId,effects:effect.ids};
+  `});
+  const built=await tool('mdlxl_read',{path:''});
+  check('one script constructs geometry, edits UV/material, rigs vertices and places particles',composite.applied&&built.value.Geosets.length===compositeBefore.value.Geosets.length+1&&built.value.Bones.length===compositeBefore.value.Bones.length+2&&built.value.ParticleEmitters2.length>0&&built.value.Materials[0].Layers[0].Alpha===.75);
+  check('multi-domain construction preserves unrelated mesh and stored animation',equal(built.value.Geosets[1],compositeBefore.value.Geosets[1])&&equal(built.value.Bones[0],compositeBefore.value.Bones[0]));
+  const generated=await tool('mdlxl_assets',{target:context.target,source:'model',query:'Particle_SoftDisc'});
+  const textureImage=await tool('mdlxl_assets',{target:context.target,source:'model',action:'preview',textureId:generated.items[0].id});
+  check('generated texture reaches the real editor and can be inspected as an image',textureImage.mimeType==='image/png'&&textureImage.data.length>100);
+  const assetExport=path.join(out,'AI-assets.mdx');await tool('mdlxl_document',{target:context.target,action:'export',path:assetExport});
+  check('normal export includes generated texture bytes',fs.existsSync(path.join(out,'MDLxL_Forge/Particle_SoftDisc_v1.tga')));
+  await tool('mdlxl_command',{target:context.target,id:'undo'});check('one Undo restores all compound model changes',equal(await tool('mdlxl_read',{path:''}),compositeBefore));
+  await tool('mdlxl_command',{target:context.target,id:'redo'});check('one Redo restores the compound edit and its texture',equal(await tool('mdlxl_read',{path:''}),built));
+  const compoundValidation=await tool('mdlxl_document',{target:context.target,action:'validate'});check('compound geometry/rig/material/effect edit reopens as MDX and MDL',compoundValidation.results.every(r=>!r.error&&!r.readOnly),compoundValidation.results);
+  await tool('mdlxl_command',{target:context.target,id:'undo'});
   await page.screenshot({path:path.join(out,'ai-editor.png')});
   check('no renderer errors',errors.length===0,errors);
   const mainId=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].id),workerOpened=app.waitForEvent('window',{timeout:10000});
@@ -181,4 +220,4 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   check('closing the editor cancels its 30-second script immediately',Date.now()-closingAt<5000);
   fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,requests},null,2));
   console.log(JSON.stringify({passed:checks.length,requests,report:path.join(out,'verification.json')}));
-})().catch(async error=>{fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,error:error.stack},null,2));if(page){await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure-ui.txt'),await page.locator('body').innerText().catch(()=>''));}console.error(error);process.exitCode=1;}).finally(async()=>{if(app){await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.destroy();}).catch(()=>{});await app.close().catch(()=>{});}if(server)await new Promise(resolve=>{server.closeAllConnections();server.close(resolve);});for(const name of ['profile','temp','AI-fixture.mdx','AI-export.mdx','auth-fixture.js','auth-fixture.cmd'])fs.rmSync(path.join(out,name),{recursive:true,force:true});});
+})().catch(async error=>{fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,error:error.stack},null,2));if(page){await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure-ui.txt'),await page.locator('body').innerText().catch(()=>''));}console.error(error);process.exitCode=1;}).finally(async()=>{if(app){await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.destroy();}).catch(()=>{});await app.close().catch(()=>{});}if(server)await new Promise(resolve=>{server.closeAllConnections();server.close(resolve);});for(const name of ['profile','temp','AI-fixture.mdx','AI-export.mdx','AI-assets.mdx','MDLxL_Forge','auth-fixture.js','auth-fixture.cmd'])fs.rmSync(path.join(out,name),{recursive:true,force:true});});

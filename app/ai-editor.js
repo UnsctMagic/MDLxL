@@ -3,6 +3,9 @@ import { aiSelectionSignature, checkAiTarget, readAiModel, patchAiModel, prepare
 import { openDocument } from '../src/editor-document.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { flushSync } from 'react-dom';
+import { aiCapabilities } from './ai-capabilities.js';
+import { sampleAiModel } from '../src/ai-sampling.js';
+import { aiAssets, validateAiAssets } from './ai-assets.js';
 
 const guides=import.meta.glob(['../docs/*.md','../README.md'],{query:'?raw',import:'default'});
 const settle=()=>new Promise(resolve=>setTimeout(resolve,60));
@@ -20,6 +23,7 @@ export class AiEditorBridge {
     return {target:id,documentId:session.id,name:doc.name,path:session.path,revision:doc.revision,version:model.Version,readOnly:doc.readOnly,dirty:doc.dirty,
       selection:selected,selectedNodeIds:[...state.selectedNodeIds],checkedGeosets:Array.from(state.selectable),activeGeoset:state.activeGeoset,uvSet:state.uvSet,
       mode:state.mode,animationPanel:state.animationPanel,sequence:state.sequence,sequenceName:model.Sequences[state.sequence]?.Name||null,frame:captured.frame,liveFrame:state.time,globalSequence:state.globalSeqId,
+      uvEditing:!!state.uvEditing,uvEligibleSelection:state.uvEligibleSelection,renderMode:state.renderMode,hiddenVertices:state.hidden,hiddenGeosets:Array.from(state.hiddenGeosets||[]),
       keyframes:state.keyframes||null,workplane:state.workplane,view:state.view,playing:state.playing,
       pending:{dialog:state.dialog?.type||null,paint:!!session.paintProject,animationDrafts:Object.keys(session.animationDrafts||{}),uvPreviews:Object.keys(session.uvPreviews||{})},
       counts:{geosets:model.Geosets.length,vertices:model.Geosets.reduce((n,g)=>n+g.Vertices.length/3,0),triangles:model.Geosets.reduce((n,g)=>n+g.Faces.length/3,0),nodes:model.Nodes.filter(Boolean).length},
@@ -38,6 +42,11 @@ export class AiEditorBridge {
     const active=()=>{if(signal?.aborted)throw Error('AI request cancelled; no further edit was applied.');};active();
     if(!AI_TOOLS.some(t=>t.name===name))throw Error('Unknown MDLxL tool: '+name);
     if(name==='mdlxl_context')return this.context(args.target);
+    if(name==='mdlxl_capabilities') {
+      if(!args.module)return aiCapabilities(args);
+      const result=await window.desktop.aiScript({requestId,model:null,selection:{},context:{},references:{},code:'return await api.describe('+JSON.stringify(args.module)+');'});
+      active();return result.value;
+    }
     if(name==='mdlxl_help') {
       const index=Object.keys(guides).map(path=>path.replace('../',''));
       if(!args.topic)return {topics:index,scripting:'Use a read-only script: return api.modules; then return await api.describe("module-name");',selection:'Every prompt includes the marked vertex IDs, bones, animation and frame. Scripts receive that exact selection.',mirror:'For duplicate + mirror + compatible seam weld, inspect api.describe("ai-mesh"). The ordinary Mirror command reflects in place.'};
@@ -54,6 +63,8 @@ export class AiEditorBridge {
     if(name==='mdlxl_document'&&args.action==='list')return this.context().documents;
     if(name==='mdlxl_ui'&&args.action==='inspect')return this.inspectUi();
     const target=this.requireTarget(args.target), host=this.host(), state=this.state();
+    if(name==='mdlxl_sample')return sampleAiModel(state.model,this.contextFor(args.target),args);
+    if(name==='mdlxl_assets'){const result=await aiAssets(args,host,()=>{active();this.requireTarget(args.target);});active();return result;}
     if(name==='mdlxl_script'||name==='mdlxl_patch') {
       if(state.saving)throw Error('Wait for the current save to finish.');
       if((name==='mdlxl_patch'||args.edit)&&state.mode==='paint')throw Error('Paint has its own working model. Use Paint controls, or use mdlxl_view to leave Paint and apply it through the editor before editing the model.');
@@ -67,6 +78,7 @@ export class AiEditorBridge {
       if(name==='mdlxl_script'&&!args.edit)return {value,logs:result.logs||[],applied:false};
       if(typeof args.label!=='string'||!args.label.trim()||args.label.length>200)throw Error('An edit needs a short Undo label.');
       const prepared=prepareAiEdit(before,result.model,args);
+      const assets=validateAiAssets(result.assets||[],result.model,state.session.assets);
       if(!prepared.changeCount)return {applied:false,changes:[],value,logs:result.logs||[]};
       // The existing App.edit owns validation, UV-preview protection, history and refresh.
       flushSync(()=>{
@@ -75,9 +87,10 @@ export class AiEditorBridge {
       });
       if(state.doc.revision===target.revision)throw Error('The editor could not commit the edit.');
       this.advance(args.target);
-      return {applied:true,target:args.target,revision:state.doc.revision,changeCount:prepared.changeCount,changes:prepared.summary,value,logs:result.logs||[],diagnostics:state.doc.diagnostics};
+      if(assets.length)await host.addAssets(assets);
+      return {applied:true,target:args.target,revision:state.doc.revision,changeCount:prepared.changeCount,changes:prepared.summary,assets:assets.map(a=>a.name),value,logs:result.logs||[],diagnostics:state.doc.diagnostics};
     }
-    if(name==='mdlxl_select') {this.validateSelection(args);flushSync(()=>host.select(args));this.advance(args.target);return this.contextFor(args.target);}
+    if(name==='mdlxl_select') {this.validateSelection(args);flushSync(()=>host.select(args));if(args.keyframes){await host.selectKeys(args.keyframes);await settle();}this.advance(args.target,!!args.keyframes);return this.contextFor(args.target);}
     if(name==='mdlxl_command') {
       const command=host.commands().find(c=>c.id===args.id);
       if(!command?.enabled)throw Error('This editor command is unavailable: '+args.id);
@@ -88,9 +101,21 @@ export class AiEditorBridge {
     if(name==='mdlxl_view') {
       if(args.sequence!==undefined&&(!Number.isInteger(args.sequence)||args.sequence< -1||args.sequence>=state.model.Sequences.length))throw Error('Animation index is out of range.');
       if(args.frame!==undefined)finite(args.frame,'animation frame');
+      if(args.globalSequence!=null&&(!Number.isInteger(args.globalSequence)||!(state.model.GlobalSequences[args.globalSequence]>0)))throw Error('Global animation index is out of range.');
+      if(args.globalSequence!=null&&args.sequence!==undefined)throw Error('Choose a local or global animation, not both.');
       await host.view(args);await settle();this.advance(args.target,true);return this.contextFor(args.target);
     }
     if(name==='mdlxl_capture'||name==='mdlxl_ui'&&args.action==='capture') {
+      if(name==='mdlxl_capture'&&args.samples){
+        const images=[];
+        for(const sample of args.samples){
+          active();this.requireTarget(args.target);
+          await this.dispatch('mdlxl_view',{target:args.target,...sample,playing:false},{signal,requestId});
+          const result=await this.dispatch('mdlxl_capture',{target:args.target},{signal,requestId});
+          const current=this.state();images.push({label:`${current.view}; ${current.globalSeqId==null?'sequence '+current.sequence:'global sequence '+current.globalSeqId}; frame ${current.time}`,image:result.image});
+        }
+        return {images};
+      }
       let rect;
       if(name==='mdlxl_capture'){
       const canvas=[...document.querySelectorAll('.classic-view canvas')].find(el=>el.getBoundingClientRect().width>0);
@@ -123,7 +148,7 @@ export class AiEditorBridge {
       return {acted:true,controls:this.inspectUi()};
     }
     if(name==='mdlxl_document') {
-      if(args.action==='open') {const record=await window.desktop.aiReadModel({path:args.path});await host.open(record);await settle();return this.context();}
+      if(args.action==='open') {const record=await window.desktop.aiReadModel({path:args.path});active();this.requireTarget(args.target);const reference=await host.addReference(record);await settle();return {reference,context:this.contextFor(args.target)};}
       if(args.action==='export') {
         if(state.mode==='paint'||Object.keys(state.session.uvPreviews||{}).length||Object.keys(state.session.animationDrafts||{}).length)throw Error('There are preview edits. Use the normal Save command to include them, or apply them through the workspace controls before exporting the committed model.');
         const format=args.format||args.path?.split('.').at(-1)?.toLowerCase();if(!['mdl','mdx'].includes(format))throw Error('Choose MDL or MDX.');
@@ -138,13 +163,17 @@ export class AiEditorBridge {
     }
     throw Error('Unsupported tool action.');
   }
-  contextFor(id) {const target=this.targets.get(id),s=this.state();return {target:id,documentId:target.documentId,revision:target.revision,selection:target.selection,selectedNodeIds:[...s.selectedNodeIds],checkedGeosets:Array.from(s.selectable),activeGeoset:s.activeGeoset,uvSet:s.uvSet,workplane:target.workplane,mode:s.mode,sequence:target.sequence,frame:target.frame,keyframes:target.keyframes,globalSequence:target.globalSequence,view:target.view};}
+  contextFor(id) {const target=this.targets.get(id),s=this.state();return {target:id,documentId:target.documentId,revision:target.revision,selection:target.selection,selectedNodeIds:[...s.selectedNodeIds],checkedGeosets:Array.from(s.selectable),activeGeoset:s.activeGeoset,uvSet:s.uvSet,uvEditing:!!s.uvEditing,uvEligibleSelection:s.uvEligibleSelection,workplane:target.workplane,mode:s.mode,sequence:target.sequence,frame:target.frame,keyframes:target.keyframes,globalSequence:target.globalSequence,view:target.view};}
   validateSelection(args) {
     const {model}=this.state();
     for(const [gi,ids] of Object.entries(args.vertices||{}))if(!/^\d+$/.test(gi)||!model.Geosets[gi]||!Array.isArray(ids)||ids.some(i=>!Number.isInteger(i)||i<0||i>=model.Geosets[gi].Vertices.length/3))throw Error('Invalid vertex selection.');
     if(args.nodeIds?.some(i=>!Number.isInteger(i)||!model.Nodes[i]))throw Error('Invalid bone selection.');
     if(args.geosetIds?.some(i=>!Number.isInteger(i)||!model.Geosets[i]))throw Error('Invalid geoset selection.');
     if(args.activeGeoset!==undefined&&!model.Geosets[args.activeGeoset])throw Error('Invalid active geoset.');
+    if(args.keyframes){
+      const {nodeId,property,frames}=args.keyframes,node=model.Nodes[nodeId],global=this.state().globalSeqId,interval=global==null?model.Sequences[this.state().sequence]?.Interval:[0,model.GlobalSequences[global]];
+      if(!interval||!node||!['Translation','Rotation','Scaling'].includes(property)||(node[property]?.GlobalSeqId??null)!==(global??null)||!Array.isArray(frames)||frames.some(frame=>!Number.isInteger(frame)||frame<interval[0]||frame>interval[1]||!node[property]?.Keys?.some(key=>key.Frame===frame)))throw Error('Choose existing transform keys in the current animation domain.');
+    }
   }
   inspectUi() {
     this.controls.clear();const rows=[];

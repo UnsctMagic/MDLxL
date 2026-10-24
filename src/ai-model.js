@@ -113,7 +113,7 @@ export function prepareAiEdit(before, after, {scope, protectedPaths=[], animatio
 }
 export function applyAiEdit(model, prepared) { applyChanges(model,prepared.changes); }
 export function aiSelectionSignature(state) {
-  return JSON.stringify([state.selection,Array.from(state.selectedNodeIds||[]),Array.from(state.selectable||[]),state.activeGeoset,state.uvSet,state.sequence,state.globalSeqId,state.keyframes,state.mode,state.workplane,state.session?.paintWorkingRevision]);
+  return JSON.stringify([state.selection,Array.from(state.selectedNodeIds||[]),Array.from(state.selectable||[]),state.activeGeoset,state.uvSet,state.sequence,state.globalSeqId,state.keyframes,state.mode,state.workplane,state.session?.paintWorkingRevision,state.uvEditing,state.uvEligibleSelection]);
 }
 export function checkAiTarget(target,state) {
   if(!target || target.documentId!==state.session.id || target.revision!==state.doc.revision || target.selectionSignature!==aiSelectionSignature(state))throw Error('The model or selection changed since this prompt. Nothing was applied. Ask the user to send the request again for the current selection.');
