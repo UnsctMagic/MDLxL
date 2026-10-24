@@ -181,6 +181,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await wait(s=>!s.decal&&s.decals===0,'One visual decal cycle cleans up');assert.ok(Date.now()-started<1800,'Right-click does not leave a long-lived stain');await screenshot('bones-decal-clean-'+id+'.png');
     }
     await clickNode(ids.attachment,'left');await command('Nodes');await page.getByRole('dialog',{name:'Node Manager',exact:true}).waitFor();assert.equal(await page.locator('.re-tree-row.re-selected').getAttribute('data-node-id'),String(ids.attachment));await page.getByRole('button',{name:'Close',exact:true}).last().click();
+    // Reference visibility is shared across rig editors too; isolate effect symbols for the animation checks below.
+    await objectTypes.getByLabel('Refs',{exact:true}).uncheck();
     for(const name of ['Emitters','Events','Sounds']){await quick.getByLabel(name,{exact:true}).uncheck();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);}
     await page.getByRole('button',{name:'Movement',exact:true}).click();
     await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');await wait(s=>s.ready,'Movement ready');await absent(['Nodes','Ribbons','Blood/Uber/Foot']);
