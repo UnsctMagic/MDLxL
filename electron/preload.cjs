@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('desktop', {
   aiConfig:()=>ipcRenderer.invoke('ai:config'),
   aiSend:value=>ipcRenderer.invoke('ai:send',value),
   aiCancel:()=>ipcRenderer.invoke('ai:cancel'),
+  aiSteer:value=>ipcRenderer.invoke('ai:steer',value),
   aiAuth:action=>ipcRenderer.invoke('ai:auth',action),
   aiModels:()=>ipcRenderer.invoke('ai:models'),
   aiTranscript:id=>ipcRenderer.invoke('ai:transcript',id),

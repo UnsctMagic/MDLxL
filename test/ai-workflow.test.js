@@ -110,10 +110,10 @@ test('an unverified edit cannot produce a success message and is checkpointed fo
   assert.equal(result.ok, false);
   assert.match(result.error, /verification is incomplete/);
   assert.equal(f.counts().edits, 1);
-  assert.equal(
-    f.events.some(e => e.type === 'text' && e.text === 'Done.'),
-    false,
-  );
+  // The AI's words stream live, so its claim is shown, but the turn ends as a failure.
+  assert.match((await f.service.conversation('test', 'compatible')).transcript.at(-1).error, /verification is incomplete/);
+  assert.equal(f.events.at(-1).type, 'task');
+  assert.equal(f.events.some(e => e.type === 'done'), false);
   const restarted = f.make(),
     task = await restarted.taskInfo('test');
   assert.equal(task.canResume, true);
@@ -135,10 +135,8 @@ test('a failed edit cannot be reported as success when the model is unchanged', 
   assert.equal(result.ok, false);
   assert.match(result.error, /marked vertices changed/);
   assert.equal(f.counts().edits, 0);
-  assert.equal(
-    f.events.some(e => e.type === 'text' && e.text === 'Done.'),
-    false,
-  );
+  assert.match((await f.service.conversation('test', 'compatible')).transcript.at(-1).error, /marked vertices changed/);
+  assert.equal(f.events.some(e => e.type === 'done'), false);
   const task = await f.service.taskInfo('test');
   assert.equal(task.canResume, true);
   assert.equal(task.steps[0].status, 'failed');
@@ -204,4 +202,37 @@ test('Resume after a service restart inspects the checkpoint without repeating a
   assert.equal((await restarted.send({ id: 'test', context, resume: true })).ok, true);
   assert.equal(f.counts().edits, 1);
   assert.equal((await restarted.taskInfo('test')).canResume, false);
+});
+
+test('a message sent mid-task steers the running turn and streams live in order', async t => {
+  let seen;
+  const f = await setup(t, ({ data, requests }) => {
+    if (requests === 1) return tool('mdlxl_review', { target: 'selected', action: 'status' });
+    seen = data.messages.filter(m => m.role === 'user').at(-1);
+    return { delta: { reasoning_content: 'The user wants it wider.', content: 'Adjusted.' }, finish_reason: 'stop' };
+  });
+  const call = f.service.call;
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_review' && args.action === 'status' && !f.events.some(e => e.type === 'steer'))
+      assert.deepEqual(f.service.steer({ id: 'test', text: 'Make it wider', annotations: { strokes: [] } }), {
+        queued: true,
+      });
+    return call(name, args, ...rest);
+  };
+  assert.equal((await f.service.send({ id: 'test', text: 'Shape this', context })).ok, true);
+  assert.match(seen.content, /steering for the current task:\nMake it wider/);
+  assert.match(seen.content, /Current console drawings/);
+  const order = f.events.map(e => e.type).filter(type => ['tool', 'steer', 'thinking', 'text', 'done'].includes(type));
+  assert.deepEqual(order, ['tool', 'steer', 'thinking', 'text', 'done']);
+  const transcript = (await f.service.conversation('test', 'compatible')).transcript;
+  assert.deepEqual(
+    transcript.map(entry => entry.role + (entry.steer ? ':steer' : '')),
+    ['user', 'assistant', 'user:steer', 'assistant'],
+  );
+  assert.equal(transcript[1].parts[0].status, 'done');
+  assert.deepEqual(
+    transcript[3].parts.map(part => part.type),
+    ['thinking', 'text'],
+  );
+  assert.deepEqual(f.service.steer({ id: 'test', text: 'Too late' }), { queued: false });
 });

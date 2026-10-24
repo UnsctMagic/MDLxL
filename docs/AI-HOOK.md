@@ -5,11 +5,12 @@ and sign in or enter its API connection. Native connections check the account
 when chat opens. If you are signed out, setup opens and **Sign in to send** keeps
 your draft while you complete sign-in in the browser. After **Signed in.** appears,
 click **Send**. Cancelled or failed sign-in keeps the draft and attached images.
-The chat is a movable, resizable window;
-you can keep selecting and editing the model while it is open.
-The model chooser beside the provider shows the available Codex models after
-sign-in. **Connection** holds provider settings; **Advanced connection** contains
-the optional CLI executable path. The panel follows MDLxL's current appearance,
+The AI console docks at the right edge of the workspace; drag its left edge to
+make it wider. The viewport makes room while it is open and gets the space back
+when you close it. You can keep selecting and editing the model while it is open.
+The model chooser in the prompt box shows the available Codex models after
+sign-in. The settings button (or the provider name) opens **Connection** with the
+provider settings; **Advanced connection** contains the optional CLI executable path. The panel follows MDLxL's current appearance,
 and replies format paragraphs, lists, bold text and code without executing HTML.
 
 Viewport captures copy the renderer's current scene and selection overlays without
@@ -19,7 +20,43 @@ discovery, while **Reading MDLxL help** means reading the manual. A recoverable
 tool-error status clears when the next tool succeeds; failed tasks still show
 their actual error.
 
-**Continuous awareness** is an optional switch below the model/selection strip.
+### Watching and steering the AI
+
+While the AI works, the console shows what it says, its **Thinking** (live, then
+folded into **Thought process**; click to read it again) and each editor step it
+takes with a spinner, check mark or cross. Click a step to see what it sent and
+what came back. Providers that do not expose thinking simply show their text and
+steps. Claude API models from 4.6 on show a summary of their thinking.
+
+You can keep typing while it works: **Enter** sends the message into the running
+task (the button becomes **Steer**) and it appears in the chat where you sent it,
+marked "Sent while the AI was working". The AI picks it up at its next step; if it
+had just finished, the message starts a follow-up turn on the same task. **Stop**
+(the square) cancels; applied edits stay in Undo.
+
+### Marker and Pen
+
+The prompt box has **Marker**, **Pen** and **Eraser**. They draw notes on the
+model for the AI and never change the model, its Undo history or saved files.
+
+- **Marker**: drag over the model to highlight an area, e.g. "cut this area into
+  its own geoset". The AI gets the vertices under the marker on the side you drew.
+- **Pen**: scribble a line or outline, also off the model, e.g. draw the muscle
+  shape you want and ask for "more shape here like this".
+- **Eraser**: drag over notes to remove them. The drawings chip above the prompt
+  undoes the last note or clears all notes on this model.
+
+The colored dot picks a color per tool (red, yellow, green, blue); the AI gets the
+color name, so colors can mean different things. Drawing uses the left button in
+Work mode; Alt+drag, the camera toggle and the other mouse buttons keep their
+normal camera actions, so you can turn the model and keep drawing. Esc or a second
+click on the tool stops drawing. Choosing a tool outside the Vertices editor
+switches to it. Notes belong to their model tab, hide while the console is closed
+and come back when it reopens. Each prompt sends them as `context.annotations`
+(model-space points, colors and covered vertices); a message sent while the AI
+works includes the current notes, and viewport captures show them.
+
+**Continuous awareness** is an optional switch (the eye) in the prompt box.
 It starts off and remembers your choice. When on, real editor changes update the
 connected AI's context: document/revision, marked vertices, selected bones/keys,
 camera angles, workspace and animation frame. Changes are coalesced; there is no

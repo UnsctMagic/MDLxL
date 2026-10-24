@@ -70,6 +70,24 @@ function imageParts(images = [], kind = 'openai') {
       : { type: 'image_url', image_url: { url: image } };
   });
 }
+// Short, readable form of a tool call's input for the console's activity rows.
+function toolDetail(input) {
+  try {
+    const text = typeof input === 'string' ? input : JSON.stringify(input, null, 1);
+    return text.length > 4000 ? text.slice(0, 4000) + '…' : text;
+  } catch {
+    return '';
+  }
+}
+// Claude 4.6+ thinks adaptively; summarized display lets the console show it.
+// Older and unknown models keep the provider default.
+function anthropicThinking(model) {
+  const match = /claude-(?:opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d{1,2})(?!\d))?/.exec(model || '');
+  if (!match) return null;
+  const major = Number(match[1]),
+    minor = Number(match[2] || 0);
+  return major > 4 || (major === 4 && minor >= 6) ? { type: 'adaptive', display: 'summarized' } : null;
+}
 function authenticationRequired() {
   return Object.assign(Error('Sign in to connect your AI. Your prompt has been kept.'), {
     code: 'AI_AUTH_REQUIRED',
@@ -87,6 +105,7 @@ async function runApi({
   signal,
   event,
   awareness,
+  steering,
 }) {
   const anthropic = settings.provider === 'anthropic';
   const base = endpoint(
@@ -106,7 +125,16 @@ async function runApi({
       history.push({ role: 'user', content: [{ type: 'text', text: awarenessText(awareness.snapshot()) }] });
       awarenessVersion = awareness.version;
     }
+    // Steering joins the next request, after the results of the tools just run.
+    const steer = steering?.take();
+    if (steer) {
+      const last = history.at(-1);
+      if (anthropic && last?.role === 'user' && Array.isArray(last.content))
+        last.content.push({ type: 'text', text: steer });
+      else history.push({ role: 'user', content: anthropic ? [{ type: 'text', text: steer }] : steer });
+    }
     if (anthropic) {
+      const thinking = anthropicThinking(settings.model);
       const response = await requestJson(
         base + '/messages',
         {
@@ -115,6 +143,7 @@ async function runApi({
           system,
           messages: history,
           tools: tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema })),
+          ...(thinking ? { thinking } : {}),
           stream: true,
         },
         key,
@@ -134,8 +163,10 @@ async function runApi({
             event({ type: 'text', text: data.delta.text });
           }
           if (data.delta.type === 'input_json_delta') block._json += data.delta.partial_json;
-          if (data.delta.type === 'thinking_delta')
+          if (data.delta.type === 'thinking_delta') {
             block.thinking = (block.thinking || '') + data.delta.thinking;
+            event({ type: 'thinking', text: data.delta.thinking });
+          }
           if (data.delta.type === 'signature_delta')
             block.signature = (block.signature || '') + data.delta.signature;
         }
@@ -155,7 +186,7 @@ async function runApi({
       }
       const results = [];
       for (const block of calls) {
-        event({ type: 'tool', name: block.name });
+        event({ type: 'tool', name: block.name, callId: block.id, detail: toolDetail(block.input) });
         let result;
         try {
           result = await callEditorTool(tools, call, block.name, block.input, signal, awareness);
@@ -175,6 +206,7 @@ async function runApi({
         event({
           type: 'tool-result',
           name: block.name,
+          callId: block.id,
           error: !!result.isError,
           summary: result.content.find(c => c.type === 'text')?.text?.slice(0, 300),
         });
@@ -203,6 +235,9 @@ async function runApi({
         const choice = data.choices?.[0];
         if (!choice) continue;
         finishReason = choice.finish_reason || finishReason;
+        // Reasoning models behind compatible servers stream their thinking here.
+        const reasoning = choice.delta?.reasoning_content ?? choice.delta?.reasoning;
+        if (typeof reasoning === 'string' && reasoning) event({ type: 'thinking', text: reasoning });
         if (choice.delta?.content) {
           text += choice.delta.content;
           event({ type: 'text', text: choice.delta.content });
@@ -232,7 +267,12 @@ async function runApi({
       }
       const imageMessages = [];
       for (const toolCall of toolCalls) {
-        event({ type: 'tool', name: toolCall.function.name });
+        event({
+          type: 'tool',
+          name: toolCall.function.name,
+          callId: toolCall.id,
+          detail: toolDetail(toolCall.function.arguments),
+        });
         let result;
         try {
           result = await callEditorTool(
@@ -263,6 +303,7 @@ async function runApi({
         event({
           type: 'tool-result',
           name: toolCall.function.name,
+          callId: toolCall.id,
           error: !!result.isError,
           summary: textContent.slice(0, 300),
         });
@@ -392,10 +433,22 @@ class CodexProcess {
       this.messageId = p.itemId || this.messageId;
       this.event({ type: 'text', text: p.delta });
     }
+    if (message.method === 'item/reasoning/summaryTextDelta' || message.method === 'item/reasoning/textDelta') {
+      if (p.itemId && this.reasoningId && p.itemId !== this.reasoningId)
+        this.event({ type: 'thinking', text: '\n\n' });
+      this.reasoningId = p.itemId || this.reasoningId;
+      this.event({ type: 'thinking', text: p.delta });
+    }
     if (message.method === 'item/started' && p.item?.type === 'mcpToolCall')
-      this.event({ type: 'tool', name: p.item.tool });
+      this.event({ type: 'tool', name: p.item.tool, callId: p.item.id, detail: toolDetail(p.item.arguments) });
     if (message.method === 'item/completed' && p.item?.type === 'mcpToolCall')
-      this.event({ type: 'tool-result', name: p.item.tool, error: p.item.status === 'failed' });
+      this.event({
+        type: 'tool-result',
+        name: p.item.tool,
+        callId: p.item.id,
+        error: p.item.status === 'failed',
+        summary: (p.item.error?.message || p.item.result?.content?.find(c => c.type === 'text')?.text)?.slice(0, 300),
+      });
     if (message.method === 'account/login/completed') this.login?.(p);
     if (message.method === 'turn/completed') this.turn?.(p.turn);
     if (message.method === 'error')
@@ -421,11 +474,26 @@ class CodexProcess {
   }
 }
 async function runCodex(options) {
-  const { settings, directory, event, tools, call, system, prompt, images, conversation, signal, awareness } =
-    options;
+  const {
+    settings,
+    directory,
+    event,
+    tools,
+    call,
+    system,
+    prompt,
+    images,
+    conversation,
+    signal,
+    awareness,
+    steering,
+  } = options;
   const mcp = await startMcpServer({ tools, call, awareness });
   const client = new CodexProcess(settings, { directory, event, mcp, signal });
   let unsubscribe,
+    unsteer,
+    turnId,
+    delivery = Promise.resolve(),
     updates = Promise.resolve(),
     pendingContext,
     delivering = false;
@@ -480,13 +548,38 @@ async function runCodex(options) {
     });
     // Install the completion listener first: short turns can finish before turn/start replies.
     completed.catch(() => {});
-    await client.request('turn/start', {
+    // Steering goes into the running turn; older Codex builds take it as a thread item.
+    const steer = () => {
+      delivery = delivery.then(async () => {
+        const message = turnId && !signal.aborted ? steering.take() : null;
+        if (!message) return;
+        const input = [{ type: 'text', text: message }];
+        try {
+          await client.request('turn/steer', { threadId: conversation.threadId, expectedTurnId: turnId, input });
+        } catch {
+          try {
+            await client.request('thread/inject_items', {
+              threadId: conversation.threadId,
+              items: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: message }] }],
+            });
+          } catch {
+            steering.restore(message);
+          }
+        }
+      });
+    };
+    unsteer = steering?.subscribe(steer);
+    const started = await client.request('turn/start', {
       threadId: conversation.threadId,
       input: [{ type: 'text', text: prompt }, ...(images || []).map(url => ({ type: 'image', url }))],
     });
+    turnId = started?.turn?.id;
+    if (steering) steer();
     await completed;
   } finally {
     unsubscribe?.();
+    unsteer?.();
+    await delivery;
     await updates;
     await client.close();
     await mcp.close();
@@ -504,6 +597,7 @@ async function runClaude({
   conversation,
   signal,
   awareness,
+  steering,
 }) {
   await fs.mkdir(directory, { recursive: true });
   const mcp = await startMcpServer({ tools, call, awareness });
@@ -541,9 +635,35 @@ async function runClaude({
     await fs.mkdir(env.CLAUDE_CONFIG_DIR, { recursive: true });
     child = spawnAgent(settings.executable || 'claude', args, { cwd: directory, env });
     let finalResult = null,
-      streamed = false;
+      streamed = false,
+      newMessage = false,
+      inputOpen = true,
+      written = 1,
+      results = 0,
+      idle,
+      unsteer;
+    const toolNames = new Map();
     const abort = () => stopAgent(child);
     signal.addEventListener('abort', abort, { once: true });
+    const writeUser = content =>
+      child.stdin.write(JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n');
+    // Input stays open while the user may steer; it closes once every message
+    // has a result, or after a quiet spell if Claude folded steering into a turn.
+    const endInput = () => {
+      clearTimeout(idle);
+      if (!inputOpen) return;
+      inputOpen = false;
+      unsteer?.();
+      child.stdin.end();
+    };
+    const steer = () => {
+      if (!inputOpen) return;
+      const message = steering.take();
+      if (!message) return;
+      clearTimeout(idle);
+      written++;
+      writeUser([{ type: 'text', text: message }]);
+    };
     try {
       await new Promise((resolve, reject) => {
         child.on('error', reject);
@@ -571,20 +691,46 @@ async function runClaude({
               return;
             }
             if (data.session_id) conversation.threadId = data.session_id;
-            if (
-              data.type === 'stream_event' &&
-              data.event?.type === 'content_block_delta' &&
-              data.event.delta?.text
-            ) {
-              streamed = true;
-              event({ type: 'text', text: data.event.delta.text });
+            if (data.type !== 'result') clearTimeout(idle);
+            if (data.type === 'stream_event' && data.event?.type === 'message_start') newMessage = true;
+            if (data.type === 'stream_event' && data.event?.type === 'content_block_delta') {
+              const delta = data.event.delta;
+              if (delta?.type === 'thinking_delta' && delta.thinking)
+                event({ type: 'thinking', text: delta.thinking });
+              if (delta?.text) {
+                if (newMessage && streamed) event({ type: 'text', text: '\n\n' });
+                newMessage = false;
+                streamed = true;
+                event({ type: 'text', text: delta.text });
+              }
             }
             if (data.type === 'assistant')
               for (const block of data.message?.content || [])
-                if (block.type === 'tool_use') event({ type: 'tool', name: block.name });
+                if (block.type === 'tool_use') {
+                  toolNames.set(block.id, block.name);
+                  event({ type: 'tool', name: block.name, callId: block.id, detail: toolDetail(block.input) });
+                }
+            if (data.type === 'user' && Array.isArray(data.message?.content))
+              for (const block of data.message.content)
+                if (block.type === 'tool_result') {
+                  const text = Array.isArray(block.content)
+                    ? block.content.find(c => c.type === 'text')?.text
+                    : block.content;
+                  event({
+                    type: 'tool-result',
+                    name: toolNames.get(block.tool_use_id),
+                    callId: block.tool_use_id,
+                    error: !!block.is_error,
+                    summary: typeof text === 'string' ? text.slice(0, 300) : undefined,
+                  });
+                }
             if (data.type === 'result') {
               finalResult = data;
               if (!streamed && data.result) event({ type: 'text', text: data.result });
+              results++;
+              clearTimeout(idle);
+              if (results >= written) endInput();
+              else idle = setTimeout(endInput, 8000);
             }
           },
           reject,
@@ -594,17 +740,13 @@ async function runClaude({
           abort();
           return;
         }
-        child.stdin.end(
-          JSON.stringify({
-            type: 'user',
-            message: {
-              role: 'user',
-              content: [{ type: 'text', text: prompt }, ...imageParts(images, 'anthropic')],
-            },
-          }) + '\n',
-        );
+        writeUser([{ type: 'text', text: prompt }, ...imageParts(images, 'anthropic')]);
+        if (steering) unsteer = steering.subscribe(steer);
+        else endInput();
       });
     } finally {
+      clearTimeout(idle);
+      unsteer?.();
       signal.removeEventListener('abort', abort);
     }
   } finally {
@@ -633,6 +775,7 @@ async function providerModels(settings, key, signal) {
   }));
 }
 module.exports = {
+  anthropicThinking,
   endpoint,
   sseEvents,
   runApi,

@@ -22,6 +22,36 @@ const {
 } = require('./ai-process.cjs');
 const { AiAwareness, awarenessText } = require('./ai-awareness.cjs');
 
+// Messages the user sends while a task runs. Providers deliver them at their next
+// opportunity; anything left when the AI finishes starts a follow-up turn.
+class AiSteering {
+  constructor(onAccepted) {
+    this.queue = [];
+    this.listeners = new Set();
+    this.onAccepted = onAccepted;
+  }
+  push(text, message) {
+    if (this.closed) return;
+    this.onAccepted(text);
+    this.queue.push(message);
+    for (const listener of [...this.listeners]) listener();
+  }
+  take() {
+    if (!this.queue.length) return null;
+    return this.queue.splice(0).join('\n\n');
+  }
+  restore(message) {
+    this.queue.unshift(message);
+  }
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  close() {
+    this.closed = true;
+    this.listeners.clear();
+  }
+}
 class AiService {
   constructor({ root, profile, electron, getWindow }) {
     this.root = root;
@@ -276,8 +306,8 @@ class AiService {
         return { ok: false, authRequired: true, error: error.message };
       }
     }
-    const conversation = await this.conversation(id, settings.provider),
-      reply = { role: 'assistant', text: '' };
+    const conversation = await this.conversation(id, settings.provider);
+    let reply = { role: 'assistant', text: '', parts: [] };
     let task;
     if (resume) {
       task = conversation.task;
@@ -327,15 +357,35 @@ class AiService {
       },
       reply,
     );
-    const active = { id, controller };
+    const steering = new AiSteering(text => {
+      // A steering message splits the reply where it was sent, as it appears in the chat.
+      reply = { role: 'assistant', text: '', parts: [] };
+      conversation.transcript.push({ role: 'user', text, steer: true }, reply);
+    });
+    const active = { id, controller, steering };
     this.active = active;
-    let responseText = '';
+    // Everything the AI says, thinks and does streams to the console as it happens.
     const event = value => {
-      if (value.type === 'text') {
-        responseText += value.text;
-        return;
+      if (value.type === 'text' || value.type === 'thinking') {
+        if (!value.text) return;
+        if (value.type === 'text') reply.text += value.text;
+        const last = reply.parts.at(-1);
+        if (last?.type === value.type) last.text += value.text;
+        else reply.parts.push({ type: value.type, text: value.text });
+      } else if (value.type === 'tool') {
+        reply.parts.push({ type: 'tool', id: value.callId, name: value.name, detail: value.detail, status: 'running' });
+      } else if (value.type === 'tool-result') {
+        // A steering message may have split the reply since the tool started.
+        const parts = conversation.transcript.flatMap(entry => entry.parts || []);
+        const part =
+          parts.findLast(p => p.type === 'tool' && value.callId && p.id === value.callId) ||
+          parts.findLast(p => p.type === 'tool' && p.status === 'running' && p.name === value.name);
+        if (part) Object.assign(part, { status: value.error ? 'error' : 'done', summary: value.summary });
       }
       this.emit({ id, ...value });
+    };
+    const separate = () => {
+      if (reply.text && !reply.text.endsWith('\n\n')) event({ type: 'text', text: '\n\n' });
     };
     const progress = async phase => {
       task.phase = phase;
@@ -403,8 +453,9 @@ class AiService {
     };
     try {
       await progress('inspecting');
-      for (let attempt = 0; attempt < 4; attempt++) {
-        responseText = '';
+      let runs = 0;
+      for (let attempt = 0; attempt < 4; ) {
+        if (attempt) separate();
         const options = {
           settings,
           key: this.decrypt(settings.key),
@@ -414,14 +465,23 @@ class AiService {
           call,
           system: AI_SYSTEM_PROMPT,
           prompt,
-          images: attempt ? [] : images,
+          images: runs++ ? [] : images,
           conversation,
           signal: controller.signal,
           awareness: this.awareness,
+          steering,
         };
         if (settings.provider === 'codex') await runCodex(options);
         else if (settings.provider === 'claude') await runClaude(options);
         else await runApi(options);
+        // Steering that arrived as the AI finished starts a follow-up turn on the same task.
+        const late = steering.take();
+        if (late) {
+          separate();
+          prompt = late + '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
+          continue;
+        }
+        attempt++;
         const review = task.steps.length
           ? await this.call('mdlxl_review', { target: context.target, action: 'status' }, controller.signal)
           : { changed: false };
@@ -432,8 +492,6 @@ class AiService {
           task.summary = review.summary || '';
           delete task.baseline;
           delete task.images;
-          reply.text = responseText;
-          this.emit({ id, type: 'text', text: responseText });
           await this.persistConversation(conversation);
           this.emit({ id, type: 'task', task: await this.taskInfo(id) });
           event({ type: 'done' });
@@ -441,6 +499,7 @@ class AiService {
         }
         if (review.phase === 'blocked')
           throw Error(review.summary || 'The edited model still needs verification.');
+        if (attempt >= 4) break;
         await progress('verifying');
         event({ type: 'notice', text: 'Checking the result before completing the task.' });
         prompt =
@@ -456,8 +515,8 @@ class AiService {
       task.status = controller.signal.aborted ? 'interrupted' : 'incomplete';
       task.summary = error.message;
       if (controller.signal.aborted) {
-        reply.text = 'Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.';
-        this.emit({ id, type: 'text', text: reply.text });
+        separate();
+        event({ type: 'text', text: 'Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.' });
         event({ type: 'done' });
         return { ok: false, cancelled: true };
       }
@@ -467,9 +526,25 @@ class AiService {
       return { ok: false, error: error.message, authRequired };
     } finally {
       if (this.active === active) this.active = null;
+      steering.close();
+      for (const part of conversation.transcript.flatMap(entry => entry.parts || []))
+        if (part.status === 'running') part.status = 'stopped';
       await this.persistConversation(conversation);
       this.emit({ id, type: 'task', task: await this.taskInfo(id) });
     }
+  }
+  steer({ id, text, annotations }) {
+    const active = this.active;
+    if (!active?.steering || active.id !== id) return { queued: false };
+    if (typeof text !== 'string' || !text.trim() || text.length > 20000)
+      throw Error('Enter a message of 1–20000 characters.');
+    const message =
+      'The user sent this while you were working. Treat it as steering for the current task:\n' +
+      text +
+      (annotations ? '\n\nCurrent console drawings (context.annotations):\n' + JSON.stringify(annotations) : '');
+    active.steering.push(text, message);
+    this.emit({ id, type: 'steer', text });
+    return { queued: true };
   }
   cancel() {
     this.active?.controller.abort();
@@ -622,6 +697,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   });
   handle('ai:send', input => service.send(input));
   handle('ai:cancel', () => service.cancel());
+  handle('ai:steer', input => service.steer(input));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
   handle('ai:transcript', async id => {
@@ -735,4 +811,4 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   });
   return service;
 }
-module.exports = { AiService, registerAiService };
+module.exports = { AiService, AiSteering, registerAiService };

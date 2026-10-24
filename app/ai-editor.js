@@ -14,6 +14,7 @@ import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { aiAssets, validateAiAssets } from './ai-assets.js';
+import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
@@ -34,6 +35,11 @@ export class AiEditorBridge {
   }
   summary() {
     return this.host().summary();
+  }
+  /** The console drawings of the active model, as the AI reads them. */
+  annotations() {
+    const { session, model } = this.state();
+    return sketchContext(sketchStore.strokes(session.id), model);
   }
   context(existing) {
     const state = this.state(),
@@ -107,6 +113,7 @@ export class AiEditorBridge {
       nodes: model.Nodes.filter(Boolean).map(n => ({ id: n.ObjectId, name: n.Name, parent: n.Parent })),
       sequences: encodeAiValue(model.Sequences),
       diagnostics: doc.diagnostics,
+      annotations: sketchContext(sketchStore.strokes(session.id), model),
       documents: state.sessions.map(s => ({
         id: s.id,
         name: s.doc.name,

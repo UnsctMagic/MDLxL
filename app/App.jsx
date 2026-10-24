@@ -1366,7 +1366,7 @@ export default function App() {
     },
     state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
-    summary: () => ({name:doc.name,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
+    summary: () => ({documentId:session.id,mode,name:doc.name,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
     command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
     edit,
@@ -1619,7 +1619,7 @@ export default function App() {
       }} boneInfluenceAvailable={boneInfluenceAvailable && !normalizer} renderMode={normalizer?.renderMode || viewRenderMode} setRenderMode={normalizer ? value => changeNormalizer({ renderMode: value }) : setChosenRenderMode}/>
       {(mode === 'showcase'||showcaseVisited) && <div style={{display:mode==='showcase'?'contents':'none'}}><Suspense fallback={<div className="classic-empty-view">Loading Showcase…</div>}><ShowcaseWorkspace onHistoryState={showcaseHistoryChanged} active={mode==='showcase'} onLoadModel={loadShowcaseModel} model={showcaseSession?.doc.model||model} modelName={showcaseSession?.doc.name||doc.name} modelPath={showcaseSession?showcaseSession.path:session.path} revision={showcaseSession?.doc.revision??doc.revision} textureAssets={showcaseSession?.assets||session.assets} preferences={preferences} teamColor={teamColor} sessionId={showcaseSession?.id||session.id} background={background} backgroundLibrary={backgroundLibrary} onBackground={selectBackground} onStatus={say}/></Suspense></div>}
       {normalizer && <NormalizerControls session={normalizer} plan={normalPlan.plan} error={normalPlan.error} onChange={changeNormalizer} onApply={applyNormalizer} onFixFacing={fixNormalizerFacing} onCancel={() => setNormalizer(null)}/>}
-      {preferencesReady && mode === 'vertices' && <Viewport onCaptureReady={setViewportCaptureAPI}
+      {preferencesReady && mode === 'vertices' && <Viewport onCaptureReady={setViewportCaptureAPI} sketchDocument={session.id}
         vanilla={visUI} editorDisplayMode={visUI?undefined:'vertices'}
         {...(visUI?{selectedNodeIds,onSelectNodes:ids=>{setSelectedNodeIds(ids);setSelection({});},onNodeTransform:doc.readOnly||saving?undefined:moveNodes}:{})}
         cameraHandoff={cameraHandoff} quadView={quadView} viewRequest={vertexViewRequest} onActivePaneChange={setActiveVertexPane} workplaneEnabled={workplaneEnabled}

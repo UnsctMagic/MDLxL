@@ -627,14 +627,14 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   await page.getByRole('button', { name: 'AI assistant', exact: true }).click();
   const panel = page.locator('section.ai-assistant'),
     panelBefore = await panel.boundingBox(),
-    title = await panel.locator('header strong').boundingBox();
-  await page.mouse.move(title.x + 10, title.y + 6);
+    edge = await panel.locator('.ai-resize').boundingBox();
+  await page.mouse.move(edge.x + 3, edge.y + 120);
   await page.mouse.down();
-  await page.mouse.move(title.x - 140, title.y - 74, { steps: 6 });
+  await page.mouse.move(edge.x - 137, edge.y + 120, { steps: 6 });
   await page.mouse.up();
   check(
-    'chat moves using the existing title-bar drag',
-    Math.abs((await panel.boundingBox()).x - panelBefore.x) > 100,
+    'docked chat resizes by dragging its left edge',
+    (await panel.boundingBox()).width - panelBefore.width > 100,
   );
   await app.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0];
