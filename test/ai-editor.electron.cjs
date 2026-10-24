@@ -57,7 +57,7 @@ const sse=(res,value)=>res.write('data: '+JSON.stringify(value)+'\n\n');
   check('AI panel is closed by default',await page.locator('.ai-assistant').count()===0);
   // Exercise the native sign-in UI through real provider child processes. The
   // browser launch is intercepted, so this never opens a window on the desktop.
-  const authScript=path.join(out,'auth-fixture.js'),authExecutable=path.join(out,'auth-fixture.cmd'),authDirectory=path.join(profile,'ai');
+  const authScript=path.join(out,'auth-fixture.js'),authExecutable=path.join(out,'auth-bin','codex.cmd'),authDirectory=path.join(profile,'ai');
   fs.writeFileSync(authScript,String.raw`
 const fs=require('node:fs'),args=process.argv.slice(2),send=value=>process.stdout.write(JSON.stringify(value)+'\n');
 require('node:readline').createInterface({input:process.stdin}).on('line',async line=>{
@@ -79,7 +79,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
  }
  send({id:m.id,result:{}});
 });`);
-  fs.writeFileSync(authExecutable,'@"%dp0%\\auth-fixture.js" %*\r\n');
+  fs.mkdirSync(path.dirname(authExecutable),{recursive:true});fs.writeFileSync(authExecutable,'@"%dp0%\\..\\auth-fixture.js" %*\r\n');
   await page.evaluate(executable=>window.desktop.aiConfigure({provider:'codex',executable}),authExecutable);
   await page.reload();await page.waitForSelector('.classic-toolbar',{timeout:60000});await page.waitForTimeout(300);
   await app.evaluate(({shell})=>{shell.openExternal=async()=>{};});
@@ -236,4 +236,4 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   check('closing the editor cancels its 30-second script immediately',Date.now()-closingAt<5000);
   fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,requests},null,2));
   console.log(JSON.stringify({passed:checks.length,requests,report:path.join(out,'verification.json')}));
-})().catch(async error=>{fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,error:error.stack},null,2));if(page){await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure-ui.txt'),await page.locator('body').innerText().catch(()=>''));}console.error(error);process.exitCode=1;}).finally(async()=>{if(app){await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.destroy();}).catch(()=>{});await app.close().catch(()=>{});}if(server)await new Promise(resolve=>{server.closeAllConnections();server.close(resolve);});for(const name of ['profile','temp','AI-fixture.mdx','AI-export.mdx','AI-assets.mdx','MDLxL_Forge','auth-fixture.js','auth-fixture.cmd'])fs.rmSync(path.join(out,name),{recursive:true,force:true});});
+})().catch(async error=>{fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checks,error:error.stack},null,2));if(page){await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure-ui.txt'),await page.locator('body').innerText().catch(()=>''));}console.error(error);process.exitCode=1;}).finally(async()=>{if(app){await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.destroy();}).catch(()=>{});await app.close().catch(()=>{});}if(server)await new Promise(resolve=>{server.closeAllConnections();server.close(resolve);});for(const name of ['profile','temp','AI-fixture.mdx','AI-export.mdx','AI-assets.mdx','MDLxL_Forge','auth-fixture.js','auth-bin'])fs.rmSync(path.join(out,name),{recursive:true,force:true});});

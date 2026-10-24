@@ -163,7 +163,7 @@ class CodexProcess {
   }
   fail(error){for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(error);}this.pending.clear();this.turnError?.(error);this.loginError?.(error);}
   async account(){return this.request('account/read',{refreshToken:true});}
-  async close(){this.signal?.removeEventListener('abort',this.abort);stopAgent(this.child);if(this.exited)await this.exited;}
+  async close(){this.signal?.removeEventListener('abort',this.abort);stopAgent(this.child);if(this.exited)await Promise.race([this.exited,new Promise(resolve=>setTimeout(resolve,5000).unref())]);}
 }
 async function runCodex(options) {
   const {settings,directory,event,tools,call,system,prompt,images,conversation,signal,awareness}=options;

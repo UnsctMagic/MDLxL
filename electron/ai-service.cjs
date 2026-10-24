@@ -5,7 +5,7 @@ const {pathToFileURL}=require('node:url');
 const {startMcpServer}=require('./ai-mcp.cjs');
 const {runModelScript}=require('./ai-sandbox.cjs');
 const {runApi,runCodex,runClaude,providerModels,CodexProcess,endpoint,authenticationRequired}=require('./ai-providers.cjs');
-const {spawnAgent,stopAgent,lines,providerEnvironment}=require('./ai-process.cjs');
+const {spawnAgent,stopAgent,lines,providerEnvironment,checkAgentExecutable}=require('./ai-process.cjs');
 const {AiAwareness,awarenessText}=require('./ai-awareness.cjs');
 
 class AiService {
@@ -30,7 +30,10 @@ class AiService {
     if(!['codex','claude','openai','anthropic','compatible'].includes(input.provider))throw Error('Unknown AI provider.');
     const previous=config.providers?.[input.provider]||{};
     if(input.baseUrl)endpoint(input.baseUrl);
-    const next={model:String(input.model||'').trim(),executable:String(input.executable||'').trim(),baseUrl:String(input.baseUrl||'').trim(),key:previous.key||''};
+    const native=['codex','claude'].includes(input.provider),baseUrl=String(input.baseUrl||'').trim();
+    const executable=native?checkAgentExecutable(input.provider,String(input.executable||'').trim()):'';
+    // A saved key belongs to the server it was entered for; never send it to a new address.
+    const next={model:String(input.model||'').trim(),executable,baseUrl,key:baseUrl===(previous.baseUrl||'')?previous.key||'':''};
     if(input.apiKey!==undefined&&input.apiKey!=='')next.key=this.encrypt(String(input.apiKey));
     if(input.clearKey)next.key='';
     config.provider=input.provider;config.providers||={};config.providers[input.provider]=next;await this.persist();return this.status();
@@ -59,6 +62,8 @@ class AiService {
       this.external=await startMcpServer({tools:AI_TOOLS,port:config.port||0,token,awareness:this.awareness,call:async(name,args,signal)=>{try{return await this.call(name,args,signal);}finally{this.emit({type:'external-done',busy:!!this.active});}},onCall:name=>this.emit({type:'external',name})});
       config.port=this.external.port;config.token=this.encrypt(token);
     } else if(!enabled&&this.external){await this.external.close();this.external=null;}
+    // Turning the connection off retires its key; the next connection gets a new one.
+    if(!enabled)delete config.token;
     config.enabled=!!enabled;await this.persist();return this.status();
   }
   async conversation(id,provider) {

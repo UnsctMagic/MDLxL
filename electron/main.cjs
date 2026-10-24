@@ -55,7 +55,7 @@ if(!singleInstanceLock) { app.exit(0); return; }
 // A launch can have passed the first check before the closing owner set the lock.
 if (app.isPackaged && require('node:fs').existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
 let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
-const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,readModel,writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>saveModel(payload,{explicitPath:true,overwrite:payload.overwrite}));saveQueue=operation;return operation;}});
+const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,readModel:file=>readModel(file,false),writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>writeAiModel(payload));saveQueue=operation;return operation;}});
 let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.resolve();
 let settingsStore,preferenceApi,commandCatalog;
 // Test runs (own profile or headless) must not point Explorer at a temporary build.
@@ -225,25 +225,51 @@ ipcMain.on('menu:state',(event,value)=>{
   nativeEditorState=next;
   if(commandCatalog)refreshMenu();
 });
-async function saveModel(payload,{explicitPath=false,overwrite=true}={}){
+async function saveModel(payload){
   if(!payload || !['mdl','mdx'].includes(payload.format))throw new Error('Unsupported format.');
   const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
   let destination=payload.path;
-  if(!explicitPath&&(!destination||payload.saveAs||!openedPaths.has(path.resolve(destination)))){
+  if(!destination||payload.saveAs||!openedPaths.has(path.resolve(destination))){
     const result=await dialog.showSaveDialog(win,{title:payload.export?'Export model':'Save model',defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});
     if(result.canceled)return null;destination=result.filePath;
   }
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
+  await writeModelFile(destination,bytes,payload.forgeAssets||[]);
+  openedPaths.add(path.resolve(destination));await persistRecents(destination);
+  initialModel={name:path.basename(destination),path:destination,bytes};
+  return {name:path.basename(destination),path:destination};
+}
+// Writes through a verified temporary file. Without overwrite, an existing
+// destination is refused before any texture or temporary file is written.
+async function writeModelFile(destination,bytes,forgeAssets=[],{overwrite=true}={}){
+  if(!overwrite&&await fs.access(destination).then(()=>true,()=>false))throw new Error('A file already exists at '+destination+'.');
   const temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
   try{
-    await saveForgeAssets(destination,payload.forgeAssets||[]);
+    await saveForgeAssets(destination,forgeAssets);
     await fs.writeFile(temporary,bytes,{flag:'wx'});
     const check=await fs.readFile(temporary);if(!check.equals(bytes))throw new Error('Write verification failed.');
-    if(overwrite)await fs.rename(temporary,destination);else{await fs.link(temporary,destination);await fs.unlink(temporary);}
-    openedPaths.add(path.resolve(destination));await persistRecents(destination);
-    initialModel={name:path.basename(destination),path:destination,bytes};
-    return {name:path.basename(destination),path:destination};
+    // copyFile with COPYFILE_EXCL also works on FAT/exFAT drives, unlike hard links.
+    if(overwrite)await fs.rename(temporary,destination);
+    else{await fs.copyFile(temporary,destination,require('node:fs').constants.COPYFILE_EXCL);await fs.unlink(temporary);}
   }catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
+}
+// AI exports go to the path the AI names, without a save dialog, but replacing
+// an existing file always asks the user first. They never change Recent files,
+// the startup model or the set of opened files.
+async function writeAiModel(payload){
+  if(!['mdl','mdx'].includes(payload?.format))throw new Error('Unsupported format.');
+  const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
+  const destination=path.resolve(payload.path);
+  if(path.extname(destination).toLowerCase()!=='.'+payload.format)throw new Error('The output path must end in .'+payload.format+'.');
+  let overwrite=false;
+  if(await fs.access(destination).then(()=>true,()=>false)){
+    if(!payload.overwrite)throw new Error('A file already exists at '+destination+'. Ask the user before replacing it.');
+    const answer=await dialog.showMessageBox(win,{type:'warning',buttons:['Replace','Cancel'],defaultId:1,cancelId:1,noLink:true,title:'AI export',message:'The AI wants to replace '+path.basename(destination)+'.',detail:destination});
+    if(answer.response!==0)throw new Error('The user did not allow replacing '+destination+'.');
+    overwrite=true;
+  }
+  await writeModelFile(destination,bytes,payload.forgeAssets||[],{overwrite});
+  return {name:path.basename(destination),path:destination};
 }
 ipcMain.handle('model:save',(_,payload)=>{const operation=saveQueue.catch(()=>{}).then(()=>saveModel(payload));saveQueue=operation;return operation;});
 ipcMain.handle('model:backup',(event,payload)=>{
@@ -609,7 +635,8 @@ async function createWindow(bounds={}){
   await current.loadFile(path.join(__dirname,'../dist/index.html'));
 }
 app.on('window-all-closed',async()=>{
-  await aiService.close();
+  // AI shutdown is bounded and can never skip the settings/recovery flush below.
+  await Promise.race([aiService.close().catch(error=>console.error('AI shutdown: '+error.message)),new Promise(resolve=>setTimeout(resolve,5000))]);
   await updater?.shutdown();
   await particleLibrary.close();
   textureDecoder=null;rejectThumbnailRequests('Editor closed.');await texturePreviews.close();

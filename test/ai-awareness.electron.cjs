@@ -59,7 +59,7 @@ async function close(){if(app){await app.evaluate(({BrowserWindow})=>{for(const 
  await page.getByLabel('AI prompt').fill('Raise both marked vertices by five in Z; preserve every other coordinate.');await page.getByRole('button',{name:'Send',exact:true}).click();
  await page.getByRole('button',{name:'Resume task',exact:true}).waitFor({timeout:45000});check('interrupted applied edit offers Resume instead of success',await page.locator('.ai-error').textContent().then(t=>t.includes('Fixture interruption')));
  const partial=(await tool('mdlxl_read',{path:'/Geosets/0/Vertices'})).value.$data;check('first edit was applied exactly once before interruption',partial[2]===original[2]+5&&partial[5]===original[5]);
- context=await tool('mdlxl_context');await tool('mdlxl_document',{target:context.target,action:'export',path:fixture,overwrite:true});
+ context=await tool('mdlxl_context');await tool('mdlxl_command',{target:context.target,id:'save'});
  await close();mode='resume';await launch(fixture);await page.getByRole('button',{name:'AI assistant',exact:true}).click();await page.getByRole('button',{name:'Resume task',exact:true}).waitFor();check('task checkpoint survives a real application restart',true);
  await page.getByRole('button',{name:'Resume task',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.ai-awareness')?.textContent.includes('Result verified'),null,{timeout:60000});

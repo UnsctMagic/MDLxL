@@ -57,7 +57,9 @@ async function startMcpServer({tools,call,port=0,token=crypto.randomBytes(32).to
     const bearer=Buffer.from(req.headers.authorization||''), expected=Buffer.from('Bearer '+token);
     if(bearer.length!==expected.length||!crypto.timingSafeEqual(bearer,expected))return send(401,{error:'Invalid connection token.'});
     if(req.url!=='/mcp')return send(404,{error:'Not found.'});
-    const sessionId=req.headers['mcp-session-id'],session=sessions.get(sessionId);
+    // Forget sessions that have been idle for an hour, so clients cannot grow memory without limit.
+    const now=Date.now();for(const [id,entry] of sessions)if(!entry.streams.size&&now-entry.used>3600000)sessions.delete(id);
+    const sessionId=req.headers['mcp-session-id'],session=sessions.get(sessionId);if(session)session.used=now;
     if(req.method==='DELETE'){if(session){for(const stream of session.streams)stream.end();sessions.delete(sessionId);}return send(200,{});}
     if(req.method==='GET'&&awareness) {
       if(!session)return send(404,{error:'Initialize an MCP session before subscribing.'});
@@ -77,7 +79,7 @@ async function startMcpServer({tools,call,port=0,token=crypto.randomBytes(32).to
       const params=message.params||{};let result;
       switch(message.method) {
         case 'initialize': {
-          if(awareness){const id=crypto.randomUUID();sessions.set(id,{streams:new Set(),subscribed:false});res.setHeader('Mcp-Session-Id',id);}
+          if(awareness){if(sessions.size>=64)throw Error('Too many MCP sessions; close an unused client.');const id=crypto.randomUUID();sessions.set(id,{streams:new Set(),subscribed:false,used:Date.now()});res.setHeader('Mcp-Session-Id',id);}
           result={protocolVersion:['2025-03-26','2025-06-18','2025-11-25'].includes(params.protocolVersion)?params.protocolVersion:'2025-11-25',capabilities:{tools:{listChanged:false},...(awareness?{resources:{subscribe:true,listChanged:false}}:{})},serverInfo:{name,version:'1.0.0'},instructions:'Control the live MDLxL editor. Start with mdlxl_context. Preserve unrelated model data and use the captured target token for every action. Complete edits with mdlxl_review inspect and finish. Optional continuous awareness is available at mdlxl://editor/context when the user enables it; updates never change an existing edit target.'};break;
         }
         case 'ping':result={};break;

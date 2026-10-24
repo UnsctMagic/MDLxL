@@ -95,6 +95,16 @@ function protectedAnimationKeys(before, after, ranges) {
   }
   visit(before,after);
 }
+// Model data such as VertexGroup (Uint8Array) or Faces (Uint16Array) must keep its
+// numeric array type; a script may change values but not the storage format.
+function keepArrayTypes(a, b, path) {
+  if(ArrayBuffer.isView(a)) {
+    if(!ArrayBuffer.isView(b)||b.constructor!==a.constructor)throw Error('Edit changes the array type of '+pointer(path)+'; keep it a '+a.constructor.name+'.');
+    return;
+  }
+  if(!a||!b||typeof a!=='object'||typeof b!=='object'||ignoreAiAlias(path))return;
+  for(const key of Object.keys(a))if(Object.hasOwn(b,key))keepArrayTypes(a[key],b[key],[...path,key]);
+}
 export function prepareAiEdit(before, after, {scope, protectedPaths=[], animationRanges}={}) {
   if(!Array.isArray(scope)||!scope.length)throw Error('An edit needs an explicit model scope.');
   const allowed=scope.map(pointerParts), protectedScopes=protectedPaths.map(pointerParts);
@@ -102,6 +112,8 @@ export function prepareAiEdit(before, after, {scope, protectedPaths=[], animatio
   const changes=createChanges(before,after,{ignore:ignoreAiAlias});
   for(const change of changes) {
     if(!allowed.some(p=>contains(p,change.path)))throw Error('Edit exceeds its scope: '+pointer(change.path));
+    let a,b; try{a=readPointer(before,pointer(change.path));b=readPointer(after,pointer(change.path));}catch{}
+    keepArrayTypes(a,b,change.path);
     for(const p of protectedScopes)if(contains(p,change.path)||contains(change.path,p)) {
       // A parent array splice can include unchanged protected children.
       let a,b; try{a=readPointer(before,pointer(p));}catch{} try{b=readPointer(after,pointer(p));}catch{}

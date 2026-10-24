@@ -14,6 +14,7 @@ const finite=(value,name)=>{if(!Number.isFinite(value))throw Error('Invalid '+na
 export class AiEditorBridge {
   constructor(host) {this.host=host;this.targets=new Map();this.controls=new Map();this.queue=Promise.resolve();}
   state(){return this.host().state();}
+  summary(){return this.host().summary();}
   context(existing) {
     const state=this.state(), {doc,session,model}=state;
     if(existing)this.requireTarget(existing);
@@ -96,6 +97,9 @@ export class AiEditorBridge {
       const prepared=prepareAiEdit(before,result.model,args);
       const assets=validateAiAssets(result.assets||[],result.model,state.session.assets);
       if(!prepared.changeCount)return {applied:false,changes:[],value,logs:result.logs||[]};
+      // Texture bytes are loaded first so the committed model never names a missing
+      // image. They are session data, not model data; Undo of the edit drops them on save.
+      if(assets.length){await host.addAssets(assets);active();this.requireTarget(args.target);}
       // The existing App.edit owns validation, UV-preview protection, history and refresh.
       flushSync(()=>{
         host.edit(args.label,prepared.sections,model=>applyAiEdit(model,prepared),{rethrow:true,validate:(model,committed)=>prepareAiEdit(committed,model,args)});
@@ -103,7 +107,6 @@ export class AiEditorBridge {
       });
       if(state.doc.revision===target.revision)throw Error('The editor could not commit the edit.');
       this.advance(args.target);
-      if(assets.length)await host.addAssets(assets);
       return {applied:true,target:args.target,revision:state.doc.revision,changeCount:prepared.changeCount,changes:prepared.summary,assets:assets.map(a=>a.name),value,logs:result.logs||[],diagnostics:state.doc.diagnostics};
     }
     if(name==='mdlxl_select') {this.validateSelection(args);flushSync(()=>host.select(args));if(args.keyframes){await host.selectKeys(args.keyframes);await settle();}this.advance(args.target,!!args.keyframes);return this.contextFor(args.target);}
@@ -219,7 +222,8 @@ export class AiEditorBridge {
     this.awarenessTimer=setTimeout(()=>{
       this.awarenessTimer=null;if(!this.awarenessEnabled||!this.desktop)return;
       const s=this.state();
-      const context={documentId:s.session.id,name:s.doc.name,revision:s.doc.revision,selection:s.selection,selectedNodeIds:s.selectedNodeIds,checkedGeosets:Array.from(s.selectable),activeGeoset:s.activeGeoset,uvSet:s.uvSet,mode:s.mode,sequence:s.sequence,sequenceName:s.model.Sequences[s.sequence]?.Name||null,frame:s.time,globalSequence:s.globalSeqId,playing:s.playing,view:s.view,camera:s.cameraAngles,renderMode:s.renderMode,keyframes:s.keyframes,paintRevision:s.session.paintWorkingRevision,dialog:s.dialog?.type||null};
+      const context={documentId:s.session.id,name:s.doc.name,revision:s.doc.revision,selection:s.selection,selectedNodeIds:s.selectedNodeIds,checkedGeosets:Array.from(s.selectable),activeGeoset:s.activeGeoset,uvSet:s.uvSet,mode:s.mode,sequence:s.sequence,sequenceName:s.model.Sequences[s.sequence]?.Name||null,frame:s.playing?null:s.time,globalSequence:s.globalSeqId,playing:s.playing,view:s.view,camera:s.cameraAngles,renderMode:s.renderMode,keyframes:s.keyframes,paintRevision:s.session.paintWorkingRevision,dialog:s.dialog?.type||null};
+      // Playback only reports that it is playing, not every frame.
       const signature=JSON.stringify(context);if(signature===this.awarenessSignature)return;
       this.awarenessSignature=signature;this.desktop.aiContextChanged(context);
     },400);

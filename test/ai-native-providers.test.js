@@ -49,8 +49,9 @@ async function executable(t){
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'mdlxl-ai-native-'));
  t.after(()=>fs.rm(directory,{recursive:true,force:true}));
  const script=path.join(directory,'agent.js');await fs.writeFile(script,fixture);
- const file=path.join(directory,process.platform==='win32'?'agent.cmd':'agent');
- if(process.platform==='win32')await fs.writeFile(file,'@"%dp0%\\agent.js" %*\r\n');
+ // Custom CLI paths must name the provider's own CLI.
+ const file=path.join(directory,'bin',process.platform==='win32'?'codex.cmd':'codex');await fs.mkdir(path.dirname(file));
+ if(process.platform==='win32')await fs.writeFile(file,'@"%dp0%\\..\\agent.js" %*\r\n');
  else{await fs.writeFile(file,'#!'+process.execPath+'\n'+fixture);await fs.chmod(file,0o700);}
  return {directory,executable:file};
 }
