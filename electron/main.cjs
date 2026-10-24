@@ -562,7 +562,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>{if(win&&!win.isDestroyed())win.webContents.send('updates:status',status);}});
   await updater.initialize();
-  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
+  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});else if(updater.status().previousVersion)void updater.reportUpdate();await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(process.env.MDLVIS_GAME_DATA)settings.gameData=process.env.MDLVIS_GAME_DATA;
   try{recoveryPrompt=await sessionJournal.begin();}catch(error){console.warn('Session journal: '+error.message);}
