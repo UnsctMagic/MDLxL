@@ -91,6 +91,8 @@ const birdColor = name => {
 // Each model file (or unsaved tab) has its own organiser chat.
 const modelKeyOf = (path, documentId) =>
   path ? 'file:' + String(path).replaceAll('/', '\\').toLowerCase() : 'unsaved:' + documentId;
+const SD_BRAIN_TIP =
+  'SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.';
 const OFFLOAD_TIP = 'Offload Mode: this chat hands each job to a separate worker chat with its own memory, keeping this chat short.';
 const CLEANUP_CHOICES = [
   ['keep', 'Keep everything', 'Keep all chats.'],
@@ -311,6 +313,7 @@ export default function AiAssistant({ bridge }) {
       // Roster and setting changes matter whichever chat is showing.
       if (event.type === 'roster') setOrg(previous => (previous?.id === event.id ? { ...previous, workers: event.workers } : previous));
       if (event.type === 'offload') setSettings(previous => ({ ...previous, offload: event.enabled }));
+      if (event.type === 'sd-brain') setSettings(previous => ({ ...previous, sdBrain: event.enabled }));
       if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
       if (event.id && event.id !== activeId.current) return;
       if (event.type === 'worker')
@@ -825,6 +828,16 @@ export default function AiAssistant({ bridge }) {
               >
                 <Bird size={15} aria-hidden="true" />
               </button>
+              {/* A running task keeps the setting it started with; this applies from the next one. */}
+              <label className="ai-sd-brain" title={translate(SD_BRAIN_TIP)}>
+                <input
+                  type="checkbox"
+                  aria-label="SD Brain"
+                  checked={!!settings.sdBrain}
+                  onChange={event => action(async () => setSettings(await window.desktop.aiSdBrain(event.target.checked)))}
+                />
+                SD Brain
+              </label>
               <span className="ai-heading-gap" />
               <button
                 type="button"

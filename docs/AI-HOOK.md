@@ -90,15 +90,43 @@ and come back when it reopens. Each prompt sends them as `context.annotations`
 (model-space points, colors and covered vertices); a message sent while the AI
 works includes the current notes, and viewport captures show them.
 
-The [Warcraft III SD rulebook](AI-SD-RULEBOOK.md) supplies the same default modeling
-constraints to embedded providers and external MCP clients. It preserves the
-model's authored style and the user's explicit request while discouraging
-unrequested subdivision, dense animation baking, PBR conversion and decorative
-complexity. All tools remain available. The [reference study](AI-SD-REFERENCE-STUDY.md)
-records 3,448 distinct installed Blizzard models and 705 models from the first
-100 highest-rated approved Hive SD resources, with visual-study limits and source
-links. These guides are also available through `mdlxl_help`. No extra AI requests
-are started by having the rulebook installed.
+### SD Brain
+
+**SD Brain** is a checkbox in the AI console header (off until you turn it on; it
+is remembered across restarts, providers and new chats). While it is on, the AI
+applies Warcraft III SD art direction to modeling requests: it turns a short or
+vague request ("make a chalice of power", "make this armor better", "fix this
+Walk") into a working brief (target, role and viewing scale, quality level,
+silhouette, material and one coherent motif, success criteria), fills in routine
+details from the request, the model and comparable SD references, and asks only
+when a missing choice would change the result a lot or the request clearly
+conflicts with SD (for example an HD/PBR redesign). Literal operations such as
+"mirror these and weld the seam" stay literal. Detailed, elaborate custom SD is
+supported; there is no polygon, bone, texture-size or key cap and nothing is
+simplified to match a statistic.
+
+- The state is captured when a task starts. Toggling during a task changes the
+  next task, not the running one; a resumed task keeps its own state. Toggling
+  starts no AI request and does not touch the model.
+- The same policy text (`src/ai-sd-rules.js`: the SD Brain behavior plus the
+  [Warcraft III SD rulebook](AI-SD-RULEBOOK.md)) goes into the trusted
+  instructions of every turn for Codex, Claude Code and API providers. When it is
+  off, each turn carries an explicit "off" state, so an earlier "on" in the chat
+  history cannot keep applying. Offload workers inherit the organiser task's
+  state, and with SD Brain on the organiser may look at a capture of the combined
+  result. External MCP clients read the current state and instructions in every
+  `mdlxl_context` result (`sdBrain`).
+- Review: with SD Brain on, `mdlxl_review finish` with outcome passed needs a
+  verdict for each criterion (fidelity, silhouette, sd-identity, coherence,
+  craftsmanship, detail-value, motion, preservation): passed, needs-correction,
+  unverified or not-applicable, each with an observation. A pass is refused while
+  a criterion needs correction; the same criterion failing three times stops
+  further revisions. Missing textures or a provider without image input leave
+  appearance criteria unverified. A renderer preview is not gameplay acceptance.
+- The [reference study](AI-SD-REFERENCE-STUDY.md) (3,448 distinct installed
+  Blizzard models and 705 models from the first 100 highest-rated approved Hive SD
+  resources, with limits and source links) is available through `mdlxl_help`; it is
+  not sent with every prompt.
 
 **Continuous awareness** is an optional switch (the eye) in the prompt box.
 It starts off and remembers your choice. When on, real editor changes update the

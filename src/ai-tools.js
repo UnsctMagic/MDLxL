@@ -1,3 +1,6 @@
+import { SD_CRITERIA } from './ai-sd-rules.js';
+export { AI_SD_RULES, AI_SD_BRAIN, SD_BRAIN_REVISION, SD_CRITERIA, sdBrainInstructions, sdReviewProblem } from './ai-sd-rules.js';
+
 // One provider-neutral contract, shared by the editor, embedded agents and MCP.
 const object = properties => ({ type: 'object', properties, additionalProperties: false });
 const string = description => ({ type: 'string', description });
@@ -31,6 +34,21 @@ export const AI_TOOLS = [
       frames: { type: 'array', minItems: 3, maxItems: 8, items: { type: 'number' } },
       outcome: { enum: ['passed', 'needs-correction', 'blocked'] },
       summary: string('Brief visual assessment or reason correction is needed.'),
+      criteria: {
+        type: 'array',
+        maxItems: 16,
+        description: 'With SD Brain on, required for a passed finish: one verdict per SD review criterion, each with a concrete observation.',
+        items: {
+          type: 'object',
+          properties: {
+            name: { enum: SD_CRITERIA },
+            result: { enum: ['passed', 'needs-correction', 'unverified', 'not-applicable'] },
+            observation: string('What was actually seen or measured.'),
+          },
+          required: ['name', 'result'],
+          additionalProperties: false,
+        },
+      },
     },
     ['target', 'action'],
   ),

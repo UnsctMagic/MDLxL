@@ -190,3 +190,7 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-roster-chip svg,.ai-worker-row .ai-step-icon,.ai-from-organiser summary svg{color:var(--bird,currentColor)}
 .ai-assistant button.ai-roster-chip[aria-pressed=true]{box-shadow:inset 0 -2px 0 var(--bird,transparent)}
 .ai-worker-row{border-left:3px solid var(--bird,var(--ai-line))}
+.ai-sd-brain{display:inline-flex;align-items:center;gap:4px;margin-left:4px;font-size:11.5px;color:var(--ui-muted);white-space:nowrap;cursor:pointer}
+.ai-sd-brain:has(input:checked){color:var(--ui-text);font-weight:600}
+.ai-sd-brain input{margin:0;accent-color:var(--ai-accent)}
+.ai-assistant select.ai-header-model{max-width:96px}

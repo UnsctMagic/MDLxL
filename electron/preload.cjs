@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('desktop', {
   aiCleanup:value=>ipcRenderer.invoke('ai:cleanup',value),
   aiRememberCleanup:value=>ipcRenderer.invoke('ai:rememberCleanup',value),
   aiOffload:value=>ipcRenderer.invoke('ai:offload',value),
+  aiSdBrain:value=>ipcRenderer.invoke('ai:sdBrain',value),
   aiToolWaiting:value=>ipcRenderer.send('ai:toolWaiting',value),
   aiAuth:action=>ipcRenderer.invoke('ai:auth',action),
   aiModels:()=>ipcRenderer.invoke('ai:models'),

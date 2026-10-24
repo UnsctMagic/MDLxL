@@ -83,7 +83,6 @@ async function startMcpServer({
   onCall = () => {},
   awareness,
 }) {
-  const { AI_SD_RULES } = await import('../src/ai-sd-rules.js');
   const controllers = new Set(),
     sessions = new Map();
   let actualPort;
@@ -200,7 +199,7 @@ async function startMcpServer({
             },
             serverInfo: { name, version: '1.0.0' },
             instructions:
-              'Control the live MDLxL editor. Start with mdlxl_context. Preserve unrelated model data and use the captured target token for every action. Complete edits with mdlxl_review inspect and finish. Optional continuous awareness is available at mdlxl://editor/context when the user enables it; updates never change an existing edit target.' + '\n\n' + AI_SD_RULES,
+              'Control the live MDLxL editor. Start with mdlxl_context. Preserve unrelated model data and use the captured target token for every action. Complete edits with mdlxl_review inspect and finish. Optional continuous awareness is available at mdlxl://editor/context when the user enables it; updates never change an existing edit target. MDLxL\'s SD Brain setting decides whether Warcraft III SD art direction applies: every mdlxl_context result has sdBrain with the current state and, when it is on, the instructions to follow for that task. It replaces any SD Brain state seen earlier.',
           };
           break;
         }

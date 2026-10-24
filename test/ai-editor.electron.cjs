@@ -317,15 +317,18 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
         ? reply.result.content[0]
         : JSON.parse(reply.result.content[0].text);
   };
-  const { AI_SD_RULES } = await import('../src/ai-sd-rules.js');
+  const { AI_SD_RULES, sdBrainInstructions } = await import('../src/ai-sd-rules.js');
   const initialized = await fetch(link.url, {
     method: 'POST',
     headers: { ...link.headers, 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 'sd-rules', method: 'initialize', params: { protocolVersion: '2025-11-25' } }),
   }).then(response => response.json());
-  check('packaged external connection supplies the shared SD rulebook', initialized.result.instructions.endsWith(AI_SD_RULES));
+  check('packaged external connection points to the per-task SD Brain state', /every mdlxl_context result has sdBrain/.test(initialized.result.instructions));
+  const sdState = (await tool('mdlxl_context')).sdBrain;
+  check('external clients read the current SD Brain state with the context', sdState?.enabled === false && sdState.instructions === sdBrainInstructions({ enabled: false }, 'external'), sdState);
   const sdGuide = await tool('mdlxl_help', { topic: 'AI-SD-RULEBOOK.md' });
-  check('packaged help contains the same standalone SD rulebook', sdGuide.text.includes(AI_SD_RULES));
+  // The guide file can be checked out with Windows line endings.
+  check('packaged help contains the same standalone SD rulebook', sdGuide.text.replace(/\r\n/g, '\n').includes(AI_SD_RULES));
   let context = await tool('mdlxl_context');
   check('live model loaded', context.name === 'AI-fixture.mdx', context.name);
   await tool('mdlxl_select', { target: context.target, geosetIds: [0], activeGeoset: 0 });

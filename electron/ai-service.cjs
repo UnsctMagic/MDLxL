@@ -102,6 +102,7 @@ class AiService {
       busy: !!this.active,
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
+      sdBrain: config.sdBrain === true,
     };
   }
   async setAwareness(enabled) {
@@ -212,7 +213,11 @@ class AiService {
         awareness: this.awareness,
         call: async (name, args, signal) => {
           try {
-            return await this.call(name, args, signal);
+            const result = await this.call(name, args, signal);
+            if (name !== 'mdlxl_context') return result;
+            const policy = await this.sdBrainPolicy(),
+              { sdBrainInstructions } = await this.init();
+            return { ...result, sdBrain: { ...policy, instructions: sdBrainInstructions(policy, 'external') } };
           } finally {
             this.emit({ type: 'external-done', busy: !!this.active });
           }
@@ -316,6 +321,7 @@ class AiService {
         contract,
         signal: controller.signal,
         organiser: conversation.kind === 'organiser' && config.offload !== false ? active : null,
+        policy: await this.sdBrainPolicy(),
       });
       recorder.event({ type: 'done' });
       return { ok: true };
@@ -345,9 +351,17 @@ class AiService {
   }
   // One task on one conversation: the provider turn, edit checkpoints, verification
   // and steering. The organiser and each of its workers run through this.
-  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser, entry }) {
-    const { AI_TOOLS, AI_SYSTEM_PROMPT, AI_WORKER_TOOL, AI_ORGANISER_PROMPT, AI_WORKER_NOTE, aiToolEditsModel } =
-      contract;
+  async runTask({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser, entry, policy }) {
+    const {
+      AI_TOOLS,
+      AI_SYSTEM_PROMPT,
+      AI_WORKER_TOOL,
+      AI_ORGANISER_PROMPT,
+      AI_WORKER_NOTE,
+      aiToolEditsModel,
+      sdBrainInstructions,
+      sdReviewProblem,
+    } = contract;
     const id = conversation.id;
     let task;
     if (resume) {
@@ -389,7 +403,10 @@ class AiService {
         status: 'running',
         phase: 'inspecting',
         steps: [],
+        sdBrain: policy || { enabled: false },
       };
+    // SD Brain stays as it was when the task started; toggling applies to the next task.
+    const sd = (task.sdBrain ||= policy || { enabled: false });
     task.status = 'running';
     task.summary = '';
     this.runningIds.add(id);
@@ -412,6 +429,7 @@ class AiService {
           JSON.stringify(task.steps)
         : '');
     if (organiser) prompt += '\n\n' + (await this.organiserBriefing(conversation));
+    prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
     let workerImages = images;
@@ -420,7 +438,7 @@ class AiService {
       if (organiser && name === 'mdlxl_worker') {
         const attached = workerImages;
         workerImages = [];
-        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering });
+        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd });
       }
       if (args.target && args.target !== context.target)
         throw Error('Use the target captured with the current prompt.');
@@ -440,10 +458,28 @@ class AiService {
         task.checkpoint = checkpoint;
         task.steps.push({ tool: name, label: args.label || args.id || name, status: 'pending' });
         await progress('editing');
-      } else if (name === 'mdlxl_review')
+      } else if (name === 'mdlxl_review') {
+        // SD Brain review: a pass needs a verdict per criterion, and a criterion
+        // that keeps failing stops blind revisions.
+        if (sd.enabled) {
+          const problem = sdReviewProblem(args);
+          if (problem) throw Error(problem);
+          if (args.action === 'finish' && args.outcome === 'needs-correction') {
+            task.corrections ||= {};
+            const failed = (args.criteria || []).filter(c => c.result === 'needs-correction').map(c => c.name);
+            for (const name of failed.length ? failed : ['result']) task.corrections[name] = (task.corrections[name] || 0) + 1;
+            const repeated = Object.entries(task.corrections).filter(([, count]) => count >= 3).map(([name]) => name);
+            if (repeated.length)
+              throw Error(
+                `SD Brain review: ${repeated.join(', ')} failed three times. Do not revise blindly again; finish with outcome blocked and name the blocker.`,
+              );
+          }
+          if (args.action === 'finish' && args.outcome === 'passed') task.criteria = args.criteria;
+        }
         await progress(
           args.action === 'finish' && args.outcome === 'needs-correction' ? 'correcting' : 'verifying',
         );
+      }
       try {
         const result = await this.call(
           name,
@@ -472,7 +508,12 @@ class AiService {
       }
     };
     const tools = organiser
-      ? [AI_WORKER_TOOL, AI_TOOLS.find(tool => tool.name === 'mdlxl_help')]
+      ? [
+          AI_WORKER_TOOL,
+          AI_TOOLS.find(tool => tool.name === 'mdlxl_help'),
+          // With SD Brain on the organiser looks at the combined result itself.
+          ...(sd.enabled ? [AI_TOOLS.find(tool => tool.name === 'mdlxl_capture')] : []),
+        ]
       : conversation.toolsOff
         ? []
         : AI_TOOLS;
@@ -482,6 +523,10 @@ class AiService {
       : conversation.kind === 'worker'
         ? AI_SYSTEM_PROMPT + '\n' + AI_WORKER_NOTE
         : AI_SYSTEM_PROMPT;
+    // The SD Brain policy travels in the trusted instructions of every turn, so an
+    // earlier "on" can never keep governing a task that started with it off.
+    const instructions =
+      system + '\n\n' + sdBrainInstructions(sd, organiser ? 'organiser' : conversation.toolsOff ? 'note' : 'direct');
     try {
       await progress('inspecting');
       let runs = 0;
@@ -494,7 +539,7 @@ class AiService {
           event: value => recorder.event(value),
           tools,
           call,
-          system,
+          system: instructions,
           prompt,
           images: runs++ ? [] : images,
           conversation,
@@ -577,7 +622,7 @@ class AiService {
       organiser.nextName = nextBird(organiser.birds, this.random);
     return organiser.nextName;
   }
-  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering }) {
+  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy }) {
     const previous = this.workerLock;
     let release;
     this.workerLock = new Promise(resolve => (release = resolve));
@@ -599,7 +644,7 @@ class AiService {
       } else if (args.tiny) worker = organiser.workers.find(w => w.tiny && w.status !== 'retired') || null;
       // A worker past half of its memory writes a handover note and retires.
       if (worker && (worker.use || 0) >= RETIRE_AT) {
-        handover = { name: worker.name, note: await this.handover(worker, settings, contract, context, signal) };
+        handover = { name: worker.name, note: await this.handover(worker, settings, contract, context, signal, policy) };
         await this.retireWorker(organiser, worker);
         worker = null;
       }
@@ -635,7 +680,7 @@ class AiService {
       let status = 'done',
         error;
       try {
-        await this.runTask({ conversation, recorder, steering, text, images, context, resume: false, settings, contract, signal, entry: { from: 'organiser', job: args.job } });
+        await this.runTask({ conversation, recorder, steering, text, images, context, resume: false, settings, contract, signal, policy, entry: { from: 'organiser', job: args.job } });
       } catch (reason) {
         if (signal.aborted) throw reason;
         status = 'failed';
@@ -668,13 +713,13 @@ class AiService {
       release();
     }
   }
-  async handover(worker, settings, contract, context, signal) {
+  async handover(worker, settings, contract, context, signal, policy) {
     const conversation = await this.conversation(worker.id, settings.provider);
     const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
     const steering = new AiSteering(() => {});
     conversation.toolsOff = true;
     try {
-      await this.runTask({ conversation, recorder, steering, text: contract.AI_HANDOVER_PROMPT, images: [], context, resume: false, settings, contract, signal, entry: { from: 'organiser', job: 'Handover' } });
+      await this.runTask({ conversation, recorder, steering, text: contract.AI_HANDOVER_PROMPT, images: [], context, resume: false, settings, contract, signal, policy, entry: { from: 'organiser', job: 'Handover' } });
     } finally {
       delete conversation.toolsOff;
       steering.close();
@@ -754,6 +799,20 @@ class AiService {
   async saveState({ modelKey }) {
     const entry = await this.registry.model(modelKey);
     return { activity: !!entry.activity, remember: entry.remember || 'ask' };
+  }
+  // SD Brain is off until the user turns it on; it applies from the next task.
+  async setSdBrain(enabled) {
+    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
+    const config = await this.configuration();
+    config.sdBrain = enabled;
+    await this.persist();
+    this.emit({ type: 'sd-brain', enabled });
+    return this.status();
+  }
+  async sdBrainPolicy() {
+    const config = await this.configuration(),
+      { SD_BRAIN_REVISION } = await this.init();
+    return { enabled: config.sdBrain === true, revision: SD_BRAIN_REVISION };
   }
   async setOffload(enabled) {
     if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
@@ -1030,6 +1089,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:cleanup', input => service.cleanup(input));
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
   handle('ai:offload', enabled => service.setOffload(enabled));
+  handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
   handle('ai:transcript', async id => {

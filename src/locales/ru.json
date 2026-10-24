@@ -6370,5 +6370,6 @@
   "Task paused. Applied edits are kept.": "Задача приостановлена. Применённые изменения сохранены.",
   "Resume task": "Продолжить задачу",
   "Checking the result before completing the task.": "Проверка результата перед завершением задачи.",
-  "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "Остановлено. Применённые изменения можно отменить. Продолжите задачу с контрольной точки."
+  "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "Остановлено. Применённые изменения можно отменить. Продолжите задачу с контрольной точки.",
+  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain: применяет правила дизайна SD из Warcraft III к вашим запросам на моделирование, дополняет обычные художественные детали и проверяет результат. Поддерживает детализированные пользовательские SD-модели."
 }

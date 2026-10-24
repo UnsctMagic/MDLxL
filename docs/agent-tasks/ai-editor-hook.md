@@ -247,3 +247,12 @@ AI hook PR. Merge only after approval. Local source, compatibility and packaged
 checks for this continuation are complete; CI runs against the pushed revision.
 The user's existing test profile and saved models stay separate from the package.
 `test/ai-live.electron.cjs` remains the opt-in real-account acceptance harness.
+
+## SD Brain (2026-10-24, Claude)
+
+- Implemented from `D:\Codex\mdlxl-sd-rulebook-20261024\outputs\SD-BRAIN-IMPLEMENTATION-BRIEF.md` on the Claude console branch (Offload Mode, steering, Marker/Pen).
+- The rulebook is no longer appended unconditionally. `src/ai-sd-rules.js` owns `AI_SD_RULES`, the SD Brain behavior (`AI_SD_BRAIN`, interpretation, chalice lesson, review criteria), `SD_BRAIN_REVISION`, `sdBrainInstructions(policy, role)` and `sdReviewProblem(args)`.
+- `electron/ai-service.cjs`: `config.sdBrain` (default off), `setSdBrain`; `runTask` captures `task.sdBrain` and adds the instructions to every turn's system text plus a "Task settings" line; workers and handovers inherit it; the organiser gets `mdlxl_capture` while on; review finish is checked and repeated failures stop.
+- External MCP: initialize points to `mdlxl_context.sdBrain`; the service adds the current state there.
+- UI: SD Brain checkbox in the console header; tooltip localized (es/ru/zh).
+- Not verified: real Codex/Claude/API turns judging art, Warcraft III gameplay.

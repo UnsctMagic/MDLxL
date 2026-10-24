@@ -99,6 +99,7 @@ export async function reviewAiModel(bridge, args, options) {
     review.phase =
       args.outcome === 'passed' ? 'verified' : args.outcome === 'needs-correction' ? 'correcting' : 'blocked';
     review.summary = args.summary;
+    if (Array.isArray(args.criteria)) review.criteria = args.criteria;
     return reviewStatus(review);
   }
   if (args.action !== 'inspect') throw Error('Unknown review action.');

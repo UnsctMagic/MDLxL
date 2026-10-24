@@ -1,7 +1,8 @@
 # Warcraft III SD AI rulebook
 
 This is the provider-neutral rule text supplied by MDLxL to embedded AI providers
-and external MCP clients. It is a default art direction for SD work; the user's
+and external MCP clients while the **SD Brain** checkbox is on (see AI-HOOK.md).
+It is the art direction for SD work; the user's
 explicit task and protected authored data control each edit. All modeling tools
 remain available. This rulebook does not retrain a model or guarantee its artistic
 judgment.
