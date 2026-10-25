@@ -118,20 +118,33 @@ your prompts, not a library of models to copy:
 - **Built on the SD research.** The art director receives the observations that
   match your request from the SD research volume (`src/sd-knowledge.js`): how real
   Blizzard parts of that kind are built (Footman's 9-triangle blade, Grunt's
-  8-triangle axe head), what a normal unit, item or building measures, faction
-  styles, and native texture areas chosen by look, the way the LowPolyWorks models
-  reuse Blizzard paint (an inventory panel as a shield front, lava cracks as a
-  cleaver edge, pale skull paint tinted green).
-- **Build, don't copy.** The AI does not search for, load or copy Warcraft or other
-  models' geometry as a starting point unless you ask for it. Mapping new parts onto
-  native game textures is welcome.
-- **SD Kit.** New props are built with `src/sd-kit.js`: solid parts (turned shapes
-  such as cups and stems, extruded outlines such as blades and emblems, spikes,
-  rings and gems). A part either takes native game paint (a texture area from the
-  research, with tint or team colour) or is hand-painted by the kit into one
-  texture (light from above, dark creases and contact shadows, bright edges, a
-  limited palette, painted runes, rivets, eyes or gems), so textures never depend on
-  the AI writing pixels.
+  8-triangle axe head), what a normal unit, item or building measures (a weapon is
+  measured against real weapons, not the item population), faction styles, and
+  texture areas other models used, the way the LowPolyWorks models reuse Blizzard
+  paint (an inventory panel as a shield front, lava cracks as a cleaver edge, pale
+  skull paint tinted green). The SD standard and its four ways of making it are in
+  [SD styles](SD-STYLES.md).
+- **A kitbash director.** Native parts and textures come first and mixing is the
+  default: the brief starts from a game model or part (the Grunt, Thrall's head,
+  Frostmourne), says what to keep, remove, take from another model, reshape or
+  build new, and how each part is painted. The box of parts (`src/sd-parts-data.js`)
+  lists recognisable parts of 79 game models by model, piece and bone, each found
+  again in the installed game; your BITZ box is listed live. Ask for "kitbash" or
+  for "a standard model with its own texture" to choose one way. Team colour is
+  never a default on weapons.
+- **Palettes by looking.** The AI looks at a texture (or an area of it, with a uv
+  grid) before it uses that area as paint, and picks it by what the pixels show,
+  whatever the sheet was made for.
+- **SD Kit and SD Kitbash.** New pieces are built with `src/sd-kit.js`: solid parts
+  (turned shapes such as cups and stems, extruded outlines, spikes, rings and gems),
+  blades with a separate thin edge piece in another paint, pointed outlines, layered
+  trims, smooth shading inside each piece, built onto a part of the model and moving
+  with its bones. A part either takes native game paint (a texture area, with tint
+  or team colour) or is hand-painted by the kit into one texture, so textures never
+  depend on the AI writing pixels. `src/sd-kitbash.js` holds the kitbash moves on
+  game models: find a part, take it, swap it in place of another so it follows that
+  part's bones, add it to a bone, reshape it without breaking its paint, repaint it
+  from a palette area or tint it.
 - **Saving stays possible.** An AI edit that would leave the model unsavable is
   refused with a plain explanation, so a malformed part cannot block later review,
   Undo or saving.
@@ -273,7 +286,7 @@ Embedded chat works without enabling this external listener.
 | `mdlxl_view` | Change workspace, camera preset, render mode, local/global animation, frame, playback and fit. |
 | `mdlxl_sample` | Measure node world transforms and skinned vertex positions/bounds across up to 32 frames without moving the playhead. |
 | `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call. |
-| `mdlxl_assets` | Search installed game/texture and personal part libraries, preview model textures, load donor references without switching the working model. |
+| `mdlxl_assets` | Search installed game/texture and personal part libraries, preview a model texture or any game texture (or an area of it, with a uv grid), load donor references without switching the working model. |
 | `mdlxl_ui` | Inspect, set and click controls, capture the editor, or drag on a canvas/control using its actual mouse interaction. |
 | `mdlxl_document` | Open/list models, export with the existing serializer and asset writer, or validate MDX/MDL reopening. |
 | `mdlxl_help` | Read the installed documentation and discover the scripting API. |

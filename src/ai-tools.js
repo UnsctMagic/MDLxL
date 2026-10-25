@@ -221,7 +221,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'assets',
-    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Preview a model texture as an image. Load a listed game model or part as an open reference without switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
+    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Preview a texture as an image to choose paint by looking: a model texture (source model, textureId) or any texture path the editor resolves, such as a game sheet (source textures, path); uv [u0, v0, u1, v1] shows only that area, enlarged. The picture carries a labelled uv grid; the result gives the sheet size in pixels. Load a listed game model or part as an open reference without switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
     {
       target,
       source: { enum: ['model', 'textures', 'parts', 'game'] },
@@ -230,6 +230,14 @@ export const AI_TOOLS = [
       id: string('Part ID or game file ID from search.'),
       signature: string('Game catalog signature from search.'),
       textureId: { type: 'integer', minimum: 0 },
+      path: string('Texture path to preview, for example Textures\\Footman.blp.'),
+      uv: {
+        type: 'array',
+        minItems: 4,
+        maxItems: 4,
+        items: { type: 'number', minimum: 0, maximum: 1 },
+        description: 'Preview only this area [u0, v0, u1, v1], top-left origin.',
+      },
       folder: string('Optional library folder.'),
       variant: string('Installed game variant; defaults to all.'),
       type: { enum: ['models', 'textures'] },

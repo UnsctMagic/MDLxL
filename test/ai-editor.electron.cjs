@@ -864,15 +864,16 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     source: 'model',
     query: 'Particle_SoftDisc',
   });
-  const textureImage = await tool('mdlxl_assets', {
-    target: context.target,
-    source: 'model',
-    action: 'preview',
-    textureId: generated.items[0].id,
-  });
+  const preview = await tool(
+      'mdlxl_assets',
+      { target: context.target, source: 'model', action: 'preview', textureId: generated.items[0].id },
+      true,
+    ),
+    textureImage = preview.find(item => item.type === 'image'),
+    textureInfo = JSON.parse(preview.find(item => item.type === 'text').text);
   check(
-    'generated texture reaches the real editor and can be inspected as an image',
-    textureImage.mimeType === 'image/png' && textureImage.data.length > 100,
+    'generated texture reaches the real editor and can be inspected as an image with its size',
+    textureImage?.mimeType === 'image/png' && textureImage.data.length > 100 && textureInfo.sheet?.length === 2,
   );
   const assetExport = path.join(out, 'AI-assets.mdx');
   await tool('mdlxl_document', { target: context.target, action: 'export', path: assetExport });

@@ -55,7 +55,7 @@ if(!singleInstanceLock) { app.exit(0); return; }
 // A launch can have passed the first check before the closing owner set the lock.
 if (app.isPackaged && require('node:fs').existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
 let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
-const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,readModel:file=>readModel(file,false),writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>writeAiModel(payload));saveQueue=operation;return operation;}});
+const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,listParts:()=>getBitsAndPartsLibrary().list(),readModel:file=>readModel(file,false),writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>writeAiModel(payload));saveQueue=operation;return operation;}});
 let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.resolve();
 let settingsStore,preferenceApi,commandCatalog;
 // Test runs (own profile or headless) must not point Explorer at a temporary build.

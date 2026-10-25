@@ -1,38 +1,41 @@
-/** SD Kit: solid, hand-painted Warcraft III SD props from a few shape calls.
- * Each shape is a closed solid in one painted material. commit() packs every
- * part into one texture atlas and paints it the way SD textures are painted:
- * light from above, darker low and inside, dark creases and contact shadows,
- * bright rims and edges, broad strokes instead of noise, and a limited palette.
- * Z is up; Warcraft units face +X. Rotations are degrees, applied X, Y, then Z.
+/** SD Kit: solid Warcraft III SD parts from a few shape calls, in native game paint or hand-painted.
+ * Each shape is a closed solid, smooth-shaded inside (smooth: 0 keeps facets); hard breaks come from
+ * separate pieces, the HQSD way. commit() maps native parts onto their game texture areas and packs
+ * painted parts into one texture painted like SD: light from above, dark creases, bright rims, a
+ * limited palette. Z is up; units face +X. Rotations are degrees, applied X, Y, then Z.
  *
- * Recipes (sizes in Warcraft units; an item stands about 40-90 tall):
+ * Paint: native: { sheet, uv: [u0, v0, u1, v1] (top-left origin), size?: [w, h] pixels, tint?: [r, g, b],
+ * team?: true } is a palette area you looked at first (mdlxl_assets preview); each UV island of the part
+ * is fitted into it, long side along its long side. Or material: an SD_MATERIALS name painted by the kit.
+ *
+ * Recipes (sizes in Warcraft units; a Footman is 98 tall, a held sword 80-120 long):
  *   const kit = await api.module('sd-kit'), b = kit.builder();
- *   // Chalice: hollow cup (profile goes up the outside, back down the inside), rim spikes, an eye set in the bowl.
+ *   // HQSD sword standing on its pommel: a slab blade with a separate thin bright edge (points, hooked tip,
+ *   // back teeth; kit.corners(outline) shows no square steps), a pointed guard with a layered trim, grip, pommel.
+ *   const blade = kit.shapes.pointedBlade(20, 84, { tip: 0.27, flare: 0.22, hook: 0.3, teeth: 3, toothDepth: 5 });
+ *   b.edged({ outline: blade, depth: 4, at: [0, 0, 31], rotate: [90, 0, 90], native: darkIron, edge: { native: brightSteel, width: 3 } });
+ *   const guard = [[-17, 2.5], [-11, -0.5], [-5, -3], [0, -8], [5, -3], [11, -0.5], [17, 2.5], [10, 4.5], [3, 3.6], [0, 6.5], [-3, 3.6], [-10, 4.5]];
+ *   b.extrude({ outline: guard, depth: 6, bevel: 1, at: [0, 0, 28], rotate: [90, 0, 90], native: darkIron });
+ *   b.trim({ outline: guard, width: 1.6, depth: 7.2, at: [0, 0, 28], rotate: [90, 0, 90], native: goldStrip });
+ *   b.emblem({ shape: 'skull', width: 7, height: 7.5, radius: 3.3, z: 29, bevel: 0, native: skullPaint });
+ *   b.lathe({ profile: [[2.5, 7], [2.9, 15], [2.6, 25]], segments: 5, native: leatherWrap });
+ *   b.spike({ from: [0, 0, 7], to: [0, 0, -7], radius: 3.4, sides: 4, native: ivory });
+ *   // Chalice: hollow cup (profile up the outside, back down the inside), rim spikes, an eye set in the bowl.
  *   b.lathe({ profile: [[13,0],[12,4],[4,9],[3,24],[12,38],[16,52],[14,52],[11,44],[0,34]], material: 'blackIron', pattern: 'runes', patternMaterial: 'fire', patternAt: [45, 50] });
  *   for (const a of kit.angles(7)) b.spike({ from: kit.around(15, a, 50), to: kit.around(19, a, 62), radius: 2, material: 'blackIron' });
- *   b.ring({ radius: 3.6, thickness: 1.2, at: [0, 0, 16], material: 'bronze', pattern: 'rivets' });
  *   b.emblem({ shape: 'almond', width: 11, height: 6, radius: 12.5, angle: 0, z: 40, tilt: 15, material: 'fire', pattern: 'slitEye' });
- *   // Sword standing on its pommel, blade up: ridged blade, swept guard, wrapped grip, pommel, gem in the guard.
- *   b.blade({ length: 62, width: 10, thickness: 3, at: [0, 0, 24], material: 'steel' });
- *   b.extrude({ outline: kit.shapes.crossguard(28, 5, 4), depth: 4, bevel: 1, at: [0, 0, 23], rotate: [90, 0, 90], material: 'gold' });
- *   b.lathe({ profile: [[2.4, 7], [2.7, 15], [2.4, 22]], material: 'leather', pattern: 'wrap' });
- *   b.sphere({ radius: 3.6, at: [0, 0, 5], material: 'gold' });
- *   b.emblem({ shape: 'diamond', width: 4, height: 5, radius: 2, z: 23, material: 'sapphire', pattern: 'gem' });
- *   // Shield: extrude kit.shapes.shield(w, h) facing +X with a bevel, a ring or emblem boss on it.
- *   // Staff or torch: a long thin lathe or spike for the shaft, a sphere, emblem or spikes at the head.
- *   // Helmet: a lathe dome (profile from the brim up to the crown), horns as spikes, a box nose guard.
- *   return b.commit(model, { name: 'MordorChalice' });
+ *   // Shield: extrude kit.shapes.shield(w, h) facing +X, a trim on the same outline, a boss or emblem.
+ *   // Helmet: a lathe dome (profile from the brim up), a crest extrude, horns as spikes, a trim at the brim.
+ *   // Saw points along any outline: kit.serrate(outline, from, to, { teeth, depth }).
+ *   return b.commit(model, { name: 'BrutalSword' });
  *
- * Native paint instead of a painted material: give a part native, a game texture region,
- * usually one from (await api.module('sd-knowledge')).findMaterials('dark iron gold rim').
- * Each of the part's UV islands is fitted into that region (turned to match its long side,
- * aspect kept), the way Warcraft modellers map new parts onto existing Blizzard paint.
- *   const know = await api.module('sd-knowledge'), [iron] = know.findMaterials('dark iron gold rim');
- *   b.blade({ length: 62, width: 10, thickness: 3, at: [0, 0, 24], native: iron });
- *   b.extrude({ ..., native: { sheet: 'Textures\\InfernalCannon.blp', uv: [0.375, 0.5625, 0.4922, 0.7813], tint: [1, 0.6, 0.5] } });
- * native: { sheet, uv: [u0, v0, u1, v1] (top-left origin), tint?: [r, g, b] geoset colour, team?: team colour under the paint's alpha }.
- * Native parts share one geoset per sheet and colour; painted parts still share one painted texture.
+ * On a part of the open model (a new hilt on Frostmourne, horns on a helmet): kit.builder({ frame })
+ * with frame = (await api.module('sd-kitbash')).anchor(model, selection) builds in that part's own
+ * frame (+Z along it from its base end, +X its face), and b.commit(model, { attach: selection }) binds
+ * the new pieces to that part's bones; { bone: 'hand' } binds them to a bone.
  */
+import { bindToSelection } from './bits-and-parts.js';
+import { deleteNode } from './editor-document.js';
 import { commitForge, encodeForgeTga } from './forge.js';
 import { applyMaterialPreset } from './material-presets.js';
 
@@ -95,6 +98,15 @@ export const shapes = {
   crossguard: (w, h, sweep = h) => [[-w / 2, h * 0.1 + sweep], [-w * 0.42, -h * 0.2 + sweep * 0.4], [-w * 0.14, -h / 2], [w * 0.14, -h / 2], [w * 0.42, -h * 0.2 + sweep * 0.4], [w / 2, h * 0.1 + sweep], [w * 0.4, h * 0.5 + sweep * 0.2], [w * 0.12, h / 2], [-w * 0.12, h / 2], [-w * 0.4, h * 0.5 + sweep * 0.2]],
   /** A blade: width at the base, length along +y, tip length as a fraction. */
   blade: (width, length, tip = 0.25) => [[-width / 2, 0], [width / 2, 0], [width / 2, length * (1 - tip)], [0, length], [-width / 2, length * (1 - tip)]],
+  /** A blade with real points, no square steps: base width at y = 0 (inside the guard), a point of
+   * tip x length, flare widens it toward the point, waist narrows its middle, hook leans the point
+   * back (-x), teeth puts that many spikes on the back edge. Counter-clockwise, ready for edged or extrude. */
+  pointedBlade: (width, length, { tip = 0.3, flare = 0, waist = 0, hook = 0, teeth = 0, toothDepth = width * 0.3 } = {}) => {
+    // The base narrows into the guard so even its corners are not square steps.
+    const w = width / 2, h = length * (1 - tip);
+    const loop = [[-w * 0.8, 0], [w * 0.8, 0], [w, h * 0.12], [w * (1 - waist), h * 0.5], [w * (1 + flare), h], [-w * hook, length], [-w * (1 + flare * 0.5), h * (1 - tip * 0.3)], [-w * (1 - waist), h * 0.5], [-w, h * 0.12]];
+    return teeth > 0 ? serrate(loop, 6, 7, { teeth, depth: toothDepth, rake: -0.7 }) : loop;
+  },
   /** Spiked crown band: count teeth across width, height h, tooth height t. */
   crown: (width, h, t, count = 5) => [[-width / 2, 0], [width / 2, 0], ...Array.from({ length: count * 2 + 1 }, (_, i) => [width / 2 - (width * i) / (count * 2), h + (i % 2 ? t : 0)])],
 };
@@ -181,6 +193,77 @@ class Part {
     });
     return this;
   }
+  /** Smooth shading inside the piece, the way Blizzard and the owner light a part: each vertex
+   * normal averages the faces around its position (weighted by their corner angle) whose normal
+   * lies within angle degrees of the vertex's own; sharper turns stay hard. Hard breaks between
+   * materials come from separate pieces. 0 keeps every face flat. The builder's own normals stay
+   * in n0, where the painter looks for its painted creases. */
+  smooth(angle = 100) {
+    this.n0 = this.n.map(n => n.slice());
+    if (!(angle > 0)) return this;
+    const key = p => `${Math.round(p[0] * 1e4)},${Math.round(p[1] * 1e4)},${Math.round(p[2] * 1e4)}`, at = new Map();
+    for (const tri of this.tris) {
+      const f = V.norm(V.cross(V.sub(this.p[tri[1]], this.p[tri[0]]), V.sub(this.p[tri[2]], this.p[tri[0]])));
+      tri.forEach((v, j) => {
+        const e1 = V.norm(V.sub(this.p[tri[(j + 1) % 3]], this.p[v])), e2 = V.norm(V.sub(this.p[tri[(j + 2) % 3]], this.p[v]));
+        const k = key(this.p[v]);
+        (at.get(k) || at.set(k, []).get(k)).push({ f, w: Math.acos(clamp(V.dot(e1, e2), -1, 1)) });
+      });
+    }
+    const cos = Math.cos((angle * Math.PI) / 180);
+    this.n = this.p.map((p, v) => {
+      const own = this.n0[v];
+      let s = [0, 0, 0];
+      for (const { f, w } of at.get(key(p)) || []) if (V.dot(f, own) >= cos) s = V.add(s, V.mul(f, w));
+      return V.len(s) > 1e-9 ? V.norm(s) : own;
+    });
+    return this;
+  }
+}
+
+/** Interior angle (degrees) at each point of a closed outline: under 70 reads as a point, 80–100
+ * as a square step. SD outlines use points and slants; square steps read as pre-Warcraft blocks. */
+export function corners(outline) {
+  let loop = outline.map(p => [Number(p[0]), Number(p[1])]);
+  if (signedArea(loop) < 0) loop = loop.reverse();
+  const angles = loop.map((p, i) => {
+    const a = loop[(i + loop.length - 1) % loop.length], c = loop[(i + 1) % loop.length];
+    const u = [a[0] - p[0], a[1] - p[1]], v = [c[0] - p[0], c[1] - p[1]];
+    const inner = (Math.atan2(v[0] * u[1] - v[1] * u[0], u[0] * v[0] + u[1] * v[1]) * 180) / Math.PI;
+    return Math.round(inner < 0 ? inner + 360 : inner);
+  });
+  return { angles, acute: angles.filter(a => a < 70).length, square: angles.filter(a => a >= 80 && a <= 100).length, reflexSquare: angles.filter(a => a >= 260 && a <= 280).length };
+}
+
+/** Turn the outline's points from..to (indices, going forward) into a saw of teeth points pushed out
+ * by depth: back spikes, serrations, jagged crests. rake leans each point along the outline (a fraction
+ * of a tooth; negative leans back toward from) so the points are hooks, not square steps. Returns a new outline. */
+export function serrate(outline, from, to, { teeth = 4, depth = 3, rake = 0.8 } = {}) {
+  let loop = outline.map(p => [Number(p[0]), Number(p[1])]);
+  if (signedArea(loop) < 0) throw Error('Give serrate a counter-clockwise outline (kit.shapes outlines are).');
+  const n = loop.length, path = [];
+  for (let i = from; ; i = (i + 1) % n) { path.push(loop[i]); if (i === to || path.length > n) break; }
+  const lengths = [0];
+  for (let k = 1; k < path.length; k++) lengths.push(lengths[k - 1] + Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]));
+  const total = lengths.at(-1), at = d => {
+    let k = 1; while (k < path.length - 1 && lengths[k] < d) k++;
+    const t = (d - lengths[k - 1]) / (lengths[k] - lengths[k - 1] || 1), a = path[k - 1], b = path[k];
+    const e = [b[0] - a[0], b[1] - a[1]], l = Math.hypot(...e) || 1;
+    return { p: [a[0] + e[0] * t, a[1] + e[1] * t], out: [e[1] / l, -e[0] / l] };
+  };
+  const saw = [], tooth = total / teeth;
+  for (let k = 1; k < teeth * 2; k++) {
+    const { p, out } = at(k % 2 ? Math.min(total, Math.max(0, (total * k) / (teeth * 2) + rake * tooth * 0.5)) : (total * k) / (teeth * 2));
+    saw.push(k % 2 ? [p[0] + out[0] * depth, p[1] + out[1] * depth] : p);
+  }
+  const result = [];
+  for (let i = 0; i < n; i++) {
+    const inside = from <= to ? i > from && i < to : i > from || i < to;
+    if (inside) continue;
+    result.push(loop[i]);
+    if (i === from) result.push(...saw);
+  }
+  return result;
 }
 
 /** Revolve a [radius, z] profile around the local Z axis. Ends with a radius close themselves; sharp turns stay hard edges. */
@@ -262,9 +345,70 @@ function tubePart(path, radii, o) {
   return { part, rings };
 }
 
-export function builder() {
+/** A band between an outer and an inner line (2D, x right, y up, thickness along local Z): outerHalf
+ * thick at the outer line, innerHalf at the inner one (a cutting edge thins outward; a trim keeps one
+ * thickness). closed joins the ends; an open band gets end caps. One long island runs along the band. */
+function bandPart(outer, inner, { closed = false, innerHalf, outerHalf, innerWall = true, ...o }) {
+  const part = new Part(o.material, o), face = part.newIsland(), rim = part.newIsland(), m = outer.length;
+  if (m < 2 || inner.length !== m) throw Error('A band needs matching outer and inner lines of at least two points.');
+  const along = [0];
+  for (let k = 1; k <= m; k++) { const a = outer[k - 1], b = outer[k % m]; along.push(along[k - 1] + (k < m || closed ? Math.hypot(b[0] - a[0], b[1] - a[1]) : 0)); }
+  const across = outer.map((p, k) => Math.hypot(p[0] - inner[k][0], p[1] - inner[k][1])), w = Math.max(...across);
+  const P = (p, z) => [p[0], p[1], z];
+  // Each face gets the normal it should face (want); orient() then winds it to match.
+  const quad = (pts, uvs, island, want) => {
+    let n = V.norm(V.cross(V.sub(pts[1], pts[0]), V.sub(pts[3], pts[0])));
+    if (V.len(n) < 1e-9 || !Number.isFinite(n[0])) n = V.norm(want);
+    if (V.dot(n, want) < 0) n = V.mul(n, -1);
+    const v = pts.map((p, i) => part.vertex(p, n, uvs[i], island));
+    part.tri(v[0], v[1], v[2]); part.tri(v[0], v[2], v[3]);
+  };
+  const outward = (k, j) => { const d = [outer[k][0] + outer[j][0] - inner[k][0] - inner[j][0], outer[k][1] + outer[j][1] - inner[k][1] - inner[j][1], 0]; return V.len(d) > 1e-9 ? V.norm(d) : [1, 0, 0]; };
+  const r0 = 2 * outerHalf + 1;
+  for (let k = 0; k < (closed ? m : m - 1); k++) {
+    const j = (k + 1) % m, u0 = along[k], u1 = along[k + 1], out = outward(k, j);
+    quad([P(inner[k], innerHalf), P(inner[j], innerHalf), P(outer[j], outerHalf), P(outer[k], outerHalf)], [[u0, across[k]], [u1, across[j]], [u1, 0], [u0, 0]], face, [0, 0, 1]);
+    quad([P(outer[k], -outerHalf), P(outer[j], -outerHalf), P(inner[j], -innerHalf), P(inner[k], -innerHalf)], [[u0, 0], [u1, 0], [u1, across[j]], [u0, across[k]]], face, [0, 0, -1]);
+    if (outerHalf > 1e-4) quad([P(outer[k], outerHalf), P(outer[j], outerHalf), P(outer[j], -outerHalf), P(outer[k], -outerHalf)], [[u0, 0], [u1, 0], [u1, 2 * outerHalf], [u0, 2 * outerHalf]], rim, out);
+    if (innerWall) quad([P(inner[k], -innerHalf), P(inner[j], -innerHalf), P(inner[j], innerHalf), P(inner[k], innerHalf)], [[u0, r0], [u1, r0], [u1, r0 + 2 * innerHalf], [u0, r0 + 2 * innerHalf]], rim, V.mul(out, -1));
+  }
+  if (!closed)
+    for (const [k, j] of [[0, 1], [m - 1, m - 2]]) {
+      const d = V.norm([outer[k][0] - outer[j][0], outer[k][1] - outer[j][1], 0]), u = along.at(-1) + 1 + (k ? w + 1 : 0);
+      quad([P(inner[k], innerHalf), P(outer[k], outerHalf), P(outer[k], -outerHalf), P(inner[k], -innerHalf)], [[u, 0], [u + w, 0], [u + w, 2 * outerHalf + 0.5], [u, 2 * innerHalf]], rim, d);
+    }
+  part.kind = 'band';
+  return part;
+}
+
+// Inward direction at outline point i of a counter-clockwise loop: the miter of the two
+// neighbouring edges' inward normals, scaled to keep width from both (capped at 3x).
+function miter(loop, i, width) {
+  const n = loop.length, p = loop[i], a = loop[(i + n - 1) % n], c = loop[(i + 1) % n];
+  const inward = (s, t) => { const d = [t[0] - s[0], t[1] - s[1]], l = Math.hypot(...d) || 1; return [-d[1] / l, d[0] / l]; };
+  const n1 = inward(a, p), n2 = inward(p, c), b = [n1[0] + n2[0], n1[1] + n2[1]], bl = Math.hypot(...b) || 1, u = [b[0] / bl, b[1] / bl];
+  const s = Math.min(3, 1 / Math.max(0.2, u[0] * n1[0] + u[1] * n1[1]));
+  return [p[0] + u[0] * width * s, p[1] + u[1] * width * s];
+}
+// Where the edge band ends on the outline, its inner point slides along the next (non-edge)
+// outline edge, so the body outline stays simple and the band keeps its width.
+function slide(loop, i, toward, along, width) {
+  const p = loop[i], q = loop[toward], b = [q[0] - p[0], q[1] - p[1]], bl = Math.hypot(...b) || 1, d = [b[0] / bl, b[1] / bl];
+  const e = loop[along], el = Math.hypot(e[0] - p[0], e[1] - p[1]) || 1, sign = along === (i + 1) % loop.length ? 1 : -1;
+  const n = sign > 0 ? [-(e[1] - p[1]) / el, (e[0] - p[0]) / el] : [(e[1] - p[1]) / el, -(e[0] - p[0]) / el];
+  const s = Math.min(3 * width, width / Math.max(0.2, d[0] * n[0] + d[1] * n[1]), bl * 0.45);
+  return [p[0] + d[0] * s, p[1] + d[1] * s];
+}
+
+const ccw = outline => { const loop = (outline || []).map(p => [Number(p[0]), Number(p[1])]); if (loop.length < 3 || loop.some(p => !p.every(Number.isFinite))) throw Error('outline needs at least three [x, y] points.'); return signedArea(loop) < 0 ? loop.reverse() : loop; };
+const paintOf = (o, what) => { if (!o || (!o.material && !o.native)) throw Error(`Give the ${what} its own paint: material (an SD material) or native (a palette area), in contrast to the body.`); return o; };
+
+/** A builder of SD parts. frame (from sd-kitbash anchor) places everything in a part's own frame:
+ * local +Z runs along that part from its base, +X is its face normal, +Y its side. */
+export function builder({ frame = null } = {}) {
   const parts = [];
-  const add = (part, placement) => { parts.push(part.place(placement).orient()); return api; };
+  const push = (part, o = {}) => { parts.push(part.orient().smooth(o.smooth ?? 100)); return api; };
+  const add = (part, placement) => push(part.place(placement), placement);
   const api = {
     parts,
     /** Solid of revolution: cups, bowls, stems, bases, handles, helmets, bottles, columns. profile: [[radius, z], ...] bottom to top; go back down inside for a hollow cup. */
@@ -284,8 +428,7 @@ export function builder() {
       const out = [Math.cos(a) * Math.cos(t), Math.sin(a) * Math.cos(t), Math.sin(t)], up = [-Math.cos(a) * Math.sin(t), -Math.sin(a) * Math.sin(t), Math.cos(t)], side = V.cross(up, out);
       const basis = [[side[0], up[0], out[0]], [side[1], up[1], out[1]], [side[2], up[2], out[2]]];
       const at = V.add([Math.cos(a) * r, Math.sin(a) * r, z], V.mul(out, -depth * 0.1));
-      parts.push(extrudePart({ bevel: depth * 0.3, detail: 2, ...o, outline, depth }).place({ at }, basis).orient());
-      return api;
+      return push(extrudePart({ bevel: depth * 0.3, detail: 2, ...o, outline, depth }).place({ at }, basis), o);
     },
     /** Sword or axe blade standing along +Z from at: diamond cross-section (flat faces facing +X and -X meet at a ridge),
      * width across Y, a point of tip x length. taper narrows the width toward the point. */
@@ -303,7 +446,7 @@ export function builder() {
       const tri = (a, b, c, isl = face) => { const n = V.norm(V.cross(V.sub(b, a), V.sub(c, a))), v = [a, b, c].map(p => part.vertex(p, n, isl === face ? uvOf(p) : [p[0] + t, p[1] + w], isl)); part.tri(v[0], v[1], v[2]); };
       for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; quad(lo[i], lo[j], hi[j], hi[i]); tri(hi[i], hi[j], point); }
       tri(lo[0], lo[2], lo[1], cap); tri(lo[0], lo[3], lo[2], cap);
-      parts.push(part.place(o).orient()); return api;
+      return push(part.place(o), o);
     },
     /** Rectangular block with optional bevel. size: [x, y, z]. */
     box: o => { const [x, y, z] = finiteVector(o.size || [], 'size'); const part = extrudePart({ ...o, outline: shapes.rect(x, y), depth: z }); return add(part, o); },
@@ -315,7 +458,7 @@ export function builder() {
       const { part, rings } = tubePart(path, radii, { sides: 4, ...o });
       const d = V.norm(V.sub(path[1], path[0])), c = part.vertex(from, V.mul(d, -1), [0, -r], 0);
       for (let j = 0; j < rings[0].length - 1; j++) part.tri(c, rings[0][j + 1], rings[0][j]);
-      parts.push(part.orient()); return api;
+      return push(part, o);
     },
     /** Band or ring around local Z: rims, bands, collars, bracelets. */
     ring: o => {
@@ -329,8 +472,41 @@ export function builder() {
       const profile = Array.from({ length: rings + 1 }, (_, i) => { const a = -Math.PI / 2 + (Math.PI * i) / rings; return [r * Math.cos(a), r * Math.sin(a)]; });
       return add(lathePart({ segments: 8, ...o, profile, sharp: o.faceted ? 1 : 80 }), o);
     },
-    /** Pack and paint the painted parts into one texture and geoset; map native parts onto their game texture regions. */
-    commit: (model, options = {}) => commitParts(model, parts, options),
+    /** HQSD blade: a slab body in its own paint plus a separate thin cutting edge in a contrasting paint
+     * (edge: { material | native, width, from, to, depth, thin }) that runs along the outline from
+     * edge.from to edge.to (default: everything but the base) and thins to a line at the outside.
+     * outline: x across, y along the blade from its base (kit.shapes.pointedBlade); depth: body thickness. */
+    edged: o => {
+      const loop = ccw(o.outline || shapes.pointedBlade(Number(o.width ?? 12), Number(o.length ?? 60))), n = loop.length, e = paintOf(o.edge, 'edge');
+      paintOf(o, 'blade body');
+      const depth = Number(o.depth ?? 4), xs = loop.map(p => p[0]), width = Number(e.width ?? Math.max(1.2, (Math.max(...xs) - Math.min(...xs)) * 0.2));
+      // The base is the outline's lowest edge; by default the cutting edge is all the rest.
+      let base = 0;
+      loop.forEach((p, i) => { if (p[1] + loop[(i + 1) % n][1] < loop[base][1] + loop[(base + 1) % n][1]) base = i; });
+      // closed: an edge all the way round (a disc or a star blade).
+      const closed = !!e.closed, from = closed ? 0 : e.from ?? (base + 1) % n, to = closed ? n - 1 : e.to ?? base, path = [];
+      for (let i = from; ; i = (i + 1) % n) { path.push(i); if (i === to || path.length >= n) break; }
+      const inner = path.map((i, k) => (!closed && k === 0 ? slide(loop, i, (i + n - 1) % n, (i + 1) % n, width) : !closed && k === path.length - 1 ? slide(loop, i, (i + 1) % n, (i + n - 1) % n, width) : miter(loop, i, width)));
+      const body = loop.map((p, i) => (path.includes(i) ? inner[path.indexOf(i)] : p));
+      const placement = { at: o.at, rotate: o.rotate, scale: o.scale };
+      add(extrudePart({ ...o, edge: undefined, outline: body, depth, bevel: Number(o.bevel ?? 0) }), placement);
+      // The edge's inner face lies against the body's wall, unseen, so it is left out.
+      return add(bandPart(path.map(i => loop[i]), inner, { ...e, closed, innerWall: false, innerHalf: Number(e.depth ?? depth * 0.85) / 2, outerHalf: Number(e.thin ?? depth * 0.12) / 2 }), { ...placement, smooth: e.smooth ?? o.smooth });
+    },
+    /** A layered trim: a rim band in its own paint following an outline (the same outline as the plate it
+     * sits on), width wide, depth thick (deeper than the plate so it stands proud of both faces),
+     * overhang past the plate's edge. from/to (outline indices) make an open trim along part of it. */
+    trim: o => {
+      const loop = ccw(o.outline), n = loop.length, width = Number(o.width ?? 2.5), depth = Number(o.depth ?? 5), over = Number(o.overhang ?? 0.4);
+      paintOf(o, 'trim');
+      const outer = inset(loop, -over), inner = inset(loop, width), path = [];
+      if (o.from == null) path.push(...loop.keys());
+      else for (let i = o.from; ; i = (i + 1) % n) { path.push(i); if (i === (o.to ?? o.from) || path.length >= n) break; }
+      return add(bandPart(path.map(i => outer[i]), path.map(i => inner[i]), { ...o, closed: o.from == null, innerHalf: depth / 2, outerHalf: depth / 2 }), o);
+    },
+    /** Pack and paint the painted parts into one texture and geoset; map native parts onto their game texture regions.
+     * attach: a selection of an existing part whose bones the new geosets take (nearest vertex), or bone: a bone name or id. */
+    commit: (model, options = {}) => commitParts(model, parts, { frame, ...options }),
   };
   return api;
 }
@@ -348,16 +524,79 @@ function nativeRegion(region) {
 
 function commitParts(model, parts, options = {}) {
   if (!parts.length) throw Error('Add at least one part before commit.');
-  const painted = parts.filter(p => !p.native), native = parts.filter(p => p.native);
-  const result = painted.length ? commitSd(model, painted, options) : { model, assets: [], triangles: 0, texture: null, geoset: null };
-  if (!native.length) return result;
-  const nativeResult = commitNative(model, native);
-  return { ...result, triangles: result.triangles + nativeResult.triangles, texture: result.texture ?? nativeResult.textures[0], geoset: result.geoset ?? nativeResult.geosets[0], native: nativeResult };
+  const painted = parts.filter(p => !p.native), native = parts.filter(p => p.native), hadDummy = dummyBone(model);
+  let result = painted.length ? commitSd(model, painted, options) : { model, assets: [], triangles: 0, texture: null, geoset: null };
+  if (native.length) {
+    const nativeResult = commitNative(model, native, options);
+    result = { ...result, triangles: result.triangles + nativeResult.triangles, texture: result.texture ?? nativeResult.textures[0], geoset: result.geoset ?? nativeResult.geosets[0], native: nativeResult };
+  }
+  const geosets = [...(result.geoset != null && painted.length ? [result.geoset] : []), ...(result.native?.geosets || [])];
+  attachGeosets(model, geosets, { ...options, keepDummy: hadDummy });
+  return { ...result, geosets };
+}
+
+// Parts built in a part's frame (sd-kitbash anchor) are painted upright in their own space and placed on commit.
+const framed = frame => {
+  if (!frame) return { place: p => p, turn: n => n };
+  const { origin, normal, side, axis } = frame;
+  if (![origin, normal, side, axis].every(v => Array.isArray(v) && v.length === 3)) throw Error('frame needs origin, normal, side and axis (use sd-kitbash anchor).');
+  const map = v => [0, 1, 2].map(a => normal[a] * v[0] + side[a] * v[1] + axis[a] * v[2]);
+  return { place: p => V.add(origin, map(p)), turn: n => V.norm(map(n)) };
+};
+
+const dummyBone = model => (model.Bones || []).find(b => b.Name === 'DummyBone') || null;
+/** A bone's ObjectId by name (case-insensitive: the whole name first, then part of it) or by id. */
+export function boneId(model, bone) {
+  if (Number.isInteger(bone)) return bone;
+  const b = String(bone).toLowerCase(), nodes = [...(model.Bones || []), ...(model.Helpers || [])];
+  const hit = nodes.find(n => n.Name?.toLowerCase() === b) || nodes.find(n => n.Name?.toLowerCase().includes(b));
+  if (!hit) throw Error(`No bone named like ${bone}. Bones: ${(model.Bones || []).map(n => n.Name).join(', ')}.`);
+  return hit.ObjectId;
+}
+/** Bind new geosets to an existing part: attach (a selection: each vertex takes the bones of the
+ * nearest selected vertex, as a replacement part does) or bone (a name or id, rigid). The editor's
+ * import anchor bone is removed again when it was new and nothing uses it. */
+export function attachGeosets(model, indices, { attach, bone, keepDummy = true } = {}) {
+  if (!indices.length || (!attach && bone == null)) return;
+  if (attach) bindToSelection(model, indices, attach);
+  else {
+    const id = boneId(model, bone);
+    for (const i of indices) {
+      const g = model.Geosets[i], count = g.Vertices.length / 3;
+      g.Groups = [[id]]; g.TotalGroupsCount = 1; g.VertexGroup = new Uint8Array(count);
+      if (g.SkinWeights?.length) for (let v = 0; v < count; v++) g.SkinWeights.set([id, 0, 0, 0, 255, 0, 0, 0], v * 8);
+    }
+  }
+  const dummy = dummyBone(model);
+  if (dummy && !keepDummy && !(model.Geosets || []).some(g => (g.Groups || []).some(group => group.includes(dummy.ObjectId)))) deleteNode(model, dummy.ObjectId);
+}
+
+/** Fit UV islands into a native region: each island keeps its shape and is scaled into the region,
+ * turned so its long side runs along the region's long side (region.size in pixels decides which
+ * side is long and keeps painted detail unstretched). uvs: [[u, v]] per vertex; island: the island
+ * index of each vertex; count: the number of islands. Returns the new [u, v] per vertex. */
+export function fitIslands(uvs, island, count, region) {
+  const n = nativeRegion(region), [u0, v0, u1, v1] = n.uv, inset = 0.04, rw = (u1 - u0) * (1 - inset * 2), rh = (v1 - v0) * (1 - inset * 2);
+  const pw = rw * n.size[0], ph = rh * n.size[1], out = new Array(uvs.length);
+  for (let i = 0; i < count; i++) {
+    const verts = uvs.map((_, k) => (island[k] === i ? k : -1)).filter(k => k >= 0);
+    if (!verts.length) continue;
+    const xs = verts.map(k => uvs[k][0]), ys = verts.map(k => uvs[k][1]);
+    const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(...xs) - x0 || 1e-3, h = Math.max(...ys) - y0 || 1e-3;
+    const rot = (w >= h) !== (pw >= ph), iw = rot ? h : w, ih = rot ? w : h, s = Math.min(pw / iw, ph / ih);
+    const cu = (pw - iw * s) / 2, cv = (ph - ih * s) / 2;
+    for (const k of verts) {
+      const a = uvs[k][0] - x0, b = uvs[k][1] - y0, [x, y] = rot ? [b, w - a] : [a, b];
+      out[k] = [u0 + (u1 - u0) * inset + (cu + x * s) / n.size[0], v0 + (v1 - v0) * inset + (cv + y * s) / n.size[1]];
+    }
+  }
+  return out.map(uv => uv || [(u0 + u1) / 2, (v0 + v1) / 2]);
 }
 
 // Native parts: each island keeps its shape and is fitted into the region, long side along
 // the region's long side. One geoset per sheet and colour, like an SD model's material groups.
-function commitNative(model, parts) {
+function commitNative(model, parts, { frame } = {}) {
+  const { place, turn } = framed(frame);
   const groups = new Map();
   for (const part of parts) {
     const n = part.native, k = [n.sheet.toLowerCase(), n.tint?.join(',') || '', n.team ? 'team' : '', n.alpha > 0.05 ? 'alpha' : ''].join('|');
@@ -367,24 +606,10 @@ function commitNative(model, parts) {
   let triangles = 0;
   for (const { n, parts: list } of groups.values()) {
     const Vertices = [], Normals = [], uvs = [], Faces = [];
-    const [u0, v0, u1, v1] = n.uv, inset = 0.04, rw = (u1 - u0) * (1 - inset * 2), rh = (v1 - v0) * (1 - inset * 2);
-    // Region size in pixels decides which way is long and keeps painted detail unstretched.
-    const pw = rw * n.size[0], ph = rh * n.size[1];
     for (const part of list) {
-      const base = Vertices.length / 3, local = new Array(part.p.length);
-      for (let i = 0; i < part.islands; i++) {
-        const verts = part.uv.map((_, k) => (part.island[k] === i ? k : -1)).filter(k => k >= 0);
-        if (!verts.length) continue;
-        const xs = verts.map(k => part.uv[k][0]), ys = verts.map(k => part.uv[k][1]);
-        const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(...xs) - x0 || 1e-3, h = Math.max(...ys) - y0 || 1e-3;
-        const rot = (w >= h) !== (pw >= ph), iw = rot ? h : w, ih = rot ? w : h, s = Math.min(pw / iw, ph / ih);
-        const cu = (pw - iw * s) / 2, cv = (ph - ih * s) / 2;
-        for (const k of verts) {
-          const a = part.uv[k][0] - x0, b = part.uv[k][1] - y0, [x, y] = rot ? [b, w - a] : [a, b];
-          local[k] = [u0 + (u1 - u0) * inset + (cu + x * s) / n.size[0], v0 + (v1 - v0) * inset + (cv + y * s) / n.size[1]];
-        }
-      }
-      part.p.forEach((p, k) => { Vertices.push(...p); Normals.push(...part.n[k]); uvs.push(...(local[k] || [(u0 + u1) / 2, (v0 + v1) / 2])); });
+      // Each part keeps its own area of the shared sheet.
+      const base = Vertices.length / 3, local = fitIslands(part.uv, part.island, part.islands, part.native);
+      part.p.forEach((p, k) => { Vertices.push(...place(p)); Normals.push(...turn(part.n[k])); uvs.push(...local[k]); });
       for (const t of part.tris) Faces.push(base + t[0], base + t[1], base + t[2]);
     }
     if (Vertices.length / 3 > 65535) throw Error('Too many vertices for one Warcraft geoset.');
@@ -451,7 +676,7 @@ function pack(parts, width, height) {
   return best;
 }
 
-function commitSd(model, parts, { name = 'SDProp', size = 256, pathName } = {}) {
+function commitSd(model, parts, { name = 'SDProp', size = 256, pathName, frame } = {}) {
   if (!parts.length) throw Error('Add at least one part before commit.');
   const [width, height] = Array.isArray(size) ? size : [size, size];
   if (![width, height].every(n => [64, 128, 256, 512, 1024].includes(n))) throw Error('size must be 64, 128, 256, 512 or 1024 (or [width, height]).');
@@ -488,7 +713,8 @@ function commitSd(model, parts, { name = 'SDProp', size = 256, pathName } = {}) 
       if (list.length === 1) { flags.set(list[0].ti + ':' + list[0].a, 1); continue; }
       const [x, y] = list, fn = t => { const [a, b, c] = part.tris[t]; return V.norm(V.cross(V.sub(part.p[b], part.p[a]), V.sub(part.p[c], part.p[a]))); };
       const n1 = fn(x.ti), n2 = fn(y.ti), angle = (Math.acos(clamp(V.dot(n1, n2), -1, 1)) * 180) / Math.PI;
-      const hard = keyOf(part.n[x.a].map(v => v * 10)) !== keyOf(part.n[y.b].map(v => v * 10)) || keyOf(part.n[x.b].map(v => v * 10)) !== keyOf(part.n[y.a].map(v => v * 10));
+      // Painted creases follow the builder's own hard edges, not the smoothed shading normals.
+      const n0 = part.n0 || part.n, hard = keyOf(n0[x.a].map(v => v * 10)) !== keyOf(n0[y.b].map(v => v * 10)) || keyOf(n0[x.b].map(v => v * 10)) !== keyOf(n0[y.a].map(v => v * 10));
       if (!hard || angle < 20) continue;
       const convex = V.dot(V.sub(part.p[y.c], part.p[x.a]), n1) < 0 ? 1 : -1;
       flags.set(x.ti + ':' + x.a, convex); flags.set(y.ti + ':' + y.a, convex);
@@ -566,10 +792,10 @@ function commitSd(model, parts, { name = 'SDProp', size = 256, pathName } = {}) 
   }
   dilate(data, owner, width, height, 4);
   // One geoset: the packed UVs in 0..1 with the texture's top-left origin.
-  const Vertices = [], Normals = [], uvs = [], Faces = [];
+  const Vertices = [], Normals = [], uvs = [], Faces = [], { place, turn } = framed(frame);
   for (const [pi, part] of parts.entries()) {
     const base = Vertices.length / 3;
-    part.p.forEach((p, k) => { Vertices.push(...p); Normals.push(...part.n[k]); const [u, v] = uvOf.get(pi + ':' + k); uvs.push(u / width, v / height); });
+    part.p.forEach((p, k) => { Vertices.push(...place(p)); Normals.push(...turn(part.n[k])); const [u, v] = uvOf.get(pi + ':' + k); uvs.push(u / width, v / height); });
     for (const t of part.tris) Faces.push(base + t[0], base + t[1], base + t[2]);
   }
   if (Vertices.length / 3 > 65535) throw Error('Too many vertices for one Warcraft geoset.');

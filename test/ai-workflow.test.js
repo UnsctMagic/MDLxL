@@ -415,3 +415,26 @@ test('with SD Brain on, a passed review needs a verdict per criterion and repeat
   assert.ok((await g.service.conversation('test', 'compatible')).task.corrections['detail-value'] >= 3);
   assert.ok(g.events.some(e => e.type === 'tool-result' && /failed three times/.test(e.summary || '')));
 });
+
+test('SD Brain directs a kitbash: the director gets the box of parts, the BITZ box and weapon references', async t => {
+  const received = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  f.service.listParts = async () => ({ children: [{ type: 'folder', children: [{ type: 'model', id: 'Helms/Nurgle Helm.mdx' }] }, { type: 'model', id: 'Traitor Axe.mdx' }] });
+  await f.service.setSdBrain(true);
+  assert.equal((await f.service.send({ id: 'test', text: 'make me a sword with a brutal look', context })).ok, true);
+  const art = f.arts[0], director = art.messages.find(m => m.role === 'system').content, evidence = art.messages.find(m => m.role === 'user').content[0].text;
+  assert.match(director, /kitbash brief/);
+  assert.match(director, /Native first/);
+  assert.match(director, /Team colour is a design choice[^.]*never a default on weapons/);
+  assert.match(director, /never sized by the item population/);
+  assert.match(evidence, /Weapon references/);
+  assert.doesNotMatch(evidence, /Observed item population/);
+  assert.match(evidence, /BITZ box[^\n]*Helms\/Nurgle Helm\.mdx, Traitor Axe\.mdx/);
+  // The builder gets the moves and the rule to look at a sheet before using it.
+  const builder = received.at(-1).messages.find(m => m.role === 'system').content;
+  assert.match(builder, /Palettes by looking[^]*Never use an area you have not looked at/);
+  assert.match(builder, /sd-kitbash[^]*bash\.replace[^]*bash\.repaint/);
+});

@@ -1,5 +1,5 @@
 import { openDocument } from '../src/editor-document.js';
-import { decodeTextureThumbnail, thumbnailPixels } from '../src/texture-thumbnail.js';
+import { decodeTextureArea, thumbnailPixels } from '../src/texture-thumbnail.js';
 import { isForgeAssetPath } from '../src/forge-assets.js';
 import { prepareTextureLibrary, searchTextureLibrary } from '../src/texture-library-search.js';
 
@@ -41,6 +41,16 @@ export function validateAiAssets(assets, model, existing = new Map()) {
   return assets;
 }
 
+async function previewTexture(name, args, state, desktop, active) {
+  const key = name.replaceAll('/', '\\').toLowerCase();
+  const asset =
+    state.session.assets?.get(key) || (await desktop.resolveTextures({ path: state.session.path, names: [name] }))?.[0];
+  active();
+  if (!asset) throw Error(`${name} could not be resolved by the editor.`);
+  const area = await decodeTextureArea(asset, { uv: args.uv || [0, 0, 1, 1], maxDimension: args.uv ? 768 : 1024 });
+  return { ...area, texture: name };
+}
+
 /** Reuse the installed library and codecs. No downloads, external services or shell. */
 export async function aiAssets(args, host, active, desktop = window.desktop) {
   const state = host.state(),
@@ -58,14 +68,14 @@ export async function aiAssets(args, host, active, desktop = window.desktop) {
     if (action === 'preview') {
       const texture = state.model.Textures[args.textureId];
       if (!texture?.Image) throw Error('Choose an image texture in this model.');
-      const key = texture.Image.replaceAll('/', '\\').toLowerCase();
-      const asset =
-        state.session.assets?.get(key) ||
-        (await desktop.resolveTextures({ path: state.session.path, names: [texture.Image] }))?.[0];
-      active();
-      if (!asset) throw Error('This texture could not be resolved by the editor.');
-      return { image: await decodeTextureThumbnail(asset, 1024) };
+      return previewTexture(texture.Image, args, state, desktop, active);
     }
+  }
+  // Any texture the editor can resolve (game sheets by path), or an area of it with a uv grid.
+  if (source === 'textures' && action === 'preview') {
+    if (typeof args.path !== 'string' || !args.path.trim())
+      throw Error('Give path, the texture path to look at (for example Textures\\Footman.blp).');
+    return previewTexture(args.path.trim(), args, state, desktop, active);
   }
   if (source === 'parts') {
     if (action === 'search') {

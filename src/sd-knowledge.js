@@ -9,6 +9,9 @@
  *   know.findFactions('nurgle')                  // what makes a faction read as itself
  *   know.findChapters('chain') / know.chapter(id)
  *   know.checkAgainstNorms(model, 'item')        // the open model next to its category
+ *   know.findParts('frostmourne') / ('grunt head') // the box of parts: which game model carries it, where
+ *   know.findBases('orc warlord')                // game models to start a kitbash from
+ *   know.weaponReferences()                      // real weapon parts, for size and construction
  *
  * A region is a rectangle fully inside a real UV island that a reviewed model paints
  * with that look. Its tags describe the rendered part: when a region carries tint
@@ -17,6 +20,7 @@
  * new part onto it. Everything here is observation, not a rule or a limit.
  */
 import DATA from './sd-knowledge-data.js';
+import PARTS from './sd-parts-data.js';
 
 export const SD_KNOWLEDGE_SOURCE = DATA.source;
 export const SD_FOOTMAN_HEIGHT = DATA.footmanHeight;
@@ -236,6 +240,90 @@ export function chapter(id) {
   return c.text;
 }
 
+// The box of parts: recognisable parts of game models (src/sd-parts-data.js, built by
+// scripts/sd-knowledge/build-parts.mjs), each found again in the installed game by loading it.
+const PART_KIND_WORDS = {
+  weapon: ['weapon', 'sword', 'blade', 'axe', 'hammer', 'mace', 'club', 'spear', 'staff', 'bow', 'glaive', 'warglaive', 'polearm', 'cleaver', 'dagger', 'knife', 'haft', 'hilt', 'scythe', 'lance', 'halberd', 'flail', 'maul', 'rifle', 'gun', 'frostmourne', 'doomhammer', 'gorehowl'],
+  helmet: ['helmet', 'helm', 'hood', 'headdress', 'crown', 'visor', 'crest', 'cowl', 'cap'],
+  shield: ['shield', 'buckler'],
+  head: ['head', 'face', 'skull'],
+  horn: ['horn', 'horns', 'spike', 'spikes', 'tusk', 'tusks', 'fang', 'fangs', 'antler'],
+  hair: ['hair', 'beard', 'moustache', 'mustache', 'mane', 'ponytail'],
+  armour: ['pauldron', 'pauldrons', 'shoulder', 'armour', 'armor', 'bracer', 'gauntlet', 'greave', 'boot', 'collar'],
+  cloth: ['cape', 'cloak', 'robe', 'sleeve'],
+};
+const modelOf = id => PARTS.models.find(m => m.id === id);
+const partEntry = p => { const m = modelOf(p.model); return { ...p, id: `${p.model}:${p.geoset}:${p.piece}`, name: m?.name || p.model, path: m?.path }; };
+const kindOfWords = list => Object.entries(PART_KIND_WORDS).find(([, ws]) => list.some(w => ws.includes(w) || ws.includes(stem(w))))?.[0] || null;
+// Words that name a faction or a rank rather than one model never narrow the search to a model.
+const SHARED_NAME_WORDS = new Set(['orc', 'orcs', 'human', 'undead', 'demon', 'elf', 'elves', 'night', 'dark', 'chaos', 'fel', 'skeletal', 'lord', 'hero', 'king', 'with', 'form', 'foot', 'paladin', 'death']);
+const nameWords = m => m.name.toLowerCase().split(/[^a-z']+/).filter(w => w && !SHARED_NAME_WORDS.has(w));
+const namedModels = list => PARTS.models.filter(m => list.includes(m.id) || list.some(w => w.length > 2 && nameWords(m).includes(w)));
+
+/** Parts of game models that match the words, best first: { id, name, path, geoset, piece, triangles,
+ * size, center, bone, kind, label, family?, material?, textures, check }. A model name in the words
+ * ("grunt head", "arthas sword") limits the search to that model; kind: weapon, helmet, shield, head,
+ * horn, hair, armour, cloth, body, ornament or other. Load the model (mdlxl_assets game reference) and
+ * select the piece with sd-kitbash select(model, entry). */
+export function findParts(query, { kind, model, limit = 8 } = {}) {
+  const list = words(query), groups = terms(query);
+  kind ||= kindOfWords(list);
+  const named = namedModels(list), faction = list.find(w => PARTS.models.some(m => m.faction === w));
+  const scored = [];
+  for (const p of PARTS.parts) {
+    if (kind && p.kind !== kind) continue;
+    if (model && p.model !== model && modelOf(p.model)?.name.toLowerCase() !== String(model).toLowerCase()) continue;
+    if (named.length && !named.some(m => m.id === p.model)) continue;
+    // A model named by its own id (grunt) outranks one that only shares the word (Chaos Grunt).
+    let score = named.length ? 4 + (list.includes(p.model) ? 3 : 0) : 0;
+    const text = `${p.label} ${p.family || ''} ${p.material || ''}`.toLowerCase();
+    for (const g of groups) score += has(text, g) ? 3 : 0;
+    // The very word asked for (sword, not only blade) and the faction asked for count extra.
+    for (const w of list) score += new RegExp(`\\b${w}`).test(text) ? 2 : 0;
+    if (faction && modelOf(p.model)?.faction === faction) score += 2;
+    score += Math.min(2, p.triangles / 60) + (p.check.startsWith('picture') ? 0.5 : 0);
+    if (score >= 3 || (kind && score > 0)) scored.push({ p, score });
+  }
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit).map(x => partEntry(x.p));
+}
+/** One box-of-parts entry by its id ('grunt:7:0' = model id, geoset, piece), with its model path. */
+export function part(id) {
+  const [model, geoset, piece] = String(id).split(':'), p = PARTS.parts.find(x => x.model === model && x.geoset === Number(geoset) && x.piece === Number(piece));
+  if (!p) throw Error(`No part ${id} in the box of parts; find one with findParts(words).`);
+  return partEntry(p);
+}
+/** Every listed part of one game model (by id like 'grunt' or its name). */
+export const partsOf = model => PARTS.parts.filter(p => p.model === model || modelOf(p.model)?.name.toLowerCase() === String(model).toLowerCase()).map(partEntry);
+
+/** Game models to start a kitbash from for the words (units and heroes): { id, name, path, faction,
+ * category, triangles, bones, height, sheets, parts: { kind: count } }. */
+export function findBases(query, { limit = 6 } = {}) {
+  const list = words(query), hero = guessCategory(query) === 'hero';
+  return PARTS.models
+    .filter(m => m.category === 'unit' || m.category === 'hero')
+    .map(m => ({ m, listed: PARTS.parts.filter(p => p.model === m.id).length, score: list.reduce((s, w) => s + (m.id === w || nameWords(m).includes(w) ? 5 : m.faction === w || m.faction === stem(w) ? 2 : 0), 0) + (m.category === (hero ? 'hero' : 'unit') ? 0.5 : 0) }))
+    .filter(x => x.score > 1)
+    // Ties go to the models whose parts are mapped best (the research's reviewed units).
+    .sort((a, b) => b.score - a.score || b.listed - a.listed)
+    .slice(0, limit)
+    .map(({ m }) => ({ ...m, parts: PARTS.parts.filter(p => p.model === m.id).reduce((c, p) => ({ ...c, [p.kind]: (c[p.kind] || 0) + 1 }), {}) }));
+}
+
+// Weapon parts that show how Blizzard builds a held weapon: [model id, label start].
+const WEAPON_REFERENCES = [['footman', 'Straight sword blade'], ['footman', 'Diamond sword guard'], ['heroblademaster', 'Long sword blade'], ['knight', 'Sword blade'], ['herodeathknight', 'Runed sword'], ['undeadarthas', 'Frostmourne'], ['skeleton', 'Curved sword blade'], ['thecaptain', 'Sword'], ['herochaosblademaster', 'Jagged'], ['doomguard', 'Jagged dark sword'], ['grunt', 'Heavy axe blade'], ['grunt', 'Axe haft'], ['hellscream', 'Gorehowl, notched'], ['heromountainking', 'Rectangular hammer head'], ['heromountainking', 'Wide axe head'], ['thrallmountless', 'Doomhammer'], ['abomination', 'Bloody cleaver'], ['magnataur', 'Polearm blade'], ['heroarchmage', 'Archmage staff'], ['herodemonhunter', 'Crescent glaive blade']];
+/** Real weapon parts with their triangles and longest side (units; Footman = 98 tall), for size and
+ * construction. A held weapon is measured against these, not against the item population. */
+export function weaponReferences() {
+  return WEAPON_REFERENCES.map(([model, label]) => PARTS.parts.find(p => p.model === model && p.kind === 'weapon' && p.label.startsWith(label))).filter(Boolean)
+    .map(p => ({ ...partEntry(p), length: Math.round(Math.max(...p.size)) }));
+}
+const WEAPON_WORDS = new Set([...PART_KIND_WORDS.weapon.filter(w => !['weapon', 'haft', 'hilt'].includes(w)), 'falchion', 'sabre', 'saber', 'katana', 'warhammer', 'battleaxe', 'greatsword', 'longsword', 'pike', 'trident']);
+/** True when the request is a weapon on its own (not a unit carrying one). */
+export function isWeaponRequest(text) {
+  const category = guessCategory(text);
+  return (!category || category === 'item') && words(text).some(w => WEAPON_WORDS.has(w) || WEAPON_WORDS.has(stem(w)));
+}
+
 // Visible triangles and distinct diffuse images of a model, the way the research counted them.
 function modelCounts(model) {
   const visible = (model.Geosets || []).map((g, i) => {
@@ -275,25 +363,34 @@ const excerpt = (text, max) => {
   return body.length <= max ? body : body.slice(0, body.lastIndexOf('\n', max) > max * 0.6 ? body.lastIndexOf('\n', max) : max) + '\n…';
 };
 
-/** The evidence block the art director receives with a request: norms, faction notes, real parts,
- * native paint, then as much of the matching study chapters as the budget leaves. */
-export function briefEvidence(text, { existing = false, budget = 9000 } = {}) {
-  const fixed = [], category = guessCategory(text) || (existing ? null : 'item');
+/** The evidence block the art director receives with a request: norms (or, for a weapon, real weapon
+ * parts), faction notes, the box of parts (bases and parts that fit, the owner's BITZ box), real
+ * construction, palette areas to start looking at, then as much of the matching study chapters as the
+ * budget leaves. bitz: names in the owner's BitsAndParts box. */
+export function briefEvidence(text, { existing = false, budget = 11000, bitz = [] } = {}) {
+  const fixed = [], weapon = !existing && isWeaponRequest(text), category = guessCategory(text) || (existing ? null : 'item');
   const norm = category && categoryNorms(category), lpw = category && categoryNorms(category, 'lowpolyworks');
-  if (norm)
+  if (weapon)
+    fixed.push('Weapon references (Blizzard SD parts; a held weapon is sized and built like these, not like the item population): ' +
+      weaponReferences().map(r => `${r.name} ${r.label.toLowerCase()} ${r.triangles} tris, ${r.length} long [${r.id}]`).join('; ') + '. [model:geoset:piece] ids open with know.part(id).');
+  else if (norm)
     fixed.push(`Observed ${category} population: Blizzard SD ${norm.count} models, visible body triangles p10/median/p90 ${norm.bodyTriangles.p10}/${norm.bodyTriangles.median}/${norm.bodyTriangles.p90}, diffuse sheets median ${norm.sheets.median}, height ${norm.heightFootman?.median ?? '?'} Footman heights (Footman = ${SD_FOOTMAN_HEIGHT} units).` +
       (lpw ? ` LowPolyWorks ${category}s: median ${lpw.bodyTriangles.median} triangles, ${lpw.sheets.median} sheets.` : ''));
   for (const f of findFactions(text)) fixed.push(`${f.title}:\n` + f.observations.slice(0, 3).map(o => '- ' + (o.length > 420 ? o.slice(0, 420) + '…' : o)).join('\n'));
+  const bases = category === 'unit' || category === 'hero' ? findBases(text) : [], parts = findParts(text, { limit: 8 });
+  if (bases.length) fixed.push('Bases in the box of parts (game models to start from): ' + bases.map(b => `${b.name} (${b.path}, ${b.triangles} tris, ${b.bones} bones, ${b.height} tall)`).join('; ') + '.');
+  if (parts.length) fixed.push('Box of parts for this request (model, part, path, geoset and piece, triangles, size, bone):\n' + parts.map(p => `- ${p.name}: ${p.label}, ${p.path} geoset ${p.geoset} piece ${p.piece}, ${p.triangles} tris, size ${p.size.join('x')}, bone ${p.bone}`).join('\n'));
+  if (bitz.length) fixed.push(`The owner's BITZ box (his own kitbash parts, loaded with mdlxl_assets source parts): ${bitz.slice(0, 60).join(', ')}.`);
   const families = findFamilies(text, { limit: 3 });
   if (families.length)
     fixed.push('Real parts of this kind (model, label, triangles, distinct positions, cross-section corners at 25/50/75%):\n' + families.map(f => `${f.family} (${f.count} reviewed):\n` + f.members.slice(0, 8).map(m => `- ${m.model} (${m.from}): ${m.label}, ${m.tris} tris, ${m.positions} positions, ${m.shape}${m.sections.length ? `, sections ${m.sections.join('/')}` : ''}${m.materials.length ? `, ${m.materials.join('; ')}` : ''}`).join('\n')).join('\n'));
   const look = words(text).filter(w => SYNONYMS[w] || SYNONYMS[stem(w)]).join(' ') || text;
   const materials = findMaterials(look, { limit: 8 });
-  if (materials.length) fixed.push('Native paint that reviewed models use for this look (game texture path, region uv [u0, v0, u1, v1], top-left origin):\n' + materials.map(line).join('\n'));
+  if (materials.length) fixed.push('Palette areas that reviewed models used for this look (where to start looking: the builder previews the sheet and picks the area by what the pixels show; game texture path, uv [u0, v0, u1, v1], top-left origin):\n' + materials.map(line).join('\n'));
   let out = fixed.join('\n\n');
   if (out.length > budget) return out.slice(0, budget) + '\n…';
   // Chapters fill what is left: the subject chapters first, the category chapter last.
-  const categoryChapter = category && DATA.chapters.find(c => c.id === `categories/${category}s`);
+  const categoryChapter = category && !weapon && DATA.chapters.find(c => c.id === `categories/${category}s`);
   const subjects = findChapters(text + ' ' + families.map(f => f.family.replaceAll('-', ' ')).join(' '), { limit: 3 })
     .filter(c => c.id !== categoryChapter?.id).slice(0, 2).map(c => DATA.chapters.find(x => x.id === c.id));
   const list = [...subjects, ...(categoryChapter ? [categoryChapter] : [])], room = budget - out.length - 80;

@@ -296,6 +296,13 @@ function inheritPartBindings(geoset, donors, version) {
   geoset.TotalGroupsCount = geoset.Groups.reduce((sum, group) => sum + group.length, 0);
 }
 
+/** Bind whole geosets to the bones of the nearest selected vertices, the way a replacement part
+ * inherits the bindings of the part it replaces (used to attach new parts to an existing one). */
+export function bindToSelection(model, geosetIndices, selection) {
+  const donors = replacementVertices(model, selection);
+  for (const index of geosetIndices) inheritPartBindings(model.Geosets[index], donors, model.Version);
+}
+
 export function transformPart(source, payload) {
   const model = structuredClone(source);
   const selection = Object.fromEntries(model.Geosets.map((geoset, index) => [index, Array.from({ length: geoset.Vertices.length / 3 }, (_, id) => id)]));

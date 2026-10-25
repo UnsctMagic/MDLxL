@@ -33,8 +33,10 @@ const {
 } = require('./ai-offload.cjs');
 
 class AiService {
-  constructor({ root, profile, electron, getWindow, sdBrainAvailable }) {
+  constructor({ root, profile, electron, getWindow, sdBrainAvailable, listParts }) {
     this.root = root;
+    // The owner's BitsAndParts box, named to the SD Brain art director.
+    this.listParts = listParts;
     // Tests may bring SD Brain back while it is parked; otherwise src/ai-sd-rules.js decides.
     this.sdBrainOverride = sdBrainAvailable;
     this.directory = path.join(profile, 'ai');
@@ -765,10 +767,16 @@ class AiService {
       model = counts.geosets
         ? `The open model ${context.name} has ${counts.geosets} geosets and ${counts.triangles} triangles${context.selection && Object.keys(context.selection).length ? ', with a selection the user made' : ''}.`
         : `The open model ${context.name} is empty, so this creates something new.`;
-    let evidence = '';
+    let evidence = '', bitz = [];
+    try {
+      const walk = rows => (rows || []).flatMap(row => (row.type === 'folder' ? walk(row.children) : [row.id]));
+      bitz = this.listParts ? walk((await this.listParts()).children) : [];
+    } catch {
+      // Without the BITZ box listing the brief still has the game's box of parts.
+    }
     try {
       this.knowledge ||= import(pathToFileURL(path.join(this.root, 'src/sd-knowledge.js')).href);
-      evidence = (await this.knowledge).briefEvidence(text, { existing: !!counts.geosets });
+      evidence = (await this.knowledge).briefEvidence(text, { existing: !!counts.geosets, bitz });
     } catch {
       // Without the knowledge pack the brief is still written from the director's craft notes.
     }
@@ -1141,8 +1149,8 @@ class AiService {
     }));
   }
 }
-function registerAiService({ root, profile, electron, getWindow, readModel, writeModel }) {
-  const service = new AiService({ root, profile, electron, getWindow }),
+function registerAiService({ root, profile, electron, getWindow, readModel, writeModel, listParts }) {
+  const service = new AiService({ root, profile, electron, getWindow, listParts }),
     { ipcMain } = electron;
   const own = event => {
     if (event.sender !== getWindow()?.webContents || event.senderFrame !== event.sender.mainFrame)
