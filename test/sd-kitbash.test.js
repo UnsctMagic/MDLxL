@@ -78,6 +78,34 @@ test('Kitbash swaps a part so it follows the old part bones, and adds parts to a
   for (const format of ['mdx', 'mdl']) assert.equal(openDocument(base.serialize(format), 'Unit.' + format).model.Geosets.length, model.Geosets.length);
 });
 
+test('Kitbash turns a part onto a direction, mirrors it, places it at a point and lights a glow card', () => {
+  const base = unit(), donor = unit().model, model = base.model;
+  // The horn (piece 2) runs mostly along Z; turned onto +Y it lies along Y.
+  const horn = bash.take(donor, bash.select(donor, { geoset: 0, piece: 2 }));
+  const along = p => { const m = bash.measure(p, { 0: all(p, 0) }); return m.size.indexOf(Math.max(...m.size)); };
+  assert.equal(along(horn), 2);
+  const lying = bash.align(horn, [0, 5, 12], [0, 1, 0]);
+  assert.equal(along(lying), 1);
+  // Mirrored left/right: same size, the other side of its centre, triangles still facing out.
+  const left = bash.mirror(horn), a = bash.measure(horn, { 0: all(horn, 0) }), b = bash.measure(left, { 0: all(left, 0) });
+  assert.deepEqual(b.size.map(Math.round), a.size.map(Math.round));
+  assert.deepEqual(Array.from(left.Geosets[0].Faces.slice(0, 3)), [horn.Geosets[0].Faces[0], horn.Geosets[0].Faces[2], horn.Geosets[0].Faces[1]]);
+  // Placed with its bottom on a point, half size.
+  const placed = bash.measure(bash.place(horn, { at: [5, 6, 70], scale: 0.5, anchor: 'bottom' }), { 0: all(horn, 0) });
+  assert.deepEqual([placed.center[0], placed.center[1], placed.min[2]].map(Math.round), [5, 6, 70]);
+  assert.equal(Math.round(placed.size[2] * 2), Math.round(a.size[2]));
+  // A glow card on the head bone: additive, unshaded, two-sided, on that bone, and it survives a save.
+  let card;
+  base.apply('Eye glow', [], m => { card = bash.glow(m, { at: [7, 2, 62], size: 3, bone: 'Bone_Head' }); });
+  const g = model.Geosets[card.geosetIndices[0]], layer = model.Materials[g.MaterialID].Layers[0];
+  assert.equal(layer.FilterMode, 3);
+  assert.equal(layer.Shading & 1 && layer.Shading & 16, 16);
+  assert.match(model.Textures[layer.TextureID].Image, /purple_glow/);
+  assert.deepEqual(g.Groups, [[model.Bones.find(x => x.Name === 'Bone_Head').ObjectId]]);
+  for (const format of ['mdx', 'mdl']) assert.equal(openDocument(base.serialize(format), 'Unit.' + format).model.Geosets.length, model.Geosets.length);
+  assert.throws(() => bash.glow(model, { at: [0, 0, 0] }), /bone/);
+});
+
 test('Kitbash reshapes without touching UVs, repaints from a palette area and tints', () => {
   const doc = unit(), model = doc.model;
   const head = bash.select(model, { geoset: 0, piece: 1 });

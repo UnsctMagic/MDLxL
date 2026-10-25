@@ -23,6 +23,11 @@
  *   bash.reshape(model, helm.selection, { scale: [1.12, 1.22, 0.8], pivot: 'bottom' });
  *   bash.repaint(model, helm.selection, { sheet: 'Textures\\InfernalCannon.blp', uv: [0.487, 0.008, 0.737, 0.168], size: [256, 256] });
  *   // 5. Remove a part: bash.remove(model, selection). Tint: bash.setTint(model, geoset, [r, g, b]).
+ *   //    A part at a point, turned and paired: a skull on a staff tip, a horn on each shoulder, glowing eyes.
+ *   const staff = bash.anchor(model, staffSel), tip = staff.origin.map((v, a) => v + staff.axis[a] * staff.length);
+ *   bash.add(model, bash.place(bash.align(skull, [0, 0, 1], staff.axis), { at: tip, scale: 0.2 }), { bone: 'Staff' });
+ *   for (const side of [-1, 1]) bash.add(model, bash.place(side < 0 ? bash.mirror(horn) : horn, { at: [x, side * 17, z], anchor: 'bottom', scale: 0.15 }), { bone: 'Bone_Chest' });
+ *   bash.glow(model, { at: eyePoint, size: 4, bone: 'Bone_Head' });   // purple_glow by default; sheet: another glow
  *   // 6. New shapes on a part: kit.builder({ frame: bash.anchor(model, sel) }) builds in the part's own frame
  *   //    (+Z along the part from its base end), and b.commit(model, { attach: sel }) binds them to its bones.
  * Check a swap with a capture and with mdlxl_sample over an attack: the new part keeps its distance to the old part's bone.
@@ -153,6 +158,68 @@ export function fit(part, model, selection, { scale = 'match', lift = 0, offset 
   source = transformPart(source, { scale: s, pivot: from.center });
   const moved = measure(source, all);
   return transformPart(source, { translation: [0, 1, 2].map(a => to.center[a] - moved.center[a] + offset[a] + (a === 2 ? lift : 0)) });
+}
+
+const allOf = part => Object.fromEntries(part.Geosets.map((g, i) => [i, Array.from({ length: g.Vertices.length / 3 }, (_, v) => v)]));
+const unit = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+
+/** Turn a taken part about its centre so its direction from points along to: a skull's top along a
+ * staff (to: anchor(model, staff).axis), a horn along a shoulder. Normals turn with it. */
+export function align(part, from, to) {
+  const a = unit(from), b = unit(to), k = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const s = Math.hypot(...k), c = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  // Opposite directions: half a turn about any axis across them.
+  const u = s > 1e-9 ? k.map(x => x / s) : unit(Math.abs(a[0]) < 0.9 ? [0, -a[2], a[1]] : [-a[2], 0, a[0]]), sin = s > 1e-9 ? s : 0;
+  const turn = p => { const d = u[0] * p[0] + u[1] * p[1] + u[2] * p[2], x = [u[1] * p[2] - u[2] * p[1], u[2] * p[0] - u[0] * p[2], u[0] * p[1] - u[1] * p[0]]; return [0, 1, 2].map(i => p[i] * c + x[i] * sin + u[i] * d * (1 - c)); };
+  const out = structuredClone(part), center = measure(out, allOf(out)).center;
+  for (const g of out.Geosets) {
+    for (let v = 0; v < g.Vertices.length / 3; v++) g.Vertices.set(turn([0, 1, 2].map(i => g.Vertices[v * 3 + i] - center[i])).map((x, i) => x + center[i]), v * 3);
+    if (g.Normals?.length) for (let v = 0; v < g.Normals.length / 3; v++) g.Normals.set(turn([g.Normals[v * 3], g.Normals[v * 3 + 1], g.Normals[v * 3 + 2]]), v * 3);
+  }
+  recalculateExtents(out);
+  return out;
+}
+
+/** A mirror image of a taken part, for the other side (axis 1 = left/right, 0 = front/back, 2 = up/down):
+ * one horn becomes a matching pair. Triangles are rewound so the copy still faces out. */
+export function mirror(part, axis = 1) {
+  const out = structuredClone(part), center = measure(out, allOf(out)).center;
+  for (const g of out.Geosets) {
+    for (let v = 0; v < g.Vertices.length / 3; v++) g.Vertices[v * 3 + axis] = 2 * center[axis] - g.Vertices[v * 3 + axis];
+    if (g.Normals?.length) for (let v = 0; v < g.Normals.length / 3; v++) g.Normals[v * 3 + axis] *= -1;
+    for (let f = 0; f < g.Faces.length; f += 3) [g.Faces[f + 1], g.Faces[f + 2]] = [g.Faces[f + 2], g.Faces[f + 1]];
+  }
+  recalculateExtents(out);
+  return out;
+}
+
+/** Put a taken part at a point found on the model (a pivot, an anchor's end), where fit would need a
+ * target part: its centre, or its bottom or top (anchor), lands on at, scaled by scale. */
+export function place(part, { at, scale = 1, anchor = 'center' } = {}) {
+  if (!Array.isArray(at) || at.length !== 3) throw Error('place needs at: [x, y, z].');
+  const m = measure(part, allOf(part)), from = [m.center[0], m.center[1], anchor === 'bottom' ? m.min[2] : anchor === 'top' ? m.max[2] : m.center[2]];
+  const k = typeof scale === 'number' ? [scale, scale, scale] : scale;
+  return transformPart(part, { translation: at.map((v, a) => v - from[a]), scale: k, pivot: from });
+}
+
+/** A glow card on a bone: two triangles facing the front (+X), additive, unshaded and seen from both
+ * sides, the way Blizzard lights eyes, gems and staff tips. at is its centre, size its width. */
+export function glow(model, { at, size = 6, bone, sheet = 'Textures\\purple_glow.blp' } = {}) {
+  if (!Array.isArray(at) || at.length !== 3) throw Error('glow needs at: [x, y, z].');
+  if (bone == null) throw Error('glow needs bone: the bone it moves with (an eye glow on the head bone).');
+  const h = size / 2, [x, y, z] = at;
+  const card = {
+    Version: model.Version || 800, Sequences: [], GlobalSequences: [], TextureAnims: [], GeosetAnims: [], Bones: [], Helpers: [], PivotPoints: [],
+    Textures: [{ Image: sheet, ReplaceableId: 0, Flags: 0 }],
+    Materials: [{ PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 3, Shading: 1 | 16 | 128, TextureID: 0, TVertexAnimId: null, CoordId: 0, Alpha: 1 }] }],
+    Geosets: [{
+      Vertices: new Float32Array([x, y - h, z - h, x, y + h, z - h, x, y + h, z + h, x, y - h, z + h]), Normals: new Float32Array([1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0]),
+      TVertices: [new Float32Array([0, 1, 1, 1, 1, 0, 0, 0])], Faces: new Uint16Array([0, 1, 2, 0, 2, 3]), MaterialID: 0,
+      VertexGroup: new Uint8Array(4), Groups: [[0]], SelectionGroup: 0, Unselectable: false,
+      MinimumExtent: new Float32Array([x, y - h, z - h]), MaximumExtent: new Float32Array([x, y + h, z + h]), BoundsRadius: h * Math.SQRT2, Anims: [],
+    }],
+  };
+  return add(model, card, { bone });
 }
 
 /** Replace the selected part with a fitted one (bits-and-parts commitPart replacement): its
