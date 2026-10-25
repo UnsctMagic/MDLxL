@@ -12,6 +12,8 @@ Reuse paired and repeated UV islands deliberately, keeping the seam underneath a
 
 For a solid grip, blade or plate, choose an opaque interior; the catalogue records alpha in each checked rectangle. A foliage cutout or team-colour roof mask needs its matching existing material setup. Previewing the sheet alone cannot certify those material choices.
 
+For a newly designed continuous anatomical half, inspectUVChart(geoset, faceIds, uvSet) in sd-native-uv reports disconnected charts, collapsed UV triangles and minority winding faces that may be folds. It is read-only. A new eye/nose landmark must remain inside its surrounding UV boundary. Use the outer face chart separately from caps and interiors; mirrored disconnected islands can legitimately have opposite winding. A warning is not permission to unwrap or flip an existing model globally.
+
 ## Measured evidence and limits
 
 Use the material/mesh measurements and the actual source asset; this subject has no reliable automatically isolated part sample.

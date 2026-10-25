@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {sdChaptersForPrompt,SD_PART_TARGETS} from '../src/sd-knowledge.js';
 import {searchNativeTextures,nativeTexture,nativeTextureCatalogue} from '../src/sd-native-textures.js';
 import {partKind,roundPartSides,measureModelParts} from '../src/sd-model-metrics.js';
-import {mapNativeRegion} from '../src/sd-native-uv.js';
+import {mapNativeRegion,inspectUVChart} from '../src/sd-native-uv.js';
 import {inspectSdModel} from '../src/sd-review.js';
 import {aiAssets} from '../app/ai-assets.js';
 const tube = (sides=4) => {
@@ -14,10 +14,11 @@ const tube = (sides=4) => {
 };
 const modelFor=g=>({Geosets:[g],GeosetAnims:[],Bones:[{ObjectId:0,Name:'Bone_Handle'}],Helpers:[],Sequences:[],Materials:[{Layers:[{TextureID:0}]}],Textures:[{Image:'textures/footman.dds'}]});
 test('casual requests select their construction chapters and preserve technical edit scope',()=>{
- for(const [prompt,id]of [['make a sword','human-swords'],['make an orc axe','orc-weapons'],['make an elven glaive','elven-weapons'],['make a skull','skulls-bones'],['make a footman-style knight','bodies'],['uv map this properly','uv']]) {
+ for(const [prompt,id]of [['make a sword','human-swords'],['make an orc axe','orc-weapons'],['make an elven glaive','elven-weapons'],['make a skull','skulls-bones'],['make a footman-style knight','bodies'],['make an archer','bodies'],['reshape a skeleton unit','bodies'],['uv map this properly','uv']]) {
   const chapters=sdChaptersForPrompt(prompt);assert.ok(chapters.some(c=>c.id===id));assert.ok(chapters.length<12);
   for(const c of chapters)assert.ok(fs.existsSync(c.topic));
  }
+ assert.ok(!sdChaptersForPrompt('make a torch').some(c=>c.id==='bodies'));
  const edit=sdChaptersForPrompt('make this armour cooler',{existing:true});assert.ok(edit.some(c=>c.id==='edits'));assert.ok(edit.some(c=>c.id==='armour'));
 });
 test('native meaning search returns checked paths and normalized material rectangles, not geometry',async()=>{
@@ -63,4 +64,14 @@ test('native asset preview uses the existing resolver and honors cancellation',a
  await assert.rejects(aiAssets({source:'native',action:'preview',path:'textures/footman.dds'},host,()=>{throw Error('cancelled');},{resolveTextures:async args=>(resolved=args,[])}),/cancelled/);
  assert.deepEqual(resolved.names,['textures/footman.dds']);
  const search=await aiAssets({source:'native',query:'orc axe',checkedOnly:true},host,()=>{},{});assert.ok(search.total>0);
+});
+
+test('UV chart inspection catches a folded facial layout without changing or rejecting separate mirrored islands',()=>{
+ const g={Vertices:new Float32Array([0,0,0,1,0,0,1,0,1,0,0,1]),Faces:new Uint16Array([0,1,2,0,2,3]),TVertices:[new Float32Array([0,0,1,0,.4,.4,.75,.25])]};
+ const before=structuredClone(g),fold=inspectUVChart(g,[0,1]);assert.equal(fold.charts.length,1);assert.equal(fold.charts[0].possibleFoldFaces.length,1);assert.deepEqual(g,before);
+ g.TVertices[0]=new Float32Array([0,0,1,0,1,1,0,1]);assert.equal(inspectUVChart(g,[0,1]).charts[0].possibleFoldFaces.length,0);
+ g.TVertices[0].fill(.5);assert.equal(inspectUVChart(g,[0,1]).charts.flatMap(c=>c.collapsedFaces).length,2);
+ const separate={Vertices:new Float32Array([0,0,0,1,0,0,0,0,1,3,0,0,4,0,0,3,0,1]),Faces:new Uint16Array([0,1,2,3,4,5]),TVertices:[new Float32Array([0,0,1,0,0,1,0,0,0,1,1,0])]};
+ const reports=inspectUVChart(separate,[0,1]);assert.equal(reports.charts.length,2);assert.ok(reports.charts.every(c=>c.possibleFoldFaces.length===0));
+ assert.throws(()=>inspectUVChart(g,[99]),/valid triangle/);
 });

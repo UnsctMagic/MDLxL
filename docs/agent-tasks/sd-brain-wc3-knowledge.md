@@ -130,34 +130,52 @@ prompt for itself, from real knowledge of how Warcraft models are built.
 
 ## Implementation status (2026-10-25)
 
-Work remains on codex/sd-brain-wc3-knowledge. Current main was merged at
-932858dfbd7719eec5bbf79f7c84fa95d61eb005; PR #291 and subsequent AI pen/Undo work are retained.
-The owner requires SD_BRAIN_AVAILABLE = false in committed/shippable source,
-a draft PR into main only, and no merge or push to main. Enabled packages are
-isolated test artifacts and are removed after use.
+In progress on codex/sd-brain-wc3-knowledge; draft PR into main only. Main through
+4af766e9290480f94a0470d151439d7af878a16e was merged, retaining the new look and
+all prior AI work. The owner requires SD_BRAIN_AVAILABLE = false in committed
+and shippable source. Do not merge, push main or enable it for a release.
+Enabled packages were disposable hidden-test artifacts.
 
-- Added the 23-subject handbook, per-part evidence, native texture catalogue,
-  selected-face region mapping and measured SD review. Native scan: 3,448 models,
-  72,170 regions/components, 6,041 classified named-bone territories, no parse failures.
-  Unknown anatomy remains unknown; only numeric metadata is stored.
-- Real trials exposed wrong cloth labelling, box-like skulls and a poor blocky
-  knight. These are rejected results. The cloth region was corrected; skulls now
-  use a continuous anatomical half layout with mirrored geometry and unchanged UVs.
-  The existing mirror API was independently checked for positions, winding and UVs.
-- The owner requested native unit body references and native reshaping. Body work
-  now starts with actual native posed shapes rather than guessed human proportions.
-  Native reuse is allowed for explicitly requested reshaping, with its base identified;
-  fresh construction still uses reference measurements without copying geometry.
-  Native Footman shape/material/UV usage was inspected, including its team-colour stack.
-- Native reshaping applied but review exposed a delayed empty-timeline target failure.
-  Exact replay found null becoming an empty key selection on timeline mounting.
-  The narrow signature normalization retains real key/range/controller/node guards;
-  a packaged replay and regression check are in progress.
-- Main-based verification before that fix: compatibility 57/57, source 1,930 passed
-  and 22 skipped; parked packaged AI console 52/52, awareness 17/17, editor 63/63.
-  The editor's known fake native sign-in fixture was omitted only in an ignored
-  local runner; tracked tests were not weakened. Knowledge flow and actual mouse
-  rotation passed 10/10. Current focused target/knowledge checks pass 30/30.
-- Hidden real on/off comparisons continue. Final pictures/report and draft PR
-  are pending; failed/empty or unverified results must stay explicit.
-- No Warcraft III gameplay acceptance has been exercised.
+- Implemented the 23-subject handbook, numeric native part evidence, native
+  texture catalogue, selected-face mapping and measured SD review. Native scan:
+  3,448 models, 72,170 regions/components, 6,041 classified named-bone territories;
+  no parse failures. Unknown anatomy remains unknown. Checked texture coverage:
+  15 sheets, 54 regions in the 8,985-entry catalogue.
+- The owner requested native body references and native unit reshaping. The
+  handbook now uses actual posed Footman, Grunt, Archer and Skeleton shapes,
+  with numeric reviewed examples and clear rig-territory limits. Unit/Archer/
+  Skeleton prompts retrieve the body chapter. Native geometry is reused only
+  with permission, including an earlier standing instruction; ordinary fresh
+  construction still authors fresh geometry.
+- Verified both direct native reshaping and a casual knight request following
+  standing permission in an empty document. The existing compatible-copy API
+  retains the full eligible native rig, UVs and sequences at destination format;
+  it does not change Version, copy the derived Nodes alias or flatten to one bone.
+  Footman and Grunt on/off pairs preserve mapping, bindings, topology, tracks,
+  attachments/events and seam positions. Fifteen Stand/Walk/Attack samples per
+  output plus MDX/MDL round trips passed. Source files remain untouched.
+- Fixed the narrowly reproduced empty-timeline target invalidation: absent/null
+  selection and an empty key selection are equivalent. Real selected keys,
+  ranges, controller/node and document changes remain protected. Regression,
+  actual captured-target replay and packaged checks passed.
+- Rejected the earlier block knight and box skulls. Mirroring follows the
+  existing ai-mesh API and preserves UVs with correct winding. A read-only chart
+  inspector reports collapsed/mixed-winding UV charts. Fresh skulls still fail
+  facial/tooth mapping; the latest correction was explicitly reported unfinished.
+  The three repeated skulls have distinct normalised shape hashes, but variation
+  is not artistic acceptance. Do not present them as ready.
+- [Plain report and real side-by-side pictures](sd-brain-wc3-results.md) record the
+  paired prompts, policy revisions, failures and native comparisons. Both native
+  reshape controls and both UV repair controls succeeded; no clear Brain advantage
+  is claimed for those cases. Axe outline still needs an artistic check.
+- Verification: compatibility 57/57; source 1,935 passed, 22 skipped, zero failed;
+  final focused knowledge/target/MCP checks 36/36; hidden knowledge 20/20,
+  including actual normal mouse rotation in editor and Library. Parked console
+  52/52, awareness 17/17, editor 63/63. The existing broken fake native sign-in
+  fixture was omitted only in an ignored local runner; its canvas focus click
+  was adjusted for main's new compass. Tracked tests were not weakened. Final
+  parked package smoke 5/5 confirms it cannot be enabled and stays unlisted.
+- No Warcraft III gameplay acceptance has been exercised. The complete final
+  artistic prompt matrix is not accepted. Next work: coherent fresh skull face/
+  jaw UVs, axe silhouette, then a final full visual rerun; retain the parked flag
+  and draft-only boundary throughout.

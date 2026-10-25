@@ -36,3 +36,39 @@ export async function mapNativeRegion(model,{geosetId,faces,texturePath,region,u
   data.TVertices[uvSet]=values;Object.assign(g,data,{Faces:nextFaces});
   return {faces:selected.size,splitVertices:duplicates.size,texture:texture.path,region:area.name,rect:area.rect,uvSet};
 }
+
+/** Inspect one selected, unmirrored UV layout without changing any stream.
+ * Mixed winding within a connected chart can be a fold or intentionally reused
+ * paint. Select the outer anatomical half separately from caps/interior faces.
+ * Opposite-winding disconnected islands are valid; this never rewrites them. */
+export function inspectUVChart(geoset, faces, uvSet = 0) {
+  const uv = geoset?.TVertices?.[uvSet], ids = [...new Set(faces || [])];
+  if (!uv || !geoset?.Vertices || !ids.length || ids.some(f => !Number.isInteger(f) || f < 0 || f >= geoset.Faces.length / 3))
+    throw Error('Choose an existing UV set and explicit valid triangle ids.');
+  const vertexKey = i => [...geoset.Vertices.subarray(i * 3, i * 3 + 3), ...uv.subarray(i * 2, i * 2 + 2)].map(v => Math.round(v * 1e5)).join(','),
+    edges = new Map(), adjacency = new Map(ids.map(f => [f, []])), signs = new Map();
+  for (const f of ids) {
+    const corners = Array.from(geoset.Faces.subarray(f * 3, f * 3 + 3)), points = corners.map(i => [uv[i * 2], uv[i * 2 + 1]]);
+    const area = (points[1][0] - points[0][0]) * (points[2][1] - points[0][1]) - (points[2][0] - points[0][0]) * (points[1][1] - points[0][1]);
+    signs.set(f, Math.abs(area) < 1e-10 ? 0 : Math.sign(area));
+    for (let k = 0; k < 3; k++) {
+      const key = [vertexKey(corners[k]), vertexKey(corners[(k + 1) % 3])].sort().join('|');
+      if (!edges.has(key)) edges.set(key, []);
+      edges.get(key).push(f);
+    }
+  }
+  let ambiguousEdges = 0;
+  for (const joined of edges.values()) {
+    if (joined.length > 2) { ambiguousEdges++; continue; }
+    if (joined.length === 2) { adjacency.get(joined[0]).push(joined[1]); adjacency.get(joined[1]).push(joined[0]); }
+  }
+  const seen = new Set(), charts = [];
+  for (const first of ids) if (!seen.has(first)) {
+    const pending = [first], group = []; seen.add(first);
+    while (pending.length) { const f = pending.pop(); group.push(f); for (const next of adjacency.get(f)) if (!seen.has(next)) { seen.add(next); pending.push(next); } }
+    const positive = group.filter(f => signs.get(f) === 1), negative = group.filter(f => signs.get(f) === -1), collapsedFaces = group.filter(f => signs.get(f) === 0);
+    charts.push({triangles:group.length,positive:positive.length,negative:negative.length,collapsedFaces,
+      possibleFoldFaces:positive.length && negative.length ? (positive.length < negative.length ? positive : negative) : []});
+  }
+  return {charts,ambiguousEdges,note:'Read-only hints for the selected charts. Mixed winding can be a fold, bad mesh facing or intentional mirrored paint. Inspect anatomy and seams; never globally flip or unwrap an authored model.'};
+}

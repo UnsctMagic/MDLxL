@@ -12,9 +12,9 @@ export const SD_PART_TARGETS = {
 };
 export const SD_CHAPTERS = [
   ['basics','Game scale and part budgets',/./],
-  ['bodies','Bodies and proportions',/body|knight|footman|grunt|warrior|humanoid|person|character|orc|paladin|hero/],
-  ['heads','Heads and faces',/head|face|knight|footman|body|character|grunt|warrior/],
-  ['hands-feet','Hands and feet',/hand|foot|feet|knight|body|character|grunt|warrior/],
+  ['bodies','Bodies and proportions',/\b(?:bod(?:y|ies)|units?|knights?|footm(?:an|en)|grunts?|archers?|skeletons?|warriors?|humanoids?|persons?|people|characters?|orcs?|paladins?|hero(?:es)?)\b/],
+  ['heads','Heads and faces',/head|face|knight|footman|body|character|grunt|warrior|archer|skeleton/],
+  ['hands-feet','Hands and feet',/hand|foot|feet|knight|body|character|grunt|warrior|archer|skeleton/],
   ['muscles','Muscles',/muscle|bicep|torso|chest|body|grunt/],
   ['human-swords','Human swords',/sword|longsword|dagger|rapier|knight/],
   ['orc-weapons','Orc axes and cleavers',/orc.*(?:axe|cleaver)|axe|cleaver/],

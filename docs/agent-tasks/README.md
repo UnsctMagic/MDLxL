@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| SD Brain Warcraft III knowledge and native unit reshaping | In progress; parked; draft PR only | [Knowledge task](sd-brain-wc3-knowledge.md) / Codex |
 | Full AI editor connection | Ready for review; awaiting merge approval | [AI editor hook](ai-editor-hook.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
 | New MDLxL look (carved tools, slate-and-gold dock, floating Geosets) | Ready for review; awaiting merge approval | [New look](new-look.md) / Claude Code |

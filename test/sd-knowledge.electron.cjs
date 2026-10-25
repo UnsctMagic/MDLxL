@@ -28,6 +28,7 @@ const check=(name,value)=>{checks.push({name,passed:!!value});assert.ok(value,na
  await tool('mdlxl_command',{target,id:'undo'});const afterUndo=await json('mdlxl_read',{target,path:'/Geosets/0/TVertices/0'});check('one Undo restores original UVs',JSON.stringify(before.value??before)===JSON.stringify(afterUndo.value??afterUndo));
  await tool('mdlxl_view',{target,view:'perspective',fit:'model'});const canvas=page.locator('.classic-view canvas').first(),box=await canvas.boundingBox(),shot=await canvas.screenshot();
  await page.keyboard.down('Alt');await page.mouse.move(box.x+box.width*.4,box.y+box.height*.5);await page.mouse.down();await page.mouse.move(box.x+box.width*.6,box.y+box.height*.6,{steps:12});await page.mouse.up();await page.keyboard.up('Alt');await page.waitForTimeout(200);check('normal mouse drag rotates the packaged preview',!(await canvas.screenshot()).equals(shot));
+ const uvChart=await json('mdlxl_script',{target,code:"const uv=await api.module('sd-native-uv');return uv.inspectUVChart(model.Geosets[0],[0,1]);"});check('packaged UV chart inspection preserves a valid face layout',uvChart.value.charts.every(c=>c.possibleFoldFaces.length===0&&c.collapsedFaces.length===0));
  await tool('mdlxl_view',{target,mode:'animation',sequence:0,playing:false});await page.waitForTimeout(800);check('opening an empty animation timeline retains the captured target',(await json('mdlxl_context',{target})).mode==='animation');
 
  const workingId=(await json('mdlxl_context',{target})).documentId;

@@ -4,6 +4,19 @@ Start from an actual comparable native unit, not a generic human diagram or a st
 
 Record the role, visible body height, head including helmet, shoulder span, chest and waist widths, limb taper, hand/boot scale, stance and forward/backward lean. Exclude weapons, corpses, portraits and invisible variants from body proportions. Generic bone names are not anatomical labels: look at where their posed surfaces actually lie. The native Footman has 323 visible Stand triangles, while its whole file has 372. Its head/helmet territory is about 26.6 high in a 99.3-high visible figure: around one quarter, not a realistic one eighth. That territory has 105 triangles and includes helmet/face detail. Do not force it into a 60-triangle cap. These are one reference's numbers, not all humans' proportions.
 
+## Compare actual unit types
+
+These renderer-checked examples are visible Stand-start silhouettes, including their equipment. Their whole-file totals also include hidden alternate/corpse surfaces. Treat named head territories as rig regions, which can include a hood, hair, helmet and adjoining edges. They are useful comparisons, not anatomical caps.
+
+| Native body | Visible / whole-file triangles | Visible height | Head territory height / visible height |
+| --- | ---: | ---: | ---: |
+| Footman | 323 / 372 | 99.33 | 26.8% including helmet |
+| Grunt | 421 / 688 | 101.03 | 19.7% named Head territory |
+| Archer | 417 / 449 | 93.31 | 34.1% Head mesh territory including hood/hair |
+| Skeleton | 334 / 707 | 104.08 | 15.6% Head bone; excludes facial child bones |
+
+The Grunt's named chest territory is 55 triangles, each upper arm 30 and each forearm 24 in this visible pose. The Skeleton's named chest territory is 42 and each lower arm 15. Do not turn either count into an exact isolated muscle budget. The large orc forearms and projecting head, the narrow elf waist and hood mass, and the skeleton's open chest/limb gaps come from their actual native surfaces. Choose a reference for compatible stance, joint layout and body masses before choosing colours. A human body scaled sideways does not become an orc; a humanoid is not a suitable base for a quadruped.
+
 For a fresh body, work the large masses into a coherent contour: sloped shoulders lead into a broad upper chest, the breastplate narrows at the waist, and the pelvis flares modestly into the legs. Chamfer the important outline corners with a few purposeful planes. Upper/lower limbs taper and bend at their joints; they are not uniform rectangular bricks. Let the forearms and boots carry readable weight, keep gaps between arms/torso and between legs, and check the side depth as carefully as front width. A flat grey torso with a cap and a painted shield does not pass as plate armour. A plain ordinary soldier may start near the comparable visible triangle count; add faces only for a specific contour, joint or material boundary.
 
 A human soldier uses an upright chest, broad plate planes and a helmet that wraps the crown, brow and cheeks. An orc has a wider upper body, a projecting head/jaw and thick forearms; a light elf has narrower waist and longer tapered lines; an undead skeleton needs the chest/pelvis contrast and open negative spaces. Take those relationships from the reference you actually inspected. Vary torso taper, shoulder mass, stance, head profile and equipment balance rather than repainting one body.
