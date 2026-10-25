@@ -130,7 +130,7 @@ prompt for itself, from real knowledge of how Warcraft models are built.
 
 ## Implementation status (2026-10-25)
 
-In progress on codex/sd-brain-wc3-knowledge; draft PR into main only. Main through
+In progress on codex/sd-brain-wc3-knowledge; [draft PR #299](https://github.com/UnsctMagic/MDLxL/pull/299) into main only. Main through
 4af766e9290480f94a0470d151439d7af878a16e was merged, retaining the new look and
 all prior AI work. The owner requires SD_BRAIN_AVAILABLE = false in committed
 and shippable source. Do not merge, push main or enable it for a release.
