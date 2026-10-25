@@ -197,3 +197,6 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-assistant select.ai-header-model{flex:0 0 auto;width:112px;max-width:112px;min-width:84px;height:24px;margin-left:2px;padding:1px 4px;border:1px solid var(--ai-line);border-radius:6px;background:var(--ui-field);color:var(--ui-text);font-size:11px;cursor:pointer}
 .ai-assistant select.ai-header-model:hover:not(:disabled){background:var(--ui-hover)}
 .ai-assistant select.ai-header-model option{background:var(--ui-field);color:var(--ui-text)}
+
+/* Viewport bar tag while a drawing tool owns the left mouse button. */
+.ai-drawing-tag{margin-left:6px;border:1px solid var(--ui-accent,#71b5f3);background:color-mix(in srgb,var(--ui-accent,#71b5f3) 16%,var(--ui-panel,#f0f0f0));color:var(--ui-text,#202020);font-weight:600}

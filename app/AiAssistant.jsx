@@ -848,17 +848,19 @@ export default function AiAssistant({ bridge }) {
                 <Bird size={15} aria-hidden="true" />
               </button>
               {/* A running task keeps the setting it started with; this applies from the next one. */}
-              <button
-                type="button"
-                role="switch"
-                className="ai-icon-button ai-offload-switch"
-                aria-label="SD Brain"
-                aria-checked={!!settings.sdBrain}
-                title={translate(SD_BRAIN_TIP)}
-                onClick={() => action(async () => setSettings(await window.desktop.aiSdBrain(!settings.sdBrain)))}
-              >
-                <Brain size={15} aria-hidden="true" />
-              </button>
+              {settings.sdBrainAvailable && (
+                <button
+                  type="button"
+                  role="switch"
+                  className="ai-icon-button ai-offload-switch"
+                  aria-label="SD Brain"
+                  aria-checked={!!settings.sdBrain}
+                  title={translate(SD_BRAIN_TIP)}
+                  onClick={() => action(async () => setSettings(await window.desktop.aiSdBrain(!settings.sdBrain)))}
+                >
+                  <Brain size={15} aria-hidden="true" />
+                </button>
+              )}
               <span className="ai-heading-gap" />
               <button
                 type="button"

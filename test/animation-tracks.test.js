@@ -100,7 +100,7 @@ test('multi-target validation prevents partial writes for dimension mismatch or 
   setAnimationKey(model, [geo(2, 'Color')], 100, [1, 0, 0], 0);
   assert.equal(model.GeosetAnims.filter(a => a.GeosetId === 2).length, 1);
   model.GeosetAnims.push(structuredClone(model.GeosetAnims[2]));
-  assert.throws(() => setAnimationKey(model, [geo(2)], 100, 1, 0), /multiple geoset animations/);
+  assert.throws(() => setAnimationKey(model, [geo(2)], 100, 1, 0), /more than one geoset animation/);
 });
 
 test('Bake parses all pending text atomically and does not depend on currently selected target', () => {

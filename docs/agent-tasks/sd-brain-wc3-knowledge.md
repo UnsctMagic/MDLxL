@@ -1,8 +1,14 @@
 # Task: SD Brain that knows how Warcraft III models are made
 
-Start from branch `claude/ai-console-tools` (PR #291, not merged yet). Make your own
-branch from it, keep everything that is there, and open your PR into that branch or
-into `main` after #291 lands. Do not restore older snapshots.
+Start from `main` (PR #291 merged the AI console and SD Brain there). Make your own
+branch from it, keep everything that is there, and open your PR into `main`. Do not
+restore older snapshots. If you already branched from `claude/ai-console-tools`,
+merge `main` into your branch first.
+
+SD Brain is parked in `main`: `SD_BRAIN_AVAILABLE = false` in `src/ai-sd-rules.js`
+hides the switch, the art director, the SD rules in prompts, and the SD Kit and SD
+guides. Turn it on in your branch while you build and test this task, and say in your
+PR whether it should ship on; the owner decides when it comes back.
 
 ## What the owner wants (their words, summarised)
 

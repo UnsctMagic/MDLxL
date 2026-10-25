@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
 import Addons from './Addons.jsx';
 import LanguageSwitch from './LanguageSwitch.jsx';
 import { Tool, CameraTools } from './EditorControls.jsx';
+import { sketchStore } from '../src/ai-sketch.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { COMMANDS } from '../src/commands.js';
 import VIEW_MENU from '../src/view-menu.json';
@@ -73,7 +74,9 @@ export function AppViewLabel({
   activeVertexPane, boneInfluenceAvailable, cameraPortraitActive, cleanAnimationPreview, frame, mode, portraitView, quadView, renderMode,
   setCleanViews, setPortraitView, setRenderMode, setView, toggleQuadView, view, views
 }) {
+  // The one sign on the viewport that left-dragging draws for the AI rather than editing.
+  const drawingTool = useSyncExternalStore(sketchStore.subscribe, sketchStore.get, sketchStore.get).tool;
   return <>
-      {mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <div className="classic-view-label"><select data-hotkey="viewDirection" aria-label="View direction" value={cameraPortraitActive ? portraitView : mode === 'vertices' && quadView ? activeVertexPane?.view || 'front' : view} onChange={event => cameraPortraitActive ? setPortraitView(event.target.value) : setView(event.target.value)}>{(mode === 'vertices' && quadView ? QUAD_VIEW_OPTIONS : views.map(name => [name, name[0].toUpperCase() + name.slice(1)])).map(([name, label]) => <option key={name} value={name}>{label}</option>)}</select>{!cleanAnimationPreview && <select aria-label="Render mode" title={renderMode === 'influence' ? BONE_INFLUENCE_TIP : undefined} value={renderMode} onChange={event=>{setRenderMode(event.target.value);setCleanViews(previous=>({...previous,[mode]:false}));}}><option value="wireframe">Wireframe</option><option value="solid">Surface</option><option value="textured">Textured View</option>{boneInfluenceAvailable && <option value="influence" title={BONE_INFLUENCE_TIP}>Bone influence</option>}</select>}{mode === 'vertices' && <button aria-pressed={quadView} onClick={toggleQuadView}>Quad View</button>}<button data-hotkey="fit" title="Fit model" onClick={()=>frame(false)}>Fit</button><button data-hotkey="fitSelection" title="Fit selection" onClick={()=>frame(true)}>Fit selection</button></div>}
+      {mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <div className="classic-view-label"><select data-hotkey="viewDirection" aria-label="View direction" value={cameraPortraitActive ? portraitView : mode === 'vertices' && quadView ? activeVertexPane?.view || 'front' : view} onChange={event => cameraPortraitActive ? setPortraitView(event.target.value) : setView(event.target.value)}>{(mode === 'vertices' && quadView ? QUAD_VIEW_OPTIONS : views.map(name => [name, name[0].toUpperCase() + name.slice(1)])).map(([name, label]) => <option key={name} value={name}>{label}</option>)}</select>{!cleanAnimationPreview && <select aria-label="Render mode" title={renderMode === 'influence' ? BONE_INFLUENCE_TIP : undefined} value={renderMode} onChange={event=>{setRenderMode(event.target.value);setCleanViews(previous=>({...previous,[mode]:false}));}}><option value="wireframe">Wireframe</option><option value="solid">Surface</option><option value="textured">Textured View</option>{boneInfluenceAvailable && <option value="influence" title={BONE_INFLUENCE_TIP}>Bone influence</option>}</select>}{mode === 'vertices' && <button aria-pressed={quadView} onClick={toggleQuadView}>Quad View</button>}<button data-hotkey="fit" title="Fit model" onClick={()=>frame(false)}>Fit</button><button data-hotkey="fitSelection" title="Fit selection" onClick={()=>frame(true)}>Fit selection</button>{mode === 'vertices' && drawingTool && <button className="ai-drawing-tag" title="Left-dragging on the model draws for the AI instead of editing it. Click, press Esc or pick an editor tool to stop." onClick={() => sketchStore.clearTool()}>{{ marker: 'Marker', pen: 'Pen', eraser: 'Eraser' }[drawingTool]}: drawing for the AI ✕</button>}</div>}
   </>;
 }

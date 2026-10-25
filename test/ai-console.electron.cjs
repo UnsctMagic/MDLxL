@@ -222,6 +222,42 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.keyboard.press('Escape');
   await page.waitForTimeout(100);
   check('Escape turns the drawing tool off', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
+
+  // One tool owns the left mouse button, and the viewport says so.
+  const tag = page.locator('.ai-drawing-tag'),
+    editorTool = name => page.locator('.classic-tools').getByRole('button', { name, exact: true });
+  await tool('Marker').click();
+  check(
+    'while drawing, the viewport bar says so and no editor tool is lit',
+    (await tag.innerText()).includes('Marker: drawing for the AI') && (await editorTool('Select').getAttribute('aria-pressed')) === 'false',
+  );
+  await editorTool('Move').click();
+  check(
+    'picking an editor tool puts the drawing tool away',
+    (await tool('Marker').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0 && (await editorTool('Move').getAttribute('aria-pressed')) === 'true',
+  );
+  await tool('Pen').click();
+  await page.getByRole('button', { name: 'Camera rotation', exact: true }).click();
+  check('switching the camera mode puts the drawing tool away', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
+  await page.getByRole('button', { name: 'Work mode', exact: true }).click();
+  await tool('Marker').click();
+  await tag.click();
+  check('clicking the viewport tag stops drawing', (await tool('Marker').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0);
+  await editorTool('Select').click();
+
+  // Ctrl+Z / Ctrl+Y take drawings back and forth like any other step.
+  const drawn = await drawings();
+  await tool('Pen').click();
+  await drag([cx - 40, cy + 60], [cx + 40, cy + 65], { curve: 8 });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
+  check('Ctrl+Z undoes the last drawing', (await drawings()) === drawn);
+  await page.keyboard.press('Control+y');
+  await page.waitForTimeout(200);
+  check('Ctrl+Y redoes it', (await drawings()) === drawn + 1);
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
   check('the model is never modified by drawings', !(await page.locator('.classic-status').innerText()).includes('Modified'));
 
   // Prompt with drawings: the organiser hands it to Crow; watch and steer Crow.
@@ -250,13 +286,9 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('the model picker and Offload switch sit in the console header', (await page.locator('.ai-heading select[aria-label="Chat model"]').count()) === 1 && (await page.locator('.ai-heading [role="switch"][aria-label="Offload Mode"]').getAttribute('aria-checked')) === 'true');
   const modelPicker = page.locator('.ai-heading select[aria-label="Chat model"]');
   check('the model dropdown stays readable and usable while the AI works', (await modelPicker.boundingBox()).width >= 80 && !(await modelPicker.isDisabled()), await modelPicker.boundingBox());
-  const sdBox = page.locator('.ai-heading [role="switch"][aria-label="SD Brain"]');
-  check('SD Brain is a header switch, off by default', (await sdBox.count()) === 1 && (await sdBox.getAttribute('aria-checked')) === 'false');
-  check('the first task carried an explicit SD Brain off state', /SD Brain: off/.test(organiserRequests[0].messages[0].content) && !organiserRequests[0].messages[0].content.includes('Warcraft III SD modeling rulebook'));
-  await sdBox.click();
-  await page.waitForTimeout(300);
-  check('ticking SD Brain is remembered', (await page.evaluate(() => window.desktop.aiStatus())).sdBrain === true);
-  await shot('05a-sd-brain-on');
+  // SD Brain is parked: no switch and nothing about it in what the AI receives.
+  check('the parked SD Brain has no header switch', (await page.locator('.ai-heading [role="switch"][aria-label="SD Brain"]').count()) === 0);
+  check('the first task carries no SD Brain text', !/SD Brain|Warcraft III SD modeling rulebook/.test(organiserRequests[0].messages[0].content));
   check('each bird has its own colour', /hsl\(/.test((await crowChip.getAttribute('style')) || ''));
   await crowChip.click();
   await page.waitForSelector('.ai-from-organiser', { timeout: 5000 });
@@ -287,7 +319,6 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('returning to the tab resumes the bird', workerRequests.length === 3);
   await page.waitForFunction(() => !document.querySelector('.ai-stop'), null, { timeout: 30000 });
   check('the pause banner clears', (await page.locator('.ai-paused').count()) === 0);
-  check('the running task kept SD Brain off after it was ticked mid-task', /SD Brain: off/.test(workerRequests[2].messages[0].content));
   check('steering reaches the running bird', JSON.stringify(workerRequests[2].messages).includes('steering for the current task:\\nKeep the shoulder pads'));
   await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('kept the shoulder pads'), null, { timeout: 10000 });
   check('the organiser reports when Crow is done', (await page.locator('.ai-worker-row.ai-worker-done').count()) === 1);

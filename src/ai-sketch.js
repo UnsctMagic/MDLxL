@@ -16,13 +16,37 @@ export const MARKER_WIDTH = 0.08;
 const MAX_VERTICES_PER_STROKE = 3000;
 const MAX_POINTS_PER_STROKE = 48;
 
+// Each model has one timeline of drawing steps and model edits, so Ctrl+Z undoes
+// whatever happened last: a drawing, an erase, a clear, or (by handing back
+// 'model') the model's own Undo. Drawings themselves never enter the model history.
+const MAX_STEPS = 500;
+
 export function createSketchStore() {
   let state = { tool: null, visible: false, color: { ...SKETCH_DEFAULT_COLOR }, strokes: [], nextId: 1 };
+  const timelines = new Map();
   const listeners = new Set();
   const set = patch => {
     state = { ...state, ...patch };
     for (const listener of [...listeners]) listener(state);
   };
+  const timeline = documentId => {
+    if (!timelines.has(documentId)) timelines.set(documentId, { done: [], undone: [] });
+    return timelines.get(documentId);
+  };
+  const record = (documentId, step) => {
+    const t = timeline(documentId);
+    t.done.push(step);
+    if (t.done.length > MAX_STEPS) t.done.shift();
+    t.undone = [];
+  };
+  // Drawing steps: put strokes back or take them away, keeping their order by id.
+  const restore = strokes => set({ strokes: [...state.strokes, ...strokes].sort((x, y) => x.id - y.id) });
+  const drop = strokes => {
+    const ids = new Set(strokes.map(s => s.id));
+    set({ strokes: state.strokes.filter(s => !ids.has(s.id)) });
+  };
+  const revert = step => (step.kind === 'add' ? drop(step.strokes) : restore(step.strokes));
+  const reapply = step => (step.kind === 'add' ? restore(step.strokes) : drop(step.strokes));
   return {
     get: () => state,
     subscribe(listener) {
@@ -36,21 +60,67 @@ export function createSketchStore() {
     setColor: (tool, color) => set({ color: { ...state.color, [tool]: color } }),
     colorOf: tool => SKETCH_COLORS.find(c => c.id === state.color[tool])?.value || SKETCH_COLORS[0].value,
     add(stroke) {
-      const id = state.nextId;
-      set({ strokes: [...state.strokes, { ...stroke, id }], nextId: id + 1 });
+      const id = state.nextId,
+        added = { ...stroke, id };
+      set({ strokes: [...state.strokes, added], nextId: id + 1 });
+      record(stroke.documentId, { kind: 'add', strokes: [added] });
       return id;
     },
-    remove(ids) {
-      const drop = new Set(ids);
-      if (state.strokes.some(s => drop.has(s.id))) set({ strokes: state.strokes.filter(s => !drop.has(s.id)) });
-    },
-    undo(documentId) {
-      const last = state.strokes.findLast(s => s.documentId === documentId);
-      if (last) set({ strokes: state.strokes.filter(s => s !== last) });
+    /** Erase strokes; calls with the same gesture token form one Undo step. */
+    remove(ids, gesture = null) {
+      const gone = state.strokes.filter(s => ids.includes(s.id));
+      if (!gone.length) return;
+      drop(gone);
+      const byModel = new Map();
+      for (const stroke of gone) byModel.set(stroke.documentId, [...(byModel.get(stroke.documentId) || []), stroke]);
+      for (const [documentId, strokes] of byModel) {
+        const t = timeline(documentId),
+          last = t.done.at(-1);
+        if (gesture && last?.kind === 'erase' && last.gesture === gesture) last.strokes.push(...strokes);
+        else record(documentId, { kind: 'erase', strokes, gesture });
+      }
     },
     clear(documentId) {
-      if (state.strokes.some(s => s.documentId === documentId))
-        set({ strokes: state.strokes.filter(s => s.documentId !== documentId) });
+      const gone = state.strokes.filter(s => s.documentId === documentId);
+      if (!gone.length) return;
+      drop(gone);
+      record(documentId, { kind: 'clear', strokes: gone });
+    },
+    /** A new model edit (not an Undo or Redo of one) joins this model's timeline. */
+    noteModelEdit(documentId) {
+      record(documentId, { kind: 'model' });
+    },
+    /**
+     * Ctrl+Z / Ctrl+Y. Returns 'sketch' when a drawing step was undone or redone,
+     * otherwise 'model': the caller runs the model's own Undo or Redo. With
+     * drawingsOnly (a drawing tool is active, or the drawings' own Undo button)
+     * only drawing steps are considered.
+     */
+    step(documentId, redo = false, { drawingsOnly = false, modelOnly = false } = {}) {
+      const t = timeline(documentId),
+        from = redo ? t.undone : t.done,
+        to = redo ? t.done : t.undone;
+      // modelOnly: drawings are hidden, so Undo goes to the model and its step moves along.
+      const at = drawingsOnly
+        ? from.findLastIndex(s => s.kind !== 'model')
+        : modelOnly
+          ? from.findLastIndex(s => s.kind === 'model')
+          : from.length - 1;
+      if (at < 0) return drawingsOnly ? null : 'model';
+      const [step] = from.splice(at, 1);
+      to.push(step);
+      if (step.kind === 'model') return 'model';
+      (redo ? reapply : revert)(step);
+      return 'sketch';
+    },
+    /** Whether Ctrl+Z / Ctrl+Y would change a drawing next. */
+    canStep(documentId, redo = false, { drawingsOnly = false } = {}) {
+      const t = timelines.get(documentId),
+        from = (redo ? t?.undone : t?.done) || [];
+      return drawingsOnly ? from.some(s => s.kind !== 'model') : from.at(-1)?.kind !== undefined && from.at(-1).kind !== 'model';
+    },
+    undo(documentId) {
+      return this.step(documentId, false, { drawingsOnly: true });
     },
     strokes: documentId => state.strokes.filter(s => s.documentId === documentId),
   };

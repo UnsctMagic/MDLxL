@@ -179,7 +179,8 @@ export function createViewportSketch({ parent, entries, invalidate }) {
         }
       }
     }
-    if (hits.length) sketchStore.remove(hits);
+    // One eraser drag is one Undo step.
+    if (hits.length) sketchStore.remove(hits, gesture);
   }
 
   return {

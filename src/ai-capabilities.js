@@ -1,3 +1,5 @@
+import { SD_BRAIN_AVAILABLE } from './ai-sd-rules.js';
+
 // Human task names lead to the editor's existing APIs, not duplicate implementations.
 export const AI_AREAS = [
   {
@@ -16,11 +18,11 @@ export const AI_AREAS = [
   {
     id: 'creation',
     description:
-      'Fresh low-poly construction with existing mesh, extrude, mirror and Forge APIs; Warcraft handbook, native texture regions and part measurements. SD Kit is an optional fallback painter.',
+      SD_BRAIN_AVAILABLE
+        ? 'Fresh low-poly construction with existing mesh, extrude, mirror and Forge APIs; Warcraft handbook, native texture regions and part measurements. SD Kit is an optional fallback painter.'
+        : 'Procedural primitives, Forge construction, detail shaping, combining and fitting reusable parts.',
     modules: [
-      'sd-knowledge',
-      'sd-model-metrics',
-      'sd-kit',
+      ...(SD_BRAIN_AVAILABLE ? ['sd-knowledge', 'sd-model-metrics', 'sd-kit'] : []),
       'forge-primitives',
       'forge',
       'forge-detail-editing',
@@ -50,7 +52,7 @@ export const AI_AREAS = [
   {
     id: 'uv',
     description: 'UV coordinates, island selection, projection, folding, seams and texture wrapping.',
-    modules: ['uv-tools', 'uv-selection', 'uv-preview', 'uv-coordinate-codec', 'sd-native-uv', 'sd-native-textures'],
+    modules: ['uv-tools', 'uv-selection', 'uv-preview', 'uv-coordinate-codec', ...(SD_BRAIN_AVAILABLE ? ['sd-native-uv', 'sd-native-textures'] : [])],
   },
   {
     id: 'materials',
@@ -122,6 +124,7 @@ export function searchAiCapabilities(sources, { query = '', area, offset = 0, li
     .filter(
       row =>
         row.exports.length &&
+        (SD_BRAIN_AVAILABLE || !row.module.startsWith('sd-')) &&
         (!selected || selected.modules.includes(row.module)) &&
         terms.every(term =>
           (row.module + ' ' + row.exports.join(' ') + ' ' + row.areas.join(' ')).toLowerCase().includes(term),

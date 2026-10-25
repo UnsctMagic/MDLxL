@@ -92,6 +92,12 @@ works includes the current notes, and viewport captures show them.
 
 ### SD Brain
 
+> **Parked (2026-10-25).** SD Brain is hidden and always off in this version:
+> no header switch, no art direction, no SD rules in prompts, and the SD Kit and
+> SD guides are left out of the AI's tool list and help. The code stays in place;
+> setting `SD_BRAIN_AVAILABLE` in `src/ai-sd-rules.js` to `true` brings all of it
+> back. The description below is how it works when it is available.
+
 **SD Brain** is a switch in the AI console header, the brain icon next to the
 Offload Mode bird (off until you turn it on; it
 is remembered across restarts, providers and new chats). It is art direction for

@@ -28,8 +28,8 @@ test('real MCP HTTP handshake, discover tools, execute and return tool errors', 
     ).json();
   const initialized = (await rpc('initialize', { protocolVersion: '2025-11-25' })).result;
   assert.equal(initialized.protocolVersion, '2025-11-25');
-  // The SD Brain state is read per task from mdlxl_context, not fixed at connect time.
-  assert.match(initialized.instructions, /every mdlxl_context result has sdBrain/);
+  // SD Brain is parked: the introduction does not mention it (mdlxl_context carries it when it returns).
+  assert.doesNotMatch(initialized.instructions, /SD Brain/);
   assert.ok(!initialized.instructions.includes('Warcraft III SD modeling rulebook'));
   assert.ok((await rpc('tools/list')).result.tools.some(t => t.name === 'mdlxl_script'));
   assert.deepEqual(
