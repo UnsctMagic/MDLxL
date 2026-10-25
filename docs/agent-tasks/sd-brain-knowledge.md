@@ -171,6 +171,46 @@ Updated: 25 October 2026
 - To investigate: the "editor invalidated the target" stop (app); the box of parts needs each base's build
   (mounted, armoured, exposed skin) so a base is not picked by name alone.
 
+## Lessons and proven recipes (25 October 2026, evening)
+
+The owner stopped the five-task run ("build the lessons into SD Brain first") and asked the organiser to take
+command. Plan: A) lessons as rules plus automatic checks, chat corrections saved as lessons, and a method
+proven by script for each task before the AI tries it; B) then one task at a time through the AI, checked by
+the organiser before the owner sees anything.
+
+- Lessons: `src/sd-lesson-rules.js` (rules with the owner's words, sent with every SD Brain task) and
+  `src/sd-lessons.js` (checks run by `mdlxl_review inspect`; a failed lesson means not finished). Owner
+  corrections said in the chat are saved with `mdlxl_review { action: 'lesson' }` into the profile's
+  `sd-lessons.json` and travel with every later task. Checks: keep-face (share of the previously visible face
+  newly hidden; a donor unit's whole face counts), head-gear-size (donor gear keeps its own proportions),
+  real-kitbash (under 70% of the base untouched), no-weapon-team, base-fits-props (new props held in a hand the
+  base never holds a weapon with fail), preview-paint. Units outside the box of parts are judged by the head
+  bone and the bones under it. Proven on the owner-judged gallery: skull helmet and kitbash orc fail, horned
+  helmet passes.
+- Pictures for checking: `out/pictures.ps1 -Result -Reference -Out -Title` (front, side, three-quarter at the
+  game camera, in the Stand pose; `BIND=1` for the raw bind pose), `out/lineup-models.mjs` and
+  `out/lineup-parts.mjs` (candidates side by side), `out/tex-png.mjs` (a sheet as PNG with a 1/8 grid).
+- Task 2, Footman with an axe, a big shield and a very different helm that fits him (`out/footman-task/build.mjs`,
+  `winged-helm-pic.png`): Footman helmet and plume removed; the Captain's great helm and wings fitted by the
+  head joint (`Box02`); the Grunt's axe head and haft in place of the blade and guard, fitted by
+  `['Grunt2_08Axe', 'Cone11']` at 0.85; the Footman's own shield reshaped ×1.32. All lessons pass. The other
+  variant (Bandit cap with Mountain King horns) passes the checks but looks wrong (cap low over the face):
+  checks do not replace looking.
+- Task 3, necromancer, HQSD, not based on the Necromancer (`out/necro/build.mjs`, `v6.png`): base the Human
+  Mage creep (holds a staff; owner: the Blood Mage version "wont fit... he has floating orbs", now lesson
+  base-fits-props). Head removed and the Dreadlord's head added on `Bone_Head` (not `replace`, which would
+  bind a face to the mage's hair bones); Rifleman hood ×0.88 and shoulder cloak ×0.95, both repainted from the
+  Lich's robe cloth `HeroLich.blp [0, 0.34, 0.135, 0.95]` (the darkest strip read as a flat black blob); cape
+  from the Skeleton Mage's tatters; legs in the same cloth; the Temple of the Damned's ivory horns ×0.15 on the
+  shoulders, mirrored; the fanged temple skull ×0.19 on the staff tip (anchor of the staff piece toward its
+  orb end), purple glow, blue orb removed; skulls at the belt, book ×1.5 in dark iron on a chain, purple eyes.
+  953 triangles, 11 textures, all lessons pass. New toolbox moves from it: `bash.align`, `bash.mirror`,
+  `bash.place`, `bash.glow`.
+- Geoset tint (`setTint`) is real in the game but MDLxL's viewer only draws geoset colour with its RGB
+  preview switched on (`app/Viewport.jsx` rgbPreview; `previewGeosetTint` hideRgb), so default renders and
+  probably the AI's own captures do not show it (a green-tinted Footman rendered untinted). Until the captures
+  show tint, the director should recolour by repainting from palette areas.
+
 ## Blockers and next action
 
 - Step 6 gallery (owner's go, 25 October 2026): pipeline ready in `out/sd-gallery/` (`prompts.json`
