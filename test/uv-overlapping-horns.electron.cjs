@@ -44,7 +44,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const boxRight = Math.max(...hornBox.map(point => point.x)) + 6, boxBottom = Math.max(...hornBox.map(point => point.y)) + 6;
     assert.ok(mainPoints.slice(5).every(point => point.x < boxLeft || point.x > boxRight || point.y < boxTop || point.y > boxBottom), 'the other horn lies outside the first-horn box');
     await page.mouse.move(boxLeft, boxTop); await page.mouse.down(); await page.mouse.move(boxRight, boxBottom, { steps: 8 }); await page.mouse.up();
-    await page.waitForFunction(() => /^Selected: 5$/m.test(document.querySelector('.classic-counts')?.innerText || ''));
+    await page.waitForFunction(() => /Selected: 5(?!\d)/.test(document.querySelector('.classic-counts')?.textContent || ''));
     const uv = page, uvw = page.locator('.uv-tab-window'); // in-app dialog since f7316110
     await page.locator('[data-hotkey="uv"]').click();
     await uvw.locator('[data-clean-model-canvas]').waitFor({ timeout: 60000 });

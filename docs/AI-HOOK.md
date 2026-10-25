@@ -1,6 +1,6 @@
 # AI in MDLxL
 
-Click **AI** in the desktop toolbar, open **Connection**, choose a provider,
+Click the **AI** icon (first in the module dock; next to XL with VIS on), open **Connection**, choose a provider,
 and sign in or enter its API connection. Native connections check the account
 when chat opens. If you are signed out, setup opens and **Sign in to send** keeps
 your draft while you complete sign-in in the browser. After **Signed in.** appears,

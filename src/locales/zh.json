@@ -3582,6 +3582,7 @@
   "Fixed duplicate geoset animations. Undo reverses it.": "已修复重复的几何体动画。撤销即可还原。",
   "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "几何体 {0} 有多个几何体动画。编辑其轨道前，请点击状态栏中的警告进行修复。",
   "Not now": "暂不",
+  "Fix": "修复",
   "Darker interface": "更暗的界面",
   "Lighter interface": "更亮的界面"
 }

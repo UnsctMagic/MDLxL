@@ -39,19 +39,19 @@ async function chord(cdp,key,code,virtualKey){const data={key,code,windowsVirtua
     uv=main; // the UV Wrapper is an in-app dialog of the main window since f7316110
     await waitFor(uv,`!!document.querySelector('.uv-tab-window .uv-preview-footer [aria-label="Selected Only"]')`);
     await waitFor(uv,`!!document.querySelector('.uv-tab-window .game-preview-root')`);
-    const buttons=await evaluate(uv,`[...document.querySelectorAll('.uv-tab-window .uv-preview-footer>button')].map(e=>e.textContent.trim())`);
-    assert.deepEqual(buttons,['Live Select','Selected Only','Hide RGB']); // Select New was removed in 3e35aca8
+    const buttons=await evaluate(uv,`[...document.querySelectorAll('.uv-tab-window .uv-preview-footer>button,.uv-tab-window .uv-preview-footer>*>button[aria-label="Live Select"]')].map(e=>e.textContent.trim())`);
+    assert.deepEqual(buttons,['Live Select','Selected Only','Hide RGB']); // Select New was removed in 3e35aca8; Live Select sits in a group with its options arrow
     const state=`(() => { const e=document.querySelector('.uv-tab-window .game-preview-root'); let f=e[Object.keys(e).find(k=>k.startsWith('__reactFiber'))],top=f; while(top.return)top=top.return; if(top.stateNode.current!==top)f=f.alternate||f; for(;f;f=f.return)if(f.memoizedProps?.uvOnlySelected!==undefined){const p=f.memoizedProps;return {only:p.uvOnlySelected,hidden:p.hiddenGeosets?[...p.hiddenGeosets]:null,rgb:p.hideRgbGeoset,model:p.model.GeosetAnims[3]?.Color};}throw Error('Preview props unavailable'); })()`;
     const before=await evaluate(uv,state);
     assert.equal(before.only,false);assert.equal(before.hidden,null);assert.equal(before.rgb,null);
     await click(uv,'.uv-tab-window [aria-label="Selected Only"]');
     const isolated=await waitFor(uv,`(${state}).only && (${state}).hidden?.length===47 && !(${state}).hidden.includes(3)`);
     assert.equal(isolated,true);
-    await click(uv,'.uv-tab-window .uv-preview-footer button:last-child');
+    await click(uv,'.uv-tab-window .uv-preview-footer>button:last-child');
     assert.equal(await waitFor(uv,`(${state}).rgb===3`),true);
     await click(uv,'.uv-tab-window [aria-label="Selected Only"]');
     assert.equal(await waitFor(uv,`!(${state}).only && (${state}).hidden===null && (${state}).rgb===3`),true);
-    await click(uv,'.uv-tab-window .uv-preview-footer button:last-child');
+    await click(uv,'.uv-tab-window .uv-preview-footer>button:last-child');
     assert.equal(await waitFor(uv,`(${state}).rgb===null`),true);
     const after=await evaluate(uv,state);
     assert.deepEqual(after.model,before.model);
