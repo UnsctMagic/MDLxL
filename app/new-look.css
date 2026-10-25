@@ -261,3 +261,9 @@
 :root #root .classic-app.classic-app:not([data-vis-ui]) :is(.tl-dialog,.parts-dialog) small{color:var(--ui-muted)}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .parts-body li button{border-color:transparent;background:transparent}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .parts-body li button:is(:hover,[aria-pressed=true],.selected){background:var(--ui-selected);color:var(--ui-selected-text)}
+
+/* Narrow top row (display toggles on icons): team colour becomes a swatch and MDX⇄ tightens. */
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar:has(.quick-display-compact) .team-picker select{width:46px!important;min-width:0!important;color:transparent!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar:has(.quick-display-compact)>[data-hotkey=convertVersion]{padding:3px 5px!important;font-size:11px!important}
+/* Hide/Show is a plain pair, so it needs no extra space before Add-ons. */
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-visibility{margin-right:0!important;padding:0!important}
