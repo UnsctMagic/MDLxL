@@ -167,7 +167,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'view',
-    'Change the editor module, camera preset, render mode, animation, frame or playback in the live viewport. fit frames the model or marked vertices. Normal mouse rotation remains available. Use capture after changing a frame to inspect the result.',
+    'Change the editor module, camera preset, render mode, animation, frame or playback. On the tab being shown this is the live viewport; on a model tab that is not showing it is a view of its own for this task, used by capture and sample, and the screen is not touched. fit frames the model or marked vertices. Normal mouse rotation remains available. Use capture after changing a frame to inspect the result.',
     {
       target,
       mode: { enum: ['vertices', 'bones', 'animation', 'uv', 'paint', 'showcase'] },
@@ -200,7 +200,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'capture',
-    'Get actual PNG viewport images. Without samples captures the current view. samples captures up to 12 labeled views/animation frames in one call so you can judge shape and motion, leaving the last requested view visible. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
+    'Get actual PNG viewport images. Without samples captures the current view (the live viewport on the tab being shown; drawn off-screen for a tab that is not showing). samples draws up to 12 labeled views/animation frames off-screen in one call so you can judge shape and motion; the view on screen does not move. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
     {
       target,
       samples: {
