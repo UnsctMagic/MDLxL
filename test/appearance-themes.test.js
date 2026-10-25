@@ -90,3 +90,19 @@ test('malformed tree settings are bounded without mutating preset defaults', () 
   prefs.viewportAppearance.tree.nodes.helper = '#000000';
   assert.notEqual(presets['blender-style'].appearance.tree.nodes.helper, '#000000');
 });
+
+test('the tool highlight follows the theme accent until the user picks a colour',()=>{
+  const values=new Map(),doc={documentElement:{dataset:{},style:{setProperty:(k,v)=>values.set(k,v)}}};
+  for(const [id,theme]of Object.entries(themes)){
+    const prefs=normalizePreferences({rendererRevision:3,theme:id,accent:theme.accent});
+    assert.equal(prefs.toolHighlight,'');
+    applyApplicationTheme(prefs,doc);
+    assert.equal(values.get('--ui-tool-highlight'),theme.accent,theme.name);
+  }
+  const picked=normalizePreferences({rendererRevision:3,theme:'dark',accent:'#ff8a00',toolHighlight:'#E0457B'});
+  assert.equal(picked.toolHighlight,'#e0457b');
+  applyApplicationTheme(picked,doc);
+  assert.equal(values.get('--ui-tool-highlight'),'#e0457b');
+  assert.equal(normalizePreferences({toolHighlight:'pink'}).toolHighlight,'');
+  assert.deepEqual(importConfiguration(JSON.stringify(exportConfiguration(picked))).toolHighlight,'#e0457b');
+});
