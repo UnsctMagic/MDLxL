@@ -60,6 +60,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await app.evaluate(({ dialog }, file) => { globalThis.saveTitles = []; dialog.showSaveDialog = async (_window, options) => { globalThis.saveTitles.push(options.title); return { canceled: false, filePath: file }; }; }, saved);
     await page.keyboard.press('Control+s');
     for (let i = 0; i < 100 && !fs.existsSync(saved); i++) await page.waitForTimeout(100);
+    // The file lands a moment before the editor records the save; closing earlier would ask to save.
+    await page.locator('.classic-status').filter({ hasText: 'Saved saved.mdx' }).waitFor({ timeout: 10000 }).catch(() => {});
     if (!fs.existsSync(saved)) throw Error('Save did not write a new file: ' + await page.locator('.classic-status').innerText());
     console.log('SAVE DIALOG', await app.evaluate(() => globalThis.saveTitles));
     if (!fs.readFileSync(model).equals(original)) throw Error('The read-only original changed.');
