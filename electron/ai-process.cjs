@@ -18,79 +18,128 @@ function providerEnvironment(directory, provider) {
   env[provider === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR'] = path.join(directory, provider);
   return env;
 }
-// The desktop app replaces its hashed bin directory on update. Resolve it at
-// launch time instead of saving another version-specific path in MDLxL's profile.
-function windowsCodexExecutable(env) {
-  const localAppData = env.LOCALAPPDATA || env.LocalAppData;
-  if (!localAppData) return;
-  const directory = path.join(localAppData, 'OpenAI', 'Codex', 'bin');
-  let versions;
-  try {
-    versions = fs.readdirSync(directory, { withFileTypes: true });
-  } catch (error) {
-    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return;
-    throw error;
-  }
-  const candidates = [];
-  for (const version of versions) {
-    if (!version.isDirectory()) continue;
-    const executable = path.join(directory, version.name, 'codex.exe');
-    let stat;
-    try {
-      stat = fs.statSync(executable);
-    } catch (error) {
-      // An update may remove an older version while the directory is scanned.
-      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') continue;
-      throw error;
+// PATH can omit a CLI, for example one installed after Windows sign-in or one
+// that came with a desktop app. These are the places the official installers
+// use on Windows; the CLI is looked up there again at every launch.
+function windowsInstallations(name, env) {
+  const local = env.LOCALAPPDATA || env.LocalAppData,
+    roaming = env.APPDATA || env.AppData,
+    home = env.USERPROFILE || env.UserProfile,
+    programs = env.ProgramFiles || env.PROGRAMFILES;
+  const at = (root, ...parts) => root && path.join(root, ...parts);
+  // Launcher folders: standalone installers, npm, pnpm, WinGet and Scoop.
+  const shared = [at(roaming, 'npm'), at(local, 'pnpm'), at(local, 'Microsoft', 'WinGet', 'Links'), at(home, 'scoop', 'shims')];
+  // Desktop apps keep a private copy per version and remove old ones on update.
+  const known = {
+    codex: {
+      folders: [at(local, 'Programs', 'OpenAI', 'Codex', 'bin'), ...shared],
+      versions: [
+        [local, 'OpenAI', 'Codex', 'bin', '*', 'codex.exe'],
+        [local, 'Packages', 'OpenAI.Codex_*', 'LocalCache', 'Local', 'OpenAI', 'Codex', 'bin', '*', 'codex.exe'],
+      ],
+    },
+    claude: {
+      folders: [at(home, '.local', 'bin'), ...shared],
+      versions: [
+        [local, 'Claude-Data', '*', 'claude-code', '*', '*', 'claude.exe'],
+        [roaming, 'Claude', 'claude-code', '*', 'claude.exe'],
+        [roaming, 'Claude', 'claude-code', '*', '*', 'claude.exe'],
+        [local, 'Packages', 'Claude_*', 'LocalCache', 'Roaming', 'Claude', 'claude-code', '*', 'claude.exe'],
+        [local, 'Packages', 'Claude_*', 'LocalCache', 'Roaming', 'Claude', 'claude-code', '*', '*', 'claude.exe'],
+      ],
+    },
+    node: { folders: [at(programs, 'nodejs')], versions: [] },
+  }[name];
+  if (!known) return { folders: [], versions: [] };
+  return { folders: known.folders.filter(Boolean), versions: known.versions.filter(parts => parts[0]) };
+}
+// A folder that cannot be read simply offers no candidate; an update may also
+// remove an older version while it is being scanned.
+function expandPattern([root, ...parts]) {
+  let paths = [root];
+  for (const part of parts) {
+    if (!part.includes('*')) {
+      paths = paths.map(directory => path.join(directory, part));
+      continue;
     }
-    if (stat.isFile()) candidates.push({ executable, modified: stat.mtimeMs });
+    const prefix = part.slice(0, -1).toLowerCase();
+    paths = paths.flatMap(directory => {
+      try {
+        return fs
+          .readdirSync(directory, { withFileTypes: true })
+          .filter(entry => entry.isDirectory() && entry.name.toLowerCase().startsWith(prefix))
+          .map(entry => path.join(directory, entry.name));
+      } catch {
+        return [];
+      }
+    });
+  }
+  return paths;
+}
+function newestFile(patterns) {
+  const candidates = [];
+  for (const executable of patterns.flatMap(expandPattern)) {
+    try {
+      const stat = fs.statSync(executable);
+      if (stat.isFile()) candidates.push({ executable, modified: stat.mtimeMs });
+    } catch {}
   }
   candidates.sort((a, b) => b.modified - a.modified || a.executable.localeCompare(b.executable));
   return candidates[0]?.executable;
 }
+function isFile(full) {
+  try {
+    return fs.statSync(full).isFile();
+  } catch {
+    return false;
+  }
+}
 function resolveExecutable(command, env = process.env) {
-  const codex = process.platform === 'win32' && /^codex(?:\.exe|\.cmd)?$/i.test(path.basename(command));
-  // Keep a working explicit path first. A missing saved Codex path can recover
-  // through PATH or the current desktop installation, including in an open app.
-  const commands = codex && path.isAbsolute(command) ? [command, 'codex'] : [command];
+  const windows = process.platform === 'win32',
+    known = windows && /^(codex|claude)(?:\.exe|\.cmd)?$/i.exec(path.basename(command)),
+    name = known ? known[1].toLowerCase() : path.isAbsolute(command) ? '' : command.toLowerCase(),
+    installations = windows ? windowsInstallations(name, env) : { folders: [], versions: [] };
+  // Keep a working explicit path first. A missing saved CLI path recovers through
+  // PATH or the current installation, so an update never strands the setting.
+  const commands = known && path.isAbsolute(command) ? [command, name] : [command];
   for (const candidate of commands) {
-    const names =
-      process.platform === 'win32' && !path.extname(candidate)
-        ? [candidate + '.exe', candidate + '.cmd', candidate]
-        : [candidate];
-    const directories = path.isAbsolute(candidate) ? [''] : (env.PATH || env.Path || '').split(path.delimiter);
+    const names = windows && !path.extname(candidate) ? [candidate + '.exe', candidate + '.cmd', candidate] : [candidate];
+    const directories = path.isAbsolute(candidate)
+      ? ['']
+      : [...(env.PATH || env.Path || '').split(path.delimiter), ...installations.folders];
     for (const directory of directories)
-      for (const name of names) {
-        const full = directory ? path.join(directory, name) : name;
-        if (fs.existsSync(full) && fs.statSync(full).isFile()) return full;
+      for (const file of names) {
+        const full = directory ? path.join(directory, file) : file;
+        if (isFile(full)) return full;
       }
   }
-  if (codex) {
-    const installed = windowsCodexExecutable(env);
-    if (installed) return installed;
-  }
+  const installed = newestFile(installations.versions);
+  if (installed) return installed;
   throw Error(`Cannot find ${command}. Install its CLI or choose its executable in AI connection settings.`);
 }
 function spawnAgent(command, args, options = {}) {
   const executable = resolveExecutable(command, options.env);
-  // npm launchers are shell programs. Run their adjacent JS entry via Node
-  // instead of putting prompts or credentials through cmd.exe quoting.
+  const run = (file, fileArgs) =>
+    spawn(file, fileArgs, { ...options, shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  // npm launchers are shell programs. Run their target directly (a JS entry via
+  // Node, as the launcher does) instead of putting prompts or credentials
+  // through cmd.exe quoting.
   if (/\.cmd$/i.test(executable)) {
     const source = fs.readFileSync(executable, 'utf8'),
-      match = source.match(/%dp0%\\([^"\r\n]+\.js)/i) || source.match(/%~dp0\\([^"\r\n]+\.js)/i);
-    if (!match) throw Error('Choose the native CLI executable; this launcher cannot be run without a shell.');
-    return spawn(
-      resolveExecutable('node', options.env),
-      [path.resolve(path.dirname(executable), match[1]), ...args],
-      { ...options, shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] },
-    );
+      folder = path.dirname(executable),
+      script = source.match(/%~?dp0%?\\([^"\r\n]+\.js)"/i),
+      binary = source.match(/%~?dp0%?\\([^"\r\n]+\.exe)"\s+%\*/i);
+    if (script) {
+      const node = path.join(folder, 'node.exe');
+      return run(isFile(node) ? node : resolveExecutable('node', options.env), [
+        path.resolve(folder, script[1]),
+        ...args,
+      ]);
+    }
+    if (binary) return run(path.resolve(folder, binary[1]), args);
+    throw Error('Choose the native CLI executable; this launcher cannot be run without a shell.');
   }
-  return spawn(executable, args, {
-    ...options,
-    shell: false,
-    windowsHide: true,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  return run(executable, args);
 }
 // A custom CLI path may only name that provider's own CLI, so a setting can
 // never make MDLxL launch an unrelated program.

@@ -149,3 +149,102 @@ test('custom CLI validation still rejects unrelated and newly entered missing ex
   assert.throws(() => checkAgentExecutable('codex', path.join(f.directory, 'other.exe')), /own CLI|CLI path/);
   assert.throws(() => checkAgentExecutable('codex', path.join(f.directory, 'missing', 'codex.exe')), /Cannot find/);
 });
+
+// Launchers exactly as npm's cmd-shim writes them for each package's bin entry.
+const npmScriptLauncher = entry =>
+  `@ECHO off\r\nGOTO start\r\n:find_dp0\r\nSET dp0=%~dp0\r\nEXIT /b\r\n:start\r\nSETLOCAL\r\nCALL :find_dp0\r\n\r\nIF EXIST "%dp0%\\node.exe" (\r\n  SET "_prog=%dp0%\\node.exe"\r\n) ELSE (\r\n  SET "_prog=node"\r\n  SET PATHEXT=%PATHEXT:;.JS;=;%\r\n)\r\n\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\${entry}" %*\r\n`;
+const npmBinaryLauncher = entry =>
+  `@ECHO off\r\nGOTO start\r\n:find_dp0\r\nSET dp0=%~dp0\r\nEXIT /b\r\n:start\r\nSETLOCAL\r\nCALL :find_dp0\r\n"%dp0%\\${entry}"   %*\r\n`;
+async function homes(t) {
+  const f = await fixture(t);
+  f.env.APPDATA = path.join(f.directory, 'Roaming');
+  f.env.USERPROFILE = path.join(f.directory, 'home');
+  return f;
+}
+
+test('Claude native installer is found without PATH', async t => {
+  const f = await homes(t), { resolveExecutable } = processModule();
+  const expected = await f.file(path.join('home', '.local', 'bin', 'claude.exe'));
+  assert.equal(resolveExecutable('claude', f.env), expected);
+  assert.equal(resolveExecutable(path.join(f.directory, 'removed', 'claude.exe'), f.env), expected);
+});
+
+test('Claude desktop app copies are found in every known layout, newest first', async t => {
+  const f = await homes(t), { resolveExecutable } = processModule();
+  await f.file(path.join('Claude-Data', 'claude_abc', 'claude-code', '2.1.304', 'aed6', 'claude.exe'), 1000);
+  await f.file(path.join('Roaming', 'Claude', 'claude-code', '2.1.200', 'claude.exe'), 2000);
+  const msix = path.join('Packages', 'Claude_abc', 'LocalCache', 'Roaming', 'Claude', 'claude-code');
+  await f.file(path.join(msix, '2.1.250', 'claude.exe'), 3000);
+  const newest = await f.file(path.join('Claude-Data', 'claude_abc', 'claude-code', '2.1.308', 'c17a', 'claude.exe'), 4000);
+  await f.file(path.join('Claude-Data', 'claude_abc', 'claude-code', '2.1.309', 'partial', '.payload'), 5000);
+  assert.equal(resolveExecutable('claude', f.env), newest);
+});
+
+test('a launcher folder wins over a desktop copy, and PATH wins over both', async t => {
+  const f = await homes(t), { resolveExecutable } = processModule();
+  await f.file(path.join(f.bin, 'desktop', 'codex.exe'), 5000);
+  const standalone = await f.file(path.join('Programs', 'OpenAI', 'Codex', 'bin', 'codex.exe'));
+  assert.equal(resolveExecutable('codex', f.env), standalone);
+  const onPath = await f.file(path.join('tools', 'codex.exe'));
+  f.env.PATH = path.dirname(onPath);
+  assert.equal(resolveExecutable('codex', f.env), onPath);
+});
+
+test('npm, pnpm, WinGet and Scoop launcher folders are searched for both CLIs', async t => {
+  for (const [folder, file] of [
+    [path.join('Roaming', 'npm'), 'codex.cmd'],
+    ['pnpm', 'claude.cmd'],
+    [path.join('Microsoft', 'WinGet', 'Links'), 'claude.exe'],
+    [path.join('home', 'scoop', 'shims'), 'codex.exe'],
+  ]) {
+    const f = await homes(t), { resolveExecutable } = processModule();
+    const expected = await f.file(path.join(folder, file));
+    assert.equal(resolveExecutable(path.parse(file).name, f.env), expected);
+  }
+});
+
+test('Codex in a Store-virtualized folder is found', async t => {
+  const f = await homes(t), { resolveExecutable } = processModule();
+  const bin = path.join('Packages', 'OpenAI.Codex_2p2n', 'LocalCache', 'Local', 'OpenAI', 'Codex', 'bin');
+  const expected = await f.file(path.join(bin, 'abc', 'codex.exe'));
+  assert.equal(resolveExecutable('codex', f.env), expected);
+});
+
+test('each provider only ever finds its own CLI', async t => {
+  const f = await homes(t), { resolveExecutable } = processModule();
+  await f.file(path.join('home', '.local', 'bin', 'claude.exe'));
+  await f.file(path.join('Claude-Data', 'claude_abc', 'claude-code', '2', 'h', 'claude.exe'));
+  assert.throws(() => resolveExecutable('codex', f.env), /Cannot find codex/);
+  const g = await homes(t);
+  await g.file(path.join('Programs', 'OpenAI', 'Codex', 'bin', 'codex.exe'));
+  await g.file(path.join(g.bin, 'v', 'codex.exe'));
+  assert.throws(() => resolveExecutable('claude', g.env), /Cannot find claude/);
+});
+
+test('npm Claude launcher runs its native binary directly', async t => {
+  const f = await homes(t), { spawnAgent, spawns } = processModule();
+  const entry = 'node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe';
+  const launcher = path.join(f.directory, 'Roaming', 'npm', 'claude.cmd');
+  await fs.mkdir(path.dirname(launcher), { recursive: true });
+  await fs.writeFile(launcher, npmBinaryLauncher(entry));
+  spawnAgent('claude', ['auth', 'login'], { env: f.env });
+  assert.equal(spawns[0][0], path.resolve(path.dirname(launcher), entry));
+  assert.deepEqual(spawns[0][1], ['auth', 'login']);
+  assert.equal(spawns[0][2].shell, false);
+});
+
+test('npm Codex launcher runs its script with Node found like the launcher does', async t => {
+  const f = await homes(t), { spawnAgent, spawns } = processModule();
+  const entry = 'node_modules\\@openai\\codex\\bin\\codex.js';
+  const launcher = path.join(f.directory, 'Roaming', 'npm', 'codex.cmd');
+  await fs.mkdir(path.dirname(launcher), { recursive: true });
+  await fs.writeFile(launcher, npmScriptLauncher(entry));
+  const node = await f.file(path.join('Program Files', 'nodejs', 'node.exe'));
+  f.env.ProgramFiles = path.join(f.directory, 'Program Files');
+  spawnAgent('codex', ['app-server'], { env: f.env });
+  assert.equal(spawns[0][0], node);
+  assert.deepEqual([...spawns[0][1]], [path.resolve(path.dirname(launcher), entry), 'app-server']);
+  const adjacent = await f.file(path.join('Roaming', 'npm', 'node.exe'));
+  spawnAgent('codex', ['app-server'], { env: f.env });
+  assert.equal(spawns[1][0], adjacent);
+});

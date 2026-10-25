@@ -211,12 +211,23 @@ Reference models remain open as ordinary tabs. Image paste also works.
 | Other AI / local model | Supply an OpenAI-compatible API base URL and model ID. HTTP is supported for localhost servers; remote endpoints use HTTPS. A local server need not require a key. |
 
 The native CLI executable is found on PATH, or can be chosen by entering its full
-path in Connection. On Windows, MDLxL also discovers Codex in the desktop app's
-`%LOCALAPPDATA%\OpenAI\Codex\bin` installation. A working chosen path takes
-priority; if a saved Codex path disappears after an update, MDLxL searches PATH
-and the installed desktop binaries again each time it launches Codex. The newest
-available `codex.exe` is selected by modification time, not its folder's hash.
-The saved setting and MDLxL's own sign-in profile are preserved.
+path in Connection. PATH can omit a CLI (installed after Windows sign-in, or one
+that came with a desktop app), so on Windows MDLxL also searches, in order:
+
+- the official launcher folders: Codex's installer
+  (`%LOCALAPPDATA%\Programs\OpenAI\Codex\bin`), Claude Code's native installer
+  (`%USERPROFILE%\.local\bin`), npm (`%APPDATA%\npm`), pnpm, WinGet links and Scoop shims;
+- the copy kept by the desktop app: Codex in `%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>`,
+  Claude in `%LOCALAPPDATA%\Claude-Data\<package>\claude-code\<version>\<hash>` or
+  `%APPDATA%\Claude\claude-code\<version>`, including their Store-virtualized
+  `%LOCALAPPDATA%\Packages\…\LocalCache` folders. The newest file wins by modification time.
+
+A working chosen path takes priority; if a saved path disappears after an update,
+MDLxL searches again each time it launches the CLI. The saved setting and MDLxL's
+own sign-in profile are preserved, so each person signs in with their own account.
+npm launchers (`.cmd`) are not run through a shell: a JS entry runs with Node (the
+launcher's adjacent `node.exe`, PATH, or `%ProgramFiles%\nodejs`) and a native
+entry, such as Claude Code's `claude.exe`, runs directly.
 A chosen path must name that provider's own CLI (`codex.exe`,
 `codex.cmd`, `claude.exe`, `claude.cmd`), so the setting cannot launch another
 program. A saved API key is cleared when the API base URL changes, so it is never
