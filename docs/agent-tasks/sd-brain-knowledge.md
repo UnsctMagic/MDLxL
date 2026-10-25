@@ -140,10 +140,14 @@ Updated: 25 October 2026
 
 - Next: the organiser reviews steps 1–4 and shows the owner the pictures; step 5 (checks in the
   review) is partly in AI_SD_BRAIN (side-by-side capture, weapon references); step 6 waits for go.
+- Test build for step 6: `D:/Claude/MDLxL-TestBuilds/SD-Brain-Kitbash` (commit 5405ce1b, SD Brain
+  available, flip not committed; fresh profile, so the owner signs in to the provider again). The
+  owner's BITZ box was copied in from his working install
+  `D:/MDLxLVisButton/MDLxL-win32-x64-0.20.0/BitsAndParts` (28 parts: 8 helmets, 12 weapons of
+  152–574 triangles, 5 shields, 3 others; all parse as MDX 800). Smoke test: the packaged build
+  opened the kitbash model hidden and rendered it with game textures. `SD-Brain-Knowledge` is unchanged.
 - Not done or not verified: no real AI prompt run of the new director or builder (step 6); the
-  preview tool and BITZ listing have not run inside the packaged app (only their parts in tests);
-  the test build `SD-Brain-Knowledge` is unchanged and its BitsAndParts folder is empty, so a test
-  build only knows the owner's BITZ box once the parts are copied in (the owner's box is in the
-  installed 0.20.0 folder `D:/MDLxLVisButton/MDLxL-win32-x64-0.20.0/BitsAndParts`, 38 parts);
-  translations of the AI guide's SD Brain section are English only (SD Brain is parked).
+  texture preview tool and the BITZ listing have not been called through the AI inside the app (their
+  code is tested in node); translations of the AI guide's SD Brain section are English only (SD Brain
+  is parked).
 - On completion: record the merge, remove the index entry.
