@@ -1,8 +1,21 @@
 # MDLxL 0.32.0 release
 
-Status: in progress
+Status: completed
 Owner: Claude release session (local_29a47c5c-87dd-42f1-84cd-e799e845aafb)
 Updated: 2026-10-25
+
+## Result
+
+- Published [MDLxL 0.32.0](https://github.com/UnsctMagic/MDLxL/releases/tag/v0.32.0)
+  on 2026-10-25 22:47 UTC from tag v0.32.0 (merge 5e19b08a of release PR #312).
+  Garithos workflow run 40241799361 succeeded.
+- Public ZIP sha256 70c6ce33…d862 (208,468,004 bytes), matching the checked draft.
+  Assets: the four 0.32.0 AI guides, the unchanged 0.31.0 sign-in guides and
+  interface maps, and the reused FFmpeg source ZIP (`electron/ffmpeg/` unchanged).
+- Notes live on the MDLxL page via LowPolyWorks #41 (main) and gh-pages 4b9e0579.
+- The updater release gate was not run: the owner stopped it ("updates work").
+- Sessions of the shipped PRs were already archived. The release worktree is kept as
+  the fixture source for the next packaged-test run.
 
 ## Scope
 
