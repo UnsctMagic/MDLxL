@@ -62,9 +62,9 @@
 
 /* Display toggles in the top row: icon + name chips in one soft well; a lit chip
    is on. Too narrow for every name: icons only, names on hover. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.quick-display{flex:0 1 auto;min-width:0;overflow:hidden;display:flex;align-items:center;margin:0 6px;padding:0!important;border:0!important;background:transparent!important;min-height:0}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.quick-display{flex:0 1 auto;min-width:0;overflow:hidden;display:flex;align-items:center;margin:0 auto;padding:0!important;border:0!important;background:transparent!important;min-height:0}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.quick-display>.quick-display-options{display:inline-flex;flex:none;align-items:center;gap:2px;padding:2px;border-radius:10px;background:var(--m-soft)}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label{position:relative;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;border-radius:7px;color:var(--ui-muted);font-size:12px!important;white-space:nowrap;cursor:pointer}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label{position:relative;display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 6px;border-radius:6px;color:var(--ui-muted);font-size:11px!important;white-space:nowrap;cursor:pointer}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:hover{background:var(--ui-hover)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:has(input:checked){background:var(--ui-field);color:var(--ui-text);box-shadow:var(--m-raise)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:has(input:checked) .look-icon{color:var(--lit)}
@@ -72,14 +72,12 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label>input:disabled{cursor:default}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label:has(input:focus-visible){outline:2px solid color-mix(in srgb,var(--ui-accent) 60%,transparent)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>label>input{position:absolute;inset:0;z-index:1;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display .look-icon{display:block;width:15px;height:15px;color:inherit;--sw:1.9}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>button{order:99;position:relative;display:inline-flex;align-items:center;gap:5px;height:26px;min-height:26px!important;margin-left:7px;padding:0 9px!important;color:var(--ui-muted)!important;font-size:12px!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display .look-icon{display:block;width:13px;height:13px;color:inherit;--sw:1.9}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>button{order:99;position:relative;display:inline-flex;align-items:center;gap:3px;height:22px;min-height:22px!important;margin-left:7px;padding:0 6px!important;color:var(--ui-muted)!important;font-size:11px!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-options>button::before{content:'';position:absolute;left:-5px;top:5px;bottom:5px;width:1px;background:var(--m-line)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-compact .quick-display-name{display:none}
-/* Narrow windows: the DPI/Scroll readout gives way first, then the icons; the language picker stays. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.compact-input-strength{flex:0 100 auto;min-width:0;overflow:hidden}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.language-switch{flex:none}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-compact .quick-display-options>:is(label,button){padding:0 7px!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .quick-display-compact .quick-display-options>:is(label,button){padding:0 5px!important}
 
 /* Editor row: soft segmented buttons, model tabs as pills. */
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules{padding:6px 10px 4px!important;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important}
@@ -262,8 +260,25 @@
 :root #root .classic-app.classic-app:not([data-vis-ui]) .parts-body li button{border-color:transparent;background:transparent}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .parts-body li button:is(:hover,[aria-pressed=true],.selected){background:var(--ui-selected);color:var(--ui-selected-text)}
 
-/* Narrow top row (display toggles on icons): team colour becomes a swatch and MDX⇄ tightens. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar:has(.quick-display-compact) .team-picker select{width:46px!important;min-width:0!important;color:transparent!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar:has(.quick-display-compact)>[data-hotkey=convertVersion]{padding:3px 5px!important;font-size:11px!important}
 /* Hide/Show is a plain pair, so it needs no extra space before Add-ons. */
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-visibility{margin-right:0!important;padding:0!important}
+
+
+/* Top row, layout B: tools on the left, display chips centred, then one pill for
+   team colour, MDX version and Add-ons, then the language flag. DPI/Scroll sit in
+   the status bar. With VIS on the pill dissolves (display: contents). */
+.toolbar-model{display:contents}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-model{display:flex;align-items:center;flex:none;padding:2px;border-radius:10px;background:var(--m-soft)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar:not(:has(>.quick-display))>.toolbar-model{margin-left:auto}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-model>*+*{position:relative;margin-left:7px!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-model>*+*::before{content:'';position:absolute;left:-4px;top:7px;bottom:7px;width:1px;background:var(--m-line)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-model>:is(button,.addon-menu>button){height:28px;min-height:28px!important;padding:0 10px!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model>.toolbar-team-color{margin:0!important;padding:0!important;background:transparent!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker{position:relative;display:flex;align-items:center}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker::before{content:'';position:absolute;left:10px;width:12px;height:12px;border-radius:50%;background:var(--team);box-shadow:0 0 0 1px #00000040;pointer-events:none}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker select{width:auto!important;height:28px;min-height:28px;padding:0 8px 0 28px!important;border:0!important;border-radius:7px!important;background-color:transparent!important;color:var(--ui-text)!important;font-size:12.5px!important;cursor:pointer}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker select:hover{background-color:var(--ui-hover)!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar:has(.quick-display-compact) .toolbar-model .team-picker select{width:44px!important;padding-right:0!important;color:transparent!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .language-trigger{height:28px;padding:0 8px!important;border-radius:8px!important;background:var(--m-soft)!important;gap:4px}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .language-trigger>span{display:none}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-status>.compact-input-strength{flex:none;margin-left:0;padding:0 8px;font-size:11px;color:var(--ui-muted)}

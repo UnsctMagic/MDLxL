@@ -45,7 +45,8 @@ test('quick display: top row before the strengths (new look), editor row after R
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);
-  assert.match(toolbar,/\{inputStrength\}\s*<LanguageSwitch/);
+  assert.match(toolbar,/\{visUI && inputStrength\}\s*<LanguageSwitch/);
+  assert.match(app,/\{!visUI && inputStrength\}<\/div>/);
   assert.match(css,/team-picker select\{width:auto;min-width:0;max-width:none\}/);
 });
 

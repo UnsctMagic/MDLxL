@@ -15,9 +15,9 @@ export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isE
     if (!element || !bar?.classList.contains('classic-toolbar') || typeof ResizeObserver === 'undefined') return;
     const check = () => {
       if (!element.classList.contains('quick-display-compact')) natural.current = element.firstElementChild.scrollWidth;
-      // Room up to the next item (the strengths are pushed right, so that is where the free space ends).
-      const next = element.nextElementSibling, gap = parseFloat(getComputedStyle(bar).columnGap) || 0;
-      const free = (next ? next.getBoundingClientRect().left - gap : bar.getBoundingClientRect().right) - element.getBoundingClientRect().left - (parseFloat(getComputedStyle(element).marginRight) || 0);
+      // Room between the neighbours (the chips sit centred in it, so measure past their own margins).
+      const prev = element.previousElementSibling, next = element.nextElementSibling, gap = parseFloat(getComputedStyle(bar).columnGap) || 0, edges = bar.getBoundingClientRect();
+      const free = (next ? next.getBoundingClientRect().left : edges.right) - (prev ? prev.getBoundingClientRect().right : edges.left) - 2 * gap - 12;
       setCompact(natural.current > free);
     };
     const observer = new ResizeObserver(check);
