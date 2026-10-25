@@ -6385,5 +6385,18 @@
   "Not now": "Не сейчас",
   "Fix": "Исправить",
   "Darker interface": "Тёмный интерфейс",
-  "Lighter interface": "Светлый интерфейс"
+  "Lighter interface": "Светлый интерфейс",
+  "Auto Corpse": "Автотруп",
+  "Auto Corpse (test)": "Автотруп (тест)",
+  "One click: fit a corpse to the last Death frame, set visibility, and create flesh and bone decay. Undo restores the model.": "Одним нажатием: подогнать останки по последнему кадру смерти, настроить видимость и распад тела и костей. Отмена восстанавливает модель.",
+  "Auto Corpse needs a Death animation.": "Для автотрупа нужна анимация Death.",
+  "Death has no body geometry to place a corpse beneath.": "В Death нет геометрии тела для размещения останков.",
+  "The last Death frame collapses the body to a point. A corpse needs a visible final pose.": "В последнем кадре Death тело сжимается в точку. Для останков нужна видимая конечная поза.",
+  "The last Death pose has no measurable ground footprint.": "У последней позы Death нет измеримого следа на земле.",
+  "This model has global visibility on both its body and material. Make one visibility channel local before using Auto Corpse.": "У тела и материала глобальная видимость. Сделайте один канал видимости локальным перед использованием автотрупа.",
+  "An effect has global visibility. Make its visibility local before using Auto Corpse.": "У эффекта глобальная видимость. Сделайте её локальной перед использованием автотрупа.",
+  "A body geoset has duplicate visibility records. Resolve them before using Auto Corpse.": "У геосета тела дублируются записи видимости. Исправьте их перед использованием автотрупа.",
+  "There is no room for another decay animation in the model timeline.": "На шкале времени нет места для ещё одной анимации распада.",
+  "The HD bone palette has no free slot for the corpse.": "В палитре костей HD нет свободного места для останков.",
+  "The fitted corpse exceeds the MDX vertex limit.": "Подогнанный труп превышает лимит вершин MDX."
 }

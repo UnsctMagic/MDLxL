@@ -14,6 +14,7 @@ import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } fr
 import { refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
 import { attachToBone, changeVertexBinding, createRigNode, deleteRigNode, detachFromBone, renameRigNode, setBoneBillboarded } from '../src/bone-tools.js';
 import { applyAttachmentPlan } from '../src/attachemator.js';
+import { autoCorpse, AUTO_CORPSE_SECTIONS } from '../src/auto-corpse.js';
 import { builtinTextureAssets } from '../src/builtin-textures.js';
 // Keep UV window styles available before its lazy workspace mounts.
 import './uv-workspace.css';
@@ -1653,7 +1654,12 @@ export default function App() {
       openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources, rgbPreview,
       rgbSequence, runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, selectionCount, session,
       sessionDirty, sessions, setCameraMode: chooseCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
-      setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI
+      setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI,
+      placeCorpse: async () => {
+        setPlaying(false);
+        const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, autoCorpse);
+        if (result) { await selectAnimationPanel('animations'); selectSequence(result.corpses[0].flesh); }
+      }
     }} aiControl={<AiAssistant bridge={aiBridge}/>}/>
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
     {mode === 'animation' && <PortraitToolbar model={model} active={activePortrait} cameraIndex={portraitCameraIndex} disabled={doc.readOnly || saving} allowControlModel={animationPanel === 'movement' && portraitSequenceIndices(model).includes(sequence)} controlModel={controlsWholeModel(selectedNodeIds)} controlGroups={controlGroups} controlModelGroup={controlModelGroup} onControlModel={() => selectControlModel()} onControlModelGroup={selectControlModel} onToggle={() => activePortrait ? setPortraitEnabled(false) : enablePortrait()} onCameraIndex={value => { setPortraitView('perspective'); setPortraitCameraIndex(value); }} frame={time} sequenceIndex={sequence} onSequence={selectSequence} onNew={newPortraitCamera} onMakePortrait={promotePortraitCamera} onEdit={editPortraitFields} onShot={composePortraitShot} onPause={() => setPlaying(false)} settings={portraitSettings} onSettings={patch => setPortraitSettings(value => ({...value,...patch}))} previewChanged={portraitPreviewChanged} lightingStatus={portraitLightingStatus} onCreatePortraitSequence={openPortraitSequenceSetup} onSetView={updatePortraitCamera} hasBackground={hasPortraitBackground} onBackground={placePortraitBackground} backgroundLook={portraitBackdropLook} teamColor={teamColor} onSnap={() => { setPortraitView('perspective'); setPortraitSnapRevision(value => value + 1); }}/>}

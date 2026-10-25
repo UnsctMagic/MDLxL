@@ -37,6 +37,7 @@ const VARIANTS = {
 // Anything not listed runs with the shared env only.
 const SPECIAL = {
   'anim-xl': { env: { MDLXL_ANIMXL_EXE: exe } },
+  'auto-corpse': { env: { MDLXL_TEST_EXE: exe, MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },
   attachemator: { env: { MDLXL_APP: exe, MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
   'anim-xl-filmstrip': { env: { MDLXL_ANIMXL_EXE: exe }, argv: [footman], needs: [footman] },
   'appearance-contrast': { env: { MDLXL_TEST_EXE: exe } },
