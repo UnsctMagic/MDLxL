@@ -1,15 +1,46 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { normalizePreferences } from '../src/preferences.js';
 
-const { FileTypeRegistration, registryEntries, addArguments, PROG_ID } = createRequire(import.meta.url)('../electron/file-types.cjs');
+const { FileTypeRegistration, registryEntries, addArguments, PROG_ID, MODEL_TYPES } = createRequire(import.meta.url)('../electron/file-types.cjs');
 const executable = 'D:\\Apps\\MDLxL\\MDLxL.exe', brandingDirectory = 'D:\\Apps\\MDLxL\\resources\\app\\dist\\branding';
 
-test('file icon preference accepts the four choices and defaults to the helmet page', () => {
+test('file icon preference accepts the icon choices and defaults to the helmet page', () => {
   assert.equal(normalizePreferences({}).fileIcon, 'page');
-  for (const choice of ['page', 'dark-page', 'tile', 'program']) assert.equal(normalizePreferences({ fileIcon: choice }).fileIcon, choice);
+  for (const choice of ['page', 'dark-page', 'tile', 'program', 'label-page', 'label-dark-page', 'label-tile', 'label-tag', 'label-letters']) assert.equal(normalizePreferences({ fileIcon: choice }).fileIcon, choice);
   assert.equal(normalizePreferences({ fileIcon: 'C:\\evil.ico' }).fileIcon, 'page');
+});
+
+test('MDL files follow the old single choice until they get their own', () => {
+  assert.equal(normalizePreferences({}).fileIconMdl, 'page');
+  assert.equal(normalizePreferences({ fileIcon: 'tile' }).fileIconMdl, 'tile');
+  assert.equal(normalizePreferences({ fileIcon: 'tile', fileIconMdl: 'label-letters' }).fileIconMdl, 'label-letters');
+  assert.equal(normalizePreferences({ fileIcon: 'label-tag' }).fileIcon, 'label-tag');
+});
+
+test('MDL and MDX get their own file types and labelled icons', () => {
+  const entries = registryEntries({ choice: { mdl: 'label-page', mdx: 'label-tag' }, executable, brandingDirectory });
+  const value = key => entries.find(([name, valueName]) => name === key && valueName === null)?.[3];
+  assert.equal(value('HKCU\\Software\\Classes\\MDLxL.MDL\\DefaultIcon'), `${brandingDirectory}\\file-mdl-page.ico`);
+  assert.equal(value('HKCU\\Software\\Classes\\MDLxL.MDX\\DefaultIcon'), `${brandingDirectory}\\file-mdx-tag.ico`);
+  // The shared type (Paint Projects, older defaults) shows the unlabelled MDX style.
+  assert.equal(value(`HKCU\\Software\\Classes\\${PROG_ID}\\DefaultIcon`), `"${executable}",0`);
+  for (const [extension, { progId }] of Object.entries(MODEL_TYPES)) {
+    assert.ok(entries.some(([key, name]) => key === `HKCU\\Software\\Classes\\${extension}\\OpenWithProgids` && name === progId), extension);
+    assert.ok(entries.some(([key, name, , data]) => key.endsWith('Capabilities\\FileAssociations') && name === extension && data === progId), extension);
+  }
+  for (const kind of ['mdl', 'mdx']) for (const style of ['page', 'dark-page', 'tile', 'tag', 'letters']) assert.ok(existsSync(new URL(`../public/branding/file-${kind}-${style}.ico`, import.meta.url)), `${kind}-${style}`);
+});
+
+test('a default chosen for the old shared type is noticed', async () => {
+  const types = progId => new FileTypeRegistration({ executable, brandingDirectory, run: async (file, args) => {
+    if (!args[1].endsWith('.mdx\\UserChoice')) throw Error('not found');
+    return `\r\n${args[1]}\r\n    ProgId    REG_SZ    ${progId}\r\n`;
+  } });
+  assert.equal(await types(PROG_ID).usesSharedDefault(), true);
+  assert.equal(await types('MDLxL.MDX').usesSharedDefault(), false);
 });
 
 test('file type points at the chosen icon or the program icon', () => {
@@ -24,7 +55,7 @@ test('model extensions only gain an Open with entry; nothing is written outside 
   const entries = registryEntries({ choice: 'page', executable, brandingDirectory });
   assert.ok(entries.every(([key]) => key.startsWith('HKCU\\')));
   for (const extension of ['.mdx', '.mdl']) assert.ok(!entries.some(([key, name]) => key === `HKCU\\Software\\Classes\\${extension}` && name === null), extension);
-  assert.deepEqual(addArguments(entries.find(([key]) => key.endsWith('.mdx\\OpenWithProgids'))), ['add', 'HKCU\\Software\\Classes\\.mdx\\OpenWithProgids', '/v', PROG_ID, '/t', 'REG_NONE', '/f']);
+  assert.deepEqual(addArguments(entries.find(([key]) => key.endsWith('.mdx\\OpenWithProgids'))), ['add', 'HKCU\\Software\\Classes\\.mdx\\OpenWithProgids', '/v', 'MDLxL.MDX', '/t', 'REG_NONE', '/f']);
   assert.deepEqual(addArguments(entries.find(([key]) => key.endsWith('shell\\open\\command'))).slice(-3), ['/d', `"${executable}" "%1"`, '/f']);
 });
 
