@@ -142,7 +142,7 @@ Updated: 25 October 2026
   review) is partly in AI_SD_BRAIN (side-by-side capture, weapon references); step 6 waits for go.
 - Test build for step 6: `D:/Claude/MDLxL-TestBuilds/SD-Brain-Kitbash` (commit 5405ce1b, SD Brain
   available, flip not committed; fresh profile, so the owner signs in to the provider again). The
-  owner's BITZ box was copied in from his working install
+  owner's BITZ box was copied in from the owner's working install
   `D:/MDLxLVisButton/MDLxL-win32-x64-0.20.0/BitsAndParts` (28 parts: 8 helmets, 12 weapons of
   152–574 triangles, 5 shields, 3 others; all parse as MDX 800). Smoke test: the packaged build
   opened the kitbash model hidden and rendered it with game textures. `SD-Brain-Knowledge` is unchanged.

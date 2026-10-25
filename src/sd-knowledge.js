@@ -380,7 +380,7 @@ export function briefEvidence(text, { existing = false, budget = 11000, bitz = [
   const bases = category === 'unit' || category === 'hero' ? findBases(text) : [], parts = findParts(text, { limit: 8 });
   if (bases.length) fixed.push('Bases in the box of parts (game models to start from): ' + bases.map(b => `${b.name} (${b.path}, ${b.triangles} tris, ${b.bones} bones, ${b.height} tall)`).join('; ') + '.');
   if (parts.length) fixed.push('Box of parts for this request (model, part, path, geoset and piece, triangles, size, bone):\n' + parts.map(p => `- ${p.name}: ${p.label}, ${p.path} geoset ${p.geoset} piece ${p.piece}, ${p.triangles} tris, size ${p.size.join('x')}, bone ${p.bone}`).join('\n'));
-  if (bitz.length) fixed.push(`The owner's BITZ box (his own kitbash parts, loaded with mdlxl_assets source parts): ${bitz.slice(0, 60).join(', ')}.`);
+  if (bitz.length) fixed.push(`The owner's BITZ box (the owner's own kitbash parts, loaded with mdlxl_assets source parts): ${bitz.slice(0, 60).join(', ')}.`);
   const families = findFamilies(text, { limit: 3 });
   if (families.length)
     fixed.push('Real parts of this kind (model, label, triangles, distinct positions, cross-section corners at 25/50/75%):\n' + families.map(f => `${f.family} (${f.count} reviewed):\n` + f.members.slice(0, 8).map(m => `- ${m.model} (${m.from}): ${m.label}, ${m.tris} tris, ${m.positions} positions, ${m.shape}${m.sections.length ? `, sections ${m.sections.join('/')}` : ''}${m.materials.length ? `, ${m.materials.join('; ')}` : ''}`).join('\n')).join('\n'));
