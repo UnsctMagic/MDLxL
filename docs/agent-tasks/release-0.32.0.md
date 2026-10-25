@@ -17,6 +17,22 @@ because #307 and #311 add features.
 "Start testing, when it's good pack the new release and fire Garithos" (test, then
 release and publish). Real AI checks: gpt-6-luna on low effort, simple prompts only.
 
+## Late fix (owner request during the release)
+
+The owner could add reference models in the AI console but not remove them (they
+open as tabs; nothing in the console showed or removed them). Reference tabs are now
+marked (`session.reference`, set in the host's `addReference` in `app/App.jsx`), and
+the composer shows a chip with a × for each reference, plus a × on the model chip when
+the active tab is a reference. × calls `removeReference`, which uses the normal tab
+close (so unsaved changes still prompt). `test/ai-console.electron.cjs` covers attach,
+chip and removal.
+
+Also from the owner: Ctrl+C on text selected in the AI chat ran the editor's "Copy
+selection" (the global handler in `app/Hotkeys.jsx` consumed it); it now leaves Ctrl+C
+to the browser when the text selection is inside `.ai-assistant`. Pasting into the
+prompt attached the picture that Word/web pages put beside copied text; the prompt now
+pastes text whenever the clipboard has `text/plain`. Both covered in `ai-console`.
+
 ## Release files
 
 - Notes: `docs/RELEASE-0.32.0{,-ES,-RU,-ZH-CN}.md`; README title, current-version
