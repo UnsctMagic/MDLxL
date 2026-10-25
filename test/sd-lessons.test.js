@@ -64,6 +64,26 @@ test('SD lesson no-weapon-team: team colour on a new weapon fails unless asked f
   assert.equal(named(sdLessonChecks({ before, model: cape, request: 'give him a cape' }), 'no-weapon-team').passed, true);
 });
 
+test('SD lesson base-fits-props: a staff goes in a hand the base already holds something with', () => {
+  // A caster whose right hand holds nothing (the Blood Mage's orbs) and one whose left hand holds a staff.
+  const caster = staffHand => {
+    const m = model([body, head]);
+    m.Bones.push({ Name: 'Bone_Hand_R', ObjectId: 2, Parent: -1 }, { Name: 'Bone_Hand_L', ObjectId: 3, Parent: -1 });
+    if (staffHand) m.Bones.push({ Name: 'Staff', ObjectId: 4, Parent: 3 });
+    return m;
+  };
+  const withStaff = (before, bone) => {
+    const after = structuredClone(before), staff = model([{ lo: [10, 0, 0], hi: [12, 2, 150], bone: 'x' }]).Geosets[0];
+    staff.Groups = [[after.Bones.find(b => b.Name === bone).ObjectId]];
+    after.Geosets.push(staff);
+    return named(sdLessonChecks({ before, model: after }), 'base-fits-props');
+  };
+  assert.equal(withStaff(caster(false), 'Bone_Hand_R').passed, false);
+  assert.match(withStaff(caster(false), 'Bone_Hand_R').actual, /Bone_Hand_R/);
+  assert.equal(withStaff(caster(true), 'Staff').passed, true);
+  assert.equal(withStaff(caster(true), 'Bone_Hand_L').passed, true);
+});
+
 test('SD lesson preview-paint: new paint must have been looked at; a donor keeps its own skin', () => {
   const before = model([body]), after = model([body, { lo: [10, 0, 40], hi: [14, 4, 120], bone: 'Bone_Sword', texture: 'Textures\\InfernalCannon.blp' }]);
   const unseen = named(sdLessonChecks({ before, model: after }), 'preview-paint');

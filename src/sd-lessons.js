@@ -6,7 +6,7 @@
  *
  *   sdLessonChecks({ before, model, request, previewed, references }) → [{ name, passed, actual, expected }]
  */
-import { partModels, partsOf, guessCategory } from './sd-knowledge.js';
+import { partModels, partsOf, guessCategory, isWeaponRequest } from './sd-knowledge.js';
 import { pieces } from './sd-kitbash.js';
 
 export { SD_LESSONS, lessonsText } from './sd-lesson-rules.js';
@@ -68,6 +68,20 @@ function referenceBase(ref) {
   return parts.length ? { id: m.id, name: m.name, parts, piecesOf } : null;
 }
 const FACE = /\b(face|eye|eyes|moustache|mustache|beard|jaw|mouth|nose)\b/i, HELM = /\b(helm|helmet|plume|crest|hat|hood|crown|visor|horn|horns)\b/i;
+// A unit outside the box of parts: its head is what hangs on the head bone and the bones under it.
+// Pieces whose bone names gear or hair (Helmet, Hairtop, Plume...) count as head gear, the rest as face.
+function boneBase(model) {
+  const nodes = [...(model?.Bones || []), ...(model?.Helpers || [])], byId = new Map(nodes.map(n => [n.ObjectId, n]));
+  const underHead = n => { for (let k = 0; n && k < 64; n = byId.get(n.Parent), k++) if (/head/i.test(n.Name)) return true; return false; };
+  const headBones = new Set(nodes.filter(underHead).map(n => n.Name));
+  if (!headBones.size || !model.Geosets?.length) return null;
+  const cache = new Map(), piecesOf = gi => cache.get(gi) || cache.set(gi, pieces(model, { geoset: gi, order: 'file', withVertices: true, limit: Infinity })).get(gi);
+  const parts = model.Geosets.flatMap((g, gi) => (hidden(model, gi) ? [] : piecesOf(gi)).filter(p => headBones.has(p.bone)).map(p => {
+    const gear = /hair|helm|hat|hood|plume|crest|horn|visor|crown|mohawk|ponytail/i.test(p.bone);
+    return { geoset: gi, piece: p.piece, triangles: p.triangles, bone: p.bone, kind: gear ? 'helmet' : 'head', label: `${gear ? 'head gear' : 'head'} piece on ${p.bone}` };
+  }));
+  return parts.length ? { id: 'bones', name: 'starting unit', parts, piecesOf, bones: headBones } : null;
+}
 
 function headParts(base) {
   const face = base.parts.filter(p => (p.kind === 'head' || FACE.test(p.label)) && !HELM.test(p.label));
@@ -145,7 +159,7 @@ function headSizeCheck(before, model, base, references = []) {
   let boneSet, reference;
   if (base) {
     const { head } = headParts(base);
-    boneSet = new Set(head.map(p => p.bone).filter(Boolean));
+    boneSet = base.bones || new Set(head.map(p => p.bone).filter(Boolean));
     reference = bbox(head.flatMap(p => base.piecesOf(p.geoset).find(x => x.piece === p.piece)?.vertices.map(v => { const V = before.Geosets[p.geoset].Vertices; return [V[v * 3], V[v * 3 + 1], V[v * 3 + 2]]; }) || []));
   } else {
     boneSet = new Set([...nodeNames(before).values()].filter(n => /head/i.test(n)));
@@ -171,7 +185,9 @@ function headSizeCheck(before, model, base, references = []) {
 }
 
 function transformCheck(before, model, references, request) {
-  const kitbash = /\bkitbash/i.test(request) || ['unit', 'hero'].includes(guessCategory(request));
+  // A kitbash, or a new walking unit the request names without a category word ("a necromancer").
+  const category = guessCategory(request);
+  const kitbash = /\bkitbash/i.test(request) || ['unit', 'hero'].includes(category) || (!category && !isWeaponRequest(request) && (model.Sequences || []).some(s => /^walk/i.test(s.Name || '')));
   if (!kitbash) return null;
   const result = triangles(model, fullSig);
   if (!result.length) return null;
@@ -203,11 +219,38 @@ function weaponTeamCheck(before, model, request) {
   return { name: 'Lesson no-weapon-team: no team colour on new weapon pieces', passed: !offending.length, actual: offending.length ? `team colour on ${offending.join('; ')}` : 'none', expected: 'none unless the request asks for team colour' };
 }
 
+// Something new held in a hand whose animations hold nothing: the base never carries a weapon there
+// (no weapon-named node or Weapon attachment under that hand), so the new prop floats with gestures
+// made for orbs or claws.
+function heldCheck(before, model) {
+  if (!before?.Geosets?.length) return null;
+  const nodes = [...(model.Bones || []), ...(model.Helpers || [])], byId = new Map(nodes.map(n => [n.ObjectId, n]));
+  const hands = nodes.filter(n => /^bone_hand/i.test(n.Name));
+  const under = (id, hand) => { for (let n = byId.get(id), k = 0; n && k < 64; n = byId.get(n.Parent), k++) if (n.ObjectId === hand.ObjectId) return true; return false; };
+  const baseNodes = [...(before.Bones || []), ...(before.Helpers || [])];
+  const holds = hand => baseNodes.some(n => n.ObjectId !== hand.ObjectId && WEAPON_BONE.test(n.Name) && under(n.ObjectId, hand)) || (before.Attachments || []).some(a => /weapon/i.test(a.Name) && under(a.Parent, hand));
+  const offending = [];
+  for (const hand of hands) {
+    if (holds(hand)) continue;
+    const added = (model.Geosets || []).map((g, gi) => [g, gi]).filter(([g, gi]) => {
+      if (gi < before.Geosets.length || hidden(model, gi)) return false;
+      const count = g.Vertices.length / 3;
+      let held = 0;
+      for (let v = 0; v < count; v++) if ((g.Groups?.[g.VertexGroup?.[v]] || []).some(id => under(id, hand))) held++;
+      return count && held / count >= 0.6;
+    });
+    if (added.length) offending.push(`${hand.Name} (geosets ${added.map(([, gi]) => gi).join(', ')})`);
+  }
+  return { name: 'Lesson base-fits-props: new held props go in hands the base already holds things with', passed: !offending.length, actual: offending.length ? `new parts held in ${offending.join('; ')}, a hand the base's animations hold nothing with` : 'held props are in hands that hold things', expected: 'choose a base whose animations hold this kind of prop, or carry it on the body' };
+}
+
 function previewCheck(before, model, previewed, references) {
-  // A donor part or base keeps its own skin; only newly chosen paint needs a preview.
+  // A donor part or base keeps its own skin; only newly chosen paint needs a preview. Only paint the
+  // geosets wear counts: a part's leftover sheet nobody shows is not paint.
   const old = new Set([before, ...references.map(r => r.model)].flatMap(m => (m?.Textures || []).map(t => lower(t.Image))));
   const seen = new Set((previewed || []).map(p => { const m = /^model#(\d+)$/.exec(p); return baseName(m ? model.Textures?.[+m[1]]?.Image || before?.Textures?.[+m[1]]?.Image : p); }));
-  const fresh = (model.Textures || []).filter(t => t.Image && !t.ReplaceableId && !/^mdlxl_forge[\\/]/i.test(t.Image) && !old.has(lower(t.Image)));
+  const worn = new Set((model.Geosets || []).flatMap(g => (model.Materials?.[g.MaterialID]?.Layers || []).map(l => l.TextureID)));
+  const fresh = (model.Textures || []).filter((t, i) => worn.has(i) && t.Image && !t.ReplaceableId && !/^mdlxl_forge[\\/]/i.test(t.Image) && !old.has(lower(t.Image)));
   const unseen = fresh.filter(t => !seen.has(baseName(t.Image))).map(t => t.Image);
   return { name: 'Lesson preview-paint: every newly used texture was previewed before use', passed: !unseen.length, actual: unseen.length ? `not previewed: ${unseen.join(', ')}` : `${fresh.length} new texture(s), all previewed`, expected: 'preview each sheet (mdlxl_assets action preview, with uv for the area) and choose by what it shows' };
 }
@@ -216,9 +259,9 @@ function previewCheck(before, model, previewed, references) {
  * request the user's words, previewed the textures previewed in this task (paths or model#id),
  * references the other open models [{ name, model }] (loaded bases and donors). */
 export function sdLessonChecks({ before, model, request = '', previewed = [], references = [] } = {}) {
-  const base = identifyBase(before), checks = [];
+  const base = identifyBase(before) || boneBase(before), checks = [];
   if (base) checks.push(faceCheck(before, model, base, references));
   if (before?.Geosets?.length) checks.push(headSizeCheck(before, model, base, references));
-  checks.push(transformCheck(before, model, references, request), weaponTeamCheck(before, model, request), previewCheck(before, model, previewed, references));
+  checks.push(transformCheck(before, model, references, request), weaponTeamCheck(before, model, request), heldCheck(before, model), previewCheck(before, model, previewed, references));
   return checks.filter(Boolean);
 }

@@ -10,6 +10,7 @@ export const SD_LESSONS = [
   { id: 'bitz-allowed', rule: "The owner's BITZ parts may be used.", why: 'Owner: "its okay if it used my bits!"' },
   { id: 'no-weapon-team', rule: 'No team colour on weapons unless the request asks for it.', why: 'Owner: team colour is a design choice, not part of general weapon making.' },
   { id: 'check-base', rule: 'Look at a base model before building on it; names mislead (the game\'s "Orc Warlord" file is the mounted Chaos Warlord).', why: 'The orc warlord started from a wolf rider.' },
+  { id: 'base-fits-props', rule: 'Choose a base whose animations already do what the new unit does: a staff caster starts from a unit that holds a staff (the Human Mage, Medivh), a shield bearer from one that carries a shield. Never put a held weapon in hands animated for something else (the Blood Mage casts with floating orbs; the Dreadlord fights with claws).', why: 'Owner, on a necromancer built on the Blood Mage: "it wont fit with the blood animations, he doesnt hold a staff he has floating orbs."' },
   { id: 'preview-paint', rule: 'Preview every texture area before using it and choose by what the pixels show.', why: 'The banded AxeBladeBlueSteel strip was chosen three times without looking.' },
   { id: 'review-honestly', rule: 'Judge the result next to the model it started from and against these lessons. Your own review passed results the owner rejected; a result that fails a lesson check is not finished.', why: 'Six of eight gallery results passed the AI review; the owner rejected most of them.' },
 ];
