@@ -140,7 +140,7 @@ Updated: 25 October 2026
 
 - Next: the organiser reviews steps 1–4 and shows the owner the pictures; step 5 (checks in the
   review) is partly in AI_SD_BRAIN (side-by-side capture, weapon references); step 6 waits for go.
-- Test build for step 6: `D:/Claude/MDLxL-TestBuilds/SD-Brain-Kitbash` (commit 5405ce1b, SD Brain
+- Test build for step 6: `D:/Claude/MDLxL-TestBuilds/SD-Brain-Kitbash` (commit e2ab3429, SD Brain
   available, flip not committed; fresh profile, so the owner signs in to the provider again). The
   owner's BITZ box was copied in from the owner's working install
   `D:/MDLxLVisButton/MDLxL-win32-x64-0.20.0/BitsAndParts` (28 parts: 8 helmets, 12 weapons of
