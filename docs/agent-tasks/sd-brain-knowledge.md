@@ -18,7 +18,8 @@ Updated: 25 October 2026
 
 ## Revision and local state
 
-- Branch: `claude/sd-brain-knowledge` from `main` 2d6ca1e8. Research PR #302 and the
+- Branch: `claude/sd-brain-knowledge` from `main` 2d6ca1e8, draft PR https://github.com/UnsctMagic/MDLxL/pull/303.
+  Test build (SD Brain on, not committed): `D:/Claude/MDLxL-TestBuilds/SD-Brain-Knowledge`. Research PR #302 and the
   rejected #299 are untouched.
 - Regenerating the pack needs the research folder `D:/Codex/sd-research` (study data
   and `data/uv-library.sqlite`) and Codex's texture index
