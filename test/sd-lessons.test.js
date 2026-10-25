@@ -92,7 +92,7 @@ test('SD lesson keep-face: the Footman keeps a visible face', { skip: !(fs.exist
   masked.Geosets.push(plate);
   const covered = named(sdLessonChecks({ before, model: masked }), 'keep-face');
   assert.equal(covered.passed, false);
-  assert.match(covered.actual, /new pieces cover \d+% of the face/);
+  assert.match(covered.actual, /of the face that showed before \(\d+%\), \d+% is now hidden/);
   // The face removed.
   const cut = structuredClone(before), g = cut.Geosets[0], faces = [];
   const facePiece = identifyBase(before).parts.find(p => p.label === 'Face and moustache'), first = g.Faces.length;

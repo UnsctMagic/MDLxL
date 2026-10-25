@@ -102,17 +102,23 @@ function hitsFront(p, a, b, c) {
   return (e2[0] * q[0] + e2[1] * q[1] + e2[2] * q[2]) / det > 0.3;
 }
 const corners = (m, g, f) => [0, 1, 2].map(k => { const v = g.Faces[f * 3 + k]; return [g.Vertices[v * 3], g.Vertices[v * 3 + 1], g.Vertices[v * 3 + 2]]; });
-// Share of the face, seen from the front, that new pieces (not in the starting model) now cover.
+// Share of the face, seen from the front, that other pieces cover: in the starting model (its own
+// visor already hides some of it) and in the result.
 function faceCovered(before, model, base) {
-  const { face } = headParts(base), old = new Set(triangles(before, fullSig));
-  const points = face.flatMap(p => pieceTriangles(before, base, p)).flatMap(({ g, f }) => {
+  const { face } = headParts(base), faceTris = face.flatMap(p => pieceTriangles(before, base, p));
+  const faceSigs = new Set(faceTris.map(({ g, f }) => uvSig(before, g, f)));
+  const points = faceTris.flatMap(({ g, f }) => {
     const [a, b, c] = corners(before, g, f), n = [[1 / 3, 1 / 3], [0.6, 0.2], [0.2, 0.6], [0.2, 0.2]];
     return n.map(([u, v]) => [0, 1, 2].map(i => a[i] + (b[i] - a[i]) * u + (c[i] - a[i]) * v));
   });
-  const blockers = [];
-  (model.Geosets || []).forEach((g, gi) => { if (hidden(model, gi)) return; for (let f = 0; f < g.Faces.length / 3; f++) if (!old.has(fullSig(model, g, f))) blockers.push(corners(model, g, f)); });
-  if (!points.length || !blockers.length) return 0;
-  return points.filter(p => blockers.some(([a, b, c]) => hitsFront(p, a, b, c))).length / points.length;
+  const covering = m => {
+    const blockers = [];
+    (m.Geosets || []).forEach((g, gi) => { if (hidden(m, gi)) return; for (let f = 0; f < g.Faces.length / 3; f++) if (!faceSigs.has(uvSig(m, g, f))) blockers.push(corners(m, g, f)); });
+    return points.map(p => blockers.some(([a, b, c]) => hitsFront(p, a, b, c)));
+  };
+  // What matters is the part of the face that showed before: the eyes, nose and moustache in the visor's opening.
+  const was = covering(before), now = covering(model), shown = was.map(c => !c), count = shown.filter(Boolean).length;
+  return { shown: points.length ? count / points.length : 0, hidden: count ? now.filter((c, i) => c && shown[i]).length / count : 0 };
 }
 function faceCheck(before, model, base, references) {
   const own = faceKept(before, base, new Map());
@@ -120,18 +126,22 @@ function faceCheck(before, model, base, references) {
   const have = new Map();
   for (const s of triangles(model, uvSig)) have.set(s, (have.get(s) || 0) + 1);
   const kept = faceKept(before, base, have);
-  // Another unit's whole face in its place (Thrall's head on a Grunt) also keeps a face.
-  const donor = references.map(r => ({ r, b: referenceBase(r) })).filter(x => x.b).map(x => ({ name: x.b.name, ...faceKept(x.r.model, x.b, have) })).find(x => x.total && x.share >= 0.8);
-  const covered = kept.share >= 0.8 ? faceCovered(before, model, base) : 0;
+  // Another unit's whole face in its place (Thrall's head on a Grunt) also keeps a face; the same
+  // unit loaded again is not another face.
+  const donor = kept.share >= 0.8 ? null : references.map(r => ({ r, b: referenceBase(r) })).filter(x => x.b && x.b.id !== base.id).map(x => ({ name: x.b.name, ...faceKept(x.r.model, x.b, have) })).find(x => x.total && x.share >= 0.8);
+  const seen = kept.share >= 0.8 ? faceCovered(before, model, base) : { shown: 0, hidden: 0 };
   return {
     name: `Lesson keep-face: the ${base.name}'s face (${own.face.map(p => p.label).join(', ')}) is still there and visible from the front, or another unit's whole face replaced it`,
-    passed: (kept.share >= 0.8 && covered <= 0.4) || !!donor,
-    actual: donor ? `face replaced by the ${donor.name}'s face` : `${Math.round(kept.share * 100)}% of its ${kept.total} face triangles remain; new pieces cover ${Math.round(covered * 100)}% of the face from the front`,
-    expected: 'at least 80% kept and no more than 40% covered: fit gear around the face, never remove or hide it',
+    passed: (kept.share >= 0.8 && seen.hidden <= 0.25) || !!donor,
+    actual: donor
+      ? `face replaced by the ${donor.name}'s face`
+      : `${Math.round(kept.share * 100)}% of its ${kept.total} face triangles remain; of the face that showed before (${Math.round(seen.shown * 100)}%), ${Math.round(seen.hidden * 100)}% is now hidden`,
+    expected: 'at least 80% kept and at most 25% of the visible face newly hidden: fit gear around the face, never remove or cover it',
   };
 }
 
-function headSizeCheck(before, model, base) {
+function headSizeCheck(before, model, base, references = []) {
+  const donors = references.map(r => ({ model: r.model, base: referenceBase(r) })).filter(d => d.base && d.model?.Geosets);
   let boneSet, reference;
   if (base) {
     const { head } = headParts(base);
@@ -146,8 +156,18 @@ function headSizeCheck(before, model, base) {
   const after = bound(model);
   if (!reference || !after) return null;
   const ratio = after.size.map((s, a) => s / Math.max(reference.size[a], 1e-3)), limit = [1.6, 1.6, 2];
+  // Gear taken whole from a unit keeps that unit's own proportions (the Captain's wings are twice his
+  // helm's width): allow up to a tenth beyond the widest loaded unit's own head gear.
+  for (const r of donors) {
+    const own = r.base && headParts(r.base).head;
+    if (!own?.length) continue;
+    const ownBones = new Set(own.map(p => p.bone).filter(Boolean)), names = nodeNames(r.model), pts = [];
+    (r.model.Geosets || []).forEach((g, gi) => { if (hidden(r.model, gi)) return; for (let v = 0; v < g.Vertices.length / 3; v++) if (vertexBones(r.model, g, v, names).some(n => ownBones.has(n))) pts.push([g.Vertices[v * 3], g.Vertices[v * 3 + 1], g.Vertices[v * 3 + 2]]); });
+    const gear = bbox(pts), head = bbox(own.flatMap(p => r.base.piecesOf(p.geoset).find(x => x.piece === p.piece)?.vertices.map(v => { const V = r.model.Geosets[p.geoset].Vertices; return [V[v * 3], V[v * 3 + 1], V[v * 3 + 2]]; }) || []));
+    if (gear && head) for (let a = 0; a < 3; a++) limit[a] = Math.max(limit[a], (gear.size[a] / Math.max(head.size[a], 1e-3)) * 1.1);
+  }
   const worst = ratio.map((r, a) => r / limit[a]), axis = worst.indexOf(Math.max(...worst));
-  return { name: 'Lesson head-gear-size: head gear stays close to the head\'s outline from every side', passed: worst.every(w => w <= 1), actual: `head gear is ${ratio.map(r => r.toFixed(2)).join(' × ')} the original head (front-back × side × height)`, expected: `at most 1.6 × 1.6 × 2${worst[axis] > 1 ? `; ${['front to back', 'side to side', 'in height'][axis]} is too large` : ''}` };
+  return { name: 'Lesson head-gear-size: head gear stays close to the head\'s outline from every side', passed: worst.every(w => w <= 1), actual: `head gear is ${ratio.map(r => r.toFixed(2)).join(' × ')} the original head (front-back × side × height)`, expected: `at most ${limit.map(l => l.toFixed(1)).join(' × ')}${worst[axis] > 1 ? `; ${['front to back', 'side to side', 'in height'][axis]} is too large` : ''}` };
 }
 
 function transformCheck(before, model, references, request) {
@@ -198,7 +218,7 @@ function previewCheck(before, model, previewed, references) {
 export function sdLessonChecks({ before, model, request = '', previewed = [], references = [] } = {}) {
   const base = identifyBase(before), checks = [];
   if (base) checks.push(faceCheck(before, model, base, references));
-  if (before?.Geosets?.length) checks.push(headSizeCheck(before, model, base));
+  if (before?.Geosets?.length) checks.push(headSizeCheck(before, model, base, references));
   checks.push(transformCheck(before, model, references, request), weaponTeamCheck(before, model, request), previewCheck(before, model, previewed, references));
   return checks.filter(Boolean);
 }
