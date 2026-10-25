@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, MAX_HOTKEY_ID_LENGTH } from '../src/preferences.js';
 import { contextualHotkeyDefaults, hotkeyCode, HotkeySequence, HOTKEY_LEADER, LEGACY_HOTKEY_CATALOG_STORAGE_KEY, migrateHotkeyId } from '../src/hotkey-defaults.js';
 import { hotkeyBadge } from '../src/hotkey-badge.js';
+import { translate } from '../src/localization.js';
 import './settings.css';
 import './hotkey-sequences.css';
 
@@ -80,7 +81,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         element.setAttribute('aria-keyshortcuts', keys.filter(key => !hotkeyCode(key)).map(key => key.replaceAll('Ctrl', 'Control').replaceAll('Plus', '+')).join(' '));
         element.setAttribute('data-hotkey-shortcuts', keys.join(' / '));
         const forgeHint = id.startsWith('forge:');
-        const title = [element.getAttribute('data-hotkey-base-title'), forgeHint && keys.length ? `Hotkey: ${keys.map(formatChord).join(' / ')}` : keys.map(hotkeyBadge).filter(Boolean).length ? `Hotkey: ${keys.map(hotkeyBadge).filter(Boolean).join(' / ')}` : ''].filter(Boolean).join('\n');
+        const title = [element.getAttribute('data-hotkey-base-title'), forgeHint && keys.length ? translate(`Hotkey: ${keys.map(formatChord).join(' / ')}`) : keys.map(hotkeyBadge).filter(Boolean).length ? translate(`Hotkey: ${keys.map(hotkeyBadge).filter(Boolean).join(' / ')}`) : ''].filter(Boolean).join('\n');
         element.setAttribute('title', title); element.setAttribute('data-hotkey-tooltip', title);
         if (element.tagName !== 'BUTTON' || element.getAttribute('data-hotkey-badges') === 'false') continue;
         let badge = element.querySelector(':scope > [data-hotkey-badge]');
