@@ -144,6 +144,33 @@ Updated: 25 October 2026
   own silhouette from every side. No big fix yet: the owner first wants to see what the AI really makes
   (step 6 gallery) and will correct from that.
 
+- 25 October 2026, on the step 6 gallery (verbatim): "1 - total failure, he made a mess - not a sword. it
+  looks like something from final fantasy but built like shit. 2 - orc axe was good. 3 - helmet with horns is
+  nice. chaos night of nurgle is... basiclly a copy of my work but ok - it has an idea." Then: "ahh its okay if it
+  used my bits!" (BITZ parts are allowed.) Corrected on the Nurgle knight: "but the result was pure shit then - it
+  just took a knight and kind of put stuff on it which is ok but a shit kitbash". The approach (Knight base plus
+  BITZ parts) is acceptable; the execution is not: parts stuck onto an unchanged knight, and the run stopped
+  before its own integration steps (rider reshaped into a swollen belly, olive tint, original helmet and weapon
+  removed, barding reshaped, plague discs).
+
+## Step 6 gallery (25 October 2026)
+
+- Run in `D:/Claude/MDLxL-TestBuilds/SD-Brain-Kitbash` (commit e2ab3429), Codex gpt-6.1-sol, SD Brain and
+  Offload on, hidden desktop. The Codex sign-in came through a user-approved junction to the
+  `SD-Brain-Knowledge` build's Codex folder, removed as a link afterwards (old folder untouched). The test
+  build's external tool connection, switched on for exports, is off again.
+- Results (`out/sd-gallery/overview.png`, `SUMMARY.md`, one `sheet.png` per prompt): 6 finished with the AI's
+  own review passed (sword, skull helmet, orc axe, shield, horned helmet, undead knight), 2 failed (orc warlord:
+  review blocked because the box of parts' "Orc Warlord" base is a mounted, fully armoured rider; Nurgle knight:
+  "the editor invalidated the target"). 4–12 minutes each.
+- Pattern: the liked results kept native parts nearly whole and joined them with small additions (orc axe:
+  Grunt haft + Gorehowl blade; horned helmet: Captain's helm + Necromancer horns; skull helmet follows it). The
+  sword and the shield stretched tiny Blizzard parts (14 and 9 triangles) far beyond their shape. Unit kitbashes
+  (Nurgle knight, undead knight) put parts on an unchanged base. The AI's own review passed the sword the owner
+  called a total failure.
+- To investigate: the "editor invalidated the target" stop (app); the box of parts needs each base's build
+  (mounted, armoured, exposed skin) so a base is not picked by name alone.
+
 ## Blockers and next action
 
 - Step 6 gallery (owner's go, 25 October 2026): pipeline ready in `out/sd-gallery/` (`prompts.json`
@@ -151,9 +178,7 @@ Updated: 25 October 2026
   on a hidden desktop and exports each result, `collect.mjs` pulls the art brief and counts,
   `scene.mjs` + `../sd-kitbash-check/render.cjs` (hideGrid) render base and result at game-camera
   angle, `compose.py` makes `<slug>/sheet.png` and `overview.png`). Dry run and stand-in tests passed.
-  Blocked on AI sign-in: linking the test build's `profile/ai/codex` to the signed-in Codex home of
-  `SD-Brain-Knowledge` was refused by the session's permission check (credentials), so no prompt has
-  run. Needs the user's call: allow that link, or the owner signs in to Codex in `SD-Brain-Kitbash`.
+  Ran after the user allowed the sign-in link; see Step 6 gallery above.
 
 - Next: the organiser reviews steps 1–4 and shows the owner the pictures; step 5 (checks in the
   review) is partly in AI_SD_BRAIN (side-by-side capture, weapon references); step 6 waits for go.
