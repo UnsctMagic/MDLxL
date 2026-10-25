@@ -22,8 +22,19 @@
  *   // Staff or torch: a long thin lathe or spike for the shaft, a sphere, emblem or spikes at the head.
  *   // Helmet: a lathe dome (profile from the brim up to the crown), horns as spikes, a box nose guard.
  *   return b.commit(model, { name: 'MordorChalice' });
+ *
+ * Native paint instead of a painted material: give a part native, a game texture region,
+ * usually one from (await api.module('sd-knowledge')).findMaterials('dark iron gold rim').
+ * Each of the part's UV islands is fitted into that region (turned to match its long side,
+ * aspect kept), the way Warcraft modellers map new parts onto existing Blizzard paint.
+ *   const know = await api.module('sd-knowledge'), [iron] = know.findMaterials('dark iron gold rim');
+ *   b.blade({ length: 62, width: 10, thickness: 3, at: [0, 0, 24], native: iron });
+ *   b.extrude({ ..., native: { sheet: 'Textures\\InfernalCannon.blp', uv: [0.375, 0.5625, 0.4922, 0.7813], tint: [1, 0.6, 0.5] } });
+ * native: { sheet, uv: [u0, v0, u1, v1] (top-left origin), tint?: [r, g, b] geoset colour, team?: team colour under the paint's alpha }.
+ * Native parts share one geoset per sheet and colour; painted parts still share one painted texture.
  */
 import { commitForge, encodeForgeTga } from './forge.js';
+import { applyMaterialPreset } from './material-presets.js';
 
 export const SD_MATERIALS = Object.freeze({
   iron: { dark: '#16171b', mid: '#4b4e55', light: '#8f939b', edge: '#dfe3ea' , metal: true },
@@ -140,7 +151,8 @@ function inset(loop, d) {
 /** One part: positions, normals, triangles and UV islands in world-size units. */
 class Part {
   constructor(material, options = {}) {
-    if (!material) throw Error('Give each part a material (an SD_MATERIALS name or {dark, mid, light, edge}).');
+    this.native = options.native ? nativeRegion(options.native) : null;
+    if (!material && !this.native) throw Error('Give each part a material (an SD_MATERIALS name or {dark, mid, light, edge}) or a native texture region.');
     this.material = material; this.pattern = options.pattern || 'none'; this.patternMaterial = options.patternMaterial || null;
     this.detail = clamp(Number(options.detail ?? 1), 0.25, 4);
     this.patternAt = options.patternAt ? options.patternAt.map(Number) : null;
@@ -317,10 +329,75 @@ export function builder() {
       const profile = Array.from({ length: rings + 1 }, (_, i) => { const a = -Math.PI / 2 + (Math.PI * i) / rings; return [r * Math.cos(a), r * Math.sin(a)]; });
       return add(lathePart({ segments: 8, ...o, profile, sharp: o.faceted ? 1 : 80 }), o);
     },
-    /** Pack and paint every part into one texture and add it to the model in one geoset. */
-    commit: (model, options = {}) => commitSd(model, parts, options),
+    /** Pack and paint the painted parts into one texture and geoset; map native parts onto their game texture regions. */
+    commit: (model, options = {}) => commitParts(model, parts, options),
   };
   return api;
+}
+
+function nativeRegion(region) {
+  const sheet = String(region?.sheet || '').trim(), uv = region?.uv;
+  if (!sheet) throw Error('native needs sheet, the game texture path.');
+  if (!Array.isArray(uv) || uv.length !== 4 || uv.some(v => !Number.isFinite(v) || v < 0 || v > 1) || !(uv[2] > uv[0] && uv[3] > uv[1]))
+    throw Error('native needs uv: [u0, v0, u1, v1] inside 0..1 with u1 > u0 and v1 > v0.');
+  const tint = region.tint == null ? null : Array.from(region.tint, Number);
+  if (tint && (tint.length !== 3 || tint.some(v => !Number.isFinite(v) || v < 0 || v > 1))) throw Error('native tint must be three values from 0 to 1.');
+  const size = Array.isArray(region.size) && region.size.length === 2 ? region.size.map(Number) : [1, 1];
+  return { sheet, uv: uv.map(Number), tint, team: !!region.team, alpha: Number(region.alpha) || 0, size };
+}
+
+function commitParts(model, parts, options = {}) {
+  if (!parts.length) throw Error('Add at least one part before commit.');
+  const painted = parts.filter(p => !p.native), native = parts.filter(p => p.native);
+  const result = painted.length ? commitSd(model, painted, options) : { model, assets: [], triangles: 0, texture: null, geoset: null };
+  if (!native.length) return result;
+  const nativeResult = commitNative(model, native);
+  return { ...result, triangles: result.triangles + nativeResult.triangles, texture: result.texture ?? nativeResult.textures[0], geoset: result.geoset ?? nativeResult.geosets[0], native: nativeResult };
+}
+
+// Native parts: each island keeps its shape and is fitted into the region, long side along
+// the region's long side. One geoset per sheet and colour, like an SD model's material groups.
+function commitNative(model, parts) {
+  const groups = new Map();
+  for (const part of parts) {
+    const n = part.native, k = [n.sheet.toLowerCase(), n.tint?.join(',') || '', n.team ? 'team' : '', n.alpha > 0.05 ? 'alpha' : ''].join('|');
+    (groups.get(k) || groups.set(k, { n, parts: [] }).get(k)).parts.push(part);
+  }
+  const geosets = [], textures = [];
+  let triangles = 0;
+  for (const { n, parts: list } of groups.values()) {
+    const Vertices = [], Normals = [], uvs = [], Faces = [];
+    const [u0, v0, u1, v1] = n.uv, inset = 0.04, rw = (u1 - u0) * (1 - inset * 2), rh = (v1 - v0) * (1 - inset * 2);
+    // Region size in pixels decides which way is long and keeps painted detail unstretched.
+    const pw = rw * n.size[0], ph = rh * n.size[1];
+    for (const part of list) {
+      const base = Vertices.length / 3, local = new Array(part.p.length);
+      for (let i = 0; i < part.islands; i++) {
+        const verts = part.uv.map((_, k) => (part.island[k] === i ? k : -1)).filter(k => k >= 0);
+        if (!verts.length) continue;
+        const xs = verts.map(k => part.uv[k][0]), ys = verts.map(k => part.uv[k][1]);
+        const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(...xs) - x0 || 1e-3, h = Math.max(...ys) - y0 || 1e-3;
+        const rot = (w >= h) !== (pw >= ph), iw = rot ? h : w, ih = rot ? w : h, s = Math.min(pw / iw, ph / ih);
+        const cu = (pw - iw * s) / 2, cv = (ph - ih * s) / 2;
+        for (const k of verts) {
+          const a = part.uv[k][0] - x0, b = part.uv[k][1] - y0, [x, y] = rot ? [b, w - a] : [a, b];
+          local[k] = [u0 + (u1 - u0) * inset + (cu + x * s) / n.size[0], v0 + (v1 - v0) * inset + (cv + y * s) / n.size[1]];
+        }
+      }
+      part.p.forEach((p, k) => { Vertices.push(...p); Normals.push(...part.n[k]); uvs.push(...(local[k] || [(u0 + u1) / 2, (v0 + v1) / 2])); });
+      for (const t of part.tris) Faces.push(base + t[0], base + t[1], base + t[2]);
+    }
+    if (Vertices.length / 3 > 65535) throw Error('Too many vertices for one Warcraft geoset.');
+    const committed = commitForge(model, { geosets: [{ Vertices: new Float32Array(Vertices), Normals: new Float32Array(Normals), TVertices: [new Float32Array(uvs)], Faces: new Uint16Array(Faces) }] }, { texturePath: n.sheet });
+    const index = committed.geosetIndices[0], materialId = model.Geosets[index].MaterialID, layer = model.Materials[materialId].Layers[0];
+    // Opaque paint renders like Blizzard props; alpha paint either cuts out or shows team colour beneath.
+    layer.FilterMode = n.alpha > 0.05 && !n.team ? 1 : 0; layer.Shading = 0;
+    if (n.team) applyMaterialPreset(model, materialId, 'Team Color');
+    if (n.tint) model.GeosetAnims.push({ GeosetId: index, Flags: 2, Alpha: 1, Color: new Float32Array(n.tint) });
+    if (model.Info) model.Info.NumGeosetAnims = model.GeosetAnims.length;
+    geosets.push(index); textures.push(n.sheet); triangles += Faces.length / 3;
+  }
+  return { geosets, textures, triangles };
 }
 
 function material(spec) {

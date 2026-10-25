@@ -18,10 +18,10 @@ export const AI_AREAS = [
   {
     id: 'creation',
     description:
-      (SD_BRAIN_AVAILABLE ? 'SD Kit solid hand-painted props (lathe, extrude, spikes, rings, gems; one painted texture), ' : '') +
+      (SD_BRAIN_AVAILABLE ? 'SD Kit solid props (lathe, extrude, spikes, rings, gems) painted by hand or mapped onto native game paint; SD knowledge of real Warcraft models (native paint by look, part construction, category norms), ' : '') +
         'Procedural primitives, Forge construction, detail shaping, combining and fitting reusable parts.',
     modules: [
-      ...(SD_BRAIN_AVAILABLE ? ['sd-kit'] : []),
+      ...(SD_BRAIN_AVAILABLE ? ['sd-kit', 'sd-knowledge'] : []),
       'forge-primitives',
       'forge',
       'forge-detail-editing',
@@ -123,7 +123,7 @@ export function searchAiCapabilities(sources, { query = '', area, offset = 0, li
     .filter(
       row =>
         row.exports.length &&
-        (SD_BRAIN_AVAILABLE || row.module !== 'sd-kit') &&
+        (SD_BRAIN_AVAILABLE || (row.module !== 'sd-kit' && row.module !== 'sd-knowledge')) &&
         (!selected || selected.modules.includes(row.module)) &&
         terms.every(term =>
           (row.module + ' ' + row.exports.join(' ') + ' ' + row.areas.join(' ')).toLowerCase().includes(term),

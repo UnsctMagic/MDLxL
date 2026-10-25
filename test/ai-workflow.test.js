@@ -275,6 +275,8 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   // The request went through the art director first, and its brief travels with the prompt.
   assert.equal(f.arts.length, 1);
   assert.match(f.arts[0].messages.find(message => message.role === 'user').content[0].text, /make a chalice of power/);
+  // The director gets the research evidence that matches the request.
+  assert.match(f.arts[0].messages.find(message => message.role === 'user').content[0].text, /Evidence from the SD research volume[^]*Observed item population: Blizzard SD/);
   assert.match(user, /SD art brief for this request[^\n]*\nGoal: an SD test brief\./);
   assert.match(user, /Task settings: SD Brain on \(policy /);
   // Off again: the old "on" in this conversation's history no longer applies.

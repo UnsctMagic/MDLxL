@@ -757,13 +757,21 @@ class AiService {
     }
   }
   // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
-  // user's words into an SD art brief. Nothing of it is kept but the brief.
+  // user's words into an SD art brief. Nothing of it is kept but the brief. It
+  // receives the research evidence that matches the request (src/sd-knowledge.js).
   async artDirection({ text, images, context, settings, contract, signal, conversation }) {
     const art = { id: `${conversation.id}-art`, provider: settings.provider, transcript: [], messages: [], kind: 'art' };
     const counts = context.counts || {},
       model = counts.geosets
         ? `The open model ${context.name} has ${counts.geosets} geosets and ${counts.triangles} triangles${context.selection && Object.keys(context.selection).length ? ', with a selection the user made' : ''}.`
         : `The open model ${context.name} is empty, so this creates something new.`;
+    let evidence = '';
+    try {
+      this.knowledge ||= import(pathToFileURL(path.join(this.root, 'src/sd-knowledge.js')).href);
+      evidence = (await this.knowledge).briefEvidence(text, { existing: !!counts.geosets });
+    } catch {
+      // Without the knowledge pack the brief is still written from the director's craft notes.
+    }
     let reply = '';
     const options = {
       settings,
@@ -777,7 +785,7 @@ class AiService {
         throw Error('The art director has no tools.');
       },
       system: contract.AI_SD_ART_DIRECTOR,
-      prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
+      prompt: `The user's request, exactly as written:\n${text}\n\n${model}` + (evidence ? `\n\nEvidence from the SD research volume for this request:\n${evidence}` : ''),
       images,
       conversation: art,
       signal,

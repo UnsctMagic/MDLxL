@@ -115,14 +115,23 @@ your prompts, not a library of models to copy:
   does the work (or the Offload worker) receives it with your own words, which come
   first. Edits, UV mapping, cleanup and animation get a plan and a list of what to
   preserve instead of a new design.
+- **Built on the SD research.** The art director receives the observations that
+  match your request from the SD research volume (`src/sd-knowledge.js`): how real
+  Blizzard parts of that kind are built (Footman's 9-triangle blade, Grunt's
+  8-triangle axe head), what a normal unit, item or building measures, faction
+  styles, and native texture areas chosen by look, the way the LowPolyWorks models
+  reuse Blizzard paint (an inventory panel as a shield front, lava cracks as a
+  cleaver edge, pale skull paint tinted green).
 - **Build, don't copy.** The AI does not search for, load or copy Warcraft or other
-  models as a starting point unless you ask for it.
+  models' geometry as a starting point unless you ask for it. Mapping new parts onto
+  native game textures is welcome.
 - **SD Kit.** New props are built with `src/sd-kit.js`: solid parts (turned shapes
   such as cups and stems, extruded outlines such as blades and emblems, spikes,
-  rings and gems) that commit as one geoset with one hand-painted texture (light
-  from above, dark creases and contact shadows, bright edges, a limited palette,
-  painted runes, rivets, eyes or gems). The AI chooses shapes and materials; the kit
-  paints, so textures no longer depend on the AI writing pixels.
+  rings and gems). A part either takes native game paint (a texture area from the
+  research, with tint or team colour) or is hand-painted by the kit into one
+  texture (light from above, dark creases and contact shadows, bright edges, a
+  limited palette, painted runes, rivets, eyes or gems), so textures never depend on
+  the AI writing pixels.
 - **Saving stays possible.** An AI edit that would leave the model unsavable is
   refused with a plain explanation, so a malformed part cannot block later review,
   Undo or saving.
