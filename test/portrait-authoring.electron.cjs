@@ -30,7 +30,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.getByRole('button',{name:'Control Model',exact:true}).count(),0);
     const save=async name=>{
       const output=path.join(out,name+'.mdx');await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},output);
-      await page.keyboard.press('Escape');await page.keyboard.press('Control+Shift+s');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
+      await page.keyboard.press('Escape');await page.keyboard.press('F12');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
       await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});return openDocument(fs.readFileSync(output),output).model;
     };
     let saved=await save('first-camera'); assert.equal(saved.Cameras.length,1);assert.deepEqual(saved.Bones,original.Bones);assert.deepEqual(saved.Sequences.map(s=>[s.Name,...s.Interval]),original.Sequences.map(s=>[s.Name,...s.Interval]));

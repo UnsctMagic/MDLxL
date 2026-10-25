@@ -1,0 +1,103 @@
+# Keyboard shortcuts
+
+Every command and every button has a default shortcut of **one key, or one key
+with Shift, Ctrl or Alt**. Nothing longer. The owner asked for this on
+2026-10-25: one-key and two-key shortcuts stayed as they were, and everything
+else got a proper short key. Generated Ctrl+Alt+Space codes are no longer handed
+out. A code the user typed in themselves still works.
+
+## Where the keys come from
+
+- **Commands** (menus, toolbar, modes; [src/commands.js](../src/commands.js)) have
+  hand-picked keys. They are unique wherever they can fire: the editor, Forge's
+  shape tools (`forge-shapes`) and Citadel Paint (`paint`).
+  - Original MDLVis keys are unchanged.
+  - H, K, Ctrl+X and Ctrl+B stay free in the editor, as in MDLVis.
+  - Alt+F and Alt+E open the File and Edit menus.
+  - Three-key defaults became two-key ones:
+
+    | Command | Was | Now |
+    | --- | --- | --- |
+    | Save as | Ctrl+Shift+S | F12 |
+    | Paste special | Ctrl+Shift+V | Shift+V |
+    | Redo | also Ctrl+Shift+Z | Ctrl+Y only |
+    | Peon | Ctrl+Alt+P | Shift+P |
+    | Wisp | Ctrl+Alt+I | Shift+I |
+    | Paint: Cut patch | Ctrl+Shift+C | Alt+X |
+    | Paint: Copy texture | Ctrl+Alt+C | Alt+C |
+    | Paint: Paste texture | Ctrl+Alt+V | Alt+V |
+    | Paint: Import image | Ctrl+Shift+O | Alt+O |
+
+    Citadel Paint's keys live in its own key handler
+    ([app/PaintStudioLayout.jsx](../app/PaintStudioLayout.jsx)). It handles them
+    before the rest of the app does.
+
+  - Patterns:
+    - F4–F9 open the workspaces and editors.
+    - Ctrl+number opens a Settings page (in tab order).
+    - Alt+letter opens a manager.
+    - Digits pick a view.
+    - Alt+digits toggle the grids.
+- **On-screen controls** (anything with `data-hotkey`) get a key from their name,
+  chosen within their own window ([src/hotkey-allocation.js](../src/hotkey-allocation.js),
+  `contextualHotkeyDefaults` in [src/hotkey-defaults.js](../src/hotkey-defaults.js)).
+  - A window is the editor, a modal dialog, or one page of a tabbed dialog
+    (Settings). `controlWindow` in [app/Hotkeys.jsx](../app/Hotkeys.jsx) records
+    it when the control is first seen.
+  - Inside a window, a key goes to:
+    1. the initials of the control's name;
+    2. the other letters of its name;
+    3. then other letters and digits;
+    4. each alone before Shift+.
+  - Buttons get the best keys, then tabs, switches, lists, fields and section
+    toggles.
+  - The window's close button gets Esc. Its other Close / Cancel / Done buttons
+    have no key of their own.
+  - Controls that exist once per item (each geoset row, each list entry) get
+    none.
+  - The editor's own controls, and windows that show the editor's tools (Forge,
+    the shaping tools), avoid every command key. They may also use Alt+, Ctrl+
+    and F keys.
+  - A key, once given, is saved with the discovered controls (`defaultKey`), so
+    new controls never move an existing shortcut.
+
+## The same key in different windows
+
+A letter can mean different things in different windows. N is Show normals in
+the editor and New in the Material Manager. `runShortcut` in
+[app/Hotkeys.jsx](../app/Hotkeys.jsx) runs only what is on screen in the active
+window:
+
+- a visible, enabled control with that key;
+- or a command that can run there.
+
+If two would fire, it does nothing. A control on screen beats a command that
+merely could run. In Settings, `hotkeyConflicts` only reports keys that can fire
+together.
+
+## Workspaces that own keys first
+
+- Citadel Paint handles its own keys before the rest of the app.
+- Forge's shape tools win inside Forge.
+- The focused UV editor owns the number pad, even when nothing is selected.
+  Numpad keys there never reach digit shortcuts such as 6 (Team color) or
+  Ctrl+6 (Appearance settings).
+
+## Tests
+
+- [test/hotkey-defaults.test.js](../test/hotkey-defaults.test.js) checks:
+  - command keys;
+  - window keys from names;
+  - stability;
+  - the editor's reserved keys;
+  - Forge.
+- [test/shredder.electron.cjs](../test/shredder.electron.cjs) checks, in the real
+  app:
+  - Fit is Home;
+  - in the Material Manager, N is New and Esc closes it.
+- `out/hotkey-crawl/crawl.cjs` (not in git) visited every mode, window and
+  Settings page and listed each control's key. On 2026-10-25, 858 of 950
+  sightings had a key. The rest are extra Close / Done / Cancel buttons (Esc
+  closes those windows) and per-item rows.
+- The Particle Editor, AnimXL and the Texture Library have no hotkey-reachable
+  controls yet.

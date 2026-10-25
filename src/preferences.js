@@ -235,13 +235,19 @@ export function effectiveBindings(catalog = [], overrides = {}) {
   for (const [id, keys] of Object.entries(record(overrides))) if (!own(result, id)) result[id] = [...new Set((Array.isArray(keys) ? keys : []).map(normalizeChord).filter(Boolean))];
   return result;
 }
+/** Where a shortcut can fire: a control's own window (src/hotkey-allocation.js), Forge's shape tools, Paint, or the editor. */
+const hotkeyContext = action => action?.contextual ? action.group || 'editor' : action?.scope === 'forge-shapes' || action?.scope === 'paint' ? action.scope : 'editor';
 export function hotkeyConflicts(catalog, overrides, actionId, chord) {
   const key = normalizeChord(chord); if (!key) return [];
   const action = catalog.find(action => action.id === actionId);
+  // The same key may serve different windows; it clashes only where both can fire.
   const overlaps = other => {
-    if ((action?.scope === 'forge-shapes') === (other?.scope === 'forge-shapes')) return true;
-    const shared = action?.scope === 'forge-shapes' ? other : action;
-    return shared?.scope === 'global' || shared?.allowInModal === true;
+    if ([action, other].some(item => item?.scope === 'global' || item?.allowInModal === true)) return true;
+    const mine = hotkeyContext(action), theirs = hotkeyContext(other);
+    if (mine === theirs) return true;
+    // Forge and the shaping tools also show the editor's own buttons.
+    const showsEditor = (item, context) => !!item?.embedsEditor && ['editor', 'forge-shapes'].includes(context);
+    return showsEditor(action, theirs) || showsEditor(other, mine);
   };
   return Object.entries(effectiveBindings(catalog, overrides)).filter(([id, keys]) => id !== actionId && keys.includes(key) && overlaps(catalog.find(action => action.id === id))).map(([id]) => id);
 }

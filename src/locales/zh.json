@@ -3586,5 +3586,6 @@
   "Darker interface": "更暗的界面",
   "Lighter interface": "更亮的界面",
   "Shredder: shortcut reminders": "Shredder：快捷键提示",
-  "Shortcut reminders": "快捷键提示"
+  "Shortcut reminders": "快捷键提示",
+  "Existing MdlVis shortcuts are preserved. Every other command and button has its own key: one key, or one key with Shift, Ctrl or Alt. Buttons in a window use the letters of their names there, so a letter can do different things in different windows. Peon: Shift+P · Wisp: Shift+I. You can change any key here; a Ctrl+Alt+Space code you set yourself still works.": "现有的 MdlVis 快捷键会被保留。其他每个命令和按钮都有自己的按键：一个键，或一个键加 Shift、Ctrl 或 Alt。窗口中的按钮使用其名称中的字母，因此同一个字母在不同窗口中可以有不同作用。Peon：Shift+P · Wisp：Shift+I。您可以在此更改任何按键；您自己设置的 Ctrl+Alt+Space 代码仍然有效。"
 }

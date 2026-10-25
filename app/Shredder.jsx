@@ -3,6 +3,7 @@ import { useHotkeys, controlActionId } from './Hotkeys.jsx';
 import { formatChord } from '../src/preferences.js';
 import { translate } from '../src/localization.js';
 import { SHREDDER_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps } from '../src/shredder-keycaps.js';
+import { isCloseControl } from '../src/hotkey-allocation.js';
 import './shredder.css';
 
 const CHANGED = 'mdlxl-shredder-notebook';
@@ -41,7 +42,12 @@ export default function Shredder({ settings }) {
     /** Citadel Paint's keys are its own (`data-paint-key`); everything else uses the shortcut settings. */
     const keysOf = id => id.startsWith(PAINT_KEY_PREFIX) ? [id.slice(PAINT_KEY_PREFIX.length)] : latest.current.shortcuts[id];
     const show = (id, element) => {
-      const key = reminderFor(notebook.current, id, keysOf(id), Date.now());
+      // A window's extra Close / Cancel / Done buttons close it like its own close button: with Esc,
+      // when Esc closes that window (in Forge it clears the selection).
+      const label = element?.getAttribute('aria-label') || element?.textContent || '', keys = keysOf(id);
+      const closer = !keys?.length && isCloseControl(id, label) && [...(element?.closest('[role="dialog"]')?.querySelectorAll('[data-hotkey-shortcuts="Escape"]') || [])]
+        .some(other => isCloseControl(controlActionId(other), other.getAttribute('aria-label') || other.textContent || ''));
+      const key = reminderFor(notebook.current, id, closer ? ['Escape'] : keys, Date.now());
       if (!key) return;
       const rect = element?.getBoundingClientRect?.();
       setPopup({ id, chord: id.startsWith(PAINT_KEY_PREFIX) ? key : formatChord(key), rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, serial: ++serial });
@@ -59,9 +65,11 @@ export default function Shredder({ settings }) {
     };
     const menu = event => { if (typeof event.detail?.id === 'string') show(event.detail.id, null); };
     const used = event => {
-      const { id, event: source } = event.detail || {};
+      const { id, chord, event: source } = event.detail || {};
       if (typeof id !== 'string') return;
-      if (latest.current.popup?.id === id) setPopup(null);
+      // Pressing the key a popup shows closes it, even when another button owns that key (Esc).
+      const current = latest.current.popup;
+      if (current && (current.id === id || chord && current.chord === formatChord(chord))) setPopup(null);
       // One key press counts once, and holding a key down is not five uses.
       if (source && typeof source === 'object') { if (counted.has(source) || source.repeat) return; counted.add(source); }
       save(recordKeyUse(notebook.current, id, { now: Date.now(), settings: latest.current.settings }));

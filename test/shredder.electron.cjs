@@ -101,18 +101,32 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await pressInView('m'); await gone();
     checks.push('Settings move it to the bottom middle, make it large and flashing, keep it until used, and bring back silenced and learned keys');
 
-    // 6. A button with only a Ctrl+Alt+Space code shows that code; typing the code closes it and counts.
+    // 6. Buttons that used to have only a Ctrl+Alt+Space code now have a short key: Fit is Home.
     const fitUses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys.fit?.uses || 0);
     await page.locator('button[data-hotkey="fit"]:visible').first().click(); await popup.waitFor();
-    const codeText = (await popup.textContent()).trim(), code = /^Ctrl \+ Alt \+ Space > ([A-Z0-9]{3})$/.exec(codeText)?.[1];
-    assert.ok(code, 'the code is shown: ' + codeText);
-    await page.locator('.classic-view canvas').first().hover();
-    await page.keyboard.press('Control+Alt+Space'); for (const character of code) await page.keyboard.press(character);
+    assert.equal((await popup.textContent()).trim(), 'Home');
+    await page.locator('.classic-view canvas').first().hover(); await page.keyboard.press('Home');
     await gone();
     assert.equal(await fitUses(), 1);
-    checks.push(`Fit, which has only a code, shows [${codeText}]; typing the code closes it and counts`);
+    checks.push('Fit shows [Home]; pressing Home closes it and counts');
 
-    // 7. Citadel Paint's own keys: a click shows the key its button shows; Paint's key closes it.
+    // 7. A window's buttons have keys of their own, from their names: in the Material Manager N is New
+    //    (in the editor it shows normals). The footer Close reminds of Esc; Alt+M opens it, Esc closes it.
+    await page.locator('.classic-view canvas').first().hover(); await page.keyboard.press('Alt+M');
+    const manager = page.getByRole('dialog', { name: 'Material Manager' }); await manager.waitFor();
+    const materials = () => manager.locator('[data-hotkey^="item:"]').count(), before = await materials();
+    assert.equal(await manager.locator('button', { hasText: /^New/ }).first().getAttribute('data-hotkey-shortcuts'), 'N');
+    await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('n');
+    await page.waitForFunction(count => document.querySelectorAll('[role="dialog"] [data-hotkey^="item:"]').length === count, before + 1);
+    await manager.locator('footer button', { hasText: /^Close/ }).click(); await popup.waitFor();
+    assert.equal((await popup.textContent()).trim(), 'Escape');
+    await manager.waitFor({ state: 'detached' });
+    await page.keyboard.press('Escape'); await gone();
+    await page.locator('.classic-view canvas').first().hover(); await page.keyboard.press('Alt+M'); await manager.waitFor();
+    await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Escape'); await manager.waitFor({ state: 'detached' });
+    checks.push('Material Manager: Alt+M opens it, N makes a new material, its footer Close reminds of [Escape], Esc closes it');
+
+    // 8. Citadel Paint's own keys: a click shows the key its button shows; Paint's key closes it.
     await page.locator('[data-hotkey="paint"]').first().click();
     if (await popup.count()) await popup.click();
     await page.getByRole('button', { name: /New base coat/ }).click();
@@ -136,7 +150,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.press('-'); await gone();
     checks.push('Citadel Paint: Erase shows [E] and E closes it; clicking [B] silences it; the Opacity slider shows [− +] and − closes it');
 
-    // 8. Turning the mode off stops it; the Settings menu command toggles it.
+    // 9. Turning the mode off stops it; the Settings menu command toggles it.
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'shredder'));
     await page.waitForTimeout(300);
     await page.getByRole('button', { name: 'Erase', exact: true }).click(); await page.waitForTimeout(400);

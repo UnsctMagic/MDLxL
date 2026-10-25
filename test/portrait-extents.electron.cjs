@@ -59,7 +59,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
     const save = async name => {
       const file = path.join(out, name + '.mdx');
       await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: output }); }, file);
-      await page.keyboard.press('Control+Shift+s');
+      await page.keyboard.press('F12');
       await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
       await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
       return openDocument(fs.readFileSync(file), file).model;

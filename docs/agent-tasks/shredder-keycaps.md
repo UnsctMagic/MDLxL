@@ -50,6 +50,29 @@ Updated: 2026-10-25
 - Remaining: owner's hand test of the look and settings; screenshots time out on
   the hidden desktop, so only the "beside the button" one was captured.
 
+## Hotkey pass (2026-10-25, same branch)
+
+- Request: the owner saw the `Ctrl + Alt + Space > A1X` popups and asked for proper
+  one- or two-key shortcuts for the whole interface. Existing one- and two-key
+  shortcuts stay as they are.
+- Done:
+  - Every command has a hand-picked key (src/commands.js).
+  - On-screen controls get keys from their names, per window
+    (src/hotkey-allocation.js, `contextualHotkeyDefaults`). `runShortcut` runs only
+    what is on screen.
+  - Three-key defaults, including Paint's, became two-key ones.
+  - Rules: [docs/HOTKEYS.md](../HOTKEYS.md).
+- Checks:
+  - `out/hotkey-crawl/crawl.cjs` + `check.mjs` (scratch, not in git): 858 of 950
+    control sightings keyed. No codes, no keys longer than two, no clashes inside
+    a window.
+  - The Shredder Electron test covers Fit = Home and the Material Manager's N and
+    Esc.
+  - Tests that pressed Ctrl+Shift+S / Ctrl+Shift+V now press F12 / Shift+V.
+- Not covered: the Particle Editor, AnimXL and the Texture Library have no
+  `data-hotkey` controls at all; giving them keys means adding `data-hotkey`
+  there.
+
 ## Blockers and next action
 
 - `SHREDDER_TEST_VERSION` is `true` (on by default). Decide before release.

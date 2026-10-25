@@ -90,7 +90,7 @@ test('a key Citadel Paint ran is named the way its button shows it', () => {
   assert.equal(paintKeyLabel('b'), 'B');
   assert.equal(paintKeyLabel('f', { shift: true }), 'Shift+F');
   assert.equal(paintKeyLabel('s', { ctrl: true }), 'Ctrl+S');
-  assert.equal(paintKeyLabel('c', { ctrl: true, shift: true }), 'Ctrl+Shift+C');
+  assert.equal(paintKeyLabel('c', { alt: true }), 'Alt+C');
   assert.equal(paintKeyLabel('enter', { ctrl: true }), 'Ctrl+↵');
   assert.equal(paintKeyLabel('['), '[ ]'); assert.equal(paintKeyLabel(']'), '[ ]');
   assert.equal(paintKeyLabel('{', { shift: true }), 'Shift+[ ]');

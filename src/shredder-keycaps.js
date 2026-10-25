@@ -101,6 +101,7 @@ export function reminderFor(notebook, id, keys, now) {
 export const PAINT_KEY_PREFIX = 'paint-key:';
 export function paintKeyLabel(key, { ctrl = false, shift = false, alt = false } = {}) {
   if (ctrl) return key === 'enter' ? 'Ctrl+↵' : ['Ctrl', alt && 'Alt', shift && 'Shift', key.toUpperCase()].filter(Boolean).join('+');
+  if (alt) return 'Alt+' + (key.length === 1 ? key.toUpperCase() : key[0].toUpperCase() + key.slice(1));
   if (['[', ']', '{', '}'].includes(key)) return shift ? 'Shift+[ ]' : '[ ]';
   if ([',', '.'].includes(key)) return ', .';
   if (['-', '=', '+'].includes(key)) return '− +';

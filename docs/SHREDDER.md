@@ -21,10 +21,10 @@ Only three things:
 
 Using the key while its popup is up closes the popup at once.
 
-The popup shows the command's own key or combination. A command that has only a
-Ctrl+Alt+Space code (the codes shown in tooltips and on the Keyboard Shortcuts
-page) shows that code, for example `Ctrl + Alt + Space > MOV`; typing it counts
-as using it.
+The popup shows the command's own key or combination: one key, or one key with
+Shift, Ctrl or Alt (see [Keyboard shortcuts](HOTKEYS.md)). A window's extra Close /
+Cancel / Done buttons show Esc when Esc closes that window. Pressing the key a
+popup shows closes it.
 
 Citadel Paint handles its own keys and shows them on its buttons and sliders
 (Color **B**, Save **Ctrl+S**, Brush size **[ ]**). Those carry `data-paint-key`;
@@ -74,8 +74,9 @@ release** whether it ships on or off by default, and set the switch.
 - [test/shredder.test.js](../test/shredder.test.js): rules, defaults, damaged notebooks.
 - [test/shredder.electron.cjs](../test/shredder.electron.cjs): the real app — popup
   beside the button, key closes it, five uses quiet one key only, held keys and
-  text fields do not count, click silences, settings, a code-only button (Fit),
-  Citadel Paint's own keys and slider, and turning it off.
+  text fields do not count, click silences, settings, Fit's Home key, the Material
+  Manager's own keys and its footer Close (Esc), Citadel Paint's own keys and
+  slider, and turning it off.
 
 ## History
 

@@ -41,14 +41,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     }, out);
     // The fixture's Helpers carry the Bone type bit, which MDL expresses only by
     // its block keyword; MDL export now verifies and writes instead of failing.
-    await page.keyboard.press('Control+Shift+s');
+    await page.keyboard.press('F12');
     await page.getByRole('button', { name: 'Save MDL…', exact: true }).click();
     await page.waitForFunction(() => window.saveEvents.length === 1);
     await page.getByRole('button', { name: 'Save MDL…', exact: true }).waitFor({ state: 'hidden' });
     console.log('SAVED MDL', await page.evaluate(() => ({ events: window.saveEvents, workers: window.saveWorkerCount, ticks: window.saveTicks })));
     if (await page.evaluate(() => window.saveEvents[0].error)) throw Error('MDL save verification failed');
     if (await app.evaluate(() => globalThis.saveDialogs) !== 1 || !fs.existsSync(path.join(out, 'ui-saved.mdl'))) throw Error('MDL save did not write output');
-    await page.keyboard.press('Control+Shift+s');
+    await page.keyboard.press('F12');
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.waitForFunction(() => window.saveEvents.length === 2);
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'hidden' });

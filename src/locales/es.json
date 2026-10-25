@@ -6399,5 +6399,6 @@
   "Darker interface": "Interfaz más oscura",
   "Lighter interface": "Interfaz más clara",
   "Shredder: shortcut reminders": "Shredder: recordatorios de atajos",
-  "Shortcut reminders": "Recordatorios de atajos"
+  "Shortcut reminders": "Recordatorios de atajos",
+  "Existing MdlVis shortcuts are preserved. Every other command and button has its own key: one key, or one key with Shift, Ctrl or Alt. Buttons in a window use the letters of their names there, so a letter can do different things in different windows. Peon: Shift+P · Wisp: Shift+I. You can change any key here; a Ctrl+Alt+Space code you set yourself still works.": "Se conservan los atajos de MdlVis. Cada otro comando y botón tiene su propia tecla: una tecla, o una tecla con Shift, Ctrl o Alt. Los botones de una ventana usan las letras de sus nombres, así que una letra puede hacer cosas distintas en ventanas distintas. Peón: Shift+P · Fuego fatuo: Shift+I. Puede cambiar cualquier tecla aquí; un código Ctrl+Alt+Space que haya asignado usted sigue funcionando."
 }

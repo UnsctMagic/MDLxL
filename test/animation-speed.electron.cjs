@@ -48,7 +48,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const placement = await slider.evaluate(el => ({ afterRarity: el.closest('.ac-actual-speed').previousElementSibling.classList.contains('ac-rarity'), nextButton: el.closest('.ac-actual-speed').nextElementSibling.textContent }));
     assert.equal(placement.afterRarity, true); assert.equal(placement.nextButton, 'Adjust All Speed');
     await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/unused.' + options.filters[0].extensions[0] }); }, out);
-    await page.keyboard.press('Control+Shift+s');
+    await page.keyboard.press('F12');
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
     assert.equal(await page.getByRole('dialog', { name: 'Save model', exact: true }).count(), 0);
@@ -122,7 +122,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const adjusted = await readRuntime();
     await app.evaluate(({ dialog }, output) => { dialog.showSaveDialog = async (_window, options) => ({ canceled: false, filePath: output + '/saved.' + options.filters[0].extensions[0] }); }, out);
     for (const format of ['mdx', 'mdl']) {
-      await page.keyboard.press('Control+Shift+s');
+      await page.keyboard.press('F12');
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
       await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
       assert.equal(await page.getByRole('dialog', { name: 'Save model', exact: true }).count(), 0);
@@ -158,7 +158,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       }, { input, output });
       await page.keyboard.press('Control+o');
       await page.getByRole('tab', { name: path.basename(input), exact: true }).waitFor();
-      await page.keyboard.press('Control+Shift+s');
+      await page.keyboard.press('F12');
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
       const options = page.getByRole('dialog', { name: 'Save model', exact: true });
       if (size > 512) {

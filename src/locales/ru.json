@@ -6387,5 +6387,6 @@
   "Darker interface": "Тёмный интерфейс",
   "Lighter interface": "Светлый интерфейс",
   "Shredder: shortcut reminders": "Shredder: подсказки клавиш",
-  "Shortcut reminders": "Подсказки клавиш"
+  "Shortcut reminders": "Подсказки клавиш",
+  "Existing MdlVis shortcuts are preserved. Every other command and button has its own key: one key, or one key with Shift, Ctrl or Alt. Buttons in a window use the letters of their names there, so a letter can do different things in different windows. Peon: Shift+P · Wisp: Shift+I. You can change any key here; a Ctrl+Alt+Space code you set yourself still works.": "Сочетания MDLVis сохранены. У каждой другой команды и кнопки есть своя клавиша: одна клавиша или клавиша с Shift, Ctrl или Alt. Кнопки в окне используют буквы своих названий, поэтому одна буква в разных окнах может делать разное. Peon: Shift+P · Wisp: Shift+I. Любую клавишу можно изменить здесь; код Ctrl+Alt+Space, назначенный вами, по-прежнему работает."
 }
