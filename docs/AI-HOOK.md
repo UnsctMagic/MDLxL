@@ -204,14 +204,20 @@ Reference models remain open as ordinary tabs. Image paste also works.
 
 | Choice | Setup |
 | --- | --- |
-| Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), then click **Sign in**. Complete the provider's sign-in page in your browser. |
+| Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), or use the installed Codex desktop app on Windows, then click **Sign in**. Complete the provider's sign-in page in your browser. |
 | Claude Code | Install [Claude Code](https://code.claude.com/docs/en/setup), then click **Sign in**. Your plan must support Claude Code. |
 | OpenAI API | Enter an OpenAI API key and choose a model that supports tools. |
 | Claude API | Enter a workspace-scoped Claude API key and choose a model that supports tools. |
 | Other AI / local model | Supply an OpenAI-compatible API base URL and model ID. HTTP is supported for localhost servers; remote endpoints use HTTPS. A local server need not require a key. |
 
 The native CLI executable is found on PATH, or can be chosen by entering its full
-path in Connection. A chosen path must name that provider's own CLI (`codex.exe`,
+path in Connection. On Windows, MDLxL also discovers Codex in the desktop app's
+`%LOCALAPPDATA%\OpenAI\Codex\bin` installation. A working chosen path takes
+priority; if a saved Codex path disappears after an update, MDLxL searches PATH
+and the installed desktop binaries again each time it launches Codex. The newest
+available `codex.exe` is selected by modification time, not its folder's hash.
+The saved setting and MDLxL's own sign-in profile are preserved.
+A chosen path must name that provider's own CLI (`codex.exe`,
 `codex.cmd`, `claude.exe`, `claude.cmd`), so the setting cannot launch another
 program. A saved API key is cleared when the API base URL changes, so it is never
 sent to a different server. Native providers manage their own sign-in in MDLxL's profile;

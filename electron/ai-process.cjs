@@ -18,17 +18,57 @@ function providerEnvironment(directory, provider) {
   env[provider === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR'] = path.join(directory, provider);
   return env;
 }
-function resolveExecutable(command, env = process.env) {
-  const names =
-    process.platform === 'win32' && !path.extname(command)
-      ? [command + '.exe', command + '.cmd', command]
-      : [command];
-  const directories = path.isAbsolute(command) ? [''] : (env.PATH || env.Path || '').split(path.delimiter);
-  for (const directory of directories)
-    for (const name of names) {
-      const full = directory ? path.join(directory, name) : name;
-      if (fs.existsSync(full) && fs.statSync(full).isFile()) return full;
+// The desktop app replaces its hashed bin directory on update. Resolve it at
+// launch time instead of saving another version-specific path in MDLxL's profile.
+function windowsCodexExecutable(env) {
+  const localAppData = env.LOCALAPPDATA || env.LocalAppData;
+  if (!localAppData) return;
+  const directory = path.join(localAppData, 'OpenAI', 'Codex', 'bin');
+  let versions;
+  try {
+    versions = fs.readdirSync(directory, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return;
+    throw error;
+  }
+  const candidates = [];
+  for (const version of versions) {
+    if (!version.isDirectory()) continue;
+    const executable = path.join(directory, version.name, 'codex.exe');
+    let stat;
+    try {
+      stat = fs.statSync(executable);
+    } catch (error) {
+      // An update may remove an older version while the directory is scanned.
+      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') continue;
+      throw error;
     }
+    if (stat.isFile()) candidates.push({ executable, modified: stat.mtimeMs });
+  }
+  candidates.sort((a, b) => b.modified - a.modified || a.executable.localeCompare(b.executable));
+  return candidates[0]?.executable;
+}
+function resolveExecutable(command, env = process.env) {
+  const codex = process.platform === 'win32' && /^codex(?:\.exe|\.cmd)?$/i.test(path.basename(command));
+  // Keep a working explicit path first. A missing saved Codex path can recover
+  // through PATH or the current desktop installation, including in an open app.
+  const commands = codex && path.isAbsolute(command) ? [command, 'codex'] : [command];
+  for (const candidate of commands) {
+    const names =
+      process.platform === 'win32' && !path.extname(candidate)
+        ? [candidate + '.exe', candidate + '.cmd', candidate]
+        : [candidate];
+    const directories = path.isAbsolute(candidate) ? [''] : (env.PATH || env.Path || '').split(path.delimiter);
+    for (const directory of directories)
+      for (const name of names) {
+        const full = directory ? path.join(directory, name) : name;
+        if (fs.existsSync(full) && fs.statSync(full).isFile()) return full;
+      }
+  }
+  if (codex) {
+    const installed = windowsCodexExecutable(env);
+    if (installed) return installed;
+  }
   throw Error(`Cannot find ${command}. Install its CLI or choose its executable in AI connection settings.`);
 }
 function spawnAgent(command, args, options = {}) {
