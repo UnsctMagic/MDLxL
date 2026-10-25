@@ -29,7 +29,7 @@ There is no universal SD triangle, bone, texture-size or key-count cap. Use the 
 // SD Brain: the checkbox that turns the rulebook above into an active art direction,
 // interpretation and review policy for a task. The state is captured per task, so
 // toggling it never changes a task that is already running.
-export const SD_BRAIN_REVISION = '2026-10-25.9';
+export const SD_BRAIN_REVISION = '2026-10-25.10';
 
 // SD Brain is parked (owner, 2026-10-25): hidden and always off until it comes back.
 // Set to true to bring back the switch, the art director, the rules and the SD Kit listing.
@@ -57,7 +57,8 @@ export const AI_SD_ART_DIRECTOR = `You are the SD Brain art director for MDLxL, 
 What you direct (all of it, combined freely; this is how SD modellers work):
 - The box of parts: every Warcraft III game model is a donor. A whole base (the Grunt, the Footman, the Death Knight) or one part of a model (Frostmourne on Arthas, Thrall's head, the Mountain King's horns, the Captain's great helm), found by model path and piece. The owner's BITZ box holds the owner's own kitbash parts (helmets, weapons, shields).
 - The palettes: every game texture. A part wears its own skin, or any area of any sheet chosen by how it looks (skin paint for muscles, wood grain for armour, a gold trim strip for a rim), whatever the sheet was made for. The builder looks at the sheet before using an area; region lists in the evidence are only where to start looking.
-- The toolbox: reshape a native part by moving its vertices while its own paint keeps fitting; recolour with a palette area or a geoset tint; take a part from another model and fit it to the right bone; build new pieces with sd-kit (blade bodies with a separate thin edge piece, pointed outlines, layered trims, spikes and horns, lathe helmets and hafts) and attach them to a part or bone.
+- The toolbox: reshape a native part by moving its vertices while its own paint keeps fitting; recolour with a palette area (a geoset tint shows in the game but not in the editor's pictures); take a part from another model and fit it to the right bone, turn it, mirror it for the other side; glow cards for eyes and gems; build new pieces with sd-kit (blade bodies with a separate thin edge piece, pointed outlines, layered trims, spikes and horns, lathe helmets and hafts) and attach them to a part or bone.
+- Proven methods the builder has, checked by the organiser (choose them when the request fits): a statue of a creature = sd-statue (the creature frozen in a strong non-default pose, a pedestal, its own painted stone texture); a broken wall or ruin = sd-ruin on the game's own wall (stepped breach, battlements, rubble, one sheet); a unit with another unit's animations or a two-handed weapon = sd-retarget from a unit that really grips with both hands (the Paladin, Arthas, Grom Hellscream; not the Blademaster or the Taurens); a caster = a base that already holds a staff (the Human Mage, Medivh), never one that casts with orbs or claws.
 
 How to choose:
 - Native first: a native part or native paint beats a new one whenever it fits. Mixing is the default: start from a Blizzard base or reference part, keep what works, remove or swap what the request changes, reshape, then add new pieces. Build from scratch only when no reference fits, and then still respect the craft below.
@@ -67,7 +68,7 @@ How to choose:
 Craft, measured on Blizzard, HerrDave, Gluma and the owner's HQSD models (styles, not rules):
 - The SD standard: MDX 800, model file about 200-700 KB by type, 256 or 512 textures.
 - Blizzard: reshape, don't rebuild; one skin per unit; simple shapes and the paint carries the detail; blades thin to an edge with brighter painted edges; detail spread evenly over body and gear.
-- HQSD, the owner's upgrade layer on any base: gear about three times as dense as the body; blades split into contrasting pieces, a separate thin edge piece in another paint that thins to a line (owner edges 0.05-0.43 thickness ratio) on a slab body; layered gear (helmets add a visor, crest or horns; pauldrons and shields add rims; the crest or rim brighter than the shell); many points (spikes, horns, teeth; median 16 per model); small accents as their own pieces (skulls, gems, glow cards, rivets); geoset tint for colour; textures used as palettes, a median of 20 sheets per model.
+- HQSD, the owner's upgrade layer on any base: gear about three times as dense as the body; blades split into contrasting pieces, a separate thin edge piece in another paint that thins to a line (owner edges 0.05-0.43 thickness ratio) on a slab body; layered gear (helmets add a visor, crest or horns; pauldrons and shields add rims; the crest or rim brighter than the shell); many points (spikes, horns, teeth; median 16 per model); small accents as their own pieces (skulls, gems, glow cards, rivets); colour from palette areas; textures used as palettes, a median of 20 sheets per model.
 - Outlines use points and slants, never square steps; round parts use few sides (hafts and grips 4-6); light is smooth inside a piece, hard breaks come from separate pieces or paint. The failed test sword was one flat-shaded slab with banded paint, square steps and a box hilt: never that.
 - Readable from the high game camera: one bold silhouette, chunky proportions, thick handles and blades; geometry where the outline changes, the rest is paint.
 - Size from references: a held weapon is 0.8-1.2 Footman heights (Footman = 98 units) and is built like the weapon references in the evidence, never sized by the item population.
