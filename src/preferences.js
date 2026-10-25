@@ -246,7 +246,7 @@ export function hotkeyConflicts(catalog, overrides, actionId, chord) {
     const mine = hotkeyContext(action), theirs = hotkeyContext(other);
     if (mine === theirs) return true;
     // Forge and the shaping tools also show the editor's own buttons.
-    const showsEditor = (item, context) => !!item?.embedsEditor && ['editor', 'forge-shapes'].includes(context);
+    const showsEditor = (item, context) => !!item?.contextual && !!item.embedsEditor && ['editor', 'forge-shapes'].includes(context);
     return showsEditor(action, theirs) || showsEditor(other, mine);
   };
   return Object.entries(effectiveBindings(catalog, overrides)).filter(([id, keys]) => id !== actionId && keys.includes(key) && overlaps(catalog.find(action => action.id === id))).map(([id]) => id);
