@@ -206,6 +206,20 @@ the organiser before the owner sees anything.
   orb end), purple glow, blue orb removed; skulls at the belt, book ×1.5 in dark iron on a chain, purple eyes.
   953 triangles, 11 textures, all lessons pass. New toolbox moves from it: `bash.align`, `bash.mirror`,
   `bash.place`, `bash.glow`.
+- Task 1, Footman with a two-handed axe and a two-hander's animations (`src/sd-retarget.js`,
+  `out/sd-retarget/pictures/sheet-heropaladin-*.png`): `findWielders` measures who really grips with both hands
+  (Paladin and Arthas 93% of attack frames, Grom 82%; Blademaster 63%, Taurens and others no). Footman without
+  sword and shield (`heldGear`), every Stand, Walk and Attack retargeted from the Paladin (mirrored: other
+  hand), Gorehowl held in both hands by IK (`attachTwoHanded`, `align: true`). Main hand 0.3 units from the
+  haft, off hand 1.8 median; walk ground speed kept at 248; Death and Decay untouched; 123 KB. Not yet watched
+  playing in the app or game; proportions make the chop stop at waist height.
+- Task 4, broken castle wall (`src/sd-ruin.js`, `out/sd-ruin/pics/native-sheet.png`): stonewall02 adopted,
+  stepped breach closed in the wall's own stone paint, merlons on what stands, rubble; one sheet, ~225 triangles,
+  18 KB; 96 seeded builds without gaps. Weak: rubble reads as cut blocks.
+- Task 5, dragon statue (`src/sd-statue.js`, `out/sd-statue/sheet.png`): Red Dragon in Spell Slam at 0.13 (best
+  scored non-default pose), baked to one bone, octagonal pedestal, its own painted 512 stone TGA; 623 triangles,
+  42 KB. Weak: pale stone from the game camera, head slightly down.
+- All three modules are in the AI's SD module list and the builder's recipes; the art director knows them.
 - Geoset tint (`setTint`) is real in the game but MDLxL's viewer only draws geoset colour with its RGB
   preview switched on (`app/Viewport.jsx` rgbPreview; `previewGeosetTint` hideRgb), so default renders and
   probably the AI's own captures do not show it (a green-tinted Footman rendered untinted). Until the captures
