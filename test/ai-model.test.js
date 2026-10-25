@@ -136,6 +136,10 @@ test('targets reject changed selections, changed revisions and different tabs', 
   assert.throws(() => checkAiTarget(target, { ...state, selection: { 0: [2] } }), /selection changed/);
   assert.throws(() => checkAiTarget(target, { ...state, doc: { revision: 3 } }), /changed/);
   assert.throws(() => checkAiTarget(target, { ...state, session: { id: 'other' } }), /changed/);
+  // The keyframe timeline opening in animation view reports an empty pick: still the same target.
+  checkAiTarget(target, { ...state, keyframes: { controller: 'select', range: null, keys: [] } });
+  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { controller: 'select', range: null, keys: [{ frame: 100, trackId: 'n0:Translation' }] } }), /changed/);
+  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { controller: 'select', range: [0, 500], keys: [] } }), /changed/);
 });
 test('mirror only marked triangle, reuse compatible seam and keep another geoset untouched', () => {
   const doc = createStarterDocument(),

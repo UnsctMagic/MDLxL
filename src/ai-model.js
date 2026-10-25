@@ -258,6 +258,9 @@ export function prepareAiEdit(before, after, { scope, protectedPaths = [], anima
 export function applyAiEdit(model, prepared) {
   applyChanges(model, prepared.changes);
 }
+// A keyframe timeline with nothing picked is no selection: the timeline reports its empty state only once it
+// has opened, a moment after the editor enters animation view, and that must not invalidate the AI's target.
+const pickedKeyframes = keyframes => (keyframes && (keyframes.keys?.length || keyframes.range) ? keyframes : null);
 export function aiSelectionSignature(state) {
   return JSON.stringify([
     state.selection,
@@ -267,7 +270,7 @@ export function aiSelectionSignature(state) {
     state.uvSet,
     state.sequence,
     state.globalSeqId,
-    state.keyframes,
+    pickedKeyframes(state.keyframes),
     state.mode,
     state.workplane,
     state.session?.paintWorkingRevision,

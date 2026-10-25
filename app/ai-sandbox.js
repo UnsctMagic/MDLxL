@@ -5,6 +5,16 @@ const names = Object.keys(modules)
   .map(path => path.slice('../src/'.length, -3))
   .sort();
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+// Await promises nested in plain arrays and objects of a script's return value (a few levels deep).
+async function settleValue(value, depth = 0) {
+  if (value && typeof value.then === 'function') return settleValue(await value, depth);
+  if (depth > 6 || !value || typeof value !== 'object' || ArrayBuffer.isView(value)) return value;
+  if (Array.isArray(value)) return Promise.all(value.map(v => settleValue(v, depth + 1)));
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return value;
+  const entries = await Promise.all(Object.entries(value).map(async ([k, v]) => [k, await settleValue(v, depth + 1)]));
+  return Object.fromEntries(entries);
+}
 window.aiSandbox.onRun(async payload => {
   try {
     const logs = [];
@@ -60,7 +70,15 @@ window.aiSandbox.onRun(async payload => {
             .slice(0, 10000),
         );
     });
-    window.aiSandbox.finish({ model, selection, assets, value, logs, ...(before ? { before } : {}) });
+    // A promise left inside the returned value (api.describe without await) is finished here; anything else
+    // that cannot travel back (functions, live objects) gets a plain explanation instead of a clone error.
+    const settled = await settleValue(value);
+    try {
+      window.aiSandbox.finish({ model, selection, assets, value: settled, logs, ...(before ? { before } : {}) });
+    } catch (error) {
+      if (!/could not be cloned/i.test(String(error?.message))) throw error;
+      throw Error('The script returned something that cannot be sent back (a function or a live object). Return plain data: numbers, strings, arrays and plain objects; await every promise.');
+    }
   } catch (error) {
     window.aiSandbox.finish({ error: String(error.message || error) });
   }
