@@ -38,6 +38,27 @@ const viewSnapshot = state => ({
   frame: state.time,
   keyframes: structuredClone(state.keyframes ?? null),
 });
+const LEFT_TAB = "The user left this model's tab before this step could run. Try it again; it waits until they return.";
+// Steps that need MDLxL's own buttons, windows or timeline on screen.
+const needsScreen = (name, args) =>
+  name === 'mdlxl_ui' ||
+  (name === 'mdlxl_command' && !['undo', 'redo'].includes(args.id)) ||
+  (name === 'mdlxl_select' && !!args.keyframes);
+function checkView(args, model) {
+  if (
+    args.sequence !== undefined &&
+    (!Number.isInteger(args.sequence) || args.sequence < -1 || args.sequence >= model.Sequences.length)
+  )
+    throw Error('Animation index is out of range.');
+  if (args.frame !== undefined) finite(args.frame, 'animation frame');
+  if (
+    args.globalSequence != null &&
+    (!Number.isInteger(args.globalSequence) || !(model.GlobalSequences[args.globalSequence] > 0))
+  )
+    throw Error('Global animation index is out of range.');
+  if (args.globalSequence != null && args.sequence !== undefined)
+    throw Error('Choose a local or global animation, not both.');
+}
 export class AiEditorBridge {
   constructor(host) {
     this.host = host;
@@ -57,31 +78,88 @@ export class AiEditorBridge {
     const { session, model } = this.state();
     return sketchContext(sketchStore.strokes(session.id), model);
   }
+  // The model tab a task works on, as that task sees it. On screen it is the live
+  // editor; otherwise the tab's own document with the selection and view the task
+  // captured when its prompt was sent (and changed since through its own tools).
+  env(target) {
+    const s = this.state(),
+      session = target && s.sessions.find(x => x.id === target.documentId);
+    if (!session) throw Error('The model this task works on was closed.');
+    if (session === s.session) return { live: true, session, doc: s.doc, model: s.model, state: s };
+    const view = target.restore;
+    return {
+      live: false,
+      session,
+      doc: session.doc,
+      model: session.doc.model,
+      state: {
+        ...s,
+        session,
+        doc: session.doc,
+        model: session.doc.model,
+        selection: target.selection,
+        selectedNodeIds: view.selectedNodeIds,
+        selectable: new Set(view.checkedGeosets),
+        activeGeoset: view.activeGeoset,
+        uvSet: view.uvSet,
+        mode: view.mode,
+        animationPanel: target.animationPanel,
+        sequence: target.sequence,
+        globalSeqId: target.globalSequence,
+        time: target.frame,
+        view: target.view,
+        workplane: target.workplane,
+        keyframes: target.keyframes,
+        renderMode: target.renderMode,
+        hidden: target.hidden || {},
+        hiddenGeosets: new Set(target.hiddenGeosets || []),
+        playing: false,
+        dialog: null,
+        uvEditing: false,
+        uvEligibleSelection: undefined,
+      },
+    };
+  }
   context(existing) {
-    const state = this.state(),
-      { doc, session, model } = state;
     if (existing) this.requireTarget(existing);
-    const id = existing || crypto.randomUUID(),
-      selected = structuredClone(state.selection || {});
-    if (!existing)
+    const id = existing || crypto.randomUUID();
+    if (!existing) {
+      const state = this.state();
       this.targets.set(id, {
-        documentId: session.id,
-        revision: doc.revision,
+        documentId: state.session.id,
+        revision: state.doc.revision,
         selectionSignature: aiSelectionSignature(state),
-        selection: selected,
+        selection: structuredClone(state.selection || {}),
         sequence: state.sequence,
         frame: state.time,
         keyframes: structuredClone(state.keyframes),
         globalSequence: state.globalSeqId,
         workplane: state.workplane,
         view: state.view,
+        renderMode: state.renderMode,
+        hidden: structuredClone(state.hidden || {}),
+        hiddenGeosets: Array.from(state.hiddenGeosets || []),
+        animationPanel: state.animationPanel,
+        // Drawings are part of the prompt: later notes elsewhere never change them.
+        annotations: sketchContext(sketchStore.strokes(state.session.id), state.model),
         restore: viewSnapshot(state),
       });
+    }
     if (this.targets.size > 100) this.targets.delete(this.targets.keys().next().value);
-    const captured = this.targets.get(id);
+    const captured = this.targets.get(id),
+      env = this.env(captured),
+      { state, doc, session, model } = env,
+      selected = structuredClone(env.live ? state.selection || {} : captured.selection);
     return {
       target: id,
       documentId: session.id,
+      onScreen: env.live,
+      ...(env.live
+        ? {}
+        : {
+            background:
+              "This model's tab is not showing: the user works on another tab. Edits, selection, views, pictures, Undo/Redo, reading, sampling and export work on this model directly. Editor commands and program controls wait until the user returns to this tab.",
+          }),
       name: doc.name,
       path: session.path,
       revision: doc.revision,
@@ -89,7 +167,7 @@ export class AiEditorBridge {
       readOnly: doc.readOnly,
       dirty: doc.dirty,
       selection: selected,
-      selectedNodeIds: [...state.selectedNodeIds],
+      selectedNodeIds: [...(state.selectedNodeIds || [])],
       checkedGeosets: Array.from(state.selectable),
       activeGeoset: state.activeGeoset,
       uvSet: state.uvSet,
@@ -98,7 +176,7 @@ export class AiEditorBridge {
       sequence: state.sequence,
       sequenceName: model.Sequences[state.sequence]?.Name || null,
       frame: captured.frame,
-      liveFrame: state.time,
+      liveFrame: env.live ? state.time : captured.frame,
       globalSequence: state.globalSeqId,
       uvEditing: !!state.uvEditing,
       uvEligibleSelection: state.uvEligibleSelection,
@@ -130,27 +208,67 @@ export class AiEditorBridge {
       nodes: model.Nodes.filter(Boolean).map(n => ({ id: n.ObjectId, name: n.Name, parent: n.Parent })),
       sequences: encodeAiValue(model.Sequences),
       diagnostics: doc.diagnostics,
-      annotations: sketchContext(sketchStore.strokes(session.id), model),
-      documents: state.sessions.map(s => ({
-        id: s.id,
-        name: s.doc.name,
-        path: s.path,
-        active: s === session,
-        revision: s.doc.revision,
-      })),
+      annotations: captured.annotations,
+      documents: this.documents(),
       commands: this.host()
         .commands()
         .map(c => ({ id: c.id, label: c.label, enabled: c.enabled })),
     };
   }
+  documents() {
+    const s = this.state();
+    return s.sessions.map(x => ({
+      id: x.id,
+      name: x.doc.name,
+      path: x.path,
+      active: x === s.session,
+      revision: x.doc.revision,
+    }));
+  }
   requireTarget(id) {
-    const target = this.targets.get(id);
-    checkAiTarget(target, this.state());
+    const target = this.targets.get(id),
+      s = this.state(),
+      session = target && s.sessions.find(x => x.id === target.documentId);
+    if (target && !session) throw Error('The model this task works on was closed. Nothing was applied.');
+    if (session && session !== s.session) {
+      // A tab that is not showing has no one else editing it; only a change to its
+      // model (the user came back, edited and left again) stops the task.
+      if (session.doc.revision !== target.revision) checkAiTarget(null, s);
+      target.offscreen = true;
+      return target;
+    }
+    if (target?.offscreen && session.doc.revision === target.revision) {
+      // Back on screen: from here on, the user changing this tab's model or
+      // selection stops the task, as it always has on the tab being shown.
+      target.selectionSignature = aiSelectionSignature(s);
+      target.offscreen = false;
+    }
+    checkAiTarget(target, s);
     return target;
+  }
+  // The selection a task left in a tab that is not showing becomes its own again.
+  adoptTab(target) {
+    const view = this.env(target).session.viewState;
+    if (!view) return;
+    target.selection = structuredClone(view.selection);
+    Object.assign(target.restore, {
+      selection: structuredClone(view.selection),
+      selectedNodeIds: [...view.selectedNodeIds],
+      checkedGeosets: Array.from(view.selectable),
+      activeGeoset: view.activeGeoset,
+      uvSet: view.uvSet,
+    });
   }
   advance(id, viewChanged = false) {
     const target = this.targets.get(id),
       s = this.state();
+    if (s.session.id !== target.documentId) {
+      const session = s.sessions.find(x => x.id === target.documentId);
+      if (session) target.revision = session.doc.revision;
+      target.offscreen = true;
+      return;
+    }
+    target.offscreen = false;
     target.revision = s.doc.revision;
     target.selectionSignature = aiSelectionSignature(s);
     target.selection = structuredClone(s.selection);
@@ -167,23 +285,29 @@ export class AiEditorBridge {
   }
   async call(name, args = {}, options = {}) {
     const op = this.queue.then(async () => {
-      await this.waitForTarget(args.target, options);
+      if (needsScreen(name, args)) await this.waitForTarget(args.target, options);
       let review, revision, paint;
+      const target = args.target && this.targets.get(args.target),
+        current = () => {
+          try {
+            return this.env(target);
+          } catch {
+            return null;
+          }
+        };
       if (aiToolEditsModel(name, args)) {
         review = await beginAiReview(this, args.target, options);
-        revision = this.state().doc.revision;
-        paint = this.state().session.paintWorkingRevision;
+        revision = current()?.doc.revision;
+        paint = current()?.session.paintWorkingRevision;
       }
       let result;
       try {
         result = await this.dispatch(name, args, options);
         return result;
       } finally {
-        if (
-          review &&
-          (this.state().doc.revision !== revision || this.state().session.paintWorkingRevision !== paint)
-        )
-          recordAiChange(review, result, this.state().model);
+        const env = review && current();
+        if (env && (env.doc.revision !== revision || env.session.paintWorkingRevision !== paint))
+          recordAiChange(review, result, env.model);
         if (result && review) result.review = reviewStatus(review);
         this.editorChanged();
       }
@@ -236,20 +360,21 @@ export class AiEditorBridge {
       return { topic: file, text: await guides['../' + file]() };
     }
     if (name === 'mdlxl_read') {
-      if (args.target) this.requireTarget(args.target);
       const s = this.state(),
-        document = args.documentId ? s.sessions.find(x => x.id === args.documentId) : s.session;
+        own = args.target ? this.env(this.requireTarget(args.target)).session : s.session,
+        document = args.documentId ? s.sessions.find(x => x.id === args.documentId) : own;
       if (!document) throw Error('Reference model is no longer open.');
       return readAiModel(document.doc.model, args);
     }
-    if (name === 'mdlxl_document' && args.action === 'list') return this.context().documents;
+    if (name === 'mdlxl_document' && args.action === 'list') return this.documents();
     if (name === 'mdlxl_ui' && args.action === 'inspect') return this.inspectUi();
     const target = this.requireTarget(args.target),
       host = this.host(),
-      state = this.state();
-    if (name === 'mdlxl_sample') return sampleAiModel(state.model, this.contextFor(args.target), args);
+      env = this.env(target),
+      state = env.state;
+    if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args);
     if (name === 'mdlxl_assets') {
-      const result = await aiAssets(args, host, () => {
+      const result = await aiAssets(args, { ...host, state: () => env.state }, () => {
         active();
         this.requireTarget(args.target);
       });
@@ -262,7 +387,7 @@ export class AiEditorBridge {
         throw Error(
           'Paint has its own working model. Use Paint controls, or use mdlxl_view to leave Paint and apply it through the editor before editing the model.',
         );
-      const before = structuredClone(state.doc.model);
+      const before = structuredClone(env.doc.model);
       let result;
       if (name === 'mdlxl_patch') result = { model: patchAiModel(before, args.operations) };
       else
@@ -275,7 +400,7 @@ export class AiEditorBridge {
           context: this.contextFor(args.target),
           references: Object.fromEntries(
             state.sessions
-              .filter(s => s !== state.session)
+              .filter(s => s !== env.session)
               .map(s => [s.id, { name: s.doc.name, model: structuredClone(s.doc.model) }]),
           ),
         });
@@ -286,26 +411,39 @@ export class AiEditorBridge {
       if (typeof args.label !== 'string' || !args.label.trim() || args.label.length > 200)
         throw Error('An edit needs a short Undo label.');
       const prepared = prepareAiEdit(before, result.model, args);
-      const assets = validateAiAssets(result.assets || [], result.model, state.session.assets);
+      // The user may have switched tabs while the script ran: commit where the tab is now.
+      const now = this.env(target),
+        { doc } = now;
+      const assets = validateAiAssets(result.assets || [], result.model, now.session.assets);
       if (!prepared.changeCount) return { applied: false, changes: [], value, logs: result.logs || [] };
-      // The existing App.edit owns validation, UV-preview protection, history and refresh.
-      flushSync(() => {
-        host.edit(args.label, prepared.sections, model => applyAiEdit(model, prepared), {
-          rethrow: true,
-          validate: (model, committed) => prepareAiEdit(committed, model, args),
+      const options = { rethrow: true, validate: (model, committed) => prepareAiEdit(committed, model, args) };
+      if (now.live)
+        // The existing App.edit owns validation, UV-preview protection, history and refresh.
+        flushSync(() => {
+          host.edit(args.label, prepared.sections, model => applyAiEdit(model, prepared), options);
+          if (result.selection && doc.revision !== target.revision) host.select({ vertices: result.selection });
         });
-        if (result.selection && state.doc.revision !== target.revision)
-          host.select({ vertices: result.selection });
-      });
-      if (state.doc.revision === target.revision) throw Error('The editor could not commit the edit.');
+      else {
+        // Its own document and Undo history; the tab on screen is not touched.
+        host.editIn(target.documentId, args.label, prepared.sections, model => applyAiEdit(model, prepared), {
+          ...options,
+          selection: { vertices: result.selection || target.selection },
+        });
+        this.adoptTab(target);
+      }
+      if (doc.revision === target.revision) throw Error('The editor could not commit the edit.');
       // An edit the model could not be saved with is taken back at once; left in place it
       // would block every later checkpoint, review and Undo step. Checked in the document's
       // own format, and MDX too when it can convert (AI checkpoints use MDX).
       try {
-        for (const format of new Set([state.doc.format, ...(state.doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
-          state.doc.serialize(format);
+        for (const format of new Set([doc.format, ...(doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
+          doc.serialize(format);
       } catch (error) {
-        await host.command('undo');
+        if (now.live) await host.command('undo');
+        else {
+          host.undoIn(target.documentId, false);
+          this.adoptTab(target);
+        }
         this.advance(args.target);
         throw Error(
           `Not applied: the model could not be saved after this edit (${error.message}), so it was undone. Check each new or changed geoset: Vertices and Normals as Float32Array (3 per vertex), TVertices as [Float32Array] (2 per vertex), Faces as Uint16Array of valid indices, VertexGroup as Uint8Array (1 per vertex), Groups and MaterialID valid. sd-kit commit and Forge commitForge build complete geosets.`,
@@ -313,21 +451,28 @@ export class AiEditorBridge {
       }
       this.advance(args.target);
       // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
-      if (assets.length) await host.addAssets(assets);
+      if (assets.length) await host.addAssetsIn(target.documentId, assets);
       return {
         applied: true,
         target: args.target,
-        revision: state.doc.revision,
+        revision: doc.revision,
         changeCount: prepared.changeCount,
         changes: prepared.summary,
         assets: assets.map(a => a.name),
         value,
         logs: result.logs || [],
-        diagnostics: state.doc.diagnostics,
+        diagnostics: doc.diagnostics,
       };
     }
     if (name === 'mdlxl_select') {
-      this.validateSelection(args);
+      this.validateSelection(args, env);
+      if (!env.live) {
+        if (args.keyframes) throw Error(LEFT_TAB);
+        host.selectIn(target.documentId, args);
+        this.adoptTab(target);
+        this.advance(args.target);
+        return this.contextFor(args.target);
+      }
       flushSync(() => host.select(args));
       if (args.keyframes) {
         await host.selectKeys(args.keyframes);
@@ -337,6 +482,14 @@ export class AiEditorBridge {
       return this.contextFor(args.target);
     }
     if (name === 'mdlxl_command') {
+      if (!env.live) {
+        // Undo and Redo work on the task's own model; other commands need its tab.
+        if (!['undo', 'redo'].includes(args.id)) throw Error(LEFT_TAB);
+        host.undoIn(target.documentId, args.id === 'redo');
+        this.adoptTab(target);
+        this.advance(args.target);
+        return { invoked: args.id, dialog: null, context: this.contextFor(args.target) };
+      }
       const command = host.commands().find(c => c.id === args.id);
       if (!command?.enabled) throw Error('This editor command is unavailable: ' + args.id);
       await host.command(args.id);
@@ -351,21 +504,25 @@ export class AiEditorBridge {
       };
     }
     if (name === 'mdlxl_view') {
-      if (
-        args.sequence !== undefined &&
-        (!Number.isInteger(args.sequence) ||
-          args.sequence < -1 ||
-          args.sequence >= state.model.Sequences.length)
-      )
-        throw Error('Animation index is out of range.');
-      if (args.frame !== undefined) finite(args.frame, 'animation frame');
-      if (
-        args.globalSequence != null &&
-        (!Number.isInteger(args.globalSequence) || !(state.model.GlobalSequences[args.globalSequence] > 0))
-      )
-        throw Error('Global animation index is out of range.');
-      if (args.globalSequence != null && args.sequence !== undefined)
-        throw Error('Choose a local or global animation, not both.');
+      checkView(args, env.model);
+      if (!env.live) {
+        // The task's own view: it decides what its pictures and samples show.
+        const view = target.restore;
+        if (args.mode) view.mode = args.mode;
+        if (args.view) target.view = args.view;
+        if (args.renderMode) target.renderMode = args.renderMode;
+        if (args.globalSequence != null) Object.assign(target, { globalSequence: args.globalSequence, frame: 0 });
+        else if (args.sequence !== undefined || args.globalSequence === null)
+          Object.assign(target, {
+            globalSequence: null,
+            sequence: args.sequence ?? target.sequence,
+            frame: env.model.Sequences[args.sequence ?? target.sequence]?.Interval?.[0] ?? 0,
+          });
+        if (args.frame !== undefined) target.frame = args.frame;
+        Object.assign(view, { sequence: target.sequence, globalSequence: target.globalSequence, frame: target.frame });
+        this.advance(args.target);
+        return this.contextFor(args.target);
+      }
       await host.view(args);
       await settle();
       this.advance(args.target, true);
@@ -373,25 +530,19 @@ export class AiEditorBridge {
     }
     if (name === 'mdlxl_capture' || (name === 'mdlxl_ui' && args.action === 'capture')) {
       if (name === 'mdlxl_capture' && args.samples) {
+        // Each sample is drawn off-screen, so the view on screen never moves.
+        for (const sample of args.samples) checkView(sample, env.model);
         const images = [];
         for (const sample of args.samples) {
           active();
           this.requireTarget(args.target);
-          await this.dispatch(
-            'mdlxl_view',
-            { target: args.target, ...sample, playing: false },
-            { signal, requestId },
-          );
-          const result = await this.dispatch('mdlxl_capture', { target: args.target }, { signal, requestId });
-          const current = this.state();
-          images.push({
-            label: `${current.view}; ${current.globalSeqId == null ? 'sequence ' + current.sequence : 'global sequence ' + current.globalSeqId}; frame ${current.time}`,
-            image: result.image,
-          });
+          images.push(await this.picture(args.target, sample));
         }
         return { images };
       }
-      if (name === 'mdlxl_capture') return {image: await host.capture()};
+      // On screen, the viewport as the user sees it, marks included; otherwise off-screen.
+      if (name === 'mdlxl_capture')
+        return { image: env.live ? await host.capture() : (await this.picture(args.target)).image };
       // Mask the assistant only in the returned UI image. Never alter the live panel.
       const panel = document.querySelector('section.ai-assistant'), rect = panel?.getBoundingClientRect();
       const image = await window.desktop.aiCapture();
@@ -453,22 +604,22 @@ export class AiEditorBridge {
       if (args.action === 'export') {
         if (
           state.mode === 'paint' ||
-          Object.keys(state.session.uvPreviews || {}).length ||
-          Object.keys(state.session.animationDrafts || {}).length
+          Object.keys(env.session.uvPreviews || {}).length ||
+          Object.keys(env.session.animationDrafts || {}).length
         )
           throw Error(
             'There are preview edits. Use the normal Save command to include them, or apply them through the workspace controls before exporting the committed model.',
           );
         const format = args.format || args.path?.split('.').at(-1)?.toLowerCase();
         if (!['mdl', 'mdx'].includes(format)) throw Error('Choose MDL or MDX.');
-        const bytes = await prepareModelSaveAsync(state.doc, format);
+        const bytes = await prepareModelSaveAsync(env.doc, format);
         active();
         this.requireTarget(args.target);
         const result = await window.desktop.aiWriteModel({
           path: args.path,
           bytes: bytes.bytes,
           format,
-          forgeAssets: host.assets(),
+          forgeAssets: host.assetsIn(target.documentId),
           overwrite: args.overwrite === true,
         });
         return { ...result, revision: target.revision, format };
@@ -477,7 +628,7 @@ export class AiEditorBridge {
         const results = [];
         for (const format of ['mdx', 'mdl'])
           try {
-            const saved = await prepareModelSaveAsync(state.doc, format),
+            const saved = await prepareModelSaveAsync(env.doc, format),
               reopened = openDocument(saved.bytes, 'AI round-trip.' + format);
             results.push({
               format,
@@ -495,13 +646,15 @@ export class AiEditorBridge {
   }
   contextFor(id) {
     const target = this.targets.get(id),
-      s = this.state();
+      env = this.env(target),
+      s = env.state;
     return {
       target: id,
       documentId: target.documentId,
+      onScreen: env.live,
       revision: target.revision,
       selection: target.selection,
-      selectedNodeIds: [...s.selectedNodeIds],
+      selectedNodeIds: [...(s.selectedNodeIds || [])],
       checkedGeosets: Array.from(s.selectable),
       activeGeoset: s.activeGeoset,
       uvSet: s.uvSet,
@@ -516,8 +669,8 @@ export class AiEditorBridge {
       view: target.view,
     };
   }
-  validateSelection(args) {
-    const { model } = this.state();
+  validateSelection(args, env) {
+    const { model, state } = env;
     for (const [gi, ids] of Object.entries(args.vertices || {}))
       if (
         !/^\d+$/.test(gi) ||
@@ -535,10 +688,10 @@ export class AiEditorBridge {
     if (args.keyframes) {
       const { nodeId, property, frames } = args.keyframes,
         node = model.Nodes[nodeId],
-        global = this.state().globalSeqId,
+        global = state.globalSeqId,
         interval =
           global == null
-            ? model.Sequences[this.state().sequence]?.Interval
+            ? model.Sequences[state.sequence]?.Interval
             : [0, model.GlobalSequences[global]];
       if (
         !interval ||
@@ -556,6 +709,38 @@ export class AiEditorBridge {
       )
         throw Error('Choose existing transform keys in the current animation domain.');
     }
+  }
+  // A picture of the task's model from its own view, drawn off-screen. A sample
+  // chooses another view, animation or frame for this picture only.
+  async picture(id, sample = {}) {
+    const target = this.targets.get(id),
+      { state: s, model } = this.env(target);
+    const globalSequence =
+      sample.globalSequence !== undefined ? sample.globalSequence : sample.sequence !== undefined ? null : s.globalSeqId;
+    const sequence = globalSequence == null ? (sample.sequence ?? s.sequence) : -1;
+    const frame =
+      sample.frame ??
+      (sample.globalSequence != null
+        ? 0
+        : sample.sequence !== undefined && sample.sequence !== s.sequence
+          ? (model.Sequences[sample.sequence]?.Interval?.[0] ?? 0)
+          : s.time);
+    const view = sample.view || s.view,
+      // Pictures show the surface; wireframe marks belong to the live viewport.
+      renderMode = s.renderMode === 'solid' ? 'solid' : 'textured';
+    const image = await this.host().render({
+      documentId: target.documentId,
+      view,
+      sequence,
+      globalSequence,
+      frame,
+      renderMode,
+      hiddenGeosets: s.hiddenGeosets,
+    });
+    return {
+      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}`,
+      image,
+    };
   }
   inspectUi() {
     this.controls.clear();
@@ -644,8 +829,9 @@ export class AiEditorBridge {
       detach();
     };
   }
-  // Pause and resume: a step for a model tab that is not showing waits until the
-  // user returns to that tab, then carries on with the tab's working selection.
+  // A step that needs the program on screen (its buttons, windows or the Movement
+  // timeline) waits until the user returns to the task's tab, then carries on with
+  // the task's own selection. Everything else runs on the tab's model directly.
   async waitForTarget(id, { signal, requestId } = {}) {
     const target = id && this.targets.get(id);
     if (!target || this.state().session.id === target.documentId) return;

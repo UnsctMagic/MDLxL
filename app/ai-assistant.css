@@ -160,6 +160,7 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-from-organiser summary{display:flex;align-items:center;gap:6px;cursor:pointer}
 .ai-from-organiser .ai-user-text{margin-top:8px;background:transparent;border:0;padding:0;color:var(--ui-text)}
 .ai-paused{color:var(--ui-text)}
+.ai-offscreen-render>.game-preview-root{width:100%;height:100%}
 .ai-check{display:flex;align-items:center;gap:8px!important;color:var(--ui-text)!important;cursor:help}
 .ai-check input{flex:0 0 auto!important;min-height:0!important}
 

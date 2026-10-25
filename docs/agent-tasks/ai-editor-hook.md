@@ -250,6 +250,46 @@ checks for this continuation are complete; CI runs against the pushed revision.
 The user's existing test profile and saved models stay separate from the package.
 `test/ai-live.electron.cjs` remains the opt-in real-account acceptance harness.
 
+## Background work: each bird has its own environment (2026-10-25, Claude)
+
+Branch `claude/ai-own-environment-c7eceb`. Replaces PR #291's pause-and-resume
+("option 1") with true background work ("option 2"), as the owner asked on
+2026-10-24 ("work on other tabs on other models while AI works in one tab").
+
+- `app/ai-editor.js`: `env(target)` is the task's own tab: the live editor when
+  that tab shows, else the tab's document with the selection/view the target
+  captured at send time (`target.restore`, `sequence`, `frame`, `view`,
+  `renderMode`, `hidden`, `annotations`). Every tool reads and writes through it.
+  `requireTarget` for a hidden tab checks only its revision (no one else can edit
+  it); back on screen it re-baselines the selection signature once, then the old
+  same-tab stop applies. Closing the tab stops the task.
+- Only `needsScreen` steps wait (`mdlxl_ui`, `mdlxl_command` other than undo/redo,
+  `mdlxl_select` with timeline keys) through the existing `waitForTarget` pause.
+- Hidden-tab edits: `host.editIn` → `src/ai-tab.js` `editTab` (the tab's own
+  `doc.apply`, UV-preview guard, selection snapshot on its Undo entry, tab
+  `viewState` selection clamped), plus a recovery checkpoint. `undoIn`/`selectIn`
+  likewise. Textures go to that tab's assets.
+- Pictures: `bridge.picture()` → `host.render` → `app/AiOffscreenRender.jsx`, a
+  hidden `GamePreview` (one per picture, `captureView`). Used for hidden-tab
+  captures, every `samples` capture and every review picture (before, after,
+  side views, animation frames), so `mdlxl_review` no longer moves the live view
+  or playhead. A plain capture of the tab on screen still copies the live
+  viewport (keeps the selection marks the packaged test checks).
+- Verification: `test/ai-background.test.js` (6: background edit with separate
+  Undo, off-screen pictures, samples off-screen on the shown tab, screen-only step
+  waits then runs, same tab still blocks, selection/closing). Packaged
+  `ai-console` 61/61 (owner edits Second while Crow patches, reviews and passes on
+  Footman; review pictures off-screen; owner's view unchanged; screen step pauses;
+  each tab's Undo separate; both models save). `ai-editor` 63/63 with its native
+  sign-in section skipped locally (that section fails on this PC on main too; its
+  `codex.cmd` stand-in now runs through Node directly) and a one-time context
+  refresh before one `mdlxl_select` (also fails the same way on `main`
+  e69d2594 here: the timeline key context appears after the context is read).
+  `ai-awareness` passed. Source 1,955 (0 failed), compatibility 57.
+- Limits: one AI request at a time is unchanged (`AiService.active`); a prompt on
+  another model's chat waits. Off-screen pictures are textured/solid, without
+  selection marks. A hidden tab's `mdlxl_view mode` only records the mode.
+
 ## SD Brain (2026-10-24, Claude)
 
 - Implemented from `D:\Codex\mdlxl-sd-rulebook-20261024\outputs\SD-BRAIN-IMPLEMENTATION-BRIEF.md` on the Claude console branch (Offload Mode, steering, Marker/Pen).

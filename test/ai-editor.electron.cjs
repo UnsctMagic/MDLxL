@@ -235,7 +235,8 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
 });`,
   );
   fs.mkdirSync(path.dirname(authExecutable), { recursive: true });
-  fs.writeFileSync(authExecutable, '@"%dp0%\\..\\auth-fixture.js" %*\r\n');
+  // Run the stand-in with this Node, not whatever program .js files open with on this PC.
+  fs.writeFileSync(authExecutable, `@"${process.execPath}" "%~dp0..\\auth-fixture.js" %*\r\n`);
   await page.evaluate(
     executable => window.desktop.aiConfigure({ provider: 'codex', executable }),
     authExecutable,
