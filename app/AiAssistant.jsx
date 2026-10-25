@@ -780,13 +780,16 @@ export default function AiAssistant({ bridge }) {
     <>
       <button
         type="button"
-        className="ai-open"
+        className="classic-tool ai-open ai-tool"
         aria-label="AI assistant"
         title="AI console: ask an AI to edit your model."
         aria-pressed={open}
         onClick={toggleOpen}
       >
-        AI{busy ? ' ·' : ''}
+        <img src="./classic/btn-metamorphosis.png" alt="" draggable={false} />
+        <span className="module-icon-badge" aria-hidden="true">
+          AI{busy ? '·' : ''}
+        </span>
       </button>
       {open &&
         dock &&
