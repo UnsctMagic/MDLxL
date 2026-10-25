@@ -140,14 +140,14 @@
 
 /* Carved tool tiles; the active tool lights up in the highlight colour. */
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;grid-auto-rows:38px!important;gap:5px!important;padding:0 1px!important;margin:12px 0!important;background:transparent!important;border-radius:0!important;width:auto!important;justify-content:stretch!important;--sw:2.1}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button{grid-column:auto!important;width:auto!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;padding:0 4px!important;white-space:nowrap!important;overflow:visible!important;border:0!important;border-radius:5px!important;background:var(--tile-bg)!important;box-shadow:var(--tile-sh)!important;color:var(--ic)!important;font-size:11.5px!important;font-weight:600!important;letter-spacing:.2px;opacity:1!important;text-shadow:var(--txt-sh)}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:is(.span-2,.uv-button){grid-column:span 2!important}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button.look-icon-only{font-size:0!important}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:disabled{color:var(--ui-muted)!important}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:disabled .look-icon{opacity:.32}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:is(.active,[aria-pressed=true]){background:var(--tile-on-bg)!important;box-shadow:var(--tile-on-sh)!important;color:var(--lit)!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar :is(.classic-tools,.classic-tools>.forge-shape-operations,.classic-tools>.forge-shape-operations>.forge-add-control)>button{grid-column:auto!important;width:auto!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;padding:0 4px!important;white-space:nowrap!important;overflow:visible!important;border:0!important;border-radius:5px!important;background:var(--tile-bg)!important;box-shadow:var(--tile-sh)!important;color:var(--ic)!important;font-size:11.5px!important;font-weight:600!important;letter-spacing:.2px;opacity:1!important;text-shadow:var(--txt-sh)}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar :is(.classic-tools,.classic-tools>.forge-shape-operations,.classic-tools>.forge-shape-operations>.forge-add-control)>button:is(.span-2,.uv-button){grid-column:span 2!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar :is(.classic-tools,.classic-tools>.forge-shape-operations,.classic-tools>.forge-shape-operations>.forge-add-control)>button.look-icon-only{font-size:0!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar :is(.classic-tools,.classic-tools>.forge-shape-operations,.classic-tools>.forge-shape-operations>.forge-add-control)>button:disabled{color:var(--ui-muted)!important}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar :is(.classic-tools,.classic-tools>.forge-shape-operations,.classic-tools>.forge-shape-operations>.forge-add-control)>button:disabled .look-icon{opacity:.32}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar :is(.classic-tools,.classic-tools>.forge-shape-operations,.classic-tools>.forge-shape-operations>.forge-add-control)>button:is(.active,[aria-pressed=true]){background:var(--tile-on-bg)!important;box-shadow:var(--tile-on-sh)!important;color:var(--lit)!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools .look-icon{width:20px;height:20px;filter:var(--ic-filter)}
-:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>button:is(.active,[aria-pressed=true]) .look-icon{filter:var(--lit-filter)}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar :is(.classic-tools,.classic-tools>.forge-shape-operations,.classic-tools>.forge-shape-operations>.forge-add-control)>button:is(.active,[aria-pressed=true]) .look-icon{filter:var(--lit-filter)}
 
 /* Geoset actions: a calm list. */
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-geoset-operations{display:flex!important;flex-direction:column!important;gap:0!important;border:1px solid var(--m-line);border-radius:10px;overflow:hidden;margin:0 0 10px!important;background:var(--ui-field)}
@@ -204,6 +204,12 @@
 :root #root .classic-app.classic-app:not([data-vis-ui]) .sidebar-section:not(.classic-geosets)>summary{min-height:24px;padding:2px 8px;background:var(--m-soft);font-size:12px;font-weight:600;color:var(--ui-text)}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .sidebar-section:not(.classic-geosets)>.sidebar-section-body{padding:6px}
 :root #root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar:not(:has(>.classic-counts)){padding:6px 8px!important}
+
+/* Forge wraps Add shape (with its menu) in a grid cell; the button fills it. Shape/Edge/Vertex are tiles of the same height. */
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>.forge-shape-operations>.forge-add-control{display:flex}
+:root .classic-app.classic-app:not([data-vis-ui]) .classic-sidebar .classic-tools>.forge-shape-operations>.forge-add-control>button{flex:1}
+:root #root .classic-app.classic-app:not([data-vis-ui]) .forge-control-points .classic-tool{flex:0 0 34px!important;height:38px!important;border:0!important;border-radius:5px!important;background:var(--tile-bg)!important;box-shadow:var(--tile-sh)!important;color:var(--ic)!important}
+:root #root .classic-app.classic-app:not([data-vis-ui]) .forge-control-points .classic-tool.active{background:var(--tile-on-bg)!important;box-shadow:var(--tile-on-sh)!important;color:var(--lit)!important}
 
 /* Tool grids elsewhere (bones, Forge) get the same carved tiles. */
 :root #root .classic-app.classic-app:not([data-vis-ui]) :is(.bone-tools>button,.bone-tools>.bone-create-anchor>button,.movement-tools>button,.forge-overlay .classic-tools>button){border:0!important;border-radius:5px!important;background:var(--tile-bg)!important;box-shadow:var(--tile-sh)!important;color:var(--ic)!important;text-shadow:var(--txt-sh)}

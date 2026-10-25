@@ -30,5 +30,20 @@ parameterised for the candidate version.
 
 ## Progress
 
-- Worktree, fixtures and a pre-run package of main at 932858df built.
-- English notes drafted in `docs/RELEASE-0.31.0.md`.
+- #296 merged (4af766e9) and merged into this branch. Version 0.31.0, notes in four
+  languages, README, AI-HOOK wording (AI icon in the dock) committed.
+- Source suite on main before #296: 1,933 pass / 0 fail; compatibility 57 pass.
+- PDFs: `docs/MDLxL-0.31.0-{AI-Guide,AI-Sign-in,Interface-Map}-{EN,ES,RU,ZH-CN}.pdf`,
+  built from `out/guide-shots` (app screenshots per language, `shots.cjs`) and
+  `out/guide-shots/pdf/{content,build}.mjs` (HTML -> headless Chrome). The package
+  ships these instead of the 0.22.0 manual and Paint guide; old PDFs removed from docs.
+- Packaged suite runner: AI tests now get the package (`MDLXL_AI_TEST_EXE`); `ai-live`
+  is skipped as an opt-in real-account check.
+- Site notes committed on LowPolyWorks branches `claude/mdlxl-0.31.0-notes` (main PR)
+  and `claude/gh-pages-mdlxl-0.31.0` (worktrees `D:\Claude\LowPolyWorks-mdlxl-0.31.0`,
+  `D:\Claude\LowPolyWorks-pages-0.31.0`); site tests 6/6 and project check pass. Not pushed yet.
+- Gate driver: `D:\Claude\MDLxL-gate\driver.cjs` (candidate -> A -> B -> revert, checks
+  routed pings). No dirty model, so the save prompt is not shown; the revert confirm is
+  answered in memory. Run it on the CI ZIP after the draft build.
+- Old GitHub release assets (Paint guide on 0.17.0-0.21.2, 0.22.0 / 0.27.0 / 0.29.0 PDFs)
+  are permanent deletions and were left for the owner.

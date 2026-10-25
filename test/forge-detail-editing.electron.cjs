@@ -34,7 +34,7 @@ function readForge(){
   async function fresh(width=300,height=100,depth=40){if((await doc()).shapes.length){await click('Cancel');await page.getByRole('button',{name:'Forge',exact:true}).click();await d.locator('.forge-editor').waitFor();}await fill('Width',width);await fill('Height',height);await fill('Depth',depth);await click('Cube');return (await doc()).shapes[0];}
   let shape=await fresh(),sidebar=await d.locator('.forge-editor-sidebar').boundingBox();
   assert.equal(await d.getByRole('group',{name:'Repeat detail controls',exact:true}).count(),0);
-  for(const name of ['Mirror','Blend']){const tool=d.getByRole('button',{name,exact:true}),box=await tool.boundingBox();assert.ok(box.width<=32&&box.x>=sidebar.x&&box.x+box.width<=sidebar.x+sidebar.width);assert.ok((await tool.getAttribute('title')).length>50);}
+  for(const name of ['Mirror','Blend']){const tool=d.getByRole('button',{name,exact:true}),box=await tool.boundingBox();assert.ok(box.width<=40&&box.x>=sidebar.x&&box.x+box.width<=sidebar.x+sidebar.width,name+" stays a compact tile in the sidebar");assert.ok((await tool.getAttribute('title')).length>50);}
   checks.push('Mirror and Blend are compact tooltiped controls in the existing sidebar; no permanent panel or wider sidebar');
   await pickFace(shape,normal(shape,2)[0]);await click('Cut');await click('Apply cuts');shape=(await doc()).shapes[0];
   const strip=normal(shape,2).sort((a,b)=>center(shape,a)[0]-center(shape,b)[0])[0];await pickFace(shape,strip);await click('Extrude');await dragWorld(center(shape,strip),[0,0,20]);
