@@ -1514,6 +1514,16 @@ export default function GamePreview(inputProps) {
       },
       setCameraView(view) { camera = perspective; controls.object = camera; state.cameraDetached = true; applyEvaluatedModelCamera(camera, controls, view, canvas.width / canvas.height); invalidate(); },
       modelCenter() { return center.toArray(); },
+      // Canvas pixels of model-space points [x,y,z,...] in the current view, as [x,y,inFront,...].
+      project(points) {
+        const out = new Float32Array(points.length), point = new THREE.Vector3();
+        camera.updateMatrixWorld();
+        for (let i = 0; i < points.length; i += 3) {
+          point.set(points[i], points[i + 1], points[i + 2]).project(camera);
+          out[i] = (point.x + 1) / 2 * canvas.width; out[i + 1] = (1 - point.y) / 2 * canvas.height; out[i + 2] = point.z >= -1 && point.z <= 1 ? 1 : 0;
+        }
+        return out;
+      },
       effectDefinitions() { return eventPreview.definitions; },
       recordingDimensions({crop,maxDimension,aspect}={}) {
         resize();

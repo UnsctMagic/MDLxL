@@ -76,6 +76,8 @@ the first one. The bird has its own environment for its model tab:
 - **Its own pictures.** The bird's pictures of its model, and every review picture
   (before/after, side views, animation frames), are drawn in a hidden preview. Your
   view and camera never move, also when the bird works on the tab you are looking at.
+  These pictures show the bird's marked vertices (red) and the Marker/Pen notes
+  sent with the prompt, from the picture's own angle and animation frame.
 - **Its own selection and drawings.** The selection and Marker/Pen notes are taken
   when you send the prompt; what you select or draw on another tab does not change
   them. When you switch to the bird's tab you see the selection it left there.
@@ -86,8 +88,12 @@ the first one. The bird has its own environment for its model tab:
   selection while the bird prepares an edit, the edit is refused and the bird asks,
   as before. Closing the bird's tab stops its task.
 
-One AI request runs at a time: while a bird works, a prompt on another model's
-chat waits until it has finished.
+**Several jobs at once.** Each model's chat runs its own job: while a bird works
+on one model, switch to another model's tab and send its chat a prompt; its own
+organiser and birds work alongside. One job per model at a time: a second chat of
+the same model is refused until the first finishes. **Stop** and steering act on
+the chat you are looking at. Connection settings and sign-in stay unavailable
+while any job runs, since all chats share one connection.
 
 After you save a model the AI worked on, MDLxL asks how to tidy its chats:
 **Keep everything**, **Keep a summary** (the organiser writes a memory note, then
@@ -418,6 +424,9 @@ model-editing verification.
 For an opt-in real-provider acceptance check, use `test/ai-live.electron.cjs` on
 the hidden desktop. Set `MDLXL_AI_LIVE_PROFILE` to the MDLxL profile whose owner
 has signed in, plus the same packaged executable and report variables above.
+`test/ai-live-tabs.electron.cjs` is the same kind of opt-in check for several
+model tabs at once (15 small prompts on three generated models, jobs side by side);
+give its profile its own sign-in rather than a copied one.
 This makes real model requests against generated fixtures, checking selected
 vertex edits, one Undo, mirror/weld, sparse animation keys, unchanged other data,
 program help and MDX/MDL reopening. It preserves the signed-in profile and never

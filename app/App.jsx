@@ -1443,7 +1443,8 @@ export default function App() {
     render: async spec => {
       const target = aiHost.current.sessionOf(spec.documentId);
       if (!aiOffscreen) throw Error('The off-screen preview is not ready.');
-      return aiOffscreen.render({ ...spec, model: target.doc.model, revision: target.doc.revision, assets: target.assets, path: target.path });
+      // The hidden preview gets its own copy: the renderer must never touch the document.
+      return aiOffscreen.render({ ...spec, model: structuredClone(target.doc.model), revision: target.doc.revision, assets: target.assets, path: target.path });
     },
     addReference: async record => {const opened=openDocument(record.bytes,record.name);if(!opened.model||opened.version==null)throw Error('This reference has no readable model.');const next=newSession(opened,record.path);setSessions(previous=>[...previous,next]);if(record.textures?.length)await loadTextures(record.textures,next,{source:'gameFile'});await resolveTextures(next);return {id:next.id,name:next.doc.name};},
   };

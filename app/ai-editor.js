@@ -44,6 +44,23 @@ const needsScreen = (name, args) =>
   name === 'mdlxl_ui' ||
   (name === 'mdlxl_command' && !['undo', 'redo'].includes(args.id)) ||
   (name === 'mdlxl_select' && !!args.keyframes);
+// Model-space positions of the marked vertices, posed at the picture's frame.
+function markedPositions(model, selection = {}, sequence, globalSequence, frame) {
+  const valid = Object.entries(selection).filter(([gi, ids]) => model.Geosets[gi] && ids.length);
+  if (!valid.length) return [];
+  if (sequence < 0 && globalSequence == null)
+    return valid.flatMap(([gi, ids]) => ids.flatMap(id => Array.from(model.Geosets[gi].Vertices.subarray(id * 3, id * 3 + 3))));
+  try {
+    const sampled = sampleAiModel(
+      model,
+      { frame, sequence, globalSequence, selectedNodeIds: [] },
+      { frames: [frame], vertices: Object.fromEntries(valid), limit: 1000 },
+    );
+    return sampled.samples[0].geosets.flatMap(g => g.selected.positions.flatMap(p => p.position));
+  } catch {
+    return [];
+  }
+}
 function checkView(args, model) {
   if (
     args.sequence !== undefined &&
@@ -64,7 +81,8 @@ export class AiEditorBridge {
     this.host = host;
     this.targets = new Map();
     this.controls = new Map();
-    this.queue = Promise.resolve();
+    // Steps run in order per model tab; tasks on different models do not wait on each other.
+    this.queues = new Map();
     this.waiters = new Set();
   }
   state() {
@@ -142,6 +160,8 @@ export class AiEditorBridge {
         animationPanel: state.animationPanel,
         // Drawings are part of the prompt: later notes elsewhere never change them.
         annotations: sketchContext(sketchStore.strokes(state.session.id), state.model),
+        // The strokes themselves, to draw them over the task's off-screen pictures.
+        strokes: sketchStore.strokes(state.session.id).map(s => ({ tool: s.tool, color: s.colorValue, points: Array.from(s.points) })),
         restore: viewSnapshot(state),
       });
     }
@@ -284,7 +304,8 @@ export class AiEditorBridge {
       });
   }
   async call(name, args = {}, options = {}) {
-    const op = this.queue.then(async () => {
+    const key = (args.target && this.targets.get(args.target)?.documentId) || '',
+      op = (this.queues.get(key) || Promise.resolve()).then(async () => {
       if (needsScreen(name, args)) await this.waitForTarget(args.target, options);
       let review, revision, paint;
       const target = args.target && this.targets.get(args.target),
@@ -312,7 +333,9 @@ export class AiEditorBridge {
         this.editorChanged();
       }
     });
-    this.queue = op.catch(() => {});
+    const settled = op.catch(() => {});
+    this.queues.set(key, settled);
+    settled.then(() => this.queues.get(key) === settled && this.queues.delete(key));
     return op;
   }
   async dispatch(name, args, { signal, requestId } = {}) {
@@ -494,6 +517,8 @@ export class AiEditorBridge {
       if (!command?.enabled) throw Error('This editor command is unavailable: ' + args.id);
       await host.command(args.id);
       await settle();
+      // A save runs on after the command returns; report only once it is written.
+      for (let i = 0; i < 1000 && this.state().saving; i++) await settle();
       if (this.state().session.id !== target.documentId)
         return { invoked: args.id, activeDocumentChanged: true, context: this.context() };
       this.advance(args.target, true);
@@ -736,6 +761,7 @@ export class AiEditorBridge {
       frame,
       renderMode,
       hiddenGeosets: s.hiddenGeosets,
+      marks: { strokes: target.strokes || [], vertices: markedPositions(model, target.selection, sequence, globalSequence, frame) },
     });
     return {
       label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}`,

@@ -44,14 +44,17 @@ class AiService {
     this.conversations = new Map();
     this.ready = false;
     this.config = null;
+    // Exclusive requests (sign-in, model lists, memory notes) use `active`; prompt
+    // tasks run one per model tab at the same time, in `tasks` by chat id.
     this.active = null;
+    this.tasks = new Map();
     this.external = null;
     this.running = new Set();
     this.awareness = new AiAwareness();
     this.writes = new Map();
     this.runningIds = new Set();
     this.registry = new OrganiserRegistry(this.directory);
-    this.workerLock = null;
+    this.workerLocks = new Map();
     this.random = Math.random;
   }
   async init() {
@@ -102,7 +105,8 @@ class AiService {
       hasKey: !!provider.key,
       enabled: !!this.external,
       url: this.external?.url || null,
-      busy: !!this.active,
+      busy: this.busy(),
+      running: this.runningChats(),
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
       sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
@@ -129,9 +133,32 @@ class AiService {
     await this.persist();
     return this.status();
   }
+  busy() {
+    return !!this.active || this.tasks.size > 0;
+  }
+  // Which chats are working, for the console: each task's chat and its current bird.
+  runningChats() {
+    return [...this.tasks.values()].map(t => ({ id: t.id, worker: t.worker?.id || null, documentId: t.documentId }));
+  }
+  emitRunning() {
+    this.emit({ type: 'running', running: this.runningChats() });
+  }
   async configure(input) {
-    if (this.active) throw Error('Stop the current AI request before changing providers.');
     const config = await this.configuration();
+    if (this.busy()) {
+      // Sending re-saves the connection; while other models' jobs run, an unchanged
+      // connection is fine. Only an actual change has to wait.
+      const current = config.providers?.[config.provider] || {};
+      const unchanged =
+        input.provider === config.provider &&
+        String(input.model || '').trim() === (current.model || '') &&
+        String(input.baseUrl || '').trim() === (current.baseUrl || '') &&
+        String(input.executable || '').trim() === (current.executable || '') &&
+        !input.apiKey &&
+        !input.clearKey;
+      if (unchanged) return this.status();
+      throw Error('Stop the current AI request before changing providers.');
+    }
     if (!['codex', 'claude', 'openai', 'anthropic', 'compatible'].includes(input.provider))
       throw Error('Unknown AI provider.');
     const previous = config.providers?.[input.provider] || {};
@@ -234,7 +261,7 @@ class AiService {
               { sdBrainInstructions } = await this.init();
             return { ...result, sdBrain: { ...policy, instructions: sdBrainInstructions(policy, 'external') } };
           } finally {
-            this.emit({ type: 'external-done', busy: !!this.active });
+            this.emit({ type: 'external-done', busy: this.busy() });
           }
         },
         onCall: name => this.emit({ type: 'external', name }),
@@ -296,7 +323,11 @@ class AiService {
     };
   }
   async send({ id, text, images = [], context, resume = false }) {
-    if (this.active) throw Error('An AI request is already running.');
+    if (this.active) throw Error('Wait for the current AI request to finish.');
+    if (this.tasks.has(id)) throw Error('This chat is already working.');
+    // One job per model: another chat of the same model tab waits its turn.
+    if ([...this.tasks.values()].some(t => t.documentId && t.documentId === context?.documentId))
+      throw Error('Another AI chat is already working on this model. Send this when it finishes.');
     if (!resume && (typeof text !== 'string' || !text.trim() || text.length > 100000))
       throw Error('Enter a prompt of 1–100000 characters.');
     if (
@@ -322,8 +353,9 @@ class AiService {
       throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
     const recorder = new AiRecorder(conversation, value => this.emit({ id, ...value }));
     const steering = new AiSteering(text => recorder.split(text));
-    const active = { id, controller, steering, recorder, worker: null };
-    this.active = active;
+    const active = { id, controller, steering, recorder, worker: null, documentId: context.documentId || null, modelKey: conversation.modelKey || null };
+    this.tasks.set(id, active);
+    this.emitRunning();
     const config = await this.configuration();
     if (conversation.modelKey) await this.markActivity(conversation.modelKey);
     try {
@@ -360,7 +392,8 @@ class AiService {
       recorder.event({ type: 'error', text: error.message, authRequired });
       return { ok: false, error: error.message, authRequired };
     } finally {
-      if (this.active === active) this.active = null;
+      if (this.tasks.get(id) === active) this.tasks.delete(id);
+      this.emitRunning();
       steering.close();
       recorder.finish();
       await this.persistConversation(conversation);
@@ -665,9 +698,12 @@ class AiService {
     return organiser.nextName;
   }
   async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy, artBrief }) {
-    const previous = this.workerLock;
+    // One bird edits a model at a time; birds of other models work alongside.
+    const key = organiser.modelKey || organiser.id,
+      previous = this.workerLocks.get(key);
     let release;
-    this.workerLock = new Promise(resolve => (release = resolve));
+    const lock = new Promise(resolve => (release = resolve));
+    this.workerLocks.set(key, lock);
     await previous;
     organiser.workers ||= [];
     organiser.birds ||= [];
@@ -716,6 +752,7 @@ class AiService {
       const steering = new AiSteering(text => recorder.split(text));
       parentSteering.forward = steering;
       active.worker = { id: worker.id, steering };
+      this.emitRunning();
       const text =
         `Job: ${args.job}\n\nInstructions from the organiser:\n${args.instructions}\n\nThe user's message, exactly as written:\n${userText}` +
         (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
@@ -734,6 +771,7 @@ class AiService {
         recorder.finish();
         parentSteering.forward = null;
         active.worker = null;
+        this.emitRunning();
         parentSteering.requeue(steering.take());
         steering.close();
         worker.use = contextUse(conversation);
@@ -754,6 +792,7 @@ class AiService {
       if (worker) await this.persistConversation(organiser).catch(() => {});
       if (worker) this.emitRoster(organiser);
       release();
+      if (this.workerLocks.get(key) === lock) this.workerLocks.delete(key);
     }
   }
   // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
@@ -857,7 +896,7 @@ class AiService {
     return conversation;
   }
   async newOrganiser({ modelKey, name }) {
-    if (this.active) throw Error('Stop the current AI request before starting a new chat.');
+    if (this.active || this.modelBusy(modelKey)) throw Error('Stop the current AI request before starting a new chat.');
     const settings = await this.settings(),
       entry = await this.registry.model(modelKey, name);
     if (entry.organiser) entry.earlier.push(entry.organiser);
@@ -913,7 +952,7 @@ class AiService {
   // After a save: keep everything, keep a memory note, or delete every chat for this model.
   async cleanup({ modelKey, mode, remember = false }) {
     if (!['keep', 'summary', 'wipe'].includes(mode)) throw Error('Unknown cleanup choice.');
-    if (this.active) throw Error('Wait until the AI finishes before cleaning up its chats.');
+    if (this.active || this.modelBusy(modelKey)) throw Error('Wait until the AI finishes before cleaning up its chats.');
     const entry = await this.registry.model(modelKey);
     if (remember) entry.remember = mode;
     entry.activity = false;
@@ -989,8 +1028,15 @@ class AiService {
       return null;
     }
   }
+  // The task a chat belongs to: its own, or the organiser task its bird works for.
+  taskOf(id) {
+    return [...this.tasks.values()].find(t => t.id === id || t.worker?.id === id) || null;
+  }
+  modelBusy(modelKey) {
+    return [...this.tasks.values()].some(t => t.modelKey && t.modelKey === modelKey);
+  }
   steer({ id, text, annotations }) {
-    const active = this.active;
+    const active = this.taskOf(id);
     if (!active?.steering) return { queued: false };
     if (typeof text !== 'string' || !text.trim() || text.length > 20000)
       throw Error('Enter a message of 1–20000 characters.');
@@ -1011,11 +1057,14 @@ class AiService {
     if (active.worker) this.emit({ id: active.worker.id, type: 'steer', text });
     return { queued: true };
   }
-  cancel() {
+  // Stop one chat's task (and its bird); without a chat, everything.
+  cancel(id) {
+    if (id) return this.taskOf(id)?.controller.abort();
     this.active?.controller.abort();
+    for (const task of this.tasks.values()) task.controller.abort();
   }
   async models() {
-    if (this.active) throw Error('Stop the current AI request before loading models.');
+    if (this.busy()) throw Error('Stop the current AI request before loading models.');
     const active = { controller: new AbortController() };
     this.active = active;
     try {
@@ -1041,11 +1090,14 @@ class AiService {
   }
   async auth(action) {
     if (!['login', 'logout', 'status'].includes(action)) throw Error('Unknown sign-in action.');
-    if (this.active) throw Error('Stop the current AI request before signing in or out.');
+    // Checking the account only reads it, so it runs beside jobs on other models (the
+    // console checks before every send); signing in or out waits for every job.
+    const exclusive = action !== 'status';
+    if (exclusive && this.busy()) throw Error('Stop the current AI request before signing in or out.');
     const settings = await this.settings();
     if (!['codex', 'claude'].includes(settings.provider)) throw Error('This provider uses an API key.');
     const controller = new AbortController();
-    this.active = { controller, auth: true };
+    if (exclusive) this.active = { controller, auth: true };
     try {
       if (settings.provider === 'codex') {
         const client = new CodexProcess(settings, { directory: this.directory, signal: controller.signal });
@@ -1116,7 +1168,7 @@ class AiService {
         stopAgent(child);
       }
     } finally {
-      this.active = null;
+      if (exclusive) this.active = null;
     }
   }
   close() {
@@ -1161,7 +1213,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
     return service.external.config;
   });
   handle('ai:send', input => service.send(input));
-  handle('ai:cancel', () => service.cancel());
+  handle('ai:cancel', id => service.cancel(id));
   handle('ai:steer', input => service.steer(input));
   handle('ai:organiser', input => service.organiser(input));
   handle('ai:newOrganiser', input => service.newOrganiser(input));

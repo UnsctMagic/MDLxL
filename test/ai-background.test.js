@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { register } from 'node:module';
 import { createStarterDocument } from '../src/starter-model.js';
 import { editTab, undoTab, selectTab } from '../src/ai-tab.js';
+import { sketchStore } from '../src/ai-sketch.js';
 
 // app/ modules are Vite modules: stand in for their build-time file lists.
 register(
@@ -235,4 +236,34 @@ test("selection changes go to the task's tab, and closing that tab stops the tas
   assert.deepEqual(b.viewState.selection, { 0: [0, 1] }, "the user's tab keeps its own selection");
   app.sessions = [b];
   await assert.rejects(bridge.call('mdlxl_patch', move(target, 9)), /was closed/);
+});
+
+test('a task waiting for its tab does not hold up a task on another model', async () => {
+  const { a, b, bridge, show } = editor();
+  const onA = bridge.context().target;
+  show(b);
+  const onB = bridge.context().target;
+  let saved = false;
+  const save = bridge.call('mdlxl_command', { target: onA, id: 'save' }).then(() => (saved = true));
+  const moved = await bridge.call('mdlxl_patch', move(onB, 42, 'B move'));
+  assert.ok(moved.applied && !saved, "B's edit ran while A's step waits for its tab");
+  assert.equal(b.doc.model.Geosets[0].Vertices[0], 42);
+  show(a);
+  await save;
+  assert.ok(saved);
+});
+
+const strokeShape = n => ({ normals: Array(n * 3).fill(0), onSurface: Array(n).fill(false), width: 1, reach: 1, lift: 0, view: [0, 0, -1] });
+test("the task's pictures carry its drawings and marked vertices from when the prompt was sent", async () => {
+  const { app, bridge, show, a, b } = editor();
+  sketchStore.add({ documentId: 'A.mdx', tool: 'marker', color: 'yellow', colorValue: '#ffd60a', points: [1, 2, 3, 4, 5, 6], ...strokeShape(2) });
+  const { target } = bridge.context();
+  show(b);
+  // A drawing made later, or on another tab, is not part of this task.
+  sketchStore.add({ documentId: 'A.mdx', tool: 'pen', color: 'red', colorValue: '#ff0000', points: [7, 8, 9], ...strokeShape(1) });
+  await bridge.call('mdlxl_capture', { target });
+  const { marks } = app.renders.at(-1);
+  assert.deepEqual(marks.strokes, [{ tool: 'marker', color: '#ffd60a', points: [1, 2, 3, 4, 5, 6] }]);
+  const vertices = a.doc.model.Geosets[0].Vertices;
+  assert.deepEqual(marks.vertices, [...vertices.subarray(0, 6)], 'the two marked vertices, where the model has them');
 });

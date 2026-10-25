@@ -6,6 +6,34 @@ const GamePreview = lazy(() => import('./GamePreview.jsx'));
 // looked at. One picture at a time; each gets a fresh preview so nothing carries over.
 const WIDTH = 768,
   HEIGHT = 576;
+// The task's marked vertices and Marker/Pen notes drawn over the picture, as the
+// modeling viewport shows them: red marked vertices, pen lines and wide marker bands.
+function drawMarks(canvas, api, marks) {
+  if (!marks || !api.project) return;
+  const context = canvas.getContext('2d'),
+    scale = canvas.width / WIDTH;
+  context.save();
+  context.lineCap = context.lineJoin = 'round';
+  for (const stroke of marks.strokes || []) {
+    const screen = api.project(stroke.points);
+    context.strokeStyle = stroke.color;
+    context.globalAlpha = stroke.tool === 'marker' ? 0.5 : 1;
+    context.lineWidth = (stroke.tool === 'marker' ? 14 : 3.2) * scale;
+    context.beginPath();
+    for (let i = 0; i < screen.length; i += 3) context[i ? 'lineTo' : 'moveTo'](screen[i], screen[i + 1]);
+    if (screen.length === 3) context.lineTo(screen[0] + 0.1, screen[1]);
+    context.stroke();
+  }
+  if (marks.vertices?.length) {
+    const screen = api.project(marks.vertices),
+      size = 4 * scale;
+    context.globalAlpha = 1;
+    context.fillStyle = '#ff2020';
+    for (let i = 0; i < screen.length; i += 3)
+      if (screen[i + 2]) context.fillRect(screen[i] - size / 2, screen[i + 1] - size / 2, size, size);
+  }
+  context.restore();
+}
 export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
   const [job, setJob] = useState(null),
     queue = useRef([]),
@@ -47,7 +75,9 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
       // Fit the model, then look from the requested side (fit keeps the preset view).
       api.fit();
       await new Promise(requestAnimationFrame);
-      finish(entry, null, api.captureView().toDataURL('image/png'));
+      const image = api.captureView();
+      drawMarks(image, api, entry.marks);
+      finish(entry, null, image.toDataURL('image/png'));
     } catch (error) {
       finish(entry, error);
     }

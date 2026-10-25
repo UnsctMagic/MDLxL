@@ -34,6 +34,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     workerRequests = [];
   // The bird's background edit waits until the owner has edited the other tab.
   let ownerEdited = false;
+  const secondRequests = [];
   server = http.createServer(async (req, res) => {
     let body = '';
     for await (const part of req) body += part;
@@ -77,6 +78,13 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       }
       await stream('content', 'I will give this to a worker. ', 20);
       return callTool('mdlxl_worker', { job: 'Separate marked area', instructions: 'Cut the marked chest area into its own geoset.' });
+    }
+    // Second's own bird: a separate job on another model at the same time as Crow's.
+    const sentFor = data.messages.find(m => m.role === 'user' && JSON.stringify(m.content).includes('MDLxL context captured'));
+    if (/\\"name\\":\\"Second\.mdx\\"/.test(JSON.stringify(sentFor?.content))) {
+      secondRequests.push(data);
+      await stream('content', 'Second bird: the gem is now blue. ', 20);
+      return stop();
     }
     workerRequests.push(data);
     const n = workerRequests.length;
@@ -340,6 +348,20 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.keyboard.press('u');
   await page.waitForTimeout(300);
   check('the owner edits Second while Crow works', (await dirty('Second.mdx')) === '●' && (await page.locator('.ai-paused').count()) === 0);
+  // A second AI job at the same time: Second's own chat is free while Crow works on Footman.
+  check("Second's chat can send while Crow works on Footman", (await page.locator('.ai-send').getAttribute('aria-label')) === 'Send');
+  await page.getByLabel('AI prompt').fill('Make the gem blue');
+  await page.getByLabel('AI prompt').press('Enter');
+  for (let i = 0; i < 200 && !secondRequests.length; i++) await wait(100);
+  await page
+    .waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('Crow separated') || document.querySelector('.ai-worker-row.ai-worker-done'), null, { timeout: 20000 })
+    .catch(async error => {
+      await shot('06a-second-failed');
+      console.log('SECOND', secondRequests.length, organiserRequests.length, (await page.locator('.ai-assistant').innerText()).slice(-600));
+      throw error;
+    });
+  check("Second's bird finishes its job while Crow is still working on Footman", secondRequests.length >= 1 && workerRequests.length <= 3, { second: secondRequests.length, crow: workerRequests.length });
+  await shot('06a-two-jobs');
   await page.waitForTimeout(600);
   const ownerView = await viewShot();
   ownerEdited = true;
@@ -361,6 +383,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await shot('06b-paused');
   // Each tab keeps its own Undo: Ctrl+Z on Second undoes the owner's edit only.
   // Selection changes are Undo steps too, so step back until Second is unchanged.
+  // Ctrl+Z belongs to the editor, not the prompt box that was just used.
+  await page.locator('.classic-status').click();
   let steps = 0;
   while (steps < 4 && (await dirty('Second.mdx')) === '●') {
     await page.keyboard.press('Control+z');

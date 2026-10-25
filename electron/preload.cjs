@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('desktop', {
   aiTask:id=>ipcRenderer.invoke('ai:task',id),
   aiConfig:()=>ipcRenderer.invoke('ai:config'),
   aiSend:value=>ipcRenderer.invoke('ai:send',value),
-  aiCancel:()=>ipcRenderer.invoke('ai:cancel'),
+  aiCancel:id=>ipcRenderer.invoke('ai:cancel',id),
   aiSteer:value=>ipcRenderer.invoke('ai:steer',value),
   aiOrganiser:value=>ipcRenderer.invoke('ai:organiser',value),
   aiNewOrganiser:value=>ipcRenderer.invoke('ai:newOrganiser',value),

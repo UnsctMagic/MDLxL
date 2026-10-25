@@ -286,9 +286,41 @@ Branch `claude/ai-own-environment-c7eceb`. Replaces PR #291's pause-and-resume
   refresh before one `mdlxl_select` (also fails the same way on `main`
   e69d2594 here: the timeline key context appears after the context is read).
   `ai-awareness` passed. Source 1,955 (0 failed), compatibility 57.
-- Limits: one AI request at a time is unchanged (`AiService.active`); a prompt on
-  another model's chat waits. Off-screen pictures are textured/solid, without
-  selection marks. A hidden tab's `mdlxl_view mode` only records the mode.
+- Several jobs at once (owner's follow-up, same day): `AiService.tasks` holds one
+  prompt task per chat (`active` stays for exclusive sign-in/model-list/memory-note
+  requests); a second task on the same `documentId` is refused, worker locks are
+  per model (`workerLocks`), `steer`/`cancel(id)` find the chat's own task
+  (`taskOf`), and a `running` event plus `status().running` let the console show
+  busy per chat (`AiAssistant` `busy` = this chat, `anyBusy` = connection settings).
+  The bridge queues steps per document, so a step waiting for its tab never holds
+  up another model's task. Tests: `ai-offload.test.js` (two models at once),
+  `ai-background.test.js` (waiting step does not block another model).
+- Drawings in pictures (owner's follow-up): the target keeps the send-time strokes;
+  `picture()` passes them and the marked vertices (posed at the picture frame via
+  `sampleAiModel`) as `marks`; `AiOffscreenRender` paints them over the capture
+  using the new `GamePreview` capture API `project(points)`.
+- Limits: a hidden tab's `mdlxl_view mode` only records the mode; marks are drawn
+  on top of the model (no depth test).
+- Real Codex acceptance (gpt-6-luna, owner's subscription, 2026-10-25):
+  `test/ai-live-tabs.electron.cjs` (opt-in, skipped by the runner) drives 15
+  prompts on three generated models in five batches, jobs running side by side:
+  vertex move, bone/animation renames, geoset delete, new animation, flipped
+  normals, pivot move, animation key, a question, marker colour seen in an
+  off-screen picture, off-screen front/left pictures, save waiting for its tab,
+  scale, non-looping flag and an AI Undo. All 15 passed (51 + 20 checks; the
+  last batch ran separately with `MDLXL_AI_LIVE_FROM=5`), including three jobs at
+  once, the owner's Ctrl+Z on one tab only, the view never moving and files
+  untouched until saved. Use a profile with its own sign-in (`codex login` with
+  `CODEX_HOME=<profile>/ai/codex`): a copied `auth.json` goes stale when the
+  original refreshes (about hourly) and could sign the original out.
+- Bugs that real/packaged runs found and that are fixed: the console re-saved the
+  connection before every send and that was refused while another job ran
+  (`configure` now accepts an unchanged connection); the Codex sign-in check before
+  every send was refused likewise (`auth('status')` is no longer exclusive); right
+  after a tab switch the console still showed the previous model's chat, so a
+  prompt became steering for the other model's job (`switching` blocks sending
+  until the tab's own chat loads); `mdlxl_command save` returned before the file
+  was written (it now waits while `saving`; this made `ai-awareness` resume fail).
 
 ## SD Brain (2026-10-24, Claude)
 

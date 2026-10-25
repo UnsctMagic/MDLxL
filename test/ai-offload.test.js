@@ -28,7 +28,7 @@ async function setup(t, { organiser, worker }) {
     const answer =
       kind === 'art'
         ? { delta: { content: 'Goal: a test brief.' }, finish_reason: 'stop' }
-        : (kind === 'organiser' ? organiser : worker)(data, requests.filter(r => r.kind === kind).length);
+        : await (kind === 'organiser' ? organiser : worker)(data, requests.filter(r => r.kind === kind).length);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     res.end('data: ' + JSON.stringify({ choices: [answer] }) + '\n\n');
   });
@@ -267,4 +267,39 @@ test('a chat saved while a bird was working comes back settled after a restart',
   assert.equal(reopened.workers[0].status, 'idle');
   const parts = (await restarted.readConversation(id)).transcript[1].parts;
   assert.deepEqual(parts.map(p => p.status), ['stopped', 'stopped']);
+});
+
+test('birds of different models work at the same time; a model takes one job at a time', async t => {
+  let releaseA;
+  const holdA = new Promise(resolve => (releaseA = resolve));
+  const f = await setup(t, {
+    organiser: data =>
+      last(data).role === 'tool' ? say('Done.') : ask({ job: userText(data).includes('model A') ? 'Job A' : 'Job B', instructions: 'Do it.' }),
+    worker: async data => {
+      if (userText(data).startsWith('Job: Job A')) await holdA;
+      return say('Report: done');
+    },
+  });
+  const a = await f.service.organiser({ modelKey: 'D:/Models/A.mdx', name: 'A.mdx' }),
+    b = await f.service.organiser({ modelKey: 'D:/Models/B.mdx', name: 'B.mdx' });
+  const on = documentId => ({ ...context, documentId });
+  const jobA = f.service.send({ id: a.id, text: 'work on model A', context: on('A') });
+  for (let i = 0; i < 200 && !f.service.runningChats().some(r => r.id === a.id && r.worker); i++) await new Promise(r => setTimeout(r, 10));
+  assert.ok(f.service.runningChats().some(r => r.id === a.id && r.worker), "A's bird is working");
+  await assert.rejects(f.service.send({ id: b.id, text: 'also model A', context: on('A') }), /already working on this model/);
+  // Sending re-saves the connection: unchanged is fine while A works, a change waits.
+  const saved = await f.service.settings();
+  await f.service.configure({ provider: saved.provider, model: saved.model, baseUrl: saved.baseUrl, executable: '' });
+  await assert.rejects(f.service.configure({ provider: saved.provider, model: 'other', baseUrl: saved.baseUrl }), /Stop the current AI request/);
+  // B's whole job runs and finishes while A's bird is still busy.
+  assert.equal((await f.service.send({ id: b.id, text: 'work on model B', context: on('B') })).ok, true);
+  assert.deepEqual(f.service.runningChats().map(r => r.id), [a.id]);
+  assert.ok(f.events.some(e => e.type === 'running' && e.running.length === 2), 'the console hears both jobs running');
+  // Steering and Stop reach only their own chat.
+  assert.equal(f.service.steer({ id: b.id, text: 'hello' }).queued, false);
+  f.service.cancel(b.id);
+  releaseA();
+  assert.equal((await jobA).ok, true);
+  assert.deepEqual(f.service.runningChats(), []);
+  assert.equal(f.service.busy(), false);
 });
