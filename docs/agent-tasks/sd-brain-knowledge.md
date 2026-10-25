@@ -146,6 +146,15 @@ Updated: 25 October 2026
 
 ## Blockers and next action
 
+- Step 6 gallery (owner's go, 25 October 2026): pipeline ready in `out/sd-gallery/` (`prompts.json`
+  with the 8 owner prompts, `start/` models, `run.cjs` drives the packaged test build's real AI chat
+  on a hidden desktop and exports each result, `collect.mjs` pulls the art brief and counts,
+  `scene.mjs` + `../sd-kitbash-check/render.cjs` (hideGrid) render base and result at game-camera
+  angle, `compose.py` makes `<slug>/sheet.png` and `overview.png`). Dry run and stand-in tests passed.
+  Blocked on AI sign-in: linking the test build's `profile/ai/codex` to the signed-in Codex home of
+  `SD-Brain-Knowledge` was refused by the session's permission check (credentials), so no prompt has
+  run. Needs the user's call: allow that link, or the owner signs in to Codex in `SD-Brain-Kitbash`.
+
 - Next: the organiser reviews steps 1–4 and shows the owner the pictures; step 5 (checks in the
   review) is partly in AI_SD_BRAIN (side-by-side capture, weapon references); step 6 waits for go.
 - Test build for step 6: `D:/Claude/MDLxL-TestBuilds/SD-Brain-Kitbash` (commit e2ab3429, SD Brain
