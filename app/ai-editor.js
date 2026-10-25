@@ -17,7 +17,7 @@ import { aiAssets, validateAiAssets } from './ai-assets.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
 
-const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
+const guides = import.meta.glob(['../docs/*.md', '../docs/AI-SD-HANDBOOK/*.md', '../docs/AI-SD-PART-SUMMARY.json', '../README.md'], { query: '?raw', import: 'default' });
 const settle = () => new Promise(resolve => setTimeout(resolve, 60));
 const finite = (value, name) => {
   if (!Number.isFinite(value)) throw Error('Invalid ' + name);

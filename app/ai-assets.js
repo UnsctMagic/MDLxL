@@ -1,3 +1,4 @@
+import { searchNativeTextures, nativeTexture } from '../src/sd-native-textures.js';
 import { openDocument } from '../src/editor-document.js';
 import { decodeTextureThumbnail, thumbnailPixels } from '../src/texture-thumbnail.js';
 import { isForgeAssetPath } from '../src/forge-assets.js';
@@ -47,6 +48,17 @@ export async function aiAssets(args, host, active, desktop = window.desktop) {
     { source, action = 'search', query = '', offset = 0, limit = 30 } = args;
   if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100)
     throw Error('Choose an asset page of 1–100.');
+  if (source === 'native') {
+    if (action === 'search') return searchNativeTextures({query,offset,limit,checkedOnly:args.checkedOnly===true});
+    if (action === 'preview') {
+      const texture=await nativeTexture(args.path);
+      if (!texture) throw Error('Choose a native texture path from the catalogue.');
+      const assets=await desktop.resolveTextures({path:state.session.path,names:[texture.sourcePath.split(':').length>2?texture.sourcePath:texture.path]});
+      active();
+      if (!assets?.[0]) throw Error('This native sheet is unavailable in the installed game.');
+      return {texture,image:await decodeTextureThumbnail(assets[0],1024)};
+    }
+  }
   if (source === 'model') {
     if (action === 'search')
       return page(

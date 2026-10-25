@@ -1,3 +1,4 @@
+import { inspectSdModel } from '../src/sd-review.js';
 import { encodeAiValue, decodeAiValue, pointer } from '../src/ai-model.js';
 import { ignoreHistoryAlias } from '../src/editor-document.js';
 import { createChanges } from '../src/history-store.js';
@@ -210,6 +211,7 @@ export async function reviewAiModel(bridge, args, options) {
       checks,
       validation,
       poses,
+      ...(args.sdKnowledge ? {sd:inspectSdModel(state.model,{before:review.before,parts:args.sdParts})} : {}),
       pendingPreviews: !!drafts,
       next: args.turnaround
         ? 'Inspect every image, including each side view. Name the weakest visible spot from each side (gaps, clipping, flat or floating parts, unpainted or noisy texture). Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.'

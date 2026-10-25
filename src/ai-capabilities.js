@@ -16,8 +16,10 @@ export const AI_AREAS = [
   {
     id: 'creation',
     description:
-      'SD Kit solid hand-painted props (lathe, extrude, spikes, rings, gems; one painted texture), procedural primitives, Forge construction, detail shaping, combining and fitting reusable parts.',
+      'Fresh low-poly construction with existing mesh, extrude, mirror and Forge APIs; Warcraft handbook, native texture regions and part measurements. SD Kit is an optional fallback painter.',
     modules: [
+      'sd-knowledge',
+      'sd-model-metrics',
       'sd-kit',
       'forge-primitives',
       'forge',
@@ -48,7 +50,7 @@ export const AI_AREAS = [
   {
     id: 'uv',
     description: 'UV coordinates, island selection, projection, folding, seams and texture wrapping.',
-    modules: ['uv-tools', 'uv-selection', 'uv-preview', 'uv-coordinate-codec'],
+    modules: ['uv-tools', 'uv-selection', 'uv-preview', 'uv-coordinate-codec', 'sd-native-uv', 'sd-native-textures'],
   },
   {
     id: 'materials',

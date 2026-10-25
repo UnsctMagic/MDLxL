@@ -11,7 +11,7 @@ const { MANIFEST, validateManifest } = createRequire(import.meta.url)('../electr
 const manifest = JSON.parse(await fs.readFile(path.join(source, 'package.json'), 'utf8'));
 const runtimeFolders = ['dist', 'electron', 'src'];
 const externalFolders = ['Backgrounds', 'BitsAndParts', 'Addons'];
-const runtimeGuides = ['ADDONS.md', 'AI-HOOK.md', 'AI-SD-RULEBOOK.md', 'AI-SD-REFERENCE-STUDY.md', 'AI-SD-STUDY-DATA.json', 'COMMUNITY_RESEARCH.md', 'MDLxL-Paint-Quick-Guide-EN.pdf', 'MDLxL-Paint-Quick-Guide-RU.pdf', 'MDLxL-0.22.0-Quick-Manual-EN.pdf', 'MDLxL-0.22.0-Quick-Manual-ES.pdf', 'MDLxL-0.22.0-Quick-Manual-RU.pdf', 'MDLxL-0.22.0-Quick-Manual-ZH-CN.pdf'];
+const runtimeGuides = ['ADDONS.md', 'AI-HOOK.md', 'AI-SD-RULEBOOK.md', 'AI-SD-REFERENCE-STUDY.md', 'AI-SD-STUDY-DATA.json', 'AI-SD-PART-SUMMARY.json', 'AI-SD-PART-DATA.json', 'AI-SD-TEXTURE-CATALOGUE.json', 'COMMUNITY_RESEARCH.md', 'MDLxL-Paint-Quick-Guide-EN.pdf', 'MDLxL-Paint-Quick-Guide-RU.pdf', 'MDLxL-0.22.0-Quick-Manual-EN.pdf', 'MDLxL-0.22.0-Quick-Manual-ES.pdf', 'MDLxL-0.22.0-Quick-Manual-RU.pdf', 'MDLxL-0.22.0-Quick-Manual-ZH-CN.pdf'];
 const stageEntries = [...runtimeFolders, 'docs', 'package.json', 'README.md', 'MERGER_NOTES.md', 'THIRD_PARTY_NOTICES.md', 'LICENSES.bundled.txt'].sort();
 const exists = async file => { try { await fs.access(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const hash = async file => createHash('sha256').update(await fs.readFile(file)).digest('hex');
@@ -94,6 +94,7 @@ async function makeStage(stage) {
   await fs.copyFile(path.join(source, 'THIRD_PARTY_NOTICES.md'), path.join(stage, 'THIRD_PARTY_NOTICES.md'));
   await fs.mkdir(path.join(stage, 'docs'));
   for (const guide of runtimeGuides) await fs.copyFile(path.join(source, 'docs', guide), path.join(stage, 'docs', guide));
+  await fs.cp(path.join(source,'docs','AI-SD-HANDBOOK'),path.join(stage,'docs','AI-SD-HANDBOOK'),{recursive:true});
   await fs.writeFile(path.join(stage, 'LICENSES.bundled.txt'), await bundledLicenses());
   await verifyStage(stage);
 }
@@ -109,7 +110,7 @@ async function verifyStage(stage) {
   await import(pathToFileURL(path.join(stage,'electron','particle-library-worker.mjs')).href);
   const actual = (await fs.readdir(stage)).sort();
   if (JSON.stringify(actual) !== JSON.stringify(stageEntries)) throw Error(`Unexpected runtime staging entries: ${actual.join(', ')}`);
-  if (JSON.stringify((await fs.readdir(path.join(stage, 'docs'))).sort()) !== JSON.stringify([...runtimeGuides].sort())) throw Error('Only the linked runtime guides belong in the package.');
+  if (JSON.stringify((await fs.readdir(path.join(stage, 'docs'))).sort()) !== JSON.stringify([...runtimeGuides,'AI-SD-HANDBOOK'].sort())) throw Error('Only the linked runtime guides belong in the package.');
   const list = await files(stage);
   if (list.some(file => file.split(path.sep).some(part => ['node_modules', 'profile', '.vite', '.vite-temp', 'work'].includes(part)) || /\.log$/i.test(file))) throw Error('Runtime stage contains a cache, profile, or log.');
   const tengwarPackage = ['LICENCE', 'readme.txt', 'tngan.ttf', 'tnganb.ttf', 'tngani.ttf', 'tnganbi.ttf', 'tngana.ttf', 'tnganab.ttf', 'tnganai.ttf', 'tnganabi.ttf', 'tngandoc.pdf'].map(name => `dist/fonts/tengwar-annatar/${name}`);

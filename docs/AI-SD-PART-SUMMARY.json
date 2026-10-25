@@ -1,0 +1,1895 @@
+{
+  "schema": 1,
+  "models": 3448,
+  "parts": 72170,
+  "classified": 6041,
+  "method": "Stand-start geoset-alpha visible bind-pose positions. Triangles assigned by majority corner membership to explicitly named bones. UV/normal seam duplicates joined for connected-surface measurements only. Ambiguous surfaces unclassified. Bone territories are not precise anatomical parts. Ratios to visible bind-pose Z height can include weapons; compare like roles. Ring sides require >=2 circular planar rings. No sculpted-part side guesses.",
+  "summary": {
+    "arm": {
+      "samples": 290,
+      "triangles": {
+        "p10": 2,
+        "median": 12,
+        "p90": 25
+      },
+      "heightRatio": {
+        "p10": 0.015585391164975265,
+        "median": 0.1748596533787551,
+        "p90": 0.3893290842857107
+      },
+      "sides": {
+        "samples": 0,
+        "median": null,
+        "p90": null
+      }
+    },
+    "axe": {
+      "samples": 32,
+      "triangles": {
+        "p10": 8,
+        "median": 15,
+        "p90": 27
+      },
+      "heightRatio": {
+        "p10": 0.13935179644370171,
+        "median": 0.17719859688331827,
+        "p90": 0.39751474183341934
+      },
+      "sides": {
+        "samples": 3,
+        "median": 4,
+        "p90": 4
+      }
+    },
+    "blade": {
+      "samples": 91,
+      "triangles": {
+        "p10": 14,
+        "median": 39,
+        "p90": 556
+      },
+      "heightRatio": {
+        "p10": 0.0066438786678968895,
+        "median": 0.1256400739565809,
+        "p90": 0.28622322451495735
+      },
+      "sides": {
+        "samples": 15,
+        "median": 6,
+        "p90": 8
+      }
+    },
+    "cape": {
+      "samples": 268,
+      "triangles": {
+        "p10": 2,
+        "median": 2,
+        "p90": 6
+      },
+      "heightRatio": {
+        "p10": 0.004788979633339301,
+        "median": 0.0792094053356533,
+        "p90": 0.24510724989917604
+      },
+      "sides": {
+        "samples": 0,
+        "median": null,
+        "p90": null
+      }
+    },
+    "cloth": {
+      "samples": 438,
+      "triangles": {
+        "p10": 1,
+        "median": 2,
+        "p90": 7
+      },
+      "heightRatio": {
+        "p10": 0.0010947948444758224,
+        "median": 0.11322196309629802,
+        "p90": 0.27354858812840466
+      },
+      "sides": {
+        "samples": 6,
+        "median": 4,
+        "p90": 8
+      }
+    },
+    "foot": {
+      "samples": 479,
+      "triangles": {
+        "p10": 3,
+        "median": 10,
+        "p90": 19
+      },
+      "heightRatio": {
+        "p10": 0.033644659278830175,
+        "median": 0.10357240100253776,
+        "p90": 0.2864085736947923
+      },
+      "sides": {
+        "samples": 0,
+        "median": null,
+        "p90": null
+      }
+    },
+    "hair": {
+      "samples": 415,
+      "triangles": {
+        "p10": 2,
+        "median": 4,
+        "p90": 32
+      },
+      "heightRatio": {
+        "p10": 0.002425122622162018,
+        "median": 0.06213368284503154,
+        "p90": 0.20617341314747428
+      },
+      "sides": {
+        "samples": 0,
+        "median": null,
+        "p90": null
+      }
+    },
+    "hammer": {
+      "samples": 15,
+      "triangles": {
+        "p10": 17,
+        "median": 29,
+        "p90": 544
+      },
+      "heightRatio": {
+        "p10": 0.10241996300053006,
+        "median": 0.202355710162848,
+        "p90": 0.42200553789924716
+      },
+      "sides": {
+        "samples": 2,
+        "median": 6,
+        "p90": 6
+      }
+    },
+    "hand": {
+      "samples": 531,
+      "triangles": {
+        "p10": 3,
+        "median": 10,
+        "p90": 35
+      },
+      "heightRatio": {
+        "p10": 0.018108736035749185,
+        "median": 0.1247017238349733,
+        "p90": 0.261711697184703
+      },
+      "sides": {
+        "samples": 10,
+        "median": 5,
+        "p90": 8
+      }
+    },
+    "head": {
+      "samples": 890,
+      "triangles": {
+        "p10": 5,
+        "median": 66,
+        "p90": 158
+      },
+      "heightRatio": {
+        "p10": 0.03059426846894021,
+        "median": 0.143305105102657,
+        "p90": 0.41143451743031195
+      },
+      "sides": {
+        "samples": 26,
+        "median": 4,
+        "p90": 6
+      }
+    },
+    "helmet": {
+      "samples": 9,
+      "triangles": {
+        "p10": 12,
+        "median": 49,
+        "p90": 90
+      },
+      "heightRatio": {
+        "p10": 0.07449827820245256,
+        "median": 0.18140752814766437,
+        "p90": 0.38583685385466854
+      },
+      "sides": {
+        "samples": 0,
+        "median": null,
+        "p90": null
+      }
+    },
+    "horn": {
+      "samples": 59,
+      "triangles": {
+        "p10": 2,
+        "median": 20,
+        "p90": 30
+      },
+      "heightRatio": {
+        "p10": 0.032298241546295126,
+        "median": 0.5166916846539328,
+        "p90": 1
+      },
+      "sides": {
+        "samples": 4,
+        "median": 4,
+        "p90": 6
+      }
+    },
+    "leg": {
+      "samples": 838,
+      "triangles": {
+        "p10": 4,
+        "median": 11,
+        "p90": 19
+      },
+      "heightRatio": {
+        "p10": 0.06401552378366311,
+        "median": 0.2400333325884548,
+        "p90": 0.5066776647623878
+      },
+      "sides": {
+        "samples": 2,
+        "median": 12,
+        "p90": 12
+      }
+    },
+    "roof": {
+      "samples": 12,
+      "triangles": {
+        "p10": 4,
+        "median": 12,
+        "p90": 24
+      },
+      "heightRatio": {
+        "p10": 0.10304261617564996,
+        "median": 0.16401645436552587,
+        "p90": 0.2745722029781929
+      },
+      "sides": {
+        "samples": 1,
+        "median": 7,
+        "p90": 7
+      }
+    },
+    "shaft": {
+      "samples": 56,
+      "triangles": {
+        "p10": 2,
+        "median": 10,
+        "p90": 70
+      },
+      "heightRatio": {
+        "p10": 0.11457410407378227,
+        "median": 0.4314786643339007,
+        "p90": 0.8704999997870077
+      },
+      "sides": {
+        "samples": 3,
+        "median": 6,
+        "p90": 6
+      }
+    },
+    "shield": {
+      "samples": 22,
+      "triangles": {
+        "p10": 2,
+        "median": 17,
+        "p90": 300
+      },
+      "heightRatio": {
+        "p10": 0.1172820893973083,
+        "median": 0.297426282076674,
+        "p90": 0.5495893665231326
+      },
+      "sides": {
+        "samples": 0,
+        "median": null,
+        "p90": null
+      }
+    },
+    "shoulder": {
+      "samples": 137,
+      "triangles": {
+        "p10": 2,
+        "median": 10,
+        "p90": 17
+      },
+      "heightRatio": {
+        "p10": 0.018989931929075367,
+        "median": 0.09033976866132043,
+        "p90": 0.22223615070469646
+      },
+      "sides": {
+        "samples": 0,
+        "median": null,
+        "p90": null
+      }
+    },
+    "tail": {
+      "samples": 284,
+      "triangles": {
+        "p10": 3,
+        "median": 6,
+        "p90": 14
+      },
+      "heightRatio": {
+        "p10": 0.04304038716745288,
+        "median": 0.14934941447246308,
+        "p90": 0.3299341609118274
+      },
+      "sides": {
+        "samples": 4,
+        "median": 4,
+        "p90": 18
+      }
+    },
+    "torso": {
+      "samples": 682,
+      "triangles": {
+        "p10": 6,
+        "median": 32,
+        "p90": 80
+      },
+      "heightRatio": {
+        "p10": 0.05961022765083444,
+        "median": 0.22363173289641772,
+        "p90": 0.5674112123325601
+      },
+      "sides": {
+        "samples": 3,
+        "median": 4,
+        "p90": 4
+      }
+    },
+    "trunk": {
+      "samples": 103,
+      "triangles": {
+        "p10": 18,
+        "median": 40,
+        "p90": 116
+      },
+      "heightRatio": {
+        "p10": 0.35878087855574825,
+        "median": 1,
+        "p90": 1
+      },
+      "sides": {
+        "samples": 59,
+        "median": 6,
+        "p90": 10
+      }
+    },
+    "wing": {
+      "samples": 390,
+      "triangles": {
+        "p10": 1,
+        "median": 7,
+        "p90": 19
+      },
+      "heightRatio": {
+        "p10": 0.06884747751569865,
+        "median": 0.1595084420468356,
+        "p90": 0.27890747178128367
+      },
+      "sides": {
+        "samples": 0,
+        "median": null,
+        "p90": null
+      }
+    }
+  },
+  "byFamily": {
+    "building": {
+      "models": 163,
+      "summary": {
+        "arm": {
+          "samples": 2,
+          "triangles": {
+            "p10": 11,
+            "median": 11,
+            "p90": 11
+          },
+          "heightRatio": {
+            "p10": 0.36496855959648555,
+            "median": 0.36496855959648555,
+            "p90": 0.36496855959648555
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "blade": {
+          "samples": 3,
+          "triangles": {
+            "p10": 14,
+            "median": 14,
+            "p90": 14
+          },
+          "heightRatio": {
+            "p10": 0.17037723081045794,
+            "median": 0.2511016512580806,
+            "p90": 0.2511016512580806
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "cloth": {
+          "samples": 18,
+          "triangles": {
+            "p10": 1,
+            "median": 2,
+            "p90": 20
+          },
+          "heightRatio": {
+            "p10": 0.03455608935864531,
+            "median": 0.05015850124381594,
+            "p90": 0.3176394564066353
+          },
+          "sides": {
+            "samples": 2,
+            "median": 8,
+            "p90": 8
+          }
+        },
+        "hair": {
+          "samples": 6,
+          "triangles": {
+            "p10": 4,
+            "median": 8,
+            "p90": 11
+          },
+          "heightRatio": {
+            "p10": 0.13280970154921257,
+            "median": 0.1478455368351602,
+            "p90": 0.20825087940372
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hand": {
+          "samples": 11,
+          "triangles": {
+            "p10": 2,
+            "median": 17,
+            "p90": 25
+          },
+          "heightRatio": {
+            "p10": 0.010818727677740387,
+            "median": 0.2622528655575927,
+            "p90": 0.5492741305921565
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "head": {
+          "samples": 13,
+          "triangles": {
+            "p10": 8,
+            "median": 67,
+            "p90": 69
+          },
+          "heightRatio": {
+            "p10": 0.06950792517868935,
+            "median": 0.2528376657576564,
+            "p90": 0.29593072856436736
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "horn": {
+          "samples": 26,
+          "triangles": {
+            "p10": 20,
+            "median": 20,
+            "p90": 20
+          },
+          "heightRatio": {
+            "p10": 0.5070239961071411,
+            "median": 0.8187942005978694,
+            "p90": 0.9039964619364776
+          },
+          "sides": {
+            "samples": 2,
+            "median": 6,
+            "p90": 6
+          }
+        },
+        "leg": {
+          "samples": 5,
+          "triangles": {
+            "p10": 10,
+            "median": 14,
+            "p90": 19
+          },
+          "heightRatio": {
+            "p10": 0.18555145392603112,
+            "median": 0.2580034187896559,
+            "p90": 0.3353241112927079
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "roof": {
+          "samples": 11,
+          "triangles": {
+            "p10": 4,
+            "median": 12,
+            "p90": 24
+          },
+          "heightRatio": {
+            "p10": 0.10304261617564996,
+            "median": 0.2228945050333172,
+            "p90": 0.38015989187802185
+          },
+          "sides": {
+            "samples": 1,
+            "median": 7,
+            "p90": 7
+          }
+        },
+        "shaft": {
+          "samples": 1,
+          "triangles": {
+            "p10": 6,
+            "median": 6,
+            "p90": 6
+          },
+          "heightRatio": {
+            "p10": 0.13737851777372614,
+            "median": 0.13737851777372614,
+            "p90": 0.13737851777372614
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "tail": {
+          "samples": 1,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 2
+          },
+          "heightRatio": {
+            "p10": 0,
+            "median": 0,
+            "p90": 0
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "torso": {
+          "samples": 6,
+          "triangles": {
+            "p10": 4,
+            "median": 56,
+            "p90": 93
+          },
+          "heightRatio": {
+            "p10": 0.21598128918254406,
+            "median": 0.4566279954918726,
+            "p90": 0.5261095314753285
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "wing": {
+          "samples": 40,
+          "triangles": {
+            "p10": 6,
+            "median": 8,
+            "p90": 12
+          },
+          "heightRatio": {
+            "p10": 0.18551580066761048,
+            "median": 0.22724688140402705,
+            "p90": 0.2827198755339784
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        }
+      }
+    },
+    "doodad": {
+      "models": 1693,
+      "summary": {
+        "arm": {
+          "samples": 29,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 14
+          },
+          "heightRatio": {
+            "p10": 0.007000426478844331,
+            "median": 0.049675422118688466,
+            "p90": 0.3092794419231665
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "cape": {
+          "samples": 7,
+          "triangles": {
+            "p10": 14,
+            "median": 57,
+            "p90": 74
+          },
+          "heightRatio": {
+            "p10": 0.002466849624690876,
+            "median": 0.005918760543209063,
+            "p90": 0.008716404668368634
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "cloth": {
+          "samples": 23,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 32
+          },
+          "heightRatio": {
+            "p10": 0.10475253324499706,
+            "median": 0.11607674162821674,
+            "p90": 1
+          },
+          "sides": {
+            "samples": 4,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "foot": {
+          "samples": 17,
+          "triangles": {
+            "p10": 2,
+            "median": 23,
+            "p90": 93
+          },
+          "heightRatio": {
+            "p10": 0.001368816521720213,
+            "median": 0.0029420579587579724,
+            "p90": 0.11715531168411747
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hair": {
+          "samples": 45,
+          "triangles": {
+            "p10": 20,
+            "median": 161,
+            "p90": 161
+          },
+          "heightRatio": {
+            "p10": 0.0021742375618368434,
+            "median": 0.002305578501614303,
+            "p90": 0.00242392029759177
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hand": {
+          "samples": 12,
+          "triangles": {
+            "p10": 4,
+            "median": 82,
+            "p90": 101
+          },
+          "heightRatio": {
+            "p10": 0.0022312494834080022,
+            "median": 0.007005784508042025,
+            "p90": 0.11426446703170752
+          },
+          "sides": {
+            "samples": 2,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "head": {
+          "samples": 27,
+          "triangles": {
+            "p10": 15,
+            "median": 98,
+            "p90": 184
+          },
+          "heightRatio": {
+            "p10": 0.6269570720044118,
+            "median": 1,
+            "p90": 1
+          },
+          "sides": {
+            "samples": 8,
+            "median": 4,
+            "p90": 8
+          }
+        },
+        "horn": {
+          "samples": 2,
+          "triangles": {
+            "p10": 86,
+            "median": 86,
+            "p90": 86
+          },
+          "heightRatio": {
+            "p10": 1,
+            "median": 1,
+            "p90": 1
+          },
+          "sides": {
+            "samples": 2,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "leg": {
+          "samples": 11,
+          "triangles": {
+            "p10": 8,
+            "median": 11,
+            "p90": 37
+          },
+          "heightRatio": {
+            "p10": 0.13204704398566425,
+            "median": 0.2644819887931326,
+            "p90": 1
+          },
+          "sides": {
+            "samples": 2,
+            "median": 12,
+            "p90": 12
+          }
+        },
+        "roof": {
+          "samples": 1,
+          "triangles": {
+            "p10": 24,
+            "median": 24,
+            "p90": 24
+          },
+          "heightRatio": {
+            "p10": 0.14832092333777327,
+            "median": 0.14832092333777327,
+            "p90": 0.14832092333777327
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "shaft": {
+          "samples": 3,
+          "triangles": {
+            "p10": 6,
+            "median": 94,
+            "p90": 94
+          },
+          "heightRatio": {
+            "p10": 0.13737851777372614,
+            "median": 1,
+            "p90": 1
+          },
+          "sides": {
+            "samples": 2,
+            "median": 6,
+            "p90": 6
+          }
+        },
+        "torso": {
+          "samples": 1,
+          "triangles": {
+            "p10": 27,
+            "median": 27,
+            "p90": 27
+          },
+          "heightRatio": {
+            "p10": 0.004138635522194422,
+            "median": 0.004138635522194422,
+            "p90": 0.004138635522194422
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "trunk": {
+          "samples": 73,
+          "triangles": {
+            "p10": 24,
+            "median": 40,
+            "p90": 104
+          },
+          "heightRatio": {
+            "p10": 1,
+            "median": 1,
+            "p90": 1
+          },
+          "sides": {
+            "samples": 57,
+            "median": 6,
+            "p90": 10
+          }
+        }
+      }
+    },
+    "item": {
+      "models": 22,
+      "summary": {
+        "cloth": {
+          "samples": 17,
+          "triangles": {
+            "p10": 1,
+            "median": 2,
+            "p90": 2
+          },
+          "heightRatio": {
+            "p10": 0.07383577965901703,
+            "median": 0.10812139188587591,
+            "p90": 0.1297871042044202
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "trunk": {
+          "samples": 17,
+          "triangles": {
+            "p10": 24,
+            "median": 64,
+            "p90": 128
+          },
+          "heightRatio": {
+            "p10": 0.4026572817903085,
+            "median": 0.5787040057839881,
+            "p90": 0.7855533489311828
+          },
+          "sides": {
+            "samples": 2,
+            "median": 4,
+            "p90": 4
+          }
+        }
+      }
+    },
+    "other": {
+      "models": 818,
+      "summary": {
+        "arm": {
+          "samples": 24,
+          "triangles": {
+            "p10": 2,
+            "median": 33,
+            "p90": 46
+          },
+          "heightRatio": {
+            "p10": 0.001652220949836477,
+            "median": 0.005859918237915172,
+            "p90": 0.04746347413455918
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "axe": {
+          "samples": 2,
+          "triangles": {
+            "p10": 15,
+            "median": 15,
+            "p90": 15
+          },
+          "heightRatio": {
+            "p10": 0,
+            "median": 0,
+            "p90": 0
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "blade": {
+          "samples": 41,
+          "triangles": {
+            "p10": 18,
+            "median": 364,
+            "p90": 784
+          },
+          "heightRatio": {
+            "p10": 0.0036961378804332406,
+            "median": 0.03985380716818165,
+            "p90": 0.13337902573655974
+          },
+          "sides": {
+            "samples": 13,
+            "median": 6,
+            "p90": 8
+          }
+        },
+        "cape": {
+          "samples": 85,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 3
+          },
+          "heightRatio": {
+            "p10": 0.004940071342148998,
+            "median": 0.009993494187251543,
+            "p90": 0.02683704944210639
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "cloth": {
+          "samples": 100,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 3
+          },
+          "heightRatio": {
+            "p10": 0.0005398358168863282,
+            "median": 0.0011065648751434195,
+            "p90": 0.0017004226943338999
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "foot": {
+          "samples": 22,
+          "triangles": {
+            "p10": 10,
+            "median": 24,
+            "p90": 38
+          },
+          "heightRatio": {
+            "p10": 0.0009323259525561943,
+            "median": 0.0018663120649406503,
+            "p90": 0.0037156023601435722
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hair": {
+          "samples": 4,
+          "triangles": {
+            "p10": 2,
+            "median": 4,
+            "p90": 4
+          },
+          "heightRatio": {
+            "p10": 0.0014663499214902442,
+            "median": 0.09293082067141298,
+            "p90": 0.10233533998398277
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hammer": {
+          "samples": 6,
+          "triangles": {
+            "p10": 60,
+            "median": 144,
+            "p90": 728
+          },
+          "heightRatio": {
+            "p10": 0.048149779696653204,
+            "median": 0.1263259103196875,
+            "p90": 0.17750879764585129
+          },
+          "sides": {
+            "samples": 2,
+            "median": 6,
+            "p90": 6
+          }
+        },
+        "hand": {
+          "samples": 38,
+          "triangles": {
+            "p10": 4,
+            "median": 32,
+            "p90": 96
+          },
+          "heightRatio": {
+            "p10": 0.00040597283615345474,
+            "median": 0.0028540379206700058,
+            "p90": 0.0631625871235849
+          },
+          "sides": {
+            "samples": 4,
+            "median": 6,
+            "p90": 8
+          }
+        },
+        "head": {
+          "samples": 42,
+          "triangles": {
+            "p10": 4,
+            "median": 66,
+            "p90": 160
+          },
+          "heightRatio": {
+            "p10": 0.00021070546096267848,
+            "median": 0.0021646911545807183,
+            "p90": 0.47198934627097855
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "horn": {
+          "samples": 4,
+          "triangles": {
+            "p10": 30,
+            "median": 30,
+            "p90": 30
+          },
+          "heightRatio": {
+            "p10": 1,
+            "median": 1,
+            "p90": 1
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "leg": {
+          "samples": 42,
+          "triangles": {
+            "p10": 2,
+            "median": 24,
+            "p90": 57
+          },
+          "heightRatio": {
+            "p10": 0.0010608407450755396,
+            "median": 0.004425066881694829,
+            "p90": 0.02834591448076492
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "shaft": {
+          "samples": 19,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 3
+          },
+          "heightRatio": {
+            "p10": 0.47375740208978634,
+            "median": 0.5636659121118331,
+            "p90": 0.5636659121118331
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "shield": {
+          "samples": 5,
+          "triangles": {
+            "p10": 6,
+            "median": 300,
+            "p90": 582
+          },
+          "heightRatio": {
+            "p10": 0.0983070854022219,
+            "median": 0.1683318866850623,
+            "p90": 0.17685513262165536
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "shoulder": {
+          "samples": 16,
+          "triangles": {
+            "p10": 2,
+            "median": 39,
+            "p90": 147
+          },
+          "heightRatio": {
+            "p10": 0.0021589813995295196,
+            "median": 0.005042301121983965,
+            "p90": 0.018989931929075367
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "tail": {
+          "samples": 12,
+          "triangles": {
+            "p10": 2,
+            "median": 6,
+            "p90": 176
+          },
+          "heightRatio": {
+            "p10": 0.0011208601266213506,
+            "median": 0.47153833124751204,
+            "p90": 0.6465215717329866
+          },
+          "sides": {
+            "samples": 2,
+            "median": 18,
+            "p90": 18
+          }
+        },
+        "torso": {
+          "samples": 17,
+          "triangles": {
+            "p10": 18,
+            "median": 22,
+            "p90": 52
+          },
+          "heightRatio": {
+            "p10": 0.0051777548554688135,
+            "median": 0.02791788248215741,
+            "p90": 0.31590201751022307
+          },
+          "sides": {
+            "samples": 1,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "wing": {
+          "samples": 28,
+          "triangles": {
+            "p10": 27,
+            "median": 54,
+            "p90": 89
+          },
+          "heightRatio": {
+            "p10": 0.09773333417390634,
+            "median": 0.15852811227635782,
+            "p90": 0.24031410023072602
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        }
+      }
+    },
+    "portrait": {
+      "models": 343,
+      "summary": {
+        "arm": {
+          "samples": 44,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 13
+          },
+          "heightRatio": {
+            "p10": 0.03146501147761136,
+            "median": 0.07965376450447076,
+            "p90": 0.1748596533787551
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "blade": {
+          "samples": 8,
+          "triangles": {
+            "p10": 14,
+            "median": 14,
+            "p90": 40
+          },
+          "heightRatio": {
+            "p10": 0.07032988579725519,
+            "median": 0.07640539675349402,
+            "p90": 0.12718319273418757
+          },
+          "sides": {
+            "samples": 1,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "cape": {
+          "samples": 9,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 4
+          },
+          "heightRatio": {
+            "p10": 0.03436851912209192,
+            "median": 0.06160315798804439,
+            "p90": 0.08568486705648622
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "cloth": {
+          "samples": 34,
+          "triangles": {
+            "p10": 2,
+            "median": 6,
+            "p90": 8
+          },
+          "heightRatio": {
+            "p10": 0.06532034119331813,
+            "median": 0.10182135941750635,
+            "p90": 0.15072947862897032
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "foot": {
+          "samples": 98,
+          "triangles": {
+            "p10": 3,
+            "median": 9,
+            "p90": 12
+          },
+          "heightRatio": {
+            "p10": 0.030420868591855603,
+            "median": 0.04637469287105749,
+            "p90": 0.07789536501972134
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hair": {
+          "samples": 206,
+          "triangles": {
+            "p10": 2,
+            "median": 4,
+            "p90": 12
+          },
+          "heightRatio": {
+            "p10": 0.01403011886270585,
+            "median": 0.04372264261506868,
+            "p90": 0.1194963560620339
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hand": {
+          "samples": 147,
+          "triangles": {
+            "p10": 3,
+            "median": 9,
+            "p90": 24
+          },
+          "heightRatio": {
+            "p10": 0.018108736035749185,
+            "median": 0.0629267936820977,
+            "p90": 0.2046087470484637
+          },
+          "sides": {
+            "samples": 2,
+            "median": 5,
+            "p90": 5
+          }
+        },
+        "head": {
+          "samples": 435,
+          "triangles": {
+            "p10": 5,
+            "median": 80,
+            "p90": 152
+          },
+          "heightRatio": {
+            "p10": 0.030381473934822066,
+            "median": 0.096599678678022,
+            "p90": 0.3541341088905499
+          },
+          "sides": {
+            "samples": 10,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "helmet": {
+          "samples": 2,
+          "triangles": {
+            "p10": 12,
+            "median": 12,
+            "p90": 12
+          },
+          "heightRatio": {
+            "p10": 0.11688236136268716,
+            "median": 0.11688236136268716,
+            "p90": 0.11688236136268716
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "horn": {
+          "samples": 16,
+          "triangles": {
+            "p10": 9,
+            "median": 13,
+            "p90": 14
+          },
+          "heightRatio": {
+            "p10": 0.005541984129788491,
+            "median": 0.032298241546295126,
+            "p90": 0.08168979556016107
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "leg": {
+          "samples": 121,
+          "triangles": {
+            "p10": 5,
+            "median": 11,
+            "p90": 20
+          },
+          "heightRatio": {
+            "p10": 0.03245453770074698,
+            "median": 0.11584974074619936,
+            "p90": 0.2853050214846808
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "shoulder": {
+          "samples": 45,
+          "triangles": {
+            "p10": 2,
+            "median": 5,
+            "p90": 16
+          },
+          "heightRatio": {
+            "p10": 0.028008157790590134,
+            "median": 0.06222022050937836,
+            "p90": 0.11051685360049526
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "tail": {
+          "samples": 38,
+          "triangles": {
+            "p10": 2,
+            "median": 7,
+            "p90": 14
+          },
+          "heightRatio": {
+            "p10": 0.007098561568225888,
+            "median": 0.08220424120870402,
+            "p90": 0.6881801499951871
+          },
+          "sides": {
+            "samples": 1,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "torso": {
+          "samples": 348,
+          "triangles": {
+            "p10": 6,
+            "median": 32,
+            "p90": 83
+          },
+          "heightRatio": {
+            "p10": 0.04662908032751116,
+            "median": 0.1464177507827532,
+            "p90": 0.35635118935414817
+          },
+          "sides": {
+            "samples": 2,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "trunk": {
+          "samples": 9,
+          "triangles": {
+            "p10": 12,
+            "median": 12,
+            "p90": 36
+          },
+          "heightRatio": {
+            "p10": 0.020540484920039508,
+            "median": 0.020540484920039508,
+            "p90": 0.452483326938802
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "wing": {
+          "samples": 72,
+          "triangles": {
+            "p10": 2,
+            "median": 8,
+            "p90": 20
+          },
+          "heightRatio": {
+            "p10": 0.00807072513027848,
+            "median": 0.13740932744316978,
+            "p90": 0.32174550234492444
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        }
+      }
+    },
+    "unit": {
+      "models": 409,
+      "summary": {
+        "arm": {
+          "samples": 191,
+          "triangles": {
+            "p10": 2,
+            "median": 13,
+            "p90": 25
+          },
+          "heightRatio": {
+            "p10": 0.08954509970910292,
+            "median": 0.22665170582195174,
+            "p90": 0.4777983053695246
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "axe": {
+          "samples": 30,
+          "triangles": {
+            "p10": 8,
+            "median": 15,
+            "p90": 27
+          },
+          "heightRatio": {
+            "p10": 0.13935179644370171,
+            "median": 0.17719859688331827,
+            "p90": 0.39751474183341934
+          },
+          "sides": {
+            "samples": 3,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "blade": {
+          "samples": 39,
+          "triangles": {
+            "p10": 14,
+            "median": 20,
+            "p90": 40
+          },
+          "heightRatio": {
+            "p10": 0.10269471319530013,
+            "median": 0.18680832979327155,
+            "p90": 0.4180042386746636
+          },
+          "sides": {
+            "samples": 1,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "cape": {
+          "samples": 167,
+          "triangles": {
+            "p10": 1,
+            "median": 3,
+            "p90": 6
+          },
+          "heightRatio": {
+            "p10": 0.023010845877824863,
+            "median": 0.17625273779977832,
+            "p90": 0.27320666015262235
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "cloth": {
+          "samples": 246,
+          "triangles": {
+            "p10": 1,
+            "median": 2,
+            "p90": 7
+          },
+          "heightRatio": {
+            "p10": 0.07218633878590928,
+            "median": 0.14575919405157445,
+            "p90": 0.3012161940947217
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "foot": {
+          "samples": 342,
+          "triangles": {
+            "p10": 5,
+            "median": 10,
+            "p90": 19
+          },
+          "heightRatio": {
+            "p10": 0.07053079193552053,
+            "median": 0.13610038060958707,
+            "p90": 0.3113278605773668
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hair": {
+          "samples": 154,
+          "triangles": {
+            "p10": 1,
+            "median": 4,
+            "p90": 8
+          },
+          "heightRatio": {
+            "p10": 0.06585020480818672,
+            "median": 0.14423634600893426,
+            "p90": 0.3141518065748298
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hammer": {
+          "samples": 9,
+          "triangles": {
+            "p10": 6,
+            "median": 29,
+            "p90": 29
+          },
+          "heightRatio": {
+            "p10": 0.10796232464914823,
+            "median": 0.42200460791529115,
+            "p90": 0.4220055471037749
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "hand": {
+          "samples": 323,
+          "triangles": {
+            "p10": 3,
+            "median": 10,
+            "p90": 18
+          },
+          "heightRatio": {
+            "p10": 0.08047575659970604,
+            "median": 0.15367444882089104,
+            "p90": 0.27127051738870106
+          },
+          "sides": {
+            "samples": 2,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "head": {
+          "samples": 373,
+          "triangles": {
+            "p10": 5,
+            "median": 40,
+            "p90": 158
+          },
+          "heightRatio": {
+            "p10": 0.07381460009889129,
+            "median": 0.19883005230375553,
+            "p90": 0.3718038475632247
+          },
+          "sides": {
+            "samples": 8,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "helmet": {
+          "samples": 7,
+          "triangles": {
+            "p10": 12,
+            "median": 49,
+            "p90": 76
+          },
+          "heightRatio": {
+            "p10": 0.07449827820245256,
+            "median": 0.18140752814766437,
+            "p90": 0.38583685385466854
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "horn": {
+          "samples": 11,
+          "triangles": {
+            "p10": 2,
+            "median": 2,
+            "p90": 7
+          },
+          "heightRatio": {
+            "p10": 0.0779104259880938,
+            "median": 0.08323966185699158,
+            "p90": 0.26208229316828496
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "leg": {
+          "samples": 659,
+          "triangles": {
+            "p10": 4,
+            "median": 11,
+            "p90": 19
+          },
+          "heightRatio": {
+            "p10": 0.14551283852248553,
+            "median": 0.2735553345846211,
+            "p90": 0.5241788399218898
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "shaft": {
+          "samples": 33,
+          "triangles": {
+            "p10": 7,
+            "median": 22,
+            "p90": 70
+          },
+          "heightRatio": {
+            "p10": 0.11457410407378227,
+            "median": 0.38829240245600477,
+            "p90": 0.4943971568314305
+          },
+          "sides": {
+            "samples": 1,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "shield": {
+          "samples": 17,
+          "triangles": {
+            "p10": 2,
+            "median": 12,
+            "p90": 31
+          },
+          "heightRatio": {
+            "p10": 0.2264247298922211,
+            "median": 0.37547073560342636,
+            "p90": 0.5526431761713936
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "shoulder": {
+          "samples": 76,
+          "triangles": {
+            "p10": 2,
+            "median": 11,
+            "p90": 14
+          },
+          "heightRatio": {
+            "p10": 0.07045208418652191,
+            "median": 0.19905928677493684,
+            "p90": 0.28497045438274604
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "tail": {
+          "samples": 233,
+          "triangles": {
+            "p10": 3,
+            "median": 6,
+            "p90": 14
+          },
+          "heightRatio": {
+            "p10": 0.054914516424345666,
+            "median": 0.1516986947895765,
+            "p90": 0.31060317923985337
+          },
+          "sides": {
+            "samples": 1,
+            "median": 4,
+            "p90": 4
+          }
+        },
+        "torso": {
+          "samples": 310,
+          "triangles": {
+            "p10": 5,
+            "median": 32,
+            "p90": 72
+          },
+          "heightRatio": {
+            "p10": 0.13575670868067521,
+            "median": 0.3480981678440456,
+            "p90": 0.6304360663199511
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "trunk": {
+          "samples": 4,
+          "triangles": {
+            "p10": 6,
+            "median": 6,
+            "p90": 17
+          },
+          "heightRatio": {
+            "p10": 0.3265075513629187,
+            "median": 0.326552869620868,
+            "p90": 0.33015766343028863
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "wing": {
+          "samples": 250,
+          "triangles": {
+            "p10": 1,
+            "median": 3,
+            "p90": 13
+          },
+          "heightRatio": {
+            "p10": 0.0713373451463698,
+            "median": 0.144629392261538,
+            "p90": 0.2591448481545519
+          },
+          "sides": {
+            "samples": 0,
+            "median": null,
+            "p90": null
+          }
+        }
+      }
+    }
+  }
+}

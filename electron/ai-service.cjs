@@ -225,10 +225,10 @@ class AiService {
         awareness: this.awareness,
         call: async (name, args, signal) => {
           try {
-            const result = await this.call(name, args, signal);
+            const policy = await this.sdBrainPolicy();
+            const result = await this.call(name, {...args,...(policy.enabled&&name==='mdlxl_review'&&args.action==='inspect'?{turnaround:true,sdKnowledge:true}:{})}, signal);
             if (name !== 'mdlxl_context') return result;
-            const policy = await this.sdBrainPolicy(),
-              { sdBrainInstructions } = await this.init();
+            const { sdBrainInstructions } = await this.init();
             return { ...result, sdBrain: { ...policy, instructions: sdBrainInstructions(policy, 'external') } };
           } finally {
             this.emit({ type: 'external-done', busy: !!this.active });
@@ -520,7 +520,7 @@ class AiService {
           {
             ...args,
             ...(name === 'mdlxl_help' ? {} : { target: context.target }),
-            ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true } : {}),
+            ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true, sdKnowledge: true } : {}),
           },
           requestSignal,
         );
@@ -760,6 +760,12 @@ class AiService {
       model = counts.geosets
         ? `The open model ${context.name} has ${counts.geosets} geosets and ${counts.triangles} triangles${context.selection && Object.keys(context.selection).length ? ', with a selection the user made' : ''}.`
         : `The open model ${context.name} is empty, so this creates something new.`;
+    const {sdChaptersForPrompt} = await import(pathToFileURL(path.join(this.root,'src/sd-knowledge.js')).href);
+    const {searchNativeTextures} = await import(pathToFileURL(path.join(this.root,'src/sd-native-textures.js')).href);
+    const chapters=sdChaptersForPrompt(text,{existing:!!counts.geosets});
+    const readings=await Promise.all(chapters.map(async c=>c.topic+'\n'+await fs.readFile(path.join(this.root,c.topic),'utf8')));
+    const candidates=await searchNativeTextures({query:text,checkedOnly:true,limit:6});
+    const knowledge='Relevant handbook chapters (construction targets are not statistical caps):\n'+readings.join('\n\n')+'\nNative texture candidates, preview before use:\n'+JSON.stringify(candidates.items.map(t=>({path:t.path,width:t.width,height:t.height,description:t.description,regions:t.regions})));
     let reply = '';
     const options = {
       settings,
@@ -772,8 +778,8 @@ class AiService {
       call: async () => {
         throw Error('The art director has no tools.');
       },
-      system: contract.AI_SD_ART_DIRECTOR,
-      prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
+      system: contract.AI_SD_ART_DIRECTOR + '\n\n' + knowledge,
+      prompt: `The user's request, exactly as written:\n${text}\n\n${model}\nVariation token: ${crypto.randomBytes(4).toString('hex')}. Make fresh choices of proportions and outline within the handbook; do not reproduce a previous construction.`,
       images,
       conversation: art,
       signal,

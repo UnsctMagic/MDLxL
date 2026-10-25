@@ -32,6 +32,10 @@ export const AI_TOOLS = [
         'Read-only JavaScript returning named boolean checks; model, before, selection, context and api are available.',
       ),
       frames: { type: 'array', minItems: 3, maxItems: 8, items: { type: 'number' } },
+      sdParts: {
+        type:'array',maxItems:128,description:'With SD Brain on, identify parts whose names do not reveal their function; review measures triangles/sides against the handbook.',
+        items:{...object({kind:{enum:['head','hand','foot','torso','arm','leg','shoulder','helmet','blade','axe','hammer','shaft','guard','pommel','shield','cape','cloth','hair','horn','wing','tail','trunk','roof']},geosetId:{type:'integer',minimum:0},faces:indices,label:string('Short part name.')}),required:['kind','geosetId','faces']},
+      },
       turnaround: {
         type: 'boolean',
         description: 'Also return front, back, left and right views of the result. Always on while SD Brain is on.',
@@ -221,12 +225,14 @@ export const AI_TOOLS = [
   ),
   tool(
     'assets',
-    'Search the current model textures, installed texture/game libraries, or personal BitsAndParts. Preview a model texture as an image. Load a listed game model or part as an open reference without switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
+    'Search the current model textures, installed texture/game libraries, native SD semantic catalogue, or personal BitsAndParts. source:native returns measured dimensions/alpha and named UV rectangles with checkedByEye status; preview with its path before mapping faces through sd-native-uv. Preview a model texture as an image. Load a listed game model or part as an open reference without switching or editing the active model; scripts can then use references[documentId].model to transfer selected geometry, rigs or animation with the normal editor APIs. Uses existing local libraries, with no downloads.',
     {
       target,
-      source: { enum: ['model', 'textures', 'parts', 'game'] },
+      source: { enum: ['model', 'textures', 'parts', 'game', 'native'] },
       action: { enum: ['search', 'preview', 'reference'] },
-      query: string('Asset search words.'),
+      query: string('Asset search words; native supports meaning such as orc axe blade or elven purple cloth.'),
+      path: string('Native catalogue texture path for preview.'),
+      checkedOnly: {type:'boolean',description:'For native search, return only sheets with visually checked regions.'},
       id: string('Part ID or game file ID from search.'),
       signature: string('Game catalog signature from search.'),
       textureId: { type: 'integer', minimum: 0 },

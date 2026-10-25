@@ -111,12 +111,19 @@ your prompts, not a library of models to copy:
   preserve instead of a new design.
 - **Build, don't copy.** The AI does not search for, load or copy Warcraft or other
   models as a starting point unless you ask for it.
-- **SD Kit.** New props are built with `src/sd-kit.js`: solid parts (turned shapes
-  such as cups and stems, extruded outlines such as blades and emblems, spikes,
-  rings and gems) that commit as one geoset with one hand-painted texture (light
-  from above, dark creases and contact shadows, bright edges, a limited palette,
-  painted runes, rivets, eyes or gems). The AI chooses shapes and materials; the kit
-  paints, so textures no longer depend on the AI writing pixels.
+- **Warcraft modeling knowledge.** The art director receives only the relevant
+  [handbook chapters](AI-SD-HANDBOOK/README.md): part construction, proportions,
+  sides/triangles, painted detail, faction differences and ways to vary a fresh
+  result. The builder can read individual chapters through `mdlxl_help`.
+- **Native textures.** `mdlxl_assets` with source `native` searches the installed
+  SD catalogue by meaning and previews a sheet. Entries distinguish automatic
+  metadata from visually checked material regions. Models retain game paths;
+  no game geometry or texture bytes are supplied. The `sd-native-uv` script
+  module maps explicit selected triangle ids to a checked region through normal
+  Undo, preserving unselected corners, bindings and other UV sets.
+- **Build fresh.** Use existing mesh operations and the general Forge commit for
+  the newly authored geometry. SD Kit remains an optional fallback painter when
+  no native sheet fits; it is no longer the default construction method.
 - **Saving stays possible.** An AI edit that would leave the model unsavable is
   refused with a plain explanation, so a malformed part cannot block later review,
   Undo or saving.
@@ -136,11 +143,14 @@ your prompts, not a library of models to copy:
   verdict for each criterion (fidelity, silhouette, sd-identity, coherence,
   craftsmanship, detail-value, motion, preservation): passed, needs-correction,
   unverified or not-applicable, each with an observation. Every `mdlxl_review
-  inspect` also returns front, back, left and right views, so a part that only
+  inspect` also returns measured part density, polygon-ring side counts,
+  shading/contact hints and front, back, left and right views, so a part that only
   works from one side is seen; the user's camera view is restored afterwards.
   A pass is refused while
   a criterion needs correction; the same criterion failing three times stops
-  further revisions. Missing textures or a provider without image input leave
+  further revisions. Supply `sdParts` with explicit triangle ids when names do not identify a part.
+  Targets guide new parts; unchanged source density is preserved, and bounding-box
+  contact hints need visual judgment. Missing textures or a provider without image input leave
   appearance criteria unverified. A renderer preview is not gameplay acceptance.
 - The [reference study](AI-SD-REFERENCE-STUDY.md) (3,448 distinct installed
   Blizzard models and 646 models from 90 approved Hive SD resources whose authors

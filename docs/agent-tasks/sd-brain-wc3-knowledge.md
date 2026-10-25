@@ -121,3 +121,30 @@ prompt for itself, from real knowledge of how Warcraft models are built.
   never redistributed.
 - Keep `pnpm test`-style source tests and the packaged AI tests passing; add tests for
   new tools. Do not change the version for unshipped work.
+
+## Implementation status (2026-10-25)
+
+Work is on `codex/sd-brain-wc3-knowledge`, based on
+`claude/ai-console-tools` at `163d78a128e207b59faba2b548709d97f72bfce0`.
+Implementation and real hidden-desktop comparisons are in progress.
+
+- Added the subject handbook, native part evidence, semantic texture catalogue,
+  selected-face region mapping and measured SD review. Existing model editing,
+  Undo, SD Kit fallback painting and the collapsed Art direction row are retained.
+- Native scan: 3,448 distinct models, 72,170 measured regions/components,
+  6,041 classified named-bone territories, no parse failures. Unit, portrait,
+  scenery and building populations are separate. Bone territories are proxies;
+  ambiguous anatomy remains unclassified. Only numeric metadata is stored.
+- Texture index: 8,985 entries; checked rectangles and alpha limitations are
+  identified explicitly. A real hat trial exposed a purple armour panel being
+  labelled as cloth; its label and usage advice were corrected and the prompt
+  is being rerun. A checked rectangle does not imply a seamless material.
+- Verification so far: compatibility 57/57; source 1,924 passed, 22 skipped;
+  focused 27/27; packaged AI console 48/48, awareness 17/17 and new knowledge
+  flow 10/10. The final source run is pending. The existing AI editor fake
+  sign-in fixture timed out; the unmodified remainder passed 63/63 when that
+  fixture was omitted in an ignored local runner. Real signed-in Codex trials run.
+- Required on/off prompts use isolated profiles and hidden desktops. Pictures
+  are being recaptured in shared scenes at one world scale; failed/empty outputs
+  remain reported. Final comparison report and PR are pending.
+- No Warcraft III gameplay acceptance has been exercised.
