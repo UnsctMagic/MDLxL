@@ -416,6 +416,50 @@ test('with SD Brain on, a passed review needs a verdict per criterion and repeat
   assert.ok(g.events.some(e => e.type === 'tool-result' && /failed three times/.test(e.summary || '')));
 });
 
+test('SD Brain lessons: a correction in the chat is saved and every later task, director and review carry it', async t => {
+  const systems = [];
+  const f = await setup(t, ({ data, requests }) => {
+    systems.push(data.messages.find(m => m.role === 'system').content);
+    if (requests === 1) return tool('mdlxl_assets', { target: 'selected', source: 'textures', action: 'preview', path: 'Textures\\InfernalCannon.blp' });
+    if (requests === 2)
+      return tool('mdlxl_review', { target: 'selected', action: 'lesson', rule: "Never cut out or cover the unit's face; helmets fit around it.", owner: 'he cut out the face of the footman he cant do that' });
+    if (requests === 3) return edit();
+    if (requests === 4) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"helm",passed:true}]' });
+    if (requests === 5) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Helm fits around the face.', criteria });
+    return done();
+  });
+  const criteria = ['fidelity', 'silhouette', 'sd-identity', 'coherence', 'craftsmanship', 'detail-value', 'motion', 'preservation'].map(
+    name => ({ name, result: name === 'motion' ? 'not-applicable' : 'passed', observation: name === 'motion' ? '' : 'checked ' + name }),
+  );
+  const call = f.service.call, inspects = [];
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_assets') return { image: 'data:image/png;base64,YQ==', size: [256, 256] };
+    assert.notEqual(args.action, 'lesson', 'a lesson is saved by the service, never sent to the editor');
+    if (name === 'mdlxl_review' && args.action === 'inspect') inspects.push(args);
+    return call(name, args, ...rest);
+  };
+  await f.service.setSdBrain(true);
+  // Every SD Brain task carries the shipped lessons.
+  assert.equal((await f.service.send({ id: 'test', text: 'give him a very different helm', context })).ok, true);
+  assert.match(systems[0], /The owner's lessons from reviewing real results/);
+  assert.match(systems[0], /Never remove, cut out or cover the unit's face/);
+  // The correction is saved in the profile.
+  const saved = JSON.parse(await fs.readFile(path.join(f.profile, 'ai/sd-lessons.json'), 'utf8'));
+  assert.deepEqual(saved.map(l => [l.rule, l.owner]), [["Never cut out or cover the unit's face; helmets fit around it.", 'he cut out the face of the footman he cant do that']]);
+  // The review runs the lesson checks with the request and the textures looked at.
+  assert.deepEqual(inspects[0].lessons, { request: 'give him a very different helm', previewed: ['Textures\\InfernalCannon.blp'] });
+  // The next task, its director and its builder carry the saved lesson.
+  f.arts.length = 0;
+  await f.service.send({ id: 'test', text: 'give him a skull helmet', context });
+  assert.match(systems.at(-1), /Never cut out or cover the unit's face; helmets fit around it\. \(owner: "he cut out the face/);
+  assert.match(f.arts[0].messages.find(m => m.role === 'user').content[0].text, /Never cut out or cover the unit's face; helmets fit around it/);
+  // With SD Brain off, a lesson cannot be saved.
+  await f.service.setSdBrain(false);
+  const g = await setup(t, ({ requests }) => (requests === 1 ? tool('mdlxl_review', { target: 'selected', action: 'lesson', rule: 'Keep capes off the ground always.' }) : done()));
+  await g.service.send({ id: 'test', text: 'note this', context });
+  assert.ok(g.events.some(e => e.type === 'tool-result' && /Lessons are saved while SD Brain is on/.test(e.summary || '')));
+});
+
 test('SD Brain directs a kitbash: the director gets the box of parts, the BITZ box and weapon references', async t => {
   const received = [];
   const f = await setup(t, ({ data }) => {

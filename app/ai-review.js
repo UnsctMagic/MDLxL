@@ -134,6 +134,14 @@ export async function reviewAiModel(bridge, args, options) {
     checks.some(c => !c || typeof c.name !== 'string' || !c.name.trim() || typeof c.passed !== 'boolean')
   )
     throw Error('Verification must return 1–100 named checks with boolean passed results.');
+  // SD Brain: the owner's lessons are checked on every review, next to the AI's own checks,
+  // against the starting model and the open reference models (bases and donors).
+  if (args.lessons) {
+    const { sdLessonChecks } = await import('../src/sd-lessons.js');
+    const current = bridge.state();
+    const references = current.sessions.filter(s => s !== current.session).map(s => ({ name: s.doc.name, model: s.doc.model }));
+    checks.push(...sdLessonChecks({ before: review.before, model: current.model, request: args.lessons.request, previewed: args.lessons.previewed, references }));
+  }
   const validation = await bridge.dispatch(
     'mdlxl_document',
     { target: args.target, action: 'validate' },

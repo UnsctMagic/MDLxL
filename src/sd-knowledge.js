@@ -293,6 +293,8 @@ export function part(id) {
   return partEntry(p);
 }
 /** Every listed part of one game model (by id like 'grunt' or its name). */
+/** The game models the box of parts lists: { id, name, path, faction, category, ... }. */
+export const partModels = () => PARTS.models;
 export const partsOf = model => PARTS.parts.filter(p => p.model === model || modelOf(p.model)?.name.toLowerCase() === String(model).toLowerCase()).map(partEntry);
 
 /** Game models to start a kitbash from for the words (units and heroes): { id, name, path, faction,

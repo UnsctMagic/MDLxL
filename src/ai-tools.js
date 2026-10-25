@@ -1,5 +1,6 @@
 import { SD_CRITERIA } from './ai-sd-rules.js';
 export { AI_SD_RULES, AI_SD_BRAIN, AI_SD_ART_DIRECTOR, SD_BRAIN_AVAILABLE, SD_BRAIN_REVISION, SD_CRITERIA, sdBrainInstructions, sdReviewProblem } from './ai-sd-rules.js';
+export { lessonsText } from './sd-lesson-rules.js';
 
 // One provider-neutral contract, shared by the editor, embedded agents and MCP.
 const object = properties => ({ type: 'object', properties, additionalProperties: false });
@@ -24,10 +25,12 @@ export const aiToolEditsModel = (name, args) =>
 export const AI_TOOLS = [
   tool(
     'review',
-    'Required before completing model edits. inspect runs read-only checksCode against model and before (the original model), validates MDX/MDL reopening and returns actual before/after images. Return [{name,passed,actual?,expected?}] checking the requested result and protected data. Animation edits also sample/capture intermediate frames; frames may specify 3–8 times in the current sequence. After viewing the returned images, finish with outcome passed and a visual assessment, or needs-correction and fix the problem. Any further edit invalidates the review. status reads progress.',
+    'Required before completing model edits. inspect runs read-only checksCode against model and before (the original model), validates MDX/MDL reopening and returns actual before/after images. Return [{name,passed,actual?,expected?}] checking the requested result and protected data. Animation edits also sample/capture intermediate frames; frames may specify 3–8 times in the current sequence. After viewing the returned images, finish with outcome passed and a visual assessment, or needs-correction and fix the problem. Any further edit invalidates the review. status reads progress. lesson (SD Brain on) saves an owner\'s general correction as a rule every later SD Brain task follows.',
     {
       target,
-      action: { enum: ['status', 'inspect', 'finish'] },
+      action: { enum: ['status', 'inspect', 'finish', 'lesson'] },
+      rule: string('For lesson: the correction as one general rule, for example "Never cut out or cover the unit\'s face; helmets fit around it."'),
+      owner: string('For lesson: the owner\'s own words that taught it.'),
       checksCode: string(
         'Read-only JavaScript returning named boolean checks; model, before, selection, context and api are available.',
       ),

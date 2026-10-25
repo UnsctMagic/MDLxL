@@ -481,6 +481,16 @@ class AiService {
       }
       if (args.target && args.target !== context.target)
         throw Error('Use the target captured with the current prompt.');
+      // SD Brain lessons: the owner's general corrections, saved for every later task.
+      if (name === 'mdlxl_review' && args.action === 'lesson') {
+        if (!sd.enabled) throw Error('Lessons are saved while SD Brain is on.');
+        const lessons = await this.saveSdLesson(args);
+        sd.lessons = lessons;
+        return { saved: true, rule: String(args.rule).trim(), lessons: lessons.length };
+      }
+      // The review's preview-paint lesson needs to know which textures were looked at.
+      if (name === 'mdlxl_assets' && args.action === 'preview')
+        (task.previewed ||= []).push(args.source === 'model' ? `model#${args.textureId}` : String(args.path || ''));
       const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       const edit = aiToolEditsModel(name, args);
       if (edit) {
@@ -525,7 +535,9 @@ class AiService {
           {
             ...args,
             ...(name === 'mdlxl_help' ? {} : { target: context.target }),
-            ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true } : {}),
+            ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect'
+              ? { turnaround: true, lessons: { request: text, previewed: task.previewed || [] } }
+              : {}),
           },
           requestSignal,
         );
@@ -793,7 +805,10 @@ class AiService {
         throw Error('The art director has no tools.');
       },
       system: contract.AI_SD_ART_DIRECTOR,
-      prompt: `The user's request, exactly as written:\n${text}\n\n${model}` + (evidence ? `\n\nEvidence from the SD research volume for this request:\n${evidence}` : ''),
+      prompt:
+        `The user's request, exactly as written:\n${text}\n\n${model}` +
+        (evidence ? `\n\nEvidence from the SD research volume for this request:\n${evidence}` : '') +
+        `\n\n${contract.lessonsText(await this.sdLessons())}`,
       images,
       conversation: art,
       signal,
@@ -908,8 +923,29 @@ class AiService {
   }
   async sdBrainPolicy() {
     const config = await this.configuration(),
-      { SD_BRAIN_REVISION } = await this.init();
-    return { enabled: (await this.sdBrainAvailable()) && config.sdBrain === true, revision: SD_BRAIN_REVISION };
+      { SD_BRAIN_REVISION } = await this.init(),
+      enabled = (await this.sdBrainAvailable()) && config.sdBrain === true;
+    return { enabled, revision: SD_BRAIN_REVISION, ...(enabled ? { lessons: await this.sdLessons() } : {}) };
+  }
+  // Lessons the owner taught SD Brain in the chat, kept in the profile beside the AI settings.
+  async sdLessons() {
+    try {
+      const lessons = JSON.parse(await fs.readFile(path.join(this.directory, 'sd-lessons.json'), 'utf8'));
+      return Array.isArray(lessons) ? lessons.filter(l => typeof l?.rule === 'string') : [];
+    } catch (error) {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    }
+  }
+  async saveSdLesson({ rule, owner }) {
+    rule = String(rule || '').trim();
+    owner = String(owner || '').trim().slice(0, 600);
+    if (rule.length < 10 || rule.length > 400) throw Error('A lesson needs one general rule of 10–400 characters.');
+    const lessons = await this.sdLessons();
+    if (!lessons.some(l => l.rule.toLowerCase() === rule.toLowerCase())) lessons.push({ rule, owner, saved: new Date().toISOString() });
+    await fs.mkdir(this.directory, { recursive: true });
+    await fs.writeFile(path.join(this.directory, 'sd-lessons.json'), JSON.stringify(lessons.slice(-100), null, 2));
+    return lessons;
   }
   async setOffload(enabled) {
     if (typeof enabled !== 'boolean') throw Error('Choose on or off.');

@@ -1,3 +1,5 @@
+import { lessonsText } from './sd-lesson-rules.js';
+
 // The Warcraft III SD domain rules, part of the SD Brain policy below. Sent only
 // while SD Brain is on; also published as docs/AI-SD-RULEBOOK.md.
 export const AI_SD_RULES = `Warcraft III SD modeling rulebook
@@ -27,7 +29,7 @@ There is no universal SD triangle, bone, texture-size or key-count cap. Use the 
 // SD Brain: the checkbox that turns the rulebook above into an active art direction,
 // interpretation and review policy for a task. The state is captured per task, so
 // toggling it never changes a task that is already running.
-export const SD_BRAIN_REVISION = '2026-10-25.7';
+export const SD_BRAIN_REVISION = '2026-10-25.8';
 
 // SD Brain is parked (owner, 2026-10-25): hidden and always off until it comes back.
 // Set to true to bring back the switch, the art director, the rules and the SD Kit listing.
@@ -106,6 +108,8 @@ Never hand-write texture pixels. Few sides where real parts use few (3-6 for bla
 
 Edits to an existing model: keep its style, data and texture layout, change only what the request and the brief cover, and follow the brief's Plan and Preserve lines. Before finishing, remove textures and materials your earlier attempts added that nothing uses any more.
 
+Lessons: the owner's lessons come with every task (below). mdlxl_review inspect runs lesson checks by itself (keep-face, head-gear-size, real-kitbash, no-weapon-team, preview-paint) and adds them to your checks; a failed lesson check means the result is not finished. Fix it and inspect again, or finish blocked naming the lesson; never argue it away. When the owner corrects how something must be made in general, not only this model ("he can't cut out the face", "horns that wide look stupid"), save it with mdlxl_review { action: 'lesson', rule: one general sentence, owner: their words }, then apply it to the current result.
+
 Review: after the edit, mdlxl_review inspect returns the result from the three-quarter view and the front, back, left and right; check the brief's Checks against those images; for a new or kitbashed weapon or unit, also capture the base or a reference (Footman, the source model) at the same scale for a side-by-side look, and compare triangles with know.weaponReferences() or know.checkAgainstNorms(model, category) in a read-only script. Name the weakest visible spot from each side before judging; a flaw seen from any side counts, and so does a result that reads too small next to a Footman. Finish with criteria for fidelity (the request and the brief), silhouette (reads from the game camera), sd-identity (chunky proportions, painted look, native parts and palettes where the brief chose them), coherence (one theme and one focal motif), craftsmanship (solid parts, no gaps, clipping or floating pieces, paint not stretched or cut off, parts follow their bones), detail-value (detail is visible and does not clutter), motion (not-applicable when nothing moves) and preservation (nothing else changed), each passed, needs-correction, unverified or not-applicable with a concrete observation. Correct a failure once, then change approach or finish blocked; never revise blindly a third time.
 
 Finish with a short reply: what you made or changed and the main design choice. Do not paste the brief or the review form into the chat.`;
@@ -118,11 +122,12 @@ const SD_BRAIN_ROLES = {
 };
 
 // The task-scoped SD Brain instructions for one AI turn. policy is the state
-// captured when the task started: { enabled, revision }.
+// captured when the task started: { enabled, revision, lessons } (lessons the owner
+// saved in the chat, read from the profile).
 export function sdBrainInstructions(policy, role = 'direct') {
   const state = `SD Brain: ${policy?.enabled ? 'on' : 'off'} (policy ${policy?.revision || SD_BRAIN_REVISION}).`;
   if (!policy?.enabled) return `${state}\n${SD_BRAIN_OFF}`;
-  return [state, SD_BRAIN_ROLES[role], AI_SD_BRAIN, AI_SD_RULES].filter(Boolean).join('\n\n');
+  return [state, SD_BRAIN_ROLES[role], AI_SD_BRAIN, lessonsText(policy.lessons || []), AI_SD_RULES].filter(Boolean).join('\n\n');
 }
 
 // With SD Brain on, a passed review needs a verdict for every criterion, none of
