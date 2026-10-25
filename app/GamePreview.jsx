@@ -978,8 +978,27 @@ export default function GamePreview(inputProps) {
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, priorBuffer); invalidate();
     }
-    const setCameraPreset = name => {
-      camera = ortho; state.appliedView = name; applyViewPreset(camera, name, controls.target, fitRadius() * 4);
+    const setCameraPreset = (name, fit = false) => {
+      camera = ortho; state.appliedView = name;
+      let frameBounds = bounds;
+      if (fit) {
+        // Invisible effect meshes must not push the UV model away from its working view.
+        const visibleBounds = new THREE.Box3(), hidden = new Set(latest.current.hiddenGeosets || []);
+        for (const [index, geoset] of ownedModel.Geosets.entries()) {
+          const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
+          if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, native.getFrame(), native.getSequence(), globalClock)[3] > .001)) continue;
+          for (const id of new Set(geoset.Faces)) visibleBounds.expandByPoint(point.fromArray(geoset.Vertices, id * 3));
+        }
+        if (!visibleBounds.isEmpty()) frameBounds = visibleBounds;
+        frameBounds.getCenter(controls.target);
+      }
+      applyViewPreset(camera, name, controls.target, fitRadius() * 4);
+      if (fit) {
+        // Fit the requested projection itself; model depth must not shrink a frontal UV view.
+        const size = frameBounds.clone().applyMatrix4(camera.matrixWorldInverse).getSize(new THREE.Vector3());
+        camera.zoom = Math.min((camera.right - camera.left) / Math.max(.001, size.x), (camera.top - camera.bottom) / Math.max(.001, size.y)) / 1.15;
+        camera.updateProjectionMatrix();
+      }
       controls.object = camera; controls.enableRotate = true; controls.update(); reportProjectionView(); invalidate();
     };
     function enterPortrait(evaluated) {
@@ -1635,10 +1654,10 @@ export default function GamePreview(inputProps) {
   // AnimXL swaps node tracks in the renderer's own copy; no WebGL rebuild per slider move.
   useLayoutEffect(() => { const current = runtime.current; if (props.liveNodeTracks && current?.particleSourceModel === rendererModel) current.updateNodeTracks(props.liveNodeTracks); }, [props.liveNodeTracks, rendererModel]);
   useEffect(() => { if(runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view]);
-  useEffect(() => { if (props.cameraPresetRequest?.name) runtime.current?.setCameraPreset(props.cameraPresetRequest.name); }, [props.cameraPresetRequest?.revision]);
   useEffect(() => { runtime.current?.refreshCursor(); }, [props.cameraMode, props.transformMode, props.showcaseCrop]);
   useEffect(() => { const state=runtime.current;state?.nodeEffects.cancelTests();state?.eventPreview.cancelTests();state?.soundPreview.stop();state?.scheduler.sync(); }, [props.vanilla]);
   useEffect(() => { if (props.cameraAnglesRequest) runtime.current?.setCameraAngles(props.cameraAnglesRequest); }, [props.cameraAnglesRequest]);
+  useEffect(() => { if (props.cameraPresetRequest?.name) runtime.current?.setCameraPreset(props.cameraPresetRequest.name, props.cameraPresetRequest.fit); }, [props.cameraPresetRequest?.revision]);
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, props.showGrid, props.overlays?.grid, props.preferences?.grid, props.portraitSettings?.composition]);

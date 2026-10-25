@@ -25,10 +25,25 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         throw Error('Model props unavailable: ' + selector);
       };
       window.uvTestModel = () => { const p = uvTestProps('.viewport'); return { vertices: p.model.Geosets.map(g => Array.from(g.Vertices)), uv: p.model.Geosets.map(g => g.TVertices.map(v => Array.from(v))) }; };
-      window.uvTestCamera = () => {
+      window.uvTestRuntime = () => {
         const host = document.querySelector('.uv-preview-canvas .game-preview-root'); let fiber = host?.[Object.keys(host).find(key => key.startsWith('__reactFiber'))];
-        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) { const state = hook.memoizedState?.current; if (state?.native && state?.controls) return state.cameraView(); }
+        for (; fiber; fiber = fiber.return) for (let hook = fiber.memoizedState; hook; hook = hook.next) { const state = hook.memoizedState?.current; if (state?.native && state?.controls) return state; }
         return null;
+      };
+      window.uvTestCamera = () => JSON.parse(JSON.stringify(uvTestRuntime()?.cameraView(), (_key, value) => typeof value === 'number' ? Math.round(value * 1e6) / 1e6 : value));
+      window.uvTestFraming = () => {
+        const state = uvTestRuntime(); if (!state) return null;
+        const camera = state.controls.object;
+        camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+        const direction = camera.position.clone().sub(state.controls.target).normalize().toArray();
+        const matrix = camera.projectionMatrix.clone().multiply(camera.matrixWorldInverse).elements;
+        let edge = 0;
+        for (const geo of state.native.model.Geosets) for (let i = 0; i < geo.Vertices.length; i += 3) {
+          const [x, y, z] = geo.Vertices.slice(i, i + 3);
+          const w = matrix[3]*x + matrix[7]*y + matrix[11]*z + matrix[15];
+          edge = Math.max(edge, Math.abs((matrix[0]*x + matrix[4]*y + matrix[8]*z + matrix[12])/w), Math.abs((matrix[1]*x + matrix[5]*y + matrix[9]*z + matrix[13])/w));
+        }
+        return { direction, edge, orthographic: camera.isOrthographicCamera };
       };
     });
     const openUV = async () => {
@@ -39,6 +54,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     };
     await page.getByRole('tab', { name: 'demo.mdx', exact: true }).click();
     const before = await page.evaluate(() => uvTestModel());
+    await page.locator('[data-hotkey="camera:rotate"]').click();
+    const angle = page.getByLabel('Camera Z coordinate', { exact: true });
+    await angle.fill('90'); await angle.press('Enter');
+    await page.locator('[data-hotkey="camera:work"]').click();
     await openUV();
     await page.waitForFunction(() => document.querySelectorAll('.classic-view > .viewport').length === 1);
     assert.equal(app.windows().length, 1, 'UV stays inside the model tab');
@@ -48,12 +67,27 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await page.locator('.uv-tab-window.expanded').count(), 1, 'UV opens expanded');
     checks.push('UV opens expanded as a nonmodal tab window; vertex viewport and toolbar remain visible');
     await page.waitForFunction(() => uvTestCamera());
+    const framing = await page.evaluate(() => uvTestFraming());
+    assert.ok(framing.orthographic && Math.abs(framing.direction[0] - 1) < 1e-6 && Math.abs(framing.direction[1]) < 1e-6 && Math.abs(framing.direction[2]) < 1e-6, 'UV opens facing the Warcraft front (+X), independently of the editor view');
+    assert.ok(framing.edge > .8 && framing.edge < .9, 'the full model fills the frontal preview with a small margin: ' + framing.edge);
+    checks.push('UV starts frontal and tightly framed with the full model in view');
+    await page.screenshot({ path: path.join(out, 'uv-front.png') });
     const cameraBefore = await page.evaluate(() => uvTestCamera());
     const preview = await page.locator('.uv-preview-canvas canvas[data-clean-model-canvas]').boundingBox();
     await page.mouse.move(preview.x + preview.width * .5, preview.y + preview.height * .5);
     await page.mouse.down(); await page.mouse.move(preview.x + preview.width * .7, preview.y + preview.height * .65, { steps: 12 }); await page.mouse.up();
     await page.waitForFunction(before => JSON.stringify(uvTestCamera()) !== before, JSON.stringify(cameraBefore));
     checks.push('UV model preview rotates with an actual mouse drag');
+    const orbited = await page.evaluate(() => uvTestCamera());
+    await page.locator('.uv-tab-window').getByLabel('Material Properties', { exact: true }).selectOption('Alpha');
+    await page.waitForTimeout(500);
+    assert.deepEqual(await page.evaluate(() => uvTestCamera()), orbited, 'material rebuild preserves the user orbit and fitted zoom');
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+    assert.deepEqual(await page.evaluate(() => uvTestCamera()), orbited);
+    checks.push('material rebuilds preserve the chosen camera without replaying the initial front fit');
+    await page.locator('.classic-view > .viewport [aria-label="3D model viewport"]').focus();
+    await page.keyboard.press('Control+a');
     const coordinate = page.getByRole('spinbutton', { name: 'X coordinate', exact: true });
     const oldX = Number(await coordinate.inputValue());
     await coordinate.fill(String(oldX + 3)); await coordinate.press('Enter');
