@@ -1,6 +1,8 @@
 # Armour and hats
 
-Build a shoulder pad as a few broad sloped planes, about 8–24 triangles, and a helmet as a 5–6 sided shell with a strong brow, about 20–64 triangles. Let overlapping plates read through painted edge light and dark contact; do not add bevels and thickness to every engraved line. Human armour uses upright blocky plate, orcs larger uneven shoulders, elves long tapering plates and undead broken/ribbed silhouettes.
+Build a shoulder pad as a few broad sloped planes, about 8–24 triangles, and a helmet as a 5–6 sided shell with a strong brow, about 20–64 triangles. Let overlapping plates read through painted edge light and dark contact; do not add bevels and thickness to every engraved line. Human armour uses shaped upright plate, orcs larger uneven shoulders, elves long tapering plates and undead broken/ribbed silhouettes.
+
+For a Footman-like soldier inspect the native model and textures/footman.dds before inventing the body paint. The checked helmet-side-layout, human-face-side-layout and curved-armour-layout need anatomical/plate alignment; they are not tiny seamless swatches. Shoulder/greave team masks need the existing material-presets applyMaterialPreset(model, materialId, "Team Color") stack. Preserve the native stack when reshaping an existing unit. A flat grey palette over boxes cannot replace the painted curved metal.
 
 A pointed wizard hat starts with a 5–6 sided brim and three or four low-sided cone rings, bent deliberately toward one side. Roughly 35–70 triangles is a practical starting design target, not a measured native hat percentile. Paint folds, seams and a simple band; model the silhouette bend and brim thickness. A broad dark cloth region can supply the material; check the painted light direction.
 

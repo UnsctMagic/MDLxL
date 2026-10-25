@@ -561,7 +561,7 @@ export class AiEditorBridge {
     this.controls.clear();
     const rows = [];
     for (const el of document.querySelectorAll(
-      'button,input,select,textarea,canvas,[role=button],[role=slider]',
+      'button,input,select,textarea,canvas,[role=button],[role=slider],[role=treeitem]',
     )) {
       if (
         el.closest('.ai-assistant,.ai-open') ||

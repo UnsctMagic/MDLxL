@@ -137,6 +137,20 @@ test('targets reject changed selections, changed revisions and different tabs', 
   assert.throws(() => checkAiTarget(target, { ...state, doc: { revision: 3 } }), /changed/);
   assert.throws(() => checkAiTarget(target, { ...state, session: { id: 'other' } }), /changed/);
 });
+test('timeline mounting keeps an empty target valid while real key and range changes remain protected', () => {
+  const state = { session: { id: 'one' }, doc: { revision: 2 }, selection: {}, selectedNodeIds: [], selectable: new Set([0]), activeGeoset: 0, uvSet: 0, mode: 'animation', keyframes: null };
+  const target = { documentId: 'one', revision: 2, selectionSignature: aiSelectionSignature(state) };
+  const empty = { controller: 'select', range: null, keys: [] };
+  checkAiTarget(target, { ...state, keyframes: empty });
+  const selected = { controller: 'move', range: null, keys: [{ frame: 10, trackId: 'Bone/0/Translation' }] };
+  assert.throws(() => checkAiTarget(target, { ...state, keyframes: selected }), /selection changed/);
+  assert.throws(() => checkAiTarget(target, { ...state, keyframes: { ...empty, range: [10, 20] } }), /selection changed/);
+  const withKeys = { ...state, keyframes: selected };
+  const keyTarget = { ...target, selectionSignature: aiSelectionSignature(withKeys) };
+  assert.throws(() => checkAiTarget(keyTarget, state), /selection changed/);
+  assert.throws(() => checkAiTarget(keyTarget, { ...withKeys, keyframes: { ...selected, controller: 'rotate' } }), /selection changed/);
+  assert.throws(() => checkAiTarget(target, { ...state, selectedNodeIds: [0] }), /selection changed/);
+});
 test('mirror only marked triangle, reuse compatible seam and keep another geoset untouched', () => {
   const doc = createStarterDocument(),
     g = doc.model.Geosets[0];

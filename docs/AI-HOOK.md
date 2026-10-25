@@ -115,8 +115,9 @@ your prompts, not a library of models to copy:
   does the work (or the Offload worker) receives it with your own words, which come
   first. Edits, UV mapping, cleanup and animation get a plan and a list of what to
   preserve instead of a new design.
-- **Build, don't copy.** The AI does not search for, load or copy Warcraft or other
-  models as a starting point unless you ask for it.
+- **Shape references.** The AI studies native units as read-only shape references.
+  It reuses model geometry as a starting point only when you authorize native
+  reshaping; ordinary new props are built fresh.
 - **Warcraft modeling knowledge.** The art director receives only the relevant
   [handbook chapters](AI-SD-HANDBOOK/README.md): part construction, proportions,
   sides/triangles, painted detail, faction differences and ways to vary a fresh
@@ -124,12 +125,15 @@ your prompts, not a library of models to copy:
 - **Native textures.** `mdlxl_assets` with source `native` searches the installed
   SD catalogue by meaning and previews a sheet. Entries distinguish automatic
   metadata from visually checked material regions. Models retain game paths;
-  no game geometry or texture bytes are supplied. The `sd-native-uv` script
+  the catalogue supplies no game geometry or texture bytes. The `sd-native-uv` script
   module maps explicit selected triangle ids to a checked region through normal
   Undo, preserving unselected corners, bindings and other UV sets.
 - **Build fresh.** Use existing mesh operations and the general Forge commit for
   the newly authored geometry. SD Kit remains an optional fallback painter when
   no native sheet fits; it is no longer the default construction method.
+- **Native body reshaping.** With your permission, the AI keeps the native rig and
+  UVs while changing the silhouette. It studies the posed, textured body in the
+  existing Library preview. No body-parts bank is added.
 - **Saving stays possible.** An AI edit that would leave the model unsavable is
   refused with a plain explanation, so a malformed part cannot block later review,
   Undo or saving.

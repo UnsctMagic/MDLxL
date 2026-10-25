@@ -1,6 +1,6 @@
 # Build for Warcraft III
 
-A casual request creates a basic classic SD asset at the game camera. Pick a role first: held weapon, ground item, scenery, unit, building or effect. Choose a bold outline, two supporting masses and one small accent. A simple sword is a blade, guard, grip and pommel, not a display sculpture. Build fresh vertices and faces with the mesh, extrude, bevel, mirror and weld APIs; inspect their signatures. Never load a reference model to harvest geometry.
+A casual request creates a basic classic SD asset at the game camera. Pick a role first: held weapon, ground item, scenery, unit, building or effect. Choose a bold outline, two supporting masses and one small accent. A simple sword is a blade, guard, grip and pommel, not a display sculpture. Build fresh vertices and faces with the mesh, extrude, bevel, mirror and weld APIs; inspect their signatures. Load native units as shape references for bodies. Keep fresh construction separate from geometry reuse; reshape native geometry only when the user explicitly asks for that, preserving its rig and native UV/material setup.
 
 Start round grips and shafts with 4–5 sides; small horns with 3–5; bowls and hats with 5–6. Add a side only when its silhouette visibly needs it. A closed 4-sided tube with two rings has 12 triangles including its ends. A five-ring, 16-sided grip already spends more than many entire native weapons. Count the result, not just the requested primitive parameter. Do not subdivide or automatically smooth everything. Flat shading on a bent blade or plate needs split normals, not extra tiny triangles.
 
@@ -10,9 +10,15 @@ Choose a native sheet and a checked region before building. Keep the game textur
 
 Keep the part count purposeful. Separate surfaces for a different material, transparency, articulation or a major silhouette change; do not make an object for every painted mark. Several pieces can share one coherent atlas. Extra complexity on one focal shape does not require making every grip, limb and rim rounder.
 
+## Inspect actual native shapes
+
+For body/head reference pictures, use the existing Library rather than switching away from the working model tab. mdlxl_command id textureLibrary opens the full Library; inspect its controls with mdlxl_ui after it loads, choose Models, set Game version to Classic, search the reference name and single-click the appropriate tree row. Pause the animation, capture the UI and turn the model through the preview canvas's normal drag. Use its animation controls and normal zoom to inspect body/jaw shape. Close texture library returns to the same working model. Open in editor or switching model tabs pauses the captured task, so the Library preview is the read-only image route.
+
+Separately, mdlxl_assets source game can load the listed model as a reference without switching. references[documentId].model supplies actual shape/UV/rig data for read-only scripts with existing sampling APIs. Numeric bounds alone do not certify a shape or UV layout. Do not copy its geometry into a fresh model unless the user has authorized native reshaping, including permission already given in the current conversation.
+
 ## Commit fresh geometry in the real model format
 
-Use the existing general Forge commit for arbitrary fresh mesh data, not its preset shapes. Read api.describe('forge') and the commitForge source first. Supply the vertices, normals, UVs and triangles you designed yourself:
+Use the existing general Forge commit for arbitrary fresh mesh data, not its preset shapes. Read await api.describe('forge') and the commitForge source first. Supply the vertices, normals, UVs and triangles you designed yourself:
 
 ```js
 const forge=await api.module('forge');
@@ -25,7 +31,9 @@ const result=forge.commitForge(model,{geosets:[{
 return result;
 ```
 
-This commits a complete geoset/material/binding with the model's required defaults; it does not prescribe a shape. Use one geoset for the chosen material and map its face groups to the checked regions afterwards in the same script. Put part names in review sdParts annotations. Geosets have no serializable Name field. If writing a material directly, include PriorityPlane:0, RenderMode:0 and complete Layers defaults (FilterMode, Shading, numeric TextureID, TVertexAnimId:null, CoordId:0, Alpha:1). If writing PrimitiveCounts, also write PrimitiveTypes and make the count sum equal Faces.length. Never attach a human-readable label to a field the format cannot store. For edits use the existing source material, rig and mesh operations instead of rebuilding the document.
+A fresh commit that creates the first root also changes Bones and PivotPoints. Include those collections in the edit scope together with Geosets, Materials and Textures; the editor maintains derived Info counts.
+
+This commits a complete geoset/material/binding with the model's required defaults; it does not prescribe a shape. Use one geoset for the chosen material and map its face groups to the checked regions afterwards in the same script. Put part names in review sdParts annotations. An MDX800 geoset has no Name field; later formats use Name for LOD metadata, not a free part label. Preserve existing LOD data. If writing a material directly, include PriorityPlane:0, RenderMode:0 and complete Layers defaults (FilterMode, Shading, numeric TextureID, TVertexAnimId:null, CoordId:0, Alpha:1). If writing PrimitiveCounts, also write PrimitiveTypes and make the count sum equal Faces.length. Never attach a human-readable label to a field the format cannot store. For edits use the existing source material, rig and mesh operations instead of rebuilding the document.
 
 ## Measured evidence and limits
 

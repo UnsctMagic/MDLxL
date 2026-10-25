@@ -13,7 +13,8 @@ Part output includes the method/confidence, native source path, model hash,
 triangle counts, extents, height ratios, detected planar polygon rings and a
 summary, with separate populations for units, portraits, buildings and scenery.
 Texture paths provide material context, not proof of an anatomical identity.
-Only named bone territories are classified. Unclassified surfaces
+Only named bone territories are classified. Renderer-checked numeric examples are
+retained on regeneration only when their native file hash still matches. Unclassified surfaces
 contribute to coverage counts, not invented anatomical budgets. Stand visibility
 uses geoset alpha; positions are bind-pose, and body-relative ratios may include
 weapons. A bone territory can be a segment or several joined pieces. Whole-file,

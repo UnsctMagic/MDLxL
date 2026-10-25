@@ -130,27 +130,34 @@ prompt for itself, from real knowledge of how Warcraft models are built.
 
 ## Implementation status (2026-10-25)
 
-Work is on `codex/sd-brain-wc3-knowledge`, based on
-`claude/ai-console-tools` at `163d78a128e207b59faba2b548709d97f72bfce0`.
-Implementation and real hidden-desktop comparisons are in progress.
+Work remains on codex/sd-brain-wc3-knowledge. Current main was merged at
+932858dfbd7719eec5bbf79f7c84fa95d61eb005; PR #291 and subsequent AI pen/Undo work are retained.
+The owner requires SD_BRAIN_AVAILABLE = false in committed/shippable source,
+a draft PR into main only, and no merge or push to main. Enabled packages are
+isolated test artifacts and are removed after use.
 
-- Added the subject handbook, native part evidence, semantic texture catalogue,
-  selected-face region mapping and measured SD review. Existing model editing,
-  Undo, SD Kit fallback painting and the collapsed Art direction row are retained.
-- Native scan: 3,448 distinct models, 72,170 measured regions/components,
-  6,041 classified named-bone territories, no parse failures. Unit, portrait,
-  scenery and building populations are separate. Bone territories are proxies;
-  ambiguous anatomy remains unclassified. Only numeric metadata is stored.
-- Texture index: 8,985 entries; checked rectangles and alpha limitations are
-  identified explicitly. A real hat trial exposed a purple armour panel being
-  labelled as cloth; its label and usage advice were corrected and the prompt
-  is being rerun. A checked rectangle does not imply a seamless material.
-- Verification so far: compatibility 57/57; source 1,924 passed, 22 skipped;
-  focused 27/27; packaged AI console 48/48, awareness 17/17 and new knowledge
-  flow 10/10. The final source run is pending. The existing AI editor fake
-  sign-in fixture timed out; the unmodified remainder passed 63/63 when that
-  fixture was omitted in an ignored local runner. Real signed-in Codex trials run.
-- Required on/off prompts use isolated profiles and hidden desktops. Pictures
-  are being recaptured in shared scenes at one world scale; failed/empty outputs
-  remain reported. Final comparison report and PR are pending.
+- Added the 23-subject handbook, per-part evidence, native texture catalogue,
+  selected-face region mapping and measured SD review. Native scan: 3,448 models,
+  72,170 regions/components, 6,041 classified named-bone territories, no parse failures.
+  Unknown anatomy remains unknown; only numeric metadata is stored.
+- Real trials exposed wrong cloth labelling, box-like skulls and a poor blocky
+  knight. These are rejected results. The cloth region was corrected; skulls now
+  use a continuous anatomical half layout with mirrored geometry and unchanged UVs.
+  The existing mirror API was independently checked for positions, winding and UVs.
+- The owner requested native unit body references and native reshaping. Body work
+  now starts with actual native posed shapes rather than guessed human proportions.
+  Native reuse is allowed for explicitly requested reshaping, with its base identified;
+  fresh construction still uses reference measurements without copying geometry.
+  Native Footman shape/material/UV usage was inspected, including its team-colour stack.
+- Native reshaping applied but review exposed a delayed empty-timeline target failure.
+  Exact replay found null becoming an empty key selection on timeline mounting.
+  The narrow signature normalization retains real key/range/controller/node guards;
+  a packaged replay and regression check are in progress.
+- Main-based verification before that fix: compatibility 57/57, source 1,930 passed
+  and 22 skipped; parked packaged AI console 52/52, awareness 17/17, editor 63/63.
+  The editor's known fake native sign-in fixture was omitted only in an ignored
+  local runner; tracked tests were not weakened. Knowledge flow and actual mouse
+  rotation passed 10/10. Current focused target/knowledge checks pass 30/30.
+- Hidden real on/off comparisons continue. Final pictures/report and draft PR
+  are pending; failed/empty or unverified results must stay explicit.
 - No Warcraft III gameplay acceptance has been exercised.

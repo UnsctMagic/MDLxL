@@ -1,6 +1,6 @@
 # Warcraft III modeling handbook
 
-Read only the chapters needed for the request through mdlxl_help. Parts are built fresh; native texture paths are reused. Numeric construction targets are distinct from measured bone-territory observations.
+Read only the chapters needed for the request through mdlxl_help. Parts are built fresh using actual native shape references; native texture paths are reused. When the user asks to reshape a native unit, preserve and reshape that base instead. Numeric construction targets are distinct from measured bone-territory observations.
 
 - [Build for Warcraft III](basics.md)
 - [Bodies and proportions](bodies.md)

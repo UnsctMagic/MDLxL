@@ -6,6 +6,8 @@ Use projection:"fit" to retain an existing island's arrangement, or projection:"
 
 Example after choosing the sheet and region by preview: const uv=await api.module('sd-native-uv'); return await uv.mapNativeRegion(model,{geosetId:0,faces:[0,1],texturePath:'<exact catalogue path>',region:'<checked region name>',projection:'planar',axes:'xz'}). Use the actual returned path and region name, never these placeholders. Check both faces, the reverse side and seams at game scale. Do not unwrap everything to answer "uv map this properly".
 
+For the native Skeleton skull side atlas, map one shaped half continuously from the side, then mirror GEOMETRY across Y=0 with its UV coordinates unchanged. Use ai-mesh.mirrorSelection, which corrects winding. Flipping U a second time or mapping the side atlas onto a whole front destroys the paired anatomical layout. Read skulls-bones.md for the landmark checks.
+
 Reuse paired and repeated UV islands deliberately, keeping the seam underneath a grip or inside a limb. Retain UV/normal splits where paint or shading changes. Reused UVs need not mean reused geometry: change the outline, ring spacing and relative masses while keeping the material language coherent.
 
 For a solid grip, blade or plate, choose an opaque interior; the catalogue records alpha in each checked rectangle. A foliage cutout or team-colour roof mask needs its matching existing material setup. Previewing the sheet alone cannot certify those material choices.

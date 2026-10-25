@@ -92,7 +92,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'script',
-    'Run JavaScript against a detached, complete model and the exact selection. Available: model, selection (vertex ID arrays keyed by geoset), context, references (other open models), api.modules, await api.module(name), api.describe(name), and log(...values). Return a JSON value to inspect. Set edit:true to commit as ONE normal Undo step; specify a plain label and permitted JSON Pointer scope. This is a general scripting API for geometry, UV, rig, material, animation, emitter and all model data, not a list of presets. Read-only is the default. Code has no Node, filesystem, network, or editor DOM. For generated texture bytes, push {name:"MDLxL_Forge/UniqueName.tga",bytes:Uint8Array} into assets and use that EXACT full name in model.Textures[].Image. assets contains only NEW outputs of this script, not existing session textures. The editor retains these images for Undo/Redo, recovery and export. Existing texture bytes cannot be overwritten. Preserve typed arrays and unrelated data. Reuse APIs already inspected in this conversation; describe only unfamiliar calls. api.source(name,offset?,limit?) returns {module,text,offset,total,truncated}: read .text. Geoset tint/alpha tracks live in model.GeosetAnims, found by GeosetId; Geosets[i].Anims holds sequence extents, not color tracks. Scope the canonical collection you edit; its derived Info.Num* counts are maintained by the editor.',
+    'Run JavaScript against a detached, complete model and the exact selection. Available: model, selection (vertex ID arrays keyed by geoset), context, references (other open models), api.modules, await api.module(name), await api.describe(name), and log(...values). Return a JSON value to inspect. Set edit:true to commit as ONE normal Undo step; specify a plain label and permitted JSON Pointer scope. This is a general scripting API for geometry, UV, rig, material, animation, emitter and all model data, not a list of presets. Read-only is the default. Code has no Node, filesystem, network, or editor DOM. For generated texture bytes, push {name:"MDLxL_Forge/UniqueName.tga",bytes:Uint8Array} into assets and use that EXACT full name in model.Textures[].Image. assets contains only NEW outputs of this script, not existing session textures. The editor retains these images for Undo/Redo, recovery and export. Existing texture bytes cannot be overwritten. Preserve typed arrays and unrelated data. Reuse APIs already inspected in this conversation; describe only unfamiliar calls. api.source(name,offset?,limit?) returns {module,text,offset,total,truncated}: read .text. Geoset tint/alpha tracks live in model.GeosetAnims, found by GeosetId; Geosets[i].Anims holds sequence extents, not color tracks. Scope the canonical collection you edit; its derived Info.Num* counts are maintained by the editor.',
     {
       target,
       code: string('JavaScript async function body; return a useful result.'),
@@ -233,8 +233,10 @@ export const AI_TOOLS = [
       source: { enum: ['model', 'textures', 'parts', 'game', ...(SD_BRAIN_AVAILABLE ? ['native'] : [])] },
       action: { enum: ['search', 'preview', 'reference'] },
       query: string(SD_BRAIN_AVAILABLE ? 'Asset search words; native supports meaning such as orc axe blade or elven purple cloth.' : 'Asset search words.'),
-      path: string('Native catalogue texture path for preview.'),
-      checkedOnly: {type:'boolean',description:'For native search, return only sheets with visually checked regions.'},
+      ...(SD_BRAIN_AVAILABLE ? {
+        path: string('Native catalogue texture path for preview.'),
+        checkedOnly: {type:'boolean',description:'For native search, return only sheets with visually checked regions.'},
+      } : {}),
       id: string('Part ID or game file ID from search.'),
       signature: string('Game catalog signature from search.'),
       textureId: { type: 'integer', minimum: 0 },

@@ -259,6 +259,9 @@ export function applyAiEdit(model, prepared) {
   applyChanges(model, prepared.changes);
 }
 export function aiSelectionSignature(state) {
+  // Timeline mounting exposes an empty selection object after the view is ready.
+  // It has the same meaning as the absent selection before mounting.
+  const keyframes = state.keyframes?.range != null || state.keyframes?.keys?.length ? state.keyframes : null;
   return JSON.stringify([
     state.selection,
     Array.from(state.selectedNodeIds || []),
@@ -267,7 +270,7 @@ export function aiSelectionSignature(state) {
     state.uvSet,
     state.sequence,
     state.globalSeqId,
-    state.keyframes,
+    keyframes,
     state.mode,
     state.workplane,
     state.session?.paintWorkingRevision,

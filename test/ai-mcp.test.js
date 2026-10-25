@@ -32,6 +32,11 @@ test('real MCP HTTP handshake, discover tools, execute and return tool errors', 
   assert.doesNotMatch(initialized.instructions, /SD Brain/);
   assert.ok(!initialized.instructions.includes('Warcraft III SD modeling rulebook'));
   assert.ok((await rpc('tools/list')).result.tools.some(t => t.name === 'mdlxl_script'));
+  const assets = AI_TOOLS.find(t => t.name === 'mdlxl_assets').inputSchema.properties;
+  assert.ok(!assets.source.enum.includes('native'));
+  assert.equal(assets.path, undefined);
+  assert.equal(assets.checkedOnly, undefined);
+  assert.equal(AI_TOOLS.find(t => t.name === 'mdlxl_review').inputSchema.properties.sdParts, undefined);
   assert.deepEqual(
     JSON.parse((await rpc('tools/call', { name: 'mdlxl_context', arguments: {} })).result.content[0].text)
       .selection,
