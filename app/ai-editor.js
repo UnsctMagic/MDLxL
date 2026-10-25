@@ -16,6 +16,7 @@ import { sampleAiModel } from '../src/ai-sampling.js';
 import { aiAssets, validateAiAssets } from './ai-assets.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
+import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
 const settle = () => new Promise(resolve => setTimeout(resolve, 60));
@@ -216,7 +217,10 @@ export class AiEditorBridge {
       return result.value;
     }
     if (name === 'mdlxl_help') {
-      const index = Object.keys(guides).map(path => path.replace('../', ''));
+      // The SD rulebook and study stay out of help while SD Brain is parked.
+      const index = Object.keys(guides)
+        .map(path => path.replace('../', ''))
+        .filter(path => SD_BRAIN_AVAILABLE || !path.startsWith('docs/AI-SD-'));
       if (!args.topic)
         return {
           topics: index,
@@ -294,6 +298,19 @@ export class AiEditorBridge {
           host.select({ vertices: result.selection });
       });
       if (state.doc.revision === target.revision) throw Error('The editor could not commit the edit.');
+      // An edit the model could not be saved with is taken back at once; left in place it
+      // would block every later checkpoint, review and Undo step. Checked in the document's
+      // own format, and MDX too when it can convert (AI checkpoints use MDX).
+      try {
+        for (const format of new Set([state.doc.format, ...(state.doc.saveImpact('mdx').canSave ? ['mdx'] : [])]))
+          state.doc.serialize(format);
+      } catch (error) {
+        await host.command('undo');
+        this.advance(args.target);
+        throw Error(
+          `Not applied: the model could not be saved after this edit (${error.message}), so it was undone. Check each new or changed geoset: Vertices and Normals as Float32Array (3 per vertex), TVertices as [Float32Array] (2 per vertex), Faces as Uint16Array of valid indices, VertexGroup as Uint8Array (1 per vertex), Groups and MaterialID valid. sd-kit commit and Forge commitForge build complete geosets.`,
+        );
+      }
       this.advance(args.target);
       // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
       if (assets.length) await host.addAssets(assets);

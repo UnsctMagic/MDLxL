@@ -217,6 +217,8 @@ export function drawPresentationOverlay(context, geosets, camera, width, height,
     return { faces, points };
   }), width, height) : null;
   const drawEdges = items => {
+    // The Lines toggle hides the wire between vertices to declutter Live Select.
+    if (!settings.showLines) return;
     context.beginPath();
     for (const geo of items) for (const [a, b] of geo.edges) {
       const from = geo.vertices.subarray(a * 3, a * 3 + 3), to = geo.vertices.subarray(b * 3, b * 3 + 3);

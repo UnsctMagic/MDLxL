@@ -109,6 +109,11 @@ class AiRecorder {
       const part = this.parts().findLast(p => p.type === 'worker' && p.workerId === value.workerId && p.status === 'working');
       if (part && value.status !== 'working') Object.assign(part, { status: value.status, report: value.report });
       else if (!part) reply.parts.push({ type: 'worker', workerId: value.workerId, name: value.name, job: value.job, status: value.status });
+    } else if (value.type === 'art') {
+      // SD Brain's art brief: a row that fills in once the brief is written.
+      const part = reply.parts.findLast(p => p.type === 'art' && p.status === 'running');
+      if (part) Object.assign(part, { status: value.status, text: value.text || '' });
+      else reply.parts.push({ type: 'art', status: value.status, text: value.text || '' });
     } else if (value.type === 'usage') {
       if (value.used > 0 && value.window > 0) this.conversation.usage = { used: value.used, window: value.window };
       return;
@@ -130,9 +135,20 @@ class AiRecorder {
       .trim();
   }
   finish() {
-    for (const part of this.parts())
-      if (part.status === 'running') part.status = part.type === 'compaction' ? 'done' : 'stopped';
+    settleParts(this.parts());
   }
+}
+// Nothing is still running once a task ended or the app restarted: tool steps and
+// bird jobs left "running"/"working" become stopped, compaction is done.
+function settleParts(parts) {
+  for (const part of parts)
+    if (part.status === 'running' || part.status === 'working')
+      part.status = part.type === 'compaction' ? 'done' : 'stopped';
+}
+function settleConversation(conversation) {
+  for (const entry of conversation.transcript || []) settleParts(entry.parts || []);
+  for (const worker of conversation.workers || []) if (worker.status === 'working') worker.status = 'idle';
+  return conversation;
 }
 
 // How full a conversation's context is, 0..1. Providers report real token use;
@@ -212,6 +228,7 @@ async function deleteProviderSessions(directory, ids) {
 }
 
 module.exports = {
+  settleConversation,
   BIRDS,
   CORVIDS,
   nextBird,

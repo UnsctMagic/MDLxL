@@ -19,7 +19,6 @@
 .model-tab>.model-tab-close{width:20px;min-width:20px;height:22px;padding:0;border:0;background:transparent;font-size:15px;line-height:18px}
 .model-tab>.model-tab-close:hover{background:#b33;color:#fff}
 .model-tabs-bar>.model-tabs-scroll{flex:0 0 auto;width:16px;min-width:16px;height:22px;min-height:22px;margin-bottom:1px;padding:0;font-size:8px;line-height:1}
-.repair-model-tabs{padding:3px 5px;background:#d4d0c8;border-bottom:1px solid #777}.repair-model-tabs .model-tabs{display:flex}
 .classic-modules .module-hint {margin-left:auto;color:#49473f;font-size:11px}
 .classic-modules>.animation-preview-tools{min-height:25px;padding:0;border:0;background:transparent;gap:3px;flex-wrap:nowrap}
 .classic-modules>.animation-preview-tools label{gap:3px}

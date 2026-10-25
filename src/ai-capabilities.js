@@ -1,3 +1,5 @@
+import { SD_BRAIN_AVAILABLE } from './ai-sd-rules.js';
+
 // Human task names lead to the editor's existing APIs, not duplicate implementations.
 export const AI_AREAS = [
   {
@@ -16,8 +18,10 @@ export const AI_AREAS = [
   {
     id: 'creation',
     description:
-      'Procedural primitives, Forge construction, detail shaping, combining and fitting reusable parts.',
+      (SD_BRAIN_AVAILABLE ? 'SD Kit solid hand-painted props (lathe, extrude, spikes, rings, gems; one painted texture), ' : '') +
+        'Procedural primitives, Forge construction, detail shaping, combining and fitting reusable parts.',
     modules: [
+      ...(SD_BRAIN_AVAILABLE ? ['sd-kit'] : []),
       'forge-primitives',
       'forge',
       'forge-detail-editing',
@@ -119,6 +123,7 @@ export function searchAiCapabilities(sources, { query = '', area, offset = 0, li
     .filter(
       row =>
         row.exports.length &&
+        (SD_BRAIN_AVAILABLE || row.module !== 'sd-kit') &&
         (!selected || selected.modules.includes(row.module)) &&
         terms.every(term =>
           (row.module + ' ' + row.exports.join(' ') + ' ' + row.areas.join(' ')).toLowerCase().includes(term),

@@ -92,19 +92,40 @@ works includes the current notes, and viewport captures show them.
 
 ### SD Brain
 
+> **Parked (2026-10-25).** SD Brain is hidden and always off in this version:
+> no header switch, no art direction, no SD rules in prompts, and the SD Kit and
+> SD guides are left out of the AI's tool list and help. The code stays in place;
+> setting `SD_BRAIN_AVAILABLE` in `src/ai-sd-rules.js` to `true` brings all of it
+> back. The description below is how it works when it is available.
+
 **SD Brain** is a switch in the AI console header, the brain icon next to the
 Offload Mode bird (off until you turn it on; it
-is remembered across restarts, providers and new chats). While it is on, the AI
-applies Warcraft III SD art direction to modeling requests: it turns a short or
-vague request ("make a chalice of power", "make this armor better", "fix this
-Walk") into a working brief (target, role and viewing scale, quality level,
-silhouette, material and one coherent motif, success criteria), fills in routine
-details from the request, the model and comparable SD references, and asks only
-when a missing choice would change the result a lot or the request clearly
-conflicts with SD (for example an HD/PBR redesign). Literal operations such as
-"mirror these and weld the seam" stay literal. Detailed, elaborate custom SD is
-supported; there is no polygon, bone, texture-size or key cap and nothing is
-simplified to match a statistic.
+is remembered across restarts, providers and new chats). It is art direction for
+your prompts, not a library of models to copy:
+
+- **Art direction first.** Every request sent with SD Brain on first goes to an
+  art director: one short AI turn without tools that turns your words into an SD
+  art brief (goal, role and size with a triangle and texture budget, silhouette,
+  shape language, palette, one focal motif, what is painted rather than modelled,
+  pitfalls to avoid, and checks for the result). The brief carries the Warcraft III
+  style rules learned from Blizzard's models, so a short or weak prompt ("make a
+  sword", "evil cup") still gets a coherent SD result, and a subject Warcraft never
+  had ("a chalice worthy of Mordor") becomes SD shapes and symbols in that spirit.
+  The brief shows as a collapsed **Art direction** row in the chat; the AI that
+  does the work (or the Offload worker) receives it with your own words, which come
+  first. Edits, UV mapping, cleanup and animation get a plan and a list of what to
+  preserve instead of a new design.
+- **Build, don't copy.** The AI does not search for, load or copy Warcraft or other
+  models as a starting point unless you ask for it.
+- **SD Kit.** New props are built with `src/sd-kit.js`: solid parts (turned shapes
+  such as cups and stems, extruded outlines such as blades and emblems, spikes,
+  rings and gems) that commit as one geoset with one hand-painted texture (light
+  from above, dark creases and contact shadows, bright edges, a limited palette,
+  painted runes, rivets, eyes or gems). The AI chooses shapes and materials; the kit
+  paints, so textures no longer depend on the AI writing pixels.
+- **Saving stays possible.** An AI edit that would leave the model unsavable is
+  refused with a plain explanation, so a malformed part cannot block later review,
+  Undo or saving.
 
 - The state is captured when a task starts. Toggling during a task changes the
   next task, not the running one; a resumed task keeps its own state. Toggling
@@ -120,14 +141,17 @@ simplified to match a statistic.
 - Review: with SD Brain on, `mdlxl_review finish` with outcome passed needs a
   verdict for each criterion (fidelity, silhouette, sd-identity, coherence,
   craftsmanship, detail-value, motion, preservation): passed, needs-correction,
-  unverified or not-applicable, each with an observation. A pass is refused while
+  unverified or not-applicable, each with an observation. Every `mdlxl_review
+  inspect` also returns front, back, left and right views, so a part that only
+  works from one side is seen; the user's camera view is restored afterwards.
+  A pass is refused while
   a criterion needs correction; the same criterion failing three times stops
   further revisions. Missing textures or a provider without image input leave
   appearance criteria unverified. A renderer preview is not gameplay acceptance.
 - The [reference study](AI-SD-REFERENCE-STUDY.md) (3,448 distinct installed
-  Blizzard models and 705 models from the first 100 highest-rated approved Hive SD
-  resources, with limits and source links) is available through `mdlxl_help`; it is
-  not sent with every prompt.
+  Blizzard models and 646 models from 90 approved Hive SD resources whose authors
+  allow use and editing with credit, with limits, credits and source links) is
+  available through `mdlxl_help`; it is not sent with every prompt.
 
 **Continuous awareness** is an optional switch (the eye) in the prompt box.
 It starts off and remembers your choice. When on, real editor changes update the

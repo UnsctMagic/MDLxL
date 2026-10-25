@@ -16,11 +16,19 @@ async function setup(t, respond) {
     edits = 0,
     phase = 'unchanged',
     fingerprint = 'before';
-  const events = [];
+  const events = [],
+    arts = [];
   const server = http.createServer(async (req, res) => {
     let body = '';
     for await (const part of req) body += part;
     const data = JSON.parse(body);
+    // SD Brain's art director turn: answered with a fixed brief, outside the counts.
+    if (String(data.messages?.find(m => m.role === 'system')?.content).includes('SD Brain art director')) {
+      arts.push(data);
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end('data: ' + JSON.stringify({ choices: [{ delta: { content: 'Goal: an SD test brief.' }, finish_reason: 'stop' }] }) + '\n\n');
+      return;
+    }
     requests++;
     const answer = respond({ data, requests, edits, phase });
     res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -35,7 +43,7 @@ async function setup(t, respond) {
       }),
   );
   const make = () => {
-    const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
+    const service = new AiService({ root, profile, electron: {}, getWindow: () => null, sdBrainAvailable: true });
     service.emit = event => events.push(event);
     service.call = async (name, args) => {
       if (name === 'mdlxl_checkpoint')
@@ -84,6 +92,7 @@ async function setup(t, respond) {
     service,
     make,
     events,
+    arts,
     profile,
     counts: () => ({ requests, edits }),
     changeFingerprint: () => {
@@ -261,9 +270,12 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   await f.service.send({ id: 'test', text: 'make a chalice of power', context });
   system = received.at(-1).messages.find(message => message.role === 'system').content;
   assert.ok(system.includes(AI_SD_BRAIN) && system.includes(AI_SD_RULES));
-  assert.match(system, /chalice of power/);
   user = received.at(-1).messages.filter(message => message.role === 'user').at(-1).content[0].text;
   assert.match(user, /^make a chalice of power\n/);
+  // The request went through the art director first, and its brief travels with the prompt.
+  assert.equal(f.arts.length, 1);
+  assert.match(f.arts[0].messages.find(message => message.role === 'user').content[0].text, /make a chalice of power/);
+  assert.match(user, /SD art brief for this request[^\n]*\nGoal: an SD test brief\./);
   assert.match(user, /Task settings: SD Brain on \(policy /);
   // Off again: the old "on" in this conversation's history no longer applies.
   await f.service.setSdBrain(false);
@@ -271,8 +283,66 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   system = received.at(-1).messages.find(message => message.role === 'system').content;
   assert.ok(!system.includes(AI_SD_BRAIN));
   assert.match(system, /SD Brain is off for this task\. Instructions from earlier turns about SD Brain/);
+  assert.equal(f.arts.length, 1, 'no art direction while SD Brain is off');
   const guide = (await fs.readFile(path.join(root, 'docs/AI-SD-RULEBOOK.md'), 'utf8')).replace(/\r\n/g, '\n');
   assert.ok(guide.includes(AI_SD_RULES), 'the standalone rulebook matches the supplied instructions');
+});
+
+test('SD Brain is parked: no switch, no art director and nothing about it in prompts', async t => {
+  const received = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  const service = f.make();
+  service.sdBrainOverride = undefined;
+  await service.configure({ provider: 'compatible', model: 'test', baseUrl: (await f.service.settings()).baseUrl });
+  const status = await service.status();
+  assert.equal(status.sdBrainAvailable, false);
+  assert.equal(status.sdBrain, false);
+  await assert.rejects(() => service.setSdBrain(true), /not available/);
+  assert.equal((await service.send({ id: 'parked', text: 'make a chalice of power', context })).ok, true);
+  const system = received.at(-1).messages.find(message => message.role === 'system').content,
+    user = received.at(-1).messages.filter(message => message.role === 'user').at(-1).content[0].text;
+  assert.ok(!/SD Brain|Warcraft III SD modeling rulebook/.test(system), 'no SD Brain text in the instructions');
+  assert.ok(!/SD Brain|SD art brief/.test(user), 'no SD Brain text in the prompt');
+  assert.equal(f.arts.length, 0, 'no art direction turn');
+});
+
+test('a failed art direction is shown with its reason and the task still runs', async t => {
+  const received = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  f.service.artDirection = async () => {
+    throw Error('The provider refused the art turn.');
+  };
+  await f.service.setSdBrain(true);
+  assert.equal((await f.service.send({ id: 'test', text: 'make a hat', context })).ok, true);
+  assert.ok(f.events.some(e => e.type === 'art' && e.status === 'error' && /refused the art turn/.test(e.text)));
+  const user = received.at(-1).messages.filter(message => message.role === 'user').at(-1).content[0].text;
+  assert.ok(!user.includes('SD art brief'));
+  const part = (await f.service.conversation('test', 'compatible')).transcript.flatMap(m => m.parts || []).find(p => p.type === 'art');
+  assert.equal(part.status, 'error');
+});
+
+test('the model can change while the AI works; the running task keeps its model', async t => {
+  const models = [];
+  const f = await setup(t, ({ data, requests }) => {
+    models.push(data.model);
+    return requests === 1 ? tool('mdlxl_review', { target: 'selected', action: 'status' }) : done();
+  });
+  const call = f.service.call;
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_review' && args.action === 'status' && models.length === 1) await f.service.setModel('bigger-model');
+    return call(name, args, ...rest);
+  };
+  await f.service.send({ id: 'test', text: 'check it', context });
+  assert.deepEqual(models, ['test', 'test']);
+  assert.equal((await f.service.status()).model, 'bigger-model');
+  await f.service.send({ id: 'test', text: 'next', context });
+  assert.equal(models.at(-1), 'bigger-model');
 });
 
 test('toggling SD Brain during a task keeps that task on the policy it started with', async t => {
@@ -311,8 +381,16 @@ test('with SD Brain on, a passed review needs a verdict per criterion and repeat
     if (requests === 5) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Chalice reads clearly.', criteria });
     return done();
   });
+  const call = f.service.call,
+    inspects = [];
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_review' && args.action === 'inspect') inspects.push(args);
+    return call(name, args, ...rest);
+  };
   await f.service.setSdBrain(true);
   assert.equal((await f.service.send({ id: 'test', text: 'make a chalice of power', context })).ok, true);
+  // The review always shows the result from every side.
+  assert.equal(inspects[0].turnaround, true);
   assert.match(toolErrors[0], /add criteria for fidelity, silhouette/);
   assert.match(toolErrors[1], /detail-value needs correction/);
   const task = (await f.service.conversation('test', 'compatible')).task;

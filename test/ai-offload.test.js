@@ -23,16 +23,19 @@ async function setup(t, { organiser, worker }) {
     for await (const part of req) body += part;
     const data = JSON.parse(body);
     const system = data.messages[0].content;
-    const kind = system.includes('You are the organiser') ? 'organiser' : 'worker';
+    const kind = system.includes('SD Brain art director') ? 'art' : system.includes('You are the organiser') ? 'organiser' : 'worker';
     requests.push({ kind, data });
-    const answer = (kind === 'organiser' ? organiser : worker)(data, requests.filter(r => r.kind === kind).length);
+    const answer =
+      kind === 'art'
+        ? { delta: { content: 'Goal: a test brief.' }, finish_reason: 'stop' }
+        : (kind === 'organiser' ? organiser : worker)(data, requests.filter(r => r.kind === kind).length);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     res.end('data: ' + JSON.stringify({ choices: [answer] }) + '\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => (server.closeAllConnections(), server.close(resolve))));
   const events = [];
-  const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
+  const service = new AiService({ root, profile, electron: {}, getWindow: () => null, sdBrainAvailable: true });
   service.emit = event => events.push(event);
   // Names are random in use; the first choice keeps tests readable (Crow, then Jackdaw).
   service.random = () => 0;
@@ -121,14 +124,19 @@ test('with SD Brain on, birds get the same policy and the organiser can look at 
   const system = request => request.messages.find(m => m.role === 'system').content;
   assert.match(system(organiserRequest), /As the organiser with SD Brain on/);
   assert.ok(organiserRequest.tools.some(tool => tool.function.name === 'mdlxl_capture'));
-  assert.ok(system(workerRequest).includes('SD Brain is enabled for this task') && system(workerRequest).includes('Warcraft III SD modeling rulebook'));
+  assert.ok(system(workerRequest).includes('SD Brain is on.') && system(workerRequest).includes('Warcraft III SD modeling rulebook'));
   assert.match(userText(workerRequest), /Task settings: SD Brain on/);
+  // One art brief per user request: the organiser has it, and the bird gets it with its job.
+  assert.equal(f.requests.filter(r => r.kind === 'art').length, 1);
+  assert.match(userText(organiserRequest), /SD art brief for this request[^\n]*\nGoal: a test brief\./);
+  assert.match(userText(workerRequest), /SD art brief for this request:\nGoal: a test brief\./);
   // Off: the organiser has no capture tool and the bird gets the off state.
   await f.service.setSdBrain(false);
   await f.service.send({ id, text: 'now rename it', context });
   const lastOrganiser = f.requests.filter(r => r.kind === 'organiser' && r.data.messages.at(-1).role === 'user').at(-1).data;
   assert.ok(!lastOrganiser.tools.some(tool => tool.function.name === 'mdlxl_capture'));
   assert.match(system(f.requests.filter(r => r.kind === 'worker').at(-1).data), /SD Brain: off/);
+  assert.ok(!userText(f.requests.filter(r => r.kind === 'worker').at(-1).data).includes('SD art brief'));
 });
 
 test('a worker past half of its memory hands over to a new bird and retires', async t => {
@@ -240,4 +248,23 @@ test('only provider files named after the cleared threads are deleted', async t 
   await fs.writeFile(path.join(directory, 'claude', 'projects', 'x', 'cccc-dddd-2222.jsonl'), '');
   assert.equal(await deleteProviderSessions(directory, ['aaaa-bbbb-1111', '..', '*']), 1);
   assert.deepEqual(await fs.readdir(path.join(directory, 'claude', 'projects', 'x')), ['cccc-dddd-2222.jsonl']);
+});
+
+test('a chat saved while a bird was working comes back settled after a restart', async t => {
+  const f = await setup(t, { organiser: () => say('x'), worker: () => say('y') });
+  const { id } = await f.service.organiser({ modelKey });
+  const organiser = await f.service.conversation(id, 'compatible');
+  organiser.workers = [{ id: id + '-raven', name: 'Raven', job: 'Sword', status: 'working', use: 0.1 }];
+  organiser.transcript.push(
+    { role: 'user', text: 'make a sword' },
+    { role: 'assistant', text: '', parts: [{ type: 'worker', workerId: id + '-raven', name: 'Raven', job: 'Sword', status: 'working' }, { type: 'tool', name: 'mdlxl_worker', status: 'running' }] },
+  );
+  await f.service.persistConversation(organiser);
+  // A fresh service is what the app has after a restart.
+  const { AiService: Fresh } = require('../electron/ai-service.cjs');
+  const restarted = new Fresh({ root, profile: f.profile, electron: {}, getWindow: () => null });
+  const reopened = await restarted.organiser({ modelKey });
+  assert.equal(reopened.workers[0].status, 'idle');
+  const parts = (await restarted.readConversation(id)).transcript[1].parts;
+  assert.deepEqual(parts.map(p => p.status), ['stopped', 'stopped']);
 });

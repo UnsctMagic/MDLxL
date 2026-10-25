@@ -317,18 +317,15 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
         ? reply.result.content[0]
         : JSON.parse(reply.result.content[0].text);
   };
-  const { AI_SD_RULES, sdBrainInstructions } = await import('../src/ai-sd-rules.js');
+  // SD Brain is parked: external clients hear nothing of it and help leaves out its guides.
   const initialized = await fetch(link.url, {
     method: 'POST',
     headers: { ...link.headers, 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 'sd-rules', method: 'initialize', params: { protocolVersion: '2025-11-25' } }),
   }).then(response => response.json());
-  check('packaged external connection points to the per-task SD Brain state', /every mdlxl_context result has sdBrain/.test(initialized.result.instructions));
-  const sdState = (await tool('mdlxl_context')).sdBrain;
-  check('external clients read the current SD Brain state with the context', sdState?.enabled === false && sdState.instructions === sdBrainInstructions({ enabled: false }, 'external'), sdState);
-  const sdGuide = await tool('mdlxl_help', { topic: 'AI-SD-RULEBOOK.md' });
-  // The guide file can be checked out with Windows line endings.
-  check('packaged help contains the same standalone SD rulebook', sdGuide.text.replace(/\r\n/g, '\n').includes(AI_SD_RULES));
+  check('the parked SD Brain is not mentioned to external clients', !/SD Brain/.test(initialized.result.instructions));
+  check('mdlxl_context carries no SD Brain state while it is parked', (await tool('mdlxl_context')).sdBrain === undefined);
+  check('help leaves out the SD guides while SD Brain is parked', !(await tool('mdlxl_help')).topics.some(topic => topic.includes('AI-SD-')));
   let context = await tool('mdlxl_context');
   check('live model loaded', context.name === 'AI-fixture.mdx', context.name);
   await tool('mdlxl_select', { target: context.target, geosetIds: [0], activeGeoset: 0 });
@@ -592,6 +589,24 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     /without changing either/,
   );
   check('verification scripts cannot change their model copy to manufacture a pass', true);
+  // A material without its render mode passes the editor's checks but cannot be saved.
+  const renderMode = (await tool('mdlxl_script', { target: context.target, code: 'return model.Materials[0].RenderMode;' })).value;
+  await assert.rejects(
+    () =>
+      tool('mdlxl_script', {
+        target: context.target,
+        edit: true,
+        label: 'Bare material',
+        scope: ['/Materials'],
+        code: 'delete model.Materials[0].RenderMode; return model;',
+      }),
+    /could not be saved after this edit .*so it was undone/,
+  );
+  check(
+    'an AI edit that would make the model unsavable is undone and explained',
+    (await tool('mdlxl_script', { target: context.target, code: 'return model.Materials[0].RenderMode;' })).value === renderMode,
+    renderMode,
+  );
   const reviewImages = await tool(
     'mdlxl_review',
     {
@@ -612,6 +627,22 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   check(
     'animation verification restores the playhead',
     (await tool('mdlxl_context', { target: context.target })).liveFrame === 500,
+  );
+  const viewBefore = (await tool('mdlxl_context', { target: context.target })).view;
+  const turned = await tool(
+    'mdlxl_review',
+    { target: context.target, action: 'inspect', turnaround: true, checksCode: 'return [{name:"Sparse key kept",passed:true}];' },
+    true,
+  );
+  check(
+    'the review can show the result from the front, back, left and right',
+    turned.filter(x => x.type === 'image').length === 9 &&
+      ['front', 'back', 'left', 'right'].every(side => turned.some(x => x.type === 'text' && x.text.includes(`${side} view`))),
+    turned.filter(x => x.type === 'text').map(x => x.text.slice(0, 60)),
+  );
+  check(
+    'the side views leave the user\'s camera view as it was',
+    (await tool('mdlxl_context', { target: context.target })).view === viewBefore,
   );
   await tool('mdlxl_review', {
     target: context.target,

@@ -7,6 +7,7 @@ const { promisify } = require('node:util');
 const run = promisify(execFile);
 const WEBSITE = 'https://www.lowpolyworks.com/mdlxl';
 const REPOSITORY = 'UnsctMagic/MDLxL';
+const USAGE = 'https://lowpolyworks-vault.lowpolyworks-internal-tracker.workers.dev/api/events';
 const MANIFEST = 'mdlxl-update-manifest.json';
 const PREVIOUS = '.mdlxl-previous';
 const PERSONAL = /^(?:Addons|Backgrounds|BitsAndParts|Textures)(?:\/|$)/i;
@@ -129,6 +130,14 @@ class Updater {
       const snapshot = JSON.parse(await fs.readFile(path.join(this.installRoot, PREVIOUS, 'snapshot.json'), 'utf8'));
       if (snapshot.schema === 1 && snapshot.product === 'mdlxl' && newerVersion(this.currentVersion, snapshot.version)) this.publish({ previousVersion: snapshot.version });
     } catch (error) { if (error.code !== 'ENOENT') this.publish({ error: 'The previous version could not be read.' }); }
+  }
+  // A bare ping per installed update: the new version number and nothing else.
+  // It runs after the update has started, so it can never affect installing or reverting.
+  async reportUpdate() {
+    if (!this.packaged || !versionParts(this.currentVersion)) return;
+    try {
+      await this.fetcher(USAGE, { method: 'POST', headers: { 'User-Agent': `MDLxL/${this.currentVersion}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'update', version: this.currentVersion }), signal: AbortSignal.timeout(10000) });
+    } catch { /* The count is optional. */ }
   }
   publish(change) { this.state = { ...this.state, ...change }; this.onStatus(this.state); return this.state; }
   async response(url, timeout = 20000) {

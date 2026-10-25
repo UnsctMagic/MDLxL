@@ -166,6 +166,8 @@
   "Connected Bones": "Huesos conectados",
   "Grabthrough": "Selección a través",
   "On: pick vertices straight through the model, including ones hidden behind it. Off: pick only the vertices you can see.": "Activado: selecciona vértices a través del modelo, incluidos los ocultos detrás. Desactivado: solo selecciona los vértices visibles.",
+  "Lines": "Líneas",
+  "Show the lines between vertices. Turn off to see only the vertex dots when the mesh gets cluttered.": "Muestra las líneas entre vértices. Desactívalo para ver solo los puntos de los vértices cuando la malla esté recargada.",
   "Open models": "Modelos abiertos",
   "Scroll model tabs left": "Desplazar pestañas de modelos a la izquierda",
   "Scroll model tabs right": "Desplazar pestañas de modelos a la derecha",
@@ -6383,5 +6385,16 @@
   "Resume task": "Reanudar tarea",
   "Checking the result before completing the task.": "Comprobando el resultado antes de completar la tarea.",
   "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "Detenido. Los cambios aplicados pueden deshacerse. Reanuda la tarea desde el punto guardado.",
-  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain: aplica las reglas de diseño SD de Warcraft III a tus peticiones de modelado, completa los detalles rutinarios de dirección artística y revisa el resultado. Admite SD personalizado y detallado."
+  "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain: aplica las reglas de diseño SD de Warcraft III a tus peticiones de modelado, completa los detalles rutinarios de dirección artística y revisa el resultado. Admite SD personalizado y detallado.",
+  "Duplicate geoset animations": "Animaciones de geoset duplicadas",
+  "Some geosets have more than one animation record. The model works; click to choose which record to keep.": "Algunos geosets tienen más de un registro de animación. El modelo funciona; haga clic para elegir qué registro conservar.",
+  "Some geosets have more than one animation record. The model works as it is; only keyframe edits on those geosets wait for this fix.": "Algunos geosets tienen más de un registro de animación. El modelo funciona tal como está; solo la edición de fotogramas clave de esos geosets espera esta corrección.",
+  "The fix is an ordinary edit: Undo reverses it, and nothing is written to disk until you save.": "La corrección es una edición normal: Deshacer la revierte y no se escribe nada en el disco hasta que guarde.",
+  "This model is read-only; the fix is disabled to preserve unsupported data.": "Este modelo es de solo lectura; la corrección está desactivada para conservar los datos no compatibles.",
+  "Fix duplicate geoset animations": "Corregir animaciones de geoset duplicadas",
+  "Fixed duplicate geoset animations. Undo reverses it.": "Animaciones de geoset duplicadas corregidas. Deshacer lo revierte.",
+  "Geoset {0} has more than one geoset animation. Click the warning in the status bar to fix it before editing its tracks.": "El geoset {0} tiene más de una animación de geoset. Haga clic en el aviso de la barra de estado para corregirlo antes de editar sus pistas.",
+  "Not now": "Ahora no",
+  "Darker interface": "Interfaz más oscura",
+  "Lighter interface": "Interfaz más clara"
 }

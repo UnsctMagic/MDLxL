@@ -29,11 +29,14 @@ const {
   nextBird,
   contextUse,
   deleteProviderSessions,
+  settleConversation,
 } = require('./ai-offload.cjs');
 
 class AiService {
-  constructor({ root, profile, electron, getWindow }) {
+  constructor({ root, profile, electron, getWindow, sdBrainAvailable }) {
     this.root = root;
+    // Tests may bring SD Brain back while it is parked; otherwise src/ai-sd-rules.js decides.
+    this.sdBrainOverride = sdBrainAvailable;
     this.directory = path.join(profile, 'ai');
     this.electron = electron;
     this.getWindow = getWindow;
@@ -102,7 +105,8 @@ class AiService {
       busy: !!this.active,
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
-      sdBrain: config.sdBrain === true,
+      sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
+      sdBrainAvailable: await this.sdBrainAvailable(),
     };
   }
   async setAwareness(enabled) {
@@ -112,6 +116,17 @@ class AiService {
     await this.persist();
     this.awareness.setEnabled(enabled);
     this.emit({ type: 'awareness', enabled });
+    return this.status();
+  }
+  // The model can change while the AI works: a running task keeps the settings it
+  // started with, and the next message uses the new model.
+  async setModel(model) {
+    if (typeof model !== 'string' || model.length > 200) throw Error('Choose a model.');
+    const config = await this.configuration();
+    config.providers ||= {};
+    const provider = (config.providers[config.provider] ||= {});
+    provider.model = model.trim();
+    await this.persist();
     return this.status();
   }
   async configure(input) {
@@ -214,7 +229,7 @@ class AiService {
         call: async (name, args, signal) => {
           try {
             const result = await this.call(name, args, signal);
-            if (name !== 'mdlxl_context') return result;
+            if (name !== 'mdlxl_context' || !(await this.sdBrainAvailable())) return result;
             const policy = await this.sdBrainPolicy(),
               { sdBrainInstructions } = await this.init();
             return { ...result, sdBrain: { ...policy, instructions: sdBrainInstructions(policy, 'external') } };
@@ -241,7 +256,10 @@ class AiService {
     if (this.conversations.has(id)) return this.conversations.get(id);
     let value;
     try {
-      value = JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8'));
+      // Loaded from disk means nothing of it is running in this app session.
+      value = settleConversation(
+        JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')),
+      );
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       value = { id, provider, transcript: [], messages: [] };
@@ -429,7 +447,26 @@ class AiService {
           JSON.stringify(task.steps)
         : '');
     if (organiser) prompt += '\n\n' + (await this.organiserBriefing(conversation));
-    prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
+    // SD Brain: the request first becomes an art brief, once per task. Workers get
+    // the organiser task's brief with their job instead of writing their own.
+    if (sd.enabled && conversation.kind !== 'worker' && !conversation.toolsOff && !task.artBrief) {
+      recorder.event({ type: 'art', status: 'running' });
+      let failure = '';
+      try {
+        task.artBrief = await this.artDirection({ text, images, context, settings, contract, signal, conversation });
+        if (!task.artBrief) failure = 'The art director returned no brief.';
+      } catch (error) {
+        if (signal.aborted) throw error;
+        task.artBrief = '';
+        failure = error.message;
+      }
+      // Without a brief the task still runs on the SD Brain policy; the row says why.
+      recorder.event(failure ? { type: 'art', status: 'error', text: failure } : { type: 'art', status: 'done', text: task.artBrief });
+      await this.persistConversation(conversation);
+    }
+    if (task.artBrief && conversation.kind !== 'worker')
+      prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
+    if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
     let workerImages = images;
@@ -438,7 +475,7 @@ class AiService {
       if (organiser && name === 'mdlxl_worker') {
         const attached = workerImages;
         workerImages = [];
-        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd });
+        return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd, artBrief: task.artBrief });
       }
       if (args.target && args.target !== context.target)
         throw Error('Use the target captured with the current prompt.');
@@ -483,7 +520,11 @@ class AiService {
       try {
         const result = await this.call(
           name,
-          { ...args, ...(name === 'mdlxl_help' ? {} : { target: context.target }) },
+          {
+            ...args,
+            ...(name === 'mdlxl_help' ? {} : { target: context.target }),
+            ...(sd.enabled && name === 'mdlxl_review' && args.action === 'inspect' ? { turnaround: true } : {}),
+          },
           requestSignal,
         );
         if (edit || name === 'mdlxl_review') {
@@ -525,8 +566,9 @@ class AiService {
         : AI_SYSTEM_PROMPT;
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
-    const instructions =
-      system + '\n\n' + sdBrainInstructions(sd, organiser ? 'organiser' : conversation.toolsOff ? 'note' : 'direct');
+    const instructions = (await this.sdBrainAvailable())
+      ? system + '\n\n' + sdBrainInstructions(sd, organiser ? 'organiser' : conversation.toolsOff ? 'note' : 'direct')
+      : system;
     try {
       await progress('inspecting');
       let runs = 0;
@@ -622,7 +664,7 @@ class AiService {
       organiser.nextName = nextBird(organiser.birds, this.random);
     return organiser.nextName;
   }
-  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy }) {
+  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy, artBrief }) {
     const previous = this.workerLock;
     let release;
     this.workerLock = new Promise(resolve => (release = resolve));
@@ -676,6 +718,7 @@ class AiService {
       active.worker = { id: worker.id, steering };
       const text =
         `Job: ${args.job}\n\nInstructions from the organiser:\n${args.instructions}\n\nThe user's message, exactly as written:\n${userText}` +
+        (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
         (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '');
       let status = 'done',
         error;
@@ -712,6 +755,40 @@ class AiService {
       if (worker) this.emitRoster(organiser);
       release();
     }
+  }
+  // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
+  // user's words into an SD art brief. Nothing of it is kept but the brief.
+  async artDirection({ text, images, context, settings, contract, signal, conversation }) {
+    const art = { id: `${conversation.id}-art`, provider: settings.provider, transcript: [], messages: [], kind: 'art' };
+    const counts = context.counts || {},
+      model = counts.geosets
+        ? `The open model ${context.name} has ${counts.geosets} geosets and ${counts.triangles} triangles${context.selection && Object.keys(context.selection).length ? ', with a selection the user made' : ''}.`
+        : `The open model ${context.name} is empty, so this creates something new.`;
+    let reply = '';
+    const options = {
+      settings,
+      key: this.decrypt(settings.key),
+      directory: this.directory,
+      event: value => {
+        if (value.type === 'text') reply += value.text;
+      },
+      tools: [],
+      call: async () => {
+        throw Error('The art director has no tools.');
+      },
+      system: contract.AI_SD_ART_DIRECTOR,
+      prompt: `The user's request, exactly as written:\n${text}\n\n${model}`,
+      images,
+      conversation: art,
+      signal,
+      // The art director never watches the editor (providers skip awareness when it is null).
+      awareness: null,
+      steering: new AiSteering(() => {}),
+    };
+    if (settings.provider === 'codex') await runCodex(options);
+    else if (settings.provider === 'claude') await runClaude(options);
+    else await runApi(options);
+    return reply.trim().slice(0, 4000);
   }
   async handover(worker, settings, contract, context, signal, policy) {
     const conversation = await this.conversation(worker.id, settings.provider);
@@ -801,7 +878,11 @@ class AiService {
     return { activity: !!entry.activity, remember: entry.remember || 'ask' };
   }
   // SD Brain is off until the user turns it on; it applies from the next task.
+  async sdBrainAvailable() {
+    return this.sdBrainOverride ?? (await this.init()).SD_BRAIN_AVAILABLE === true;
+  }
   async setSdBrain(enabled) {
+    if (enabled && !(await this.sdBrainAvailable())) throw Error('SD Brain is not available in this version.');
     if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
     const config = await this.configuration();
     config.sdBrain = enabled;
@@ -812,7 +893,7 @@ class AiService {
   async sdBrainPolicy() {
     const config = await this.configuration(),
       { SD_BRAIN_REVISION } = await this.init();
-    return { enabled: config.sdBrain === true, revision: SD_BRAIN_REVISION };
+    return { enabled: (await this.sdBrainAvailable()) && config.sdBrain === true, revision: SD_BRAIN_REVISION };
   }
   async setOffload(enabled) {
     if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
@@ -903,7 +984,7 @@ class AiService {
   async readConversation(id) {
     if (this.conversations.has(id)) return this.conversations.get(id);
     try {
-      return JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8'));
+      return settleConversation(JSON.parse(await fs.readFile(path.join(this.directory, 'chat-' + id + '.json'), 'utf8')));
     } catch {
       return null;
     }
@@ -1090,6 +1171,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
   handle('ai:offload', enabled => service.setOffload(enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
+  handle('ai:model', model => service.setModel(model));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
   handle('ai:transcript', async id => {

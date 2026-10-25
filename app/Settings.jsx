@@ -8,6 +8,7 @@ import { useHotkeys } from './Hotkeys.jsx';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
 import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
 import { wireDashArray } from '../src/wire-pattern.js';
+import { helpersForPreset, paintForPreset, viewportPresetChange } from '../src/light-dark-switch.js';
 import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS } from '../src/tree-appearance.js';
 import { CONTROLLER_SHAPES, PIN_STYLES, controllerShapePoints } from '../src/controller-appearance.js';
 import './settings.css';
@@ -170,8 +171,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   const treePart = (part, change) => viewportPart('tree', { [part]: { ...prefs.viewportAppearance.tree[part], ...change } });
   const palette = (title, value, read, apply) => <AppearanceSet title={title} value={value} entries={Object.values(BUILT_IN_VIEWPORT_PRESETS).map(preset => [preset.id, preset.name, read(preset)])} onChange={apply}/>;
   const partPalette = (part, title) => palette(title, prefs.viewportAppearance[part], preset => part === 'controllers' ? preset.appearance[part] : colorValues(preset.appearance[part]), change => viewportPart(part, change));
-  const helpersFor = preset => preset.theme === 'light' ? colorValues(Object.fromEntries(APPEARANCE_HELPER_COLORS.map(([key]) => [key, DEFAULT_VISUALS[key]]))) : { keyframe: preset.appearance.controllers.color, activeKeyframe: preset.appearance.controllers.selected, bone: preset.appearance.tree.nodes.bone, node: preset.appearance.tree.nodes.attachment, particle: preset.appearance.tree.nodes.emitter, event: preset.appearance.tree.nodes.spawn, selection: preset.appearance.controllers.selected, uvSelection: preset.appearance.controllers.pinned };
-  const paintFor = preset => preset.theme === 'light' ? colorValues(DEFAULT_PAINT_APPEARANCE) : { brushTipLight: '#242424', brushTipDark: APPLICATION_THEMES[preset.theme].colors.text, brushCursor: APPLICATION_THEMES[preset.theme].colors.text, geosetSelection: preset.appearance.controllers.color, geosetBorder: preset.appearance.controllers.selected, lampSelection: preset.appearance.controllers.pinned };
+  const helpersFor = helpersForPreset, paintFor = paintForPreset;
   const grid = change => commit({ grid: { ...prefs.grid, ...change } });
   useEffect(() => {
     previousFocus.current = document.activeElement;
@@ -226,7 +226,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   const applyViewportPreset = id => {
     const preset = viewportPresetById(id, prefs.viewportPresets);
     if (!preset) return;
-    commit({ viewportPreset: id, viewportAppearance: preset.appearance, ...(preset.theme ? { theme: preset.theme, accent: preset.accent || APPLICATION_THEMES[preset.theme].accent } : {}), ...(BUILT_IN_VIEWPORT_PRESETS[id] ? { visuals: { ...prefs.visuals, ...helpersFor(preset) }, citadelPaint: { ...prefs.citadelPaint, ...paintFor(preset) } } : {}) }); setMessage(`${preset.name} loaded.`);
+    commit(viewportPresetChange(prefs, id)); setMessage(`${preset.name} loaded.`);
   };
   const saveViewportPreset = () => {
     const name = presetName.trim();

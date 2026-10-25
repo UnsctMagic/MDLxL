@@ -62,15 +62,26 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
         return { x: rect.x + (point.x + 1) * rect.width / 2, y: rect.y + (1 - point.y) * rect.height / 2 };
       };
       window.authoredVertices = () => Array.from(viewportState().entries[dragGeosetIndex].geoset.Vertices);
+      window.displayedCoords = () => Array.from(document.querySelectorAll('.classic-sidebar .classic-coordinates input'), input => Number(input.value));
     }, geosetIndex);
     const idle = () => page.waitForTimeout(180);
     const moveBy = async (start, dx, beforeVisual) => {
+      const before = await page.evaluate(() => ({ authored: authoredVertices(), coords: displayedCoords() }));
       await page.mouse.move(start.x, start.y); await page.mouse.down(); await idle();
       const pressed = await page.evaluate(() => vertexCentroid());
       close(pressed.x, beforeVisual.x, 'pointer-down x'); close(pressed.y, beforeVisual.y, 'pointer-down y');
       await page.mouse.move(start.x + dx, start.y, { steps: 4 }); await idle();
       const live = await page.evaluate(() => vertexCentroid()); close(live.x, beforeVisual.x + dx, 'live horizontal drag'); close(live.y, beforeVisual.y, 'live vertical position');
-      await page.mouse.up(); await idle(); return live;
+      const liveCoords = await page.evaluate(() => displayedCoords());
+      assert.ok(liveCoords.some((value, axis) => Math.abs(value - before.coords[axis]) > .001), 'Coords changes before the mouse is released');
+      assert.deepEqual(await page.evaluate(() => authoredVertices()), before.authored, 'preview does not commit authored vertices');
+      await page.mouse.up(); await idle();
+      const authored = await page.evaluate(() => authoredVertices());
+      for (let axis = 0; axis < 3; axis++) {
+        const expected = authored.filter((_, index) => index % 3 === axis).reduce((sum, value) => sum + value, 0) * 3 / authored.length;
+        close(liveCoords[axis], expected, 'live Coords matches committed model axis ' + axis, .0002);
+      }
+      return live;
     };
 
     await page.getByLabel('View direction', { exact: true }).selectOption('right');
@@ -102,6 +113,18 @@ const close = (actual, expected, label, epsilon = 1.5) => assert.ok(Math.abs(act
     close(quadAfter.point.x, quadLive.x, 'quad release x'); close(quadAfter.point.y, quadLive.y, 'quad release y');
     assert.notDeepEqual(quadAfter.authored, quadBefore.authored, 'quad drag commits authored coordinates');
     await page.keyboard.press('Control+z'); await idle(); assert.deepEqual(await page.evaluate(() => authoredVertices()), quadBefore.authored);
+    // Escape must discard both the live coordinates and geometry, without an undo entry.
+    const cancelBefore = await page.evaluate(() => ({ point: vertexCentroid(), authored: authoredVertices(), coords: displayedCoords() }));
+    await page.mouse.move(cancelBefore.point.x, cancelBefore.point.y); await page.mouse.down();
+    await page.mouse.move(cancelBefore.point.x + 31, cancelBefore.point.y, { steps: 4 }); await idle();
+    assert.notDeepEqual(await page.evaluate(() => displayedCoords()), cancelBefore.coords, 'cancel fixture has a live coordinate preview');
+    await page.keyboard.press('Escape'); await page.mouse.up(); await idle();
+    assert.deepEqual(await page.evaluate(() => displayedCoords()), cancelBefore.coords, 'Escape restores Coords');
+    assert.deepEqual(await page.evaluate(() => authoredVertices()), cancelBefore.authored, 'Escape leaves authored vertices unchanged');
+    await page.keyboard.press('Control+y'); await idle();
+    assert.deepEqual(await page.evaluate(() => authoredVertices()), quadAfter.authored, 'cancel preserves the redo entry');
+    await page.keyboard.press('Control+z'); await idle();
+    assert.deepEqual(await page.evaluate(() => displayedCoords()), cancelBefore.coords, 'undo restores Coords after redo');
     await page.screenshot({ path: path.join(out, suppliedFixture ? 'supplied-billboard-drag-stable.png' : 'billboard-drag-stable.png') });
     assert.deepEqual(errors, []); assert.deepEqual(fs.readFileSync(fixture), original, 'fixture bytes stay unchanged');
     console.log('PASS billboard vertex drag stays under the pointer in normal and quad views');
