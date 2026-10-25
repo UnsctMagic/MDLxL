@@ -13,6 +13,7 @@ The current session delivers a usable first volume, **not completion of the whol
 ## Revision and local state
 
 - Branch: `codex/sd-research`, based on main `2d6ca1e807640cc4dc6f4bccbbce46ddb021957e`.
+- Draft PR: https://github.com/UnsctMagic/MDLxL/pull/302 (open, unmerged). Initial research checkpoint: `7befc16f7cf759bf43cf8b127947de3c03121969`; the PR head also contains this handoff link.
 - Working checkout during the study: `D:/Codex/sd-research/repo`. After the pushed checkpoint, the temporary checkout is removed; obtain the branch into this same D: path to continue. Inspect Git status before using an existing checkout.
 - Repository: `UnsctMagic/MDLxL`. All changes are research scripts, derived knowledge and this task-note index.
 - Durable entry point: `D:/Codex/sd-research/START-HERE.html`.
