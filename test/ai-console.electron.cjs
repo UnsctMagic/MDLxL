@@ -205,8 +205,9 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const strokes = await page.evaluate(() => document.querySelector('.ai-chip')?.textContent);
   const beforeErase = await drawings();
   // Sweep a vertical eraser pass across the whole view: it crosses every stroke.
+  // Passes start below the floating view controls, which take the top 50 px.
   for (let x = box.x + 40; x < box.x + box.width - 40; x += 60)
-    await drag([x, box.y + 40], [x, box.y + box.height - 40], { steps: 10 });
+    await drag([x, box.y + 60], [x, box.y + box.height - 40], { steps: 10 });
   check('eraser drags remove drawings', (await drawings()) < beforeErase, { strokes });
   // Draw fresh notes for the prompt.
   await page.getByRole('button', { name: 'Clear drawings', exact: true }).click().catch(() => {});

@@ -45,7 +45,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   pointerSensitivity: 1,
   rightScrollAdjust: true,
   highlightSelection: false,
-  theme: 'light', accent: '#71b5f3', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
+  theme: 'light', accent: '#71b5f3', toolHighlight: '', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
   cameraBindings: CAMERA_PRESETS.classic.cameraBindings,
   visuals: DEFAULT_VISUALS, grid: DEFAULT_GRID,
   viewportPreset: DEFAULT_VIEWPORT_PRESET_ID, viewportAppearance: DEFAULT_VIEWPORT_APPEARANCE, viewportPresets: Object.freeze([]),
@@ -174,6 +174,8 @@ export function normalizePreferences(value = {}) {
     highlightSelection: boolean(input.highlightSelection, false),
     theme: Object.hasOwn(APPLICATION_THEMES, input.theme) ? input.theme : 'light',
     accent: /^#[0-9a-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : '#71b5f3',
+    // Empty follows the UI accent.
+    toolHighlight: /^#[0-9a-f]{6}$/i.test(input.toolHighlight) ? input.toolHighlight.toLowerCase() : '',
     panelScale: bounded(input.panelScale, 1, 1.75, 1), // 164 was the narrow default before every editor panel became draggable.
     panelWidth: bounded(input.panelWidth === 164 ? PANEL_WIDTH_DEFAULT : input.panelWidth, PANEL_WIDTH_MIN, PANEL_WIDTH_MAX, PANEL_WIDTH_DEFAULT),
     newModelVersion: input.newModelVersion === 1000 ? 1000 : 800, uvRepeat: boolean(input.uvRepeat, false),
