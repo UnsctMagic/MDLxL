@@ -293,6 +293,8 @@ export default function App() {
   const travelRevision = useRef(null), lastRevision = useRef(null);
   // Undo/Redo availability also follows the drawings.
   const sketchState = useSyncExternalStore(sketchStore.subscribe, sketchStore.get, sketchStore.get);
+  // Pen, Marker and Eraser draw with the left button in Work mode, so picking one leaves camera Zoom/Rotate/Move.
+  useEffect(() => { if (sketchState.tool) setCameraMode('work'); }, [sketchState.tool]);
   const liveMovementRevision = useRef(-1);
   const [recoveries, setRecoveries] = useState([]), [historyMB, setHistoryMB] = useState(512), [historySteps, setHistorySteps] = useState(10000), [anchor, setAnchor] = useState(''), [normalAngle, setNormalAngle] = useState(90), [gameDataPath, setGameDataPath] = useState('');
   const [gameDataSources, setGameDataSources] = useState([]);
@@ -624,6 +626,7 @@ export default function App() {
     if (rigWorkspace) setMovementMode(movement);
   };
   const toggleMiddleCamera = () => {
+    sketchStore.clearTool();
     if (cameraMode !== 'rotate') { setCameraMode('rotate'); return; }
     setCameraMode('work');
     if (tool === 'rotate') setTool('select');
