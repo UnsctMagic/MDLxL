@@ -1,80 +1,96 @@
-# SD Brain uses the SD research volume
+# SD Brain: an art director that knows the toolbox, the box of parts and the palettes
 
-Status: ready for review; awaiting merge approval
-Owner / consolidator: Claude Code
+Status: active; plan steps 1–4 being built by a worker session
+Owner / consolidator: Claude Code (organiser session local_1220aaee-c4c9-49b5-8f18-913dac16f85b)
 Updated: 25 October 2026
 
 ## Goal and completion criteria
 
-- Build the useful, directly reviewed findings of the SD research volume (PR #302,
-  branch `codex/sd-research`, study at `D:/Codex/sd-research/study`) into the
-  existing SD Brain: the art director, the builder and its review. Owner authorization
-  came through Codex on 25 October 2026 after the study-only phase.
-- Scope: SD artwork (including SD in MDX 1800). No HD/Reforged work, no beginner
-  guidance layer yet (the owner shapes the system after this), no promotion of
-  pending labels, candidates or approximate matches to rules.
-- SD Brain stays parked in shipped source (`SD_BRAIN_AVAILABLE = false`); a separate
-  test build has it on.
+- SD Brain turns a casual request into an SD Warcraft III model the owner would accept,
+  using every technique an SD modeller uses. The owner's direction is recorded in
+  [SD styles](../SD-STYLES.md): SD is one standard (MDX 800, model file roughly 200–700 KB by
+  type, 256 or 512 textures) with four ways of making it (Blizzard: reshape, don't rebuild;
+  HerrDave: simplest; Gluma: painted skin, heavy rig and animation; HQSD: the owner's upgrade
+  layer on any base). These are styles, not rules.
+- The art director is unrestricted: it may kitbash native parts, reshape a native base, use
+  textures as kitbash palettes (chosen by look, whatever the sheet was made for) or as a model's
+  own skin, and build new shapes, as long as new shapes respect the craft in SD-STYLES.md. Native
+  textures and parts come first. Mixing is the default: start from a Blizzard reference part or
+  base, then add shapes and build further. The owner may ask for one approach ("kitbash", or "a
+  standard model with its own texture").
+- Example of a valid direction for "orc warlord": Grunt base, Thrall's head, new hair, a helmet
+  with horns, reshaped and recoloured from a palette, Frostmourne with a new hilt.
+- Team colour is a design choice, never a default on weapons.
+- SD Brain stays parked in shipped source (`SD_BRAIN_AVAILABLE = false`); the test build has it on.
+  No merge without owner approval.
+
+## Plan (approved by the owner, 25 October 2026)
+
+1. Art director as a kitbash director. Its brief lists the base or reference to start from;
+   what to keep, remove, take from other models, reshape or build new; and the paint for each
+   part (native skin, a palette area of another sheet, tint, or the kit's own paint).
+2. Box-of-parts guide: which game models carry recognisable parts (Frostmourne on Arthas,
+   Thrall's head, horns, helmets, shields, weapons first) plus the owner's BITZ box. Built from
+   the research labels and model names, checked by loading the models.
+3. Palettes by looking: the AI previews a sheet before using an area of it. The region list in
+   `src/sd-knowledge.js` only says where to start looking.
+4. Builder moves: load a base, remove a part, bring in a part from another model and fit it to
+   the right bone, reshape without breaking its texture, recolour with a palette area or tint,
+   build new HQSD gear. Kit: real edge cutouts (thin contrasting edge piece on the blade body),
+   pointed outlines instead of square steps, layered trims, smooth shading inside a piece, new
+   shapes that attach to a reference part.
+5. Checks: format 800, model file size for the type, 256/512 textures, detail in gear rather
+   than body, and a side-by-side picture with the base or reference model.
+6. Real prompt tests in the test build ("orc warlord", "brutal sword", "chaos knight of nurgle",
+   "give him a skull helmet") only after the owner sees steps 1–4 and says go (AI credits).
 
 ## Revision and local state
 
-- Branch: `claude/sd-brain-knowledge` from `main` 2d6ca1e8, draft PR https://github.com/UnsctMagic/MDLxL/pull/303.
-  Test build (SD Brain on, not committed): `D:/Claude/MDLxL-TestBuilds/SD-Brain-Knowledge`. Research PR #302 and the
-  rejected #299 are untouched.
-- Regenerating the pack needs the research folder `D:/Codex/sd-research` (study data
-  and `data/uv-library.sqlite`) and Codex's texture index
+- Branch `claude/sd-brain-knowledge`, worktree `D:/Claude/MDLxL/.claude/worktrees/sd-brain-knowledge`,
+  draft PR https://github.com/UnsctMagic/MDLxL/pull/303. Research PR #302 and the rejected #299
+  are untouched.
+- Test build (SD Brain on, flips not committed): `D:/Claude/MDLxL-TestBuilds/SD-Brain-Knowledge`.
+  Its saved chats are in `resources/app/profile/ai/`.
+- Local evidence, not committed: `out/rules/` (measuring scripts and pictures behind
+  SD-STYLES.md), `out/traitor/` (Traitor Axe analysis), `out/sd-native-check/`.
+- Regenerating the knowledge pack needs `D:/Codex/sd-research` and
   `D:/Codex/mdlxl-sd-rulebook-20261024/work/casc-texture-index.json`.
 
 ## Relevant owners
 
-- `src/sd-knowledge-data.js`: generated pack, never edited by hand. Rebuild with
-  `node scripts/sd-knowledge/build-pack.mjs [--research <dir>] [--textures <index>]`.
-- `src/sd-knowledge.js`: lookups (`findMaterials`, `sheetInfo`, `findFamilies`,
-  `categoryNorms`, `checkAgainstNorms`, `findFactions`, `findPainting`,
-  `findChapters`/`chapter`, `guessCategory`) and `briefEvidence`, the art director's
-  evidence block. Word lists `SYNONYMS`, `FAMILY_ALIASES`, `CATEGORY_WORDS` and
-  `FACTION_WORDS` decide what a casual request retrieves.
-- `src/sd-kit.js`: `native` part option and `commitNative`, which fits each UV island
-  into a game texture region (turned to the region's long side, aspect kept) with
-  optional geoset tint and the existing Team Color material preset.
-- `src/ai-sd-rules.js`: `AI_SD_ART_DIRECTOR` craft notes and brief format (new Paint
-  line), `AI_SD_BRAIN` builder/review instructions, revision `2026-10-25.6`.
-- `electron/ai-service.cjs` `artDirection()`: appends `briefEvidence` to the director's prompt.
-- `src/ai-capabilities.js`: lists `sd-knowledge` beside `sd-kit` only when SD Brain is available.
+- `src/ai-sd-rules.js`: `AI_SD_ART_DIRECTOR`, `AI_SD_BRAIN`, `SD_BRAIN_REVISION`, `SD_BRAIN_AVAILABLE`.
+- `electron/ai-service.cjs` `artDirection()`: the director turn and its evidence block.
+- `src/sd-knowledge.js` over the generated `src/sd-knowledge-data.js`
+  (`scripts/sd-knowledge/build-pack.mjs`): texture regions by look, families, norms, factions,
+  chapters, `briefEvidence`, `checkAgainstNorms`.
+- `src/sd-kit.js`: kit parts, painter, `native` regions (`commitNative`).
+- Existing toolbox the AI already has: `mdlxl_assets` in `src/ai-tools.js` (search model
+  textures, texture library, BITZ parts, game files; preview a texture; load a game model or part
+  as a reference); `src/bits-and-parts.js` (`collectPart`, `commitPart` with replacement,
+  `positionPart`, `previewPartReplacement`); uv-tools, mesh and bone modules via `api.module`.
 
 ## Findings and decisions
 
-- Verified: the pack holds 2,130 texture regions with reviewed labels (1,685 from the
-  owner's 26 models, 433 Blizzard, 12 other LowPolyWorks), 205 owner sheets with
-  observed contents, 217 construction families (directly annotated members only),
-  27 category populations, 20 faction profiles, 42 custom-paint observations and 67
-  study chapters without pictures or local links (about 1.5 MB, a lazy chunk).
-- Decision: a region's `uv` is the largest rectangle fully inside the real UV triangle
-  union (128-cell grid, tiled UVs folded by texture flags), so a new part never samples
-  outside the painted island. 266 reviewed regions too thin for that grid and 206 on
-  custom (non-game) paint are left out.
-- Decision: region tags describe the rendered part; `tint` (geoset RGB) and `team`
-  (team-colour layer under alpha paint) travel with the region because the research
-  showed colour often comes from them (Nurgle skulls, Khorne crossguard).
-- Decision: geometry is still built fresh; only native paint is reused, as the owner
-  does. Corpse, decay and portrait-backdrop regions rank low unless asked for.
-- Uncertain: retrieval is word based; `FAMILY_ALIASES` and the synonym lists will need
-  more entries as real prompts show gaps (for example "chalice" has no family).
+- The test-build "brutal sword" failed: one flat-shaded slab (sharp side 1.00), no edge, a banded
+  strip of AxeBladeBlueSteel picked from a text list without looking, square steps, box hilt,
+  "item" triangle targets (33–132) instead of weapon references. Saved chat:
+  `chat-30bcd798-dfe7-4098-bfb7-850ac53f770d-jackdaw.json` in the test build profile.
+- Verified evidence for the styles, with counts, is in SD-STYLES.md (14 of 20 owner bladed
+  weapons use contrasting cutouts; 12 of 14 edge pieces thin out; gear 3 times the body's density;
+  all 26 owner models credit a base model).
+- Avoid repeating: grouping LowPolyWorks models by every credited author (use the first author);
+  claiming shading or texture density without measuring; feeding the AI label lists instead of
+  letting it look at sheets.
 
 ## Changes and verification
 
-- Checks: `node --test test/sd-kit.test.js test/sd-knowledge.test.js test/ai-workflow.test.js
-  test/ai-mcp.test.js test/ai-model.test.js` passed; full `test/*.test.js` passed apart
-  from particle-library/optimizexl-validation runs that overlapped a `dist/` rebuild and
-  passed on rerun (17/17). `pnpm run build` passed.
-- Render check: an axe built through `findMaterials` + `native` parts opened in the
-  dev build on a hidden desktop shows Infernal Cannon iron and campaign wood from the
-  installed game (`out/sd-native-check`, local only).
-- Remaining: no real-provider prompt trials were run (they spend the owner's AI
-  credits); the owner tests by hand in the test build. Warcraft III gameplay not tested.
+- Done earlier on this branch: knowledge pack, `sd-knowledge` lookups, sd-kit `native`
+  regions, director evidence block. Tests: sd-kit, sd-knowledge, ai-workflow, ai-mcp, ai-model
+  and the full source suite passed; compatibility 57/57.
+- Remaining: plan steps 1–6.
 
 ## Blockers and next action
 
-- None. Next: owner tries casual prompts in the test build; extend the word lists and
-  the pack (new research volumes) from what fails.
+- Next: worker builds plan steps 1–4, then the organiser reviews and shows the owner before
+  step 6.
 - On completion: record the merge, remove the index entry.
