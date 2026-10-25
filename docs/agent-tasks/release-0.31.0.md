@@ -1,49 +1,63 @@
 # MDLxL 0.31.0 release
 
-Status: in progress
-Owner: Claude release session (branch `claude/release-0.31.0`, worktree `.claude/worktrees/release-0.31.0`)
+Status: completed
+Owner: Claude release session (local_1123ecca-aa7a-429e-9bd7-709e71511514)
 Updated: 2026-10-25
 
-## Owner decisions (given up front, so the run is unattended)
+## Result
 
-- Wait for the new look (PR #296), merge it once finished and CI passes, then release.
-- Approved: merging #296 and the release PR, the LowPolyWorks site notes, publishing (Garithos).
-- A new test failure versus 0.30.1: fix it, then release. A late #296: keep waiting.
-- Notes in order of importance: AI first, then the new look (VIS keeps the classic MDLVis look), then the rest.
-- New PDFs in EN/ES/RU/ZH-CN: AI console guide, AI sign-in guide, map of the new interface.
-  Old PDFs in `docs/` are removed (legacy guides are not kept).
+- Published [MDLxL 0.31.0](https://github.com/UnsctMagic/MDLxL/releases/tag/v0.31.0)
+  on 2026-10-25 04:40 UTC from tag v0.31.0 (merge 2d6ca1e8 of release PR #300).
+  Contents since 0.30.1: #288, #291 (with #287), #292, #293, #294, #295, #296 (new
+  look), #297, #298, plus the fixes in #300.
+- Notes in EN/ES/RU/ZH-CN, ordered by importance (AI, then the new look with VIS
+  still the classic MDLVis look, then the rest). Live on the MDLxL page via
+  LowPolyWorks #39 (main) and gh-pages 035b48ad.
+- New PDF guides in four languages (AI console, AI sign-in, interface map) are in
+  `docs/`, shipped in the package and attached to the release. Old PDFs were removed
+  from `docs/`. Old PDF assets on earlier GitHub releases were left (deleting release
+  assets is permanent; the owner can remove them).
+- Garithos workflow run 40162766883 succeeded. Shipped Claude sessions archived;
+  Codex-owned #287, #288, #293 left for Codex.
 
-## Contents since 0.30.1
+## Owner decisions (given up front for an unattended run)
 
-#288 (0.30.1 acceptance record), #292 duplicate geoset animations open normally,
-#293 live Coords while dragging, #295 Shift+F1/F2 light/dark, #294 UV Live Select
-Lines + menu, #297 updater install ping, #298 short texture names, #291 (with #287)
-AI console and editor hook, #296 new look (pending).
+Merge #296 once ready, merge the release PR, publish site notes and the release.
+New test failures versus 0.30.1: fix, then release. A late #296: keep waiting.
 
-## Gate note
+## Fixes found by the full packaged-app run (in #300)
 
-#297 pings `lowpolyworks-vault…workers.dev/api/events` after a successful update.
-The two-cycle updater gate installs private test versions, so their ping must be
-kept off the real counter (route it to the loopback fixture in the private copies).
-`test/updater-release-gate.cjs` still hard-codes 0.21.x versions and must be
-parameterised for the candidate version.
+- Forge Shift snap-rotate of a detail copy broke in #293 (bisected; passes on 0.30.1).
+  Live Coords re-rendered the whole Forge editor per mouse move; only the Coords
+  fields (`ForgeCoordinates` in `app/ForgeEditor.jsx`) re-render now.
+- Forge's wrapped shape tools and Shape/Edge/Vertex get the new carved tiles.
+- "Fix" in the duplicate geoset animation dialog translated.
+- Tests updated for #292/#294/folded Stats; runner gives AI tests the package and a
+  normal window; `ai-live` skipped (opt-in real account).
 
-## Progress
+## Verification
 
-- #296 merged (4af766e9) and merged into this branch. Version 0.31.0, notes in four
-  languages, README, AI-HOOK wording (AI icon in the dock) committed.
-- Source suite on main before #296: 1,933 pass / 0 fail; compatibility 57 pass.
-- PDFs: `docs/MDLxL-0.31.0-{AI-Guide,AI-Sign-in,Interface-Map}-{EN,ES,RU,ZH-CN}.pdf`,
-  built from `out/guide-shots` (app screenshots per language, `shots.cjs`) and
-  `out/guide-shots/pdf/{content,build}.mjs` (HTML -> headless Chrome). The package
-  ships these instead of the 0.22.0 manual and Paint guide; old PDFs removed from docs.
-- Packaged suite runner: AI tests now get the package (`MDLXL_AI_TEST_EXE`); `ai-live`
-  is skipped as an opt-in real-account check.
-- Site notes committed on LowPolyWorks branches `claude/mdlxl-0.31.0-notes` (main PR)
-  and `claude/gh-pages-mdlxl-0.31.0` (worktrees `D:\Claude\LowPolyWorks-mdlxl-0.31.0`,
-  `D:\Claude\LowPolyWorks-pages-0.31.0`); site tests 6/6 and project check pass. Not pushed yet.
-- Gate driver: `D:\Claude\MDLxL-gate\driver.cjs` (candidate -> A -> B -> revert, checks
-  routed pings). No dirty model, so the save prompt is not shown; the revert confirm is
-  answered in memory. Run it on the CI ZIP after the draft build.
-- Old GitHub release assets (Paint guide on 0.17.0-0.21.2, 0.22.0 / 0.27.0 / 0.29.0 PDFs)
-  are permanent deletions and were left for the owner.
+- Source suite 1,936 pass / 0 fail / 13 skipped; compatibility 57 pass; PR CI green.
+- Packaged suite (default, all): 127 pass, 24 configured skips; every failure fixed and
+  rerun green, then `core` 28/28 and a Forge/UI/AI list green on the final package.
+  Remaining known PC-specific: `ai-editor` (its stand-in sign-in program relies on the
+  `.js` file association) and `module-button-labels.browser` (hangs here, also on
+  0.28.4 / 0.29.0).
+- Updater gate on the official ZIP (sha256 928e2108…5623, 207,812,138 bytes):
+  0.31.0 -> private 0.31.1 -> private 0.31.2 -> offline revert to 0.31.1. 33 blocked
+  relaunches per cycle, manifest/snapshot/personal-file hashes, one-version retention,
+  consumed snapshot, and exactly one routed update ping per install (#297), never the
+  real counter. The Save / Cancel / Close prompt was answered by clicking its Close
+  button; the revert confirm was answered in memory. Public ZIP re-downloaded after
+  publishing: same hash. FFmpeg source asset reused (unchanged, sha256 01b14874…091b).
+
+## Harness notes for the next release
+
+- `test/updater-release-gate.cjs` now takes the candidate's version and routes the
+  private copies' ping to its fixture. A driver for the whole run is in
+  `D:\Claude\MDLxL-gate\driver.cjs` (outside git): it presses Close in the prompt for
+  updates and the revert. `test/updater-release-reopen.ps1` counts a launch Windows
+  refuses mid-swap as blocked (this PR).
+- Run packaged tests with `node scripts/run-packaged-tests.mjs`, not `pnpm run`: the
+  pnpm pre-run install rewrote the main checkout's top-level `node_modules` links.
+- `test/geoset-duplicate-open` waits for the save to register before closing.
