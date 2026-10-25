@@ -149,6 +149,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         // A toggled checkbox keeps focus where the user works (e.g. the UV Wrapper).
         else { if (!target.matches('input[type="checkbox"]')) target.focus({ preventScroll: true }); target.click(); }
       } else if (typeof action.run === 'function') action.run(event); else dispatch(action.id, event);
+      // Shredder's reminders count only shortcuts that actually ran.
+      window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used', { detail: { id: action.id, chord, event } }));
       return true;
     };
     const keydown = event => {

@@ -1,0 +1,86 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  DEFAULT_SHREDDER, SHREDDER_TEST_VERSION, normalizeShredder, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey,
+  clearSilences, clearLearned, notebookCounts, reminderFor, directKey, keyCaps,
+} from '../src/shredder-keycaps.js';
+import { normalizePreferences } from '../src/preferences.js';
+
+const HOUR = 60 * 60 * 1000, NOW = 1_800_000_000_000;
+
+test('defaults keep five uses and 24 quiet hours, and the test switch turns reminders on', () => {
+  assert.equal(DEFAULT_SHREDDER.learnUses, 5);
+  assert.equal(DEFAULT_SHREDDER.quietHours, 24);
+  assert.equal(DEFAULT_SHREDDER.enabled, SHREDDER_TEST_VERSION);
+  assert.deepEqual(normalizePreferences({}).shredder, normalizeShredder(undefined));
+});
+
+test('settings are normalized, and the old on/off switch is kept', () => {
+  assert.equal(normalizeShredder(false).enabled, false);
+  assert.equal(normalizeShredder(true).enabled, true);
+  assert.deepEqual(normalizeShredder({ enabled: true, position: 'top', size: 'large', style: 'flash', duration: 0, learnUses: 3, quietHours: 1 }),
+    { enabled: true, position: 'top', size: 'large', style: 'flash', duration: 0, learnUses: 3, quietHours: 1 });
+  const junk = normalizeShredder({ position: 'moon', size: 9, style: 'disco', duration: 7, learnUses: '5', quietHours: -1 });
+  assert.deepEqual({ ...junk, enabled: DEFAULT_SHREDDER.enabled }, { ...DEFAULT_SHREDDER });
+  assert.deepEqual(normalizePreferences({ shredder: { enabled: false, size: 'small' } }).shredder, { ...DEFAULT_SHREDDER, enabled: false, size: 'small' });
+});
+
+test('a click reminds of the direct key only, never of a Ctrl+Alt+Space code', () => {
+  const notebook = emptyNotebook();
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW), 'M');
+  assert.equal(reminderFor(notebook, 'thing', ['Ctrl+Alt+Space>ABC'], NOW), '');
+  assert.equal(reminderFor(notebook, 'thing', ['Ctrl+Alt+Space>ABC', 'Shift+K'], NOW), 'Shift+K');
+  assert.equal(reminderFor(notebook, 'none', [], NOW), '');
+  assert.equal(directKey(undefined), '');
+});
+
+test('five real uses quiet that key for 24 hours, and only that key', () => {
+  let notebook = emptyNotebook();
+  for (let use = 0; use < 4; use++) notebook = recordKeyUse(notebook, 'translate', { now: NOW + use });
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 10), 'M', 'four uses are not enough');
+  notebook = recordKeyUse(notebook, 'translate', { now: NOW + 10 });
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 11), '');
+  assert.equal(reminderFor(notebook, 'rotate', ['R'], NOW + 11), 'R', 'other keys still remind');
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 10 + 24 * HOUR - 1), '');
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 10 + 24 * HOUR), 'M', 'back after 24 hours');
+  // Uses while quiet do not stack up; afterwards it takes five more.
+  notebook = recordKeyUse(notebook, 'translate', { now: NOW + 20 });
+  assert.equal(notebook.keys.translate.uses, 0);
+});
+
+test('custom learn counts and quiet hours apply', () => {
+  const settings = normalizeShredder({ learnUses: 3, quietHours: 1 });
+  let notebook = emptyNotebook();
+  for (let use = 0; use < 3; use++) notebook = recordKeyUse(notebook, 'save', { now: NOW, settings });
+  assert.equal(reminderFor(notebook, 'save', ['Ctrl+S'], NOW + HOUR - 1), '');
+  assert.equal(reminderFor(notebook, 'save', ['Ctrl+S'], NOW + HOUR), 'Ctrl+S');
+});
+
+test('silencing is per key and the settings can bring silenced and learned keys back', () => {
+  let notebook = silenceKey(emptyNotebook(), 'translate');
+  for (let use = 0; use < 5; use++) notebook = recordKeyUse(notebook, 'rotate', { now: NOW });
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW), '');
+  assert.equal(reminderFor(notebook, 'scale', ['S'], NOW), 'S');
+  assert.deepEqual(notebookCounts(notebook, NOW), { silenced: 1, learned: 1 });
+  const unsilenced = clearSilences(notebook);
+  assert.equal(reminderFor(unsilenced, 'translate', ['M'], NOW), 'M');
+  assert.equal(reminderFor(unsilenced, 'rotate', ['R'], NOW), '', 'clearing silences keeps learned keys quiet');
+  const relearn = clearLearned(notebook);
+  assert.equal(reminderFor(relearn, 'rotate', ['R'], NOW), 'R');
+  assert.equal(reminderFor(relearn, 'translate', ['M'], NOW), '', 'forgetting learned keys keeps silences');
+});
+
+test('damaged notebooks are repaired', () => {
+  assert.deepEqual(normalizeNotebook(null), emptyNotebook());
+  assert.deepEqual(normalizeNotebook({ version: 2, keys: { a: {} } }), emptyNotebook());
+  const notebook = normalizeNotebook({ version: 1, keys: { a: { uses: -3, quietUntil: 'x', silenced: 'yes' }, b: null, ['x'.repeat(400)]: {} } });
+  assert.deepEqual(notebook.keys, { a: { uses: 0, quietUntil: 0, silenced: false } });
+  assert.equal(Object.getPrototypeOf(normalizeNotebook(JSON.parse('{"version":1,"keys":{"__proto__":{"silenced":true}}}')).keys), Object.prototype);
+});
+
+test('chords become key caps', () => {
+  assert.deepEqual(keyCaps('Ctrl+Shift+K'), ['Ctrl', 'Shift', 'K']);
+  assert.deepEqual(keyCaps('Ctrl++'), ['Ctrl', '+']);
+  assert.deepEqual(keyCaps('+'), ['+']);
+  assert.deepEqual(keyCaps('F1'), ['F1']);
+});

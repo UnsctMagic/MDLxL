@@ -5,6 +5,8 @@ import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
+import { loadShredderNotebook, updateShredderNotebook } from './Shredder.jsx';
+import { SHREDDER_DURATIONS, SHREDDER_LEARN_USES, SHREDDER_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/shredder-keycaps.js';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
 import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
 import { wireDashArray } from '../src/wire-pattern.js';
@@ -73,6 +75,28 @@ function Toggle({ id, label, checked, onChange, description }) {
 }
 function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {
   return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} value={value} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber); }}/>{unit}</span></label>;
+}
+const SHREDDER_CHOICES = [
+  ['position', 'Where', [['control', 'Beside what you clicked'], ['bottom', 'Bottom middle'], ['top', 'Top middle'], ['bottom-right', 'Bottom right'], ['bottom-left', 'Bottom left']]],
+  ['size', 'Size', [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']]],
+  ['style', 'Look', [['plain', 'Standard'], ['flash', 'Flashing']]],
+  ['duration', 'Stays for', SHREDDER_DURATIONS.map(seconds => [seconds, seconds ? `${seconds} seconds` : 'Until used or clicked'])],
+  ['learnUses', 'Learned after', SHREDDER_LEARN_USES.map(uses => [uses, `${uses} uses`])],
+  ['quietHours', 'Then quiet for', SHREDDER_QUIET_HOURS.map(hours => [hours, hours === 1 ? '1 hour' : `${hours} hours`])],
+];
+/** Shredder's keycap reminders: on/off, how they look, and bringing back silenced or learned keys. */
+function ShredderSettings({ value, onChange }) {
+  const [counts, setCounts] = useState(() => notebookCounts(loadShredderNotebook(), Date.now()));
+  const reset = update => setCounts(notebookCounts(updateShredderNotebook(update), Date.now()));
+  return <>
+    <h3>Shortcut reminders</h3>
+    <Toggle id="hotkeys:shredder" label="Shredder: shortcut reminders" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key and it goes away. Click the popup to stop showing that key."/>
+    <div className="settings-graphics-grid">{SHREDDER_CHOICES.map(([key, label, options]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={`Shortcut reminders: ${label}`} value={value[key]} onChange={event => onChange({ [key]: typeof value[key] === 'number' ? Number(event.target.value) : event.target.value })}>{options.map(([option, name]) => <option key={option} value={option}>{name}</option>)}</select></label>)}</div>
+    <div className="settings-inline-actions">
+      <button disabled={!counts.silenced} title="Keys you silenced by clicking their popup show up again." onClick={() => reset(clearSilences)}>{`Bring back silenced keys (${counts.silenced})`}</button>
+      <button disabled={!counts.learned} title={`Keys you used ${value.learnUses} times are quiet for ${value.quietHours} hours. This shows them again now.`} onClick={() => reset(clearLearned)}>{`Bring back learned keys (${counts.learned})`}</button>
+    </div>
+  </>;
 }
 const VISUAL_COLORS = [['background', 'Viewport background'], ['vertex', 'Vertices'], ['selectedVertex', 'Selected vertices'], ['occludedVertex', 'Occluded vertices'], ['wireframe', 'Wireframe lines'], ['occludedWireframe', 'Occluded wireframe'], ['selectedGeometry', 'Selected geometry'], ['gridMinor', 'Minor grid'], ['gridMajor', 'Major grid'], ['axisX', 'X axis'], ['axisY', 'Y axis'], ['axisZ', 'Z axis'], ['keyframe', 'Keyframes'], ['activeKeyframe', 'Active keyframe'], ['bone', 'Bones and helper bones'], ['node', 'Attachment refs and nodes'], ['particle', 'Particle emitters'], ['event', 'Event objects'], ['selection', 'Selection overlay'], ['uvSelection', 'UV live selection']];
 const APPEARANCE_HELPER_COLORS = VISUAL_COLORS.filter(([key]) => ['keyframe', 'activeKeyframe', 'bone', 'node', 'particle', 'event', 'selection', 'uvSelection'].includes(key));
@@ -284,6 +308,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </div>}
         <div className="hotkeys-table-wrap"><table className="hotkeys-table"><thead><tr><th>Action</th><th>Shortcut</th><th><span className="settings-sr-only">Change shortcut</span></th></tr></thead><tbody>{actions.map(action => <tr key={action.id}><td><strong>{action.label || action.id}</strong><small title={action.id}>{action.category || 'Controls'}{action.contextual ? ' · when visible' : ''}</small></td><td><div className="hotkeys-chords">{(bindings[action.id] || []).map(chord => <span className="hotkeys-chip" key={chord}><kbd>{formatChord(chord)}</kbd><button aria-label={`Remove ${formatChord(chord)} from ${action.label || action.id}`} onClick={() => removeShortcut(action.id, chord)}>×</button></span>)}{!bindings[action.id]?.length && <span className="settings-muted">Unassigned</span>}</div></td><td><div className="hotkeys-row-actions"><button aria-label={`Assign shortcut to ${action.label || action.id}`} onClick={() => startRecording(action)}>Add shortcut</button><button aria-label={`Restore default shortcuts for ${action.label || action.id}`} onClick={() => restoreAction(action)}>Reset</button></div></td></tr>)}</tbody></table>{!actions.length && <p>No actions match this search.</p>}</div>
         <div className="settings-inline-actions">{resetConfirm ? <><span>Restore every default shortcut and clear custom assignments?</span><button onClick={() => { commit({ hotkeys: {} }); setResetConfirm(false); setRecording(null); setMessage('All Hotkeys restored to defaults.'); }}>Restore all defaults</button><button onClick={() => setResetConfirm(false)}>Cancel</button></> : <button data-hotkey="hotkeys:reset-all" onClick={() => setResetConfirm(true)}>Reset all Hotkeys…</button>}</div>
+        <ShredderSettings value={prefs.shredder} onChange={change => commit({ shredder: { ...prefs.shredder, ...change } })}/>
       </div>}
       {tab === 'graphics' && <div className="settings-page">
         <h3>Preview lighting</h3>
