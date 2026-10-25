@@ -21,14 +21,23 @@ Only three things:
 
 Using the key while its popup is up closes the popup at once.
 
-Only the command's own single key or combination is shown. Commands that only
-have a Ctrl+Alt+Space code get no popup, since clicking is faster than typing a
-code. Citadel Paint is left out: it handles its own keys.
+The popup shows the command's own key or combination. A command that has only a
+Ctrl+Alt+Space code (the codes shown in tooltips and on the Keyboard Shortcuts
+page) shows that code, for example `Ctrl + Alt + Space > MOV`; typing it counts
+as using it.
+
+Citadel Paint handles its own keys and shows them on its buttons and sliders
+(Color **B**, Save **Ctrl+S**, Brush size **[ ]**). Those carry `data-paint-key`;
+a click shows that label, and when Paint runs one of its keys it reports it with
+`paintKeyLabel` (in [shredder-keycaps.js](../src/shredder-keycaps.js)) under the
+same label, so the same rules apply. Paint keys without a labelled button (Esc,
+for example) never show a popup.
 
 ## What counts as a use
 
-- Only shortcuts the hotkey system actually ran (`mdlxl-hotkey-used` from
-  `runShortcut` in [Hotkeys.jsx](../app/Hotkeys.jsx)). Typing in a text field
+- Only shortcuts that actually ran: `mdlxl-hotkey-used` from `runShortcut` in
+  [Hotkeys.jsx](../app/Hotkeys.jsx), and from Citadel Paint's key handler in
+  [PaintStudioLayout.jsx](../app/PaintStudioLayout.jsx). Typing in a text field
   never runs a shortcut, so it never counts.
 - One key press counts once, even if it reaches the handler twice, and holding a
   key down (auto-repeat) counts once.
@@ -65,7 +74,8 @@ release** whether it ships on or off by default, and set the switch.
 - [test/shredder.test.js](../test/shredder.test.js): rules, defaults, damaged notebooks.
 - [test/shredder.electron.cjs](../test/shredder.electron.cjs): the real app — popup
   beside the button, key closes it, five uses quiet one key only, held keys and
-  text fields do not count, click silences, settings and turning it off.
+  text fields do not count, click silences, settings, a code-only button (Fit),
+  Citadel Paint's own keys and slider, and turning it off.
 
 ## History
 

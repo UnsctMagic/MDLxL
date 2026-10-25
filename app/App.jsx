@@ -1717,6 +1717,6 @@ export default function App() {
     {dialog?.type === 'geosetRepair' && duplicateAnimations.length > 0 && <GeosetAnimationRepair key={session.id} Frame={Dialog} model={model} groups={duplicateAnimations} busy={saving}
       unavailable={doc.readOnly ? 'This model is read-only; the fix is disabled to preserve unsupported data.' : ''} onRepair={repairDuplicateAnimations} onClose={() => setDialog(null)}/>}
     <PressedKeys enabled={preferences.showPressedKeys}/>
-    <Shredder settings={preferences.shredder} paint={mode === 'paint'} onPreferences={changePreferences}/>
+    <Shredder settings={preferences.shredder}/>
   </div></HotkeysProvider>;
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useHotkeys, controlActionId } from './Hotkeys.jsx';
 import { formatChord } from '../src/preferences.js';
 import { translate } from '../src/localization.js';
-import { SHREDDER_STORAGE_KEY, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps } from '../src/shredder-keycaps.js';
+import { SHREDDER_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps } from '../src/shredder-keycaps.js';
 import './shredder.css';
 
 const CHANGED = 'mdlxl-shredder-notebook';
@@ -24,11 +24,11 @@ const GAP = 8, EDGE = 6;
  * Using the key closes it; using it `learnUses` times quiets that key for a while; clicking
  * the popup silences it. Rules live in src/shredder-keycaps.js.
  */
-export default function Shredder({ settings, paint }) {
+export default function Shredder({ settings }) {
   const { shortcuts } = useHotkeys();
   const [popup, setPopup] = useState(null);
   const notebook = useRef(null), latest = useRef({}), box = useRef(null);
-  latest.current = { settings, shortcuts, paint, popup };
+  latest.current = { settings, shortcuts, popup };
   const enabled = !!settings?.enabled;
 
   useEffect(() => {
@@ -38,19 +38,22 @@ export default function Shredder({ settings, paint }) {
     const counted = new WeakSet();
     let serial = 0;
     const save = next => { notebook.current = next; storeNotebook(next); };
+    /** Citadel Paint's keys are its own (`data-paint-key`); everything else uses the shortcut settings. */
+    const keysOf = id => id.startsWith(PAINT_KEY_PREFIX) ? [id.slice(PAINT_KEY_PREFIX.length)] : latest.current.shortcuts[id];
     const show = (id, element) => {
-      const p = latest.current;
-      if (p.paint) return;
-      const key = reminderFor(notebook.current, id, p.shortcuts[id], Date.now());
+      const key = reminderFor(notebook.current, id, keysOf(id), Date.now());
       if (!key) return;
       const rect = element?.getBoundingClientRect?.();
-      setPopup({ id, chord: formatChord(key), rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, serial: ++serial });
+      setPopup({ id, chord: id.startsWith(PAINT_KEY_PREFIX) ? key : formatChord(key), rect: rect && rect.width + rect.height > 0 ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null, serial: ++serial });
     };
     const click = event => {
       // A real mouse click has a click count; hotkeys and Enter/Space presses do not.
       if (!event.isTrusted || event.detail === 0) return;
+      if (event.target.closest?.(OWN_UI)) return;
+      const paintKey = event.target.closest?.('[data-paint-key]');
+      if (paintKey) { show(PAINT_KEY_PREFIX + paintKey.getAttribute('data-paint-key'), paintKey); return; }
       const element = event.target.closest?.('[data-hotkey]');
-      if (!element || !element.matches(CONTROLS) || element.closest(`[data-hotkey-scope="paint"], ${OWN_UI}`)) return;
+      if (!element || !element.matches(CONTROLS)) return;
       const id = controlActionId(element);
       if (id) show(id, element);
     };
@@ -66,7 +69,7 @@ export default function Shredder({ settings, paint }) {
     const changed = () => {
       notebook.current = loadShredderNotebook();
       const current = latest.current.popup;
-      if (current && !reminderFor(notebook.current, current.id, latest.current.shortcuts[current.id], Date.now())) setPopup(null);
+      if (current && !reminderFor(notebook.current, current.id, keysOf(current.id), Date.now())) setPopup(null);
     };
     window.addEventListener('click', click, true); window.addEventListener('mdlxl-menu-command', menu);
     window.addEventListener('mdlxl-hotkey-used', used); window.addEventListener(CHANGED, changed);
@@ -76,7 +79,6 @@ export default function Shredder({ settings, paint }) {
     };
   }, [enabled]);
 
-  useEffect(() => { if (paint) setPopup(null); }, [paint]);
   useEffect(() => {
     if (!popup || !settings?.duration) return;
     const timer = setTimeout(() => setPopup(current => current?.serial === popup.serial ? null : current), settings.duration * 1000);

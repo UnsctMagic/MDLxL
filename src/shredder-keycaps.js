@@ -83,11 +83,30 @@ export function notebookCounts(notebook, now) {
   return { silenced: records.filter(record => record.silenced).length, learned: records.filter(record => record.quietUntil > now).length };
 }
 
-/** Whether a click on a command with these keys gets a reminder, and the key it shows. */
+/**
+ * Whether a click on a command with these keys gets a reminder, and the key it shows:
+ * its own key or combination, else its Ctrl+Alt+Space code (shown in tooltips and Settings).
+ */
 export function reminderFor(notebook, id, keys, now) {
-  const key = directKey(keys), record = notebook.keys[id];
+  const key = directKey(keys) || (keys || []).find(Boolean) || '', record = notebook.keys[id];
   if (!key || record?.silenced || record?.quietUntil > now) return '';
   return key;
+}
+
+/**
+ * Citadel Paint handles its own keys and shows them on its buttons ("B", "Ctrl+S", "[ ]").
+ * Its reminders use that label as the command: `paintKeyLabel` turns a key Paint ran into it.
+ * `key` is Paint's own key name: a lower-case letter, or e.key in lower case.
+ */
+export const PAINT_KEY_PREFIX = 'paint-key:';
+export function paintKeyLabel(key, { ctrl = false, shift = false, alt = false } = {}) {
+  if (ctrl) return key === 'enter' ? 'Ctrl+↵' : ['Ctrl', alt && 'Alt', shift && 'Shift', key.toUpperCase()].filter(Boolean).join('+');
+  if (['[', ']', '{', '}'].includes(key)) return shift ? 'Shift+[ ]' : '[ ]';
+  if ([',', '.'].includes(key)) return ', .';
+  if (['-', '=', '+'].includes(key)) return '− +';
+  if (key === '?') return '?';
+  const name = key.length === 1 ? key.toUpperCase() : key === 'escape' ? 'Esc' : key[0].toUpperCase() + key.slice(1);
+  return shift && /^[A-Z]$/.test(name) ? 'Shift+' + name : name;
 }
 
 /** A chord as key cap labels: Ctrl+Shift+K becomes ['Ctrl', 'Shift', 'K']. */

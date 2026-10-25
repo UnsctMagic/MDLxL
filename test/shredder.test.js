@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_SHREDDER, SHREDDER_TEST_VERSION, normalizeShredder, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey,
-  clearSilences, clearLearned, notebookCounts, reminderFor, directKey, keyCaps,
+  clearSilences, clearLearned, notebookCounts, reminderFor, directKey, keyCaps, paintKeyLabel,
 } from '../src/shredder-keycaps.js';
 import { normalizePreferences } from '../src/preferences.js';
 
@@ -25,11 +25,11 @@ test('settings are normalized, and the old on/off switch is kept', () => {
   assert.deepEqual(normalizePreferences({ shredder: { enabled: false, size: 'small' } }).shredder, { ...DEFAULT_SHREDDER, enabled: false, size: 'small' });
 });
 
-test('a click reminds of the direct key only, never of a Ctrl+Alt+Space code', () => {
+test('a click reminds of the key, or of the Ctrl+Alt+Space code when that is all it has', () => {
   const notebook = emptyNotebook();
   assert.equal(reminderFor(notebook, 'translate', ['M'], NOW), 'M');
-  assert.equal(reminderFor(notebook, 'thing', ['Ctrl+Alt+Space>ABC'], NOW), '');
-  assert.equal(reminderFor(notebook, 'thing', ['Ctrl+Alt+Space>ABC', 'Shift+K'], NOW), 'Shift+K');
+  assert.equal(reminderFor(notebook, 'thing', ['Ctrl+Alt+Space > ABC'], NOW), 'Ctrl+Alt+Space > ABC');
+  assert.equal(reminderFor(notebook, 'thing', ['Ctrl+Alt+Space > ABC', 'Shift+K'], NOW), 'Shift+K', 'a direct key wins');
   assert.equal(reminderFor(notebook, 'none', [], NOW), '');
   assert.equal(directKey(undefined), '');
 });
@@ -83,4 +83,19 @@ test('chords become key caps', () => {
   assert.deepEqual(keyCaps('Ctrl++'), ['Ctrl', '+']);
   assert.deepEqual(keyCaps('+'), ['+']);
   assert.deepEqual(keyCaps('F1'), ['F1']);
+  assert.deepEqual(keyCaps('Ctrl+Alt+Space > ABC'), ['Ctrl', 'Alt', 'Space > ABC']);
+});
+
+test('a key Citadel Paint ran is named the way its button shows it', () => {
+  assert.equal(paintKeyLabel('b'), 'B');
+  assert.equal(paintKeyLabel('f', { shift: true }), 'Shift+F');
+  assert.equal(paintKeyLabel('s', { ctrl: true }), 'Ctrl+S');
+  assert.equal(paintKeyLabel('c', { ctrl: true, shift: true }), 'Ctrl+Shift+C');
+  assert.equal(paintKeyLabel('enter', { ctrl: true }), 'Ctrl+↵');
+  assert.equal(paintKeyLabel('['), '[ ]'); assert.equal(paintKeyLabel(']'), '[ ]');
+  assert.equal(paintKeyLabel('{', { shift: true }), 'Shift+[ ]');
+  assert.equal(paintKeyLabel(','), ', .'); assert.equal(paintKeyLabel('.'), ', .');
+  assert.equal(paintKeyLabel('-'), '− +'); assert.equal(paintKeyLabel('+', { shift: true }), '− +');
+  assert.equal(paintKeyLabel('?', { shift: true }), '?');
+  assert.equal(paintKeyLabel('home'), 'Home'); assert.equal(paintKeyLabel('f6'), 'F6'); assert.equal(paintKeyLabel('4'), '4');
 });

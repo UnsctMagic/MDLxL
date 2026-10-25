@@ -30,16 +30,23 @@ Updated: 2026-10-25
   Shortcuts. Easy to move if the owner meant another place.
 - Decision: "K.E.Y.-style" = the toolbar KEY button's Show pressed keys overlay,
   so the popup reuses its look (dark box, white bold text, `key-appear`).
-- Decision: commands with only a Ctrl+Alt+Space code get no popup (kept from
-  the earlier Shredder: a click is faster than a code).
+- Decision (scope clarified 2026-10-25): no blanket exclusions. Code-only
+  commands show their Ctrl+Alt+Space code; Citadel Paint's own keys are wired in
+  through `data-paint-key` labels and `paintKeyLabel`. The first draft skipped
+  both; that was reversed at the owner's request.
 - Verified: a held key counts once (`event.repeat`), and each keyboard event is
   counted once (WeakSet), in the Electron test.
 
 ## Changes and verification
 
-- Checks: `node --test test/shredder.test.js` (8 pass); localization tests pass;
-  `pnpm run build`; `test/shredder.electron.cjs` on the hidden desktop (6 checks pass);
-  full `pnpm run test:source` (1936 pass) and `pnpm test` (57 pass).
+- Checks: `node --test test/shredder.test.js` (9 pass); `pnpm run build`;
+  `test/shredder.electron.cjs` on the hidden desktop (8 checks pass, including a
+  code-only button and Citadel Paint); full `pnpm run test:source` (1937 pass)
+  and `pnpm test` (57 pass).
+- Test tips: `SHREDDER_NO_SHOTS=1` skips the screenshots, which time out on the
+  hidden desktop and cost a minute each. In Paint, the demo model needs "New base
+  coat" before "Begin painting". A clicked slider keeps focus, and Paint ignores
+  keys typed into fields.
 - Remaining: owner's hand test of the look and settings; screenshots time out on
   the hidden desktop, so only the "beside the button" one was captured.
 

@@ -28,7 +28,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const popup = page.locator('.shredder-keycap');
     const move = page.locator('button[data-hotkey="translate"]:visible').first(), rotate = page.locator('button[data-hotkey="rotate"]:visible').first();
     // The hidden test desktop draws slowly; a missing screenshot is not a failure.
-    const snap = file => page.screenshot({ path: file, timeout: 60000 }).catch(error => console.warn('screenshot skipped: ' + error.message.split('\n')[0]));
+    const snap = file => process.env.SHREDDER_NO_SHOTS ? null : page.screenshot({ path: file, timeout: 60000 }).catch(error => console.warn('screenshot skipped: ' + error.message.split('\n')[0]));
     const caps = () => popup.locator('kbd').allTextContents();
     const gone = () => popup.waitFor({ state: 'detached', timeout: 3000 });
     const pressInView = async key => { await page.locator('.classic-view canvas').first().hover(); await page.keyboard.press(key); };
@@ -101,17 +101,55 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await pressInView('m'); await gone();
     checks.push('Settings move it to the bottom middle, make it large and flashing, keep it until used, and bring back silenced and learned keys');
 
-    // 6. Turning the mode off stops it; the Settings menu command toggles it.
+    // 6. A button with only a Ctrl+Alt+Space code shows that code; typing the code closes it and counts.
+    const fitUses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys.fit?.uses || 0);
+    await page.locator('button[data-hotkey="fit"]:visible').first().click(); await popup.waitFor();
+    const codeText = (await popup.textContent()).trim(), code = /^Ctrl \+ Alt \+ Space > ([A-Z0-9]{3})$/.exec(codeText)?.[1];
+    assert.ok(code, 'the code is shown: ' + codeText);
+    await page.locator('.classic-view canvas').first().hover();
+    await page.keyboard.press('Control+Alt+Space'); for (const character of code) await page.keyboard.press(character);
+    await gone();
+    assert.equal(await fitUses(), 1);
+    checks.push(`Fit, which has only a code, shows [${codeText}]; typing the code closes it and counts`);
+
+    // 7. Citadel Paint's own keys: a click shows the key its button shows; Paint's key closes it.
+    await page.locator('[data-hotkey="paint"]').first().click();
+    if (await popup.count()) await popup.click();
+    await page.getByRole('button', { name: /New base coat/ }).click();
+    await page.getByRole('button', { name: 'Begin painting', exact: true }).click();
+    await page.getByRole('button', { name: 'Erase', exact: true }).waitFor().catch(async error => { console.log((await page.locator('body').innerText()).slice(0, 3000)); throw error; });
+    await page.getByRole('button', { name: 'Erase', exact: true }).click(); await popup.waitFor();
+    assert.equal((await popup.textContent()).trim(), 'E');
+    await page.mouse.move(640, 30); await page.keyboard.press('e'); await gone();
+    const paintUses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys['paint-key:E']?.uses || 0);
+    assert.equal(await paintUses(), 1, 'Paint keys count like other shortcuts');
+    await page.getByRole('button', { name: 'Undo paint', exact: true }).evaluate(element => element.disabled) || await page.getByRole('button', { name: 'Undo paint', exact: true }).click();
+    await page.getByRole('button', { name: 'Color', exact: true }).click(); await popup.waitFor();
+    assert.equal((await popup.textContent()).trim(), 'B');
+    await popup.click(); await gone();
+    await page.getByRole('button', { name: 'Color', exact: true }).click(); await page.waitForTimeout(400);
+    assert.equal(await popup.count(), 0, 'B is silenced');
+    await page.locator('input[type="range"][aria-label="Opacity"]').click(); await popup.waitFor();
+    assert.equal((await popup.textContent()).trim(), '− +');
+    // The slider keeps focus after a click, and Paint leaves keys typed into its fields alone.
+    await page.evaluate(() => document.activeElement?.blur());
+    await page.keyboard.press('-'); await gone();
+    checks.push('Citadel Paint: Erase shows [E] and E closes it; clicking [B] silences it; the Opacity slider shows [− +] and − closes it');
+
+    // 8. Turning the mode off stops it; the Settings menu command toggles it.
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'shredder'));
     await page.waitForTimeout(300);
-    await rotate.click(); await page.waitForTimeout(400);
+    await page.getByRole('button', { name: 'Erase', exact: true }).click(); await page.waitForTimeout(400);
     assert.equal(await popup.count(), 0, 'off');
     checks.push('Settings → Shortcut reminders turns the mode off');
 
     assert.deepEqual(errors, []);
     console.log(checks.map(check => '✓ ' + check).join('\n'));
   } finally {
-    await app.close().catch(() => {});
+    // Unsaved Paint work makes the window ask before closing; don't wait for it.
+    await Promise.race([app.close().catch(() => {}), new Promise(resolve => setTimeout(resolve, 10000))]);
+    // Kill the whole Electron process tree (renderer and GPU too), not just its main process.
+    try { const pid = app.process().pid; if (process.platform === 'win32') require('node:child_process').spawnSync('taskkill', ['/pid', String(pid), '/T', '/F']); else app.process().kill(); } catch {}
     await fs.rm(profile, { recursive: true, force: true }).catch(() => {});
   }
-})().catch(error => { console.error(error); process.exit(1); });
+})().then(() => process.exit(0), error => { console.error(error); process.exit(1); });
