@@ -6,8 +6,10 @@
 - AI: an AI edit that would leave the model unsavable is undone straight away and explained. Replacing an existing file always asks you first.
 
 - **New look**: carved tool tiles with new hand-drawn icons, new top-row icons, and a slate-and-gold module dock with square Warcraft III icons. The AI button is the first icon in the dock (Illidan's Metamorphosis). The active tool glows in your theme's accent; pick your own colour in Settings > Appearance > Interface > Tool highlight.
+- New look: the display toggles (Shadows, Bones, Emitters, Grid…) are now icon chips in the top row; a lit chip is on. On narrow windows they shrink to icons, with the name on hover.
 - New look: Stats and Coords fold under slim headers (folded Stats still shows vertices, selection and triangles). Geosets can float over the view with ⇱ and dock back with ⇲.
-- The new look works in all seven themes. **VIS** still gives you the classic, old-school MDLVis look, untouched.
+- New look: every window and dialog (Settings, the resource managers, Particle editor, AnimXL, Sort My Mess, Attachemator, Citadel Paint, Library, BitsAndParts) uses the same soft rounded cards, buttons and tabs as the main window.
+- The new look works in all seven themes. **VIS** still gives you the classic, old-school MDLVis look, untouched; the AI icon sits next to XL there.
 - **Shift+F1** / **Shift+F2** switch between a dark and a light look. Switching back restores your own look exactly, including custom colours. Both keys can be changed in Keyboard Shortcuts.
 
 - Models where a geoset has duplicate geoset animations now open straight into the editor. A small **⚠ Duplicate geoset animations** button in the status bar offers **Fix** (undoable with Ctrl+Z) or **Not now**.
