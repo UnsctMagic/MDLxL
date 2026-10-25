@@ -241,6 +241,29 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.getByRole('button', { name: 'Camera rotation', exact: true }).click();
   check('switching the camera mode puts the drawing tool away', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
   await page.getByRole('button', { name: 'Work mode', exact: true }).click();
+  await tool('Pen').click();
+  await page.mouse.move(cx, cy);
+  await page.mouse.down({ button: 'middle' });
+  await page.mouse.up({ button: 'middle' });
+  await page.waitForTimeout(100);
+  check(
+    'a middle-click into camera rotation puts the drawing tool away',
+    (await tool('Pen').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0 &&
+      (await page.getByRole('button', { name: 'Camera rotation', exact: true }).getAttribute('aria-pressed')) === 'true',
+  );
+  await tool('Pen').click();
+  check('picking a drawing tool returns the camera to Work mode', (await page.getByRole('button', { name: 'Work mode', exact: true }).getAttribute('aria-pressed')) === 'true');
+  const penCursor = () => canvas.evaluate(element => element.style.cursor);
+  await page.mouse.move(cx + 5, cy);
+  await page.waitForTimeout(100);
+  const drawingCursor = await penCursor();
+  await page.keyboard.down('Alt');
+  await page.mouse.move(cx + 10, cy);
+  await page.waitForTimeout(100);
+  const altCursor = await penCursor();
+  await page.keyboard.up('Alt');
+  check('holding Alt swaps the drawing cursor for the rotate cursor', drawingCursor !== altCursor, { drawingCursor: drawingCursor.slice(0, 60), altCursor: altCursor.slice(0, 60) });
+  await page.keyboard.press('Escape');
   await tool('Marker').click();
   await tag.click();
   check('clicking the viewport tag stops drawing', (await tool('Marker').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0);
