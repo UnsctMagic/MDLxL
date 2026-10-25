@@ -6346,6 +6346,8 @@
   "Work on your selection": "Работайте с выделенным",
   "Enter to send": "Enter — отправить",
   "Reference model added.": "Модель-образец добавлена.",
+  "A reference model you attached.": "Прикреплённая вами модель-образец.",
+  "Remove this reference model (closes its tab).": "Убрать эту модель-образец (закрывает её вкладку).",
   "Each image must be under 9 MB.": "Размер каждого изображения должен быть меньше 9 МБ.",
   "Choose MDL, MDX, PNG, JPEG or WebP files.": "Выберите файлы MDL, MDX, PNG, JPEG или WebP.",
   "Inspecting the model": "Осмотр модели",

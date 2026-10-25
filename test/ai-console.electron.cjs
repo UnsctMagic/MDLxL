@@ -486,6 +486,54 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.keyboard.press('Control+s');
   await page.waitForFunction(() => !document.querySelector('.model-tab.active .model-tab-dirty')?.textContent, null, { timeout: 20000 });
   check("saving Second writes the owner's edit", !fs.readFileSync(secondModel).equals(fs.readFileSync(model)));
+  // An attached reference model shows as a chip in the message box and can be removed there, like a picture.
+  // Saving a model the AI worked on asks how to tidy its chats.
+  if (await page.locator('.ai-cleanup').waitFor({ timeout: 5000 }).then(() => true, () => false)) {
+    await page.locator('.ai-cleanup-choices button', { hasText: 'Keep everything' }).click();
+    await page.locator('.ai-cleanup').waitFor({ state: 'detached', timeout: 10000 });
+  }
+  const referenceModel = path.join(out, 'Reference.mdx');
+  fs.copyFileSync(model, referenceModel);
+  const tabsBefore = await page.locator('.model-tab').count();
+  await page.locator('.ai-assistant input[type="file"]').setInputFiles(referenceModel);
+  const referenceChip = page.locator('.ai-chip', { hasText: 'Reference.mdx' });
+  await referenceChip.waitFor({ timeout: 10000 });
+  check('an attached reference model shows as a chip and opens its tab', (await page.locator('.model-tab').count()) === tabsBefore + 1);
+  await shot('09-reference-chip');
+  await referenceChip.getByRole('button', { name: 'Remove reference Reference.mdx' }).click();
+  await page.waitForFunction(count => document.querySelectorAll('.model-tab').length === count, tabsBefore, { timeout: 10000 });
+  check('removing the reference chip closes its tab and the chip', (await referenceChip.count()) === 0);
+  check('the model you were working on stays active', (await page.locator('.model-tab.active [role="tab"]').getAttribute('aria-label')) === 'Second.mdx');
+  // Ctrl+C on text selected in the chat copies that text, not the model selection.
+  await app.evaluate(({ clipboard }) => clipboard.writeText('before'));
+  const chatText = await page.evaluate(() => {
+    const block = [...document.querySelectorAll('.ai-messages *')].find(el => el.childElementCount === 0 && el.textContent.trim().length > 8);
+    const range = document.createRange();
+    range.selectNodeContents(block);
+    const selection = getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return selection.toString();
+  });
+  await page.keyboard.press('Control+c');
+  await page.waitForTimeout(300);
+  const copied = await app.evaluate(({ clipboard }) => clipboard.readText());
+  check('Ctrl+C copies text selected in the chat', copied.trim() === chatText.trim(), { copied, chatText });
+  await page.evaluate(() => getSelection().removeAllRanges());
+  // Pasting text that also carries a picture (Word, web pages) pastes the text, not the picture.
+  await page.getByLabel('AI prompt').fill('');
+  await page.getByLabel('AI prompt').focus();
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData('text/plain', 'pasted words');
+    data.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'clip.png', { type: 'image/png' }));
+    const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+    document.querySelector('[aria-label="AI prompt"]').dispatchEvent(event);
+    // A synthetic paste never inserts text itself; the console must leave the default alone.
+    window.__pasteKeptDefault = !event.defaultPrevented;
+  });
+  await page.waitForTimeout(300);
+  check('pasting text with a picture keeps the text and attaches no picture', (await page.evaluate(() => window.__pasteKeptDefault)) && (await page.locator('.ai-image-chip').count()) === 0);
   check('no page errors', errors.length === 0, errors);
 })()
   .catch(error => {

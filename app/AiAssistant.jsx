@@ -556,6 +556,7 @@ export default function AiAssistant({ bridge }) {
     return () => window.removeEventListener('mdlxl-cancel-gesture', cancel);
   }, []);
   const summary = summaryNow;
+  const references = open ? bridge.host().references?.() || [] : [];
   const viewWorker = org?.workers.find(worker => worker.id === view) || null;
   const earlierView = !!org?.earlier.includes(view);
   const readOnly = viewWorker?.status === 'retired' || earlierView;
@@ -1247,7 +1248,7 @@ export default function AiAssistant({ bridge }) {
                   </div>
                 )}
                 <div className="ai-composer">
-                  {(summary || images.length > 0 || strokes.length > 0) && (
+                  {(summary || images.length > 0 || strokes.length > 0 || references.length > 0) && (
                     <div className="ai-chips">
                       {summary && (
                         <span
@@ -1265,8 +1266,31 @@ export default function AiAssistant({ bridge }) {
                           {summary.sequenceName != null && (
                             <span className="ai-chip-muted">{` · ${summary.sequenceName} @ ${Math.round(summary.time)}`}</span>
                           )}
+                          {summary.reference && (
+                            <button
+                              type="button"
+                              aria-label={`Remove reference ${summary.name}`}
+                              title="Remove this reference model (closes its tab)."
+                              onClick={() => bridge.host().removeReference(summary.documentId)}
+                            >
+                              <X size={12} aria-hidden="true" />
+                            </button>
+                          )}
                         </span>
                       )}
+                      {references.map(reference => (
+                        <span key={reference.id} className="ai-chip" title="A reference model you attached." translate="no">
+                          {reference.name}
+                          <button
+                            type="button"
+                            aria-label={`Remove reference ${reference.name}`}
+                            title="Remove this reference model (closes its tab)."
+                            onClick={() => bridge.host().removeReference(reference.id)}
+                          >
+                            <X size={12} aria-hidden="true" />
+                          </button>
+                        </span>
+                      ))}
                       {strokes.length > 0 && (
                         <span className="ai-chip" title="Your notes on the model.">
                           {translate(`${strokes.length} drawing${strokes.length === 1 ? '' : 's'}`)}
@@ -1321,7 +1345,8 @@ export default function AiAssistant({ bridge }) {
                     value={prompt}
                     onChange={event => setPrompt(event.target.value)}
                     onPaste={event => {
-                      const pasted = [...event.clipboardData.files];
+                      // Word and web pages put a picture of copied text beside the text: paste the text.
+                      const pasted = event.clipboardData.getData('text/plain') ? [] : [...event.clipboardData.files];
                       if (pasted.length) {
                         event.preventDefault();
                         action(() => attach(pasted));

@@ -163,6 +163,11 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       if (event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);
+      // Text selected in the AI chat copies as text; the editor's Copy is for the model.
+      if (chord === 'Ctrl+C') {
+        const selection = event.target?.ownerDocument?.getSelection?.();
+        if (selection && !selection.isCollapsed && String(selection).trim() && selection.anchorNode?.parentElement?.closest('.ai-assistant')) return;
+      }
       if (sequence.active && (event.defaultPrevented || isTextEditingTarget(event.target) || event.isComposing || event.keyCode === 229)) { cancel(); return; }
       if (sequence.active || chord === HOTKEY_LEADER && canHandleHotkeyEvent(event)) {
         const next = sequence.feed(event);

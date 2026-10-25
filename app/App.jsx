@@ -1388,7 +1388,7 @@ export default function App() {
     },
     state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
-    summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
+    summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,reference:!!session.reference,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
     command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
     edit,
@@ -1449,7 +1449,10 @@ export default function App() {
       // The hidden preview gets its own copy: the renderer must never touch the document.
       return aiOffscreen.render({ ...spec, model: structuredClone(target.doc.model), revision: target.doc.revision, assets: target.assets, path: target.path });
     },
-    addReference: async record => {const opened=openDocument(record.bytes,record.name);if(!opened.model||opened.version==null)throw Error('This reference has no readable model.');const next=newSession(opened,record.path);setSessions(previous=>[...previous,next]);if(record.textures?.length)await loadTextures(record.textures,next,{source:'gameFile'});await resolveTextures(next);return {id:next.id,name:next.doc.name};},
+    // Reference models open as tabs; the console lists them as attachments the user can remove.
+    references: () => latest.current.sessions.filter(item => item.reference && item !== latest.current.session).map(item => ({id:item.id,name:item.doc.name})),
+    removeReference: id => { const target = latest.current.sessions.find(item => item.id === id); if (target) requestCloseSession(target); },
+    addReference: async record => {const opened=openDocument(record.bytes,record.name);if(!opened.model||opened.version==null)throw Error('This reference has no readable model.');const next=newSession(opened,record.path);next.reference=true;setSessions(previous=>[...previous,next]);if(record.textures?.length)await loadTextures(record.textures,next,{source:'gameFile'});await resolveTextures(next);return {id:next.id,name:next.doc.name};},
   };
   const aiBridge = useMemo(() => new AiEditorBridge(() => aiHost.current), []);
   useEffect(() => aiBridge.attach(window.desktop), [aiBridge]);

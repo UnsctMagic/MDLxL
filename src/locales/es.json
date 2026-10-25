@@ -6358,6 +6358,8 @@
   "Work on your selection": "Trabaja con tu selección",
   "Enter to send": "Enter para enviar",
   "Reference model added.": "Modelo de referencia añadido.",
+  "A reference model you attached.": "Un modelo de referencia que adjuntaste.",
+  "Remove this reference model (closes its tab).": "Quitar este modelo de referencia (cierra su pestaña).",
   "Each image must be under 9 MB.": "Cada imagen debe ocupar menos de 9 MB.",
   "Choose MDL, MDX, PNG, JPEG or WebP files.": "Elige archivos MDL, MDX, PNG, JPEG o WebP.",
   "Inspecting the model": "Inspeccionando el modelo",
