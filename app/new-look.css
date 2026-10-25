@@ -282,3 +282,5 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .language-trigger{height:28px;padding:0 8px!important;border-radius:8px!important;background:var(--m-soft)!important;gap:4px}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .language-trigger>span{display:none}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-status>.compact-input-strength{flex:none;margin-left:0;padding:0 8px;font-size:11px;color:var(--ui-muted)}
+/* Top-row and editor-row text buttons grey out when they cannot be used (the soft chrome style otherwise keeps them dark). */
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-view-label) button:disabled{color:var(--ui-muted)!important;cursor:default}
