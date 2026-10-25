@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-10-25T07:05:23.718Z",
+  "source": "Exact curated resource and row arrays from the earlier study; source bytes checked against their recorded SHA-256",
+  "permittedResources": 90,
+  "permittedModels": 646,
+  "textureEntries": 1284,
+  "uniqueModelBytes": 646,
+  "uniqueTextureBytes": 1042,
+  "archives": 90,
+  "modelsMissing": 0
+}

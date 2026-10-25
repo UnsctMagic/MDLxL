@@ -1,0 +1,4444 @@
+{
+  "generatedAt": "2026-10-25T08:46:44.046Z",
+  "scope": "Active SD corpus, including modern-format SD files",
+  "blankModels": 94,
+  "byDiagnosis": {
+    "unresolved-visible-content": 3,
+    "attachment-control-without-surface": 1,
+    "sound-event-without-surface": 1,
+    "event-driven-external-scene": 1,
+    "light-control-without-surface": 17,
+    "unsupported-effect-system": 55,
+    "no-authored-surface": 3,
+    "camera-control-without-surface": 13
+  },
+  "rows": [
+    {
+      "id": "native-sd-100A0555671564176ACB74AF51A6DF31",
+      "path": "abilities\\spells\\items\\aiob\\aiobspecialart.mdx",
+      "source": "blizzard",
+      "diagnosis": "unresolved-visible-content",
+      "reason": "Authored renderable primitives exist but the recorded sequence/phase search produced no foreground. This is a capture limitation, not proof the game model is empty.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 1,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 1
+      },
+      "events": [
+        "SNDXMFRB"
+      ],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            667,
+            2167
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Birth",
+          "phase": 0.2,
+          "frame": 967,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "Birth",
+          "phase": 0.05,
+          "frame": 742,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "Birth",
+          "phase": 0.5,
+          "frame": 1417,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "Birth",
+          "phase": 0.8,
+          "frame": 1867,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "Birth",
+          "phase": 0.95,
+          "frame": 2092,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [
+        {
+          "emitter": 1,
+          "field": "LifeSpanUVAnim",
+          "range": [
+            0,
+            33,
+            1
+          ],
+          "cells": 1,
+          "evidence": "Authored atlas endpoints exceed the declared cell count; game interpretation not established."
+        },
+        {
+          "emitter": 1,
+          "field": "DecayUVAnim",
+          "range": [
+            33,
+            64,
+            1
+          ],
+          "cells": 1,
+          "evidence": "Authored atlas endpoints exceed the declared cell count; game interpretation not established."
+        },
+        {
+          "emitter": 1,
+          "field": "TailUVAnim",
+          "range": [
+            0,
+            32,
+            1
+          ],
+          "cells": 1,
+          "evidence": "Authored atlas endpoints exceed the declared cell count; game interpretation not established."
+        },
+        {
+          "emitter": 1,
+          "field": "TailDecayUVAnim",
+          "range": [
+            0,
+            32,
+            1
+          ],
+          "cells": 1,
+          "evidence": "Authored atlas endpoints exceed the declared cell count; game interpretation not established."
+        }
+      ],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-100A0555671564176ACB74AF51A6DF31/capture.json"
+    },
+    {
+      "id": "native-sd-78EDABD13C1D3E8EFFF69F96A95F60AC",
+      "path": "abilities\\spells\\other\\tornado\\tornadospinner.mdx",
+      "source": "blizzard",
+      "diagnosis": "attachment-control-without-surface",
+      "reason": "The file contains attachment nodes and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 1,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            2233,
+            3333
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Stand",
+          "interval": [
+            6867,
+            10133
+          ],
+          "nonLooping": false
+        },
+        {
+          "name": "Death",
+          "interval": [
+            13467,
+            14500
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 1,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 7520,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-78EDABD13C1D3E8EFFF69F96A95F60AC/capture.json"
+    },
+    {
+      "id": "native-sd-A143C25FA11B7B4558AE3BD0B2D143C4",
+      "path": "abilities\\spells\\undead\\impale\\impalecaster.mdx",
+      "source": "blizzard",
+      "diagnosis": "sound-event-without-surface",
+      "reason": "Only sound events, transforms or other non-surface data; no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 1
+      },
+      "events": [
+        "SNDxAUIH"
+      ],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            45267,
+            46667
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Birth",
+          "phase": 0.2,
+          "frame": 45547,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-A143C25FA11B7B4558AE3BD0B2D143C4/capture.json"
+    },
+    {
+      "id": "native-sd-7FC2BA88BB1F9DB36E8674CA0185B2A5",
+      "path": "abilities\\weapons\\flamethrowermissile\\flamethrowermissile.mdx",
+      "source": "blizzard",
+      "diagnosis": "event-driven-external-scene",
+      "reason": "No mesh or emitter surface. Non-sound event nodes require an external game event lookup; child models are not assembled by this capture.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 1
+      },
+      "events": [
+        "SPNxFTSO"
+      ],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            0,
+            4400
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Birth",
+          "phase": 0.2,
+          "frame": 880,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-7FC2BA88BB1F9DB36E8674CA0185B2A5/capture.json"
+    },
+    {
+      "id": "native-sd-1C5BDF9A70FB5E0570E7BD7EA06CEBED",
+      "path": "cinematics\\a0m1c020_arthasarrives\\environment\\a0m1c020_arthasarrives_dnc.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 2,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            3367,
+            63367
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 15367,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-1C5BDF9A70FB5E0570E7BD7EA06CEBED/capture.json"
+    },
+    {
+      "id": "native-sd-57B8854E33510F82011D3DFB05163547",
+      "path": "cinematics\\a0m1c020_arthasarrives\\vfx\\arthas_petal_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-57B8854E33510F82011D3DFB05163547/capture.json"
+    },
+    {
+      "id": "native-sd-26EF4CDE2341DCEF21B476E1688DB7D0",
+      "path": "cinematics\\a0m1c020_arthasarrives\\vfx\\arthas_petal.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-26EF4CDE2341DCEF21B476E1688DB7D0/capture.json"
+    },
+    {
+      "id": "native-sd-3E737A11B5C9F0C7F4F920349017D10B",
+      "path": "cinematics\\a0m1c020_arthasarrives\\vfx\\petals_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-3E737A11B5C9F0C7F4F920349017D10B/capture.json"
+    },
+    {
+      "id": "native-sd-E1388408F3E55C63878B0C8EA6B37A26",
+      "path": "cinematics\\a0m1c020_arthasarrives\\vfx\\petals_throw_0.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-E1388408F3E55C63878B0C8EA6B37A26/capture.json"
+    },
+    {
+      "id": "native-sd-AC3C55B8E72BE3D68235F9074E989830",
+      "path": "cinematics\\a0m1c020_arthasarrives\\vfx\\petals_throw.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-AC3C55B8E72BE3D68235F9074E989830/capture.json"
+    },
+    {
+      "id": "native-sd-117A323AA355833F36E3BCB8E3B1532F",
+      "path": "cinematics\\a0m1c020_arthasarrives\\vfx\\petals.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-117A323AA355833F36E3BCB8E3B1532F/capture.json"
+    },
+    {
+      "id": "native-sd-E55C14599D1005809FDBE66D6E1B19E4",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\book_glow.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 2
+      },
+      "events": [
+        "SNDXAHDI",
+        "SNDXAHDD"
+      ],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            0,
+            900
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Stand 1",
+          "interval": [
+            933,
+            1633
+          ],
+          "nonLooping": false
+        },
+        {
+          "name": "Death 1",
+          "interval": [
+            1667,
+            2367
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 1,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 1073,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-E55C14599D1005809FDBE66D6E1B19E4/capture.json"
+    },
+    {
+      "id": "native-sd-E7FF554EFEDDD041CE2011F8AC147576",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\boss_burn.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-E7FF554EFEDDD041CE2011F8AC147576/capture.json"
+    },
+    {
+      "id": "native-sd-4093AA35F4293769EB127E50B726F7FB",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\boss_orb_left.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-4093AA35F4293769EB127E50B726F7FB/capture.json"
+    },
+    {
+      "id": "native-sd-FC6659FD261967A84375935A6BE6E978",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\boss_orb_right.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-FC6659FD261967A84375935A6BE6E978/capture.json"
+    },
+    {
+      "id": "native-sd-47E6E694DDFA1B7DBBCF4F819E06B3D4",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\holylight_target.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-47E6E694DDFA1B7DBBCF4F819E06B3D4/capture.json"
+    },
+    {
+      "id": "native-sd-71B5A39BD6DD1D50CEC2B86AB3F6D534",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\shield_impact_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-71B5A39BD6DD1D50CEC2B86AB3F6D534/capture.json"
+    },
+    {
+      "id": "native-sd-0AB731160A8C3E4D8EC884DC49F850F0",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\shield_impact_3.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-0AB731160A8C3E4D8EC884DC49F850F0/capture.json"
+    },
+    {
+      "id": "native-sd-EC6A001537AAA8479FD2CA92E98C1014",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\shield_impact_down_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-EC6A001537AAA8479FD2CA92E98C1014/capture.json"
+    },
+    {
+      "id": "native-sd-F0F401D0F2D35BAE707527EEDE699075",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\shield_impact_down.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-F0F401D0F2D35BAE707527EEDE699075/capture.json"
+    },
+    {
+      "id": "native-sd-0E5505C1CC0A58F2239F5753406CD6FC",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_cast.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 2
+      },
+      "events": [
+        "SNDXAHDI",
+        "SNDXAHDD"
+      ],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            0,
+            900
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Stand 1",
+          "interval": [
+            933,
+            1633
+          ],
+          "nonLooping": false
+        },
+        {
+          "name": "Death 1",
+          "interval": [
+            1667,
+            2367
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 1,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 1073,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-0E5505C1CC0A58F2239F5753406CD6FC/capture.json"
+    },
+    {
+      "id": "native-sd-599BF6C90AD5B9997244B4D748F3A268",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_holyblast_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-599BF6C90AD5B9997244B4D748F3A268/capture.json"
+    },
+    {
+      "id": "native-sd-2305C583EEA2139DF36D0D777042F69C",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_holyblast.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-2305C583EEA2139DF36D0D777042F69C/capture.json"
+    },
+    {
+      "id": "native-sd-41F4DE39A08DA3F129C01467240A8881",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_holylight_cast.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-41F4DE39A08DA3F129C01467240A8881/capture.json"
+    },
+    {
+      "id": "native-sd-6755AFA0A96CC0AE1B06D14643F98EEF",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_holylight_end.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-6755AFA0A96CC0AE1B06D14643F98EEF/capture.json"
+    },
+    {
+      "id": "native-sd-CCC58EDB619D8CED90193D9197383201",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_holylight_target_ghoul.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-CCC58EDB619D8CED90193D9197383201/capture.json"
+    },
+    {
+      "id": "native-sd-28A0F4032C73D1FD70495014FACEE4B6",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_holylight_target.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-28A0F4032C73D1FD70495014FACEE4B6/capture.json"
+    },
+    {
+      "id": "native-sd-7A6524B37F0AE3FAAFE117CB84D0FA3A",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_holylight.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-7A6524B37F0AE3FAAFE117CB84D0FA3A/capture.json"
+    },
+    {
+      "id": "native-sd-38E19A76D8C30C0FF84D6632DD8F4D6F",
+      "path": "cinematics\\a0m1c030_uther\\vfx\\uther_slam.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-38E19A76D8C30C0FF84D6632DD8F4D6F/capture.json"
+    },
+    {
+      "id": "native-sd-08D9778D19658241C54403B233AA7CFB",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand_1.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-08D9778D19658241C54403B233AA7CFB/capture.json"
+    },
+    {
+      "id": "native-sd-4CC28311846BC5202AC6A402809C8C3F",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-4CC28311846BC5202AC6A402809C8C3F/capture.json"
+    },
+    {
+      "id": "native-sd-923AACF2949C321F0C90DD891E108A82",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand_3.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-923AACF2949C321F0C90DD891E108A82/capture.json"
+    },
+    {
+      "id": "native-sd-DB7AFAA5E1B3BE561B68095B6A474112",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand_rock_1.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-DB7AFAA5E1B3BE561B68095B6A474112/capture.json"
+    },
+    {
+      "id": "native-sd-99166EE86A15421479E75B75FB64B7EB",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand_rock_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-99166EE86A15421479E75B75FB64B7EB/capture.json"
+    },
+    {
+      "id": "native-sd-74A0B46AABC138084975D2187E239F04",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand_rock_3.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-74A0B46AABC138084975D2187E239F04/capture.json"
+    },
+    {
+      "id": "native-sd-C35D63ECB0A971E94471A3858B455039",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand_rock.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-C35D63ECB0A971E94471A3858B455039/capture.json"
+    },
+    {
+      "id": "native-sd-D3D8F24FC1F664FFAB390076E487B99D",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand_trail.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-D3D8F24FC1F664FFAB390076E487B99D/capture.json"
+    },
+    {
+      "id": "native-sd-79B7D8CA46A0BC46ADD859BDF40E1408",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\energy_hand.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-79B7D8CA46A0BC46ADD859BDF40E1408/capture.json"
+    },
+    {
+      "id": "native-sd-233DC4323CBDFC2B5B59EE0DFC49DEEE",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\gareks_target.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-233DC4323CBDFC2B5B59EE0DFC49DEEE/capture.json"
+    },
+    {
+      "id": "native-sd-1E772D9A60D028AC0369EE187233194B",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\magical_barrier.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-1E772D9A60D028AC0369EE187233194B/capture.json"
+    },
+    {
+      "id": "native-sd-75ACAF6812D8689246DAF3605E720FCE",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\rocks.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-75ACAF6812D8689246DAF3605E720FCE/capture.json"
+    },
+    {
+      "id": "native-sd-7AB67914C6E719A6B56C45CAA9077303",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\shield_impact_rock_1.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-7AB67914C6E719A6B56C45CAA9077303/capture.json"
+    },
+    {
+      "id": "native-sd-C61EA59DC3FD1D495612500546D6E620",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\shield_impact_rock_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-C61EA59DC3FD1D495612500546D6E620/capture.json"
+    },
+    {
+      "id": "native-sd-50032795569FB680E81F898130E4A5E2",
+      "path": "cinematics\\a0m2c030_captainssacrifice\\vfx\\talisman_energy.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-50032795569FB680E81F898130E4A5E2/capture.json"
+    },
+    {
+      "id": "native-sd-8C972130AAA303DFE73D4C038C411E95",
+      "path": "cinematics\\a0m4c010_shutup\\environment\\dark.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 2,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            3367,
+            63367
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 15367,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-8C972130AAA303DFE73D4C038C411E95/capture.json"
+    },
+    {
+      "id": "native-sd-F524ADFF989D53A1DA67273AA6C38EB4",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\ilastar_aura.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-F524ADFF989D53A1DA67273AA6C38EB4/capture.json"
+    },
+    {
+      "id": "native-sd-565BFF8362B3682934C3A15BA61CA66A",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\ilastar_hand_cast_0.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-565BFF8362B3682934C3A15BA61CA66A/capture.json"
+    },
+    {
+      "id": "native-sd-51E48BA1971AD048C70F8089DCF72DA6",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\ilastar_hand_cast.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-51E48BA1971AD048C70F8089DCF72DA6/capture.json"
+    },
+    {
+      "id": "native-sd-DCEDB5B32707668BAB6DBBDBAA04860D",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\ilastar_hand_energy.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-DCEDB5B32707668BAB6DBBDBAA04860D/capture.json"
+    },
+    {
+      "id": "native-sd-07EA2FB2C58DB989DB132695457F7FA9",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\rivensdare_shackles.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-07EA2FB2C58DB989DB132695457F7FA9/capture.json"
+    },
+    {
+      "id": "native-sd-CFEC450BB22E8EB634D5FD1B9B112A36",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\rivensdare_strike.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-CFEC450BB22E8EB634D5FD1B9B112A36/capture.json"
+    },
+    {
+      "id": "native-sd-8B5EFAA6AC3439CFEA102D0E526F0006",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\rivensdare_target_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-8B5EFAA6AC3439CFEA102D0E526F0006/capture.json"
+    },
+    {
+      "id": "native-sd-BFAE4FECF40AC501FE5EBE36B3FFFAFC",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\rivensdare_target_3.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-BFAE4FECF40AC501FE5EBE36B3FFFAFC/capture.json"
+    },
+    {
+      "id": "native-sd-DCC2D1ECE95A8509EB245DB08963BFA6",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\rivensdare_target.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-DCC2D1ECE95A8509EB245DB08963BFA6/capture.json"
+    },
+    {
+      "id": "native-sd-BED62082DE980AD8ED5097B1FFF29FDD",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\shackle_cast_ground.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-BED62082DE980AD8ED5097B1FFF29FDD/capture.json"
+    },
+    {
+      "id": "native-sd-F406496636574381FFB55D6FC64C3E59",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\shackle_left.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-F406496636574381FFB55D6FC64C3E59/capture.json"
+    },
+    {
+      "id": "native-sd-33B51719E820B1AA8971DB8C6BDD24F9",
+      "path": "cinematics\\a0m4c010_shutup\\vfx\\shackle_right.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            1867
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 373,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-33B51719E820B1AA8971DB8C6BDD24F9/capture.json"
+    },
+    {
+      "id": "native-sd-48FFDC17596C04D9881F12F236845224",
+      "path": "cinematics\\a3mic010_allisquiet\\vfx\\nax_lasercast.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand 1",
+          "interval": [
+            0,
+            60000
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 12000,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-48FFDC17596C04D9881F12F236845224/capture.json"
+    },
+    {
+      "id": "native-sd-8276310D4B98834F4F5733C5464EBE04",
+      "path": "cinematics\\a3mic010_allisquiet\\vfx\\nax_laserimpact_2.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 1
+      },
+      "events": [
+        "SNDXAUDS"
+      ],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            0,
+            667
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Death 1",
+          "interval": [
+            700,
+            1133
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Stand 1",
+          "interval": [
+            1167,
+            1500
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 2,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 1234,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-8276310D4B98834F4F5733C5464EBE04/capture.json"
+    },
+    {
+      "id": "native-sd-CF18CBBEF6A065C6D1F90F1B6D4807E5",
+      "path": "cinematics\\a3mic010_allisquiet\\vfx\\nax_laserimpact.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 1
+      },
+      "events": [
+        "SNDXAUDS"
+      ],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            0,
+            667
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Death 1",
+          "interval": [
+            700,
+            1133
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Stand 1",
+          "interval": [
+            1167,
+            1500
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 2,
+          "name": "Stand 1",
+          "phase": 0.2,
+          "frame": 1234,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-CF18CBBEF6A065C6D1F90F1B6D4807E5/capture.json"
+    },
+    {
+      "id": "native-sd-E4BDF4127E4BAEF99318040F17EE7D1B",
+      "path": "cinematics\\a3mic010_allisquiet\\vfx\\nax_lasertarget.mdx",
+      "source": "blizzard",
+      "diagnosis": "unsupported-effect-system",
+      "reason": "No mesh or supported particle/ribbon surface. This capture renderer does not reproduce the authored popcorn or legacy effect system.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 1
+      },
+      "events": [
+        "SNDXAUDS"
+      ],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Birth",
+          "interval": [
+            0,
+            667
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Birth",
+          "phase": 0.2,
+          "frame": 133,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-E4BDF4127E4BAEF99318040F17EE7D1B/capture.json"
+    },
+    {
+      "id": "native-sd-13908696C63747F7DC4FC9A5E56F3973",
+      "path": "doodads\\terrain\\outlandmushroomtree\\outlandmushroomtree1d.mdx",
+      "source": "blizzard",
+      "diagnosis": "no-authored-surface",
+      "reason": "No mesh, particle emitter or ribbon surface in the parsed source. Animation/helper data may still be present.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "stand",
+          "interval": [
+            167,
+            1167
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "stand hit",
+          "interval": [
+            1300,
+            1600
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "death",
+          "interval": [
+            1833,
+            3333
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Birth",
+          "interval": [
+            6667,
+            9667
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Spell EatTree",
+          "interval": [
+            10667,
+            12667
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.2,
+          "frame": 367,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-13908696C63747F7DC4FC9A5E56F3973/capture.json"
+    },
+    {
+      "id": "native-sd-FF08934D56BA74D27615AFB5DA5F76DF",
+      "path": "doodads\\terrain\\outlandmushroomtree\\outlandmushroomtree8d.mdx",
+      "source": "blizzard",
+      "diagnosis": "no-authored-surface",
+      "reason": "No mesh, particle emitter or ribbon surface in the parsed source. Animation/helper data may still be present.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "stand",
+          "interval": [
+            167,
+            1167
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "stand hit",
+          "interval": [
+            1300,
+            1600
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "death",
+          "interval": [
+            1833,
+            3333
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Birth",
+          "interval": [
+            6667,
+            9667
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Spell EatTree",
+          "interval": [
+            10667,
+            12667
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.2,
+          "frame": 367,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-FF08934D56BA74D27615AFB5DA5F76DF/capture.json"
+    },
+    {
+      "id": "native-sd-037D76590C4D9291792D60183EC4E3A9",
+      "path": "doodads\\terrain\\outlandmushroomtree\\outlandmushroomtree9d.mdx",
+      "source": "blizzard",
+      "diagnosis": "no-authored-surface",
+      "reason": "No mesh, particle emitter or ribbon surface in the parsed source. Animation/helper data may still be present.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "stand",
+          "interval": [
+            167,
+            1167
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "stand hit",
+          "interval": [
+            1300,
+            1600
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "death",
+          "interval": [
+            1833,
+            3333
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Birth",
+          "interval": [
+            6667,
+            9667
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "Spell EatTree",
+          "interval": [
+            10667,
+            12667
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.2,
+          "frame": 367,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-037D76590C4D9291792D60183EC4E3A9/capture.json"
+    },
+    {
+      "id": "native-sd-5CC303FD78D33FF0CF8C17F9AB4F3B25",
+      "path": "environment\\blightdoodad\\blightdoodad.mdx",
+      "source": "blizzard",
+      "diagnosis": "unresolved-visible-content",
+      "reason": "Authored renderable primitives exist but the recorded sequence/phase search produced no foreground. This is a capture limitation, not proof the game model is empty.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 1,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "stand",
+          "interval": [
+            333,
+            2667
+          ],
+          "nonLooping": false
+        },
+        {
+          "name": "Death",
+          "interval": [
+            3333,
+            23333
+          ],
+          "nonLooping": true
+        },
+        {
+          "name": "stand",
+          "interval": [
+            25733,
+            30000
+          ],
+          "nonLooping": false
+        },
+        {
+          "name": "stand",
+          "interval": [
+            30833,
+            33167
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.2,
+          "frame": 800,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.05,
+          "frame": 450,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.5,
+          "frame": 1500,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.8,
+          "frame": 2200,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.95,
+          "frame": 2550,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 1,
+          "name": "Death",
+          "phase": 0.05,
+          "frame": 4333,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 1,
+          "name": "Death",
+          "phase": 0.5,
+          "frame": 13333,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 1,
+          "name": "Death",
+          "phase": 0.95,
+          "frame": 22333,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 2,
+          "name": "stand",
+          "phase": 0.05,
+          "frame": 25946,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 2,
+          "name": "stand",
+          "phase": 0.5,
+          "frame": 27867,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 2,
+          "name": "stand",
+          "phase": 0.95,
+          "frame": 29787,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 3,
+          "name": "stand",
+          "phase": 0.05,
+          "frame": 30950,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 3,
+          "name": "stand",
+          "phase": 0.5,
+          "frame": 32000,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 3,
+          "name": "stand",
+          "phase": 0.95,
+          "frame": 33050,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "stand",
+          "phase": 0.5,
+          "frame": 1500,
+          "loopWarmupMilliseconds": 4668,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 2,
+          "name": "stand",
+          "phase": 0.5,
+          "frame": 27867,
+          "loopWarmupMilliseconds": 4267,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 3,
+          "name": "stand",
+          "phase": 0.5,
+          "frame": 32000,
+          "loopWarmupMilliseconds": 4668,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [
+        {
+          "emitter": 1,
+          "field": "LifeSpanUVAnim",
+          "range": [
+            0,
+            63,
+            1
+          ],
+          "cells": 1,
+          "evidence": "Authored atlas endpoints exceed the declared cell count; game interpretation not established."
+        },
+        {
+          "emitter": 1,
+          "field": "DecayUVAnim",
+          "range": [
+            0,
+            63,
+            1
+          ],
+          "cells": 1,
+          "evidence": "Authored atlas endpoints exceed the declared cell count; game interpretation not established."
+        },
+        {
+          "emitter": 1,
+          "field": "TailUVAnim",
+          "range": [
+            62,
+            34,
+            1
+          ],
+          "cells": 1,
+          "evidence": "Authored atlas endpoints exceed the declared cell count; game interpretation not established."
+        },
+        {
+          "emitter": 1,
+          "field": "TailDecayUVAnim",
+          "range": [
+            35,
+            63,
+            1
+          ],
+          "cells": 1,
+          "evidence": "Authored atlas endpoints exceed the declared cell count; game interpretation not established."
+        }
+      ],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-5CC303FD78D33FF0CF8C17F9AB4F3B25/capture.json"
+    },
+    {
+      "id": "native-sd-3636893EF3C57EBFA8AC2097F2973554",
+      "path": "environment\\dnc\\dncashenvale\\dncashenvaleterrain\\dncashenvaleterrain.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-3636893EF3C57EBFA8AC2097F2973554/capture.json"
+    },
+    {
+      "id": "native-sd-A43E58DECA300535449FF6D16D7FB42C",
+      "path": "environment\\dnc\\dncashenvale\\dncashenvaleunit\\dncashenvaleunit.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-A43E58DECA300535449FF6D16D7FB42C/capture.json"
+    },
+    {
+      "id": "native-sd-31723856C1ECF661D7D2B5B309572273",
+      "path": "environment\\dnc\\dncdalaran\\dncdalaranterrain\\dncdalaranterrain.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-31723856C1ECF661D7D2B5B309572273/capture.json"
+    },
+    {
+      "id": "native-sd-119D4479A8D2E9FE080443138A8CCD0D",
+      "path": "environment\\dnc\\dncdalaran\\dncdalaranunit\\dncdalaranunit.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-119D4479A8D2E9FE080443138A8CCD0D/capture.json"
+    },
+    {
+      "id": "native-sd-93A4188AE9EF6B0459E22147CDA935A7",
+      "path": "environment\\dnc\\dncdungeon\\dncdungeonterrain\\dncdungeonterrain.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-93A4188AE9EF6B0459E22147CDA935A7/capture.json"
+    },
+    {
+      "id": "native-sd-376D9D9EDA69D6D031FAEAA098B43ABB",
+      "path": "environment\\dnc\\dncdungeon\\dncdungeonunit\\dncdungeonunit.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-376D9D9EDA69D6D031FAEAA098B43ABB/capture.json"
+    },
+    {
+      "id": "native-sd-9845FBF40E601E82D92B27FE46A02755",
+      "path": "environment\\dnc\\dncfelwood\\dncfelwoodterrain\\dncfelwoodterrain.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-9845FBF40E601E82D92B27FE46A02755/capture.json"
+    },
+    {
+      "id": "native-sd-7160824A81FB3AAE08E63CBD0829CB97",
+      "path": "environment\\dnc\\dncfelwood\\dncfelwoodunit\\dncfelwoodunit.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-7160824A81FB3AAE08E63CBD0829CB97/capture.json"
+    },
+    {
+      "id": "native-sd-2F52F56FBFFA63755E194BDD9F75E0AE",
+      "path": "environment\\dnc\\dnclordaeron\\dnclordaeronequipment\\dnclordaeronequipment.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 2,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            1667
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-2F52F56FBFFA63755E194BDD9F75E0AE/capture.json"
+    },
+    {
+      "id": "native-sd-035272C540A97B758ED04DB562629F86",
+      "path": "environment\\dnc\\dnclordaeron\\dnclordaeronportrait\\dnclordaeronportrait.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-035272C540A97B758ED04DB562629F86/capture.json"
+    },
+    {
+      "id": "native-sd-6445A8872ACF29302E56168209549AD4",
+      "path": "environment\\dnc\\dnclordaeron\\dnclordaerontarget\\dnclordaerontarget.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            1333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 533,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-6445A8872ACF29302E56168209549AD4/capture.json"
+    },
+    {
+      "id": "native-sd-488F78468F0A361D23BD7623AB9C84B7",
+      "path": "environment\\dnc\\dnclordaeron\\dnclordaeronterrain\\dnclordaeronterrain.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-488F78468F0A361D23BD7623AB9C84B7/capture.json"
+    },
+    {
+      "id": "native-sd-A1EB3C003360166BA144FDF7AA369FB9",
+      "path": "environment\\dnc\\dnclordaeron\\dnclordaeronunit\\dnclordaeronunit.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-A1EB3C003360166BA144FDF7AA369FB9/capture.json"
+    },
+    {
+      "id": "native-sd-945FE751E6770894DD96EE1736DB0676",
+      "path": "environment\\dnc\\dncunderground\\dncundergroundterrain\\dncundergroundterrain.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-945FE751E6770894DD96EE1736DB0676/capture.json"
+    },
+    {
+      "id": "native-sd-F94BE4CE36741D314523BF04FDB824FA",
+      "path": "environment\\dnc\\dncunderground\\dncundergroundunit\\dncundergroundunit.mdx",
+      "source": "blizzard",
+      "diagnosis": "light-control-without-surface",
+      "reason": "The file contains light nodes and no visible mesh or emitter surface; standalone rendering has no lit receiver.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 1,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            333,
+            60333
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-F94BE4CE36741D314523BF04FDB824FA/capture.json"
+    },
+    {
+      "id": "native-sd-E4A97D3BABAE109210EF67D46D815985",
+      "path": "objects\\cinematiccameras\\cameracloseuplow.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            66667
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 13333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-E4A97D3BABAE109210EF67D46D815985/capture.json"
+    },
+    {
+      "id": "native-sd-38896E857C781391E9D171B4DE2D2836",
+      "path": "objects\\cinematiccameras\\cameracloseuplownoise.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            69167
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 13833,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-38896E857C781391E9D171B4DE2D2836/capture.json"
+    },
+    {
+      "id": "native-sd-33F5EA27F28B8748B4DEAE290D52112E",
+      "path": "objects\\cinematiccameras\\cameracloseupmed.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            66667
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 13333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-33F5EA27F28B8748B4DEAE290D52112E/capture.json"
+    },
+    {
+      "id": "native-sd-95D6678ED8CDFABBCBFFF5139A1E57A8",
+      "path": "objects\\cinematiccameras\\cameracloseupmednoise.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            69167
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 13833,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-95D6678ED8CDFABBCBFFF5139A1E57A8/capture.json"
+    },
+    {
+      "id": "native-sd-BD073940CCE99FC5FF586B8617FE508D",
+      "path": "objects\\cinematiccameras\\camerajainaenters.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            66667
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 13333,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-BD073940CCE99FC5FF586B8617FE508D/capture.json"
+    },
+    {
+      "id": "native-sd-A07A802019D0E07691E20025283B9CB7",
+      "path": "objects\\cinematiccameras\\camerapanlefthigh.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            60000
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12000,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-A07A802019D0E07691E20025283B9CB7/capture.json"
+    },
+    {
+      "id": "native-sd-B9C9E8C055D301FBCF6A3674F7AF3C76",
+      "path": "objects\\cinematiccameras\\camerapanleftlow.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            60000
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12000,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-B9C9E8C055D301FBCF6A3674F7AF3C76/capture.json"
+    },
+    {
+      "id": "native-sd-EF77E3F0C9DD7ECAD74230A622F5E0A6",
+      "path": "objects\\cinematiccameras\\camerapanupclose.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            69167
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 13833,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-EF77E3F0C9DD7ECAD74230A622F5E0A6/capture.json"
+    },
+    {
+      "id": "native-sd-79716E4DDFCCF616B73C1497D8CE6606",
+      "path": "objects\\cinematiccameras\\camerazoominlow.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            60000
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12000,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-79716E4DDFCCF616B73C1497D8CE6606/capture.json"
+    },
+    {
+      "id": "native-sd-347312EFFFC1527AD57ABAF4CB7F6276",
+      "path": "objects\\cinematiccameras\\camerazoominmid.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            60000
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12000,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-347312EFFFC1527AD57ABAF4CB7F6276/capture.json"
+    },
+    {
+      "id": "native-sd-1DBC66D2983F88AE412E1D59A947A55B",
+      "path": "objects\\cinematiccameras\\camerazoomout.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            60000
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12000,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-1DBC66D2983F88AE412E1D59A947A55B/capture.json"
+    },
+    {
+      "id": "native-sd-4A7A636C7387F4EE752EFF18B4714849",
+      "path": "objects\\cinematiccameras\\camerazoomoutlow.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            60000
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12000,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-4A7A636C7387F4EE752EFF18B4714849/capture.json"
+    },
+    {
+      "id": "native-sd-FD840CEF994C9EBC336B1D4CC1B5C2FB",
+      "path": "objects\\cinematiccameras\\camerazoomoutmid.mdx",
+      "source": "blizzard",
+      "diagnosis": "camera-control-without-surface",
+      "reason": "The file contains camera definitions and no visible mesh or emitter surface.",
+      "counts": {
+        "triangles": 0,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 1,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            0,
+            60000
+          ],
+          "nonLooping": false
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 12000,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-FD840CEF994C9EBC336B1D4CC1B5C2FB/capture.json"
+    },
+    {
+      "id": "native-sd-FD1921F82A41DFCA9923A85DF73CEA2E",
+      "path": "sharedmodels\\smoke1_green.mdx",
+      "source": "blizzard",
+      "diagnosis": "unresolved-visible-content",
+      "reason": "Authored renderable primitives exist but the recorded sequence/phase search produced no foreground. This is a capture limitation, not proof the game model is empty.",
+      "counts": {
+        "triangles": 2,
+        "particleEmitters2": 0,
+        "ribbons": 0,
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lights": 0,
+        "cameras": 0,
+        "attachments": 0,
+        "events": 0
+      },
+      "events": [],
+      "externalAttachments": [],
+      "sequences": [
+        {
+          "name": "Stand",
+          "interval": [
+            33,
+            3333
+          ],
+          "nonLooping": true
+        }
+      ],
+      "phaseAttempts": [
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.2,
+          "frame": 693,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.05,
+          "frame": 198,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.5,
+          "frame": 1683,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.8,
+          "frame": 2673,
+          "changedPixels": 0
+        },
+        {
+          "sequence": 0,
+          "name": "Stand",
+          "phase": 0.95,
+          "frame": 3168,
+          "changedPixels": 0
+        }
+      ],
+      "atlasAnomalies": [],
+      "missingTextures": [],
+      "capture": "captures/models/native-sd-FD1921F82A41DFCA9923A85DF73CEA2E/capture.json"
+    }
+  ]
+}

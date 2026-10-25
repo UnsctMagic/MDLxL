@@ -1,0 +1,2 @@
+import fs from 'node:fs';import {analyze} from './measure-models.mjs';
+const r='D:/Codex/sd-research',a=JSON.parse(fs.readFileSync(r+'/data/native-manifest.json')).filter(x=>x.tier==='hd').slice(0,1400);let n=0;for(const x of a){if(fs.existsSync(r+'/data/parts/'+x.id+'.json.gz'))continue;try{analyze(x,fs.readFileSync(x.file));}catch(e){console.log(JSON.stringify({id:x.id,path:x.logicalPath,error:e.stack}));}if(++n>=3)break;}

@@ -1,0 +1,1967 @@
+{
+  "schema": 1,
+  "models": [
+    "lpw-von-carstein",
+    "lpw-von-carstein-dread-knight"
+  ],
+  "records": [
+    {
+      "label": "long hair",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g1:c1",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g1:c1",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "82259ec51a0e31dd56d660db9aa8beefc11047a82d5379d803f960638943552f",
+        "canonicalFacePositionSha256From": "82743bc0fd6da00650bf75d11099aadb6e52319cb3eb4e59b0c0a0e731a91832",
+        "canonicalFacePositionSha256To": "82743bc0fd6da00650bf75d11099aadb6e52319cb3eb4e59b0c0a0e731a91832",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001708,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 81,
+          "vertices": 63,
+          "distinctPositions": 54,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 9,
+          "bounds": {
+            "min": [
+              -11.389618,
+              -11.625,
+              86
+            ],
+            "max": [
+              11.3125,
+              10.712828,
+              117
+            ],
+            "size": [
+              22.702118,
+              22.337828,
+              31
+            ],
+            "center": [
+              -0.038559,
+              -0.456086,
+              101.5
+            ]
+          }
+        },
+        "to": {
+          "triangles": 81,
+          "vertices": 63,
+          "distinctPositions": 54,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 9,
+          "bounds": {
+            "min": [
+              -11.389618,
+              -11.625,
+              86
+            ],
+            "max": [
+              11.3125,
+              10.712828,
+              117
+            ],
+            "size": [
+              22.702118,
+              22.337828,
+              31
+            ],
+            "center": [
+              -0.038559,
+              -0.456086,
+              101.5
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "c62c1774f7936dbbcf7f5b6a83905212e23dbae375c50a3df9172f62eb4b7b13",
+        "toSha256": "c62c1774f7936dbbcf7f5b6a83905212e23dbae375c50a3df9172f62eb4b7b13",
+        "fromBones": [
+          {
+            "id": 25,
+            "name": "Head",
+            "vertexWeight": 48,
+            "share": 0.761905
+          },
+          {
+            "id": 8,
+            "name": "Chest",
+            "vertexWeight": 6,
+            "share": 0.095238
+          },
+          {
+            "id": 9,
+            "name": "R_Shoulder",
+            "vertexWeight": 2.5,
+            "share": 0.039683
+          },
+          {
+            "id": 26,
+            "name": "H1",
+            "vertexWeight": 2.5,
+            "share": 0.039683
+          },
+          {
+            "id": 13,
+            "name": "L_Shoulder",
+            "vertexWeight": 2,
+            "share": 0.031746
+          },
+          {
+            "id": 27,
+            "name": "H2",
+            "vertexWeight": 2,
+            "share": 0.031746
+          }
+        ],
+        "toBones": [
+          {
+            "id": 25,
+            "name": "Head",
+            "vertexWeight": 48,
+            "share": 0.761905
+          },
+          {
+            "id": 8,
+            "name": "Chest",
+            "vertexWeight": 6,
+            "share": 0.095238
+          },
+          {
+            "id": 9,
+            "name": "R_Shoulder",
+            "vertexWeight": 2.5,
+            "share": 0.039683
+          },
+          {
+            "id": 26,
+            "name": "H1",
+            "vertexWeight": 2.5,
+            "share": 0.039683
+          },
+          {
+            "id": 13,
+            "name": "L_Shoulder",
+            "vertexWeight": 2,
+            "share": 0.031746
+          },
+          {
+            "id": 27,
+            "name": "H2",
+            "vertexWeight": 2,
+            "share": 0.031746
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": false,
+        "changedCornerCount": 243,
+        "maxCornerDistance": 0.906761093,
+        "fromBounds": [
+          0.00197,
+          0.059593,
+          0.21783,
+          0.526174
+        ],
+        "toBounds": [
+          -0.732102,
+          0.133041,
+          0.881917,
+          0.990942
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            8.860667351,
+            0.013089226,
+            -1.072764154
+          ],
+          "maxAbsoluteResidual": 0.316315648,
+          "rmsResidual": 0.096834072
+        },
+        "globalAffineV": {
+          "coefficients": [
+            3.540314926,
+            2.363606953,
+            -0.577626173
+          ],
+          "maxAbsoluteResidual": 0.251515348,
+          "rmsResidual": 0.101089212
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\Human\\HeroArchMage\\HeroArchmage.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 0,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Textures\\Hair02_09.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "sword jewel",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g6:c1",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g6:c1",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "3b200bcd64acb02809da5059f93e1662f45b591321260d39fd2304cd034f83a0",
+        "canonicalFacePositionSha256From": "4990ebed7862f1bf691c3fee1f9b73b1e3be5b3af3c02cd04ca8163f31d78c30",
+        "canonicalFacePositionSha256To": "4990ebed7862f1bf691c3fee1f9b73b1e3be5b3af3c02cd04ca8163f31d78c30",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001207,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 20,
+          "vertices": 14,
+          "distinctPositions": 14,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -17.641592,
+              -27.375,
+              44.25
+            ],
+            "max": [
+              -8.6875,
+              -21.247061,
+              52.25
+            ],
+            "size": [
+              8.954092,
+              6.127939,
+              8
+            ],
+            "center": [
+              -13.164546,
+              -24.31103,
+              48.25
+            ]
+          }
+        },
+        "to": {
+          "triangles": 20,
+          "vertices": 14,
+          "distinctPositions": 14,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -17.641592,
+              -27.375,
+              44.25
+            ],
+            "max": [
+              -8.6875,
+              -21.247061,
+              52.25
+            ],
+            "size": [
+              8.954092,
+              6.127939,
+              8
+            ],
+            "center": [
+              -13.164546,
+              -24.31103,
+              48.25
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "f0c46ed4e58595b3dd8e30bf5be87617b53badc52e1e4ea0db1f59904e7c2649",
+        "toSha256": "f0c46ed4e58595b3dd8e30bf5be87617b53badc52e1e4ea0db1f59904e7c2649",
+        "fromBones": [
+          {
+            "id": 24,
+            "name": "Blade",
+            "vertexWeight": 14,
+            "share": 1
+          }
+        ],
+        "toBones": [
+          {
+            "id": 24,
+            "name": "Blade",
+            "vertexWeight": 14,
+            "share": 1
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": false,
+        "changedCornerCount": 28,
+        "maxCornerDistance": 0.013861732,
+        "fromBounds": [
+          0.824219,
+          0.824219,
+          0.984375,
+          0.988281
+        ],
+        "toBounds": [
+          0.820908,
+          0.820908,
+          0.989177,
+          0.993083
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            1.055758786,
+            -0.002603611,
+            -0.047667433
+          ],
+          "maxAbsoluteResidual": 0.007206708,
+          "rmsResidual": 0.003094373
+        },
+        "globalAffineV": {
+          "coefficients": [
+            -0.003815756,
+            1.047764101,
+            -0.039705617
+          ],
+          "maxAbsoluteResidual": 0.003339218,
+          "rmsResidual": 0.00133505
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 0,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "UI\\Glues\\SinglePlayer\\UndeadCampaign3D\\UndeadCampaignLich.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 0,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "UI\\Glues\\SinglePlayer\\UndeadCampaign3D\\UndeadCampaignLich.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "sword skull",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g8:c1",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g8:c1",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "17b52063ed9261755dfb2c9d764025d57c49350767cc940a86e581b99d830f28",
+        "canonicalFacePositionSha256From": "d686f3018d4ce11aa84808110ad59d77b12eae28870f6485e7351937217d0912",
+        "canonicalFacePositionSha256To": "d686f3018d4ce11aa84808110ad59d77b12eae28870f6485e7351937217d0912",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001479,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 90,
+          "vertices": 51,
+          "distinctPositions": 50,
+          "normalSplitPositions": 1,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              9.25,
+              -30.5,
+              41.6875
+            ],
+            "max": [
+              24.875,
+              -19.25,
+              54.194443
+            ],
+            "size": [
+              15.625,
+              11.25,
+              12.506943
+            ],
+            "center": [
+              17.0625,
+              -24.875,
+              47.940971
+            ]
+          }
+        },
+        "to": {
+          "triangles": 90,
+          "vertices": 51,
+          "distinctPositions": 50,
+          "normalSplitPositions": 1,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              9.25,
+              -30.5,
+              41.6875
+            ],
+            "max": [
+              24.875,
+              -19.25,
+              54.194443
+            ],
+            "size": [
+              15.625,
+              11.25,
+              12.506943
+            ],
+            "center": [
+              17.0625,
+              -24.875,
+              47.940971
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "0c2fcda092322079b6b58dd2986218e7ad7bac26869b1e2876d54c0ab46d9a5e",
+        "toSha256": "0c2fcda092322079b6b58dd2986218e7ad7bac26869b1e2876d54c0ab46d9a5e",
+        "fromBones": [
+          {
+            "id": 24,
+            "name": "Blade",
+            "vertexWeight": 51,
+            "share": 1
+          }
+        ],
+        "toBones": [
+          {
+            "id": 24,
+            "name": "Blade",
+            "vertexWeight": 51,
+            "share": 1
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": true,
+        "changedCornerCount": 0,
+        "maxCornerDistance": 0,
+        "fromBounds": [
+          0.652344,
+          0.023193,
+          0.996094,
+          0.503906
+        ],
+        "toBounds": [
+          0.652344,
+          0.023193,
+          0.996094,
+          0.503906
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            1,
+            0,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "globalAffineV": {
+          "coefficients": [
+            0,
+            1,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 1,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\Creeps\\SkeletonOrc\\SkeletonOrc.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 1,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\Creeps\\SkeletonOrc\\SkeletonOrc.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "sword blade",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g9:c1",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g9:c1",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "13b94ec8750b64cdd5d1b3624eeae4f532f9a037b91eacd0818dcd0fe8bc6690",
+        "canonicalFacePositionSha256From": "52a3efe91924d25bc2f988ede996c0d46e65f8b1c5bb8699de0ec4bab516bc65",
+        "canonicalFacePositionSha256To": "52a3efe91924d25bc2f988ede996c0d46e65f8b1c5bb8699de0ec4bab516bc65",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001708,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 324,
+          "vertices": 185,
+          "distinctPositions": 166,
+          "normalSplitPositions": 17,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              13.6875,
+              -25.5,
+              42.25
+            ],
+            "max": [
+              87.5,
+              -23.75,
+              55.25
+            ],
+            "size": [
+              73.8125,
+              1.75,
+              13
+            ],
+            "center": [
+              50.59375,
+              -24.625,
+              48.75
+            ]
+          }
+        },
+        "to": {
+          "triangles": 324,
+          "vertices": 185,
+          "distinctPositions": 166,
+          "normalSplitPositions": 17,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              13.6875,
+              -25.5,
+              42.25
+            ],
+            "max": [
+              87.5,
+              -23.75,
+              55.25
+            ],
+            "size": [
+              73.8125,
+              1.75,
+              13
+            ],
+            "center": [
+              50.59375,
+              -24.625,
+              48.75
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "82de9888dff6cb40f2b11fb30e869075cb7172c6026ab63c17ba4a1cfb0a1b24",
+        "toSha256": "82de9888dff6cb40f2b11fb30e869075cb7172c6026ab63c17ba4a1cfb0a1b24",
+        "fromBones": [
+          {
+            "id": 24,
+            "name": "Blade",
+            "vertexWeight": 185,
+            "share": 1
+          }
+        ],
+        "toBones": [
+          {
+            "id": 24,
+            "name": "Blade",
+            "vertexWeight": 185,
+            "share": 1
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": true,
+        "changedCornerCount": 0,
+        "maxCornerDistance": 0,
+        "fromBounds": [
+          0.457031,
+          0.414063,
+          0.554688,
+          0.972656
+        ],
+        "toBounds": [
+          0.457031,
+          0.414063,
+          0.554688,
+          0.972656
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            1,
+            0,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "globalAffineV": {
+          "coefficients": [
+            0,
+            1,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "UI\\Widgets\\Glues\\Minimap-CustomCampaign-Undead.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "UI\\Widgets\\Glues\\Minimap-CustomCampaign-Undead.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "sword infill",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g9:c2",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g9:c2",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "76d876512341238b8584756098768af3975fab96f04aa8846b17a940e1ebe70a",
+        "canonicalFacePositionSha256From": "8dc1207bd23feb4377adf743caaa20047443e185d48ffa34984536bd5691e9e9",
+        "canonicalFacePositionSha256To": "8dc1207bd23feb4377adf743caaa20047443e185d48ffa34984536bd5691e9e9",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 3,
+          "vertices": 5,
+          "distinctPositions": 5,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              13.75,
+              -25.375,
+              46.25
+            ],
+            "max": [
+              13.8125,
+              -24.125,
+              49
+            ],
+            "size": [
+              0.0625,
+              1.25,
+              2.75
+            ],
+            "center": [
+              13.78125,
+              -24.75,
+              47.625
+            ]
+          }
+        },
+        "to": {
+          "triangles": 3,
+          "vertices": 5,
+          "distinctPositions": 5,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              13.75,
+              -25.375,
+              46.25
+            ],
+            "max": [
+              13.8125,
+              -24.125,
+              49
+            ],
+            "size": [
+              0.0625,
+              1.25,
+              2.75
+            ],
+            "center": [
+              13.78125,
+              -24.75,
+              47.625
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "0641933089e22759149d0107f6022b5a2031869ef6f8d38ec898b178be4f7df3",
+        "toSha256": "0641933089e22759149d0107f6022b5a2031869ef6f8d38ec898b178be4f7df3",
+        "fromBones": [
+          {
+            "id": 24,
+            "name": "Blade",
+            "vertexWeight": 5,
+            "share": 1
+          }
+        ],
+        "toBones": [
+          {
+            "id": 24,
+            "name": "Blade",
+            "vertexWeight": 5,
+            "share": 1
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": true,
+        "changedCornerCount": 0,
+        "maxCornerDistance": 0,
+        "fromBounds": [
+          0.490234,
+          0.259766,
+          0.519531,
+          0.259766
+        ],
+        "toBounds": [
+          0.490234,
+          0.259766,
+          0.519531,
+          0.259766
+        ],
+        "globalAffineU": null,
+        "globalAffineV": null,
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "UI\\Widgets\\Glues\\Minimap-CustomCampaign-Undead.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "UI\\Widgets\\Glues\\Minimap-CustomCampaign-Undead.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "right skull pauldron",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g15:c1",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g15:c1",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "b5c578df4c4615b5e418970977a9ea8932e0db5d7e1a24fac7ea38d6ad55e0e6",
+        "canonicalFacePositionSha256From": "cfb902dced6c477c031f0186acb1205db27b942e18b82baccd96c75b8cd44246",
+        "canonicalFacePositionSha256To": "cfb902dced6c477c031f0186acb1205db27b942e18b82baccd96c75b8cd44246",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001207,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 34,
+          "vertices": 25,
+          "distinctPositions": 25,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -13.508873,
+              6.490004,
+              73.31765
+            ],
+            "max": [
+              11.861707,
+              28.440626,
+              96.837646
+            ],
+            "size": [
+              25.37058,
+              21.950623,
+              23.519997
+            ],
+            "center": [
+              -0.823583,
+              17.465315,
+              85.077648
+            ]
+          }
+        },
+        "to": {
+          "triangles": 34,
+          "vertices": 25,
+          "distinctPositions": 25,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -13.508873,
+              6.490004,
+              73.31765
+            ],
+            "max": [
+              11.861707,
+              28.440626,
+              96.837646
+            ],
+            "size": [
+              25.37058,
+              21.950623,
+              23.519997
+            ],
+            "center": [
+              -0.823583,
+              17.465315,
+              85.077648
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "2bf5ad0bdd8a1f4e5fa77ea6a22564ab42f70245b596930e4a00015a080719c8",
+        "toSha256": "2bf5ad0bdd8a1f4e5fa77ea6a22564ab42f70245b596930e4a00015a080719c8",
+        "fromBones": [
+          {
+            "id": 13,
+            "name": "L_Shoulder",
+            "vertexWeight": 25,
+            "share": 1
+          }
+        ],
+        "toBones": [
+          {
+            "id": 13,
+            "name": "L_Shoulder",
+            "vertexWeight": 25,
+            "share": 1
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": true,
+        "changedCornerCount": 0,
+        "maxCornerDistance": 0,
+        "fromBounds": [
+          0.193359,
+          0.001953,
+          0.419922,
+          0.302734
+        ],
+        "toBounds": [
+          0.193359,
+          0.001953,
+          0.419922,
+          0.302734
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            1,
+            0,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "globalAffineV": {
+          "coefficients": [
+            0,
+            1,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Buildings\\Undead\\TempleOfTheDamned\\NewTempleOfTheDamned.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Buildings\\Undead\\TempleOfTheDamned\\NewTempleOfTheDamned.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "left skull pauldron",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g15:c2",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g15:c2",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "1148c03554df933526740e8c2e1b04a7d09fa0c3c3b0790bda05da1185ead5dc",
+        "canonicalFacePositionSha256From": "fac84c73f71d80c93f8508b29c4a1dfe4a573c12a3d237a0f3a8508b2cbf6691",
+        "canonicalFacePositionSha256To": "fac84c73f71d80c93f8508b29c4a1dfe4a573c12a3d237a0f3a8508b2cbf6691",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001207,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 34,
+          "vertices": 25,
+          "distinctPositions": 25,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -13.508873,
+              -28.315626,
+              73.31765
+            ],
+            "max": [
+              11.861707,
+              -9.275625,
+              96.837646
+            ],
+            "size": [
+              25.37058,
+              19.040001,
+              23.519997
+            ],
+            "center": [
+              -0.823583,
+              -18.795626,
+              85.077648
+            ]
+          }
+        },
+        "to": {
+          "triangles": 34,
+          "vertices": 25,
+          "distinctPositions": 25,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -13.508873,
+              -28.315626,
+              73.31765
+            ],
+            "max": [
+              11.861707,
+              -9.275625,
+              96.837646
+            ],
+            "size": [
+              25.37058,
+              19.040001,
+              23.519997
+            ],
+            "center": [
+              -0.823583,
+              -18.795626,
+              85.077648
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "ba3be8086e257f3cad85100be0576129c14902b17907d6c8a270a5aeb5c33343",
+        "toSha256": "ba3be8086e257f3cad85100be0576129c14902b17907d6c8a270a5aeb5c33343",
+        "fromBones": [
+          {
+            "id": 9,
+            "name": "R_Shoulder",
+            "vertexWeight": 25,
+            "share": 1
+          }
+        ],
+        "toBones": [
+          {
+            "id": 9,
+            "name": "R_Shoulder",
+            "vertexWeight": 25,
+            "share": 1
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": true,
+        "changedCornerCount": 0,
+        "maxCornerDistance": 0,
+        "fromBounds": [
+          0.193359,
+          0.001953,
+          0.419922,
+          0.302734
+        ],
+        "toBounds": [
+          0.193359,
+          0.001953,
+          0.419922,
+          0.302734
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            1,
+            0,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "globalAffineV": {
+          "coefficients": [
+            0,
+            1,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Buildings\\Undead\\TempleOfTheDamned\\NewTempleOfTheDamned.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 0,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Buildings\\Undead\\TempleOfTheDamned\\NewTempleOfTheDamned.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "cape fur side",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g16:c1",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g16:c1",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "ab9a18675417465dcb79f9895a770a15b48d5352083b7d24b1006268771283e3",
+        "canonicalFacePositionSha256From": "d4e13c6baa525a125222dea1b60cac9ec7bda8e11f6ceb84fb6bdabff9ed8e98",
+        "canonicalFacePositionSha256To": "d4e13c6baa525a125222dea1b60cac9ec7bda8e11f6ceb84fb6bdabff9ed8e98",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001207,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 28,
+          "vertices": 23,
+          "distinctPositions": 23,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -24.25,
+              -16.086876,
+              55
+            ],
+            "max": [
+              -7.46875,
+              16.211876,
+              94.5
+            ],
+            "size": [
+              16.78125,
+              32.298752,
+              39.5
+            ],
+            "center": [
+              -15.859375,
+              0.0625,
+              74.75
+            ]
+          }
+        },
+        "to": {
+          "triangles": 28,
+          "vertices": 23,
+          "distinctPositions": 23,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -24.25,
+              -16.086876,
+              55
+            ],
+            "max": [
+              -7.46875,
+              16.211876,
+              94.5
+            ],
+            "size": [
+              16.78125,
+              32.298752,
+              39.5
+            ],
+            "center": [
+              -15.859375,
+              0.0625,
+              74.75
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "2cba9f80be990552d2925105a9a4eab5df6d6c38c132f760614bebcef65cb01a",
+        "toSha256": "2cba9f80be990552d2925105a9a4eab5df6d6c38c132f760614bebcef65cb01a",
+        "fromBones": [
+          {
+            "id": 21,
+            "name": "C2",
+            "vertexWeight": 12.5,
+            "share": 0.543478
+          },
+          {
+            "id": 20,
+            "name": "C1",
+            "vertexWeight": 6.5,
+            "share": 0.282609
+          },
+          {
+            "id": 8,
+            "name": "Chest",
+            "vertexWeight": 4,
+            "share": 0.173913
+          }
+        ],
+        "toBones": [
+          {
+            "id": 21,
+            "name": "C2",
+            "vertexWeight": 12.5,
+            "share": 0.543478
+          },
+          {
+            "id": 20,
+            "name": "C1",
+            "vertexWeight": 6.5,
+            "share": 0.282609
+          },
+          {
+            "id": 8,
+            "name": "Chest",
+            "vertexWeight": 4,
+            "share": 0.173913
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": true,
+        "changedCornerCount": 0,
+        "maxCornerDistance": 0,
+        "fromBounds": [
+          0.707031,
+          0.408203,
+          0.800781,
+          0.609375
+        ],
+        "toBounds": [
+          0.707031,
+          0.408203,
+          0.800781,
+          0.609375
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            1,
+            0,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "globalAffineV": {
+          "coefficients": [
+            0,
+            1,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 1,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "shading": 16,
+            "filterMode": 4,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 1,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "shading": 16,
+            "filterMode": 4,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "cape fur side",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g16:c2",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g16:c2",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "d91234a29ce39f0d6104d53b205cc2d9e6d0c1049c529260cfb87c7c7bb02dcf",
+        "canonicalFacePositionSha256From": "056607a0f7ac63c9677abcf707edf0a9a22cf2b8061ce58723bfb867b8d42726",
+        "canonicalFacePositionSha256To": "056607a0f7ac63c9677abcf707edf0a9a22cf2b8061ce58723bfb867b8d42726",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001479,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 28,
+          "vertices": 23,
+          "distinctPositions": 23,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -23.75,
+              -9.375,
+              42.5
+            ],
+            "max": [
+              -15.3125,
+              9.5,
+              75.5
+            ],
+            "size": [
+              8.4375,
+              18.875,
+              33
+            ],
+            "center": [
+              -19.53125,
+              0.0625,
+              59
+            ]
+          }
+        },
+        "to": {
+          "triangles": 28,
+          "vertices": 23,
+          "distinctPositions": 23,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -23.75,
+              -9.375,
+              42.5
+            ],
+            "max": [
+              -15.3125,
+              9.5,
+              75.5
+            ],
+            "size": [
+              8.4375,
+              18.875,
+              33
+            ],
+            "center": [
+              -19.53125,
+              0.0625,
+              59
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "45229593d9a38f612a5262908e0989632eb79263cd06c8c18c280074156c5f77",
+        "toSha256": "45229593d9a38f612a5262908e0989632eb79263cd06c8c18c280074156c5f77",
+        "fromBones": [
+          {
+            "id": 21,
+            "name": "C2",
+            "vertexWeight": 9,
+            "share": 0.391304
+          },
+          {
+            "id": 20,
+            "name": "C1",
+            "vertexWeight": 7,
+            "share": 0.304348
+          },
+          {
+            "id": 22,
+            "name": "C3",
+            "vertexWeight": 7,
+            "share": 0.304348
+          }
+        ],
+        "toBones": [
+          {
+            "id": 21,
+            "name": "C2",
+            "vertexWeight": 9,
+            "share": 0.391304
+          },
+          {
+            "id": 20,
+            "name": "C1",
+            "vertexWeight": 7,
+            "share": 0.304348
+          },
+          {
+            "id": 22,
+            "name": "C3",
+            "vertexWeight": 7,
+            "share": 0.304348
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": true,
+        "changedCornerCount": 0,
+        "maxCornerDistance": 0,
+        "fromBounds": [
+          0.707031,
+          0.408203,
+          0.800781,
+          0.609375
+        ],
+        "toBounds": [
+          0.707031,
+          0.408203,
+          0.800781,
+          0.609375
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            1,
+            0,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "globalAffineV": {
+          "coefficients": [
+            0,
+            1,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 1,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "shading": 16,
+            "filterMode": 4,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 1,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "shading": 16,
+            "filterMode": 4,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    },
+    {
+      "label": "cape fur centre",
+      "from": {
+        "modelId": "lpw-von-carstein",
+        "partId": "lpw-von-carstein:g16:c3",
+        "sha256": "b3ebf64fa6db5eba7d0a8c2afeb1ca652024f36fd850be20efc3a802ff3783cd"
+      },
+      "to": {
+        "modelId": "lpw-von-carstein-dread-knight",
+        "partId": "lpw-von-carstein-dread-knight:g16:c3",
+        "sha256": "dffdf504d024ff8f6266cf1ca979ca11e16d2f4f83f7ae86395bd7610d806166"
+      },
+      "evidence": "Both whole models and isolated component images visually inspected; raw parsed face-corner positions, normals, UVs and named bone weights compared below.",
+      "exactGeometry": {
+        "orderedFaceCornerPositionsEqual": true,
+        "orderedFaceCornerPositionSha256": "bfd61f2bfabcfc8a3f327839c16818693a370e2f2909076cd13083d965940eff",
+        "canonicalFacePositionSha256From": "4a5776cee664de6ef901f843112cfe614d52e398a064537ab876ff11d722319c",
+        "canonicalFacePositionSha256To": "4a5776cee664de6ef901f843112cfe614d52e398a064537ab876ff11d722319c",
+        "canonicalFacesEqual": true,
+        "maxCorrespondingPositionDelta": 0,
+        "maxNormalAngleDegrees": 0.000001708,
+        "normalArraysExactEqual": true
+      },
+      "measurements": {
+        "from": {
+          "triangles": 18,
+          "vertices": 17,
+          "distinctPositions": 17,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -24.25,
+              -16,
+              64.5
+            ],
+            "max": [
+              0.89161,
+              16.125,
+              98.739525
+            ],
+            "size": [
+              25.14161,
+              32.125,
+              34.239525
+            ],
+            "center": [
+              -11.679195,
+              0.0625,
+              81.619762
+            ]
+          }
+        },
+        "to": {
+          "triangles": 18,
+          "vertices": 17,
+          "distinctPositions": 17,
+          "normalSplitPositions": 0,
+          "uvSplitPositions": 0,
+          "bounds": {
+            "min": [
+              -24.25,
+              -16,
+              64.5
+            ],
+            "max": [
+              0.89161,
+              16.125,
+              98.739525
+            ],
+            "size": [
+              25.14161,
+              32.125,
+              34.239525
+            ],
+            "center": [
+              -11.679195,
+              0.0625,
+              81.619762
+            ]
+          }
+        },
+        "boundsAxisScale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "rig": {
+        "namedWeightsEqual": true,
+        "fromSha256": "f39fe7136147724cfe71d731b0a60f9ebfd97c0f43efb0bd7f0e6df49c58783b",
+        "toSha256": "f39fe7136147724cfe71d731b0a60f9ebfd97c0f43efb0bd7f0e6df49c58783b",
+        "fromBones": [
+          {
+            "id": 8,
+            "name": "Chest",
+            "vertexWeight": 7.5,
+            "share": 0.441176
+          },
+          {
+            "id": 20,
+            "name": "C1",
+            "vertexWeight": 5.5,
+            "share": 0.323529
+          },
+          {
+            "id": 21,
+            "name": "C2",
+            "vertexWeight": 4,
+            "share": 0.235294
+          }
+        ],
+        "toBones": [
+          {
+            "id": 8,
+            "name": "Chest",
+            "vertexWeight": 7.5,
+            "share": 0.441176
+          },
+          {
+            "id": 20,
+            "name": "C1",
+            "vertexWeight": 5.5,
+            "share": 0.323529
+          },
+          {
+            "id": 21,
+            "name": "C2",
+            "vertexWeight": 4,
+            "share": 0.235294
+          }
+        ]
+      },
+      "uv": {
+        "exactEqual": true,
+        "changedCornerCount": 0,
+        "maxCornerDistance": 0,
+        "fromBounds": [
+          0.707031,
+          0.408203,
+          0.796875,
+          0.609375
+        ],
+        "toBounds": [
+          0.707031,
+          0.408203,
+          0.796875,
+          0.609375
+        ],
+        "globalAffineU": {
+          "coefficients": [
+            1,
+            0,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "globalAffineV": {
+          "coefficients": [
+            0,
+            1,
+            0
+          ],
+          "maxAbsoluteResidual": 0,
+          "rmsResidual": 0
+        },
+        "interpretation": "Affine coefficients are a least-squares description, not an asserted editing operation unless residual is near zero. Different islands may have been moved separately."
+      },
+      "textures": {
+        "from": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 1,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "shading": 16,
+            "filterMode": 4,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ],
+        "to": [
+          {
+            "layer": 1,
+            "shading": 16,
+            "filterMode": 1,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "shading": 16,
+            "filterMode": 4,
+            "textures": [
+              {
+                "slot": "TextureID",
+                "path": "Units\\NightElf\\MalFurion\\NewStag.blp",
+                "replaceableId": 0
+              }
+            ]
+          }
+        ]
+      },
+      "limitations": "Establishes exact sameness or differences between these two supplied variants. Does not identify which was authored first or the original external geometry source."
+    }
+  ]
+}

@@ -1,0 +1,1042 @@
+[
+  {
+    "modelId": "lpw-graveguard",
+    "name": "Graveguard",
+    "components": 90,
+    "directlyReviewed": 90,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-von-carstein",
+    "name": "Von Carstein Vampire",
+    "components": 97,
+    "directlyReviewed": 97,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-von-carstein-dread-knight",
+    "name": "Von Carstein Dread Knight",
+    "components": 114,
+    "directlyReviewed": 114,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-strigoi-vampire",
+    "name": "Strigoi Vampire",
+    "components": 77,
+    "directlyReviewed": 77,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-necrarch-vampire",
+    "name": "Necrarch Vampire",
+    "components": 78,
+    "directlyReviewed": 78,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-khorne-axe",
+    "name": "Knight of Khorne \u00b7 Axe",
+    "components": 164,
+    "directlyReviewed": 164,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-khorne-flail",
+    "name": "Knight of Khorne \u00b7 Champion",
+    "components": 189,
+    "directlyReviewed": 189,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-nurgle-heavy",
+    "name": "Knight of Nurgle \u00b7 Heavy",
+    "components": 160,
+    "directlyReviewed": 160,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-nurgle-standard",
+    "name": "Knight of Nurgle",
+    "components": 157,
+    "directlyReviewed": 157,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-nurgle",
+    "name": "Old Version",
+    "components": 154,
+    "directlyReviewed": 154,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-nurgle-champion",
+    "name": "Knight of Nurgle \u00b7 Champion",
+    "components": 143,
+    "directlyReviewed": 143,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-slaanesh-axe",
+    "name": "Knight of Slaanesh \u00b7 Axe",
+    "components": 139,
+    "directlyReviewed": 139,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-slaanesh-lance",
+    "name": "Knight of Slaanesh \u00b7 Lance",
+    "components": 125,
+    "directlyReviewed": 125,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-undivided-sword",
+    "name": "Knight Undivided \u00b7 Sword",
+    "components": 105,
+    "directlyReviewed": 105,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-undivided-lance",
+    "name": "Knight Undivided \u00b7 Lance",
+    "components": 101,
+    "directlyReviewed": 101,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-aspiring",
+    "name": "Aspiring Champion",
+    "components": 122,
+    "directlyReviewed": 122,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-herrdave-124832",
+    "name": "Bretonnian Archer",
+    "components": 50,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 50
+  },
+  {
+    "modelId": "lpw-herrdave-124833",
+    "name": "Bretonnian Pikeman",
+    "components": 47,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 47
+  },
+  {
+    "modelId": "lpw-herrdave-124831",
+    "name": "Bretonnian Swordsman",
+    "components": 52,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 52
+  },
+  {
+    "modelId": "lpw-herrdave-87376",
+    "name": "Greenskin - Black Orc",
+    "components": 87,
+    "directlyReviewed": 45,
+    "signatureInferred": 0,
+    "unreviewed": 42
+  },
+  {
+    "modelId": "lpw-herrdave-87377",
+    "name": "Greenskin - Black Orc Warboss",
+    "components": 109,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 109
+  },
+  {
+    "modelId": "lpw-herrdave-104264",
+    "name": "Greenskin - Black Orc Warboss (Hero)",
+    "components": 112,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 112
+  },
+  {
+    "modelId": "lpw-herrdave-87375",
+    "name": "Greenskin - Orc Boy",
+    "components": 78,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 78
+  },
+  {
+    "modelId": "lpw-herrdave-103868",
+    "name": "Snotling",
+    "components": 31,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 31
+  },
+  {
+    "modelId": "lpw-herrdave-87374",
+    "name": "Greenskin - Savage Orc",
+    "components": 37,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 37
+  },
+  {
+    "modelId": "lpw-herrdave-86791",
+    "name": "Empire Captain",
+    "components": 45,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 45
+  },
+  {
+    "modelId": "lpw-herrdave-88507",
+    "name": "Empire Halberdier",
+    "components": 40,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 40
+  },
+  {
+    "modelId": "lpw-herrdave-86747",
+    "name": "Empire Swordsman",
+    "components": 39,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 39
+  },
+  {
+    "modelId": "lpw-herrdave-88510",
+    "name": "Estalian Infantry",
+    "components": 42,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 42
+  },
+  {
+    "modelId": "lpw-herrdave-88509",
+    "name": "Estalian Swordsman",
+    "components": 41,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 41
+  },
+  {
+    "modelId": "lpw-herrdave-88508",
+    "name": "Estalian Spearman",
+    "components": 38,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 38
+  },
+  {
+    "modelId": "lpw-herrdave-86862",
+    "name": "Elector Count",
+    "components": 57,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 57
+  },
+  {
+    "modelId": "lpw-herrdave-87246",
+    "name": "Elite Steam Tank",
+    "components": 130,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 130
+  },
+  {
+    "modelId": "lpw-herrdave-87245",
+    "name": "Standard Steam Tank",
+    "components": 127,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 127
+  },
+  {
+    "modelId": "lpw-herrdave-86780",
+    "name": "Estalian Handgunner (Estalia)",
+    "components": 59,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 59
+  },
+  {
+    "modelId": "lpw-herrdave-75836",
+    "name": "Reikland Handgunner",
+    "components": 58,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 58
+  },
+  {
+    "modelId": "lpw-herrdave-86759",
+    "name": "Reikland Handgunner (Old)",
+    "components": 39,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 39
+  },
+  {
+    "modelId": "lpw-herrdave-86753",
+    "name": "Estalian Halberdier (Estalia)",
+    "components": 46,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 46
+  },
+  {
+    "modelId": "lpw-herrdave-79344",
+    "name": "Reikland Halberdier",
+    "components": 46,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 46
+  },
+  {
+    "modelId": "lpw-herrdave-86735",
+    "name": "Reikland Halberdier (Old)",
+    "components": 43,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 43
+  },
+  {
+    "modelId": "lpw-herrdave-81065",
+    "name": "Knight of the Blazing Sun (Mounted)",
+    "components": 95,
+    "directlyReviewed": 0,
+    "signatureInferred": 6,
+    "unreviewed": 89
+  },
+  {
+    "modelId": "lpw-herrdave-76825",
+    "name": "Knight of the Blazing Sun (Dismounted)",
+    "components": 37,
+    "directlyReviewed": 0,
+    "signatureInferred": 1,
+    "unreviewed": 36
+  },
+  {
+    "modelId": "lpw-herrdave-75804",
+    "name": "Reikland Greatsword",
+    "components": 36,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 36
+  },
+  {
+    "modelId": "lpw-herrdave-75064",
+    "name": "Warhammer Witch Hunter",
+    "components": 51,
+    "directlyReviewed": 20,
+    "signatureInferred": 0,
+    "unreviewed": 31
+  },
+  {
+    "modelId": "lpw-tzeentch-sword",
+    "name": "Knight of Tzeentch \u00b7 Sword",
+    "components": 154,
+    "directlyReviewed": 154,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-tzeentch-lance",
+    "name": "Knight of Tzeentch \u00b7 Lance",
+    "components": 150,
+    "directlyReviewed": 150,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-chaos-ogre",
+    "name": "Chaos Ogre",
+    "components": 52,
+    "directlyReviewed": 52,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-warrior-of-tzeentch",
+    "name": "Warrior of Tzeentch",
+    "components": 68,
+    "directlyReviewed": 68,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-warrior-of-khorne-berserker",
+    "name": "Warrior of Khorne \u00b7 Berserker",
+    "components": 109,
+    "directlyReviewed": 109,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-warrior-of-khorne-cleaver",
+    "name": "Warrior of Khorne \u00b7 Cleaver",
+    "components": 70,
+    "directlyReviewed": 70,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-warrior-of-khorne",
+    "name": "Warrior of Khorne \u00b7 Bruiser",
+    "components": 168,
+    "directlyReviewed": 168,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-chaos-warrior-of-nurgle",
+    "name": "Warrior of Nurgle",
+    "components": 103,
+    "directlyReviewed": 103,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-blood-dragon",
+    "name": "Blood Dragon",
+    "components": 120,
+    "directlyReviewed": 120,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-kurgan-warlord",
+    "name": "Kurgan Warlord",
+    "components": 69,
+    "directlyReviewed": 69,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-gluma-127545",
+    "name": "Bestigor",
+    "components": 71,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 71
+  },
+  {
+    "modelId": "lpw-gluma-127546",
+    "name": "Bestigor Unit",
+    "components": 66,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 66
+  },
+  {
+    "modelId": "lpw-gluma-123574",
+    "name": "Horn gor (unit)",
+    "components": 58,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 58
+  },
+  {
+    "modelId": "lpw-gluma-123571",
+    "name": "Horn gor (hero)",
+    "components": 64,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 64
+  },
+  {
+    "modelId": "lpw-gluma-123553",
+    "name": "Gor Axe (hero)",
+    "components": 60,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 60
+  },
+  {
+    "modelId": "lpw-gluma-123554",
+    "name": "Gor Axe (unit)",
+    "components": 49,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 49
+  },
+  {
+    "modelId": "lpw-gluma-123551",
+    "name": "Gor Flail (hero)",
+    "components": 67,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 67
+  },
+  {
+    "modelId": "lpw-gluma-123552",
+    "name": "Gor Flail (unit)",
+    "components": 61,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 61
+  },
+  {
+    "modelId": "lpw-gluma-82702",
+    "name": "Ratling Gunner",
+    "components": 63,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 63
+  },
+  {
+    "modelId": "lpw-gluma-82705",
+    "name": "Ratling unit",
+    "components": 59,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 59
+  },
+  {
+    "modelId": "lpw-gluma-80903",
+    "name": "Warplock Jezzail",
+    "components": 62,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 62
+  },
+  {
+    "modelId": "lpw-gluma-82593",
+    "name": "Stormvermin",
+    "components": 37,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 37
+  },
+  {
+    "modelId": "lpw-gluma-80783",
+    "name": "Clanrat",
+    "components": 49,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 49
+  },
+  {
+    "modelId": "lpw-gluma-164659",
+    "name": "Empire Handgunners (Arquebus)",
+    "components": 27,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 27
+  },
+  {
+    "modelId": "lpw-gluma-164660",
+    "name": "Empire Handgunners (Flintlock)",
+    "components": 29,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 29
+  },
+  {
+    "modelId": "lpw-gluma-164663",
+    "name": "Empire Handgunners (Scoped)",
+    "components": 31,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 31
+  },
+  {
+    "modelId": "lpw-gluma-164662",
+    "name": "Empire Handgunners",
+    "components": 29,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 29
+  },
+  {
+    "modelId": "lpw-gluma-159913",
+    "name": "Witch Elf Hero",
+    "components": 50,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 50
+  },
+  {
+    "modelId": "lpw-gluma-159912",
+    "name": "Witch Elf Unit",
+    "components": 45,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 45
+  },
+  {
+    "modelId": "lpw-gluma-160458",
+    "name": "Dark Elf Beastmaster unit",
+    "components": 16,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 16
+  },
+  {
+    "modelId": "lpw-gluma-160459",
+    "name": "Dark Elf Beastmaster hero",
+    "components": 16,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 16
+  },
+  {
+    "modelId": "lpw-gluma-160461",
+    "name": "Dark Elf Slavemaster Hero",
+    "components": 21,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 21
+  },
+  {
+    "modelId": "lpw-gluma-160460",
+    "name": "Dark Elf Slavemaster unit",
+    "components": 21,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 21
+  },
+  {
+    "modelId": "lpw-gluma-143397",
+    "name": "Cold One Rider Hero",
+    "components": 49,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 49
+  },
+  {
+    "modelId": "lpw-gluma-143396",
+    "name": "Cold One Rider Unit",
+    "components": 75,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 75
+  },
+  {
+    "modelId": "lpw-gluma-143398",
+    "name": "Feral Cold One",
+    "components": 32,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 32
+  },
+  {
+    "modelId": "lpw-gluma-137406",
+    "name": "Bray Shaman Hero",
+    "components": 44,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 44
+  },
+  {
+    "modelId": "lpw-gluma-137407",
+    "name": "Bray Shaman Unit",
+    "components": 46,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 46
+  },
+  {
+    "modelId": "lpw-gluma-144692",
+    "name": "Bray Shaman of Tzeench Hero",
+    "components": 19,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 19
+  },
+  {
+    "modelId": "lpw-gluma-144691",
+    "name": "Bray Shaman of Tzeench Unit",
+    "components": 19,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 19
+  },
+  {
+    "modelId": "lpw-gluma-137328",
+    "name": "Saurus Warrior",
+    "components": 48,
+    "directlyReviewed": 31,
+    "signatureInferred": 0,
+    "unreviewed": 17
+  },
+  {
+    "modelId": "lpw-gluma-137329",
+    "name": "Saurus Warrior Hero",
+    "components": 38,
+    "directlyReviewed": 31,
+    "signatureInferred": 0,
+    "unreviewed": 7
+  },
+  {
+    "modelId": "lpw-gluma-145021",
+    "name": "Dwarf Cannon",
+    "components": 36,
+    "directlyReviewed": 36,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-gluma-140895",
+    "name": "Saurus Oldblood Hero",
+    "components": 47,
+    "directlyReviewed": 0,
+    "signatureInferred": 1,
+    "unreviewed": 46
+  },
+  {
+    "modelId": "lpw-gluma-140896",
+    "name": "Saurus Oldblood Unit",
+    "components": 57,
+    "directlyReviewed": 0,
+    "signatureInferred": 1,
+    "unreviewed": 56
+  },
+  {
+    "modelId": "lpw-gluma-146392",
+    "name": "Kroxigor Unit",
+    "components": 50,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 50
+  },
+  {
+    "modelId": "lpw-gluma-146393",
+    "name": "Kroxigor Hero",
+    "components": 47,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 47
+  },
+  {
+    "modelId": "lpw-gluma-146394",
+    "name": "Kroxigor Ancient Unit",
+    "components": 62,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 62
+  },
+  {
+    "modelId": "lpw-gluma-146395",
+    "name": "Kroxigor Ancient Hero",
+    "components": 59,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 59
+  },
+  {
+    "modelId": "lpw-gluma-135399",
+    "name": "Skink High Priest Hero",
+    "components": 58,
+    "directlyReviewed": 0,
+    "signatureInferred": 9,
+    "unreviewed": 49
+  },
+  {
+    "modelId": "lpw-gluma-135400",
+    "name": "Skink High Priest Hero (Swimless)",
+    "components": 58,
+    "directlyReviewed": 0,
+    "signatureInferred": 9,
+    "unreviewed": 49
+  },
+  {
+    "modelId": "lpw-gluma-135401",
+    "name": "Skink High Priest Unit",
+    "components": 70,
+    "directlyReviewed": 0,
+    "signatureInferred": 9,
+    "unreviewed": 61
+  },
+  {
+    "modelId": "lpw-gluma-135402",
+    "name": "Skink High Priest Unit (Swimless)",
+    "components": 70,
+    "directlyReviewed": 0,
+    "signatureInferred": 9,
+    "unreviewed": 61
+  },
+  {
+    "modelId": "lpw-gluma-134840",
+    "name": "Skink Worker",
+    "components": 45,
+    "directlyReviewed": 0,
+    "signatureInferred": 24,
+    "unreviewed": 21
+  },
+  {
+    "modelId": "lpw-gluma-134841",
+    "name": "Skink Worker Swimless",
+    "components": 45,
+    "directlyReviewed": 0,
+    "signatureInferred": 24,
+    "unreviewed": 21
+  },
+  {
+    "modelId": "lpw-gluma-134634",
+    "name": "Skink Chief (Hero)",
+    "components": 49,
+    "directlyReviewed": 0,
+    "signatureInferred": 13,
+    "unreviewed": 36
+  },
+  {
+    "modelId": "lpw-gluma-134635",
+    "name": "Skink Chief (Unit)",
+    "components": 56,
+    "directlyReviewed": 0,
+    "signatureInferred": 13,
+    "unreviewed": 43
+  },
+  {
+    "modelId": "lpw-gluma-134398",
+    "name": "Spear Skink",
+    "components": 40,
+    "directlyReviewed": 40,
+    "signatureInferred": 0,
+    "unreviewed": 0
+  },
+  {
+    "modelId": "lpw-gluma-134399",
+    "name": "Blowpipe Skink",
+    "components": 40,
+    "directlyReviewed": 0,
+    "signatureInferred": 34,
+    "unreviewed": 6
+  },
+  {
+    "modelId": "lpw-gluma-134400",
+    "name": "Skink Skirmisher",
+    "components": 45,
+    "directlyReviewed": 0,
+    "signatureInferred": 39,
+    "unreviewed": 6
+  },
+  {
+    "modelId": "lpw-gluma-134401",
+    "name": "Orange Spear Skink",
+    "components": 42,
+    "directlyReviewed": 0,
+    "signatureInferred": 36,
+    "unreviewed": 6
+  },
+  {
+    "modelId": "lpw-gluma-134404",
+    "name": "Orange Blowpipe Skink",
+    "components": 40,
+    "directlyReviewed": 0,
+    "signatureInferred": 30,
+    "unreviewed": 10
+  },
+  {
+    "modelId": "lpw-gluma-134402",
+    "name": "Orange Skink Skirmisher",
+    "components": 45,
+    "directlyReviewed": 0,
+    "signatureInferred": 35,
+    "unreviewed": 10
+  },
+  {
+    "modelId": "lpw-gluma-134405",
+    "name": "Chameleon Skink",
+    "components": 50,
+    "directlyReviewed": 0,
+    "signatureInferred": 25,
+    "unreviewed": 25
+  },
+  {
+    "modelId": "lpw-gluma-133845",
+    "name": "Gor Spear Thrower",
+    "components": 38,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 38
+  },
+  {
+    "modelId": "lpw-gluma-133854",
+    "name": "Ungor Slave",
+    "components": 29,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 29
+  },
+  {
+    "modelId": "lpw-gluma-99740",
+    "name": "Ungor Bowman",
+    "components": 43,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 43
+  },
+  {
+    "modelId": "lpw-gluma-90822",
+    "name": "Ungor with spear",
+    "components": 39,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 39
+  },
+  {
+    "modelId": "lpw-gluma-123406",
+    "name": "Empire Crossbowman",
+    "components": 60,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 60
+  },
+  {
+    "modelId": "lpw-gluma-160790",
+    "name": "Generic Ballista",
+    "components": 35,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 35
+  },
+  {
+    "modelId": "lpw-gluma-160791",
+    "name": "Generic Bolt Thrower",
+    "components": 45,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 45
+  },
+  {
+    "modelId": "lpw-gluma-160792",
+    "name": "Dark Elf Ballista",
+    "components": 39,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 39
+  },
+  {
+    "modelId": "lpw-gluma-160793",
+    "name": "Dark Elf Bolt Thrower",
+    "components": 49,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 49
+  },
+  {
+    "modelId": "lpw-gluma-145290",
+    "name": "Warp Lightning Cannon",
+    "components": 52,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 52
+  },
+  {
+    "modelId": "lpw-gluma-146044",
+    "name": "Human Cannon Bronze",
+    "components": 23,
+    "directlyReviewed": 0,
+    "signatureInferred": 7,
+    "unreviewed": 16
+  },
+  {
+    "modelId": "lpw-gluma-146046",
+    "name": "Human Cannon Black",
+    "components": 23,
+    "directlyReviewed": 0,
+    "signatureInferred": 7,
+    "unreviewed": 16
+  },
+  {
+    "modelId": "lpw-gluma-146045",
+    "name": "Human Mortar Bronze",
+    "components": 22,
+    "directlyReviewed": 0,
+    "signatureInferred": 3,
+    "unreviewed": 19
+  },
+  {
+    "modelId": "lpw-gluma-146047",
+    "name": "Human Mortar Black",
+    "components": 22,
+    "directlyReviewed": 0,
+    "signatureInferred": 3,
+    "unreviewed": 19
+  },
+  {
+    "modelId": "lpw-gluma-145231",
+    "name": "Dwarf Organ Cannon",
+    "components": 56,
+    "directlyReviewed": 0,
+    "signatureInferred": 7,
+    "unreviewed": 49
+  },
+  {
+    "modelId": "lpw-gluma-145232",
+    "name": "Dwarf Organ Cannon (Full Barrage)",
+    "components": 56,
+    "directlyReviewed": 0,
+    "signatureInferred": 6,
+    "unreviewed": 50
+  },
+  {
+    "modelId": "lpw-gluma-145233",
+    "name": "Dwarf Organ Cannon (Single Shots)",
+    "components": 56,
+    "directlyReviewed": 0,
+    "signatureInferred": 6,
+    "unreviewed": 50
+  },
+  {
+    "modelId": "lpw-gluma-145234",
+    "name": "Dwarf Organ Cannon (Small Barrages)",
+    "components": 56,
+    "directlyReviewed": 0,
+    "signatureInferred": 7,
+    "unreviewed": 49
+  },
+  {
+    "modelId": "lpw-maximal-144834",
+    "name": "Minotaur",
+    "components": 53,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 53
+  },
+  {
+    "modelId": "lpw-maximal-144833",
+    "name": "Minotaur Drummer",
+    "components": 50,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 50
+  },
+  {
+    "modelId": "lpw-maximal-141710",
+    "name": "Centigor Spearman",
+    "components": 64,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 64
+  },
+  {
+    "modelId": "lpw-maximal-141711",
+    "name": "Centigor Axethrower",
+    "components": 72,
+    "directlyReviewed": 0,
+    "signatureInferred": 0,
+    "unreviewed": 72
+  }
+]

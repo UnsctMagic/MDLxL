@@ -1,0 +1,364 @@
+[
+  {
+    "a": {
+      "id": "lpw-gluma-135399",
+      "name": "Skink High Priest Hero",
+      "triangles": 954,
+      "sampleVisibleTriangles": 894,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 600,
+        "phase": 0.2
+      },
+      "geosets": 7,
+      "textureReferences": 6,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 370952,
+      "sequences": 20
+    },
+    "b": {
+      "id": "lpw-gluma-135400",
+      "name": "Skink High Priest Hero (Swimless)",
+      "triangles": 954,
+      "sampleVisibleTriangles": 894,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 600,
+        "phase": 0.2
+      },
+      "geosets": 7,
+      "textureReferences": 6,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 286572,
+      "sequences": 14
+    },
+    "sameUnorientedComponentGeometryMultiset": true,
+    "onlyASequences": [
+      "Attack Swim",
+      "Death Swim",
+      "Spell Swim",
+      "Stand Swim",
+      "Stand Swim Channel",
+      "Walk Swim"
+    ],
+    "onlyBSequences": [],
+    "componentFingerprintCaution": "Shape fingerprint ignores material, rig and animation; equality is evidence for shape reuse, not runtime identity."
+  },
+  {
+    "a": {
+      "id": "lpw-gluma-135401",
+      "name": "Skink High Priest Unit",
+      "triangles": 984,
+      "sampleVisibleTriangles": 888,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 600,
+        "phase": 0.2
+      },
+      "geosets": 8,
+      "textureReferences": 8,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 372389,
+      "sequences": 22
+    },
+    "b": {
+      "id": "lpw-gluma-135402",
+      "name": "Skink High Priest Unit (Swimless)",
+      "triangles": 984,
+      "sampleVisibleTriangles": 888,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 600,
+        "phase": 0.2
+      },
+      "geosets": 8,
+      "textureReferences": 8,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 287117,
+      "sequences": 15
+    },
+    "sameUnorientedComponentGeometryMultiset": true,
+    "onlyASequences": [
+      "Attack Swim",
+      "Death Swim",
+      "Decay Swim",
+      "Spell Swim",
+      "Stand Swim",
+      "Stand Swim Channel",
+      "Walk Swim"
+    ],
+    "onlyBSequences": [],
+    "componentFingerprintCaution": "Shape fingerprint ignores material, rig and animation; equality is evidence for shape reuse, not runtime identity."
+  },
+  {
+    "a": {
+      "id": "lpw-gluma-134840",
+      "name": "Skink Worker",
+      "triangles": 776,
+      "sampleVisibleTriangles": 596,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 1100,
+        "phase": 0.2
+      },
+      "geosets": 8,
+      "textureReferences": 7,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 372914,
+      "sequences": 34
+    },
+    "b": {
+      "id": "lpw-gluma-134841",
+      "name": "Skink Worker Swimless",
+      "triangles": 776,
+      "sampleVisibleTriangles": 596,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 1100,
+        "phase": 0.2
+      },
+      "geosets": 8,
+      "textureReferences": 7,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 254206,
+      "sequences": 23
+    },
+    "sameUnorientedComponentGeometryMultiset": true,
+    "onlyASequences": [
+      "Attack Swim",
+      "Attack Swim Gold",
+      "Attack Swim Lumber",
+      "Death Swim",
+      "Decay Swim",
+      "Stand Swim",
+      "Stand Swim Gold",
+      "Stand Swim Lumber",
+      "Walk Swim",
+      "Walk Swim Gold",
+      "Walk Swim Lumber"
+    ],
+    "onlyBSequences": [],
+    "componentFingerprintCaution": "Shape fingerprint ignores material, rig and animation; equality is evidence for shape reuse, not runtime identity."
+  },
+  {
+    "a": {
+      "id": "lpw-gluma-134399",
+      "name": "Blowpipe Skink",
+      "triangles": 753,
+      "sampleVisibleTriangles": 607,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 1100,
+        "phase": 0.2
+      },
+      "geosets": 8,
+      "textureReferences": 8,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 244104,
+      "sequences": 19
+    },
+    "b": {
+      "id": "lpw-gluma-134404",
+      "name": "Orange Blowpipe Skink",
+      "triangles": 753,
+      "sampleVisibleTriangles": 607,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 1100,
+        "phase": 0.2
+      },
+      "geosets": 8,
+      "textureReferences": 8,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 244096,
+      "sequences": 19
+    },
+    "sameUnorientedComponentGeometryMultiset": true,
+    "onlyASequences": [],
+    "onlyBSequences": [],
+    "componentFingerprintCaution": "Shape fingerprint ignores material, rig and animation; equality is evidence for shape reuse, not runtime identity."
+  },
+  {
+    "a": {
+      "id": "lpw-gluma-134400",
+      "name": "Skink Skirmisher",
+      "triangles": 863,
+      "sampleVisibleTriangles": 717,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 1100,
+        "phase": 0.2
+      },
+      "geosets": 10,
+      "textureReferences": 8,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 264652,
+      "sequences": 19
+    },
+    "b": {
+      "id": "lpw-gluma-134402",
+      "name": "Orange Skink Skirmisher",
+      "triangles": 863,
+      "sampleVisibleTriangles": 717,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 1100,
+        "phase": 0.2
+      },
+      "geosets": 10,
+      "textureReferences": 8,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 264612,
+      "sequences": 19
+    },
+    "sameUnorientedComponentGeometryMultiset": true,
+    "onlyASequences": [],
+    "onlyBSequences": [],
+    "componentFingerprintCaution": "Shape fingerprint ignores material, rig and animation; equality is evidence for shape reuse, not runtime identity."
+  },
+  {
+    "a": {
+      "id": "lpw-gluma-137328",
+      "name": "Saurus Warrior",
+      "triangles": 942,
+      "sampleVisibleTriangles": 904,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 866,
+        "phase": 0.2
+      },
+      "geosets": 4,
+      "textureReferences": 4,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 254261,
+      "sequences": 21
+    },
+    "b": {
+      "id": "lpw-gluma-137329",
+      "name": "Saurus Warrior Hero",
+      "triangles": 918,
+      "sampleVisibleTriangles": 916,
+      "sample": {
+        "sequence": "Stand",
+        "index": 0,
+        "frame": 866,
+        "phase": 0.2
+      },
+      "geosets": 4,
+      "textureReferences": 3,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 255521,
+      "sequences": 20
+    },
+    "sameUnorientedComponentGeometryMultiset": false,
+    "onlyASequences": [
+      "Decay Bone",
+      "Decay Flesh"
+    ],
+    "onlyBSequences": [
+      "Dissipate"
+    ],
+    "componentFingerprintCaution": "Shape fingerprint ignores material, rig and animation; equality is evidence for shape reuse, not runtime identity."
+  },
+  {
+    "a": {
+      "id": "lpw-gluma-140895",
+      "name": "Saurus Oldblood Hero",
+      "triangles": 1056,
+      "sampleVisibleTriangles": 1054,
+      "sample": {
+        "sequence": "Stand - 1",
+        "index": 0,
+        "frame": 866,
+        "phase": 0.2
+      },
+      "geosets": 5,
+      "textureReferences": 3,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 350953,
+      "sequences": 20
+    },
+    "b": {
+      "id": "lpw-gluma-140896",
+      "name": "Saurus Oldblood Unit",
+      "triangles": 1080,
+      "sampleVisibleTriangles": 1042,
+      "sample": {
+        "sequence": "Stand - 1",
+        "index": 0,
+        "frame": 866,
+        "phase": 0.2
+      },
+      "geosets": 5,
+      "textureReferences": 4,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 345894,
+      "sequences": 21
+    },
+    "sameUnorientedComponentGeometryMultiset": false,
+    "onlyASequences": [
+      "Dissipate"
+    ],
+    "onlyBSequences": [
+      "Decay Bone",
+      "Decay Flesh"
+    ],
+    "componentFingerprintCaution": "Shape fingerprint ignores material, rig and animation; equality is evidence for shape reuse, not runtime identity."
+  },
+  {
+    "a": {
+      "id": "lpw-gluma-160458",
+      "name": "Dark Elf Beastmaster unit",
+      "triangles": 602,
+      "sampleVisibleTriangles": 562,
+      "sample": {
+        "sequence": "Stand - 1",
+        "index": 0,
+        "frame": 3666,
+        "phase": 0.2
+      },
+      "geosets": 7,
+      "textureReferences": 5,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 229685,
+      "sequences": 18
+    },
+    "b": {
+      "id": "lpw-gluma-160459",
+      "name": "Dark Elf Beastmaster hero",
+      "triangles": 580,
+      "sampleVisibleTriangles": 578,
+      "sample": {
+        "sequence": "Stand - 1",
+        "index": 0,
+        "frame": 3666,
+        "phase": 0.2
+      },
+      "geosets": 7,
+      "textureReferences": 4,
+      "eyeAnimationFrameSheets": 0,
+      "bytes": 231796,
+      "sequences": 17
+    },
+    "sameUnorientedComponentGeometryMultiset": false,
+    "onlyASequences": [
+      "Decay Bone",
+      "Decay Flesh"
+    ],
+    "onlyBSequences": [
+      "Dissipate"
+    ],
+    "componentFingerprintCaution": "Shape fingerprint ignores material, rig and animation; equality is evidence for shape reuse, not runtime identity."
+  }
+]

@@ -1,0 +1,7281 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-25T08:54:29.714Z",
+  "scope": "SD art including modern MDX1800 files. Previously collected HD/DE findings retained outside active scope.",
+  "active": {
+    "expected": 4207,
+    "sources": {
+      "blizzard": {
+        "expected": 3431,
+        "captured": 3431
+      },
+      "lowpolyworks": {
+        "expected": 130,
+        "captured": 130
+      },
+      "hive": {
+        "expected": 646,
+        "captured": 646
+      }
+    },
+    "captured": 4207,
+    "missing": [],
+    "missingFiles": [],
+    "corruptMetadata": [],
+    "blankFiveViews": [
+      "native-sd-100A0555671564176ACB74AF51A6DF31",
+      "native-sd-78EDABD13C1D3E8EFFF69F96A95F60AC",
+      "native-sd-A143C25FA11B7B4558AE3BD0B2D143C4",
+      "native-sd-7FC2BA88BB1F9DB36E8674CA0185B2A5",
+      "native-sd-1C5BDF9A70FB5E0570E7BD7EA06CEBED",
+      "native-sd-57B8854E33510F82011D3DFB05163547",
+      "native-sd-26EF4CDE2341DCEF21B476E1688DB7D0",
+      "native-sd-3E737A11B5C9F0C7F4F920349017D10B",
+      "native-sd-E1388408F3E55C63878B0C8EA6B37A26",
+      "native-sd-AC3C55B8E72BE3D68235F9074E989830",
+      "native-sd-117A323AA355833F36E3BCB8E3B1532F",
+      "native-sd-E55C14599D1005809FDBE66D6E1B19E4",
+      "native-sd-E7FF554EFEDDD041CE2011F8AC147576",
+      "native-sd-4093AA35F4293769EB127E50B726F7FB",
+      "native-sd-FC6659FD261967A84375935A6BE6E978",
+      "native-sd-47E6E694DDFA1B7DBBCF4F819E06B3D4",
+      "native-sd-71B5A39BD6DD1D50CEC2B86AB3F6D534",
+      "native-sd-0AB731160A8C3E4D8EC884DC49F850F0",
+      "native-sd-EC6A001537AAA8479FD2CA92E98C1014",
+      "native-sd-F0F401D0F2D35BAE707527EEDE699075",
+      "native-sd-0E5505C1CC0A58F2239F5753406CD6FC",
+      "native-sd-599BF6C90AD5B9997244B4D748F3A268",
+      "native-sd-2305C583EEA2139DF36D0D777042F69C",
+      "native-sd-41F4DE39A08DA3F129C01467240A8881",
+      "native-sd-6755AFA0A96CC0AE1B06D14643F98EEF",
+      "native-sd-CCC58EDB619D8CED90193D9197383201",
+      "native-sd-28A0F4032C73D1FD70495014FACEE4B6",
+      "native-sd-7A6524B37F0AE3FAAFE117CB84D0FA3A",
+      "native-sd-38E19A76D8C30C0FF84D6632DD8F4D6F",
+      "native-sd-08D9778D19658241C54403B233AA7CFB",
+      "native-sd-4CC28311846BC5202AC6A402809C8C3F",
+      "native-sd-923AACF2949C321F0C90DD891E108A82",
+      "native-sd-DB7AFAA5E1B3BE561B68095B6A474112",
+      "native-sd-99166EE86A15421479E75B75FB64B7EB",
+      "native-sd-74A0B46AABC138084975D2187E239F04",
+      "native-sd-C35D63ECB0A971E94471A3858B455039",
+      "native-sd-D3D8F24FC1F664FFAB390076E487B99D",
+      "native-sd-79B7D8CA46A0BC46ADD859BDF40E1408",
+      "native-sd-233DC4323CBDFC2B5B59EE0DFC49DEEE",
+      "native-sd-1E772D9A60D028AC0369EE187233194B",
+      "native-sd-75ACAF6812D8689246DAF3605E720FCE",
+      "native-sd-7AB67914C6E719A6B56C45CAA9077303",
+      "native-sd-C61EA59DC3FD1D495612500546D6E620",
+      "native-sd-50032795569FB680E81F898130E4A5E2",
+      "native-sd-8C972130AAA303DFE73D4C038C411E95",
+      "native-sd-F524ADFF989D53A1DA67273AA6C38EB4",
+      "native-sd-565BFF8362B3682934C3A15BA61CA66A",
+      "native-sd-51E48BA1971AD048C70F8089DCF72DA6",
+      "native-sd-DCEDB5B32707668BAB6DBBDBAA04860D",
+      "native-sd-07EA2FB2C58DB989DB132695457F7FA9",
+      "native-sd-CFEC450BB22E8EB634D5FD1B9B112A36",
+      "native-sd-8B5EFAA6AC3439CFEA102D0E526F0006",
+      "native-sd-BFAE4FECF40AC501FE5EBE36B3FFFAFC",
+      "native-sd-DCC2D1ECE95A8509EB245DB08963BFA6",
+      "native-sd-BED62082DE980AD8ED5097B1FFF29FDD",
+      "native-sd-F406496636574381FFB55D6FC64C3E59",
+      "native-sd-33B51719E820B1AA8971DB8C6BDD24F9",
+      "native-sd-48FFDC17596C04D9881F12F236845224",
+      "native-sd-8276310D4B98834F4F5733C5464EBE04",
+      "native-sd-CF18CBBEF6A065C6D1F90F1B6D4807E5",
+      "native-sd-E4BDF4127E4BAEF99318040F17EE7D1B",
+      "native-sd-13908696C63747F7DC4FC9A5E56F3973",
+      "native-sd-FF08934D56BA74D27615AFB5DA5F76DF",
+      "native-sd-037D76590C4D9291792D60183EC4E3A9",
+      "native-sd-5CC303FD78D33FF0CF8C17F9AB4F3B25",
+      "native-sd-3636893EF3C57EBFA8AC2097F2973554",
+      "native-sd-A43E58DECA300535449FF6D16D7FB42C",
+      "native-sd-31723856C1ECF661D7D2B5B309572273",
+      "native-sd-119D4479A8D2E9FE080443138A8CCD0D",
+      "native-sd-93A4188AE9EF6B0459E22147CDA935A7",
+      "native-sd-376D9D9EDA69D6D031FAEAA098B43ABB",
+      "native-sd-9845FBF40E601E82D92B27FE46A02755",
+      "native-sd-7160824A81FB3AAE08E63CBD0829CB97",
+      "native-sd-2F52F56FBFFA63755E194BDD9F75E0AE",
+      "native-sd-035272C540A97B758ED04DB562629F86",
+      "native-sd-6445A8872ACF29302E56168209549AD4",
+      "native-sd-488F78468F0A361D23BD7623AB9C84B7",
+      "native-sd-A1EB3C003360166BA144FDF7AA369FB9",
+      "native-sd-945FE751E6770894DD96EE1736DB0676",
+      "native-sd-F94BE4CE36741D314523BF04FDB824FA",
+      "native-sd-E4A97D3BABAE109210EF67D46D815985",
+      "native-sd-38896E857C781391E9D171B4DE2D2836",
+      "native-sd-33F5EA27F28B8748B4DEAE290D52112E",
+      "native-sd-95D6678ED8CDFABBCBFFF5139A1E57A8",
+      "native-sd-BD073940CCE99FC5FF586B8617FE508D",
+      "native-sd-A07A802019D0E07691E20025283B9CB7",
+      "native-sd-B9C9E8C055D301FBCF6A3674F7AF3C76",
+      "native-sd-EF77E3F0C9DD7ECAD74230A622F5E0A6",
+      "native-sd-79716E4DDFCCF616B73C1497D8CE6606",
+      "native-sd-347312EFFFC1527AD57ABAF4CB7F6276",
+      "native-sd-1DBC66D2983F88AE412E1D59A947A55B",
+      "native-sd-4A7A636C7387F4EE752EFF18B4714849",
+      "native-sd-FD840CEF994C9EBC336B1D4CC1B5C2FB",
+      "native-sd-FD1921F82A41DFCA9923A85DF73CEA2E"
+    ],
+    "missingTextures": [
+      {
+        "id": "native-sd-FF6CB6DFD3F570529AFF8DF462306B12",
+        "textures": [
+          "C:/Users/sfung/Box/Classic Games/Warcraft3/assets/Art/SD/ReplaceableTextures/Water/Water00.blp"
+        ]
+      },
+      {
+        "id": "native-sd-CC7E9FDFE73D10791CC5F02290C68B34",
+        "textures": [
+          "ReplaceableTextures\\Cliff\\Cliff0.blp"
+        ]
+      },
+      {
+        "id": "native-sd-D002A2543B011D1BA693E9B65CCEC626",
+        "textures": [
+          "ReplaceableTextures\\Cliff\\Cliff1.blp"
+        ]
+      },
+      {
+        "id": "native-sd-667C63BF858CFE3533221DC99CF6065B",
+        "textures": [
+          "Textures\\Black.blp"
+        ]
+      },
+      {
+        "id": "native-sd-E1DFE9B3C75E664A4AB4B0BAF28A9BA9",
+        "textures": [
+          "Textures\\Black.blp"
+        ]
+      },
+      {
+        "id": "hive-345739-e4d764029ef7b61d340178d4",
+        "textures": [
+          "units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+        ]
+      },
+      {
+        "id": "hive-341595-0b472c65c5169c705c604d66",
+        "textures": [
+          "Textures\\Water30-0.blp"
+        ]
+      },
+      {
+        "id": "hive-341595-3b1bda1a8130b921b9070f12",
+        "textures": [
+          "Textures\\E_Smoke_Anim256.blp"
+        ]
+      },
+      {
+        "id": "hive-330617-8002fd9bd298f578bff1f204",
+        "textures": [
+          "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+        ]
+      },
+      {
+        "id": "hive-337765-798c6c683af248fd71e18775",
+        "textures": [
+          "Textures\\Cliff1.blp"
+        ]
+      },
+      {
+        "id": "hive-337765-22114f6c437612ede64f357d",
+        "textures": [
+          "ReplaceableTextures\\Cliff\\Cliff0.blp"
+        ]
+      },
+      {
+        "id": "hive-337765-36d6acf9a52d776fc46343f6",
+        "textures": [
+          "ReplaceableTextures\\Cliff\\Cliff1.blp"
+        ]
+      }
+    ],
+    "decodeErrors": [],
+    "pageErrors": [],
+    "crossTierTextureReferences": [
+      {
+        "id": "native-sd-58B7AE565D34AD3951D033272DC6A85D",
+        "textures": [
+          {
+            "name": "Textures/FX/Flare/rainbowlenseflare.blp",
+            "id": "native-hd-25A22FB06CFEEA71A96FC66FEF7AF086",
+            "path": "war3.w3mod:_hd.w3mod:textures\\fx\\flare\\rainbowlenseflare.dds",
+            "contentHash": "88619e2d545fccc541247f677cab3a3ff91bb7dc6f5740324b824b8f535ef126",
+            "needMaster": true,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-334166-2828e123581c11d52144e017",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-295043-29840350e51c39bd4f0ddd85",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-341580-5e9ae7007f1c830385f8cfab",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-336977-81b84d38a40d56bff879e202",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-341596-ae2869feace5464c4b811f8c",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-65646-5075ac4616989fe99d9553d7",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-338590-2be948eee15a2890ffed0182",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-334164-7a59ce9e426e68c7db8558ed",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-334164-ef82fb98659b7e7fe02a3855",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-328594-253c1132f957912c9aed90e5",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-328594-370addb2a050dc0fe31de61b",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-328637-94f1e77590ec1b6bf85f74d9",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-345739-e4d764029ef7b61d340178d4",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-345739-b65d0670da49cd927f8cf6f1",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-295776-752a5c2ad9979df3037ce3f7",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-319375-45d786a57f00a5f102506907",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-337484-e0204e70a069b0741e210fcf",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-336494-76267d6926625ade1c60c852",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-334147-41bd22d11327863e95514068",
+        "textures": [
+          {
+            "name": "_hd.w3mod:textures\\fx\\flipbooks\\fb_lightning_green.blp",
+            "id": "native-hd-35A8D4EFF6D3364635787DE6ACB579D0",
+            "path": "war3.w3mod:_hd.w3mod:textures\\fx\\flipbooks\\fb_lightning_green.dds",
+            "contentHash": "89d82595158fc1169a2592314cfb4cc46153b3b61d159cb9fe4a5e868e0f13d9",
+            "needMaster": true,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "model module or base"
+          },
+          {
+            "name": "Textures\\grad1A.blp",
+            "id": "native-hd-D0FC0DBF8A5290F8C3087903E8C398BC",
+            "path": "war3.w3mod:_hd.w3mod:textures\\grad1a.dds",
+            "contentHash": "ddcf13bfe3746b0a9150380d3a833a81293e1ff672fdd42bc81cff9d21493f2b",
+            "needMaster": true,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          },
+          {
+            "name": "_hd.w3mod:textures\\fx\\swirl\\energy01_bw.blp",
+            "id": "native-hd-D255E2552191CE08ABEAA5CB4192397B",
+            "path": "war3.w3mod:_hd.w3mod:textures\\fx\\swirl\\energy01_bw.dds",
+            "contentHash": "72a612095f2c099374acd2426746e663a62d37e0627b8d823f48f65ccecb8eb9",
+            "needMaster": true,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "model module or base"
+          },
+          {
+            "name": "_hd.w3mod:textures\\dust3.blp",
+            "id": "native-hd-ADD3A468D38FEE2D233A69EB2BE94410",
+            "path": "war3.w3mod:_hd.w3mod:textures\\dust3.dds",
+            "contentHash": "621ff51c2a28ceab63da001637c9eaa8af1458e0286fb751f48ae68bf86441c0",
+            "needMaster": true,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "model module or base"
+          },
+          {
+            "name": "_hd.w3mod:textures\\bubble.blp",
+            "id": "native-hd-748FE92D6319AAB74E20324737C3E9A5",
+            "path": "war3.w3mod:_hd.w3mod:textures\\bubble.dds",
+            "contentHash": "33d8b37dd78ac6acd252c962b8cbda964a6d3186f01517d88b5fd5b02f8b5197",
+            "needMaster": true,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "model module or base"
+          },
+          {
+            "name": "_hd.w3mod:textures\\fx\\flare\\rainbowlenseflare.blp",
+            "id": "native-hd-25A22FB06CFEEA71A96FC66FEF7AF086",
+            "path": "war3.w3mod:_hd.w3mod:textures\\fx\\flare\\rainbowlenseflare.dds",
+            "contentHash": "88619e2d545fccc541247f677cab3a3ff91bb7dc6f5740324b824b8f535ef126",
+            "needMaster": true,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "model module or base"
+          },
+          {
+            "name": "_hd.w3mod:textures\\fx\\shockwave\\wavering_bw.blp",
+            "id": "native-hd-A44D61BD1DF3CFCC90F84F60E99320F1",
+            "path": "war3.w3mod:_hd.w3mod:textures\\fx\\shockwave\\wavering_bw.dds",
+            "contentHash": "e366f316f2cdf96803e275ebc7e5607cbc61b2cd07cf36499390b624dcbb080c",
+            "needMaster": true,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "model module or base"
+          }
+        ]
+      },
+      {
+        "id": "hive-337746-e54259e67f03bdae199bc4c6",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-345981-c41fe2a742318304d6330e81",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-330617-232d705fe1a634be381f0042",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      },
+      {
+        "id": "hive-335587-45b3f700b60f199154105bd9",
+        "textures": [
+          {
+            "name": "Textures\\Clouds8x8.blp",
+            "id": "native-hd-FAAD41CFE5FA4AECC23BB286D1717983",
+            "path": "war3.w3mod:_hd.w3mod:abilities\\weapons\\catapult\\clouds8x8.dds",
+            "contentHash": "5957bb23d1ea01b433c13ae708b111a3ddb7c43193747d99a3e3b3b4afd1ff35",
+            "needMaster": false,
+            "resolvedTier": "hd",
+            "crossTierReference": true,
+            "resolution": "exact logical path from HD module; requested path absent in model module"
+          }
+        ]
+      }
+    ],
+    "nativeCapturesUsingNonNativeTextures": [],
+    "billboardCameraBasisPresent": 4140,
+    "ribbonVisibilitySamplingPresent": 310,
+    "htmlPages": 4207,
+    "missingHtmlPages": [],
+    "unresolvedReplaceables": [
+      {
+        "id": "native-sd-8ACF314CCA3FE2A351220A6417C299C5",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-8FD43AADD0B7DE63F74FD7E131218F92",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-0F66F98B11345EFBB118AEC88DFBE855",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-81E2E365304632E098EE03A1B686474A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-823B79051101ADD0C112813E8994569A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FEA11809F27AA12B54E2A4C81B6D7815",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0BE01C9ADFBF78523CFF898BB173922D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-AED091BE1D966F922677637E6CD89C2C",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0E15C34B8466BC54E979FED1C47D20D0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-824987199EAA52655CE6CAEAB018BACE",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2B1685B805C24E4440A06F98539C004D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-34C0C4D284153EE913A165338D4527D1",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-8FCD50196CCDEABE2895C4F8F9EDF867",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-577CD87E79305F2822FC1BB95755D899",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-9B18595AB49FE0D665736A64A8ABD255",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-B27F258021FFD72E06B02010049F37D1",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-904909C47D600D6FCD074BBEB5DDA373",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-D1AD973363F99B8D93668FDF88805DFC",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-6DCDBD1B6FD759B709A4BAB63BE47E27",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-D9BBB10B9778524AB193EB0DEB38C451",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-0ABB1C8EDEDAB186C7B8CD326748ED65",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-CFCDCA0A22B18ED365B9920E76CB37C6",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-297B77B2377E7347D8F6740E0E314774",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-E932E138A08257C4FA3DE745DCD494BA",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-1044A3EE50422EFEFA84EAACA15ADC7C",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-94E0F225BAE25C505F40C8CD941918ED",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-12001D00A713259B81C57911CB679B5D",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-91394DADFEC7C668CEF5B00BC6DB9484",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-DE53253B66BAF7F92714B6092F4EB995",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-9F5E36E69D084AE43F278418F227B5EB",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-BEC72DF41299DDBB220D7384B93BC11E",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-70CAE95BE1ACFF911E5F12D15DD167FE",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-F10AA7542016E138D6BBB596BA2EABE1",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-C207DCA4AFEFCB12BE34505FA35ECEAB",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-6FD44CA6AF76EA377A998D759827895F",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-22FFF2F228FF1D52D6CA9568ADB0F81F",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-01DE903FD7B4EF61782CF6D2493181C9",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-1699C110FBDF86F35B87214F97345480",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-4335D748C215C17130E08E2C435CC296",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-3E339EC74E3AD621C1911ADF7E6931EB",
+        "replaceableIds": [
+          32
+        ]
+      },
+      {
+        "id": "native-sd-137BD3BFE04BB2D5FCDE022224B9446C",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-1B0E4C9342099731B1C50AEC2D8C0FE4",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-98C8B7F60E9E0A69EEF3174B97F6B95D",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-6806CB0B7EE12EE2857B31467D467378",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-6A32C96DFCDC790E83F333ABBE3D7BF6",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-828826DDBF38C96535531EB3FEB8BA56",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-58A6AC3ECE2E4BF123E07475B7496955",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-9F83C7716BED2FB625E231A0C99CFA3E",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-E02F3D38EF58318582DBF6F3D158BFEF",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-062BD914867D4E18DABA5CBB9EEB3687",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-A9EE0A62523032F8DCFEB900FB7CB9AA",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-3E0A7A37FCF60D817906FBFACCED107C",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-4748B9BEC81185FBF4734CA66A49CB7C",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-F8967BFF8D884895C1717971B19077E6",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-D8E498769BA8BEF7CD620788161788FF",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-D5753155ED6EBED68EC92A9EC7977192",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-457B8A32886F27AF96B2D05CD57C23DA",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-8C68C7CC2BDE9A121DC88F45128AFAFD",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-65BE857D459244874187043294D94E82",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-5A26DD88FD8918CD2333F7B338410D0B",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-A5E5B0F18E191FBBA6BE99C3EFFBE282",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-4E287B9C9A5E9D108814FA0FDDB0FD49",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-5A0A96B1E0F0839BB79E614155606C4B",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-E8AE835E487696DC08D3626F3CA6AF74",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-54606466F9E62C9AC836B6D13E589BF5",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-35A6106078BAED662A1E8CAF6C839D90",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-2C500C5293E0D0A41A772601657D9861",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-1F00583A549266F7DBE579861C739917",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-45AA6CAA08664A6D188FDD765FDD8E64",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-5DA2EA2E58C64A4ACDBE8CFA023354FB",
+        "replaceableIds": [
+          33
+        ]
+      },
+      {
+        "id": "native-sd-7A528C0D23E135FD9088778D393C2F79",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A17CBDC1A1BB25A2D418F2949F871285",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-73CE7E11A55E3FEB6ECC30D16B4EF770",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8C936B3F3DFDEABB38FC7CCC07923426",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F844D0AE92BF9820A629EB2A96C66DD1",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-AF79859C978AF406B8FB57D3356B688E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-17CAC894B12C66BDADB5A32A271CA3EA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-CD8B24EBC929F8ACD7B8703D06072A30",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B77D47C75BCAE0132337C432C8452FF7",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BF3497EEDD45EC5D8789C7CD6C6B5610",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-48EF8EB45AA513B88494925387CC4561",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F5E2BBFC5A67996A35B5ADBE40606E70",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8D1CEC80E161362031B8727F25C7961E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-82950643B91E3BF293099ACB7D0FD315",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3DCD8D88459406C0ACD88AF663F44DA2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2CAC837B895DDA876E9E4A93D482C7A6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-16DDFBFD3A5D7F243C0F60049C57F76C",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-82971154A6E1B14F8207FC7BD1D43297",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-59C35797D6B799622ED3E9A77852D9DF",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-351032BFFA3C35BECA059F738E466B10",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9905C6BA471A1F76C5DBBE6B4B1D6E3F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F3957FFCC7A09AE38E3BCD484D82AF53",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FE4FADA46140489FE6CA5C477323E65F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-D4432893A0CB2B813B71888383FBE87A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A18C1D12BA9D71746C8920F34ADACE79",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-92198577934B8F1723E434754E59412E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-33476E25CBDC02D6F807095ABF6CC509",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EE39AC9D615C22456B9024009F79135F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BD4536A0774B40B6679EE45CF6DF4D68",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1D8AE739E179141539641AA5FAE11EF1",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-45CA5C735A599D474AD491E00FE5049F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BD53F2D001FCECD0C1A9A5F99A6A571D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B8079137AB82A2A89C681A2D5A298564",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-187CBE50815E360F1D078DB6B08911DF",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C27258F8CE5401B92D8F3F80DF0569A0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F357495EBF534E6B221216624ADA9FB2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3CED8103ED05A86F5BFA0A6B851AB4AB",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EBCD91A693A7DD0F0584ADE0A7D59F60",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-4DB579C10459C6F20DBECAC29FA0B7D2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-322E294C2D5BFA6782B6904449CEA5AB",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F6BAA84DCB7A9DEDCDF9D2B3315F4F7D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-CB0C2A4E84018F9D04925BEE6EA446F6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-131585241E7E6AABC6CD0299AF2BFF81",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-847691B1E60869717754D746D387994D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7CA760F472AEDADD20E785A048B8E937",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E928D58C5F74E1D47790D5227E906AE7",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-83F11BB0B3FA3691B8AEE47D103D7E2B",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-6C76C46CFD24079611C8092B715E8BD3",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-95FD3515EA3C06A7265CCA15668A3025",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-170620F86818E2D1C9D027179D478093",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-CFE81020277A5F928524B61C4B810938",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A4D59B51098F3F3DF9174032DD44F4F5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A0E783EE02343D58646A80970326D284",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2956B74D859649D8ADA84C2FF5EE6B65",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EAD6BC90469C44A6ABAE199A11B1FD3A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C13DEF3C5873C9C6928A58D16D8FF18B",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0EC966C0352F8E13FF80B86C3CC190C6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8E846ED8FDC8CABCA6172E0BD5E39080",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8D86C5FD579A1283FAA96B09082B8003",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C48D39A3117D0863EA2CEF1F6A079673",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-70DB96A518266A61926F257D201310CD",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A8E1EDBC6D9022D0D3DFCA14D30D42B7",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7AD41D6E28DDEE2AB3DE95C2D8DD8BF9",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-65297B47ECADE10F5D0CCE077B06F7C9",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-04D56A4867E29BDDCFB8E2D00CDDC3DA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E06337922D69A6750618C6B0DBAAA54C",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-97402AA2A120B97C98E5ED036376AF48",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-17A84A548906F3D3E0BB3F4874A63176",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-05139A05DBB98E376AFEB4754FF57AED",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-928E6392E1D48F0B1B5EF217E60C8E94",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5ADB44EEBB005237DC76C0B003CAB919",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8D170890FECA73B52795652C9D202939",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C9F8F979BA88A877BADE1777F3672F8D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-83FA2C973DB25FC1059C5624C9E2B0F4",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-903770CE745B57189A5DF528D6167500",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9F2F5BF2840B5B1EEA64679729E3F42B",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-69A6182F823325ECC0CBCC36F075FE44",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B25B9BD2BC956C649B10460A8BCC14DA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-DDBABB6E817B7B81264A945DE5DD2E8A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5D7BE70D784D94E3E6B66DD1FF8AD28F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0E224F572E2946A75292FF41E48C4371",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EFCC44473AEA1CDBD71565085DBECE8D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3EBD31DF17000C35FF26F67119699125",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-AD2CAD2F4CA6DDEA810B5C151805DF59",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2967FE6447AC4C785C2D5F175BCE53A8",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-161859D732002667A556EAB64CF316A3",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1620A8578280FBC35357BAD42A334919",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8DF5F7FD5D601877498A94BA96AAFD8D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-313A9050E618239F143BDFF8E958D470",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-059575564B22E642434EA88293D85884",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EE640FF72C0E78915F60B5053C7F6EFE",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1B37E48BB82F2CDE70CCC41DA720E607",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-D38B02877B008E612C140E45624E412D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A308CB8B5413655C1B0B00B98B3087FF",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-131D1B88C767CF20B72862E014C42373",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-340C81ADA382D885868974AD2C9F9193",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7606355BF2A254EF3F65D836537438CE",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3F976A36C65FDB547C54B7AAC169B9B0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0DD49F6D40F67D5E9683DE9534824F07",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B51FED9E350877BC6739F5F57F667444",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-ADC1BC83C33D3A1EA8FB2648164E5870",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-880FFE8BD784C4B8F39D33531F02FFA5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-CCA245EC2393E57F45358B72A9796DA9",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-6A7E53BDC87B141A3F8FBF2AA724C683",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-CE4DC8C89FB5D4B8646FCF1D84FE1DB0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3C980A0536F7F728D49BE6E922F94607",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-14B1E756D836B0E1F0DC78F681EC3529",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2A297A9899001597FD59CC4A769C48F8",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-069608F0C7F4F73D81995D192886E084",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-074CEF8375A103D88CBF25156A082518",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C6D545BBFC41F62EF45FD26A1D072E64",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-34EF22E2F85284E1A2D68060EE6C253E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-94BB5C2D2BF703FD0F6ACC02E92A37F8",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-073994FC0DA828392A825EE6C5220BDA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C9E53883993431C70F0FF92C076854CB",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-68D60FE20E7407ED40FFEDD2625490C8",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1FC7BE363B1C464BB868C12016BDD844",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E30ADBC730660C98F404714DA5C381B1",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3E8413A8F45504BE16EE6C1CCAC353DF",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2317B440F77A054DBBF60ECBEC5BBC85",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-746D5D8B8052AA7780C69F6D8AFC654F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2CC2989CD92549ADA5677EEE230437C7",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-21B44976C0D1DFFD449BA642EE35FD53",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3EBFAA64E2B3F279C60BC8CBAB38F4E2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7DE89A6BBC9BA8EE9A0188E88A0A6973",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FDC109B9153924E590A41269DCC10BCB",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2D2EE767791B7A0220E81AF9A053FA7C",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-89A18D3E102CA813DD83A9D8A028E5C6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2E5DD223400D0CF6937845D98290FE8E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F4795347BBAD9B6FFD79876A6ED69EF5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B9E48EA2C878E01EDAC6436F85F92B9D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9D733AE5F5EB9A7B09E8D2D8C8DC0DB5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-993FC6435529CA005685AC1C8BD5A12A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3190C3B4AE3DFFC981B72AA1A1E9C75F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F8778AFD9DA5D5B75ED8A39C2C1411BA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-D07DE2E58D588BF62F8BDC6F4CBBA6C2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8FF02CD8A5517D5869D1CBA7D192988A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-80FA61184F06450BD44CAA0D6C080003",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FE0CBD7159663F6160FA09F7E7ADEC6A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9320DB6C8D0CB5B1BCAC223D067F9ED0",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-D49B98081A9CC8EFC2E425E45DBCA18B",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-E25FB43D5B2CEE5E9F1E858E4245AF3D",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-9C30027769C52E90C62739AF0E872AC7",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-B56476E9F3887DC376D332992D5A24A2",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-E23294F419F8AC635F24E065921C1059",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-08D09C307E8360A415A0FF29FD8D5E28",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-374384C318C445C12192732D996B2772",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0451450D7C1E24E0EAFD0708FBF20381",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-ACC717EB4C627ED2DB6EF4678104E613",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F87C5B51365869A8E67579F9D7D95DD6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C99D99AA54610479DBCD3D702362DB2D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B74E0C0A8E80A1AFAA6E3D1B72158BCC",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-ECD272F8DB4B24C188329426BD697F0A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E4D14058520D8215EF0677E713FA2658",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-6222488E29DE703EE470DE119A2E5C6A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B15691DC7F8A349A287D593507AA7A3D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FFCBCF42EEEB13886F15AA7162C3A335",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A1E14327A5716156CC42BB27D51A1EFC",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C02B18FC925BD423B4E6D9C3B33721A5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FB5027007CEDC957BF3F3D8A712A206D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-CB1CD95D42C37C1A7FD53258D2180CF0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-D197E9CAF011F3C827774F9B738AB1D7",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E4E809D9B664B141E80BE1F87BB92315",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-88BF0239147B00750E1634417C5214A6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-6D9396C0D8D0CD97999A80BBE62A0ABB",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3B63988C4FBA445CA5146FB8E94D8EBA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7B9F8D09775D3A0FCB5AC7E8F8DB5F17",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5403D50744FB5A38BB58914BE8161A16",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-90574C052C34E841A8776E0366DA8434",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-13051E57B03DB4DF940DB869CEB6263B",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-14DE27EF9C87A3619D59E61B4BBD5E29",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5E64FC2C9A1CA787447D234FAD0CB4D9",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-832A593985D952CF605C9F9CF72CD43A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F12A22694D21357D6EFD11E9C2213066",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-ABD7332989322E85B6A7E1308202B151",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2AE9369B69030A341B7BA1FFF46F26E4",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-DC9503012FC73E558FAF48999147C72A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-58C2B978A0874C20505412037FD7A7BD",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-05B52E5EEE6FA9B6A3E155D069B1C2F3",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BE83C525EFBFA006F5E26D58519174C0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5D14EF07A4475A9678202F94698BD588",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-19226A4952AEC97B430C8AE069575366",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-DE06039454A251ACF802E520B5A0D701",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E9F94FBD452FC55C4241A553226EC6C3",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-14EF3BCBB803265D122336177A07655A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-146B19FF771415FD4879A5BB32921B5C",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9342617AAB589A4D939762260EEBDFCA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-39408C9D769A0A30A277E7F3FB2759C6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BAF4EAC4FFFDD4AA988F558B7D460056",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7DFA45B440D81C56EC4C85BFAB90D63E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-115E1451A0561C91037A6C6B9518AC3A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A25377A99460F7A4927EDA1DE7B1DF23",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-46A5A9541EDF2F1FF1715A2CE5D80377",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-573B51D3C11EDAE5D2E858A49027E294",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-27EADC6B9CCEBB0CCB88CA66DF3FE0D6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E7877A1E983818A08C6D47EB5AC224A8",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-35D27F8047D246615D6356CE22621A3E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-54F376B46588BCBF2A921DC019B20497",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-43854BF9DF130BFD742686B131664976",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5F25CFD8E667D5FB0E9269A70E5404C9",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-43B2D528F9133910815EE04B4294CFC2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-33D8CDF483AD4C501E2694A0D54082CE",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FE408E2E7F5BAEBB9493CDF81246630C",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3C3C3A995111D1D59927F72516710400",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2B60B0242C85CA4DE7A44214ACDE6856",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C0EFA0BD651C42B57A97C7084BAE8317",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-6EEA19B9C6E18E5999A79C86DEB0423E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BEE045FB033BDC43C33C574B2C4C8926",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9B8F434E4B127499F7C4FE48466BB1E7",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-6CDE756C70DC4EEBCC33AAF54A2C9F0B",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-72FD4C7B48D28B2B78650790E92F67AC",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C5A3E8EF2C813EE68AFF5B9B41C50910",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EA2350230C170355F6E00797ECD3328F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EF64DF8E567F711D0A2CC3A858C7D3EA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-538179FEBC410CC1FF9247DC38DACA6C",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B093BD268326D2390BD80C1FC6AC4147",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-145B849E8526C912AB9B5E2BB9011155",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7C872B5A0FDD8C98F89E38E938FD0D35",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8D3AF6E66B7584826CAA166180DC61F6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EF062CCDF14A71F5E988F840F5BFDEDE",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-52472C2A660B0074E1B54162330CA4E0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7889B307C63A8E7C0E02333FB3553F69",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1B1206FDD4F26FB15083F905C23C0D73",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EAAE4EE2FF7DC6FD649105B619F9E4F2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-221D48A4C773B5D3E3C01C24C5D32785",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A40B1C9BB7EF31CE22F4ED82466C45B7",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-63874119869E812D5DFBE113D345CAA6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2F0C1FD61BBCD8B8BFE9A7AAA1B2BEE5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-59F6716D1BC04C86F6B247E7E724209F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-809D7205DCF8E3A8319104AB26EAF551",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BB9D6BCA0F3EEA789475E3CD099A8FB8",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-4F9C75B1C5DE85C7E135FE2028D0F43B",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9EFE8687EC302280AB0B1415D7828686",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C6B912B5C22CE93DD5E9FD621373BCCA",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1738B345CA29625435B68B79FC1DEAA3",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-25A31E43BCE746BFA1D0B31AE32A2C4D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-D732D9563D918FFAD8E1A64C06099019",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-2BFE39CCDBCEBC841A574523721320B1",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-4D6DF382D286E389EF7F3855F242AAB0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0172B513D98DD4D44FE2876C526FBB5E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9BF4193BE2A9846D5119533C24C4ED7A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-9069993ED33E7CDE301E660AAC80C677",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-90118594AE407EF48F1DA258603C12F5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3E964F4C312958392CEADBC46276CD63",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-540F56C92965D480E1B9FA2D986F92E5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-59E90F8D55F9609AD63E40758105E976",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5354C7CE1ECC5E9E0839D2BED9C606D3",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-71F7324B76EC1EDB1250F5A9E62C9AE1",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5802B3E0B3614799AFE2D7F89D64291A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EC1619162814F9C13B511BE2B14D4B57",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-26FD991467449C6E1720FC6867C73D8F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-273C99E9BE0742C0D201F0EA57126A7D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A847CD5D35106DDA4D8971DB9C13FB8A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BE1FF8943F626CC4A7BB8D6016DC89C7",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E142D12B3488EB6B88455B4A6A74FF44",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-20FFDC048B9B052B85067F5E2B9B96EC",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-13B88E6F3B3806A4416509531F019EEF",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-86B6297C0BA14F03473677C5E67994F4",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E4591669AB5D60CC44132BA59AAF5BD8",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-AF03AD1A1C6B1CE648974C8662BB6CD2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3C1ACEA5B95E35166D72CA9F7A43D053",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0B4FD40A287A66E0601E0797AA1C2273",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-093B4ED65B3B76062EE1D6C914E47F84",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-993BCA942A2829816C6A3C5E72F72BA6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-271E502DC718BE1A75593E3C1F3688D1",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-432174A681E051C2FB6B7395822643A2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E71C8CFF45AA5FA4F07B451AA4CA6215",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FDDD313926EA6847511C916F1181C8CD",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-924C3D1F4B75DB73746754EBDC577928",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5378FDED6193C1AE76A5DFE28F31851C",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1C401040E43ADBD3AB009CAC3C911E58",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-065BD99B22E52B42F55E6A2557B64672",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C50B26BF19BAA3B54333523B467A3B27",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-DFC764D3355CF965B037EAD90102038F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1FD393782B5E5F2820E455BADC4DB031",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-218048270B26FD0ABDA4635F6284C292",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-74903320498752D6B22894D234520741",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1892A161C0C2152BDDFEC2D959F8D43A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0FDC29DC1B973DD8D541667D55E0A5B3",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BDB8EF6837EA8AF4597C2A524BCC65C9",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F222577B8D350F2885DA69F54137ED83",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5D523E9F7D112EB24C0F6B668DDBB501",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-4A2075EAB6E3ED22C9E2F29B8AC19C93",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8ECF7E267AD9D8A8470A99E30EC15F15",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-787760D263906407363F4ED3D3DE2EA1",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EA95FDA955762653095B92D1E6561727",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-025B54746D20E8941CFB3E472C890199",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7E01C82FCACE8251CE8FDEFDC8647C62",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C349D983C5BE3C961CBB0C30888BAEFB",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3E9F04FE5979C3751B3F2AF280625151",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0C15CFEEC6F0B3CE39DBF94308B9DDEB",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-58660E5248D87D50D4BC323D0DF275EB",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-AA46943368BB9FEBA720292E9F1C3EB8",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-0B82738994CEB957A2CA29FECACFACAD",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-326E4611FE77DF166380DDC9F1BA86C9",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-3A8075ADDE79FB2394E6F15E8A0FB721",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-544676EB161DB6BB0157BF0F33FF0211",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-108FF7A82B93C3FB9CF0B3542DC33DA2",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-ECEDF76EA128639BBB0CCB1191B5D8F6",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-8B53E4A80E3F39C548823185B60634DF",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-644F4F702BD12A48D7D838B0E1FBC683",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7214CF4A2FB8671E70633E4D9D33255B",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-1F7C8715E0C9330CC3E8A0E94B9D2AA9",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-CD1AFAC00E35E0141F1E89B78DEC584D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7E89075E9DC18B6C15405188A1774AAC",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-CAB31C304DD5064DE6D68DF31DCE0F9D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B18333A9CEA239E3274EE1E968FB0E41",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5AF36949226C2884BDA58F2A3C2D7F6F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B73472F6955B89D7C1130CE70E6B76B0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-78E6E670A339DE50DD7B0B6F8267459E",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FD697CD1B3AA72CC4BBA35DA87620E34",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-352128E6A4ED609881FEF12658AFEAD0",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-C2A6517B0AA66D337B570DF496D579E5",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-54CAA1D86EB0123245F16D19178D32F3",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-F4E873E052BC1A272395A992BBEFFCED",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5397924626DFD586A0B2763B5CB6C518",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-05ACB09C482EA946FB2B534A9CFD4C11",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-DEA929393A6EE6E3E9B833EB1D402B07",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-28A6943EBFB2B89F0C4ABB4F45DE558D",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B16416EA0AE1B3DD772806666D92186F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-A2DCA593CA2D15D370A6841B3E9A1F8A",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-03A97FC21B84C60B001DD1A47AF84B07",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-B1921FB2AA697E56243DD3FC837B0967",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-63963E9450CD60916404DD6D718201CE",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-EE101A033B8954C08246A2C71C0F9B42",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-261B6951AC3A27DA955086E95A5A23EF",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-811CF19C949A774E8377B7029F7386D0",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-8BDFF71EEABB16776D3BCFE8B669AF16",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-E77AB6E71C01B7D6ECFC4E4ABCCB8745",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-3D0B647FAD792D4B7457132DA57FB721",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-F05F402A0329170CDCBE2B6E5533A496",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-6E2E1B784D3BA9ECF86F29FF867694D2",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-965497BAF8AAC39C91832D09B376CE2F",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-3094CFFA6D9CAAAE41C0C298C8670CFA",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-A9BA4A7F84184BA17A38601472C6B302",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-B9E8C31D305B9E8DED8015F4849A9A34",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-932B18E6CFDB5F54EA2B651A29367C79",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-5E78EDD1649AE0239778B5430E642B89",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-D7C7FA0A5015942392C50EDB2AD1CDC4",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-2CDB17D3E6D3B74AE322FCD7BC9E030B",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-E359738EAB45E38BD567CC658322F88B",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-D614F3A9C3F3482C601FB9E888254711",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-8B7FAC6AA36A661E0B97F1BF24CFC959",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-39D168E8AC967869808829BFF1596248",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-5A56F3AE931FF94CAA8D5A38B31FAEF5",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-799274B98C3285673B01A549BEAB297A",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-12CFFA3C0F4350405DA46E0F0B3C2113",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-F295B2C6F783EC6C5D0E691139910971",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-4EDB82A11C52848B7CEEE24C32C3B6D0",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-F96325EE92E07D9126AC4D8F10EFCCF6",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-3FEC4894D6F6E5841A944700747F1271",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-961E962BCCFDF0D841A92D07EC0FB3C9",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-F4701E7763D5E8CF3FAD18D80ADA472E",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-8EA1E655F8B36FC6353EC0795DAB708C",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-07CF037D63AC1837BFBE69B2DBA0A950",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-2B2A8849408BF47202439D747CDB636C",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-338776362EED779D94455A7AAFAC46D7",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-90E7A1A0613564B3D5ACAB9911D317E4",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-BC2FD7B0AA881549020CAD8CF843BA17",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-8C52CFC8B91AD89162CC8B0F62B579B8",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-8BBA804EACF46FFFB028A4C7EEDE86EC",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-D07EF66042C3629850F18DD9F0F460EF",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-7189AB15768073D0038A77D3B0151551",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-320A031A2FB9E5555F18BB3C73DB5814",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-03512A4FB87C9975E859BCC359DF0FB4",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-49D218B4EAFDC23805D0DDDADD10DE6B",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-9B2AFC06E85FE0E8B533462688C1FF25",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-D51301A2B6EF1BC800C32E8E68A6EA2F",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-056A414A2C79DE424E1DB1CA22C71E64",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-0F1955DD7A1FAB0809363E1F1E08C69C",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-F8960B9B88D4FFB90BA7BAFAF7A9CE82",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-6E9480D97B27390E4421BA4CBDD0D5E3",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-C262F8994A5C06D745A4ABDE541777D2",
+        "replaceableIds": [
+          34
+        ]
+      },
+      {
+        "id": "native-sd-F50FA4FA52060A9A1263244F81987BDE",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-3A7AD50A5A1735FCAB876A14B2370096",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-9DB0E0C5427E5D130BD8FE37F89E5E29",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-080DD589E3B6CBED05BBBA1233D41E3C",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-33A9EC1C90CB670B5B42F025F2CF5C2F",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-358BD5B3E72F8052F9667E8AE1F193EE",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-AE7DAEC3B742EC545510CDDFA80E74E1",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-6EAEEC91E227B83A4B1176DBB1CCFDAA",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-89D90DF62693BD2A95FE7E1BB35FE0C5",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-B038C4A1C8A5CD72FCC8CDB24C2C6CBA",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-60893D58313B9D42AA8A904DA015189A",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-1BED63B9659FF6841DF9FC90E3CAF533",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-5C8C49446FA81C095493B5678875EB99",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-C51A6884FAE4587B3464776295811049",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-896588A0CBA782F97330302F43B12FFE",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-B04A2CDB8123DF648A2E0598B90E8D9A",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-50694E19349ADF41509988766A77D983",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-812C3987193DB763237E4D2134A0BDD4",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-E6F546DB3A8440AB34FAB66068CA98D8",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-F099283BA6ABECE221AE168DA9F41214",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-507B763DE076227A456CCEA76D167912",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-881D0C62C957392EB6E30C9C0CB06970",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-EF7CFED71E8AD4CD607613ECD8F5CF53",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-4A6BD27446EAF67B65169C25B0EBF036",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-C74B63DF1836ED2B3A1FA4ED3DBC5EB8",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-3CE3A514EADB0113D69F28DDCDF2AA40",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-5B9CDC198C2E58DF99631244C8A9A549",
+        "replaceableIds": [
+          37
+        ]
+      },
+      {
+        "id": "native-sd-84124CE5853D7B065D02D19CA72F5958",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-DCE85D4F06717D850F6CB22FB6315402",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-55E18DF7131D28868E9DB847D65E7DAC",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7274C4974AB419B9206DA01C0D05BF27",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-FDBE676E66A4C4CF5447A15CAC21EA90",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-BD624180A705B7A212778252479FBD90",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-5A986BC43C22DC4C53D013DD27628E72",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-7BC42978533E53A663C9EFADD29CE53F",
+        "replaceableIds": [
+          11
+        ]
+      },
+      {
+        "id": "native-sd-E0AFE38AA31CBB1CE8EDDEA2E40892E1",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-FEF6D66928AE6EAF002159CE72ABA80F",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-7C7F6B7B58E0D283EC52AA0F0BDD2346",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-9E5B59586896D080D8ECC957FF1F6723",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-718F5F3EA7517310811904B885DF7DDE",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-5663AC22B66A964920CCC4E95B6C516E",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-CEC2477C83C9FB23AB4524EB43D47FA5",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-BADD0D42E1F7354275B5576641920E27",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-067C855D05E5BDBD1798B4B802D2857D",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-45C12352ABF07C9D094E9612826883CA",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-96C01F040CB508CDB80757282048B615",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-308CE4F15F4A0604F06B1FCB8611448B",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-21115FE1E192CCEF1FBCA021CE233C24",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-C1474E2BED6AB1473187A2462CE1FC3F",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-B2321BDE12045AE2A13FBBBAEB2211D0",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-020E73E004083E329E79A8DE940ABA48",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-777F1CB1AD404C41B263351355661D51",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-9EC328CA45E2E0C90BC945B07CE68D35",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-AE4D2F28F0E49862334F8500E3E0C406",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-63636EC0800C5BEAE402AB9CD201260F",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-6761AA412977638E58497C5E8BDB3A33",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-AA523275EDB6799D2462E1762BB7FE49",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-7318B9141C85ECEAC4AAD17B42013853",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-14B9F6A7F2527DC34C9150EB9B6DDDFE",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-A24215689FB8924D7DC13C13A8DD342A",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-FF1531B07EF91DD501FABD350B6E7F0A",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-4E651CD18BE94BE1DB798D12C1660108",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-0DA2600BBC9159B1B9A1090CFB6BF4D0",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-E2BEA2A9F9BCA7056729FA84041D6867",
+        "replaceableIds": [
+          36
+        ]
+      },
+      {
+        "id": "native-sd-D0AE5D8C8A0517B05C8CDF95ACED93ED",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-C0AA823DF2AC31FBF43305BD57D7E4A5",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-1E237C5AAA51AD32BE4DF88F1A3C5C19",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-C2D9D7E2EEE5E374EA4C275624B5BFA4",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-47801B9175E58F439A3C67C54D0611A7",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-7A349C80E249E86B4FC0BE4BE09C6CDA",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-122552A060381132BF5E5E5B0E76C8B0",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-E0719ECD38890DA8F50CD9119B593685",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-A235C01F82DE21874C23431F4127F075",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-26BE8AF11CC1BCF72FEC5CACD9C738B0",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-2E8D6D1F8C3BB136C4BEEDB650663670",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-8B0348A4E46F81928E4E131C3F8DEEF9",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-42B4048C487D031104403104773334EB",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-652B59F0B842DF0D8E8F238592B83340",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-D5EAEAC8E30887FAA67236DC2476BBFA",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-E4E3CD5D36F1AC18F264310AA0D1E8AA",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-44137AB46F74E97FEE5CC14A558EF771",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-87AEE367DD07D5022AF8334C39ABD313",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-01B6AAB0BDD574B842ABF1308274B8B7",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-3D84A7DF3757F40E10B46D7F2D50ACA9",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-CA4D44FD201FC38A532EE04322D86B88",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-5225677F567A0F1D899EFE8593C750BA",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-C0A9E276230CE217433315362B50CDF5",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-C9A016BA0B43C507C49763E223B59374",
+        "replaceableIds": [
+          35
+        ]
+      },
+      {
+        "id": "native-sd-F4D8834538CEB10F1804501BBD69A91F",
+        "replaceableIds": [
+          31
+        ]
+      },
+      {
+        "id": "native-sd-DF89C30D3C664FFE15B5E3FAF89BAB3C",
+        "replaceableIds": [
+          21
+        ]
+      },
+      {
+        "id": "native-sd-731A8BA31F230304FD99E4A003C99D89",
+        "replaceableIds": [
+          21
+        ]
+      },
+      {
+        "id": "native-sd-ACDF6BBCF8D44716AB8A4998830CF335",
+        "replaceableIds": [
+          21
+        ]
+      },
+      {
+        "id": "native-sd-00D5AEBE8787DFAD5DD7B0063DA23DD1",
+        "replaceableIds": [
+          21
+        ]
+      },
+      {
+        "id": "native-sd-EA560CDCC6B69F59FBB2FC0358BE8A71",
+        "replaceableIds": [
+          21
+        ]
+      },
+      {
+        "id": "native-sd-33D2E430CAF519F40924CFF4028FBCB2",
+        "replaceableIds": [
+          21
+        ]
+      },
+      {
+        "id": "native-sd-5F3BAA3DAC2231E6BF8C17A63776732D",
+        "replaceableIds": [
+          31
+        ]
+      }
+    ],
+    "unsupportedEffects": [
+      {
+        "id": "native-sd-2D0213372E0F1AF964EFF68489C6776A",
+        "legacyEmitters": 1,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-568200422D90255C70440EF7B90706F6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9EFE0D2742B8270B9884A21086266FFB",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-6506E9E8DC2766965C5EC027D20302CF",
+        "legacyEmitters": 1,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-EF373674988A4BCC7CFC414D1B22857E",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-83CD7B63938FE9F5F98B669781EB4264",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-013DD7596004CAE6AD5F12E3127AE379",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3F0C6FD2540B8C5F0C27E85D0209BE13",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 8
+      },
+      {
+        "id": "native-sd-0AAB520906923332E58D307DCE81694E",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 4
+      },
+      {
+        "id": "native-sd-879F7994185713398110F6F2BBE8F733",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E0B67277F0CA41B88B88F353E88D35C6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C020949DFBB33AFBAD9BBD6630EC7AEA",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F2CAA5E693B04475254C012A920C77B6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-5A54B7D8FB3D31FF7AD3246DCAB982E0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-B9DD6C02A201C08194119BF7C24393D3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-41A16BA44417D38FF6E273646A2DC6D9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-060A62128F3101A981A49FF57C96C851",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-82A48249A0C8CCFF521733AE61AA0457",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-282C63630CAA415EAC0E24A19FA95120",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-967375676C9EF8B5ED91C832DDE7AE02",
+        "legacyEmitters": 1,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-FA4B32AD0E5BA94A70D54CFBD97D3FE5",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 8
+      },
+      {
+        "id": "native-sd-70D02F12E22B897AC12859F1E1095BA2",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-24F99A653A877353FA8F604355CA5F8D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-045A2BEBF162A4B6AF3B1CE1E91B6F70",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-DAD1FF0E036EDF683B1799AE7E87D845",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3F19E3436A394F7AAB5B837435B96570",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A4DB9C7C305963FE2B8A9EB4B6ECA9DE",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-CCEB59C3BEB0677CF92040CD7AC6C57D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D4695C4EDB096982CF55C4BD32CAA70D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4E682261274F97A3B93F7688E70B510A",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4E484C823F288282CBF447540140CCA0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-91FD7CF48587C0F3AF5D26C565291115",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-AB029933899027C3F2CE0FF99D2A1A46",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-5799D52FF68DEBAA4C2E676F2999E74F",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E88DE0F73A670AECB158FA0AA40C9CA3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D1FDAB35C4CD2D7F314D32A05095D430",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D393A5CA09815B7AF05497818C05E41B",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9DA91DF1A0E502ADFFD8625CDAE558B7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-2A3AB622FAC22DDB107AB42C510054D5",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A3810C870295BD8CBAB3715766839312",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-009037D86051AC01B536D998240ABA36",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-353EBDA380F34A8682A11AC328809819",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3508565A23E5A669CD594C35696FE570",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C5E98695F495B26F629D2583CD8AC0F1",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-5BDFC52B3BAFA282D7CED6CA9E9F2362",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-2CD6E13ED328532A093AA3D1E5831111",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-6FF2F78B9968CAE76D357730817257A2",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-853859A63709AA1FA400F340C1D5A69D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F6C473DBA5594476F1B01A1780889D9A",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-578CDC09FB030E8D8676A73ACD59B4CD",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-AF20F4B4FD89BC7110514F541EBF7B31",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9C0ED008F0C1DF7E742FB6438E965CE8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-31043391CCA4C6B1AA7A24A2A5F430CE",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-67D33ABACF05007B77F635A0152CF058",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E7AAE6B55569432496B7FB00E8EF5016",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9353B02CE2217894A748B2F1813299ED",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 1
+      },
+      {
+        "id": "native-sd-1CC136503E08CF96EA530997FDEB5674",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C66DB60E41D4C53D88E532DE325D4C31",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C59ABB894DFABC071CD1EBE056E156DE",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-BB91EF1B1E571B3044350D4170775430",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8F673EACCB197E3CB36A9C04375131A2",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-396C7F78F3E7A3F302599469FFB837F1",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8839E8D4ADA49B3B3F64AF3C093E7070",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-7BD5E75DF150BB66269D99B8A5B3358C",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8C14435D54792118C568A3B0D010E0A6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D3A1985D5569BAFB83C7EB46B7FA9E33",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-0D18C10DC34CF816B63F44CA721D2899",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-55B31DD1FD14BD44E6BBFC66584FF533",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A448F47297A0020F61C299AAAC97D80A",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-BE93A050B6F9A012B6570748215F750B",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-32699523E7388577E480B51C2543253C",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-15BFF13FB6241B8AB590B0FD2EA4AC49",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D40D57D58889EB0F8F62F33CC0C0CAFC",
+        "legacyEmitters": 1,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-EC069B5799116EB9B27B561E85ADFE70",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A8FF19FAC4AD4C5F4E559D583F75E7BD",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-13FFC02E0B1EC1E5AE8B6ED10CFF8126",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-EECDFA498022A58F2D63A5F14B60E43F",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-077E45BC8909F48AD8BDC23CBB20B1D2",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-0EAC02BCD34D998245C5F5F3CC209044",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-7889BF169513BCDB1CCA5D13BCA58669",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3DEF26835A92DD8CD5E1F2E9CECBD286",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-2D071A9C9A22B197B09418AEB5F650EB",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-A8E4E5829C4B471B46EB4DC592204AEE",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-E7AAEE4BFE2A4E4C8430A63E598ECFCC",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-A7613BA225DE6AB047EB0BCC9FAB4D76",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-71FF7FB7A9F528DDAA3C7CBF5C2E448D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-244983B022400AE8D618408EE7A9C8C7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-5AA2C925A6BB71415917AE4BD78F59C0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8D8F448D7BCA65AA5E4ED105A5ABDAAD",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-5D30408B019950F7ADE43C80C33EEB5A",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F7CEF73590A16740869296C07816C7CE",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-1E44CEDCB9A55E711327837402C519F7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-0A19523F398B32F9D321E759C6A234F0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-FB1F299AEE6CBABD9DDC368A66020BE8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9FF95A960448DF75520293F2DFFD0C01",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-1414F477F2F03E7152A0B941D000D4B8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-AA4E42FC415F8437D390CEAA33DA7227",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-B14F373966491E002AE9F1E8B3EAA44F",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C83D85DD8D86C4AE404E85D5122DA30D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E05B25B3F37C040C83D8B525C3947CD0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-CB422775298E6311C050E0E835E4B22D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4A1CFAC833316EBCE9336C9C17824C09",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-EF5687B0545BD81AB4E2F3F9AA67BB59",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4DF1EF586287406E176134FA5BBA000D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-FA14B3EEA94B192CD7C1902F4A1374E0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-B3D1D6755D6ED71652C67D1E7E371AB9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-AC128DDD9A135584FC9903F27E7181F6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 12
+      },
+      {
+        "id": "native-sd-C2B1E4BF56CD3D5F2FCC139FB7B6BD77",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-1C5BDF9A70FB5E0570E7BD7EA06CEBED",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-57B8854E33510F82011D3DFB05163547",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-26EF4CDE2341DCEF21B476E1688DB7D0",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3E737A11B5C9F0C7F4F920349017D10B",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E1388408F3E55C63878B0C8EA6B37A26",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-AC3C55B8E72BE3D68235F9074E989830",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-117A323AA355833F36E3BCB8E3B1532F",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E55C14599D1005809FDBE66D6E1B19E4",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E7FF554EFEDDD041CE2011F8AC147576",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4093AA35F4293769EB127E50B726F7FB",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-FC6659FD261967A84375935A6BE6E978",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-47E6E694DDFA1B7DBBCF4F819E06B3D4",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-71B5A39BD6DD1D50CEC2B86AB3F6D534",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-0AB731160A8C3E4D8EC884DC49F850F0",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-EC6A001537AAA8479FD2CA92E98C1014",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F0F401D0F2D35BAE707527EEDE699075",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-0E5505C1CC0A58F2239F5753406CD6FC",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-599BF6C90AD5B9997244B4D748F3A268",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-2305C583EEA2139DF36D0D777042F69C",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-41F4DE39A08DA3F129C01467240A8881",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-6755AFA0A96CC0AE1B06D14643F98EEF",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-CCC58EDB619D8CED90193D9197383201",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-28A0F4032C73D1FD70495014FACEE4B6",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-7A6524B37F0AE3FAAFE117CB84D0FA3A",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-38E19A76D8C30C0FF84D6632DD8F4D6F",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-08D9778D19658241C54403B233AA7CFB",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4CC28311846BC5202AC6A402809C8C3F",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-923AACF2949C321F0C90DD891E108A82",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-DB7AFAA5E1B3BE561B68095B6A474112",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-99166EE86A15421479E75B75FB64B7EB",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-74A0B46AABC138084975D2187E239F04",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C35D63ECB0A971E94471A3858B455039",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D3D8F24FC1F664FFAB390076E487B99D",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-79B7D8CA46A0BC46ADD859BDF40E1408",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-233DC4323CBDFC2B5B59EE0DFC49DEEE",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-1E772D9A60D028AC0369EE187233194B",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-75ACAF6812D8689246DAF3605E720FCE",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-7AB67914C6E719A6B56C45CAA9077303",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C61EA59DC3FD1D495612500546D6E620",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-50032795569FB680E81F898130E4A5E2",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8C972130AAA303DFE73D4C038C411E95",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F524ADFF989D53A1DA67273AA6C38EB4",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-565BFF8362B3682934C3A15BA61CA66A",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-51E48BA1971AD048C70F8089DCF72DA6",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-DCEDB5B32707668BAB6DBBDBAA04860D",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-07EA2FB2C58DB989DB132695457F7FA9",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-CFEC450BB22E8EB634D5FD1B9B112A36",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8B5EFAA6AC3439CFEA102D0E526F0006",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-BFAE4FECF40AC501FE5EBE36B3FFFAFC",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-DCC2D1ECE95A8509EB245DB08963BFA6",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-BED62082DE980AD8ED5097B1FFF29FDD",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F406496636574381FFB55D6FC64C3E59",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-33B51719E820B1AA8971DB8C6BDD24F9",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-48FFDC17596C04D9881F12F236845224",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8276310D4B98834F4F5733C5464EBE04",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-CF18CBBEF6A065C6D1F90F1B6D4807E5",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E4BDF4127E4BAEF99318040F17EE7D1B",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-892B82164FA340CFEC7F28082D04A3D0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 5,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-6D50269AC8441A51D591AB0146A5F480",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "native-sd-3B29033594177D0CE98F17E9F97FB683",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E4BE1E2849D3644B075A10EE73D11607",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E88AE78873251B9809F23C1C699E9C08",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-2AA781F583A6E7630CE204F8C5DC2778",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-848EC03F26DF726E76727E1EAA4F0651",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9703444FE9C8E22B8317F78801680E2B",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E99B595EC9DA5F752FDE2B129B9DA8E4",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-03B2CDEB5EAC94B9D8E51A565A459693",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4F1FCA0E12C95C4A8382B4FE42F6DAE6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E76A2230609B97514AA070EB77953550",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-962F17610F7AE17BDDF92A1316839EA5",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D5D4AC1971C175D7AAF70FD461CF4688",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A0C554479DA15361687FB2FBA45B011B",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-BCA052DC0882597539761E881B02743A",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-DD0D99473C52D27468B0D072BBF57732",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-FBAE5C4E4FFB35169E63B18E3E43C843",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D090C38C5AA8FCB4E1BF15C4CB62CEFA",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-FDF9E95F92240AE9D50E397AF7327232",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-6AB37760277A98F9611551E848E7B20B",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-B1921FB2AA697E56243DD3FC837B0967",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-63963E9450CD60916404DD6D718201CE",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-E71A6F33131084192C52CD4EE4ABAD4D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-CFADD205A5380ADCCABAC1EEEBDDD355",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F5AC2D04B345D2E4A86D72E04F2DAD81",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3636893EF3C57EBFA8AC2097F2973554",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A43E58DECA300535449FF6D16D7FB42C",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-31723856C1ECF661D7D2B5B309572273",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-119D4479A8D2E9FE080443138A8CCD0D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-93A4188AE9EF6B0459E22147CDA935A7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-376D9D9EDA69D6D031FAEAA098B43ABB",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9845FBF40E601E82D92B27FE46A02755",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-7160824A81FB3AAE08E63CBD0829CB97",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-2F52F56FBFFA63755E194BDD9F75E0AE",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-035272C540A97B758ED04DB562629F86",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-6445A8872ACF29302E56168209549AD4",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-488F78468F0A361D23BD7623AB9C84B7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A1EB3C003360166BA144FDF7AA369FB9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-945FE751E6770894DD96EE1736DB0676",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F94BE4CE36741D314523BF04FDB824FA",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-35B73AFDA874F0FB3D588A6B0A41ECB8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D033B78D83EDB054D3D2F8A9502FBD2A",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3079DC372F27F226806121FF269A4311",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9AEDC1F0F2557792DA2F13E27C792172",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D0B263B0A7FB7DED9A3BC280FE41BCC3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8771B3687AA26C0F3C32A61882945439",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-ABD55DDA826073AF694387DABD1EAA5B",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E04AFE7B770CFAF42BFA9C506069A3B4",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-967E0103BDDD2C4D55EEA6B808BA4A1C",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-90E8CFE5CEA5757D81FF420EBB868F6D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-DA2F405C68B19EB9C7FB47BE4651E526",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A0E72342A2CD353DD64B9935A991ADC0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-7E04D24CA3D9539609495A260482E398",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-099F7698DEC1A81304F1C2225ED943D4",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 5,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-329EEA8174CD5644E58A6487E260938B",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 5,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-88EABE9F753EC9FA82DA04E17EB68CC3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 5,
+        "ribbons": 3
+      },
+      {
+        "id": "native-sd-BE6110E745A39A421BF0ED527E3004C8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 5,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-90FB9EFC4594B37D4B7796714E02B4A3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 4,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-2463ACF5D2DDC3577457F0B225064D66",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 5,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C39DD5A85F55FC4C1489126C588A0312",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 4,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-EAD069961A5E0B0CC62761338527E48D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 8,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-18601650F01AE981BA6CD5913711C6A4",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 7,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-5D3748C7C8982F64DED64452899C457C",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 4,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D390C366414853C29EA4F84BD74BE157",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 8,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C17776CAA5B34F4F7668DAF96E405E3E",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-564912494141F3F29A4A92CEB6E38923",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-FD555176F8FC5D779F73768473BA5AD0",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A86C883F91113B68A8DF8DB1CD6341B4",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-7DF69590EE87C0DF38ACC8EFF20C7450",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9298C59A4F17A19BCEE67DD8CFFCA987",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-1C77A36B63E07970A19FEEF11DBADC19",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-63C29CD053D09775514736B7D826D9BF",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3A6F233E6D382913BBB2B9AA4D0EC401",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-FAF7477855A2D195F08F62184DDB185F",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-6B91E1302F5563A3952D2690C81FC187",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-EA4609792CF1D1E1968F53F209D0C063",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8B450F5BC7647AB9DDFE655D888645FF",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-458C64459EAAEEE47C0CC0DD41EBE588",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 6,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-0F89A1E06600CFFE0964CB2670EE6D79",
+        "legacyEmitters": 0,
+        "popcorn": 1,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-11E8E3B26A23F83ACCB2C5FA198DB220",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 2
+      },
+      {
+        "id": "native-sd-4F83F1E8D2DC7E2E3CFF0E6B546BE2B9",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-8A35E06719E419F1E76B476243987002",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-2CA3FDB2F20CB7F7FD2771DB17FC361B",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A1C3F1CA18D5FF64C4EFF813CFDD864D",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A308A87B9F3774CF320A04BB6E8F3EDC",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-EB490958B533ABBA9B5D813BDFF3B378",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-888C91547C18605D2BAC3B2E374687FF",
+        "legacyEmitters": 5,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-03DB67F954EEE6280A35C7F7630E0063",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-1964E5E336FE0C614A5F4E5AB08258FC",
+        "legacyEmitters": 1,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-7296E7D1ED7CFDA86F92CDA1E45E1EC0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E3E3031384F0DDA979A7D65E3FA886D1",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4541C46FE17BE798E5D5C6349057770A",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-3970BCCC99B52C2C18093F622459A6AC",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-7B26CB095A218A748C82EEE39BCBBBAE",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4EBC78857BFD16F6198636AAAABE4DFB",
+        "legacyEmitters": 5,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-9609714B18E2851661C36E87090B3DA1",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-C2622B9D0580B0DFCC4A2145CA9EBDC6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-27898A157FB59BEC20CB749BF21A0A07",
+        "legacyEmitters": 4,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-1B559D189D0CF75B14968216E680002E",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-78251880B832B8C240BEE85B044F3F9A",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-388906CB59B6A1DBCCC5A4C146409BC9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-F158FE60187900CF9D03B53FEFF39C61",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-E1DFE9B3C75E664A4AB4B0BAF28A9BA9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-A79A61DCEFF4C004AB5F680090841200",
+        "legacyEmitters": 3,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4DEF29B65F06B1274B38FCA9065D4384",
+        "legacyEmitters": 3,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-73DE6AB4FBF6BDAB768CFAF14B85EF4B",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4D1EB045D505D7729E73ACE201EAF6C5",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-31D321F3FA5816B0DF831DA761225A3E",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-652941FF5C3DC5543347F625B6D4C279",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-5198F2D03E23234FD3B27F1C39BBE791",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-DD56B4BF172C2F2471D5EAD35ED05C74",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-03EFEA377E54F824A095F681D8968634",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-D105B22D1C1AC9039E8AD10AE809A3FB",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-5DAF86AF76031C3AC549FE759140A91B",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-B949AE6B5DC99469999CB568C23760FE",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "native-sd-4627920AB92DA897AE410E53B447E2A9",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-herrdave-86862",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-82702",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-82705",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-80903",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-82593",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 1
+      },
+      {
+        "id": "lpw-gluma-80783",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-164659",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-164660",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-164663",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-164662",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-137406",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-137407",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-145021",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-134634",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-134635",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "lpw-gluma-145290",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341155-d1c1cdbf801371fd5e0b906f",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341155-70c20b5cc9c6f43c3482109d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341155-2ecceeb66256521d48246dd9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341155-1c25aa3d1b08f5fcfc382dcd",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341155-477d72188e89e8aa500cdede",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "hive-341155-c77bd8d4a71553434d944301",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341580-5e9ae7007f1c830385f8cfab",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "hive-341580-0327407eb35b514888f10ba5",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341580-fcce34ada45247723e32d221",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-336977-6566f725cb78cfc943702c97",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-336977-066e2a28393479bbaa1d38a6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-336977-7aa97f05f6f48dbfad248b83",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-336977-81b84d38a40d56bff879e202",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "hive-336977-9b361dd5a143b25c39753b7a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-336977-165e493630b18fc2e60e295c",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-65646-5075ac4616989fe99d9553d7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337930-80e8fb8a762baa2bfc9041ff",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-338590-0d2b261cb3abfc23615486ad",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-338590-5aa9e3c19a5a093276051de8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-338590-6dc0285e7c0016bb770f98c6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-338590-29b5f057176a2cf1e2545c5e",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-338590-2be948eee15a2890ffed0182",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313020-329f31d10b3bf3dcd91b60c2",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313020-78117503daa2c12e81c8d48d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328594-54f931a5c7678357b8d78fb6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328594-7cc2b30de6e9171882218608",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328594-370addb2a050dc0fe31de61b",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "hive-328594-e578412ac60d36dcb68de0f1",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328594-acda0752a71e9f409688ee00",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-a5513fcf15ee72d7710e3e37",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-4ce85a2363a6730c818331d0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-8ba61e1fd67f5ba18dab17a8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-1070febdc43821c2680d5687",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-8a333b23c7e9dfdf5038fa4e",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-87de24a8928aa81209efd85e",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-3e628fbce2aeaf3c2909920d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-734185e0f6f4fade4fea07ca",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-cd255b112ebecd5dedf0fbcc",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-72ad38cc575e7013b333eba4",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-26187230f7a4263dc04f8bd3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-83d312a43ef3b55496ae8445",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-2edab1caba64103fb391a673",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-ccfe6a38f0eb4c6e674a831b",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-b71a7373b9e91fbf0167b0c3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-327490-317835a2716b82e1cbaec95d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-318735-677d89d66cc23e377bccab2d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 5,
+        "ribbons": 18
+      },
+      {
+        "id": "hive-318735-00eb213315bb599d3f2adcf3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 3,
+        "ribbons": 31
+      },
+      {
+        "id": "hive-318735-5964f22f8fe185c67b2c7786",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 6
+      },
+      {
+        "id": "hive-337087-4ea3daa15c41ebe9341686b5",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337087-93f3df4bfd1fc333ca3d9754",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-94f1e77590ec1b6bf85f74d9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-c3fe95b173775a18fb57945e",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-ef08b8800e119a12ae7d7e9a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-9cc5e3545aee430b536d15b7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-cc3f6e87d97b8d586a1daf60",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-eb8dce27c0b4d78825ab53d6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-bde76d287bca1c049f91e11a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-38fc4eadec4b5d9f6b5f8915",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-328637-e501366645a0184f3f9f9889",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313156-5519ada18f084cc6a3bb7e86",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313156-0fd656fbfbf0e603c56eb27a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313156-8f6bbab3bf86e3b0b332557a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 6
+      },
+      {
+        "id": "hive-313156-6ef260a025d6e5a41e9d4dfa",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-313156-e8804e1bad72a61e18076bb8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-313156-e39283d0acbf2e0a2ad618c7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-313156-ac654e80cf86c4636f2b7c16",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313156-78f0ab16094711f778130ae9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313156-2ecc07006f0b6409ef9f3e83",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313156-0fff88b7118e4db46c727637",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313156-a4256e0ed30a9c953d11b892",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313156-bb84a7f53ecd430a92e378af",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-319375-2079bfc3c069b9c5937301b8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-309277ce515f119cd818d276",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-6a590fda6663169198d80672",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-703c78930ccf8c3e867205e5",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-533a597ba9bf1d005e04206a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 12
+      },
+      {
+        "id": "hive-319375-86fad0ff97ff1574f54e6b4b",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 10
+      },
+      {
+        "id": "hive-319375-6e496dd541727ad6fe109041",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 4
+      },
+      {
+        "id": "hive-319375-0f1325d4da85c3b9c6aefeff",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 8
+      },
+      {
+        "id": "hive-319375-cd503c30984a5ac6b1cd6e14",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 6
+      },
+      {
+        "id": "hive-319375-56ae2362e0b0633483c0184a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-a2775d80a5bccfda3a01ad60",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-8e46745e3d91b0d7ac7214e7",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-b30036de07e8ff12c5bc1301",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-45d786a57f00a5f102506907",
+        "legacyEmitters": 2,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 8
+      },
+      {
+        "id": "hive-319375-d642867fe284aa9ee0b91807",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 14
+      },
+      {
+        "id": "hive-319375-3da0a32653f06688c425da41",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 6
+      },
+      {
+        "id": "hive-319375-6b1846f8b0aef3b3b789918b",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-319375-1b97d34164b544099f29b9e8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337484-0f7d955596dbd0d6f9be278f",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337484-e0204e70a069b0741e210fcf",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "hive-337484-b55459556ebe43dc59cb29a3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337484-2a5b5736d3a29903f68fc78b",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337484-baefd7bbfd45be4edb039291",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-336494-76267d6926625ade1c60c852",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 1
+      },
+      {
+        "id": "hive-315971-eeec5e7e1edc48ee15a37e99",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-9f724ca7a1fdb707f58f0542",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-bc3648115d418cdf81445b15",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-315971-65bfc28c05f23be4d6409994",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-f9a680c60c292808bf654558",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-40944779e53f2c19a1495a24",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-d609054df0c2d12deafc3aa5",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-315971-0ee0afe19a12dc4d689797a2",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-7d9bdde873656e4e6a56cd4c",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-b09d72c2414896b160780043",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-315971-03b71526ae7d35e148c04bb3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-b2e05b8206ecee79cef9c0c0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-31c23ad80e49eb94f0a310bc",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-315971-259f5c924137f688c4d4b972",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-d527deb2132cc9497d846d08",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-f12abe7bc01cd512718a2fab",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-315971-619209daa745366799512243",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-fd6991cbeee077e9f3632ae3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-567b39afabb7b31b2628665a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-315971-4aa57170c60bdf3a90ddb528",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-5179b858e166d4760be18603",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-8c8712931616c88f32b40fe9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-0097b1600bb8385a61ba704b",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-315971-a08779aaf9037b88621f7207",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-315971-d1395fc461505dc07df2ad6a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-66c636a02ba30eca6d690fb2",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315971-b96796c98d87df81f8c4768a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-309120-1ec0fe74f4d1eff2ba6dadc6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-339361-6c06b56b631ed148be0b1ee0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-339361-b4806414b62db5c32aba4c30",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337746-dc11ec701e9b7eaf59584f1f",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337746-67bbc6bf07a8c0e72d4c054d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337746-c1d8388e7971f71ff55bf256",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337746-e54259e67f03bdae199bc4c6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 3
+      },
+      {
+        "id": "hive-337746-42674645c6c159916c000bc0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337746-6237ce6c456385deebc89575",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-337410-bb617f1c3de40e412e7ad17d",
+        "legacyEmitters": 5,
+        "popcorn": 0,
+        "lightNodes": 0,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-323748-1826d0a6c997bd519a286ff4",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 8
+      },
+      {
+        "id": "hive-323748-57a3e3c6b965d7b2adcb5ea1",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 8
+      },
+      {
+        "id": "hive-323748-cd16180f2cfe846b8cd5f606",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 8
+      },
+      {
+        "id": "hive-323748-fd5a0ed17db3a15001d49403",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 8
+      },
+      {
+        "id": "hive-323748-450af49839f45ad2dff80506",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 8
+      },
+      {
+        "id": "hive-315815-a785433a422ad0d513fd294e",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315815-c9b43db4167cf5b1bad73934",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315815-422089ea341ce020d587399e",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315815-2ea1f1bc0040e1eaef5a88d4",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-361641-efa8f71fb426424a745c1a6d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-361641-f2231407702164cfa227d970",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-361641-29ae4c06425196f08ab3059a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-361641-283250fc2b84ae9e37070f3a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 1
+      },
+      {
+        "id": "hive-361641-c13c251ebc19302b409b0ac3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 1
+      },
+      {
+        "id": "hive-341085-ba9f25a219d7e96e7283fdc1",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341085-df2c0005108c5d1f58e21a94",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 3,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-341085-0f94bd45a580a436e5b9c75d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-330617-7df8aece1d5c83bdebad2e10",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-330617-8002fd9bd298f578bff1f204",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 1
+      },
+      {
+        "id": "hive-315129-a2232beea050a7027039abcf",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315129-e35081023d5b1ff14547e0f3",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315129-889ec964c660ad19d0e6b86e",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315129-4a4b7bf3fdaa710d82c1a48a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315129-dd10fc65d8d8abe00f18d82d",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-99584-7d7737615073c78ad63602dd",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-99584-d7648c6fd0cb7e9874821c20",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 2,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313049-b1b8244ec76156e44ebee1ff",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313049-84171942ae911b38effc18a6",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313049-13ea15fe551a41320ae81918",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 6
+      },
+      {
+        "id": "hive-313049-a99fb3b9c801dab08ec31130",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-313049-f9cd2bed12a8c36095d814f9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-313049-9de24dbd632b9d926d9b59ce",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 2
+      },
+      {
+        "id": "hive-313049-3a3c0a317ceaa40e1190c3af",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313049-727e511f211e9ac9d92262ac",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313049-574aa6cf9e615862a0a94fb8",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313049-6de5b81d166e3b837ab3b94a",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313049-33af058d0db7e46497261dbb",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-313049-55d7ba4146404787e9e9d3e1",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-336159-0ccaee0074c9f514ccadbceb",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-315904-9154043f383121d4b6779914",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 1
+      },
+      {
+        "id": "hive-315904-a782cbb54d55be809f0b29a2",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 1
+      },
+      {
+        "id": "hive-314787-39925c1a37004249ae39f9f9",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-314787-7505dbd3c16f9dd4e108cb71",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-314787-ec85c08964213da134c463a0",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-314787-e63970f3ca54eb9d1326e40b",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-314787-cb4e45a2d397de73ac305dad",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      },
+      {
+        "id": "hive-314787-a444d8f0170b6e3afec19a07",
+        "legacyEmitters": 0,
+        "popcorn": 0,
+        "lightNodes": 1,
+        "ribbons": 0
+      }
+    ],
+    "isolatedModels": 100,
+    "isolatedComponents": 21275,
+    "isolationsWithoutEmitterSuppression": [
+      "lpw-herrdave-87376",
+      "lpw-warrior-of-khorne-berserker",
+      "lpw-warrior-of-khorne-cleaver",
+      "lpw-warrior-of-khorne",
+      "lpw-chaos-warrior-of-nurgle",
+      "lpw-kurgan-warlord"
+    ],
+    "captureVersions": {
+      "5": 4207
+    },
+    "particleHistory": {
+      "chronological": 4152,
+      "fixedPoseWarmup": 55
+    }
+  },
+  "supplementaryNamespaceExceptions": {
+    "expected": 17,
+    "captured": 17,
+    "ids": [
+      "native-sd-0ACFDDD102BCE2F99974979F1DA80A2E",
+      "native-sd-9AB027DA627C8D87CCEC3187DFC61B58",
+      "native-sd-E0EAEF4605B9FD9903E79CA9F98C9628",
+      "native-sd-61AAE34931CE29D48C91CF7DC0EA5CE8",
+      "native-sd-1D1A81067775078447CC36C1F6E1F82F",
+      "native-sd-B0633C9D26967DCF7A80069B9A25C7D7",
+      "native-sd-914C69EDD7D94BF4CCDD876BFF5CD47F",
+      "native-sd-B4C6AD6701E260E19968CD2578149EAA",
+      "native-sd-3568E43AAE858BAB6FA48F85AFB77F5C",
+      "native-sd-E26F5CE5E380208C9FB6A915806C6764",
+      "native-sd-7992A824A72BF309CA0D90FAA38864EC",
+      "native-sd-689603C44E23CFC82063CCF3846C4AD6",
+      "native-sd-CF27338945CCBB328C5617FCDBC87EC4",
+      "native-sd-111727381F5420C7550495B32C053CDE",
+      "native-sd-2CE471005C6A09E79C41464F28F66F1C",
+      "native-sd-170F681796A65B436B06C650BAA30A4F",
+      "native-sd-E76432191BD70A53CD805E5139AF7E4A"
+    ]
+  },
+  "preservedEarlierScope": {
+    "modelCaptures": 195,
+    "textureMasters": 3176,
+    "tiers": {
+      "hd": 195
+    }
+  },
+  "textures": {
+    "blizzard": {
+      "expected": 11920,
+      "captured": 11920,
+      "missing": []
+    },
+    "lowpolyworks-custom": {
+      "expected": 83,
+      "captured": 83,
+      "missing": []
+    },
+    "lowpolyworks": {
+      "expected": 6269,
+      "captured": 6269,
+      "missing": []
+    },
+    "hive": {
+      "expected": 1042,
+      "captured": 1042,
+      "missing": []
+    }
+  },
+  "method": {
+    "views": 4,
+    "wireframe": 1,
+    "imagePixels": 512,
+    "elevationDegrees": 56,
+    "reference": "Installed UI/MiscData AOA304; independent fit at FOV30. Not gameplay camera verification.",
+    "uv": "Every stored geoset and authored UV triangle, including animated texture IDs, with actual texture wrap axes. Stored LODs all included; render uses LOD0.",
+    "isolations": "Diagnostic visibility and two-sided/unshaded materials. Sampled authored layers retained; first diffuse enabled only when all layers are hidden. Particle and ribbon draws suppressed on refreshed component diagnostics.",
+    "limitations": "Renderer evidence, not in-game acceptance. Legacy emitters, popcorn systems and light-node behavior are not reproduced; missing textures and object-context replaceables are listed."
+  }
+}

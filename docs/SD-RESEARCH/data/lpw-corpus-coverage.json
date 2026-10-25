@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-10-25T07:05:40.655Z",
+  "models": 130,
+  "packsReferenced": 105,
+  "uniquePacks": 42,
+  "textureReferences": 6269,
+  "uniqueTextureDownloads": 5991,
+  "authors": {
+    "Unsanctioned Magic": 26,
+    "Rhapsodie": 1,
+    "Stein123": 15,
+    "Direfury": 4,
+    "Maximal": 6,
+    "FerSZ": 1,
+    "HerrDave": 40,
+    "azazeron": 3,
+    "Johnwar": 1,
+    "Azazeron": 5,
+    "Greedy Martyrdom": 1,
+    "Gluma": 72
+  },
+  "armies": {
+    "warriors-of-chaos": 20,
+    "vampire-counts": 6,
+    "the-empire": 28,
+    "bretonnia": 3,
+    "orcs-and-goblins": 6,
+    "beastmen": 20,
+    "lizardmen": 26,
+    "skaven": 6,
+    "dwarfs": 5,
+    "dark-elves": 10
+  },
+  "downloadFailures": [],
+  "totalDownloadedBytes": 330694051
+}

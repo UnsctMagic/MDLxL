@@ -1,0 +1,158 @@
+[
+  {
+    "modelId": "lpw-graveguard",
+    "connectedParts": 90,
+    "directVisualReviewed": 90,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-von-carstein",
+    "connectedParts": 97,
+    "directVisualReviewed": 97,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-von-carstein-dread-knight",
+    "connectedParts": 114,
+    "directVisualReviewed": 114,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-strigoi-vampire",
+    "connectedParts": 77,
+    "directVisualReviewed": 77,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-necrarch-vampire",
+    "connectedParts": 78,
+    "directVisualReviewed": 78,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-khorne-axe",
+    "connectedParts": 164,
+    "directVisualReviewed": 164,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-khorne-flail",
+    "connectedParts": 189,
+    "directVisualReviewed": 189,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-nurgle-heavy",
+    "connectedParts": 160,
+    "directVisualReviewed": 160,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-nurgle-standard",
+    "connectedParts": 157,
+    "directVisualReviewed": 157,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-nurgle",
+    "connectedParts": 154,
+    "directVisualReviewed": 154,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-nurgle-champion",
+    "connectedParts": 143,
+    "directVisualReviewed": 143,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-slaanesh-axe",
+    "connectedParts": 139,
+    "directVisualReviewed": 139,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-slaanesh-lance",
+    "connectedParts": 125,
+    "directVisualReviewed": 125,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-undivided-sword",
+    "connectedParts": 105,
+    "directVisualReviewed": 105,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-undivided-lance",
+    "connectedParts": 101,
+    "directVisualReviewed": 101,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-aspiring",
+    "connectedParts": 122,
+    "directVisualReviewed": 122,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-tzeentch-sword",
+    "connectedParts": 154,
+    "directVisualReviewed": 154,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-tzeentch-lance",
+    "connectedParts": 150,
+    "directVisualReviewed": 150,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-chaos-ogre",
+    "connectedParts": 52,
+    "directVisualReviewed": 52,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-warrior-of-tzeentch",
+    "connectedParts": 68,
+    "directVisualReviewed": 68,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-warrior-of-khorne-berserker",
+    "connectedParts": 109,
+    "directVisualReviewed": 109,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-warrior-of-khorne-cleaver",
+    "connectedParts": 70,
+    "directVisualReviewed": 70,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-warrior-of-khorne",
+    "connectedParts": 168,
+    "directVisualReviewed": 168,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-chaos-warrior-of-nurgle",
+    "connectedParts": 103,
+    "directVisualReviewed": 103,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-blood-dragon",
+    "connectedParts": 120,
+    "directVisualReviewed": 120,
+    "exactSignatureTransfers": 0
+  },
+  {
+    "modelId": "lpw-kurgan-warlord",
+    "connectedParts": 69,
+    "directVisualReviewed": 69,
+    "exactSignatureTransfers": 0
+  }
+]

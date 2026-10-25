@@ -1,0 +1,4451 @@
+[
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g1:c1",
+    "geoset1": 1,
+    "component1": 1,
+    "label": "back mantle fur",
+    "family": "back mantle fur",
+    "materialTags": [
+      "black fur"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0001.webp",
+      "captures/models/lpw-graveguard/part-0001-side.webp",
+      "captures/models/lpw-graveguard/part-0001-context.webp"
+    ],
+    "triangles": 28,
+    "vertices": 23,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\Magnataur\\Magnataur.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -28.962496,
+        -13.076025,
+        105.93335
+      ],
+      "max": [
+        6.182743,
+        24.818813,
+        134.256897
+      ],
+      "size": [
+        35.145238,
+        37.894838,
+        28.323547
+      ],
+      "center": [
+        -11.389877,
+        5.871394,
+        120.095123
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Chest2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g1:c2",
+    "geoset1": 1,
+    "component1": 2,
+    "label": "neck mantle fur",
+    "family": "neck mantle fur",
+    "materialTags": [
+      "black fur"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0002.webp",
+      "captures/models/lpw-graveguard/part-0002-side.webp",
+      "captures/models/lpw-graveguard/part-0002-context.webp"
+    ],
+    "triangles": 28,
+    "vertices": 26,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\Magnataur\\Magnataur.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -25.738161,
+        -13.178213,
+        97.372467
+      ],
+      "max": [
+        -5.285155,
+        21.103146,
+        131.906952
+      ],
+      "size": [
+        20.453006,
+        34.281359,
+        34.534485
+      ],
+      "center": [
+        -15.511658,
+        3.962466,
+        114.639709
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Chest2",
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g1:c3",
+    "geoset1": 1,
+    "component1": 3,
+    "label": "lower back mantle fur",
+    "family": "lower back mantle fur",
+    "materialTags": [
+      "black fur"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0003.webp",
+      "captures/models/lpw-graveguard/part-0003-side.webp",
+      "captures/models/lpw-graveguard/part-0003-context.webp"
+    ],
+    "triangles": 28,
+    "vertices": 23,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\Magnataur\\Magnataur.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -24.632608,
+        -5.588815,
+        86.171974
+      ],
+      "max": [
+        -9.154676,
+        15.667776,
+        117.981682
+      ],
+      "size": [
+        15.477932,
+        21.256591,
+        31.809708
+      ],
+      "center": [
+        -16.893642,
+        5.039481,
+        102.076828
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Chest2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g1:c4",
+    "geoset1": 1,
+    "component1": 4,
+    "label": "right hip fur trim",
+    "family": "hip fur trim",
+    "materialTags": [
+      "black fur"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0004.webp",
+      "captures/models/lpw-graveguard/part-0004-side.webp",
+      "captures/models/lpw-graveguard/part-0004-context.webp"
+    ],
+    "triangles": 14,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\Magnataur\\Magnataur.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -19.93033,
+        -25.873899,
+        35.379116
+      ],
+      "max": [
+        16.29957,
+        -8.93756,
+        83.748199
+      ],
+      "size": [
+        36.2299,
+        16.936339,
+        48.369083
+      ],
+      "center": [
+        -1.81538,
+        -17.40573,
+        59.563658
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g1:c5",
+    "geoset1": 1,
+    "component1": 5,
+    "label": "left hip fur trim",
+    "family": "hip fur trim",
+    "materialTags": [
+      "black fur"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0005.webp",
+      "captures/models/lpw-graveguard/part-0005-side.webp",
+      "captures/models/lpw-graveguard/part-0005-context.webp"
+    ],
+    "triangles": 14,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\Magnataur\\Magnataur.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -19.93033,
+        8.8759,
+        35.379116
+      ],
+      "max": [
+        16.29957,
+        25.8123,
+        83.796478
+      ],
+      "size": [
+        36.2299,
+        16.936399,
+        48.417362
+      ],
+      "center": [
+        -1.81538,
+        17.3441,
+        59.587797
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g1:c6",
+    "geoset1": 1,
+    "component1": 6,
+    "label": "right wrist fur cuff",
+    "family": "wrist fur cuff",
+    "materialTags": [
+      "black fur"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0006.webp",
+      "captures/models/lpw-graveguard/part-0006-side.webp",
+      "captures/models/lpw-graveguard/part-0006-context.webp"
+    ],
+    "triangles": 16,
+    "vertices": 12,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\Magnataur\\Magnataur.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -29.225794,
+        -41.127178,
+        85.178123
+      ],
+      "max": [
+        -8.926965,
+        -25.199055,
+        105.474091
+      ],
+      "size": [
+        20.298829,
+        15.928123,
+        20.295967
+      ],
+      "center": [
+        -19.076379,
+        -33.163116,
+        95.326107
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ArmR2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g1:c7",
+    "geoset1": 1,
+    "component1": 7,
+    "label": "left wrist fur cuff",
+    "family": "wrist fur cuff",
+    "materialTags": [
+      "black fur"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0007.webp",
+      "captures/models/lpw-graveguard/part-0007-side.webp",
+      "captures/models/lpw-graveguard/part-0007-context.webp"
+    ],
+    "triangles": 16,
+    "vertices": 12,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\Magnataur\\Magnataur.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -3.47588,
+        22.996851,
+        85.052124
+      ],
+      "max": [
+        15.055956,
+        40.838276,
+        104.287437
+      ],
+      "size": [
+        18.531836,
+        17.841425,
+        19.235313
+      ],
+      "center": [
+        5.790038,
+        31.917563,
+        94.669781
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ArmL2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g2:c1",
+    "geoset1": 2,
+    "component1": 1,
+    "label": "upper polearm haft segment",
+    "family": "upper polearm haft segment",
+    "materialTags": [
+      "dark iron",
+      "silver wear"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0008.webp",
+      "captures/models/lpw-graveguard/part-0008-side.webp",
+      "captures/models/lpw-graveguard/part-0008-context.webp"
+    ],
+    "triangles": 24,
+    "vertices": 18,
+    "sourceTexturePaths": [
+      "Textures\\InfernalCannon.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -2.303023,
+        -55.373814,
+        102.707283
+      ],
+      "max": [
+        5.708818,
+        -46.141346,
+        151.976868
+      ],
+      "size": [
+        8.011841,
+        9.232468,
+        49.269585
+      ],
+      "center": [
+        1.702897,
+        -50.75758,
+        127.342075
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Spear"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g2:c2",
+    "geoset1": 2,
+    "component1": 2,
+    "label": "lower polearm haft segment",
+    "family": "lower polearm haft segment",
+    "materialTags": [
+      "dark iron",
+      "silver wear"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0009.webp",
+      "captures/models/lpw-graveguard/part-0009-side.webp",
+      "captures/models/lpw-graveguard/part-0009-context.webp"
+    ],
+    "triangles": 28,
+    "vertices": 19,
+    "sourceTexturePaths": [
+      "Textures\\InfernalCannon.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -6.004627,
+        -50.527096,
+        0.841394
+      ],
+      "max": [
+        2.914229,
+        -39.93087,
+        70.595161
+      ],
+      "size": [
+        8.918857,
+        10.596226,
+        69.753767
+      ],
+      "center": [
+        -1.545199,
+        -45.228983,
+        35.718278
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Spear"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g3:c1",
+    "geoset1": 3,
+    "component1": 1,
+    "label": "right pauldron shell",
+    "family": "pauldron shell",
+    "materialTags": [
+      "dark green-black plate",
+      "dull edge highlight",
+      "gold collar"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0010.webp",
+      "captures/models/lpw-graveguard/part-0010-side.webp",
+      "captures/models/lpw-graveguard/part-0010-context.webp"
+    ],
+    "triangles": 85,
+    "vertices": 69,
+    "sourceTexturePaths": [
+      "Textures\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -28.351755,
+        -42.301498,
+        109.986679
+      ],
+      "max": [
+        7.628632,
+        -10.145057,
+        139.132828
+      ],
+      "size": [
+        35.980387,
+        32.156442,
+        29.146149
+      ],
+      "center": [
+        -10.361562,
+        -26.223278,
+        124.559753
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g3:c2",
+    "geoset1": 3,
+    "component1": 2,
+    "label": "left pauldron shell",
+    "family": "pauldron shell",
+    "materialTags": [
+      "dark green-black plate",
+      "dull edge highlight",
+      "gold collar"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0011.webp",
+      "captures/models/lpw-graveguard/part-0011-side.webp",
+      "captures/models/lpw-graveguard/part-0011-context.webp"
+    ],
+    "triangles": 118,
+    "vertices": 96,
+    "sourceTexturePaths": [
+      "Textures\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -16.910179,
+        7.515963,
+        109.439919
+      ],
+      "max": [
+        18.701214,
+        41.376892,
+        138.296051
+      ],
+      "size": [
+        35.611393,
+        33.860929,
+        28.856133
+      ],
+      "center": [
+        0.895517,
+        24.446427,
+        123.867985
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g3:c3",
+    "geoset1": 3,
+    "component1": 3,
+    "label": "left gauntlet plate insert",
+    "family": "gauntlet plate insert",
+    "materialTags": [
+      "dark green-black plate",
+      "dull edge highlight",
+      "gold collar"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0012.webp",
+      "captures/models/lpw-graveguard/part-0012-side.webp",
+      "captures/models/lpw-graveguard/part-0012-context.webp"
+    ],
+    "triangles": 4,
+    "vertices": 6,
+    "sourceTexturePaths": [
+      "Textures\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        16.18218,
+        14.335009,
+        79.002754
+      ],
+      "max": [
+        29.441042,
+        23.386786,
+        92.425789
+      ],
+      "size": [
+        13.258862,
+        9.051777,
+        13.423035
+      ],
+      "center": [
+        22.811611,
+        18.860897,
+        85.714272
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HandL",
+      "Bone_ArmL2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g3:c4",
+    "geoset1": 3,
+    "component1": 4,
+    "label": "polearm collar",
+    "family": "polearm collar",
+    "materialTags": [
+      "dark green-black plate",
+      "dull edge highlight",
+      "gold collar"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0013.webp",
+      "captures/models/lpw-graveguard/part-0013-side.webp",
+      "captures/models/lpw-graveguard/part-0013-context.webp"
+    ],
+    "triangles": 16,
+    "vertices": 12,
+    "sourceTexturePaths": [
+      "Textures\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -2.142952,
+        -57.071335,
+        151.519394
+      ],
+      "max": [
+        7.359736,
+        -47.584602,
+        161.711761
+      ],
+      "size": [
+        9.502689,
+        9.486732,
+        10.192368
+      ],
+      "center": [
+        2.608392,
+        -52.327969,
+        156.615578
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Spear"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g3:c5",
+    "geoset1": 3,
+    "component1": 5,
+    "label": "right gauntlet plate insert",
+    "family": "gauntlet plate insert",
+    "materialTags": [
+      "dark green-black plate",
+      "dull edge highlight",
+      "gold collar"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0014.webp",
+      "captures/models/lpw-graveguard/part-0014-side.webp",
+      "captures/models/lpw-graveguard/part-0014-context.webp"
+    ],
+    "triangles": 4,
+    "vertices": 6,
+    "sourceTexturePaths": [
+      "Textures\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -13.382534,
+        -59.046124,
+        82.186241
+      ],
+      "max": [
+        -7.427981,
+        -45.774998,
+        97.05616
+      ],
+      "size": [
+        5.954553,
+        13.271126,
+        14.869919
+      ],
+      "center": [
+        -10.405258,
+        -52.410561,
+        89.621201
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HandR",
+      "Bone_ArmR2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g4:c1",
+    "geoset1": 4,
+    "component1": 1,
+    "label": "long skirt cloth",
+    "family": "long skirt cloth",
+    "materialTags": [
+      "team-coloured cloth",
+      "painted folds"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0015.webp",
+      "captures/models/lpw-graveguard/part-0015-side.webp",
+      "captures/models/lpw-graveguard/part-0015-context.webp"
+    ],
+    "triangles": 62,
+    "vertices": 43,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\FacelessOne\\FacelessOne.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -35.082226,
+        -32.619606,
+        13.046437
+      ],
+      "max": [
+        19.610493,
+        32.805222,
+        81.260963
+      ],
+      "size": [
+        54.692719,
+        65.424828,
+        68.214526
+      ],
+      "center": [
+        -7.735867,
+        0.092808,
+        47.1537
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Root",
+      "Bone_LegL1",
+      "Bone_LegR1",
+      "Bone_LegR2",
+      "Bone_LegL2",
+      "Bone_BackSkirt1",
+      "Bone_BackSkirt2",
+      "Bone_Pelvis",
+      "Bone_LegL3",
+      "Bone_LegR3",
+      "Bone_BackSkirt3"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g4:c2",
+    "geoset1": 4,
+    "component1": 2,
+    "label": "right pauldron cloth inset",
+    "family": "pauldron cloth inset",
+    "materialTags": [
+      "team-coloured cloth",
+      "painted folds"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0016.webp",
+      "captures/models/lpw-graveguard/part-0016-side.webp",
+      "captures/models/lpw-graveguard/part-0016-context.webp"
+    ],
+    "triangles": 52,
+    "vertices": 36,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\FacelessOne\\FacelessOne.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -24.131531,
+        -38.544621,
+        114.919296
+      ],
+      "max": [
+        1.498863,
+        -15.599234,
+        135.582062
+      ],
+      "size": [
+        25.630394,
+        22.945387,
+        20.662766
+      ],
+      "center": [
+        -11.316334,
+        -27.071927,
+        125.250679
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g4:c3",
+    "geoset1": 4,
+    "component1": 3,
+    "label": "left pauldron inner cloth inset",
+    "family": "pauldron inner cloth inset",
+    "materialTags": [
+      "team-coloured cloth",
+      "painted folds"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0017.webp",
+      "captures/models/lpw-graveguard/part-0017-side.webp",
+      "captures/models/lpw-graveguard/part-0017-context.webp"
+    ],
+    "triangles": 24,
+    "vertices": 21,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\FacelessOne\\FacelessOne.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -10.095005,
+        14.269448,
+        114.046539
+      ],
+      "max": [
+        14.287055,
+        28.440357,
+        134.592529
+      ],
+      "size": [
+        24.38206,
+        14.170909,
+        20.54599
+      ],
+      "center": [
+        2.096025,
+        21.354903,
+        124.319534
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g4:c4",
+    "geoset1": 4,
+    "component1": 4,
+    "label": "left pauldron outer cloth inset",
+    "family": "pauldron outer cloth inset",
+    "materialTags": [
+      "team-coloured cloth",
+      "painted folds"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0018.webp",
+      "captures/models/lpw-graveguard/part-0018-side.webp",
+      "captures/models/lpw-graveguard/part-0018-context.webp"
+    ],
+    "triangles": 30,
+    "vertices": 23,
+    "sourceTexturePaths": [
+      "Units\\Creeps\\FacelessOne\\FacelessOne.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -5.295361,
+        22.395836,
+        113.94474
+      ],
+      "max": [
+        15.41378,
+        37.933598,
+        127.739189
+      ],
+      "size": [
+        20.709141,
+        15.537762,
+        13.794449
+      ],
+      "center": [
+        5.05921,
+        30.164717,
+        120.841965
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c1",
+    "geoset1": 5,
+    "component1": 1,
+    "label": "breastplate",
+    "family": "breastplate",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0019.webp",
+      "captures/models/lpw-graveguard/part-0019-side.webp",
+      "captures/models/lpw-graveguard/part-0019-context.webp"
+    ],
+    "triangles": 76,
+    "vertices": 48,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -22.044685,
+        -22.165453,
+        101.757507
+      ],
+      "max": [
+        16.138884,
+        21.044556,
+        129.915787
+      ],
+      "size": [
+        38.183569,
+        43.210009,
+        28.158279
+      ],
+      "center": [
+        -2.952901,
+        -0.560449,
+        115.836647
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Chest2",
+      "Bone_Chest",
+      "Bone_ArmL1",
+      "Bone_ArmR1"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c2",
+    "geoset1": 5,
+    "component1": 2,
+    "label": "right shoulder spike card 1",
+    "family": "shoulder spike card 1",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0020.webp",
+      "captures/models/lpw-graveguard/part-0020-side.webp",
+      "captures/models/lpw-graveguard/part-0020-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -25.169041,
+        -33.397644,
+        129.277512
+      ],
+      "max": [
+        -17.70192,
+        -21.415134,
+        141.669144
+      ],
+      "size": [
+        7.467121,
+        11.98251,
+        12.391632
+      ],
+      "center": [
+        -21.43548,
+        -27.406389,
+        135.473328
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c3",
+    "geoset1": 5,
+    "component1": 3,
+    "label": "right pauldron metal rim",
+    "family": "pauldron metal rim",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0021.webp",
+      "captures/models/lpw-graveguard/part-0021-side.webp",
+      "captures/models/lpw-graveguard/part-0021-context.webp"
+    ],
+    "triangles": 36,
+    "vertices": 42,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -27.558409,
+        -34.954739,
+        111.466194
+      ],
+      "max": [
+        4.953731,
+        -10.134645,
+        136.301727
+      ],
+      "size": [
+        32.51214,
+        24.820094,
+        24.835533
+      ],
+      "center": [
+        -11.302339,
+        -22.544692,
+        123.883961
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c4",
+    "geoset1": 5,
+    "component1": 4,
+    "label": "right shoulder spike card 2",
+    "family": "shoulder spike card 2",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0022.webp",
+      "captures/models/lpw-graveguard/part-0022-side.webp",
+      "captures/models/lpw-graveguard/part-0022-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -30.579161,
+        -24.855661,
+        121.653061
+      ],
+      "max": [
+        -23.736248,
+        -13.420023,
+        132.525681
+      ],
+      "size": [
+        6.842913,
+        11.435638,
+        10.87262
+      ],
+      "center": [
+        -27.157704,
+        -19.137842,
+        127.089371
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c5",
+    "geoset1": 5,
+    "component1": 5,
+    "label": "right shoulder spike card 3",
+    "family": "shoulder spike card 3",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0023.webp",
+      "captures/models/lpw-graveguard/part-0023-side.webp",
+      "captures/models/lpw-graveguard/part-0023-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        0.547294,
+        -37.852337,
+        117.708435
+      ],
+      "max": [
+        3.417003,
+        -23.109715,
+        126.840866
+      ],
+      "size": [
+        2.869709,
+        14.742622,
+        9.132431
+      ],
+      "center": [
+        1.982149,
+        -30.481026,
+        122.274651
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c6",
+    "geoset1": 5,
+    "component1": 6,
+    "label": "right shoulder spike card 4",
+    "family": "shoulder spike card 4",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0024.webp",
+      "captures/models/lpw-graveguard/part-0024-side.webp",
+      "captures/models/lpw-graveguard/part-0024-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -6.005325,
+        -41.494289,
+        126.082367
+      ],
+      "max": [
+        -0.734616,
+        -28.436344,
+        138.386856
+      ],
+      "size": [
+        5.270709,
+        13.057945,
+        12.304489
+      ],
+      "center": [
+        -3.36997,
+        -34.965317,
+        132.234612
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c7",
+    "geoset1": 5,
+    "component1": 7,
+    "label": "right shoulder spike card 5",
+    "family": "shoulder spike card 5",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0025.webp",
+      "captures/models/lpw-graveguard/part-0025-side.webp",
+      "captures/models/lpw-graveguard/part-0025-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -15.338721,
+        -40.267246,
+        132.192062
+      ],
+      "max": [
+        -9.425296,
+        -29.335726,
+        144.830429
+      ],
+      "size": [
+        5.913425,
+        10.93152,
+        12.638367
+      ],
+      "center": [
+        -12.382009,
+        -34.801486,
+        138.511246
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c8",
+    "geoset1": 5,
+    "component1": 8,
+    "label": "right hip plate",
+    "family": "hip plate",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0026.webp",
+      "captures/models/lpw-graveguard/part-0026-side.webp",
+      "captures/models/lpw-graveguard/part-0026-context.webp"
+    ],
+    "triangles": 82,
+    "vertices": 65,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -16.027452,
+        -27.4063,
+        53.728588
+      ],
+      "max": [
+        12.665519,
+        -8.01012,
+        87.271187
+      ],
+      "size": [
+        28.692971,
+        19.396179,
+        33.542599
+      ],
+      "center": [
+        -1.680967,
+        -17.70821,
+        70.499887
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c9",
+    "geoset1": 5,
+    "component1": 9,
+    "label": "left hip plate",
+    "family": "hip plate",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0027.webp",
+      "captures/models/lpw-graveguard/part-0027-side.webp",
+      "captures/models/lpw-graveguard/part-0027-context.webp"
+    ],
+    "triangles": 82,
+    "vertices": 64,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -16.027452,
+        7.9599,
+        53.728588
+      ],
+      "max": [
+        12.665519,
+        27.3561,
+        87.271187
+      ],
+      "size": [
+        28.692971,
+        19.3962,
+        33.542599
+      ],
+      "center": [
+        -1.680967,
+        17.658,
+        70.499887
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c10",
+    "geoset1": 5,
+    "component1": 10,
+    "label": "helmet top finial",
+    "family": "helmet top finial",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0028.webp",
+      "captures/models/lpw-graveguard/part-0028-side.webp",
+      "captures/models/lpw-graveguard/part-0028-context.webp"
+    ],
+    "triangles": 8,
+    "vertices": 9,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -10.134038,
+        -2.824479,
+        160.370804
+      ],
+      "max": [
+        -5.461013,
+        1.886867,
+        166.166733
+      ],
+      "size": [
+        4.673025,
+        4.711345,
+        5.795929
+      ],
+      "center": [
+        -7.797525,
+        -0.468806,
+        163.268768
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c11",
+    "geoset1": 5,
+    "component1": 11,
+    "label": "helmet crown bowl",
+    "family": "helmet crown bowl",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0029.webp",
+      "captures/models/lpw-graveguard/part-0029-side.webp",
+      "captures/models/lpw-graveguard/part-0029-context.webp"
+    ],
+    "triangles": 80,
+    "vertices": 68,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -18.543602,
+        -11.912308,
+        147.607178
+      ],
+      "max": [
+        8.525597,
+        11.130422,
+        160.678421
+      ],
+      "size": [
+        27.069199,
+        23.042729,
+        13.071243
+      ],
+      "center": [
+        -5.009003,
+        -0.390943,
+        154.142799
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c12",
+    "geoset1": 5,
+    "component1": 12,
+    "label": "helmet face surround",
+    "family": "helmet face surround",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0030.webp",
+      "captures/models/lpw-graveguard/part-0030-side.webp",
+      "captures/models/lpw-graveguard/part-0030-context.webp"
+    ],
+    "triangles": 76,
+    "vertices": 65,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -18.137682,
+        -13.038502,
+        133.45459
+      ],
+      "max": [
+        11.062065,
+        12.488384,
+        152.363556
+      ],
+      "size": [
+        29.199747,
+        25.526886,
+        18.908966
+      ],
+      "center": [
+        -3.537808,
+        -0.275059,
+        142.909073
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c13",
+    "geoset1": 5,
+    "component1": 13,
+    "label": "helmet crown ridge",
+    "family": "helmet crown ridge",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0031.webp",
+      "captures/models/lpw-graveguard/part-0031-side.webp",
+      "captures/models/lpw-graveguard/part-0031-context.webp"
+    ],
+    "triangles": 38,
+    "vertices": 44,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -17.416759,
+        -3.642719,
+        151.048325
+      ],
+      "max": [
+        5.163557,
+        2.839331,
+        161.42276
+      ],
+      "size": [
+        22.580317,
+        6.48205,
+        10.374435
+      ],
+      "center": [
+        -6.126601,
+        -0.401694,
+        156.235542
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c14",
+    "geoset1": 5,
+    "component1": 14,
+    "label": "helmet finial base",
+    "family": "helmet finial base",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0032.webp",
+      "captures/models/lpw-graveguard/part-0032-side.webp",
+      "captures/models/lpw-graveguard/part-0032-context.webp"
+    ],
+    "triangles": 24,
+    "vertices": 18,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -10.740387,
+        -3.331064,
+        158.934174
+      ],
+      "max": [
+        -4.770444,
+        2.411659,
+        161.935959
+      ],
+      "size": [
+        5.969943,
+        5.742722,
+        3.001785
+      ],
+      "center": [
+        -7.755415,
+        -0.459703,
+        160.435066
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c15",
+    "geoset1": 5,
+    "component1": 15,
+    "label": "waist gold rim",
+    "family": "waist gold rim",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0033.webp",
+      "captures/models/lpw-graveguard/part-0033-side.webp",
+      "captures/models/lpw-graveguard/part-0033-context.webp"
+    ],
+    "triangles": 20,
+    "vertices": 22,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -19.095528,
+        -19.881399,
+        78.784157
+      ],
+      "max": [
+        11.474859,
+        19.881399,
+        82.010841
+      ],
+      "size": [
+        30.570387,
+        39.762798,
+        3.226685
+      ],
+      "center": [
+        -3.810334,
+        0,
+        80.397499
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c16",
+    "geoset1": 5,
+    "component1": 16,
+    "label": "front waist rivet upper right",
+    "family": "front waist rivet upper right",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "probable: tiny raised waist fastener visible as separate geometry; exact hardware type uncertain",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0034.webp",
+      "captures/models/lpw-graveguard/part-0034-side.webp",
+      "captures/models/lpw-graveguard/part-0034-context.webp"
+    ],
+    "triangles": 8,
+    "vertices": 10,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        12.297937,
+        -6.691558,
+        91.546112
+      ],
+      "max": [
+        13.661901,
+        -4.487195,
+        93.510658
+      ],
+      "size": [
+        1.363964,
+        2.204364,
+        1.964546
+      ],
+      "center": [
+        12.979919,
+        -5.589376,
+        92.528385
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR",
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c17",
+    "geoset1": 5,
+    "component1": 17,
+    "label": "front waist rivet upper left",
+    "family": "front waist rivet upper left",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "probable: tiny raised waist fastener visible as separate geometry; exact hardware type uncertain",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0035.webp",
+      "captures/models/lpw-graveguard/part-0035-side.webp",
+      "captures/models/lpw-graveguard/part-0035-context.webp"
+    ],
+    "triangles": 8,
+    "vertices": 10,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        12.297937,
+        4.404821,
+        91.546112
+      ],
+      "max": [
+        13.661901,
+        6.624114,
+        93.510658
+      ],
+      "size": [
+        1.363964,
+        2.219293,
+        1.964546
+      ],
+      "center": [
+        12.979919,
+        5.514468,
+        92.528385
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR",
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c18",
+    "geoset1": 5,
+    "component1": 18,
+    "label": "front waist rivet lower right",
+    "family": "front waist rivet lower right",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "probable: tiny raised waist fastener visible as separate geometry; exact hardware type uncertain",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0036.webp",
+      "captures/models/lpw-graveguard/part-0036-side.webp",
+      "captures/models/lpw-graveguard/part-0036-context.webp"
+    ],
+    "triangles": 8,
+    "vertices": 10,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        12.389008,
+        -6.691558,
+        79.946365
+      ],
+      "max": [
+        13.743001,
+        -4.487195,
+        81.911552
+      ],
+      "size": [
+        1.353993,
+        2.204364,
+        1.965187
+      ],
+      "center": [
+        13.066004,
+        -5.589376,
+        80.928959
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR",
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c19",
+    "geoset1": 5,
+    "component1": 19,
+    "label": "front waist rivet lower left",
+    "family": "front waist rivet lower left",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "probable: tiny raised waist fastener visible as separate geometry; exact hardware type uncertain",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0037.webp",
+      "captures/models/lpw-graveguard/part-0037-side.webp",
+      "captures/models/lpw-graveguard/part-0037-context.webp"
+    ],
+    "triangles": 8,
+    "vertices": 10,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        12.389008,
+        4.404821,
+        79.946365
+      ],
+      "max": [
+        13.743001,
+        6.624114,
+        81.911552
+      ],
+      "size": [
+        1.353993,
+        2.219293,
+        1.965187
+      ],
+      "center": [
+        13.066004,
+        5.514468,
+        80.928959
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR",
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c20",
+    "geoset1": 5,
+    "component1": 20,
+    "label": "front waist clasp frame",
+    "family": "front waist clasp frame",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0038.webp",
+      "captures/models/lpw-graveguard/part-0038-side.webp",
+      "captures/models/lpw-graveguard/part-0038-context.webp"
+    ],
+    "triangles": 96,
+    "vertices": 68,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        9.842246,
+        -10.385425,
+        76.075417
+      ],
+      "max": [
+        13.178274,
+        10.288147,
+        97.375786
+      ],
+      "size": [
+        3.336028,
+        20.673572,
+        21.300369
+      ],
+      "center": [
+        11.51026,
+        -0.048639,
+        86.725601
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR",
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c21",
+    "geoset1": 5,
+    "component1": 21,
+    "label": "left gauntlet",
+    "family": "gauntlet",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0039.webp",
+      "captures/models/lpw-graveguard/part-0039-side.webp",
+      "captures/models/lpw-graveguard/part-0039-context.webp"
+    ],
+    "triangles": 34,
+    "vertices": 22,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -0.534006,
+        6.713174,
+        77.45668
+      ],
+      "max": [
+        29.441042,
+        33.844257,
+        101.096329
+      ],
+      "size": [
+        29.975048,
+        27.131083,
+        23.639648
+      ],
+      "center": [
+        14.453518,
+        20.278716,
+        89.276505
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HandL",
+      "Bone_ArmL2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g5:c22",
+    "geoset1": 5,
+    "component1": 22,
+    "label": "right gauntlet",
+    "family": "gauntlet",
+    "materialTags": [
+      "dark plate",
+      "gold trim",
+      "silver edge highlight"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0040.webp",
+      "captures/models/lpw-graveguard/part-0040-side.webp",
+      "captures/models/lpw-graveguard/part-0040-context.webp"
+    ],
+    "triangles": 34,
+    "vertices": 22,
+    "sourceTexturePaths": [
+      "Units\\Undead\\UndeadAirBarge\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -23.068237,
+        -59.06778,
+        82.186241
+      ],
+      "max": [
+        4.456778,
+        -28.799229,
+        102.573708
+      ],
+      "size": [
+        27.525015,
+        30.268551,
+        20.387466
+      ],
+      "center": [
+        -9.30573,
+        -43.933504,
+        92.379974
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HandR",
+      "Bone_ArmR2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g6:c1",
+    "geoset1": 6,
+    "component1": 1,
+    "label": "front chainmail skirt",
+    "family": "front chainmail skirt",
+    "materialTags": [
+      "chainmail"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0041.webp",
+      "captures/models/lpw-graveguard/part-0041-side.webp",
+      "captures/models/lpw-graveguard/part-0041-context.webp"
+    ],
+    "triangles": 24,
+    "vertices": 21,
+    "sourceTexturePaths": [
+      "UI\\Glues\\SinglePlayer\\HumanCampaign3D\\HumanCampaignFootman.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        8.971148,
+        -20.561764,
+        4.93139
+      ],
+      "max": [
+        22.099348,
+        21.474192,
+        80.359428
+      ],
+      "size": [
+        13.128201,
+        42.035955,
+        75.428038
+      ],
+      "center": [
+        15.535248,
+        0.456214,
+        42.645409
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_LegR3",
+      "Bone_LegL3",
+      "Bone_LegR1",
+      "Bone_LegL1",
+      "Bone_LegR2",
+      "Bone_LegL2",
+      "Bone_Pelvis",
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g7:c1",
+    "geoset1": 7,
+    "component1": 1,
+    "label": "portrait backdrop plane",
+    "family": "portrait backdrop plane",
+    "materialTags": [
+      "team glow"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0042.webp",
+      "captures/models/lpw-graveguard/part-0042-side.webp",
+      "captures/models/lpw-graveguard/part-0042-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [],
+    "posedBounds": {
+      "min": [
+        -71.901978,
+        -153.440887,
+        0.592878
+      ],
+      "max": [
+        -63.144222,
+        140.635071,
+        285.981445
+      ],
+      "size": [
+        8.757755,
+        294.075958,
+        285.388567
+      ],
+      "center": [
+        -67.5231,
+        -6.402908,
+        143.287162
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "BackGround"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g8:c1",
+    "geoset1": 8,
+    "component1": 1,
+    "label": "left hip skull relief plate",
+    "family": "hip skull relief plate",
+    "materialTags": [
+      "pale bone",
+      "dark eye sockets"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0043.webp",
+      "captures/models/lpw-graveguard/part-0043-side.webp",
+      "captures/models/lpw-graveguard/part-0043-context.webp"
+    ],
+    "triangles": 16,
+    "vertices": 15,
+    "sourceTexturePaths": [
+      "Buildings\\Undead\\TempleOfTheDamned\\NewTempleOfTheDamned.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -14.243548,
+        12.3728,
+        57.779419
+      ],
+      "max": [
+        10.26942,
+        25.0348,
+        84.681076
+      ],
+      "size": [
+        24.512968,
+        12.662,
+        26.901657
+      ],
+      "center": [
+        -1.987064,
+        18.7038,
+        71.230247
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g8:c2",
+    "geoset1": 8,
+    "component1": 2,
+    "label": "right hip skull relief plate",
+    "family": "hip skull relief plate",
+    "materialTags": [
+      "pale bone",
+      "dark eye sockets"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0044.webp",
+      "captures/models/lpw-graveguard/part-0044-side.webp",
+      "captures/models/lpw-graveguard/part-0044-context.webp"
+    ],
+    "triangles": 16,
+    "vertices": 15,
+    "sourceTexturePaths": [
+      "Buildings\\Undead\\TempleOfTheDamned\\NewTempleOfTheDamned.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -14.243548,
+        -25.084999,
+        57.779419
+      ],
+      "max": [
+        10.26942,
+        -12.4214,
+        84.681076
+      ],
+      "size": [
+        24.512968,
+        12.663599,
+        26.901657
+      ],
+      "center": [
+        -1.987064,
+        -18.7532,
+        71.230247
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g9:c1",
+    "geoset1": 9,
+    "component1": 1,
+    "label": "right exposed upper arm bone",
+    "family": "exposed upper arm bone",
+    "materialTags": [
+      "pale bone"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0045.webp",
+      "captures/models/lpw-graveguard/part-0045-side.webp",
+      "captures/models/lpw-graveguard/part-0045-context.webp"
+    ],
+    "triangles": 20,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -25.348297,
+        -31.500591,
+        89.902771
+      ],
+      "max": [
+        -11.352205,
+        -20.363262,
+        119.805962
+      ],
+      "size": [
+        13.996092,
+        11.137329,
+        29.903191
+      ],
+      "center": [
+        -18.350251,
+        -25.931927,
+        104.854366
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ArmR2",
+      "Bone_ShoulderR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g9:c2",
+    "geoset1": 9,
+    "component1": 2,
+    "label": "left exposed upper arm bone",
+    "family": "exposed upper arm bone",
+    "materialTags": [
+      "pale bone"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0046.webp",
+      "captures/models/lpw-graveguard/part-0046-side.webp",
+      "captures/models/lpw-graveguard/part-0046-context.webp"
+    ],
+    "triangles": 20,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -4.01306,
+        22.301821,
+        90.873901
+      ],
+      "max": [
+        5.583466,
+        38.395088,
+        118.201286
+      ],
+      "size": [
+        9.596525,
+        16.093267,
+        27.327385
+      ],
+      "center": [
+        0.785203,
+        30.348454,
+        104.537594
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ArmL2",
+      "Bone_ShoulderL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g10:c1",
+    "geoset1": 10,
+    "component1": 1,
+    "label": "waist armour shell",
+    "family": "waist armour shell",
+    "materialTags": [
+      "black iron"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0047.webp",
+      "captures/models/lpw-graveguard/part-0047-side.webp",
+      "captures/models/lpw-graveguard/part-0047-context.webp"
+    ],
+    "triangles": 48,
+    "vertices": 40,
+    "sourceTexturePaths": [
+      "Textures\\InfernalCannon.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -14.301753,
+        -15.8115,
+        77.924591
+      ],
+      "max": [
+        11.300466,
+        15.8115,
+        99.165245
+      ],
+      "size": [
+        25.602219,
+        31.622999,
+        21.240654
+      ],
+      "center": [
+        -1.500644,
+        0,
+        88.544918
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Root",
+      "Bone_Chest",
+      "Bone_HipR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g10:c2",
+    "geoset1": 10,
+    "component1": 2,
+    "label": "lower waist armour band",
+    "family": "lower waist armour band",
+    "materialTags": [
+      "black iron"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0048.webp",
+      "captures/models/lpw-graveguard/part-0048-side.webp",
+      "captures/models/lpw-graveguard/part-0048-context.webp"
+    ],
+    "triangles": 40,
+    "vertices": 33,
+    "sourceTexturePaths": [
+      "Textures\\InfernalCannon.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -19.095528,
+        -19.1992,
+        80.729225
+      ],
+      "max": [
+        11.808779,
+        19.198999,
+        92.779541
+      ],
+      "size": [
+        30.904306,
+        38.398199,
+        12.050316
+      ],
+      "center": [
+        -3.643374,
+        -0.0001,
+        86.754383
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Root",
+      "Bone_HipR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g11:c1",
+    "geoset1": 11,
+    "component1": 1,
+    "label": "polearm blade",
+    "family": "polearm blade",
+    "materialTags": [
+      "pale blade metal",
+      "dark guard metal"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0049.webp",
+      "captures/models/lpw-graveguard/part-0049-side.webp",
+      "captures/models/lpw-graveguard/part-0049-context.webp"
+    ],
+    "triangles": 90,
+    "vertices": 51,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -0.064508,
+        -65.786507,
+        161.123642
+      ],
+      "max": [
+        7.498858,
+        -44.3615,
+        242.92778
+      ],
+      "size": [
+        7.563367,
+        21.425007,
+        81.804138
+      ],
+      "center": [
+        3.717175,
+        -55.074003,
+        202.025711
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Spear"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g11:c2",
+    "geoset1": 11,
+    "component1": 2,
+    "label": "polearm guard upper bladelet",
+    "family": "polearm guard upper bladelet",
+    "materialTags": [
+      "pale blade metal",
+      "dark guard metal"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0050.webp",
+      "captures/models/lpw-graveguard/part-0050-side.webp",
+      "captures/models/lpw-graveguard/part-0050-context.webp"
+    ],
+    "triangles": 6,
+    "vertices": 8,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -1.023447,
+        -61.91116,
+        157.313828
+      ],
+      "max": [
+        6.816643,
+        -40.198036,
+        161.019424
+      ],
+      "size": [
+        7.84009,
+        21.713123,
+        3.705597
+      ],
+      "center": [
+        2.896598,
+        -51.054598,
+        159.166626
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Spear"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g11:c3",
+    "geoset1": 11,
+    "component1": 3,
+    "label": "polearm guard lower bladelet",
+    "family": "polearm guard lower bladelet",
+    "materialTags": [
+      "pale blade metal",
+      "dark guard metal"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0051.webp",
+      "captures/models/lpw-graveguard/part-0051-side.webp",
+      "captures/models/lpw-graveguard/part-0051-context.webp"
+    ],
+    "triangles": 6,
+    "vertices": 8,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -0.968052,
+        -62.599606,
+        160.318619
+      ],
+      "max": [
+        6.872087,
+        -41.604641,
+        163.55014
+      ],
+      "size": [
+        7.840139,
+        20.994965,
+        3.231522
+      ],
+      "center": [
+        2.952017,
+        -52.102123,
+        161.93438
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Spear"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g11:c4",
+    "geoset1": 11,
+    "component1": 4,
+    "label": "polearm guard rim",
+    "family": "polearm guard rim",
+    "materialTags": [
+      "pale blade metal",
+      "dark guard metal"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0052.webp",
+      "captures/models/lpw-graveguard/part-0052-side.webp",
+      "captures/models/lpw-graveguard/part-0052-context.webp"
+    ],
+    "triangles": 40,
+    "vertices": 30,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -3.143208,
+        -69.120644,
+        157.313828
+      ],
+      "max": [
+        9.109136,
+        -38.244736,
+        166.717773
+      ],
+      "size": [
+        12.252344,
+        30.875908,
+        9.403946
+      ],
+      "center": [
+        2.982964,
+        -53.68269,
+        162.0158
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Spear"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g12:c1",
+    "geoset1": 12,
+    "component1": 1,
+    "label": "chainmail face veil",
+    "family": "chainmail face veil",
+    "materialTags": [
+      "chainmail"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0053.webp",
+      "captures/models/lpw-graveguard/part-0053-side.webp",
+      "captures/models/lpw-graveguard/part-0053-context.webp"
+    ],
+    "triangles": 16,
+    "vertices": 15,
+    "sourceTexturePaths": [
+      "UI\\Glues\\SinglePlayer\\HumanCampaign3D\\HumanCampaignFootman.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -2.624574,
+        -7.563158,
+        125.161507
+      ],
+      "max": [
+        12.819489,
+        6.728623,
+        147.186661
+      ],
+      "size": [
+        15.444064,
+        14.291781,
+        22.025154
+      ],
+      "center": [
+        5.097458,
+        -0.417267,
+        136.174084
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g13:c1",
+    "geoset1": 13,
+    "component1": 1,
+    "label": "left helmet wing lower membrane",
+    "family": "helmet wing lower membrane",
+    "materialTags": [
+      "dark stone-like wing membrane"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0054.webp",
+      "captures/models/lpw-graveguard/part-0054-side.webp",
+      "captures/models/lpw-graveguard/part-0054-context.webp"
+    ],
+    "triangles": 5,
+    "vertices": 8,
+    "sourceTexturePaths": [
+      "Textures\\GargoyleStatue.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -7.205108,
+        5.612226,
+        138.095367
+      ],
+      "max": [
+        -0.860644,
+        24.612013,
+        156.16333
+      ],
+      "size": [
+        6.344464,
+        18.999787,
+        18.067963
+      ],
+      "center": [
+        -4.032876,
+        15.112119,
+        147.129349
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g13:c2",
+    "geoset1": 13,
+    "component1": 2,
+    "label": "left helmet wing middle membrane",
+    "family": "helmet wing middle membrane",
+    "materialTags": [
+      "dark stone-like wing membrane"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0055.webp",
+      "captures/models/lpw-graveguard/part-0055-side.webp",
+      "captures/models/lpw-graveguard/part-0055-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Textures\\GargoyleStatue.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -17.374565,
+        10.146204,
+        153.771393
+      ],
+      "max": [
+        -7.205108,
+        25.830881,
+        167.61795
+      ],
+      "size": [
+        10.169457,
+        15.684677,
+        13.846558
+      ],
+      "center": [
+        -12.289836,
+        17.988543,
+        160.694672
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g13:c3",
+    "geoset1": 13,
+    "component1": 3,
+    "label": "left helmet wing tip card",
+    "family": "helmet wing tip card",
+    "materialTags": [
+      "dark stone-like wing membrane"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0056.webp",
+      "captures/models/lpw-graveguard/part-0056-side.webp",
+      "captures/models/lpw-graveguard/part-0056-context.webp"
+    ],
+    "triangles": 1,
+    "vertices": 3,
+    "sourceTexturePaths": [
+      "Textures\\GargoyleStatue.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -19.539961,
+        3.204206,
+        163.401489
+      ],
+      "max": [
+        -4.720902,
+        20.667213,
+        181.106567
+      ],
+      "size": [
+        14.819059,
+        17.463007,
+        17.705078
+      ],
+      "center": [
+        -12.130431,
+        11.93571,
+        172.254028
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g13:c4",
+    "geoset1": 13,
+    "component1": 4,
+    "label": "right helmet wing lower membrane",
+    "family": "helmet wing lower membrane",
+    "materialTags": [
+      "dark stone-like wing membrane"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0057.webp",
+      "captures/models/lpw-graveguard/part-0057-side.webp",
+      "captures/models/lpw-graveguard/part-0057-context.webp"
+    ],
+    "triangles": 5,
+    "vertices": 8,
+    "sourceTexturePaths": [
+      "Textures\\GargoyleStatue.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -14.072021,
+        -24.075504,
+        137.450256
+      ],
+      "max": [
+        -3.540419,
+        -6.482227,
+        155.41777
+      ],
+      "size": [
+        10.531601,
+        17.593277,
+        17.967514
+      ],
+      "center": [
+        -8.80622,
+        -15.278866,
+        146.434013
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g13:c5",
+    "geoset1": 13,
+    "component1": 5,
+    "label": "right helmet wing middle membrane",
+    "family": "helmet wing middle membrane",
+    "materialTags": [
+      "dark stone-like wing membrane"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0058.webp",
+      "captures/models/lpw-graveguard/part-0058-side.webp",
+      "captures/models/lpw-graveguard/part-0058-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Textures\\GargoyleStatue.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -23.193424,
+        -24.752415,
+        152.021194
+      ],
+      "max": [
+        -10.302075,
+        -10.093997,
+        166.217148
+      ],
+      "size": [
+        12.891349,
+        14.658418,
+        14.195953
+      ],
+      "center": [
+        -16.74775,
+        -17.423206,
+        159.119171
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g13:c6",
+    "geoset1": 13,
+    "component1": 6,
+    "label": "right helmet wing tip card",
+    "family": "helmet wing tip card",
+    "materialTags": [
+      "dark stone-like wing membrane"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0059.webp",
+      "captures/models/lpw-graveguard/part-0059-side.webp",
+      "captures/models/lpw-graveguard/part-0059-context.webp"
+    ],
+    "triangles": 1,
+    "vertices": 3,
+    "sourceTexturePaths": [
+      "Textures\\GargoyleStatue.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -25.070011,
+        -17.808813,
+        162.701172
+      ],
+      "max": [
+        -6.064397,
+        -6.143332,
+        180.783142
+      ],
+      "size": [
+        19.005614,
+        11.665482,
+        18.08197
+      ],
+      "center": [
+        -15.567204,
+        -11.976072,
+        171.742157
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g14:c1",
+    "geoset1": 14,
+    "component1": 1,
+    "label": "left eye purple glow card",
+    "family": "eye purple glow card",
+    "materialTags": [
+      "purple glow"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0060.webp",
+      "captures/models/lpw-graveguard/part-0060-side.webp",
+      "captures/models/lpw-graveguard/part-0060-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Textures\\purple_glow.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        1.811635,
+        0.511888,
+        145.731079
+      ],
+      "max": [
+        2.840991,
+        3.403297,
+        149.537201
+      ],
+      "size": [
+        1.029357,
+        2.89141,
+        3.806122
+      ],
+      "center": [
+        2.326313,
+        1.957593,
+        147.63414
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g14:c2",
+    "geoset1": 14,
+    "component1": 2,
+    "label": "right eye purple glow card",
+    "family": "eye purple glow card",
+    "materialTags": [
+      "purple glow"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0061.webp",
+      "captures/models/lpw-graveguard/part-0061-side.webp",
+      "captures/models/lpw-graveguard/part-0061-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Textures\\purple_glow.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        0.465698,
+        -5.900846,
+        145.485092
+      ],
+      "max": [
+        2.303475,
+        -3.167562,
+        149.282394
+      ],
+      "size": [
+        1.837778,
+        2.733283,
+        3.797302
+      ],
+      "center": [
+        1.384587,
+        -4.534204,
+        147.383743
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g15:c1",
+    "geoset1": 15,
+    "component1": 1,
+    "label": "left helmet wing upper spur",
+    "family": "helmet wing upper spur",
+    "materialTags": [
+      "team-colour accents",
+      "dark framework"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0062.webp",
+      "captures/models/lpw-graveguard/part-0062-side.webp",
+      "captures/models/lpw-graveguard/part-0062-context.webp"
+    ],
+    "triangles": 5,
+    "vertices": 5,
+    "sourceTexturePaths": [
+      "Buildings\\Human\\Blacksmith\\NewBlacksmith.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -10.036834,
+        1.033736,
+        163.401489
+      ],
+      "max": [
+        2.718084,
+        10.146204,
+        190.568893
+      ],
+      "size": [
+        12.754917,
+        9.112468,
+        27.167404
+      ],
+      "center": [
+        -3.659375,
+        5.58997,
+        176.985191
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g15:c2",
+    "geoset1": 15,
+    "component1": 2,
+    "label": "left helmet wing lower spur",
+    "family": "helmet wing lower spur",
+    "materialTags": [
+      "team-colour accents",
+      "dark framework"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0063.webp",
+      "captures/models/lpw-graveguard/part-0063-side.webp",
+      "captures/models/lpw-graveguard/part-0063-context.webp"
+    ],
+    "triangles": 3,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Buildings\\Human\\Blacksmith\\NewBlacksmith.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -8.981709,
+        10.657607,
+        152.893112
+      ],
+      "max": [
+        -7.074302,
+        26.935181,
+        156.16333
+      ],
+      "size": [
+        1.907406,
+        16.277574,
+        3.270218
+      ],
+      "center": [
+        -8.028005,
+        18.796394,
+        154.528221
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g15:c3",
+    "geoset1": 15,
+    "component1": 3,
+    "label": "left helmet wing middle spur",
+    "family": "helmet wing middle spur",
+    "materialTags": [
+      "team-colour accents",
+      "dark framework"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0064.webp",
+      "captures/models/lpw-graveguard/part-0064-side.webp",
+      "captures/models/lpw-graveguard/part-0064-context.webp"
+    ],
+    "triangles": 5,
+    "vertices": 5,
+    "sourceTexturePaths": [
+      "Buildings\\Human\\Blacksmith\\NewBlacksmith.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -20.905622,
+        10.146204,
+        163.401489
+      ],
+      "max": [
+        -10.036834,
+        23.567142,
+        169.16684
+      ],
+      "size": [
+        10.868789,
+        13.420938,
+        5.76535
+      ],
+      "center": [
+        -15.471228,
+        16.856673,
+        166.284164
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g15:c4",
+    "geoset1": 15,
+    "component1": 4,
+    "label": "right helmet wing upper spur",
+    "family": "helmet wing upper spur",
+    "materialTags": [
+      "team-colour accents",
+      "dark framework"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0065.webp",
+      "captures/models/lpw-graveguard/part-0065-side.webp",
+      "captures/models/lpw-graveguard/part-0065-context.webp"
+    ],
+    "triangles": 5,
+    "vertices": 5,
+    "sourceTexturePaths": [
+      "Buildings\\Human\\Blacksmith\\NewBlacksmith.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -12.9459,
+        -10.093997,
+        162.701172
+      ],
+      "max": [
+        0.788039,
+        -3.768867,
+        190.104263
+      ],
+      "size": [
+        13.733939,
+        6.32513,
+        27.403091
+      ],
+      "center": [
+        -6.078931,
+        -6.931432,
+        176.402718
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g15:c5",
+    "geoset1": 15,
+    "component1": 5,
+    "label": "right helmet wing lower spur",
+    "family": "helmet wing lower spur",
+    "materialTags": [
+      "team-colour accents",
+      "dark framework"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0066.webp",
+      "captures/models/lpw-graveguard/part-0066-side.webp",
+      "captures/models/lpw-graveguard/part-0066-context.webp"
+    ],
+    "triangles": 3,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Buildings\\Human\\Blacksmith\\NewBlacksmith.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -16.251902,
+        -25.875263,
+        151.065857
+      ],
+      "max": [
+        -10.302075,
+        -10.889938,
+        155.41777
+      ],
+      "size": [
+        5.949826,
+        14.985325,
+        4.351913
+      ],
+      "center": [
+        -13.276989,
+        -18.382601,
+        153.241814
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g15:c6",
+    "geoset1": 15,
+    "component1": 6,
+    "label": "right helmet wing middle spur",
+    "family": "helmet wing middle spur",
+    "materialTags": [
+      "team-colour accents",
+      "dark framework"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0067.webp",
+      "captures/models/lpw-graveguard/part-0067-side.webp",
+      "captures/models/lpw-graveguard/part-0067-context.webp"
+    ],
+    "triangles": 5,
+    "vertices": 5,
+    "sourceTexturePaths": [
+      "Buildings\\Human\\Blacksmith\\NewBlacksmith.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -27.206758,
+        -20.273813,
+        162.701172
+      ],
+      "max": [
+        -12.9459,
+        -10.093997,
+        167.649933
+      ],
+      "size": [
+        14.260859,
+        10.179816,
+        4.948761
+      ],
+      "center": [
+        -20.076329,
+        -15.183905,
+        165.175552
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g16:c1",
+    "geoset1": 16,
+    "component1": 1,
+    "label": "skirt hem narrow metal strip",
+    "family": "skirt hem narrow metal strip",
+    "materialTags": [
+      "silver edge"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0068.webp",
+      "captures/models/lpw-graveguard/part-0068-side.webp",
+      "captures/models/lpw-graveguard/part-0068-context.webp"
+    ],
+    "triangles": 12,
+    "vertices": 14,
+    "sourceTexturePaths": [
+      "Textures\\UndeadAirBarge.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -35.082226,
+        -32.668633,
+        11.829123
+      ],
+      "max": [
+        19.615501,
+        32.850494,
+        16.288599
+      ],
+      "size": [
+        54.697727,
+        65.519127,
+        4.459476
+      ],
+      "center": [
+        -7.733362,
+        0.090931,
+        14.058861
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_LegR2",
+      "Bone_LegR3",
+      "Bone_LegL2",
+      "Bone_LegL3",
+      "Bone_BackSkirt2",
+      "Bone_BackSkirt3"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g17:c1",
+    "geoset1": 17,
+    "component1": 1,
+    "label": "skirt hem ornamental border",
+    "family": "skirt hem ornamental border",
+    "materialTags": [
+      "bronze scrollwork"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0069.webp",
+      "captures/models/lpw-graveguard/part-0069-side.webp",
+      "captures/models/lpw-graveguard/part-0069-context.webp"
+    ],
+    "triangles": 18,
+    "vertices": 20,
+    "sourceTexturePaths": [
+      "Buildings\\Undead\\TempleOfTheDamned\\NewTempleOfTheDamned.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -39.522274,
+        -36.123005,
+        0.99761
+      ],
+      "max": [
+        22.794113,
+        36.277958,
+        15.071486
+      ],
+      "size": [
+        62.316387,
+        72.400963,
+        14.073875
+      ],
+      "center": [
+        -8.36408,
+        0.077477,
+        8.034548
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_LegR3",
+      "Bone_LegL3",
+      "Bone_BackSkirt3",
+      "Bone_LegR2",
+      "Bone_LegL2",
+      "Bone_BackSkirt2"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g18:c1",
+    "geoset1": 18,
+    "component1": 1,
+    "label": "polearm grip wrap",
+    "family": "polearm grip wrap",
+    "materialTags": [
+      "pale wrapped grip"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0070.webp",
+      "captures/models/lpw-graveguard/part-0070-side.webp",
+      "captures/models/lpw-graveguard/part-0070-context.webp"
+    ],
+    "triangles": 8,
+    "vertices": 8,
+    "sourceTexturePaths": [
+      "Units\\Undead\\CryptFiend\\CryptFiend.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -3.420867,
+        -52.465801,
+        70.165443
+      ],
+      "max": [
+        4.032074,
+        -44.202644,
+        103.137009
+      ],
+      "size": [
+        7.452941,
+        8.263157,
+        32.971565
+      ],
+      "center": [
+        0.305603,
+        -48.334223,
+        86.651226
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Spear"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g19:c1",
+    "geoset1": 19,
+    "component1": 1,
+    "label": "waist skull emblem",
+    "family": "waist skull emblem",
+    "materialTags": [
+      "pale skull"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0071.webp",
+      "captures/models/lpw-graveguard/part-0071-side.webp",
+      "captures/models/lpw-graveguard/part-0071-context.webp"
+    ],
+    "triangles": 12,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Textures\\SlaughterHouse.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        11.3421,
+        -7.314356,
+        80.133614
+      ],
+      "max": [
+        12.358601,
+        7.252001,
+        94.496124
+      ],
+      "size": [
+        1.0165,
+        14.566357,
+        14.362511
+      ],
+      "center": [
+        11.85035,
+        -0.031177,
+        87.314869
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_HipR",
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g20:c1",
+    "geoset1": 20,
+    "component1": 1,
+    "label": "upper waist armour band",
+    "family": "upper waist armour band",
+    "materialTags": [
+      "dark iron",
+      "silver rivets"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0072.webp",
+      "captures/models/lpw-graveguard/part-0072-side.webp",
+      "captures/models/lpw-graveguard/part-0072-context.webp"
+    ],
+    "triangles": 18,
+    "vertices": 18,
+    "sourceTexturePaths": [
+      "Textures\\InfernalCannon.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -16.93556,
+        -15.841271,
+        96.765221
+      ],
+      "max": [
+        13.261591,
+        14.168956,
+        104.267746
+      ],
+      "size": [
+        30.197151,
+        30.010227,
+        7.502525
+      ],
+      "center": [
+        -1.836985,
+        -0.836158,
+        100.516483
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Chest",
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g20:c2",
+    "geoset1": 20,
+    "component1": 2,
+    "label": "middle waist armour band",
+    "family": "middle waist armour band",
+    "materialTags": [
+      "dark iron",
+      "silver rivets"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0073.webp",
+      "captures/models/lpw-graveguard/part-0073-side.webp",
+      "captures/models/lpw-graveguard/part-0073-context.webp"
+    ],
+    "triangles": 20,
+    "vertices": 22,
+    "sourceTexturePaths": [
+      "Textures\\InfernalCannon.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -16.863071,
+        -17.427,
+        90.139214
+      ],
+      "max": [
+        11.687945,
+        17.427,
+        94.439758
+      ],
+      "size": [
+        28.551017,
+        34.854,
+        4.300545
+      ],
+      "center": [
+        -2.587563,
+        0,
+        92.289486
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Root"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g21:c1",
+    "geoset1": 21,
+    "component1": 1,
+    "label": "shield ornate rim",
+    "family": "shield ornate rim",
+    "materialTags": [
+      "bronze scrollwork",
+      "team-colour strip"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0074.webp",
+      "captures/models/lpw-graveguard/part-0074-side.webp",
+      "captures/models/lpw-graveguard/part-0074-context.webp"
+    ],
+    "triangles": 204,
+    "vertices": 137,
+    "sourceTexturePaths": [
+      "Buildings\\Undead\\AltarOfDarkness\\CreepyAltarOfDark.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        7.250203,
+        -0.477172,
+        6.0351
+      ],
+      "max": [
+        33.495792,
+        49.694401,
+        131.94072
+      ],
+      "size": [
+        26.245589,
+        50.171573,
+        125.90562
+      ],
+      "center": [
+        20.372998,
+        24.608614,
+        68.98791
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g21:c2",
+    "geoset1": 21,
+    "component1": 2,
+    "label": "shield central backing strip",
+    "family": "shield central backing strip",
+    "materialTags": [
+      "bronze scrollwork",
+      "team-colour strip"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0075.webp",
+      "captures/models/lpw-graveguard/part-0075-side.webp",
+      "captures/models/lpw-graveguard/part-0075-context.webp"
+    ],
+    "triangles": 4,
+    "vertices": 6,
+    "sourceTexturePaths": [
+      "Buildings\\Undead\\AltarOfDarkness\\CreepyAltarOfDark.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        15.586819,
+        13.941451,
+        10.608906
+      ],
+      "max": [
+        26.037626,
+        37.337288,
+        113.667236
+      ],
+      "size": [
+        10.450808,
+        23.395837,
+        103.058331
+      ],
+      "center": [
+        20.812222,
+        25.639369,
+        62.138071
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g22:c1",
+    "geoset1": 22,
+    "component1": 1,
+    "label": "shield wooden back",
+    "family": "shield wooden back",
+    "materialTags": [
+      "brown wood grain"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0076.webp",
+      "captures/models/lpw-graveguard/part-0076-side.webp",
+      "captures/models/lpw-graveguard/part-0076-context.webp"
+    ],
+    "triangles": 42,
+    "vertices": 39,
+    "sourceTexturePaths": [
+      "UI\\Glues\\SinglePlayer\\HumanCampaign3D\\HumanCampaignTree.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        8.791883,
+        2.091418,
+        10.59642
+      ],
+      "max": [
+        28.72191,
+        45.513584,
+        127.382759
+      ],
+      "size": [
+        19.930027,
+        43.422166,
+        116.786339
+      ],
+      "center": [
+        18.756897,
+        23.802501,
+        68.98959
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g23:c1",
+    "geoset1": 23,
+    "component1": 1,
+    "label": "shield gargoyle head",
+    "family": "shield gargoyle head",
+    "materialTags": [
+      "warm brown carved face"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0077.webp",
+      "captures/models/lpw-graveguard/part-0077-side.webp",
+      "captures/models/lpw-graveguard/part-0077-context.webp"
+    ],
+    "triangles": 146,
+    "vertices": 135,
+    "sourceTexturePaths": [
+      "Buildings\\Undead\\GargoyleSpire\\GargoyleSpire.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        16.512005,
+        9.281169,
+        36.491035
+      ],
+      "max": [
+        38.087437,
+        43.156956,
+        116.304085
+      ],
+      "size": [
+        21.575432,
+        33.875787,
+        79.813049
+      ],
+      "center": [
+        27.299721,
+        26.219062,
+        76.39756
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g23:c2",
+    "geoset1": 23,
+    "component1": 2,
+    "label": "shield face lower cheek accent",
+    "family": "shield face lower cheek accent",
+    "materialTags": [
+      "warm brown carved face"
+    ],
+    "certainty": "probable: lower decorative pieces of the shield face; exact anatomical boundary uncertain",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0078.webp",
+      "captures/models/lpw-graveguard/part-0078-side.webp",
+      "captures/models/lpw-graveguard/part-0078-context.webp"
+    ],
+    "triangles": 6,
+    "vertices": 8,
+    "sourceTexturePaths": [
+      "Buildings\\Undead\\GargoyleSpire\\GargoyleSpire.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        19.625401,
+        15.72642,
+        50.314705
+      ],
+      "max": [
+        30.713051,
+        36.351299,
+        71.221817
+      ],
+      "size": [
+        11.08765,
+        20.624879,
+        20.907112
+      ],
+      "center": [
+        25.169226,
+        26.03886,
+        60.768261
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g23:c3",
+    "geoset1": 23,
+    "component1": 3,
+    "label": "shield face lower jaw accent",
+    "family": "shield face lower jaw accent",
+    "materialTags": [
+      "warm brown carved face"
+    ],
+    "certainty": "probable: lower decorative pieces of the shield face; exact anatomical boundary uncertain",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0079.webp",
+      "captures/models/lpw-graveguard/part-0079-side.webp",
+      "captures/models/lpw-graveguard/part-0079-context.webp"
+    ],
+    "triangles": 8,
+    "vertices": 10,
+    "sourceTexturePaths": [
+      "Buildings\\Undead\\GargoyleSpire\\GargoyleSpire.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        26.389057,
+        24.926563,
+        39.998547
+      ],
+      "max": [
+        34.053741,
+        36.389851,
+        61.649826
+      ],
+      "size": [
+        7.664684,
+        11.463287,
+        21.651279
+      ],
+      "center": [
+        30.221399,
+        30.658207,
+        50.824186
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g24:c1",
+    "geoset1": 24,
+    "component1": 1,
+    "label": "shield left purple eye glow",
+    "family": "shield purple eye glow",
+    "materialTags": [
+      "purple glow"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0080.webp",
+      "captures/models/lpw-graveguard/part-0080-side.webp",
+      "captures/models/lpw-graveguard/part-0080-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Textures\\purple_glow.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        33.648293,
+        20.32646,
+        68.179619
+      ],
+      "max": [
+        38.352703,
+        31.203787,
+        80.786102
+      ],
+      "size": [
+        4.704411,
+        10.877327,
+        12.606483
+      ],
+      "center": [
+        36.000498,
+        25.765123,
+        74.482861
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g24:c2",
+    "geoset1": 24,
+    "component1": 2,
+    "label": "shield right purple eye glow",
+    "family": "shield purple eye glow",
+    "materialTags": [
+      "purple glow"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0081.webp",
+      "captures/models/lpw-graveguard/part-0081-side.webp",
+      "captures/models/lpw-graveguard/part-0081-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Textures\\purple_glow.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        28.991789,
+        31.814447,
+        68.253723
+      ],
+      "max": [
+        34.179218,
+        40.371231,
+        81.598717
+      ],
+      "size": [
+        5.187429,
+        8.556784,
+        13.344994
+      ],
+      "center": [
+        31.585504,
+        36.092839,
+        74.92622
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g25:c1",
+    "geoset1": 25,
+    "component1": 1,
+    "label": "shield carved front panel",
+    "family": "shield carved front panel",
+    "materialTags": [
+      "dark engraved metal"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0082.webp",
+      "captures/models/lpw-graveguard/part-0082-side.webp",
+      "captures/models/lpw-graveguard/part-0082-context.webp"
+    ],
+    "triangles": 42,
+    "vertices": 39,
+    "sourceTexturePaths": [
+      "UI\\Console\\Undead\\UndeadUITile-InventoryCover.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        12.976638,
+        3.834118,
+        10.834088
+      ],
+      "max": [
+        32.902424,
+        47.257374,
+        127.620316
+      ],
+      "size": [
+        19.925786,
+        43.423256,
+        116.786227
+      ],
+      "center": [
+        22.939531,
+        25.545746,
+        69.227202
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g26:c1",
+    "geoset1": 26,
+    "component1": 1,
+    "label": "skull face",
+    "family": "skull face",
+    "materialTags": [
+      "pale bone",
+      "eye glint"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0083.webp",
+      "captures/models/lpw-graveguard/part-0083-side.webp",
+      "captures/models/lpw-graveguard/part-0083-context.webp"
+    ],
+    "triangles": 56,
+    "vertices": 38,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -6.913209,
+        -8.249492,
+        142.123627
+      ],
+      "max": [
+        6.110897,
+        7.440722,
+        155.712463
+      ],
+      "size": [
+        13.024106,
+        15.690214,
+        13.588837
+      ],
+      "center": [
+        -0.401156,
+        -0.404385,
+        148.918045
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g26:c2",
+    "geoset1": 26,
+    "component1": 2,
+    "label": "right eye colour inset",
+    "family": "eye colour inset",
+    "materialTags": [
+      "pale bone",
+      "eye glint"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0084.webp",
+      "captures/models/lpw-graveguard/part-0084-side.webp",
+      "captures/models/lpw-graveguard/part-0084-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        0.711592,
+        -5.535642,
+        145.689484
+      ],
+      "max": [
+        1.410193,
+        -3.147595,
+        148.517517
+      ],
+      "size": [
+        0.698601,
+        2.388047,
+        2.828033
+      ],
+      "center": [
+        1.060892,
+        -4.341619,
+        147.1035
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g26:c3",
+    "geoset1": 26,
+    "component1": 3,
+    "label": "left eye colour inset",
+    "family": "eye colour inset",
+    "materialTags": [
+      "pale bone",
+      "eye glint"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0085.webp",
+      "captures/models/lpw-graveguard/part-0085-side.webp",
+      "captures/models/lpw-graveguard/part-0085-context.webp"
+    ],
+    "triangles": 2,
+    "vertices": 4,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        1.590344,
+        0.578391,
+        145.901031
+      ],
+      "max": [
+        2.288945,
+        2.966434,
+        148.729065
+      ],
+      "size": [
+        0.698601,
+        2.388042,
+        2.828033
+      ],
+      "center": [
+        1.939645,
+        1.772412,
+        147.315048
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Head"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g27:c1",
+    "geoset1": 27,
+    "component1": 1,
+    "label": "right forearm bone lower",
+    "family": "forearm bone lower",
+    "materialTags": [
+      "pale bone"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0086.webp",
+      "captures/models/lpw-graveguard/part-0086-side.webp",
+      "captures/models/lpw-graveguard/part-0086-context.webp"
+    ],
+    "triangles": 20,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -25.140316,
+        -40.802563,
+        86.0867
+      ],
+      "max": [
+        -12.670201,
+        -27.321482,
+        98.356804
+      ],
+      "size": [
+        12.470115,
+        13.481081,
+        12.270103
+      ],
+      "center": [
+        -18.905259,
+        -34.062022,
+        92.221752
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ArmR2",
+      "Bone_HandR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g27:c2",
+    "geoset1": 27,
+    "component1": 2,
+    "label": "right forearm bone upper",
+    "family": "forearm bone upper",
+    "materialTags": [
+      "pale bone"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0087.webp",
+      "captures/models/lpw-graveguard/part-0087-side.webp",
+      "captures/models/lpw-graveguard/part-0087-context.webp"
+    ],
+    "triangles": 20,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -20.032759,
+        -36.123524,
+        90.506737
+      ],
+      "max": [
+        -9.98569,
+        -28.816107,
+        99.692513
+      ],
+      "size": [
+        10.047069,
+        7.307417,
+        9.185776
+      ],
+      "center": [
+        -15.009224,
+        -32.469815,
+        95.099625
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ArmR2",
+      "Bone_HandR"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g27:c3",
+    "geoset1": 27,
+    "component1": 3,
+    "label": "left forearm bone lower",
+    "family": "forearm bone lower",
+    "materialTags": [
+      "pale bone"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0088.webp",
+      "captures/models/lpw-graveguard/part-0088-side.webp",
+      "captures/models/lpw-graveguard/part-0088-context.webp"
+    ],
+    "triangles": 20,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        -0.632922,
+        25.491587,
+        88.09201
+      ],
+      "max": [
+        12.590678,
+        38.241547,
+        98.731461
+      ],
+      "size": [
+        13.223601,
+        12.74996,
+        10.63945
+      ],
+      "center": [
+        5.978878,
+        31.866567,
+        93.411736
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ArmL2",
+      "Bone_HandL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g27:c4",
+    "geoset1": 27,
+    "component1": 4,
+    "label": "left forearm bone upper",
+    "family": "forearm bone upper",
+    "materialTags": [
+      "pale bone"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0089.webp",
+      "captures/models/lpw-graveguard/part-0089-side.webp",
+      "captures/models/lpw-graveguard/part-0089-context.webp"
+    ],
+    "triangles": 20,
+    "vertices": 13,
+    "sourceTexturePaths": [
+      "Textures\\Skeleton.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        0.891226,
+        22.333433,
+        91.668831
+      ],
+      "max": [
+        7.317046,
+        33.010986,
+        98.917183
+      ],
+      "size": [
+        6.42582,
+        10.677553,
+        7.248352
+      ],
+      "center": [
+        4.104136,
+        27.67221,
+        95.293007
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_ArmL2",
+      "Bone_HandL"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  },
+  {
+    "modelId": "lpw-graveguard",
+    "componentId": "lpw-graveguard:g28:c1",
+    "geoset1": 28,
+    "component1": 1,
+    "label": "shield central purple-and-gold ornament",
+    "family": "shield central purple-and-gold ornament",
+    "materialTags": [
+      "purple surface",
+      "gold angular trim"
+    ],
+    "certainty": "visual identification supported by posed location and rig assignment",
+    "visualEvidence": [
+      "captures/models/lpw-graveguard/part-0090.webp",
+      "captures/models/lpw-graveguard/part-0090-side.webp",
+      "captures/models/lpw-graveguard/part-0090-context.webp"
+    ],
+    "triangles": 17,
+    "vertices": 18,
+    "sourceTexturePaths": [
+      "Objects\\Spawnmodels\\Undead\\UndeadBlood\\Destroyer.blp"
+    ],
+    "posedBounds": {
+      "min": [
+        14.244445,
+        7.218405,
+        30.964916
+      ],
+      "max": [
+        34.357487,
+        46.046329,
+        107.915634
+      ],
+      "size": [
+        20.113042,
+        38.827924,
+        76.950718
+      ],
+      "center": [
+        24.300966,
+        26.632367,
+        69.440275
+      ]
+    },
+    "boneNamesSupportingLocation": [
+      "Bone_Shield"
+    ],
+    "reviewNote": "Counts belong to this connected piece. A named assembly can contain several pieces or materials."
+  }
+]

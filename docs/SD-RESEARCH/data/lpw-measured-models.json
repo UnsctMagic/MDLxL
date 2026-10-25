@@ -1,0 +1,2212 @@
+[
+  {
+    "id": "lpw-graveguard",
+    "name": "Graveguard",
+    "triangles": 2410,
+    "sampleVisibleTriangles": 2408,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 300,
+      "phase": 0.2
+    },
+    "geosets": 28,
+    "textureReferences": 19,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 195679,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-von-carstein",
+    "name": "Von Carstein Vampire",
+    "triangles": 1535,
+    "sampleVisibleTriangles": 1269,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 30,
+    "textureReferences": 21,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 197943,
+    "sequences": 18
+  },
+  {
+    "id": "lpw-von-carstein-dread-knight",
+    "name": "Von Carstein Dread Knight",
+    "triangles": 1535,
+    "sampleVisibleTriangles": 1269,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 35,
+    "textureReferences": 23,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 202793,
+    "sequences": 18
+  },
+  {
+    "id": "lpw-strigoi-vampire",
+    "name": "Strigoi Vampire",
+    "triangles": 1544,
+    "sampleVisibleTriangles": 1284,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 147100,
+      "phase": 0.2
+    },
+    "geosets": 17,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 147638,
+    "sequences": 12
+  },
+  {
+    "id": "lpw-necrarch-vampire",
+    "name": "Necrarch Vampire",
+    "triangles": 1866,
+    "sampleVisibleTriangles": 1606,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1006,
+      "phase": 0.2
+    },
+    "geosets": 26,
+    "textureReferences": 15,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 174714,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-khorne-axe",
+    "name": "Knight of Khorne \u00b7 Axe",
+    "triangles": 2862,
+    "sampleVisibleTriangles": 2732,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 43,
+    "textureReferences": 26,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 212350,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-khorne-flail",
+    "name": "Knight of Khorne \u00b7 Champion",
+    "triangles": 3412,
+    "sampleVisibleTriangles": 3282,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 49,
+    "textureReferences": 27,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 232748,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-nurgle-heavy",
+    "name": "Knight of Nurgle \u00b7 Heavy",
+    "triangles": 2542,
+    "sampleVisibleTriangles": 2412,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 48,
+    "textureReferences": 31,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 233794,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-nurgle-standard",
+    "name": "Knight of Nurgle",
+    "triangles": 2568,
+    "sampleVisibleTriangles": 2438,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 36,
+    "textureReferences": 27,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 217094,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-nurgle",
+    "name": "Old Version",
+    "triangles": 2532,
+    "sampleVisibleTriangles": 2402,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 35,
+    "textureReferences": 25,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 208218,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-nurgle-champion",
+    "name": "Knight of Nurgle \u00b7 Champion",
+    "triangles": 3084,
+    "sampleVisibleTriangles": 2954,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 46,
+    "textureReferences": 37,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 241783,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-slaanesh-axe",
+    "name": "Knight of Slaanesh \u00b7 Axe",
+    "triangles": 2504,
+    "sampleVisibleTriangles": 2372,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 36,
+    "textureReferences": 29,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 204570,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-slaanesh-lance",
+    "name": "Knight of Slaanesh \u00b7 Lance",
+    "triangles": 2366,
+    "sampleVisibleTriangles": 2234,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 36,
+    "textureReferences": 30,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 203949,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-undivided-sword",
+    "name": "Knight Undivided \u00b7 Sword",
+    "triangles": 2030,
+    "sampleVisibleTriangles": 1898,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 31,
+    "textureReferences": 25,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 184893,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-undivided-lance",
+    "name": "Knight Undivided \u00b7 Lance",
+    "triangles": 1985,
+    "sampleVisibleTriangles": 1853,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 26,
+    "textureReferences": 21,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 186473,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-aspiring",
+    "name": "Aspiring Champion",
+    "triangles": 2311,
+    "sampleVisibleTriangles": 2309,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 916,
+      "phase": 0.2
+    },
+    "geosets": 21,
+    "textureReferences": 18,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 165669,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-herrdave-124832",
+    "name": "Bretonnian Archer",
+    "triangles": 783,
+    "sampleVisibleTriangles": 727,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 533,
+      "phase": 0.2
+    },
+    "geosets": 12,
+    "textureReferences": 7,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 85685,
+    "sequences": 10
+  },
+  {
+    "id": "lpw-herrdave-124833",
+    "name": "Bretonnian Pikeman",
+    "triangles": 825,
+    "sampleVisibleTriangles": 777,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 4,
+      "frame": 9867,
+      "phase": 0.2
+    },
+    "geosets": 14,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 95028,
+    "sequences": 11
+  },
+  {
+    "id": "lpw-herrdave-124831",
+    "name": "Bretonnian Swordsman",
+    "triangles": 896,
+    "sampleVisibleTriangles": 848,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 1800,
+      "phase": 0.2
+    },
+    "geosets": 12,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 125957,
+    "sequences": 18
+  },
+  {
+    "id": "lpw-herrdave-87376",
+    "name": "Greenskin - Black Orc",
+    "triangles": 1527,
+    "sampleVisibleTriangles": 1463,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2366,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 123475,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-herrdave-87377",
+    "name": "Greenskin - Black Orc Warboss",
+    "triangles": 2181,
+    "sampleVisibleTriangles": 2117,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2366,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 140472,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-herrdave-104264",
+    "name": "Greenskin - Black Orc Warboss (Hero)",
+    "triangles": 2187,
+    "sampleVisibleTriangles": 2123,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2366,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 142384,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-herrdave-87375",
+    "name": "Greenskin - Orc Boy",
+    "triangles": 1030,
+    "sampleVisibleTriangles": 966,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2366,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 110187,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-herrdave-103868",
+    "name": "Snotling",
+    "triangles": 544,
+    "sampleVisibleTriangles": 480,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2366,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 64570,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-herrdave-87374",
+    "name": "Greenskin - Savage Orc",
+    "triangles": 596,
+    "sampleVisibleTriangles": 532,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2366,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 82122,
+    "sequences": 16
+  },
+  {
+    "id": "lpw-herrdave-86791",
+    "name": "Empire Captain",
+    "triangles": 949,
+    "sampleVisibleTriangles": 901,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 1800,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 7,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 109842,
+    "sequences": 23
+  },
+  {
+    "id": "lpw-herrdave-88507",
+    "name": "Empire Halberdier",
+    "triangles": 817,
+    "sampleVisibleTriangles": 791,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 4,
+      "frame": 15867,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 91506,
+    "sequences": 17
+  },
+  {
+    "id": "lpw-herrdave-86747",
+    "name": "Empire Swordsman",
+    "triangles": 846,
+    "sampleVisibleTriangles": 798,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 1800,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 7,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 102779,
+    "sequences": 22
+  },
+  {
+    "id": "lpw-herrdave-88510",
+    "name": "Estalian Infantry",
+    "triangles": 836,
+    "sampleVisibleTriangles": 810,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 4,
+      "frame": 15867,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 82336,
+    "sequences": 16
+  },
+  {
+    "id": "lpw-herrdave-88509",
+    "name": "Estalian Swordsman",
+    "triangles": 1153,
+    "sampleVisibleTriangles": 1109,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 1800,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 103516,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-herrdave-88508",
+    "name": "Estalian Spearman",
+    "triangles": 770,
+    "sampleVisibleTriangles": 744,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 4,
+      "frame": 15867,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 77152,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-herrdave-86862",
+    "name": "Elector Count",
+    "triangles": 1065,
+    "sampleVisibleTriangles": 922,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 467,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 99635,
+    "sequences": 16
+  },
+  {
+    "id": "lpw-herrdave-87246",
+    "name": "Elite Steam Tank",
+    "triangles": 2289,
+    "sampleVisibleTriangles": 1578,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 533,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 10,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 129303,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-herrdave-87245",
+    "name": "Standard Steam Tank",
+    "triangles": 2269,
+    "sampleVisibleTriangles": 1558,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 533,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 10,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 128713,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-herrdave-86780",
+    "name": "Estalian Handgunner (Estalia)",
+    "triangles": 982,
+    "sampleVisibleTriangles": 826,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 334,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 78532,
+    "sequences": 11
+  },
+  {
+    "id": "lpw-herrdave-75836",
+    "name": "Reikland Handgunner",
+    "triangles": 872,
+    "sampleVisibleTriangles": 716,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 334,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 77938,
+    "sequences": 11
+  },
+  {
+    "id": "lpw-herrdave-86759",
+    "name": "Reikland Handgunner (Old)",
+    "triangles": 599,
+    "sampleVisibleTriangles": 568,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 334,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 7,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 73636,
+    "sequences": 10
+  },
+  {
+    "id": "lpw-herrdave-86753",
+    "name": "Estalian Halberdier (Estalia)",
+    "triangles": 719,
+    "sampleVisibleTriangles": 623,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 4,
+      "frame": 15867,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 72057,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-herrdave-79344",
+    "name": "Reikland Halberdier",
+    "triangles": 719,
+    "sampleVisibleTriangles": 623,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 4,
+      "frame": 15867,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 72073,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-herrdave-86735",
+    "name": "Reikland Halberdier (Old)",
+    "triangles": 686,
+    "sampleVisibleTriangles": 592,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 4,
+      "frame": 15867,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 70988,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-herrdave-81065",
+    "name": "Knight of the Blazing Sun (Mounted)",
+    "triangles": 1713,
+    "sampleVisibleTriangles": 789,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 207508,
+    "sequences": 11
+  },
+  {
+    "id": "lpw-herrdave-76825",
+    "name": "Knight of the Blazing Sun (Dismounted)",
+    "triangles": 775,
+    "sampleVisibleTriangles": 751,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 433,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 61631,
+    "sequences": 11
+  },
+  {
+    "id": "lpw-herrdave-75804",
+    "name": "Reikland Greatsword",
+    "triangles": 719,
+    "sampleVisibleTriangles": 653,
+    "sample": {
+      "sequence": "Stand - 2",
+      "index": 0,
+      "frame": 2946,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 75359,
+    "sequences": 12
+  },
+  {
+    "id": "lpw-herrdave-75064",
+    "name": "Warhammer Witch Hunter",
+    "triangles": 819,
+    "sampleVisibleTriangles": 819,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 4000,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 92681,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-tzeentch-sword",
+    "name": "Knight of Tzeentch \u00b7 Sword",
+    "triangles": 2875,
+    "sampleVisibleTriangles": 2743,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 49,
+    "textureReferences": 59,
+    "eyeAnimationFrameSheets": 30,
+    "bytes": 239315,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-tzeentch-lance",
+    "name": "Knight of Tzeentch \u00b7 Lance",
+    "triangles": 2922,
+    "sampleVisibleTriangles": 2790,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 2234,
+      "phase": 0.2
+    },
+    "geosets": 47,
+    "textureReferences": 59,
+    "eyeAnimationFrameSheets": 30,
+    "bytes": 226851,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-chaos-ogre",
+    "name": "Chaos Ogre",
+    "triangles": 1878,
+    "sampleVisibleTriangles": 1854,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 547,
+      "phase": 0.2
+    },
+    "geosets": 15,
+    "textureReferences": 11,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 124369,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-warrior-of-tzeentch",
+    "name": "Warrior of Tzeentch",
+    "triangles": 1788,
+    "sampleVisibleTriangles": 1752,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 467,
+      "phase": 0.2
+    },
+    "geosets": 29,
+    "textureReferences": 44,
+    "eyeAnimationFrameSheets": 29,
+    "bytes": 132582,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-warrior-of-khorne-berserker",
+    "name": "Warrior of Khorne \u00b7 Berserker",
+    "triangles": 1930,
+    "sampleVisibleTriangles": 1894,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 433,
+      "phase": 0.2
+    },
+    "geosets": 29,
+    "textureReferences": 17,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 136998,
+    "sequences": 12
+  },
+  {
+    "id": "lpw-warrior-of-khorne-cleaver",
+    "name": "Warrior of Khorne \u00b7 Cleaver",
+    "triangles": 1009,
+    "sampleVisibleTriangles": 973,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 433,
+      "phase": 0.2
+    },
+    "geosets": 32,
+    "textureReferences": 15,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 106534,
+    "sequences": 12
+  },
+  {
+    "id": "lpw-warrior-of-khorne",
+    "name": "Warrior of Khorne \u00b7 Bruiser",
+    "triangles": 1720,
+    "sampleVisibleTriangles": 1684,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 433,
+      "phase": 0.2
+    },
+    "geosets": 30,
+    "textureReferences": 16,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 134408,
+    "sequences": 12
+  },
+  {
+    "id": "lpw-chaos-warrior-of-nurgle",
+    "name": "Warrior of Nurgle",
+    "triangles": 1533,
+    "sampleVisibleTriangles": 1416,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 433,
+      "phase": 0.2
+    },
+    "geosets": 36,
+    "textureReferences": 19,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 157993,
+    "sequences": 16
+  },
+  {
+    "id": "lpw-blood-dragon",
+    "name": "Blood Dragon",
+    "triangles": 2099,
+    "sampleVisibleTriangles": 1839,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 2200,
+      "phase": 0.2
+    },
+    "geosets": 42,
+    "textureReferences": 16,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 254283,
+    "sequences": 16
+  },
+  {
+    "id": "lpw-kurgan-warlord",
+    "name": "Kurgan Warlord",
+    "triangles": 1541,
+    "sampleVisibleTriangles": 1539,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 958,
+      "phase": 0.2
+    },
+    "geosets": 15,
+    "textureReferences": 10,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 153975,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-127545",
+    "name": "Bestigor",
+    "triangles": 985,
+    "sampleVisibleTriangles": 917,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 10,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 190207,
+    "sequences": 18
+  },
+  {
+    "id": "lpw-gluma-127546",
+    "name": "Bestigor Unit",
+    "triangles": 975,
+    "sampleVisibleTriangles": 907,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 187719,
+    "sequences": 18
+  },
+  {
+    "id": "lpw-gluma-123574",
+    "name": "Horn gor (unit)",
+    "triangles": 947,
+    "sampleVisibleTriangles": 815,
+    "sample": {
+      "sequence": "Stand -1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 12,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 240727,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-gluma-123571",
+    "name": "Horn gor (hero)",
+    "triangles": 959,
+    "sampleVisibleTriangles": 827,
+    "sample": {
+      "sequence": "Stand -1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 13,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 237791,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-gluma-123553",
+    "name": "Gor Axe (hero)",
+    "triangles": 827,
+    "sampleVisibleTriangles": 744,
+    "sample": {
+      "sequence": "Stand -1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 12,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 198370,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-123554",
+    "name": "Gor Axe (unit)",
+    "triangles": 805,
+    "sampleVisibleTriangles": 722,
+    "sample": {
+      "sequence": "Stand -1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 11,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 194318,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-123551",
+    "name": "Gor Flail (hero)",
+    "triangles": 863,
+    "sampleVisibleTriangles": 780,
+    "sample": {
+      "sequence": "Stand -1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 12,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 210395,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-123552",
+    "name": "Gor Flail (unit)",
+    "triangles": 851,
+    "sampleVisibleTriangles": 768,
+    "sample": {
+      "sequence": "Stand -1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 11,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 207115,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-82702",
+    "name": "Ratling Gunner",
+    "triangles": 1890,
+    "sampleVisibleTriangles": 1035,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 566,
+      "phase": 0.2
+    },
+    "geosets": 15,
+    "textureReferences": 11,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 276538,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-82705",
+    "name": "Ratling unit",
+    "triangles": 1882,
+    "sampleVisibleTriangles": 1027,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 566,
+      "phase": 0.2
+    },
+    "geosets": 14,
+    "textureReferences": 11,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 289202,
+    "sequences": 17
+  },
+  {
+    "id": "lpw-gluma-80903",
+    "name": "Warplock Jezzail",
+    "triangles": 1085,
+    "sampleVisibleTriangles": 947,
+    "sample": {
+      "sequence": "Stand -1",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 138581,
+    "sequences": 12
+  },
+  {
+    "id": "lpw-gluma-82593",
+    "name": "Stormvermin",
+    "triangles": 819,
+    "sampleVisibleTriangles": 711,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 566,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 155512,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-80783",
+    "name": "Clanrat",
+    "triangles": 720,
+    "sampleVisibleTriangles": 524,
+    "sample": {
+      "sequence": "Stand -1",
+      "index": 0,
+      "frame": 533,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 157519,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-gluma-164659",
+    "name": "Empire Handgunners (Arquebus)",
+    "triangles": 540,
+    "sampleVisibleTriangles": 518,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 3833,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 153007,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-164660",
+    "name": "Empire Handgunners (Flintlock)",
+    "triangles": 526,
+    "sampleVisibleTriangles": 504,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 3833,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 152010,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-164663",
+    "name": "Empire Handgunners (Scoped)",
+    "triangles": 586,
+    "sampleVisibleTriangles": 564,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 3833,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 155991,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-164662",
+    "name": "Empire Handgunners",
+    "triangles": 598,
+    "sampleVisibleTriangles": 576,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 3833,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 182240,
+    "sequences": 17
+  },
+  {
+    "id": "lpw-gluma-159913",
+    "name": "Witch Elf Hero",
+    "triangles": 768,
+    "sampleVisibleTriangles": 702,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3666,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 374885,
+    "sequences": 21
+  },
+  {
+    "id": "lpw-gluma-159912",
+    "name": "Witch Elf Unit",
+    "triangles": 780,
+    "sampleVisibleTriangles": 676,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3666,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 7,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 372938,
+    "sequences": 22
+  },
+  {
+    "id": "lpw-gluma-160458",
+    "name": "Dark Elf Beastmaster unit",
+    "triangles": 602,
+    "sampleVisibleTriangles": 562,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3666,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 229685,
+    "sequences": 18
+  },
+  {
+    "id": "lpw-gluma-160459",
+    "name": "Dark Elf Beastmaster hero",
+    "triangles": 580,
+    "sampleVisibleTriangles": 578,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3666,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 231796,
+    "sequences": 17
+  },
+  {
+    "id": "lpw-gluma-160461",
+    "name": "Dark Elf Slavemaster Hero",
+    "triangles": 593,
+    "sampleVisibleTriangles": 591,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3666,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 222327,
+    "sequences": 17
+  },
+  {
+    "id": "lpw-gluma-160460",
+    "name": "Dark Elf Slavemaster unit",
+    "triangles": 615,
+    "sampleVisibleTriangles": 575,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3666,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 220540,
+    "sequences": 18
+  },
+  {
+    "id": "lpw-gluma-143397",
+    "name": "Cold One Rider Hero",
+    "triangles": 1434,
+    "sampleVisibleTriangles": 1432,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 2466,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 401050,
+    "sequences": 17
+  },
+  {
+    "id": "lpw-gluma-143396",
+    "name": "Cold One Rider Unit",
+    "triangles": 1492,
+    "sampleVisibleTriangles": 1418,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 2466,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 398580,
+    "sequences": 18
+  },
+  {
+    "id": "lpw-gluma-143398",
+    "name": "Feral Cold One",
+    "triangles": 480,
+    "sampleVisibleTriangles": 441,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 2466,
+      "phase": 0.2
+    },
+    "geosets": 4,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 152813,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-gluma-137406",
+    "name": "Bray Shaman Hero",
+    "triangles": 1044,
+    "sampleVisibleTriangles": 1042,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 364667,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-gluma-137407",
+    "name": "Bray Shaman Unit",
+    "triangles": 1094,
+    "sampleVisibleTriangles": 1030,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 357689,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-144692",
+    "name": "Bray Shaman of Tzeench Hero",
+    "triangles": 670,
+    "sampleVisibleTriangles": 668,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 633,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 188153,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-gluma-144691",
+    "name": "Bray Shaman of Tzeench Unit",
+    "triangles": 716,
+    "sampleVisibleTriangles": 652,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 633,
+      "phase": 0.2
+    },
+    "geosets": 4,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 187839,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-137328",
+    "name": "Saurus Warrior",
+    "triangles": 942,
+    "sampleVisibleTriangles": 904,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 866,
+      "phase": 0.2
+    },
+    "geosets": 4,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 254261,
+    "sequences": 21
+  },
+  {
+    "id": "lpw-gluma-137329",
+    "name": "Saurus Warrior Hero",
+    "triangles": 918,
+    "sampleVisibleTriangles": 916,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 866,
+      "phase": 0.2
+    },
+    "geosets": 4,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 255521,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-gluma-145021",
+    "name": "Dwarf Cannon",
+    "triangles": 582,
+    "sampleVisibleTriangles": 522,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 87535,
+    "sequences": 7
+  },
+  {
+    "id": "lpw-gluma-140895",
+    "name": "Saurus Oldblood Hero",
+    "triangles": 1056,
+    "sampleVisibleTriangles": 1054,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 866,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 350953,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-gluma-140896",
+    "name": "Saurus Oldblood Unit",
+    "triangles": 1080,
+    "sampleVisibleTriangles": 1042,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 866,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 345894,
+    "sequences": 21
+  },
+  {
+    "id": "lpw-gluma-146392",
+    "name": "Kroxigor Unit",
+    "triangles": 926,
+    "sampleVisibleTriangles": 870,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 282593,
+    "sequences": 21
+  },
+  {
+    "id": "lpw-gluma-146393",
+    "name": "Kroxigor Hero",
+    "triangles": 902,
+    "sampleVisibleTriangles": 900,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 6,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 279809,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-gluma-146394",
+    "name": "Kroxigor Ancient Unit",
+    "triangles": 1154,
+    "sampleVisibleTriangles": 1098,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 4,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 301327,
+    "sequences": 21
+  },
+  {
+    "id": "lpw-gluma-146395",
+    "name": "Kroxigor Ancient Hero",
+    "triangles": 1130,
+    "sampleVisibleTriangles": 1128,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 299135,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-gluma-135399",
+    "name": "Skink High Priest Hero",
+    "triangles": 954,
+    "sampleVisibleTriangles": 894,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 370952,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-gluma-135400",
+    "name": "Skink High Priest Hero (Swimless)",
+    "triangles": 954,
+    "sampleVisibleTriangles": 894,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 286572,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-gluma-135401",
+    "name": "Skink High Priest Unit",
+    "triangles": 984,
+    "sampleVisibleTriangles": 888,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 372389,
+    "sequences": 22
+  },
+  {
+    "id": "lpw-gluma-135402",
+    "name": "Skink High Priest Unit (Swimless)",
+    "triangles": 984,
+    "sampleVisibleTriangles": 888,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 287117,
+    "sequences": 15
+  },
+  {
+    "id": "lpw-gluma-134840",
+    "name": "Skink Worker",
+    "triangles": 776,
+    "sampleVisibleTriangles": 596,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 7,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 372914,
+    "sequences": 34
+  },
+  {
+    "id": "lpw-gluma-134841",
+    "name": "Skink Worker Swimless",
+    "triangles": 776,
+    "sampleVisibleTriangles": 596,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 7,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 254206,
+    "sequences": 23
+  },
+  {
+    "id": "lpw-gluma-134634",
+    "name": "Skink Chief (Hero)",
+    "triangles": 810,
+    "sampleVisibleTriangles": 702,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 6,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 278641,
+    "sequences": 20
+  },
+  {
+    "id": "lpw-gluma-134635",
+    "name": "Skink Chief (Unit)",
+    "triangles": 830,
+    "sampleVisibleTriangles": 686,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 7,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 279550,
+    "sequences": 22
+  },
+  {
+    "id": "lpw-gluma-134398",
+    "name": "Spear Skink",
+    "triangles": 746,
+    "sampleVisibleTriangles": 600,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 263424,
+    "sequences": 21
+  },
+  {
+    "id": "lpw-gluma-134399",
+    "name": "Blowpipe Skink",
+    "triangles": 753,
+    "sampleVisibleTriangles": 607,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 244104,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-134400",
+    "name": "Skink Skirmisher",
+    "triangles": 863,
+    "sampleVisibleTriangles": 717,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 10,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 264652,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-134401",
+    "name": "Orange Spear Skink",
+    "triangles": 754,
+    "sampleVisibleTriangles": 608,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 264264,
+    "sequences": 21
+  },
+  {
+    "id": "lpw-gluma-134404",
+    "name": "Orange Blowpipe Skink",
+    "triangles": 753,
+    "sampleVisibleTriangles": 607,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 8,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 244096,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-134402",
+    "name": "Orange Skink Skirmisher",
+    "triangles": 863,
+    "sampleVisibleTriangles": 717,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 10,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 264612,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-134405",
+    "name": "Chameleon Skink",
+    "triangles": 763,
+    "sampleVisibleTriangles": 665,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 1100,
+      "phase": 0.2
+    },
+    "geosets": 7,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 244945,
+    "sequences": 19
+  },
+  {
+    "id": "lpw-gluma-133845",
+    "name": "Gor Spear Thrower",
+    "triangles": 817,
+    "sampleVisibleTriangles": 703,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 3866,
+      "phase": 0.2
+    },
+    "geosets": 11,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 146263,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-gluma-133854",
+    "name": "Ungor Slave",
+    "triangles": 562,
+    "sampleVisibleTriangles": 426,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 600,
+      "phase": 0.2
+    },
+    "geosets": 11,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 284021,
+    "sequences": 25
+  },
+  {
+    "id": "lpw-gluma-99740",
+    "name": "Ungor Bowman",
+    "triangles": 684,
+    "sampleVisibleTriangles": 574,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 593,
+      "phase": 0.2
+    },
+    "geosets": 14,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 132543,
+    "sequences": 12
+  },
+  {
+    "id": "lpw-gluma-90822",
+    "name": "Ungor with spear",
+    "triangles": 623,
+    "sampleVisibleTriangles": 529,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 593,
+      "phase": 0.2
+    },
+    "geosets": 13,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 138994,
+    "sequences": 13
+  },
+  {
+    "id": "lpw-gluma-123406",
+    "name": "Empire Crossbowman",
+    "triangles": 735,
+    "sampleVisibleTriangles": 581,
+    "sample": {
+      "sequence": "Stand - 1",
+      "index": 0,
+      "frame": 467,
+      "phase": 0.2
+    },
+    "geosets": 12,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 138413,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-gluma-160790",
+    "name": "Generic Ballista",
+    "triangles": 720,
+    "sampleVisibleTriangles": 646,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 9,
+    "textureReferences": 2,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 69431,
+    "sequences": 6
+  },
+  {
+    "id": "lpw-gluma-160791",
+    "name": "Generic Bolt Thrower",
+    "triangles": 816,
+    "sampleVisibleTriangles": 742,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 12,
+    "textureReferences": 2,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 78892,
+    "sequences": 6
+  },
+  {
+    "id": "lpw-gluma-160792",
+    "name": "Dark Elf Ballista",
+    "triangles": 756,
+    "sampleVisibleTriangles": 682,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 10,
+    "textureReferences": 2,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 71967,
+    "sequences": 6
+  },
+  {
+    "id": "lpw-gluma-160793",
+    "name": "Dark Elf Bolt Thrower",
+    "triangles": 852,
+    "sampleVisibleTriangles": 778,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 13,
+    "textureReferences": 2,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 81388,
+    "sequences": 6
+  },
+  {
+    "id": "lpw-gluma-145290",
+    "name": "Warp Lightning Cannon",
+    "triangles": 904,
+    "sampleVisibleTriangles": 818,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 666,
+      "phase": 0.2
+    },
+    "geosets": 12,
+    "textureReferences": 3,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 119005,
+    "sequences": 6
+  },
+  {
+    "id": "lpw-gluma-146044",
+    "name": "Human Cannon Bronze",
+    "triangles": 500,
+    "sampleVisibleTriangles": 488,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 76907,
+    "sequences": 7
+  },
+  {
+    "id": "lpw-gluma-146046",
+    "name": "Human Cannon Black",
+    "triangles": 500,
+    "sampleVisibleTriangles": 488,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 76907,
+    "sequences": 7
+  },
+  {
+    "id": "lpw-gluma-146045",
+    "name": "Human Mortar Bronze",
+    "triangles": 482,
+    "sampleVisibleTriangles": 470,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 80929,
+    "sequences": 8
+  },
+  {
+    "id": "lpw-gluma-146047",
+    "name": "Human Mortar Black",
+    "triangles": 482,
+    "sampleVisibleTriangles": 470,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 5,
+    "textureReferences": 4,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 80929,
+    "sequences": 8
+  },
+  {
+    "id": "lpw-gluma-145231",
+    "name": "Dwarf Organ Cannon",
+    "triangles": 878,
+    "sampleVisibleTriangles": 840,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 14,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 322173,
+    "sequences": 16
+  },
+  {
+    "id": "lpw-gluma-145232",
+    "name": "Dwarf Organ Cannon (Full Barrage)",
+    "triangles": 878,
+    "sampleVisibleTriangles": 840,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 14,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 184277,
+    "sequences": 8
+  },
+  {
+    "id": "lpw-gluma-145233",
+    "name": "Dwarf Organ Cannon (Single Shots)",
+    "triangles": 878,
+    "sampleVisibleTriangles": 840,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 14,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 197093,
+    "sequences": 10
+  },
+  {
+    "id": "lpw-gluma-145234",
+    "name": "Dwarf Organ Cannon (Small Barrages)",
+    "triangles": 878,
+    "sampleVisibleTriangles": 840,
+    "sample": {
+      "sequence": "Stand",
+      "index": 1,
+      "frame": 6999,
+      "phase": 0.2
+    },
+    "geosets": 14,
+    "textureReferences": 5,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 227669,
+    "sequences": 10
+  },
+  {
+    "id": "lpw-maximal-144834",
+    "name": "Minotaur",
+    "triangles": 1579,
+    "sampleVisibleTriangles": 1515,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 300,
+      "phase": 0.2
+    },
+    "geosets": 15,
+    "textureReferences": 8,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 271405,
+    "sequences": 14
+  },
+  {
+    "id": "lpw-maximal-144833",
+    "name": "Minotaur Drummer",
+    "triangles": 1247,
+    "sampleVisibleTriangles": 1183,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 300,
+      "phase": 0.2
+    },
+    "geosets": 18,
+    "textureReferences": 12,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 287855,
+    "sequences": 16
+  },
+  {
+    "id": "lpw-maximal-141710",
+    "name": "Centigor Spearman",
+    "triangles": 2377,
+    "sampleVisibleTriangles": 2288,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 400,
+      "phase": 0.2
+    },
+    "geosets": 20,
+    "textureReferences": 15,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 249587,
+    "sequences": 11
+  },
+  {
+    "id": "lpw-maximal-141711",
+    "name": "Centigor Axethrower",
+    "triangles": 2609,
+    "sampleVisibleTriangles": 2520,
+    "sample": {
+      "sequence": "Stand",
+      "index": 0,
+      "frame": 400,
+      "phase": 0.2
+    },
+    "geosets": 20,
+    "textureReferences": 16,
+    "eyeAnimationFrameSheets": 0,
+    "bytes": 297128,
+    "sequences": 12
+  }
+]

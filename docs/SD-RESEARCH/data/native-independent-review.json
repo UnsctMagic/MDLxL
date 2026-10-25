@@ -1,0 +1,52 @@
+{
+  "scope": "Independent source review of ten native family chapters and all 87 native repurposing-source annotations across four models.",
+  "findings": [
+    {
+      "modelId": "native-sd-521B007AF78AC7EC9CD7F57C5B6D75DB",
+      "partId": "g3:c1",
+      "before": "Square capped temple tower",
+      "after": "Open-sided temple tower with hexagonal pointed cap",
+      "proof": "Raw geometry: six roof-perimeter positions at z=108.387, one roof apex at z=120.831; 14 total component triangles. Roof outline is six-sided and walls do not enclose every side.",
+      "status": "corrected in annotation generator and regenerated dataset"
+    },
+    {
+      "modelId": "native-sd-521B007AF78AC7EC9CD7F57C5B6D75DB",
+      "partId": "g3:c6",
+      "before": "All sockets and teeth described as paint",
+      "after": "Long projecting fang silhouettes are geometric; dark sockets and smaller tooth divisions are painted",
+      "proof": "Three orthographic raw triangle-edge projections without textures or alpha show the long fang tips in the 66-triangle component.",
+      "evidence": "pictures/review-native-sources/temple-skull-wire.webp",
+      "status": "corrected in annotation generator and regenerated dataset"
+    },
+    {
+      "modelId": "native-sd-60D8EB8DAFBA7CFA980170906E01C537",
+      "partId": "g1:c10",
+      "before": "Grouped with long pale triangular spikes",
+      "after": "Short square-based spike with dark inset and gold rim",
+      "proof": "Four triangles and five positions form an open-base square pyramid; both fitted textured angles differ visibly from the other pale spikes.",
+      "status": "corrected in annotation generator and regenerated dataset"
+    },
+    {
+      "modelId": "lpw-graveguard",
+      "partIds": [
+        "g22:c1",
+        "g25:c1"
+      ],
+      "before": "Back 73.07%; front 6.63% described as native pixel union",
+      "after": "Back 72.39% = 23722/32768; front 6.49% = 8507/131072",
+      "proof": "Current lpw-region-pixel-measurements.json exact native pixel-centre triangle union.",
+      "status": "corrected in family chapter generator and regenerated chapter"
+    },
+    {
+      "scope": "ten family chapters",
+      "before": "Several missing spaces beside measured numbers",
+      "after": "Number spacing corrected without changing assembly claims",
+      "status": "corrected in generator and regenerated chapters"
+    }
+  ],
+  "limits": [
+    "Reviewed isolated two-angle textured captures for all 87 labelled parts; their broader unused building/corpse components were not independently labelled here.",
+    "This is source and capture review, not Warcraft III runtime verification.",
+    "No claim that all native semantic components are complete: current aggregate has 673 directly reviewed parts in 40 models and 158 strict transfers."
+  ]
+}

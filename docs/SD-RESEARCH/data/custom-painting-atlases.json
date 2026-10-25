@@ -1,0 +1,50 @@
+[
+  {
+    "modelId": "lpw-gluma-137328",
+    "texturePath": "saurus.blp",
+    "sha256": "76b4080da83350b329b3c7448a1ecf2dcf9ce516fa4fe0c5b3d73128c9f3eccd",
+    "dimensions": [
+      256,
+      256
+    ],
+    "mappedWholePixels": 45917,
+    "mappedFraction": 0.700638,
+    "regionSheet": "D:\\Codex\\sd-research\\pictures\\custom-painting\\lpw-gluma-137328-regions.webp"
+  },
+  {
+    "modelId": "lpw-gluma-137329",
+    "texturePath": "saurus.blp",
+    "sha256": "76b4080da83350b329b3c7448a1ecf2dcf9ce516fa4fe0c5b3d73128c9f3eccd",
+    "dimensions": [
+      256,
+      256
+    ],
+    "mappedWholePixels": 45918,
+    "mappedFraction": 0.700653,
+    "regionSheet": "D:\\Codex\\sd-research\\pictures\\custom-painting\\lpw-gluma-137329-regions.webp"
+  },
+  {
+    "modelId": "lpw-herrdave-87376",
+    "texturePath": "Greenskin_BlackOrc.blp",
+    "sha256": "9280717815d516714ea09de8c6bd0168c455f2b911d5159aa594a5301be3575d",
+    "dimensions": [
+      256,
+      256
+    ],
+    "mappedWholePixels": 37070,
+    "mappedFraction": 0.565643,
+    "regionSheet": "D:\\Codex\\sd-research\\pictures\\custom-painting\\lpw-herrdave-87376-regions.webp"
+  },
+  {
+    "modelId": "lpw-herrdave-75064",
+    "texturePath": "WarhammerWitchHunter.blp",
+    "sha256": "ef276c863ba4eac1239d92ab2ee7e33532545a6ced5cb5db06e6def191f0c9f8",
+    "dimensions": [
+      256,
+      256
+    ],
+    "mappedWholePixels": 45992,
+    "mappedFraction": 0.701782,
+    "regionSheet": "D:\\Codex\\sd-research\\pictures\\custom-painting\\lpw-herrdave-75064-regions.webp"
+  }
+]

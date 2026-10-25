@@ -1,0 +1,35 @@
+{
+  "scope": "Active SD study including SD models stored in version1800. Prior Reforged/DE work preserved separately, excluded here.",
+  "sources": {
+    "hive": {
+      "models": 646,
+      "components": 68665,
+      "namedComponents": 0,
+      "directComponents": 0,
+      "transferredComponents": 0,
+      "candidateComponents": 0,
+      "unreviewedWithoutCandidate": 68665
+    },
+    "lowpolyworks": {
+      "models": 130,
+      "components": 8264,
+      "namedComponents": 3281,
+      "directComponents": 3281,
+      "transferredComponents": 0,
+      "candidateComponents": 364,
+      "unreviewedWithoutCandidate": 4619
+    },
+    "blizzard": {
+      "models": 3431,
+      "components": 78512,
+      "namedComponents": 831,
+      "directComponents": 673,
+      "transferredComponents": 158,
+      "candidateComponents": 0,
+      "unreviewedWithoutCandidate": 77681
+    }
+  },
+  "families": 217,
+  "semanticCaution": "Measured coverage is not semantic completion. Direct labels, strict transfers and pending interpretation are counted separately. A physical component may contain several semantic parts or only one piece of an assembly.",
+  "geometryPolicy": "Committed exports omit vertex positions, mesh face indices and game texture pixels. UV coordinates, measurements, labels and provenance are derived research outputs."
+}
