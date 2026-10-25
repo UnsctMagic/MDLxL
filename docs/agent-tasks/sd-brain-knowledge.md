@@ -136,6 +136,14 @@ Updated: 25 October 2026
 - Tests: new `test/sd-kitbash.test.js`, `test/texture-area.test.js`; extended sd-kit, sd-knowledge,
   ai-workflow; `test/ai-editor.electron.cjs` preview check updated (not run: Electron test).
 
+## Owner feedback
+
+- 25 October 2026, on the steps 1–4 proof pictures: "weapons look ok, this looks way too wide and
+  stupid", pointing at the kitbash orc's left side view, where the reshaped helmet and the horns stick
+  far out to the front and back. Rule from it: helmet and horn additions must stay close to the head's
+  own silhouette from every side. No big fix yet: the owner first wants to see what the AI really makes
+  (step 6 gallery) and will correct from that.
+
 ## Blockers and next action
 
 - Next: the organiser reviews steps 1–4 and shows the owner the pictures; step 5 (checks in the
