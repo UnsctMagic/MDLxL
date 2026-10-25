@@ -1,34 +1,47 @@
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 
-// Registers MDL, MDX and Paint Project files under a per-user file type
-// (HKCU, no administrator rights) so Explorer can show a document icon that
-// differs from the program icon. It never takes over an existing default
-// program: .mdl/.mdx only gain MDLxL in "Open with", and Windows' own Default
-// apps page remains the place where the user chooses the default.
+// Registers MDL, MDX and Paint Project files under per-user file types
+// (HKCU, no administrator rights) so Explorer can show document icons that
+// differ from the program icon, and MDL can differ from MDX. It never takes
+// over an existing default program: .mdl/.mdx only gain MDLxL in "Open with",
+// and Windows' own Default apps page remains the place where the user chooses
+// the default. MDLxL.Model is the original shared type; it stays for Paint
+// Projects and for defaults chosen before MDL and MDX had their own types.
 const PROG_ID = 'MDLxL.Model';
+const MODEL_TYPES = Object.freeze({ '.mdl': { progId: 'MDLxL.MDL', kind: 'mdl', name: 'Warcraft III model (MDL text)' }, '.mdx': { progId: 'MDLxL.MDX', kind: 'mdx', name: 'Warcraft III model (MDX)' } });
 const EXTENSIONS = ['.mdx', '.mdl', '.mdlxlpaint'];
 const FILE_ICONS = Object.freeze({ page: 'file-page.ico', 'dark-page': 'file-dark-page.ico', tile: 'file-tile.ico', program: null });
+// Labelled variations exist once per model format: label-page → file-mdl-page.ico.
+const LABELLED = Object.freeze({ 'label-page': 'page', 'label-dark-page': 'dark-page', 'label-tile': 'tile', 'label-tag': 'program', 'label-letters': 'tile' });
 const CLASSES = 'HKCU\\Software\\Classes';
 const CAPABILITIES = 'Software\\MDLxL\\Capabilities';
 
-function iconLocation(choice, executable, brandingDirectory) {
+function iconLocation(choice, executable, brandingDirectory, kind) {
+  if (LABELLED[choice]) return kind ? path.join(brandingDirectory, `file-${kind}-${choice.slice(6)}.ico`) : iconLocation(LABELLED[choice], executable, brandingDirectory);
   const file = FILE_ICONS[choice] ?? (choice === 'program' ? null : FILE_ICONS.page);
   return file ? path.join(brandingDirectory, file) : `"${executable}",0`;
 }
 
+// `choice` is one icon for every type, or { mdl, mdx } (Paint Projects follow MDX).
 function registryEntries({ choice, executable, brandingDirectory }) {
-  const command = `"${executable}" "%1"`, icon = iconLocation(choice, executable, brandingDirectory);
+  const choices = typeof choice === 'object' && choice ? choice : { mdl: choice, mdx: choice };
+  const command = `"${executable}" "%1"`;
+  const fileType = (progId, name, icon) => [
+    [`${CLASSES}\\${progId}`, null, 'REG_SZ', name],
+    [`${CLASSES}\\${progId}\\DefaultIcon`, null, 'REG_SZ', icon],
+    [`${CLASSES}\\${progId}\\shell\\open\\command`, null, 'REG_SZ', command],
+  ];
+  const progIdFor = extension => MODEL_TYPES[extension]?.progId ?? PROG_ID;
   return [
-    [`${CLASSES}\\${PROG_ID}`, null, 'REG_SZ', 'Warcraft III model'],
-    [`${CLASSES}\\${PROG_ID}\\DefaultIcon`, null, 'REG_SZ', icon],
-    [`${CLASSES}\\${PROG_ID}\\shell\\open\\command`, null, 'REG_SZ', command],
-    ...EXTENSIONS.map(extension => [`${CLASSES}\\${extension}\\OpenWithProgids`, PROG_ID, 'REG_NONE', '']),
+    ...fileType(PROG_ID, 'Warcraft III model', iconLocation(choices.mdx, executable, brandingDirectory)),
+    ...Object.values(MODEL_TYPES).flatMap(({ progId, kind, name }) => fileType(progId, name, iconLocation(choices[kind], executable, brandingDirectory, kind))),
+    ...EXTENSIONS.map(extension => [`${CLASSES}\\${extension}\\OpenWithProgids`, progIdFor(extension), 'REG_NONE', '']),
     // Paint Projects belong to MDLxL alone, so they get the file type directly.
     [`${CLASSES}\\.mdlxlpaint`, null, 'REG_SZ', PROG_ID],
     [`HKCU\\${CAPABILITIES}`, 'ApplicationName', 'REG_SZ', 'MDLxL'],
     [`HKCU\\${CAPABILITIES}`, 'ApplicationDescription', 'REG_SZ', 'Warcraft III model editor'],
-    ...EXTENSIONS.map(extension => [`HKCU\\${CAPABILITIES}\\FileAssociations`, extension, 'REG_SZ', PROG_ID]),
+    ...EXTENSIONS.map(extension => [`HKCU\\${CAPABILITIES}\\FileAssociations`, extension, 'REG_SZ', progIdFor(extension)]),
     ['HKCU\\Software\\RegisteredApplications', 'MDLxL', 'REG_SZ', CAPABILITIES],
   ];
 }
@@ -60,12 +73,25 @@ class FileTypeRegistration {
   }
   async write(choice) {
     const entries = registryEntries({ choice, executable: this.executable, brandingDirectory: this.brandingDirectory });
-    const [, , , icon] = entries[1], [, , , command] = entries[2];
-    if (await this.registered() && await currentValue(this.run, entries[1][0]) === icon && await currentValue(this.run, entries[2][0]) === command) return false;
+    const checked = entries.filter(([key, name]) => name === null && /\\(DefaultIcon|command)$/.test(key));
+    if (await this.registered() && (await Promise.all(checked.map(async ([key, , , data]) => await currentValue(this.run, key) === data))).every(Boolean)) return false;
     for (const entry of entries) await this.run('reg.exe', addArguments(entry));
+    // MDL and MDX now have their own types; drop the shared one from their Open with lists.
+    for (const extension of Object.keys(MODEL_TYPES)) await this.run('reg.exe', ['delete', `${CLASSES}\\${extension}\\OpenWithProgids`, '/v', PROG_ID, '/f']).catch(() => {});
     // Explorer caches file icons; tell it the associations changed.
     await this.run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', NOTIFY]).catch(() => {});
     return true;
+  }
+  // True when Windows still opens .mdl or .mdx through the shared type, so both
+  // show the MDX icon until MDLxL is chosen again in Default apps.
+  async usesSharedDefault() {
+    for (const extension of Object.keys(MODEL_TYPES)) for (const choice of ['UserChoice', 'UserChoiceLatest']) {
+      try {
+        const output = await this.run('reg.exe', ['query', `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\${extension}\\${choice}`, '/v', 'ProgId']);
+        if (new RegExp(`\\sREG_SZ\\s+${PROG_ID.replace('.', '\\.')}\\s*$`, 'm').test(output)) return true;
+      } catch {}
+    }
+    return false;
   }
   async registered() {
     try { return /\sMDLxL\s/.test(await this.run('reg.exe', ['query', 'HKCU\\Software\\RegisteredApplications', '/v', 'MDLxL'])); }
@@ -73,4 +99,4 @@ class FileTypeRegistration {
   }
 }
 
-module.exports = { FileTypeRegistration, FILE_ICONS, PROG_ID, registryEntries, addArguments };
+module.exports = { FileTypeRegistration, FILE_ICONS, MODEL_TYPES, PROG_ID, registryEntries, addArguments };

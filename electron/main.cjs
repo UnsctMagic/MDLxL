@@ -60,7 +60,7 @@ let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.re
 let settingsStore,preferenceApi,commandCatalog;
 // Test runs (own profile or headless) must not point Explorer at a temporary build.
 const fileTypes=app.isPackaged&&process.platform==='win32'&&!process.env.MDLXL_PROFILE&&process.env.MDLVIS_HEADLESS!=='1'?new FileTypeRegistration({executable:process.execPath,brandingDirectory:path.join(__dirname,'../dist/branding')}):null;
-function registerFileTypes(){fileTypes?.apply(settings.preferences?.fileIcon).catch(error=>console.warn('File types: '+error.message));}
+function registerFileTypes(){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl}).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
@@ -461,6 +461,7 @@ ipcMain.handle('updates:revert',async event=>{
   if(answer.response!==0)return updater.status();
   const result=await updater.prepareRevert();if(result.state==='ready'&&win&&!win.isDestroyed())win.close();return updater.status();
 });
+ipcMain.handle('app:fileTypesNeedDefaultAgain',async()=>Boolean(await fileTypes?.usesSharedDefault()));
 ipcMain.handle('app:openDefaultApps',()=>shell.openExternal('ms-settings:defaultapps?registeredAppUser=MDLxL'));
 ipcMain.handle('app:openLink',(_,url)=>{if(!externalURL(url))throw Error('Unsupported website link.');return shell.openExternal(url);});
 ipcMain.handle('settings:configure',(_,value)=>{
@@ -470,14 +471,14 @@ ipcMain.handle('settings:configure',(_,value)=>{
 ipcMain.on('app:close',event=>{if(win&&!win.isDestroyed()&&event.sender===win.webContents)win.close();});
 async function updateSettings(value){
   const previousHotkeys=JSON.stringify(settings.preferences?.hotkeys);
-  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon;
+  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon+'|'+settings.preferences?.fileIconMdl;
   settings=await settingsStore.configure(value);
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))texturePreviews.cancel();
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameDataSources')){
     texturePreviews.cancel();await texturePreviews.settle();await resetTextureSources();
   }
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
-  if(previousFileIcon!==settings.preferences.fileIcon)registerFileTypes();
+  if(previousFileIcon!==settings.preferences.fileIcon+'|'+settings.preferences.fileIconMdl)registerFileTypes();
   if(JSON.stringify(settings.preferences.hotkeys)!==previousHotkeys || previousLanguage!==settings.preferences.language)refreshMenu();
   return publicSettings();
 }
