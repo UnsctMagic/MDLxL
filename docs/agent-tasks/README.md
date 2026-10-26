@@ -11,7 +11,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | MdlVis-style Rotate drag | Ready for Claude re-review; Local-axis follow-up verified | [Rotate drag](mdlvis-style-rotate-drag.md) / Codex |
 | Full AI editor connection | Ready for review; awaiting merge approval | [AI editor hook](ai-editor-hook.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
-| Movement Create button; reopen existing ribbons in EMTR | Not started | [Movement Create and ribbon re-entry](movement-create-and-ribbon-reentry.md) / Codex |
+| Movement Create button; reopen existing ribbons in EMTR | Ready for review; awaiting merge approval | [Movement Create and ribbon re-entry](movement-create-and-ribbon-reentry.md) / Codex |
 | New MDLxL look (carved tools, slate-and-gold dock, floating Geosets) | Ready for review; awaiting merge approval | [New look](new-look.md) / Claude Code |
 | WC3 editing knowledge for the AI (general rules, reuse existing research) | Core and seven guides ready for owner review; #317 overlap documented | [WC3 editing agent](wc3-editing-agent.md) / Codex |
 

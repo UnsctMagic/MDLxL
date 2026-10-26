@@ -1,6 +1,6 @@
 # Create animation from Movement; reopen existing ribbons in EMTR
 
-Status: active (contract for Codex; not started)
+Status: ready for review; awaiting merge approval
 Owner / consolidator: Codex (implementer); owner approves merge
 Updated: 2026-10-26
 
@@ -63,8 +63,8 @@ Discord feedback (HerrDave), accepted by the owner for the next patch:
 
 ## Revision and local state
 
-- Base: `origin/main` at `e3839ae3`. Branch: `codex/movement-create-ribbon-reentry`.
-- Uncommitted changes: none expected beyond this note.
+- Base: latest `origin/main` at `96d45dbb`. Branch: `codex/movement-create-ribbon-reentry`.
+- Implementation and matching tests are committed together; PR link is recorded below.
 - Fixtures: any model with several sequences and one or more `RibbonEmitters`
   (the particle-editor tests' fixtures have ribbons).
 
@@ -73,17 +73,17 @@ Discord feedback (HerrDave), accepted by the owner for the next patch:
 Map rows: "Animation, Movement, keyframes and POSE" and "Particles, emitters,
 ribbons and library" in [the project map](../agent-map.md).
 
-- Animations Create: `app/AnimationController.jsx` `addSequence()` (around line
-  178) and the `ac-sequence-actions` row; model change in
-  `src/sequence-editor.js` `createSequence()`.
+- Shared Create action: `app/sequence-actions.js` `addAnimationSequence()`, used
+  by both `app/AnimationController.jsx` and `app/MovementControllerRecomp.jsx`;
+  model change remains in `src/sequence-editor.js` `createSequence()`.
 - Movement sequence picker: `app/MovementControllerRecomp.jsx`, the
   `Current Sequence` `SidebarSection` (around line 175, `aria-label="Movement current sequence"`).
-  It already receives `onEdit`, `onTimelineChange`, `portraitMode`, `disabled`.
-  Seeking needs a callback from `App.jsx` (Movement props are assembled near
-  `App.jsx` line 1641).
-- EMTR opening: `app/App.jsx` `openParticles(id)` (around line 658) sets
-  `nodeId` only when the selection is an effect. `app/ParticleEditor.jsx`
-  line 56 picks `'On model'` only when `selectedNodeId` is a number, otherwise
+  It receives `onEdit`, `onTimelineChange`, `portraitMode`, `disabled` and now
+  consumes the `onSeek` callback already passed by `App.jsx`. Portrait Create
+  follows Animations: it creates an ordinary blank sequence and switches to it.
+- EMTR opening: `app/App.jsx` `openParticles(id)` preserves an explicit or
+  selected effect, then prefers the first ribbon, then the first effect.
+  `app/ParticleEditor.jsx` picks `'On model'` only when `selectedNodeId` is a number, otherwise
   `'Lab'`; `chooseContext` (line 277) shows how On model picks its first effect.
   `effectNodes()` comes from `src/particle-recipes.js`.
 - Existing shortcut into an effect: `app/EmitterVisibility.jsx` **Edit effect**
@@ -120,10 +120,41 @@ ribbons and library" in [the project map](../agent-map.md).
      preview with the mouse.
   4. Open a model with no effects, press EMTR: Lab opens as before.
 
+## Implementation and verification result
+
+- Movement has **Create** beside its existing sequence dropdown. Both Create
+  buttons use one action with the original transaction sections, undo label,
+  success/error notices, one-second duration, timeline switch and first-frame
+  seek. Movement pauses playback when seeking, matching Animations. Rest pose
+  hides the section; read-only/saving disables Create. The tooltip is translated
+  in the existing Russian, Spanish and Chinese catalogs.
+- EMTR opening uses the existing `effectNodes()` API and changes only its
+  opening selection. No effect is created by opening it. New, Library, Lab,
+  explicit selection and existing preview controls retain their owners.
+- Passed: 29 focused source tests; `pnpm test` (57 passed);
+  `pnpm run test:source` (2,014 passed, 22 skipped, zero failures), with zero
+  new failures against the unchanged baseline; `pnpm run build`; pinned FFmpeg
+  verification and disposable Windows packaging.
+- Passed on the separate hidden Windows desktop:
+  `pnpm run test:packaged default movement-create-ribbon-reentry`. The packaged
+  regression clicks Create and Ctrl+Z at 1100/1600 px in XL and VIS, verifies
+  selected sequence, first frame, paused playback and exact model restoration,
+  checks Animations Create and rest-pose exclusion, opens the first existing
+  ribbon without selection, switches/reopens the selected particle, checks
+  Library/New, and opens Lab for a model without effects. Actual Alt+mouse drags
+  rotate both EMTR previews without mutating model data.
+- The packaged harness uses the existing compatible-MDX fixture generator and
+  waits for EMTR's asynchronous draft-save close before reopening. Source tests
+  also cover portrait Create, disabled controls, creation validation errors,
+  particle-only models and explicit effect ObjectId 0.
+- Remaining: owner click-through on their own models, including portrait mode
+  in the packaged app and main-preview effect picking. No Warcraft III gameplay
+  verification is claimed. The installed app and real profiles were untouched.
+
 ## Blockers and next action
 
-- None. Next: Codex branches from `origin/main`, implements A then B, opens a PR
-  into `main` with `Session: codex <task>` and the click-through list, and
-  reports `ready for review; awaiting merge approval`.
-- On completion: mark this note completed with the PR and merged revision, and
-  remove its row from the README table.
+- No implementation blockers. PR: pending creation from the pushed branch.
+- Stop at `ready for review; awaiting merge approval`. No merge, release or
+  installed-app upgrade is authorized by this task.
+- After an authorized merge, record the merged revision, mark this note
+  completed and remove its row from the README table. Keep it current until then.
