@@ -329,6 +329,13 @@ export default function AiAssistant({ bridge }) {
     ours = chat => !!chat && (chat === id || chats.includes(chat));
   const busy = ours(sendingId) || running.some(r => ours(r.id) || ours(r.worker)),
     anyBusy = !!sendingId || running.length > 0;
+  const cleanupRoot = useRef(null);
+  useEffect(() => {
+    const root = cleanupRoot.current;
+    if (!root) return;
+    window.dispatchEvent(new CustomEvent('mdlxl-detached-root', { detail: { root, add: true } }));
+    return () => window.dispatchEvent(new CustomEvent('mdlxl-detached-root', { detail: { root, add: false } }));
+  }, [cleanup]);
   const [dock, setDock] = useState(null),
     [width, setWidth] = useState(storedWidth),
     [palette, setPalette] = useState(false);
@@ -813,6 +820,7 @@ export default function AiAssistant({ bridge }) {
       <button
         type="button"
         className="classic-tool ai-open ai-tool"
+        data-hotkey="ai:open" data-hotkey-badges="false"
         aria-label="AI assistant"
         title="AI console: ask an AI to edit your model."
         aria-pressed={open}
@@ -828,6 +836,8 @@ export default function AiAssistant({ bridge }) {
         createPortal(
           <section
             className="ai-assistant ai-console"
+            data-hotkey-prefix="ai" data-hotkey-scope="ai" data-hotkey-window="" data-hotkey-category="AI console" data-hotkey-badges="false"
+            tabIndex={-1}
             role="complementary"
             aria-label="AI assistant"
             style={{ '--ai-width': width + 'px' }}
@@ -845,6 +855,7 @@ export default function AiAssistant({ bridge }) {
               <button
                 type="button"
                 className="ai-provider-name"
+                data-hotkey="provider-settings" data-hotkey-label="Change provider"
                 title="The connected AI. Click to change."
                 onClick={() => setSettingsOpen(value => !value)}
               >
@@ -852,7 +863,7 @@ export default function AiAssistant({ bridge }) {
               </button>
               <select
                         className="ai-model ai-header-model"
-                        aria-label="Chat model"
+                        aria-label="Chat model" data-hotkey="chat-model"
                         title="The AI model that does the work. A change applies from the next message."
                         value={settings.model || ''}
                         disabled={authBusy}
@@ -874,7 +885,7 @@ export default function AiAssistant({ bridge }) {
                 type="button"
                 role="switch"
                 className="ai-icon-button ai-offload-switch"
-                aria-label="Offload Mode"
+                aria-label="Offload Mode" data-hotkey="offload"
                 aria-checked={settings.offload !== false}
                 title={OFFLOAD_TIP}
                 disabled={anyBusy}
@@ -888,7 +899,7 @@ export default function AiAssistant({ bridge }) {
                   type="button"
                   role="switch"
                   className="ai-icon-button ai-offload-switch"
-                  aria-label="SD Brain"
+                  aria-label="SD Brain" data-hotkey="sd-brain"
                   aria-checked={!!settings.sdBrain}
                   title={translate(SD_BRAIN_TIP)}
                   onClick={() => action(async () => setSettings(await window.desktop.aiSdBrain(!settings.sdBrain)))}
@@ -911,7 +922,7 @@ export default function AiAssistant({ bridge }) {
               <button
                 type="button"
                 className="ai-icon-button"
-                aria-label="New chat"
+                aria-label="New chat" data-hotkey="new-chat"
                 title="Start a new chat for this model."
                 disabled={busy || authBusy}
                 onClick={newChat}
@@ -921,7 +932,7 @@ export default function AiAssistant({ bridge }) {
               <button
                 type="button"
                 className="ai-icon-button"
-                aria-label="Connection settings"
+                aria-label="Connection settings" data-hotkey="connection"
                 title="AI settings"
                 aria-expanded={settingsOpen}
                 onClick={() => setSettingsOpen(value => !value)}
@@ -931,7 +942,7 @@ export default function AiAssistant({ bridge }) {
               <button
                 type="button"
                 className="ai-icon-button"
-                aria-label="Close AI assistant"
+                aria-label="Close AI assistant" data-hotkey="close"
                 title="Close the AI console."
                 onClick={() => setOpen(false)}
               >
@@ -946,7 +957,7 @@ export default function AiAssistant({ bridge }) {
                   <nav className="ai-roster" aria-label="AI chats for this model">
                     <button
                       type="button"
-                      className="ai-roster-chip"
+                      className="ai-roster-chip" data-hotkey="organiser" data-hotkey-label="Organiser"
                       aria-pressed={view === org.id}
                       title="The main chat for this model."
                       onClick={() => setView(org.id)}
@@ -974,7 +985,7 @@ export default function AiAssistant({ bridge }) {
                     {retiredWorkers.length + org.earlier.length > 0 && (
                       <select
                         className="ai-retired"
-                        aria-label="Retired chats"
+                        aria-label="Retired chats" data-hotkey="retired"
                         title="Finished and earlier chats of this model."
                         value={readOnly ? view : ''}
                         onChange={event => event.target.value && setView(event.target.value)}
@@ -1000,7 +1011,7 @@ export default function AiAssistant({ bridge }) {
                       <label title="What happens to this model's AI chats when you save.">
                         After saving
                         <select
-                          aria-label="After saving"
+                          aria-label="After saving" data-hotkey="after-saving"
                           value={savedChoice}
                           onChange={event =>
                             action(async () => {
@@ -1019,7 +1030,7 @@ export default function AiAssistant({ bridge }) {
                     <label title="Which AI service to use.">
                       AI provider
                       <select
-                        aria-label="AI provider"
+                        aria-label="AI provider" data-hotkey="provider"
                         value={settings.provider}
                         disabled={anyBusy || authBusy}
                         onChange={event => changeProvider(event.target.value)}
@@ -1036,20 +1047,20 @@ export default function AiAssistant({ bridge }) {
                         <button
                           className={signedIn ? '' : 'ai-primary'}
                           disabled={anyBusy || authBusy}
-                          title="Sign in with your account in the browser."
+                          title="Sign in with your account in the browser." data-hotkey="sign-in" data-hotkey-label="Sign in"
                           onClick={() => authenticate('login')}
                         >
                           <LogIn size={14} aria-hidden="true" />
                           Sign in
                         </button>
-                        <button disabled={anyBusy || authBusy} title="Check if you are signed in." onClick={() => authenticate('status')}>
+                        <button disabled={anyBusy || authBusy} title="Check if you are signed in." data-hotkey="check-sign-in" data-hotkey-label="Check sign-in" onClick={() => authenticate('status')}>
                           Check sign-in
                         </button>
-                        <button disabled={anyBusy || authBusy} title="Sign out of this AI." onClick={() => authenticate('logout')}>
+                        <button disabled={anyBusy || authBusy} title="Sign out of this AI." data-hotkey="sign-out" data-hotkey-label="Sign out" onClick={() => authenticate('logout')}>
                           Sign out
                         </button>
                         {authBusy && (
-                          <button title="Stop waiting for sign-in." onClick={() => window.desktop.aiCancel()}>
+                          <button title="Stop waiting for sign-in." data-hotkey="cancel-sign-in" data-hotkey-label="Stop sign-in" onClick={() => window.desktop.aiCancel()}>
                             Cancel
                           </button>
                         )}
@@ -1059,7 +1070,7 @@ export default function AiAssistant({ bridge }) {
                         API key
                         <input
                           type="password"
-                          autoComplete="off"
+                          data-hotkey="api-key" data-hotkey-label="API key" autoComplete="off"
                           value={apiKey}
                           placeholder={settings.hasKey ? 'Saved securely' : ''}
                           onChange={event => setApiKey(event.target.value)}
@@ -1070,7 +1081,7 @@ export default function AiAssistant({ bridge }) {
                       <label title="Address of the AI server.">
                         API base URL
                         <input
-                          value={settings.baseUrl || ''}
+                          data-hotkey="base-url" data-hotkey-label="API base URL" value={settings.baseUrl || ''}
                           placeholder="http://localhost:1234/v1"
                           onChange={event =>
                             setSettings(previous => ({ ...previous, baseUrl: event.target.value }))
@@ -1081,7 +1092,7 @@ export default function AiAssistant({ bridge }) {
                     <label title="Which model to use.">
                       Model
                       <input
-                        aria-label="Model"
+                        aria-label="Model" data-hotkey="model"
                         list="mdlxl-ai-models"
                         value={settings.model || ''}
                         placeholder={native ? 'Provider default' : 'Choose or enter a model ID'}
@@ -1103,7 +1114,7 @@ export default function AiAssistant({ bridge }) {
                           min="0"
                           step="1"
                           placeholder="No limit"
-                          value={settings.spendLimit || ''}
+                          data-hotkey="spend-limit" data-hotkey-label="Spending limit per prompt" value={settings.spendLimit || ''}
                           onChange={event => setSettings(previous => ({ ...previous, spendLimit: event.target.value }))}
                         />
                       </label>
@@ -1116,7 +1127,7 @@ export default function AiAssistant({ bridge }) {
                           min="0"
                           step="1"
                           placeholder="Default"
-                          value={settings.stepLimit || ''}
+                          data-hotkey="step-limit" data-hotkey-label="Step limit per prompt" value={settings.stepLimit || ''}
                           onChange={event => setSettings(previous => ({ ...previous, stepLimit: event.target.value }))}
                         />
                       </label>
@@ -1124,7 +1135,7 @@ export default function AiAssistant({ bridge }) {
                     <div className="ai-row">
                       <button
                         disabled={anyBusy || authBusy}
-                        title="Save these settings."
+                        title="Save these settings." data-hotkey="save-connection" data-hotkey-label="Save connection"
                         onClick={() =>
                           action(async () => {
                             await saveSettings();
@@ -1136,7 +1147,7 @@ export default function AiAssistant({ bridge }) {
                       </button>
                       <button
                         disabled={anyBusy || authBusy}
-                        title="Get the list of available models."
+                        title="Get the list of available models." data-hotkey="load-models" data-hotkey-label="Load models"
                         onClick={loadModels}
                       >
                         Load models
@@ -1144,11 +1155,11 @@ export default function AiAssistant({ bridge }) {
                     </div>
                     {native && (
                       <details>
-                        <summary title="Where the AI program is installed.">Advanced connection</summary>
+                        <summary title="Where the AI program is installed." data-hotkey="advanced:expand" data-hotkey-label="Advanced connection">Advanced connection</summary>
                         <label title="Path to the Codex or Claude program.">
                           CLI executable (optional)
                           <input
-                            value={settings.executable || ''}
+                            data-hotkey="executable" data-hotkey-label="CLI executable" value={settings.executable || ''}
                             disabled={anyBusy || authBusy}
                             placeholder={settings.provider + '.exe'}
                             onChange={event =>
@@ -1159,13 +1170,13 @@ export default function AiAssistant({ bridge }) {
                       </details>
                     )}
                     <details>
-                      <summary title="Let other AI apps use MDLxL's editor tools.">
+                      <summary title="Let other AI apps use MDLxL's editor tools." data-hotkey="external:expand" data-hotkey-label="Connect another AI">
                         Connect another AI
                       </summary>
                       <p>Connect any local AI client that supports MCP to the same editor tools.</p>
                       <div className="ai-row">
                         <button
-                          title="Turn the connection for other AI apps on or off."
+                          title="Turn the connection for other AI apps on or off." data-hotkey="external" data-hotkey-label="Enable connection"
                           onClick={() =>
                             action(async () => {
                               const value = await window.desktop.aiEnable(!external);
@@ -1177,7 +1188,7 @@ export default function AiAssistant({ bridge }) {
                         </button>
                         <button
                           disabled={!external}
-                          title="Copy the connection settings."
+                          title="Copy the connection settings." data-hotkey="copy-connection" data-hotkey-label="Copy connection JSON"
                           onClick={() =>
                             action(async () => {
                               await navigator.clipboard.writeText(
@@ -1288,7 +1299,7 @@ export default function AiAssistant({ bridge }) {
                 {error && (
                   <div className="ai-error" role="alert">
                     {error}
-                    <button type="button" className="ai-icon-button" aria-label="Dismiss" title="Hide." onClick={() => setError('')}>
+                    <button type="button" className="ai-icon-button" aria-label="Dismiss" data-hotkey="dismiss" title="Hide." onClick={() => setError('')}>
                       <X size={13} aria-hidden="true" />
                     </button>
                   </div>
@@ -1298,7 +1309,7 @@ export default function AiAssistant({ bridge }) {
                     <span>Task paused. Applied edits are kept.</span>
                     <button
                       disabled={authBusy}
-                      title="Continue the stopped task."
+                      title="Continue the stopped task." data-hotkey="resume" data-hotkey-label="Resume task"
                       onClick={() => send(true)}
                     >
                       Resume task
@@ -1327,7 +1338,7 @@ export default function AiAssistant({ bridge }) {
                           {summary.reference && (
                             <button
                               type="button"
-                              aria-label={`Remove reference ${summary.name}`}
+                              aria-label={`Remove reference ${summary.name}`} data-hotkey="reference-current" data-hotkey-label="Remove current reference"
                               title="Remove this reference model (closes its tab)."
                               onClick={() => bridge.host().removeReference(summary.documentId)}
                             >
@@ -1336,12 +1347,12 @@ export default function AiAssistant({ bridge }) {
                           )}
                         </span>
                       )}
-                      {references.map(reference => (
+                      {references.map((reference, index) => (
                         <span key={reference.id} className="ai-chip" title="A reference model you attached." translate="no">
                           {reference.name}
                           <button
                             type="button"
-                            aria-label={`Remove reference ${reference.name}`}
+                            aria-label={`Remove reference ${reference.name}`} data-hotkey={`reference:${index}`} data-hotkey-label={`Remove reference ${index + 1}`}
                             title="Remove this reference model (closes its tab)."
                             onClick={() => bridge.host().removeReference(reference.id)}
                           >
@@ -1354,7 +1365,7 @@ export default function AiAssistant({ bridge }) {
                           {translate(`${strokes.length} drawing${strokes.length === 1 ? '' : 's'}`)}
                           <button
                             type="button"
-                            aria-label="Undo last drawing"
+                            aria-label="Undo last drawing" data-hotkey="undo-drawing"
                             title="Undo last drawing"
                             onClick={() => sketchStore.undo(summary.documentId)}
                           >
@@ -1362,7 +1373,7 @@ export default function AiAssistant({ bridge }) {
                           </button>
                           <button
                             type="button"
-                            aria-label="Clear drawings"
+                            aria-label="Clear drawings" data-hotkey="clear-drawings"
                             title="Remove all notes."
                             onClick={() => sketchStore.clear(summary.documentId)}
                           >
@@ -1374,7 +1385,7 @@ export default function AiAssistant({ bridge }) {
                         <button
                           key={index}
                           type="button"
-                          className="ai-chip ai-image-chip"
+                          className="ai-chip ai-image-chip" data-hotkey={`picture:${index}`} data-hotkey-label={`Remove picture ${index + 1}`}
                           title="Remove picture."
                           onClick={() => setImages(previous => previous.filter((_, i) => i !== index))}
                         >
@@ -1388,7 +1399,7 @@ export default function AiAssistant({ bridge }) {
                     ref={input}
                     rows={1}
                     disabled={readOnly}
-                    aria-label="AI prompt"
+                    aria-label="AI prompt" data-hotkey="prompt"
                     placeholder={
                       readOnly
                         ? viewWorker
@@ -1421,7 +1432,7 @@ export default function AiAssistant({ bridge }) {
                     <button
                       type="button"
                       className="ai-tool"
-                      aria-label="Attach"
+                      aria-label="Attach" data-hotkey="attach"
                       disabled={busy || authBusy}
                       title="Attach a model or picture."
                       onClick={() => files.current.click()}
@@ -1435,7 +1446,7 @@ export default function AiAssistant({ bridge }) {
                           key={toolId}
                           type="button"
                           className="ai-tool"
-                          aria-label={label}
+                          aria-label={label} data-hotkey={`tool:${toolId}`}
                           aria-pressed={sketch.tool === toolId}
                           title={tip}
                           disabled={toolId === 'eraser' && !strokes.length && sketch.tool !== 'eraser'}
@@ -1449,7 +1460,7 @@ export default function AiAssistant({ bridge }) {
                           <button
                             type="button"
                             className="ai-swatch"
-                            aria-label={'Color: ' + sketch.color[colorTool]}
+                            aria-label={'Color: ' + sketch.color[colorTool]} data-hotkey="color" data-hotkey-label="Color"
                             title="Colour of this tool."
                             aria-expanded={palette}
                             style={{ '--swatch': sketchStore.colorOf(colorTool) }}
@@ -1463,7 +1474,7 @@ export default function AiAssistant({ bridge }) {
                                   type="button"
                                   role="menuitemradio"
                                   aria-checked={sketch.color[colorTool] === color.id}
-                                  aria-label={color.id}
+                                  aria-label={color.id} data-hotkey={`color:${color.id}`}
                                   title={color.id}
                                   className="ai-swatch"
                                   style={{ '--swatch': color.value }}
@@ -1496,7 +1507,7 @@ export default function AiAssistant({ bridge }) {
                           type="button"
                           role="switch"
                           className="ai-tool"
-                          aria-label="Continuous awareness"
+                          aria-label="Continuous awareness" data-hotkey="awareness"
                           aria-checked={!!settings.awareness}
                           title="Continuous awareness: the AI sees what you do while it works. Fills its memory faster."
                           disabled={awarenessBusy}
@@ -1522,14 +1533,14 @@ export default function AiAssistant({ bridge }) {
                         )}
                       </span>
                       {busy && (
-                        <button type="button" className="ai-stop" title="Stop the AI." onClick={() => window.desktop.aiCancel(id)}>
+                        <button type="button" className="ai-stop" title="Stop the AI." data-hotkey="stop" data-hotkey-label="Stop" onClick={() => window.desktop.aiCancel(id)}>
                           <Square size={11} aria-hidden="true" />
                           <span className="ai-hidden-label">Stop</span>
                         </button>
                       )}
                       <button
                         type="button"
-                        className="ai-primary ai-send"
+                        className="ai-primary ai-send" data-hotkey="send" data-hotkey-label="Send"
                         aria-label={native && signedIn === false ? 'Sign in to send' : busy ? 'Steer' : 'Send'}
                         title={busy ? 'Send to the AI while it works.' : 'Send (Enter).'}
                         disabled={!prompt.trim() || authBusy || switching}
@@ -1555,11 +1566,11 @@ export default function AiAssistant({ bridge }) {
         )}
       {cleanup &&
         createPortal(
-          <div className="ai-cleanup-shade">
-            <section className="ai-cleanup" role="dialog" aria-modal="true" aria-label="Tidy up AI chats">
+          <div ref={cleanupRoot} className="ai-cleanup-shade">
+            <section className="ai-cleanup" role="dialog" aria-modal="true" aria-label="Tidy up AI chats" data-hotkey-prefix="ai-cleanup" data-hotkey-scope="ai-cleanup" data-hotkey-badges="false">
               <header>
                 <strong>{translate(`Tidy up the AI chats for ${cleanup.name}?`)}</strong>
-                <button type="button" aria-label="Decide later" title="Decide later." onClick={() => setCleanup(null)}>
+                <button type="button" aria-label="Decide later" data-hotkey="close" title="Decide later." onClick={() => setCleanup(null)}>
                   <X size={14} aria-hidden="true" />
                 </button>
               </header>
@@ -1568,6 +1579,7 @@ export default function AiAssistant({ bridge }) {
                 {CLEANUP_CHOICES.map(([mode, label, tip]) => (
                   <button
                     key={mode}
+                    data-hotkey={mode} data-hotkey-label={label}
                     type="button"
                     className={mode === 'summary' ? 'ai-primary' : ''}
                     title={tip}
@@ -1581,7 +1593,7 @@ export default function AiAssistant({ bridge }) {
               </div>
               {busy && <p className="ai-cleanup-note">Cleaning up is available once the AI finishes its current job.</p>}
               <label title="Use this choice every time for this model.">
-                <input type="checkbox" checked={rememberCleanup} onChange={event => setRememberCleanup(event.target.checked)} />
+                <input data-hotkey="remember" data-hotkey-label="Remember for this model" type="checkbox" checked={rememberCleanup} onChange={event => setRememberCleanup(event.target.checked)} />
                 Remember for this model
               </label>
             </section>

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, MAX_HOTKEY_ID_LENGTH } from '../src/preferences.js';
 import { contextualHotkeyDefaults, hotkeyCode, HotkeySequence, HOTKEY_LEADER, LEGACY_HOTKEY_CATALOG_STORAGE_KEY, migrateHotkeyId } from '../src/hotkey-defaults.js';
 import { hotkeyBadge } from '../src/hotkey-badge.js';
+import { controlKind } from '../src/hotkey-allocation.js';
 import { translate } from '../src/localization.js';
 import './settings.css';
 import './hotkey-sequences.css';
@@ -11,9 +12,10 @@ export const useHotkeys = () => useContext(HotkeysContext);
 const CATALOG_STORAGE_KEY = 'mdlvis-classic-hotkeys-catalog-v1';
 function loadCatalog() {
   try {
-    // A profile from before the rename keeps its discovered controls and their codes; saves use the new key only.
+    // A profile from before the rename keeps its discovered controls; saves use the new key only.
+    // Each control keeps the window it lives in and the short key it was first given.
     const records = JSON.parse(localStorage.getItem(CATALOG_STORAGE_KEY) || localStorage.getItem(LEGACY_HOTKEY_CATALOG_STORAGE_KEY) || '[]');
-    return new Map((Array.isArray(records) ? records : []).slice(0, 40000).filter(item => item && typeof item.id === 'string' && item.id.length <= MAX_HOTKEY_ID_LENGTH && typeof item.label === 'string').map(item => [migrateHotkeyId(item.id), { id: migrateHotkeyId(item.id), label: item.label.slice(0, 250), category: typeof item.category === 'string' ? item.category.slice(0, 100) : 'Context controls', scope: typeof item.scope === 'string' ? item.scope : 'context', defaultCode: item.defaultCode, defaultKeys: [], contextual: true }]));
+    return new Map((Array.isArray(records) ? records : []).slice(0, 40000).filter(item => item && typeof item.id === 'string' && item.id.length <= MAX_HOTKEY_ID_LENGTH && typeof item.label === 'string').map(item => [migrateHotkeyId(item.id), { id: migrateHotkeyId(item.id), label: item.label.slice(0, 250), category: typeof item.category === 'string' ? item.category.slice(0, 100) : 'Context controls', scope: typeof item.scope === 'string' ? item.scope : 'context', group: typeof item.group === 'string' ? item.group.slice(0, 250) : undefined, parentGroup: typeof item.parentGroup === 'string' ? item.parentGroup.slice(0, 250) : undefined, kind: typeof item.kind === 'string' ? item.kind : undefined, embedsEditor: item.embedsEditor === true, defaultKey: typeof item.defaultKey === 'string' ? item.defaultKey.slice(0, 40) : '', defaultKeys: [], contextual: true }]));
   } catch { return new Map(); }
 }
 
@@ -32,10 +34,24 @@ function visible(element) {
 function activeDialog(root) { return [...root.querySelectorAll('[role="dialog"][aria-modal="true"]')].filter(visible).at(-1); }
 function enabled(element) { return !element.disabled && element.getAttribute('aria-disabled') !== 'true' && !element.closest('fieldset[disabled]'); }
 
+/**
+ * The window a control lives in, for its default key: the editor, or a modal dialog (by its
+ * hotkey prefix or title). Each page of a tabbed dialog (Settings) is a window of its own
+ * inside it (`parentGroup`).
+ */
+function controlWindow(element) {
+  const modal = element.closest('[role="dialog"][aria-modal="true"]') || element.closest('[data-hotkey-window]');
+  if (!modal) return { group: 'editor', embedsEditor: false };
+  const group = modal.getAttribute('data-hotkey-prefix') || modal.getAttribute('aria-label') || 'dialog';
+  const page = element.closest('[role="tabpanel"][id]');
+  // Forge and the shaping tools show the editor's own buttons, so their keys stay clear of the editor's.
+  const embedsEditor = !!modal.querySelector('[data-hotkey="undo"], [data-hotkey="select"], [data-hotkey="fit"]');
+  return page && modal.contains(page) ? { group: `${group} › ${page.id}`, parentGroup: group, embedsEditor } : { group, embedsEditor };
+}
 function actionMetadata(element, id) {
   const title = element.hasAttribute('data-hotkey-base-title') ? element.getAttribute('data-hotkey-base-title') : element.getAttribute('title');
   const label = element.getAttribute('data-hotkey-label') || element.getAttribute('aria-label') || title || element.closest('label')?.textContent?.trim() || element.textContent?.replaceAll(element.querySelector('[data-hotkey-badge]')?.textContent || '\u0000', '').trim() || id;
-  return { id, label, category: element.getAttribute('data-hotkey-category') || element.closest('[data-hotkey-category]')?.getAttribute('data-hotkey-category') || (id.includes(':') ? 'Context controls' : 'Controls'), scope: element.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope') || 'editor', defaultKeys: [], contextual: true };
+  return { id, label, category: element.getAttribute('data-hotkey-category') || element.closest('[data-hotkey-category]')?.getAttribute('data-hotkey-category') || (id.includes(':') ? 'Context controls' : 'Controls'), scope: element.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope') || 'editor', ...controlWindow(element), kind: controlKind(element), defaultKeys: [], contextual: true };
 }
 
 /** All identities come from the catalog or explicit data-hotkey attributes, never inferred labels. */
@@ -61,7 +77,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
   useEffect(() => {
     if (!revision) return;
     const timer = setTimeout(() => {
-      try { localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify([...discovered.current.values()].slice(-40000).map(({ id, label, category, scope, defaultCode }) => ({ id, label, category, scope, defaultCode })))); } catch { /* Settings still work when browser storage is unavailable. */ }
+      try { localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify([...discovered.current.values()].slice(-40000).map(({ id, label, category, scope, group, parentGroup, kind, embedsEditor, defaultKey }) => ({ id, label, category, scope, group, parentGroup, kind, embedsEditor, defaultKey })))); } catch { /* Settings still work when browser storage is unavailable. */ }
     }, 250);
     return () => clearTimeout(timer);
   }, [revision]);
@@ -70,20 +86,25 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     const discover = () => {
       queued = false; if (disposed || !root.current) return;
       let changed = false;
+      const commandIds = new Set(latest.current.catalog.filter(action => !action.contextual).map(action => action.id));
       for (const controlRoot of controlRoots()) for (const element of controlRoot.querySelectorAll('[data-hotkey]')) {
         const id = controlActionId(element); if (!id) continue;
         const currentTitle = element.getAttribute('title') || '';
         if (currentTitle !== element.getAttribute('data-hotkey-tooltip')) element.setAttribute('data-hotkey-base-title', currentTitle);
-        const previous = discovered.current.get(id), meta = { ...actionMetadata(element, id), defaultCode: previous?.defaultCode, defaultKeys: previous?.defaultKeys || [] };
+        const previous = discovered.current.get(id), meta = { ...actionMetadata(element, id), defaultKey: previous?.defaultKey || '', defaultKeys: previous?.defaultKeys || [] };
+        // A control keeps the window it was first found in (the shaping tools reuse some editor controls).
+        if (previous?.group) Object.assign(meta, { group: previous.group, parentGroup: previous.parentGroup, embedsEditor: previous.embedsEditor });
         if (!previous || JSON.stringify(previous) !== JSON.stringify(meta)) { discovered.current.set(id, meta); changed = true; }
         const keys = latest.current.shortcuts[id] || [];
         // aria-keyshortcuts describes simultaneous keys, not three-character sequences.
         element.setAttribute('aria-keyshortcuts', keys.filter(key => !hotkeyCode(key)).map(key => key.replaceAll('Ctrl', 'Control').replaceAll('Plus', '+')).join(' '));
         element.setAttribute('data-hotkey-shortcuts', keys.join(' / '));
         const forgeHint = id.startsWith('forge:');
-        const title = [element.getAttribute('data-hotkey-base-title'), forgeHint && keys.length ? translate(`Hotkey: ${keys.map(formatChord).join(' / ')}`) : keys.map(hotkeyBadge).filter(Boolean).length ? translate(`Hotkey: ${keys.map(hotkeyBadge).filter(Boolean).join(' / ')}`) : ''].filter(Boolean).join('\n');
+        const shortKeys = keys.filter(key => !hotkeyCode(key));
+        const title = [element.getAttribute('data-hotkey-base-title'), forgeHint && keys.length ? translate(`Hotkey: ${keys.map(formatChord).join(' / ')}`) : shortKeys.length ? translate(`Hotkey: ${shortKeys.map(formatChord).join(' / ')}`) : ''].filter(Boolean).join('\n');
         element.setAttribute('title', title); element.setAttribute('data-hotkey-tooltip', title);
-        if (element.tagName !== 'BUTTON' || element.getAttribute('data-hotkey-badges') === 'false') continue;
+        // Forge's own tiles keep their compact look: their window keys show in the tooltip only.
+        if (element.tagName !== 'BUTTON' || element.closest('[data-hotkey-badges]')?.getAttribute('data-hotkey-badges') === 'false' || forgeHint && !commandIds.has(id)) continue;
         let badge = element.querySelector(':scope > [data-hotkey-badge]');
         const text = keys.length ? (forgeHint ? hotkeyCode(keys[0]) : '') || hotkeyBadge(keys[0]) || formatChord(keys[0]) : '';
         if (!text) { if (badge) badge.remove(); element.classList.remove('hotkey-control'); continue; }
@@ -125,42 +146,55 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       const ownerDocument = event.target?.ownerDocument || document;
       const roots = controlRoots().filter(element => element.ownerDocument === ownerDocument);
       // A main application modal also blocks controls in the detached editor.
-      const modal = activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1), modalScope = modal?.getAttribute('data-hotkey-scope') || modal?.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope');
+      const modal = activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1);
+      // A docked console owns keys only while focus is inside it. The model editor
+      // remains usable beside it; a real modal still takes priority over both.
+      const localWindow = modal || event.target?.closest?.('[data-hotkey-window]');
+      const modalScope = localWindow?.getAttribute('data-hotkey-scope') || localWindow?.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope');
       // Forge's shape tools own their keys only in the visible Shape workspace.
       // Other editors keep their original bindings, even when a key is reused here.
       const forge = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey-scope="forge-shapes"]')]).find(element => visible(element) && (!modal || modal.contains(element)));
       const matching = actions.filter(action => bindings[action.id]?.includes(chord) && (action.scope !== 'forge-shapes' || forge));
       const local = forge ? matching.filter(action => action.scope === 'forge-shapes') : [];
       const candidates = local.length ? local : matching;
-      // Reject duplicate bindings within the active context.
-      if (candidates.length !== 1) return false;
-      const action = candidates[0];
-      const available = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey]')]).filter(element => controlActionId(element) === action.id && visible(element) && (modal ? modal.contains(element) : !element.closest('[role="dialog"][aria-modal="true"]')));
-      if (available.length && available.every(element => !enabled(element))) return false;
-      const targets = available.filter(enabled);
-      const target = targets.find(element => modal ? modal.contains(element) : !element.closest('[role="dialog"][aria-modal="true"]'));
-      // A dialog's local button owns its availability (and its own history).
-      // The main document may have nothing to undo while Forge has edits.
-      if (!canHandleHotkeyEvent(event, modal && target ? { ...action, enabled: true } : action)) return false;
-      const canRun = (typeof action.run === 'function' || typeof dispatch === 'function' && !action.contextual) && (modal ? action.allowInModal === true || action.scope === modalScope : !action.scope || action.scope === scope || action.scope === 'global');
-      if (!target && !canRun) return false;
+      // The same key may belong to controls in different windows or modes; only those
+      // on screen in the active window (or commands that can run there) take part.
+      const controls = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey]')]);
+      const plans = candidates.map(action => {
+        const available = controls.filter(element => controlActionId(element) === action.id && visible(element) && (localWindow ? localWindow.contains(element) : !element.closest('[role="dialog"][aria-modal="true"], [data-hotkey-window]')));
+        if (available.length && available.every(element => !enabled(element))) return null;
+        const target = available.find(enabled);
+        // A dialog's local button owns its availability (and its own history).
+        // The main document may have nothing to undo while Forge has edits.
+        if (!canHandleHotkeyEvent(event, localWindow && target ? { ...action, enabled: true } : action)) return null;
+        const canRun = (typeof action.run === 'function' || typeof dispatch === 'function' && !action.contextual) && (localWindow ? action.allowInModal === true || action.scope === modalScope : !action.scope || action.scope === scope || action.scope === 'global');
+        return target || canRun ? { action, target } : null;
+      }).filter(Boolean);
+      // Reject duplicate bindings within the active context; a control on screen beats a command that only could run.
+      const onScreen = plans.filter(plan => plan.target);
+      const chosen = plans.length === 1 ? plans[0] : onScreen.length === 1 ? onScreen[0] : null;
+      if (!chosen) return false;
+      const { action, target } = chosen;
       consume(event);
       if (target) {
         if (target.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), textarea, select, [contenteditable="true"]')) { target.focus(); if (target.matches('input[type="text"], input:not([type]), textarea')) target.select?.(); }
         // A toggled checkbox keeps focus where the user works (e.g. the UV Wrapper).
         else { if (!target.matches('input[type="checkbox"]')) target.focus({ preventScroll: true }); target.click(); }
       } else if (typeof action.run === 'function') action.run(event); else dispatch(action.id, event);
+      // Shredder's reminders count only shortcuts that actually ran.
+      window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used', { detail: { id: action.id, chord, event } }));
       return true;
     };
     const keydown = event => {
       if (event.target?.closest?.('[data-hotkey-recording]')) { cancel(); return; }
-      if(!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
+      const inLocalWindow = !!event.target?.closest?.('[data-hotkey-window]');
+      if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
       // The focused UV workspace owns numpad nudges before global number shortcuts.
-      if(!window.dispatchEvent(new CustomEvent('mdlxl-uv-key',{detail:event,cancelable:true}))){cancel();return;}
+      if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-uv-key',{detail:event,cancelable:true}))){cancel();return;}
       // Paint owns its brush/clipboard shortcuts before global mesh commands.
-      if(latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
-      if (event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
-      if (event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
+      if(!inLocalWindow&&latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
+      if (!inLocalWindow && event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
+      if (!inLocalWindow && event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);
       // Text selected in the AI chat copies as text; the editor's Copy is for the model.
@@ -195,7 +229,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       const ownerDocument=event.target?.ownerDocument || document;
       const roots=controlRoots().filter(element=>element.ownerDocument===ownerDocument);
       const modal=activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1);
-      for(const controlRoot of controlRoots()) for(const element of controlRoot.querySelectorAll('.hotkey-control'))element.dataset.hotkeyAvailable=String(element.ownerDocument===ownerDocument&&enabled(element)&&visible(element)&&(!modal||modal.contains(element)));
+      const localWindow=modal||event.target?.closest?.('[data-hotkey-window]');
+      for(const controlRoot of controlRoots()) for(const element of controlRoot.querySelectorAll('.hotkey-control'))element.dataset.hotkeyAvailable=String(element.ownerDocument===ownerDocument&&enabled(element)&&visible(element)&&(localWindow?localWindow.contains(element):!element.closest('[data-hotkey-window]')));
       ownerDocument.documentElement.dataset.shortcutHints='true';
     };
     const dismiss = () => { for(const element of controlRoots())delete element.ownerDocument.documentElement.dataset.shortcutHints; delete document.documentElement.dataset.shortcutHints; };

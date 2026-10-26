@@ -68,7 +68,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button',{name:'Set Current View *',exact:true}).waitFor();await snap('4-rotated.png');
     console.log('PASS mouse rotation still works');
     const output=path.join(out,'with-background.mdx');await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},output);
-    await page.keyboard.press('Escape');await page.keyboard.press('Control+Shift+s');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
+    await page.keyboard.press('Escape');await page.keyboard.press('F12');await page.getByRole('button',{name:'Save MDX…',exact:true}).click();
     await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
     const saved=openDocument(fs.readFileSync(output),output).model,index=findPortraitBackground(saved);
     assert.equal(saved.Geosets.length,doc.model.Geosets.length+1);assert.equal(index,doc.model.Geosets.length);
