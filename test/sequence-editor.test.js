@@ -138,3 +138,15 @@ test('sequence names are directly editable and validated for the WC3 field', () 
   assert.throws(() => setSequenceMoveSpeed(model, 0, -1), /greater than or equal/);
 });
 
+
+test('shared blank-sequence action keeps its notice and does not switch after a swallowed validation error', async () => {
+  const { addAnimationSequence } = await import('../app/sequence-actions.js');
+  const doc = createDemoDocument(), notices = [], errors = [], switched = [];
+  const callbacks = { onNotice: message => notices.push(message), onError: message => errors.push(message), onTimelineChange: value => switched.push(value), onSeek: value => switched.push(value) };
+  assert.equal(addAnimationSequence({ ...callbacks, onEdit: (label, sections, mutate) => doc.apply(label, sections, mutate) }), true);
+  assert.equal(notices.at(-1), 'One-second blank sequence created.'); assert.equal(errors.at(-1), '');
+  const before = switched.length;
+  assert.equal(addAnimationSequence({ ...callbacks, onEdit: (_label, _sections, mutate) => { try { mutate({ Sequences: [{ Interval: [0, 0xffffffff] }] }); } catch { return false; } } }), false);
+  assert.match(errors.at(-1), /not enough frame space/); assert.equal(notices.at(-1), '');
+  assert.equal(switched.length, before);
+});

@@ -8,9 +8,10 @@ import { clampAlphaPercentText } from '../src/animation-controller-inputs.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_SECTIONS, animationSpeed, animationSpeedChecked, animationMasterSpeed, setAnimationActualSpeed, setAnimationSpeedChecked } from '../src/animation-speed.js';
 import SidebarSection from './SidebarSection.jsx';
 import {
-  createGlobalSequence, createSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
+  createGlobalSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
   setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
 } from '../src/sequence-editor.js';
+import { addAnimationSequence } from './sequence-actions.js';
 import './AnimationController.css';
 
 const valuesEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -176,10 +177,7 @@ export default function AnimationController({
   }
 
   function addSequence() {
-    let index = -1, start = 0;
-    if (commit('Create animation sequence', ['Sequences', 'Geosets'], current => {
-      index = createSequence(current); start = current.Sequences[index].Interval[0]; return index;
-    }, 'One-second blank sequence created.')) { onTimelineChange?.(index); onSeek?.(start); }
+    return addAnimationSequence({ onEdit, onTimelineChange, onSeek, onNotice: setNotice, onError: setError });
   }
 
   function copyCurrentSequence() {
