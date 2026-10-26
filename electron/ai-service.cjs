@@ -115,6 +115,7 @@ class AiService {
       running: this.runningChats(),
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
+      routing: config.routing || 'manual',
       spendLimit: limitOf(config, 'spendLimit'),
       stepLimit: limitOf(config, 'stepLimit'),
       sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
@@ -184,6 +185,7 @@ class AiService {
     }
     if (!['codex', 'claude', 'openai', 'anthropic', 'compatible'].includes(input.provider))
       throw Error('Unknown AI provider.');
+    if (input.routing !== undefined && !['manual', 'automatic', 'both'].includes(input.routing)) throw Error('Choose Manual, Automatic, or Both routing.');
     const previous = config.providers?.[input.provider] || {};
     if (input.baseUrl) endpoint(input.baseUrl);
     const native = ['codex', 'claude'].includes(input.provider),
@@ -204,10 +206,13 @@ class AiService {
     };
     if (input.apiKey !== undefined && input.apiKey !== '') next.key = this.encrypt(String(input.apiKey));
     if (input.clearKey) next.key = '';
+    const providerChanged = config.provider !== input.provider;
     config.provider = input.provider;
+    if (input.routing !== undefined) config.routing = input.routing;
     config.providers ||= {};
     config.providers[input.provider] = next;
     await this.persist();
+    if (providerChanged) this.emit({ type: 'organiser-reset' });
     return this.status();
   }
   async settings() {
@@ -355,7 +360,7 @@ class AiService {
       canResume: ['interrupted', 'incomplete'].includes(task.status),
     };
   }
-  async send({ id, text, images = [], context, resume = false }) {
+  async send({ id, text, images = [], context, resume = false, route, worker, job }) {
     if (this.active) throw Error('Wait for the current AI request to finish.');
     if (this.tasks.has(id)) throw Error('This chat is already working.');
     // One job per model: another chat of the same model tab waits its turn.
@@ -392,7 +397,10 @@ class AiService {
     const config = await this.configuration();
     if (conversation.modelKey) await this.markActivity(conversation.modelKey);
     try {
-      await this.runTask({
+      const offload = conversation.kind === 'organiser' && config.offload !== false;
+      const run = offload ? this.runOffload.bind(this) : this.runTask.bind(this);
+      await run({
+        route, worker, job,
         conversation,
         recorder,
         steering,
@@ -432,6 +440,99 @@ class AiService {
       await this.persistConversation(conversation);
       this.emit({ id, type: 'task', task: await this.taskInfo(id) });
     }
+  }
+  // The organiser is a local ledger. Only unaddressed automatic routing asks a model.
+  async runOffload({ conversation, recorder, steering, text, images, context, resume, settings, contract, signal, organiser: active, policy, route, worker, job }) {
+    if (resume) {
+      const prior = conversation.task;
+      if (!prior || !['interrupted', 'incomplete'].includes(prior.status))
+        throw Object.assign(Error('There is no interrupted task to resume.'), { precondition: true });
+      const bird = await this.conversation(prior.workerId, settings.provider);
+      const birdRecorder = new AiRecorder(bird, value => this.emit({ id: bird.id, ...value }));
+      const birdSteering = new AiSteering(value => birdRecorder.split(value));
+      recorder.start({ role: 'user', text: 'Resume task' });
+      active.worker = { id: bird.id, steering: birdSteering };
+      steering.forward = birdSteering;
+      try {
+        await this.runTask({ conversation: bird, recorder: birdRecorder, steering: birdSteering, text: '', images: [], context, resume: true, settings, contract, signal, policy });
+        const report = birdRecorder.report();
+        recorder.event({ type: 'text', text: report });
+        conversation.messages.push({ role: 'assistant', content: report });
+        prior.status = 'complete';
+      } finally { steering.forward = null; active.worker = null; birdSteering.close(); birdRecorder.finish(); }
+      return;
+    }
+    const config = await this.configuration();
+    const workers = (conversation.workers || []).filter(w => w.status !== 'retired');
+    const current = workers.find(w => w.id === conversation.currentWorker) || workers.at(-1);
+    const named = workers.find(w => worker === w.id || worker === w.name || new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
+    route ||= config.routing === 'automatic' ? 'auto' : 'continue';
+    if (!['continue', 'new', 'tiny', 'auto'].includes(route)) throw Error('Choose a job destination.');
+    if (worker && !named) throw Error('That bird is no longer available. Choose a current bird.');
+    recorder.start({ role: 'user', text, document: context.name, selection: context.selection, drawings: context.annotations?.strokes?.length || 0 });
+    active.cost = {};
+    let args = { job: job || text.trim().split(/\s+/).slice(0, 6).join(' ') };
+    if (named) args.worker = named.name;
+    else if (route === 'tiny') args.tiny = true;
+    else if (route === 'continue' && current) { args.worker = current.name; args.job = current.job; }
+    else if (route === 'auto' && workers.length) args = await this.routeJob({ conversation, recorder, text, workers, settings, contract, signal });
+    const previousNote = conversation.modelKey ? (await this.registry.model(conversation.modelKey)).note : null;
+    conversation.task = { prompt: text, context, status: 'running', phase: 'inspecting', steps: [], sdBrain: policy };
+    conversation.messages ||= [];
+    conversation.messages.push({ role: 'user', content: text });
+    try {
+      const result = await this.runWorker({ organiser: conversation, active, args, userText: text, images, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy, memory: previousNote });
+      conversation.task.workerId = conversation.currentWorker;
+      conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });
+      if (result.status !== 'done') throw Error(result.error || result.report);
+      conversation.task.status = 'complete';
+      conversation.task.phase = 'complete';
+      conversation.task.summary = result.report;
+    } catch (error) {
+      conversation.task.workerId = active.lastWorker || conversation.currentWorker;
+      conversation.task.status = signal.aborted ? 'interrupted' : 'incomplete';
+      throw error;
+    }
+  }
+  async routeJob({ conversation, recorder, text, workers, settings, signal }) {
+    const routing = { id: conversation.id + '-router', messages: [], transcript: [], organiserId: conversation.id };
+    let reply = '';
+    const meter = this.measureUsage(routing, recorder, 'router');
+    const available = this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] || (settings.provider === 'claude' ? [{ id: 'haiku' }] : []);
+    const light = available.find(m => /haiku|nano|mini|luna/i.test(m.id));
+    const options = {
+      settings: { ...settings, model: light?.id || settings.model, stepLimit: 1 }, key: this.decrypt(settings.key), directory: this.directory,
+      event: value => { if (value.type === 'text') reply += value.text; else meter(value); },
+      tools: [], call: async () => { throw Error('Routing has no editor tools.'); },
+      system: 'Route one message. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. Continue the relevant bird for follow-ups. New unrelated jobs have an empty worker. Small one-step jobs use tiny:true. Do not answer or paraphrase the request.',
+      prompt: JSON.stringify({ text, current: conversation.currentWorker, birds: workers.map(w => ({ id: w.id, name: w.name, job: w.job, tiny: w.tiny })) }),
+      images: [], conversation: routing, signal, awareness: null, steering: new AiSteering(() => {}),
+    };
+    try {
+      if (settings.provider === 'codex') await runCodex(options);
+      else if (settings.provider === 'claude') await runClaude(options);
+      else await runApi(options);
+    } finally { options.steering.close(); }
+    const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
+    if (typeof args.job !== 'string' || !args.job.trim() || (args.worker && !workers.some(w => w.name === args.worker))) throw Error('The router did not choose a valid job. Select a bird or New job and send again.');
+    return { job: args.job.slice(0, 160), worker: args.worker || undefined, tiny: args.tiny === true };
+  }
+  measureUsage(conversation, recorder, role) {
+    let lastTokens = 0, lastUsd = 0;
+    return value => {
+      if (!['request', 'cost'].includes(value.type)) { recorder.event(value); return; }
+      const active = this.tasks.get(conversation.organiserId || conversation.id);
+      if (!active) { if (value.type === 'cost') recorder.event(value); return; }
+      const costs = (active.cost ||= {}), cost = (costs[role] ||= { calls: 0, tokens: null, usd: null });
+      if (value.type === 'request') { cost.calls++; if (value.unit) cost.unit = value.unit; }
+      else {
+        cost.tokens = (cost.tokens || 0) + Math.max(0, value.tokens - lastTokens); lastTokens = value.tokens;
+        if (value.usd !== null) { cost.usd = (cost.usd || 0) + Math.max(0, value.usd - lastUsd); lastUsd = value.usd; }
+        if (recorder !== active.recorder) recorder.event({ ...value, roles: { [role]: { ...cost } } });
+      }
+      const rows = Object.values(costs);
+      active.recorder.event({ type: 'cost', tokens: rows.every(c => c.tokens !== null) ? rows.reduce((n, c) => n + c.tokens, 0) : null, usd: rows.every(c => c.usd !== null) ? rows.reduce((n, c) => n + c.usd, 0) : null, roles: structuredClone(costs) });
+    };
   }
   // One task on one conversation: the provider turn, edit checkpoints, verification
   // and steering. The organiser and each of its workers run through this.
@@ -517,7 +618,7 @@ class AiService {
     if (organiser) prompt += '\n\n' + (await this.organiserBriefing(conversation));
     // SD Brain: the request first becomes an art brief, once per task. Workers get
     // the organiser task's brief with their job instead of writing their own.
-    if (sd.enabled && conversation.kind !== 'worker' && !conversation.toolsOff && !task.artBrief) {
+    if (sd.enabled && !conversation.toolsOff && !task.artBrief) {
       recorder.event({ type: 'art', status: 'running' });
       let failure = '';
       try {
@@ -532,7 +633,7 @@ class AiService {
       recorder.event(failure ? { type: 'art', status: 'error', text: failure } : { type: 'art', status: 'done', text: task.artBrief });
       await this.persistConversation(conversation);
     }
-    if (task.artBrief && conversation.kind !== 'worker')
+    if (task.artBrief)
       prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
@@ -631,7 +732,7 @@ class AiService {
       organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
       ? AI_ORGANISER_PROMPT
       : conversation.kind === 'worker'
-        ? editing + '\n' + AI_WORKER_NOTE
+        ? AI_WORKER_NOTE + '\n' + editing.slice(editing.indexOf('\n') + 1)
         : editing;
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
@@ -647,7 +748,7 @@ class AiService {
           settings,
           key: this.decrypt(settings.key),
           directory: this.directory,
-          event: value => recorder.event(value),
+          event: this.measureUsage(conversation, recorder, conversation.kind === 'worker' ? 'bird' : organiser || conversation.toolsOff ? 'organiser' : 'direct'),
           tools,
           call,
           system: instructions,
@@ -733,7 +834,7 @@ class AiService {
       organiser.nextName = nextBird(organiser.birds, this.random);
     return organiser.nextName;
   }
-  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy, artBrief }) {
+  async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy, artBrief, memory }) {
     // One bird edits a model at a time; birds of other models work alongside.
     const key = organiser.modelKey || organiser.id,
       previous = this.workerLocks.get(key);
@@ -788,11 +889,13 @@ class AiService {
       const steering = new AiSteering(text => recorder.split(text));
       parentSteering.forward = steering;
       active.worker = { id: worker.id, steering };
+      active.lastWorker = worker.id;
       this.emitRunning();
       const text =
-        `Job: ${args.job}\n\nInstructions from the organiser:\n${args.instructions}\n\nThe user's message, exactly as written:\n${userText}` +
+        `Job: ${args.job}\n\n${userText}` +
         (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
-        (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '');
+        (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '') +
+        (!conversation.messages.length && memory ? `\n\nMemory note from earlier work on this model:\n${memory}` : '');
       let status = 'done',
         error;
       try {
@@ -814,6 +917,7 @@ class AiService {
         worker.status = 'idle';
         await this.persistConversation(conversation);
       }
+      organiser.currentWorker = worker.id;
       const report = recorder.report().slice(-4000);
       parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status, report });
       return {
@@ -844,9 +948,7 @@ class AiService {
       settings,
       key: this.decrypt(settings.key),
       directory: this.directory,
-      event: value => {
-        if (value.type === 'text') reply += value.text;
-      },
+      event: (() => { const meter = this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'bird'); return value => { if (value.type === 'text') reply += value.text; else meter(value); }; })(),
       tools: [],
       call: async () => {
         throw Error('The art director has no tools.');
@@ -919,6 +1021,7 @@ class AiService {
       workers: conversation.workers || [],
       earlier: entry.earlier,
       offload: config.offload !== false,
+      currentWorker: conversation.currentWorker || null,
       hasNote: !!entry.note,
     };
   }
@@ -1120,15 +1223,19 @@ class AiService {
         try {
           await client.start();
           const result = await client.request('model/list');
-          return (result.data || []).map(m => ({
+          const models = (result.data || []).map(m => ({
             id: m.model || m.id,
             name: m.displayName || m.model || m.id,
           }));
+          (this.modelCatalog ||= {})[settings.provider + ':' + (settings.baseUrl || '')] = models;
+          return models;
         } finally {
           await client.close();
         }
       }
-      return await providerModels(settings, this.decrypt(settings.key), signal);
+      const models = await providerModels(settings, this.decrypt(settings.key), signal);
+      (this.modelCatalog ||= {})[settings.provider + ':' + (settings.baseUrl || '')] = models;
+      return models;
     } finally {
       if (this.active === active) this.active = null;
     }

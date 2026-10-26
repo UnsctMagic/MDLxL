@@ -85,6 +85,7 @@ class AiRecorder {
   }
   event(value) {
     const reply = this.reply;
+    if (value.type === 'request') return;
     if (value.type === 'text' || value.type === 'thinking') {
       if (!value.text) return;
       if (value.type === 'text') reply.text += value.text;
@@ -116,7 +117,7 @@ class AiRecorder {
       else reply.parts.push({ type: 'art', status: value.status, text: value.text || '' });
     } else if (value.type === 'cost') {
       // What the prompt has spent so far, kept with the reply it belongs to.
-      reply.cost = { usd: value.usd, tokens: value.tokens };
+      reply.cost = { usd: value.usd, tokens: value.tokens, ...(value.roles ? { roles: value.roles } : {}) };
     } else if (value.type === 'usage') {
       if (value.used > 0 && value.window > 0) this.conversation.usage = { used: value.used, window: value.window };
       return;

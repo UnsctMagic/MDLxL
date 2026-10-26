@@ -49,17 +49,20 @@ applies from the next request.
 
 Each model has its own AI chat: switch model tabs to switch chats. With **Offload
 Mode** on (the default; the bird switch in the console header, next to the model
-picker) that chat is an organiser. It does not edit the model itself: it hands each
-job to a worker with a simple bird name (the first one of a chat is a corvid, the
+picker) that chat keeps the job roster and forwards work directly to a worker with a simple bird name (the first one of a chat is a corvid, the
 rest are picked at random), and the
-worker does the work with its own memory. The organiser speaks of birds by name
-("I'll ask a Crow to…", "the Crow is still…") and each bird keeps its own colour in the chat. This keeps the organiser small and fast, so long sessions do not run
+worker does the work with its own memory. Each bird keeps its own colour in the chat. Its report appears once, without an organiser recap call. Separate memories keep long sessions from running
 into compacting.
 
 - Your message reaches the worker exactly as you wrote it, together with your
-  selection and drawings; the organiser only adds instructions.
-- Follow-ups go back to the bird that did the job. Small jobs share one tiny-jobs
-  bird. Name a bird ("ask Crow to…") to choose it yourself.
+  selection and drawings. Only the working bird receives images and captured context.
+- **Job routing** in Connection settings offers Manual (default), Automatic, or Both.
+  Continue sends directly to the current bird. New job starts a fresh bird; Tiny job
+  uses the shared bird for quick tasks. Automatic uses one small text-only routing
+  call when a message has no chosen bird. Opening a bird chat or addressing its
+  name bypasses routing. The first job starts a bird without a routing call.
+- The existing reply cost line shows calls and tokens by role. Codex reports provider
+  turns; unavailable usage is labelled instead of estimated as zero.
 - A bird whose memory is half full writes a handover note and retires; a new bird
   takes over from the note.
 - One bird edits the model at a time.

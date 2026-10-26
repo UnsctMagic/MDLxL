@@ -234,7 +234,7 @@ function ToolPart({ part }) {
 }
 // A job the organiser gave to a bird; click it to open that bird's chat.
 function WorkerPart({ part, onOpen }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   return (
     <div className={'ai-worker-row ai-worker-' + part.status} style={{ '--bird': birdColor(part.name) }}>
       <button type="button" className="ai-part-toggle" title="Open this chat." onClick={() => onOpen?.(part.workerId)}>
@@ -263,13 +263,14 @@ function WorkerPart({ part, onOpen }) {
 }
 // What one API prompt cost: dollars for known Anthropic models, otherwise tokens.
 function CostLine({ cost }) {
-  const tokens = Math.round(cost.tokens / 1000).toLocaleString() + 'k tokens';
+  const tokens = cost.tokens === null ? 'tokens unavailable' : cost.tokens.toLocaleString() + ' tokens';
+  const roles = Object.entries(cost.roles || {}).map(([role, use]) => `${role}: ${use.calls} ${use.unit === 'turn' ? 'provider turns' : 'calls'} · ${use.tokens === null ? 'tokens unavailable' : use.tokens.toLocaleString() + ' tokens'}`).join(' | ');
   return (
     <div
       className="ai-cost"
       title="What this prompt has cost on your API key so far. Each step resends the conversation; repeated text is billed at a lower rate."
     >
-      {cost.usd === null ? tokens : `About $${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`}
+      {roles || (cost.usd === null ? tokens : `About ${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`)}
     </div>
   );
 }
@@ -310,6 +311,7 @@ export default function AiAssistant({ bridge }) {
   const [signedIn, setSignedIn] = useState(null);
   const [task, setTask] = useState(null),
     [awarenessBusy, setAwarenessBusy] = useState(false);
+  const [jobRoute, setJobRoute] = useState('');
   const [prompt, setPrompt] = useState(''),
     [images, setImages] = useState([]),
     [messages, setMessages] = useState([]),
@@ -416,7 +418,7 @@ export default function AiAssistant({ bridge }) {
         });
       if (event.type === 'cost')
         update(message => {
-          message.cost = { usd: event.usd, tokens: event.tokens };
+          message.cost = { usd: event.usd, tokens: event.tokens, roles: event.roles };
         });
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       // A steering message may have split the reply since the tool started.
@@ -610,7 +612,6 @@ export default function AiAssistant({ bridge }) {
       setModels([]);
       setApiKey('');
       setSignedIn(null);
-      setOrgReload(n => n + 1);
     } catch (reason) {
       setError(reason.message);
     } finally {
@@ -666,7 +667,7 @@ export default function AiAssistant({ bridge }) {
     }
     const text = prompt,
       attached = images;
-    const sending = id;
+    let sending = id;
     setSendingId(sending);
     setError('');
     setStatus('Connecting…');
@@ -681,10 +682,19 @@ export default function AiAssistant({ bridge }) {
           return;
         }
       }
+      if (org && !viewWorker) {
+        const fresh = await window.desktop.aiOrganiser({ modelKey: org.modelKey, name: summary.name });
+        if (fresh.id !== sending) {
+          sending = fresh.id;
+          activeId.current = sending;
+          setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setSendingId(sending); setMessages([]);
+        }
+      }
       const context = bridge.context();
       if (!resume) {
         setPrompt('');
         setImages([]);
+        setJobRoute('');
       }
       setMessages(previous => [
         ...previous,
@@ -698,11 +708,12 @@ export default function AiAssistant({ bridge }) {
         { role: 'assistant', text: '', parts: [] },
       ]);
       const result = await window.desktop.aiSend({
-        id,
+        id: sending,
         text,
         images: attached.map(image => image.data),
         context,
         resume,
+        route: jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue'),
       });
       if (result.authRequired) {
         setSignedIn(false);
@@ -1094,6 +1105,14 @@ export default function AiAssistant({ bridge }) {
                           </option>
                         ))}
                       </datalist>
+                    </label>
+                    <label title="Manual sends to the current bird until you choose New job. Automatic uses a small text-only AI call for unaddressed messages. Both lets you choose in the composer.">
+                      Job routing
+                      <select aria-label="Job routing" value={settings.routing || 'manual'} onChange={event => setSettings(previous => ({ ...previous, routing: event.target.value }))}>
+                        <option value="manual">Manual</option>
+                        <option value="automatic">Automatic</option>
+                        <option value="both">Both</option>
+                      </select>
                     </label>
                     {!native && (
                       <label title="Optional. A prompt stops once it has cost about this much on your API key; progress is kept. Works for Anthropic models with known prices. Leave empty for no limit.">
@@ -1491,6 +1510,14 @@ export default function AiAssistant({ bridge }) {
                       }}
                     />
                     <span className="ai-footer-end">
+                      {settings.offload !== false && !viewWorker && !readOnly && (
+                        <select aria-label="Job destination" title="Continue sends directly to the last bird. New job starts a fresh bird. Tiny job uses the shared bird for quick tasks. Automatic asks a small router to choose." disabled={busy} value={jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue')} onChange={event => setJobRoute(event.target.value)}>
+                          <option value="continue">Continue</option>
+                          {settings.routing !== 'automatic' && <option value="new">New job</option>}
+                          {settings.routing !== 'automatic' && <option value="tiny">Tiny job</option>}
+                          {settings.routing !== 'manual' && settings.routing && <option value="auto">Automatic</option>}
+                        </select>
+                      )}
                       <span className="ai-awareness">
                         <button
                           type="button"

@@ -1,6 +1,6 @@
 # Offload Mode (birds): keep the benefit, remove the overhead
 
-Status: ready for Codex to start
+Status: overhead implemented and verified; parallel and lighter-model expansions next
 Owner / consolidator: Codex (written by Claude Code after reviewing the current design with the owner)
 Updated: 26 October 2026
 
@@ -221,6 +221,48 @@ for far less.
 - Branch: `claude/offload-task` from main `9ddb2838`. Continue this branch and
   its PR; do not create a competing note.
 - Uncommitted changes: none.
+
+## Overhead measurements and decision (26 October 2026)
+
+The owner chose a settings preference: Manual, Automatic, or Both. Manual is the
+default. Continue and addressed messages go straight to a bird; New job and Tiny
+job are explicit composer destinations. Automatic makes one tool-free routing
+request for unaddressed messages with an existing roster. Its prompt contains
+only text and the roster. There is no recap request. The bird report is expanded
+once in the existing row, and its text is stored in organiser memory locally.
+
+Baseline source is main 9ddb2838 (the task branch only added documentation).
+The local compatible-provider fixture counts actual HTTP requests. Input tokens
+below are ceil(serialized messages + tool schemas characters / 4), excluding
+image payloads. The long case adds 24,000 synthetic context characters per turn;
+its reported proxy usage triggers the real half-context handover. These are
+repeatable control-flow measurements, not paid model billing or quality trials.
+
+| Scenario | Offload off calls / input proxy | Before calls / input proxy | After Manual calls / input proxy |
+| --- | ---: | ---: | ---: |
+| One message, one job | 1 / 5,840 | 3 / 7,815 | 1 / 5,822 |
+| Five messages, two jobs | 5 / 30,331 | 15 / 45,245 | 5 / 29,589 |
+| 18 messages, two jobs | 18 / 1,151,527 | 55 / 2,819,224 | 19 / 632,206 |
+
+The long Manual run has 18 working calls plus one required handover; it saves
+45.1% of the Offload-off input proxy, but does NOT satisfy a literal requirement
+for fewer calls than Offload off. The extra handover is counted, not hidden.
+The one-message image formerly appeared in three provider requests (two
+organiser, one bird); it now appears only in the bird request. SD Brain remains
+parked; its optional art-direction policy and the handbook are preserved.
+
+Recommendation: retain Offload on by default with Manual routing. Automatic
+routing trades an extra small call for convenience and cannot promise the same
+per-message call count. Native Codex counters label provider turns, not internal
+model requests; unavailable token totals stay unavailable.
+
+Verification: 57 compatibility tests passed; full source suite 1,965 passed,
+22 skipped, no failures; focused AI suite 31 passed including counting fixtures.
+The hidden packaged console test passed. The old missing bird row was caused by
+reloading the old-provider organiser before saving the new connection. Saving a
+provider now resets the organiser and sending resolves the current chat. The
+packaged test also now waits for the bird transcript rather than matching the
+same report still visible in the organiser view. No paid AI was used.
 
 ## Next action
 

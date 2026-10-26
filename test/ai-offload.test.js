@@ -24,13 +24,18 @@ async function setup(t, { organiser, worker }) {
     const data = JSON.parse(body);
     const system = data.messages[0].content;
     const kind = system.includes('SD Brain art director') ? 'art' : system.includes('You are the organiser') ? 'organiser' : 'worker';
-    requests.push({ kind, data });
+    let images = 0;
+    const inputTokens = Math.ceil(JSON.stringify({ messages: data.messages, tools: data.tools }, (key, value) => {
+      if (value?.type === 'image_url') { images++; return { type: 'image_url' }; }
+      return value;
+    }).length / 4);
+    requests.push({ kind, data, inputTokens, images });
     const answer =
       kind === 'art'
         ? { delta: { content: 'Goal: a test brief.' }, finish_reason: 'stop' }
         : await (kind === 'organiser' ? organiser : worker)(data, requests.filter(r => r.kind === kind).length);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
-    res.end('data: ' + JSON.stringify({ choices: [answer] }) + '\n\n');
+    res.end('data: ' + JSON.stringify({ choices: [answer], usage: { prompt_tokens: inputTokens, completion_tokens: Math.ceil(JSON.stringify(answer.delta).length / 4) } }) + '\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => (server.closeAllConnections(), server.close(resolve))));
@@ -55,88 +60,46 @@ const ask = args => ({
 const last = data => data.messages.at(-1);
 const userText = data => data.messages.filter(m => m.role === 'user').map(m => (typeof m.content === 'string' ? m.content : m.content[0].text)).at(-1);
 
-test('the organiser routes jobs to named birds, follow-ups return to the same bird, tiny jobs share one', async t => {
-  const plan = [
-    { job: 'Separate red garment', instructions: 'Cut the red garment into its own geoset.' },
-    { worker: 'Crow', job: 'Thicken garment edge', instructions: 'Make the edge thicker.' },
-    { tiny: true, job: 'Rename geoset', instructions: 'Rename geoset 25 to Coins.' },
-    { tiny: true, job: 'Rename bone', instructions: 'Rename the bone.' },
-  ];
-  let turn = 0;
-  const f = await setup(t, {
-    organiser: data => (last(data).role === 'tool' ? say('Done by the worker.') : ask(plan[turn++])),
-    worker: data => say('Report: finished "' + userText(data).split('\n')[0] + '"'),
-  });
-  const { id } = await f.service.organiser({ modelKey, name: 'Footman.mdx' });
-  const send = text => f.service.send({ id, text, context });
-  assert.equal((await send('I marked the red garment, cut it out like the coins')).ok, true);
-  assert.equal((await send('make it a bit thicker')).ok, true);
-  assert.equal((await send('rename geoset 25')).ok, true);
-  assert.equal((await send('rename the bone too')).ok, true);
-  const organiser = await f.service.conversation(id, 'compatible');
-  assert.deepEqual(
-    organiser.workers.map(w => [w.name, w.tiny, w.status]),
-    [
-      ['Crow', false, 'idle'],
-      ['Jackdaw', true, 'idle'],
-    ],
-  );
-  // Workers get the user's words exactly as written, beside the organiser's instructions.
-  const workerPrompts = f.requests.filter(r => r.kind === 'worker').map(r => userText(r.data));
-  assert.match(workerPrompts[0], /The user's message, exactly as written:\nI marked the red garment, cut it out like the coins/);
-  assert.match(workerPrompts[1], /make it a bit thicker/);
-  // Crow's second job continued the same conversation: it still sees its first job.
-  const crowSecond = f.requests.filter(r => r.kind === 'worker')[1].data.messages;
-  assert.ok(JSON.stringify(crowSecond).includes('cut it out like the coins'));
-  // The organiser's chat shows a worker row per job, with the report.
-  const rows = organiser.transcript.flatMap(e => e.parts || []).filter(p => p.type === 'worker');
-  assert.deepEqual(rows.map(r => [r.name, r.status]), [
-    ['Crow', 'done'],
-    ['Crow', 'done'],
-    ['Jackdaw', 'done'],
-    ['Jackdaw', 'done'],
-  ]);
-  assert.match(rows[0].report, /Report: finished "Job: Separate red garment"/);
-  // The organiser knows a bird's name before it exists, to say "I'll ask Crow to…".
-  const organiserPrompts = f.requests.filter(r => r.kind === 'organiser' && r.data.messages.at(-1).role === 'user').map(r => userText(r.data));
-  assert.match(organiserPrompts[0], /A new job would go to a new worker called Crow\./);
-  assert.match(organiserPrompts[3], /Tiny jobs go to Jackdaw\./);
-  // The organiser is told the roster each turn.
-  assert.match(userText(f.requests.filter(r => r.kind === 'organiser').at(-2).data), /- Crow: Thicken garment edge/);
-  const crow = await f.service.readConversation(organiser.workers[0].id);
-  assert.equal(crow.kind, 'worker');
-  assert.equal(crow.transcript[0].from, 'organiser');
-  // Organisers belong to the model: asking again returns the same one.
+test('manual forwarding is verbatim, follow-ups reuse their bird and tiny jobs share one', async t => {
+  const f = await setup(t, { organiser: () => { throw Error('No organiser call permitted'); }, worker: () => say('Report: complete.') });
+  const { id } = await f.service.organiser({ modelKey });
+  const image = 'data:image/png;base64,YQ==';
+  await f.service.send({ id, text: 'Cut the red garment.', job: 'Separate red garment', images: [image], context });
+  await f.service.send({ id, text: 'make it a bit thicker', context });
+  await f.service.send({ id, text: 'rename geoset 25', route: 'tiny', context });
+  await f.service.send({ id, text: 'rename the bone too', route: 'tiny', context });
+  const org = await f.service.conversation(id, 'compatible');
+  assert.deepEqual(org.workers.map(w => [w.name, w.tiny, w.status]), [['Crow', false, 'idle'], ['Jackdaw', true, 'idle']]);
+  assert.equal(f.requests.length, 4);
+  assert.equal(f.requests.filter(r => r.kind === 'organiser').length, 0);
+  assert.equal(userText(f.requests[0].data).split('\n\nMDLxL context')[0].includes('Cut the red garment.'), true);
+  assert.ok(!userText(f.requests[0].data).includes('Instructions from the organiser'));
+  assert.ok(JSON.stringify(f.requests[1].data.messages).includes('Cut the red garment.'));
+  const rows = org.transcript.flatMap(e => e.parts || []).filter(p => p.type === 'worker');
+  assert.deepEqual(rows.map(r => r.name), ['Crow', 'Crow', 'Jackdaw', 'Jackdaw']);
+  assert.ok(rows.every(r => r.report === 'Report: complete.'));
+  assert.equal(org.transcript.filter(e => e.role === 'assistant' && e.text).length, 0, 'no recap');
+  assert.equal(org.messages.filter(m => m.role === 'assistant').length, 4, 'reports stored without a call');
+  assert.ok(!JSON.stringify(org.messages).includes('image/png'), 'images never enter organiser history');
+  assert.equal(org.transcript.at(-1).cost.roles.bird.calls, 1);
   assert.equal((await f.service.organiser({ modelKey })).id, id);
 });
 
-test('with SD Brain on, birds get the same policy and the organiser can look at the result', async t => {
-  let turn = 0;
-  const f = await setup(t, {
-    organiser: data => (data.messages.at(-1).role === 'tool' ? say('ok') : (turn++, ask({ job: 'Chalice', instructions: 'Make a chalice of power.' }))),
-    worker: () => say('Made the chalice.'),
-  });
+test('SD Brain and handbook are inherited by the bird, with one art brief and no organiser call', async t => {
+  const f = await setup(t, { organiser: () => { throw Error('No organiser request'); }, worker: () => say('Made the chalice.') });
   await f.service.setSdBrain(true);
+  await f.service.setEditingHandbook(true);
   const { id } = await f.service.organiser({ modelKey });
   await f.service.send({ id, text: 'make a chalice of power', context });
-  const organiserRequest = f.requests.find(r => r.kind === 'organiser').data,
-    workerRequest = f.requests.find(r => r.kind === 'worker').data;
-  const system = request => request.messages.find(m => m.role === 'system').content;
-  assert.match(system(organiserRequest), /As the organiser with SD Brain on/);
-  assert.ok(organiserRequest.tools.some(tool => tool.function.name === 'mdlxl_capture'));
-  assert.ok(system(workerRequest).includes('SD Brain is on.') && system(workerRequest).includes('Warcraft III SD modeling rulebook'));
-  assert.match(userText(workerRequest), /Task settings: SD Brain on/);
-  // One art brief per user request: the organiser has it, and the bird gets it with its job.
+  const request = f.requests.find(r => r.kind === 'worker').data;
+  assert.match(request.messages[0].content, /Warcraft III SD modeling rulebook/);
+  assert.match(userText(request), /SD art brief for this request/);
   assert.equal(f.requests.filter(r => r.kind === 'art').length, 1);
-  assert.match(userText(organiserRequest), /SD art brief for this request[^\n]*\nGoal: a test brief\./);
-  assert.match(userText(workerRequest), /SD art brief for this request:\nGoal: a test brief\./);
-  // Off: the organiser has no capture tool and the bird gets the off state.
+  assert.equal(f.requests.filter(r => r.kind === 'organiser').length, 0);
   await f.service.setSdBrain(false);
   await f.service.send({ id, text: 'now rename it', context });
-  const lastOrganiser = f.requests.filter(r => r.kind === 'organiser' && r.data.messages.at(-1).role === 'user').at(-1).data;
-  assert.ok(!lastOrganiser.tools.some(tool => tool.function.name === 'mdlxl_capture'));
-  assert.match(system(f.requests.filter(r => r.kind === 'worker').at(-1).data), /SD Brain: off/);
-  assert.ok(!userText(f.requests.filter(r => r.kind === 'worker').at(-1).data).includes('SD art brief'));
+  assert.match(f.requests.at(-1).data.messages[0].content, /SD Brain: off/);
+  assert.ok(!userText(f.requests.at(-1).data).includes('SD art brief'));
 });
 
 test('a worker past half of its memory hands over to a new bird and retires', async t => {
@@ -196,7 +159,7 @@ test('save cleanup keeps everything, keeps a memory note, or wipes every chat fo
   assert.notEqual(second.id, first.id);
   assert.equal(second.hasNote, true);
   await f.service.send({ id: second.id, text: 'next job', context });
-  assert.match(userText(f.requests.filter(r => r.kind === 'organiser' && r.data.tools).at(-2).data), /Memory note from earlier work on this model:\nMemory: garment separated/);
+  assert.match(userText(f.requests.filter(r => r.kind === 'worker').at(-1).data), /Memory note from earlier work on this model:\nMemory: garment separated/);
 
   const wiped = await f.service.cleanup({ modelKey, mode: 'wipe' });
   assert.equal(wiped.note, null);
@@ -283,7 +246,7 @@ test('birds of different models work at the same time; a model takes one job at 
   const a = await f.service.organiser({ modelKey: 'D:/Models/A.mdx', name: 'A.mdx' }),
     b = await f.service.organiser({ modelKey: 'D:/Models/B.mdx', name: 'B.mdx' });
   const on = documentId => ({ ...context, documentId });
-  const jobA = f.service.send({ id: a.id, text: 'work on model A', context: on('A') });
+  const jobA = f.service.send({ id: a.id, text: 'work on model A', job: 'Job A', context: on('A') });
   for (let i = 0; i < 200 && !f.service.runningChats().some(r => r.id === a.id && r.worker); i++) await new Promise(r => setTimeout(r, 10));
   assert.ok(f.service.runningChats().some(r => r.id === a.id && r.worker), "A's bird is working");
   await assert.rejects(f.service.send({ id: b.id, text: 'also model A', context: on('A') }), /already working on this model/);
@@ -302,4 +265,61 @@ test('birds of different models work at the same time; a model takes one job at 
   assert.equal((await jobA).ok, true);
   assert.deepEqual(f.service.runningChats(), []);
   assert.equal(f.service.busy(), false);
+});
+test('automatic routing is one tool-free text-only call; addressed follow-ups bypass it', async t => {
+  const f = await setup(t, { organiser: () => { throw Error('No organiser'); }, worker: data => data.messages[0].content.startsWith('Route one message.') ? say(JSON.stringify({ job: 'Shield', worker: '', tiny: false })) : say('Finished.') });
+  const { id } = await f.service.organiser({ modelKey });
+  await f.service.send({ id, text: 'shape garment', context });
+  const start = f.requests.length;
+  await f.service.send({ id, text: 'inspect shield', route: 'auto', images: ['data:image/png;base64,YQ=='], context });
+  const routing = f.requests[start].data;
+  assert.equal(routing.tools, undefined);
+  assert.equal(routing.messages.length, 2);
+  assert.ok(!JSON.stringify(routing).includes('MDLxL context'));
+  assert.ok(!JSON.stringify(routing).includes('image_url'));
+  assert.equal(f.requests.length - start, 2);
+  const org = await f.service.conversation(id, 'compatible');
+  assert.equal(org.transcript.at(-1).cost.roles.router.calls, 1);
+  assert.equal(org.transcript.at(-1).cost.roles.bird.calls, 1);
+  const before = f.requests.length;
+  await f.service.send({ id, text: 'look again', worker: org.workers[0].id, route: 'auto', context });
+  assert.equal(f.requests.length - before, 1);
+});
+
+test('routing preference persists and changing provider requests a new organiser', async t => {
+  const f = await setup(t, { organiser: () => say('unused'), worker: () => say('ok') });
+  const saved = await f.service.settings();
+  await f.service.configure({ ...saved, routing: 'both' });
+  assert.equal((await f.service.status()).routing, 'both');
+  await assert.rejects(f.service.configure({ ...saved, routing: 'wrong' }), /Choose Manual/);
+  await f.service.configure({ provider: 'openai', model: 'fixture', routing: 'manual' });
+  assert.ok(f.events.some(e => e.type === 'organiser-reset'));
+});
+
+test('counting fixtures compare one job, two jobs and a real half-context handover with Offload off', async t => {
+  for (const [count, split, padding] of [[1, 1, 0], [5, 3, 0], [18, 14, 24000]]) {
+    const totals = [];
+    for (const enabled of [false, true]) {
+      const f = await setup(t, { organiser: () => { throw Error('Unexpected organiser'); }, worker: () => say('Report: inspected; protected parts unchanged.') });
+      await f.service.setOffload(enabled);
+      const { id } = await f.service.organiser({ modelKey });
+      for (let i = 0; i < count; i++) {
+        assert.equal((await f.service.send({ id, text: 'Inspect this region; keep protected parts unchanged.', route: i === split ? 'new' : 'continue', context: { ...context, fixturePayload: 'x'.repeat(padding) }, images: i === 0 ? ['data:image/png;base64,YQ=='] : [] })).ok, true);
+      }
+      const org = await f.service.conversation(id, 'compatible');
+      totals.push({ calls: f.requests.length, tokens: f.requests.reduce((n, r) => n + r.inputTokens, 0), handovers: org.workers?.filter(w => w.status === 'retired').length || 0 });
+      if (enabled) {
+        assert.equal(f.requests.filter(r => r.kind === 'organiser').length, 0);
+        const rows = org.transcript.flatMap(e => e.parts || []).filter(p => p.type === 'worker');
+        assert.equal(rows.length, count);
+        assert.equal(org.transcript.filter(e => e.role === 'assistant' && e.text).length, 0);
+        assert.equal(org.messages.filter(m => m.role === 'assistant').length, count);
+        assert.ok(org.transcript.at(-1).cost.roles.bird.tokens > 0);
+      }
+    }
+    assert.ok(totals[1].tokens <= totals[0].tokens, JSON.stringify(totals));
+    if (count === 18) { assert.equal(totals[1].handovers, 1); assert.equal(totals[1].calls, count + 1); }
+    else assert.equal(totals[1].calls, totals[0].calls);
+    t.diagnostic(JSON.stringify({ messages: count, off: totals[0], on: totals[1] }));
+  }
 });
