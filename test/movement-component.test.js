@@ -9,10 +9,12 @@ import { animationTargets, sampleAnimationProperty } from '../src/animation-trac
 
 // Execute the real JSX component, not a regex over source. This catches
 // undefined render-time variables even when the production bundler succeeds.
-async function component(file) {
+async function component(file, onElement) {
   const result=await build({entryPoints:[new URL('../app/'+file,import.meta.url).pathname.replace(/^\/(\w:)/,'$1')],bundle:true,write:false,format:'cjs',platform:'node',packages:'external',loader:{'.css':'empty'},logLevel:'silent'});
   const module={exports:{}};
-  new Function('require','module','exports',result.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
+  const require = createRequire(import.meta.url);
+  const load = id => id === 'react' && onElement ? { ...React, createElement: (...args) => { onElement(...args); return React.createElement(...args); } } : require(id);
+  new Function('require','module','exports',result.outputFiles[0].text)(load,module,module.exports);
   return module.exports.default;
 }
 const Movement=await component('MovementControllerRecomp.jsx');
@@ -37,7 +39,7 @@ test('actual Movement component renders normal and Portrait mode without excepti
     if(portraitMode){assert.doesNotMatch(options,/All line|Global 1/);assert.match(options,/Stand/);assert.match(options,/Portrait Talk/);assert.match(options,/>Portrait</);}
     else {assert.match(options,/Stand/);assert.match(options,/All line/);assert.match(options,/Global 1/);}
     assert.match(html,/aria-label="Move"/);assert.match(html,/aria-label="Rotate"/);assert.match(html,/aria-label="Scale"/);
-    assert.doesNotMatch(html,/Portrait Camera|Set Current View|>Create<\/button>/);
+    assert.doesNotMatch(html,/Portrait Camera|Set Current View/);
   }
 });
 test('Movement removes Own Axis, starts Restrictions minimized and Controller expanded',()=>{
@@ -146,4 +148,44 @@ test('Animations exposes every toolbox group as a default-open collapsible secti
   const html=renderToStaticMarkup(React.createElement(Animation,{model:fixture(),sequenceIndex:0,time:0,selectedGeosets:[]}));
   for(const title of ['Current Sequence','Sequence Properties','Visibility &amp; Color']) assert.match(html,new RegExp(`<summary>${title}<\\/summary>`));
   assert.equal((html.match(/<details class="sidebar-section" open=""/g)||[]).length,3);
+});
+
+test('Movement and Animations Create click the shared undoable action and switch to the first frame', async () => {
+  for (const file of ['MovementControllerRecomp.jsx', 'AnimationController.jsx']) {
+    const buttons = [];
+    const Controller = await component(file, (type, props, ...children) => {
+      if (type === 'button' && children[0] === 'Create') buttons.push(props);
+    });
+    for (const portraitMode of [false, true]) {
+      const doc = createDemoDocument(), before = structuredClone(doc.model), changes = [], timeline = [], seeks = [], playing = [];
+      buttons.length = 0;
+      renderToStaticMarkup(React.createElement(Controller, {
+        model: doc.model, sequenceIndex: 0, portraitMode,
+        onEdit: (label, sections, mutate) => { changes.push({ label, sections }); return doc.apply(label, sections, mutate); },
+        onTimelineChange: index => timeline.push(index), onSeek: time => seeks.push(time), onPlayingChange: value => playing.push(value),
+      }));
+      assert.equal(buttons.length, 1);
+      assert.equal(buttons[0].disabled, false);
+      buttons[0].onClick();
+      const index = before.Sequences.length, interval = doc.model.Sequences[index].Interval;
+      assert.deepEqual(changes, [{ label: 'Create animation sequence', sections: ['Sequences', 'Geosets'] }]);
+      assert.deepEqual(timeline, [index]); assert.deepEqual(seeks, [interval[0]]);
+      assert.equal(interval[1] - interval[0], 1000);
+      assert.deepEqual(doc.model.Bones, before.Bones);
+      assert.equal(doc.historyStats.undoSteps, 1);
+      if (file.startsWith('Movement')) { assert.deepEqual(playing, [false]); assert.equal(buttons[0].title, 'Make a new blank one-second animation and switch to it.'); }
+      doc.undo(); assert.deepEqual(doc.model, before);
+    }
+  }
+});
+
+test('Movement Create stays inside Current Sequence, is disabled for read-only/saving and absent in rest pose', () => {
+  const model = fixture();
+  for (const vanilla of [false, true]) {
+    const html = renderToStaticMarkup(React.createElement(Movement, { model, vanilla, disabled: true }));
+    assert.match(html, /<summary>Current Sequence<\/summary>[\s\S]*?class="movement-sequence"[\s\S]*?<\/select><button disabled="" title="Make a new blank one-second animation and switch to it\.">Create<\/button><\/div><\/div><\/details>/);
+    assert.doesNotMatch(html, />Create from current<|>Global<|>Delete<\/button>/);
+  }
+  const rest = renderToStaticMarkup(React.createElement(Movement, { model, restPose: true }));
+  assert.doesNotMatch(rest, /Current Sequence|Make a new blank one-second/);
 });

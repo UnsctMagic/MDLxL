@@ -98,6 +98,7 @@ import { VertexTools, GeosetPicker, RigSidebar } from './AppSidebar.jsx';
 import { GEOSET_TABS_KEY, geosetsInTab } from '../src/geoset-tabs.js';
 import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
+import { effectNodes } from '../src/particle-recipes.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
 import SidebarResizer, { PANEL_WIDTH_EVENT } from './SidebarResizer.jsx';
 
@@ -660,8 +661,10 @@ export default function App() {
   const openLibrary = (preview = uvEditing, full = false) => setDialog({ type: 'library', preview, full, host: preview && uvWindow ? 'uv' : 'main', returnTo: dialog?.type === 'resource' ? dialog : null });
   const openParticles = id => {
     setPlaying(false);
-    const selected=Number.isInteger(id)?id:selectedNodeIds.at(-1),isEffect=['ParticleEmitters2','RibbonEmitters','ParticleEmitters','ParticleEmitterPopcorns'].some(family=>model[family].some(node=>node.ObjectId===selected));
-    setDialog({type:'particles',nodeId:isEffect?selected:undefined,attachmentId:selectedBone?.ObjectId,selection:validSelection});
+    const effects = effectNodes(model), selected = Number.isInteger(id) ? id : selectedNodeIds.at(-1);
+    const nodeId = effects.find(({ node }) => node.ObjectId === selected)?.node.ObjectId
+      ?? model.RibbonEmitters[0]?.ObjectId ?? effects[0]?.node.ObjectId;
+    setDialog({type:'particles',nodeId,attachmentId:selectedBone?.ObjectId,selection:validSelection});
   };
   const inspectGeoset = index => { if(model.Geosets[index])setActiveGeoset(index); };
   const openNodeManager = () => setDialog({ type: 'resource', kind: 'Nodes' });
