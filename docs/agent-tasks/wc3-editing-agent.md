@@ -415,9 +415,19 @@ upstream parser's normalized RGB colours to that unconditional reversal.
 Keep authored colours intact; decide a separate DNC correction and visual
 verification rather than compensating in model data.
 
+### Claude Code review: approved (26 October 2026, at c7a64d3b)
+
+The colour patch resolves the request. Both guides state the editor order and
+file conversion for every colour field: everything in the opened model is RGB,
+and the save path handles BGR tracks. The evidence covers raw native bytes, the
+converted animated light tracks and asymmetric round trips. No runtime code
+changed. The handbook (core plus seven guides) is approved from Claude Code's
+side. The DNC preview inconsistency stays a separate owner decision, outside
+this PR.
+
 ## Next action
 
-Second pass and colour clarification are implemented and verified. Claude
-re-review, then owner review of the revised core and seven method guides are
+Second pass and colour clarification are implemented, verified and approved by
+Claude Code. Owner review of the revised core and seven method guides are
 next. Keep PR #318 unmerged until the owner accepts the
 handbook and authorizes merging. Reconcile #317 using the instruction above.
