@@ -8,6 +8,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const root = process.cwd(), out = path.join(root, 'out', 'ai-hotkeys');
   await fs.mkdir(out, { recursive: true });
   const profile = await fs.mkdtemp(path.join(out, 'profile-'));
+  // Learn mode ships off; this test checks its reminders, so it turns it on.
+  await fs.writeFile(path.join(profile, 'settings.json'), JSON.stringify({ preferences: { learn: { enabled: true } } }));
   const { createDemoDocument } = await import('../src/editor-document.js');
   const fixture = path.join(out, 'shortcuts.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
