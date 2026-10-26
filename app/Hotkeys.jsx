@@ -40,7 +40,7 @@ function enabled(element) { return !element.disabled && element.getAttribute('ar
  * inside it (`parentGroup`).
  */
 function controlWindow(element) {
-  const modal = element.closest('[role="dialog"][aria-modal="true"]');
+  const modal = element.closest('[role="dialog"][aria-modal="true"]') || element.closest('[data-hotkey-window]');
   if (!modal) return { group: 'editor', embedsEditor: false };
   const group = modal.getAttribute('data-hotkey-prefix') || modal.getAttribute('aria-label') || 'dialog';
   const page = element.closest('[role="tabpanel"][id]');
@@ -104,7 +104,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         const title = [element.getAttribute('data-hotkey-base-title'), forgeHint && keys.length ? translate(`Hotkey: ${keys.map(formatChord).join(' / ')}`) : shortKeys.length ? translate(`Hotkey: ${shortKeys.map(formatChord).join(' / ')}`) : ''].filter(Boolean).join('\n');
         element.setAttribute('title', title); element.setAttribute('data-hotkey-tooltip', title);
         // Forge's own tiles keep their compact look: their window keys show in the tooltip only.
-        if (element.tagName !== 'BUTTON' || element.getAttribute('data-hotkey-badges') === 'false' || forgeHint && !commandIds.has(id)) continue;
+        if (element.tagName !== 'BUTTON' || element.closest('[data-hotkey-badges]')?.getAttribute('data-hotkey-badges') === 'false' || forgeHint && !commandIds.has(id)) continue;
         let badge = element.querySelector(':scope > [data-hotkey-badge]');
         const text = keys.length ? (forgeHint ? hotkeyCode(keys[0]) : '') || hotkeyBadge(keys[0]) || formatChord(keys[0]) : '';
         if (!text) { if (badge) badge.remove(); element.classList.remove('hotkey-control'); continue; }
@@ -146,7 +146,11 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       const ownerDocument = event.target?.ownerDocument || document;
       const roots = controlRoots().filter(element => element.ownerDocument === ownerDocument);
       // A main application modal also blocks controls in the detached editor.
-      const modal = activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1), modalScope = modal?.getAttribute('data-hotkey-scope') || modal?.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope');
+      const modal = activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1);
+      // A docked console owns keys only while focus is inside it. The model editor
+      // remains usable beside it; a real modal still takes priority over both.
+      const localWindow = modal || event.target?.closest?.('[data-hotkey-window]');
+      const modalScope = localWindow?.getAttribute('data-hotkey-scope') || localWindow?.closest('[data-hotkey-scope]')?.getAttribute('data-hotkey-scope');
       // Forge's shape tools own their keys only in the visible Shape workspace.
       // Other editors keep their original bindings, even when a key is reused here.
       const forge = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey-scope="forge-shapes"]')]).find(element => visible(element) && (!modal || modal.contains(element)));
@@ -157,13 +161,13 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       // on screen in the active window (or commands that can run there) take part.
       const controls = roots.flatMap(element => [...element.querySelectorAll('[data-hotkey]')]);
       const plans = candidates.map(action => {
-        const available = controls.filter(element => controlActionId(element) === action.id && visible(element) && (modal ? modal.contains(element) : !element.closest('[role="dialog"][aria-modal="true"]')));
+        const available = controls.filter(element => controlActionId(element) === action.id && visible(element) && (localWindow ? localWindow.contains(element) : !element.closest('[role="dialog"][aria-modal="true"], [data-hotkey-window]')));
         if (available.length && available.every(element => !enabled(element))) return null;
         const target = available.find(enabled);
         // A dialog's local button owns its availability (and its own history).
         // The main document may have nothing to undo while Forge has edits.
-        if (!canHandleHotkeyEvent(event, modal && target ? { ...action, enabled: true } : action)) return null;
-        const canRun = (typeof action.run === 'function' || typeof dispatch === 'function' && !action.contextual) && (modal ? action.allowInModal === true || action.scope === modalScope : !action.scope || action.scope === scope || action.scope === 'global');
+        if (!canHandleHotkeyEvent(event, localWindow && target ? { ...action, enabled: true } : action)) return null;
+        const canRun = (typeof action.run === 'function' || typeof dispatch === 'function' && !action.contextual) && (localWindow ? action.allowInModal === true || action.scope === modalScope : !action.scope || action.scope === scope || action.scope === 'global');
         return target || canRun ? { action, target } : null;
       }).filter(Boolean);
       // Reject duplicate bindings within the active context; a control on screen beats a command that only could run.
@@ -183,13 +187,14 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     };
     const keydown = event => {
       if (event.target?.closest?.('[data-hotkey-recording]')) { cancel(); return; }
-      if(!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
+      const inLocalWindow = !!event.target?.closest?.('[data-hotkey-window]');
+      if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
       // The focused UV workspace owns numpad nudges before global number shortcuts.
-      if(!window.dispatchEvent(new CustomEvent('mdlxl-uv-key',{detail:event,cancelable:true}))){cancel();return;}
+      if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-uv-key',{detail:event,cancelable:true}))){cancel();return;}
       // Paint owns its brush/clipboard shortcuts before global mesh commands.
-      if(latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
-      if (event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
-      if (event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
+      if(!inLocalWindow&&latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
+      if (!inLocalWindow && event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
+      if (!inLocalWindow && event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);
       // Text selected in the AI chat copies as text; the editor's Copy is for the model.
@@ -224,7 +229,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       const ownerDocument=event.target?.ownerDocument || document;
       const roots=controlRoots().filter(element=>element.ownerDocument===ownerDocument);
       const modal=activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1);
-      for(const controlRoot of controlRoots()) for(const element of controlRoot.querySelectorAll('.hotkey-control'))element.dataset.hotkeyAvailable=String(element.ownerDocument===ownerDocument&&enabled(element)&&visible(element)&&(!modal||modal.contains(element)));
+      const localWindow=modal||event.target?.closest?.('[data-hotkey-window]');
+      for(const controlRoot of controlRoots()) for(const element of controlRoot.querySelectorAll('.hotkey-control'))element.dataset.hotkeyAvailable=String(element.ownerDocument===ownerDocument&&enabled(element)&&visible(element)&&(localWindow?localWindow.contains(element):!element.closest('[data-hotkey-window]')));
       ownerDocument.documentElement.dataset.shortcutHints='true';
     };
     const dismiss = () => { for(const element of controlRoots())delete element.ownerDocument.documentElement.dataset.shortcutHints; delete document.documentElement.dataset.shortcutHints; };

@@ -28,7 +28,7 @@ export function updateShredderNotebook(update) {
   return next;
 }
 
-const CONTROLS = 'button, [role="button"], [role="tab"], [role="radio"], [role="menuitem"], input[type="checkbox"], input[type="radio"]';
+const CONTROLS = 'button, summary, [role="button"], [role="tab"], [role="radio"], [role="menuitem"], input[type="checkbox"], input[type="radio"]';
 const OWN_UI = '.shredder-keycap';
 const GAP = 8, EDGE = 6;
 

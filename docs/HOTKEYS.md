@@ -95,8 +95,8 @@ together.
   app:
   - Fit is Home;
   - in the Material Manager, N is New and Esc closes it.
-- The 2026-10-26 crawl after merging main inspected 1,022 registered control
-  sightings; 930 had keys, with no generated codes, keys longer than two, or
+- The 2026-10-26 crawl after merging main inspected 1,032 registered control
+  sightings; 940 had keys, with no generated codes, keys longer than two, or
   clashes within a window. The remainder are extra Close / Done / Cancel
   buttons and per-item rows. It used the existing Footman for editor/windows
   and an MDX800 demo for Paint (the Footman is MDX1800, unsupported by Paint).
@@ -105,7 +105,14 @@ together.
 - The Particle Editor, AnimXL and the Texture Library have no hotkey-reachable
   controls yet.
 
-- The new AI console and connection settings also lack `data-hotkey` hooks.
-  Attach/reference and connection-copy controls are therefore not covered by
-  the registered-control count. AI shortcut scope awaits the owner's decision;
-  it is not an accepted extension of the three exclusions above.
+- [AI console interaction test](../test/ai-hotkeys.electron.cjs) separately
+  audits 101 keyed control sightings across the console, API/native settings,
+  reference attachment and palette. All keys come from names, with no long
+  defaults or clashes. It also checks compact layout, typing/copy/paste, sending,
+  reference removal, settings, cleanup and focus changes between AI/Paint/editor.
+- The docked AI console is its own shortcut window while focus is inside it
+  (click a console control or its background). Clicking the model editor gives
+  its keys back. Prompt and connection fields keep native typing and clipboard
+  keys; Enter still sends. A modal takes precedence over the console. Tooltips
+  and Shredder teach the keys without adding permanent badges to its controls.
+  Repeated chat/history entries retain the existing per-item policy.

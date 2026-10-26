@@ -1,6 +1,6 @@
 # Shredder keycap shortcut reminders
 
-Status: ready for review; awaiting merge approval. AI shortcut scope remains pending.
+Status: ready for review; awaiting merge approval. AI shortcuts included by owner request.
 Owner / consolidator: Codex continuation of Claude Code’s PR #304
 Updated: 2026-10-26
 
@@ -177,13 +177,36 @@ packaged Shredder check, then report `ready for review; awaiting merge approval`
   fixture is MDX1800. The first crawl's Paint timeouts were fixture limitations;
   the separate Paint crawl completed, followed by a transient profile-file lock
   during cleanup. Audit outputs were written successfully.
-- Coverage gap: AI console and connection settings have no shortcut hooks,
-  including Attach/reference and connection-copy controls. This contradicts
-  the review's assumption that allocation could simply be confirmed. The owner
-  was asked whether to add these here or handle them separately; no answer yet.
-  This remains an open scope decision, not a newly approved exclusion.
+- The audit found AI controls lacked shortcut hooks. The owner explicitly chose
+  to add AI console shortcuts to this branch; the following section records the
+  implementation and verification. The original three exclusions are unchanged.
 - Preserve test-on flag, original three exclusions and every owner refinement.
   No merge into main, release, installed-app/profile change or new visible app.
 - PR CI is checked after pushing; its final result is recorded in the review
   report and PR description. User visible acceptance and Warcraft III gameplay
   are not claimed by these checks.
+
+## Owner-approved AI shortcut coverage (2026-10-26)
+
+- Added explicit shortcut identities to the existing AI controls, including
+  connection settings/fields, Attach/remove reference, Send/Stop, drawing tools,
+  palette and cleanup. The same name allocator supplies one- or two-key defaults.
+  Console buttons keep their size and layout; tooltips and Shredder show keys.
+- The docked console owns keys while focused. The editor keeps its shortcuts
+  beside it, and real modals still take priority. Paint/UV/Showcase handlers do
+  not intercept focused-console keys. Prompt typing, native copy/paste and
+  Enter-to-send are preserved. No provider or service behavior changed.
+- The cleanup portal uses the existing detached-root registration so Escape
+  reaches its close action. Reference slots use stable control IDs; repeated
+  history/chat rows remain per-item controls as elsewhere in the app.
+- Packaged AI checks pass with local provider fixtures (no external AI sends):
+  name-based keys, compact 400px console, Shredder, editor/AI/modal routing,
+  prompt typing and unconsumed clipboard keys, connection copy, attach/remove
+  reference, Enter and shortcut Send, palette, Paint transition and cleanup.
+- Final crawl: 940 keyed / 1,032 registered editor/Paint control sightings;
+  separate AI audit: 101 / 101 across five UI states. No codes, long defaults
+  or within-context clashes. 27 focused checks, source 1,971 pass / 22 skipped,
+  compatibility 57 pass, build and verified portable packaging pass.
+- All Shredder packaged regressions are rerun after the focus-routing change.
+  Final logs and CI result remain in D:\Codex\mdlxl-shredder-review-20261026.
+  No visible app was opened, and existing user apps/profiles remain untouched.
