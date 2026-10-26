@@ -55,6 +55,17 @@ test('a shortcut can repeatedly toggle its focused control without stealing nati
   assert.equal(canHandleHotkeyEvent({ key: 'ArrowLeft', target: { tagName: 'INPUT', type: 'radio' } }), false, 'radio group arrow navigation remains native');
   assert.equal(canHandleHotkeyEvent({ key: ' ', target: { tagName: 'BUTTON' } }), false, 'a focused button keeps native Space activation');
 });
+test('Space always plays or stops, whatever control was clicked last', () => {
+  const play = { id: 'play' };
+  for (const target of [{ tagName: 'INPUT', type: 'checkbox' }, { tagName: 'INPUT', type: 'radio' }, { tagName: 'INPUT', type: 'range' }, { tagName: 'BUTTON' }, { tagName: 'SELECT' }]) {
+    assert.equal(canHandleHotkeyEvent({ key: ' ', target }, play), true, `Space plays with a focused ${target.type || target.tagName}`);
+  }
+  for (const target of [{ tagName: 'INPUT', type: 'text' }, { tagName: 'INPUT', type: 'number' }, { tagName: 'TEXTAREA' }, { isContentEditable: true }]) {
+    assert.equal(canHandleHotkeyEvent({ key: ' ', target }, play), false, `Space types in a ${target.type || target.tagName || 'text box'}`);
+  }
+  assert.equal(canHandleHotkeyEvent({ key: ' ', target: { tagName: 'BUTTON' } }, play), true);
+  assert.equal(canHandleHotkeyEvent({ key: ' ', target: { tagName: 'BUTTON' } }, { ...play, enabled: false }), false, 'no model, no playback');
+});
 test('deeply scoped resource shortcuts survive preference serialization without truncating their identity', () => {
   const id = ['resource:ParticleEmitter2', 'section:Animated particle appearance and visibility', 'track:Head and tail segment color transitions', 'section:Hermite interpolation tangents at selected animation frame', 'key:2147483647', 'vector:Incoming interpolation tangent', 'field:Z'].join(':');
   assert.ok(id.length > 200);

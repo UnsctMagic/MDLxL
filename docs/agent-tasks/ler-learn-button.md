@@ -501,3 +501,77 @@ The raw samples are retained for Claude's re-review.
   approval. No version bump, merge or release is authorized or performed.
 
 Session: codex MDLxL persistent hotkey resize re-review response
+
+## Codex: main sync (2026-10-26)
+
+Merged `origin/main` at `96d45dbb` into `claude/shredder-keycaps` from
+`c79df5e2`, using a merge commit, without rebasing. Only `app/Settings.jsx`
+conflicted. The resolution keeps main's entire `MOUSE_PAGES`, `lastMousePage`
+and `RotationSettings` block unchanged, followed by the branch's
+`const LEARN_CHOICES = [` instead of `const SHREDDER_CHOICES = [`.
+The preserved rotation block was compared directly with main and matches
+exactly. The accepted resize fix in `app/Hotkeys.jsx` is unchanged.
+
+The optional test correction changes the single `.shredder-keycap` wait in
+`test/ai-console.electron.cjs` to `.learn-keycap`; its syntax check passes.
+The AI-console runtime flow was not rerun. Comparing the staged result with
+Git's automatic merge tree confirms that the only manual code changes are the
+specified Settings conflict resolution and this selector. The other addition
+is this requested handoff section.
+
+### Verification
+
+- Full source suite: **2,012 passed, 22 skipped, zero failures**. Compatibility:
+  **57 passed**. The actual translation catalog counts are **RU 6,401 / ES 6,413 /
+  ZH 3,600**; the existing count assertions pass unchanged. No catalog or expected
+  count was adjusted to conceal a merge issue.
+- Production build and portable packaging pass: **1,223 runtime/assets** and
+  **55 Electron locales** verified. The existing Vite chunk-size warning remains.
+  `git diff --check` passes.
+- Hidden packaged `rotation-interaction`: **402 checks passed**, zero failures
+  and zero renderer errors. This executes `rotation-local` inside the same
+  packaged app, including reversed Local axes, Linear/Pivot behavior, Movement
+  workplanes, POSE body/node cases, preservation and exact Undo. It also covers
+  real camera rotation, cancellation, Vertices, UV, Forge, Showcase, settings
+  inheritance and overrides. No visible owner-desktop window or popup opened.
+- Hidden packaged `hotkey-badges`, `learn-menu` and `learn`: **all pass**.
+  The resize check confirms **all 30 Movement labels** at their own controls'
+  top-right corners after **1600 -> 1100 -> 1920**, including the short-name
+  transitions. Appearance, held Alt, dialogs, detached roots, scrolling, Learn
+  timing, persistence, storage recovery, Paint and real mouse drags pass.
+- Additional hidden packaged probe: with **Show hotkeys on**, opened
+  **Settings -> Mouse -> Rotation**. All **10 shown labels** belong to Settings
+  controls and match their own controls' top-right corners within one CSS pixel,
+  retaining viewport clamping. No editor labels or renderer errors remain.
+  The capture was also inspected visually.
+
+### Playback after the main sync
+
+Both default and 4x CPU `hotkey-playback` checks pass, with **zero hint rectangle
+reads and zero hint style reads** during real Stand playback in Movement, the
+timeline advancing, and 30 persistent labels shown. Each variant uses three
+ten-second samples per state in alternating order, with one-second warmups.
+Source tests, builds and the other UI tests had finished before these samples.
+
+| Variant | Hints off FPS | Hints on FPS | Worst off (ms) | Worst on (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Default | 57.97 | 58.19 | 31.0 | 27.5 |
+| 4x CPU throttling | 58.50 | 58.71 | 38.0 | 38.2 |
+
+These are the measured samples on this PC; the zero-read assertions pass in
+both variants. Raw samples and complete logs are retained for the final review.
+
+### Handoff
+
+- Push the merge commit and this note together on the existing branch. CI must
+  be green on that new head before handoff; the exact head and verified run are
+  recorded in PR #325's description/checks.
+- Small verification logs, raw playback JSON, rotation acceptance evidence and
+  two captures are retained under `D:\Codex\mdlxl-main-sync-20261026`. The used
+  package and test profiles are removed, no task test/helper remains, and the
+  finished worktree and temporary caches are removed after pushing. Existing
+  user installations, profiles and unrelated task directories are untouched.
+- Next action: **Claude's final check of PR #325 and merge**. Codex leaves the
+  PR unmerged. No version bump, tag or release was made.
+
+Session: codex MDLxL PR 325 main sync

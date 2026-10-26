@@ -1,3 +1,4 @@
+import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { drawEditHandles } from './viewport-edit-handles.js';
 import * as THREE from 'three';
@@ -558,6 +559,11 @@ export default function Viewport(inputProps) {
       if (anchorIndices?.includes(anchor.vertexIndex)) pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
       down.pivotScreen = screenPosition(pivot, start);
       const lockedPlane = quad && boundPane.workplane;
+      if (down.action === 'rotate') {
+        const axis = [0, 1, 2].find(i => !planeAxes(lockedPlane || p.workplane).includes(i));
+        const facing = new THREE.Vector3().setComponent(axis, 1).dot(camera.position.clone().sub(controls.target));
+        down.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, p.rotationEditor || 'vertices'), x: down.x, y: down.y, pivot: down.pivotScreen, pivotSign: facing > 0 ? -1 : 1 });
+      }
       state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, handle: gizmoHandle, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null }, latch: shiftDragLatch(start, event.shiftKey) };
     }
     function translateInPlane(start, end, drag, constrain) {
@@ -623,11 +629,8 @@ export default function Viewport(inputProps) {
       }
       if (drag.action === 'scale') { scale.fromArray(dragScale(dx, drag.workplane, event.shiftKey)); payload.scale = scale.toArray(); payload.allowSingularScale = true; }
       if (drag.action === 'rotate') {
-        const a = new THREE.Vector2(down.x, down.y).sub(drag.pivotScreen), b = new THREE.Vector2(end.x, end.y).sub(drag.pivotScreen);
-        let angle = a.length() > 12 && b.length() > 12 ? Math.atan2(a.x * b.y - a.y * b.x, a.dot(b)) : dx * .01;
+        let angle = rotationDragDegrees(drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity) * Math.PI / 180;
         const axis = [0, 1, 2].find(i => !planeAxes(drag.workplane).includes(i));
-        const normal = new THREE.Vector3().setComponent(axis, 1), viewDirection = camera.position.clone().sub(controls.target);
-        if (normal.dot(viewDirection) > 0) angle = -angle;
         if (event.shiftKey) angle = Math.round(angle / (Math.PI / 12)) * Math.PI / 12;
         const degrees = [0, 0, 0]; degrees[axis] = THREE.MathUtils.radToDeg(angle); payload.rotation = degrees;
         rotation.set(degrees[0] * Math.PI / 180, degrees[1] * Math.PI / 180, degrees[2] * Math.PI / 180);

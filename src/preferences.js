@@ -1,3 +1,4 @@
+import { DEFAULT_ROTATION, normalizeRotationPreferences } from './rotation-drag.js';
 import { normalizePreviewLighting } from './preview-lighting.js';
 import { treeAppearanceForTheme } from './tree-appearance.js';
 import { controllerAppearanceForTheme } from './controller-appearance.js';
@@ -46,6 +47,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
   pointerSensitivity: 1,
+  rotation: DEFAULT_ROTATION,
   rightScrollAdjust: true,
   highlightSelection: false,
   theme: 'light', accent: '#71b5f3', toolHighlight: '', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
@@ -177,6 +179,7 @@ export function normalizePreferences(value = {}) {
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(10, Math.max(0.1, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: ['rotate', 'scroll', 'pointer'].includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(4, Math.max(0.01, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,
+    rotation: normalizeRotationPreferences(input.rotation),
     highlightSelection: boolean(input.highlightSelection, false),
     theme: Object.hasOwn(APPLICATION_THEMES, input.theme) ? input.theme : 'light',
     accent: /^#[0-9a-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : '#71b5f3',
@@ -279,6 +282,13 @@ export function isTextEditingTarget(target) {
   if (tag === 'input') return !['checkbox', 'radio', 'button', 'submit', 'reset', 'image'].includes(String(target.type || 'text').toLowerCase());
   return ['textarea', 'select'].includes(tag);
 }
+export function isTypingTarget(target) {
+  if (!target) return false;
+  if (target.isContentEditable || target.closest?.('[contenteditable="true"], [role="textbox"], [data-hotkey-recording]')) return true;
+  const tag = String(target.tagName || '').toLowerCase();
+  if (tag === 'input') return !['checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'range', 'color'].includes(String(target.type || 'text').toLowerCase());
+  return tag === 'textarea';
+}
 function isNativeControlKey(event, chord) {
   const target = event.target;
   const tag = String(target?.tagName || '').toLowerCase(), type = String(target?.type || '').toLowerCase();
@@ -290,6 +300,9 @@ function isNativeControlKey(event, chord) {
 export function canHandleHotkeyEvent(event, action = {}) {
   const chord = chordFromEvent(event);
   if (!chord || event.defaultPrevented || event.repeat && !action.repeat) return false;
+  // Space means playback: a clicked checkbox, button, slider or list keeps focus
+  // but must not take Space from play. Only typing fields keep their space.
+  if (chord === 'Space' && action.id === 'play' && !isTypingTarget(event.target)) return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
   // A focused toggle remains shortcut-addressable, while its native activation/navigation keys keep their usual meaning.
   if (isNativeControlKey(event, chord)) return false;
   if (isTextEditingTarget(event.target) && !action.allowInInput) return false;
