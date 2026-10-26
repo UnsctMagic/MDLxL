@@ -1,3 +1,4 @@
+import { beginRotationDrag, rotationDragDegrees } from '../src/rotation-drag.js';
 import { Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
@@ -250,14 +251,14 @@ export function movementDragAmount(handle, dx, dy, mode, sensitivity = 1) {
   return mode === 'rotate' ? pixels : mode === 'scale' ? Math.max(.01, Math.exp(pixels / 100)) : pixels * handle.unitsPerPixel;
 }
 
-/** Rotate reads displacement in a fixed screen basis: right/up is positive.
- * Neither the pivot, projected handle nor camera-facing side changes its sign. */
-export function movementRotationGesture() {
-  return { direction: { x: 1, y: -1 } };
+/** Linear Rotate uses a fixed right/up-positive screen basis.
+ * Pivot-based input is an explicit preference, shared with the other editors. */
+export function movementRotationGesture(options) {
+  return beginRotationDrag(options);
 }
 
 export function movementRotationAmount(gesture, dx, dy, sensitivity = 1) {
-  return (dx * gesture.direction.x + dy * gesture.direction.y) * sensitivity;
+  return rotationDragDegrees(gesture, dx, dy, sensitivity);
 }
 
 /** A bare bone drag turns around the nearest model axis to the view normal. */

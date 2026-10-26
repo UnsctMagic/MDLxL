@@ -242,6 +242,32 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       check('Workplane ' + enabled + ' mouse zoom preserves model', afterDragZoom.camera.zoom > beforeDragZoom.camera.zoom && afterDragZoom.model === beforeDragZoom.model);
       await page.locator('[data-hotkey="camera:work"]').click();
     }
+    // The alternative behavior and editor speed must reach the actual Movement drag.
+    const movementSetting = async (behavior, speed) => {
+      await menu('settings');const dialog=page.getByRole('dialog',{name:'Settings',exact:true});
+      await dialog.getByRole('tab',{name:'Mouse',exact:true}).click();await dialog.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name:'Rotation',exact:true}).click();
+      await dialog.getByLabel('Rotation editor',{exact:true}).selectOption('movement');await dialog.getByLabel('Rotational Behavior',{exact:true}).selectOption(behavior);
+      await dialog.getByLabel('Use default rotation sensitivity').uncheck();await dialog.getByLabel('Rotation sensitivity',{exact:true}).fill(String(speed));await dialog.getByLabel('Rotation sensitivity',{exact:true}).press('Tab');await dialog.getByRole('button',{name:'Close Settings',exact:true}).click();await settle();
+    };
+    await page.getByLabel('View direction',{exact:true}).selectOption('top');await workplane.check();await page.locator('[data-hotkey="plane:xy"]').check();await settle();
+    await movementSetting('linear',.5);
+    let pivot=(await handles()).active;
+    await drag('Movement per-editor sensitivity',{x:pivot.x+120,y:pivot.y+40},30,0,false,'Z',{sensitivity:.5});
+    await movementSetting('pivot',1);pivot=(await handles()).active;
+    {
+      const before=await snap(),box=await page.locator('[data-clean-model-canvas]').boundingBox(),x=box.x+pivot.x,y=box.y+pivot.y;
+      await page.mouse.move(x+120,y);await page.mouse.down();
+      for(let i=1;i<=12;i++)await page.mouse.move(x+120*Math.cos(i*Math.PI/24),y+120*Math.sin(i*Math.PI/24));
+      await page.mouse.up();await settle();const after=await snap();
+      const baseline=new Quaternion().setFromRotationMatrix(new Matrix4().fromArray(before.matrix)).normalize();
+      const expected=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-Math.PI/2).multiply(baseline);
+      const actual=new Quaternion().setFromRotationMatrix(new Matrix4().fromArray(after.matrix)).normalize();
+      check('Movement Pivot-based choice follows a quarter-circle',Math.abs(actual.dot(expected))>1-1e-4);
+      check('Movement Pivot-based commits one Undo step',after.undo===before.undo+1);
+      await menu('undo');await settle();check('Movement Pivot-based exact Undo',(await snap()).model===before.model);
+    }
+    await movementSetting('',1);
+    await require('./rotation-editors.electron.cjs')({ app, page, check, out });
     check('no visible windows or popups', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 1 && !BrowserWindow.getAllWindows()[0].isVisible()));
     check('sidebar width preserved', await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width) === sidebarWidth);
     check('input model bytes preserved', hash(fixture) === fixtureHash); check('no renderer errors', errors.length === 0, errors);

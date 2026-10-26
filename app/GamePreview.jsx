@@ -1,3 +1,4 @@
+import { rotationOptions } from '../src/rotation-drag.js';
 import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js';
 import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -423,7 +424,12 @@ export default function GamePreview(inputProps) {
     // 0..duration reel; POSE stays limited to the model's sequences.
     const nodeEditSequence = (p, frame) => !p.restPose && Number.isInteger(p.globalSeqId) && p.globalSeqId >= 0 ? globalPreviewId !== null ? timelineSequenceIndex : -1 : movementSequence(p, frame);
     const beginRotationDrag = gesture => {
-      if (gesture.mode === 'rotate') gesture.rotationDrag = movementRotationGesture();
+      if (gesture.mode !== 'rotate') return;
+      const p = latest.current, rect = canvas.getBoundingClientRect(), pivot = gesture.origin.clone().project(camera);
+      const axis = ({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis];
+      const facing = axis === undefined ? 1 : new THREE.Vector3().setComponent(axis, 1).dot(camera.getWorldDirection(new THREE.Vector3()));
+      gesture.rotationDrag = movementRotationGesture({ ...rotationOptions(p.preferences, p.rotationEditor || (p.showcase ? 'showcase' : 'movement')), x: gesture.x, y: gesture.y,
+        pivot: { x: (pivot.x + 1) * rect.width / 2, y: (1 - pivot.y) * rect.height / 2 }, pivotSign: facing < 0 ? -1 : 1 });
     };
     const poseStamp = config => JSON.stringify(config && [config.enabled, config.restrict, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
@@ -518,9 +524,8 @@ export default function GamePreview(inputProps) {
         } else {
           const chain = gesture.config.chains.find(chain => chain.key === gesture.target.key), pose = samplePoseChain(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.globalTime);
           if (gesture.target.kind === 'bend' && gesture.mode === 'rotate') {
-            // A bend has one meaningful rotation axis: through the fixed hand
-            // or foot. Horizontal dragging works even when that axis is edge-on.
-            let degrees = dx * sensitivity;
+            // The input preference changes the angle, not the limb solver's axis.
+            let degrees = movementRotationAmount(gesture.rotationDrag, dx, dy, sensitivity);
             if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
             result = swivelPoseLimb(gesture.baseline, chain, gesture.frame, gesture.sequence, degrees * Math.PI / 180, gesture.globalTime, gesture.config.bends?.[chain.key] && new THREE.Vector3().fromArray(gesture.config.bends[chain.key]).applyQuaternion(pose.rotations[0]));
             result.bends = result.bend ? [{ key: chain.key, local: new THREE.Vector3().fromArray(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }] : [];
@@ -1721,7 +1726,7 @@ export default function GamePreview(inputProps) {
       {selectionBox && <div className={`game-preview-selection-layer${composition ? ' portrait-composition-surface' : framed ? ' portrait-model-surface' : ''}`}><div data-selection-marquee="" style={{ position: 'absolute', zIndex: 90, pointerEvents: 'none', boxSizing: 'border-box', border: `1px dashed ${marqueeColor}`, background: `${marqueeColor}24`, boxShadow: '0 0 0 1px #fff', ...selectionBox }} /></div>}
       {framed && !composition && frame.status === 'ready' && <img className="portrait-human-frame" src={frame.url} alt="" aria-hidden="true" data-frame-version={portraitFrameVersion}/>}
       {portrait && !props.showcase && (composition || props.portraitSettings?.thirds) && <div aria-label="Portrait crop guides" className={'portrait-crop-guides' + (composition ? ' outside' : '') + (props.portraitSettings?.thirds ? ' thirds' : '')} style={guideStyle}/>}
-      {props.showcase && <ShowcaseLayers ref={layerAPI} grid={props.showcaseGrid} gridDensity={props.showcaseGridDensity} crop={props.showcaseCrop} layers={props.showcaseLayers} activeId={props.showcaseActiveLayer} editing={props.showcaseLayerEditing} onSelect={props.onShowcaseLayerSelect} onChange={props.onShowcaseLayerChange} onError={props.onShowcaseLayerError} onInvalidate={()=>runtime.current?.scheduler.invalidate()}/>}
+      {props.showcase && <ShowcaseLayers preferences={props.preferences} ref={layerAPI} grid={props.showcaseGrid} gridDensity={props.showcaseGridDensity} crop={props.showcaseCrop} layers={props.showcaseLayers} activeId={props.showcaseActiveLayer} editing={props.showcaseLayerEditing} onSelect={props.onShowcaseLayerSelect} onChange={props.onShowcaseLayerChange} onError={props.onShowcaseLayerError} onInvalidate={()=>runtime.current?.scheduler.invalidate()}/>}
       {portrait && !hasCamera && <div className="portrait-message" role="status">Create or select a camera to view the portrait</div>}
       {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
       {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status" data-alert="">{frame.error}</div>}

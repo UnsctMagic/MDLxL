@@ -1,3 +1,4 @@
+import { DEFAULT_ROTATION, ROTATION_EDITORS } from '../src/rotation-drag.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
@@ -75,6 +76,29 @@ function Toggle({ id, label, checked, onChange, description }) {
 }
 function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {
   return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} value={value} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber); }}/>{unit}</span></label>;
+}
+const MOUSE_PAGES = ['Camera', 'Rotation', 'Wheel', 'Pointer', 'UV'];
+let lastMousePage = 'Camera';
+function RotationSettings({ value, onChange }) {
+  const [editor, setEditor] = useState('all'), override = value.editors[editor] || {}, global = editor === 'all';
+  const names = { linear: 'Linear (MdlVis)', pivot: 'Pivot-based' };
+  const change = patch => {
+    if (global) { onChange({ ...value, ...patch }); return; }
+    const entry = { ...override, ...patch };
+    for (const key of Object.keys(entry)) if (entry[key] === undefined) delete entry[key];
+    const editors = { ...value.editors };
+    if (Object.keys(entry).length) editors[editor] = entry; else delete editors[editor];
+    onChange({ ...value, editors });
+  };
+  const inheritSpeed = !global && override.sensitivity === undefined;
+  return <section className="settings-appearance-section"><h4>Rotational Behavior</h4><div className="settings-appearance-content">
+    <label className="settings-select" title="Set the default for every editor, or override just one editor."><span>Apply to</span><select aria-label="Rotation editor" data-hotkey="mouse:rotation-editor" value={editor} onChange={event => setEditor(event.target.value)}><option value="all">All editors (default)</option>{Object.entries(ROTATION_EDITORS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+    <label className="settings-select" title="Linear: drag right or up to turn steadily. Pivot-based: circle around the selection's center."><span>Behavior</span><select aria-label="Rotational Behavior" data-hotkey="mouse:rotation-behavior" value={global ? value.behavior : override.behavior || ''} onChange={event => change({ behavior: event.target.value || undefined })}>{!global && <option value="">Use default · {names[value.behavior]}</option>}{Object.entries(names).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+    <div className="settings-rotation-speed" title="Rotation speed multiplies the editor's pointer or UV sensitivity. A smaller value turns more slowly."><label className="settings-number"><span>Rotation sensitivity</span><span><input aria-label="Rotation sensitivity" data-hotkey="mouse:rotation-sensitivity" type="number" min="0.01" max="4" step="0.01" disabled={inheritSpeed} value={global ? value.sensitivity : override.sensitivity ?? value.sensitivity} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) change({ sensitivity: event.target.valueAsNumber }); }}/>×</span></label>
+      {!global && <label><input type="checkbox" aria-label="Use default rotation sensitivity" checked={inheritSpeed} onChange={event => change({ sensitivity: event.target.checked ? undefined : value.sensitivity })}/>Use default</label>}
+    </div>
+    <p className="settings-hint">Linear turns by drag distance; right or up is positive. Pivot-based follows a circular drag. Editor overrides keep their own choices when the default changes.</p>
+  </div></section>;
 }
 const SHREDDER_CHOICES = [
   ['position', 'Where', [['control', 'Beside what you clicked'], ['bottom', 'Bottom middle'], ['top', 'Top middle'], ['bottom-right', 'Bottom right'], ['bottom-left', 'Bottom left']]],
@@ -195,6 +219,8 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   }
   const context = useHotkeys(), catalog = suppliedCatalog || context.catalog;
   const prefs = normalizePreferences(preferences);
+  const [mousePage, setMousePageState] = useState(() => lastMousePage);
+  const setMousePage = page => { lastMousePage = page; setMousePageState(page); };
   const [appearancePage, setAppearancePageState] = useState(() => APPEARANCE_PAGES.includes(lastAppearancePage) ? lastAppearancePage : 'Presets');
   const setAppearancePage = page => { lastAppearancePage = page; setAppearancePageState(page); };
   const [tab, setTab] = useState(initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
@@ -301,22 +327,25 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
     <header><span>Settings</span><button data-hotkey="close" aria-label="Close Settings" onClick={onClose}>×</button></header>
     <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['configuration','Configuration'], ['mouse', 'Mouse'], ['hotkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-hotkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); onTabChange?.(id); setRecording(null); setMessage(''); }}>{label}</button>)}</div>
     <div className="classic-modal-body settings-body" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>
-      {tab === 'mouse' && <div className="settings-page">
-        <h3>Camera controls</h3><p>Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.</p>
+      {tab === 'mouse' && <div className="settings-page settings-appearance-page settings-mouse-page">
+        <nav className="settings-appearance-nav" aria-label="Mouse pages">{MOUSE_PAGES.map(page => <button key={page} aria-pressed={mousePage === page} onClick={() => setMousePage(page)}>{page}</button>)}</nav>
+        <div className="settings-appearance-detail">
+          {mousePage === 'Camera' && <section>        <h3>Camera controls</h3><p>Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.</p>
         <div className="settings-inline-actions"><span>Preset:</span><button data-hotkey="mouse:preset:classic" onClick={() => commit(CAMERA_PRESETS.classic)}>Classic MDLVis</button><button data-hotkey="mouse:preset:orbit" onClick={() => commit(CAMERA_PRESETS.orbit)}>Orbit navigation</button></div>
-        <div className="settings-graphics-grid">{[['right', 'Right mouse'], ['middle', 'Middle mouse']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select data-hotkey={`mouse:binding:${key}`} aria-label={`${label} camera action`} value={prefs.cameraBindings[key]} onChange={event => commit({ cameraBindings: { ...prefs.cameraBindings, [key]: event.target.value } })}>{(key === 'middle' ? [['toggle', 'Toggle rotation / work']] : []).concat([['pan', 'Pan'], ['rotate', 'Rotate'], ['zoom', 'Zoom'], ['none', 'No action']]).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}</div>
-        <h3>Mouse wheel sensitivity</h3><p>Change how far each wheel step zooms or scrolls in the editors. Changes apply immediately and are remembered.</p>
+        <div className="settings-graphics-grid">{[['right', 'Right mouse'], ['middle', 'Middle mouse']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select data-hotkey={`mouse:binding:${key}`} aria-label={`${label} camera action`} value={prefs.cameraBindings[key]} onChange={event => commit({ cameraBindings: { ...prefs.cameraBindings, [key]: event.target.value } })}>{(key === 'middle' ? [['toggle', 'Toggle rotation / work']] : []).concat([['pan', 'Pan'], ['rotate', 'Rotate'], ['zoom', 'Zoom'], ['none', 'No action']]).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}</div></section>}
+          {mousePage === 'Rotation' && <RotationSettings value={prefs.rotation} onChange={rotation => commit({ rotation })}/>}
+          {mousePage === 'Wheel' && <section>        <h3>Mouse wheel sensitivity</h3><p>Change how far each wheel step zooms or scrolls in the editors. Changes apply immediately and are remembered.</p>
         <div className="settings-sensitivity"><input data-hotkey="mouse:sensitivity-slider" aria-label="Mouse wheel sensitivity" type="range" min="0.1" max="10" step="0.01" value={prefs.scrollSensitivity} onChange={event => commit({ scrollSensitivity: Number(event.target.value) })}/><label><input data-hotkey="mouse:sensitivity-value" aria-label="Mouse wheel sensitivity value" type="number" min="0.1" max="10" step="0.01" value={prefs.scrollSensitivity} onChange={event => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) commit({ scrollSensitivity: value }); }}/><span>×</span></label></div>
         <div className="settings-range-labels"><span>Precise · 0.1×</span><span>Fast · 10×</span></div>
         <div className="settings-inline-actions" role="group" aria-label="Wheel mode">{[['rotate','Rotation / normal zoom'],['scroll','Peon · Scroll sensitivity'],['pointer','Wisp · Wheel adjusts DPI']].map(([value,label]) => <button key={value} data-hotkey={`mouse:wheel:${value}`} aria-pressed={prefs.wheelMode === value} onClick={() => commit({ wheelMode:value })}>{label}</button>)}</div>
-        <p className="settings-hint">Normal mode: wheel zooms; a middle click toggles camera rotation and work mode. Peon: wheel alone adjusts scroll sensitivity. Wisp: wheel alone adjusts DPI. Hold left and scroll for a temporary DPI adjustment without changing the selected toolbar mode. Left then right resets DPI. Right then left resets scroll sensitivity.</p>
-        <h3>DPI / pointer sensitivity</h3><p>Adjust 3D camera and editing drag speed inside MDLxL. UV transforms have their own sensitivity below. This multiplier does not change hardware DPI or Windows pointer settings.</p>
+        <p className="settings-hint">Normal mode: wheel zooms; a middle click toggles camera rotation and work mode. Peon: wheel alone adjusts scroll sensitivity. Wisp: wheel alone adjusts DPI. Hold left and scroll for a temporary DPI adjustment without changing the selected toolbar mode. Left then right resets DPI. Right then left resets scroll sensitivity.</p></section>}
+          {mousePage === 'Pointer' && <section>        <h3>DPI / pointer sensitivity</h3><p>Adjust 3D camera and editing drag speed inside MDLxL. UV transforms have their own sensitivity in the UV section. This multiplier does not change hardware DPI or Windows pointer settings.</p>
         <div className="settings-sensitivity"><input data-hotkey="mouse:pointer-slider" aria-label="MdlVis pointer sensitivity" type="range" min="0.01" max="4" step="0.01" value={prefs.pointerSensitivity} onChange={event => commit({ pointerSensitivity:Number(event.target.value) })}/><label><input data-hotkey="mouse:pointer-value" aria-label="MdlVis pointer sensitivity value" type="number" min="0.01" max="4" step="0.01" value={prefs.pointerSensitivity} onChange={event => { if(Number.isFinite(event.target.valueAsNumber)) commit({ pointerSensitivity:event.target.valueAsNumber }); }}/><span>×</span></label></div>
         <div className="settings-range-labels"><span>Ultra-precise · 0.01×</span><span>Fast · 4×</span></div>
-        <Toggle id="mouse:right-scroll-adjust" label="Hold right mouse button + scroll to adjust sensitivity" checked={prefs.rightScrollAdjust} onChange={rightScrollAdjust => commit({ rightScrollAdjust })} description="Wheel up increases sensitivity; wheel down decreases it. Release the right button and the next wheel movement uses the new value. The value stays until you change it."/>
-        <div className="settings-graphics-grid"><Numeric id="mouse:fine" label="Fine control multiplier" value={prefs.fineSensitivity} min={0.01} max={1} step={0.01} unit="×" onChange={fineSensitivity => commit({ fineSensitivity })}/><Numeric id="mouse:uv" label="UV transform sensitivity" value={prefs.uvSensitivity} min={0.01} max={4} step={0.01} unit="×" onChange={uvSensitivity => commit({ uvSensitivity })}/></div>
-        <p className="settings-hint">UV movement is measured relative to the displayed texture. At 1×, UV vertices follow your pointer. Changing camera DPI leaves UV movement, rotation, and scale unchanged. For fine control, hold Alt when starting a UV drag or Shift while navigating the 3D camera.</p>
-        <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity })}>Restore mouse defaults</button>
+        <Toggle id="mouse:right-scroll-adjust" label="Hold right mouse button + scroll to adjust sensitivity" checked={prefs.rightScrollAdjust} onChange={rightScrollAdjust => commit({ rightScrollAdjust })} description="Wheel up increases sensitivity; wheel down decreases it. Release the right button and the next wheel movement uses the new value. The value stays until you change it."/><Numeric id="mouse:fine" label="Fine control multiplier" value={prefs.fineSensitivity} min={0.01} max={1} step={0.01} unit="×" onChange={fineSensitivity => commit({ fineSensitivity })}/></section>}
+          {mousePage === 'UV' && <section><h3>UV transforms</h3><Numeric id="mouse:uv" label="UV transform sensitivity" value={prefs.uvSensitivity} min={0.01} max={4} step={0.01} unit="×" onChange={uvSensitivity => commit({ uvSensitivity })}/>        <p className="settings-hint">UV movement is measured relative to the displayed texture. At 1×, UV vertices follow your pointer. Changing camera DPI leaves UV movement, rotation, and scale unchanged. For fine control, hold Alt when starting a UV drag or Shift while navigating the 3D camera.</p></section>}
+          <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity, rotation: DEFAULT_ROTATION })}>Restore mouse defaults</button>
+        </div>
       </div>}
       {tab === 'hotkeys' && <div className="settings-page hotkeys-page">
         <h3>Hotkeys</h3><p>Assign a key or combination to commands, buttons, and fields. Hold Alt to show available button shortcuts; remapped combinations appear in full. Field shortcuts focus the field; toggle shortcuts switch it.</p>

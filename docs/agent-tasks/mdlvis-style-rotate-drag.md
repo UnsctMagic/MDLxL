@@ -1,6 +1,6 @@
 # MdlVis-style Rotate drag
 
-Status: ready to test — verified; awaiting owner testing and merge approval
+Status: ready to test — verified; Claude review handoff queued
 Owner / consolidator: Codex (implementation); Claude Code (project lead, review)
 Updated: 2026-10-26
 
@@ -39,8 +39,20 @@ Done means all of these hold in the packaged app with real mouse drags:
    still cancels, undo is one step per drag, and the live degree label still shows.
 6. Camera rotation with the mouse still works in the preview (AGENTS.md rule).
 
-Out of scope: POSE limb solving (`solvePoseLimb`), AnimXL, Move and Resize, new
-panels or toolbars. Do not add a settings page for this.
+The owner expanded the scope on 2026-10-26: apply the input rule across editing
+Rotate tools, default to Linear (MdlVis), offer Pivot-based behavior and sensitivity
+with independent per-editor overrides in Mouse settings, and organize Mouse with
+subsections and a side menu like Appearance. This supersedes the original ban on
+settings UI. POSE solving, AnimXL algorithms, Move, Resize and camera navigation
+remain outside the change. Existing handles, pivots, constraints and history stay.
+
+Current extension owners: `src/rotation-drag.js` (shared input/preferences),
+`src/preferences.js`, `app/Settings.jsx`, `app/Viewport.jsx` (vertices and Forge),
+`app/UVEditor.jsx`, `app/GamePreview.jsx` (Movement/POSE and Showcase model), and
+`app/ShowcaseLayers.jsx` (text). Citadel Paint exposes selection/painting, not a
+mesh Rotate tool; its brush and camera controls are not editing Rotate drags.
+One editor selector will expose overrides without a large settings table.
+The owner's open manual test is the earlier PR build and stays untouched.
 
 ## Revision and local state
 
@@ -51,7 +63,10 @@ panels or toolbars. Do not add a settings page for this.
   The owner's source files and installed app/profile were not changed.
 - Implementation/test revision: `dfbfc4e9fb567ab2aca39b219b944db8d448bf60`.
 - PR: [#327](https://github.com/UnsctMagic/MDLxL/pull/327) into `main`, with the
-  `Session:` line. Open and unmerged; no merge authorized.
+  `Session:` line. Open and unmerged. The owner now authorizes merge only if Claude
+  approves its review, using Opus 5.5 at medium effort. After handing it off,
+  Codex must go idle. Claude should return a concrete task to this Codex chat
+  if changes are needed (chat `01a17864-2f9a-77a1-aed8-4cdebfa613d8`).
 - Keep the Current tasks entry while owner testing and merge approval remain.
 
 ## Relevant owners
@@ -72,7 +87,7 @@ panels or toolbars. Do not add a settings page for this.
 - [MERGER_NOTES.md](../../MERGER_NOTES.md) and the Movement/Viewport rows of
   [agent-map.md](../agent-map.md) establish the retained toolbar/workplane rules.
 
-## Findings and decisions
+## Original Movement implementation (verified before the expanded request)
 
 - Original cause, verified against the branch base: first motion selected
   `along`, `across` or `arc`. Arc used the swept pivot angle, along used the
@@ -105,7 +120,7 @@ panels or toolbars. Do not add a settings page for this.
 - Exact MdlVis direction/diagonal behavior remains provisional until HerrDave's
   recording arrives. This implements the contract's right/up interim rule.
 
-## Changes and verification
+## Original Movement verification
 
 - Test first: replaced the arc/radial assumptions in
   [movement.test.js](../../test/movement.test.js); all three new drag tests
@@ -135,15 +150,58 @@ panels or toolbars. Do not add a settings page for this.
   Disposable package, profiles and fixture were removed after verification;
   test processes exited. Finished worktree is removed after pushing.
 
-## Blockers and next action
+## Expanded implementation and current verification
 
-- No implementation or local automated-test blocker. PR #327 is ready to test;
-  await owner testing and explicit merge approval. GitHub CI is checked on the
-  PR; retained local evidence covers the exact implementation revision above.
-- Owner acceptance is still required: animate a floating sword and shield.
-  HerrDave's MdlVis recording and native Warcraft III acceptance were not part
-  of this run.
-- Owner click-through in a build of this PR: open a model, go to Movement,
-  choose an animation/frame and a bone, choose Rotate, then drag X/Y/Z straight
-  right/left and up/down. Turn the camera around and repeat. Try the bone marker
-  itself, Shift, Esc/right-click and Undo; finish by animating the sword/shield.
+- All editing Rotate paths share `src/rotation-drag.js`. Fresh and older
+  profiles default to Linear (MdlVis), at 1× rotation sensitivity. Pointer/UV
+  sensitivity still multiplies that value; camera, Move and Resize are unchanged.
+- Mouse → Rotation is headed **Rotational Behavior**. Choose **All editors
+  (default)** or one editor: Vertices, Bones, Movement / POSE, Forge, UV Wrapper,
+  Showcase. Behavior and sensitivity can each inherit or override the default.
+  Configuration export/import preserves the sparse overrides. Restore mouse
+  defaults resets the global choice and clears every editor override.
+- Mouse now has Camera, Rotation, Wheel, Pointer and UV subsections, using the
+  existing Appearance side-menu layout. One editor's controls appear at a time.
+- Linear uses raw pointer displacement with a constant right/up-positive rule.
+  Pivot-based measures the angle around the existing selection center and unwraps
+  successive samples for continuous full turns. Its captured camera-side sign
+  applies only to Pivot-based in 3D. At the center, where a pivot angle is
+  undefined, the existing straight-drag fallback remains available.
+- Existing mesh/UV/text pivots, vertex-normal editing, selected axes, snapping,
+  UV locks, history and cancellation paths remain owned by the existing editors.
+  Bones and Movement have separate overrides despite sharing GamePreview.
+  POSE input uses the preference; limb and node solvers are unchanged. AnimXL,
+  camera navigation and Paint brush controls are unchanged.
+- Test first: five new unit tests failed before implementation. They now pass,
+  covering defaults, independent inheritance, export/import, invalid values,
+  linear direction/speed and continuous pivot rotation. Focused Movement/POSE
+  suite: 98 passed, 7 existing skips.
+- Final `pnpm test`: 57 passed. Final `pnpm run test:source`: 1,980 passed,
+  22 existing skips. `pnpm run build`: passed (existing bundle-size warning).
+  An initial source run lacked the untracked FFmpeg files; after copying the
+  existing verified binaries, the complete suite passed. No failure was masked.
+- Packager verified 1,219 runtime/asset files and 55 locale files. Initial hidden
+  packaged checks passed for Mouse navigation/defaults/override persistence/reset,
+  Vertices and UV angles/Undo, Forge angles/Undo and Showcase text rotation.
+  Expanded acceptance: 374 passing checks, zero renderer errors or visible
+  windows/popups. The first combined run had two camera-check failures: its
+  pointer landed over navigation overlays. A targeted editor rerun on clear
+  canvas passed both camera checks without production camera changes. Full
+  Movement checks were retained from the combined run. Reconciled evidence:
+  `D:\Codex\mdlvis-rotate-drag\results\all-editors\verification.json`.
+  Bones/POSE settings use the tested shared handler and source tests; separate
+  packaged Bones/POSE and Quad View gestures were not exercised in this extension.
+- The owner's existing visible test remains on the earlier PR build. It has
+  unsaved work and must not be closed, replaced, or removed by this task.
+
+## Next action and review handoff
+
+The verified branch is ready for PR #327 review. The desktop handoff helper
+returned “Computer Use helper already has an active request” on the initial
+attempt, retry and recovery after a kernel reset. The installed standalone
+Claude CLI reports signed out; do not extract Desktop credentials or automate
+sign-in. Queue an automatic retry of the authorized Claude Desktop handoff,
+using Opus 5.5 Medium, then go idle after delivery. The owner authorized
+Claude to merge if review is okay; if not, Claude must create a concrete follow-up
+task and send it back to this Codex chat. No release, installed-app upgrade or
+replacement of the owner's active manual test is authorized.

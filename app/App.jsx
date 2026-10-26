@@ -1699,7 +1699,7 @@ export default function App() {
         vanilla={visUI} editorDisplayMode={displayMode}
         onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]}
         cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])}
-        previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} restPose={restPose} cleanAnimationPreview={cleanAnimationPreview}
+        previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} rotationEditor={mode === 'bones' ? 'bones' : 'movement'} restPose={restPose} cleanAnimationPreview={cleanAnimationPreview}
         workplaneEnabled={workplaneEnabled} restrictions={restrictions} multiple={multipleNodes}
         {...cameraProps}
         onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset} highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView}
