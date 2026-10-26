@@ -258,12 +258,24 @@ function WorkerPart({ part, onOpen }) {
     </div>
   );
 }
+// What one API prompt cost: dollars for known Anthropic models, otherwise tokens.
+function CostLine({ cost }) {
+  const tokens = Math.round(cost.tokens / 1000).toLocaleString() + 'k tokens';
+  return (
+    <div
+      className="ai-cost"
+      title="What this prompt has cost on your API key so far. Each step resends the conversation; repeated text is billed at a lower rate."
+    >
+      {cost.usd === null ? tokens : `About $${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`}
+    </div>
+  );
+}
 function AssistantMessage({ message, live, onOpenWorker }) {
   // A worker row stands for the organiser's hand-off step, so that step is not shown twice.
   const parts = (message.parts?.length ? message.parts : message.text ? [{ type: 'text', text: message.text }] : []).filter(
     part => !(part.type === 'tool' && toolName(part.name) === 'mdlxl_worker'),
   );
-  return parts.map((part, index) =>
+  const shown = parts.map((part, index) =>
     part.type === 'worker' ? (
       <WorkerPart key={index} part={part} onOpen={onOpenWorker} />
     ) : part.type === 'thinking' ? (
@@ -278,6 +290,7 @@ function AssistantMessage({ message, live, onOpenWorker }) {
       <AiMessage key={index} text={part.text} />
     ),
   );
+  return message.cost ? [...shown, <CostLine key="cost" cost={message.cost} />] : shown;
 }
 
 export default function AiAssistant({ bridge }) {
@@ -396,6 +409,10 @@ export default function AiAssistant({ bridge }) {
           const part = { type: 'art', status: event.status, text: event.text || '' };
           if (at >= 0) message.parts[at] = part;
           else message.parts.push(part);
+        });
+      if (event.type === 'cost')
+        update(message => {
+          message.cost = { usd: event.usd, tokens: event.tokens };
         });
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       // A steering message may have split the reply since the tool started.
@@ -708,7 +725,7 @@ export default function AiAssistant({ bridge }) {
       setSignedIn(!!result.loggedIn);
       setStatus('');
       if (!result.loggedIn) setSettingsOpen(true);
-      else if (settings.provider === 'codex' && !models.length) setModels(await window.desktop.aiModels());
+      else if (['codex', 'claude'].includes(settings.provider) && !models.length) setModels(await window.desktop.aiModels());
     } catch (reason) {
       setError(reason.message);
       setSettingsOpen(true);
@@ -1063,6 +1080,18 @@ export default function AiAssistant({ bridge }) {
                         ))}
                       </datalist>
                     </label>
+                    {!native && (
+                      <label title="An API prompt stops once it has cost about this much, so one request can never run up a large bill. Progress is kept. 0 means no limit. Applies to Anthropic models with known prices.">
+                        Spending limit per prompt ($)
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={settings.spendLimit ?? 5}
+                          onChange={event => setSettings(previous => ({ ...previous, spendLimit: event.target.value }))}
+                        />
+                      </label>
+                    )}
                     <div className="ai-row">
                       <button
                         disabled={anyBusy || authBusy}
@@ -1077,7 +1106,7 @@ export default function AiAssistant({ bridge }) {
                         Save connection
                       </button>
                       <button
-                        disabled={anyBusy || authBusy || settings.provider === 'claude'}
+                        disabled={anyBusy || authBusy}
                         title="Get the list of available models."
                         onClick={loadModels}
                       >

@@ -114,6 +114,9 @@ class AiRecorder {
       const part = reply.parts.findLast(p => p.type === 'art' && p.status === 'running');
       if (part) Object.assign(part, { status: value.status, text: value.text || '' });
       else reply.parts.push({ type: 'art', status: value.status, text: value.text || '' });
+    } else if (value.type === 'cost') {
+      // What the prompt has spent so far, kept with the reply it belongs to.
+      reply.cost = { usd: value.usd, tokens: value.tokens };
     } else if (value.type === 'usage') {
       if (value.used > 0 && value.window > 0) this.conversation.usage = { used: value.used, window: value.window };
       return;

@@ -81,6 +81,25 @@ function toolDetail(input) {
 }
 // One prompt may take at most this many tool rounds; each round costs a request.
 const API_STEP_LIMIT = 30;
+// Anthropic API list prices in US$ per million tokens (checked 2026-10). Cache
+// writes cost 1.25x input. Unlisted models show tokens only and have no limit.
+const ANTHROPIC_PRICES = {
+  'claude-fable-5-1': { input: 10, output: 50, cacheRead: 0.25 },
+  'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2 },
+  'claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01 },
+};
+function anthropicCost(model, spent) {
+  const price = ANTHROPIC_PRICES[model];
+  if (!price) return null;
+  return (
+    (spent.input * price.input +
+      spent.cacheWrite * price.input * 1.25 +
+      spent.cacheRead * price.cacheRead +
+      spent.output * price.output) /
+    1e6
+  );
+}
 
 // Claude 4.6+ thinks adaptively; summarized display lets the console show it.
 // Older and unknown models keep the provider default.
@@ -129,6 +148,16 @@ async function runApi({
     content: [{ type: 'text', text: prompt }, ...imageParts(images, anthropic ? 'anthropic' : 'openai')],
   });
   conversation.messages = history;
+  // What this prompt has spent so far, shown under the reply and checked against the limit.
+  const spent = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
+  const limit = settings.spendLimit > 0 ? settings.spendLimit : 0;
+  const charge = usd => {
+    event({ type: 'cost', usd, tokens: spent.input + spent.cacheWrite + spent.cacheRead + spent.output });
+    if (limit && usd !== null && usd >= limit)
+      throw Error(
+        `Stopped at about $${usd.toFixed(2)}, the spending limit for one prompt. Progress is kept; send another prompt to continue, or raise the limit in AI connection settings.`,
+      );
+  };
   let awarenessVersion = awareness?.version;
   for (let step = 0; step < API_STEP_LIMIT; step++) {
     if (signal.aborted) throw Error('AI request cancelled.');
@@ -181,6 +210,9 @@ async function runApi({
         // How full the context is, for retiring Offload workers at half.
         if (data.type === 'message_start' && data.message?.usage) {
           const u = data.message.usage;
+          spent.input += u.input_tokens || 0;
+          spent.cacheWrite += u.cache_creation_input_tokens || 0;
+          spent.cacheRead += u.cache_read_input_tokens || 0;
           event({
             type: 'usage',
             used: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0),
@@ -202,9 +234,14 @@ async function runApi({
           if (data.delta.type === 'signature_delta')
             block.signature = (block.signature || '') + data.delta.signature;
         }
-        if (data.type === 'message_delta') stopReason = data.delta?.stop_reason;
+        if (data.type === 'message_delta') {
+          stopReason = data.delta?.stop_reason;
+          // output_tokens here is the reply's final total.
+          if (data.usage?.output_tokens) spent.output += data.usage.output_tokens;
+        }
       }
       if (!stopReason) throw Error('The provider stream ended before completion.');
+      charge(anthropicCost(settings.model, spent));
       for (const block of content) {
         if (block.type === 'tool_use' && block._json) block.input = JSON.parse(block._json);
         delete block._json;
@@ -269,7 +306,12 @@ async function runApi({
         finishReason;
       for await (const data of sseEvents(response)) {
         if (data.error) throw Error(data.error.message || 'AI stream failed.');
-        if (data.usage?.prompt_tokens) event({ type: 'usage', used: data.usage.prompt_tokens, window: 128000 });
+        if (data.usage?.prompt_tokens) {
+          event({ type: 'usage', used: data.usage.prompt_tokens, window: 128000 });
+          spent.input += data.usage.prompt_tokens;
+          spent.output += data.usage.completion_tokens || 0;
+          charge(null);
+        }
         const choice = data.choices?.[0];
         if (!choice) continue;
         finishReason = choice.finish_reason || finishReason;
@@ -677,6 +719,7 @@ async function runClaude({
       instructions,
     ];
     if (settings.model) args.push('--model', settings.model);
+    args.push('--max-turns', String(API_STEP_LIMIT));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
     const env = providerEnvironment(directory, 'claude');
     // Worker jobs and pauses outlast Claude Code's default MCP tool timeout.
@@ -815,7 +858,15 @@ async function runClaude({
   }
 }
 async function providerModels(settings, key, signal) {
-  if (settings.provider === 'codex' || settings.provider === 'claude') return [];
+  // Claude Code takes these aliases for the newest model of each kind.
+  if (settings.provider === 'claude')
+    return [
+      { id: 'opus', name: 'Opus (newest)' },
+      { id: 'sonnet', name: 'Sonnet (newest, cheaper)' },
+      { id: 'haiku', name: 'Haiku (newest, cheapest)' },
+      { id: 'fable', name: 'Fable (newest, most capable)' },
+    ];
+  if (settings.provider === 'codex') return [];
   const anthropic = settings.provider === 'anthropic',
     base = endpoint(
       settings.baseUrl || (anthropic ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'),
@@ -834,6 +885,7 @@ async function providerModels(settings, key, signal) {
   }));
 }
 module.exports = {
+  anthropicCost,
   anthropicThinking,
   claudeCompaction,
   endpoint,

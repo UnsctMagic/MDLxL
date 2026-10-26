@@ -32,6 +32,12 @@ const {
   settleConversation,
 } = require('./ai-offload.cjs');
 
+// Most a single API prompt may spend, in US$, unless the user sets another (0 = no limit).
+const DEFAULT_SPEND_LIMIT = 5;
+function spendLimitOf(config) {
+  return typeof config.spendLimit === 'number' ? config.spendLimit : DEFAULT_SPEND_LIMIT;
+}
+
 class AiService {
   constructor({ root, profile, electron, getWindow, sdBrainAvailable }) {
     this.root = root;
@@ -109,6 +115,7 @@ class AiService {
       running: this.runningChats(),
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
+      spendLimit: spendLimitOf(config),
       sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
     };
@@ -145,6 +152,15 @@ class AiService {
   }
   async configure(input) {
     const config = await this.configuration();
+    // The spending limit can change at any time; a running prompt keeps the one it started with.
+    if (input.spendLimit !== undefined && input.spendLimit !== '') {
+      const limit = Number(input.spendLimit);
+      if (!Number.isFinite(limit) || limit < 0 || limit > 10000) throw Error('Enter a spending limit in dollars, or 0 for none.');
+      if (limit !== spendLimitOf(config)) {
+        config.spendLimit = limit;
+        await this.persist();
+      }
+    }
     if (this.busy()) {
       // Sending re-saves the connection; while other models' jobs run, an unchanged
       // connection is fine. Only an actual change has to wait.
@@ -189,7 +205,7 @@ class AiService {
   }
   async settings() {
     const c = await this.configuration();
-    return { provider: c.provider, ...c.providers?.[c.provider] };
+    return { provider: c.provider, spendLimit: spendLimitOf(c), ...c.providers?.[c.provider] };
   }
   emit(value) {
     const win = this.getWindow();
@@ -280,7 +296,12 @@ class AiService {
   }
   async conversation(id, provider) {
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id || '')) throw Error('Invalid conversation ID.');
-    if (this.conversations.has(id)) return this.conversations.get(id);
+    // A chat belongs to the connection it started on, also while it is still loaded.
+    if (this.conversations.has(id)) {
+      const loaded = this.conversations.get(id);
+      if (loaded.provider !== provider) throw Error('Start a new chat after changing AI providers.');
+      return loaded;
+    }
     let value;
     try {
       // Loaded from disk means nothing of it is running in this app session.
