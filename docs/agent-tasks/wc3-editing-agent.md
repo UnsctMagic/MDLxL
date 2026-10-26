@@ -1,6 +1,6 @@
 # WC3 editing agent: what MDLxL's AI must know to edit Warcraft III SD models
 
-Status: second pass implemented for owner review; integration with PR #317 must retain only the general core
+Status: completed. Merged in PR #318 (cf4953eb, 26 October 2026) after owner approval; PR #317 keeps only this general core.
 Owner / consolidator: Codex (written by Claude Code from its conversation with the owner)
 Updated: 26 October 2026
 

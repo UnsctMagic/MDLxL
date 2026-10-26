@@ -46,9 +46,13 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
     onReady({
       render: spec =>
         new Promise((resolve, reject) => {
-          const entry = { ...spec, id: crypto.randomUUID(), resolve, reject };
-          // A preview that never gets ready must not hold up the AI forever.
-          entry.timer = setTimeout(() => finish(entry, Error('The off-screen picture could not be drawn.')), 30000);
+          const entry = { ...spec, id: crypto.randomUUID(), resolve, reject, stage: 'loading the model' };
+          // A preview that never gets ready must not hold up the AI forever. Say
+          // where it stopped, and any error the hidden preview shows.
+          entry.timer = setTimeout(() => {
+            const shown = document.querySelector('.ai-offscreen-render [role=alert]')?.textContent?.trim();
+            finish(entry, Error(`The off-screen picture could not be drawn: it was still ${entry.stage} after 30 seconds.${shown ? ' ' + shown : ''}`));
+          }, 30000);
           queue.current.push(entry);
           if (!current.current) next();
         }),
@@ -71,10 +75,13 @@ export default function AiOffscreenRender({ onReady, preferences, teamColor }) {
     if (!api || !entry || entry.started) return;
     entry.started = true;
     try {
+      entry.stage = 'loading textures and effects';
       await api.whenReady();
-      // Fit the model, then look from the requested side (fit keeps the preset view).
-      api.fit();
-      await new Promise(requestAnimationFrame);
+      entry.stage = 'drawing';
+      // Fit the model, or the close-up points, then look from the requested side
+      // (fit keeps the preset view). captureView draws right away: waiting for the
+      // next screen refresh would stall while the window is covered or minimized.
+      api.fit(entry.focus);
       const image = api.captureView();
       drawMarks(image, api, entry.marks);
       finish(entry, null, image.toDataURL('image/png'));

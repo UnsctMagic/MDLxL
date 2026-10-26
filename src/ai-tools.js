@@ -200,7 +200,7 @@ export const AI_TOOLS = [
   ),
   tool(
     'capture',
-    'Get actual PNG viewport images. Without samples captures the current view (the live viewport on the tab being shown; drawn off-screen for a tab that is not showing). samples draws up to 12 labeled views/animation frames off-screen in one call so you can judge shape and motion; the view on screen does not move. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
+    'Get actual PNG viewport images. Without samples captures the current view (the live viewport on the tab being shown; drawn off-screen for a tab that is not showing). samples draws up to 12 labeled views/animation frames off-screen in one call so you can judge shape and motion; the view on screen does not move. A sample with fit selection is a close-up of the marked vertices as they sit in that frame (mark them with select first); otherwise the whole model is framed. It never edits model data. Use sample for numeric pose checks and capture for visual checks.',
     {
       target,
       samples: {
@@ -213,6 +213,7 @@ export const AI_TOOLS = [
             sequence: { type: 'integer', minimum: -1 },
             globalSequence: { type: ['integer', 'null'], minimum: 0 },
             frame: { type: 'number' },
+            fit: { enum: ['model', 'selection'] },
           }),
         },
       },

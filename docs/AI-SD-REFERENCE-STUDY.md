@@ -30,6 +30,21 @@ Native unit-family bone count has a median of 34 and P90 about 67, but individua
 
 Among resolved native texture headers, 256x256 is the most frequent individual size (673), followed by 64x64 (274), 16x16 (266), 128x128 (212), 32x32 (154), 512x512 (144) and 512x256 (94). The full corpus includes UI, effects and cinematic assets; these are observed sizes, not one required resolution. All 646 studied Hive model files use MDX 800 and none contains the measured normal/ORM/emissive texture-slot additions. The current native SD/base files mostly use version 1800 and some use weighted skinning. Eleven cinematic models in the base module contain additional material slots. Therefore neither file version nor every file in a base module should be treated as an art-style classifier.
 
+## Binding (vertex groups)
+
+Measured 26 October 2026 from the 415 SD unit models under `war3.w3mod:units\` (portraits excluded; 414 use classic matrix groups, 1 weighted skinning). These measurements informed the general binding procedures in [WC3-EDITING-NODES-BINDING.md](WC3-EDITING-NODES-BINDING.md).
+
+- **Bones per vertex:** 64% one bone, 28% two, 5.5% three, 1.8% four, 0.3% five to seven. Blizzard never repeats a bone inside a group. The largest geoset has 120 groups (the format allows 256).
+- **Continuity:** of 653,607 mesh edges, 65% join vertices with the same group and 35% join groups that share a bone; only 164 (0.03%) join groups with no bone in common. The binding changes across rings of blended vertices, not along hard edges.
+- **Seams:** coincident vertices in one geoset have identical groups 99.5% of the time. Across geosets, 52% are identical and 48% are deliberately different (weapons, gore, glow planes and other parts meant to move on their own).
+- **Demoness:** the crotch and hip fronts bind pelvis + left thigh + right thigh; knees thigh + shin, ankles shin + foot, elbows upper + lower arm, neck chest + head, waist pelvis + chest.
+- **Sorceress:** the dress has its own keyed bone chain (Dress01 to Dress08) under the root; dress vertices blend two to three neighbouring dress bones, the waistband blends dress bones with the chest, and the tops of the thighs bind dress bones together with both thighs. Hair is a chain (HairBack1, HairBack2) blended into the head at its root. Shoulders blend chest + upper arm, the upper chest chest + both upper arms.
+- **Jaina:** the cape is a chain of cape bones blending four to five neighbours, joined to the chest at the collar.
+- **Skeleton:** animated helpers (`Bone_Pelvis`, `Bone_Leg1_L`) carry the keys and pivots; vertices bind to bones parented under them. Secondary chains (dress, hair, cape) are keyed themselves.
+- **The owner's own SD models** (seven LowPolyWorks Warhammer resources, ten files): 88% of vertices on one bone, coincident vertices across geosets identical 90% of the time, and overlapping layers on the same group 71% of the time, matching the owner's rule that layers resting on the body share its bones.
+
+Hive Workshop's forum tutorials could not be read for this study: the site's bot check blocked automated access.
+
 ## Animation economy
 
 Across native unit-family sequences, median duration and median keys per active track are approximately:
