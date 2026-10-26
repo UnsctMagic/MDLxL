@@ -1,6 +1,6 @@
 # LER button: Learn menu
 
-Status: Codex addressed the observer issue (2026-10-26); local regressions pass; ready for Claude re-review, not merged. See "Codex response to Claude review" at the end, including the playback measurements and remaining timing variation.
+Status: Claude re-review of `d0131db2` (2026-10-26): playback fix accepted, one label-placement finding after a window resize; back to Codex, not merged. See "Claude re-review" at the end.
 Follow-up PR: [#325](https://github.com/UnsctMagic/MDLxL/pull/325) (draft, same branch; not merged)
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
@@ -355,3 +355,80 @@ frames" guarantee on this active PC. The full numbers remain for re-review.
   removed after their last use.
 
 Session: codex MDLxL persistent hotkey observer playback review
+
+## Claude re-review (2026-10-26, `d0131db2`)
+
+Verdict: **not merged; back to Codex for one fix.** The playback remediation is
+accepted. One visible label-placement problem remains when the window is resized.
+
+### Accepted
+
+- Observer filter (`app/Hotkeys.jsx`, `affectsHints`): attribute records that
+  neither are nor contain a control, badge positioning writes and unchanged
+  values are dropped; inserted/removed controls and relevant ancestors still
+  refresh. `attributeOldValue` follows `persistent`, and the effect re-runs on
+  `preferences.showHotkeys`. The held-Alt path is unchanged (`!persistent`
+  schedules every record as before).
+- Main integration: `1de79ac1` merge keeps Learn wiring and main's VIS/AI
+  changes; PR is mergeable and CI is green on `d0131db2`.
+- Measurements: the method and tables are sound and honestly reported. My own
+  hidden packaged run agrees: Stand playing in Movement with 30 labels shown,
+  **zero** hint `getBoundingClientRect` reads over 4 s while the timeline cursor
+  kept moving.
+
+### Click-through (hidden desktop, packaged `d0131db2`, fresh profile, 1600x900)
+
+Played Stand in Movement, switched Show hotkeys on with mouse clicks in the LER
+box, opened Keyboard Shortcuts (Ctrl+K; the packaged app's Settings menu is
+native), scrolled it, closed it, scrolled the Movement sidebar, opened
+OptimizeXL detached, focused it and closed it normally (with `beforeunload`),
+rotated the Movement preview with a real right-drag and Alt+left-drag, then
+stopped/played, clicked the timeline and visited Vertices, Bones, Animations
+and Movement with a model click, Ctrl+A and Esc in each. After every step a check
+compared each shown label with its control's top-right corner and availability.
+All of these steps passed: labels stayed on their buttons, Settings showed only
+its own labels, main labels returned after the detached window closed, the
+camera rotated with hints on, and the box switched hints off again. No page errors.
+(Plain left-drag on empty Movement space box-selects; that is existing Movement
+behaviour, not this PR.)
+
+### Finding: labels stay behind after the window gets narrower
+
+- **Steps:** Show hotkeys on, then resize the main window from 1600 to 1100 wide.
+- **Seen:** the editor row switches to short names (`data-short-editors`), but
+  the labels keep their old places. F4 sits over Movement instead of B, F3 over
+  `A`, F5 over empty space and F6 over Shadows (offsets 34–170 px). They stay
+  wrong after 1.5 s and only correct on a later focus, scroll or relevant change.
+  Capture: `out/claude-review/run/06-1100.png` in this worktree.
+- **Cause:** the window `resize` refresh runs before `AppToolbar`'s
+  `ResizeObserver` sets `data-short-editors`. That attribute is not in the
+  observer's `attributeFilter`, so nothing refreshes after the row relayouts.
+  The old observer probably hid this because any later unrelated mutation, for
+  example the timeline cursor, refreshed the labels. This was not checked on
+  the old build.
+- **Expected:** labels follow resize (contract: "labels follow ... scroll and
+  resize"), including layout changes that a resize causes afterwards.
+- **Suggested narrow fix (Codex's choice):** add `data-short-editors` to the
+  persistent observer's `attributeFilter` (the editor row contains controls, so
+  `affectsHints` keeps it), and/or refresh once more on the next animation frame
+  after a window `resize`. Keep the zero-reads-during-playback assertion.
+- **Lower priority, same family:** a style/class change on a sibling that holds
+  no controls (for example a panel growing above a button row) also moves
+  buttons without a refresh. I only produced this synthetically (40 px margin
+  above the tool row, labels off by 40 px until the next trigger). No real UI
+  path found in the click-through. Fix it only if the resize fix covers it
+  cheaply, for example with a `ResizeObserver` on the control rows.
+
+### Required checks for the fix
+
+- Hidden packaged: with Show hotkeys on, resize 1600 -> 1100 -> 1920 and assert
+  every shown label sits on its control after each resize. Re-run
+  `hotkey-playback` (zero hint reads while playing), `hotkey-badges`,
+  `learn-menu` and `learn`.
+- Full source suite, compatibility tests, build; CI green on the new head.
+
+Review probe (untracked): `out/claude-review/clickthrough.cjs` in the
+`claude/shredder-keycaps` worktree; run it on the hidden desktop with
+`MDLXL_PLAYWRIGHT_MODULE=D:\Claude\tools\node_modules\playwright-core`.
+
+Session: claude (Opus 5.5) re-review of PR #325
