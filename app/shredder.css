@@ -1,0 +1,15 @@
+/* Shredder: a popup with nothing but the key, in the look of the K.E.Y. (Show pressed keys) overlay. */
+.shredder-keycap{position:fixed;z-index:1250;margin:0;padding:5px 12px;min-width:0;height:auto;border:0;border-radius:5px;white-space:nowrap;
+  font:600 var(--shredder-size,19px)/1.4 system-ui,sans-serif;color:#fff;text-shadow:0 1px 2px #000;background:#151a22d9;box-shadow:0 2px 8px #0005;
+  cursor:pointer;user-select:none;animation:key-appear .1s ease-out}
+.shredder-keycap[data-size=small]{--shredder-size:14px;padding:3px 9px}
+.shredder-keycap[data-size=large]{--shredder-size:30px;padding:7px 16px}
+.shredder-keycap kbd{font:inherit;color:inherit}
+.shredder-keycap:hover{background:#151a22}
+.shredder-keycap[data-position=bottom]{left:50%;bottom:70px;transform:translateX(-50%)}
+.shredder-keycap[data-position=top]{left:50%;top:70px;transform:translateX(-50%)}
+.shredder-keycap[data-position=bottom-right]{right:22px;bottom:66px}
+.shredder-keycap[data-position=bottom-left]{left:22px;bottom:66px}
+.shredder-keycap[data-style=flash]{animation:key-appear .1s ease-out,shredder-flash .4s ease-in-out .1s 6 alternate}
+@keyframes shredder-flash{to{background:var(--ui-accent,#3d86c6);box-shadow:0 0 0 3px #fff8,0 2px 8px #0005}}
+@media (prefers-reduced-motion:reduce){.shredder-keycap,.shredder-keycap[data-style=flash]{animation:none}.shredder-keycap[data-style=flash]{box-shadow:0 0 0 3px var(--ui-accent,#3d86c6)}}

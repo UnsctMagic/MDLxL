@@ -106,10 +106,10 @@ test('installed add-ons and manifests naming the old Keyboard Shortcuts command 
   assert.throws(() => validateAddon({ ...manifest, actions: [{ id: 'x', label: 'X', command: `${LEGACY}x` }] }), /Unknown editor command/);
 });
 
-test('renamed controls keep the contextual Ctrl+Alt+Space codes 0.24.0 allocated', () => {
-  // Codes computed by 0.24.0 for the same controls under their old IDs.
-  const expected = { 'tab:hotkeys': 'XOF', 'hotkeys:search': 'JJE', 'hotkeys:category': 'CKQ', 'hotkeys:reset-all': 'VUJ', 'Close model tab?:hotkeys': '7YD', 'MDLxL help:hotkeys': 'MQM', 'resource:Materials:hotkeys': 'NZK', 'tab:mouse': 'SWX', 'zz:hotkeys': 'G1W' };
-  const actions = contextualHotkeyDefaults([...COMMANDS, ...Object.keys(expected).map(id => ({ id, contextual: true, defaultKeys: [] }))]);
-  assert.deepEqual(Object.fromEntries(actions.filter(action => action.contextual).map(action => [action.id, action.defaultCode])), expected);
-  assert.deepEqual(actions.find(action => action.id === 'tab:hotkeys').defaultKeys, ['Ctrl+Alt+Space > XOF']);
+test('controls saved with a generated code by older versions get a short key once seen on screen', () => {
+  const saved = { id: migrateHotkeyId('warmkeys:search'), label: 'Search Hotkeys', contextual: true, defaultCode: 'JJE', defaultKeys: [] };
+  assert.deepEqual(contextualHotkeyDefaults([...COMMANDS, saved]).find(action => action.id === 'hotkeys:search').defaultKeys, [], 'not seen yet: no window, no key');
+  const seen = contextualHotkeyDefaults([...COMMANDS, { ...saved, group: 'settings' }]).find(action => action.id === 'hotkeys:search');
+  assert.deepEqual(seen.defaultKeys, ['S']);
+  assert.equal(seen.defaultCode, undefined);
 });

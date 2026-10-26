@@ -13,6 +13,14 @@ sign-in. The settings button (or the provider name) opens **Connection** with th
 provider settings; **Advanced connection** contains the optional CLI executable path. The panel follows MDLxL's current appearance,
 and replies format paragraphs, lists, bold text and code without executing HTML.
 
+AI controls now use the same short shortcuts and Shredder reminders as the
+editor. Their keys come from their names and work while focus is in the console;
+click back into the model to use editor keys. Typing and copy/paste in the prompt
+stay native, and Enter still sends. Hover a control to see its key. The console
+keeps its existing compact layout; Escape closes it when focus is on its controls
+or background. Connection settings, Attach/remove reference, drawing tools and
+colours, Send/Stop, and the chat cleanup dialog use the same shortcut system.
+
 Viewport captures copy the renderer's current scene and selection overlays without
 hiding the assistant. Full-editor UI captures mask the assistant area in the
 returned image; the live panel stays visible. **Finding modeling tools** means API
