@@ -40,7 +40,7 @@ test('the AI button is the first dock icon: Illidan Metamorphosis with an AI lab
 
 test('new-look dock labels: one style like FRG/OPXL, one colour each, only with VIS off',()=>{
   const P=':root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>';
-  assert.ok(look.includes(P+'button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:1px!important;height:50%!important;font:900 8.5px/1 Tahoma,Arial,sans-serif!important'));
+  assert.ok(look.includes(P+'button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:1px!important;height:50%!important;font:900 7.225px/1 Tahoma,Arial,sans-serif!important'));
   assert.ok(look.includes('text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000'));
   for(const [selector,color] of [
     ['.ai-tool .module-icon-badge','#d0a8ff'],
