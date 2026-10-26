@@ -64,7 +64,7 @@ Discord feedback (HerrDave), accepted by the owner for the next patch:
 ## Revision and local state
 
 - Base: latest `origin/main` at `96d45dbb`. Branch: `codex/movement-create-ribbon-reentry`.
-- Implementation and matching tests are committed together; PR link is recorded below.
+- Implementation and matching tests: `7b8862f0`; PR link is recorded below.
 - Fixtures: any model with several sequences and one or more `RibbonEmitters`
   (the particle-editor tests' fixtures have ribbons).
 
@@ -153,7 +153,7 @@ ribbons and library" in [the project map](../agent-map.md).
 
 ## Blockers and next action
 
-- No implementation blockers. PR: pending creation from the pushed branch.
+- No implementation blockers. PR: [#331](https://github.com/UnsctMagic/MDLxL/pull/331), into `main`.
 - Stop at `ready for review; awaiting merge approval`. No merge, release or
   installed-app upgrade is authorized by this task.
 - After an authorized merge, record the merged revision, mark this note
