@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 (async()=>{
   const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','preview-ui-'+Date.now()),profile=path.join(out,'profile');fs.mkdirSync(profile,{recursive:true});
-  const {createDemoDocument,createNode,openDocument}=await import('../src/editor-document.js'),{starterTextureAsset}=await import('../src/particle-starters.js');
+  const {createDemoDocument,createNode,openDocument}=await import('../src/editor-document.js'),testPicture=(await import('./starter-picture.js')).starterTextureAsset('MDLxL_Forge\\TestSoftDisc.tga'),starterTextureAsset=()=>testPicture;
   const {evaluateModelCamera}=await import('../app/portrait-view.js');
   const doc=createDemoDocument(),texture=starterTextureAsset();
   const key=(Frame,values)=>({Frame,Vector:new Float32Array(values)}),track=Keys=>({LineType:1,GlobalSeqId:null,Keys});
@@ -22,8 +22,8 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   const exe=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[];
   const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});let p;
   try{
-    const main=await app.firstWindow();await main.getByTitle('OptimizeXL',{exact:true}).waitFor({timeout:60000});
-    const pending=app.waitForEvent('window');await main.getByTitle('OptimizeXL',{exact:true}).click();p=await pending;p.setDefaultTimeout(25000);p.on('pageerror',e=>errors.push(e.message));
+    const main=await app.firstWindow();await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
+    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();p=await pending;p.setDefaultTimeout(25000);p.on('pageerror',e=>errors.push(e.message));
     await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}});
   // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
   await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();

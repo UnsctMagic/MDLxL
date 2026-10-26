@@ -147,7 +147,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.ok(JSON.parse(committed).Textures.some(texture => texture.Image === 'PreviewEdit.png'));
     const saved = path.join(output, 'saved.mdx');
     await app.evaluate(({ dialog }, filename) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: filename }); }, saved);
-    await main.keyboard.press('Control+Shift+s');
+    await main.keyboard.press('F12');
     await main.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await main.waitForFunction(() => document.querySelector('.classic-status span').textContent.startsWith('Saved '));
     const reopened = openDocument(fs.readFileSync(saved), 'saved.mdx');

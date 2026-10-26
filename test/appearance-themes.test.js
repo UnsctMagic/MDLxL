@@ -44,7 +44,9 @@ test('every theme replaces all tokens in main and detached documents without cha
 test('preset application pairs theme and accent while native windows use the same catalog',()=>{
   const settings=readFileSync(new URL('../app/Settings.jsx',import.meta.url),'utf8');
   const desktop=readFileSync(new URL('../electron/main.cjs',import.meta.url),'utf8');
-  assert.match(settings,/theme: preset.theme, accent: preset.accent \|\| APPLICATION_THEMES\[preset.theme\].accent/);
+  const presetLoad=readFileSync(new URL('../src/light-dark-switch.js',import.meta.url),'utf8');
+  assert.match(settings,/commit\(viewportPresetChange\(prefs, id\)\)/);
+  assert.match(presetLoad,/theme: preset.theme, accent: preset.accent \|\| APPLICATION_THEMES\[preset.theme\].accent/);
   assert.match(settings,/Object.values\(BUILT_IN_VIEWPORT_PRESETS\)/);
   assert.doesNotMatch(desktop,/theme==='dark'/);
   assert.match(desktop,/require\('\.\.\/src\/application-themes.json'\)/);
@@ -87,4 +89,20 @@ test('malformed tree settings are bounded without mutating preset defaults', () 
   assert.equal(prefs.viewportAppearance.tree.fontSize, 20); assert.equal(prefs.viewportAppearance.tree.nodes.bone, '#fedcba');
   prefs.viewportAppearance.tree.nodes.helper = '#000000';
   assert.notEqual(presets['blender-style'].appearance.tree.nodes.helper, '#000000');
+});
+
+test('the tool highlight follows the theme accent until the user picks a colour',()=>{
+  const values=new Map(),doc={documentElement:{dataset:{},style:{setProperty:(k,v)=>values.set(k,v)}}};
+  for(const [id,theme]of Object.entries(themes)){
+    const prefs=normalizePreferences({rendererRevision:3,theme:id,accent:theme.accent});
+    assert.equal(prefs.toolHighlight,'');
+    applyApplicationTheme(prefs,doc);
+    assert.equal(values.get('--ui-tool-highlight'),theme.accent,theme.name);
+  }
+  const picked=normalizePreferences({rendererRevision:3,theme:'dark',accent:'#ff8a00',toolHighlight:'#E0457B'});
+  assert.equal(picked.toolHighlight,'#e0457b');
+  applyApplicationTheme(picked,doc);
+  assert.equal(values.get('--ui-tool-highlight'),'#e0457b');
+  assert.equal(normalizePreferences({toolHighlight:'pink'}).toolHighlight,'');
+  assert.deepEqual(importConfiguration(JSON.stringify(exportConfiguration(picked))).toolHighlight,'#e0457b');
 });

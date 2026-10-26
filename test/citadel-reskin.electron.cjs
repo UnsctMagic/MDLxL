@@ -36,6 +36,7 @@ async function run(){
   const saved=path.join(out,'Gold-footman-study.mdlxlpaint');await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},saved);await page.getByRole('button',{name:'Save project',exact:true}).click();for(let i=0;i<100&&!fs.existsSync(saved);i++)await page.waitForTimeout(100);assert.ok(fs.existsSync(saved));assert.equal(createHash('sha256').update(fs.readFileSync(fixture)).digest('hex'),sourceHash);result.checks.push('Gold armor, cyan sword, chainmail sleeves and a different shield created through ordinary copy, mask, fill and stamp controls');assert.deepEqual(result.errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));
   console.log(out);
 }
-run().catch(async error=>{console.error(error);if(page)await shot('failure');process.exitCode=1;}).finally(async()=>{if(!app)return;const child=app.process(),gone=new Promise(r=>child.exitCode!==null?r():child.once('exit',r));app.evaluate(({app})=>app.exit(0)).catch(()=>{});
+run().catch(async error=>{process.exitCode=1;console.error(error);if(page)await shot('failure');}).finally(async()=>{if(!app)return;const child=app.process(),gone=new Promise(r=>child.exitCode!==null?r():child.once('exit',r));app.evaluate(({app})=>app.exit(0)).catch(()=>{});
   // Shutdown once hung with the app idle after every check passed; end that process instead of waiting forever.
-  if(await Promise.race([gone.then(()=>true),new Promise(r=>setTimeout(r,15000,false).unref())])===false)child.kill();});
+  if(await Promise.race([gone.then(()=>true),new Promise(r=>setTimeout(r,15000,false).unref())])===false)child.kill();
+}).then(()=>process.exit(process.exitCode||0),error=>{console.error(error);process.exit(1);});

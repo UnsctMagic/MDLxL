@@ -9,7 +9,7 @@ export default function ParticlePlacementStage({doc,recipe,placement,onPosition,
   }catch(error){return {error:error.message};}
  },[doc,doc.revision,recipe,placement.parent,placement.sequence,placement.fit,placement.motion,placement.from,placement.to,placement.sequences]);
  React.useEffect(()=>{onError?.(graph.error||'');if(graph.interval)setTime(value=>Math.max(graph.interval[0],Math.min(graph.interval[1],value)));},[graph]);
- if(graph.error)return <div className="pe-placement-error" role="status">{graph.error}</div>;
+ if(graph.error)return <div className="pe-placement-error" role="status" data-alert="">{graph.error}</div>;
  const anchor=graph.model.Helpers.find(n=>n.ObjectId===graph.anchorId);
  if(!placement.ribbon)anchor.Translation={LineType:0,GlobalSeqId:null,Keys:[{Frame:graph.interval[0],Vector:new Float32Array(placement.position)}]};
  const stop=()=>{drag.current=null;},clip=doc.model.Sequences[placement.sequence]?.Interval||graph.interval;

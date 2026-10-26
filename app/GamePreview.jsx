@@ -1,3 +1,4 @@
+import { rotationOptions } from '../src/rotation-drag.js';
 import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js';
 import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -24,12 +25,12 @@ import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
-import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationFacing, movementRotationGesture, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
+import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationFacing, movementRotationGesture, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, swivelPoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
 import { installWarcraftPreviewAdapter, resetPreviewEffects, previewGeosetTint } from './warcraft-preview-adapter.js';
-import { composePreviewCapture, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
+import { composePreviewCapture, composeViewportLayers, drawPreviewBackground, previewPlaybackStep } from './game-preview-capture.js';
 import { createGLPreviewBackground } from './game-preview-background-gl.js';
 import { createAnimatedPreviewBackground } from './animated-preview-background.js';
 import { createVideoPreviewBackground } from './video-preview-background.js';
@@ -422,11 +423,12 @@ export default function GamePreview(inputProps) {
     // Move/Rotate/Scale edit a global sequence on the renderer's private
     // 0..duration reel; POSE stays limited to the model's sequences.
     const nodeEditSequence = (p, frame) => !p.restPose && Number.isInteger(p.globalSeqId) && p.globalSeqId >= 0 ? globalPreviewId !== null ? timelineSequenceIndex : -1 : movementSequence(p, frame);
-    const beginRotationDrag = (gesture, active) => {
+    const beginRotationDrag = (gesture, rotation) => {
       if (gesture.mode !== 'rotate') return;
-      const view = camera.getWorldDirection(new THREE.Vector3());
-      gesture.rotationDrag = movementRotationGesture(gesture.handle, gesture,
-        { x: gesture.handle.startX ?? active.x, y: gesture.handle.startY ?? active.y }, movementRotationFacing(gesture, active.rotation, view));
+      const p = latest.current, rect = canvas.getBoundingClientRect(), pivot = gesture.origin.clone().project(camera);
+      const facing = movementRotationFacing(gesture, rotation, camera.getWorldDirection(new THREE.Vector3()));
+      gesture.rotationDrag = movementRotationGesture({ ...rotationOptions(p.preferences, p.rotationEditor || (p.showcase ? 'showcase' : 'movement')), x: gesture.x, y: gesture.y,
+        pivot: { x: (pivot.x + 1) * rect.width / 2, y: (1 - pivot.y) * rect.height / 2 }, pivotSign: facing > 0 ? -1 : 1, facing });
     };
     const poseStamp = config => JSON.stringify(config && [config.enabled, config.restrict, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
@@ -473,7 +475,7 @@ export default function GamePreview(inputProps) {
           restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
         gesture.latch = shiftDragLatch({ x: 0, y: 0 }, event.shiftKey);
-        beginRotationDrag(gesture, handle);
+        beginRotationDrag(gesture, handle.rotation);
         gesture.dragPlane = axis?.plane || p.workplane;
         if (p.workplaneEnabled || axis?.plane) {
           const axes = gesture.dragPlane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(gesture.dragPlane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
@@ -521,9 +523,8 @@ export default function GamePreview(inputProps) {
         } else {
           const chain = gesture.config.chains.find(chain => chain.key === gesture.target.key), pose = samplePoseChain(gesture.baseline, chain, gesture.frame, gesture.sequence, gesture.globalTime);
           if (gesture.target.kind === 'bend' && gesture.mode === 'rotate') {
-            // A bend has one meaningful rotation axis: through the fixed hand
-            // or foot. Horizontal dragging works even when that axis is edge-on.
-            let degrees = dx * sensitivity;
+            // The input preference changes the angle, not the limb solver's axis.
+            let degrees = movementRotationAmount(gesture.rotationDrag, dx, dy, sensitivity);
             if (event.shiftKey) degrees = Math.round(degrees / 5) * 5;
             result = swivelPoseLimb(gesture.baseline, chain, gesture.frame, gesture.sequence, degrees * Math.PI / 180, gesture.globalTime, gesture.config.bends?.[chain.key] && new THREE.Vector3().fromArray(gesture.config.bends[chain.key]).applyQuaternion(pose.rotations[0]));
             result.bends = result.bend ? [{ key: chain.key, local: new THREE.Vector3().fromArray(result.bend).applyQuaternion(result.pose.rotations[0].clone().invert()).toArray() }] : [];
@@ -589,18 +590,21 @@ export default function GamePreview(inputProps) {
         const picked = pickMovementNode(pickable, x, y, p.selectedNodeIds,13,p.transformMode==='move');
         const selected = pickable.find(point => point.node.ObjectId === p.selectedNodeIds?.at(-1));
         const gizmo = selected && !p.workplaneEnabled ? pickMovementHandle(nodeHandles, x, y, p.transformMode) : null;
-        const active = p.transformMode==='move'&&picked&&!gizmo?picked:selected;
+        const markerRotate = p.transformMode === 'rotate' && picked && !gizmo && !event.shiftKey && !event.ctrlKey && !event.metaKey;
+        const active = (p.transformMode==='move'||markerRotate)&&picked&&!gizmo?picked:selected;
         const editable = p.onNodeTransform && (!p.restPose || p.transformMode === 'move') && !movementRestricted(p.transformMode || 'rotate', p.restrictions) && (p.restPose || editSequence >= 0);
         const directMove=!!picked&&!gizmo&&editable&&p.transformMode==='move',screenMove=directMove&&!p.workplaneEnabled;
         const workplaneDrag = active && editable && p.workplaneEnabled && ['move', 'rotate'].includes(p.transformMode) && (directMove||!picked || p.selectedNodeIds?.includes(picked.node.ObjectId));
         const axisHandle = active && editable ? gizmo : null;
+        const directRotate = markerRotate && editable && !p.workplaneEnabled;
+        const viewRotationHandle = directRotate ? movementViewRotationHandle(camera.getWorldDirection(new THREE.Vector3()), active.unitsPerPixel) : null;
         const freeScaleDrag = active && editable && p.transformMode === 'scale' && !picked && !axisHandle;
-        const handle = active && editable && (workplaneDrag ? movementWorkplaneHandle(p.workplane, active.unitsPerPixel) : axisHandle || freeScaleDrag || screenMove ? axisHandle || { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: active.unitsPerPixel } : null);
+        const handle = active && editable && (workplaneDrag ? movementWorkplaneHandle(p.workplane, active.unitsPerPixel) : viewRotationHandle || (axisHandle || freeScaleDrag || screenMove ? axisHandle || { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: active.unitsPerPixel } : null));
         if (handle) {
-          const ids = directMove&&!p.selectedNodeIds?.includes(picked.node.ObjectId)?[picked.node.ObjectId]:[...(p.selectedNodeIds || [])], snapshots = new Map();
-          if(directMove)p.onSelectNodes?.(ids);
+          const ids = (directMove||markerRotate)&&!p.selectedNodeIds?.includes(picked.node.ObjectId)?[picked.node.ObjectId]:[...(p.selectedNodeIds || [])], snapshots = new Map();
+          if(directMove||markerRotate)p.onSelectNodes?.(ids);
           for (const node of allNodes(ownedModel)) if (ids.includes(node.ObjectId)) snapshots.set(node.ObjectId, structuredClone({ Translation: node.Translation, Rotation: node.Rotation, Scaling: node.Scaling, PivotPoint: node.PivotPoint }));
-          nodeGesture = { id: event.pointerId, x, y, handle, ids, snapshots, frame: Math.round(native.getFrame()), sequence: editSequence, mode: p.transformMode || 'rotate', space: p.transformSpace || 'local', rotateOnOwnAxis: !!p.rotateOnOwnAxis, amount: p.transformMode === 'scale' ? 1 : 0, moved: false };
+          nodeGesture = { id: event.pointerId, x, y, handle, ids, snapshots, frame: Math.round(native.getFrame()), sequence: editSequence, mode: p.transformMode || 'rotate', space: p.transformSpace || 'world', rotateOnOwnAxis: !!p.rotateOnOwnAxis, amount: p.transformMode === 'scale' ? 1 : 0, moved: false };
           posedGeometryCache = null;
           Object.assign(nodeGesture, { restPose: !!p.restPose, workplaneEnabled: !!p.workplaneEnabled, workplane: p.workplane, pivotPoints: structuredClone(ownedModel.PivotPoints), origin: active.world.clone() });
           nodeGesture.dragPlane = axisHandle?.plane || p.workplane;
@@ -611,9 +615,9 @@ export default function GamePreview(inputProps) {
             nodeGesture.space = 'world';
           }
           if (p.transformMode === 'move' || p.transformMode === 'scale') nodeGesture.space = 'world';
-          if (workplaneDrag && p.transformMode === 'rotate') nodeGesture.space = 'world';
+          if ((workplaneDrag || directRotate) && p.transformMode === 'rotate') nodeGesture.space = 'world';
           nodeGesture.workplaneDrag = workplaneDrag; nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},event.shiftKey);
-          beginRotationDrag(nodeGesture, active);
+          beginRotationDrag(nodeGesture, active.rotation);
           controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId); invalidate();
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
@@ -665,6 +669,11 @@ export default function GamePreview(inputProps) {
     }
     const nodePointerMove = event => {
       const p = latest.current;
+      // A second mouse button during a held drag arrives as pointermove.
+      if ((event.buttons & 2) && nodeGesture?.mode === 'rotate' && !nodeGesture.pose) {
+        finishNodeGesture({ pointerId: nodeGesture.id, type: 'pointercancel', preventDefault: () => event.preventDefault(), stopImmediatePropagation: () => event.stopImmediatePropagation() });
+        return;
+      }
       rememberShowcasePointer(event);
       if(p.showcase&&rotating&&!event.buttons)endShowcaseCursor();
       if (p.attachSourceIds?.length) {
@@ -732,7 +741,7 @@ export default function GamePreview(inputProps) {
         if (start.uv) {
           const point = Math.hypot(end.x - start.x, end.y - start.y) <= 5 ? { x: start.x, y: start.y } : end;
           p.onSelectionChange?.(selectPreviewUVCoordinates(geometry, p.selectionByGeoset || {}, start, point,
-            p.previewEligibleByGeoset, p.previewSelectionMode === 'vertices', rect.width, rect.height));
+            p.previewEligibleByGeoset, p.previewSelectionMode === 'vertices', rect.width, rect.height, { grabThrough: p.previewOverlay?.grabThrough !== false }));
         } else if (start.ctrl && p.onInspectGeoset && Math.hypot(end.x - start.x, end.y - start.y) <= 5) {
           const hit = pickPreviewGeoset(geometry, end.x, end.y); if (hit) p.onInspectGeoset(hit.index);
         } else {
@@ -791,7 +800,8 @@ export default function GamePreview(inputProps) {
       if (event.key === 'Escape' && (nodeGesture || selectionGesture)) cancelNodeGesture(event);
       if(event.key==='Shift')controls.shiftScreenDrag(event.shiftKey);
       if (event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
-          !event.target?.closest?.('input, textarea, select, [contenteditable="true"]') &&
+          // A checkbox keeps focus after a click but never types, so it must not block A.
+          !event.target?.closest?.('input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]') &&
           (!latest.current.previewSelectionMode || canvas.closest('.uv-workspace-body')?.dataset.pointerRegion === 'preview')) previewSelectHeld = true;
     };
     const previewKeyUp = event => {
@@ -900,12 +910,40 @@ export default function GamePreview(inputProps) {
     }
     const viewCamera = event => { if (latest.current.suspended)return;if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
-    function fit({ initialize = false } = {}) {
+    // Where the selection is in the current pose: the selected vertices, or else
+    // the selected bones and nodes. Model-space points [x,y,z,...].
+    function selectionPoints() {
+      const p = latest.current, points = [];
+      const matrices = new Map((native.rendererData?.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
+      for (const [index, ids] of Object.entries(p.selectionByGeoset || {})) {
+        const geo = ownedModel.Geosets[index], list = [...(ids || [])];
+        if (!geo || !list.length) continue;
+        const posed = p.restPose ? geo.Vertices : skinGeoset(geo, matrices);
+        for (const id of list) points.push(posed[id * 3], posed[id * 3 + 1], posed[id * 3 + 2]);
+      }
+      if (!points.length) for (const id of p.selectedNodeIds || []) {
+        const pivot = ownedModel.PivotPoints?.[id], matrix = matrices.get(id);
+        if (!pivot) continue;
+        point.fromArray(pivot); if (matrix && !p.restPose) point.applyMatrix4(matrix);
+        points.push(point.x, point.y, point.z);
+      }
+      return points;
+    }
+    // A close-up of points, with a little room around them.
+    function pointsFit(points) {
+      if (!points?.length) return null;
+      const box = new THREE.Box3();
+      for (let i = 0; i + 2 < points.length; i += 3) box.expandByPoint(point.set(points[i], points[i + 1], points[i + 2]));
+      return { center: box.getCenter(new THREE.Vector3()).toArray(), radius: Math.max(1, radius * .04, box.getSize(new THREE.Vector3()).length() * .75), focus: true };
+    }
+    // points: frame these model-space points; detail.selection (Fit selection): the selection.
+    function fit({ initialize = false, detail, points } = {}) {
       if (state.portraitActive || (latest.current.suspended && !initialize)) return;
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
-      const effect=latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit(),fitCenter=effect?new THREE.Vector3(...effect.center):center;
+      const focus = pointsFit(points || (detail?.selection ? selectionPoints() : null));
+      const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit()),fitCenter=effect?new THREE.Vector3(...effect.center):center;
       perspective.position.copy(fitCenter).add(new THREE.Vector3(1, -1.5, .9).normalize().multiplyScalar(perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
-      controls.target.copy(fitCenter); perspective.zoom = ortho.zoom = 1; resize(); setView(latest.current.view || 'perspective');
+      controls.target.copy(fitCenter); perspective.zoom = 1; ortho.zoom = focus ? Math.max(1, radius / focus.radius) : 1; resize(); setView(latest.current.view || 'perspective');
     }
     function centerShowcaseModel(crop, fullOrbit = false, horizontal = 1, vertical = 1) {
       const p=latest.current;if(!p.showcase)return;
@@ -977,8 +1015,27 @@ export default function GamePreview(inputProps) {
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, priorBuffer); invalidate();
     }
-    const setCameraPreset = name => {
-      camera = ortho; state.appliedView = name; applyViewPreset(camera, name, controls.target, fitRadius() * 4);
+    const setCameraPreset = (name, fit = false) => {
+      camera = ortho; state.appliedView = name;
+      let frameBounds = bounds;
+      if (fit) {
+        // Invisible effect meshes must not push the UV model away from its working view.
+        const visibleBounds = new THREE.Box3(), hidden = new Set(latest.current.hiddenGeosets || []);
+        for (const [index, geoset] of ownedModel.Geosets.entries()) {
+          const layers = ownedModel.Materials[geoset.MaterialID]?.Layers || [];
+          if (hidden.has(index) || !layers.some(layer => previewGeosetTint(ownedModel, index, layer, native.getFrame(), native.getSequence(), globalClock)[3] > .001)) continue;
+          for (const id of new Set(geoset.Faces)) visibleBounds.expandByPoint(point.fromArray(geoset.Vertices, id * 3));
+        }
+        if (!visibleBounds.isEmpty()) frameBounds = visibleBounds;
+        frameBounds.getCenter(controls.target);
+      }
+      applyViewPreset(camera, name, controls.target, fitRadius() * 4);
+      if (fit) {
+        // Fit the requested projection itself; model depth must not shrink a frontal UV view.
+        const size = frameBounds.clone().applyMatrix4(camera.matrixWorldInverse).getSize(new THREE.Vector3());
+        camera.zoom = Math.min((camera.right - camera.left) / Math.max(.001, size.x), (camera.top - camera.bottom) / Math.max(.001, size.y)) / 1.15;
+        camera.updateProjectionMatrix();
+      }
       controls.object = camera; controls.enableRotate = true; controls.update(); reportProjectionView(); invalidate();
     };
     function enterPortrait(evaluated) {
@@ -1307,7 +1364,7 @@ export default function GamePreview(inputProps) {
         drawCollisionSpheres(collisionCanvas.getContext('2d'),ownedModel,camera,native,canvas.width,canvas.height);
       } else if (collisionCanvas) { collisionCanvas.remove(); collisionCanvas=null; }
       const overlayOptions = { ...previewOverlayOptions(p.overlays, p.showNodes, p.editorDisplayMode, p.vanilla), vanilla:p.vanilla, preferences: p.preferences, workplane: p.workplane };
-      if (p.poseConfig?.picking) { overlayOptions.bones = true; overlayOptions.nodes = true; overlayOptions.attachments = true; }
+      if (p.poseConfig?.picking) { overlayOptions.bones = true; overlayOptions.helpers = true; overlayOptions.nodes = true; overlayOptions.attachments = true; }
       overlayOptions.selectableGeosets = p.selectableGeosets ?? [];
       overlayOptions.visibleGeosets = p.visibleGeosets;
       overlayOptions.grid = false;
@@ -1417,7 +1474,7 @@ export default function GamePreview(inputProps) {
         // Swivel follows the limb, so world/local XYZ rotation bubbles would
         // advertise the wrong axes. Grab the elbow/knee itself to turn it.
         const bendSwivel = activePose?.kind === 'bend' && handleMode === 'rotate';
-        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && !bendSwivel && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || (activePose ? movementSequence : nodeEditSequence)(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'local' : 'world', handleMode) : [];
+        nodeHandles = (activePose ? p.onPoseCommit : p.onNodeTransform) && (!p.restPose || handleMode === 'move') && !workplaneHidesHandles && !handleRestricted && !bendSwivel && ['move', 'rotate', 'scale'].includes(handleMode) && (p.restPose || (activePose ? movementSequence : nodeEditSequence)(p, Math.round(native.getFrame())) >= 0) ? movementAxisHandles(handleAnchor, camera, width, height, radius, handleMode === 'rotate' ? p.transformSpace || 'world' : 'world', handleMode) : [];
         if (pinButton && limb && !pinButton.hidden) {
           // Hold still under the pointer. Keyboard focus keeps the same side
           // of the limb, while still following camera pan/zoom.
@@ -1486,6 +1543,10 @@ export default function GamePreview(inputProps) {
       cancel: cancelPreviewFrame,
     });
     state.captureApi = {
+      captureView() {
+        if (disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
+        return composeViewportLayers(hostElement, canvas);
+      },
       get isReady() { return !disposed && texturesReady && (!particleAuthor || particleAuthor.simulation && !particleAuthor.status.busy) && eventPreview.isReady && backgroundState.current.status === 'ready' && layerAPI.current?.isReady !== false && (!portraitHasFrame(latest.current) || portraitFrame.current.status !== 'loading'); },
       cameraView() { return state.cameraView(); },
       showcaseView() { return {camera:state.cameraView(),anchor:[0,0,center.z],radius,portraitFraming:portraitFraming.toArray(),detached:state.cameraDetached}; },
@@ -1498,7 +1559,7 @@ export default function GamePreview(inputProps) {
         applyEvaluatedModelCamera(camera,controls,view,canvas.width/canvas.height);invalidate();
       },
       invalidate() { state.scheduler.invalidate(); },
-      fit() { fit(); },
+      fit(points) { fit({ points }); },
       centerModel(crop) { centerShowcaseModel(crop); },
       maximalZoom(crop) { centerShowcaseModel(crop,true); },
       alignModel(crop,x,y) { centerShowcaseModel(crop,false,x,y); },
@@ -1509,6 +1570,16 @@ export default function GamePreview(inputProps) {
       },
       setCameraView(view) { camera = perspective; controls.object = camera; state.cameraDetached = true; applyEvaluatedModelCamera(camera, controls, view, canvas.width / canvas.height); invalidate(); },
       modelCenter() { return center.toArray(); },
+      // Canvas pixels of model-space points [x,y,z,...] in the current view, as [x,y,inFront,...].
+      project(points) {
+        const out = new Float32Array(points.length), point = new THREE.Vector3();
+        camera.updateMatrixWorld();
+        for (let i = 0; i < points.length; i += 3) {
+          point.set(points[i], points[i + 1], points[i + 2]).project(camera);
+          out[i] = (point.x + 1) / 2 * canvas.width; out[i + 1] = (1 - point.y) / 2 * canvas.height; out[i + 2] = point.z >= -1 && point.z <= 1 ? 1 : 0;
+        }
+        return out;
+      },
       effectDefinitions() { return eventPreview.definitions; },
       recordingDimensions({crop,maxDimension,aspect}={}) {
         resize();
@@ -1630,10 +1701,10 @@ export default function GamePreview(inputProps) {
   // AnimXL swaps node tracks in the renderer's own copy; no WebGL rebuild per slider move.
   useLayoutEffect(() => { const current = runtime.current; if (props.liveNodeTracks && current?.particleSourceModel === rendererModel) current.updateNodeTracks(props.liveNodeTracks); }, [props.liveNodeTracks, rendererModel]);
   useEffect(() => { if(runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view]);
-  useEffect(() => { if (props.cameraPresetRequest?.name) runtime.current?.setCameraPreset(props.cameraPresetRequest.name); }, [props.cameraPresetRequest?.revision]);
   useEffect(() => { runtime.current?.refreshCursor(); }, [props.cameraMode, props.transformMode, props.showcaseCrop]);
   useEffect(() => { const state=runtime.current;state?.nodeEffects.cancelTests();state?.eventPreview.cancelTests();state?.soundPreview.stop();state?.scheduler.sync(); }, [props.vanilla]);
   useEffect(() => { if (props.cameraAnglesRequest) runtime.current?.setCameraAngles(props.cameraAnglesRequest); }, [props.cameraAnglesRequest]);
+  useEffect(() => { if (props.cameraPresetRequest?.name) runtime.current?.setCameraPreset(props.cameraPresetRequest.name, props.cameraPresetRequest.fit); }, [props.cameraPresetRequest?.revision]);
   useEffect(() => { setAdjustingSensitivity(null); }, [props.preferences?.wheelMode]);
   useEffect(() => { const controls = runtime.current?.controls; if (controls) controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(props.preferences?.pointerSensitivity); }, [props.preferences?.pointerSensitivity]);
   useEffect(() => { runtime.current?.resize(); }, [graphics.pixelRatio, props.showGrid, props.overlays?.grid, props.preferences?.grid, props.portraitSettings?.composition]);
@@ -1654,10 +1725,10 @@ export default function GamePreview(inputProps) {
       {selectionBox && <div className={`game-preview-selection-layer${composition ? ' portrait-composition-surface' : framed ? ' portrait-model-surface' : ''}`}><div data-selection-marquee="" style={{ position: 'absolute', zIndex: 90, pointerEvents: 'none', boxSizing: 'border-box', border: `1px dashed ${marqueeColor}`, background: `${marqueeColor}24`, boxShadow: '0 0 0 1px #fff', ...selectionBox }} /></div>}
       {framed && !composition && frame.status === 'ready' && <img className="portrait-human-frame" src={frame.url} alt="" aria-hidden="true" data-frame-version={portraitFrameVersion}/>}
       {portrait && !props.showcase && (composition || props.portraitSettings?.thirds) && <div aria-label="Portrait crop guides" className={'portrait-crop-guides' + (composition ? ' outside' : '') + (props.portraitSettings?.thirds ? ' thirds' : '')} style={guideStyle}/>}
-      {props.showcase && <ShowcaseLayers ref={layerAPI} grid={props.showcaseGrid} gridDensity={props.showcaseGridDensity} crop={props.showcaseCrop} layers={props.showcaseLayers} activeId={props.showcaseActiveLayer} editing={props.showcaseLayerEditing} onSelect={props.onShowcaseLayerSelect} onChange={props.onShowcaseLayerChange} onError={props.onShowcaseLayerError} onInvalidate={()=>runtime.current?.scheduler.invalidate()}/>}
+      {props.showcase && <ShowcaseLayers preferences={props.preferences} ref={layerAPI} grid={props.showcaseGrid} gridDensity={props.showcaseGridDensity} crop={props.showcaseCrop} layers={props.showcaseLayers} activeId={props.showcaseActiveLayer} editing={props.showcaseLayerEditing} onSelect={props.onShowcaseLayerSelect} onChange={props.onShowcaseLayerChange} onError={props.onShowcaseLayerError} onInvalidate={()=>runtime.current?.scheduler.invalidate()}/>}
       {portrait && !hasCamera && <div className="portrait-message" role="status">Create or select a camera to view the portrait</div>}
       {framed && frame.status === 'loading' && <div className="portrait-frame-status" role="status">Loading Human UI frame from installed Warcraft III data…</div>}
-      {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status">{frame.error}</div>}
+      {framed && frame.status === 'failed' && <div className="portrait-frame-status portrait-frame-error" role="status" data-alert="">{frame.error}</div>}
     </div>
     {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}
     {gestureLabel && <div role="status" style={{ position:'absolute', top:8, left:8, padding:'4px 7px', background:'#182638', color:'#fff', fontSize:12 }}>{gestureLabel}</div>}

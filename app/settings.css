@@ -9,7 +9,11 @@
 
 [data-shortcut-hints=true] .hotkey-control:disabled .hotkey-badge,[data-shortcut-hints=true] [data-hotkey-available=false] .hotkey-badge{visibility:hidden}
 
-.hotkey-badge[data-long-hint=true]{max-width:none;top:-10px;right:0;background:var(--ui-field,#fff);border:1px solid var(--ui-border,#888);padding:1px 3px;z-index:5}
+/* Keep the existing labels in their controls, drawn above clipping without boxes.
+   Chords can wrap at + on narrow icons; their modifiers and key stay complete. */
+:root .hotkey-badge[popover]{position:fixed!important;inset:auto;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;outline:0!important;background:transparent!important;box-shadow:none!important;color:#39ff14!important;font:700 11px/13px Tahoma,Arial,sans-serif!important;letter-spacing:0!important;min-width:min-content!important;max-width:var(--hotkey-hint-width)!important;width:max-content!important;min-height:0!important;height:auto!important;white-space:normal!important;text-align:right!important;overflow:visible!important;text-overflow:clip!important;text-shadow:-1px 0 #102609,1px 0 #102609,0 -1px #102609,0 1px #102609!important;pointer-events:none!important}
+:root .hotkey-badge[popover]:not(:popover-open){display:none!important}
+.hotkey-badge[popover]::backdrop{display:none}
 .settings-preload{margin-top:18px;padding-top:8px;border-top:1px solid var(--ui-border,#888);min-width:0}.settings-preload-confirm{margin-top:10px;padding:10px;border:1px solid var(--ui-border,#888);background:var(--ui-field,#fff);color:var(--ui-text,#16191e)}.settings-preload-status progress{width:100%;height:16px}.settings-preload-status p{margin:6px 0}.settings-preload-status code{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.settings-preload-errors{margin-top:8px}.settings-preload-errors ul{padding-left:20px;overflow-wrap:anywhere}.settings-preload-error{color:var(--ui-text,#16191e);border-left:3px solid #c33;padding:6px 9px}
 .settings-appearance-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 24px}.settings-appearance-group{min-width:0;margin:0;padding:10px;border:1px solid var(--ui-border,#888);background:color-mix(in srgb,var(--ui-field,#fff) 55%,transparent)}.settings-appearance-group legend{padding:0 5px;font-weight:bold}.settings-appearance-group .settings-number,.settings-appearance-group .settings-select,.settings-appearance-group .settings-color{margin:8px 0}.settings-inline-actions>input[placeholder="Custom preset name"]{min-width:190px;flex:1}@media(max-width:620px){.settings-appearance-grid{grid-template-columns:1fr}}
 .settings-appearance-preview{display:block;width:96px;height:22px;margin:5px 0 0 auto;border:1px solid var(--ui-border,#888);background:var(--ui-field,#fff);pointer-events:none}
@@ -45,4 +49,9 @@
 .settings-appearance-page>button[data-hotkey="appearance:reset"]{grid-column:2;justify-self:start;margin-top:4px}
 .settings-bone-preview{display:block;width:204px;height:64px;margin:4px 0 10px;border:1px solid var(--ui-border,#888)}
 @media(max-width:620px){.settings-appearance-page{grid-template-columns:1fr}.settings-appearance-nav{flex-direction:row;flex-wrap:wrap;position:static;grid-row:auto}.settings-appearance-page>button[data-hotkey="appearance:reset"]{grid-column:1}}
-.settings-file-icon{display:inline-flex;align-items:center;gap:6px}.settings-file-icon img{width:32px;height:32px}
+.settings-file-icon{display:inline-flex;align-items:center;gap:6px}.settings-file-icons{align-items:center}.settings-file-icons>span{min-width:72px}.settings-file-icon img{width:32px;height:32px}
+
+.settings-mouse-page .settings-appearance-detail>button{margin-top:12px}
+.settings-rotation-speed{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}
+.settings-rotation-speed>.settings-number{flex:1;min-width:180px}
+.settings-rotation-speed>label:last-child{display:flex;align-items:center;gap:4px}

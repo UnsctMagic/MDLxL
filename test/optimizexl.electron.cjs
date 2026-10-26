@@ -12,9 +12,9 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
  const errors=[];
  try{
   const main=await app.firstWindow();main.setDefaultTimeout(20000);main.on('pageerror',e=>errors.push(e.message));
-  await main.getByTitle('OptimizeXL',{exact:true}).waitFor({timeout:60000});
+  await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
   assert.equal(await main.locator('.ox-root').count(),0);
-  const popupPromise=app.waitForEvent('window');await main.getByTitle('OptimizeXL',{exact:true}).click();const popup=await popupPromise;popup.setDefaultTimeout(20000);popup.on('pageerror',e=>errors.push(e.message));
+  const popupPromise=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const popup=await popupPromise;popup.setDefaultTimeout(20000);popup.on('pageerror',e=>errors.push(e.message));
   await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1280,height:800});w.showInactive();}});
   await popup.getByRole('heading',{name:'OptimizeXL',exact:true}).waitFor();
   await popup.getByRole('button',{name:'Approve',exact:true}).waitFor();

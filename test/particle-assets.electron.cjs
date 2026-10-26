@@ -5,7 +5,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
  const root=process.cwd(),out=path.join(root,'out','particle-prototype','collision-ui-'+Date.now()),profile=path.join(out,'profile');
  await fs.mkdir(profile,{recursive:true});
  const {createDemoDocument,openDocument}=await import('../src/editor-document.js');
- const {createStarterRecipe,starterTextureAsset,STARTER_TEXTURE}=await import('../src/particle-starters.js');
+ const {createStarterRecipe,STARTER_TEXTURE}=await import('../src/particle-starters.js'),{starterTextureAsset}=await import('./starter-picture.js');
  const {stringifyParticleData}=await import('../src/particle-data.js');
  const fixture=path.join(out,'collision-target.mdx'),source=createDemoDocument(),existing=starterTextureAsset();existing.bytes[20]=123;
  source.model.Textures[0]={Image:STARTER_TEXTURE,ReplaceableId:0,Flags:0};const fixtureBytes=Buffer.from(source.serialize('mdx'));await fs.writeFile(fixture,fixtureBytes);

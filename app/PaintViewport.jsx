@@ -143,7 +143,8 @@ export default function Viewport(inputProps) {
   const [error, setError] = useState(''), [textureMessage, setTextureMessage] = useState(''), [backgroundMessage, setBackgroundMessage] = useState(''), [box, setBox] = useState(null);
   const paintCursor = useRef(null);
   const [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
-  const cameraMemory = useRef(null);
+  // The model tab's memory survives the remount that switching tabs causes.
+  const ownCameraMemory = useRef(null), cameraMemory = props.cameraMemory || ownCameraMemory;
   const graphics = graphicsOptions(props.preferences);
   const textureSignature = (model?.Textures || []).map(texture => `${texture.Image}|${texture.Flags}|${texture.ReplaceableId}`).join('\n');
   const texturesNeeded = graphics.textures && (mode === 'textured' || props.paintMode);

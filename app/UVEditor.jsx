@@ -1,3 +1,4 @@
+import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { applySelection, connectedVertices, insideTriangle } from './classic-gestures.js';
 import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText, wheelPixels } from './viewport-performance.js';
@@ -152,7 +153,9 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       const navigationMode = binding === 'pan' ? 'move' : binding || p.cameraMode;
       const cursor = type === 'pan' && navigationMode === 'move' ? 'grabbing' : viewportCursor(navigationMode, p.transformMode);
       s.drag = { type, cursor, x, y, endX: x, endY: y, indices, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: sensitivity * (event.altKey ? (p.preferences?.fineSensitivity ?? 0.2) : 1), original: new Float32Array(s.uv), sizeX: m.sizeX, sizeY: m.sizeY, center: centerOf(indices), panX: s.panX, panY: s.panY, zoom: s.zoom, moved: false };
-      s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY]; draw();
+      s.drag.pivotScreen = [m.x + s.drag.center[0] * m.sizeX, m.y + s.drag.center[1] * m.sizeY];
+      if (type === 'rotate') s.drag.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, 'uv'), x, y, pivot: { x: s.drag.pivotScreen[0], y: s.drag.pivotScreen[1] } });
+      draw();
     }
     function pointerMove(event) {
       const drag = s.drag, p = current.current; if (!drag) return;
@@ -162,8 +165,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       if (drag.type === 'zoom') s.zoom = constrainZoom(drag.zoom * Math.exp(-dy * .01));
       if (['translate', 'move', 'rotate', 'scale'].includes(drag.type)) {
         s.uv.set(drag.original);
-        const a = [drag.x - drag.pivotScreen[0], drag.y - drag.pivotScreen[1]], b = [x - drag.pivotScreen[0], y - drag.pivotScreen[1]];
-        let angle = Math.hypot(...a) > 12 && Math.hypot(...b) > 12 ? Math.atan2(a[0] * b[1] - a[1] * b[0], a[0] * b[0] + a[1] * b[1]) : dx * .01;
+        const angle = drag.type === 'rotate' ? rotationDragDegrees(drag.rotationDrag, rawEnd.x - drag.x, rawEnd.y - drag.y, drag.pointerSensitivity) * Math.PI / 180 : 0;
         const factor = Math.max(0, 1 + dx / 100);
         const lockedAxis = event.shiftKey ? p.axis : null;
         for (const index of drag.indices) {
@@ -276,6 +278,9 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     const cancelKey = event => { if (event.key === 'Escape' && s.drag) { cancelGesture(); event.preventDefault(); } };
     const nudgeKey = event => {
       const key = event.detail, p = current.current, workspace = container.closest('.uv-workspace') || container;
+      // The focused UV workspace owns the number pad, even when nothing can move: its keys never
+      // reach the app's digit shortcuts from here.
+      if (workspace.contains(key.target) && !isTextEditingTarget(key.target) && /^Numpad[1-9]$/.test(key.code)) event.preventDefault();
       if (!workspace.contains(key.target) || isTextEditingTarget(key.target) || key.target.closest?.('[role="separator"]') || key.defaultPrevented || key.isComposing || key.ctrlKey || key.metaKey || key.altKey || p.suspended || s.drag || !selection().length) return;
       const direction = { Numpad7: [-1, -1], Numpad8: [0, -1], Numpad9: [1, -1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad1: [-1, 1], Numpad2: [0, 1], Numpad3: [1, 1] }[key.code];
       if (!direction) return;

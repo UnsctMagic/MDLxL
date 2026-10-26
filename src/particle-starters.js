@@ -1,25 +1,20 @@
 import { createNode } from './editor-document.js';
 import { emptyParticleModel, extractParticleRecipe } from './particle-recipes.js';
-export const STARTER_TEXTURE = 'MDLxL_Forge\\Particle_SoftDisc_v1.tga';
-export const RIBBON_TEXTURE = 'MDLxL_Forge\\Ribbon_SoftTrail_v1.tga';
+// Stock Warcraft III pictures, read from the player's own game data like every other
+// native texture. MDLxL never generates or bundles effect pictures.
+export const STARTER_TEXTURE = 'Textures\\GenericGlow64.blp';
+export const RIBBON_TEXTURE = 'Textures\\RibbonNE1_White.blp';
 export const STARTER_TEXTURES = [STARTER_TEXTURE, RIBBON_TEXTURE];
-const smooth=t=>{t=Math.min(1,Math.max(0,t));return t*t*(3-2*t);};
-/** Original mathematical pictures, generated locally. No game assets are bundled. */
-export function starterTextureAsset(name=STARTER_TEXTURE) {
-  const size=64,bytes=new Uint8Array(18+size*size*4),ribbon=name===RIBBON_TEXTURE;
-  bytes[2]=2;bytes[12]=size;bytes[14]=size;bytes[16]=32;bytes[17]=40;
-  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-    // A ribbon maps the picture's left edge to its newest segment at the emitter and the right edge to the oldest tail.
-    const radius=Math.hypot((x+.5-size/2)/(size/2),(y+.5-size/2)/(size/2)),v=(y+.5)/size;
-    const alpha=Math.round(255*(ribbon?(1-(x+.5)/size)**1.5*smooth(v/.15)*smooth((1-v)/.15):Math.max(0,1-radius)**2));
-    const i=18+(y*size+x)*4;bytes[i]=bytes[i+1]=bytes[i+2]=255;bytes[i+3]=alpha;
-  }
-  return {name,bytes};
-}
-/** Adds the generated pictures a model refers to, keyed like the caller's asset map. */
-export function addStarterTextureAssets(textures,assets,key=name=>name.toLowerCase()){
-  for(const name of STARTER_TEXTURES)if(textures?.some(t=>t.Image===name)&&!assets.has(key(name)))assets.set(key(name),starterTextureAsset(name));
-  return assets;
+// Pictures earlier versions generated beside the model, with their stock replacements
+// (including Forge's HD helper maps, now forge.js HD_NEUTRAL_MAPS).
+const LEGACY_STARTER_TEXTURES = {'mdlxl_forge\\particle_softdisc_v1':STARTER_TEXTURE,'mdlxl_forge\\ribbon_softtrail_v1':RIBBON_TEXTURE,
+  'mdlxl_forge\\mdlxl-flat-normal-v1':'Textures\\normal.dds','mdlxl_forge\\mdlxl-neutral-orm-v1':'Textures\\orm.dds','mdlxl_forge\\mdlxl-black-emissive-v1':'Textures\\black32.dds'};
+export const nativeStarterTexture=image=>LEGACY_STARTER_TEXTURES[String(image||'').replaceAll('/','\\').toLowerCase().replace(/\.(tga|blp|dds)$/,'')];
+/** Points textures still using an old generated starter picture at the stock one. Returns whether anything changed. */
+export function repointStarterTextures(model){
+  let changed=false;
+  for(const texture of model?.Textures||[]){const image=nativeStarterTexture(texture.Image);if(image){texture.Image=image;changed=true;}}
+  return changed;
 }
 export const PARTICLE_STARTERS=[['sparks','Soft sparks'],['smoke','Soft smoke'],['glow','Magic glow'],['impact','Impact burst'],['streak','Weapon streak'],['ribbon','Ribbon trail']];
 export function createStarterRecipe(kind='sparks') {

@@ -26,9 +26,10 @@ require('./updater.cjs').Updater.prototype.response=async function(url){
 };
 `+await fs.readFile(entry,'utf8'));
   const baseline=JSON.parse(await fs.readFile(path.join(target,MANIFEST),'utf8'));baseline.files['resources/app/electron/main.cjs']=await digest(entry);baseline.files['resources/app/electron/update-install.ps1']=await digest(path.join(target,'resources/app/electron/update-install.ps1'));await fs.writeFile(path.join(target,MANIFEST),JSON.stringify(baseline));
-  // The future release is a clean package: user content beside the installed copy
-  // (for example Showcase Recordings) is never part of an official ZIP.
-  await fs.cp(target,source,{recursive:true,filter:file=>!/^(?:Showcase Recordings|resources[\\/]app[\\/]profile|\.mdlxl-previous)(?:[\\/]|$)/i.test(path.relative(target,file))});
+  // A launched app can have generated textures and other personal files beside it.
+  // Only manifest-owned files belong in the synthetic release, just as in the official ZIP.
+  const shipped=new Set([...Object.keys(baseline.files),MANIFEST]);
+  await fs.cp(target,source,{recursive:true,filter:file=>{const relative=path.relative(target,file).split(path.sep).join('/');return !relative||shipped.has(relative)||[...shipped].some(name=>name.startsWith(relative+'/'));}});
   const current=JSON.parse(await fs.readFile(path.join(target,'resources/app/package.json'),'utf8')).version;
   const version=current.split('.').map((part,index)=>index===2?Number(part)+1:part).join('.'), info=JSON.parse(await fs.readFile(path.join(source,'resources/app/package.json'),'utf8'));info.version=version;await fs.writeFile(path.join(source,'resources/app/package.json'),JSON.stringify(info));
   // Keep a valid PE image but force a real running-executable replacement.

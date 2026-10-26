@@ -65,7 +65,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.keyboard.press('Control+o'); await page.getByRole('tab', { name: path.basename(file) }).waitFor();
     };
     if (scenario === 'node-order') {
-      await page.keyboard.press('Control+c'); await page.keyboard.press('Control+Shift+v');
+      await page.keyboard.press('Control+c'); await page.keyboard.press('Shift+V');
       await page.getByRole('dialog', { name: 'Special paste', exact: true }).getByRole('button', { name: 'Paste', exact: true }).click();
       await page.getByRole('dialog', { name: 'Fix paste', exact: true }).getByRole('button', { name: 'Fix and paste', exact: true }).click();
       await page.waitForFunction(original => pasteSummary().model !== original && pasteSummary().ordered, before.model);
@@ -118,7 +118,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal((await page.evaluate(() => pasteSummary())).parent, null);
     assert.equal(await page.getByRole('dialog').count(), 0);
     await app.evaluate(({ dialog }, filePath) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath }); }, savedPath);
-    await page.keyboard.press('Control+Shift+s'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
+    await page.keyboard.press('F12'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.getByRole('dialog', { name: 'Save as', exact: true }).waitFor({ state: 'hidden' });
     await page.waitForFunction(() => !document.title.startsWith('* '));
     const saved = await fs.readFile(savedPath), reopened = openDocument(saved, 'paste-saved.mdx');

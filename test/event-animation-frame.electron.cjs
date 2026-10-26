@@ -78,7 +78,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(reopened.model.EventObjects.map(node => ({ id: node.ObjectId, name: node.Name, frames: [...node.EventTrack] })), expected);
     assert.deepEqual(fs.readFileSync(file), original, 'fixture remains unchanged');
     assert.deepEqual(errors, []);
-    await page.screenshot({ path: path.join(output, 'verified.png') });
+    const proof=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
+    fs.writeFileSync(path.join(output,'verified.png'),Buffer.from(proof,'base64'));
     console.log('PASS animation/frame synchronization, preview label, object isolation, add/remove, undo/redo, MDX reopen');
   } finally {
     await app.evaluate(({ app }) => app.exit(0));

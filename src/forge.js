@@ -205,6 +205,8 @@ export function buildForgeMesh({ mask, width, height, detail = 35, size = 100, t
   }
   return { geosets, contours, width, height, size, vertexCount: geosets.reduce((n, g) => n + g.Vertices.length / 3, 0), triangleCount: geosets.reduce((n, g) => n + g.Faces.length / 3, 0) };
 }
+/** Stock Reforged neutral maps (in the game's HD module). */
+export const HD_NEUTRAL_MAPS = { normal: 'Textures\\normal.dds', orm: 'Textures\\orm.dds', emissive: 'Textures\\black32.dds' };
 /** Resolve the shared role at the moment an operation commits, never in a preview. */
 export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 0.3] } = {}) {
   if (!texturePath || !String(texturePath).trim()) throw Error('Choose an image before forging.');
@@ -217,15 +219,15 @@ export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 
   model.Textures ||= []; model.Materials ||= []; model.Geosets ||= []; model.GeosetAnims ||= [];
   let textureId = model.Textures.findIndex(t => pathKey(t.Image) === pathKey(texturePath));
   if (textureId < 0) { textureId = model.Textures.length; model.Textures.push({ Image: texturePath, ReplaceableId: 0, Flags: 0 }); }
-  const auxiliary = (name, rgba) => {
-    const image = `MDLxL_Forge\\mdlxl-${name}-v1.tga`; let id = model.Textures.findIndex(t => pathKey(t.Image) === pathKey(image));
+  const auxiliary = image => {
+    let id = model.Textures.findIndex(t => pathKey(t.Image) === pathKey(image));
     if (id < 0) { id = model.Textures.length; model.Textures.push({ Image: image, ReplaceableId: 0, Flags: 0 }); }
-    extraAssets.push({ name: image, bytes: encodeForgeTga({ width: 1, height: 1, data: new Uint8Array(rgba) }), source: 'forge' }); return id;
+    return id;
   };
   // HD materials consume distinct diffuse / normal / ORM / emissive slots.
-  // Neutral generated maps are portable and never borrow another mesh's surface.
-  // Reforged uses inverted tangent-space normals; flat is #7f7f00.
-  const normalId = hd ? auxiliary('flat-normal', [127, 127, 0, 255]) : null, ormId = hd ? auxiliary('neutral-orm', [255, 255, 0, 0]) : null, emissiveId = hd ? auxiliary('black-emissive', [0, 0, 0, 255]) : null;
+  // Reforged ships neutral flat-normal, ORM and black maps, so nothing is generated
+  // and the mesh never borrows another mesh's surface.
+  const normalId = hd ? auxiliary(HD_NEUTRAL_MAPS.normal) : null, ormId = hd ? auxiliary(HD_NEUTRAL_MAPS.orm) : null, emissiveId = hd ? auxiliary(HD_NEUTRAL_MAPS.emissive) : null;
   const material = (diffuse, filterMode) => {
     const layer = id => ({ FilterMode: filterMode, Shading: 16, TextureID: id, TVertexAnimId: null, CoordId: 0, Alpha: 1 });
     if (!hd) return { PriorityPlane: 0, RenderMode: 0, Layers: [layer(diffuse)] };

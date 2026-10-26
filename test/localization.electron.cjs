@@ -118,12 +118,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   for (const locale of ['ru', 'es']) {
     const { app: repairApp, page: repairPage } = await launch(repairFixture, locale);
     try {
-      const dialog = repairPage.getByRole('dialog', { name: translate('Geoset animation repair', locale), exact: true });
+      // The model opens straight away; the status-bar warning opens the repair choices.
+      await repairPage.locator('.classic-status .status-warning').click();
+      const dialog = repairPage.getByRole('dialog', { name: translate('Duplicate geoset animations', locale), exact: true });
       await dialog.waitFor();
       await dialog.getByRole('button', { name: translate('Review tint conflict', locale), exact: true }).click();
       assert.equal(await repairPage.evaluate(() => document.activeElement?.dataset.geosetTint), '0', `${locale}: tint review focuses the localized field`);
       await dialog.locator('[data-geoset-tint="0"]').selectOption('0');
-      assert.equal(await dialog.getByRole('button', { name: translate('Back up & repair', locale), exact: true }).isEnabled(), true);
+      assert.equal(await dialog.getByRole('button', { name: translate('Fix', locale), exact: true }).isEnabled(), true);
       await repairPage.screenshot({ path: path.join(output, `${locale}-repair.png`) });
     } finally { await repairApp.close(); }
   }

@@ -116,7 +116,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       function pathJoin(directory, file) { return directory + '/' + file; }
     }, out);
     for (const format of ['mdx', 'mdl']) {
-      await page.keyboard.press('Control+Shift+s');
+      await page.keyboard.press('F12');
       await page.getByRole('button', { name: format === 'mdx' ? 'Save MDX…' : 'Save MDL…', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('[role="dialog"][aria-label="Save model"]') || !document.querySelector('[role="dialog"][aria-label="Save as"]'));
       const saveOptions = page.getByRole('dialog', { name: 'Save model', exact: true });

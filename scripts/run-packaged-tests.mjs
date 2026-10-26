@@ -36,6 +36,9 @@ const VARIANTS = {
 // Per-test settings: env, extra argv, files that must exist (else the test is skipped), timeout (ms).
 // Anything not listed runs with the shared env only.
 const SPECIAL = {
+  'hotkey-badges': { env: { MDLXL_ELECTRON_PATH: exe } },
+  learn: { env: { MDLXL_ELECTRON_PATH: exe, LEARN_NO_SHOTS: '1' } },
+  'learn-menu': { env: { MDLXL_ELECTRON_PATH: exe } },
   'anim-xl': { env: { MDLXL_ANIMXL_EXE: exe } },
   'auto-corpse': { env: { MDLXL_TEST_EXE: exe, MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },
   attachemator: { env: { MDLXL_APP: exe, MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
@@ -59,13 +62,16 @@ const SPECIAL = {
 for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-glow', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer', 'perspective-zoom', 'glow-up']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
 for (const name of ['showcase-actions', 'update-shredder', 'updater-packaged', 'updater-processes', 'geoset-merge-conflicts', 'geoset-tabs']) SPECIAL[name] = { env: { MDLXL_TEST_PACKAGE: pkg } };
 SPECIAL['updater-processes'].env.MDLXL_TEST_OUTPUT = out('updater-processes');
+for (const name of ['ai-awareness', 'ai-console', 'ai-editor']) SPECIAL[name] = { env: { MDLXL_AI_TEST_EXE: exe, MDLXL_AI_TEST_OUT: out(name), MDLVIS_HEADLESS: '' } }; // They drive a normal window (still on the hidden desktop).
 for (const name of ['optimizexl-review', 'optimizexl-playback']) SPECIAL[name] = { env: { MDLXL_OPTIMIZEXL_REVIEW_MODEL: reviewModel }, needs: [reviewModel] };
 for (const name of ['pose-console', 'pose-copy-body', 'pose-ik', 'pose-ragdoll', 'pose-sd-controls', 'pose-view', 'movement-gizmo', 'movement-gizmo-layout']) SPECIAL[name] = { env: { MDLXL_POSE_EXE: exe, MDLXL_POSE_FIXTURE: footman }, needs: [footman] };
-for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
+for (const name of ['citadel-brushes', 'citadel-edges', 'citadel-flow', 'citadel-library', 'citadel-locales', 'citadel-model', 'citadel-reskin', 'citadel-studio', 'paint-tab-camera']) SPECIAL[name] = { env: { MDLXL_PAINT_FIXTURE: citadelFootman }, needs: [citadelFootman] };
 // Never run: manual tools, or private models and archives that are not generally available.
 export const SKIP = {
   'updater-release-gate': 'manual HTTP-driven release gate (never exits)',
   'updater-bootstrap': 'needs the official 0.20.1 ZIP',
+  'ai-live': 'opt-in check against a real signed-in AI account (MDLXL_AI_LIVE_PROFILE)',
+  'ai-live-tabs': 'opt-in: a real signed-in AI on several model tabs at once (MDLXL_AI_LIVE_PROFILE)',
   'particle-performance': 'needs an old baseline build (out/particle-prototype/baseline)',
   'particle-library-indexing': 'needs a copied real profile (MDLXL_REAL_PROFILE)',
   'pose-complex': 'needs WH_VC_NecrarchLord3.mdx (private model)',

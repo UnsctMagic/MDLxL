@@ -1,3 +1,4 @@
+import { DEFAULT_ROTATION, normalizeRotationPreferences } from './rotation-drag.js';
 import { normalizePreviewLighting } from './preview-lighting.js';
 import { treeAppearanceForTheme } from './tree-appearance.js';
 import { controllerAppearanceForTheme } from './controller-appearance.js';
@@ -7,6 +8,7 @@ import { DEFAULT_PAINT_APPEARANCE, normalizePaintAppearance } from './paint-appe
 /** Shared, DOM-free preference validation and Hotkeys rules. */
 import { migrateHotkeyBindings, normalizeHotkeySequence, HOTKEY_LEADER } from './hotkey-defaults.js';
 import { DEFAULT_CAPTURE, normalizeCapture } from './capture-settings.js';
+import { DEFAULT_LEARN, normalizeLearn } from './learn-keycaps.js';
 import { DEFAULT_UV_PREVIEW_DISPLAY, normalizeUVPreviewDisplay } from './uv-preview-display.js';
 import { DEFAULT_UV_GRID, normalizeUVGrid } from './uv-grid.js';
 import { DEFAULT_UV_VIEW_TILE_LIMIT, normalizeUVViewTileLimit } from './uv-view-limit.js';
@@ -30,8 +32,10 @@ export const CAMERA_PRESETS = Object.freeze({
   classic: Object.freeze({ cameraBindings: Object.freeze({ right: 'pan', middle: 'toggle' }), pointerSensitivity: 1, scrollSensitivity: 2.5, fineSensitivity: 0.2, wheelMode: 'rotate', rightScrollAdjust: true }),
   orbit: Object.freeze({ cameraBindings: Object.freeze({ right: 'rotate', middle: 'pan' }), pointerSensitivity: 1, scrollSensitivity: 1, fineSensitivity: 0.2, wheelMode: 'rotate', rightScrollAdjust: false }),
 });
-// Explorer icon for MDL, MDX and Paint Project files; `program` reuses the MDLxL.exe icon.
-export const FILE_ICON_CHOICES = Object.freeze(['page', 'dark-page', 'tile', 'program']);
+// Explorer icon for model files; `program` reuses the MDLxL.exe icon and `label-*`
+// variations add an MDL or MDX label. `fileIcon` is used by MDX and Paint Project
+// files, `fileIconMdl` by MDL files (it follows `fileIcon` until chosen).
+export const FILE_ICON_CHOICES = Object.freeze(['page', 'dark-page', 'tile', 'program', 'label-page', 'label-dark-page', 'label-tile', 'label-tag', 'label-letters']);
 
 export const DEFAULT_PREFERENCES = Object.freeze({
   rendererRevision: 3,
@@ -39,19 +43,20 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   uvPreviewDisplay: DEFAULT_UV_PREVIEW_DISPLAY,
   uvGrid: DEFAULT_UV_GRID,
   uvViewTileLimit: DEFAULT_UV_VIEW_TILE_LIMIT,
-  language: 'en', fileIcon: 'page', checkUpdatesOnStartup: false, showPressedKeys: false, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
+  language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, showPressedKeys: false, showHotkeys: false, learn: DEFAULT_LEARN, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
   pointerSensitivity: 1,
+  rotation: DEFAULT_ROTATION,
   rightScrollAdjust: true,
   highlightSelection: false,
-  theme: 'light', accent: '#71b5f3', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
+  theme: 'light', accent: '#71b5f3', toolHighlight: '', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
   cameraBindings: CAMERA_PRESETS.classic.cameraBindings,
   visuals: DEFAULT_VISUALS, grid: DEFAULT_GRID,
   viewportPreset: DEFAULT_VIEWPORT_PRESET_ID, viewportAppearance: DEFAULT_VIEWPORT_APPEARANCE, viewportPresets: Object.freeze([]),
   graphics: Object.freeze({ pixelRatio: 1.5, antialias: false, maxFps: 60, textures: true, lighting: true, particles: true, pauseWhenHidden: true, softwareLow: false }),
   lighting: normalizePreviewLighting(), platform: Object.freeze({enabled:false,shape:"square",size:1.5,height:0,color:"#303030",textureUrl:""}),
-  hotkeys: Object.freeze({}),
+  hotkeys: Object.freeze({}), lightDarkReturn: null,
 });
 
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
@@ -138,7 +143,18 @@ export function migrateFollowupPreferences(value = {}) {
 /** One-way load migrations for saved preferences, including custom hotkeys saved under pre-rename IDs. */
 export function migratePreferences(value = {}) {
   const input = migrateFollowupPreferences(value), hotkeys = migrateHotkeyBindings(input.hotkeys);
-  return hotkeys === input.hotkeys ? input : { ...input, hotkeys };
+  const result = hotkeys === input.hotkeys ? input : { ...input, hotkeys };
+  if (!own(result, 'shredder')) return result;
+  const { shredder, ...current } = result;
+  return own(current, 'learn') ? current : { ...current, learn: shredder };
+}
+/** The appearance a Shift+F1 / Shift+F2 light/dark switch replaces and later restores. */
+export const LIGHT_DARK_KEYS = Object.freeze(['theme', 'accent', 'viewportPreset', 'viewportAppearance', 'visuals', 'citadelPaint']);
+function normalizeLightDarkReturn(input) {
+  const saved = record(input.lightDarkReturn);
+  if (!Object.hasOwn(APPLICATION_THEMES, saved.theme)) return null;
+  const normalized = normalizePreferences({ ...input, ...Object.fromEntries(LIGHT_DARK_KEYS.filter(key => own(saved, key)).map(key => [key, saved[key]])), lightDarkReturn: null });
+  return Object.fromEntries(LIGHT_DARK_KEYS.map(key => [key, normalized[key]]));
 }
 export function normalizePreferences(value = {}) {
   const input = migratePreferences(value), graphic = record(input.graphics), defaults = DEFAULT_PREFERENCES.graphics;
@@ -159,13 +175,16 @@ export function normalizePreferences(value = {}) {
     uvPreviewDisplay: normalizeUVPreviewDisplay(input.uvPreviewDisplay),
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
-    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), showPressedKeys: boolean(input.showPressedKeys, false), capture: normalizeCapture(input.capture),
+    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), showPressedKeys: boolean(input.showPressedKeys, false), showHotkeys: boolean(input.showHotkeys, false), learn: normalizeLearn(input.learn), capture: normalizeCapture(input.capture),
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(10, Math.max(0.1, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: ['rotate', 'scroll', 'pointer'].includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(4, Math.max(0.01, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,
+    rotation: normalizeRotationPreferences(input.rotation),
     highlightSelection: boolean(input.highlightSelection, false),
     theme: Object.hasOwn(APPLICATION_THEMES, input.theme) ? input.theme : 'light',
     accent: /^#[0-9a-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : '#71b5f3',
+    // Empty follows the UI accent.
+    toolHighlight: /^#[0-9a-f]{6}$/i.test(input.toolHighlight) ? input.toolHighlight.toLowerCase() : '',
     panelScale: bounded(input.panelScale, 1, 1.75, 1), // 164 was the narrow default before every editor panel became draggable.
     panelWidth: bounded(input.panelWidth === 164 ? PANEL_WIDTH_DEFAULT : input.panelWidth, PANEL_WIDTH_MIN, PANEL_WIDTH_MAX, PANEL_WIDTH_DEFAULT),
     newModelVersion: input.newModelVersion === 1000 ? 1000 : 800, uvRepeat: boolean(input.uvRepeat, false),
@@ -182,6 +201,7 @@ export function normalizePreferences(value = {}) {
       particles: boolean(graphic.particles, defaults.particles), pauseWhenHidden: boolean(graphic.pauseWhenHidden, defaults.pauseWhenHidden),
       softwareLow: boolean(graphic.softwareLow, defaults.softwareLow),
     }, lighting: normalizePreviewLighting(input.lighting), platform: {enabled:input.platform?.enabled===true,shape:["square","disc","hexagon"].includes(input.platform?.shape)?input.platform.shape:"square",size:bounded(input.platform?.size,.1,10,1.5),height:bounded(input.platform?.height,-100000,100000,0),color:/^#[0-9a-f]{6}$/i.test(input.platform?.color)?input.platform.color:"#303030",textureUrl:typeof input.platform?.textureUrl==="string" && /^data:image\/(png|jpeg|webp);base64,/i.test(input.platform.textureUrl) && input.platform.textureUrl.length<3000000 ? input.platform.textureUrl:""}, hotkeys,
+    lightDarkReturn: normalizeLightDarkReturn(input),
   };
 }
 
@@ -223,13 +243,19 @@ export function effectiveBindings(catalog = [], overrides = {}) {
   for (const [id, keys] of Object.entries(record(overrides))) if (!own(result, id)) result[id] = [...new Set((Array.isArray(keys) ? keys : []).map(normalizeChord).filter(Boolean))];
   return result;
 }
+/** Where a shortcut can fire: a control's own window (src/hotkey-allocation.js), Forge's shape tools, Paint, or the editor. */
+const hotkeyContext = action => action?.contextual ? action.group || 'editor' : action?.scope === 'forge-shapes' || action?.scope === 'paint' ? action.scope : 'editor';
 export function hotkeyConflicts(catalog, overrides, actionId, chord) {
   const key = normalizeChord(chord); if (!key) return [];
   const action = catalog.find(action => action.id === actionId);
+  // The same key may serve different windows; it clashes only where both can fire.
   const overlaps = other => {
-    if ((action?.scope === 'forge-shapes') === (other?.scope === 'forge-shapes')) return true;
-    const shared = action?.scope === 'forge-shapes' ? other : action;
-    return shared?.scope === 'global' || shared?.allowInModal === true;
+    if ([action, other].some(item => item?.scope === 'global' || item?.allowInModal === true)) return true;
+    const mine = hotkeyContext(action), theirs = hotkeyContext(other);
+    if (mine === theirs) return true;
+    // Forge and the shaping tools also show the editor's own buttons.
+    const showsEditor = (item, context) => !!item?.contextual && !!item.embedsEditor && ['editor', 'forge-shapes'].includes(context);
+    return showsEditor(action, theirs) || showsEditor(other, mine);
   };
   return Object.entries(effectiveBindings(catalog, overrides)).filter(([id, keys]) => id !== actionId && keys.includes(key) && overlaps(catalog.find(action => action.id === id))).map(([id]) => id);
 }
@@ -256,6 +282,13 @@ export function isTextEditingTarget(target) {
   if (tag === 'input') return !['checkbox', 'radio', 'button', 'submit', 'reset', 'image'].includes(String(target.type || 'text').toLowerCase());
   return ['textarea', 'select'].includes(tag);
 }
+export function isTypingTarget(target) {
+  if (!target) return false;
+  if (target.isContentEditable || target.closest?.('[contenteditable="true"], [role="textbox"], [data-hotkey-recording]')) return true;
+  const tag = String(target.tagName || '').toLowerCase();
+  if (tag === 'input') return !['checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'range', 'color'].includes(String(target.type || 'text').toLowerCase());
+  return tag === 'textarea';
+}
 function isNativeControlKey(event, chord) {
   const target = event.target;
   const tag = String(target?.tagName || '').toLowerCase(), type = String(target?.type || '').toLowerCase();
@@ -267,6 +300,9 @@ function isNativeControlKey(event, chord) {
 export function canHandleHotkeyEvent(event, action = {}) {
   const chord = chordFromEvent(event);
   if (!chord || event.defaultPrevented || event.repeat && !action.repeat) return false;
+  // Space means playback: a clicked checkbox, button, slider or list keeps focus
+  // but must not take Space from play. Only typing fields keep their space.
+  if (chord === 'Space' && action.id === 'play' && !isTypingTarget(event.target)) return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
   // A focused toggle remains shortcut-addressable, while its native activation/navigation keys keep their usual meaning.
   if (isNativeControlKey(event, chord)) return false;
   if (isTextEditingTarget(event.target) && !action.allowInInput) return false;

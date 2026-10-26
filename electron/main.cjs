@@ -55,11 +55,12 @@ if(!singleInstanceLock) { app.exit(0); return; }
 // A launch can have passed the first check before the closing owner set the lock.
 if (app.isPackaged && require('node:fs').existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
 let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
+const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,readModel:file=>readModel(file,false),writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>writeAiModel(payload));saveQueue=operation;return operation;}});
 let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.resolve();
 let settingsStore,preferenceApi,commandCatalog;
 // Test runs (own profile or headless) must not point Explorer at a temporary build.
 const fileTypes=app.isPackaged&&process.platform==='win32'&&!process.env.MDLXL_PROFILE&&process.env.MDLVIS_HEADLESS!=='1'?new FileTypeRegistration({executable:process.execPath,brandingDirectory:path.join(__dirname,'../dist/branding')}):null;
-function registerFileTypes(){fileTypes?.apply(settings.preferences?.fileIcon).catch(error=>console.warn('File types: '+error.message));}
+function registerFileTypes(){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl}).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
@@ -120,7 +121,6 @@ ipcMain.on('texture:decoded',(event,payload)=>{const request=thumbnailRequests.g
 const textureOperations=new Set();
 const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet(),closePromptWindows=new WeakSet();
 const openedPaths=new Set();
-const geosetRepairs=require('./geoset-repair.cjs').createGeosetRepairStore(openedPaths);
 const filters=[{name:'Models and Paint Projects',extensions:['mdl','mdx','mdlxlpaint']},{name:'Warcraft III models',extensions:['mdl','mdx']},{name:'MDLxL Paint Project',extensions:['mdlxlpaint']}];
 let recentQueue = Promise.resolve();
 async function persistRecents(file){
@@ -228,21 +228,52 @@ async function saveModel(payload){
   if(!payload || !['mdl','mdx'].includes(payload.format))throw new Error('Unsupported format.');
   const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
   let destination=payload.path;
-  if(!destination||payload.saveAs||!openedPaths.has(path.resolve(destination))){
-    const result=await dialog.showSaveDialog(win,{title:payload.export?'Export model':'Save model',defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});
-    if(result.canceled)return null;destination=result.filePath;
-  }
+  const choose=async title=>{const result=await dialog.showSaveDialog(win,{title,defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});return result.canceled?null:result.filePath;};
+  let chosen=!destination||payload.saveAs||!openedPaths.has(path.resolve(destination));
+  if(chosen&&!(destination=await choose(payload.export?'Export model':'Save model')))return null;
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
+  try{await writeModelFile(destination,bytes,payload.forgeAssets||[]);}catch(error){
+    // A read-only original (a file opened straight from a zip, for example) asks for another place instead of failing.
+    if(chosen||!['EPERM','EACCES','EROFS'].includes(error.code))throw error;
+    if(!(destination=await choose('This file is read-only. Save model as')))return null;
+    if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
+    await writeModelFile(destination,bytes,payload.forgeAssets||[]);
+  }
+  openedPaths.add(path.resolve(destination));await persistRecents(destination);
+  initialModel={name:path.basename(destination),path:destination,bytes};
+  return {name:path.basename(destination),path:destination};
+}
+// Writes through a verified temporary file. Without overwrite, an existing
+// destination is refused before any texture or temporary file is written.
+async function writeModelFile(destination,bytes,forgeAssets=[],{overwrite=true}={}){
+  if(!overwrite&&await fs.access(destination).then(()=>true,()=>false))throw new Error('A file already exists at '+destination+'.');
   const temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
   try{
-    await saveForgeAssets(destination,payload.forgeAssets||[]);
+    await saveForgeAssets(destination,forgeAssets);
     await fs.writeFile(temporary,bytes,{flag:'wx'});
     const check=await fs.readFile(temporary);if(!check.equals(bytes))throw new Error('Write verification failed.');
-    await fs.rename(temporary,destination);
-    openedPaths.add(path.resolve(destination));await persistRecents(destination);
-    initialModel={name:path.basename(destination),path:destination,bytes};
-    return {name:path.basename(destination),path:destination};
+    // copyFile with COPYFILE_EXCL also works on FAT/exFAT drives, unlike hard links.
+    if(overwrite)await fs.rename(temporary,destination);
+    else{await fs.copyFile(temporary,destination,require('node:fs').constants.COPYFILE_EXCL);await fs.unlink(temporary);}
   }catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
+}
+// AI exports go to the path the AI names, without a save dialog, but replacing
+// an existing file always asks the user first. They never change Recent files,
+// the startup model or the set of opened files.
+async function writeAiModel(payload){
+  if(!['mdl','mdx'].includes(payload?.format))throw new Error('Unsupported format.');
+  const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
+  const destination=path.resolve(payload.path);
+  if(path.extname(destination).toLowerCase()!=='.'+payload.format)throw new Error('The output path must end in .'+payload.format+'.');
+  let overwrite=false;
+  if(await fs.access(destination).then(()=>true,()=>false)){
+    if(!payload.overwrite)throw new Error('A file already exists at '+destination+'. Ask the user before replacing it.');
+    const answer=await dialog.showMessageBox(win,{type:'warning',buttons:['Replace','Cancel'],defaultId:1,cancelId:1,noLink:true,title:'AI export',message:'The AI wants to replace '+path.basename(destination)+'.',detail:destination});
+    if(answer.response!==0)throw new Error('The user did not allow replacing '+destination+'.');
+    overwrite=true;
+  }
+  await writeModelFile(destination,bytes,payload.forgeAssets||[],{overwrite});
+  return {name:path.basename(destination),path:destination};
 }
 ipcMain.handle('model:save',(_,payload)=>{const operation=saveQueue.catch(()=>{}).then(()=>saveModel(payload));saveQueue=operation;return operation;});
 ipcMain.handle('model:backup',(event,payload)=>{
@@ -252,16 +283,6 @@ ipcMain.handle('model:backup',(event,payload)=>{
   if(!openedPaths.has(source))throw Error('Only the open model file can be backed up.');
   const operation=saveQueue.catch(()=>{}).then(()=>backupModelFile(source));saveQueue=operation;return operation;
 });
-for(const [channel,operationName] of [['model:repairGeosetAnimations','repair'],['model:undoGeosetRepair','undo']]){
-  ipcMain.handle(channel,(event,payload)=>{
-    if(event.sender!==win?.webContents)throw Error('Repair is only available in the editor window.');
-    const operation=saveQueue.catch(()=>{}).then(async()=>{
-      const result=await geosetRepairs[operationName](payload);
-      initialModel={name:result.name,path:result.path,bytes:result.bytes};
-      return result;
-    });saveQueue=operation;return operation;
-  });
-}
 async function saveArtifact(payload){
   const requested=path.basename(String(payload?.name||'')),extension=path.extname(requested).toLowerCase(),allowed=new Set(['.mdlxlpaint','.zip']);
   if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip painter artifacts can be saved.');
@@ -440,6 +461,7 @@ ipcMain.handle('updates:revert',async event=>{
   if(answer.response!==0)return updater.status();
   const result=await updater.prepareRevert();if(result.state==='ready'&&win&&!win.isDestroyed())win.close();return updater.status();
 });
+ipcMain.handle('app:fileTypesNeedDefaultAgain',async()=>Boolean(await fileTypes?.usesSharedDefault()));
 ipcMain.handle('app:openDefaultApps',()=>shell.openExternal('ms-settings:defaultapps?registeredAppUser=MDLxL'));
 ipcMain.handle('app:openLink',(_,url)=>{if(!externalURL(url))throw Error('Unsupported website link.');return shell.openExternal(url);});
 ipcMain.handle('settings:configure',(_,value)=>{
@@ -449,14 +471,14 @@ ipcMain.handle('settings:configure',(_,value)=>{
 ipcMain.on('app:close',event=>{if(win&&!win.isDestroyed()&&event.sender===win.webContents)win.close();});
 async function updateSettings(value){
   const previousHotkeys=JSON.stringify(settings.preferences?.hotkeys);
-  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon;
+  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon+'|'+settings.preferences?.fileIconMdl;
   settings=await settingsStore.configure(value);
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))texturePreviews.cancel();
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameDataSources')){
     texturePreviews.cancel();await texturePreviews.settle();await resetTextureSources();
   }
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
-  if(previousFileIcon!==settings.preferences.fileIcon)registerFileTypes();
+  if(previousFileIcon!==settings.preferences.fileIcon+'|'+settings.preferences.fileIconMdl)registerFileTypes();
   if(JSON.stringify(settings.preferences.hotkeys)!==previousHotkeys || previousLanguage!==settings.preferences.language)refreshMenu();
   return publicSettings();
 }
@@ -564,10 +586,11 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>{if(win&&!win.isDestroyed())win.webContents.send('updates:status',status);}});
   await updater.initialize();
-  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
+  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});else if(updater.status().previousVersion)void updater.reportUpdate();await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(process.env.MDLVIS_GAME_DATA)settings.gameData=process.env.MDLVIS_GAME_DATA;
   try{recoveryPrompt=await sessionJournal.begin();}catch(error){console.warn('Session journal: '+error.message);}
+  try{await recoveryStore.resetOnce(recoveryPrompt);}catch(error){console.warn('Recovery reset: '+error.message);}
   gameDataDiscovery=new GameDataDiscovery({cacheFile:path.join(profile,'game-data-discovery.json'),appFolders:[path.dirname(process.execPath),app.getAppPath()],customSources:()=>settings.gameDataSources||[]});
   for(const file of launchModelPaths)try{initialModels.push(await readModel(file));}catch(e){console.error(e.message);}
   initialModel=initialModels[0]||null;
@@ -581,6 +604,7 @@ async function createWindow(bounds={}){
   const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:process.env.MDLVIS_HEADLESS!=='1',backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   if(process.env.MDLVIS_HEADLESS!=='1')current.maximize();
   win=current;nativeEditorState={readOnly:true,saving:false};
+  current.once('closed',()=>{if(current===win)aiService.close().catch(error=>console.error('AI shutdown: '+error.message));});
   win.webContents.setWindowOpenHandler(({url,frameName})=> url==='about:blank' && ['MDLxL-UV','MDLxL-OptimizeXL'].includes(frameName) ? {action:'allow',overrideBrowserWindowOptions:{parent:current,modal:false,width:frameName==='MDLxL-UV'?900:1280,height:frameName==='MDLxL-UV'?700:800,minWidth:frameName==='MDLxL-UV'?500:950,minHeight:frameName==='MDLxL-UV'?400:500,show:process.env.MDLVIS_HEADLESS!=='1',title:frameName==='MDLxL-UV'?'MDLxL — UV Editor':'OptimizeXL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),autoHideMenuBar:true,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}}} : {action:'deny'});
   current.webContents.on('did-create-window',child=>{child.setMenu(null);if(process.env.MDLVIS_HEADLESS!=='1')child.maximize();else child.webContents.setBackgroundThrottling(false);child.webContents.setWindowOpenHandler(()=>({action:'deny'}));child.webContents.on('will-navigate',event=>event.preventDefault());});
   win.webContents.on('will-navigate',(event,url)=>{if(url!==win.webContents.getURL())event.preventDefault();});
@@ -607,6 +631,8 @@ async function createWindow(bounds={}){
   await current.loadFile(path.join(__dirname,'../dist/index.html'));
 }
 app.on('window-all-closed',async()=>{
+  // AI shutdown is bounded and can never skip the settings/recovery flush below.
+  await Promise.race([aiService.close().catch(error=>console.error('AI shutdown: '+error.message)),new Promise(resolve=>setTimeout(resolve,5000))]);
   await updater?.shutdown();
   await particleLibrary.close();
   textureDecoder=null;rejectThumbnailRequests('Editor closed.');await texturePreviews.close();

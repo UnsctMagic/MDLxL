@@ -1,3 +1,4 @@
+import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { drawEditHandles } from './viewport-edit-handles.js';
 import * as THREE from 'three';
@@ -40,6 +41,8 @@ import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings }
 import { backgroundImageRect } from '../src/viewport-appearance.js';
 import { QUAD_VIEWS, viewWorkplane, viewportRects } from './quad-view.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
+import { composeViewportLayers } from './game-preview-capture.js';
+import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
 
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 const normalizedPath = path => String(path || '').replaceAll('/', '\\').toLowerCase();
@@ -192,14 +195,17 @@ export default function Viewport(inputProps) {
     ambient.position.set(0, 0, 300); scene.add(ambient);
     const key = new THREE.DirectionalLight(0xffeed7, 2.8); key.position.set(200, -280, 350); scene.add(key);
     scene.add(key.target);
-    let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, magnetButton, rotating = false;
+    let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, magnetButton, rotating = false, altHover = false;
     let grid = createViewportGrid(); scene.add(grid);
     const rigMarkers = createRigMarkersGL(renderer.getContext()); renderer.resetState();
     const platform = createPreviewPlatform(() => invalidate()); scene.add(platform);
+    // AI console Pen/Marker notes: display-only, never part of the model. They sit
+    // beside modelGroup (same space), which is cleared on every geometry reload.
+    const sketch = createViewportSketch({ parent: scene, entries: () => state.entries, invalidate: () => invalidate() });
     const backgroundCanvas = document.createElement('canvas'), backgroundTexture = new THREE.CanvasTexture(backgroundCanvas);
     backgroundTexture.colorSpace = THREE.SRGBColorSpace;
     const state = { renderer, scene, modelGroup, perspective, ortho, camera, controls, grid, entries: [], nodes: [], textures: new Map(), markerTextures: new Map(), checker: makeChecker(), background: { canvas: backgroundCanvas, texture: backgroundTexture, data: null, image: null, status: 'idle', drawKey: '' }, frame: 0, lastExternalTime: undefined, sequenceIndex: -1, wasPlaying: false, drag: null, anchorCandidate: null, dirty: true, radius: 100, center: new THREE.Vector3(0, 0, 40), loadedSignature: null, selectionKey: '', hoveredGeoset: null, disposed: false };
-    runtime.current = state;
+    runtime.current = state; state.sketch = sketch;
     state.teamGlow = makeTeamGlow();
     state.globalTime = 0;
     state.textureSources = new Map();
@@ -482,6 +488,15 @@ export default function Viewport(inputProps) {
       if (down) return;
       clearHoveredGeoset();
       if (quad) surface.focus(); else host.current?.focus();
+      // Pen/Marker take the left button only in Work mode; Alt, rotate mode and the
+      // other buttons keep the normal camera controls.
+      if (sketch.tool && event.button === 0 && cameraAction(event) === 'work') {
+        const start = point(event);
+        down = { ...start, pointerId: event.pointerId, action: 'sketch' };
+        controls.enabled = false; surface.setPointerCapture(event.pointerId);
+        sketch.begin(start, camera, controls.target, state.radius);
+        event.preventDefault(); event.stopImmediatePropagation(); return;
+      }
       const action = cameraAction(event);
       rotating = action === 'rotate'; latest.current.onCameraGestureChange?.(rotating);
       surface.style.cursor = viewportCursor(latest.current.cameraMode, latest.current.rotationNormals ? 'rotateNormals' : latest.current.transformMode, rotating);
@@ -544,6 +559,11 @@ export default function Viewport(inputProps) {
       if (anchorIndices?.includes(anchor.vertexIndex)) pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
       down.pivotScreen = screenPosition(pivot, start);
       const lockedPlane = quad && boundPane.workplane;
+      if (down.action === 'rotate') {
+        const axis = [0, 1, 2].find(i => !planeAxes(lockedPlane || p.workplane).includes(i));
+        const facing = new THREE.Vector3().setComponent(axis, 1).dot(camera.position.clone().sub(controls.target).normalize());
+        down.rotationDrag = beginRotationDrag({ ...rotationOptions(p.preferences, p.rotationEditor || 'vertices'), x: down.x, y: down.y, pivot: down.pivotScreen, pivotSign: facing > 0 ? -1 : 1, facing });
+      }
       state.drag = { ...down, selections: selectedMap, snapshots, pivot, poseInverses: posedSelection && poseInvertible ? poseInverses : null, workplane: lockedPlane || p.workplane, workplaneEnabled: !!lockedPlane || p.workplaneEnabled !== false, handle: gizmoHandle, payload: null, move: { pointer: start, point: start, shift: event.shiftKey, axis: null }, latch: shiftDragLatch(start, event.shiftKey) };
     }
     function translateInPlane(start, end, drag, constrain) {
@@ -566,11 +586,14 @@ export default function Viewport(inputProps) {
     }
     function pointerMove(event) {
       if (!down) {
+        // Holding Alt over the model turns a drawing tool's drag into a camera rotation; show that.
+        if (sketch.tool && altHover !== event.altKey) { altHover = event.altKey; invalidate(); }
         if (!quad) { hoverParts(event); inspectHoveredGeoset(event); return; }
         const hoveredPane = panes.find(pane => pane.surface === event.currentTarget);
         if (hoveredPane) bindPane(hoveredPane);
         hoverParts(event); inspectHoveredGeoset(event); bindPane(activePane); return;
       }
+      if (down.action === 'sketch') { for (const sample of event.getCoalescedEvents?.() || [event]) sketch.move(point(sample)); return; }
       const rawEnd = point(event), end = down.action === 'select' ? rawEnd : pointerDragPoint(down, rawEnd, down.pointerSensitivity), dx = end.x - down.x, dy = end.y - down.y;
       if (latest.current.onDoubleClickParts && Math.hypot(rawEnd.x - down.x, rawEnd.y - down.y) > 5) down.traveled = true;
       if (down.action === 'parts') { down.partsEnd=end; if (down.traveled) down.parts?.update(end); return; }
@@ -606,11 +629,8 @@ export default function Viewport(inputProps) {
       }
       if (drag.action === 'scale') { scale.fromArray(dragScale(dx, drag.workplane, event.shiftKey)); payload.scale = scale.toArray(); payload.allowSingularScale = true; }
       if (drag.action === 'rotate') {
-        const a = new THREE.Vector2(down.x, down.y).sub(drag.pivotScreen), b = new THREE.Vector2(end.x, end.y).sub(drag.pivotScreen);
-        let angle = a.length() > 12 && b.length() > 12 ? Math.atan2(a.x * b.y - a.y * b.x, a.dot(b)) : dx * .01;
+        let angle = rotationDragDegrees(drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity) * Math.PI / 180;
         const axis = [0, 1, 2].find(i => !planeAxes(drag.workplane).includes(i));
-        const normal = new THREE.Vector3().setComponent(axis, 1), viewDirection = camera.position.clone().sub(controls.target);
-        if (normal.dot(viewDirection) > 0) angle = -angle;
         if (event.shiftKey) angle = Math.round(angle / (Math.PI / 12)) * Math.PI / 12;
         const degrees = [0, 0, 0]; degrees[axis] = THREE.MathUtils.radToDeg(angle); payload.rotation = degrees;
         rotation.set(degrees[0] * Math.PI / 180, degrees[1] * Math.PI / 180, degrees[2] * Math.PI / 180);
@@ -640,6 +660,18 @@ export default function Viewport(inputProps) {
         }
         payload.modelPositions = modelPositions;
       }
+      // Coords follows the preview without changing the document or undo history.
+      if (latest.current.onTransformPreview) {
+        const center = [0, 0, 0]; let count = 0;
+        for (const [key, indices] of Object.entries(drag.selections)) {
+          const positions = payload.modelPositions?.[key], rendered = state.entries[key].geometry.attributes.position.array;
+          for (let slot = 0; slot < indices.length; slot++) {
+            for (let axis = 0; axis < 3; axis++) center[axis] += positions ? positions[slot * 3 + axis] : rendered[indices[slot] * 3 + axis];
+            count++;
+          }
+        }
+        latest.current.onTransformPreview(center.map(value => value / count));
+      }
       drag.payload = payload; drag.moved = drag.action === 'translate' && quad ? Math.hypot(drag.move.point.x - down.x, drag.move.point.y - down.y) > 1 : Math.hypot(dx, dy) > 1;
       invalidate();
     }
@@ -654,6 +686,7 @@ export default function Viewport(inputProps) {
       }
       if (!start) return;
       if (surface.hasPointerCapture(event.pointerId)) surface.releasePointerCapture(event.pointerId);
+      if (start.action === 'sketch') { if (event.type === 'pointercancel') sketch.cancel(); else sketch.end(); return; }
       if (start.action === 'parts') { if (start.parts) start.parts.finish(); else latest.current.onCancelPartDrag?.(); return; }
       if(start.action==='node'){
         const drag=state.nodeDrag;state.nodeDrag=null;
@@ -662,6 +695,7 @@ export default function Viewport(inputProps) {
       }
       const drag = state.drag; state.drag = null;
       if (drag) {
+        latest.current.onTransformPreview?.(null);
         if (drag.moved && drag.payload) latest.current.onTransform?.(drag.payload);
         state.dirty = true; state.selectionKey = ''; invalidate(); return;
       }
@@ -734,9 +768,11 @@ export default function Viewport(inputProps) {
     function cancelGesture() {
       editClicks = 0;
       if (down?.action === 'parts') down.parts?.cancel();
+      if (down?.action === 'sketch') sketch.cancel();
       state.nodeDrag=null;
       rotating = false; latest.current.onCameraGestureChange?.(false);
       const drag = state.drag;
+      if (drag) latest.current.onTransformPreview?.(null);
       if (drag) for (const [key, vertices] of Object.entries(drag.snapshots)) {
         const position = state.entries[key]?.geometry.attributes.position;
         if (position) { position.array.set(vertices); position.needsUpdate = true; }
@@ -788,7 +824,8 @@ export default function Viewport(inputProps) {
       if (state.disposed) return;
       const p = latest.current, renderGraphics = graphicsOptions(p.preferences), visual = visualOptions(p.preferences), appearance = viewportAppearanceOptions(p.preferences);
       const lighting = previewLighting(p.preferences); configurePreviewLights(ambient, key, lighting);
-      surface.style.cursor = viewportCursor(p.cameraMode, p.rotationNormals ? 'rotateNormals' : p.transformMode, rotating);
+      surface.style.cursor = sketch.tool && !rotating && !altHover && p.cameraMode === 'work' ? SKETCH_CURSORS[sketch.tool] : viewportCursor(p.cameraMode, p.rotationNormals ? 'rotateNormals' : p.transformMode, rotating || sketch.tool && altHover);
+      sketch.resolution(surface.clientWidth, surface.clientHeight);
       const overlayHost = quad ? surface : viewportHost;
       syncViewportBackground(appearance);
       ambient.visible = key.visible = renderGraphics.lighting;
@@ -1011,7 +1048,14 @@ export default function Viewport(inputProps) {
     });
     document.addEventListener('visibilitychange', state.scheduler.sync);
     state.scheduler.invalidate();
+    state.captureApi = {captureView() {
+      if (state.disposed || render(performance.now(), 0) === false) throw new Error('The model viewport could not render a capture.');
+      return composeViewportLayers(viewportHost, renderer.domElement);
+    }};
+    latest.current.onCaptureReady?.(state.captureApi);
     return () => {
+      latest.current.onCaptureReady?.(null);
+      if (state.drag) latest.current.onTransformPreview?.(null);
       savePane();
       const remember = pane => ({ id: pane.id, view: pane.view, perspective: pane.perspective.clone(), ortho: pane.ortho.clone(), target: pane.controls.target.clone(), center: pane.center.clone(), radius: pane.radius });
       cameraMemory.current = { ...remember(singlePane), panes: panes.slice(1).map(remember) };
@@ -1019,7 +1063,7 @@ export default function Viewport(inputProps) {
         // Quad panes own their cameras. Other editors inherit the single view.
         latest.current.cameraHandoff.current = { ...remember(singlePane), camera: singlePane.camera === singlePane.ortho ? 'ortho' : 'perspective' };
       }
-      state.disposed = true; state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
+      state.disposed = true; sketch.dispose(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       renderer.domElement.removeEventListener('webglcontextlost', contextLost);
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
       window.removeEventListener('mdlxl-cancel-gesture', cancelCommand);
@@ -1029,6 +1073,7 @@ export default function Viewport(inputProps) {
 
   useEffect(() => {
     const state = runtime.current; if (!state) return;
+    if (state.drag) latest.current.onTransformPreview?.(null);
     state.drag = null; clearGroup(state.modelGroup); state.entries = []; state.nodes = allNodes(model || {}); state.selectionKey = ''; state.dirty = true;
     state.geosetAnims = new Map((model?.GeosetAnims || []).map(anim => [anim.GeosetId, anim]));
     state.scheduler?.invalidate();
@@ -1119,6 +1164,8 @@ export default function Viewport(inputProps) {
     return () => { cancelled = true; };
   }, [textureSignature, textureAssets, texturesNeeded, graphics.textures, graphics.antialias]);
 
+  useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
+  useEffect(() => { runtime.current?.sketch?.configure({ enabled: props.sketchDocument != null, documentId: props.sketchDocument }); }, [props.sketchDocument, graphics.antialias]);
   useEffect(() => { if (!props.normalizer) runtime.current?.cancelNormalizer?.(); }, [!!props.normalizer]);
   useEffect(() => { runtime.current?.setQuad(props.quadView); }, [props.quadView, graphics.antialias]);
   useEffect(() => { if(!props.quadView && runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view, props.quadView, graphics.antialias]);

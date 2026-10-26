@@ -81,7 +81,7 @@ function readView() {
       const saved=path.join(out,'saved.'+format.toLowerCase());
       await app.evaluate(({dialog},saved)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:saved});},saved);
       fs.rmSync(saved,{force:true});const saveButton=page.getByRole('button',{name:'Save '+format+'…',exact:true});
-      await page.keyboard.press('Control+Shift+s');await saveButton.click();
+      await page.keyboard.press('F12');await saveButton.click();
       // The Save as dialog closes only after the save finishes; the next Save As must not start before that.
       await saveButton.waitFor({state:'detached'});assert.ok(fs.existsSync(saved),'saved '+format);
       const reopened=openDocument(fs.readFileSync(saved),'saved.'+format.toLowerCase());
