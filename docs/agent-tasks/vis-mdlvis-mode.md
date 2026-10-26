@@ -32,7 +32,7 @@ Done means, with VIS on, at every window size:
 
 - Base: latest `main` at `de08162e` when this task began (PR #323).
 - Branch: `codex/vis-mdlvis-mode`.
-- PR: pending creation after the verified patch is pushed.
+- PR: [#324](https://github.com/UnsctMagic/MDLxL/pull/324).
 - All work and disposable test data used `D:\Codex\mdlxl-vis-mdlvis-20261026`;
   installed apps and real profiles were not changed.
 
@@ -101,7 +101,7 @@ starting main build exactly, including PR #321's overflow shortening.
 - `pnpm run test:source`: 1,970 passed, 22 existing skips, zero failures.
 - Focused toolbar/VIS/dock source checks: 16 passed.
 - Build/package verification passed; no renderer errors in the packaged matrix.
-- PR CI: see the linked PR checks after creation. No merge or release authorized.
+- PR CI: [checks](https://github.com/UnsctMagic/MDLxL/pull/324/checks). No merge or release authorized.
 
 The Windows toolchain used existing dependencies through a junction. Script
 runs disabled pnpm's automatic pre-run reinstall for that junction; no project
