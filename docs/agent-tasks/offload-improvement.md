@@ -82,6 +82,70 @@ little organiser compute as possible overall.
 Also put to the owner: Offload Mode is on by default today. Recommend whether it
 should stay on by default after this change, with the measurements behind it.
 
+## Expansion: several birds editing one model at once (owner requested)
+
+Do this after the overhead work above is done and measured; it builds on it.
+
+Today one model has one working bird at a time (`workerLocks` in `runWorker`;
+`send` refuses a second task on the same document; the organiser prompt says
+"Workers edit one at a time"). The owner wants a large job split across birds
+that edit **separate parts of the same model at the same time**, when that is
+safe, and one after another when it is not.
+
+### Requirements
+
+1. **Each parallel bird owns a declared region.** Before it starts, a job states
+   the part of the model it may change: model paths in the existing scope format
+   (`/Geosets/<i>`, node collections and ObjectIds, material/texture records,
+   sequence or global-sequence time ranges for tracks). Two jobs run in parallel
+   only if their regions cannot overlap, including indirect dependencies: shared
+   materials, textures, matrix groups referencing the same bones, parent/child
+   nodes whose motion one job changes, shared global sequences, counts and IDs
+   that a structural edit renumbers. If it cannot be proven disjoint, run in sequence.
+2. **Edits outside the region are refused.** The edit path rejects any change by a
+   bird outside its declared region (extend the existing script/patch scope and
+   `protectedPaths` checks), so a parallel bird can never overwrite another's work.
+3. **Structural edits are exclusive.** Anything that renumbers or reorders shared
+   tables (adding/deleting geosets, nodes, materials, sequences; changing group
+   tables used by other regions) takes the whole model: it waits for running birds
+   and blocks new ones until it is done.
+4. **Staleness per region.** Today another change to the model makes a task's
+   captured target stale. A parallel bird's target stays valid when other birds
+   change only other regions; it becomes stale only when its own region or a
+   dependency of it changed.
+5. **Verification per bird and together.** Each bird's `mdlxl_review` checks its
+   own requested result and that nothing outside its region changed. When the
+   parallel jobs finish, run one combined check of the whole model (positions in
+   posed frames where regions meet, seams between regions, validation, save and
+   reopen) before reporting the job done.
+6. **Undo stays understandable.** Each bird's edits are separate, labelled Undo
+   steps on the model's history. Undoing one bird's step must not undo or corrupt
+   another's; if the history cannot guarantee that, say so and keep it sequential.
+7. **The user sees it plainly.** The existing bird rows show which birds work at the
+   same time and on what. No new panel. Steering goes to the bird the user
+   addresses; a message for "the job" goes to the organiser's routing.
+8. **Splitting the job.** The organiser (or the routing step from Design 2) splits
+   a request into region jobs only when the parts are independent; otherwise one
+   bird. Keep this cheap: the split decision reads the roster, the user's text and
+   the model's structure summary, not the full history or images.
+9. **Read-only work is always parallel-safe.** Inspection, sampling, captures and
+   help lookups by several birds may run at once without regions.
+10. **Limits.** A configurable maximum number of parallel birds per model, default
+    modest (for example 3), so cost does not multiply silently. Show the cost per
+    bird as in Design 6.
+
+### Verification for the expansion
+
+- Counting fixture tests: two jobs with disjoint regions run concurrently and both
+  apply; overlapping or dependent regions fall back to sequence; an edit outside a
+  bird's region is refused; a structural edit waits for running birds; a bird's
+  target stays valid after another region changes and goes stale after its own does;
+  each bird's Undo step is independent; the combined final check runs.
+- A long multi-part job compared three ways: Offload off, birds in sequence, birds
+  in parallel. Report wall-clock time, calls, tokens and the final review result.
+- Packaged run on the hidden desktop with two birds editing different geosets of a
+  real model at the same time, checking the result visually and through save/reopen.
+
 ## Relevant owners
 
 - `electron/ai-service.cjs`: `send`, `runTask` (organiser branch, `mdlxl_worker`
@@ -124,4 +188,6 @@ should stay on by default after this change, with the measurements behind it.
 
 Read the owners above, confirm the waste with a counting test on main, then show
 the owner the routing choice for new jobs (Design 2) and the measured
-before-numbers before building.
+before-numbers before building. Do the overhead work first; then the parallel
+expansion, starting with a short plan for the owner: how regions are declared and
+checked, which edits count as structural, and how Undo stays independent.
