@@ -97,8 +97,15 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await click(page.locator('.learner-tool'));await click(page.locator('.learn-menu [data-hotkey="show-hotkeys"]'));await page.keyboard.press('Escape');
     assert.equal(await page.locator('[data-hotkey-badge]:popover-open').count(),0);
     await page.keyboard.down('Alt');await verify('held Alt');await page.keyboard.up('Alt');
+    // A lone Alt keeps the hints for the next key; Escape puts them away.
+    assert.ok(await page.locator('[data-hotkey-badge]:popover-open').count()>5,'tapped Alt keeps hints');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('[data-hotkey-badge]:popover-open').count(),0);
+    // "Alt, then R" runs Alt+R (Recovery) instead of R (Rotate).
+    await page.keyboard.press('Alt');await page.keyboard.press('KeyR');
+    await page.locator('[role="dialog"]',{hasText:'Recovery'}).waitFor();
     assert.equal(await page.locator('[data-hotkey-badge]:popover-open').count(),0);
     assert.deepEqual(errors,[]);
-    console.log('✓ Labels ignore mouse input, real camera drag works, persistent and held-Alt hints dismiss correctly');
+    console.log('✓ Labels ignore mouse input, real camera drag works, persistent, held- and tapped-Alt hints dismiss correctly; Alt then R runs Alt+R');
   } finally {await app.close();await fs.rm(profile,{recursive:true,force:true,maxRetries:5,retryDelay:300});}
 })().then(()=>process.exit(0),error=>{console.error(error);process.exit(1);});

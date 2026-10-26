@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, MAX_HOTKEY_ID_LENGTH } from '../src/preferences.js';
+import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, MAX_HOTKEY_ID_LENGTH, normalizeChord } from '../src/preferences.js';
 import { contextualHotkeyDefaults, hotkeyCode, HotkeySequence, HOTKEY_LEADER, LEGACY_HOTKEY_CATALOG_STORAGE_KEY, migrateHotkeyId } from '../src/hotkey-defaults.js';
 import { hotkeyHint } from '../src/hotkey-badge.js';
 import { controlKind } from '../src/hotkey-allocation.js';
@@ -162,7 +162,11 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
 
   useEffect(() => {
     const sequence = new HotkeySequence(); let timer;
-    const cancel = () => { sequence.cancel(); clearTimeout(timer); setLeaderCode(null); };
+    // Tapping Alt alone makes the next key an Alt shortcut ("Alt, then R" = Alt+R).
+    // Otherwise Windows hands the keyboard to the hidden File/Edit menu bar.
+    let altAlone = false, altArmed = false;
+    const disarm = () => { if (!altArmed) return; altArmed = false; window.dispatchEvent(new Event('mdlxl-shortcut-hints-hide')); };
+    const cancel = () => { sequence.cancel(); clearTimeout(timer); setLeaderCode(null); disarm(); };
     const consume = event => { window.dispatchEvent(new CustomEvent('mdlxl-input-observed', {detail:event})); event.preventDefault(); event.stopImmediatePropagation(); };
     const runShortcut = (chord, event) => {
       if (!root.current) return false;
@@ -211,6 +215,16 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     };
     const keydown = event => {
       if (event.target?.closest?.('[data-hotkey-recording]')) { cancel(); return; }
+      if (event.key === 'Alt') { if (!event.repeat) altAlone = !event.ctrlKey && !event.metaKey && !event.shiftKey && !isTextEditingTarget(event.target); disarm(); }
+      else if (!['Control', 'Shift', 'Meta', 'AltGraph'].includes(event.key)) {
+        altAlone = false;
+        if (altArmed) {
+          altArmed = false;
+          if (event.key === 'Escape') { consume(event); window.dispatchEvent(new Event('mdlxl-shortcut-hints-hide')); return; }
+          const plain = chordFromEvent(event);
+          if (plain && !/(^|\+)(Ctrl|Alt|Meta)\+/.test(plain) && runShortcut(normalizeChord('Alt+' + plain), event)) return;
+        }
+      }
       const inLocalWindow = !!event.target?.closest?.('[data-hotkey-window]');
       if (event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.learn-menu')) return;
       if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
@@ -240,6 +254,9 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       if (chord) runShortcut(chord, event);
     };
     window.addEventListener('keydown', keydown, true);
+    // Handled here, the lone Alt release no longer focuses the window's menu bar.
+    const keyup = event => { if (event.key !== 'Alt' || !altAlone) return; altAlone = false; altArmed = true; event.preventDefault(); };
+    window.addEventListener('keyup', keyup, true);
     const detachedKeydown = event => keydown(event.detail);
     window.addEventListener('mdlxl-detached-keydown', detachedKeydown);
     window.addEventListener('blur', cancel);
@@ -247,7 +264,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     window.addEventListener('pointerdown', cancel, true);
     const visibility = () => { if (document.hidden) cancel(); };
     document.addEventListener('visibilitychange', visibility);
-    return () => { clearTimeout(timer); window.removeEventListener('keydown', keydown, true); window.removeEventListener('mdlxl-detached-keydown', detachedKeydown); window.removeEventListener('blur', cancel); window.removeEventListener('mdlxl-detached-blur', cancel); window.removeEventListener('pointerdown', cancel, true); document.removeEventListener('visibilitychange', visibility); };
+    return () => { clearTimeout(timer); window.removeEventListener('keydown', keydown, true); window.removeEventListener('keyup', keyup, true);window.removeEventListener('mdlxl-detached-keydown', detachedKeydown); window.removeEventListener('blur', cancel); window.removeEventListener('mdlxl-detached-blur', cancel); window.removeEventListener('pointerdown', cancel, true); document.removeEventListener('visibilitychange', visibility); };
   }, []);
 
   useEffect(() => {
@@ -282,7 +299,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         for (const badge of doc.querySelectorAll('[data-hotkey-badge]:popover-open')) badge.hidePopover();
       }
     };
-    const released = event => { if (event.key === 'Alt' || !event.altKey) dismiss(); };
+    // A tapped Alt keeps the keys showing until the next key (handled above).
+    const released = event => { if (event.key === 'Alt' && event.defaultPrevented) return; if (event.key === 'Alt' || !event.altKey) dismiss(); };
     const refresh = () => {
       queued = false;
       if (disposed || !persistent && !held) return;
@@ -322,13 +340,13 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       schedule();
     };
     observe(); window.addEventListener('mdlxl-detached-root', observe);
-    window.addEventListener('keydown', reveal, true); window.addEventListener('keyup', released, true); window.addEventListener('blur', dismiss);
+    window.addEventListener('keydown', reveal, true); window.addEventListener('keyup', released, true); window.addEventListener('blur', dismiss); window.addEventListener('mdlxl-shortcut-hints-hide', dismiss);
     const detachedReveal=event=>reveal(event.detail), detachedRelease=event=>released(event.detail);
     window.addEventListener('mdlxl-detached-keydown', detachedReveal); window.addEventListener('mdlxl-detached-keyup', detachedRelease); window.addEventListener('mdlxl-detached-blur', dismiss);
     return () => {
       disposed = true; observer.disconnect(); window.removeEventListener('mdlxl-detached-root', observe);
       for (const doc of documents) { doc.removeEventListener('focusin', schedule, true); doc.removeEventListener('scroll', schedule, true); doc.defaultView?.removeEventListener('focus', schedule); doc.defaultView?.removeEventListener('resize', schedule); }
-      window.removeEventListener('keydown', reveal, true); window.removeEventListener('keyup', released, true); window.removeEventListener('blur', dismiss); window.removeEventListener('mdlxl-detached-keydown', detachedReveal); window.removeEventListener('mdlxl-detached-keyup', detachedRelease); window.removeEventListener('mdlxl-detached-blur', dismiss); dismiss();
+      window.removeEventListener('keydown', reveal, true); window.removeEventListener('keyup', released, true); window.removeEventListener('blur', dismiss); window.removeEventListener('mdlxl-shortcut-hints-hide', dismiss); window.removeEventListener('mdlxl-detached-keydown', detachedReveal); window.removeEventListener('mdlxl-detached-keyup', detachedRelease); window.removeEventListener('mdlxl-detached-blur', dismiss); dismiss();
     };
   }, [preferences?.showHotkeys]);
   return <HotkeysContext.Provider value={{ catalog: merged, shortcuts }}><div ref={root} className="hotkeys-root">{children}{leaderCode !== null && <div className="hotkeys-sequence-cue" data-hotkey-sequence="" role="status" aria-live="polite"><strong>Hotkeys</strong><kbd>{leaderCode.padEnd(3, '·')}</kbd><span>Type the green code · Esc cancels</span></div>}</div></HotkeysContext.Provider>;

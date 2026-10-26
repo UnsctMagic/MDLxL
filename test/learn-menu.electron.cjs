@@ -175,6 +175,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.down('Alt');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.shortcutHints), 'true');
     await page.keyboard.up('Alt');
+    // A lone Alt keeps the hints for the next key; Escape puts them away.
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.shortcutHints), 'true');
+    await page.keyboard.press('Escape');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.shortcutHints), undefined);
     await click(page.locator('.vis-toggle'));
     assert.equal(await tile().isVisible(), false, 'owner refinement: LER stays hidden in VIS');
