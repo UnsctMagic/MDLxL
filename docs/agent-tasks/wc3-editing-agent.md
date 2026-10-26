@@ -33,7 +33,7 @@ Done when:
 2. **Area sections** (geometry, UV/materials, nodes/binding, animation, emitters,
    game integration, verification) are reachable through the AI's existing help
    tool, and the core tells the AI which section to read for which kind of edit.
-3. Every rule says *why* (engine behaviour, measured practice or a cited
+3. Every rule says *why* (engine behaviour or how experienced modellers work
    experienced source) and how to check it was followed.
 4. The owner reviews it and agrees it reads like an experienced modeller's
    handbook, not a report.
@@ -111,7 +111,7 @@ New research, condensed into rules with links:
   is `import.meta.glob(['../docs/*.md', ...])` in `app/ai-editor.js`; either put the
   sections in `docs/` top level or extend that glob. Each section: rules, why, how
   to check, common mistakes, the API or tool in MDLxL that does it
-  (`mdlxl_capabilities` module names), and source links at the end.
+  (`mdlxl_capabilities` module names). No source links (owner decision).
 - Where a rule can be checked automatically (for example coincident positions
   keeping identical groups, or an edge joining groups that share no bone), say so;
   building such checks is a possible follow-up, not part of this task.
@@ -119,7 +119,7 @@ New research, condensed into rules with links:
 ## Avoid what failed before
 
 - No generic low-poly advice that would fit any game.
-- No rules invented without a measurement, an engine fact or a cited experienced source.
+- No rules invented without a measurement, an engine fact or experienced practice behind them.
 - No walls of statistics in the AI's text: numbers only where they change a decision.
 - No plumbing instead of knowledge: the deliverable is the knowledge.
 - No object-specific rules (see the wording rule above).
@@ -305,8 +305,8 @@ That makes an AI hesitate and re-check, the opposite of the goal.
 
 ### 3. Add experienced modellers' knowledge
 
-There are about fifteen external citations across seven sections, none in nodes and
-binding. Practitioner knowledge is meant to be a main source. Read and condense:
+Practitioner knowledge is meant to be a main source, and nodes and binding has
+almost none yet. Read and condense:
 
 - Hive Workshop modelling, rigging, animation and effects tutorials, and answered
   forum threads where experienced modellers explain a fix that worked.
@@ -316,9 +316,17 @@ binding. Practitioner knowledge is meant to be a main source. Read and condense:
   the game treats the data.
 
 Prioritise binding and rigging, animation transfer and retiming, geometry at
-seams/joints, and emitters. For each source, keep the technique, not the story;
-cite it after the rule it supports. Where practitioners disagree, give the
-version supported by measurement or engine behaviour and note the other briefly.
+seams/joints, and emitters. Keep the technique, not the story. Where practitioners
+disagree, write the version supported by measurement or engine behaviour.
+
+### 4. No sources in the handbook (owner decision)
+
+The guides state rules as rules. Remove every source tag (B1, H1, X1 and the like),
+every "Sources" section, and every mention of where a rule came from (studies,
+percentages as justification, tutorial authors, "the native study shows"). Keep a
+number only where it changes a decision (a limit, a unit, a typical count). The
+owner considers provenance unnecessary there and an invitation for criticism.
+Research inputs stay where they are for reference; do not copy them into the guides.
 
 ### Unchanged
 
