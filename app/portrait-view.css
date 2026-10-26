@@ -36,9 +36,18 @@
 .classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules>:not(.vis-toggle):not(.ai-tool),
 .classic-app[data-vis-ui]>.classic-toolbar :is(.addon-menu,.language-switch,[data-hotkey="new"],[data-hotkey="redo"],[data-hotkey="copy"],[data-hotkey="paste"],[data-hotkey="convertVersion"]),
 .classic-app[data-vis-ui] .classic-view-label>:not(:first-child){display:none}
-.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules{margin-left:auto;position:relative}
-.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules>button{position:relative}
-.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules .module-icon-badge{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:900 10px/1 Tahoma,Arial,sans-serif;color:#c58cff;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
+/* Keep the dock mounted (including an open AI console and its draft).
+   Only its VIS position/sizes move to the classic 52px editor row. */
+.classic-app[data-vis-ui]>.classic-toolbar{position:relative}
+.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-primary{display:contents}
+.classic-app[data-vis-ui]>.classic-modules{grid-template-columns:minmax(0,1fr) 95px}
+.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules{position:absolute;top:calc(100% + 3px);right:5px;height:52px;display:flex;align-items:center;gap:3px;margin:0;z-index:1}
+.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules>button{position:relative;width:46px!important;min-width:46px!important;height:46px;min-height:46px;padding:2px!important;display:inline-flex;align-items:center;justify-content:center;overflow:hidden}
+.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules>button>img{width:40px;height:40px;max-width:40px;max-height:40px;object-fit:contain}
+.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules .module-icon-badge{position:absolute;left:1px;right:1px;bottom:1px;height:50%;display:flex;align-items:center;justify-content:center;background:transparent;font:900 12px/1 Tahoma,Arial,sans-serif;text-shadow:0 1px #000}
+.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules .ai-tool .module-icon-badge{color:#c58cff;font-size:10px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
+.classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules .vis-toggle[aria-pressed=true]>.module-icon-badge{left:4px;right:4px;top:4px;bottom:4px;height:auto;font-size:14px}
+:root[data-theme] .classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules>.vis-toggle[aria-pressed=true]{border-style:solid;border-color:var(--ui-border);box-shadow:none;background:var(--ui-surface)}
 .classic-app[data-vis-ui]>.classic-toolbar>.toolbar-modules .vis-toggle>.module-icon-badge{color:#ff3df2}
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules{grid-row:1/-1;align-self:center}
 .classic-app[data-vis-ui]>.classic-modules>.editor-modules>.quick-display{flex:0 0 auto}

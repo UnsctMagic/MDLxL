@@ -11,7 +11,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Full AI editor connection | Ready for review; awaiting merge approval | [AI editor hook](ai-editor-hook.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
 | New MDLxL look (carved tools, slate-and-gold dock, floating Geosets) | Ready for review; awaiting merge approval | [New look](new-look.md) / Claude Code |
-| VIS stays MDLVis (UI only; no tabs, VIS shortcuts, no new-look leaks) | Active; contract ready | [VIS stays MDLVis](vis-mdlvis-mode.md) / Codex |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable
