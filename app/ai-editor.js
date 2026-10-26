@@ -136,7 +136,6 @@ export class AiEditorBridge {
         workplane: target.workplane,
         keyframes: target.keyframes,
         renderMode: target.renderMode,
-        hidden: target.hidden || {},
         hiddenGeosets: new Set(target.hiddenGeosets || []),
         playing: false,
         dialog: null,
@@ -162,7 +161,6 @@ export class AiEditorBridge {
         workplane: state.workplane,
         view: state.view,
         renderMode: state.renderMode,
-        hidden: structuredClone(state.hidden || {}),
         hiddenGeosets: Array.from(state.hiddenGeosets || []),
         animationPanel: state.animationPanel,
         // Drawings are part of the prompt: later notes elsewhere never change them.
@@ -211,7 +209,6 @@ export class AiEditorBridge {
       uvEditing: !!state.uvEditing,
       uvEligibleSelection: state.uvEligibleSelection,
       renderMode: state.renderMode,
-      hiddenVertices: state.hidden,
       hiddenGeosets: Array.from(state.hiddenGeosets || []),
       keyframes: state.keyframes || null,
       workplane: state.workplane,

@@ -13,7 +13,7 @@ export function captureSelection(state, model) {
   const activeGeoset = index(state.activeGeoset) && enabled.has(state.activeGeoset) ? state.activeGeoset : selectable[0] ?? -1;
   const uvCount = geosets[activeGeoset]?.TVertices?.length || 0;
   const snapshot = {
-    selectable, selection: vertices(state.selection, true), hidden: vertices(state.hidden, false), activeGeoset,
+    selectable, selection: vertices(state.selection, true), activeGeoset,
     uvSet: Math.max(0, Math.min(index(state.uvSet) ? state.uvSet : 0, uvCount - 1)),
   };
   if (state.visibleOnly) snapshot.visibleOnly = ids(state.visibleOnly, value => !!geosets[value] && !enabled.has(value));
@@ -30,7 +30,6 @@ export function restoreSelection(snapshot, model) {
   return { ...state, selectable: new Set(state.selectable),
     ...(state.visibleOnly ? { visibleOnly: new Set(state.visibleOnly) } : {}),
     selection: Object.fromEntries(Object.entries(state.selection).map(([gi, values]) => [gi, Array.from(values)])),
-    hidden: Object.fromEntries(Object.entries(state.hidden).map(([gi, values]) => [gi, Array.from(values)])),
     ...(state.selectedNodeIds ? { selectedNodeIds: Array.from(state.selectedNodeIds) } : {}) };
 }
 
@@ -39,7 +38,8 @@ export function validSelectionHistory(value) {
   const onlyKeys = (value, keys) => Object.keys(value).every(key => keys.includes(key));
   const validMap = value => !!value && typeof value === 'object' && !Array.isArray(value)
     && Object.entries(value).every(([gi, values]) => index(Number(gi)) && validIds(values));
-  const validSnapshot = value => !!value && validIds(value.selectable) && validMap(value.selection) && validMap(value.hidden)
+  const validSnapshot = value => !!value && validIds(value.selectable) && validMap(value.selection)
+    && (value.hidden === undefined || validMap(value.hidden))
     && (value.activeGeoset === -1 || index(value.activeGeoset)) && index(value.uvSet)
     && (value.visibleOnly === undefined || validIds(value.visibleOnly))
     && (value.selectedNodeIds === undefined || validIds(value.selectedNodeIds))
