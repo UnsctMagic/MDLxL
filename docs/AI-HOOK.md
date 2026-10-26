@@ -34,6 +34,17 @@ marked "Sent while the AI was working". The AI picks it up at its next step; if 
 had just finished, the message starts a follow-up turn on the same task. **Stop**
 (the square) cancels; applied edits stay in Undo.
 
+### Editing handbook
+
+The **Editing handbook** switch (the book icon in the console header, next to the
+bird) is off until you turn it on, and MDLxL remembers your choice. While it is on,
+every request also carries a short set of general Warcraft III editing rules, and
+the AI can open the step-by-step `WC3-EDITING-*` guides (geometry, UVs and
+materials, nodes and binding, animation, emitters, game integration,
+verification). While it is off, neither is sent and the guides are not listed in
+help. Like SD Brain, a running job keeps the setting it started with; a change
+applies from the next request.
+
 ### Offload Mode: an organiser per model and its birds
 
 Each model has its own AI chat: switch model tabs to switch chats. With **Offload

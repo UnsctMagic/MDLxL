@@ -116,3 +116,25 @@ Updated: 2026-10-24 (complete pass)
 ## Blockers and next action
 
 - None. Next: owner review of the PR; merge only on their go-ahead.
+
+## UI recomposition — 2026-10-26
+
+- Current follow-up: Codex chat UI RECOMP, branch `codex/ui-recomposition`,
+  PR #319. Owner approved merging on 2026-10-26. Final correction removes the redundant active-editor name from the status bar, preserving modified/unsaved and contextual hints.
+- Current owner correction supersedes the earlier centred layout: the WC3
+  dock is right-aligned in the top row. Team colour follows the editing icons
+  immediately before Hide/Show. Quick Display stays beside the editor buttons;
+  model tabs retain the full row below. No red divider is added.
+- Bottom row, right-hand group: MDX conversion, Add-ons, DPI/Scroll, then
+  language at the far-right edge. Both menus open upward. Original 40px icons, 10px labels and 4px inter-icon gaps are restored. Only the padding between icons and the styled frame is reduced by 15% from the original: 4px vertical to 3.4px, 5px horizontal to 4.25px. Outer row is 64px, restoring approximately 8px clear space above and below the frame while retaining original-size icons. Latest outer-spacing correction: build and computed geometry at both screenshot sizes passed; the preceding icon/padding correction passed 8 focused tests.
+- The dock stays mounted across VIS toggles to preserve the AI conversation.
+  The restored original purple VIS symbol and WC3 frame remain unchanged.
+- Current correction: production build, 26 focused tests and browser checks
+  at 1920x1000 and 1100x760 passed, including exact toolbar/team/language/DPI
+  ordering, full-width tabs and upward language/Add-ons menus.
+- Earlier branch checks: full source suite 1960 passed / 22 skipped, 57
+  compatibility tests, hidden packaged interactions, VIS/AI draft retention
+  and actual right-mouse camera rotation passed. Those were not repeated for
+  this positioning-only correction. CI runs the full suites on the updated PR.
+- No model-data or installed-app/profile changes. Owner visual acceptance
+  remains pending; screenshot-only build and profile are disposable.

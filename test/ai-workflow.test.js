@@ -6,6 +6,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { createRequire } from 'node:module';
 import { AI_SD_RULES, AI_SD_BRAIN } from '../src/ai-sd-rules.js';
+import { AI_EDITING_HANDBOOK } from '../src/ai-tools.js';
 const { AiService } = createRequire(import.meta.url)('../electron/ai-service.cjs');
 const root = path.resolve(import.meta.dirname, '..');
 const context = { target: 'selected', documentId: 'model', name: 'model.mdx', selection: { 0: [1, 2] } };
@@ -286,6 +287,31 @@ test('SD Brain is off until switched on, then every turn of the next task carrie
   assert.equal(f.arts.length, 1, 'no art direction while SD Brain is off');
   const guide = (await fs.readFile(path.join(root, 'docs/AI-SD-RULEBOOK.md'), 'utf8')).replace(/\r\n/g, '\n');
   assert.ok(guide.includes(AI_SD_RULES), 'the standalone rulebook matches the supplied instructions');
+});
+
+test('the editing handbook is off until switched on, then the next task carries it', async t => {
+  const received = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  const system = () => received.at(-1).messages.find(message => message.role === 'system').content;
+  // Off by default: the instructions carry no handbook and no map to its guides.
+  assert.equal((await f.service.status()).editingHandbook, false);
+  await f.service.send({ id: 'test', text: 'rename the geoset', context });
+  assert.ok(!system().includes(AI_EDITING_HANDBOOK) && !system().includes('WC3-EDITING-'));
+  // Switching it on starts nothing; the next task gets the handbook, and the choice is saved.
+  await f.service.setEditingHandbook(true);
+  assert.equal(f.counts().requests, 1);
+  assert.equal((await f.service.status()).editingHandbook, true);
+  assert.equal((await f.make().status()).editingHandbook, true, 'remembered after a restart');
+  await f.service.send({ id: 'test', text: 'blend the joint', context });
+  assert.ok(system().includes(AI_EDITING_HANDBOOK));
+  // Off again: the next task is back to the plain instructions.
+  await f.service.setEditingHandbook(false);
+  await f.service.send({ id: 'test', text: 'rename the material', context });
+  assert.ok(!system().includes(AI_EDITING_HANDBOOK));
+  await assert.rejects(() => f.service.setEditingHandbook('yes'), /Choose on or off/);
 });
 
 test('SD Brain is parked: no switch, no art director and nothing about it in prompts', async t => {

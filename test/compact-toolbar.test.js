@@ -37,16 +37,17 @@ test('Vis is a reversible presentation toggle, not a model or editing command',(
   assert.doesNotMatch(css,/data-vis-ui[^{}]*portrait-toolbar/);
 });
 
-test('quick display: top row before the strengths (new look), editor row after RGB (VIS)',()=>{
+test('quick display follows editor buttons; WC3 dock is above the full-width tabs',()=>{
   const toolbar=bar.slice(bar.indexOf('<div className="classic-toolbar">'),bar.indexOf('<div className="classic-modules"'));
   const editor=bar.slice(bar.indexOf('<div className="editor-modules"'),bar.indexOf('<div className="module-divider"'));
-  assert.match(toolbar,/\{!visUI && quickDisplay\}/);
-  assert.ok(editor.indexOf('RGB preview animation')<editor.indexOf('{visUI && quickDisplay}'));
+  assert.match(toolbar,/\{moduleDock\}/);
+  assert.doesNotMatch(toolbar,/quickDisplay/);
+  assert.ok(editor.indexOf('RGB preview animation')<editor.indexOf('{quickDisplay}'));
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);
-  assert.match(toolbar,/\{visUI && inputStrength\}\s*<LanguageSwitch/);
-  assert.match(app,/\{!visUI && inputStrength\}<\/div>/);
+  assert.doesNotMatch(toolbar,/<LanguageSwitch|inputStrength/);
+  assert.match(app,/\{inputStrength\}\{!visUI && <LanguageSwitch[^\n]+<\/div>/);
   assert.match(css,/team-picker select\{width:auto;min-width:0;max-width:none\}/);
 });
 

@@ -364,10 +364,13 @@ export class AiEditorBridge {
       return result.value;
     }
     if (name === 'mdlxl_help') {
-      // The SD rulebook and study stay out of help while SD Brain is parked.
+      // The SD rulebook and study stay out of help while SD Brain is parked, and
+      // the editing handbook's guides while the user has the handbook off.
+      const handbook = (await this.desktop?.aiStatus?.())?.editingHandbook === true;
       const index = Object.keys(guides)
         .map(path => path.replace('../', ''))
-        .filter(path => SD_BRAIN_AVAILABLE || !path.startsWith('docs/AI-SD-'));
+        .filter(path => SD_BRAIN_AVAILABLE || !path.startsWith('docs/AI-SD-'))
+        .filter(path => handbook || !path.startsWith('docs/WC3-EDITING-'));
       if (!args.topic)
         return {
           topics: index,
