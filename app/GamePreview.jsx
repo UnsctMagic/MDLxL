@@ -428,7 +428,7 @@ export default function GamePreview(inputProps) {
       const p = latest.current, rect = canvas.getBoundingClientRect(), pivot = gesture.origin.clone().project(camera);
       const facing = movementRotationFacing(gesture, rotation, camera.getWorldDirection(new THREE.Vector3()));
       gesture.rotationDrag = movementRotationGesture({ ...rotationOptions(p.preferences, p.rotationEditor || (p.showcase ? 'showcase' : 'movement')), x: gesture.x, y: gesture.y,
-        pivot: { x: (pivot.x + 1) * rect.width / 2, y: (1 - pivot.y) * rect.height / 2 }, pivotSign: facing > 0 ? -1 : 1 });
+        pivot: { x: (pivot.x + 1) * rect.width / 2, y: (1 - pivot.y) * rect.height / 2 }, pivotSign: facing > 0 ? -1 : 1, facing });
     };
     const poseStamp = config => JSON.stringify(config && [config.enabled, config.restrict, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);

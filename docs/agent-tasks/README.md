@@ -8,7 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| MdlVis-style Rotate drag | Ready for Claude re-review; Local-axis follow-up verified | [Rotate drag](mdlvis-style-rotate-drag.md) / Codex |
+| MdlVis-style Rotate drag | Owner follow-up: Pivot-based default, edge-on Pivot fix | [Rotate drag](mdlvis-style-rotate-drag.md) / Codex |
 | Full AI editor connection | Ready for review; awaiting merge approval | [AI editor hook](ai-editor-hook.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
 | Movement Create button; reopen existing ribbons in EMTR | Not started | [Movement Create and ribbon re-entry](movement-create-and-ribbon-reentry.md) / Codex |

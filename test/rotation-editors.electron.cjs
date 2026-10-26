@@ -16,7 +16,7 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
     await d.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name,exact:true}).click();check('Mouse subsection '+name,await d.getByLabel(label,{exact:true}).isVisible());
   }
   await d.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name:'Rotation',exact:true}).click();
-  check('global UI defaults to Linear (MdlVis)',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()==='linear');
+  check('global UI defaults to Pivot-based',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()==='pivot');
   check('global rotation speed defaults to 1x',await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='1');
   await idle(); fs.writeFileSync(path.join(out,'mouse-settings.png'),Buffer.from(await app.evaluate(async ({BrowserWindow})=>{const contents=BrowserWindow.getAllWindows()[0].webContents;contents.invalidate();await contents.capturePage(undefined,{stayHidden:true,stayAwake:true});await new Promise(resolve=>setTimeout(resolve,150));return (await contents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG().toString('base64');}),'base64'));await closeSettings();
   await configure('all','pivot',2);await configure('uv','linear',.5);

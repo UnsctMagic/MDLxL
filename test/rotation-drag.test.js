@@ -4,11 +4,11 @@ import { normalizePreferences } from '../src/preferences.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 const api = () => import('../src/rotation-drag.js');
 
-test('old and fresh profiles default every editing Rotate tool to linear at 1x', async () => {
+test('old and fresh profiles default every editing Rotate tool to Pivot-based at 1x', async () => {
   const prefs = normalizePreferences({ pointerSensitivity: .4, uvSensitivity: .7 });
-  assert.deepEqual(prefs.rotation, { behavior: 'linear', sensitivity: 1, editors: {} });
+  assert.deepEqual(prefs.rotation, { behavior: 'pivot', sensitivity: 1, editors: {} });
   const { ROTATION_EDITORS, rotationOptions } = await api();
-  for (const editor of Object.keys(ROTATION_EDITORS)) assert.deepEqual(rotationOptions(prefs, editor), { behavior: 'linear', sensitivity: 1 });
+  for (const editor of Object.keys(ROTATION_EDITORS)) assert.deepEqual(rotationOptions(prefs, editor), { behavior: 'pivot', sensitivity: 1 });
   assert.equal(prefs.pointerSensitivity, .4); assert.equal(prefs.uvSensitivity, .7);
 });
 test('rotation behavior and speed inherit independently and survive portable export/import', async () => {
@@ -24,7 +24,7 @@ test('rotation behavior and speed inherit independently and survive portable exp
 });
 test('invalid rotation data cannot produce reversed, infinite or zero speed', async () => {
   const { normalizeRotationPreferences } = await api();
-  assert.deepEqual(normalizeRotationPreferences({ behavior: 'arc', sensitivity: null, editors: { uv: { behavior: 'oops', sensitivity: 'oops' }, unknown: { behavior: 'pivot' } } }), { behavior: 'linear', sensitivity: 1, editors: {} });
+  assert.deepEqual(normalizeRotationPreferences({ behavior: 'arc', sensitivity: null, editors: { uv: { behavior: 'oops', sensitivity: 'oops' }, unknown: { behavior: 'pivot' } } }), { behavior: 'pivot', sensitivity: 1, editors: {} });
   assert.equal(normalizeRotationPreferences({ sensitivity: -3 }).sensitivity, .01);
   assert.equal(normalizeRotationPreferences({ sensitivity: 999 }).sensitivity, 4);
   assert.equal(normalizeRotationPreferences({ sensitivity: Infinity }).sensitivity, 1);
@@ -52,4 +52,16 @@ test('pivot choice follows a circular drag continuously through a full turn and 
   }
   const radial = beginRotationDrag({ behavior: 'pivot', x: 100, y: 0 });
   assert.equal(rotationDragDegrees(radial, 50, 0), 0);
+});
+test('pivot choice uses the linear rule when the turn circle is seen edge-on', async () => {
+  const { beginRotationDrag, rotationDragDegrees } = await api();
+  // Front view looking down X turns a ZX (Y-axis) circle into a vertical line.
+  const edgeOn = beginRotationDrag({ behavior: 'pivot', x: 0, y: -80, pivot: { x: 0, y: 0 }, facing: 0, pivotSign: -1 });
+  assert.equal(rotationDragDegrees(edgeOn, 0, -30), 30);
+  assert.equal(rotationDragDegrees(edgeOn, -120, 0), -120);
+  assert.equal(rotationDragDegrees(edgeOn, -120, 40), -160);
+  // A circle facing the camera still follows the mouse around the center.
+  const faced = beginRotationDrag({ behavior: 'pivot', x: 0, y: -80, pivot: { x: 0, y: 0 }, facing: -.9 });
+  assert.equal(rotationDragDegrees(faced, 0, -30), 0);
+  assert.ok(Math.abs(rotationDragDegrees(faced, 80, 80) - 90) < 1e-8);
 });

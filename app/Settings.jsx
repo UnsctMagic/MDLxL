@@ -81,7 +81,7 @@ const MOUSE_PAGES = ['Camera', 'Rotation', 'Wheel', 'Pointer', 'UV'];
 let lastMousePage = 'Camera';
 function RotationSettings({ value, onChange }) {
   const [editor, setEditor] = useState('all'), override = value.editors[editor] || {}, global = editor === 'all';
-  const names = { linear: 'Linear (MdlVis)', pivot: 'Pivot-based' };
+  const names = { linear: 'Linear', pivot: 'Pivot-based' };
   const change = patch => {
     if (global) { onChange({ ...value, ...patch }); return; }
     const entry = { ...override, ...patch };
