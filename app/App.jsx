@@ -44,6 +44,7 @@ import useMotionInspector from './useMotionInspector.js';
 import { rememberMotionSave } from '../src/motion-decisions.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { retainedForgeAssets, forgeExportArchive, isForgeAssetPath, missingForgeAssetPaths } from '../src/forge-assets.js';
+import { nativeStarterTexture, repointStarterTextures } from '../src/particle-starters.js';
 import { applyMovementTransform, applyMovementPose, movementRestricted, constrainMovementVector, movementProperties } from '../src/movement.js';
 import { withPoseResult, samplePoseChain } from '../src/pose-ik.js';
 import { classicTimelineDomain } from '../src/classic-keyframes.js';
@@ -792,6 +793,8 @@ export default function App() {
   }
   function install(next, { replace = false } = {}) {
     const history = settings.current; next.doc.configureHistory({ budgetBytes: history.historyBudgetBytes ?? 512 * 1024 * 1024, maxSteps: history.historyMaxSteps ?? 10000 });
+    // Effects from earlier versions used generated pictures; point them at the stock game pictures (one undo step).
+    if (!next.doc.readOnly && next.doc.model.Textures?.some(t => nativeStarterTexture(t.Image))) next.doc.apply('Use stock effect pictures', ['Textures'], repointStarterTextures);
     const currentSessions = latest.current.sessions || sessions, active = latest.current.session || session;
     const pristinePlaceholder = currentSessions.length === 1 && active === currentSessions[0] && !active.path && active.doc.name === 'Untitled.mdl' && !sessionDirty(active) && active.doc.revision === 0;
     const replaceActive = replace || pristinePlaceholder;

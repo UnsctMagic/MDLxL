@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateMDL } from 'war3-model';
-import { buildForgeMesh, commitForge, forgeTangents } from '../src/forge.js';
+import { buildForgeMesh, commitForge, forgeTangents, HD_NEUTRAL_MAPS } from '../src/forge.js';
 import { createDemoDocument, createNode, openDocument, validateModel } from '../src/editor-document.js';
 
 const mesh = () => buildForgeMesh({ width: 4, height: 4, mask: new Uint8Array([1,1,1,1,1,0,0,1,1,0,0,1,1,1,1,1]), detail: 15, thickness: 2, trim: true });
@@ -28,9 +28,7 @@ test('Forge retains LOD0 and valid matrix binding through 900/1000/1100 MDL and 
 test('weighted destinations receive complete rigid skin streams and version-correct HD material slots', () => {
   for (const version of [900,1000,1100]) {
     const doc = fixture(version,true,true), before = doc.serialize(), poses = structuredClone(doc.model.BindPoses), result = doc.apply('Forge HD',[],m=>commitForge(m,mesh(),{texturePath:'MDLxL_Forge\\piece.tga'}));
-    assert.equal(result.extraAssets.length,3); assert.ok(result.extraAssets.every(a=>a.source==='forge'&&a.bytes.length===22));
-    assert.deepEqual([...result.extraAssets.find(a=>a.name.includes('flat-normal')).bytes.slice(18)],[0,127,127,255],'TGA BGRA encodes the inverted Reforged flat normal');
-    assert.deepEqual([...result.extraAssets.find(a=>a.name.includes('neutral-orm')).bytes.slice(18)],[0,255,255,0],'neutral ORM retains roughness and occlusion while disabling metallic and team color');
+    assert.equal(result.extraAssets.length,0,'HD slots use stock Reforged maps; nothing is generated');
     for (const format of ['mdl','mdx']) {
       const reopened = openDocument(doc.serialize(format),undefined,{allowHD:true}); assert.equal(reopened.readOnly,false); assert.deepEqual(validateModel(reopened.model).filter(d=>d.severity==='error'),[]); assert.deepEqual(reopened.model.BindPoses,poses);
       for (const gi of result.geosetIndices) {
@@ -38,7 +36,7 @@ test('weighted destinations receive complete rigid skin streams and version-corr
         assert.equal(g.LevelOfDetail,0); assert.equal(g.SkinWeights.length,g.Vertices.length/3*8); assert.equal(g.Tangents.length,g.Vertices.length/3*4);
         for (let i=0;i<g.Vertices.length/3;i++) { assert.deepEqual([...g.SkinWeights.slice(i*8,i*8+8)],[result.boneId,0,0,0,255,0,0,0]); const n=g.Normals.slice(i*3,i*3+3), t=g.Tangents.slice(i*4,i*4+3); assert.ok(Math.abs(Math.hypot(...t)-1)<1e-5); assert.ok(Math.abs(n.reduce((s,v,k)=>s+v*t[k],0))<1e-5); assert.ok(Math.abs(g.Tangents[i*4+3])===1); }
         const normalId = version===1100?material.Layers[0].NormalTextureID:material.Layers[1].TextureID, ormId = version===1100?material.Layers[0].ORMTextureID:material.Layers[2].TextureID;
-        assert.match(reopened.model.Textures[normalId].Image,/flat-normal/); assert.match(reopened.model.Textures[ormId].Image,/neutral-orm/);
+        assert.equal(reopened.model.Textures[normalId].Image,HD_NEUTRAL_MAPS.normal); assert.equal(reopened.model.Textures[ormId].Image,HD_NEUTRAL_MAPS.orm);
         if(version===1100)assert.equal(material.Layers[0].ShaderTypeId,1);else assert.equal(material.Shader,'Shader_HD_DefaultUnit');
       }
     }

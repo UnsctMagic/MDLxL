@@ -8,7 +8,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const root=process.cwd(),out=path.join(root,'out','node-effect-controls',String(Date.now())),profile=path.join(out,'profile');
   await fs.mkdir(profile,{recursive:true});
   const {createDemoDocument,createNode,openDocument}=await import('../src/editor-document.js');
-  const {starterTextureAsset}=await import('../src/particle-starters.js');
+  const testPicture=(await import('./starter-picture.js')).starterTextureAsset('MDLxL_Forge\\TestSoftDisc.tga'),starterTextureAsset=()=>testPicture;
   const doc=createDemoDocument(), ids={};
   doc.apply('Node preview fixture',['Nodes','PivotPoints','Textures','Materials','Sequences'],model=>{
     model.Sequences[0].Interval=new Uint32Array([0,2000]);

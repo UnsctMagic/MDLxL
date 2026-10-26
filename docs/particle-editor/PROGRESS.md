@@ -46,7 +46,7 @@ Implemented and exercised:
 - Visible SVG size proxy (shared resource-editor CSS had hidden it). Actual mouse resize pins a sample, one undo restores its original size, and Escape cancels without closing the editor.
 - Preset saving retains the independent Lab undo history. Read-only New disabled.
 - Typed input rejects float overflow and checks excessive nesting before JSON reviver recursion.
-- Starter picture uses the existing MDLxL_Forge generated-asset sidecar path convention.
+- Starter pictures are stock game textures (`Textures\GenericGlow64.blp`, ribbon `Textures\RibbonNE1_White.blp`) read from the game data; MDLxL never generates effect pictures. Models with the older generated `MDLxL_Forge` starter pictures are repointed on open (one undo step).
 
 Verification:
 - 66/66 targeted and current compatibility tests pass (10 particle prototype + 56 compatibility).
