@@ -14,6 +14,7 @@ test('every module icon keeps its action and carries a visible short label',()=>
     ['bitsAndParts','bits-tool','BITZ'],
     ['optimizeModel','optimizer-tool','OPXL'],
     ['animXL','animxl-tool','ANIM'],
+    ['shredder','learner-tool','LER'],
   ]){
     assert.match(app,new RegExp(`action="${action}" className="${className}"[^>]*badge="${label}"`));
   }
@@ -51,6 +52,7 @@ test('new-look dock labels: one style like FRG/OPXL, one colour each, only with 
     ['.emitter-tool .module-icon-badge','#66ded0'],
     ['.animxl-tool .module-icon-badge','#ff8b7b'],
     ['.pressed-keys-tool>span:not(.hotkey-badge)','#ffb062'],
+    ['.learner-tool .module-icon-badge','#ffd06a'],
     ['.vis-toggle>.module-icon-badge','#ff9ad5'],
   ])assert.ok(look.includes(`${P}${selector}{color:${color}!important}`),selector);
   assert.ok(look.includes(P+'button b{color:inherit!important}'),'EMTR and KEY letters share one colour');

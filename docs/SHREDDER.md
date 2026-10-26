@@ -4,8 +4,10 @@ Shredder is a mode that teaches keyboard shortcuts. When you click a button (or
 a menu entry) that has a key, a small popup shows that key, in the look of the
 K.E.Y. (Show pressed keys) overlay. Nothing else: no text, no bird, no bubble.
 
-Turn it on or off in **Settings → Shortcut reminders** (menu) or in **Settings →
-Keyboard Shortcuts → Shortcut reminders**. It works as soon as it is on: there is
+Turn it on or off with **LER** (the Ancient of Lore icon beside **KEY** in the
+top WC3 toolbar), **Ctrl+J**, **Settings → Shortcut reminders** (menu), or
+**Settings → Keyboard Shortcuts → Shortcut reminders**. LER shows the same on/off
+state as Settings. It works as soon as it is on: there is
 no quiet start, waiting, lesson order or progress gate.
 
 ## What decides whether a key shows
@@ -80,6 +82,10 @@ release** whether it ships on or off by default, and set the switch.
 
 - Rules: [src/shredder-keycaps.js](../src/shredder-keycaps.js) (DOM-free; notebook
   in browser storage `mdlxl-shredder-keycaps-v1`).
+- Toolbar toggle: `AppToolbar` in [app/AppToolbar.jsx](../app/AppToolbar.jsx),
+  using the existing `shredder` command. Native SD icon:
+  `ReplaceableTextures\CommandButtons\BTNAncientOfLore.dds`, converted without
+  changing its pixels to [public/classic/btn-ancient-of-lore.png](../public/classic/btn-ancient-of-lore.png).
 - Popup and listeners: [app/Shredder.jsx](../app/Shredder.jsx), [app/shredder.css](../app/shredder.css).
 - Settings block: `ShredderSettings` in [app/Settings.jsx](../app/Settings.jsx).
 - Menu command `shredder`: [src/commands.js](../src/commands.js), [electron/menu.cjs](../electron/menu.cjs), `commands` in [App.jsx](../app/App.jsx).

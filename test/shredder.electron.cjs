@@ -51,6 +51,29 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const closeSettings = async () => { await page.getByRole('button', { name: 'Close Settings', exact: true }).click(); await page.locator('#settings-tab-hotkeys').waitFor({ state: 'detached' }); };
     if (!SHREDDER_TEST_VERSION) { await settings(); await page.locator('input[data-hotkey="hotkeys:shredder"]').check(); await closeSettings(); }
 
+    // The owner-selected LER tile uses the existing toggle, not a second setting.
+    const learner = page.locator('.classic-toolbar .learner-tool');
+    assert.equal(await learner.getAttribute('aria-pressed'), 'true');
+    assert.equal((await learner.locator('.module-icon-badge').textContent()).trim(), 'LER');
+    assert.match(await learner.locator('img').getAttribute('src'), /btn-ancient-of-lore\.png$/);
+    assert.deepEqual(await learner.locator('img').evaluate(image => [image.naturalWidth, image.naturalHeight, image.getBoundingClientRect().width]), [64, 64, 40]);
+    await learner.click();
+    assert.equal(await learner.getAttribute('aria-pressed'), 'false');
+    await move.click(); await page.waitForTimeout(200);
+    assert.equal(await popup.count(), 0, 'LER off stops reminders');
+    await learner.click(); await move.click(); await popup.waitFor();
+    assert.deepEqual(await caps(), ['M']); await clickPopup(); await gone();
+    await pressInView('Control+j');
+    assert.equal(await learner.getAttribute('aria-pressed'), 'false', 'Ctrl+J updates LER');
+    await settings();
+    const learningToggle = page.locator('input[data-hotkey="hotkeys:shredder"]');
+    assert.equal(await learningToggle.isChecked(), false);
+    await learningToggle.check();
+    assert.equal(await learner.getAttribute('aria-pressed'), 'true', 'Settings and LER share one value');
+    await closeSettings();
+    if (await popup.count()) await clickPopup();
+    check('Ancient of Lore LER tile is 40px and synchronizes button, Ctrl+J and Settings; off stops reminders');
+
     // Reproduce the owner's crowded sidebar case: Delete must stay over its own button.
     await pressInView('Control+a');
     const deleteButton = page.locator('button[data-hotkey="Delete vertices"]').first();

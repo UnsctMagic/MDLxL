@@ -1,6 +1,6 @@
 # Shredder keycap shortcut reminders
 
-Status: ready for review; awaiting merge approval. AI shortcuts included by owner request.
+Status: ready for review; awaiting merge approval. AI shortcuts and owner-selected LER toolbar button included.
 Owner / consolidator: Codex continuation of Claude Code’s PR #304
 Updated: 2026-10-26
 
@@ -17,9 +17,10 @@ Updated: 2026-10-26
 
 - Branch: `claude/shredder-keycaps`, PR #304 (draft, not merged).
 - Current continuation started from Claude's pushed review `1bfb6297`.
-  Main `548c1b89` was merged into this same feature branch in `c29171aa`.
+  Main `548c1b89` was merged in `c29171aa`; approved toolbar recomposition
+  `0ae5228b` was integrated in `33ef5f90`, keeping this same feature branch.
   Original checkouts and user-opened test apps are preserved.
-- Working task: `D:\Codex\mdlxl-shredder-review-20261026`; its disposable
+- Latest task: `D:\Codex\mdlxl-ler-button-20261026`; its disposable
   source/build/profile are removed after pushing; small verification reports remain.
 - Fixtures: none (the Electron test writes a demo model to `out/shredder`).
 
@@ -210,3 +211,22 @@ packaged Shredder check, then report `ready for review; awaiting merge approval`
 - All Shredder packaged regressions are rerun after the focus-routing change.
   Final logs and CI result remain in D:\Codex\mdlxl-shredder-review-20261026.
   No visible app was opened, and existing user apps/profiles remain untouched.
+
+## Owner-selected LER toggle (2026-10-26)
+
+- Owner chose Ancient of Lore from ten native SD icon options for the learning
+  mode toggle. Added LER beside KEY in the approved right-aligned top WC3 dock.
+  It reuses the existing Tool and shredder command, with a plain-language
+  tooltip and the existing pressed-state highlight; no second setting or key.
+- Native 64px asset is unchanged from the reviewed option; displayed at the
+  existing 40px size with 10px label and matching frame. Approved toolbar
+  height/spacing, Quick Display, tabs and status controls are preserved.
+- Checks: 27 focused source tests, full source 1,971 pass / 22 skipped / zero
+  failures, compatibility 57 pass, production build and verified package pass.
+  Browser label checks pass; geometry fits at 1920 and 1100 widths with a 64px
+  toolbar row. Packaged LER checks pass: button on/off changes reminders, Ctrl+J
+  updates its highlight, and Settings uses the same state. Full Shredder
+  packaged regression is rerun; final logs and CI are retained with the report.
+- Preserved SHREDDER_TEST_VERSION=true, original three excluded editors, popup
+  placement/timing, AI shortcuts, all user-opened apps and profiles. No version
+  bump, release or merge into main authorized. Ready for review.
