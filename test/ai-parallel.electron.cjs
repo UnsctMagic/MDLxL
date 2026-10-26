@@ -12,8 +12,8 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
  const {EditorDocument}=await import('../src/editor-document.js');
  const original=new EditorDocument(fs.readFileSync(source)),base=original.model;
  assert.ok(base.Geosets.length>3,'fixture needs four geosets');
- const jobs=[{job:'Move cloth',scope:['/Geosets/1']},{job:'Move closed accessory',scope:['/Geosets/3']}];
- const indices=[1,3],starts=new Set(),turns=[0,0]; let release=false;
+ const jobs=[{job:'Move first accessory',scope:['/Geosets/2']},{job:'Move closed accessory',scope:['/Geosets/3']}];
+ const indices=[2,3],starts=new Set(),turns=[0,0]; let release=false;
  const work=path.join(out,'Parallel.mdx');fs.copyFileSync(source,work);
  server=http.createServer(async(req,res)=>{
   let body='';for await(const p of req)body+=p;
@@ -27,7 +27,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   if(allText.includes('Count geosets'))return answer({content:'Factual count: five geosets.'});
   if(allText.includes('Improve the walk pose'))return answer({content:'Chosen model received the complex job.'});
   const user=data.messages.find(m=>m.role==='user'),raw=typeof user.content==='string'?user.content:user.content[0].text;
-  const i=raw.includes('Job: Move cloth')?0:1,gi=indices[i],target=JSON.stringify(data.messages).match(/\\"target\\":\\"([0-9a-f-]{36})/)?.[1];
+  const i=raw.includes('Job: Move first accessory')?0:1,gi=indices[i],target=JSON.stringify(data.messages).match(/\\"target\\":\\"([0-9a-f-]{36})/)?.[1];
   const call=(name,args)=>answer({tool_calls:[{index:0,id:'c'+i+'-'+turns[i],function:{name,arguments:JSON.stringify(args)}}]});
   const n=++turns[i];
   if(n===1){starts.add(i);for(let j=0;j<300&&!release;j++)await wait(50);return call('mdlxl_script',{target,edit:true,label:'Move accessory '+gi,scope:['/Geosets/'+gi],code:`for(let i=2;i<model.Geosets[${gi}].Vertices.length;i+=3)model.Geosets[${gi}].Vertices[i]+=2; return 'Moved accessory';`});}
@@ -49,7 +49,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
  await page.getByRole('button',{name:'Save connection',exact:true}).click();
  await page.getByRole('button',{name:'Connection settings',exact:true}).click();
  await page.getByRole('button',{name:'Dismiss',exact:true}).click().catch(()=>{});
- const input=page.locator('.ai-composer textarea');await input.fill('Move the cloth and closed accessory up two units as independent parts.');await input.press('Control+Enter');
+ const input=page.locator('.ai-composer textarea');await input.fill('Move the two detached accessories up two units as independent parts.');await input.press('Control+Enter');
  for(let i=0;i<300&&starts.size<2;i++)await wait(50);
  check('two provider jobs are active together',starts.size===2);
  check('existing rows show both working regions',await page.locator('.ai-worker-working').count()===2);
@@ -89,6 +89,4 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
  await page.getByRole('button',{name:'Keep chosen model',exact:true}).click();
  await page.getByText('Chosen model received the complex job.',{exact:true}).waitFor();
  check('declining the lighter model uses the chosen one',workingModels.at(-1)==='fixture-model');
-})().catch(e=>{checks.push({name:'exception',passed:false,error:e.stack});process.exitCode=1}).finally(async()=>{if(app)await app.close();if(server)await new Promise(r=>(server.closeAllConnections(),server.close(r)));fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(checks,null,2));console.log(JSON.stringify(checks,null,2));});
-
-
+})().catch(e=>{checks.push({name:'exception',passed:false,error:e.stack});process.exitCode=1}).finally(async()=>{if(app){await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await app.close().catch(()=>{});}if(server)await new Promise(r=>(server.closeAllConnections(),server.close(r)));fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(checks,null,2));console.log(JSON.stringify(checks,null,2));});

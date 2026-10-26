@@ -1,6 +1,6 @@
 # Offload Mode (birds): keep the benefit, remove the overhead
 
-Status: all three parts implemented; final branch verification in progress
+Status: implemented and verified; current-main integration delegated by owner; PR unmerged
 Owner / consolidator: Codex (written by Claude Code after reviewing the current design with the owner)
 Updated: 26 October 2026
 
@@ -266,11 +266,14 @@ same report still visible in the organiser view. No paid AI was used.
 
 ## Next action
 
-Read the owners above, confirm the waste with a counting test on main, then show
-the owner the routing choice for new jobs (Design 2) and the measured
-before-numbers before building. Do the overhead work first; then the parallel
-expansion, starting with a short plan for the owner: how regions are declared and
-checked, which edits count as structural, and how Undo stays independent.
+The owner requested a manual handoff for updating this feature branch with current
+main. Do not merge PR #322. The dry integration against main 528f5edf finds two
+conflicts: retain main's chat-model hotkey attribute with this branch's pinned-model
+tooltip in app/AiAssistant.jsx, and retain all current task rows in this index.
+Keep main's AI console idle/playback performance changes. Rerun relevant checks,
+push this same branch, and leave the PR unmerged. All implementation work below
+is committed on claude/offload-task; no paid AI trials were used.
+
 
 ## Parallel milestone (26 October 2026)
 
@@ -332,3 +335,20 @@ setting, default off, actual selected model in requests and rows, complex-job
 question with no working call before the answer, and choosing the normal model.
 A focused test also verifies complex steering switches models once. Source suite
 before current-main integration: 1,977 passed, 22 skipped, zero failures.
+
+## Final verification and limits
+
+Compatibility: 57/57. Full source: 1,978 passed, 22 skipped, zero failures.
+Focused AI/region suite: 46/46, including the added unassigned-neighbour seam
+regression. Hidden packaged console: 71/71. Hidden parallel/light flow: 14/14
+on detached Footman geosets 2 and 3 (API indices), both surviving save/reopen.
+A whole-cloth displacement on geoset 1 was correctly refused by the final check
+because it separated shared boundary vertices from an unassigned neighbour.
+
+Remaining limits: no paid model quality trials, no Warcraft III runtime check,
+conservative local simple-job recognition, and interrupted multi-part batches
+need a new assignment of unfinished work. The long overhead fixture has one
+extra handover call versus Offload off; the token reduction is measured, but a
+literal fewer-calls criterion for that scenario is not met. Current-main merge
+was not performed: automatic approval review required explicit permission, and
+the owner chose a manual handoff.

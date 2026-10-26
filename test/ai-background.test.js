@@ -318,3 +318,17 @@ test('two region targets on one live model preserve each other, enforce scope an
   a.doc.apply('User changes owned region', ['Geosets'], m => { m.Geosets[0].Vertices[1] += 2; });
   assert.throws(() => bridge.requireTarget(left.target), /region or one of its dependencies/);
 });
+
+test('combined review rejects a gap against an unassigned neighbour', async () => {
+  const { reviewRegionBatch } = await import('../app/ai-review.js');
+  const { a } = editor();
+  const before=structuredClone(a.doc.model);
+  before.Geosets[0].Faces=before.Geosets[0].Faces.slice(0,3);
+  before.Geosets.push(structuredClone(before.Geosets[0]));
+  const after=structuredClone(before),vertex=after.Geosets[0].Faces[0];
+  after.Geosets[0].Vertices[vertex*3]+=2;
+  let validated=false;
+  const bridge={requireTarget:()=>({}),env:()=>({model:after}),dispatch:async()=>{validated=true;return {results:[{}]};}};
+  const result=await reviewRegionBatch(bridge,'test',before,[{scope:['/Geosets/0'],dependencies:[],readOnly:false,structural:false}],{});
+  assert.equal(result.passed,false);assert.ok(result.seams>0);assert.ok(result.posedSeamChecks>0);assert.ok(result.failures.length);assert.ok(validated);
+});
