@@ -264,13 +264,14 @@ function WorkerPart({ part, onOpen }) {
 }
 // What one API prompt cost: dollars for known Anthropic models, otherwise tokens.
 function CostLine({ cost }) {
-  const tokens = cost.tokens === null ? 'tokens unavailable' : cost.tokens.toLocaleString() + ' tokens';
+  const tokens = cost.tokens == null ? 'tokens unavailable' : cost.tokens.toLocaleString() + ' tokens';
   const roles = Object.entries(cost.roles || {}).map(([role, use]) => `${role}: ${use.calls} ${use.unit === 'turn' ? 'provider turns' : 'calls'} · ${use.tokens === null ? 'tokens unavailable' : use.tokens.toLocaleString() + ' tokens'}`).join(' | ');
   return (
     <div
       className="ai-cost"
       title="What this prompt has cost on your API key so far. Each step resends the conversation; repeated text is billed at a lower rate."
     >
+      {cost.model && <span>{cost.model}{cost.light ? ' · light model' : ''} · </span>}
       {roles || (cost.usd === null ? tokens : `About ${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`)}
     </div>
   );
@@ -313,6 +314,7 @@ export default function AiAssistant({ bridge }) {
   const [task, setTask] = useState(null),
     [awarenessBusy, setAwarenessBusy] = useState(false);
   const [jobRoute, setJobRoute] = useState('');
+  const [modelQuestion, setModelQuestion] = useState(null);
   const [prompt, setPrompt] = useState(''),
     [images, setImages] = useState([]),
     [messages, setMessages] = useState([]),
@@ -419,7 +421,7 @@ export default function AiAssistant({ bridge }) {
         });
       if (event.type === 'cost')
         update(message => {
-          message.cost = { usd: event.usd, tokens: event.tokens, roles: event.roles };
+          message.cost = { usd: event.usd, tokens: event.tokens, roles: event.roles, model: event.model, light: event.light };
         });
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       // A steering message may have split the reply since the tool started.
@@ -657,7 +659,8 @@ export default function AiAssistant({ bridge }) {
       setError(reason.message);
     }
   }
-  async function send(resumeTask = false) {
+  async function send(resumeTask = false, lightChoice) {
+    setModelQuestion(null);
     const resume = resumeTask === true;
     if (switching || !id) return;
     if (!resume && busy) return steer();
@@ -714,8 +717,13 @@ export default function AiAssistant({ bridge }) {
         images: attached.map(image => image.data),
         context,
         resume,
+        lightChoice,
         route: jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue'),
       });
+      if (result.modelChoiceRequired) {
+        setModelQuestion(result.message); setPrompt(text); setImages(attached); setJobRoute(jobRoute);
+        setMessages(await window.desktop.aiTranscript(sending));
+      }
       if (result.authRequired) {
         setSignedIn(false);
         setSettingsOpen(true);
@@ -741,7 +749,7 @@ export default function AiAssistant({ bridge }) {
       setSignedIn(!!result.loggedIn);
       setStatus('');
       if (!result.loggedIn) setSettingsOpen(true);
-      else if (['codex', 'claude'].includes(settings.provider) && !models.length) setModels(await window.desktop.aiModels());
+      else if (['codex', 'claude'].includes(settings.provider) && !models.length) { setModels(await window.desktop.aiModels()); setSettings(await window.desktop.aiStatus()); }
     } catch (reason) {
       setError(reason.message);
       setSettingsOpen(true);
@@ -760,6 +768,7 @@ export default function AiAssistant({ bridge }) {
     try {
       await saveSettings();
       setModels(await window.desktop.aiModels());
+      setSettings(await window.desktop.aiStatus());
       setStatus('Available models loaded.');
     } catch (reason) {
       setError(reason.message);
@@ -865,7 +874,7 @@ export default function AiAssistant({ bridge }) {
               <select
                         className="ai-model ai-header-model"
                         aria-label="Chat model"
-                        title="The AI model that does the work. A change applies from the next message."
+                        title="The model for new jobs. Existing birds keep their assigned model."
                         value={settings.model || ''}
                         disabled={authBusy}
                         onChange={event => action(async () => setSettings(await window.desktop.aiModel(event.target.value)))}
@@ -1107,6 +1116,17 @@ export default function AiAssistant({ bridge }) {
                         ))}
                       </datalist>
                     </label>
+                    {!!settings.lighterModels?.length && (<>
+                      <label title="Use a lighter available model for exact value changes and factual reports. Shape or motion work asks first. Failed reviews hand over to the chosen model.">
+                        <input type="checkbox" checked={settings.allowLighter === true} onChange={event => setSettings(previous => ({ ...previous, allowLighter: event.target.checked }))} />
+                        Allow lighter models for simple jobs
+                      </label>
+                      {settings.allowLighter && <label title="Choose from lighter models returned by this connection.">Lighter model
+                        <select aria-label="Lighter model" value={settings.lightModel || settings.lighterModels[0].id} onChange={event => setSettings(previous => ({ ...previous, lightModel: event.target.value }))}>
+                          {settings.lighterModels.map(model => <option key={model.id} value={model.id}>{model.name || model.id}</option>)}
+                        </select>
+                      </label>}
+                    </>)}
                     <label title="Manual sends to the current bird until you choose New job. Automatic uses a small text-only AI call for unaddressed messages. Both lets you choose in the composer.">
                       Job routing
                       <select aria-label="Job routing" value={settings.routing || 'manual'} onChange={event => setSettings(previous => ({ ...previous, routing: event.target.value }))}>
@@ -1325,6 +1345,11 @@ export default function AiAssistant({ bridge }) {
                     </button>
                   </div>
                 )}
+                {modelQuestion && <div className="ai-resume" role="status">
+                  <span>{modelQuestion}</span>
+                  <button title="Use the chosen model for this job." onClick={() => send(false, 'chosen')}>Keep chosen model</button>
+                  <button title="Allow the lighter model for this job only." onClick={() => send(false, 'light')}>Use lighter model</button>
+                </div>}
                 <div className="ai-composer">
                   {(summary || images.length > 0 || strokes.length > 0 || references.length > 0) && (
                     <div className="ai-chips">

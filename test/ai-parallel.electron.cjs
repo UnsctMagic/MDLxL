@@ -4,7 +4,7 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'D:/Claude/tools/node_modules/playwright-core');
 const out=path.resolve(process.env.MDLXL_AI_TEST_OUT||'out/ai-parallel');
 const source=process.env.MDLXL_AI_CONSOLE_MODEL;
-const checks=[];let app,server;
+const checks=[];let app,server;let offerLight=false;const workingModels=[];
 const check=(name,value)=>{checks.push({name,passed:!!value});assert.ok(value,name)};
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
@@ -17,11 +17,15 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
  const work=path.join(out,'Parallel.mdx');fs.copyFileSync(source,work);
  server=http.createServer(async(req,res)=>{
   let body='';for await(const p of req)body+=p;
-  if(req.url.endsWith('/models'))return res.end('{"data":[{"id":"fixture-model"}]}');
+  if(req.url.endsWith('/models'))return res.end(JSON.stringify({data:[{id:'fixture-model'},...(offerLight?[{id:'fixture-mini'}]:[])]}));
   const data=JSON.parse(body),system=data.messages[0].content;
   res.writeHead(200,{'content-type':'text/event-stream'});
   const answer=delta=>res.end('data: '+JSON.stringify({choices:[{delta,finish_reason:delta.tool_calls?'tool_calls':'stop'}],usage:{prompt_tokens:100,completion_tokens:20}})+'\n\n');
   if(system.startsWith('Route one message'))return answer({content:JSON.stringify({jobs})});
+  workingModels.push(data.model);
+  const allText=JSON.stringify(data.messages);
+  if(allText.includes('Count geosets'))return answer({content:'Factual count: five geosets.'});
+  if(allText.includes('Improve the walk pose'))return answer({content:'Chosen model received the complex job.'});
   const user=data.messages.find(m=>m.role==='user'),raw=typeof user.content==='string'?user.content:user.content[0].text;
   const i=raw.includes('Job: Move cloth')?0:1,gi=indices[i],target=JSON.stringify(data.messages).match(/\\"target\\":\\"([0-9a-f-]{36})/)?.[1];
   const call=(name,args)=>answer({tool_calls:[{index:0,id:'c'+i+'-'+turns[i],function:{name,arguments:JSON.stringify(args)}}]});
@@ -63,6 +67,28 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
  const saved=new EditorDocument(fs.readFileSync(work)).model;
  for(const gi of indices)check('saved and reopened geoset '+gi,Math.abs(saved.Geosets[gi].Vertices[2]-base.Geosets[gi].Vertices[2]-2)<0.0001);
  check('no renderer errors',!errors.length);
+ await page.getByRole('button',{name:'Connection settings',exact:true}).click();
+ check('lighter setting absent without model availability',await page.getByLabel('Allow lighter models for simple jobs',{exact:true}).count()===0);
+ offerLight=true;
+ await page.getByRole('button',{name:'Load models',exact:true}).click();
+ const allow=page.getByLabel('Allow lighter models for simple jobs',{exact:true});await allow.waitFor();
+ check('lighter setting defaults off',!await allow.isChecked());await allow.check();
+ await page.getByLabel('Job routing',{exact:true}).selectOption('manual');
+ await page.getByRole('button',{name:'Save connection',exact:true}).click();
+ await page.getByRole('button',{name:'Connection settings',exact:true}).click();
+ await page.getByLabel('Job destination',{exact:true}).selectOption('new');
+ await input.fill('Count geosets');await input.press('Control+Enter');
+ await page.getByText('Factual count: five geosets.',{exact:true}).waitFor();
+ check('simple job uses the returned lighter model',workingModels.at(-1)==='fixture-mini');
+ check('bird row identifies the lighter model',await page.locator('.ai-worker-row').last().innerText().then(t=>t.includes('light model')&&t.includes('fixture-mini')));
+ await page.getByLabel('Job destination',{exact:true}).selectOption('new');
+ const callsBefore=workingModels.length;await input.fill('Improve the walk pose');await input.press('Control+Enter');
+ await page.getByRole('button',{name:'Keep chosen model',exact:true}).waitFor();
+ check('complex question waits without any working call',workingModels.length===callsBefore);
+ await page.screenshot({path:path.join(out,'light-choice.png')});
+ await page.getByRole('button',{name:'Keep chosen model',exact:true}).click();
+ await page.getByText('Chosen model received the complex job.',{exact:true}).waitFor();
+ check('declining the lighter model uses the chosen one',workingModels.at(-1)==='fixture-model');
 })().catch(e=>{checks.push({name:'exception',passed:false,error:e.stack});process.exitCode=1}).finally(async()=>{if(app)await app.close();if(server)await new Promise(r=>(server.closeAllConnections(),server.close(r)));fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(checks,null,2));console.log(JSON.stringify(checks,null,2));});
 
 

@@ -240,13 +240,13 @@ export async function reviewRegionBatch(bridge, id, before, regions, options) {
   else if (changes.length) throw Error('The read-only batch changed the model.');
   const vertices = {}, points = new Map(), pairs = [];
   const owned = [...new Set(editing.flatMap(r => r.scope.map(p => /^\/Geosets\/(\d+)/.exec(p)?.[1]).filter(v => v !== undefined)).map(Number))];
-  for (const gi of owned) {
+  for (let gi = 0; gi < before.Geosets.length; gi++) {
     const g=before.Geosets[gi]; if (!g || !model.Geosets[gi] || g.Vertices.length !== model.Geosets[gi].Vertices.length) continue;
     const edges=new Map();
     for(let i=0;i<g.Faces.length;i+=3) for(let j=0;j<3;j++){ const a=g.Faces[i+j],b=g.Faces[i+(j+1)%3],key=[a,b].sort((x,y)=>x-y).join(','); edges.set(key,(edges.get(key)||0)+1); }
     const boundary=new Set([...edges].filter(([,n])=>n===1).flatMap(([key])=>key.split(',').map(Number)));
     for(const vi of boundary){ const key=Array.from(g.Vertices.subarray(vi*3,vi*3+3)).join(',');
-      for(const other of points.get(key)||[]) if(other[0]!==gi) pairs.push([other,[gi,vi]]);
+      for(const other of points.get(key)||[]) if(other[0]!==gi && (owned.includes(gi) || owned.includes(other[0]))) pairs.push([other,[gi,vi]]);
       if(!points.has(key))points.set(key,[]); points.get(key).push([gi,vi]);
     }
   }

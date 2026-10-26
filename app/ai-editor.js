@@ -334,7 +334,7 @@ export class AiEditorBridge {
       this.batches.set(id, { base: structuredClone(base), before: structuredClone(env.model), jobs, targets: [] });
       return { batch: id, jobs };
     }
-    if (args.action === 'close') { this.batches.delete(args.batch); return { closed: true }; }
+    if (args.action === 'close') { for (const id of this.batches.get(args.batch)?.targets || []) this.targets.delete(id); this.batches.delete(args.batch); return { closed: true }; }
     const batch = this.batches.get(args.batch);
     if (!batch) throw Error('This job batch is no longer available.');
     if (args.action === 'begin') {
@@ -352,7 +352,7 @@ export class AiEditorBridge {
       const env = this.env(batch.base), id = crypto.randomUUID();
       this.targets.set(id, { ...batch.base, revision: env.doc.revision, selectionSignature: aiSelectionSignature(env.state) });
       try { return await reviewRegionBatch(this, id, batch.before, batch.jobs.map(j => j.region), options); }
-      finally { this.batches.delete(args.batch); this.targets.delete(id); }
+      finally { this.targets.delete(id); }
     }
     if (args.action === 'close') { this.batches.delete(args.batch); return { closed: true }; }
     throw Error('Unknown region operation.');

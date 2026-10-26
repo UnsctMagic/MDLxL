@@ -60,12 +60,24 @@ into compacting.
   Continue sends directly to the current bird. New job starts a fresh bird; Tiny job
   uses the shared bird for quick tasks. Automatic uses one small text-only routing
   call when a message has no chosen bird. Opening a bird chat or addressing its
-  name bypasses routing. The first job starts a bird without a routing call.
+  name bypasses routing. The first Manual job starts a bird without a routing call. Automatic can split a new request using a compact structure summary.
 - The existing reply cost line shows calls and tokens by role. Codex reports provider
   turns; unavailable usage is labelled instead of estimated as zero.
 - A bird whose memory is half full writes a handover note and retires; a new bird
   takes over from the note.
-- One bird edits the model at a time.
+- Automatic routing can split a multi-part job into declared regions. Independent
+  birds work at once; overlapping dependencies and structural edits wait. Each
+  actual commit stays inside its region and adds a separate bird-labelled Undo
+  step. Normal Undo reverses those steps in order. The final combined check covers
+  shared seams in bind/posed frames and MDX/MDL save/reopen. There is no bird cap.
+  If a structural change renumbers parts, remaining assignments need a fresh job.
+- **Allow lighter models for simple jobs** is off by default. Load models in
+  Connection settings to see the lighter choices supported by that connection.
+  Select the lighter model there. Clear exact-value edits and factual reports use
+  it automatically; unclear or spatial work asks which model to use. The choice
+  applies to that job. A failed light review or complex follow-up hands over once
+  to the chosen model, without replaying completed edits. Birds keep their model;
+  rows show the model and its individual cost. Unknown wording is treated as complex.
 - The chips above the chat show the organiser and its birds (spinner: working,
   pause: waiting for you). Click a bird to read its chat, watch its thinking and
   steps, or talk to it directly. Retired birds and earlier chats of this model
@@ -106,14 +118,13 @@ the first one. The bird has its own environment for its model tab:
 - **Screen-only steps wait.** Editor commands other than Undo/Redo, program
   controls (`mdlxl_ui`) and choosing timeline keys need the bird's tab on screen.
   Such a step waits until you return to that tab.
-- **Same tab still stops.** On the tab being shown, if you change that model or its
+- **Changes are checked.** Region birds become stale when their own part or a dependency changes; changes to another independent part do not invalidate them. For ordinary jobs on the tab being shown, if you change that model or its
   selection while the bird prepares an edit, the edit is refused and the bird asks,
   as before. Closing the bird's tab stops its task.
 
 **Several jobs at once.** Each model's chat runs its own job: while a bird works
 on one model, switch to another model's tab and send its chat a prompt; its own
-organiser and birds work alongside. One job per model at a time: a second chat of
-the same model is refused until the first finishes. **Stop** and steering act on
+organiser and birds work alongside. One owner request per model at a time: its declared region birds can run concurrently; a second independent chat of the same model waits. **Stop** and steering act on
 the chat you are looking at. Connection settings and sign-in stay unavailable
 while any job runs, since all chats share one connection.
 

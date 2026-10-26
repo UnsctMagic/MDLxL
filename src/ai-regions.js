@@ -76,6 +76,7 @@ export function declareRegion(model, spec = {}) {
   };
   for (const p of [...scope, ...dependencies]) globals(read(model, p));
   for (const p of dependencies) pathParts(p);
+  if (spec.globalSequence != null && !spec.animationRanges) throw Error('Declare the global-sequence time range.');
   if (spec.globalSequence != null && (!Number.isInteger(spec.globalSequence) || !(model.GlobalSequences?.[spec.globalSequence] > 0))) throw Error('Declare an existing global sequence.');
   const ranges = spec.animationRanges;
   if (ranges && (!Array.isArray(ranges) || !ranges.length || ranges.some(r => !Array.isArray(r) || r.length !== 2 || r.some(n => !Number.isFinite(n)) || r[0] > r[1]))) throw Error('Declare ordered animation ranges.');

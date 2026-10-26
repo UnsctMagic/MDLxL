@@ -1,6 +1,6 @@
 # Offload Mode (birds): keep the benefit, remove the overhead
 
-Status: overhead and parallel implementation verified; lighter-model expansion in progress
+Status: all three parts implemented; final branch verification in progress
 Owner / consolidator: Codex (written by Claude Code after reviewing the current design with the owner)
 Updated: 26 October 2026
 
@@ -304,3 +304,31 @@ packaged Footman run passed eight checks: two simultaneous writers on geosets
 changes saved and reopened, and no renderer errors. The fixture initially omitted
 script edit:true (read-only default); after auditing that mismatch the committed
 run passed. Package and disposable profiles were removed.
+
+## Lighter-model milestone (26 October 2026)
+
+The existing connection settings offer Allow lighter models for simple jobs only
+when the returned model catalog (or supported Claude aliases) has a lower model
+tier. It defaults off; the user selects the offered model. Unknown provider/model
+IDs are not invented. The local conservative recognizer accepts factual reads
+and explicitly named values; uncertain or spatial wording asks in the composer
+and waits for the owner choice. Non-English or unfamiliar wording may therefore
+ask unnecessarily, rather than silently downgrade the job.
+
+Each bird pins its model. A failed light review, an inability report, or complex
+follow-up/steering transfers once to the chosen model with a local checkpoint
+handover; it includes already-applied edits and warns against repeating them.
+The old bird retires. Both calls remain visible in cost accounting.
+
+Mixed fixture: six jobs, four simple and two complex, six working calls either
+way. With the setting off: 35,210 input-token equivalents on the chosen model.
+With it on: 23,471 on the lighter model and 11,739 on the chosen model. Total
+tokens do not fall. Under an explicitly illustrative 10:1 per-token fixture
+price, cost units fall from 352,100 to 140,861 (60.0%). These are NOT provider
+prices or a promise of real dollar savings. No paid AI trials were run.
+
+The combined hidden app test passed 14 checks, including absent/unavailable
+setting, default off, actual selected model in requests and rows, complex-job
+question with no working call before the answer, and choosing the normal model.
+A focused test also verifies complex steering switches models once. Source suite
+before current-main integration: 1,977 passed, 22 skipped, zero failures.

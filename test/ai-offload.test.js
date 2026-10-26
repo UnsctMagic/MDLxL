@@ -14,13 +14,14 @@ const modelKey = 'D:/Models/Footman.mdx';
 
 // A fake OpenAI-compatible provider: `organiser` answers the organiser's requests,
 // `worker` answers every worker request. Both get the request body.
-async function setup(t, { organiser, worker }) {
+async function setup(t, { organiser, worker, models = [] }) {
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'mdlxl-ai-offload-'));
   t.after(() => fs.rm(profile, { recursive: true, force: true }));
   const requests = [];
   const server = http.createServer(async (req, res) => {
     let body = '';
     for await (const part of req) body += part;
+    if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({data:models.map(id=>({id}))})); return; }
     const data = JSON.parse(body);
     const system = data.messages[0].content;
     const kind = system.includes('SD Brain art director') ? 'art' : system.includes('You are the organiser') ? 'organiser' : 'worker';
@@ -396,4 +397,92 @@ test('multipart latency fixture compares off, sequential birds and parallel bird
   t.diagnostic(JSON.stringify({multipartFixture:results}));
   assert.ok(results[2].wallMs<results[1].wallMs);
   assert.equal(results[1].calls,results[2].calls);
+});
+
+test('lighter jobs are conservative, opt-in and limited to available models', async t=>{
+  const {simpleJob,lighterModels}=require('../electron/ai-model-choice.cjs');
+  for(const text of ['Rename bone 3 to "Hand"','Set material 1 color to #ff0000','Set sequence 2 rarity to 4','Set geoset 1 visibility from 100 to 200','List the names','Count geosets']) assert.ok(simpleJob(text),text);
+  for(const text of ['Make the shoulders stronger','Fix the binding','Rename the bone to Hand and improve the pose','List suggestions for a nicer shape','Set it to whatever looks good']) assert.equal(simpleJob(text),false,text);
+  assert.equal(simpleJob('Count geosets',['image']),false);
+  assert.deepEqual(lighterModels([{id:'mini'},{id:'full'}],'mini'),[]);
+  const f=await setup(t,{models:['test','test-mini'],worker:()=>say('Done.'),organiser:()=>assert.fail('No organiser')});
+  assert.deepEqual((await f.service.status()).lighterModels,[],'catalog is not invented');
+  await f.service.models();assert.equal((await f.service.status()).lighterModels[0].id,'test-mini');
+  const {id}=await f.service.organiser({modelKey});
+  await f.service.send({id,text:'Count geosets',context,route:'new'});
+  assert.equal(f.requests.at(-1).data.model,'test','setting defaults off');
+  await f.service.configure({...await f.service.status(),allowLighter:true,lightModel:'test-mini'});
+  await f.service.send({id,text:'Rename bone 3 to "Hand"',context,route:'new'});
+  assert.equal(f.requests.at(-1).data.model,'test-mini');
+  const before=f.requests.length;
+  const asked=await f.service.send({id,text:'Make the shoulders broader',context,route:'new'});
+  assert.equal(asked.modelChoiceRequired,true);assert.equal(f.requests.length,before,'question waits without a model call');
+  await f.service.send({id,text:'Make the shoulders broader',context,route:'new',lightChoice:'chosen'});
+  assert.equal(f.requests.at(-1).data.model,'test');
+  await f.service.send({id,text:'Make the shield rounder',context,route:'new',lightChoice:'light'});
+  assert.equal(f.requests.at(-1).data.model,'test-mini');
+  const org=await f.service.readConversation(id);const lastBird=org.workers.at(-1);
+  await f.service.send({id:lastBird.id,text:'Now improve its shape',context});
+  assert.equal(f.requests.at(-1).data.model,'test');
+  assert.equal(lastBird.status,'retired');
+  assert.match(userText(f.requests.at(-1).data),/Handover note/);
+  const rows=org.transcript.flatMap(e=>e.parts||[]).filter(p=>p.type==='worker');
+  assert.ok(rows.some(r=>r.light&&r.cost.model==='test-mini'));
+});
+
+test('a lighter review failure escalates once and never retries the lighter model',async t=>{
+  const f=await setup(t,{models:['test','test-mini'],organiser:()=>assert.fail('recap'),worker:data=>{
+    if(data.model==='test-mini') return {delta:{tool_calls:[{index:0,id:'failed-review',function:{name:'mdlxl_review',arguments:JSON.stringify({target:context.target,action:'inspect',checksCode:'return []; '})}}]},finish_reason:'tool_calls'};
+    assert.match(userText(data),/Applied edits remain.*Do not repeat completed edits/s);
+    return say('Chosen model checked the result.');
+  }});
+  const base=f.service.call;
+  f.service.call=(name,args)=>name==='mdlxl_review'&&args.action==='inspect'?{review:{passed:false,changed:true,phase:'inspected'}}:base(name,args);
+  await f.service.models();await f.service.configure({...await f.service.status(),allowLighter:true,lightModel:'test-mini'});
+  const {id}=await f.service.organiser({modelKey});
+  const result=await f.service.send({id,text:'Set material 1 color to #ff0000',context});
+  assert.equal(result.ok,true,JSON.stringify(result));
+  assert.deepEqual(f.requests.map(r=>r.data.model),['test-mini','test']);
+  const org=await f.service.readConversation(id);
+  assert.deepEqual(org.workers.map(w=>w.status),['retired','idle']);
+  assert.equal(org.transcript.at(-1).cost.roles.bird.calls,2);
+});
+
+test('a bird keeps its model and unavailable lighter choices stay disabled',async t=>{
+ const f=await setup(t,{models:['test'],worker:()=>say('Done.'),organiser:()=>assert.fail('recap')});
+ await f.service.models();await f.service.configure({...await f.service.status(),allowLighter:true,lightModel:'invented-mini'});
+ assert.deepEqual((await f.service.status()).lighterModels,[]);
+ const {id}=await f.service.organiser({modelKey});
+ await f.service.send({id,text:'Count geosets',context});
+ await f.service.setModel('changed');
+ await f.service.send({id,text:'Count bones',context});
+ assert.deepEqual(f.requests.map(r=>r.data.model),['test','test']);
+});
+
+test('mixed session reports per-model tokens and a declared fixture price comparison',async t=>{
+ const results=[];
+ for(const enabled of [false,true]){
+  const f=await setup(t,{models:['test','test-mini'],worker:()=>say('Done.'),organiser:()=>assert.fail('recap')});
+  await f.service.models();await f.service.configure({...await f.service.status(),allowLighter:enabled,lightModel:'test-mini'});
+  const {id}=await f.service.organiser({modelKey});
+  for(const text of ['Count geosets','Rename bone 3 to "Hand"','Set material 1 color to #ff0000','List textures','Make the shoulders broader','Improve the walk pose']) await f.service.send({id,text,context,route:'new',...(!require('../electron/ai-model-choice.cjs').simpleJob(text)?{lightChoice:'chosen'}:{})});
+  const byModel={};let units=0;
+  for(const r of f.requests){byModel[r.data.model]=(byModel[r.data.model]||0)+r.inputTokens;units+=r.inputTokens*(r.data.model==='test-mini'?1:10);}
+  results.push({enabled,calls:f.requests.length,inputProxyByModel:byModel,fixtureCostUnits:units});
+ }
+ t.diagnostic(JSON.stringify({mixedSession:results,priceAssumption:'chosen 10 units/input-token; light 1 unit/input-token; illustrative only, not provider billing'}));
+ assert.equal(results[0].calls,results[1].calls);assert.ok(results[1].fixtureCostUnits<results[0].fixtureCostUnits);
+});
+
+test('complex steering hands a running lighter bird to the chosen model',async t=>{
+ let ready,release;const started=new Promise(r=>ready=r),hold=new Promise(r=>release=r);
+ const f=await setup(t,{models:['test','test-mini'],organiser:()=>assert.fail('recap'),worker:async data=>{
+  if(data.model==='test-mini'){ready();await hold;return say('Interrupted simple job.');}
+  assert.match(userText(data),/User steering: Improve the walk pose/);return say('Strong model completed the follow-up.');
+ }});
+ await f.service.models();await f.service.configure({...await f.service.status(),allowLighter:true,lightModel:'test-mini'});
+ const {id}=await f.service.organiser({modelKey});const running=f.service.send({id,text:'Count geosets',context});
+ await started;assert.deepEqual(await f.service.steer({id,text:'Improve the walk pose'}),{queued:true});release();
+ assert.equal((await running).ok,true);
+ assert.deepEqual(f.requests.map(r=>r.data.model),['test-mini','test']);
 });

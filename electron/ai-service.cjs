@@ -1,5 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { simpleJob, lighterModels } = require('./ai-model-choice.cjs');
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
@@ -116,6 +117,9 @@ class AiService {
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
       routing: config.routing || 'manual',
+      allowLighter: provider.allowLighter === true,
+      lightModel: provider.lightModel || '',
+      lighterModels: this.lighterChoices({ ...provider, provider: name }),
       spendLimit: limitOf(config, 'spendLimit'),
       stepLimit: limitOf(config, 'stepLimit'),
       sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
@@ -203,6 +207,8 @@ class AiService {
       executable,
       baseUrl,
       key: baseUrl === (previous.baseUrl || '') ? previous.key || '' : '',
+      allowLighter: input.allowLighter === undefined ? previous.allowLighter === true : input.allowLighter === true,
+      lightModel: String(input.lightModel ?? previous.lightModel ?? ''),
     };
     if (input.apiKey !== undefined && input.apiKey !== '') next.key = this.encrypt(String(input.apiKey));
     if (input.clearKey) next.key = '';
@@ -214,6 +220,10 @@ class AiService {
     await this.persist();
     if (providerChanged) this.emit({ type: 'organiser-reset' });
     return this.status();
+  }
+  lighterChoices(settings) {
+    const models = this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] || (settings.provider === 'claude' ? [{id:'haiku',name:'Haiku'}] : []);
+    return lighterModels(models, settings.model);
   }
   async settings() {
     const c = await this.configuration();
@@ -360,7 +370,7 @@ class AiService {
       canResume: !task.regionJobs && ['interrupted', 'incomplete'].includes(task.status),
     };
   }
-  async send({ id, text, images = [], context, resume = false, route, worker, job }) {
+  async send({ id, text, images = [], context, resume = false, route, worker, job, lightChoice }) {
     if (this.active) throw Error('Wait for the current AI request to finish.');
     if (this.tasks.has(id)) throw Error('This chat is already working.');
     // One job per model: another chat of the same model tab waits its turn.
@@ -387,6 +397,18 @@ class AiService {
       }
     }
     const conversation = await this.conversation(id, settings.provider);
+    if (!resume && conversation.kind === 'worker' && conversation.light) {
+      return this.send({ id: conversation.organiserId, text, images, context, worker: conversation.name, route: 'continue', lightChoice: simpleJob(text, images) ? lightChoice : 'chosen' });
+    }
+    if (settings.allowLighter && !this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] && settings.provider !== 'claude') await this.models();
+    const choices = this.lighterChoices(settings);
+    const light = choices.find(m => m.id === settings.lightModel) || choices[0];
+    const currentBird = conversation.workers?.find(w => w.status !== 'retired' && (worker ? (w.id === worker || w.name === worker) : (!route || route === 'continue') && w.id === conversation.currentWorker));
+    if (currentBird?.light && !simpleJob(text, images)) lightChoice = 'chosen';
+    const canUseLight = settings.allowLighter && light && (await this.configuration()).offload !== false;
+    if (lightChoice !== undefined && !['chosen', 'light'].includes(lightChoice)) throw Error('Choose which model should do this job.');
+    if (!resume && canUseLight && !simpleJob(text, images) && !lightChoice && conversation.kind !== 'worker') return { ok: false, modelChoiceRequired: true, message: 'This job may need judgement about shape or motion. A lighter model can lower the quality. Which model should do this job?' };
+    settings.jobModel = canUseLight && lightChoice !== 'chosen' && (simpleJob(text, images) || lightChoice === 'light') ? light.id : settings.model;
     if (conversation.retired)
       throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
     if (conversation.region && !resume) context = await this.call('mdlxl_regions', { action: 'target', target: context.target, region: conversation.region, name: conversation.name }, controller.signal);
@@ -577,14 +599,14 @@ class AiService {
     const own = { calls: 0, tokens: null, usd: null };
     return value => {
       if (!['request', 'cost'].includes(value.type)) { recorder.event(value); return; }
-      const active = this.tasks.get(conversation.organiserId || conversation.id);
+      const active = this.tasks.get(conversation.organiserId) || this.tasks.get(conversation.id);
       if (!active) { if (value.type === 'cost') recorder.event(value); return; }
       const costs = (active.cost ||= {}), cost = (costs[role] ||= { calls: 0, tokens: null, usd: null });
       if (value.type === 'request') { cost.calls++; own.calls++; if (value.unit) cost.unit = own.unit = value.unit; }
       else {
         const delta = Math.max(0, value.tokens - lastTokens); cost.tokens = (cost.tokens || 0) + delta; own.tokens = (own.tokens || 0) + delta; lastTokens = value.tokens;
         if (value.usd !== null) { const deltaUsd = Math.max(0, value.usd - lastUsd); cost.usd = (cost.usd || 0) + deltaUsd; own.usd = (own.usd || 0) + deltaUsd; lastUsd = value.usd; }
-        if (recorder !== active.recorder) recorder.event({ ...value, roles: { [role]: { ...own } } });
+        if (recorder !== active.recorder) recorder.event({ ...value, model: conversation.model, light: conversation.light, roles: { [role]: { ...own } } });
       }
       const rows = Object.values(costs);
       active.recorder.event({ type: 'cost', tokens: rows.every(c => c.tokens !== null) ? rows.reduce((n, c) => n + c.tokens, 0) : null, usd: rows.every(c => c.usd !== null) ? rows.reduce((n, c) => n + c.usd, 0) : null, roles: structuredClone(costs) });
@@ -605,6 +627,11 @@ class AiService {
       sdReviewProblem,
     } = contract;
     const id = conversation.id;
+    if (conversation.kind === 'worker' && conversation.model !== undefined) settings = { ...settings, model: conversation.model };
+    const lightController = new AbortController();
+    signal = AbortSignal.any([signal, lightController.signal]);
+    let lightFailure;
+    const escalate = reason => { lightFailure = Error(reason); lightFailure.code = 'AI_LIGHT_ESCALATE'; lightController.abort(lightFailure); throw lightFailure; };
     let task;
     if (resume) {
       task = conversation.task;
@@ -764,6 +791,7 @@ class AiService {
           if (edit || task.checkpoint.review.phase === 'verified') delete task.unresolvedEditError;
           await this.persistConversation(conversation);
         }
+        if (conversation.light && name === 'mdlxl_review' && (result.review?.passed === false || result.passed === false || (args.action === 'finish' && ['needs-correction', 'blocked'].includes(args.outcome)))) escalate('The lighter model review failed; continuing with the chosen model.');
         return result;
       } catch (error) {
         if (edit) {
@@ -819,6 +847,8 @@ class AiService {
         if (settings.provider === 'codex') await runCodex(options);
         else if (settings.provider === 'claude') await runClaude(options);
         else await runApi(options);
+        if (lightFailure) throw lightFailure;
+        if (conversation.light && /\b(?:cannot|can't|couldn't|could not|unable to)\s+(?:finish|complete|do)\b/i.test(recorder.report())) escalate('The lighter model reported that it could not finish.');
         // Steering that arrived as the AI finished starts a follow-up turn on the same task.
         const late = steering.take();
         if (late) {
@@ -841,6 +871,7 @@ class AiService {
           this.emit({ id, type: 'task', task: await this.taskInfo(id) });
           return;
         }
+        if (conversation.light && review.changed && review.phase !== 'verified') escalate('The lighter model could not verify its edit.');
         if (review.phase === 'blocked')
           throw Error(review.summary || 'The edited model still needs verification.');
         if (attempt >= 4) break;
@@ -856,7 +887,8 @@ class AiService {
         'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
       );
     } catch (error) {
-      task.status = signal.aborted ? 'interrupted' : 'incomplete';
+      if (lightFailure) error = lightFailure;
+      task.status = signal.aborted && !lightFailure ? 'interrupted' : 'incomplete';
       task.summary = error.message;
       throw error;
     } finally {
@@ -901,8 +933,9 @@ class AiService {
     await previous;
     organiser.workers ||= [];
     organiser.birds ||= [];
+    const parentSignal = signal;
     let worker = null,
-      handover = null;
+      handover = args.handover || null;
     try {
       const named = String(args.worker || '').trim().toLowerCase();
       if (named) {
@@ -913,7 +946,12 @@ class AiService {
           };
         if (worker.status === 'retired')
           return { error: `${worker.name} is retired. Start a new worker for this job and include what it needs to know.` };
-      } else if (args.tiny) worker = organiser.workers.find(w => w.tiny && w.status !== 'retired') || null;
+      } else if (args.tiny && !args.forceChosen) worker = organiser.workers.find(w => w.tiny && w.status !== 'retired') || null;
+      if (worker?.light && (args.forceChosen || !settings.allowLighter || !simpleJob(userText, images))) {
+        const previous = await this.conversation(worker.id, settings.provider);
+        handover = { name: worker.name, note: this.workerHandover(previous, 'The follow-up requires the chosen model.') };
+        await this.retireWorker(organiser, worker); worker = null; args = { ...args, forceChosen: true };
+      }
       // A worker past half of its memory writes a handover note and retires.
       if (worker && (worker.use || 0) >= RETIRE_AT) {
         handover = { name: worker.name, note: await this.handover(worker, settings, contract, context, signal, policy) };
@@ -929,26 +967,30 @@ class AiService {
           name,
           job: args.tiny ? 'Tiny jobs' : args.job,
           tiny: !!args.tiny,
+          model: args.forceChosen ? settings.model : (settings.jobModel || settings.model),
+          light: !args.forceChosen && !!settings.jobModel && settings.jobModel !== settings.model,
           ...(args.region ? { region: args.region } : {}),
           status: 'idle',
           use: 0,
         };
         organiser.workers.push(worker);
-        const created = { id: worker.id, provider: settings.provider, transcript: [], messages: [], kind: 'worker', organiserId: organiser.id, modelKey: organiser.modelKey, name, tiny: worker.tiny, ...(args.region ? { region: args.region } : {}) };
+        const created = { id: worker.id, provider: settings.provider, transcript: [], messages: [], kind: 'worker', organiserId: organiser.id, modelKey: organiser.modelKey, name, tiny: worker.tiny, model: worker.model, light: worker.light, ...(args.region ? { region: args.region } : {}) };
         this.conversations.set(worker.id, created);
         await this.persistConversation(created);
       } else if (!worker.tiny) worker.job = args.job;
+      worker.model ??= settings.model;
       worker.status = 'working';
       await this.persistConversation(organiser);
       this.emitRoster(organiser);
-      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, region: context.region ? (context.region.readOnly ? 'read only' : context.region.scope.join(', ')) : undefined, status: 'working' });
+      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, model: worker.model, light: worker.light, region: context.region ? (context.region.readOnly ? 'read only' : context.region.scope.join(', ')) : undefined, status: 'working' });
       const conversation = await this.conversation(worker.id, settings.provider);
       const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
       const steering = new AiSteering(text => recorder.split(text));
       if (!active.parallel) parentSteering.forward = steering;
       const controller = new AbortController();
       signal = AbortSignal.any([signal, controller.signal]);
-      (active.workers ||= new Map()).set(worker.id, { id: worker.id, name: worker.name, steering, controller });
+      const runningWorker = { id: worker.id, name: worker.name, light: worker.light, steering, controller };
+      (active.workers ||= new Map()).set(worker.id, runningWorker);
       if (!active.parallel) active.worker = { id: worker.id, steering };
       active.lastWorker = worker.id;
       this.emitRunning();
@@ -963,11 +1005,12 @@ class AiService {
       let status = 'done',
         error;
       try {
-        await this.runTask({ conversation, recorder, steering, text, images, context, resume: false, settings, contract, signal, policy, entry: { from: 'organiser', job: args.job } });
+        await this.runTask({ conversation, recorder, steering, text, images, context, resume: false, settings: { ...settings, model: worker.model }, contract, signal, policy, entry: { from: 'organiser', job: args.job } });
       } catch (reason) {
-        if (signal.aborted) throw reason;
+        if (signal.aborted && !runningWorker.escalation) throw reason;
+        if (runningWorker.escalation) userText += '\n\nUser steering: ' + runningWorker.escalation;
         status = 'failed';
-        error = reason.message;
+        error = runningWorker.escalation ? 'The user steered this job into work for the chosen model.' : reason.message;
         recorder.reply.error = reason.message;
         recorder.event({ type: 'error', text: reason.message, worker: true });
       } finally {
@@ -985,7 +1028,14 @@ class AiService {
       }
       organiser.currentWorker = worker.id;
       const report = recorder.report().slice(-4000);
-      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status, report, cost: recorder.reply.cost });
+      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status, report, model: worker.model, light: worker.light, cost: recorder.reply.cost ? { ...recorder.reply.cost, model: worker.model, light: worker.light } : undefined });
+      if (status === 'failed' && worker.light && !args.forceChosen) {
+        const note = this.workerHandover(conversation, error || 'The lighter model did not finish.');
+        await this.retireWorker(organiser, worker);
+        parent.event({ type: 'notice', text: worker.name + ' handed the unfinished job to the chosen model.' });
+        release();
+        return this.runWorker({ organiser, active, args: { ...args, worker: undefined, forceChosen: true, handover: { name: worker.name, note } }, userText, images, context, settings, contract, signal: parentSignal, parent, parentSteering, policy, artBrief, memory });
+      }
       return {
         worker: worker.name,
         status,
@@ -1000,6 +1050,9 @@ class AiService {
       release();
       if (this.workerLocks.get(key) === lock) this.workerLocks.delete(key);
     }
+  }
+  workerHandover(conversation, reason) {
+    return reason + '\nApplied edits remain in the model; inspect and verify before making further changes. Do not repeat completed edits.\n' + JSON.stringify({ task: conversation.task?.prompt, steps: conversation.task?.steps, review: conversation.task?.checkpoint?.review, report: conversation.task?.summary }).slice(-12000);
   }
   // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
   // user's words into an SD art brief. Nothing of it is kept but the brief.
@@ -1260,9 +1313,14 @@ class AiService {
       (annotations ? '\n\nCurrent console drawings (context.annotations):\n' + JSON.stringify(annotations) : '');
     // Steering the organiser reaches the worker it is waiting on; steering a
     // running worker directly goes only to that worker.
+    const deliver = w => {
+      if (w.light && !simpleJob(text)) { w.escalation = text; w.controller.abort(Error('Complex steering requires the chosen model.')); }
+      else w.steering.push(text, message);
+      this.emit({ id: w.id, type: 'steer', text });
+    };
     const addressed = active.workers?.get(id);
     if (addressed) {
-      addressed.steering.push(text, message); this.emit({ id, type: 'steer', text }); return { queued: true };
+      deliver(addressed); return { queued: true };
     }
     if (active.parallel && active.workers?.size) {
       const conversation = await this.readConversation(active.id);
@@ -1271,7 +1329,7 @@ class AiService {
       const choice = named ? { worker: named.name } : await this.routeJob({ conversation, recorder: active.recorder, text, workers, settings: await this.settings(), signal: active.controller.signal });
       const selected = workers.find(w => w.name === choice.worker);
       const targets = selected ? [active.workers.get(selected.id)] : [...active.workers.values()];
-      for (const w of targets) { w.steering.push(text, message); this.emit({ id: w.id, type: 'steer', text }); }
+      for (const w of targets) deliver(w);
       active.recorder.split(text); return { queued: true };
     }
     if (active.worker && id === active.worker.id) {
@@ -1280,6 +1338,8 @@ class AiService {
       return { queued: true };
     }
     if (active.id !== id) return { queued: false };
+    const only = active.workers?.size === 1 ? [...active.workers.values()][0] : null;
+    if (only?.light && !simpleJob(text)) { active.recorder.split(text); deliver(only); return { queued: true }; }
     active.steering.push(text, message);
     this.emit({ id, type: 'steer', text });
     if (active.worker) this.emit({ id: active.worker.id, type: 'steer', text });
