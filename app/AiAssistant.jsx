@@ -242,7 +242,7 @@ function WorkerPart({ part, onOpen }) {
           {part.status === 'working' ? <LoaderCircle size={13} className="ai-spin" /> : part.status === 'failed' ? <X size={13} /> : <Bird size={13} />}
         </span>
         <b translate="no" style={{ color: birdColor(part.name) }}>{part.name}</b>
-        <span className="ai-step-detail">{part.job}</span>
+        <span className="ai-step-detail">{part.job}{part.region && <small> · {part.region}</small>}{part.light && <small> · light model</small>}</span>
         <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'done' ? 'done' : 'stopped'}</span>
       </button>
       {part.report && (
@@ -258,6 +258,7 @@ function WorkerPart({ part, onOpen }) {
         </button>
       )}
       {open && part.report && <AiMessage text={part.report} />}
+      {part.cost && <CostLine cost={part.cost} />}
     </div>
   );
 }
@@ -382,7 +383,7 @@ export default function AiAssistant({ bridge }) {
             list[at] = {
               ...list[at],
               parts: list[at].parts.map(p =>
-                p.type === 'worker' && p.workerId === event.workerId && p.status === 'working' ? { ...p, status: event.status, report: event.report } : p,
+                p.type === 'worker' && p.workerId === event.workerId && p.status === 'working' ? { ...p, status: event.status, report: event.report, cost: event.cost, model: event.model, light: event.light } : p,
               ),
             };
             return list;
@@ -393,7 +394,7 @@ export default function AiAssistant({ bridge }) {
           if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
           list[list.length - 1] = {
             ...last,
-            parts: [...(last.parts || []), { type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status }],
+            parts: [...(last.parts || []), { type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status, region: event.region, model: event.model, light: event.light }],
           };
           return list;
         });

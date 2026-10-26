@@ -1,0 +1,68 @@
+// Real packaged model, two simultaneously active birds, region checks and separate Undo.
+// Run with scripts/hidden-run.ps1; never on the user's desktop.
+const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
+const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'D:/Claude/tools/node_modules/playwright-core');
+const out=path.resolve(process.env.MDLXL_AI_TEST_OUT||'out/ai-parallel');
+const source=process.env.MDLXL_AI_CONSOLE_MODEL;
+const checks=[];let app,server;
+const check=(name,value)=>{checks.push({name,passed:!!value});assert.ok(value,name)};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{
+ fs.mkdirSync(out,{recursive:true});
+ const {EditorDocument}=await import('../src/editor-document.js');
+ const original=new EditorDocument(fs.readFileSync(source)),base=original.model;
+ assert.ok(base.Geosets.length>3,'fixture needs four geosets');
+ const jobs=[{job:'Move cloth',scope:['/Geosets/1']},{job:'Move closed accessory',scope:['/Geosets/3']}];
+ const indices=[1,3],starts=new Set(),turns=[0,0]; let release=false;
+ const work=path.join(out,'Parallel.mdx');fs.copyFileSync(source,work);
+ server=http.createServer(async(req,res)=>{
+  let body='';for await(const p of req)body+=p;
+  if(req.url.endsWith('/models'))return res.end('{"data":[{"id":"fixture-model"}]}');
+  const data=JSON.parse(body),system=data.messages[0].content;
+  res.writeHead(200,{'content-type':'text/event-stream'});
+  const answer=delta=>res.end('data: '+JSON.stringify({choices:[{delta,finish_reason:delta.tool_calls?'tool_calls':'stop'}],usage:{prompt_tokens:100,completion_tokens:20}})+'\n\n');
+  if(system.startsWith('Route one message'))return answer({content:JSON.stringify({jobs})});
+  const user=data.messages.find(m=>m.role==='user'),raw=typeof user.content==='string'?user.content:user.content[0].text;
+  const i=raw.includes('Job: Move cloth')?0:1,gi=indices[i],target=JSON.stringify(data.messages).match(/\\"target\\":\\"([0-9a-f-]{36})/)?.[1];
+  const call=(name,args)=>answer({tool_calls:[{index:0,id:'c'+i+'-'+turns[i],function:{name,arguments:JSON.stringify(args)}}]});
+  const n=++turns[i];
+  if(n===1){starts.add(i);for(let j=0;j<300&&!release;j++)await wait(50);return call('mdlxl_script',{target,edit:true,label:'Move accessory '+gi,scope:['/Geosets/'+gi],code:`for(let i=2;i<model.Geosets[${gi}].Vertices.length;i+=3)model.Geosets[${gi}].Vertices[i]+=2; return 'Moved accessory';`});}
+  if(n===2)return call('mdlxl_review',{target,action:'inspect',checksCode:`return [{name:'Own accessory moved',passed:Math.abs(model.Geosets[${gi}].Vertices[2]-${base.Geosets[gi].Vertices[2]+2})<0.0001}];`});
+  if(n===3)return call('mdlxl_review',{target,action:'finish',outcome:'passed',summary:'Accessory moved two units; reviewed both pictures.'});
+  return answer({content:'Finished '+jobs[i].job});
+ });
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ app=await _electron.launch({executablePath:process.env.MDLXL_AI_TEST_EXE,args:[work],env:{...process.env,MDLXL_PROFILE:path.join(out,'profile'),MDLXL_DISABLE_UPDATES:'1',TEMP:path.join(out,'temp'),TMP:path.join(out,'temp')},timeout:60000});
+ const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.unmaximize();w.setContentSize(1440,900)});
+ await page.waitForSelector('.classic-toolbar',{timeout:60000});await page.waitForTimeout(1000);
+ await page.getByRole('button',{name:'AI assistant',exact:true}).click();
+ if(!await page.getByLabel('AI provider',{exact:true}).isVisible())await page.getByRole('button',{name:'Connection settings',exact:true}).click();
+ await page.getByLabel('AI provider',{exact:true}).selectOption('compatible');
+ await page.getByLabel('API base URL',{exact:true}).fill(`http://127.0.0.1:${server.address().port}/v1`);
+ await page.getByLabel('Model',{exact:true}).fill('fixture-model');
+ await page.getByLabel('Job routing',{exact:true}).selectOption('automatic');
+ await page.getByRole('button',{name:'Save connection',exact:true}).click();
+ await page.getByRole('button',{name:'Connection settings',exact:true}).click();
+ await page.getByRole('button',{name:'Dismiss',exact:true}).click().catch(()=>{});
+ const input=page.locator('.ai-composer textarea');await input.fill('Move the cloth and closed accessory up two units as independent parts.');await input.press('Control+Enter');
+ for(let i=0;i<300&&starts.size<2;i++)await wait(50);
+ check('two provider jobs are active together',starts.size===2);
+ check('existing rows show both working regions',await page.locator('.ai-worker-working').count()===2);
+ await page.screenshot({path:path.join(out,'parallel-working.png')});release=true;
+ await page.getByText('Combined model checks passed: region boundaries, posed seams, and save/reopen.',{exact:true}).waitFor({timeout:120000});
+ check('both birds finished',await page.locator('.ai-worker-done').count()===2);
+ check('each bird shows its own cost',await page.locator('.ai-worker-row .ai-cost').count()===2);
+ const canvas=page.locator('.classic-view canvas').first(),box=await canvas.boundingBox(),before=await canvas.screenshot();
+ await page.keyboard.down('Alt');await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+80,box.y+box.height/2+25,{steps:12});await page.mouse.up();await page.keyboard.up('Alt');await wait(150);
+ check('normal mouse drag rotates the view',!before.equals(await canvas.screenshot()));
+ await page.screenshot({path:path.join(out,'parallel-result.png')});
+ await canvas.click({position:{x:30,y:300}}); await page.keyboard.press('Control+s');
+ await page.waitForSelector('.ai-cleanup',{timeout:20000}); await page.locator('.ai-cleanup-choices button',{hasText:'Keep everything'}).click(); await page.locator('.ai-cleanup').waitFor({state:'detached'});
+ await wait(800);
+ const saved=new EditorDocument(fs.readFileSync(work)).model;
+ for(const gi of indices)check('saved and reopened geoset '+gi,Math.abs(saved.Geosets[gi].Vertices[2]-base.Geosets[gi].Vertices[2]-2)<0.0001);
+ check('no renderer errors',!errors.length);
+})().catch(e=>{checks.push({name:'exception',passed:false,error:e.stack});process.exitCode=1}).finally(async()=>{if(app)await app.close();if(server)await new Promise(r=>(server.closeAllConnections(),server.close(r)));fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(checks,null,2));console.log(JSON.stringify(checks,null,2));});
+
+

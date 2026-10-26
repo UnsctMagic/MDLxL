@@ -148,7 +148,7 @@ class AiService {
   }
   // Which chats are working, for the console: each task's chat and its current bird.
   runningChats() {
-    return [...this.tasks.values()].map(t => ({ id: t.id, worker: t.worker?.id || null, documentId: t.documentId }));
+    return [...this.tasks.values()].flatMap(t => t.workers?.size ? [...t.workers.values()].map(w => ({ id: t.id, worker: w.id, documentId: t.documentId })) : [{ id: t.id, worker: t.worker?.id || null, documentId: t.documentId }]);
   }
   emitRunning() {
     // A covered or minimized window stops drawing, and the AI's pictures and
@@ -357,7 +357,7 @@ class AiService {
       phase: task.phase,
       steps: task.steps,
       summary: task.summary || '',
-      canResume: ['interrupted', 'incomplete'].includes(task.status),
+      canResume: !task.regionJobs && ['interrupted', 'incomplete'].includes(task.status),
     };
   }
   async send({ id, text, images = [], context, resume = false, route, worker, job }) {
@@ -389,6 +389,7 @@ class AiService {
     const conversation = await this.conversation(id, settings.provider);
     if (conversation.retired)
       throw Error(`${conversation.name ? 'The ' + conversation.name : 'This chat'} is retired. Ask the organiser, or start a new chat.`);
+    if (conversation.region && !resume) context = await this.call('mdlxl_regions', { action: 'target', target: context.target, region: conversation.region, name: conversation.name }, controller.signal);
     const recorder = new AiRecorder(conversation, value => this.emit({ id, ...value }));
     const steering = new AiSteering(text => recorder.split(text));
     const active = { id, controller, steering, recorder, worker: null, documentId: context.documentId || null, modelKey: conversation.modelKey || null };
@@ -447,6 +448,7 @@ class AiService {
       const prior = conversation.task;
       if (!prior || !['interrupted', 'incomplete'].includes(prior.status))
         throw Object.assign(Error('There is no interrupted task to resume.'), { precondition: true });
+      if (prior.regionJobs) throw Object.assign(Error('This multi-part job is unfinished. Send a new job with the remaining work so its current parts and combined result can be checked again. Applied edits remain in Undo.'), { precondition: true });
       const bird = await this.conversation(prior.workerId, settings.provider);
       const birdRecorder = new AiRecorder(bird, value => this.emit({ id: bird.id, ...value }));
       const birdSteering = new AiSteering(value => birdRecorder.split(value));
@@ -475,12 +477,21 @@ class AiService {
     if (named) args.worker = named.name;
     else if (route === 'tiny') args.tiny = true;
     else if (route === 'continue' && current) { args.worker = current.name; args.job = current.job; }
-    else if (route === 'auto' && workers.length) args = await this.routeJob({ conversation, recorder, text, workers, settings, contract, signal });
+    else if (route === 'auto') args = await this.routeJob({ conversation, recorder, text, workers, settings, contract, signal, structure: await this.call('mdlxl_regions', { action: 'summary', target: context.target }, signal) });
+    const continuing = args.worker && workers.find(w => w.name === args.worker);
+    if (continuing?.region) args.jobs = [{ ...continuing.region, worker: continuing.name, job: args.job }];
     const previousNote = conversation.modelKey ? (await this.registry.model(conversation.modelKey)).note : null;
     conversation.task = { prompt: text, context, status: 'running', phase: 'inspecting', steps: [], sdBrain: policy };
     conversation.messages ||= [];
     conversation.messages.push({ role: 'user', content: text });
     try {
+      if (args.jobs) {
+        conversation.task.regionJobs = args.jobs;
+        const results = await this.runRegionJobs({ conversation, recorder, steering, text, images, context, settings, contract, signal, active, policy, jobs: args.jobs });
+        conversation.task.status = 'complete'; conversation.task.phase = 'verified';
+        conversation.task.summary = results.map(r => r.worker + ': ' + r.report).join('\n');
+        return;
+      }
       const result = await this.runWorker({ organiser: conversation, active, args, userText: text, images, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy, memory: previousNote });
       conversation.task.workerId = conversation.currentWorker;
       conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });
@@ -494,7 +505,47 @@ class AiService {
       throw error;
     }
   }
-  async routeJob({ conversation, recorder, text, workers, settings, signal }) {
+  async runRegionJobs({ conversation, recorder, steering, text, images, context, settings, contract, signal, active, policy, jobs }) {
+    const { regionsConflict } = await import(pathToFileURL(path.join(this.root, 'src/ai-regions.js')).href);
+    const declared = await this.call('mdlxl_regions', { target: context.target, action: 'declare', jobs }, signal);
+    active.parallel = true; active.workers = new Map();
+    const waiting = declared.jobs.map((job, index) => ({ job, index })), running = new Map(), results = [];
+    let failure;
+    const start = entry => {
+      const promise = (async () => {
+        const jobContext = await this.call('mdlxl_regions', { action: 'begin', batch: declared.batch, index: entry.index }, signal);
+        const result = await this.runWorker({ organiser: conversation, active, args: { ...entry.job, lockKey: declared.batch + ':' + entry.index }, userText: text, images, context: jobContext, settings, contract, signal, parent: recorder, parentSteering: steering, policy });
+        results[entry.index] = result;
+        conversation.messages.push({ role: 'assistant', content: result.worker + ': ' + result.report });
+        if (result.status !== 'done') failure ||= Error(result.error || result.report);
+      })().catch(error => { failure ||= error; }).finally(() => running.delete(entry.index));
+      running.set(entry.index, { region: entry.job.region, promise });
+    };
+    try {
+      while (waiting.length || running.size) {
+        if (signal.aborted) throw Error('AI request cancelled.');
+        for (let i = 0; i < waiting.length;) {
+          const entry = waiting[i];
+          // Earlier conflicting jobs keep their order, including an exclusive structural job.
+          const blocked = [...running.values()].some(r => regionsConflict(entry.job.region, r.region)) || waiting.slice(0, i).some(w => regionsConflict(entry.job.region, w.job.region));
+          if (blocked) { i++; continue; }
+          waiting.splice(i, 1); start(entry);
+        }
+        if (running.size) await Promise.race([...running.values()].map(r => r.promise));
+        if (failure) { waiting.length = 0; await Promise.all([...running.values()].map(r => r.promise)); throw failure; }
+      }
+      const combined = await this.call('mdlxl_regions', { action: 'finish', batch: declared.batch }, signal);
+      conversation.task.combinedReview = combined;
+      recorder.event({ type: 'text', text: combined.passed ? 'Combined model checks passed: region boundaries, posed seams, and save/reopen.' : 'Combined model checks failed. The job is not complete.' });
+      if (!combined.passed) throw Error('Combined model checks failed; inspect the seams and validation results before continuing.');
+      return results;
+    } finally {
+      await Promise.allSettled([...running.values()].map(r => r.promise));
+      await this.call('mdlxl_regions', { action: 'close', batch: declared.batch });
+      active.parallel = false;
+    }
+  }
+  async routeJob({ conversation, recorder, text, workers, settings, signal, structure }) {
     const routing = { id: conversation.id + '-router', messages: [], transcript: [], organiserId: conversation.id };
     let reply = '';
     const meter = this.measureUsage(routing, recorder, 'router');
@@ -504,8 +555,8 @@ class AiService {
       settings: { ...settings, model: light?.id || settings.model, stepLimit: 1 }, key: this.decrypt(settings.key), directory: this.directory,
       event: value => { if (value.type === 'text') reply += value.text; else meter(value); },
       tools: [], call: async () => { throw Error('Routing has no editor tools.'); },
-      system: 'Route one message. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. Continue the relevant bird for follow-ups. New unrelated jobs have an empty worker. Small one-step jobs use tiny:true. Do not answer or paraphrase the request.',
-      prompt: JSON.stringify({ text, current: conversation.currentWorker, birds: workers.map(w => ({ id: w.id, name: w.name, job: w.job, tiny: w.tiny })) }),
+      system: 'Route one message. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. Continue the relevant bird for follow-ups. New unrelated jobs have an empty worker. Small one-step jobs use tiny:true. Do not answer or paraphrase the request. If the supplied structure proves a multi-part request can be split, return {"jobs":[{"job":"short part-specific task","scope":["/Geosets/0"],"readOnly":false,"structural":false}]}. Each job must have explicit canonical model paths (or readOnly:true). Include protectedPaths, animationRanges and globalSequence when needed. Adding, deleting or reordering tables, changing IDs, bindings or group tables is structural and exclusive. Unknown dependencies mean one job. Do not split a follow-up already addressed to a bird.',
+      prompt: JSON.stringify({ text, current: conversation.currentWorker, birds: workers.map(w => ({ id: w.id, name: w.name, job: w.job, tiny: w.tiny })), ...(structure ? { structure } : {}) }),
       images: [], conversation: routing, signal, awareness: null, steering: new AiSteering(() => {}),
     };
     try {
@@ -514,21 +565,26 @@ class AiService {
       else await runApi(options);
     } finally { options.steering.close(); }
     const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
+    if (Array.isArray(args.jobs) && args.jobs.length) {
+      if (args.jobs.some(j => !j || typeof j.job !== 'string' || !j.job.trim() || (!j.readOnly && !Array.isArray(j.scope)))) throw Error('The router did not declare valid model parts.');
+      return { jobs: args.jobs };
+    }
     if (typeof args.job !== 'string' || !args.job.trim() || (args.worker && !workers.some(w => w.name === args.worker))) throw Error('The router did not choose a valid job. Select a bird or New job and send again.');
     return { job: args.job.slice(0, 160), worker: args.worker || undefined, tiny: args.tiny === true };
   }
   measureUsage(conversation, recorder, role) {
     let lastTokens = 0, lastUsd = 0;
+    const own = { calls: 0, tokens: null, usd: null };
     return value => {
       if (!['request', 'cost'].includes(value.type)) { recorder.event(value); return; }
       const active = this.tasks.get(conversation.organiserId || conversation.id);
       if (!active) { if (value.type === 'cost') recorder.event(value); return; }
       const costs = (active.cost ||= {}), cost = (costs[role] ||= { calls: 0, tokens: null, usd: null });
-      if (value.type === 'request') { cost.calls++; if (value.unit) cost.unit = value.unit; }
+      if (value.type === 'request') { cost.calls++; own.calls++; if (value.unit) cost.unit = own.unit = value.unit; }
       else {
-        cost.tokens = (cost.tokens || 0) + Math.max(0, value.tokens - lastTokens); lastTokens = value.tokens;
-        if (value.usd !== null) { cost.usd = (cost.usd || 0) + Math.max(0, value.usd - lastUsd); lastUsd = value.usd; }
-        if (recorder !== active.recorder) recorder.event({ ...value, roles: { [role]: { ...cost } } });
+        const delta = Math.max(0, value.tokens - lastTokens); cost.tokens = (cost.tokens || 0) + delta; own.tokens = (own.tokens || 0) + delta; lastTokens = value.tokens;
+        if (value.usd !== null) { const deltaUsd = Math.max(0, value.usd - lastUsd); cost.usd = (cost.usd || 0) + deltaUsd; own.usd = (own.usd || 0) + deltaUsd; lastUsd = value.usd; }
+        if (recorder !== active.recorder) recorder.event({ ...value, roles: { [role]: { ...own } } });
       }
       const rows = Object.values(costs);
       active.recorder.event({ type: 'cost', tokens: rows.every(c => c.tokens !== null) ? rows.reduce((n, c) => n + c.tokens, 0) : null, usd: rows.every(c => c.usd !== null) ? rows.reduce((n, c) => n + c.usd, 0) : null, roles: structuredClone(costs) });
@@ -641,6 +697,7 @@ class AiService {
     let workerImages = images;
     const call = async (name, args, callSignal) => {
       if (signal.aborted) throw Error('AI request cancelled.');
+      if (!tools.some(tool => tool.name === name)) throw Error('This tool is not available to this bird.');
       if (organiser && name === 'mdlxl_worker') {
         const attached = workerImages;
         workerImages = [];
@@ -836,7 +893,7 @@ class AiService {
   }
   async runWorker({ organiser, active, args, userText, images, context, settings, contract, signal, parent, parentSteering, policy, artBrief, memory }) {
     // One bird edits a model at a time; birds of other models work alongside.
-    const key = organiser.modelKey || organiser.id,
+    const key = args.lockKey || organiser.modelKey || organiser.id,
       previous = this.workerLocks.get(key);
     let release;
     const lock = new Promise(resolve => (release = resolve));
@@ -872,23 +929,27 @@ class AiService {
           name,
           job: args.tiny ? 'Tiny jobs' : args.job,
           tiny: !!args.tiny,
+          ...(args.region ? { region: args.region } : {}),
           status: 'idle',
           use: 0,
         };
         organiser.workers.push(worker);
-        const created = { id: worker.id, provider: settings.provider, transcript: [], messages: [], kind: 'worker', organiserId: organiser.id, modelKey: organiser.modelKey, name, tiny: worker.tiny };
+        const created = { id: worker.id, provider: settings.provider, transcript: [], messages: [], kind: 'worker', organiserId: organiser.id, modelKey: organiser.modelKey, name, tiny: worker.tiny, ...(args.region ? { region: args.region } : {}) };
         this.conversations.set(worker.id, created);
         await this.persistConversation(created);
       } else if (!worker.tiny) worker.job = args.job;
       worker.status = 'working';
       await this.persistConversation(organiser);
       this.emitRoster(organiser);
-      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status: 'working' });
+      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, region: context.region ? (context.region.readOnly ? 'read only' : context.region.scope.join(', ')) : undefined, status: 'working' });
       const conversation = await this.conversation(worker.id, settings.provider);
       const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
       const steering = new AiSteering(text => recorder.split(text));
-      parentSteering.forward = steering;
-      active.worker = { id: worker.id, steering };
+      if (!active.parallel) parentSteering.forward = steering;
+      const controller = new AbortController();
+      signal = AbortSignal.any([signal, controller.signal]);
+      (active.workers ||= new Map()).set(worker.id, { id: worker.id, name: worker.name, steering, controller });
+      if (!active.parallel) active.worker = { id: worker.id, steering };
       active.lastWorker = worker.id;
       this.emitRunning();
       const text =
@@ -896,6 +957,9 @@ class AiService {
         (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
         (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '') +
         (!conversation.messages.length && memory ? `\n\nMemory note from earlier work on this model:\n${memory}` : '');
+      if (context.region) {
+        await this.call('mdlxl_regions', { action: 'label', target: context.target, name: worker.name });
+      }
       let status = 'done',
         error;
       try {
@@ -908,10 +972,12 @@ class AiService {
         recorder.event({ type: 'error', text: reason.message, worker: true });
       } finally {
         recorder.finish();
-        parentSteering.forward = null;
-        active.worker = null;
+        if (!active.parallel) parentSteering.forward = null;
+        active.workers?.delete(worker.id);
+        if (active.worker?.id === worker.id) active.worker = null;
         this.emitRunning();
-        parentSteering.requeue(steering.take());
+        const late = steering.take();
+        if (late && !active.parallel) parentSteering.requeue(late);
         steering.close();
         worker.use = contextUse(conversation);
         worker.status = 'idle';
@@ -919,7 +985,7 @@ class AiService {
       }
       organiser.currentWorker = worker.id;
       const report = recorder.report().slice(-4000);
-      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status, report });
+      parent.event({ type: 'worker', workerId: worker.id, name: worker.name, job: args.job, status, report, cost: recorder.reply.cost });
       return {
         worker: worker.name,
         status,
@@ -1178,12 +1244,12 @@ class AiService {
   }
   // The task a chat belongs to: its own, or the organiser task its bird works for.
   taskOf(id) {
-    return [...this.tasks.values()].find(t => t.id === id || t.worker?.id === id) || null;
+    return [...this.tasks.values()].find(t => t.id === id || t.worker?.id === id || t.workers?.has(id)) || null;
   }
   modelBusy(modelKey) {
     return [...this.tasks.values()].some(t => t.modelKey && t.modelKey === modelKey);
   }
-  steer({ id, text, annotations }) {
+  async steer({ id, text, annotations }) {
     const active = this.taskOf(id);
     if (!active?.steering) return { queued: false };
     if (typeof text !== 'string' || !text.trim() || text.length > 20000)
@@ -1194,6 +1260,20 @@ class AiService {
       (annotations ? '\n\nCurrent console drawings (context.annotations):\n' + JSON.stringify(annotations) : '');
     // Steering the organiser reaches the worker it is waiting on; steering a
     // running worker directly goes only to that worker.
+    const addressed = active.workers?.get(id);
+    if (addressed) {
+      addressed.steering.push(text, message); this.emit({ id, type: 'steer', text }); return { queued: true };
+    }
+    if (active.parallel && active.workers?.size) {
+      const conversation = await this.readConversation(active.id);
+      const workers = (conversation.workers || []).filter(w => active.workers.has(w.id));
+      const named = workers.find(w => new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
+      const choice = named ? { worker: named.name } : await this.routeJob({ conversation, recorder: active.recorder, text, workers, settings: await this.settings(), signal: active.controller.signal });
+      const selected = workers.find(w => w.name === choice.worker);
+      const targets = selected ? [active.workers.get(selected.id)] : [...active.workers.values()];
+      for (const w of targets) { w.steering.push(text, message); this.emit({ id: w.id, type: 'steer', text }); }
+      active.recorder.split(text); return { queued: true };
+    }
     if (active.worker && id === active.worker.id) {
       active.worker.steering.push(text, message);
       this.emit({ id, type: 'steer', text });
@@ -1207,7 +1287,7 @@ class AiService {
   }
   // Stop one chat's task (and its bird); without a chat, everything.
   cancel(id) {
-    if (id) return this.taskOf(id)?.controller.abort();
+    if (id) { const task = this.taskOf(id); return (task?.workers?.get(id)?.controller || task?.controller)?.abort(); }
     this.active?.controller.abort();
     for (const task of this.tasks.values()) task.controller.abort();
   }

@@ -1,6 +1,6 @@
 # Offload Mode (birds): keep the benefit, remove the overhead
 
-Status: overhead implemented and verified; parallel and lighter-model expansions next
+Status: overhead and parallel implementation verified; lighter-model expansion in progress
 Owner / consolidator: Codex (written by Claude Code after reviewing the current design with the owner)
 Updated: 26 October 2026
 
@@ -271,3 +271,36 @@ the owner the routing choice for new jobs (Design 2) and the measured
 before-numbers before building. Do the overhead work first; then the parallel
 expansion, starting with a short plan for the owner: how regions are declared and
 checked, which edits count as structural, and how Undo stays independent.
+
+## Parallel milestone (26 October 2026)
+
+The internal region bridge derives dependencies from the actual model. Disjoint
+writers share unchanged read dependencies; writes to dependencies wait. Read-only
+work bypasses the write queue. Every script/patch commit is checked, merged as a
+delta into the latest model, and labelled with its bird in ordinary chronological
+Undo. Structural changes run exclusively; changed table layouts require fresh
+assignments rather than guessing old indices. Existing rows show region and cost.
+
+Individual reviews use region fingerprints. The combined review checks the
+union of scopes, shared boundary positions in bind/sequence/global frames, and
+MDX/MDL save/reopen. It does not establish Warcraft III or artistic acceptance.
+Interrupted multi-part jobs keep edits and bird checkpoints, but require a new
+assignment of remaining work; resuming just the last bird cannot complete a batch.
+
+Local six-part inspection fixture (30 ms response delay; 32,000-character tool
+results; input tokens are serialized request size / 4):
+
+| Mode | Wall time | Calls | Input proxy | Final review |
+| --- | ---: | ---: | ---: | --- |
+| Offload off | 318 ms | 7 | 210,604 | Unchanged inspection |
+| Sequential birds | 588 ms | 13 | 119,436 | Combined fixture passed |
+| Parallel birds | 156 ms | 13 | 119,442 | Combined fixture passed |
+
+The scheduler fixture checks concurrent disjoint work, dependent/structural
+serialization and combined review. Bridge tests apply real deltas, refuse
+out-of-region edits, check region staleness and independent Undo. A hidden
+packaged Footman run passed eight checks: two simultaneous writers on geosets
+1 and 3 (API indices), per-bird cost, combined review, mouse rotation, both
+changes saved and reopened, and no renderer errors. The fixture initially omitted
+script edit:true (read-only default); after auditing that mismatch the committed
+run passed. Package and disposable profiles were removed.

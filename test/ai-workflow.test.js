@@ -225,7 +225,7 @@ test('a message sent mid-task steers the running turn and streams live in order'
   const call = f.service.call;
   f.service.call = async (name, args, ...rest) => {
     if (name === 'mdlxl_review' && args.action === 'status' && !f.events.some(e => e.type === 'steer'))
-      assert.deepEqual(f.service.steer({ id: 'test', text: 'Make it wider', annotations: { strokes: [] } }), {
+      assert.deepEqual(await f.service.steer({ id: 'test', text: 'Make it wider', annotations: { strokes: [] } }), {
         queued: true,
       });
     return call(name, args, ...rest);
@@ -245,7 +245,7 @@ test('a message sent mid-task steers the running turn and streams live in order'
     transcript[3].parts.map(part => part.type),
     ['thinking', 'text'],
   );
-  assert.deepEqual(f.service.steer({ id: 'test', text: 'Too late' }), { queued: false });
+  assert.deepEqual(await f.service.steer({ id: 'test', text: 'Too late' }), { queued: false });
 });
 
 test('SD Brain is off until switched on, then every turn of the next task carries the policy', async t => {

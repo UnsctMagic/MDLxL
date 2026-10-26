@@ -44,7 +44,9 @@ async function setup(t, { organiser, worker }) {
   service.emit = event => events.push(event);
   // Names are random in use; the first choice keeps tests readable (Crow, then Jackdaw).
   service.random = () => 0;
-  service.call = async name => {
+  service.call = async (name, args) => {
+    if (name === 'mdlxl_regions' && args.action === 'summary') return { geosets: [{ path: '/Geosets/0' }] };
+    if (name === 'mdlxl_regions' && args.action === 'label') return { labelled: true };
     if (name === 'mdlxl_checkpoint') return { fingerprint: 'f', context, review: { changed: false, phase: 'unchanged' } };
     if (name === 'mdlxl_review') return { changed: false, phase: 'unchanged' };
     throw Error('Unexpected tool ' + name);
@@ -259,7 +261,7 @@ test('birds of different models work at the same time; a model takes one job at 
   assert.deepEqual(f.service.runningChats().map(r => r.id), [a.id]);
   assert.ok(f.events.some(e => e.type === 'running' && e.running.length === 2), 'the console hears both jobs running');
   // Steering and Stop reach only their own chat.
-  assert.equal(f.service.steer({ id: b.id, text: 'hello' }).queued, false);
+  assert.equal((await f.service.steer({ id: b.id, text: 'hello' })).queued, false);
   f.service.cancel(b.id);
   releaseA();
   assert.equal((await jobA).ok, true);
@@ -322,4 +324,76 @@ test('counting fixtures compare one job, two jobs and a real half-context handov
     else assert.equal(totals[1].calls, totals[0].calls);
     t.diagnostic(JSON.stringify({ messages: count, off: totals[0], on: totals[1] }));
   }
+});
+
+test('region scheduler overlaps independent birds, queues dependencies and structural work, routes steering and checks the combined result', async t => {
+  const { regionsConflict } = await import('../src/ai-regions.js');
+  for (const mode of ['parallel', 'dependent', 'structural']) {
+    let running = 0, peak = 0, combined = 0;
+    const starts = [], ends = [];
+    const f = await setup(t, { organiser: () => assert.fail('No organiser recap'), worker: async data => {
+      if (data.messages[0].content.startsWith('Route one message')) return say(JSON.stringify({jobs:[
+        { job:'First mesh', scope:['/Geosets/0'] },
+        { job:'Second mesh', scope:[mode==='dependent'?'/Geosets/0':'/Geosets/1'], structural:mode==='structural' },
+      ]}));
+      const first = userText(data).includes('Job: First mesh');
+      starts.push(first?0:1); peak=Math.max(peak,++running);
+      await new Promise(resolve=>setTimeout(resolve,50));
+      running--; ends.push(first?0:1);
+      return say('Checked my assigned mesh.');
+    }});
+    const base=f.service.call;
+    let declarations;
+    f.service.call=async(name,args)=>{
+      if(name!=='mdlxl_regions' || ['summary','label'].includes(args.action)) return base(name,args);
+      if(args.action==='declare') { declarations=args.jobs.map(j=>({...j,region:{scope:j.scope,dependencies:[],structural:!!j.structural,readOnly:false}})); return {batch:mode,jobs:declarations}; }
+      if(args.action==='begin') return {...context,target:mode+args.index,region:declarations[args.index].region};
+      if(args.action==='finish') { combined++; return {passed:true}; }
+      if(args.action==='close') return {closed:true};
+      assert.fail('Unexpected action '+args.action);
+    };
+    const {id}=await f.service.organiser({modelKey});
+    const result=await f.service.send({id,text:'Inspect both meshes independently',route:'auto',context});
+    assert.equal(result.ok,true,JSON.stringify(result));
+    assert.equal(peak,mode==='parallel'?2:1);
+    assert.equal(regionsConflict(declarations[0].region,declarations[1].region),mode!=='parallel');
+    assert.deepEqual(starts,[0,1]); assert.deepEqual(ends,[0,1]); assert.equal(combined,1);
+    const org=await f.service.conversation(id,'compatible');
+    const rows=org.transcript.flatMap(e=>e.parts||[]).filter(p=>p.type==='worker');
+    assert.equal(rows.length,2); assert.ok(rows.every(r=>r.status==='done'&&r.region));
+    assert.ok(rows.every(r=>r.cost.roles.bird.calls===1),'cost belongs to that bird');
+    assert.equal(org.transcript.at(-1).cost.roles.bird.calls,2);
+    assert.equal(org.transcript.at(-1).cost.roles.router.calls,1);
+    assert.equal(org.task.combinedReview.passed,true);
+  }
+});
+
+test('multipart latency fixture compares off, sequential birds and parallel birds', async t=>{
+  const results=[];
+  for(const mode of ['off','sequential','parallel']){
+    const count=6;
+    const f=await setup(t,{organiser:()=>assert.fail('recap'),worker:async data=>{
+      await new Promise(r=>setTimeout(r,30));
+      if(data.messages[0].content.startsWith('Route one message'))return say(JSON.stringify({jobs:Array.from({length:count},(_,i)=>({job:'Inspect part '+i,scope:['/Geosets/'+i]}))}));
+      const reads=data.messages.filter(m=>m.role==='tool').length;
+      if(reads<(mode==='off'?count:1))return {delta:{tool_calls:[{index:0,id:'read'+reads,function:{name:'mdlxl_read',arguments:JSON.stringify({target:context.target,path:'/Geosets/0'})}}]},finish_reason:'tool_calls'};
+      return say('Inspection complete.');
+    }});
+    const base=f.service.call;let jobs;
+    f.service.call=async(name,args)=>{
+      if(name==='mdlxl_read')return {sample:'x'.repeat(32000)};
+      if(name!=='mdlxl_regions'||['summary','label'].includes(args.action))return base(name,args);
+      if(args.action==='declare'){jobs=args.jobs.map(j=>({...j,region:{scope:j.scope,dependencies:[],readOnly:false,structural:mode==='sequential'}}));return{batch:mode,jobs};}
+      if(args.action==='begin')return{...context,region:jobs[args.index].region};
+      if(args.action==='finish')return{passed:true};
+      if(args.action==='close')return{closed:true};
+    };
+    await f.service.setOffload(mode!=='off');const {id}=await f.service.organiser({modelKey});
+    const start=performance.now();const result=await f.service.send({id,text:'Inspect six separate model parts and report each result.',route:'auto',context});
+    assert.equal(result.ok,true,JSON.stringify(result));
+    results.push({mode,wallMs:Math.round(performance.now()-start),calls:f.requests.length,inputProxy:f.requests.reduce((n,r)=>n+r.inputTokens,0),review:mode==='off'?'unchanged':(await f.service.readConversation(id)).task.combinedReview.passed});
+  }
+  t.diagnostic(JSON.stringify({multipartFixture:results}));
+  assert.ok(results[2].wallMs<results[1].wallMs);
+  assert.equal(results[1].calls,results[2].calls);
 });

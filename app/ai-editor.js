@@ -8,14 +8,15 @@ import {
   applyAiEdit,
   encodeAiValue,
 } from '../src/ai-model.js';
-import { openDocument } from '../src/editor-document.js';
+import { openDocument, recalculateExtents } from '../src/editor-document.js';
+import { declareRegion, structureSummary, structureSignature, regionSignature, checkRegionEdit } from '../src/ai-regions.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { flushSync } from 'react-dom';
 import { aiCapabilities } from './ai-capabilities.js';
 import { sampleAiModel } from '../src/ai-sampling.js';
 import { aiAssets, validateAiAssets } from './ai-assets.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
-import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus } from './ai-review.js';
+import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus, reviewRegionBatch } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
@@ -103,7 +104,7 @@ export class AiEditorBridge {
     const s = this.state(),
       session = target && s.sessions.find(x => x.id === target.documentId);
     if (!session) throw Error('The model this task works on was closed.');
-    if (session === s.session) return { live: true, session, doc: s.doc, model: s.model, state: s };
+    if (session === s.session && !target.region) return { live: true, session, doc: s.doc, model: s.model, state: s };
     const view = target.restore;
     return {
       live: false,
@@ -165,7 +166,10 @@ export class AiEditorBridge {
         restore: viewSnapshot(state),
       });
     }
-    if (this.targets.size > 100) this.targets.delete(this.targets.keys().next().value);
+    if (this.targets.size > 100) {
+      const unused = [...this.targets].find(([, t]) => !t.region && !t.review);
+      if (unused && unused[0] !== id) this.targets.delete(unused[0]);
+    }
     const captured = this.targets.get(id),
       env = this.env(captured),
       { state, doc, session, model } = env,
@@ -229,6 +233,7 @@ export class AiEditorBridge {
       sequences: encodeAiValue(model.Sequences),
       diagnostics: doc.diagnostics,
       annotations: captured.annotations,
+      ...(captured.region ? { region: { scope: captured.region.scope, readOnly: captured.region.readOnly, structural: captured.region.structural, animationRanges: captured.region.animationRanges, globalSequence: captured.region.globalSequence } } : {}),
       documents: this.documents(),
       commands: this.host()
         .commands()
@@ -250,6 +255,10 @@ export class AiEditorBridge {
       s = this.state(),
       session = target && s.sessions.find(x => x.id === target.documentId);
     if (target && !session) throw Error('The model this task works on was closed. Nothing was applied.');
+    if (target?.region && session) {
+      if (regionSignature(session.doc.model, target.region) !== target.regionKey) throw Error("This bird's region or one of its dependencies changed. Nothing was applied.");
+      return target;
+    }
     if (session && session !== s.session) {
       // A tab that is not showing has no one else editing it; only a change to its
       // model (the user came back, edited and left again) stops the task.
@@ -282,6 +291,10 @@ export class AiEditorBridge {
   advance(id, viewChanged = false) {
     const target = this.targets.get(id),
       s = this.state();
+    if (target.region) {
+      const env = this.env(target); target.revision = env.doc.revision; target.regionKey = regionSignature(env.model, target.region);
+      return;
+    }
     if (s.session.id !== target.documentId) {
       const session = s.sessions.find(x => x.id === target.documentId);
       if (session) target.revision = session.doc.revision;
@@ -303,9 +316,50 @@ export class AiEditorBridge {
         view: s.view,
       });
   }
+  async regions(args, options) {
+    this.batches ||= new Map();
+    if (args.action === 'summary') return structureSummary(this.env(this.requireTarget(args.target)).model);
+    if (args.action === 'label') { this.requireTarget(args.target).birdName = args.name; return { labelled: true }; }
+    if (args.action === 'target') {
+      const base = this.requireTarget(args.target), env = this.env(base), region = declareRegion(env.model, args.region);
+      const id = crypto.randomUUID();
+      this.targets.set(id, { ...structuredClone(base), revision: env.doc.revision, region, regionKey: regionSignature(env.model, region), birdName: args.name });
+      return this.context(id);
+    }
+    if (args.action === 'declare') {
+      const base = this.requireTarget(args.target), env = this.env(base);
+      if (!Array.isArray(args.jobs) || !args.jobs.length) throw Error('Declare at least one job.');
+      const jobs = args.jobs.map(job => ({ ...job, region: declareRegion(env.model, job) }));
+      const id = crypto.randomUUID();
+      this.batches.set(id, { base: structuredClone(base), before: structuredClone(env.model), jobs, targets: [] });
+      return { batch: id, jobs };
+    }
+    if (args.action === 'close') { this.batches.delete(args.batch); return { closed: true }; }
+    const batch = this.batches.get(args.batch);
+    if (!batch) throw Error('This job batch is no longer available.');
+    if (args.action === 'begin') {
+      const spec = batch.jobs[args.index];
+      if (!spec) throw Error('Unknown region job.');
+      const env = this.env(batch.base);
+      if (structureSignature(env.model) !== structureSignature(batch.before)) throw Error('The model structure changed. Capture it again before assigning the remaining parts.');
+      const region = declareRegion(env.model, spec);
+      const id = crypto.randomUUID(), target = { ...structuredClone(batch.base), revision: env.doc.revision, region, batch: args.batch, birdName: args.name, regionKey: regionSignature(env.model, region) };
+      delete target.review;
+      this.targets.set(id, target); batch.targets.push(id);
+      return this.context(id);
+    }
+    if (args.action === 'finish') {
+      const env = this.env(batch.base), id = crypto.randomUUID();
+      this.targets.set(id, { ...batch.base, revision: env.doc.revision, selectionSignature: aiSelectionSignature(env.state) });
+      try { return await reviewRegionBatch(this, id, batch.before, batch.jobs.map(j => j.region), options); }
+      finally { this.batches.delete(args.batch); this.targets.delete(id); }
+    }
+    if (args.action === 'close') { this.batches.delete(args.batch); return { closed: true }; }
+    throw Error('Unknown region operation.');
+  }
   async call(name, args = {}, options = {}) {
     const key = (args.target && this.targets.get(args.target)?.documentId) || '',
-      op = (this.queues.get(key) || Promise.resolve()).then(async () => {
+      run = async () => {
       if (needsScreen(name, args)) await this.waitForTarget(args.target, options);
       let review, revision, paint;
       const target = args.target && this.targets.get(args.target),
@@ -332,7 +386,10 @@ export class AiEditorBridge {
         if (result && review) result.review = reviewStatus(review);
         this.editorChanged();
       }
-    });
+    };
+    const readOnly = ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities'].includes(name) || name === 'mdlxl_script' && !args.edit;
+    const op = readOnly ? run() : (this.queues.get(key) || Promise.resolve()).then(run);
+    if (readOnly) return op;
     const settled = op.catch(() => {});
     this.queues.set(key, settled);
     settled.then(() => this.queues.get(key) === settled && this.queues.delete(key));
@@ -343,6 +400,9 @@ export class AiEditorBridge {
       if (signal?.aborted) throw Error('AI request cancelled; no further edit was applied.');
     };
     active();
+    if (name === 'mdlxl_regions') return this.regions(args, { signal, requestId });
+    const owned = args.target && this.targets.get(args.target);
+    if (owned?.region && aiToolEditsModel(name, args) && (owned.region.readOnly || !['mdlxl_script', 'mdlxl_patch'].includes(name))) throw Error('This bird may only edit its declared region through scoped scripts or patches. Structural commands need an exclusive job.');
     if (name === 'mdlxl_checkpoint') {
       if (args.prepare) await beginAiReview(this, args.target, { signal, requestId });
       return aiCheckpoint(this, args.target, args);
@@ -436,22 +496,34 @@ export class AiEditorBridge {
       if (name === 'mdlxl_script' && !args.edit) return { value, logs: result.logs || [], applied: false };
       if (typeof args.label !== 'string' || !args.label.trim() || args.label.length > 200)
         throw Error('An edit needs a short Undo label.');
-      const prepared = prepareAiEdit(before, result.model, args);
+      const scopeArgs = target.region?.globalSequence != null ? { ...args, animationRanges: undefined } : args;
+      const prepared = prepareAiEdit(before, result.model, scopeArgs);
+      if (target.region) checkRegionEdit(before, result.model, target.region, prepared.changes);
+      const ownedGeosets = target.region ? [...new Set(prepared.changes.filter(c => c.path[0] === 'Geosets').map(c => Number(c.path[1])).filter(Number.isInteger))] : [];
+      const apply = model => {
+        applyAiEdit(model, prepared);
+        if (ownedGeosets.length) recalculateExtents(model, ownedGeosets);
+      };
+      const label = target.birdName ? target.birdName + ': ' + args.label : args.label;
       // The user may have switched tabs while the script ran: commit where the tab is now.
       const now = this.env(target),
         { doc } = now;
       const assets = validateAiAssets(result.assets || [], result.model, now.session.assets);
       if (!prepared.changeCount) return { applied: false, changes: [], value, logs: result.logs || [] };
-      const options = { rethrow: true, validate: (model, committed) => prepareAiEdit(committed, model, args) };
+      const options = { rethrow: true, validate: (model, committed) => {
+        const checked = prepareAiEdit(committed, model, scopeArgs);
+        if (target.region) checkRegionEdit(committed, model, target.region, checked.changes);
+        return checked;
+      } };
       if (now.live)
         // The existing App.edit owns validation, UV-preview protection, history and refresh.
         flushSync(() => {
-          host.edit(args.label, prepared.sections, model => applyAiEdit(model, prepared), options);
+          host.edit(label, prepared.sections, apply, options);
           if (result.selection && doc.revision !== target.revision) host.select({ vertices: result.selection });
         });
       else {
         // Its own document and Undo history; the tab on screen is not touched.
-        host.editIn(target.documentId, args.label, prepared.sections, model => applyAiEdit(model, prepared), {
+        host.editIn(target.documentId, label, prepared.sections, apply, {
           ...options,
           selection: { vertices: result.selection || target.selection },
         });
