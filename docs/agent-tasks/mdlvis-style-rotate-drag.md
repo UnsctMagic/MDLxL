@@ -1,6 +1,6 @@
 # MdlVis-style Rotate drag
 
-Status: owner follow-up on `claude/rotate-linear-pivot-default` — Pivot-based is the default again
+Status: completed — PR #327 then #336 (Pivot-based default), shipped in 0.33.0
 Owner / consolidator: Codex (implementation); Claude Code (project lead, review)
 Updated: 2026-10-26
 

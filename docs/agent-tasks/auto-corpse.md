@@ -1,6 +1,6 @@
 # One-click Auto Corpse
 
-Status: ready for user testing and PR review; awaiting merge authorization
+Status: completed — merged in PR #276 (7aecae12), shipped in 0.33.0
 Owner: Codex
 Updated: 2026-10-23
 
