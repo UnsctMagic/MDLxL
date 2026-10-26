@@ -1,3 +1,4 @@
+import { DEFAULT_ROTATION, normalizeRotationPreferences } from './rotation-drag.js';
 import { normalizePreviewLighting } from './preview-lighting.js';
 import { treeAppearanceForTheme } from './tree-appearance.js';
 import { controllerAppearanceForTheme } from './controller-appearance.js';
@@ -46,6 +47,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
   pointerSensitivity: 1,
+  rotation: DEFAULT_ROTATION,
   rightScrollAdjust: true,
   highlightSelection: false,
   theme: 'light', accent: '#71b5f3', toolHighlight: '', panelScale: 1, panelWidth: 240, newModelVersion: 800, uvRepeat: false, uvSensitivity: 1, fineSensitivity: 0.2,
@@ -174,6 +176,7 @@ export function normalizePreferences(value = {}) {
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(10, Math.max(0.1, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: ['rotate', 'scroll', 'pointer'].includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(4, Math.max(0.01, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,
+    rotation: normalizeRotationPreferences(input.rotation),
     highlightSelection: boolean(input.highlightSelection, false),
     theme: Object.hasOwn(APPLICATION_THEMES, input.theme) ? input.theme : 'light',
     accent: /^#[0-9a-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : '#71b5f3',
