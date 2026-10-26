@@ -188,12 +188,13 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     const keydown = event => {
       if (event.target?.closest?.('[data-hotkey-recording]')) { cancel(); return; }
       const inLocalWindow = !!event.target?.closest?.('[data-hotkey-window]');
+      if (event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.learn-menu')) return;
       if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
       // The focused UV workspace owns numpad nudges before global number shortcuts.
       if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-uv-key',{detail:event,cancelable:true}))){cancel();return;}
       // Paint owns its brush/clipboard shortcuts before global mesh commands.
       if(!inLocalWindow&&latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
-      if (!inLocalWindow && event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu, .learn-menu')) return;
+      if (!inLocalWindow && event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
       if (!inLocalWindow && event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);

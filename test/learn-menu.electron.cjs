@@ -90,6 +90,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await screenshot('learn-menu-' + width);
     }
     await page.keyboard.press('Escape'); await menu().waitFor({ state: 'detached' });
+    await page.keyboard.press('Control+a');
+    await open();
+    await page.evaluate(() => { window.__menuClear = false; window.addEventListener('mdlxl-hotkey-used', event => { if (event.detail.id === 'clear') window.__menuClear = true; }); });
+    await page.keyboard.press('Escape'); await menu().waitFor({ state: 'detached' });
+    assert.equal(await page.evaluate(() => window.__menuClear), false, 'Esc closes box before Clear selection');
     await open(); await click(tile()); await menu().waitFor({ state: 'detached' });
     await open(); await page.mouse.click(700, 400); await menu().waitFor({ state: 'detached' });
     await rotateCamera();

@@ -167,6 +167,10 @@ Done means:
   settings target, Alt behavior, dialog and detached-root focus changes, restart
   persistence, VIS hiding, and real camera drags with Show hotkeys off and on.
   Module-label browser checks pass. No window was opened on the owner's desktop.
+- The box uses the existing local-window shortcut boundary and takes focus when
+  opened. Esc closes it before editor selection or Paint can consume the key;
+  Paint's ordinary keys resume after it closes. The packaged Paint regression
+  also presses the box's allocated Show hotkeys key in Paint and closes with Esc.
 - Additional AI shortcut audit stops on the pre-existing unkeyed **Editing
   handbook** control. `origin/main:app/AiAssistant.jsx` has that same control
   without `data-hotkey`; the owning file is unchanged. This is outside this

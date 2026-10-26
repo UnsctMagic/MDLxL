@@ -32,6 +32,7 @@ export default function PaintStudioLayout(p){
   useLayoutEffect(()=>{if(controls.current)controls.current.scrollTop=0;},[tool,material?.id]);
   keys.current=e=>{
     if(!project||p.disabled||p.dialog)return;
+    if(e.target.closest('.learn-menu'))return;
     if(e.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
     if(help&&e.key!=='Escape'&&e.key!=='?'){if(!['Tab','Enter',' '].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();}return;}
     const k=/^Key[A-Z]$/.test(e.code)?e.code.slice(3).toLowerCase():e.code==='Comma'?',':e.code==='Period'?'.':e.key.toLowerCase(),ctrl=e.ctrlKey||e.metaKey;
