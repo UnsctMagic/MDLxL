@@ -125,8 +125,8 @@ Updated: 2026-10-24 (complete pass)
   dock is right-aligned in the top row. Team colour follows the editing icons
   immediately before Hide/Show. Quick Display stays beside the editor buttons;
   model tabs retain the full row below. No red divider is added.
-- Bottom row, right-hand group: MDX conversion, Add-ons, language, then
-  DPI/Scroll at the far-right edge. Both menus open upward. The 44px row and
+- Bottom row, right-hand group: MDX conversion, Add-ons, DPI/Scroll, then
+  language at the far-right edge. Both menus open upward. The 44px row and
   48px dock still meet halfway at 46px (38px icons).
 - The dock stays mounted across VIS toggles to preserve the AI conversation.
   The restored original purple VIS symbol and WC3 frame remain unchanged.

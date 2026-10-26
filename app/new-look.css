@@ -273,7 +273,7 @@
 
 
 /* Top row: editing tools and team colour before Hide/Show; WC3 dock at right.
-   Bottom right: MDX, Add-ons, language, then DPI/Scroll at the far edge. */
+   Bottom right: MDX, Add-ons, DPI/Scroll, then language at the far edge. */
 .toolbar-primary,.toolbar-model{display:contents}
 /* The old row (44px) and dock (48px) meet halfway at 46px. */
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto}
