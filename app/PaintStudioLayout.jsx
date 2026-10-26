@@ -4,7 +4,7 @@ import {Brush,Stamp,Eraser,FingerprintPattern,Undo2,Redo2,Scissors,BookmarkPlus,
 import {PAINT_BRUSH_SHAPES} from '../src/paint-brush-shapes.js';
 import {paintRampColor} from '../src/paint-palette.js';
 import {paintRegionEntries} from '../src/paint-region.js';
-import {PAINT_KEY_PREFIX,paintKeyLabel} from '../src/shredder-keycaps.js';
+import {PAINT_KEY_PREFIX,paintKeyLabel} from '../src/learn-keycaps.js';
 
 export function PaintKey({children}){return <kbd aria-hidden="true" className="paint-key">{children}</kbd>;}
 function Action({label,keys,children,title,...props}){return <button aria-label={label} data-paint-key={keys||undefined} title={title||(keys?`${label} (${keys})`:label)} {...props}>{children}{label}{keys&&<PaintKey>{keys}</PaintKey>}</button>;}
@@ -50,7 +50,7 @@ export default function PaintStudioLayout(p){
       if(['4','5','6','7','8'].includes(k))act=()=>p.onShape(PAINT_BRUSH_SHAPES[+k-4].id);
     }
     if(act){e.preventDefault();e.stopImmediatePropagation();act();
-      // Shredder's shortcut reminders count Paint's own keys like any other shortcut.
+      // Learn reminders count Paint's own keys like any other shortcut.
       window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used',{detail:{id:PAINT_KEY_PREFIX+paintKeyLabel(k,{ctrl,shift:e.shiftKey,alt:e.altKey}),event:e}}));}
   };
   const outsideAction=useRef();outsideAction.current=p.onOutside;

@@ -181,7 +181,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         // A toggled checkbox keeps focus where the user works (e.g. the UV Wrapper).
         else { if (!target.matches('input[type="checkbox"]')) target.focus({ preventScroll: true }); target.click(); }
       } else if (typeof action.run === 'function') action.run(event); else dispatch(action.id, event);
-      // Shredder's reminders count only shortcuts that actually ran.
+      // Learn reminders count only shortcuts that actually ran.
       window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used', { detail: { id: action.id, chord, event } }));
       return true;
     };
@@ -193,7 +193,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-uv-key',{detail:event,cancelable:true}))){cancel();return;}
       // Paint owns its brush/clipboard shortcuts before global mesh commands.
       if(!inLocalWindow&&latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
-      if (!inLocalWindow && event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
+      if (!inLocalWindow && event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu, .learn-menu')) return;
       if (!inLocalWindow && event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);
@@ -224,22 +224,60 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
   }, []);
 
   useEffect(() => {
-    const reveal = event => {
-      if(event.key !== 'Alt' || event.ctrlKey || event.metaKey || isTextEditingTarget(event.target))return;
-      const ownerDocument=event.target?.ownerDocument || document;
+    const persistent = !!preferences?.showHotkeys;
+    let activeDocument = document, queued = false, disposed = false;
+    const update = (ownerDocument, target) => {
+      documents.add(ownerDocument);
       const roots=controlRoots().filter(element=>element.ownerDocument===ownerDocument);
       const modal=activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1);
-      const localWindow=modal||event.target?.closest?.('[data-hotkey-window]');
+      const localWindow=modal||target?.closest?.('[data-hotkey-window]');
       for(const controlRoot of controlRoots()) for(const element of controlRoot.querySelectorAll('.hotkey-control'))element.dataset.hotkeyAvailable=String(element.ownerDocument===ownerDocument&&enabled(element)&&visible(element)&&(localWindow?localWindow.contains(element):!element.closest('[data-hotkey-window]')));
+      if (persistent) for (const doc of documents) if (doc !== ownerDocument) delete doc.documentElement.dataset.shortcutHints;
       ownerDocument.documentElement.dataset.shortcutHints='true';
     };
-    const dismiss = () => { for(const element of controlRoots())delete element.ownerDocument.documentElement.dataset.shortcutHints; delete document.documentElement.dataset.shortcutHints; };
+    const reveal = event => {
+      if (persistent || event.key !== 'Alt' || event.ctrlKey || event.metaKey || isTextEditingTarget(event.target)) return;
+      update(event.target?.ownerDocument || document, event.target);
+    };
+    const dismiss = () => { if (persistent && !disposed) return; for(const doc of documents) delete doc.documentElement.dataset.shortcutHints; };
     const released = event => { if (event.key === 'Alt' || !event.altKey) dismiss(); };
+    const refresh = () => {
+      queued = false;
+      if (disposed) return;
+      if (!controlRoots().some(element => element.ownerDocument === activeDocument)) activeDocument = document;
+      update(activeDocument, activeDocument.activeElement);
+    };
+    const schedule = event => {
+      const doc = event?.target?.ownerDocument || event?.target?.document;
+      if (doc?.documentElement) activeDocument = doc;
+      if (!queued) { queued = true; queueMicrotask(refresh); }
+    };
+    const documents = new Set([document]);
+    const observer = new MutationObserver(() => schedule());
+    const observe = () => {
+      observer.disconnect();
+      const next = new Set([document, ...controlRoots().map(element => element.ownerDocument)]);
+      for (const doc of documents) if (!next.has(doc)) {
+        delete doc.documentElement.dataset.shortcutHints;
+        doc.removeEventListener('focusin', schedule, true); doc.defaultView?.removeEventListener('focus', schedule);
+        documents.delete(doc);
+      }
+      for (const doc of next) {
+        documents.add(doc); doc.addEventListener('focusin', schedule, true); doc.defaultView?.addEventListener('focus', schedule);
+      }
+      for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'aria-disabled', 'hidden', 'inert', 'open', 'class', 'style', 'data-hotkey', 'data-hotkey-window', 'aria-modal'] });
+      schedule();
+    };
+    if (persistent) { observe(); window.addEventListener('mdlxl-detached-root', observe); }
     window.addEventListener('keydown', reveal, true); window.addEventListener('keyup', released, true); window.addEventListener('blur', dismiss);
     const detachedReveal=event=>reveal(event.detail), detachedRelease=event=>released(event.detail);
     window.addEventListener('mdlxl-detached-keydown', detachedReveal); window.addEventListener('mdlxl-detached-keyup', detachedRelease); window.addEventListener('mdlxl-detached-blur', dismiss);
-    return () => { window.removeEventListener('keydown', reveal, true); window.removeEventListener('keyup', released, true); window.removeEventListener('blur', dismiss); window.removeEventListener('mdlxl-detached-keydown', detachedReveal); window.removeEventListener('mdlxl-detached-keyup', detachedRelease); window.removeEventListener('mdlxl-detached-blur', dismiss); dismiss(); };
-  }, []);
+    return () => {
+      disposed = true; observer.disconnect(); window.removeEventListener('mdlxl-detached-root', observe);
+      for (const doc of documents) { doc.removeEventListener('focusin', schedule, true); doc.defaultView?.removeEventListener('focus', schedule); }
+      window.removeEventListener('keydown', reveal, true); window.removeEventListener('keyup', released, true); window.removeEventListener('blur', dismiss); window.removeEventListener('mdlxl-detached-keydown', detachedReveal); window.removeEventListener('mdlxl-detached-keyup', detachedRelease); window.removeEventListener('mdlxl-detached-blur', dismiss); dismiss();
+    };
+  }, [preferences?.showHotkeys]);
   return <HotkeysContext.Provider value={{ catalog: merged, shortcuts }}><div ref={root} className="hotkeys-root">{children}{leaderCode !== null && <div className="hotkeys-sequence-cue" data-hotkey-sequence="" role="status" aria-live="polite"><strong>Hotkeys</strong><kbd>{leaderCode.padEnd(3, '·')}</kbd><span>Type the green code · Esc cancels</span></div>}</div></HotkeysContext.Provider>;
 }
 

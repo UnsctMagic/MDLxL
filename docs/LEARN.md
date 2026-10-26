@@ -1,14 +1,24 @@
-# Shredder: shortcut reminders
+# Learn: shortcut reminders
 
-Shredder is a mode that teaches keyboard shortcuts. When you click a button (or
+Learn is a mode that teaches keyboard shortcuts. When you click a button (or
 a menu entry) that has a key, a small popup shows that key, in the look of the
-K.E.Y. (Show pressed keys) overlay. Nothing else: no text, no bird, no bubble.
+K.E.Y. (Show pressed keys) overlay. The popup contains only the keycaps.
 
-Turn it on or off with **LER** (the Ancient of Lore icon beside **KEY** in the
-top WC3 toolbar), **Ctrl+J**, **Settings → Shortcut reminders** (menu), or
-**Settings → Keyboard Shortcuts → Shortcut reminders**. LER shows the same on/off
-state as Settings. It works as soon as it is on: there is
-no quiet start, waiting, lesson order or progress gate.
+Click **LER** (the Ancient of Lore icon beside **KEY**) for three choices:
+**Learn mode** switches reminders, **Show hotkeys** keeps the existing green
+shortcut letters visible, and **Learn settings…** opens Keyboard Shortcuts at
+the Learn block. Both toggles keep the box open. Click outside, press Esc, or
+click LER again to close it. The rows use the existing name-based shortcut allocator.
+
+**Ctrl+J**, **Settings → Learn mode**, and the Learn block switch the same
+reminder preference. The LER label glows while Learn mode is on. Learn works
+immediately, with no waiting or progress gate. The owner chose to keep LER
+hidden in VIS; the classic Settings menu and Ctrl+J remain available there.
+
+**Show hotkeys** is off by default and saved across restarts. It uses the same
+green letters and active-control filtering as holding Alt, following focus,
+dialogs and detached windows. Releasing Alt leaves persistent letters visible.
+When Show hotkeys is off, holding and releasing Alt works as before.
 
 ## What decides whether a key shows
 
@@ -43,7 +53,7 @@ popup shows closes it.
 Citadel Paint handles its own keys and shows them on its buttons and sliders
 (Color **B**, Save **Ctrl+S**, Brush size **[ ]**). Those carry `data-paint-key`;
 a click shows that label, and when Paint runs one of its keys it reports it with
-`paintKeyLabel` (in [shredder-keycaps.js](../src/shredder-keycaps.js)) under the
+`paintKeyLabel` (in [learn-keycaps.js](../src/learn-keycaps.js)) under the
 same label, so the same rules apply. Paint keys without a labelled button (Esc,
 for example) never show a popup.
 
@@ -61,7 +71,7 @@ for example) never show a popup.
 ## Settings
 
 All in Settings → Keyboard Shortcuts, below the shortcut table
-(`preferences.shredder`, normalized by `normalizeShredder`):
+(`preferences.learn`, normalized by `normalizeLearn`):
 
 | Setting | Choices | Default |
 | --- | --- | --- |
@@ -74,23 +84,23 @@ All in Settings → Keyboard Shortcuts, below the shortcut table
 
 ## Test version
 
-`SHREDDER_TEST_VERSION` in [shredder-keycaps.js](../src/shredder-keycaps.js) is
+`LEARN_TEST_VERSION` in [learn-keycaps.js](../src/learn-keycaps.js) is
 `true`: the mode is on by default so it can be tried right away. **Decide before
 release** whether it ships on or off by default, and set the switch.
 
 ## Owners and tests
 
-- Rules: [src/shredder-keycaps.js](../src/shredder-keycaps.js) (DOM-free; notebook
-  in browser storage `mdlxl-shredder-keycaps-v1`).
-- Toolbar toggle: `AppToolbar` in [app/AppToolbar.jsx](../app/AppToolbar.jsx),
-  using the existing `shredder` command. Native SD icon:
+- Rules: [src/learn-keycaps.js](../src/learn-keycaps.js) (DOM-free; notebook
+  in browser storage `mdlxl-learn-keycaps-v1`).
+- Toolbar box: `AppToolbar` in [app/AppToolbar.jsx](../app/AppToolbar.jsx),
+  using the existing `learn` command. Native SD icon:
   `ReplaceableTextures\CommandButtons\BTNAncientOfLore.dds`, converted without
   changing its pixels to [public/classic/btn-ancient-of-lore.png](../public/classic/btn-ancient-of-lore.png).
-- Popup and listeners: [app/Shredder.jsx](../app/Shredder.jsx), [app/shredder.css](../app/shredder.css).
-- Settings block: `ShredderSettings` in [app/Settings.jsx](../app/Settings.jsx).
-- Menu command `shredder`: [src/commands.js](../src/commands.js), [electron/menu.cjs](../electron/menu.cjs), `commands` in [App.jsx](../app/App.jsx).
-- [test/shredder.test.js](../test/shredder.test.js): rules, defaults, damaged notebooks.
-- [test/shredder.electron.cjs](../test/shredder.electron.cjs): the real app — popup
+- Popup and listeners: [app/Learn.jsx](../app/Learn.jsx), [app/learn.css](../app/learn.css).
+- Settings block: `LearnSettings` in [app/Settings.jsx](../app/Settings.jsx).
+- Menu command `learn`: [src/commands.js](../src/commands.js), [electron/menu.cjs](../electron/menu.cjs), `commands` in [App.jsx](../app/App.jsx).
+- [test/learn.test.js](../test/learn.test.js): rules, defaults, damaged notebooks.
+- [test/learn.electron.cjs](../test/learn.electron.cjs): the real app — popup
   beside the button, key closes it, five uses quiet one key only, held keys and
   text fields do not count, temporary dismissal, repeated-click timing, renewed
   quiet time, live learned counts, storage read/write failures, right-click
@@ -100,6 +110,10 @@ release** whether it ships on or off by default, and set the switch.
 
 ## History
 
-An earlier Shredder (PR #269, `claude/shredder-tutor`, not merged) was a roaming
-bird with speech-bubble tips, a notebook, quiet start and lesson gates. The owner
-replaced that concept with this keycap-only mode on 2026-10-25.
+Learn replaces an earlier concept; PR #269 is closed.
+
+Saved `preferences.shredder`, custom keys for the former `shredder` command
+(including discovered-control IDs), and `mdlxl-shredder-keycaps-v1` notebooks
+migrate once to the Learn names. Existing new-name data wins. Old notebook
+storage is removed only after the migrated notebook is successfully written;
+a failed write preserves the original and the loaded session data.

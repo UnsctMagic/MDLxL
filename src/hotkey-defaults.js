@@ -29,7 +29,7 @@ export function coreHotkeyDefaults(actions) {
  */
 const LEGACY_HOTKEY_SEGMENT = 'warmkeys', HOTKEY_SEGMENT = 'hotkeys';
 const swapSegment = (id, from, to) => typeof id === 'string' && id.split(':').includes(from) ? id.split(':').map(part => part === from ? to : part).join(':') : id;
-export const migrateHotkeyId = id => swapSegment(id, LEGACY_HOTKEY_SEGMENT, HOTKEY_SEGMENT);
+export const migrateHotkeyId = id => swapSegment(swapSegment(id, LEGACY_HOTKEY_SEGMENT, HOTKEY_SEGMENT), 'shredder', 'learn');
 /** Saved assignments under a pre-rename ID keep their meaning; an assignment already saved under the new ID wins. */
 export function migrateHotkeyBindings(hotkeys) {
   if (!hotkeys || typeof hotkeys !== 'object' || Array.isArray(hotkeys)) return hotkeys;

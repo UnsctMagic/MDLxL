@@ -1,6 +1,6 @@
 # LER button: Learn menu
 
-Status: active (contract for Codex)
+Status: completed implementation and local verification; ready to test; awaiting merge approval
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
 
@@ -10,7 +10,7 @@ The owner's request (2026-10-26): clicking **LER** no longer just switches
 reminders on or off. It opens a small, elegant box with three choices:
 
 1. **Learn mode** (on/off). This is today's Shredder, renamed: clicking a
-   button that has a key shows that key ([behaviour contract](../SHREDDER.md)).
+   button that has a key shows that key ([behaviour contract](../LEARN.md)).
 2. **Show hotkeys** (on/off). Keeps the green key letters on every button
    visible until switched off. Today they only show while a key is held.
 3. **Learn settings…**. Opens Settings → Keyboard Shortcuts straight at the
@@ -58,7 +58,7 @@ Done means:
   - Migrate, don't lose: saved `preferences.shredder`, a customised key for the
     old `shredder` command, and the notebook in `mdlxl-shredder-keycaps-v1`
     (learned and muted keys) carry over once to the new names.
-  - [docs/SHREDDER.md](../SHREDDER.md) becomes `docs/LEARN.md`; update links in
+  - [docs/SHREDDER.md](../LEARN.md) becomes `docs/LEARN.md`; update links in
     [HOTKEYS.md](../HOTKEYS.md), [AI-HOOK.md](../AI-HOOK.md),
     [agent-map.md](../agent-map.md) and the packaged test list in
     [run-packaged-tests.mjs](../../scripts/run-packaged-tests.mjs).
@@ -75,11 +75,11 @@ Done means:
 
 ## Revision and local state
 
-- Base: `claude/shredder-keycaps` at `1c363bf4` (PR #304, still **open**, not
-  merged; that note's "merged into main" status line is wrong). LER, Shredder
-  and the per-window keys exist only on this branch.
-- Branch: continue `claude/shredder-keycaps` in PR #304 (the rename touches
-  nearly every file the PR adds). Merge `origin/main` first if it moved.
+- Started from `claude/shredder-keycaps` at `2c2d2457`. GitHub confirms PR #304
+  was already merged as `a4c86621` on 2026-10-26; the original contract's open-PR
+  assumption was stale. Main was merged into this branch in `2f363304`.
+- Branch: continue `claude/shredder-keycaps`. The owner explicitly approved
+  a follow-up PR from this same branch and updating #304's description.
 - No fixtures needed beyond the existing Shredder Electron test's demo model.
 
 ## Relevant owners
@@ -118,17 +118,64 @@ Done means:
   - Mouse camera rotation in the preview still works (real drag) with the box
     closed and with Show hotkeys on.
 - Screenshot of the box open (new look) for the owner; check it at 1100 and
-  1920 widths. In VIS the box uses VIS's classic look (see
-  [vis-mdlvis-mode.md](vis-mdlvis-mode.md)); no new-look styling leaks there.
+  1920 widths. Owner refinement during implementation (2026-10-26): **keep
+  LER hidden in VIS**. Preserve the current hide rule; verify the icon and box
+  remain hidden there instead of exposing a new VIS control. New-look box CSS
+  remains scoped away from VIS.
 - `pnpm test`, `pnpm run test:source`, `pnpm run build`, PR CI green.
 - Update PR #304's description (`Session:` lines kept, add `Session: codex
   <task>`), report `ready to test` with a short click-through for the owner.
   No merge or release without the owner's word.
 
-## Blockers and next action
+## Result (2026-10-26)
 
-- None. Next: Codex merges main into the branch, renames, adds the box and the
-  Show hotkeys preference, closes PR #269, verifies, pushes.
-- On completion: mark this note completed, fix the status line in
-  [shredder-keycaps.md](shredder-keycaps.md) (or fold it into a renamed
-  `learn.md` note), remove the row from [README.md](README.md).
+- Continued `claude/shredder-keycaps`; no new branch. Main was merged first.
+  Since #304 had already merged, the owner approved a follow-up PR from this
+  branch. #304's description is also updated, with existing Session lines retained.
+- LER opens exactly three rows, anchored under its icon. The box reuses the
+  dock's slate, bold Oxanium and lemon accent. Toggles keep it open; LER,
+  outside clicks and Esc close it. Ctrl+J remains the Learn-mode toggle.
+  Learn settings opens Keyboard Shortcuts and scrolls the Learn block into view.
+- Show hotkeys defaults off, persists, and reuses held-Alt availability and
+  display, refreshing for focus, dialogs and detached roots. Alt release does
+  not hide persistent letters. With the preference off, held Alt is unchanged.
+- Renamed the keycap feature and its owners/tests to Learn. Preferences,
+  custom command/control keys and learned/muted notebook records migrate once;
+  current names win. Failed storage writes retain old saved data and session
+  memory. `LEARN_TEST_VERSION` remains true.
+- Preserved every owner refinement in [the historical note](shredder-keycaps.md):
+  original above-button placement, fixed alternative positions, stable popup
+  lifetime, renewed quiet time, left-click dismiss, right-click mute, independent
+  restore controls, live counts, Paint keys, AI routing and the three excluded
+  editors. UpdateShredder and every other dock icon are unchanged.
+- Owner's current VIS decision overrides the earlier screenshot clause: **LER
+  stays hidden in VIS**. Its hide rule was not changed. New box styling is scoped
+  to the new look.
+- PR #269 is closed with the requested explanation. Its remote branch was
+  verified against that PR's head and deleted.
+- Local verification: 28 focused tests; full source 1,977 pass / 22 skipped /
+  zero failures; compatibility 57 pass; production build and portable package
+  verification (1,216 runtime/assets) pass. Catalog sizes: RU 6,401 / ES 6,413 /
+  ZH 3,600.
+- Hidden packaged tests: renamed Learn regression passes (including original
+  timing, mutes/learning, live counts, storage failures, Paint, Material Manager
+  and actual camera drag). New Learn-menu test passes migration from an old
+  profile, customized command keys, actual learned/muted suppression, all three
+  close paths, allocator keys, 1100/1920 placement and readable dock styling,
+  settings target, Alt behavior, dialog and detached-root focus changes, restart
+  persistence, VIS hiding, and real camera drags with Show hotkeys off and on.
+  Module-label browser checks pass. No window was opened on the owner's desktop.
+- Additional AI shortcut audit stops on the pre-existing unkeyed **Editing
+  handbook** control. `origin/main:app/AiAssistant.jsx` has that same control
+  without `data-hotkey`; the owning file is unchanged. This is outside this
+  contract, not a passing check or a new Learn regression.
+- Two final box captures and verification logs are kept in
+  `D:\Codex\mdlxl-learn-menu-20261026`; disposable packaged apps and test profiles
+  were removed after verification. Existing user checkouts/apps/profiles were
+  untouched. No version bump, merge or release. Owner visual acceptance remains.
+
+## Next action
+
+- Owner click-through: LER → Learn mode / Show hotkeys / Learn settings;
+  try Ctrl+J, close the box with Esc or an outside click, rotate the preview,
+  open and close a dialog, restart, then check VIS still hides LER.

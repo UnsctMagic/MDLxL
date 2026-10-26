@@ -13,7 +13,7 @@ sign-in. The settings button (or the provider name) opens **Connection** with th
 provider settings; **Advanced connection** contains the optional CLI executable path. The panel follows MDLxL's current appearance,
 and replies format paragraphs, lists, bold text and code without executing HTML.
 
-AI controls now use the same short shortcuts and Shredder reminders as the
+AI controls now use the same short shortcuts and Learn reminders as the
 editor. Their keys come from their names and work while focus is in the console;
 click back into the model to use editor keys. Typing and copy/paste in the prompt
 stay native, and Enter still sends. Hover a control to see its key. The console

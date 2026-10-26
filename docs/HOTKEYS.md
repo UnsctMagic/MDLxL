@@ -91,7 +91,7 @@ together.
   - stability;
   - the editor's reserved keys;
   - Forge.
-- [test/shredder.electron.cjs](../test/shredder.electron.cjs) checks, in the real
+- [test/learn.electron.cjs](../test/learn.electron.cjs) checks, in the real
   app:
   - Fit is Home;
   - in the Material Manager, N is New and Esc closes it.
@@ -114,5 +114,5 @@ together.
   (click a console control or its background). Clicking the model editor gives
   its keys back. Prompt and connection fields keep native typing and clipboard
   keys; Enter still sends. A modal takes precedence over the console. Tooltips
-  and Shredder teach the keys without adding permanent badges to its controls.
+  and Learn teach the keys without adding permanent badges to its controls.
   Repeated chat/history entries retain the existing per-item policy.

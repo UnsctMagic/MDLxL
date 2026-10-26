@@ -5,8 +5,8 @@ import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
-import { loadShredderNotebook, updateShredderNotebook } from './Shredder.jsx';
-import { SHREDDER_DURATIONS, SHREDDER_LEARN_USES, SHREDDER_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/shredder-keycaps.js';
+import { loadLearnNotebook, updateLearnNotebook } from './Learn.jsx';
+import { LEARN_DURATIONS, LEARN_LEARN_USES, LEARN_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/learn-keycaps.js';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
 import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
 import { wireDashArray } from '../src/wire-pattern.js';
@@ -76,27 +76,27 @@ function Toggle({ id, label, checked, onChange, description }) {
 function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {
   return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} value={value} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber); }}/>{unit}</span></label>;
 }
-const SHREDDER_CHOICES = [
+const LEARN_CHOICES = [
   ['position', 'Where', [['control', 'Beside what you clicked'], ['bottom', 'Bottom middle'], ['top', 'Top middle'], ['bottom-right', 'Bottom right'], ['bottom-left', 'Bottom left']]],
   ['size', 'Size', [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']]],
   ['style', 'Look', [['plain', 'Standard'], ['flash', 'Flashing']]],
-  ['duration', 'Stays for', SHREDDER_DURATIONS.map(seconds => [seconds, seconds ? `${seconds} seconds` : 'Until used or clicked'])],
-  ['learnUses', 'Learned after', SHREDDER_LEARN_USES.map(uses => [uses, `${uses} uses`])],
-  ['quietHours', 'Then quiet for', SHREDDER_QUIET_HOURS.map(hours => [hours, hours === 1 ? '1 hour' : `${hours} hours`])],
+  ['duration', 'Stays for', LEARN_DURATIONS.map(seconds => [seconds, seconds ? `${seconds} seconds` : 'Until used or clicked'])],
+  ['learnUses', 'Learned after', LEARN_LEARN_USES.map(uses => [uses, `${uses} uses`])],
+  ['quietHours', 'Then quiet for', LEARN_QUIET_HOURS.map(hours => [hours, hours === 1 ? '1 hour' : `${hours} hours`])],
 ];
-/** Shredder's keycap reminders: on/off, how they look, and bringing back silenced or learned keys. */
-function ShredderSettings({ value, onChange }) {
-  const [counts, setCounts] = useState(() => notebookCounts(loadShredderNotebook(), Date.now()));
-  const reset = update => setCounts(notebookCounts(updateShredderNotebook(update), Date.now()));
+/** Learn's keycap reminders: on/off, how they look, and bringing back silenced or learned keys. */
+function LearnSettings({ value, onChange }) {
+  const [counts, setCounts] = useState(() => notebookCounts(loadLearnNotebook(), Date.now()));
+  const reset = update => setCounts(notebookCounts(updateLearnNotebook(update), Date.now()));
   useEffect(() => {
-    const changed = () => setCounts(notebookCounts(loadShredderNotebook(), Date.now()));
-    window.addEventListener('mdlxl-shredder-notebook', changed);
-    return () => window.removeEventListener('mdlxl-shredder-notebook', changed);
+    const changed = () => setCounts(notebookCounts(loadLearnNotebook(), Date.now()));
+    window.addEventListener('mdlxl-learn-notebook', changed);
+    return () => window.removeEventListener('mdlxl-learn-notebook', changed);
   }, []);
   return <>
-    <h3>Shortcut reminders</h3>
-    <Toggle id="hotkeys:shredder" label="Shredder: shortcut reminders" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here."/>
-    <div className="settings-graphics-grid">{SHREDDER_CHOICES.map(([key, label, options]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={`Shortcut reminders: ${label}`} value={value[key]} onChange={event => onChange({ [key]: typeof value[key] === 'number' ? Number(event.target.value) : event.target.value })}>{options.map(([option, name]) => <option key={option} value={option}>{name}</option>)}</select></label>)}</div>
+    <h3 id="learn-settings">Learn</h3>
+    <Toggle id="hotkeys:learn" label="Learn mode" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here."/>
+    <div className="settings-graphics-grid">{LEARN_CHOICES.map(([key, label, options]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={`Learn mode: ${label}`} value={value[key]} onChange={event => onChange({ [key]: typeof value[key] === 'number' ? Number(event.target.value) : event.target.value })}>{options.map(([option, name]) => <option key={option} value={option}>{name}</option>)}</select></label>)}</div>
     <div className="settings-inline-actions">
       {counts.silenced > 0 && <button title="Show reminders for muted shortcuts again." onClick={() => reset(clearSilences)}>{`Bring back silenced keys (${counts.silenced})`}</button>}
       <button disabled={!counts.learned} title="Each use of a learned shortcut restarts its quiet time. This shows learned keys again now." onClick={() => reset(clearLearned)}>{`Bring back learned keys (${counts.learned})`}</button>
@@ -197,7 +197,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   const prefs = normalizePreferences(preferences);
   const [appearancePage, setAppearancePageState] = useState(() => APPEARANCE_PAGES.includes(lastAppearancePage) ? lastAppearancePage : 'Presets');
   const setAppearancePage = page => { lastAppearancePage = page; setAppearancePageState(page); };
-  const [tab, setTab] = useState(initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
+  const [tab, setTab] = useState(initialTab === 'learn' ? 'hotkeys' : initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
   const [recording, setRecording] = useState(null), [recorded, setRecorded] = useState(''), [message, setMessage] = useState(''), [resetConfirm, setResetConfirm] = useState(false), [presetName, setPresetName] = useState('');
   const [sequenceCode, setSequenceCode] = useState(null), sequence = useRef(null), sequenceTimer = useRef(null);
   if (!sequence.current) sequence.current = new HotkeySequence();
@@ -226,7 +226,8 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   }, []);
   useEffect(() => { sequence.current.cancel(); clearTimeout(sequenceTimer.current); setSequenceCode(null); if (recording) recorder.current?.focus(); }, [recording]);
   useEffect(() => () => clearTimeout(sequenceTimer.current), []);
-  useEffect(() => { setTab(initialTab); setRecording(null); setMessage(''); }, [initialTab]);
+  useEffect(() => { setTab(initialTab === 'learn' ? 'hotkeys' : initialTab); setRecording(null); setMessage(''); }, [initialTab]);
+  useEffect(() => { if (initialTab === 'learn' && tab === 'hotkeys') document.getElementById('learn-settings')?.scrollIntoView({ block: 'start' }); }, [initialTab, tab]);
   const startRecording = action => { setRecording(action); setRecorded(''); setMessage(''); setResetConfirm(false); };
   const cancelSequence = () => { if (!sequence.current.active) return; sequence.current.cancel(); clearTimeout(sequenceTimer.current); setSequenceCode(null); setRecorded(''); setMessage('Sequence cancelled. Press a combination or the leader to try again.'); };
   const recordKey = event => {
@@ -330,7 +331,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </div>}
         <div className="hotkeys-table-wrap"><table className="hotkeys-table"><thead><tr><th>Action</th><th>Shortcut</th><th><span className="settings-sr-only">Change shortcut</span></th></tr></thead><tbody>{actions.map(action => <tr key={action.id}><td><strong>{action.label || action.id}</strong><small title={action.id}>{action.category || 'Controls'}{action.contextual ? ' · when visible' : ''}</small></td><td><div className="hotkeys-chords">{(bindings[action.id] || []).map(chord => <span className="hotkeys-chip" key={chord}><kbd>{formatChord(chord)}</kbd><button aria-label={`Remove ${formatChord(chord)} from ${action.label || action.id}`} onClick={() => removeShortcut(action.id, chord)}>×</button></span>)}{!bindings[action.id]?.length && <span className="settings-muted">Unassigned</span>}</div></td><td><div className="hotkeys-row-actions"><button aria-label={`Assign shortcut to ${action.label || action.id}`} onClick={() => startRecording(action)}>Add shortcut</button><button aria-label={`Restore default shortcuts for ${action.label || action.id}`} onClick={() => restoreAction(action)}>Reset</button></div></td></tr>)}</tbody></table>{!actions.length && <p>No actions match this search.</p>}</div>
         <div className="settings-inline-actions">{resetConfirm ? <><span>Restore every default shortcut and clear custom assignments?</span><button onClick={() => { commit({ hotkeys: {} }); setResetConfirm(false); setRecording(null); setMessage('All Hotkeys restored to defaults.'); }}>Restore all defaults</button><button onClick={() => setResetConfirm(false)}>Cancel</button></> : <button data-hotkey="hotkeys:reset-all" onClick={() => setResetConfirm(true)}>Reset all Hotkeys…</button>}</div>
-        <ShredderSettings value={prefs.shredder} onChange={change => commit({ shredder: { ...prefs.shredder, ...change } })}/>
+        <LearnSettings value={prefs.learn} onChange={change => commit({ learn: { ...prefs.learn, ...change } })}/>
       </div>}
       {tab === 'graphics' && <div className="settings-page">
         <h3>Preview lighting</h3>

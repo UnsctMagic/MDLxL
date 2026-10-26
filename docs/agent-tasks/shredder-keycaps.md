@@ -1,6 +1,6 @@
 # Shredder keycap shortcut reminders
 
-Status: PR #304 open, not merged (2026-10-26). AI shortcuts and owner-selected LER toolbar button included. Next: [LER button: Learn menu](ler-learn-button.md).
+Status: historical context retained. PR #304 merged on 2026-10-26 as `a4c86621`; Learn continuation remains on the same branch. See [LER button: Learn menu](ler-learn-button.md) for the current result.
 Owner / consolidator: Codex continuation of Claude Code’s PR #304
 Updated: 2026-10-26
 
@@ -10,12 +10,12 @@ Updated: 2026-10-26
   Codex on 2026-10-25): a mouse click on something with a key shows only that key;
   using the key closes it; 5 uses quiet that key for 24 hours, renewed by later
   uses; left-click dismisses this reminder; right-click mutes the shortcut;
-  settings and un-muting in the keyboard-controls workflow; a plain on/off mode. Behaviour contract: [docs/SHREDDER.md](../SHREDDER.md).
+  settings and un-muting in the keyboard-controls workflow; a plain on/off mode. Behaviour contract: [docs/SHREDDER.md](../LEARN.md).
 - Draft PR only; merging and publishing were not authorized.
 
 ## Revision and local state
 
-- Branch: `claude/shredder-keycaps`, PR #304 (draft, not merged).
+- Branch: `claude/shredder-keycaps`; PR #304 is merged. The owner approved a follow-up PR from this same branch on 2026-10-26.
 - Current continuation started from Claude's pushed review `1bfb6297`.
   Main `548c1b89` was merged in `c29171aa`; approved toolbar recomposition
   `0ae5228b` was integrated in `33ef5f90`, keeping this same feature branch.
@@ -80,8 +80,8 @@ Updated: 2026-10-26
 
 ## Blockers and next action
 
-- `SHREDDER_TEST_VERSION` is `true` (on by default). Decide before release.
-- PR #269 (old bird Shredder) is superseded; close it once the owner agrees.
+- `LEARN_TEST_VERSION` is `true` (on by default). Decide before release.
+- PR #269 is closed at the owner's request and remote `claude/shredder-tutor` is deleted.
 
 
 ## Owner-requested refinement (2026-10-26)
