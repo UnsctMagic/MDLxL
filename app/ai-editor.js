@@ -753,6 +753,8 @@ export class AiEditorBridge {
     const view = sample.view || s.view,
       // Pictures show the surface; wireframe marks belong to the live viewport.
       renderMode = s.renderMode === 'solid' ? 'solid' : 'textured';
+    const marked = markedPositions(model, target.selection, sequence, globalSequence, frame);
+    if (sample.fit === 'selection' && !marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
     const image = await this.host().render({
       documentId: target.documentId,
       view,
@@ -761,10 +763,11 @@ export class AiEditorBridge {
       frame,
       renderMode,
       hiddenGeosets: s.hiddenGeosets,
-      marks: { strokes: target.strokes || [], vertices: markedPositions(model, target.selection, sequence, globalSequence, frame) },
+      marks: { strokes: target.strokes || [], vertices: marked },
+      focus: sample.fit === 'selection' ? marked : null,
     });
     return {
-      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}`,
+      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}`,
       image,
     };
   }

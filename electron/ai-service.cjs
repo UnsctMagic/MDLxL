@@ -149,6 +149,10 @@ class AiService {
     return [...this.tasks.values()].map(t => ({ id: t.id, worker: t.worker?.id || null, documentId: t.documentId }));
   }
   emitRunning() {
+    // A covered or minimized window stops drawing, and the AI's pictures and
+    // captures with it. Keep drawing while a task works; normal again after.
+    const win = this.getWindow();
+    if (win && !win.isDestroyed()) win.webContents.setBackgroundThrottling?.(this.tasks.size === 0);
     this.emit({ type: 'running', running: this.runningChats() });
   }
   async configure(input) {
