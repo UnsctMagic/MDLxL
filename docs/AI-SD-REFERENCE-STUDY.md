@@ -32,7 +32,7 @@ Among resolved native texture headers, 256x256 is the most frequent individual s
 
 ## Binding (vertex groups)
 
-Measured 26 October 2026 from the 415 SD unit models under `war3.w3mod:units\` (portraits excluded; 414 use classic matrix groups, 1 weighted skinning). These numbers are the basis of the binding rules every AI chat receives (`AI_SYSTEM_PROMPT` in `src/ai-tools.js`).
+Measured 26 October 2026 from the 415 SD unit models under `war3.w3mod:units\` (portraits excluded; 414 use classic matrix groups, 1 weighted skinning). These measurements informed the general binding procedures in [WC3-EDITING-NODES-BINDING.md](WC3-EDITING-NODES-BINDING.md).
 
 - **Bones per vertex:** 64% one bone, 28% two, 5.5% three, 1.8% four, 0.3% five to seven. Blizzard never repeats a bone inside a group. The largest geoset has 120 groups (the format allows 256).
 - **Continuity:** of 653,607 mesh edges, 65% join vertices with the same group and 35% join groups that share a bone; only 164 (0.03%) join groups with no bone in common. The binding changes across rings of blended vertices, not along hard edges.

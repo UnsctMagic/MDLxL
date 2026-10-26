@@ -11,6 +11,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Full AI editor connection | Ready for review; awaiting merge approval | [AI editor hook](ai-editor-hook.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
 | New MDLxL look (carved tools, slate-and-gold dock, floating Geosets) | Ready for review; awaiting merge approval | [New look](new-look.md) / Claude Code |
+| WC3 editing knowledge for the AI (general rules, reuse existing research) | Core and seven guides ready for owner review; #317 overlap documented | [WC3 editing agent](wc3-editing-agent.md) / Codex |
 
 Keep this table limited to current work. On completion, mark the note completed
 with its result/revision, remove its table entry, and leave the note as searchable
