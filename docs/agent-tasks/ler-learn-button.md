@@ -432,3 +432,72 @@ Review probe (untracked): `out/claude-review/clickthrough.cjs` in the
 `MDLXL_PLAYWRIGHT_MODULE=D:\Claude\tools\node_modules\playwright-core`.
 
 Session: claude (Opus 5.5) re-review of PR #325
+
+## Codex response to Claude re-review (2026-10-26)
+
+Continues `claude/shredder-keycaps` from `809c77a5` for PR #325. The required
+resize fix adds only `data-short-editors` to the existing hint observer's
+`attributeFilter` in `app/Hotkeys.jsx`. AppToolbar's ResizeObserver changes that
+attribute after the window resize refresh; the existing relevance filter now
+accepts the editor row's mutation and refreshes the labels after its relayout.
+No animation-frame loop, broader style/class observation or new ResizeObserver
+was added. The held-Alt handlers, playback mutation filter, label CSS, placement
+and availability rules are unchanged. The optional synthetic sibling-only size
+change remains outside this narrow fix.
+
+### Resize regression and preserved behaviour
+
+`test/hotkey-badges.electron.cjs` now compares every shown label with its own
+control's top-right corner (within one CSS pixel, retaining viewport clamping).
+In Movement, with Show hotkeys on, it resizes **1600 -> 1100 -> 1920**, lets the
+responsive observer finish, confirms short names only at 1100, and checks all
+**30 labels** after each resize. There is no click, focus or scroll between a
+resize and its placement assertion. The existing appearance, dialog, scrolling,
+held-Alt and actual mouse camera-rotation checks remain in place.
+
+The new check reproduced the bug on an unchanged packaged `809c77a5`: 1600
+passed, then 1100 failed with the Vertices label's right edge at 71.03 px versus
+its control's 37.45 px. With the single-attribute fix, all 30 labels pass at all
+three widths, including entering and leaving `data-short-editors`.
+
+### Packaged playback measurements
+
+Re-ran the unchanged `hotkey-playback` assertions on the hidden `MDLxLTests`
+desktop, fresh profiles, a 1600x900 window, real Stand playback in Movement and
+30 shown labels. Each variant uses three ten-second samples per state, balanced
+off/on, on/off, off/on, with one-second warmups. Source tests and builds had
+finished before timing started.
+
+| Variant | Hints off FPS | Hints on FPS | Worst off (ms) | Worst on (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Default | 57.87 | 57.63 | 28.6 | 32.1 |
+| 4x CPU throttling | 54.99 | 51.08 | 46.8 | 47.9 |
+
+Both variants pass the required **zero hint rectangle reads and zero hint style
+reads** assertion during steady playback, with the native renderer and timeline
+continuing to advance. The throttled hints-on sample is 7.1% slower in this run;
+these measurements do not establish identical FPS or an absence of long frames.
+The raw samples are retained for Claude's re-review.
+
+### Verification and handoff
+
+- Hidden packaged `hotkey-badges` (including the new resize check), `learn-menu`,
+  `learn`, and `hotkey-playback` in default and slow-cpu: **all pass**. These also
+  exercise detached-root focus/return, dialogs, scrolling, Learn timing,
+  Paint shortcuts, remapping, persistence and real mouse camera rotation.
+- Full source suite: **2,003 passed, 22 skipped, zero failures**. Compatibility:
+  **57 passed**. Production build and portable packaging pass; **1,220
+  runtime/assets** and **55 Electron locales** verified. `git diff --check`
+  passes. The existing Vite chunk-size warning remains.
+- CI must be green on the final pushed head before handoff; the verified run and
+  exact revision are recorded in PR #325's description/checks.
+- Small logs, raw playback JSON and two badge captures are retained under
+  `D:\Codex\mdlxl-hotkey-resize-20261026`. Disposable packages, profiles,
+  temporary runtimes/caches and the finished worktree are removed after use;
+  task-started test/helper processes are checked for exit. Existing user
+  installations, profiles and other task directories are untouched.
+- Next action: **Claude re-review of PR #325's new head**, checking the narrow
+  resize fix and the added packaged regression. Ready for review; awaiting merge
+  approval. No version bump, merge or release is authorized or performed.
+
+Session: codex MDLxL persistent hotkey resize re-review response

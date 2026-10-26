@@ -21,9 +21,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const click = async locator => {const b=await locator.boundingBox();await page.mouse.click(b.x+b.width/2,b.y+b.height/2);};
     const inspect = async () => page.locator('[data-hotkey-badge]:popover-open').evaluateAll(badges => badges.map(badge => {
       const style=getComputedStyle(badge), rect=badge.getBoundingClientRect();
+      const control=badge.closest('[data-hotkey]')||badge.parentElement.querySelector('[data-hotkey]')||badge.parentElement;
+      const anchor=control.getBoundingClientRect();
       const range=document.createRange();range.selectNodeContents(badge);const ink=range.getBoundingClientRect();
       return {text:badge.textContent,border:style.borderTopWidth,background:style.backgroundColor,outline:style.outlineWidth,font:style.fontSize,display:style.display,visibility:style.visibility,
-        left:rect.left,top:rect.top,right:rect.right,bottom:rect.bottom,inkLeft:ink.left,inkRight:ink.right,inkBottom:ink.bottom,width:rect.width,height:rect.height};
+        control:control.getAttribute('data-hotkey'),controlRight:anchor.right,controlTop:anchor.top,left:rect.left,top:rect.top,right:rect.right,bottom:rect.bottom,inkLeft:ink.left,inkRight:ink.right,inkBottom:ink.bottom,width:rect.width,height:rect.height};
     }));
     const verify = async label => {
       const badges=await inspect();assert.ok(badges.length>5,label+': visible hints');
@@ -33,6 +35,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         assert.equal(badge.border,'0px',label+': '+badge.text);assert.equal(badge.outline,'0px');assert.equal(badge.background,'rgba(0, 0, 0, 0)');assert.equal(badge.font,'11px');
         assert.ok(badge.left>=0&&badge.top>=0&&badge.right<=size.width&&badge.bottom<=size.height,label+': viewport '+JSON.stringify(badge));
         assert.ok(badge.inkLeft>=badge.left-1&&badge.inkRight<=badge.right+1&&badge.inkBottom<=badge.bottom+1,label+': full text '+JSON.stringify(badge));
+        const right=Math.max(badge.width+3,Math.min(badge.controlRight,size.width-3));
+        const top=Math.max(3,Math.min(badge.controlTop,size.height-badge.height-3));
+        assert.ok(Math.abs(badge.right-right)<=1&&Math.abs(badge.top-top)<=1,label+': control top-right '+JSON.stringify(badge));
       }
       return badges;
     };
@@ -51,11 +56,24 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       const window=await app.browserWindow(page);const png=await window.evaluate(w=>w.webContents.capturePage().then(i=>i.toPNG().toString('base64')));
       await fs.writeFile(path.join(out,'badges-'+width+'.png'),Buffer.from(png,'base64'));
     }
+    await click(page.locator('button[data-hotkey="animation"]:visible').first());
+    await page.locator('.game-preview-root canvas[data-clean-model-canvas]').waitFor();
+    for(const width of [1600,1100,1920]){
+      await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,800),width);
+      // Let AppToolbar's ResizeObserver finish its responsive editor-name change.
+      // No click, focus or scroll between resizing and the placement assertion.
+      await page.waitForTimeout(200);
+      assert.equal(await page.locator('.editor-modules').evaluate(row=>row.hasAttribute('data-short-editors')),width===1100,'responsive editor names at '+width);
+      const badges=await verify('Movement resize '+width);
+      console.log('✓ Movement resize '+width+': '+badges.length+' labels at their controls\' top-right corners');
+    }
+    await click(page.locator('button[data-hotkey="vertices"]:visible').first());
+    await page.locator('.classic-view canvas').first().waitFor();
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1100,800));await page.waitForTimeout(150);
     assert.deepEqual(await dock.boundingBox(),before,'badges do not change dock geometry');
     const narrow=await page.locator('button[data-hotkey="camera:work"]').locator('[data-hotkey-badge]').boundingBox();
     assert.ok(narrow.height>=25,'narrow icon wraps the complete modifier and key');
-    console.log('✓ Full modifier chords, no white boxes, complete text on icons/status/view/sidebar, 1100/1920 and unchanged dock geometry');
+    console.log('✓ Full modifier chords, no white boxes, complete text on icons/status/view/sidebar, 1600/1100/1920 control top-right anchoring and unchanged dock geometry');
 
     const move=page.locator('button[data-hotkey="translate"]:visible').first().locator('[data-hotkey-badge]');
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1100,500));await page.waitForTimeout(150);

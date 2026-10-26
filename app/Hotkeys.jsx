@@ -318,7 +318,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       for (const doc of next) {
         documents.add(doc); doc.addEventListener('focusin', schedule, true); doc.addEventListener('scroll', schedule, { capture: true, passive: true }); doc.defaultView?.addEventListener('focus', schedule); doc.defaultView?.addEventListener('resize', schedule);
       }
-      for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeOldValue: persistent, attributeFilter: ['disabled', 'aria-disabled', 'hidden', 'inert', 'open', 'class', 'style', 'data-hotkey', 'data-hotkey-window', 'aria-modal'] });
+      for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeOldValue: persistent, attributeFilter: ['disabled', 'aria-disabled', 'hidden', 'inert', 'open', 'class', 'style', 'data-hotkey', 'data-hotkey-window', 'aria-modal', 'data-short-editors'] });
       schedule();
     };
     observe(); window.addEventListener('mdlxl-detached-root', observe);
