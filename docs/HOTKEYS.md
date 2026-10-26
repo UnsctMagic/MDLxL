@@ -1,7 +1,7 @@
 # Keyboard shortcuts
 
-Every command and every button has a default shortcut of **one key, or one key
-with Shift, Ctrl or Alt**. Nothing longer. The owner asked for this on
+Every command and button default must use **one key, or one key
+with Shift, Ctrl or Alt**. Nothing longer. Current coverage gaps are listed below. The owner asked for this on
 2026-10-25: one-key and two-key shortcuts stayed as they were, and everything
 else got a proper short key. Generated Ctrl+Alt+Space codes are no longer handed
 out. A code the user typed in themselves still works.
@@ -95,9 +95,17 @@ together.
   app:
   - Fit is Home;
   - in the Material Manager, N is New and Esc closes it.
-- `out/hotkey-crawl/crawl.cjs` (not in git) visited every mode, window and
-  Settings page and listed each control's key. On 2026-10-25, 858 of 950
-  sightings had a key. The rest are extra Close / Done / Cancel buttons (Esc
-  closes those windows) and per-item rows.
+- The 2026-10-26 crawl after merging main inspected 1,022 registered control
+  sightings; 930 had keys, with no generated codes, keys longer than two, or
+  clashes within a window. The remainder are extra Close / Done / Cancel
+  buttons and per-item rows. It used the existing Footman for editor/windows
+  and an MDX800 demo for Paint (the Footman is MDX1800, unsupported by Paint).
+  The new MDL/MDX icon choices use letters from their names; Bones keeps F4.
+  Scratch scripts and audit evidence are in the D: review task's report.
 - The Particle Editor, AnimXL and the Texture Library have no hotkey-reachable
   controls yet.
+
+- The new AI console and connection settings also lack `data-hotkey` hooks.
+  Attach/reference and connection-copy controls are therefore not covered by
+  the registered-control count. AI shortcut scope awaits the owner's decision;
+  it is not an accepted extension of the three exclusions above.

@@ -18,7 +18,9 @@ no quiet start, waiting, lesson order or progress gate.
 - **You muted that shortcut.** Right-clicking its popup stops its reminders
   until you choose **Bring back silenced keys** in Settings → Keyboard
   Shortcuts. That button appears while any shortcuts are muted. Existing saved
-  silences work the same way.
+  silences work the same way. Both muted and learned counts update while Settings
+  remains open. If browser storage fails, learning and mutes remain available
+  for the current app session, including their separate restore controls.
 
 Using the key while its popup is up closes it at once. **Clicking the popup
 only dismisses this reminder**; it changes neither learning nor future reminders.
@@ -85,7 +87,8 @@ release** whether it ships on or off by default, and set the switch.
 - [test/shredder.electron.cjs](../test/shredder.electron.cjs): the real app — popup
   beside the button, key closes it, five uses quiet one key only, held keys and
   text fields do not count, temporary dismissal, repeated-click timing, renewed
-  quiet time, right-click mute/restore, crowded-sidebar anchoring, mouse camera
+  quiet time, live learned counts, storage read/write failures, right-click
+  mute/restore, crowded-sidebar anchoring, mouse camera
   rotation, settings, Fit's Home key, the Material Manager's own keys and its footer Close (Esc), Citadel Paint's own keys and
   slider, and turning it off.
 

@@ -146,10 +146,26 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     // 5. Settings: position, size, flashing, and bringing keys back.
     await settings();
-    const restoreSilenced = page.getByRole('button', { name: /Bring back silenced keys/ }), restoreLearned = page.getByRole('button', { name: /Bring back learned keys \(1\)/ });
+    const restoreSilenced = page.getByRole('button', { name: /Bring back silenced keys/ }), restoreLearned = page.getByRole('button', { name: /Bring back learned keys/ });
     await page.locator('#settings-tab-hotkeys').click(); await popup.waitFor();
     await clickPopup('right'); await gone();
     assert.match(await restoreSilenced.textContent(), /2/, 'muting while Settings is open refreshes its count');
+    // Learning a key while Settings remains open updates the count only at a quiet-time change.
+    await page.evaluate(() => {
+      window.__notebookEvents = 0;
+      window.addEventListener('mdlxl-shredder-notebook', () => window.__notebookEvents++);
+      document.activeElement?.blur();
+    });
+    const hotkeysTabKey = (await page.locator('#settings-tab-hotkeys').getAttribute('data-hotkey-shortcuts')).split(' / ')[0].replace('Ctrl+', 'Control+');
+    assert.match(await restoreLearned.textContent(), /\(1\)/);
+    for (let press = 0; press < 4; press++) await page.keyboard.press(hotkeysTabKey);
+    assert.equal(await page.evaluate(() => window.__notebookEvents), 0, 'ordinary uses do not broadcast notebook changes');
+    await page.keyboard.press(hotkeysTabKey);
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Bring back learned keys (2)'));
+    assert.equal(await page.evaluate(() => window.__notebookEvents), 1, 'learning broadcasts once');
+    await page.waitForTimeout(20); await page.keyboard.press(hotkeysTabKey);
+    assert.equal(await page.evaluate(() => window.__notebookEvents), 2, 'renewing quiet time broadcasts');
+    check('Settings learned count updates live; ordinary uses emit no notebook event');
     await page.locator('select[aria-label="Shortcut reminders: Where"]').selectOption('bottom');
     await page.locator('select[aria-label="Shortcut reminders: Size"]').selectOption('large');
     await page.locator('select[aria-label="Shortcut reminders: Look"]').selectOption('flash');
@@ -220,6 +236,44 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.locator('.classic-view canvas').first().hover(); await page.keyboard.press('Alt+M'); await manager.waitFor();
     await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('Escape'); await manager.waitFor({ state: 'detached' });
     check('Material Manager: Alt+M opens it, N makes a new material, its footer Close reminds of [Escape], Esc closes it');
+
+    // A failed write must not reload the stale stored notebook over this session's keys.
+    for (let press = 0; press < 5; press++) await pressInView('m');
+    await page.evaluate(() => {
+      window.__storageSet = Storage.prototype.setItem;
+      window.__storageGet = Storage.prototype.getItem;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === 'mdlxl-shredder-keycaps-v1') throw new DOMException('Test quota failure', 'QuotaExceededError');
+        return window.__storageSet.call(this, key, value);
+      };
+    });
+    await rotate.click(); await popup.waitFor(); await clickPopup('right'); await gone();
+    await rotate.click(); await page.waitForTimeout(200);
+    assert.equal(await popup.count(), 0, 'mute survives a failed write while reads still return stale data');
+    await move.click(); await page.waitForTimeout(200);
+    assert.equal(await popup.count(), 0, 'failed mute write preserves learned M');
+    await page.evaluate(() => {
+      Storage.prototype.getItem = function(key) {
+        if (key === 'mdlxl-shredder-keycaps-v1') throw new DOMException('Test storage unavailable', 'SecurityError');
+        return window.__storageGet.call(this, key);
+      };
+    });
+    await settings();
+    assert.match(await restoreLearned.textContent(), /\(1\)/, 'Settings reads session learning without storage');
+    assert.match(await restoreSilenced.textContent(), /\(1\)/, 'Settings reads session mute without storage');
+    await restoreSilenced.click();
+    assert.match(await restoreLearned.textContent(), /\(1\)/, 'restoring muted keys preserves learned keys');
+    await closeSettings();
+    await rotate.click(); await popup.waitFor(); await clickPopup(); await gone();
+    await move.click(); await page.waitForTimeout(200);
+    assert.equal(await popup.count(), 0, 'session learning survives Settings restore');
+    await settings(); await restoreLearned.click(); await closeSettings();
+    await move.click(); await popup.waitFor(); await clickPopup(); await gone();
+    await page.evaluate(() => {
+      Storage.prototype.setItem = window.__storageSet;
+      Storage.prototype.getItem = window.__storageGet;
+    });
+    check('Storage write/read failures preserve session mutes and learning; Settings restores each independently');
 
     // 8. Citadel Paint's own keys: a click shows the key its button shows; Paint's key closes it.
     await page.locator('[data-hotkey="paint"]').first().click();

@@ -7,8 +7,20 @@ import { isCloseControl } from '../src/hotkey-allocation.js';
 import './shredder.css';
 
 const CHANGED = 'mdlxl-shredder-notebook';
-export function loadShredderNotebook() { try { return normalizeNotebook(JSON.parse(localStorage.getItem(SHREDDER_STORAGE_KEY) || 'null')); } catch { return emptyNotebook(); } }
-function storeNotebook(notebook) { try { localStorage.setItem(SHREDDER_STORAGE_KEY, JSON.stringify(notebook)); } catch { /* Forgotten after this session when storage is unavailable. */ } }
+// Keep the session's learned and muted keys if browser storage stops working.
+let sessionNotebook = emptyNotebook(), storageUnavailable = false;
+export function loadShredderNotebook() {
+  if (!storageUnavailable) {
+    try { sessionNotebook = normalizeNotebook(JSON.parse(localStorage.getItem(SHREDDER_STORAGE_KEY) || 'null')); }
+    catch { storageUnavailable = true; }
+  }
+  return sessionNotebook;
+}
+function storeNotebook(notebook) {
+  sessionNotebook = notebook;
+  try { localStorage.setItem(SHREDDER_STORAGE_KEY, JSON.stringify(notebook)); }
+  catch { storageUnavailable = true; /* Kept for this session only. */ }
+}
 /** Settings changes the notebook (clear silences, forget learned keys); the running reminders reload it. */
 export function updateShredderNotebook(update) {
   const next = update(loadShredderNotebook());
@@ -74,7 +86,10 @@ export default function Shredder({ settings }) {
       if (current && (current.id === id || chord && current.chord === formatChord(chord))) setPopup(null);
       // One key press counts once, and holding a key down is not five uses.
       if (source && typeof source === 'object') { if (counted.has(source) || source.repeat) return; counted.add(source); }
-      save(recordKeyUse(notebook.current, id, { now: Date.now(), settings: latest.current.settings }));
+      const before = notebook.current.keys[id]?.quietUntil || 0;
+      const next = recordKeyUse(notebook.current, id, { now: Date.now(), settings: latest.current.settings });
+      save(next);
+      if ((next.keys[id]?.quietUntil || 0) !== before) window.dispatchEvent(new CustomEvent(CHANGED));
     };
     const changed = () => {
       notebook.current = loadShredderNotebook();

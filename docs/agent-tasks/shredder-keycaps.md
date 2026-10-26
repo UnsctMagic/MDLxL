@@ -1,6 +1,6 @@
 # Shredder keycap shortcut reminders
 
-Status: patch needed (see "Review patch for Codex" at the end)
+Status: ready for review; awaiting merge approval. AI shortcut scope remains pending.
 Owner / consolidator: Codex continuation of Claude Code’s PR #304
 Updated: 2026-10-26
 
@@ -16,10 +16,11 @@ Updated: 2026-10-26
 ## Revision and local state
 
 - Branch: `claude/shredder-keycaps`, PR #304 (draft, not merged).
-- The first Codex continuation started from pushed commit `6780d2b1`; the
-  current correction starts from `5c84c94d` in the temporary revision2 copy
-  listed below. Original checkouts and user-opened test apps are preserved.
-- Base: `origin/main` at 2d6ca1e8 (after 0.31.0).
+- Current continuation started from Claude's pushed review `1bfb6297`.
+  Main `548c1b89` was merged into this same feature branch in `c29171aa`.
+  Original checkouts and user-opened test apps are preserved.
+- Working task: `D:\Codex\mdlxl-shredder-review-20261026`; its disposable
+  source/build/profile are removed after pushing; small verification reports remain.
 - Fixtures: none (the Electron test writes a demo model to `out/shredder`).
 
 ## Findings and decisions
@@ -94,7 +95,7 @@ Updated: 2026-10-26
   Bring back silenced keys in Settings. Its count updates while Settings is open.
 - Keep SHREDDER_TEST_VERSION true. Particle Editor, AnimXL and Texture Library
   shortcut coverage stays a separate follow-up. No merge or release authorized.
-- Current test copy: D:\Codex\mdlxl-shredder-keycaps-20261026\revision2\source,
+- Historical test copy (removed after push): D:\Codex\mdlxl-shredder-keycaps-20261026\revision2\source,
   same claude/shredder-keycaps branch. Both previous test apps have user work
   open; do not replace their files, close them, or reload their windows.
 - Verification: 33 focused checks pass; full source suite 1,938 pass, 22 skipped,
@@ -155,3 +156,34 @@ back silenced keys" button (documented in `docs/SHREDDER.md`). No merge into
 `main` or release is authorized. When done: update this note's status, re-run
 the focused Shredder tests, full `pnpm run test:source`, `pnpm test`, and the
 packaged Shredder check, then report `ready for review; awaiting merge approval`.
+
+## Codex review patch result (2026-10-26)
+
+- Resolved the four main conflicts, preserving AI offscreen rendering, MDL icon
+  preferences, per-window shortcut allocation and the translated Hotkey prefix.
+  Recounted merged catalogs: Russian 6,396; Spanish 6,408; Chinese 3,595.
+- Learned-key quiet-time changes now broadcast the existing notebook event;
+  ordinary uses do not. Settings updates its learned count without reopening.
+- Storage failures preserve the session notebook. Failed writes cannot reload
+  stale storage over a new mute; Settings can restore mutes and learning
+  independently even when reads and writes both throw.
+- Verification: 27 focused tests; full source 1,971 pass / 22 skipped / zero
+  failures; compatibility 57 pass; production build and verified packaging pass.
+  Packaged interaction checks pass, including both regression cases, the
+  owner's above-button placement, mute/restore, timing and actual mouse rotation.
+- Crawl: 930 / 1,022 registered control sightings keyed, no codes, long defaults
+  or within-window clashes. MDL/MDX icon controls use their names; Bones keeps
+  F4. Paint was audited separately using an MDX800 demo because the old Footman
+  fixture is MDX1800. The first crawl's Paint timeouts were fixture limitations;
+  the separate Paint crawl completed, followed by a transient profile-file lock
+  during cleanup. Audit outputs were written successfully.
+- Coverage gap: AI console and connection settings have no shortcut hooks,
+  including Attach/reference and connection-copy controls. This contradicts
+  the review's assumption that allocation could simply be confirmed. The owner
+  was asked whether to add these here or handle them separately; no answer yet.
+  This remains an open scope decision, not a newly approved exclusion.
+- Preserve test-on flag, original three exclusions and every owner refinement.
+  No merge into main, release, installed-app/profile change or new visible app.
+- PR CI is checked after pushing; its final result is recorded in the review
+  report and PR description. User visible acceptance and Warcraft III gameplay
+  are not claimed by these checks.
