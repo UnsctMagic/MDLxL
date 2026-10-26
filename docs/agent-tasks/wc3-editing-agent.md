@@ -342,6 +342,39 @@ Research inputs stay where they are for reference; do not copy them into the gui
 - Keep PR #318 unmerged until the owner accepts it. Reconcile with #317 as
   described above.
 
+## Review of the second pass (Claude Code, 26 October 2026, at 66c96fb1)
+
+Approved apart from one patch. The core and guides meet the second-pass brief:
+ordered methods, direct instructions, no sources or object names, limits in the
+verification guide. Checked: every function the guides name exists in `src/`
+with the stated parameters; the pivot compensation `t + (R*S - I)*d` matches
+`T(t+p) R S T(-p)`; billboard bits 8/16/32/64 and PE2 ModelSpace `524288` are
+right; retiming matches `setAnimationActualSpeed` (whole percent 1..300); the
+layered-surface method (triangle correspondence by patch, facing and side,
+copied influences in contact, blend to the independent driver) is usable.
+
+### Patch: colour channel order
+
+The guides tell the AI to write RGB for every colour. MDLxL's in-memory order
+is not uniform:
+
+- `src/geoset-color-codec.js` and `src/mdx-compatibility.js` convert animated
+  geoset, light (`KLAC`, `KLBC`) and ribbon (`KRCO`) colour tracks from BGR to RGB
+  on load and back on save; static values are left untouched.
+- `src/warcraft-dnc.js` reverses light `Color`/`AmbColor` (static and animated)
+  when sampling, treating them as BGR. If animated tracks are already RGB, one of
+  the two places is wrong for animated lights.
+- PE2 `SegmentColor` and static light colours have no conversion anywhere.
+
+Establish, with a native model whose colours are known (a coloured light, a
+coloured particle effect, a tinted geoset), the in-memory channel order for each
+colour field: geoset static/animated, light static/animated (Color and AmbColor),
+PE2 SegmentColor, ribbon static/animated, popcorn. Then state it per field in
+`WC3-EDITING-UV-MATERIALS.md` and `WC3-EDITING-EMITTERS.md` (for example "write
+static light Color as stored, B,G,R" or "RGB; the codec converts"). Do not fix
+codec or preview code in this task: report any inconsistency found (such as the
+animated-light reversal above) in this note for the owner to decide.
+
 ## Next action
 
 Second pass is implemented and verified. Owner review of the revised core and
