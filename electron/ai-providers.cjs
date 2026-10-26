@@ -208,6 +208,7 @@ async function runApi({
       }
       let response;
       try {
+        event({ type: 'request', model: settings.model });
         response = await requestJson(
           base + '/messages',
           {
@@ -309,6 +310,7 @@ async function runApi({
       }
       history.push({ role: 'user', content: results });
     } else {
+      event({ type: 'request', model: settings.model });
       const response = await requestJson(
         base + '/chat/completions',
         {
@@ -545,6 +547,7 @@ class CodexProcess {
         last = usage.last || usage.total || {};
       const used = last.inputTokens ?? last.totalTokens;
       if (used && usage.modelContextWindow) this.event({ type: 'usage', used, window: usage.modelContextWindow });
+      if (usage.total?.totalTokens != null) this.event({ type: 'cost', tokens: usage.total.totalTokens, usd: null });
     }
     if (message.method === 'item/reasoning/summaryTextDelta' || message.method === 'item/reasoning/textDelta') {
       if (p.itemId && this.reasoningId && p.itemId !== this.reasoningId)
@@ -606,7 +609,16 @@ async function runCodex(options) {
     steering,
   } = options;
   const mcp = await startMcpServer({ tools, call, awareness });
-  const client = new CodexProcess(settings, { directory, event, mcp, signal });
+  const tokenBaseline = conversation.providerTotalTokens ?? (conversation.threadId ? null : 0);
+  const client = new CodexProcess(settings, { directory, event: value => {
+    if (value.type === 'cost') {
+      conversation.providerTotalTokens = value.tokens;
+      // Older resumed threads have no recorded total: do not bill their entire past as this turn.
+      if (tokenBaseline === null) return;
+      value = { ...value, tokens: Math.max(0, value.tokens - tokenBaseline) };
+    }
+    event(value);
+  }, mcp, signal });
   let unsubscribe,
     unsteer,
     turnId,
@@ -686,6 +698,7 @@ async function runCodex(options) {
       });
     };
     unsteer = steering?.subscribe(steer);
+    event({ type: 'request', model: settings.model, unit: 'turn' });
     const started = await client.request('turn/start', {
       threadId: conversation.threadId,
       input: [{ type: 'text', text: prompt }, ...(images || []).map(url => ({ type: 'image', url }))],
@@ -828,6 +841,7 @@ async function runClaude({
               }
             }
             if (data.type === 'assistant' && data.message?.usage) {
+              event({ type: 'request', model: settings.model });
               const u = data.message.usage;
               used = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
             }
@@ -853,6 +867,7 @@ async function runClaude({
                 }
             if (data.type === 'result') {
               finalResult = data;
+              if (data.usage) event({ type: 'cost', tokens: Object.entries(data.usage).filter(([key]) => /^(?:input_tokens|output_tokens|cache_read_input_tokens|cache_creation_input_tokens)$/.test(key)).reduce((n, [, v]) => n + Number(v || 0), 0), usd: data.total_cost_usd ?? null });
               const window = Object.values(data.modelUsage || {})[0]?.contextWindow || 200000;
               if (used) event({ type: 'usage', used, window });
               if (!streamed && data.result) event({ type: 'text', text: data.result });

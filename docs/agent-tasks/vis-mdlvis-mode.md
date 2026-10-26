@@ -1,6 +1,6 @@
 # VIS stays MDLVis
 
-Status: active (contract for Codex)
+Status: Claude review blockers addressed; ready for independent review
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
 
@@ -21,8 +21,9 @@ Done means, with VIS on, at every window size:
   order and keys. No icon chips, no new-look styling, no shrinking to icons
   or first letters, no other responsive compaction.
 - None of the new-look rules, labels or measurements apply. VIS looks the
-  same as the last release before the new look (`v0.30.1`) unless the owner
-  approved a VIS change since (example: the AI icon beside XL, 0.31.0).
+  same as the last release before the new look (`v0.30.1`). The owner's latest
+  instruction removes AI from VIS: no AI button or console.
+  XL retains the AI console and draft state.
 - Turning VIS off restores the new look exactly as it was (tabs, chips,
   PR #321's letter shortening on overflow).
 - Out of scope: any change to the new look itself, model data, menus'
@@ -30,9 +31,15 @@ Done means, with VIS on, at every window size:
 
 ## Revision and local state
 
-- Base: `main` at `85c38382` (merge of PR #321).
-- Branch: start `codex/vis-mdlvis-mode` from current `main`.
-- No uncommitted work or fixtures needed.
+- Base: latest `main` at `de08162e` when this task began (PR #323).
+- Branch: `codex/vis-mdlvis-mode`.
+- Integrated newer main `a4c86621` (PR #304) after it landed during the task;
+  retained its Shredder/LER, shortcut and new-look dock changes. Repeated the
+  packaged checks and compared VIS-off against a matching current-main build.
+- Integrated main `528f5edf` (PR #326) after Claude's review; retained its AI console memoization and frame subscription while passing `visUI` to the same component.
+- PR: [#324](https://github.com/UnsctMagic/MDLxL/pull/324).
+- All work and disposable test data used `D:\Codex\mdlxl-vis-mdlvis-20261026`;
+  installed apps and real profiles were not changed.
 
 ## Relevant owners
 
@@ -48,41 +55,105 @@ Done means, with VIS on, at every window size:
 - Map row: "Main window look" in [agent-map.md](../agent-map.md); related
   note [new-look.md](new-look.md).
 
-## Findings and decisions
+## Packaged comparison and decisions
 
-- Verified (code, `85c38382`): VIS CSS already hides model tabs and editor
-  buttons (`portrait-view.css` lines 34-35), and Quick Display uses the VIS
-  menu in VIS. So PR #321's letter shortening is not visible in VIS today.
-- Verified: PR #321's measuring still runs in VIS and its
-  `data-short-editors` CSS in `modules.css` is not scoped away from VIS. Any
-  later change that shows a button in VIS would show the letters. Make the
-  effect skip VIS (`visUI` true: don't measure, remove the attribute) and
-  scope the CSS to `:not([data-vis-ui])`.
-- Uncertain: the owner reports VIS currently differs from MDLVis (tabs,
-  visibility shortcuts). Not seen by Claude in the running app. Codex must
-  look at VIS in the packaged app before and after, side by side with a
-  `v0.30.1` build, and list every difference found, then fix each one that
-  isn't an owner-approved VIS change.
-- Decision: follow AGENTS.md (no new panels/controls, one way of doing
-  things). Fixes are removals/scoping, not new UI.
+Compared packaged `v0.30.1` (`af1d0f12`) and the starting main build on the
+hidden Windows desktop, in Vertices, Bones, Movement and Animations at
+900x760, 1100x760 and 1920x1080, with VIS on and off. Differences found:
 
-## Verification required
+| Starting main in VIS | v0.30.1 / resulting VIS |
+| --- | --- |
+| AI/XL dock in the first toolbar row; 24px buttons | Dock restored to the right of the second row; classic 46px buttons |
+| Team colour before Hide/Show | Team colour restored after Hide/Show |
+| DPI/Scroll in the status bar | DPI/Scroll restored to the toolbar's right edge |
+| Editor name/key hint removed from status bar | Classic editor hint restored in VIS only |
+| PR #321 measures the editor row in VIS; its CSS applies there | Remove the attribute and return before measuring/observing; scope all three shortening rules to `:not([data-vis-ui])` |
+| AI icon added since v0.30.1 | Owner now requires no AI in VIS: hide the icon and console; retain only XL in the classic dock |
 
-- Source test (new or extend [quick-display-placement.test.js](../../test/quick-display-placement.test.js)):
-  with VIS on, no `data-short-editors`, no model tabs/editor buttons
-  visible, Quick Display shows the VIS checkbox list per editor.
-- Packaged app on a hidden desktop (never pop windows on the owner's
-  screen): VIS on at narrow (~900px), 1100x760 and wide widths, in Vertices,
-  Bones, Movement and Animations; then VIS off at the same sizes. Screenshots
-  of each, compared with `v0.30.1`.
-- Mouse camera rotation still works in the VIS preview (real drag).
-- `pnpm test`, `pnpm run test:source`, PR CI green.
-- PR into `main` with `Session: codex <task>`; report `ready to test` with a
-  short click-through for the owner.
+No visible tabs, editor buttons, icon chips or shortened checkbox names were
+found in VIS in the starting package. The checkbox styles, names, order, keys,
+sidebars and remaining chrome matched v0.30.1. New-look SVGs are now omitted
+from VIS Quick Display markup as well, rather than merely hidden by CSS.
 
-## Blockers and next action
+The classic VIS list is the JSON list with the existing Bones/Attachment
+shortcut exclusions. Both versions deliberately force Bones, Helpers and
+Attachments visible in VIS (`App.jsx`, introduced before v0.30.1 in PR #254).
+The existing menu entries remain untouched. The owner explicitly confirmed
+preserving v0.30.1's working VIS checkbox list. No VIS visibility feature is added.
 
-- None. Next: Codex branches, audits VIS against `v0.30.1`, fixes, verifies,
-  opens the PR.
-- On completion: mark this note completed with the PR, remove its row from
-  [README.md](README.md).
+Only presentation owners changed: AppToolbar, QuickDisplay, portrait-view.css,
+modules.css, and the status-bar presentation in App. The model, command handlers,
+menus, viewport behavior and separate XL/VIS display state retain their existing
+implementation. With VIS off, all 12 captured layout/style snapshots match the
+starting main build exactly, including PR #321's overflow shortening.
+
+## Verification
+
+- [Source regression](../../test/vis-mdlvis-mode.test.js): executes the actual
+  layout effect with width getters that fail if VIS reads them, checks observer
+  cleanup/restoration in XL and CSS scoping; renders both Quick Display variants
+  for all four editors and checks checkbox labels/actions/order/state and icons.
+- [Packaged regression](../../test/vis-mdlvis-mode.electron.cjs): run through
+  `pnpm run test:packaged default vis-mdlvis-mode` on the hidden desktop.
+  Checks all 24 editor/size/look combinations, complete screenshot matrix,
+  real Alt + left-mouse drags, no VIS width reads or clipped names, the original
+  checkbox click/key bindings, and restored XL tabs/chips/shortening.
+- Model JSON, serialized MDX bytes, revision and undo history unchanged through
+  toggles, shortcut interactions and camera drags. Actual XL and VIS saves of a
+  disposable fixture also produce identical bytes; original input hash
+  unchanged. The open AI console and an unsent prompt also survive VIS/XL toggles; VIS hides the AI button and console, and XL restores
+  them without remounting. The no-AI follow-up passed the same full source and
+  compatibility suites and all 24 packaged VIS/XL cases.
+- `pnpm test`: 57 passed, zero failures.
+- `pnpm run test:source`: 1,983 passed, 22 existing skips, zero failures.
+- Focused toolbar/VIS/dock source checks: 16 passed.
+- Build/package verification passed; no renderer errors in the packaged matrix.
+- PR CI: [checks](https://github.com/UnsctMagic/MDLxL/pull/324/checks). The owner authorizes a separate Codex reviewer to merge only if acceptable;
+  otherwise return findings to the originating chat for fixes. No release requested.
+
+The Windows toolchain used existing dependencies through a junction. Script
+runs disabled pnpm's automatic pre-run reinstall for that junction; no project
+configuration or dependency files changed. Test builds/profiles/runtimes are
+removed after verification; only the small report, logs and two comparison
+images are retained under the task's `report` directory.
+
+## Claude review follow-up
+
+Claude's [review of 5420b0d7](https://github.com/UnsctMagic/MDLxL/pull/324#issuecomment-6418899055)
+found two blockers. Both are addressed without changing model or provider behavior:
+
+- App passes VIS state to AiAssistant. Its existing sketch visibility lifecycle
+  now uses `open && !visUI`, which disarms drawing tools and removes rendered
+  strokes on entering VIS. Stored drawings and the XL draft/console remain intact.
+- The body-portaled cleanup question is not rendered in VIS. Its detached
+  hotkey root follows VIS transitions too. A pending question appears on return
+  to XL; an already-remembered cleanup choice retains its existing silent behavior.
+- The packaged VIS regression now draws a real Pen stroke in XL, checks it is
+  hidden/disarmed in VIS, performs plain vertex-selection drags and model
+  Undo/Redo without stepping drawings, then verifies the draft and drawings in XL.
+- Saving with simulated local AI activity in VIS creates no dialog or modal
+  shortcut capture. The question appears in XL, and remembered cleanup is silent.
+  No external AI request is used for these fixture checks.
+- All 24 packaged cases, actual file-save byte comparisons, 57 compatibility
+  tests and 1,983 source tests passed (22 existing source skips).
+- After integrating PR #326, repeated the build, both required suites and all 24 hidden packaged cases successfully. The cleanup test observes its local save IPC fixture rather than stale React fiber state; all dialog and shortcut assertions remain.
+- Owner requests automatic independent Claude Opus 5.5 / medium review. Claude
+  may merge if acceptable with green CI; otherwise create a fix task and contact
+  the originating Codex chat. Codex goes idle after dispatch.
+
+## Owner click-through
+
+1. Open a model, click VIS, and resize around 900px, 1100x760 and a wide window.
+2. Use Modules / F1 and F3 to visit Vertices, Bones, Movement and Animations.
+   Check the classic checkbox row, absent tabs/editor buttons, only XL in the classic dock,
+   top-right DPI/Scroll and bottom-right editor hint.
+3. Alt + left-drag the preview to rotate. Click a visibility checkbox or use
+   its existing hotkey, then switch editors and return.
+4. Click XL. Check that model tabs, editor buttons, icon/name chips, status
+   controls and overflow initials return. Save and reopen if desired.
+
+## Next action
+
+Independent Claude review of the updated PR #324. The two findings on 5420b0d7 are addressed in 0b6dc090; current-main integration preserves both fixes. Merge only if acceptable and CI is green
+on the reviewed head. Otherwise send actionable findings to originating Codex
+chat `01a17855-e29f-7711-8a1b-83dca97442b1` for fixes. This editing chat has not merged it.

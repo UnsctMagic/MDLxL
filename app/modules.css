@@ -73,6 +73,6 @@
 .classic-modules .animxl-tool .module-icon-badge{color:#ff5c5c}
 
 /* Shorten only inactive editor names when the full row would clip. */
-.editor-modules>button>.editor-initial{display:none}
-.editor-modules[data-short-editors]>button:not([aria-pressed=true])>.editor-name{display:none}
-.editor-modules[data-short-editors]>button:not([aria-pressed=true])>.editor-initial{display:inline}
+.classic-app:not([data-vis-ui]) .editor-modules>button>.editor-initial{display:none}
+.classic-app:not([data-vis-ui]) .editor-modules[data-short-editors]>button:not([aria-pressed=true])>.editor-name{display:none}
+.classic-app:not([data-vis-ui]) .editor-modules[data-short-editors]>button:not([aria-pressed=true])>.editor-initial{display:inline}
