@@ -212,7 +212,7 @@ export default function App() {
   const [globalSeqId, setGlobalSeqId] = useState(null), [highlightByPanel, setHighlightByPanel] = useState({ movement: false, animations: false }), [highlightChain, setHighlightChain] = useState(false);
   const [sequence, setSequence] = useState(-1), [time, setTime] = useState(0), [playing, setPlaying] = useState(false), [playbackSpeed, setPlaybackSpeed] = useState(100), [dialog, setDialog] = useState(null), [context, setContext] = useState(null);
   useEffect(()=>setAdjustingInput(null),[mode,settingsTab,dialog?.type]);
-  const [animationPanel, setAnimationPanel] = useState('movement'), [selectedNodeIds, setSelectedNodeIdsState] = useState([]), [movementMode, setMovementMode] = useState('select'), [movementSpace, setMovementSpace] = useState('local'), [showNodes, setShowNodes] = useState(true);
+  const [animationPanel, setAnimationPanel] = useState('movement'), [selectedNodeIds, setSelectedNodeIdsState] = useState([]), [movementMode, setMovementMode] = useState('select'), [movementSpace, setMovementSpace] = useState('world'), [showNodes, setShowNodes] = useState(true);
   // Leaving Movement or Animations ends a camera drag the preview never finished.
   useEffect(()=>setCameraGesture(false),[animationPanel]);
   const poseConfig = session.pose || { enabled: false, chains: [], body: null, pins: [], target: null };
