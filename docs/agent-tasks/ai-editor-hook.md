@@ -250,6 +250,78 @@ checks for this continuation are complete; CI runs against the pushed revision.
 The user's existing test profile and saved models stay separate from the package.
 `test/ai-live.electron.cjs` remains the opt-in real-account acceptance harness.
 
+## Background work: each bird has its own environment (2026-10-25, Claude)
+
+Branch `claude/ai-own-environment-c7eceb`. Replaces PR #291's pause-and-resume
+("option 1") with true background work ("option 2"), as the owner asked on
+2026-10-24 ("work on other tabs on other models while AI works in one tab").
+
+- `app/ai-editor.js`: `env(target)` is the task's own tab: the live editor when
+  that tab shows, else the tab's document with the selection/view the target
+  captured at send time (`target.restore`, `sequence`, `frame`, `view`,
+  `renderMode`, `hidden`, `annotations`). Every tool reads and writes through it.
+  `requireTarget` for a hidden tab checks only its revision (no one else can edit
+  it); back on screen it re-baselines the selection signature once, then the old
+  same-tab stop applies. Closing the tab stops the task.
+- Only `needsScreen` steps wait (`mdlxl_ui`, `mdlxl_command` other than undo/redo,
+  `mdlxl_select` with timeline keys) through the existing `waitForTarget` pause.
+- Hidden-tab edits: `host.editIn` → `src/ai-tab.js` `editTab` (the tab's own
+  `doc.apply`, UV-preview guard, selection snapshot on its Undo entry, tab
+  `viewState` selection clamped), plus a recovery checkpoint. `undoIn`/`selectIn`
+  likewise. Textures go to that tab's assets.
+- Pictures: `bridge.picture()` → `host.render` → `app/AiOffscreenRender.jsx`, a
+  hidden `GamePreview` (one per picture, `captureView`). Used for hidden-tab
+  captures, every `samples` capture and every review picture (before, after,
+  side views, animation frames), so `mdlxl_review` no longer moves the live view
+  or playhead. A plain capture of the tab on screen still copies the live
+  viewport (keeps the selection marks the packaged test checks).
+- Verification: `test/ai-background.test.js` (6: background edit with separate
+  Undo, off-screen pictures, samples off-screen on the shown tab, screen-only step
+  waits then runs, same tab still blocks, selection/closing). Packaged
+  `ai-console` 61/61 (owner edits Second while Crow patches, reviews and passes on
+  Footman; review pictures off-screen; owner's view unchanged; screen step pauses;
+  each tab's Undo separate; both models save). `ai-editor` 63/63 with its native
+  sign-in section skipped locally (that section fails on this PC on main too; its
+  `codex.cmd` stand-in now runs through Node directly) and a one-time context
+  refresh before one `mdlxl_select` (also fails the same way on `main`
+  e69d2594 here: the timeline key context appears after the context is read).
+  `ai-awareness` passed. Source 1,955 (0 failed), compatibility 57.
+- Several jobs at once (owner's follow-up, same day): `AiService.tasks` holds one
+  prompt task per chat (`active` stays for exclusive sign-in/model-list/memory-note
+  requests); a second task on the same `documentId` is refused, worker locks are
+  per model (`workerLocks`), `steer`/`cancel(id)` find the chat's own task
+  (`taskOf`), and a `running` event plus `status().running` let the console show
+  busy per chat (`AiAssistant` `busy` = this chat, `anyBusy` = connection settings).
+  The bridge queues steps per document, so a step waiting for its tab never holds
+  up another model's task. Tests: `ai-offload.test.js` (two models at once),
+  `ai-background.test.js` (waiting step does not block another model).
+- Drawings in pictures (owner's follow-up): the target keeps the send-time strokes;
+  `picture()` passes them and the marked vertices (posed at the picture frame via
+  `sampleAiModel`) as `marks`; `AiOffscreenRender` paints them over the capture
+  using the new `GamePreview` capture API `project(points)`.
+- Limits: a hidden tab's `mdlxl_view mode` only records the mode; marks are drawn
+  on top of the model (no depth test).
+- Real Codex acceptance (gpt-6-luna, owner's subscription, 2026-10-25):
+  `test/ai-live-tabs.electron.cjs` (opt-in, skipped by the runner) drives 15
+  prompts on three generated models in five batches, jobs running side by side:
+  vertex move, bone/animation renames, geoset delete, new animation, flipped
+  normals, pivot move, animation key, a question, marker colour seen in an
+  off-screen picture, off-screen front/left pictures, save waiting for its tab,
+  scale, non-looping flag and an AI Undo. All 15 passed (51 + 20 checks; the
+  last batch ran separately with `MDLXL_AI_LIVE_FROM=5`), including three jobs at
+  once, the owner's Ctrl+Z on one tab only, the view never moving and files
+  untouched until saved. Use a profile with its own sign-in (`codex login` with
+  `CODEX_HOME=<profile>/ai/codex`): a copied `auth.json` goes stale when the
+  original refreshes (about hourly) and could sign the original out.
+- Bugs that real/packaged runs found and that are fixed: the console re-saved the
+  connection before every send and that was refused while another job ran
+  (`configure` now accepts an unchanged connection); the Codex sign-in check before
+  every send was refused likewise (`auth('status')` is no longer exclusive); right
+  after a tab switch the console still showed the previous model's chat, so a
+  prompt became steering for the other model's job (`switching` blocks sending
+  until the tab's own chat loads); `mdlxl_command save` returned before the file
+  was written (it now waits while `saving`; this made `ai-awareness` resume fail).
+
 ## SD Brain (2026-10-24, Claude)
 
 - Implemented from `D:\Codex\mdlxl-sd-rulebook-20261024\outputs\SD-BRAIN-IMPLEMENTATION-BRIEF.md` on the Claude console branch (Offload Mode, steering, Marker/Pen).

@@ -112,6 +112,8 @@
 
 /* View controls float as a soft pill. */
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label{left:12px!important;top:12px!important;display:flex;gap:4px;padding:4px!important;width:auto!important;height:auto!important;border-radius:11px;background:var(--ui-panel)!important;box-shadow:0 2px 10px #0002,0 0 0 1px var(--m-line)}
+/* Quad View keeps them as a strip above the panes, so the pill offset must not cover the pane labels. */
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.quad-workspace,.forge-editor-workspace:has(.quad-pane)) .classic-view-label{left:0!important;top:0!important;border-radius:0;box-shadow:0 1px 0 var(--m-line)}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label :is(select,button){min-height:26px!important;height:26px!important;border-color:transparent!important;background:transparent!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label select{width:auto!important;padding-right:24px!important}
 :root .classic-app.classic-app:not([data-vis-ui]) .viewport-orientation-compass{top:60px!important;left:14px!important}

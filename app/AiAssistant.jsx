@@ -258,12 +258,24 @@ function WorkerPart({ part, onOpen }) {
     </div>
   );
 }
+// What one API prompt cost: dollars for known Anthropic models, otherwise tokens.
+function CostLine({ cost }) {
+  const tokens = Math.round(cost.tokens / 1000).toLocaleString() + 'k tokens';
+  return (
+    <div
+      className="ai-cost"
+      title="What this prompt has cost on your API key so far. Each step resends the conversation; repeated text is billed at a lower rate."
+    >
+      {cost.usd === null ? tokens : `About $${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`}
+    </div>
+  );
+}
 function AssistantMessage({ message, live, onOpenWorker }) {
   // A worker row stands for the organiser's hand-off step, so that step is not shown twice.
   const parts = (message.parts?.length ? message.parts : message.text ? [{ type: 'text', text: message.text }] : []).filter(
     part => !(part.type === 'tool' && toolName(part.name) === 'mdlxl_worker'),
   );
-  return parts.map((part, index) =>
+  const shown = parts.map((part, index) =>
     part.type === 'worker' ? (
       <WorkerPart key={index} part={part} onOpen={onOpenWorker} />
     ) : part.type === 'thinking' ? (
@@ -278,6 +290,7 @@ function AssistantMessage({ message, live, onOpenWorker }) {
       <AiMessage key={index} text={part.text} />
     ),
   );
+  return message.cost ? [...shown, <CostLine key="cost" cost={message.cost} />] : shown;
 }
 
 export default function AiAssistant({ bridge }) {
@@ -288,7 +301,8 @@ export default function AiAssistant({ bridge }) {
     [models, setModels] = useState([]),
     [status, setStatus] = useState(''),
     [error, setError] = useState(''),
-    [busy, setBusy] = useState(false),
+    [sendingId, setSendingId] = useState(null),
+    [running, setRunning] = useState([]),
     [authBusy, setAuthBusy] = useState(false);
   const [signedIn, setSignedIn] = useState(null);
   const [task, setTask] = useState(null),
@@ -306,6 +320,12 @@ export default function AiAssistant({ bridge }) {
     [savedChoice, setSavedChoice] = useState('ask'),
     [connected, setConnected] = useState(false);
   const id = view;
+  // Each model's chat works on its own: this chat is busy while its task or one of
+  // its birds runs; other models' AI jobs only block the shared connection settings.
+  const chats = [org?.id, ...(org?.workers || []).map(w => w.id)].filter(Boolean),
+    ours = chat => !!chat && (chat === id || chats.includes(chat));
+  const busy = ours(sendingId) || running.some(r => ours(r.id) || ours(r.worker)),
+    anyBusy = !!sendingId || running.length > 0;
   const [dock, setDock] = useState(null),
     [width, setWidth] = useState(storedWidth),
     [palette, setPalette] = useState(false);
@@ -323,6 +343,7 @@ export default function AiAssistant({ bridge }) {
       .aiStatus()
       .then(value => {
         setSettings(value);
+        setRunning(value.running || []);
         setExternal(value.enabled);
         setConnected(true);
       })
@@ -345,6 +366,7 @@ export default function AiAssistant({ bridge }) {
       if (event.type === 'offload') setSettings(previous => ({ ...previous, offload: event.enabled }));
       if (event.type === 'sd-brain') setSettings(previous => ({ ...previous, sdBrain: event.enabled }));
       if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
+      if (event.type === 'running') setRunning(event.running);
       if (event.id && event.id !== activeId.current) return;
       if (event.type === 'worker')
         setMessages(previous => {
@@ -387,6 +409,10 @@ export default function AiAssistant({ bridge }) {
           const part = { type: 'art', status: event.status, text: event.text || '' };
           if (at >= 0) message.parts[at] = part;
           else message.parts.push(part);
+        });
+      if (event.type === 'cost')
+        update(message => {
+          message.cost = { usd: event.usd, tokens: event.tokens };
         });
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       // A steering message may have split the reply since the tool started.
@@ -438,16 +464,12 @@ export default function AiAssistant({ bridge }) {
       if (event.type === 'notice' || event.type === 'auth') setStatus(event.text);
       if (event.type === 'error') {
         setError(event.text);
-        if (!event.worker) setBusy(false);
         if (event.authRequired) {
           setSignedIn(false);
           setSettingsOpen(true);
         }
       }
-      if (event.type === 'done') {
-        setStatus('');
-        setBusy(false);
-      }
+      if (event.type === 'done') setStatus('');
       if (event.type === 'awareness') setSettings(previous => ({ ...previous, awareness: event.enabled }));
       if (event.type === 'task') {
         setTask(event.task);
@@ -457,6 +479,9 @@ export default function AiAssistant({ bridge }) {
   }, []);
   const summaryNow = open ? bridge.summary() : null;
   const modelKey = summaryNow ? modelKeyOf(summaryNow.path, summaryNow.documentId) : null;
+  // Right after a tab switch the console still holds the previous model's chat until
+  // this model's chat loads; a prompt then must not reach the other model's job.
+  const switching = !!org && org.modelKey !== modelKey;
   useEffect(() => {
     if (!open || !modelKey || !window.desktop?.aiOrganiser) return;
     let live = true;
@@ -548,6 +573,7 @@ export default function AiAssistant({ bridge }) {
     return () => window.removeEventListener('mdlxl-cancel-gesture', cancel);
   }, []);
   const summary = summaryNow;
+  const references = open ? bridge.host().references?.() || [] : [];
   const viewWorker = org?.workers.find(worker => worker.id === view) || null;
   const earlierView = !!org?.earlier.includes(view);
   const readOnly = viewWorker?.status === 'retired' || earlierView;
@@ -627,6 +653,7 @@ export default function AiAssistant({ bridge }) {
   }
   async function send(resumeTask = false) {
     const resume = resumeTask === true;
+    if (switching || !id) return;
     if (!resume && busy) return steer();
     if ((!resume && !prompt.trim()) || busy || authBusy) return;
     if (native && signedIn === false) {
@@ -635,7 +662,8 @@ export default function AiAssistant({ bridge }) {
     }
     const text = prompt,
       attached = images;
-    setBusy(true);
+    const sending = id;
+    setSendingId(sending);
     setError('');
     setStatus('Connecting…');
     pinned.current = true;
@@ -684,7 +712,7 @@ export default function AiAssistant({ bridge }) {
     } catch (reason) {
       setError(reason.message);
     } finally {
-      setBusy(false);
+      setSendingId(current => (current === sending ? null : current));
       setStatus('');
     }
   }
@@ -697,7 +725,7 @@ export default function AiAssistant({ bridge }) {
       setSignedIn(!!result.loggedIn);
       setStatus('');
       if (!result.loggedIn) setSettingsOpen(true);
-      else if (settings.provider === 'codex' && !models.length) setModels(await window.desktop.aiModels());
+      else if (['codex', 'claude'].includes(settings.provider) && !models.length) setModels(await window.desktop.aiModels());
     } catch (reason) {
       setError(reason.message);
       setSettingsOpen(true);
@@ -708,7 +736,7 @@ export default function AiAssistant({ bridge }) {
   }
   function toggleOpen() {
     setOpen(!open);
-    if (!open && !busy && !authBusy && native && window.desktop?.aiAuth) authenticate('status');
+    if (!open && !anyBusy && !authBusy && native && window.desktop?.aiAuth) authenticate('status');
   }
   async function loadModels() {
     setAuthBusy(true);
@@ -788,7 +816,7 @@ export default function AiAssistant({ bridge }) {
       >
         <img src="./classic/btn-metamorphosis.png" alt="" draggable={false} />
         <span className="module-icon-badge" aria-hidden="true">
-          AI{busy ? '·' : ''}
+          AI{anyBusy ? '·' : ''}
         </span>
       </button>
       {open &&
@@ -845,7 +873,7 @@ export default function AiAssistant({ bridge }) {
                 aria-label="Offload Mode"
                 aria-checked={settings.offload !== false}
                 title={OFFLOAD_TIP}
-                disabled={busy}
+                disabled={anyBusy}
                 onClick={() => action(async () => setSettings(await window.desktop.aiOffload(settings.offload === false)))}
               >
                 <Bird size={15} aria-hidden="true" />
@@ -978,7 +1006,7 @@ export default function AiAssistant({ bridge }) {
                       <select
                         aria-label="AI provider"
                         value={settings.provider}
-                        disabled={busy || authBusy}
+                        disabled={anyBusy || authBusy}
                         onChange={event => changeProvider(event.target.value)}
                       >
                         {providers.map(([value, label]) => (
@@ -992,17 +1020,17 @@ export default function AiAssistant({ bridge }) {
                       <div className="ai-row">
                         <button
                           className={signedIn ? '' : 'ai-primary'}
-                          disabled={busy || authBusy}
+                          disabled={anyBusy || authBusy}
                           title="Sign in with your account in the browser."
                           onClick={() => authenticate('login')}
                         >
                           <LogIn size={14} aria-hidden="true" />
                           Sign in
                         </button>
-                        <button disabled={busy || authBusy} title="Check if you are signed in." onClick={() => authenticate('status')}>
+                        <button disabled={anyBusy || authBusy} title="Check if you are signed in." onClick={() => authenticate('status')}>
                           Check sign-in
                         </button>
-                        <button disabled={busy || authBusy} title="Sign out of this AI." onClick={() => authenticate('logout')}>
+                        <button disabled={anyBusy || authBusy} title="Sign out of this AI." onClick={() => authenticate('logout')}>
                           Sign out
                         </button>
                         {authBusy && (
@@ -1052,9 +1080,35 @@ export default function AiAssistant({ bridge }) {
                         ))}
                       </datalist>
                     </label>
+                    {!native && (
+                      <label title="Optional. A prompt stops once it has cost about this much on your API key; progress is kept. Works for Anthropic models with known prices. Leave empty for no limit.">
+                        Spending limit per prompt ($)
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="No limit"
+                          value={settings.spendLimit || ''}
+                          onChange={event => setSettings(previous => ({ ...previous, spendLimit: event.target.value }))}
+                        />
+                      </label>
+                    )}
+                    {settings.provider !== 'codex' && (
+                      <label title="Optional. A prompt stops after this many AI steps (each look, edit or check is a step); progress is kept. Leave empty for the usual maximum.">
+                        Step limit per prompt
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="Default"
+                          value={settings.stepLimit || ''}
+                          onChange={event => setSettings(previous => ({ ...previous, stepLimit: event.target.value }))}
+                        />
+                      </label>
+                    )}
                     <div className="ai-row">
                       <button
-                        disabled={busy || authBusy}
+                        disabled={anyBusy || authBusy}
                         title="Save these settings."
                         onClick={() =>
                           action(async () => {
@@ -1066,7 +1120,7 @@ export default function AiAssistant({ bridge }) {
                         Save connection
                       </button>
                       <button
-                        disabled={busy || authBusy || settings.provider === 'claude'}
+                        disabled={anyBusy || authBusy}
                         title="Get the list of available models."
                         onClick={loadModels}
                       >
@@ -1080,7 +1134,7 @@ export default function AiAssistant({ bridge }) {
                           CLI executable (optional)
                           <input
                             value={settings.executable || ''}
-                            disabled={busy || authBusy}
+                            disabled={anyBusy || authBusy}
                             placeholder={settings.provider + '.exe'}
                             onChange={event =>
                               setSettings(previous => ({ ...previous, executable: event.target.value }))
@@ -1237,7 +1291,7 @@ export default function AiAssistant({ bridge }) {
                   </div>
                 )}
                 <div className="ai-composer">
-                  {(summary || images.length > 0 || strokes.length > 0) && (
+                  {(summary || images.length > 0 || strokes.length > 0 || references.length > 0) && (
                     <div className="ai-chips">
                       {summary && (
                         <span
@@ -1255,8 +1309,31 @@ export default function AiAssistant({ bridge }) {
                           {summary.sequenceName != null && (
                             <span className="ai-chip-muted">{` · ${summary.sequenceName} @ ${Math.round(summary.time)}`}</span>
                           )}
+                          {summary.reference && (
+                            <button
+                              type="button"
+                              aria-label={`Remove reference ${summary.name}`}
+                              title="Remove this reference model (closes its tab)."
+                              onClick={() => bridge.host().removeReference(summary.documentId)}
+                            >
+                              <X size={12} aria-hidden="true" />
+                            </button>
+                          )}
                         </span>
                       )}
+                      {references.map(reference => (
+                        <span key={reference.id} className="ai-chip" title="A reference model you attached." translate="no">
+                          {reference.name}
+                          <button
+                            type="button"
+                            aria-label={`Remove reference ${reference.name}`}
+                            title="Remove this reference model (closes its tab)."
+                            onClick={() => bridge.host().removeReference(reference.id)}
+                          >
+                            <X size={12} aria-hidden="true" />
+                          </button>
+                        </span>
+                      ))}
                       {strokes.length > 0 && (
                         <span className="ai-chip" title="Your notes on the model.">
                           {translate(`${strokes.length} drawing${strokes.length === 1 ? '' : 's'}`)}
@@ -1311,7 +1388,8 @@ export default function AiAssistant({ bridge }) {
                     value={prompt}
                     onChange={event => setPrompt(event.target.value)}
                     onPaste={event => {
-                      const pasted = [...event.clipboardData.files];
+                      // Word and web pages put a picture of copied text beside the text: paste the text.
+                      const pasted = event.clipboardData.getData('text/plain') ? [] : [...event.clipboardData.files];
                       if (pasted.length) {
                         event.preventDefault();
                         action(() => attach(pasted));
@@ -1429,7 +1507,7 @@ export default function AiAssistant({ bridge }) {
                         )}
                       </span>
                       {busy && (
-                        <button type="button" className="ai-stop" title="Stop the AI." onClick={() => window.desktop.aiCancel()}>
+                        <button type="button" className="ai-stop" title="Stop the AI." onClick={() => window.desktop.aiCancel(id)}>
                           <Square size={11} aria-hidden="true" />
                           <span className="ai-hidden-label">Stop</span>
                         </button>
@@ -1439,7 +1517,7 @@ export default function AiAssistant({ bridge }) {
                         className="ai-primary ai-send"
                         aria-label={native && signedIn === false ? 'Sign in to send' : busy ? 'Steer' : 'Send'}
                         title={busy ? 'Send to the AI while it works.' : 'Send (Enter).'}
-                        disabled={!prompt.trim() || authBusy}
+                        disabled={!prompt.trim() || authBusy || switching}
                         onClick={() => send()}
                       >
                         {native && signedIn === false ? <LogIn size={15} aria-hidden="true" /> : <ArrowUp size={15} aria-hidden="true" />}

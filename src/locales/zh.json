@@ -3545,6 +3545,8 @@
   "Work on your selection": "编辑所选内容",
   "Enter to send": "按 Enter 发送",
   "Reference model added.": "已添加参考模型。",
+  "A reference model you attached.": "你附加的参考模型。",
+  "Remove this reference model (closes its tab).": "移除此参考模型（会关闭它的标签页）。",
   "Each image must be under 9 MB.": "每张图片必须小于 9 MB。",
   "Choose MDL, MDX, PNG, JPEG or WebP files.": "请选择 MDL、MDX、PNG、JPEG 或 WebP 文件。",
   "Inspecting the model": "正在检查模型",

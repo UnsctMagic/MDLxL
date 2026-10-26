@@ -56,8 +56,44 @@ into compacting.
   pause: waiting for you). Click a bird to read its chat, watch its thinking and
   steps, or talk to it directly. Retired birds and earlier chats of this model
   stay readable under **Retired**. **New chat** starts a new organiser for the model.
-- If you switch to another model tab while a bird works, it pauses before its next
-  step ("Paused until you return to …") and carries on when you come back.
+- If you switch to another model tab while a bird works, it keeps working on its
+  own model in the background (see below). Only a step that needs MDLxL's own
+  buttons or windows on screen pauses ("Paused until you return to …"; the bird's
+  chip shows a pause sign) and carries on when you come back.
+
+### Working in the background
+
+You can open or switch to another model and keep editing it while a bird works on
+the first one. The bird has its own environment for its model tab:
+
+- **Its own model and Undo.** Its edits go straight into its model, as normal Undo
+  steps of that tab. Your Undo on the tab you are using never touches them, and
+  theirs never touches yours. The tab shows the ● changed mark; save it as usual.
+- **Every editing tool.** Geometry, UVs, rig, animation, materials, textures,
+  events, emitters and the other model sections are edited through scripts and
+  patches on that model directly, as are selection, views, Undo/Redo, reading,
+  sampling, texture previews, reference models and export.
+- **Its own pictures.** The bird's pictures of its model, and every review picture
+  (before/after, side views, animation frames), are drawn in a hidden preview. Your
+  view and camera never move, also when the bird works on the tab you are looking at.
+  These pictures show the bird's marked vertices (red) and the Marker/Pen notes
+  sent with the prompt, from the picture's own angle and animation frame.
+- **Its own selection and drawings.** The selection and Marker/Pen notes are taken
+  when you send the prompt; what you select or draw on another tab does not change
+  them. When you switch to the bird's tab you see the selection it left there.
+- **Screen-only steps wait.** Editor commands other than Undo/Redo, program
+  controls (`mdlxl_ui`) and choosing timeline keys need the bird's tab on screen.
+  Such a step waits until you return to that tab.
+- **Same tab still stops.** On the tab being shown, if you change that model or its
+  selection while the bird prepares an edit, the edit is refused and the bird asks,
+  as before. Closing the bird's tab stops its task.
+
+**Several jobs at once.** Each model's chat runs its own job: while a bird works
+on one model, switch to another model's tab and send its chat a prompt; its own
+organiser and birds work alongside. One job per model at a time: a second chat of
+the same model is refused until the first finishes. **Stop** and steering act on
+the chat you are looking at. Connection settings and sign-in stay unavailable
+while any job runs, since all chats share one connection.
 
 After you save a model the AI worked on, MDLxL asks how to tidy its chats:
 **Keep everything**, **Keep a summary** (the organiser writes a memory note, then
@@ -143,7 +179,7 @@ your prompts, not a library of models to copy:
   craftsmanship, detail-value, motion, preservation): passed, needs-correction,
   unverified or not-applicable, each with an observation. Every `mdlxl_review
   inspect` also returns front, back, left and right views, so a part that only
-  works from one side is seen; the user's camera view is restored afterwards.
+  works from one side is seen; they are drawn off-screen, so the user's view never moves.
   A pass is refused while
   a criterion needs correction; the same criterion failing three times stops
   further revisions. Missing textures or a provider without image input leave
@@ -192,9 +228,9 @@ Mark vertices, select bones or timeline keys, then describe the change. For exam
 
 The prompt includes the active model, exact marked vertex IDs, selected bones,
 checked geosets, UV set, sequence, frame and selected timeline keys. An AI edit
-uses the editor's normal validation and Undo history. If you change the model or
-selection while the AI is preparing an edit, that delayed edit is rejected and
-the AI can explain why. **Stop** cancels pending work; edits already applied stay
+uses the editor's normal validation and Undo history of its own model tab. If you
+change that model or, while its tab is showing, its selection while the AI is
+preparing an edit, that delayed edit is rejected and the AI can explain why. **Stop** cancels pending work; edits already applied stay
 available in Undo. Nothing is saved automatically by sending a prompt.
 
 **Attach** adds MDL/MDX reference models or PNG/JPEG/WebP reference images.
@@ -204,14 +240,31 @@ Reference models remain open as ordinary tabs. Image paste also works.
 
 | Choice | Setup |
 | --- | --- |
-| Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), then click **Sign in**. Complete the provider's sign-in page in your browser. |
+| Codex / ChatGPT | Install the [Codex CLI](https://developers.openai.com/codex/cli), or use the installed Codex desktop app on Windows, then click **Sign in**. Complete the provider's sign-in page in your browser. |
 | Claude Code | Install [Claude Code](https://code.claude.com/docs/en/setup), then click **Sign in**. Your plan must support Claude Code. |
 | OpenAI API | Enter an OpenAI API key and choose a model that supports tools. |
 | Claude API | Enter a workspace-scoped Claude API key and choose a model that supports tools. |
 | Other AI / local model | Supply an OpenAI-compatible API base URL and model ID. HTTP is supported for localhost servers; remote endpoints use HTTPS. A local server need not require a key. |
 
 The native CLI executable is found on PATH, or can be chosen by entering its full
-path in Connection. A chosen path must name that provider's own CLI (`codex.exe`,
+path in Connection. PATH can omit a CLI (installed after Windows sign-in, or one
+that came with a desktop app), so on Windows MDLxL also searches, in order:
+
+- the official launcher folders: Codex's installer
+  (`%LOCALAPPDATA%\Programs\OpenAI\Codex\bin`), Claude Code's native installer
+  (`%USERPROFILE%\.local\bin`), npm (`%APPDATA%\npm`), pnpm, WinGet links and Scoop shims;
+- the copy kept by the desktop app: Codex in `%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>`,
+  Claude in `%LOCALAPPDATA%\Claude-Data\<package>\claude-code\<version>\<hash>` or
+  `%APPDATA%\Claude\claude-code\<version>`, including their Store-virtualized
+  `%LOCALAPPDATA%\Packages\…\LocalCache` folders. The newest file wins by modification time.
+
+A working chosen path takes priority; if a saved path disappears after an update,
+MDLxL searches again each time it launches the CLI. The saved setting and MDLxL's
+own sign-in profile are preserved, so each person signs in with their own account.
+npm launchers (`.cmd`) are not run through a shell: a JS entry runs with Node (the
+launcher's adjacent `node.exe`, PATH, or `%ProgramFiles%\nodejs`) and a native
+entry, such as Claude Code's `claude.exe`, runs directly.
+A chosen path must name that provider's own CLI (`codex.exe`,
 `codex.cmd`, `claude.exe`, `claude.cmd`), so the setting cannot launch another
 program. A saved API key is cleared when the API base URL changes, so it is never
 sent to a different server. Native providers manage their own sign-in in MDLxL's profile;
@@ -261,9 +314,9 @@ Embedded chat works without enabling this external listener.
 | `mdlxl_patch` | Precise JSON Pointer edits with typed values, validation and Undo. |
 | `mdlxl_select` | Change real vertex, bone, geoset and exact transform-key selections. |
 | `mdlxl_command` | Invoke existing editor commands using their normal behavior. |
-| `mdlxl_view` | Change workspace, camera preset, render mode, local/global animation, frame, playback and fit. |
+| `mdlxl_view` | Change workspace, camera preset, render mode, local/global animation, frame, playback and fit; for a tab that is not showing, the task's own view. |
 | `mdlxl_sample` | Measure node world transforms and skinned vertex positions/bounds across up to 32 frames without moving the playhead. |
-| `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call. |
+| `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call, drawn off-screen. |
 | `mdlxl_assets` | Search installed game/texture and personal part libraries, preview model textures, load donor references without switching the working model. |
 | `mdlxl_ui` | Inspect, set and click controls, capture the editor, or drag on a canvas/control using its actual mouse interaction. |
 | `mdlxl_document` | Open/list models, export with the existing serializer and asset writer, or validate MDX/MDL reopening. |
@@ -366,13 +419,19 @@ Warcraft III gameplay acceptance still requires testing in Warcraft III.
 ## Ownership and verification
 
 `src/ai-tools.js` owns the provider-neutral contract. `app/ai-editor.js` adapts it
-to `App.edit`, selection and existing commands. `electron/ai-service.cjs` owns
+to `App.edit`, selection and existing commands; its `env(target)` resolves the
+task's own tab (the live editor when showing, else that tab's document with the
+task's captured selection and view). `src/ai-tab.js` edits, undoes and selects in
+a tab that is not showing; `app/AiOffscreenRender.jsx` draws pictures in a hidden
+`GamePreview`. `electron/ai-service.cjs` owns
 connections, credentials, chat persistence and IPC. Native provider transports
 are in `electron/ai-providers.cjs`; external MCP is in `electron/ai-mcp.cjs`.
 `ai-sandbox.html` is a separate Vite entry with its own restricted preload/CSP.
 The main editor's CSP remains unchanged.
 
-Focused checks: `node --test test/ai-*.test.js`. The native interaction test is
+Focused checks: `node --test test/ai-*.test.js` (background work:
+`test/ai-background.test.js`; in the packaged app, `test/ai-console.electron.cjs`
+edits a second tab while a bird edits the first). The native interaction test is
 `test/ai-editor.electron.cjs`; run it on a hidden Windows desktop with a disposable
 profile. `MDLXL_AI_TEST_EXE` selects a packaged executable and `MDLXL_AI_TEST_OUT`
 selects its report directory. It uses a local provider fixture, so it does not
@@ -382,6 +441,9 @@ model-editing verification.
 For an opt-in real-provider acceptance check, use `test/ai-live.electron.cjs` on
 the hidden desktop. Set `MDLXL_AI_LIVE_PROFILE` to the MDLxL profile whose owner
 has signed in, plus the same packaged executable and report variables above.
+`test/ai-live-tabs.electron.cjs` is the same kind of opt-in check for several
+model tabs at once (15 small prompts on three generated models, jobs side by side);
+give its profile its own sign-in rather than a copied one.
 This makes real model requests against generated fixtures, checking selected
 vertex edits, one Undo, mirror/weld, sparse animation keys, unchanged other data,
 program help and MDX/MDL reopening. It preserves the signed-in profile and never

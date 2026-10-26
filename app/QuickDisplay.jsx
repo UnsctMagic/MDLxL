@@ -28,8 +28,8 @@ export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isE
   return <div ref={box} className={`quick-display${compact ? ' quick-display-compact' : ''}`} role="group" aria-label="Quick display">
     <div className="quick-display-options">
       <button title="Remove all display options; no model data is removed" onClick={onClear}><LookIcon name="clearDisplay"/><span className="quick-display-name">Clear</span></button>
-      {(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && !((vanilla || viewMode === 'bones') && ['display:bones', 'display:attachments'].includes(action))).map(([label, action]) =>
-        <label key={action} title={compact ? label : undefined}><input type="checkbox" aria-label={label} data-hotkey={action} checked={!!checks[action]} disabled={!isEnabled(action)} onChange={() => onCommand(action)}/><LookIcon name={action}/><span className="quick-display-name">{label}</span></label>)}
+      {(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && !(vanilla && ['display:bones', 'display:attachments'].includes(action))).map(([label, action]) =>
+        <label key={action} title={compact ? label : undefined}><input type="checkbox" aria-label={label} title={label} data-hotkey={action} checked={!!checks[action]} disabled={!isEnabled(action)} onChange={() => onCommand(action)}/><LookIcon name={action}/><span className="quick-display-name">{label}</span></label>)}
     </div>
   </div>;
 }

@@ -3,6 +3,7 @@ import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, i
 import { contextualHotkeyDefaults, hotkeyCode, HotkeySequence, HOTKEY_LEADER, LEGACY_HOTKEY_CATALOG_STORAGE_KEY, migrateHotkeyId } from '../src/hotkey-defaults.js';
 import { hotkeyBadge } from '../src/hotkey-badge.js';
 import { controlKind } from '../src/hotkey-allocation.js';
+import { translate } from '../src/localization.js';
 import './settings.css';
 import './hotkey-sequences.css';
 
@@ -100,7 +101,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         element.setAttribute('data-hotkey-shortcuts', keys.join(' / '));
         const forgeHint = id.startsWith('forge:');
         const shortKeys = keys.filter(key => !hotkeyCode(key));
-        const title = [element.getAttribute('data-hotkey-base-title'), forgeHint && keys.length ? `Hotkey: ${keys.map(formatChord).join(' / ')}` : shortKeys.length ? `Hotkey: ${shortKeys.map(formatChord).join(' / ')}` : ''].filter(Boolean).join('\n');
+        const title = [element.getAttribute('data-hotkey-base-title'), forgeHint && keys.length ? translate(`Hotkey: ${keys.map(formatChord).join(' / ')}`) : shortKeys.length ? translate(`Hotkey: ${shortKeys.map(formatChord).join(' / ')}`) : ''].filter(Boolean).join('\n');
         element.setAttribute('title', title); element.setAttribute('data-hotkey-tooltip', title);
         // Forge's own tiles keep their compact look: their window keys show in the tooltip only.
         if (element.tagName !== 'BUTTON' || element.getAttribute('data-hotkey-badges') === 'false' || forgeHint && !commandIds.has(id)) continue;
@@ -191,6 +192,11 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       if (event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);
+      // Text selected in the AI chat copies as text; the editor's Copy is for the model.
+      if (chord === 'Ctrl+C') {
+        const selection = event.target?.ownerDocument?.getSelection?.();
+        if (selection && !selection.isCollapsed && String(selection).trim() && selection.anchorNode?.parentElement?.closest('.ai-assistant')) return;
+      }
       if (sequence.active && (event.defaultPrevented || isTextEditingTarget(event.target) || event.isComposing || event.keyCode === 229)) { cancel(); return; }
       if (sequence.active || chord === HOTKEY_LEADER && canHandleHotkeyEvent(event)) {
         const next = sequence.feed(event);

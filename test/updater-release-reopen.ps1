@@ -17,7 +17,8 @@ $attempts=@()
 for($n=0;$n -lt 35;$n++){
  if(!(Test-Path -LiteralPath $lock)){break}
  $entry=@{at=[DateTime]::UtcNow.ToString('o');lockPresent=$true;lockReleasedDuringLaunch=$false;version=(Get-Content -LiteralPath (Join-Path $config.target 'resources/app/package.json') -Raw|ConvertFrom-Json).version;windows=@()}
- $reopen=Start-Process -FilePath $exe -WorkingDirectory $config.target -WindowStyle Hidden -PassThru
+ # Windows refuses a launch while the installer is replacing MDLxL.exe; nothing starts, so it counts as blocked.
+ try { $reopen=Start-Process -FilePath $exe -WorkingDirectory $config.target -WindowStyle Hidden -PassThru } catch { $entry.refused=$_.Exception.Message;$entry.exited=$true;$attempts+=$entry;Start-Sleep -Milliseconds 500;continue }
  $entry.pid=$reopen.Id
  for($j=0;$j -lt 150 -and !$reopen.HasExited;$j++){
   if(!(Test-Path -LiteralPath $lock)){$entry.lockReleasedDuringLaunch=$true;$entry.lockReleasedAt=[DateTime]::UtcNow.ToString('o');break}

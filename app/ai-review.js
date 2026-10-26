@@ -10,15 +10,35 @@ export async function aiCheckpoint(
 ) {
   const target = bridge.requireTarget(id);
   if (restore) {
-    const state = bridge.state();
+    const { live, session } = bridge.env(target);
     if (
-      state.session.paintProject?.dirty ||
-      Object.keys(state.session.uvPreviews || {}).length ||
-      Object.keys(state.session.animationDrafts || {}).length
+      session.paintProject?.dirty ||
+      Object.keys(session.uvPreviews || {}).length ||
+      Object.keys(session.animationDrafts || {}).length
     )
       throw Error('Apply or cancel the current preview before resuming this task.');
-    await bridge.host().restoreContext(restore);
-    bridge.advance(id, true);
+    if (live) {
+      await bridge.host().restoreContext(restore);
+      bridge.advance(id, true);
+    } else {
+      // A tab that is not showing resumes with the task's own selection and view.
+      Object.assign(target, {
+        selection: structuredClone(restore.selection),
+        sequence: restore.sequence,
+        globalSequence: restore.globalSequence,
+        frame: restore.frame,
+        keyframes: structuredClone(restore.keyframes ?? null),
+        workplane: restore.workplane,
+        restore: structuredClone(restore),
+      });
+      bridge.host().selectIn(target.documentId, {
+        vertices: restore.selection,
+        nodeIds: restore.selectedNodeIds,
+        geosetIds: restore.checkedGeosets,
+        activeGeoset: restore.activeGeoset,
+      });
+      bridge.advance(id);
+    }
   }
   if (baseline)
     target.review = {
@@ -28,14 +48,14 @@ export async function aiCheckpoint(
       changes: restoreReview?.changes || [],
       animation: !!restoreReview?.animation,
     };
-  const state = bridge.state();
-  const bytes = (await prepareModelSaveAsync(state.doc, 'mdx')).bytes;
+  const { doc, session } = bridge.env(target);
+  const bytes = (await prepareModelSaveAsync(doc, 'mdx')).bytes;
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   bridge.requireTarget(id);
   return {
     fingerprint: Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''),
-    path: state.session.path || null,
-    name: state.doc.name,
+    path: session.path || null,
+    name: doc.name,
     context: bridge.context(id),
     review: reviewStatus(target.review),
     ...(includeBaseline && target.review ? { baseline: encodeAiValue(target.review.before) } : {}),
@@ -51,8 +71,9 @@ export const reviewStatus = review => ({
 export async function beginAiReview(bridge, id, options) {
   const target = bridge.requireTarget(id);
   if (target.review) return target.review;
-  const before = structuredClone(bridge.state().model);
-  const image = (await bridge.dispatch('mdlxl_capture', { target: id }, options)).image;
+  const before = structuredClone(bridge.env(target).model);
+  // Review pictures are drawn off-screen, so before and after match whichever tab shows.
+  const image = (await bridge.picture(id)).image;
   bridge.requireTarget(id);
   return (target.review = {
     before,
@@ -92,7 +113,7 @@ export async function reviewAiModel(bridge, args, options) {
     if (
       args.outcome === 'passed' &&
       (review.phase !== 'inspected' ||
-        review.inspectedRevision !== bridge.state().doc.revision ||
+        review.inspectedRevision !== bridge.env(target).doc.revision ||
         !review.passed)
     )
       throw Error('Inspect and pass the current model checks and images before completing the task.');
@@ -107,8 +128,9 @@ export async function reviewAiModel(bridge, args, options) {
     throw Error(
       'Provide read-only checksCode returning [{name,passed,actual?,expected?}] for the requested result. The original model is available as before.',
     );
-  const revision = bridge.state().doc.revision,
-    state = bridge.state();
+  const env = bridge.env(target),
+    revision = env.doc.revision,
+    state = env.state;
   const tested = await window.desktop.aiScript({
     requestId: options.requestId,
     code: args.checksCode,
@@ -142,26 +164,17 @@ export async function reviewAiModel(bridge, args, options) {
   const images = [],
     poses = [];
   if (review.image) images.push({ label: 'Before the task', image: review.image });
-  images.push({
-    label: 'After the edit',
-    image: (await bridge.dispatch('mdlxl_capture', { target: args.target }, options)).image,
-  });
-  if (args.turnaround) {
+  images.push({ label: 'After the edit', image: (await bridge.picture(args.target)).image });
+  if (args.turnaround)
     // The result from every side: a part that only works from the front shows here.
-    const view = state.view;
-    try {
-      for (const side of ['front', 'back', 'left', 'right']) {
-        await bridge.dispatch('mdlxl_view', { target: args.target, view: side }, options);
-        images.push({
-          label: `After the edit; ${side} view`,
-          image: (await bridge.dispatch('mdlxl_capture', { target: args.target }, options)).image,
-        });
-      }
-    } finally {
+    // Drawn off-screen, so the user's own view and camera never move.
+    for (const side of ['front', 'back', 'left', 'right']) {
       bridge.requireTarget(args.target);
-      await bridge.dispatch('mdlxl_view', { target: args.target, view }, options);
+      images.push({
+        label: `After the edit; ${side} view`,
+        image: (await bridge.picture(args.target, { view: side })).image,
+      });
     }
-  }
   if (review.animation) {
     const interval =
       state.globalSeqId == null
@@ -174,25 +187,16 @@ export async function reviewAiModel(bridge, args, options) {
         'Animation verification needs at least three distinct frames. Select the edited sequence and provide frames.',
       );
     poses.push(await bridge.dispatch('mdlxl_sample', { target: args.target, frames: samples }, options));
-    try {
-      for (const frame of samples) {
-        await bridge.dispatch('mdlxl_view', { target: args.target, frame, playing: false }, options);
-        images.push({
-          label: `After; animation frame ${frame}`,
-          image: (await bridge.dispatch('mdlxl_capture', { target: args.target }, options)).image,
-        });
-      }
-    } finally {
+    for (const frame of samples) {
       bridge.requireTarget(args.target);
-      await bridge.dispatch(
-        'mdlxl_view',
-        { target: args.target, frame: state.time, playing: state.playing },
-        options,
-      );
+      images.push({
+        label: `After; animation frame ${frame}`,
+        image: (await bridge.picture(args.target, { frame })).image,
+      });
     }
   }
   bridge.requireTarget(args.target);
-  const current = bridge.state();
+  const current = bridge.env(target);
   const drafts =
     !!current.session.paintProject?.dirty ||
     Object.keys(current.session.uvPreviews || {}).length > 0 ||

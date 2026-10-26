@@ -67,6 +67,7 @@ export const SKIP = {
   'updater-release-gate': 'manual HTTP-driven release gate (never exits)',
   'updater-bootstrap': 'needs the official 0.20.1 ZIP',
   'ai-live': 'opt-in check against a real signed-in AI account (MDLXL_AI_LIVE_PROFILE)',
+  'ai-live-tabs': 'opt-in: a real signed-in AI on several model tabs at once (MDLXL_AI_LIVE_PROFILE)',
   'particle-performance': 'needs an old baseline build (out/particle-prototype/baseline)',
   'particle-library-indexing': 'needs a copied real profile (MDLXL_REAL_PROFILE)',
   'pose-complex': 'needs WH_VC_NecrarchLord3.mdx (private model)',

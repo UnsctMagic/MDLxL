@@ -45,4 +45,4 @@
 .settings-appearance-page>button[data-hotkey="appearance:reset"]{grid-column:2;justify-self:start;margin-top:4px}
 .settings-bone-preview{display:block;width:204px;height:64px;margin:4px 0 10px;border:1px solid var(--ui-border,#888)}
 @media(max-width:620px){.settings-appearance-page{grid-template-columns:1fr}.settings-appearance-nav{flex-direction:row;flex-wrap:wrap;position:static;grid-row:auto}.settings-appearance-page>button[data-hotkey="appearance:reset"]{grid-column:1}}
-.settings-file-icon{display:inline-flex;align-items:center;gap:6px}.settings-file-icon img{width:32px;height:32px}
+.settings-file-icon{display:inline-flex;align-items:center;gap:6px}.settings-file-icons{align-items:center}.settings-file-icons>span{min-width:72px}.settings-file-icon img{width:32px;height:32px}

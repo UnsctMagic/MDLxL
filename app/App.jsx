@@ -7,6 +7,7 @@ import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '.
 import './addons.css'; // keeps the stylesheet's place in the CSS order; Addons renders in AppToolbar
 import AiAssistant from './AiAssistant.jsx';
 import { AiEditorBridge } from './ai-editor.js';
+import AiOffscreenRender from './AiOffscreenRender.jsx';
 import { sketchStore } from '../src/ai-sketch.js';
 import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
@@ -57,6 +58,7 @@ import { APPLICATION_THEMES, normalizePreferences, SOFTWARE_RENDERING_GRAPHICS }
 import { lightDarkChange } from '../src/light-dark-switch.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
+import { editTab, undoTab, selectTab } from '../src/ai-tab.js';
 import { analyzeNormals, planNormalRebuild, planFacingFix, applyNormalRebuild, previewNormalRebuild, isShadedGeoset, DEFAULT_SMOOTHING_ANGLE } from '../src/normals-rebuild.js';
 import NormalizerControls, { normalizerStatus } from './NormalizerControls.jsx';
 import { EditorDocument, openDocument, deleteGeoset, recalculateExtents, recalculateNormals } from '../src/editor-document.js';
@@ -294,6 +296,8 @@ export default function App() {
   const travelRevision = useRef(null), lastRevision = useRef(null);
   // Undo/Redo availability also follows the drawings.
   const sketchState = useSyncExternalStore(sketchStore.subscribe, sketchStore.get, sketchStore.get);
+  // Pen, Marker and Eraser draw with the left button in Work mode, so picking one leaves camera Zoom/Rotate/Move.
+  useEffect(() => { if (sketchState.tool) setCameraMode('work'); }, [sketchState.tool]);
   const liveMovementRevision = useRef(-1);
   const [recoveries, setRecoveries] = useState([]), [historyMB, setHistoryMB] = useState(512), [historySteps, setHistorySteps] = useState(10000), [anchor, setAnchor] = useState(''), [normalAngle, setNormalAngle] = useState(90), [gameDataPath, setGameDataPath] = useState('');
   const [gameDataSources, setGameDataSources] = useState([]);
@@ -625,6 +629,7 @@ export default function App() {
     if (rigWorkspace) setMovementMode(movement);
   };
   const toggleMiddleCamera = () => {
+    sketchStore.clearTool();
     if (cameraMode !== 'rotate') { setCameraMode('rotate'); return; }
     setCameraMode('work');
     if (tool === 'rotate') setTool('select');
@@ -1374,6 +1379,7 @@ export default function App() {
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.
   const afterPaint = frames => new Promise(resolve => { const step = n => n ? requestAnimationFrame(() => step(n - 1)) : resolve(); step(frames); });
   const aiHost = useRef();
+  const [aiOffscreen, setAiOffscreen] = useState(null);
   aiHost.current = {
     capture: async () => {
       const api = mode === 'vertices' ? viewportCaptureAPI.current : captureAPI;
@@ -1383,7 +1389,7 @@ export default function App() {
     },
     state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
-    summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
+    summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,reference:!!session.reference,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
     command: id => { if(!commandEnabled(id))throw Error('Editor command is unavailable.');return runCommand(id); },
     edit,
@@ -1411,7 +1417,43 @@ export default function App() {
     open: record => queueModelRecords([record]),
     assets: () => retainedForgeAssets(session.assets,doc.model),
     addAssets: records => loadTextures(records,session,{source:'forge'}),
-    addReference: async record => {const opened=openDocument(record.bytes,record.name);if(!opened.model||opened.version==null)throw Error('This reference has no readable model.');const next=newSession(opened,record.path);setSessions(previous=>[...previous,next]);if(record.textures?.length)await loadTextures(record.textures,next,{source:'gameFile'});await resolveTextures(next);return {id:next.id,name:next.doc.name};},
+    // A model tab the AI works on while another tab is showing: its own document,
+    // Undo history, tab view and textures, never the tab on screen.
+    sessionOf: id => {
+      const target = latest.current.sessions.find(item => item.id === id);
+      if (!target) throw Error('The model this task works on was closed.');
+      target.viewState ||= defaultSessionView(target.doc);
+      return target;
+    },
+    editIn: (id, ...change) => {
+      if (id === latest.current.session.id) return edit(...change);
+      const target = aiHost.current.sessionOf(id);
+      if (savingRef.current) throw Error('Wait for the current save to finish.');
+      const result = editTab(target, ...change);
+      checkpoint(target).catch(error => say(`Recovery checkpoint failed: ${error.message}`, true));
+      refresh(); return result;
+    },
+    undoIn: (id, redo) => {
+      if (id === latest.current.session.id) return undo(redo);
+      const target = aiHost.current.sessionOf(id);
+      if (savingRef.current) throw Error('Wait for the current save to finish.');
+      if (!undoTab(target, redo)) throw Error(redo ? 'Nothing to redo on this model.' : 'Nothing to undo on this model.');
+      checkpoint(target).catch(error => say(`Recovery checkpoint failed: ${error.message}`, true));
+      refresh();
+    },
+    selectIn: (id, value) => selectTab(aiHost.current.sessionOf(id), value),
+    assetsIn: id => { const target = aiHost.current.sessionOf(id); return retainedForgeAssets(target.assets, target.doc.model); },
+    addAssetsIn: (id, records) => loadTextures(records, aiHost.current.sessionOf(id), { source: 'forge' }),
+    render: async spec => {
+      const target = aiHost.current.sessionOf(spec.documentId);
+      if (!aiOffscreen) throw Error('The off-screen preview is not ready.');
+      // The hidden preview gets its own copy: the renderer must never touch the document.
+      return aiOffscreen.render({ ...spec, model: structuredClone(target.doc.model), revision: target.doc.revision, assets: target.assets, path: target.path });
+    },
+    // Reference models open as tabs; the console lists them as attachments the user can remove.
+    references: () => latest.current.sessions.filter(item => item.reference && item !== latest.current.session).map(item => ({id:item.id,name:item.doc.name})),
+    removeReference: id => { const target = latest.current.sessions.find(item => item.id === id); if (target) requestCloseSession(target); },
+    addReference: async record => {const opened=openDocument(record.bytes,record.name);if(!opened.model||opened.version==null)throw Error('This reference has no readable model.');const next=newSession(opened,record.path);next.reference=true;setSessions(previous=>[...previous,next]);if(record.textures?.length)await loadTextures(record.textures,next,{source:'gameFile'});await resolveTextures(next);return {id:next.id,name:next.doc.name};},
   };
   const aiBridge = useMemo(() => new AiEditorBridge(() => aiHost.current), []);
   useEffect(() => aiBridge.attach(window.desktop), [aiBridge]);
@@ -1718,5 +1760,6 @@ export default function App() {
       unavailable={doc.readOnly ? 'This model is read-only; the fix is disabled to preserve unsupported data.' : ''} onRepair={repairDuplicateAnimations} onClose={() => setDialog(null)}/>}
     <PressedKeys enabled={preferences.showPressedKeys}/>
     <Shredder settings={preferences.shredder}/>
+    <AiOffscreenRender onReady={setAiOffscreen} preferences={preferences} teamColor={teamColor}/>
   </div></HotkeysProvider>;
 }

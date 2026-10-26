@@ -31,8 +31,10 @@ export const CAMERA_PRESETS = Object.freeze({
   classic: Object.freeze({ cameraBindings: Object.freeze({ right: 'pan', middle: 'toggle' }), pointerSensitivity: 1, scrollSensitivity: 2.5, fineSensitivity: 0.2, wheelMode: 'rotate', rightScrollAdjust: true }),
   orbit: Object.freeze({ cameraBindings: Object.freeze({ right: 'rotate', middle: 'pan' }), pointerSensitivity: 1, scrollSensitivity: 1, fineSensitivity: 0.2, wheelMode: 'rotate', rightScrollAdjust: false }),
 });
-// Explorer icon for MDL, MDX and Paint Project files; `program` reuses the MDLxL.exe icon.
-export const FILE_ICON_CHOICES = Object.freeze(['page', 'dark-page', 'tile', 'program']);
+// Explorer icon for model files; `program` reuses the MDLxL.exe icon and `label-*`
+// variations add an MDL or MDX label. `fileIcon` is used by MDX and Paint Project
+// files, `fileIconMdl` by MDL files (it follows `fileIcon` until chosen).
+export const FILE_ICON_CHOICES = Object.freeze(['page', 'dark-page', 'tile', 'program', 'label-page', 'label-dark-page', 'label-tile', 'label-tag', 'label-letters']);
 
 export const DEFAULT_PREFERENCES = Object.freeze({
   rendererRevision: 3,
@@ -40,7 +42,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   uvPreviewDisplay: DEFAULT_UV_PREVIEW_DISPLAY,
   uvGrid: DEFAULT_UV_GRID,
   uvViewTileLimit: DEFAULT_UV_VIEW_TILE_LIMIT,
-  language: 'en', fileIcon: 'page', checkUpdatesOnStartup: false, showPressedKeys: false, shredder: DEFAULT_SHREDDER, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
+  language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, showPressedKeys: false, shredder: DEFAULT_SHREDDER, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
   pointerSensitivity: 1,
@@ -168,7 +170,7 @@ export function normalizePreferences(value = {}) {
     uvPreviewDisplay: normalizeUVPreviewDisplay(input.uvPreviewDisplay),
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
-    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), showPressedKeys: boolean(input.showPressedKeys, false), shredder: normalizeShredder(input.shredder), capture: normalizeCapture(input.capture),
+    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), showPressedKeys: boolean(input.showPressedKeys, false), shredder: normalizeShredder(input.shredder), capture: normalizeCapture(input.capture),
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(10, Math.max(0.1, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: ['rotate', 'scroll', 'pointer'].includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(4, Math.max(0.01, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,

@@ -151,6 +151,9 @@ const { buildSync } = require('esbuild');
     await close(); await launch(); assert.deepEqual(await checks(),[false,true,true],'object choices persist after app reopen');
     const restored=await page.evaluate(()=>objectColors()); assert.equal(restored.find(c=>c.id===helper.ObjectId).color,'#b940ff'); assert.equal(restored.find(c=>c.id===ref.ObjectId).color,'#ff22aa');
     assert.deepEqual(await page.locator('.movement-object-filters label').evaluateAll(es=>es.map(e=>{const m=e.style.color.match(/^rgb\(from (#[0-9a-f]{6}) /i);return m?m[1].toLowerCase():getComputedStyle(e).color;})),['#1b6837','#7123ad','#c11964'],'custom text colors persist after reopen (dark themes lift them for contrast, #267)');
+    // After Clear, the top row's Bones chip turns bones back on (the side filter follows).
+    await page.locator('.quick-display').getByRole('button',{name:'Clear',exact:true}).click(); await idle(); assert.equal((await checks())[0],false,'Clear hides bones');
+    await page.locator('.quick-display input[aria-label="Bones"]').check(); await idle(); assert.equal((await checks())[0],true,'the Bones chip turns bones back on in the Bones editor');
     assert.deepEqual(fs.readFileSync(fixture),original,'fixture bytes unchanged'); assert.deepEqual(errors,[]);
     result.pass=true; fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2)); console.log('PASS object row, ref/helper mouse moves, typed coordinates, undo, all palettes, custom colors, VIS, app reopen and camera rotation');
   } finally { await close(); fs.rmSync(profile,{recursive:true,force:true}); fs.rmSync(fixture,{force:true}); }

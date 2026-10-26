@@ -194,7 +194,7 @@ export default function Viewport(inputProps) {
     ambient.position.set(0, 0, 300); scene.add(ambient);
     const key = new THREE.DirectionalLight(0xffeed7, 2.8); key.position.set(200, -280, 350); scene.add(key);
     scene.add(key.target);
-    let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, magnetButton, rotating = false;
+    let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, magnetButton, rotating = false, altHover = false;
     let grid = createViewportGrid(); scene.add(grid);
     const rigMarkers = createRigMarkersGL(renderer.getContext()); renderer.resetState();
     const platform = createPreviewPlatform(() => invalidate()); scene.add(platform);
@@ -580,6 +580,8 @@ export default function Viewport(inputProps) {
     }
     function pointerMove(event) {
       if (!down) {
+        // Holding Alt over the model turns a drawing tool's drag into a camera rotation; show that.
+        if (sketch.tool && altHover !== event.altKey) { altHover = event.altKey; invalidate(); }
         if (!quad) { hoverParts(event); inspectHoveredGeoset(event); return; }
         const hoveredPane = panes.find(pane => pane.surface === event.currentTarget);
         if (hoveredPane) bindPane(hoveredPane);
@@ -819,7 +821,7 @@ export default function Viewport(inputProps) {
       if (state.disposed) return;
       const p = latest.current, renderGraphics = graphicsOptions(p.preferences), visual = visualOptions(p.preferences), appearance = viewportAppearanceOptions(p.preferences);
       const lighting = previewLighting(p.preferences); configurePreviewLights(ambient, key, lighting);
-      surface.style.cursor = sketch.tool && !rotating ? SKETCH_CURSORS[sketch.tool] : viewportCursor(p.cameraMode, p.rotationNormals ? 'rotateNormals' : p.transformMode, rotating);
+      surface.style.cursor = sketch.tool && !rotating && !altHover && p.cameraMode === 'work' ? SKETCH_CURSORS[sketch.tool] : viewportCursor(p.cameraMode, p.rotationNormals ? 'rotateNormals' : p.transformMode, rotating || sketch.tool && altHover);
       sketch.resolution(surface.clientWidth, surface.clientHeight);
       const overlayHost = quad ? surface : viewportHost;
       syncViewportBackground(appearance);
