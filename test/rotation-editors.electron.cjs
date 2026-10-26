@@ -27,6 +27,8 @@ module.exports = async function rotationEditors({ app, page, check, out }) {
   await d.getByRole('button',{name:'Restore mouse defaults',exact:true}).click();
   check('Restore mouse defaults clears editor overrides',await d.getByLabel('Rotational Behavior',{exact:true}).inputValue()===''&&await d.getByLabel('Rotation sensitivity',{exact:true}).inputValue()==='1');
   await closeSettings();
+  // Pivot-based is the default; the straight-drag checks below measure Linear.
+  await configure('all','linear');
   await menu('vertices');await page.getByLabel('3D model viewport',{exact:true}).waitFor();
   await page.locator('[data-hotkey="geosetsClear"]').click();await page.getByLabel('Select geoset 0',{exact:true}).check();await page.getByLabel('3D model viewport',{exact:true}).focus();await menu('selectAll');
   await page.evaluate(() => {
