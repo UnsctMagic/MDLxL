@@ -85,8 +85,8 @@ All in Settings → Keyboard Shortcuts, below the shortcut table
 ## Test version
 
 `LEARN_TEST_VERSION` in [learn-keycaps.js](../src/learn-keycaps.js) is
-`true`: the mode is on by default so it can be tried right away. **Decide before
-release** whether it ships on or off by default, and set the switch.
+`false` since 0.33.0: Learn mode ships off by default (owner decision). Set it
+to `true` only for a hand-test build.
 
 ## Owners and tests
 

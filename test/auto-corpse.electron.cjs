@@ -43,7 +43,7 @@ function runtime() {
     for(const format of ['MDX','MDL']) {
       const saved=path.join(out,'saved.'+format.toLowerCase());
       await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},saved);
-      await page.keyboard.press('Control+Shift+s');await page.getByRole('button',{name:'Save '+format+'…',exact:true}).click();
+      await page.keyboard.press('F12');await page.getByRole('button',{name:'Save '+format+'…',exact:true}).click();
       await page.getByRole('dialog',{name:'Save as',exact:true}).waitFor({state:'hidden'});
       for(let n=0;n<100&&!fs.existsSync(saved);n++)await page.waitForTimeout(100);
       const reopened=new EditorDocument(fs.readFileSync(saved),saved);assert.equal(reopened.readOnly,false);assert.equal(reopened.model.Geosets.length,after.model.Geosets.length);

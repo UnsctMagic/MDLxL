@@ -1,6 +1,6 @@
 # MDLxL 0.33.0 - Aprender, Crear en Movimiento y Cadáver automático
 
-- **Aprender**: el botón **LER** abre un pequeño menú con **Modo de aprendizaje**, **Mostrar atajos** y **Ajustes de aprendizaje…**. Con Mostrar atajos activado, cada botón y ventana muestra su atajo en pequeñas letras verdes. Ctrl+J sigue activando y desactivando el Modo de aprendizaje. Tus ajustes y teclas propias de Shredder se conservan.
+- **Aprender**: el botón **LER** abre un pequeño menú con **Modo de aprendizaje**, **Mostrar atajos** y **Ajustes de aprendizaje…**. Con Mostrar atajos activado, cada botón y ventana muestra su atajo en pequeñas letras verdes. El Modo de aprendizaje empieza desactivado; actívalo con LER o Ctrl+J. Tus ajustes y teclas propias de Shredder se conservan.
 - **Alt y luego una tecla**: al pulsar y soltar Alt se muestran las letras de los atajos, y la siguiente tecla ejecuta ese atajo con Alt (Alt y luego R abre Recuperación). Mantener Alt y pulsar la tecla funciona como antes.
 - **Espacio siempre reproduce o detiene** la animación, incluso justo después de hacer clic en una casilla, botón, deslizador o lista. Solo los campos de texto conservan el espacio.
 - **Crear en Movimiento**: Movimiento tiene un botón **Crear** junto a su lista de animaciones. Funciona exactamente igual que Crear en Animaciones.
@@ -13,6 +13,7 @@
 - **Vértices**: la casilla RGB Preview se sustituye por una casilla **RGB** entre las casillas de visualización. Muestra los colores y desvanecimientos del modelo de la animación Stand.
 - **Recuperación** guarda un borrador por modelo y solo los 15 más recientes. El primer inicio de esta versión borra una vez los borradores antiguos (el borrador de un cierre inesperado se sigue ofreciendo primero).
 - **Iconos de archivo**: también aparecen en archivos que has configurado para "Abrir siempre con" MDLxL.
+- **Fondos de Showcase**: se quedan en Showcase. Animaciones y Movimiento vuelven a mostrar siempre la vista normal, aunque hayas elegido un fondo en Showcase.
 - Los botones de ancho completo apilados (como Bake Sequence RGB / Bake All RGB) ya no se tocan.
 
 **IA**

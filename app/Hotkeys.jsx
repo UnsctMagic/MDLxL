@@ -166,7 +166,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
     // Otherwise Windows hands the keyboard to the hidden File/Edit menu bar.
     let altAlone = false, altArmed = false;
     const disarm = () => { if (!altArmed) return; altArmed = false; window.dispatchEvent(new Event('mdlxl-shortcut-hints-hide')); };
-    const cancel = () => { sequence.cancel(); clearTimeout(timer); setLeaderCode(null); disarm(); };
+    // A click or drag while Alt is held (camera rotation) means Alt was not tapped alone.
+    const cancel = () => { altAlone = false; sequence.cancel(); clearTimeout(timer); setLeaderCode(null); disarm(); };
     const consume = event => { window.dispatchEvent(new CustomEvent('mdlxl-input-observed', {detail:event})); event.preventDefault(); event.stopImmediatePropagation(); };
     const runShortcut = (chord, event) => {
       if (!root.current) return false;

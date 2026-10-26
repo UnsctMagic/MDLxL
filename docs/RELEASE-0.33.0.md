@@ -1,6 +1,6 @@
 # MDLxL 0.33.0 - Learn, Create in Movement and Auto Corpse
 
-- **Learn**: the **LER** button opens a small menu with **Learn mode**, **Show hotkeys** and **Learn settings…**. With Show hotkeys on, every button and dialog shows its shortcut in small green letters. Ctrl+J still turns Learn mode on and off. Your old Shredder settings and custom keys carry over.
+- **Learn**: the **LER** button opens a small menu with **Learn mode**, **Show hotkeys** and **Learn settings…**. With Show hotkeys on, every button and dialog shows its shortcut in small green letters. Learn mode starts off; turn it on with LER or Ctrl+J. Your old Shredder settings and custom keys carry over.
 - **Alt, then a key**: tapping Alt shows the shortcut letters, and the next key runs that Alt shortcut (Alt, then R opens Recovery). Holding Alt and pressing the key works as before.
 - **Space always plays or stops** the animation, even right after you clicked a checkbox, button, slider or dropdown. Only text fields keep their space.
 - **Create in Movement**: Movement has a **Create** button next to its animation list. It works exactly like Create in Animations.
@@ -13,6 +13,7 @@
 - **Vertices**: the RGB Preview checkbox is replaced by an **RGB** checkbox among the display checkboxes. It shows the model's colours and fades from the Stand animation.
 - **Recovery** keeps one draft per model and only the 15 newest. The first start of this version clears the old drafts once (a draft from a crash is still offered first).
 - **File icons** also show for files you set to "Always open with" MDLxL.
+- **Showcase backgrounds** stay in Showcase: Animations and Movement always show the normal view again, even after you picked a background in Showcase.
 - Stacked full-width buttons (such as Bake Sequence RGB / Bake All RGB) no longer touch.
 
 **AI**
