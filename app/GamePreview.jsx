@@ -901,12 +901,40 @@ export default function GamePreview(inputProps) {
     }
     const viewCamera = event => { if (latest.current.suspended)return;if (applyModelCamera(perspective, controls, event.detail)) { camera = perspective; state.appliedView = 'perspective'; invalidate(); } };
     window.addEventListener('mdlxl-view-camera', viewCamera);
-    function fit({ initialize = false } = {}) {
+    // Where the selection is in the current pose: the selected vertices, or else
+    // the selected bones and nodes. Model-space points [x,y,z,...].
+    function selectionPoints() {
+      const p = latest.current, points = [];
+      const matrices = new Map((native.rendererData?.nodes || []).flatMap((node, index) => node?.matrix ? [[index, new THREE.Matrix4().fromArray(node.matrix)]] : []));
+      for (const [index, ids] of Object.entries(p.selectionByGeoset || {})) {
+        const geo = ownedModel.Geosets[index], list = [...(ids || [])];
+        if (!geo || !list.length) continue;
+        const posed = p.restPose ? geo.Vertices : skinGeoset(geo, matrices);
+        for (const id of list) points.push(posed[id * 3], posed[id * 3 + 1], posed[id * 3 + 2]);
+      }
+      if (!points.length) for (const id of p.selectedNodeIds || []) {
+        const pivot = ownedModel.PivotPoints?.[id], matrix = matrices.get(id);
+        if (!pivot) continue;
+        point.fromArray(pivot); if (matrix && !p.restPose) point.applyMatrix4(matrix);
+        points.push(point.x, point.y, point.z);
+      }
+      return points;
+    }
+    // A close-up of points, with a little room around them.
+    function pointsFit(points) {
+      if (!points?.length) return null;
+      const box = new THREE.Box3();
+      for (let i = 0; i + 2 < points.length; i += 3) box.expandByPoint(point.set(points[i], points[i + 1], points[i + 2]));
+      return { center: box.getCenter(new THREE.Vector3()).toArray(), radius: Math.max(1, radius * .04, box.getSize(new THREE.Vector3()).length() * .75), focus: true };
+    }
+    // points: frame these model-space points; detail.selection (Fit selection): the selection.
+    function fit({ initialize = false, detail, points } = {}) {
       if (state.portraitActive || (latest.current.suspended && !initialize)) return;
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
-      const effect=latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit(),fitCenter=effect?new THREE.Vector3(...effect.center):center;
+      const focus = pointsFit(points || (detail?.selection ? selectionPoints() : null));
+      const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit()),fitCenter=effect?new THREE.Vector3(...effect.center):center;
       perspective.position.copy(fitCenter).add(new THREE.Vector3(1, -1.5, .9).normalize().multiplyScalar(perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
-      controls.target.copy(fitCenter); perspective.zoom = ortho.zoom = 1; resize(); setView(latest.current.view || 'perspective');
+      controls.target.copy(fitCenter); perspective.zoom = 1; ortho.zoom = focus ? Math.max(1, radius / focus.radius) : 1; resize(); setView(latest.current.view || 'perspective');
     }
     function centerShowcaseModel(crop, fullOrbit = false, horizontal = 1, vertical = 1) {
       const p=latest.current;if(!p.showcase)return;
@@ -1522,7 +1550,7 @@ export default function GamePreview(inputProps) {
         applyEvaluatedModelCamera(camera,controls,view,canvas.width/canvas.height);invalidate();
       },
       invalidate() { state.scheduler.invalidate(); },
-      fit() { fit(); },
+      fit(points) { fit({ points }); },
       centerModel(crop) { centerShowcaseModel(crop); },
       maximalZoom(crop) { centerShowcaseModel(crop,true); },
       alignModel(crop,x,y) { centerShowcaseModel(crop,false,x,y); },

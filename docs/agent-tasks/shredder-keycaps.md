@@ -1,6 +1,6 @@
 # Shredder keycap shortcut reminders
 
-Status: ready for review; awaiting merge approval. AI shortcuts and owner-selected LER toolbar button included.
+Status: merged into main 2026-10-26 (PR #304). AI shortcuts and owner-selected LER toolbar button included.
 Owner / consolidator: Codex continuation of Claude Code’s PR #304
 Updated: 2026-10-26
 

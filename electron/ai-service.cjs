@@ -119,6 +119,7 @@ class AiService {
       stepLimit: limitOf(config, 'stepLimit'),
       sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
+      editingHandbook: config.editingHandbook === true,
     };
   }
   async setAwareness(enabled) {
@@ -149,6 +150,10 @@ class AiService {
     return [...this.tasks.values()].map(t => ({ id: t.id, worker: t.worker?.id || null, documentId: t.documentId }));
   }
   emitRunning() {
+    // A covered or minimized window stops drawing, and the AI's pictures and
+    // captures with it. Keep drawing while a task works; normal again after.
+    const win = this.getWindow();
+    if (win && !win.isDestroyed()) win.webContents.setBackgroundThrottling?.(this.tasks.size === 0);
     this.emit({ type: 'running', running: this.runningChats() });
   }
   async configure(input) {
@@ -399,7 +404,7 @@ class AiService {
         contract,
         signal: controller.signal,
         organiser: conversation.kind === 'organiser' && config.offload !== false ? active : null,
-        policy: await this.sdBrainPolicy(),
+        policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true },
       });
       recorder.event({ type: 'done' });
       return { ok: true };
@@ -434,6 +439,7 @@ class AiService {
     const {
       AI_TOOLS,
       AI_SYSTEM_PROMPT,
+      AI_EDITING_HANDBOOK,
       AI_WORKER_TOOL,
       AI_ORGANISER_PROMPT,
       AI_WORKER_NOTE,
@@ -484,7 +490,8 @@ class AiService {
         steps: [],
         sdBrain: policy || { enabled: false },
       };
-    // SD Brain stays as it was when the task started; toggling applies to the next task.
+    // SD Brain and the editing handbook stay as they were when the task started;
+    // toggling applies to the next task. Workers inherit the organiser's policy.
     const sd = (task.sdBrain ||= policy || { enabled: false });
     task.status = 'running';
     task.summary = '';
@@ -619,12 +626,13 @@ class AiService {
       : conversation.toolsOff
         ? []
         : AI_TOOLS;
+    const editing = sd.handbook === true ? AI_SYSTEM_PROMPT + '\n' + AI_EDITING_HANDBOOK : AI_SYSTEM_PROMPT;
     const system =
       organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
       ? AI_ORGANISER_PROMPT
       : conversation.kind === 'worker'
-        ? AI_SYSTEM_PROMPT + '\n' + AI_WORKER_NOTE
-        : AI_SYSTEM_PROMPT;
+        ? editing + '\n' + AI_WORKER_NOTE
+        : editing;
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
     const instructions = (await this.sdBrainAvailable())
@@ -957,6 +965,15 @@ class AiService {
     this.emit({ type: 'sd-brain', enabled });
     return this.status();
   }
+  // The editing handbook is off until the user turns it on; it applies from the next task.
+  async setEditingHandbook(enabled) {
+    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
+    const config = await this.configuration();
+    config.editingHandbook = enabled;
+    await this.persist();
+    this.emit({ type: 'editing-handbook', enabled });
+    return this.status();
+  }
   async sdBrainPolicy() {
     const config = await this.configuration(),
       { SD_BRAIN_REVISION } = await this.init();
@@ -1251,6 +1268,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
   handle('ai:offload', enabled => service.setOffload(enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
+  handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
   handle('ai:model', model => service.setModel(model));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());

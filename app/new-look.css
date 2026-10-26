@@ -61,8 +61,8 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar :is(.compact-input-strength,.compact-input-strength *){color:var(--ui-muted)!important;font-size:11px!important}
 
 /* Display toggles beside the editor buttons: icon + name chips in one soft well; a lit chip
-   is on. Too narrow for every name: icons only, names on hover. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules>.quick-display{flex:0 1 auto;min-width:0;overflow:hidden;display:flex;align-items:center;margin:0 0 0 auto;padding:0!important;border:0!important;background:transparent!important;min-height:0}
+   is on. Names remain visible; the editor row scrolls when needed. */
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules>.quick-display{flex:0 0 auto;min-width:0;overflow:visible;display:flex;align-items:center;margin:0 0 0 auto;padding:0!important;border:0!important;background:transparent!important;min-height:0}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules>.quick-display>.quick-display-options{display:inline-flex;flex:none;align-items:center;gap:2px;padding:2px;border-radius:10px;background:var(--m-soft)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules .quick-display-options>label{position:relative;display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 6px;border-radius:6px;color:var(--ui-muted);font-size:11px!important;white-space:nowrap;cursor:pointer}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules .quick-display-options>label:hover{background:var(--ui-hover)}
@@ -75,9 +75,7 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules .quick-display .look-icon{display:block;width:13px;height:13px;color:inherit;--sw:1.9}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules .quick-display-options>button{order:99;position:relative;display:inline-flex;align-items:center;gap:3px;height:22px;min-height:22px!important;margin-left:7px;padding:0 6px!important;color:var(--ui-muted)!important;font-size:11px!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules .quick-display-options>button::before{content:'';position:absolute;left:-5px;top:5px;bottom:5px;width:1px;background:var(--m-line)}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules .quick-display-compact .quick-display-name{display:none}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.language-switch{flex:none}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules .quick-display-compact .quick-display-options>:is(label,button){padding:0 5px!important}
 
 /* Editor row: soft segmented buttons, model tabs as pills. */
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules{padding:6px 10px 4px!important;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important}

@@ -275,6 +275,20 @@ Branch `claude/ai-own-environment-c7eceb`. Replaces PR #291's pause-and-resume
   side views, animation frames), so `mdlxl_review` no longer moves the live view
   or playhead. A plain capture of the tab on screen still copies the live
   viewport (keeps the selection marks the packaged test checks).
+- Pictures and covered windows (2026-10-26, branch `claude/ai-pictures`): a
+  Demonette task's pictures all failed ("could not be drawn") after ~50 steps
+  while plain live captures kept working. Most likely cause (not reproducible on
+  the hidden test desktop, which never reports the window as covered): with the
+  window covered or minimized Chromium stops animation frames, and the hidden
+  preview waited for one before `captureView`. Fix: `AiOffscreenRender` draws
+  right after `whenReady` without waiting for a frame and its timeout names the
+  stage and any preview error; `AiService.emitRunning` turns background
+  throttling off while a task runs. Close-ups: a `samples` entry with `fit:
+  selection` passes the marked vertices as `focus`; `GamePreview` `fit({points})`
+  frames them (orthographic zoom = model radius / points radius). The same
+  fit now handles Fit selection (`mdlvis-frame` with `selection`) in the
+  Animations/Movement preview: selected vertices posed in the current frame, else
+  selected nodes. `AI_SYSTEM_PROMPT` carries the owner's Warcraft III binding rules.
 - Verification: `test/ai-background.test.js` (6: background edit with separate
   Undo, off-screen pictures, samples off-screen on the shown tab, screen-only step
   waits then runs, same tab still blocks, selection/closing). Packaged

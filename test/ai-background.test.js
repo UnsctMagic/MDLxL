@@ -191,6 +191,18 @@ test('on the tab being shown, samples are still drawn off-screen; a plain captur
   assert.equal(app.liveViews.length, 0);
 });
 
+test('a close-up sample frames the marked vertices; other samples frame the whole model', async () => {
+  const { a, app, bridge } = editor();
+  const { target } = bridge.context();
+  const shots = await bridge.call('mdlxl_capture', { target, samples: [{ view: 'front', fit: 'selection' }, { view: 'front' }] });
+  assert.match(shots.images[0].label, /close-up of the marked vertices/);
+  const vertices = a.doc.model.Geosets[0].Vertices;
+  assert.deepEqual(Array.from(app.renders[0].focus), Array.from(vertices.subarray(0, 6)), 'the two marked vertices');
+  assert.equal(app.renders[1].focus, null);
+  await bridge.call('mdlxl_select', { target, vertices: {} });
+  await assert.rejects(bridge.call('mdlxl_capture', { target, samples: [{ fit: 'selection' }] }), /mark them with select/);
+});
+
 test('a step that needs the screen waits for the task tab and then runs there', async () => {
   const { a, b, app, bridge, show } = editor();
   const { target } = bridge.context();

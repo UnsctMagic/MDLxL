@@ -130,6 +130,48 @@ test('Claude API preserves tool IDs and returns tool errors for correction', asy
   assert.equal(server.requests.length, 2);
   assert.equal(events.findLast(e => e.type === 'text').text, 'Please open a viewport.');
 });
+test('Claude API drops reasoning signed for an older tool list and asks again', async t => {
+  const bodies = [];
+  const server = http.createServer(async (req, res) => {
+    let text = '';
+    for await (const part of req) text += part;
+    bodies.push(JSON.parse(text));
+    if (JSON.stringify(bodies.at(-1).messages).includes('"type":"thinking"')) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'messages.1.content.0: Invalid `signature` in `thinking` block. The `tools` list differs.' } }));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    event(res, { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+    event(res, { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Carrying on.' } });
+    event(res, { type: 'message_delta', delta: { stop_reason: 'end_turn' } });
+    res.end();
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
+  // A chat from before an update: its earlier answer carries signed reasoning.
+  const conversation = {
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: 'Fix the skirt' }] },
+      { role: 'assistant', content: [{ type: 'thinking', thinking: 'Plan', signature: 'old' }, { type: 'text', text: 'Done.' }] },
+    ],
+  };
+  const events = [];
+  await runApi({
+    settings: { provider: 'anthropic', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, model: 'test-claude' },
+    key: 'test-key',
+    tools: AI_TOOLS,
+    call: () => ({}),
+    prompt: 'Now the belly',
+    system: 'editor',
+    conversation,
+    signal: new AbortController().signal,
+    event: e => events.push(e),
+  });
+  assert.equal(bodies.length, 2, 'refused once, then asked again');
+  assert.deepEqual(conversation.messages[1].content, [{ type: 'text', text: 'Done.' }], 'the old reasoning is gone, the answer stays');
+  assert.equal(events.findLast(e => e.type === 'text').text, 'Carrying on.');
+});
 test('Claude API caches the conversation and stops a prompt at its spending limit', async t => {
   const server = await fixture(t, (data, res) => {
     event(res, {

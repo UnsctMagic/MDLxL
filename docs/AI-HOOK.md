@@ -42,6 +42,17 @@ marked "Sent while the AI was working". The AI picks it up at its next step; if 
 had just finished, the message starts a follow-up turn on the same task. **Stop**
 (the square) cancels; applied edits stay in Undo.
 
+### Editing handbook
+
+The **Editing handbook** switch (the book icon in the console header, next to the
+bird) is off until you turn it on, and MDLxL remembers your choice. While it is on,
+every request also carries a short set of general Warcraft III editing rules, and
+the AI can open the step-by-step `WC3-EDITING-*` guides (geometry, UVs and
+materials, nodes and binding, animation, emitters, game integration,
+verification). While it is off, neither is sent and the guides are not listed in
+help. Like SD Brain, a running job keeps the setting it started with; a change
+applies from the next request.
+
 ### Offload Mode: an organiser per model and its birds
 
 Each model has its own AI chat: switch model tabs to switch chats. With **Offload
@@ -85,7 +96,15 @@ the first one. The bird has its own environment for its model tab:
   (before/after, side views, animation frames), are drawn in a hidden preview. Your
   view and camera never move, also when the bird works on the tab you are looking at.
   These pictures show the bird's marked vertices (red) and the Marker/Pen notes
-  sent with the prompt, from the picture's own angle and animation frame.
+  sent with the prompt, from the picture's own angle and animation frame. A
+  picture can also be a close-up of the marked vertices, for small spots such as
+  a joint or a seam. While a job runs MDLxL keeps drawing even when its window is
+  covered or minimized, so pictures still work while you use another program.
+- **Editing handbook.** With the [Editing handbook](#editing-handbook) switch on,
+  a bird working in the background gets the same rules and guides.
+- **Older chats keep working.** After an update or an SD Brain switch the AI's
+  tool list changes and Claude refuses its earlier reasoning; MDLxL then drops
+  that reasoning from finished turns and asks again.
 - **Its own selection and drawings.** The selection and Marker/Pen notes are taken
   when you send the prompt; what you select or draw on another tab does not change
   them. When you switch to the bird's tab you see the selection it left there.
@@ -324,7 +343,7 @@ Embedded chat works without enabling this external listener.
 | `mdlxl_command` | Invoke existing editor commands using their normal behavior. |
 | `mdlxl_view` | Change workspace, camera preset, render mode, local/global animation, frame, playback and fit; for a tab that is not showing, the task's own view. |
 | `mdlxl_sample` | Measure node world transforms and skinned vertex positions/bounds across up to 32 frames without moving the playhead. |
-| `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call, drawn off-screen. |
+| `mdlxl_capture` | Inspect real viewport images, including up to 12 labeled camera/frame samples per call, drawn off-screen. A sample with `fit: selection` is a close-up of the marked vertices in that frame. |
 | `mdlxl_assets` | Search installed game/texture and personal part libraries, preview model textures, load donor references without switching the working model. |
 | `mdlxl_ui` | Inspect, set and click controls, capture the editor, or drag on a canvas/control using its actual mouse interaction. |
 | `mdlxl_document` | Open/list models, export with the existing serializer and asset writer, or validate MDX/MDL reopening. |

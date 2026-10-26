@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   ArrowUp,
   Bird,
+  BookOpen,
   Brain,
   Check,
   ChevronRight,
@@ -94,7 +95,9 @@ const modelKeyOf = (path, documentId) =>
   path ? 'file:' + String(path).replaceAll('/', '\\').toLowerCase() : 'unsaved:' + documentId;
 const SD_BRAIN_TIP =
   'SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.';
-const OFFLOAD_TIP = 'Offload Mode: this chat hands each job to a separate worker chat with its own memory, keeping this chat short.';
+const HANDBOOK_TIP =
+  'Editing handbook: gives the AI general Warcraft III editing rules and step-by-step guides for geometry, UVs, bones, animation and effects, so it works with less trial and error. Applies from the next request.';
+const OFFLOAD_TIP ='Offload Mode: this chat hands each job to a separate worker chat with its own memory, keeping this chat short.';
 const CLEANUP_CHOICES = [
   ['keep', 'Keep everything', 'Keep all chats.'],
   ['summary', 'Keep a summary', 'Keep a short note of what was done; delete the chats.'],
@@ -371,6 +374,7 @@ export default function AiAssistant({ bridge }) {
       // Roster and setting changes matter whichever chat is showing.
       if (event.type === 'roster') setOrg(previous => (previous?.id === event.id ? { ...previous, workers: event.workers } : previous));
       if (event.type === 'offload') setSettings(previous => ({ ...previous, offload: event.enabled }));
+      if (event.type === 'editing-handbook') setSettings(previous => ({ ...previous, editingHandbook: event.enabled }));
       if (event.type === 'sd-brain') setSettings(previous => ({ ...previous, sdBrain: event.enabled }));
       if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
       if (event.type === 'running') setRunning(event.running);
@@ -903,6 +907,17 @@ export default function AiAssistant({ bridge }) {
                   <Brain size={15} aria-hidden="true" />
                 </button>
               )}
+              <button
+                type="button"
+                role="switch"
+                className="ai-icon-button ai-offload-switch"
+                aria-label="Editing handbook"
+                aria-checked={!!settings.editingHandbook}
+                title={translate(HANDBOOK_TIP)}
+                onClick={() => action(async () => setSettings(await window.desktop.aiEditingHandbook(!settings.editingHandbook)))}
+              >
+                <BookOpen size={15} aria-hidden="true" />
+              </button>
               <span className="ai-heading-gap" />
               <button
                 type="button"
