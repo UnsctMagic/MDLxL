@@ -16,9 +16,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
     await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setBounds({ x: -3000, y: 0, width: 1400, height: 950 }); win.showInactive(); });
-    // Some models open with a repair question first; leave the model as it is.
-    const leave = page.getByRole('button', { name: 'Leave unchanged' });
-    try { await leave.waitFor({ timeout: 4000 }); await leave.click(); } catch {}
     await page.locator('[data-hotkey="animation"]').click();
     await page.locator('button.animxl-tool, [data-hotkey="animXL"]').first().click();
     const dialog = page.getByRole('dialog', { name: 'AnimXL' });

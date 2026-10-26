@@ -2,6 +2,11 @@ const EMPTY_MAP = Object.freeze({}), EMPTY_IDS = Object.freeze([]), EMPTY_PREFER
 const CLEAN_DISPLAY = Object.freeze(Object.fromEntries(['bones', 'skeleton', 'nodes', 'attachments', 'particles', 'emitters', 'boneLines', 'wires', 'vertices', 'grid', 'axes', 'normals', 'cameras'].map(key => [key, false])));
 const preferenceCache = new WeakMap();
 
+/** Camera-facing node transforms belong to viewing, never placement/editing. */
+export function previewBillboarding(props) {
+  return props.presentation === 'preview' && !props.restPose && !props.previewSelectionMode && props.particleAnchorId == null;
+}
+
 /** Preview presentation is readonly and independent of the editing display.
  * Keep the model, animation clock, authored alpha and camera unchanged. */
 export function previewPresentationProps(props) {
@@ -32,6 +37,8 @@ export function previewOverlaySettings(value) {
   return {
     mode: value?.highlightSelection ? 'selection' : value?.allMesh ? 'all' : 'none',
     interactiveSelection: value?.interactiveSelection === true,
+    grabThrough: value?.grabThrough !== false,
+    showLines: value?.showLines !== false,
     size: Math.max(.25, Math.min(3, Number.isFinite(Number(value?.size)) ? Number(value.size) : 1)),
     eligibleByGeoset: value?.eligibleByGeoset || EMPTY_MAP,
     selectionByGeoset: value?.selectionByGeoset || EMPTY_MAP,

@@ -77,9 +77,9 @@ test('Movement object list separates colored Bones from purple Helpers at the bo
   const picker=html.match(/<select[^>]*aria-label="Movement bone or node"[\s\S]*?<\/select>/)[0];
   assert.ok(picker.indexOf('label="Bones"') < picker.indexOf('label="Other Objects"'));
   assert.ok(picker.indexOf('label="Other Objects"') < picker.indexOf('label="Helpers"'));
-  assert.match(picker,/label="Bones" style="color:#4cff59"/);
-  assert.match(picker,/label="Helpers" style="color:#8a2be2"/);
-  assert.match(picker,/data-node-kind="helper" style="color:#8a2be2"/);
+  assert.match(picker,/label="Bones" style="color:#166534"/);
+  assert.match(picker,/label="Helpers" style="color:#6b21a8"/);
+  assert.match(picker,/data-node-kind="helper" style="color:#6b21a8"/);
 });
 test('Animations remains editable with no selected vertices or checked geosets',()=>{
   const html=renderToStaticMarkup(React.createElement(Animation,{model:fixture(),sequenceIndex:0,time:0,selectedGeosets:[]}));

@@ -1,5 +1,5 @@
 import {embeddedParticleAssets} from '../src/particle-assets.js';
-import {addStarterTextureAssets} from '../src/particle-starters.js';
+import {repointStarterTextures} from '../src/particle-starters.js';
 import React,{Suspense,lazy,useEffect,useRef,useState} from 'react';
 import {parseParticleData} from '../src/particle-data.js';
 import {particleRecipeDocument} from '../src/particle-recipes.js';
@@ -17,7 +17,7 @@ export default function ParticleThumbnailQueue({items,preferences,onThumbnail,on
     (async()=>{
       const cached=await window.desktop.particleThumbnails([item.id]);if(cached[item.id]?.url){pending.current.delete(item.id);if(mounted.current)onThumbnail(item.id,cached[item.id].url);return;}
       const recipe=parseParticleData(await window.desktop.particleRead(item.id)),doc=particleRecipeDocument(recipe),assets=embeddedParticleAssets(recipe);
-      addStarterTextureAssets(doc.model.Textures,assets,normalize);
+      repointStarterTextures(doc.model);
       const names=doc.model.Textures.filter(t=>t.Image&&!assets.has(normalize(t.Image))).map(t=>t.Image),sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;
       const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await window.desktop.resolveTextures({names});
       for(const record of records||[])if(record.bytes)assets.set(normalize(record.name),record);

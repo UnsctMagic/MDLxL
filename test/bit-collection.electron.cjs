@@ -64,7 +64,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.deepEqual(collected.model.Geosets.map(geoset => geoset.Vertices.length / 3), [8, 8, 8, 8, 8]);
     assert.deepEqual(collected.model.Sequences.map(sequence => sequence.Name), ['Red', 'Green', 'Blue']);
     for (let si = 0; si < 3; si++) for (let gi = 0; gi < 5; gi++) assert.deepEqual(sampleGeosetAnimation(collected.model, gi, collected.model.Sequences[si].Interval[0], si).color, sampleGeosetAnimation(doc.model, gi, doc.model.Sequences[si].Interval[0], si).color);
-    assert.deepEqual(fs.readFileSync(savedTexture), Buffer.from(texture));
+    assert.equal(fs.existsSync(savedTexture), false);
     assert.deepEqual(await page.evaluate(() => Array.from(bitTestState().app.doc.serialize('mdx'))), before);
     await page.getByLabel('RGB animation', { exact: true }).selectOption('2');
     await page.waitForFunction(() => bitTestState('.parts-preview [aria-label="3D model viewport"]').viewport?.entries.every((entry, gi) => entry.meshes.every(mesh => mesh.material.userData.geosetTint.value.toArray().join(',') === [0, 0, 1 - gi / 8].join(','))));

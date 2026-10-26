@@ -19,7 +19,6 @@
 .model-tab>.model-tab-close{width:20px;min-width:20px;height:22px;padding:0;border:0;background:transparent;font-size:15px;line-height:18px}
 .model-tab>.model-tab-close:hover{background:#b33;color:#fff}
 .model-tabs-bar>.model-tabs-scroll{flex:0 0 auto;width:16px;min-width:16px;height:22px;min-height:22px;margin-bottom:1px;padding:0;font-size:8px;line-height:1}
-.repair-model-tabs{padding:3px 5px;background:#d4d0c8;border-bottom:1px solid #777}.repair-model-tabs .model-tabs{display:flex}
 .classic-modules .module-hint {margin-left:auto;color:#49473f;font-size:11px}
 .classic-modules>.animation-preview-tools{min-height:25px;padding:0;border:0;background:transparent;gap:3px;flex-wrap:nowrap}
 .classic-modules>.animation-preview-tools label{gap:3px}
@@ -55,7 +54,8 @@
 .classic-modules>.toolbar-modules>button>img{width:40px;height:40px;max-width:40px;max-height:40px;object-fit:contain}
 .classic-modules .pressed-keys-tool>span,.classic-modules .module-icon-badge{position:absolute;left:1px;right:1px;bottom:1px;height:50%;display:flex;align-items:center;justify-content:center;background:transparent;font:900 12px/1 Tahoma,Arial,sans-serif;text-shadow:0 1px #000}
 .classic-modules .module-icon-badge{color:#39ff14}
-.classic-modules :is(.library-tool,.forge-tool,.bits-tool,.optimizer-tool,.animxl-tool) .module-icon-badge{font-size:10px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
+.classic-modules :is(.ai-tool,.library-tool,.forge-tool,.bits-tool,.optimizer-tool,.animxl-tool) .module-icon-badge{font-size:10px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000}
+.classic-modules .ai-tool .module-icon-badge{color:#c58cff}
 .classic-modules .library-tool .module-icon-badge{color:#ffc928}
 .classic-modules .forge-tool .module-icon-badge{color:#54c8ff}
 .classic-modules .bits-tool .module-icon-badge{color:#f0f3f5}
@@ -71,3 +71,8 @@
 .official-website{display:block;margin-top:12px;font-size:11px;opacity:.7}.official-website a{color:var(--ui-link);text-decoration:none}.official-website a:hover{text-decoration:underline}.update-summary{padding-left:20px;max-height:240px;overflow:auto}.update-summary li{margin:6px 0}
 .classic-modal.update-overlay{z-index:1100}
 .classic-modules .animxl-tool .module-icon-badge{color:#ff5c5c}
+
+/* Shorten only inactive editor names when the full row would clip. */
+.classic-app:not([data-vis-ui]) .editor-modules>button>.editor-initial{display:none}
+.classic-app:not([data-vis-ui]) .editor-modules[data-short-editors]>button:not([aria-pressed=true])>.editor-name{display:none}
+.classic-app:not([data-vis-ui]) .editor-modules[data-short-editors]>button:not([aria-pressed=true])>.editor-initial{display:inline}

@@ -22,14 +22,14 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Search nodes').fill('SND');
     await page.locator('.re-tree-row').filter({ hasText: 'SNDx' }).first().click();
     await page.getByRole('tree', { name: 'Sound categories' }).waitFor();
-    await page.getByLabel('Search event data').fill('DVNG');
+    await page.getByLabel('Search sounds').fill('DVNG');
     assert.equal(await page.locator('[data-sound-id=DVNG]').count(), 0, 'unresolved sound IDs are not offered');
     assert.equal(await page.getByText(/Sound definition unavailable/).count(), 0, 'an existing unresolved node is preserved without a broken selectable row');
-    await page.getByLabel('Search event data').fill('DWAR');
+    await page.getByLabel('Search sounds').fill('DWAR');
     await page.locator('[data-sound-id=DWAR]').click();
-    await page.getByLabel('Search event data').fill('');
+    await page.getByLabel('Search sounds').fill('');
     const tree = page.getByRole('tree', { name: 'Sound categories' });
-    const folder = tree.getByRole('button', { name: 'Sound', exact: true });
+    const folder = tree.getByRole('button', { name: 'Interface', exact: true });
     const position = () => tree.evaluate(element => ({ list: element.scrollTop, panel: element.closest('.re-properties').scrollTop }));
     const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await folder.scrollIntoViewIfNeeded();

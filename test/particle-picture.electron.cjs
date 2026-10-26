@@ -43,7 +43,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await editor.getByRole('button',{name:'Save preset',exact:true}).click();await page.getByLabel('Preset name',{exact:true}).fill('Library picture proof');await page.getByRole('button',{name:'Save to My presets',exact:true}).click();await page.getByText('Saved Library picture proof',{exact:true}).waitFor();
   const names=await fs.readdir(path.join(profile,'particles','mine'));const saved=JSON.parse(await fs.readFile(path.join(profile,'particles','mine',names.find(n=>n.endsWith('.json'))),'utf8'));assert.equal(saved.native.Textures[0].Image,nativePath);assert.equal(saved.embeddedAssets.length,0);
   await editor.getByRole('button',{name:'Undo',exact:true}).click();assert.deepEqual((await read()).model,original.model,'One undo removes the library picture and reference together');
-  const customName='OriginalSpark.tga',customFile=path.join(out,customName),{starterTextureAsset}=await import('../src/particle-starters.js');await fs.writeFile(customFile,starterTextureAsset().bytes);
+  const customName='OriginalSpark.tga',customFile=path.join(out,customName),{starterTextureAsset}=await import('./starter-picture.js');await fs.writeFile(customFile,starterTextureAsset().bytes);
   await app.evaluate(({dialog},file)=>{global.__originalOpen=dialog.showOpenDialog;dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},customFile);
   await page.getByRole('button',{name:'Load picture…',exact:true}).click();await app.evaluate(({dialog})=>{dialog.showOpenDialog=global.__originalOpen;delete global.__originalOpen;});
   assert.equal((await read()).model.Textures.at(-1).Image,customName);

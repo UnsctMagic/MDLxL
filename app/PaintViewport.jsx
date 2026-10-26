@@ -2,12 +2,12 @@ import {createPaintLampObject,paintLampDrag} from './paint-lamps.js';
 import {paintRowRanges,acknowledgePaintUpload} from '../src/paint-preview.js';
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { EditorCameraControls, zoomEditorCamera, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles } from './editor-camera-controls.js';
+import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles } from './editor-camera-controls.js';
 import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay } from './preview-overlays.js';
-import { previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
+import { previewBillboarding, previewPresentationProps, previewOverlaySettings } from './preview-presentation.js';
 import { drawMovementOverlay, projectMovementNodes } from './movement-overlay.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { projectPreviewGeosets, pickPreviewGeoset } from './preview-selection.js';
@@ -143,7 +143,8 @@ export default function Viewport(inputProps) {
   const [error, setError] = useState(''), [textureMessage, setTextureMessage] = useState(''), [backgroundMessage, setBackgroundMessage] = useState(''), [box, setBox] = useState(null);
   const paintCursor = useRef(null);
   const [adjustingSensitivity, setAdjustingSensitivity] = useState(null);
-  const cameraMemory = useRef(null);
+  // The model tab's memory survives the remount that switching tabs causes.
+  const ownCameraMemory = useRef(null), cameraMemory = props.cameraMemory || ownCameraMemory;
   const graphics = graphicsOptions(props.preferences);
   const textureSignature = (model?.Textures || []).map(texture => `${texture.Image}|${texture.Flags}|${texture.ReplaceableId}`).join('\n');
   const texturesNeeded = graphics.textures && (mode === 'textured' || props.paintMode);
@@ -370,7 +371,7 @@ export default function Viewport(inputProps) {
       const p = latest.current, start = point(event);
       down = { ...start, pointerId: event.pointerId, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, pointerSensitivity: pointerSensitivityValue(p.preferences?.pointerSensitivity), action: action === 'zoom' ? 'zoom' : p.transformMode };
       controls.enabled = false; renderer.domElement.setPointerCapture(event.pointerId);
-      if (action === 'zoom') { down.zoom = camera.zoom; down.cameraPosition = camera.position.clone(); return; }
+      if (action === 'zoom') { down.zoomFactor = 1; return; }
       if(p.paintMode&&p.paintSelectOnly&&!p.paintLampPickingDisabled){
         pointer.set(start.x/start.width*2-1,1-start.y/start.height*2);raycaster.setFromCamera(pointer,camera);
         state.lampMarkers?.updateMatrixWorld(true);
@@ -437,7 +438,7 @@ export default function Viewport(inputProps) {
       }
       if (down.action === 'zoom') {
         const factor = Math.exp(-dy * .01);
-        zoomEditorCamera(camera, down.zoom * factor);
+        controls.zoomView(factor / down.zoomFactor); down.zoomFactor = factor;
         controls.update(); return;
       }
       if (down.action === 'select') { if (Math.hypot(dx, dy) > 5) setBox({ left: Math.min(down.x, end.x), top: Math.min(down.y, end.y), width: Math.abs(dx), height: Math.abs(dy) }); return; }
@@ -614,7 +615,7 @@ export default function Viewport(inputProps) {
       const interval = p.model?.Sequences?.[p.sequenceIndex]?.Interval;
       const animOptions = { interval, globalSequences: p.model?.GlobalSequences, globalTime: state.globalTime };
       if (changed && p.model && !state.drag && !p.paintWorkspace) {
-        state.matrices = samplePreviewMatrices(p.model, state.frame, p.sequenceIndex, state.globalTime, camera);
+        state.matrices = samplePreviewMatrices(p.model, state.frame, p.sequenceIndex, state.globalTime, previewBillboarding(p) ? camera : undefined);
         for (const entry of state.entries) {
           if (!entry) continue;
           const positions = entry.geometry.attributes.position;

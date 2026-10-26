@@ -184,6 +184,47 @@ test('Fix facing never touches back-to-back twins or a ground decal under a unit
   assert.equal(fixFacing(model(geoset(points, Array.from({ length: 5 }, (_, i) => [i, (i + 1) % 5, (i + 2) % 5]).flat()))).stats.trianglesFlipped, 0);
 });
 
+// An open band around the Z axis (a cuff or bracer): `sides` columns, two rows
+// of shared vertices, each side split into two triangles, wound outward.
+function band(sides, { radius = 6, height = 2.4 } = {}) {
+  const points = [], faces = [];
+  for (const z of [height, 0]) for (let s = 0; s < sides; s++) { const a = 2 * Math.PI * s / sides; points.push(radius * Math.cos(a), radius * Math.sin(a), z); }
+  for (let s = 0; s < sides; s++) { const top = s, next = (s + 1) % sides, low = sides + s, lowNext = sides + next; faces.push(top, low, lowNext, top, lowNext, next); }
+  return geoset(points, faces);
+}
+const radialOut = g => { for (let f = 0; f < g.Faces.length / 3; f++) { const p = at(g.Vertices, g.Faces[f * 3]), n = faceNormal(g, f); assert.ok(n[0] * p[0] + n[1] * p[1] > 0, 'triangle ' + f + ' faces the axis'); } };
+const flipTriangles = (g, list) => { const F = g.Faces; for (const f of list) { const s = F[f * 3 + 1]; F[f * 3 + 1] = F[f * 3 + 2]; F[f * 3 + 2] = s; } };
+
+test('Fix facing turns an inside-out band around a limb outward, like the SD models', () => {
+  // A 3-sided glove cuff, wholly inside out (consistently wound, so no minority to flip).
+  const cuff = model(band(3)); cuff.Geosets[0].Faces = Uint16Array.from(insideOut(Array.from(cuff.Geosets[0].Faces)));
+  assert.equal(fixFacing(cuff).stats.trianglesFlipped, 6);
+  radialOut(cuff.Geosets[0]);
+  assert.equal(fixFacing(cuff).stats.changed, false, 'nothing left to do');
+  // A 4-sided knee band where half of each side is flipped: no majority by area.
+  const knee = model(band(4)); flipTriangles(knee.Geosets[0], [1, 2, 5, 6]);
+  assert.equal(fixFacing(knee).stats.trianglesFlipped, 4);
+  radialOut(knee.Geosets[0]);
+  // A band that already faces outward, and a longer sleeve, are left as they are.
+  assert.equal(fixFacing(model(band(8))).stats.trianglesFlipped, 0);
+  // Half a sleeve, inside out (one boundary loop, like a curved flap): its outside cannot be known, so it is left alone.
+  const half = band(6); half.Faces = Uint16Array.from(insideOut(Array.from(half.Faces.subarray(0, 18))));
+  assert.equal(fixFacing(model(half)).stats.trianglesFlipped, 0);
+});
+
+test('a 3-sided band gets smooth corners that lean the way the SD models do, at the default angle', () => {
+  const m = model(band(3)); rebuilt(m); const g = m.Geosets[0];
+  // Every corner sums all of its own triangles: a side split into two triangles
+  // at that corner counts twice (the authored SD bands match this to 0.01°).
+  for (let v = 0; v < 6; v++) {
+    const sum = [0, 0, 0];
+    for (let f = 0; f < 6; f++) if (at(g.Faces, f).includes(v)) faceNormal(g, f).forEach((x, i) => sum[i] += x);
+    near(at(g.Normals, v), unit(sum));
+    const [x, y] = at(g.Vertices, v), n = at(g.Normals, v);
+    assert.ok(n[0] * x + n[1] * y > 0, 'vertex ' + v + ' points away from the limb');
+  }
+});
+
 // Demo document with the first geoset replaced by an inside-out cube.
 function cubeDocument() {
   const doc = createDemoDocument();

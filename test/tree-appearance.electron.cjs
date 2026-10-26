@@ -39,7 +39,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Search nodes').fill('SND');
     await page.locator('.re-tree-row').filter({ hasText: 'SNDxDSPV' }).click();
     await page.getByRole('tree', { name: 'Sound categories' }).waitFor();
-    await page.getByLabel('Search event data').fill('AHAV');
+    await page.getByLabel('Search sounds').fill('AHAV');
     await page.getByLabel('Search nodes').fill('');
     for (const preset of Object.values(presets)) {
       await settings(); await page.getByLabel('Viewport appearance preset').selectOption(preset.id); await done();

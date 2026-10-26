@@ -49,7 +49,7 @@ test('UV preview has no editor View toggles; Vertex View uses its own checked co
   assert.deepEqual(menus.find(menu=>menu.label==='View').submenu,[]);
   const editor=buildMenuTemplate({},id=>actions.push(id),'win32',[],x=>x,{viewMode:'vertices',checks:{shaded:true,showVertices:true}});
   const rows=editor.find(menu=>menu.label==='View').submenu;
-  assert.deepEqual(rows.map(row=>row.label),['Shadows','Vertices','Normals','Wireframe Overlay','Grid','Clear']);
+  assert.deepEqual(rows.map(row=>row.label),['Shadows','RGB','Vertices','Normals','Wireframe Overlay','Grid','Clear']);
   assert.equal(rows.find(row=>row.label==='Shadows').checked,true);
   assert.equal(rows.find(row=>row.label==='Clear').type,undefined);
   rows.find(row=>row.label==='Shadows').click();

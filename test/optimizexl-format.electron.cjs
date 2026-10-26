@@ -2,22 +2,29 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 (async()=>{
   const file=process.env.MDLXL_FORMAT_MODEL;if(!file)throw Error('Set MDLXL_FORMAT_MODEL to the private review fixture.');
-  const source=fs.readFileSync(file),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','format-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});
+  const source=fs.readFileSync(file),out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','format-ui-'+Date.now()),copies=path.join(out,'copies');fs.mkdirSync(copies,{recursive:true});const work=path.join(out,path.basename(file));fs.copyFileSync(file,work);
   const profile=path.join(out,'profile');fs.mkdirSync(profile,{recursive:true});fs.writeFileSync(path.join(profile,'settings.json'),JSON.stringify({preferences:{graphics:{particles:false}}}));
   const {openDocument}=await import('../src/editor-document.js'),{sanityProposals,runOptimizeStage}=await import('../src/optimizexl.js');
   const before=openDocument(new Uint8Array(source),'x.mdx').model,fixes=sanityProposals(before).filter(f=>!f.inspectionOnly);
   assert.equal(fixes.length,2);const expected=Buffer.from(runOptimizeStage(new Uint8Array(source),'sanity',{}, {kind:'batch',stage:'sanity',entries:fixes.map(fix=>({fix}))}).bytes);
   const exe=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[];
-  const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),file],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});let p;
+  const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),work],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:profile},timeout:60000});let p;
   try{
-    const main=await app.firstWindow();main.on('pageerror',e=>errors.push(e.message));await main.getByTitle('OptimizeXL',{exact:true}).waitFor({timeout:60000});
-    const pending=app.waitForEvent('window');await main.getByTitle('OptimizeXL',{exact:true}).click();p=await pending;p.setDefaultTimeout(25000);p.on('pageerror',e=>errors.push(e.message));
+    const main=await app.firstWindow();main.on('pageerror',e=>errors.push(e.message));await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
+    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();p=await pending;p.setDefaultTimeout(25000);p.on('pageerror',e=>errors.push(e.message));
     await app.evaluate(({BrowserWindow,dialog},directory)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}},copies);
+  // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
+  await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
     const stage=()=>p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Insanity FIxer',exact:true}).click();
     const ready=()=>p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));
-    const save=async(bytes)=>{const old=new Set(fs.readdirSync(copies));await p.getByRole('button',{name:'Optimize New Copy',exact:true}).click();await p.waitForFunction(()=>!Array.from(document.querySelectorAll('header button')).some(b=>b.textContent==='Saving…'));
-      const added=fs.readdirSync(copies).filter(n=>!old.has(n));assert.equal(added.length,2);assert.deepEqual(fs.readFileSync(path.join(copies,added.find(n=>n.includes('_Before')))),source);assert.deepEqual(fs.readFileSync(path.join(copies,added.find(n=>n.includes('_After')))),bytes);
-    };
+    const save=async(bytes)=>{
+   // Save writes the open working copy; the private fixture itself is never touched.
+   const button=p.getByRole('button',{name:'Save',exact:true});
+   if(await button.isEnabled()){await button.click();const keep=p.getByRole('button',{name:'Save without backup',exact:true});if(await keep.isVisible())await keep.click();
+    await p.waitForFunction(()=>!Array.from(document.querySelectorAll('header button')).some(b=>b.textContent==='Saving…')&&Array.from(document.querySelectorAll('[role="status"]')).some(e=>/^Saved /.test(e.textContent)));}
+   const {openDocument:open}=await import('../src/editor-document.js'),plain=x=>JSON.stringify(open(new Uint8Array(x),'x.mdx').model,(k,v)=>k==='Nodes'?undefined:ArrayBuffer.isView(v)?Array.from(v):v);
+   assert.equal(plain(fs.readFileSync(work)),plain(bytes),'The open file holds exactly the approved model');
+  };
     await stage();await p.getByText('Hive: 0 errors · 8 severe · 1 warnings · 3 notices',{exact:true}).waitFor();
     assert.equal(await p.locator('.ox-fix-selection details[open]').count(),0);
     const pinned=await p.locator('[aria-label="Before preview"] h2').textContent();

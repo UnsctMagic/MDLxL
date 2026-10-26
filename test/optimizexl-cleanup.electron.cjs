@@ -6,9 +6,11 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   const exe=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[];
   const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),model],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile-'+Date.now())},timeout:60000});
   try{
-    const main=await app.firstWindow();await main.getByTitle('OptimizeXL',{exact:true}).waitFor({timeout:60000});
-    const pending=app.waitForEvent('window');await main.getByTitle('OptimizeXL',{exact:true}).click();const p=await pending;p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));
+    const main=await app.firstWindow();await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
+    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));
     await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}});
+  // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
+  await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
     const stage=name=>p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name,exact:true}).click();
     const all=async()=>{const list=p.locator('.ox-fix-selection');if(!await list.evaluate(e=>e.open))await list.locator('summary').click();await list.getByRole('button',{name:'Select all',exact:true}).click();await p.getByRole('button',{name:'Preview all selected fixes',exact:true}).click();await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));};
     await stage('Insanity FIxer');await p.getByText('Hive: 0 errors · 1 severe · 0 warnings · 3 notices',{exact:true}).waitFor();

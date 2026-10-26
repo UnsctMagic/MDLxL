@@ -89,7 +89,9 @@ test('table repair composes with opening, unused, exact redundant keys and timel
  const doc=tableFixture([1],[[100,200],[700,800],[400,500]]);
  doc.model.Bones[0].Translation.Keys=[key(110,[0,0,0]),key(200,[100,0,0]),key(250,[9,8,7]),key(400,[400,0,0]),key(500,[500,0,0]),key(700,[200,0,0]),key(800,[300,0,0])];
  doc.model.Bones[0].Scaling={LineType:1,GlobalSeqId:null,Keys:[key(100,[1,1,1]),key(150,[1,1,1]),key(200,[1,1,1])]};
- const source=doc.serialize('mdx'),fixes=sanityProposals(openDocument(source,'x.mdx').model).filter(f=>!f.inspectionOnly);
+ // General checker repairs (names, Origin point, Stand/Death) are covered in
+ // optimizexl-checker-repairs.test.js; this composes the key and table repairs.
+ const source=doc.serialize('mdx'),fixes=sanityProposals(openDocument(source,'x.mdx').model).filter(f=>!f.inspectionOnly&&f.kind!=='checker');
  for(const kind of ['bounds','openingTrack','unusedLocalKeys','redundantTracks','sequenceTimeline'])assert.ok(fixes.some(f=>f.kind===kind),kind);
  const batch=runOptimizeStage(source,'sanity',{}, {kind:'batch',stage:'sanity',entries:fixes.map(fix=>({fix}))}).bytes;
  for(const order of [fixes,[...fixes].reverse()]){
@@ -97,5 +99,5 @@ test('table repair composes with opening, unused, exact redundant keys and timel
   assert.deepEqual(bytes,batch);
  }
  const checked=hive(batch);assert.deepEqual(checked.findings.filter(f=>/sequence extents|starts before|Missing opening|same value|not in any sequence/.test(f.message)),[]);
- assert.deepEqual(sanityProposals(openDocument(batch,'x.mdx').model),[]);
+ assert.deepEqual(sanityProposals(openDocument(batch,'x.mdx').model).filter(f=>f.kind!=='checker'),[]);
 });

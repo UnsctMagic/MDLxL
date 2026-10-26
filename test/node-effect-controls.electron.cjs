@@ -8,7 +8,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const root=process.cwd(),out=path.join(root,'out','node-effect-controls',String(Date.now())),profile=path.join(out,'profile');
   await fs.mkdir(profile,{recursive:true});
   const {createDemoDocument,createNode,openDocument}=await import('../src/editor-document.js');
-  const {starterTextureAsset}=await import('../src/particle-starters.js');
+  const testPicture=(await import('./starter-picture.js')).starterTextureAsset('MDLxL_Forge\\TestSoftDisc.tga'),starterTextureAsset=()=>testPicture;
   const doc=createDemoDocument(), ids={};
   doc.apply('Node preview fixture',['Nodes','PivotPoints','Textures','Materials','Sequences'],model=>{
     model.Sequences[0].Interval=new Uint32Array([0,2000]);
@@ -158,7 +158,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button',{name:'Bones',exact:true}).click();
     await wait(s=>s.ready,'Bones ready');await absent(['Nodes','Ribbons','Blood/Uber/Foot']);
     for(const name of ['Emitters','Events','Sounds']){assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);await quick.getByLabel(name,{exact:true}).check();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),true);}
-    await quick.getByLabel('Bones',{exact:true}).check();await quick.getByLabel('Attachment',{exact:true}).check();
+    const objectTypes=page.getByRole('group',{name:'Visible object types',exact:true});await objectTypes.getByLabel('Bones',{exact:true}).check();await objectTypes.getByLabel('Refs',{exact:true}).check();
     await wait(s=>s.nodes>0,'Bones symbols');await installDecalProbe();
     assert.deepEqual((await read()).particles,[0]);assert.deepEqual((await read()).ribbons,[0]);
     await screenshot('bones-symbols.png');const frame=(await read()).frame;
@@ -181,6 +181,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await wait(s=>!s.decal&&s.decals===0,'One visual decal cycle cleans up');assert.ok(Date.now()-started<1800,'Right-click does not leave a long-lived stain');await screenshot('bones-decal-clean-'+id+'.png');
     }
     await clickNode(ids.attachment,'left');await command('Nodes');await page.getByRole('dialog',{name:'Node Manager',exact:true}).waitFor();assert.equal(await page.locator('.re-tree-row.re-selected').getAttribute('data-node-id'),String(ids.attachment));await page.getByRole('button',{name:'Close',exact:true}).last().click();
+    // Reference visibility is shared across rig editors too; isolate effect symbols for the animation checks below.
+    await objectTypes.getByLabel('Refs',{exact:true}).uncheck();
     for(const name of ['Emitters','Events','Sounds']){await quick.getByLabel(name,{exact:true}).uncheck();assert.equal(await quick.getByLabel(name,{exact:true}).isChecked(),false);}
     await page.getByRole('button',{name:'Movement',exact:true}).click();
     await page.getByLabel('Movement current sequence',{exact:true}).selectOption('0');await wait(s=>s.ready,'Movement ready');await absent(['Nodes','Ribbons','Blood/Uber/Foot']);
@@ -215,7 +217,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const xlChecks=await Promise.all(['Emitters','Events','Sounds'].map(name=>quick.getByLabel(name,{exact:true}).isChecked()));await read();await page.evaluate(()=>window.testVISNative=window.testRuntime.native);
     await page.locator('.vis-toggle').click();await page.locator('.classic-app[data-vis-ui]').waitFor();await absent(['Events','Sounds']);assert.equal(await quick.getByLabel('Nodes',{exact:true}).count(),1);assert.equal(await quick.getByLabel('Emitters',{exact:true}).isChecked(),false);
     const nativeView=await app.evaluate(async({Menu})=>{const end=Date.now()+5000;let labels;do{labels=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu.items.map(item=>item.label);if(labels.includes('Nodes')&&!labels.includes('Events')&&!labels.includes('Sounds'))return labels;await new Promise(resolve=>setTimeout(resolve,20));}while(Date.now()<end);return labels;});assert.ok(nativeView.includes('Nodes'));assert.ok(!nativeView.includes('Events')&&!nativeView.includes('Sounds'));
-    await quick.getByLabel('Bones',{exact:true}).check();await quick.getByLabel('Nodes',{exact:true}).check();await quick.getByLabel('Emitters',{exact:true}).check();await quick.getByLabel('Attachment',{exact:true}).check();await wait(s=>s.nodes>0,'VIS original markers');await screenshot('vis-movement-symbols.png');
+    await app.evaluate(({Menu})=>{const view=Menu.getApplicationMenu().items.find(item=>item.label==='View').submenu;for(const label of ['Bones','Attachment']){const item=view.items.find(item=>item.label===label);if(!item)throw Error('Missing View '+label);if(!item.checked)item.click();}});await quick.getByLabel('Nodes',{exact:true}).check();await quick.getByLabel('Emitters',{exact:true}).check();await wait(s=>s.nodes>0,'VIS original markers');await screenshot('vis-movement-symbols.png');
     await clickNode(ids.particle);await page.waitForTimeout(650);assert.equal((await read()).pulse,false,'VIS right click retains original camera behavior');assert.deepEqual((await read()).particles,[0]);
     const visCameraBefore=(await read()).camera,visCanvas=await page.locator('[data-clean-model-canvas]').boundingBox();await page.mouse.move(visCanvas.x+visCanvas.width*.8,visCanvas.y+visCanvas.height*.65);await page.mouse.down({button:'right'});await page.mouse.move(visCanvas.x+visCanvas.width*.68,visCanvas.y+visCanvas.height*.52,{steps:12});await page.mouse.up({button:'right'});await wait(s=>s.camera.some((v,i)=>Math.abs(v-visCameraBefore[i])>1),'VIS normal mouse rotation');
     await page.locator('.vis-toggle').click();await page.locator('.classic-app:not([data-vis-ui])').waitFor();await absent(['Nodes']);assert.deepEqual(await Promise.all(['Emitters','Events','Sounds'].map(name=>quick.getByLabel(name,{exact:true}).isChecked())),xlChecks,'XL category choices are restored');await read();assert.equal(await page.evaluate(()=>window.testRuntime.native===window.testVISNative),true,'VIS toggle preserves the live model and timeline');

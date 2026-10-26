@@ -13,6 +13,21 @@ export function hiveTrackPath(path=''){
   }
   return parts.join('.');
 }
+// Checker messages owned by a general checker repair (see optimizexl-checker-repairs.js).
+const CHECKER_RULES=[
+  [/is lower than the track before it|has the same frame .* as track/,'keyOrder'],[/has a negative frame/,'negativeKeys'],
+  [/^Zero tracks$/,'emptyTracks','emptyEvents'],[/^Invalid global sequence/,'globalReference'],[/^Using a variation animation/,'variation'],
+  [/^Path ".*" and replaceable ID .* used together$/,'texturePath'],[/^(Unknown|Invalid) replaceable ID/,'replaceableId'],
+  [/^Invalid texture animation/,'textureAnimReference'],[/^Invalid geoset animation/,'boneReference'],[/^Invalid geoset /,'geosetAnimReference','boneReference'],
+  [/^Invalid parent|^Same object and parent$/,'parent'],[/which is not a bone$/,'helperSkin'],[/^There are no vertices attached to this bone$/,'unskinnedBone'],
+  [/^Zero faces$/,'zeroFaces'],[/^Too many vertices in one geoset/,'vertexLimit'],[/attenuation/,'lightAttenuation'],
+  [/^Missing the Origin attachment point$/,'origin'],[/^Expected time middle/,'timeMiddle'],[/^The animation file should probably be empty/,'animationFile'],
+  [/is not a standard name$/,'sequenceNames'],[/^Zero length$/,'zeroLength'],[/^Missing opening track for global sequence/,'globalOpening'],
+  [/^This sequence starts (at the same frame as|before) sequence/,'timeline'],[/^Vertex \d+: (Not attached|Attached to (vertex group|object) \d+ which does not exist)/,'vertexAttachment'],
+  [/^Invalid material/,'materialReference'],[/^Invalid texture /,'textureReference'],[/^Invalid filter mode/,'filterMode'],[/^Corrupted path/,'texturePathExtension'],
+  [/^Invalid path/,'modelPath'],[/^Referenced by \d+ geoset animations/,'duplicateGeosetAnims'],[/with a 0 alpha, the geoset may be invisible$/,'invisibleBoneLink'],
+  [/^Using squirt without/,'squirt'],[/^XY Quad emitters/,'xyQuad'],[/^Interpolation type not set to None$/,'visibilityFade'],
+];
 export function classifyHiveFindings(findings,proposals=[]){
   return findings.map(f=>{
     const message=f.message||f.name||'',frameMatch=/\bat frame (\d+)/.exec(message),frame=frameMatch?Number(frameMatch[1]):null;
@@ -28,12 +43,14 @@ export function classifyHiveFindings(findings,proposals=[]){
     else if(/^This sequence starts before sequence \d+ "/.test(message)){kind='sequenceTimeline';owner='sanity';}
     else if(/^Number of sequence extents \(\d+\) does not match the number of sequences \(\d+\)$/.test(message)){kind='sequenceExtents';owner='sanity';}
     else if(message==='There are no vertices attached to this bone'){kind='unskinnedBone';}
+    const rules=CHECKER_RULES.find(([pattern])=>pattern.test(message))?.slice(1)||[],repair=proposals.find(p=>p.kind==='checker'&&rules.includes(p.rule));
     const location=hiveTrackPath(f.path);
     const proposal=proposals.find(p=>p.kind==='splineResample'&&kind==='redundantTracks'&&location===p.path?.join('.')&&p.noticed.includes(frame))||proposals.find(p=>f.type!=='unused'&&/extent|radius/i.test(message)&&p.targets?.some(t=>t.sequenceExtents?(kind==='sequenceExtents'&&(f.path||'')===t.hivePath)||(f.path||'').startsWith(t.hivePath+'/Extent'):(f.path||'').startsWith(t.hivePath))||
       p.kind==='sequenceTimeline'&&kind==='sequenceTimeline'||
       p.kind==='gravity'&&location===`ParticleEmitters2.${p.emitter}.Gravity`||
       p.kind===kind&&location===p.path?.join('.')&&
       (kind==='openingTrack'?p.frame===frame:kind==='redundantTracks'?p.noticed.includes(frame):kind==='unusedLocalKeys'?p.frames.includes(frame):true));
+    if(!proposal&&repair)return {...f,kind:'checker',owner:'sanity',fixId:repair.id,status:'preview',reason:repair.choices?'Repair available; choose how to fix it.':'Supported correction available.'};
     if(proposal){const manual=proposal.inspectionOnly||proposal.kind==='redundantTracks'&&!proposal.frames?.includes(frame);
       return {...f,kind,owner:'sanity',fixId:proposal.id,status:manual?'manual':'preview',
         reason:manual?proposal.preservedTurns?.includes(frame)?'Similar values contain an authored turn; keep this key to preserve motion.':'Detected; its curve or domain requires manual review.':'Supported correction available.'};}

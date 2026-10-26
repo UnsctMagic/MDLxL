@@ -52,7 +52,8 @@ const fingerprint = (value) => JSON.stringify(value, (key, val) => {
   return val;
 });
 const nodeCollectionKeys = new Set(Object.values(NODE_TYPES).map(([key]) => key));
-const ignoreHistoryAlias = (path) => path[0] === 'Nodes' || path.length === 3 && nodeCollectionKeys.has(path[0]) && path[2] === 'PivotPoint';
+// Node collections and PivotPoints alias the canonical Nodes list; diffs compare the canonical copy only.
+export const ignoreHistoryAlias = (path) => path[0] === 'Nodes' || path.length === 3 && nodeCollectionKeys.has(path[0]) && path[2] === 'PivotPoint';
 const ignoreSerializationAlias = path => ignoreHistoryAlias(path) || path[0] === GEOSET_TABS_KEY || path[0] === 'Geosets' && path[2] === GEOSET_TAB_KEY || path.some(key => [ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS].includes(key));
 const pickSections = (model, keys) => Object.fromEntries([...keys].filter(key => key !== 'Nodes').map(key => [key, model[key]]));
 
@@ -392,7 +393,7 @@ export class EditorDocument {
     try { return this.apply('Convert to MDX'+target,['Version','Materials','Geosets'],model=>normalizeVersionFields(model,target)); }
     finally { this._versionConversion=false; }
   }
-  apply(label, sections, mutator) {
+  apply(label, sections, mutator, { validate } = {}) {
     if (this.readOnly) throw new Error(`This document is read-only (format ${this.version ?? 'unknown'} or unsupported data).`);
     if (typeof mutator !== 'function') throw new TypeError('apply requires a model mutator function.');
     if (this._applying) throw new Error('Nested document edits are not supported.');
@@ -405,6 +406,7 @@ export class EditorDocument {
       if (result && typeof result.then === 'function') throw new Error('Document edits must be synchronous.');
       if (next.Version !== before.Version && !this._versionConversion) throw new Error('Changing the model version is not supported; no automatic downgrades are performed.');
       normalizeModel(next, before);
+      validate?.(next, before);
       // Discover actual mutations first, including closed-over inspector edits
       // and changes outside the requested sections. Reference checks still run
       // against the entire model; unchanged numeric/track diagnostics can be
@@ -837,8 +839,9 @@ export function deleteNode(model, id) {
   updateCounts(model);
   return node;
 }
+export const MODEL_COUNT_FIELDS = Object.freeze({ NumGeosets: 'Geosets', NumGeosetAnims: 'GeosetAnims', NumBones: 'Bones', NumHelpers: 'Helpers', NumLights: 'Lights', NumAttachments: 'Attachments', NumEvents: 'EventObjects', NumParticleEmitters: 'ParticleEmitters', NumParticleEmitters2: 'ParticleEmitters2', NumRibbonEmitters: 'RibbonEmitters' });
 function updateCounts(model) {
-  for (const [field, key] of Object.entries({ NumGeosets: 'Geosets', NumGeosetAnims: 'GeosetAnims', NumBones: 'Bones', NumHelpers: 'Helpers', NumLights: 'Lights', NumAttachments: 'Attachments', NumEvents: 'EventObjects', NumParticleEmitters: 'ParticleEmitters', NumParticleEmitters2: 'ParticleEmitters2', NumRibbonEmitters: 'RibbonEmitters' })) model.Info[field] = model[key]?.length || 0;
+  for (const [field, key] of Object.entries(MODEL_COUNT_FIELDS)) model.Info[field] = model[key]?.length || 0;
 }
 export function duplicateGeoset(model, index) {
   if (!model.Geosets?.[index]) throw new Error('Select an existing geoset to duplicate.');
@@ -1013,7 +1016,6 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   if (rigidNode && typeof rigidNode === 'object') rigidNode = rigidNode.ObjectId;
   if (rigidNode != null && !target.Nodes?.[rigidNode]) throw new Error('The rigid paste anchor node does not exist.');
   const rigid = rigidNode != null, reuseExisting = sameModel && anchor == null && !rigid;
-  const reuseDependencies = reuseExisting || rigid;
   const indices = [...new Set(selectedIndices)];
   if (!indices.length) return { geosetIndices: [], selection: {}, nodeMap: {}, materialMap: {}, textureMap: {}, warnings: [] };
   for (const index of indices) if (!source.Geosets?.[index]) throw new Error(`Source geoset ${index} does not exist.`);
@@ -1056,7 +1058,7 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
   const materialRef = (old) => {
     if (!source.Materials[old]) throw new Error(`Source geoset references missing material ${old}.`);
     if (!maps.materials.has(old)) {
-      if (reuseDependencies) {
+      if (reuseExisting) {
         const original = fingerprint(target.Materials[old]) === fingerprint(source.Materials[old]) ? old : -1;
         const existing = original >= 0 ? original : target.Materials.findIndex((material) => fingerprint(material) === fingerprint(source.Materials[old]));
         if (existing >= 0) { maps.materials.set(old, existing); return existing; }
@@ -1073,7 +1075,11 @@ export function importGeosets(target, source, selectedIndices = source.Geosets.m
           layer.TVertexAnimId = maps.textureAnims.get(texAnim);
         }
       }
-      globalRef(material); maps.materials.set(old, target.Materials.push(material) - 1);
+      globalRef(material);
+      // A rigid import has a separate dependency table. Compare only after
+      // texture, texture-animation and global-sequence IDs are remapped.
+      const existing = rigid ? target.Materials.findIndex(candidate => fingerprint(candidate) === fingerprint(material)) : -1;
+      maps.materials.set(old, existing >= 0 ? existing : target.Materials.push(material) - 1);
     }
     return maps.materials.get(old);
   };

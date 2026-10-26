@@ -8,7 +8,7 @@ import { addTriangle, transformVertices } from '../src/editor-commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
 
 const sections = ['Geosets', 'Materials', 'Textures', 'Nodes', 'PivotPoints', 'GeosetAnims', 'GlobalSequences', 'TextureAnims'];
-const ui = (selection, activeGeoset = Number(Object.keys(selection)[0])) => ({ selection, selectable: new Set(Object.keys(selection).map(Number)), hidden: {}, activeGeoset, uvSet: 0 });
+const ui = (selection, activeGeoset = Number(Object.keys(selection)[0])) => ({ selection, selectable: new Set(Object.keys(selection).map(Number)), activeGeoset, uvSet: 0 });
 
 test('copy retains a loose vertex and every SD/HD attribute without changing the source', () => {
   const { model } = createDemoDocument(), source = model.Geosets[0], count = source.Vertices.length / 3;
@@ -164,4 +164,24 @@ test('cross-model paste creates no donor rig nodes, binds every vertex to DummyB
     assert.equal(target.model.GeosetAnims.find(animation => animation.GeosetId === gi).Alpha, .5);
   }
   for (const format of ['mdl', 'mdx']) assert.equal(openDocument(target.serialize(format), `tabs.${format}`).diagnostics.some(item => item.severity === 'error'), false);
+});
+
+test('rigid paste compares destination material dependencies after remapping and still reuses true matches', () => {
+  const source = createDemoDocument(), target = createDemoDocument();
+  source.model.Textures[0].Image = 'Textures\\Donor.blp';
+  target.model.Textures[0].Image = 'Textures\\Destination.blp';
+  const originalMaterial = structuredClone(target.model.Materials[0]);
+  const paste = () => target.apply('Rigid dependency import', sections, model => {
+    const dummy = ensureDummyBone(model);
+    return importGeosets(model, source.model, [0], null, { rigidNode: dummy.ObjectId });
+  });
+  const first = paste(), imported = target.model.Geosets[first.geosetIndices[0]];
+  assert.notEqual(imported.MaterialID, 0);
+  assert.equal(target.model.Textures[target.model.Materials[imported.MaterialID].Layers[0].TextureID].Image, 'Textures\\Donor.blp');
+  assert.deepEqual(target.model.Materials[0], originalMaterial);
+  const counts = [target.model.Textures.length, target.model.Materials.length];
+  const second = paste();
+  assert.equal(target.model.Geosets[second.geosetIndices[0]].MaterialID, imported.MaterialID);
+  assert.deepEqual([target.model.Textures.length, target.model.Materials.length], counts);
+  assert.equal(openDocument(target.serialize('mdx')).readOnly, false);
 });

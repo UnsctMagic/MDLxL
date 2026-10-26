@@ -1,14 +1,19 @@
 import { normalizeVersionFields } from './model-version.js';
 import { openDocument, createNode, recalculateExtents } from './editor-document.js';
 
-/** E32: a 64-unit cube centered on the origin, eight shared corner vertices.
+/** File → New: an empty model with no geosets, bones, materials or textures. */
+export function createEmptyDocument(version = 800) {
+  if (![800,1000].includes(version)) throw new Error('Choose MDX800 or MDX1000.');
+  const empty = openDocument(`Version { FormatVersion ${version}, }\nModel "Untitled" { BlendTime 150, MinimumExtent {0,0,0}, MaximumExtent {0,0,0}, BoundsRadius 0, }`, 'Untitled.mdl');
+  return openDocument(empty.serialize('mdx'), 'Untitled.mdx');
+}
+
+/** Test fixture. E32: a 64-unit cube centered on the origin, eight shared corner vertices.
  * The codec calls depth-write suppression NoDepthSet (bit 128); Shading=0
  * leaves that and all five other requested shading flags disabled.
  */
 export function createStarterDocument(version = 800) {
-  if (![800,1000].includes(version)) throw new Error('Choose MDX800 or MDX1000.');
-  const empty = openDocument(`Version { FormatVersion ${version}, }\nModel "Untitled" { BlendTime 150, MinimumExtent {0,0,0}, MaximumExtent {0,0,0}, BoundsRadius 0, }`, 'Untitled.mdl');
-  const doc = openDocument(empty.serialize('mdx'), 'Untitled.mdx');
+  const doc = createEmptyDocument(version);
   doc.apply('Create starter cube', ['Geosets','Materials','Textures','Nodes','Info'], model => {
     const root = createNode(model, 'Bone'); root.Name = 'Bone_Root';
     model.Textures.push({Image:'Textures/White.blp', ReplaceableId:0, Flags:0});

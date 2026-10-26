@@ -1,6 +1,6 @@
 import { allNodes, sampleTrack } from './animation.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
-import { animationTargets, animationTrackId, readAnimationTrack } from './animation-tracks.js';
+import { animationTargets, animationTrackId, assertSingleGeosetOwner, readAnimationTrack } from './animation-tracks.js';
 
 const transforms = ['Translation', 'Rotation', 'Scaling'];
 const clone = value => structuredClone(value);
@@ -73,7 +73,7 @@ function checkedTargets(model, targets, domain) {
     const current = supported.get(animationTrackId(target));
     if (!current) throw new Error('This track is read-only or is no longer available.');
     if (!domain || current.globalSeqId !== domain.globalSeqId) throw new Error('Open the track’s own local or global timeline before editing it.');
-    timelineReadTrack(model, current); // Validate duplicate geoset owners before any write.
+    if (current.kind === 'geoset') assertSingleGeosetOwner(model, current.id); // Before any write.
     return current;
   });
 }

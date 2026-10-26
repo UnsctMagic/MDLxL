@@ -1,12 +1,13 @@
+import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { moveDragPoint } from './classic-gestures.js';
 import { scaleTextRuns } from './showcase-rich-text.js';
 import { createAnimatedPreviewBackground } from './animated-preview-background.js';
 import { paintShowcaseText, textFonts } from './showcase-text.js';
 
-export default forwardRef(function ShowcaseLayers({layers=[],activeId,editing,onSelect,onChange,onError,onInvalidate,grid=false,gridDensity=5,crop},ref) {
+export default forwardRef(function ShowcaseLayers({preferences,layers=[],activeId,editing,onSelect,onChange,onError,onInvalidate,grid=false,gridDensity=5,crop},ref) {
   const root=useRef(null),canvas=useRef(null),records=useRef(new Map()),drag=useRef(null),lastTime=useRef(0),lastCinematic=useRef({enabled:false,time:0}),latest=useRef();
-  latest.current={layers,activeId,editing,onSelect,onChange,onError,onInvalidate};
+  latest.current={preferences,layers,activeId,editing,onSelect,onChange,onError,onInvalidate};
   function paint(context,width,height,time=lastTime.current,cinematic=lastCinematic.current){
     for(const layer of latest.current.layers){
       context.save();context.globalAlpha=layer.opacity??1;
@@ -67,13 +68,13 @@ export default forwardRef(function ShowcaseLayers({layers=[],activeId,editing,on
     const box=root.current.getBoundingClientRect();latest.current.onSelect?.(layer.id);
     const centerX=box.left+(layer.rect.x+layer.rect.width/2)*box.width,centerY=box.top+(layer.rect.y+layer.rect.height/2)*box.height;
     const point={x:event.clientX,y:event.clientY};
-    drag.current={motion:{pointer:point,point,shift:event.shiftKey,axis:null},id:layer.id,x:event.clientX,y:event.clientY,width:box.width,height:box.height,rect:layer.rect,size:layer.size,layer,angle:(layer.kind==='text'?Number(layer.rotation)||0:0)*Math.PI/180,resize:event.target.dataset.layerResize==='true',rotate:layer.kind==='text'&&!!event.target.closest('[data-layer-rotate]'),centerX,centerY,pointerAngle:Math.atan2(event.clientY-centerY,event.clientX-centerX)};
+    drag.current={motion:{pointer:point,point,shift:event.shiftKey,axis:null},id:layer.id,x:event.clientX,y:event.clientY,width:box.width,height:box.height,rect:layer.rect,size:layer.size,layer,angle:(layer.kind==='text'?Number(layer.rotation)||0:0)*Math.PI/180,resize:event.target.dataset.layerResize==='true',rotate:layer.kind==='text'&&!!event.target.closest('[data-layer-rotate]'),rotationDrag:beginRotationDrag({...rotationOptions(latest.current.preferences,'showcase'),x:event.clientX,y:event.clientY,pivot:{x:centerX,y:centerY}})};
     event.currentTarget.setPointerCapture(event.pointerId);event.stopPropagation();event.preventDefault();
   }
   function move(event){
     const row=drag.current;if(!row)return;const point=moveDragPoint(row.motion,{x:event.clientX,y:event.clientY},event.shiftKey),dx=(point.x-row.x)/row.width,dy=(point.y-row.y)/row.height,rect=row.rect;
     if(row.rotate){
-      const angle=row.angle+Math.atan2(event.clientY-row.centerY,event.clientX-row.centerX)-row.pointerAngle;
+      const angle=row.angle+rotationDragDegrees(row.rotationDrag,event.clientX-row.x,event.clientY-row.y)*Math.PI/180;
       const rotation=((Math.round(angle*180/Math.PI)+180)%360+360)%360-180;
       latest.current.onChange?.(row.id,{rotation});event.stopPropagation();return;
     }

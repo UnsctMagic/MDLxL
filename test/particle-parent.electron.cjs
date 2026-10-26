@@ -1,11 +1,11 @@
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const root=process.cwd(),out=path.join(root,'out','particle-prototype','parents-'+Date.now());fs.mkdirSync(out,{recursive:true});
- const {createStarterRecipe,starterTextureAsset,STARTER_TEXTURE}=await import('../src/particle-starters.js'),{createNode}=await import('../src/editor-document.js'),{generateCompatibleMdx}=await import('../src/mdx-compatibility.js');
+ const {createStarterRecipe}=await import('../src/particle-starters.js'),{createNode}=await import('../src/editor-document.js'),{generateCompatibleMdx}=await import('../src/mdx-compatibility.js');
  const model=createStarterRecipe().native,p=model.ParticleEmitters2[0],parent=createNode(model,'Helper'),v=(...n)=>new Float32Array(n),track=(keys)=>({LineType:1,GlobalSeqId:null,Keys:keys.map(([Frame,values])=>({Frame,Vector:v(...values)}))});
  parent.Name='Animated nonuniform parent';parent.Translation=track([[0,[0,0,0]],[2500,[30,15,10]],[5000,[0,0,0]]]);parent.Rotation=track([[0,[0,0,0,1]],[2500,[0,0,Math.sin(Math.PI/4),Math.cos(Math.PI/4)]],[5000,[0,0,0,1]]]);parent.Scaling=track([[0,[2,.5,1.5]],[5000,[2,.5,1.5]]]);
  p.Parent=parent.ObjectId;p.Width=track([[0,[12]],[2500,[18]],[5000,[12]]]);p.Length=6;p.Latitude=140;p.Gravity=8;
- const fixture=path.join(out,'animated-parent.mdx'),bytes=Buffer.from(generateCompatibleMdx(model));fs.writeFileSync(fixture,bytes);fs.mkdirSync(path.join(out,'MDLxL_Forge'));fs.writeFileSync(path.join(out,...STARTER_TEXTURE.split('\\')),starterTextureAsset().bytes);
+ const fixture=path.join(out,'animated-parent.mdx'),bytes=Buffer.from(generateCompatibleMdx(model));fs.writeFileSync(fixture,bytes);
  let app;const errors=[];
  try{
   app=await _electron.launch({executablePath:path.resolve('node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});const page=await app.firstWindow();page.on('console',async message=>{if(message.type()==='error'){console.error(message.text());for(const arg of message.args())console.error(await arg.evaluate(v=>v instanceof Error?v.stack:String(v)).catch(()=>''));}});page.on('pageerror',e=>{errors.push(e.message);console.error(e.stack);});page.on('dialog',d=>d.accept().catch(()=>{}));page.setDefaultTimeout(15000);

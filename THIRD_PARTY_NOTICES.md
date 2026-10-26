@@ -2,18 +2,24 @@
 
 Exact dependency versions and transitive packages are recorded in `package-lock.json`. Their respective license terms continue to apply.
 
-This packaged checkout restores the parser/save test dependencies in `pnpm-lock.yaml`; it does not contain the full application manifest or the original `package-lock.json`. The versions below continue to describe the bundled application.
-
 - **war3-model 4.0.1**, 4eb0da and contributors — MIT. Model parsing/generation, BLP1 decoding and Warcraft rendering. [Project source](https://github.com/4eb0da/war3-model).
+- **WhiteoutLib**, Fernando Sahmkow — BSD-3-Clause. Citadel Paint BLP decoding and BLP/DDS export. Pinned codec provenance and the complete license are in `public/whiteout/build.json` and `public/whiteout/LICENSE`. [Project source](https://github.com/FernandoS27/WhiteoutLib).
 - **mdx-m3-viewer 5.12.0**, ghostwolf and contributors — MIT. OptimizeXL runs its official MDLX sanity checker locally. The unmodified npm UMD build and complete license are in `public/vendor/hive-viewer-5.12.0.js` and `public/vendor/hive-viewer-LICENSE.txt`, copied into `dist/vendor/` in the desktop package. [Project source](https://github.com/flowtsohg/mdx-m3-viewer).
 - **Three.js 0.183.2**, three.js authors — MIT. Editing viewport, math, camera controls and texture loaders.
-- **fflate 0.8.2**, Arjun Barrett — MIT. The unmodified module supplied with Three.js compresses original animation timing records. [Source and license](https://github.com/101arrowz/fflate/tree/v0.8.2).
+- **fflate 0.8.2**, Arjun Barrett — MIT. The unmodified compression module is supplied with Three.js. [Source and license](https://github.com/101arrowz/fflate/tree/v0.8.2).
 - **React / React DOM 19.2.4**, Meta Platforms, Inc. and affiliates — MIT.
 - **Lucide React 0.577.0**, Lucide contributors — ISC; inherited Feather icons under MIT.
 - **buffer 6.0.3**, Feross Aboukhadijeh and contributors — MIT.
 - **gl-matrix 3.3.0**, Brandon Jones, Colin MacKenzie IV and contributors — MIT.
 - **Electron 40.8.0**, Electron contributors — MIT. Chromium's component notices accompany its runtime.
 - **Vite 7.3.1** and **esbuild** — MIT; build/development tools.
+
+## Project contributions
+
+- **Unsanctioned Magic** — Project direction, feature requests, modeling workflows and hands-on testing.
+- **OpenAI Codex (Astra and Sol)** and **Anthropic Claude** — AI-assisted implementation, investigation and verification, as recorded in Git history.
+- **HerrDave** — Feedback and testing to refine the classic MDLVis editing experience.
+- **POMEXI** — General feedback.
 
 ## fflate license
 
@@ -66,13 +72,26 @@ These interface images retain their owners' rights; no new license is granted fo
 
 The KEY toolbar image, `public/classic/btn-magical-sentry.png`, was converted without artwork changes from Blizzard Entertainment's `ReplaceableTextures\CommandButtons\BTNMagicalSentry.blp` in the user's local Warcraft III CASC installation. It replaces the passive-button Sentry artwork; the KEY letters remain a separate application text overlay. Native source SHA-256: `88370ae6975fcab2b8c70b9950b3469f8fcec2e56bcda0af9d12297d8aea3f6f`. The artwork retains Blizzard Entertainment's rights; no new asset license is granted.
 
+The AI toolbar image, `public/classic/btn-metamorphosis.png`, was converted without artwork changes from Blizzard Entertainment's `ReplaceableTextures\CommandButtons\BTNMetamorphosis.blp` (Illidan's demon form) in the user's local Warcraft III CASC installation. The AI letters remain a separate application text overlay. Native source SHA-256: `fa3c6b0897b3d1cf7f394298b33a29a71f132b23cf93c36779347f394dc8bc70`. The artwork retains Blizzard Entertainment's rights; no new asset license is granted.
+
 Citadel Paint's native starter shelf contains crop recipes in `src/paint-assets.js` and `public/paint-assets/manifest.json`. Their pixels are read from the configured local Warcraft III installation, including the cinematic Footman texture; those source images are not bundled. The retired generated/derived Paint texture collection is no longer shipped or seeded. The separate brush-mask collection retains its own provenance manifest.
 
-Citadel Paint's default texture library in `public/paint-library` contains 31 texture crops provided and selected for distribution by Avner, organized and named by visible material. These are user-authored crops of Warcraft imagery, not the retired generated stock collection. Underlying Warcraft artwork remains Blizzard Entertainment's; no independent license or exact native source path is asserted for these crops. `manifest.json` records original library names, dimensions and SHA-256 hashes. The program copies these defaults into its editable `Textures` folder without overwriting personal files.
+Citadel Paint's default texture library in `public/paint-library` contains 31 texture crops provided and selected for distribution by Unsanctioned Magic, organized and named by visible material. These are user-authored crops of Warcraft imagery, not the retired generated stock collection. Underlying Warcraft artwork remains Blizzard Entertainment's; no independent license or exact native source path is asserted for these crops. `manifest.json` records original library names, dimensions and SHA-256 hashes. The program copies these defaults into its editable `Textures` folder without overwriting personal files.
 
 ## CascLib
 
 Native Warcraft III CASC reader by Ladislav Zezula, MIT. License and pinned binary provenance are in electron/casc/. The helper code is included as electron/CascBridge.cs. No Warcraft installation archives or general game-texture cache are shipped. The three specifically bundled Human console textures are documented below.
+
+## WhiteoutLib texture codec
+
+Citadel Paint uses WhiteoutLib by Fernando Sahmkow at commit `38d279c2a6d8d439377959c56fe4f1eb9ab12fa6` through the local adapter `native/paint-blp-bindings.cpp`. It decodes BLP1/BLP2 and exports BLP1 JPEG and DDS DXT5. The JavaScript/WebAssembly codec, build provenance and original BSD-3-Clause license are retained together under `public/whiteout/` and copied to `dist/whiteout/` for packaging. WhiteoutLib also provides model-format references; this credit concerns the library and technical specifications.
+
+## Citadel Paint brushes
+
+- **rubberduck** — [60 Free GIMP / Krita Brushes](https://opengameart.org/content/60-free-gimp-krita-brushes), source masks adapted for six brushes. CC0 1.0.
+- **ElDuderino** — [Scratch / Damaged Paint Brush](https://opengameart.org/content/scratch-damaged-paint-brush), source masks adapted for the chipped-paint and scuffed-paint brushes. CC0 1.0.
+
+Source files, adaptations and hashes are recorded in `public/paint-brushes/manifest.json`.
 
 ## Local Human portrait frame
 

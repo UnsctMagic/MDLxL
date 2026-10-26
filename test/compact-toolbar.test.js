@@ -16,8 +16,8 @@ test('Black is short and the display options remain visible',()=>{
   assert.doesNotMatch(css,/quick-display\[data-expanded="true"\][^\n]*flex-wrap:wrap/);
   assert.match(css,/\.editor-modules \.quick-display-options label\{[^}]*font-size:9\.5px/);
   assert.match(quick,/\(vanilla\?VIS_VIEW_MENU:VIEW_MENU\)\[viewMode\]/);
-  assert.match(quick,/>Clear<\/button>/);
-  assert.ok(quick.indexOf('>Clear</button>') < quick.indexOf('(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode]'));
+  assert.match(quick,/>Clear<\/span><\/button>/);
+  assert.ok(quick.indexOf('>Clear</span></button>') < quick.indexOf('(vanilla?VIS_VIEW_MENU:VIEW_MENU)[viewMode]'));
   assert.doesNotMatch(quick,/>Reveal<\/button>|>Textured View<\/button>/);
 });
 
@@ -25,10 +25,7 @@ test('Vis is a reversible presentation toggle, not a model or editing command',(
   assert.match(app,/\[visUI, setVisUI\] = useState\(false\)/);
   assert.match(app,/data-vis-ui=\{visUI \|\| undefined\}/);
   assert.match(bar,/<Tool className="vis-toggle".*?badge=\{visUI \? 'XL' : 'VIS'\}.*?onClick=\{\(\) => setVisUI\(value => !value\)\}/);
-  const group=bar.match(/<div className="classic-toolbar-group toolbar-visibility">(.*?)<\/div>/)[1];
-  assert.doesNotMatch(group,/visUI/);
-  assert.match(group,/onClick=\{hide\}/);
-  assert.match(group,/onClick=\{\(\) => setHidden\(\{\}\)\}/);
+  assert.doesNotMatch(bar,/toolbar-visibility|data-hotkey="hide"|data-hotkey="show"/);
   assert.match(css,/data-vis-ui\]>\.classic-modules/);
   assert.match(css,/data-vis-ui\]>\.classic-modules>:not\(\.toolbar-modules\):not\(\.editor-modules\)/);
   assert.match(css,/data-vis-ui\]>\.classic-modules>\.editor-modules>button/);
@@ -37,15 +34,18 @@ test('Vis is a reversible presentation toggle, not a model or editing command',(
   assert.doesNotMatch(css,/data-vis-ui[^{}]*portrait-toolbar/);
 });
 
-test('quick display follows RGB controls in the editor row and strengths stay in the top toolbar',()=>{
+test('quick display follows editor buttons; WC3 dock is above the full-width tabs',()=>{
   const toolbar=bar.slice(bar.indexOf('<div className="classic-toolbar">'),bar.indexOf('<div className="classic-modules"'));
   const editor=bar.slice(bar.indexOf('<div className="editor-modules"'),bar.indexOf('<div className="module-divider"'));
-  assert.doesNotMatch(toolbar,/<QuickDisplay/);
-  assert.ok(editor.indexOf('RGB preview animation')<editor.indexOf('<QuickDisplay'));
+  assert.match(toolbar,/\{moduleDock\}/);
+  assert.doesNotMatch(toolbar,/quickDisplay/);
+  assert.doesNotMatch(editor,/RGB Preview|RGB preview animation/);
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);
-  assert.match(toolbar,/\{inputStrength\}\s*<LanguageSwitch/);
+  assert.doesNotMatch(toolbar,/<LanguageSwitch/);
+  assert.match(toolbar,/\{visUI && inputStrength\}/);
+  assert.match(app,/\{!visUI && inputStrength\}\{!visUI && <LanguageSwitch[^\n]+<\/div>/);
   assert.match(css,/team-picker select\{width:auto;min-width:0;max-width:none\}/);
 });
 

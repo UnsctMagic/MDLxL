@@ -11,7 +11,7 @@ const { MANIFEST, validateManifest } = createRequire(import.meta.url)('../electr
 const manifest = JSON.parse(await fs.readFile(path.join(source, 'package.json'), 'utf8'));
 const runtimeFolders = ['dist', 'electron', 'src'];
 const externalFolders = ['Backgrounds', 'BitsAndParts', 'Addons'];
-const runtimeGuides = ['ADDONS.md', 'COMMUNITY_RESEARCH.md', 'MDLxL-Paint-Quick-Guide-EN.pdf', 'MDLxL-Paint-Quick-Guide-RU.pdf', 'MDLxL-0.22.0-Quick-Manual-EN.pdf', 'MDLxL-0.22.0-Quick-Manual-ES.pdf', 'MDLxL-0.22.0-Quick-Manual-RU.pdf', 'MDLxL-0.22.0-Quick-Manual-ZH-CN.pdf'];
+const runtimeGuides = ['ADDONS.md', 'AI-HOOK.md', 'AI-SD-RULEBOOK.md', 'AI-SD-REFERENCE-STUDY.md', 'AI-SD-STUDY-DATA.json', 'COMMUNITY_RESEARCH.md', ...['0.32.0-AI-Guide', '0.31.0-AI-Sign-in', '0.31.0-Interface-Map'].flatMap(guide => ['EN', 'ES', 'RU', 'ZH-CN'].map(lang => `MDLxL-${guide}-${lang}.pdf`))];
 const stageEntries = [...runtimeFolders, 'docs', 'package.json', 'README.md', 'MERGER_NOTES.md', 'THIRD_PARTY_NOTICES.md', 'LICENSES.bundled.txt'].sort();
 const exists = async file => { try { await fs.access(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const hash = async file => createHash('sha256').update(await fs.readFile(file)).digest('hex');
@@ -100,6 +100,7 @@ async function makeStage(stage) {
 
 async function verifyStage(stage) {
   const validationBundle=path.join(stage,'dist','optimizexl-validation.cjs');
+  for(const file of ['dist/ai-sandbox.html','electron/ai-service.cjs','electron/ai-providers.cjs','electron/ai-mcp.cjs','electron/ai-process.cjs','electron/ai-sandbox.cjs','electron/ai-sandbox-preload.cjs','src/ai-tools.js'])if(!await exists(path.join(stage,file)))throw Error('AI runtime file missing: '+file);
   if(!await exists(validationBundle))throw Error('Build the portable OptimizeXL save validator before packaging.');
   if(typeof createRequire(import.meta.url)(validationBundle).validateOptimizeXLCopies!=='function')throw Error('The bundled OptimizeXL save validator could not be loaded.');
   await verifyFFmpegBundle(path.join(stage, 'electron', 'ffmpeg'));
@@ -118,7 +119,7 @@ async function verifyStage(stage) {
     const bytes = await fs.readFile(file);
     if (bytes.length < 128 || bytes.toString('ascii', 0, 4) !== 'DDS ') throw Error(`Invalid local Human portrait asset: ${name}`);
   }
-  for (const relative of ['electron/main.cjs', 'electron/preload.cjs', 'electron/casc/CascBridge-0.8.0.exe', 'electron/casc/CascLib.dll', 'electron/data/texture-library-catalog.json', ...['preferences', 'commands', 'localization', 'hotkey-defaults', 'preview-lighting', 'capture-settings'].map(name => `src/${name}.js`), ...['ru', 'es', 'zh'].map(name => `src/locales/${name}.json`), 'dist/index.html', 'dist/branding/MDLxL.ico', 'dist/classic/wc3-bits-and-parts.png', ...tengwarPackage]) {
+  for (const relative of ['electron/main.cjs', 'electron/preload.cjs', 'electron/casc/CascBridge-0.9.0.exe', 'electron/casc/CascLib.dll', 'electron/data/texture-library-catalog.json', ...['preferences', 'commands', 'localization', 'hotkey-defaults', 'preview-lighting', 'capture-settings'].map(name => `src/${name}.js`), ...['ru', 'es', 'zh'].map(name => `src/locales/${name}.json`), 'dist/index.html', 'dist/branding/MDLxL.ico', 'dist/classic/wc3-bits-and-parts.png', ...tengwarPackage]) {
     if (!await exists(path.join(stage, relative))) throw Error(`Runtime file missing: ${relative}`);
   }
   for (const relative of ['electron/paint-textures.cjs', 'electron/data/paint-legacy-stock.json', 'dist/branding/citadel-paint.svg', 'dist/paint-assets/manifest.json', 'dist/paint-brushes/manifest.json', 'dist/whiteout/whiteout-paint-blp.js', 'dist/whiteout/whiteout-paint-blp.wasm', 'dist/whiteout/LICENSE', 'dist/whiteout/build.json']) {

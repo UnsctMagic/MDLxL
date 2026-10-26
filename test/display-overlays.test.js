@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay } from '../src/display-overlays.js';
+import { clearQuickDisplay, defaultEditorDisplay, defaultPoseDisplay, setEditorDisplay, storedEditorDisplay, saveEditorDisplay } from '../src/display-overlays.js';
 import { previewOverlayOptions, visibleMovementPoints } from '../app/preview-overlays.js';
 import { boneHighlightColors } from '../app/rig-markers-gl.js';
 
@@ -39,7 +39,7 @@ test('Bones, Movement and Animations share the Bones switch', () => {
     const initial = defaultEditorDisplay(vanilla);
     const on = setEditorDisplay(initial, 'animations', 'bones', true);
     for (const editor of ['bones', 'movement', 'animations']) assert.equal(on[editor].bones, true, editor);
-    assert.equal(on.vertices.bones, false);
+    assert.equal(on.vertices.bones, vanilla);
     assert.equal(on.movement.particles, initial.movement.particles);
     const off = setEditorDisplay(on, 'movement', 'bones', value => !value);
     for (const editor of ['bones', 'movement', 'animations']) assert.equal(off[editor].bones, false, editor);
@@ -104,6 +104,12 @@ test('POSE defaults hide symbols and geometry markers while preserving normal se
   assert.equal(pose.focusedSkeleton,true);assert.equal(pose.grid,true);assert.equal(pose.shaded,false);
   const changed = setEditorDisplay({ movement:pose },'movement','particles',true);
   assert.equal(changed.movement.particles,true);assert.deepEqual(normal,before);
+  // POSE has no Helpers switch: helper markers (e.g. a Footman's head) follow Bones.
+  const helper = { node:{ ObjectId:39 }, overlayKind:'bones', helperNode:true };
+  assert.deepEqual(visibleMovementPoints([helper],previewOverlayOptions(defaultPoseDisplay({ ...normal, helpers:false }))),[]);
+  const bones = setEditorDisplay({ movement:defaultPoseDisplay({ ...normal, helpers:false }) },'movement','bones',true).movement;
+  assert.deepEqual(visibleMovementPoints([helper],previewOverlayOptions(bones)),[helper]);
+  assert.deepEqual(visibleMovementPoints([helper],previewOverlayOptions(clearQuickDisplay({ movement:bones },'movement').movement)),[]);
 });
 
 test('Focused Skeleton bones can be clicked with Bones off', () => {
@@ -117,4 +123,42 @@ test('Focused Skeleton bones can be clicked with Bones off', () => {
   assert.deepEqual(visibleMovementPoints(points, options, boneHighlightColors(points, [])), []);
   assert.deepEqual(visibleMovementPoints(points, options).map(item => item.node.ObjectId), []);
   assert.deepEqual(visibleMovementPoints(points, previewOverlayOptions({ bones: true })).map(item => item.node.ObjectId), [0, 1, 2, 3, 4]);
+});
+
+
+test('Bones, Helpers and Refs toggle independently and persist while VIS keeps all three on', () => {
+  const storage = { value: null, getItem() { return this.value; }, setItem(_, value) { this.value = value; } };
+  let state = storedEditorDisplay(false, storage);
+  assert.deepEqual([state.bones.bones, state.bones.helpers, state.bones.attachments], [true, false, false]);
+  state = setEditorDisplay(state, 'bones', 'helpers', true);
+  state = setEditorDisplay(state, 'bones', 'attachments', true);
+  state = setEditorDisplay(state, 'bones', 'bones', false);
+  saveEditorDisplay(state, state, storage);
+  const restored = storedEditorDisplay(false, storage), vis = storedEditorDisplay(true, storage);
+  for (const mode of ['bones', 'movement', 'animations']) {
+    assert.deepEqual([restored[mode].bones, restored[mode].helpers, restored[mode].attachments], [false, true, true]);
+    assert.deepEqual([vis[mode].bones, vis[mode].helpers, vis[mode].attachments], [true, true, true]);
+  }
+  const points = [
+    { node: { ObjectId: 0 }, overlayKind: 'bones' },
+    { node: { ObjectId: 1, Parent: 0 }, overlayKind: 'bones', helperNode: true },
+    { node: { ObjectId: 2, Parent: 1 }, overlayKind: 'attachments' },
+  ];
+  const opts = previewOverlayOptions(restored.bones);
+  assert.deepEqual(visibleMovementPoints(points, opts).map(p => p.node.ObjectId), [1, 2]);
+  assert.equal(boneHighlightColors(points, [2]).get(2), '#ff0000', 'a directly selected ref has a selection highlight');
+  assert.deepEqual(visibleMovementPoints(points, { bones: true, helpers: false, attachments: false }).map(p => p.node.ObjectId), [0]);
+});
+
+
+test('Focused Skeleton retains helper joints in the selected chain with ordinary helpers hidden', () => {
+  const points = [
+    { node: { ObjectId: 0 }, overlayKind: 'bones', helperNode: true },
+    { node: { ObjectId: 1, Parent: 0 }, overlayKind: 'bones' },
+    { node: { ObjectId: 2, Parent: 1 }, overlayKind: 'bones', helperNode: true },
+    { node: { ObjectId: 3 }, overlayKind: 'bones', helperNode: true },
+  ];
+  const options = previewOverlayOptions({ bones: false, helpers: false, focusedSkeleton: true });
+  const focus = boneHighlightColors(points, [1]);
+  assert.deepEqual(visibleMovementPoints(points, options, focus).map(point => point.node.ObjectId), [0,1,2]);
 });

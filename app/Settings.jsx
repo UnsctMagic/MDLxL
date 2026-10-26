@@ -1,3 +1,4 @@
+import { DEFAULT_ROTATION, ROTATION_EDITORS } from '../src/rotation-drag.js';
 import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
 import { DEFAULT_PAINT_APPEARANCE } from '../src/paint-appearance.js';
 import { APPLICATION_THEMES } from '../src/preferences.js';
@@ -5,9 +6,12 @@ import { LIGHTING_PRESETS } from '../src/preview-lighting.js';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignHotkey, CAMERA_PRESETS, chordFromEvent, configurationHotkeyConflict, DEFAULT_PREFERENCES, DEFAULT_VISUALS, effectiveBindings, formatChord, GRAPHICS_PRESETS, GRID_PRESETS, hotkeyConflicts, normalizePreferences, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/preferences.js';
 import { useHotkeys } from './Hotkeys.jsx';
+import { loadLearnNotebook, updateLearnNotebook } from './Learn.jsx';
+import { LEARN_DURATIONS, LEARN_LEARN_USES, LEARN_QUIET_HOURS, clearLearned, clearSilences, notebookCounts } from '../src/learn-keycaps.js';
 import { HotkeySequence, HOTKEY_LEADER } from '../src/hotkey-defaults.js';
 import { BUILT_IN_VIEWPORT_PRESETS, DEFAULT_BONE_APPEARANCE, DEFAULT_BONE_INFLUENCE, MAX_VIEWPORT_BACKGROUND_DATA_LENGTH, MAX_VIEWPORT_PRESETS, viewportPresetById } from '../src/viewport-appearance.js';
 import { wireDashArray } from '../src/wire-pattern.js';
+import { helpersForPreset, paintForPreset, viewportPresetChange } from '../src/light-dark-switch.js';
 import { TREE_COLORS, NODE_COLORS, FOLDER_COLORS } from '../src/tree-appearance.js';
 import { CONTROLLER_SHAPES, PIN_STYLES, controllerShapePoints } from '../src/controller-appearance.js';
 import './settings.css';
@@ -25,27 +29,27 @@ function AppearanceSection({ title, children, palette }) {
   if (page && (APPEARANCE_PAGE_OF[title] || title) !== page) return null;
   return <section className="settings-appearance-section"><h4>{title}</h4><div className="settings-appearance-content">{palette}{children}</div></section>;
 }
-export const BONE_STYLE_TIP = 'How bones are drawn. Cubes and shaded lines is the classic look; Joint and cone puts a ball on each joint and a cone pointing to the child; Stick draws thick bars.';
-export const BONE_CONNECTOR_TIP = 'How the link between two joints is drawn. Shaded fades from dark at the parent to light at the child; Tapered narrows towards the child. The selected chain is highlighted in the same shape.';
+export const BONE_STYLE_TIP = 'The shape of bone and helper markers: cubes or diamonds. Skeleton links have their own style setting.';
+export const BONE_CONNECTOR_TIP = 'The style of skeleton links between objects: Shaded fades from dark to light; Tapered narrows towards the child; Cone adds an outline; Stick draws thick bars. Object markers keep their own shape.';
 export const WIRE_MODE_TIP = 'All edges draws every wire the same way. Hidden-line draws the wires behind the mesh as faint dashes, so the front of the model reads clearly in Wireframe.';
-const BONE_STYLE_LABELS = [['cubes', 'Cubes and shaded lines'], ['joint', 'Joint and cone'], ['stick', 'Stick']];
-const BONE_COLOR_LABELS = [['bone', 'Bone'], ['root', 'Root bone'], ['selected', 'Selected bone'], ['parent', 'Parent bone'], ['child', 'Child bones']];
+const BONE_STYLE_LABELS = [['cubes', 'Cubes'], ['diamond', 'Diamonds']];
+const BONE_COLOR_LABELS = [['bone', 'Bone'], ['root', 'Root bone'], ['helper', 'Helpers'], ['ref', 'Refs'], ['selected', 'Selected bone'], ['parent', 'Parent bone'], ['child', 'Child bones']];
 const INFLUENCE_COLOR_LABELS = [['ghost', 'Ghost'], ['direct', 'Moved by the bone'], ['follow', 'Follows through child bones']];
 
 /** A small chain drawn the way the viewport draws bones: an ordinary link, then the selected bone and its child highlighted. */
 function BonePreview({ bones, background }) {
   const joints = [[18, 50], [70, 26], [128, 42], [184, 14]], fills = [bones.root, bones.parent, bones.selected, bones.child];
   const link = (a, b, highlight) => {
-    const width = (highlight ? bones.highlightThickness : bones.thickness) * (bones.style === 'stick' ? 2 : 1), shape = bones.style === 'joint' ? 'cone' : bones.connector;
+    const width = (highlight ? bones.highlightThickness : bones.thickness) * (bones.connector === 'stick' ? 2 : 1), shape = bones.connector;
     const fill = highlight || 'url(#settings-bone-shade)';
-    if (shape === 'shaded') return <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={fill} strokeWidth={width}/>;
+    if (shape === 'shaded' || shape === 'stick') return <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={fill} strokeWidth={width}/>;
     const length = Math.hypot(b[0] - a[0], b[1] - a[1]), nx = -(b[1] - a[1]) / length, ny = (b[0] - a[0]) / length, half = (shape === 'cone' ? Math.max(10, width * 3.4) : width * 1.7) / 2;
     return <polygon points={[[a[0] + nx * half, a[1] + ny * half], [b[0] + nx * .5, b[1] + ny * .5], [b[0] - nx * .5, b[1] - ny * .5], [a[0] - nx * half, a[1] - ny * half]].map(p => p.join(',')).join(' ')} fill={fill} stroke={shape === 'cone' ? '#000000' : 'none'} strokeWidth=".8"/>;
   };
   return <svg className="settings-bone-preview" viewBox="0 0 204 64" role="img" aria-label="Bone appearance preview" style={{ background }}>
     <defs><linearGradient id="settings-bone-shade" gradientUnits="userSpaceOnUse" x1={joints[0][0]} y1={joints[0][1]} x2={joints[1][0]} y2={joints[1][1]}><stop offset="0" stopColor="#000000"/><stop offset="1" stopColor="#ffffff"/></linearGradient></defs>
     {link(joints[0], joints[1], null)}{link(joints[1], joints[2], bones.selected)}{link(joints[2], joints[3], bones.child)}
-    {joints.map((p, i) => bones.style === 'cubes' ? <rect key={i} x={p[0] - 5} y={p[1] - 5} width="10" height="10" fill={fills[i]} stroke="#111111" strokeWidth=".6"/> : <circle key={i} cx={p[0]} cy={p[1]} r={bones.style === 'stick' ? 3.5 : 6} fill={fills[i]} stroke="#111111" strokeWidth=".6"/>)}
+    {joints.map((p, i) => bones.style === 'diamond' ? <polygon key={i} points={`${p[0]},${p[1]-6} ${p[0]+6},${p[1]} ${p[0]},${p[1]+6} ${p[0]-6},${p[1]}`} fill={fills[i]} stroke="#111111" strokeWidth=".6"/> : <rect key={i} x={p[0] - 5} y={p[1] - 5} width="10" height="10" fill={fills[i]} stroke="#111111" strokeWidth=".6"/>)}
   </svg>;
 }
 const colorValues = value => Object.fromEntries(Object.entries(value).filter(([, color]) => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)));
@@ -73,6 +77,56 @@ function Toggle({ id, label, checked, onChange, description }) {
 function Numeric({ id, label, value, min, max, step = 1, onChange, unit = '' }) {
   return <label className="settings-number"><span>{label}</span><span><input data-hotkey={id} aria-label={label} type="number" min={min} max={max} step={step} value={value} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber); }}/>{unit}</span></label>;
 }
+const MOUSE_PAGES = ['Camera', 'Rotation', 'Wheel', 'Pointer', 'UV'];
+let lastMousePage = 'Camera';
+function RotationSettings({ value, onChange }) {
+  const [editor, setEditor] = useState('all'), override = value.editors[editor] || {}, global = editor === 'all';
+  const names = { linear: 'Linear', pivot: 'Pivot-based' };
+  const change = patch => {
+    if (global) { onChange({ ...value, ...patch }); return; }
+    const entry = { ...override, ...patch };
+    for (const key of Object.keys(entry)) if (entry[key] === undefined) delete entry[key];
+    const editors = { ...value.editors };
+    if (Object.keys(entry).length) editors[editor] = entry; else delete editors[editor];
+    onChange({ ...value, editors });
+  };
+  const inheritSpeed = !global && override.sensitivity === undefined;
+  return <section className="settings-appearance-section"><h4>Rotational Behavior</h4><div className="settings-appearance-content">
+    <label className="settings-select" title="Set the default for every editor, or override just one editor."><span>Apply to</span><select aria-label="Rotation editor" data-hotkey="mouse:rotation-editor" value={editor} onChange={event => setEditor(event.target.value)}><option value="all">All editors (default)</option>{Object.entries(ROTATION_EDITORS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+    <label className="settings-select" title="Linear: drag right or up to turn steadily. Pivot-based: circle around the selection's center."><span>Behavior</span><select aria-label="Rotational Behavior" data-hotkey="mouse:rotation-behavior" value={global ? value.behavior : override.behavior || ''} onChange={event => change({ behavior: event.target.value || undefined })}>{!global && <option value="">Use default · {names[value.behavior]}</option>}{Object.entries(names).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+    <div className="settings-rotation-speed" title="Rotation speed multiplies the editor's pointer or UV sensitivity. A smaller value turns more slowly."><label className="settings-number"><span>Rotation sensitivity</span><span><input aria-label="Rotation sensitivity" data-hotkey="mouse:rotation-sensitivity" type="number" min="0.01" max="4" step="0.01" disabled={inheritSpeed} value={global ? value.sensitivity : override.sensitivity ?? value.sensitivity} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) change({ sensitivity: event.target.valueAsNumber }); }}/>×</span></label>
+      {!global && <label><input type="checkbox" aria-label="Use default rotation sensitivity" checked={inheritSpeed} onChange={event => change({ sensitivity: event.target.checked ? undefined : value.sensitivity })}/>Use default</label>}
+    </div>
+    <p className="settings-hint">Linear turns by drag distance; right or up is positive. Pivot-based follows a circular drag. Editor overrides keep their own choices when the default changes.</p>
+  </div></section>;
+}
+const LEARN_CHOICES = [
+  ['position', 'Where', [['control', 'Beside what you clicked'], ['bottom', 'Bottom middle'], ['top', 'Top middle'], ['bottom-right', 'Bottom right'], ['bottom-left', 'Bottom left']]],
+  ['size', 'Size', [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']]],
+  ['style', 'Look', [['plain', 'Standard'], ['flash', 'Flashing']]],
+  ['duration', 'Stays for', LEARN_DURATIONS.map(seconds => [seconds, seconds ? `${seconds} seconds` : 'Until used or clicked'])],
+  ['learnUses', 'Learned after', LEARN_LEARN_USES.map(uses => [uses, `${uses} uses`])],
+  ['quietHours', 'Then quiet for', LEARN_QUIET_HOURS.map(hours => [hours, hours === 1 ? '1 hour' : `${hours} hours`])],
+];
+/** Learn's keycap reminders: on/off, how they look, and bringing back silenced or learned keys. */
+function LearnSettings({ value, onChange }) {
+  const [counts, setCounts] = useState(() => notebookCounts(loadLearnNotebook(), Date.now()));
+  const reset = update => setCounts(notebookCounts(updateLearnNotebook(update), Date.now()));
+  useEffect(() => {
+    const changed = () => setCounts(notebookCounts(loadLearnNotebook(), Date.now()));
+    window.addEventListener('mdlxl-learn-notebook', changed);
+    return () => window.removeEventListener('mdlxl-learn-notebook', changed);
+  }, []);
+  return <>
+    <h3 id="learn-settings">Learn</h3>
+    <Toggle id="hotkeys:learn" label="Learn mode" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here."/>
+    <div className="settings-graphics-grid">{LEARN_CHOICES.map(([key, label, options]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={`Learn mode: ${label}`} value={value[key]} onChange={event => onChange({ [key]: typeof value[key] === 'number' ? Number(event.target.value) : event.target.value })}>{options.map(([option, name]) => <option key={option} value={option}>{name}</option>)}</select></label>)}</div>
+    <div className="settings-inline-actions">
+      {counts.silenced > 0 && <button title="Show reminders for muted shortcuts again." onClick={() => reset(clearSilences)}>{`Bring back silenced keys (${counts.silenced})`}</button>}
+      <button disabled={!counts.learned} title="Each use of a learned shortcut restarts its quiet time. This shows learned keys again now." onClick={() => reset(clearLearned)}>{`Bring back learned keys (${counts.learned})`}</button>
+    </div>
+  </>;
+}
 const VISUAL_COLORS = [['background', 'Viewport background'], ['vertex', 'Vertices'], ['selectedVertex', 'Selected vertices'], ['occludedVertex', 'Occluded vertices'], ['wireframe', 'Wireframe lines'], ['occludedWireframe', 'Occluded wireframe'], ['selectedGeometry', 'Selected geometry'], ['gridMinor', 'Minor grid'], ['gridMajor', 'Major grid'], ['axisX', 'X axis'], ['axisY', 'Y axis'], ['axisZ', 'Z axis'], ['keyframe', 'Keyframes'], ['activeKeyframe', 'Active keyframe'], ['bone', 'Bones and helper bones'], ['node', 'Attachment refs and nodes'], ['particle', 'Particle emitters'], ['event', 'Event objects'], ['selection', 'Selection overlay'], ['uvSelection', 'UV live selection']];
 const APPEARANCE_HELPER_COLORS = VISUAL_COLORS.filter(([key]) => ['keyframe', 'activeKeyframe', 'bone', 'node', 'particle', 'event', 'selection', 'uvSelection'].includes(key));
 
@@ -95,6 +149,23 @@ function VertexMarkerPreview({ marker, background, label }) {
   </svg>;
 }
 
+const FILE_ICON_STYLES = [['page', 'Helmet on a page', 'page'], ['dark-page', 'Dark page', 'dark-page'], ['tile', 'Dark tile', 'tile'], ['program', 'Program icon', null], ['label-page', 'Labelled page'], ['label-dark-page', 'Labelled dark page'], ['label-tile', 'Labelled tile'], ['label-tag', 'Helmet with label'], ['label-letters', 'Big letters']];
+// MDL and MDX files each pick their own Explorer icon; labelled variations name the format.
+function FileIconSettings({ prefs, commit }) {
+  const [sharedDefault, setSharedDefault] = useState(false);
+  useEffect(() => { window.desktop?.fileTypesNeedDefaultAgain?.().then(value => setSharedDefault(Boolean(value)), () => {}); }, [prefs.fileIcon, prefs.fileIconMdl]);
+  const row = (kind, key, title) => <div className="settings-inline-actions settings-file-icons" role="radiogroup" aria-label={title}><span>{title}</span>{FILE_ICON_STYLES.map(([style, label]) => {
+    const file = style === 'program' ? 'MDLxL.ico' : style.startsWith('label-') ? 'file-' + kind + '-' + style.slice(6) + '.ico' : 'file-' + style + '.ico';
+    return <button key={style} data-hotkey={'file-icon:' + kind + ':' + style} role="radio" aria-label={label} aria-checked={prefs[key] === style} aria-pressed={prefs[key] === style} title={style === 'program' ? label + ': files show the same helmet icon as MDLxL.exe.' : label} className="settings-file-icon" onClick={() => commit({ [key]: style })}><img src={'./branding/' + file} alt=""/></button>;
+  })}</div>;
+  return <>
+    <h3>File icons</h3><p>The icons Explorer shows on MDL and MDX files. Windows uses them once MDLxL is the default program for them. Paint Projects use the MDX style without a label.</p>
+    {row('mdl', 'fileIconMdl', 'MDL files')}
+    {row('mdx', 'fileIcon', 'MDX files')}
+    {sharedDefault && <p className="settings-hint">Windows still opens MDL and MDX through MDLxL's older shared file type, so both show the same icon. Choose MDLxL again for .mdl and .mdx in Default apps.</p>}
+    <button data-hotkey="file-icon:default-apps" disabled={!window.desktop?.openDefaultApps} title="Opens Windows Default apps, where you can choose MDLxL for .mdl and .mdx files." onClick={() => window.desktop.openDefaultApps()}>Make MDLxL the default program…</button>
+  </>;
+}
 function AssetPreload({ modelPath }) {
   const [status, setStatus] = useState({ state: 'idle' }), [confirm, setConfirm] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const mounted = useRef(false), cancelChoice = useRef(null), trigger = useRef(null);
@@ -148,9 +219,11 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   }
   const context = useHotkeys(), catalog = suppliedCatalog || context.catalog;
   const prefs = normalizePreferences(preferences);
+  const [mousePage, setMousePageState] = useState(() => lastMousePage);
+  const setMousePage = page => { lastMousePage = page; setMousePageState(page); };
   const [appearancePage, setAppearancePageState] = useState(() => APPEARANCE_PAGES.includes(lastAppearancePage) ? lastAppearancePage : 'Presets');
   const setAppearancePage = page => { lastAppearancePage = page; setAppearancePageState(page); };
-  const [tab, setTab] = useState(initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
+  const [tab, setTab] = useState(initialTab === 'learn' ? 'hotkeys' : initialTab), [search, setSearch] = useState(''), [category, setCategory] = useState('All categories');
   const [recording, setRecording] = useState(null), [recorded, setRecorded] = useState(''), [message, setMessage] = useState(''), [resetConfirm, setResetConfirm] = useState(false), [presetName, setPresetName] = useState('');
   const [sequenceCode, setSequenceCode] = useState(null), sequence = useRef(null), sequenceTimer = useRef(null);
   if (!sequence.current) sequence.current = new HotkeySequence();
@@ -170,8 +243,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   const treePart = (part, change) => viewportPart('tree', { [part]: { ...prefs.viewportAppearance.tree[part], ...change } });
   const palette = (title, value, read, apply) => <AppearanceSet title={title} value={value} entries={Object.values(BUILT_IN_VIEWPORT_PRESETS).map(preset => [preset.id, preset.name, read(preset)])} onChange={apply}/>;
   const partPalette = (part, title) => palette(title, prefs.viewportAppearance[part], preset => part === 'controllers' ? preset.appearance[part] : colorValues(preset.appearance[part]), change => viewportPart(part, change));
-  const helpersFor = preset => preset.theme === 'light' ? colorValues(Object.fromEntries(APPEARANCE_HELPER_COLORS.map(([key]) => [key, DEFAULT_VISUALS[key]]))) : { keyframe: preset.appearance.controllers.color, activeKeyframe: preset.appearance.controllers.selected, bone: preset.appearance.tree.nodes.bone, node: preset.appearance.tree.nodes.attachment, particle: preset.appearance.tree.nodes.emitter, event: preset.appearance.tree.nodes.spawn, selection: preset.appearance.controllers.selected, uvSelection: preset.appearance.controllers.pinned };
-  const paintFor = preset => preset.theme === 'light' ? colorValues(DEFAULT_PAINT_APPEARANCE) : { brushTipLight: '#242424', brushTipDark: APPLICATION_THEMES[preset.theme].colors.text, brushCursor: APPLICATION_THEMES[preset.theme].colors.text, geosetSelection: preset.appearance.controllers.color, geosetBorder: preset.appearance.controllers.selected, lampSelection: preset.appearance.controllers.pinned };
+  const helpersFor = helpersForPreset, paintFor = paintForPreset;
   const grid = change => commit({ grid: { ...prefs.grid, ...change } });
   useEffect(() => {
     previousFocus.current = document.activeElement;
@@ -180,7 +252,8 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   }, []);
   useEffect(() => { sequence.current.cancel(); clearTimeout(sequenceTimer.current); setSequenceCode(null); if (recording) recorder.current?.focus(); }, [recording]);
   useEffect(() => () => clearTimeout(sequenceTimer.current), []);
-  useEffect(() => { setTab(initialTab); setRecording(null); setMessage(''); }, [initialTab]);
+  useEffect(() => { setTab(initialTab === 'learn' ? 'hotkeys' : initialTab); setRecording(null); setMessage(''); }, [initialTab]);
+  useEffect(() => { if (initialTab === 'learn' && tab === 'hotkeys') document.getElementById('learn-settings')?.scrollIntoView({ block: 'start' }); }, [initialTab, tab]);
   const startRecording = action => { setRecording(action); setRecorded(''); setMessage(''); setResetConfirm(false); };
   const cancelSequence = () => { if (!sequence.current.active) return; sequence.current.cancel(); clearTimeout(sequenceTimer.current); setSequenceCode(null); setRecorded(''); setMessage('Sequence cancelled. Press a combination or the leader to try again.'); };
   const recordKey = event => {
@@ -226,7 +299,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
   const applyViewportPreset = id => {
     const preset = viewportPresetById(id, prefs.viewportPresets);
     if (!preset) return;
-    commit({ viewportPreset: id, viewportAppearance: preset.appearance, ...(preset.theme ? { theme: preset.theme, accent: preset.accent || APPLICATION_THEMES[preset.theme].accent } : {}), ...(BUILT_IN_VIEWPORT_PRESETS[id] ? { visuals: { ...prefs.visuals, ...helpersFor(preset) }, citadelPaint: { ...prefs.citadelPaint, ...paintFor(preset) } } : {}) }); setMessage(`${preset.name} loaded.`);
+    commit(viewportPresetChange(prefs, id)); setMessage(`${preset.name} loaded.`);
   };
   const saveViewportPreset = () => {
     const name = presetName.trim();
@@ -255,26 +328,29 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
     <header><span>Settings</span><button data-hotkey="close" aria-label="Close Settings" onClick={onClose}>×</button></header>
     <div className="settings-tabs" role="tablist" aria-label="Settings pages">{[['configuration','Configuration'], ['mouse', 'Mouse'], ['hotkeys', 'Hotkeys'], ['graphics', 'Graphics'], ['capture', 'Capture'], ['visuals', 'Appearance'], ['grid', 'Grid'], ['gameData', 'Warcraft III']].map(([id, label]) => <button key={id} id={`settings-tab-${id}`} data-hotkey={`tab:${id}`} role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`} onClick={() => { setTab(id); onTabChange?.(id); setRecording(null); setMessage(''); }}>{label}</button>)}</div>
     <div className="classic-modal-body settings-body" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>
-      {tab === 'mouse' && <div className="settings-page">
-        <h3>Camera controls</h3><p>Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.</p>
+      {tab === 'mouse' && <div className="settings-page settings-appearance-page settings-mouse-page">
+        <nav className="settings-appearance-nav" aria-label="Mouse pages">{MOUSE_PAGES.map(page => <button key={page} aria-pressed={mousePage === page} onClick={() => setMousePage(page)}>{page}</button>)}</nav>
+        <div className="settings-appearance-detail">
+          {mousePage === 'Camera' && <section>        <h3>Camera controls</h3><p>Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.</p>
         <div className="settings-inline-actions"><span>Preset:</span><button data-hotkey="mouse:preset:classic" onClick={() => commit(CAMERA_PRESETS.classic)}>Classic MDLVis</button><button data-hotkey="mouse:preset:orbit" onClick={() => commit(CAMERA_PRESETS.orbit)}>Orbit navigation</button></div>
-        <div className="settings-graphics-grid">{[['right', 'Right mouse'], ['middle', 'Middle mouse']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select data-hotkey={`mouse:binding:${key}`} aria-label={`${label} camera action`} value={prefs.cameraBindings[key]} onChange={event => commit({ cameraBindings: { ...prefs.cameraBindings, [key]: event.target.value } })}>{(key === 'middle' ? [['toggle', 'Toggle rotation / work']] : []).concat([['pan', 'Pan'], ['rotate', 'Rotate'], ['zoom', 'Zoom'], ['none', 'No action']]).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}</div>
-        <h3>Mouse wheel sensitivity</h3><p>Change how far each wheel step zooms or scrolls in the editors. Changes apply immediately and are remembered.</p>
+        <div className="settings-graphics-grid">{[['right', 'Right mouse'], ['middle', 'Middle mouse']].map(([key, label]) => <label className="settings-select" key={key}><span>{label}</span><select data-hotkey={`mouse:binding:${key}`} aria-label={`${label} camera action`} value={prefs.cameraBindings[key]} onChange={event => commit({ cameraBindings: { ...prefs.cameraBindings, [key]: event.target.value } })}>{(key === 'middle' ? [['toggle', 'Toggle rotation / work']] : []).concat([['pan', 'Pan'], ['rotate', 'Rotate'], ['zoom', 'Zoom'], ['none', 'No action']]).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}</div></section>}
+          {mousePage === 'Rotation' && <RotationSettings value={prefs.rotation} onChange={rotation => commit({ rotation })}/>}
+          {mousePage === 'Wheel' && <section>        <h3>Mouse wheel sensitivity</h3><p>Change how far each wheel step zooms or scrolls in the editors. Changes apply immediately and are remembered.</p>
         <div className="settings-sensitivity"><input data-hotkey="mouse:sensitivity-slider" aria-label="Mouse wheel sensitivity" type="range" min="0.1" max="10" step="0.01" value={prefs.scrollSensitivity} onChange={event => commit({ scrollSensitivity: Number(event.target.value) })}/><label><input data-hotkey="mouse:sensitivity-value" aria-label="Mouse wheel sensitivity value" type="number" min="0.1" max="10" step="0.01" value={prefs.scrollSensitivity} onChange={event => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) commit({ scrollSensitivity: value }); }}/><span>×</span></label></div>
         <div className="settings-range-labels"><span>Precise · 0.1×</span><span>Fast · 10×</span></div>
         <div className="settings-inline-actions" role="group" aria-label="Wheel mode">{[['rotate','Rotation / normal zoom'],['scroll','Peon · Scroll sensitivity'],['pointer','Wisp · Wheel adjusts DPI']].map(([value,label]) => <button key={value} data-hotkey={`mouse:wheel:${value}`} aria-pressed={prefs.wheelMode === value} onClick={() => commit({ wheelMode:value })}>{label}</button>)}</div>
-        <p className="settings-hint">Normal mode: wheel zooms; a middle click toggles camera rotation and work mode. Peon: wheel alone adjusts scroll sensitivity. Wisp: wheel alone adjusts DPI. Hold left and scroll for a temporary DPI adjustment without changing the selected toolbar mode. Left then right resets DPI. Right then left resets scroll sensitivity.</p>
-        <h3>DPI / pointer sensitivity</h3><p>Adjust 3D camera and editing drag speed inside MDLxL. UV transforms have their own sensitivity below. This multiplier does not change hardware DPI or Windows pointer settings.</p>
+        <p className="settings-hint">Normal mode: wheel zooms; a middle click toggles camera rotation and work mode. Peon: wheel alone adjusts scroll sensitivity. Wisp: wheel alone adjusts DPI. Hold left and scroll for a temporary DPI adjustment without changing the selected toolbar mode. Left then right resets DPI. Right then left resets scroll sensitivity.</p></section>}
+          {mousePage === 'Pointer' && <section>        <h3>DPI / pointer sensitivity</h3><p>Adjust 3D camera and editing drag speed inside MDLxL. UV transforms have their own sensitivity in the UV section. This multiplier does not change hardware DPI or Windows pointer settings.</p>
         <div className="settings-sensitivity"><input data-hotkey="mouse:pointer-slider" aria-label="MdlVis pointer sensitivity" type="range" min="0.01" max="4" step="0.01" value={prefs.pointerSensitivity} onChange={event => commit({ pointerSensitivity:Number(event.target.value) })}/><label><input data-hotkey="mouse:pointer-value" aria-label="MdlVis pointer sensitivity value" type="number" min="0.01" max="4" step="0.01" value={prefs.pointerSensitivity} onChange={event => { if(Number.isFinite(event.target.valueAsNumber)) commit({ pointerSensitivity:event.target.valueAsNumber }); }}/><span>×</span></label></div>
         <div className="settings-range-labels"><span>Ultra-precise · 0.01×</span><span>Fast · 4×</span></div>
-        <Toggle id="mouse:right-scroll-adjust" label="Hold right mouse button + scroll to adjust sensitivity" checked={prefs.rightScrollAdjust} onChange={rightScrollAdjust => commit({ rightScrollAdjust })} description="Wheel up increases sensitivity; wheel down decreases it. Release the right button and the next wheel movement uses the new value. The value stays until you change it."/>
-        <div className="settings-graphics-grid"><Numeric id="mouse:fine" label="Fine control multiplier" value={prefs.fineSensitivity} min={0.01} max={1} step={0.01} unit="×" onChange={fineSensitivity => commit({ fineSensitivity })}/><Numeric id="mouse:uv" label="UV transform sensitivity" value={prefs.uvSensitivity} min={0.01} max={4} step={0.01} unit="×" onChange={uvSensitivity => commit({ uvSensitivity })}/></div>
-        <p className="settings-hint">UV movement is measured relative to the displayed texture. At 1×, UV vertices follow your pointer. Changing camera DPI leaves UV movement, rotation, and scale unchanged. For fine control, hold Alt when starting a UV drag or Shift while navigating the 3D camera.</p>
-        <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity })}>Restore mouse defaults</button>
+        <Toggle id="mouse:right-scroll-adjust" label="Hold right mouse button + scroll to adjust sensitivity" checked={prefs.rightScrollAdjust} onChange={rightScrollAdjust => commit({ rightScrollAdjust })} description="Wheel up increases sensitivity; wheel down decreases it. Release the right button and the next wheel movement uses the new value. The value stays until you change it."/><Numeric id="mouse:fine" label="Fine control multiplier" value={prefs.fineSensitivity} min={0.01} max={1} step={0.01} unit="×" onChange={fineSensitivity => commit({ fineSensitivity })}/></section>}
+          {mousePage === 'UV' && <section><h3>UV transforms</h3><Numeric id="mouse:uv" label="UV transform sensitivity" value={prefs.uvSensitivity} min={0.01} max={4} step={0.01} unit="×" onChange={uvSensitivity => commit({ uvSensitivity })}/>        <p className="settings-hint">UV movement is measured relative to the displayed texture. At 1×, UV vertices follow your pointer. Changing camera DPI leaves UV movement, rotation, and scale unchanged. For fine control, hold Alt when starting a UV drag or Shift while navigating the 3D camera.</p></section>}
+          <button data-hotkey="mouse:reset" onClick={() => commit({ ...CAMERA_PRESETS.classic, uvSensitivity: DEFAULT_PREFERENCES.uvSensitivity, rotation: DEFAULT_ROTATION })}>Restore mouse defaults</button>
+        </div>
       </div>}
       {tab === 'hotkeys' && <div className="settings-page hotkeys-page">
         <h3>Hotkeys</h3><p>Assign a key or combination to commands, buttons, and fields. Hold Alt to show available button shortcuts; remapped combinations appear in full. Field shortcuts focus the field; toggle shortcuts switch it.</p>
-        <p>Existing MdlVis shortcuts are preserved. Other controls have default sequences: press <kbd>Ctrl+Alt+Space</kbd>, release the keys, then type the three-character code listed here. Escape cancels. Peon: <kbd>Ctrl+Alt+P</kbd> · Wisp: <kbd>Ctrl+Alt+I</kbd>. You can replace any sequence with a single key or combination.</p>
+        <p>Existing MdlVis shortcuts are preserved. Every other command and button has its own key: one key, or one key with Shift, Ctrl or Alt. Buttons in a window use the letters of their names there, so a letter can do different things in different windows. Peon: Shift+P · Wisp: Shift+I. You can change any key here; a Ctrl+Alt+Space code you set yourself still works.</p>
         <p className="settings-hint">Resource controls appear here when their manager is opened and stay in this list after closing it. Shortcuts act only on available controls in the active window, and leave text entry alone.</p>
         <div className="hotkeys-filter"><input data-hotkey="hotkeys:search" aria-label="Search Hotkeys" placeholder="Search actions or shortcuts…" value={search} onChange={event => setSearch(event.target.value)}/><select data-hotkey="hotkeys:category" aria-label="Hotkeys category" value={category} onChange={event => setCategory(event.target.value)}><option>All categories</option>{categories.map(value => <option key={value}>{value}</option>)}</select><span>{actions.length} actions</span></div>
         {recording && <div className="hotkeys-recorder" aria-label={`Assign shortcut to ${recording.label || recording.id}`}>
@@ -284,6 +360,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </div>}
         <div className="hotkeys-table-wrap"><table className="hotkeys-table"><thead><tr><th>Action</th><th>Shortcut</th><th><span className="settings-sr-only">Change shortcut</span></th></tr></thead><tbody>{actions.map(action => <tr key={action.id}><td><strong>{action.label || action.id}</strong><small title={action.id}>{action.category || 'Controls'}{action.contextual ? ' · when visible' : ''}</small></td><td><div className="hotkeys-chords">{(bindings[action.id] || []).map(chord => <span className="hotkeys-chip" key={chord}><kbd>{formatChord(chord)}</kbd><button aria-label={`Remove ${formatChord(chord)} from ${action.label || action.id}`} onClick={() => removeShortcut(action.id, chord)}>×</button></span>)}{!bindings[action.id]?.length && <span className="settings-muted">Unassigned</span>}</div></td><td><div className="hotkeys-row-actions"><button aria-label={`Assign shortcut to ${action.label || action.id}`} onClick={() => startRecording(action)}>Add shortcut</button><button aria-label={`Restore default shortcuts for ${action.label || action.id}`} onClick={() => restoreAction(action)}>Reset</button></div></td></tr>)}</tbody></table>{!actions.length && <p>No actions match this search.</p>}</div>
         <div className="settings-inline-actions">{resetConfirm ? <><span>Restore every default shortcut and clear custom assignments?</span><button onClick={() => { commit({ hotkeys: {} }); setResetConfirm(false); setRecording(null); setMessage('All Hotkeys restored to defaults.'); }}>Restore all defaults</button><button onClick={() => setResetConfirm(false)}>Cancel</button></> : <button data-hotkey="hotkeys:reset-all" onClick={() => setResetConfirm(true)}>Reset all Hotkeys…</button>}</div>
+        <LearnSettings value={prefs.learn} onChange={change => commit({ learn: { ...prefs.learn, ...change } })}/>
       </div>}
       {tab === 'graphics' && <div className="settings-page">
         <h3>Preview lighting</h3>
@@ -327,6 +404,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         </AppearanceSection>
         <AppearanceSection title="Interface" palette={palette('Interface', { theme: prefs.theme, accent: prefs.accent }, preset => ({ theme: preset.theme, accent: APPLICATION_THEMES[preset.theme].accent }), change => commit({ ...change, viewportPreset: 'custom' }))}>
         <label className="settings-color">UI accent <input type="color" aria-label="UI accent" value={prefs.accent} onChange={event=>commit({accent:event.target.value})}/><code>{prefs.accent}</code></label>
+        <label className="settings-color" title="The glow around the active tool in the sidebar. It follows the UI accent until you pick your own colour.">Tool highlight <input type="color" aria-label="Tool highlight" value={prefs.toolHighlight || prefs.accent} onChange={event=>commit({toolHighlight:event.target.value})}/><code>{prefs.toolHighlight || 'same as accent'}</code>{prefs.toolHighlight && <button type="button" title="Use the UI accent again" onClick={()=>commit({toolHighlight:''})}>Use accent</button>}</label>
         <div className="settings-graphics-grid"><Numeric id="appearance:panel-width" label="Toolbox width" value={prefs.panelWidth} min={PANEL_WIDTH_MIN} max={PANEL_WIDTH_MAX} unit="px" onChange={panelWidth=>commit({panelWidth})}/><Numeric id="appearance:panel-scale" label="Toolbox scale" value={prefs.panelScale} min={1} max={1.75} step={.05} unit="×" onChange={panelScale=>commit({panelScale})}/></div>
         </AppearanceSection>
         <AppearanceSection title="Controllers" palette={partPalette('controllers', 'Controllers')}>
@@ -408,13 +486,13 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           <Numeric label="Citadel border thickness" id="citadel:borderThickness" min={1} max={6} value={prefs.citadelPaint.borderThickness} onChange={borderThickness=>commit({citadelPaint:{...prefs.citadelPaint,borderThickness}})}/>
           <button onClick={()=>commit({citadelPaint:DEFAULT_PAINT_APPEARANCE})}>Reset Citadel colours</button>
         </div></AppearanceSection>
-        <AppearanceSection title="Bones & skeleton">
+        <AppearanceSection title="Bones & skeleton" palette={partPalette('bones', 'Bones & skeleton')}>
           <BonePreview bones={prefs.viewportAppearance.bones} background={prefs.viewportAppearance.background.color}/>
           <label className="settings-select" title={BONE_STYLE_TIP}><span>Bone style</span><select aria-label="Bone style" title={BONE_STYLE_TIP} value={prefs.viewportAppearance.bones.style} onChange={event => viewportPart('bones', { style: event.target.value })}>{BONE_STYLE_LABELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          {prefs.viewportAppearance.bones.style === 'joint' ? <p className="settings-hint">Joint and cone always links joints with cones.</p> : <label className="settings-select" title={BONE_CONNECTOR_TIP}><span>Connector style</span><select aria-label="Connector style" title={BONE_CONNECTOR_TIP} value={prefs.viewportAppearance.bones.connector} onChange={event => viewportPart('bones', { connector: event.target.value })}><option value="shaded">Shaded</option><option value="tapered">Tapered</option></select></label>}
+          <label className="settings-select" title={BONE_CONNECTOR_TIP}><span>Skeleton style</span><select aria-label="Skeleton style" title={BONE_CONNECTOR_TIP} value={prefs.viewportAppearance.bones.connector} onChange={event => viewportPart('bones', { connector: event.target.value })}><option value="shaded">Shaded</option><option value="tapered">Tapered</option><option value="cone">Cone</option><option value="stick">Stick</option></select></label>
           <AppearanceColors colors={BONE_COLOR_LABELS} value={prefs.viewportAppearance.bones} prefix="Bones" onChange={change => viewportPart('bones', change)}/>
           <div className="settings-graphics-grid"><Numeric id="appearance:bones:thickness" label="Connector thickness" value={prefs.viewportAppearance.bones.thickness} min={1} max={12} unit="px" onChange={thickness => viewportPart('bones', { thickness })}/><Numeric id="appearance:bones:highlight" label="Chain highlight thickness" value={prefs.viewportAppearance.bones.highlightThickness} min={1} max={16} unit="px" onChange={highlightThickness => viewportPart('bones', { highlightThickness })}/></div>
-          <button onClick={() => viewport({ bones: DEFAULT_BONE_APPEARANCE })}>Reset bones and skeleton</button>
+          <button onClick={() => viewport({ bones: (BUILT_IN_VIEWPORT_PRESETS[prefs.viewportPreset] || Object.values(BUILT_IN_VIEWPORT_PRESETS).find(preset => preset.theme === prefs.theme)).appearance.bones })}>Reset bones and skeleton</button>
         </AppearanceSection>
         <AppearanceSection title="Bone influence">
           <p className="settings-hint">{BONE_INFLUENCE_TIP}</p>
@@ -423,7 +501,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
           <button onClick={() => viewport({ boneInfluence: DEFAULT_BONE_INFLUENCE })}>Reset Bone influence</button>
         </AppearanceSection>
         </AppearancePage.Provider>
-        <button data-hotkey="appearance:reset" onClick={() => commit({ theme: 'light', accent: APPLICATION_THEMES.light.accent, viewportPreset: 'mdlvis-vanilla', viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance, visuals: DEFAULT_VISUALS })}>Restore Lordaeron and helper defaults</button>
+        <button data-hotkey="appearance:reset" onClick={() => commit({ theme: 'light', accent: APPLICATION_THEMES.light.accent, toolHighlight: '', viewportPreset: 'mdlvis-vanilla', viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance, visuals: DEFAULT_VISUALS })}>Restore Lordaeron and helper defaults</button>
       </div></div>}
       {tab === 'grid' && <div className="settings-page">
         <h3>XYZ grid</h3><p>Configure the grid shared by the 3D viewport and animation preview. Use Display → Grid to show or hide it.</p>
@@ -441,9 +519,7 @@ export default function Settings({ preferences, onChange, onClose, catalog: supp
         {updateStatus?.previousVersion && <small>{`Previous version: ${updateStatus.previousVersion}`}</small>}
         <p className="settings-hint" role="status">{updateStatusText(updateStatus)}</p>
         {updateStatus?.error && updateStatus.state !== 'error' && <p role="alert">{updateStatus.error}</p>}
-        <h3>File icons</h3><p>The icon Explorer shows on MDL, MDX and Paint Project files. Windows uses it once MDLxL is the default program for them.</p>
-        <div className="settings-inline-actions" role="radiogroup" aria-label="File icon">{[['page', 'Helmet on a page', 'file-page.ico'], ['dark-page', 'Dark page', 'file-dark-page.ico'], ['tile', 'Dark tile', 'file-tile.ico'], ['program', 'Program icon', 'MDLxL.ico']].map(([key, label, file]) => <button key={key} data-hotkey={`file-icon:${key}`} role="radio" aria-checked={prefs.fileIcon === key} aria-pressed={prefs.fileIcon === key} title={key === 'program' ? 'Files show the same helmet icon as MDLxL.exe.' : `Files show the ${label.toLowerCase()} icon, so they look different from MDLxL.exe.`} className="settings-file-icon" onClick={() => commit({ fileIcon: key })}><img src={`./branding/${file}`} alt=""/>{label}</button>)}</div>
-        <button data-hotkey="file-icon:default-apps" disabled={!window.desktop?.openDefaultApps} title="Opens Windows Default apps, where you can choose MDLxL for .mdl and .mdx files." onClick={() => window.desktop.openDefaultApps()}>Make MDLxL the default program…</button>
+        <FileIconSettings prefs={prefs} commit={commit}/>
 <h3>Reusable configuration</h3><p>Export interface colors, toolbox size, input settings, graphics and hotkeys. Import replaces these preferences together; machine paths and model data stay local.</p><input ref={configInput} hidden type="file" accept=".json,application/json" onChange={event=>{loadConfiguration(event.target.files[0]);event.target.value='';}}/><button onClick={exportSettings}>Export configuration…</button><button onClick={()=>configInput.current.click()}>Import configuration…</button><h3>New model</h3><label>Starter format <select aria-label="New model version" value={prefs.newModelVersion} onChange={event=>commit({newModelVersion:Number(event.target.value)})}><option value={800}>MDX800 · Classic</option><option value={1000}>MDX1000 · Reforged</option></select></label><p>New creates Bone_Root and a 64-unit cube with eight vertices and twelve triangles.</p></div>}
       {tab === 'gameData' && <div className="settings-page game-data-page">
         <h3>Warcraft III installation</h3>

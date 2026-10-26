@@ -17,10 +17,14 @@ import { skinCollapseProposals } from './optimizexl-skin-collapse.js';
 import { redundantTrackProposals, applyRedundantTrack } from './optimizexl-redundant-tracks.js';
 import { splineTrackProposals, applySplineTrack } from './optimizexl-spline-tracks.js';
 import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair } from './optimizexl-format.js';
+import { rebuildNodes, remapNodes } from './optimizexl-nodes.js';
+import { checkerRepairProposals, applyCheckerRepair } from './optimizexl-checker-repairs.js';
 
 export const STAGES = [
+  // Repairs come first: later reductions refuse models with broken references.
+  {id:'sanity',name:'Insanity FIxer'},
   {id:'duplicates',name:'Duplicate data'}, {id:'animation',name:'Animation optimization'},
-  {id:'unused',name:'Unused data'}, {id:'sanity',name:'Insanity FIxer'},
+  {id:'unused',name:'Unused data'},
   {id:'irregularities',name:'Irregularities Fixer'}, {id:'spheres',name:'Sphereomancer'},
   {id:'nuclear',name:'Nuclear Polygon Destroyer'},
 ];
@@ -54,16 +58,6 @@ function supported(doc){
  if(doc._container?.trailingBytes?.length)throw Error('Trailing model data cannot be safely optimized.');
 }
 export function prepareOptimizeXL(doc){supported(doc);const bytes=doc.serialize('mdx');const reopened=openDocument(bytes,'before.mdx');supported(reopened);return bytes;}
-function rebuildNodes(m){m.Nodes=[];for(const n of collections.flatMap(k=>m[k]||[])){m.Nodes[n.ObjectId]=n;n.PivotPoint=m.PivotPoints[n.ObjectId];}}
-function remapNodes(m,removed,replacements=new Map()){
- const old=allNodes(m).filter(n=>!removed.has(n.ObjectId)),map=new Map(old.map((n,i)=>[n.ObjectId,i]));
- for(const [id,target]of replacements)map.set(id,map.get(target));
- const pivots=old.map(n=>new Float32Array(n.PivotPoint||m.PivotPoints[n.ObjectId]||[0,0,0]));
- for(const key of collections)m[key]=(m[key]||[]).filter(n=>!removed.has(n.ObjectId));
- for(const n of old){n.ObjectId=map.get(n.ObjectId);n.Parent=n.Parent==null?null:map.get(n.Parent);}
- for(const g of m.Geosets)g.Groups=g.Groups.map(group=>group.map(id=>map.get(id)));
- m.PivotPoints=pivots;rebuildNodes(m);
-}
 function duplicateBones(m,settings,changes){
  const protectedNodes=protectedGeosetData(m,settings).nodes;
  const parents=new Set(allNodes(m).map(n=>n.Parent)),removed=new Set(),map=new Map(),known=new Map();
@@ -123,12 +117,47 @@ export function sanityProposals(m){const findings=boundsProposals(m);for(const [
  // Static gravity replaces its entire track. It owns that track's diagnostics;
  // do not also queue key-level corrections against data it removes.
  const owned=proposals.filter(p=>!p.path||!findings.some(owner=>owner.kind==='gravity'&&p.path.join('.')===`ParticleEmitters2.${owner.emitter}.Gravity`));
- return [...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...sequenceTimelineProposals(m,tracks(m)),...skinCollapseProposals(m)];}
+ const timeline=sequenceTimelineProposals(m,tracks(m));
+ // The narrower timeline repair keeps ownership where it applies.
+ const checker=checkerRepairProposals(m).filter(p=>!(p.rule==='timeline'&&timeline.length));
+ return [...owned,...splineTrackProposals(m,tracks(m),owned),...visibilityInterpolationProposals(m,tracks(m)),...timeline,...checker,...skinCollapseProposals(m)];}
+export const fixAllSettings=f=>f.kind==='gravity'?{gravity:f.value}:f.kind==='checker'?{choice:f.choice}:{};
+/** Apply every automatic repair, check again and repeat: one repair can expose
+ * or enable another (sorted keys can then get opening keys, for example). */
+function fixAll(m){
+ let previous='';const tried=new Set();
+ for(let pass=0;pass<12;pass++){
+  // Spline resampling only clears notices and rewrites whole tracks; after
+  // other key repairs it can turn a pose (Rifleman's root in Death). Hand-pick it.
+  const baseline=structuredClone(m),list=scan(sanityProposals,baseline,m).filter(f=>!f.inspectionOnly&&!['skinCollapse','splineResample'].includes(f.kind));
+  // Structural checker repairs can renumber nodes and geosets, which moves
+  // key-level findings. Apply them alone, then scan again.
+  const checker=list.filter(f=>f.kind==='checker'&&!tried.has(json([f.id,f.items])));
+  if(checker.length){for(const f of checker){tried.add(json([f.id,f.items]));try{applyRepair(m,f,fixAllSettings(f),baseline);}catch{}}continue;}
+  const rest=list.filter(f=>f.kind!=='checker'),ids=rest.map(f=>f.id).join('|');
+  if(!rest.length||ids===previous)return;previous=ids;
+  for(const f of rest)try{applyRepair(m,f,fixAllSettings(f),baseline);}catch{}
+ }
+}
+
+// Batch and Fix-everything repairs validate many fixes against one unchanged
+// snapshot. Scan that snapshot once per detector instead of once per fix.
+const scans=new WeakMap(),openingScan=x=>openingTrackProposals(x,tracks(x)),unusedScan=x=>unusedTrackProposals(x,tracks(x)),redundantScan=x=>redundantTrackProposals(x,tracks(x));
+function scan(detector,model,live){
+ if(model===live)return detector(model);
+ let cache=scans.get(model);if(!cache)scans.set(model,cache=new Map());
+ if(!cache.has(detector))cache.set(detector,detector(model));return cache.get(detector);
+}
 function applyRepair(m,fix,settings,evidenceModel=m){
  if(!fix)return;
+ if(fix.kind==='fixAll'){fixAll(m);return;}
+ if(fix.kind==='checker'){
+  if(!scan(checkerRepairProposals,evidenceModel,m).some(f=>f.id===fix.id))throw Error('This checker finding changed. Select it again.');
+  applyCheckerRepair(m,fix,settings);return;
+ }
  if(fix.kind==='batch'){
   if(!['sanity','irregularities'].includes(fix.stage)||!fix.entries?.length)throw Error('Select at least one fix to preview.');
-  const baseline=structuredClone(m),catalog=fix.stage==='sanity'?sanityProposals(baseline):findIrregularities(baseline);
+  const baseline=structuredClone(m),catalog=fix.stage==='sanity'?scan(sanityProposals,baseline,m):findIrregularities(baseline);
   const selected=new Map();for(const entry of fix.entries){const actual=catalog.find(f=>f.id===entry.fix?.id);if(!actual||!same(actual,entry.fix))throw Error('A selected finding changed. Select the fixes again.');if(selected.has(actual.id))throw Error('A fix was selected twice.');selected.set(actual.id,entry);}
   // Validate every finding against the same snapshot, then apply in the normal
   // stage order. A new snap repair can refine an existing curve repair without
@@ -149,22 +178,22 @@ function applyRepair(m,fix,settings,evidenceModel=m){
  if(fix.kind==='snap'){repairSuspiciousSnap(m,fix,evidenceModel);return;}
  if(fix.kind==='motionContext'){repairContextMotion(m,fix,evidenceModel);return;}
  if(fix.kind==='openingTrack'){
-  const current=openingTrackProposals(evidenceModel,tracks(evidenceModel)).find(f=>f.id===fix.id);
+  const current=scan(openingScan,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This opening-track finding changed. Select it again.');
   applyOpeningTrack(m,current);return;
  }
  if(fix.kind==='unusedLocalKeys'){
-  const current=unusedTrackProposals(evidenceModel,tracks(evidenceModel)).find(f=>f.id===fix.id);
+  const current=scan(unusedScan,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This unused-key finding changed. Select it again.');
   applyUnusedTrack(m,current);return;
  }
  if(fix.kind==='redundantTracks'){
-  const current=redundantTrackProposals(evidenceModel,tracks(evidenceModel)).find(f=>f.id===fix.id);
+  const current=scan(redundantScan,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||current.inspectionOnly||!same(current,fix))throw Error('This redundant-key finding changed or needs manual review. Select it again.');
   applyRedundantTrack(m,current);return;
  }
  if(fix.kind==='splineResample'){
-  const current=sanityProposals(evidenceModel).find(f=>f.id===fix.id);
+  const current=scan(sanityProposals,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This spline finding changed. Select it again.');
   // Resampling owns the complete track, so key-level writes cannot coexist.
   if(!same(tracks(m).find(t=>t.path.join('.')===fix.path.join('.'))?.track,
@@ -172,7 +201,7 @@ function applyRepair(m,fix,settings,evidenceModel=m){
   applySplineTrack(m,current);return;
  }
  if(fix.kind==='effectVisibility'){
-  const current=effectVisibilityProposals(evidenceModel).find(f=>f.id===fix.id);
+  const current=scan(effectVisibilityProposals,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||current.inspectionOnly||!same(current,fix))throw Error('This visibility finding changed. Select it again.');
   hideGeoset(m,current.geoset,current.sequence);return;
  }
@@ -183,7 +212,7 @@ function applyRepair(m,fix,settings,evidenceModel=m){
   return;
  }
  if(fix.kind==='bounds'){
-  const current=boundsProposals(evidenceModel).find(f=>f.id===fix.id);
+  const current=scan(boundsProposals,evidenceModel,m).find(f=>f.id===fix.id);
   if(!current||!same(current,fix))throw Error('This bounds finding changed. Select it again.');
   repairBounds(m,current);return;
  }if(fix.kind==='commonPose'){applyCommonEndpointPose(m,fix);return;}switch(fix.kind){case'hide':hideGeoset(m,fix.geoset,fix.sequence);break;case'globalKeys':{let t=m;for(const p of fix.path)t=t[p];t.Keys=t.Keys.filter(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]);break;}case'pose':{const source=settings.reverse?fix.sequence:fix.from,sourceFrame=settings.reverse?fix.frame:fix.fromFrame,target=settings.reverse?fix.from:fix.sequence,targetFrame=settings.reverse?fix.fromFrame:fix.frame;for(const n of allNodes(m))for(const p of ['Translation','Rotation','Scaling']){const t=n[p];if(!local(t)||![0,1].includes(t.LineType))continue;const value=sample(m,t,p,source,sourceFrame),before=sample(m,t,p,target,targetFrame);if(same(value,before))continue;const interval=m.Sequences[target].Interval,keys=t.Keys.filter(k=>k.Frame>=interval[0]&&k.Frame<=interval[1]);setKey(t,targetFrame,value);if(keys.length<=1)setKey(t,targetFrame===interval[0]?interval[1]:interval[0],value);}}break;}}

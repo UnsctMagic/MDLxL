@@ -19,6 +19,7 @@ const {ParticleLibrary}=require('./particle-library.cjs');
 const {resolveParticleSourceAssets,resolveParticleSourceContext}=require('./particle-source.cjs');
 const {HUMAN_PORTRAIT_RESOURCES,validateHumanPortraitResources}=require('./human-portrait-frame.cjs');
 const {TextureLibrary,previewCatalog}=require('./texture-library.cjs');
+const {GameFileLibrary}=require('./game-file-library.cjs');
 const {TexturePreviewCache}=require('./texture-preview-cache.cjs');
 const {SessionJournal}=require('./session.cjs');
 const {savePreviewCapture}=require('./preview-capture.cjs');
@@ -26,7 +27,7 @@ const {PreviewRecordingStore}=require('./preview-ffmpeg.cjs');
 const {saveForgeAssets}=require('./forge-assets.cjs');
 const {normalizeModelCloseState,needsModelClosePrompt,modelClosePrompt,modelCloseAction}=require('./model-close.cjs');
 const {showClosePrompt}=require('./close-prompt.cjs');
-const {saveOptimizeXLPair}=require('./optimizexl-save.cjs');
+const {backupModelFile}=require('./optimizexl-save.cjs');
 const {BackgroundLibrary}=require('./preview-backgrounds.cjs');
 const {PaintTextureLibrary}=require('./paint-textures.cjs');
 const {BitsAndPartsLibrary}=require('./bits-and-parts.cjs');
@@ -54,11 +55,12 @@ if(!singleInstanceLock) { app.exit(0); return; }
 // A launch can have passed the first check before the closing owner set the lock.
 if (app.isPackaged && require('node:fs').existsSync(path.join(path.dirname(process.execPath), '.mdlxl-installing'))) { app.exit(0); return; }
 let win, modelCloseState={dirty:false,saved:false}, recents=[],settings={},initialModel=null,initialModels=[];
+const aiService=require('./ai-service.cjs').registerAiService({root:path.resolve(__dirname,'..'),profile,electron:require('electron'),getWindow:()=>win,readModel:file=>readModel(file,false),writeModel:payload=>{const operation=saveQueue.catch(()=>{}).then(()=>writeAiModel(payload));saveQueue=operation;return operation;}});
 let externalModelsReady=false,externalModelQueue=[],externalOpenChain=Promise.resolve();
 let settingsStore,preferenceApi,commandCatalog;
 // Test runs (own profile or headless) must not point Explorer at a temporary build.
 const fileTypes=app.isPackaged&&process.platform==='win32'&&!process.env.MDLXL_PROFILE&&process.env.MDLVIS_HEADLESS!=='1'?new FileTypeRegistration({executable:process.execPath,brandingDirectory:path.join(__dirname,'../dist/branding')}):null;
-function registerFileTypes(){fileTypes?.apply(settings.preferences?.fileIcon).catch(error=>console.warn('File types: '+error.message));}
+function registerFileTypes(){fileTypes?.apply({mdx:settings.preferences?.fileIcon,mdl:settings.preferences?.fileIconMdl}).catch(error=>console.warn('File types: '+error.message));}
 let nativeEditorState={readOnly:true,saving:false};
 let translateText=value=>value;
 let gameDataDiscovery,recoveryPrompt=false,crashedWithEdits=false;
@@ -100,6 +102,7 @@ const sessionJournal=new SessionJournal(path.join(profile,'sessions'));
 const createTextureResolver=()=>new TextureResolver({ casc: new CascTextures({cacheDirectory:path.join(profile,'native-textures')}) });
 let textureResolver=createTextureResolver();
 let textureLibrary=new TextureLibrary({casc:textureResolver.casc});
+let gameFiles=new GameFileLibrary({casc:textureResolver.casc});
 const texturePreviews=new TexturePreviewCache({directory:path.join(profile,'texture-previews'),onProgress:status=>{if(win&&!win.isDestroyed())win.webContents.send('texture:preloadProgress',status);}});
 let textureDecoder=null;
 const thumbnailRequests=new Map();
@@ -118,7 +121,6 @@ ipcMain.on('texture:decoded',(event,payload)=>{const request=thumbnailRequests.g
 const textureOperations=new Set();
 const readyToClose=new WeakSet(),closingWindows=new WeakSet(),savingBeforeCloseWindows=new WeakSet(),closePromptWindows=new WeakSet();
 const openedPaths=new Set();
-const geosetRepairs=require('./geoset-repair.cjs').createGeosetRepairStore(openedPaths);
 const filters=[{name:'Models and Paint Projects',extensions:['mdl','mdx','mdlxlpaint']},{name:'Warcraft III models',extensions:['mdl','mdx']},{name:'MDLxL Paint Project',extensions:['mdlxlpaint']}];
 let recentQueue = Promise.resolve();
 async function persistRecents(file){
@@ -226,43 +228,61 @@ async function saveModel(payload){
   if(!payload || !['mdl','mdx'].includes(payload.format))throw new Error('Unsupported format.');
   const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
   let destination=payload.path;
-  if(!destination||payload.saveAs||!openedPaths.has(path.resolve(destination))){
-    const result=await dialog.showSaveDialog(win,{title:payload.export?'Export model':'Save model',defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});
-    if(result.canceled)return null;destination=result.filePath;
-  }
+  const choose=async title=>{const result=await dialog.showSaveDialog(win,{title,defaultPath:destination||payload.name||`Untitled.${payload.format}`,filters:[{name:payload.format.toUpperCase()+' model',extensions:[payload.format]}]});return result.canceled?null:result.filePath;};
+  let chosen=!destination||payload.saveAs||!openedPaths.has(path.resolve(destination));
+  if(chosen&&!(destination=await choose(payload.export?'Export model':'Save model')))return null;
   if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
+  try{await writeModelFile(destination,bytes,payload.forgeAssets||[]);}catch(error){
+    // A read-only original (a file opened straight from a zip, for example) asks for another place instead of failing.
+    if(chosen||!['EPERM','EACCES','EROFS'].includes(error.code))throw error;
+    if(!(destination=await choose('This file is read-only. Save model as')))return null;
+    if(path.extname(destination).toLowerCase()!=='.'+payload.format)destination+='.'+payload.format;
+    await writeModelFile(destination,bytes,payload.forgeAssets||[]);
+  }
+  openedPaths.add(path.resolve(destination));await persistRecents(destination);
+  initialModel={name:path.basename(destination),path:destination,bytes};
+  return {name:path.basename(destination),path:destination};
+}
+// Writes through a verified temporary file. Without overwrite, an existing
+// destination is refused before any texture or temporary file is written.
+async function writeModelFile(destination,bytes,forgeAssets=[],{overwrite=true}={}){
+  if(!overwrite&&await fs.access(destination).then(()=>true,()=>false))throw new Error('A file already exists at '+destination+'.');
   const temporary=destination+'.'+crypto.randomBytes(6).toString('hex')+'.tmp';
   try{
-    await saveForgeAssets(destination,payload.forgeAssets||[]);
+    await saveForgeAssets(destination,forgeAssets);
     await fs.writeFile(temporary,bytes,{flag:'wx'});
     const check=await fs.readFile(temporary);if(!check.equals(bytes))throw new Error('Write verification failed.');
-    await fs.rename(temporary,destination);
-    openedPaths.add(path.resolve(destination));await persistRecents(destination);
-    initialModel={name:path.basename(destination),path:destination,bytes};
-    return {name:path.basename(destination),path:destination};
+    // copyFile with COPYFILE_EXCL also works on FAT/exFAT drives, unlike hard links.
+    if(overwrite)await fs.rename(temporary,destination);
+    else{await fs.copyFile(temporary,destination,require('node:fs').constants.COPYFILE_EXCL);await fs.unlink(temporary);}
   }catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
 }
-ipcMain.handle('model:save',(_,payload)=>{const operation=saveQueue.catch(()=>{}).then(()=>saveModel(payload));saveQueue=operation;return operation;});
-ipcMain.handle('optimizexl:save',(event,payload)=>{
-  if(event.sender!==win?.webContents)throw Error('OptimizeXL saves are only available from the editor.');
-  const operation=saveQueue.catch(()=>{}).then(async()=>{
-    const {validateOptimizeXLCopies}=require('../dist/optimizexl-validation.cjs');
-    validateOptimizeXLCopies(payload);
-    const selected=await dialog.showOpenDialog(win,{title:'Save OptimizeXL Before and After copies',buttonLabel:'Save two new copies here',properties:['openDirectory','createDirectory']});
-    if(selected.canceled)return null;
-    return saveOptimizeXLPair(selected.filePaths[0],payload);
-  });saveQueue=operation;return operation;
-});
-for(const [channel,operationName] of [['model:repairGeosetAnimations','repair'],['model:undoGeosetRepair','undo']]){
-  ipcMain.handle(channel,(event,payload)=>{
-    if(event.sender!==win?.webContents)throw Error('Repair is only available in the editor window.');
-    const operation=saveQueue.catch(()=>{}).then(async()=>{
-      const result=await geosetRepairs[operationName](payload);
-      initialModel={name:result.name,path:result.path,bytes:result.bytes};
-      return result;
-    });saveQueue=operation;return operation;
-  });
+// AI exports go to the path the AI names, without a save dialog, but replacing
+// an existing file always asks the user first. They never change Recent files,
+// the startup model or the set of opened files.
+async function writeAiModel(payload){
+  if(!['mdl','mdx'].includes(payload?.format))throw new Error('Unsupported format.');
+  const bytes=Buffer.from(payload.bytes);if(bytes.length>128*1024*1024)throw new Error('Output exceeds 128 MB.');
+  const destination=path.resolve(payload.path);
+  if(path.extname(destination).toLowerCase()!=='.'+payload.format)throw new Error('The output path must end in .'+payload.format+'.');
+  let overwrite=false;
+  if(await fs.access(destination).then(()=>true,()=>false)){
+    if(!payload.overwrite)throw new Error('A file already exists at '+destination+'. Ask the user before replacing it.');
+    const answer=await dialog.showMessageBox(win,{type:'warning',buttons:['Replace','Cancel'],defaultId:1,cancelId:1,noLink:true,title:'AI export',message:'The AI wants to replace '+path.basename(destination)+'.',detail:destination});
+    if(answer.response!==0)throw new Error('The user did not allow replacing '+destination+'.');
+    overwrite=true;
+  }
+  await writeModelFile(destination,bytes,payload.forgeAssets||[],{overwrite});
+  return {name:path.basename(destination),path:destination};
 }
+ipcMain.handle('model:save',(_,payload)=>{const operation=saveQueue.catch(()=>{}).then(()=>saveModel(payload));saveQueue=operation;return operation;});
+ipcMain.handle('model:backup',(event,payload)=>{
+  if(event.sender!==win?.webContents)throw Error('Backups are only available from the editor.');
+  const source=path.resolve(String(payload?.path||''));
+  // Only a file this editor opened or saved can be copied.
+  if(!openedPaths.has(source))throw Error('Only the open model file can be backed up.');
+  const operation=saveQueue.catch(()=>{}).then(()=>backupModelFile(source));saveQueue=operation;return operation;
+});
 async function saveArtifact(payload){
   const requested=path.basename(String(payload?.name||'')),extension=path.extname(requested).toLowerCase(),allowed=new Set(['.mdlxlpaint','.zip']);
   if(!allowed.has(extension))throw Error('Only .mdlxlpaint and .zip painter artifacts can be saved.');
@@ -316,6 +336,44 @@ ipcMain.handle('texture:library',(_,payload)=>{
 ipcMain.handle('texture:libraryPreview',(_,payload)=>{
   const operation=textureLibraryContext(payload).then(context=>previewCatalog(context.catalog,payload?.format==='blp'?'blp':'all'));
   textureOperations.add(operation);operation.finally(()=>textureOperations.delete(operation)).catch(()=>{});return operation;
+});
+// The Library's game-file browser reads one installation: the folder chosen in
+// Settings first, then added CASC sources, then discovered installations.
+async function gameFileIndex(){
+  const chosen=settings.gameData,library=gameFiles;
+  const discovered=await gameDataDiscovery.discover({explicitFolder:chosen});
+  const selected=selectedGameDataSources(discovered,chosen),folders=discovered.cascFolders||[],custom=discovered.customSources?.cascFolders||[];
+  const folder=[...folders.filter(item=>selected.folders.includes(item)),...custom,...folders][0];
+  const index=await library.load(folder?[folder]:[]);
+  return {library,index,folder:folder||null};
+}
+function gameFileOperation(operation){textureOperations.add(operation);operation.finally(()=>textureOperations.delete(operation)).catch(()=>{});return operation;}
+const gameFileRequest=payload=>({folder:typeof payload?.folder==='string'?payload.folder.slice(0,512):'',variant:['classic','reforged','forsaken-kingdom','language','other','all'].includes(payload?.variant)?payload.variant:'classic',type:['all','models','textures','sounds','text','maps','video','fonts','other'].includes(payload?.type)?payload.type:'all',query:typeof payload?.query==='string'?payload.query.slice(0,200):'',offset:Number.isSafeInteger(payload?.offset)?payload.offset:0,limit:Number.isSafeInteger(payload?.limit)?payload.limit:200});
+ipcMain.handle('gameFiles:summary',()=>gameFileOperation(gameFileIndex().then(({library,index,folder})=>({...library.summary(index),folder}))));
+ipcMain.handle('gameFiles:browse',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{const request=gameFileRequest(payload);return request.query.trim()?library.search(index,request):library.browse(index,request);})));
+ipcMain.handle('gameFiles:read',(_,payload)=>gameFileOperation(gameFileIndex().then(async({library,index})=>{const entry=library.entry(index,payload?.id,payload?.signature);return {...library.publicEntry(entry),bytes:await library.read(index,entry)};})));
+ipcMain.handle('gameFiles:resolve',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{if(!Array.isArray(payload?.names))throw Error('Missing texture paths.');return library.resolve(index,library.entry(index,payload.id,payload.signature),payload.names);})));
+// World Editor view: the renderer builds its tree from these read-only game tables.
+const worldEditorString=path=>/^units\\[a-z]*strings\.txt$|^ui\\worldedit(?:game)?strings\.txt$/.test(path);
+ipcMain.handle('gameFiles:worldEditorSources',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{
+  const files=Array.isArray(payload?.files)?payload.files.filter(path=>typeof path==='string'&&/^(?:units|doodads|ui)\\[a-z0-9_]+\.(?:slk|txt)$/i.test(path)).slice(0,64):[];
+  return library.worldEditorSources(index,{files,isString:worldEditorString});
+})));
+ipcMain.handle('gameFiles:readPath',(_,payload)=>gameFileOperation(gameFileIndex().then(async({library,index})=>{
+  if(typeof payload?.path!=='string'||payload.path.length>260)throw Error('Invalid game path.');
+  const entry=library.findPath(index,payload.path,gameFileRequest(payload).variant);
+  return entry?{...library.publicEntry(entry),signature:index.signature,bytes:await library.read(index,entry)}:null;
+})));
+ipcMain.handle('gameFiles:findPath',(_,payload)=>gameFileOperation(gameFileIndex().then(({library,index})=>{
+  if(typeof payload?.path!=='string'||payload.path.length>260)throw Error('Invalid game path.');
+  const entry=library.findPath(index,payload.path,gameFileRequest(payload).variant);
+  return entry?{...library.publicEntry(entry),signature:index.signature}:null;
+})));
+ipcMain.handle('gameFiles:export',async(_,payload)=>{
+  const {library,index}=await gameFileIndex(),entry=library.entry(index,payload?.id,payload?.signature);
+  const answer=await dialog.showSaveDialog(win,{title:'Save a copy of '+entry.name,defaultPath:entry.name,buttonLabel:'Save copy'});
+  if(answer.canceled||!answer.filePath)return null;
+  await fs.writeFile(answer.filePath,await library.read(index,entry));return answer.filePath;
 });
 ipcMain.handle('texture:copyPath',(_,value)=>{
   if(typeof value!=='string'||!value||value.length>1024)throw Error('Invalid texture path.');
@@ -373,7 +431,7 @@ ipcMain.handle('settings:rescanGameData',async()=>{
   return result;
 });
 async function resetTextureSources(){
-  const previous=textureResolver;textureResolver=createTextureResolver();textureLibrary=new TextureLibrary({casc:textureResolver.casc});
+  const previous=textureResolver;textureResolver=createTextureResolver();textureLibrary=new TextureLibrary({casc:textureResolver.casc});gameFiles=new GameFileLibrary({casc:textureResolver.casc});
   await Promise.allSettled([...textureOperations]);await previous.close();
 }
 ipcMain.handle('recovery:write',(_,payload)=>recoveryStore.write(payload));
@@ -403,6 +461,7 @@ ipcMain.handle('updates:revert',async event=>{
   if(answer.response!==0)return updater.status();
   const result=await updater.prepareRevert();if(result.state==='ready'&&win&&!win.isDestroyed())win.close();return updater.status();
 });
+ipcMain.handle('app:fileTypesNeedDefaultAgain',async()=>Boolean(await fileTypes?.usesSharedDefault()));
 ipcMain.handle('app:openDefaultApps',()=>shell.openExternal('ms-settings:defaultapps?registeredAppUser=MDLxL'));
 ipcMain.handle('app:openLink',(_,url)=>{if(!externalURL(url))throw Error('Unsupported website link.');return shell.openExternal(url);});
 ipcMain.handle('settings:configure',(_,value)=>{
@@ -412,14 +471,14 @@ ipcMain.handle('settings:configure',(_,value)=>{
 ipcMain.on('app:close',event=>{if(win&&!win.isDestroyed()&&event.sender===win.webContents)win.close();});
 async function updateSettings(value){
   const previousHotkeys=JSON.stringify(settings.preferences?.hotkeys);
-  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon;
+  const previousLanguage=settings.preferences?.language,previousFileIcon=settings.preferences?.fileIcon+'|'+settings.preferences?.fileIconMdl;
   settings=await settingsStore.configure(value);
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameData'))texturePreviews.cancel();
   if(value&&Object.prototype.hasOwnProperty.call(value,'gameDataSources')){
     texturePreviews.cancel();await texturePreviews.settle();await resetTextureSources();
   }
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
-  if(previousFileIcon!==settings.preferences.fileIcon)registerFileTypes();
+  if(previousFileIcon!==settings.preferences.fileIcon+'|'+settings.preferences.fileIconMdl)registerFileTypes();
   if(JSON.stringify(settings.preferences.hotkeys)!==previousHotkeys || previousLanguage!==settings.preferences.language)refreshMenu();
   return publicSettings();
 }
@@ -527,10 +586,11 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   settings=await settingsStore.load(path.join(__dirname,'../game-data.json'));
   updater=new Updater({currentVersion:app.getVersion(),installRoot:path.dirname(process.execPath),profile,packaged:app.isPackaged,onStatus:status=>{if(win&&!win.isDestroyed())win.webContents.send('updates:status',status);}});
   await updater.initialize();
-  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
+  try {const result=JSON.parse(await fs.readFile(path.join(profile,'update-result.json'),'utf8'));if(!result.ok)updater.publish({state:'error',error:'The update could not be installed. Your previous version has been restored.',detail:result.error});else if(updater.status().previousVersion)void updater.reportUpdate();await fs.unlink(path.join(profile,'update-result.json'));}catch(error){if(error.code!=='ENOENT')console.warn('Update result: '+error.message);}
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(process.env.MDLVIS_GAME_DATA)settings.gameData=process.env.MDLVIS_GAME_DATA;
   try{recoveryPrompt=await sessionJournal.begin();}catch(error){console.warn('Session journal: '+error.message);}
+  try{await recoveryStore.resetOnce(recoveryPrompt);}catch(error){console.warn('Recovery reset: '+error.message);}
   gameDataDiscovery=new GameDataDiscovery({cacheFile:path.join(profile,'game-data-discovery.json'),appFolders:[path.dirname(process.execPath),app.getAppPath()],customSources:()=>settings.gameDataSources||[]});
   for(const file of launchModelPaths)try{initialModels.push(await readModel(file));}catch(e){console.error(e.message);}
   initialModel=initialModels[0]||null;
@@ -545,6 +605,7 @@ async function createWindow(bounds={}){
   const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:process.env.MDLVIS_HEADLESS!=='1',backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   if(process.env.MDLVIS_HEADLESS!=='1')current.maximize();
   win=current;nativeEditorState={readOnly:true,saving:false};
+  current.once('closed',()=>{if(current===win)aiService.close().catch(error=>console.error('AI shutdown: '+error.message));});
   win.webContents.setWindowOpenHandler(({url,frameName})=> url==='about:blank' && ['MDLxL-UV','MDLxL-OptimizeXL'].includes(frameName) ? {action:'allow',overrideBrowserWindowOptions:{parent:current,modal:false,width:frameName==='MDLxL-UV'?900:1280,height:frameName==='MDLxL-UV'?700:800,minWidth:frameName==='MDLxL-UV'?500:950,minHeight:frameName==='MDLxL-UV'?400:500,show:process.env.MDLVIS_HEADLESS!=='1',title:frameName==='MDLxL-UV'?'MDLxL — UV Editor':'OptimizeXL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),autoHideMenuBar:true,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}}} : {action:'deny'});
   current.webContents.on('did-create-window',child=>{child.setMenu(null);if(process.env.MDLVIS_HEADLESS!=='1')child.maximize();else child.webContents.setBackgroundThrottling(false);child.webContents.setWindowOpenHandler(()=>({action:'deny'}));child.webContents.on('will-navigate',event=>event.preventDefault());});
   win.webContents.on('will-navigate',(event,url)=>{if(url!==win.webContents.getURL())event.preventDefault();});
@@ -571,6 +632,8 @@ async function createWindow(bounds={}){
   await current.loadFile(path.join(__dirname,'../dist/index.html'));
 }
 app.on('window-all-closed',async()=>{
+  // AI shutdown is bounded and can never skip the settings/recovery flush below.
+  await Promise.race([aiService.close().catch(error=>console.error('AI shutdown: '+error.message)),new Promise(resolve=>setTimeout(resolve,5000))]);
   await updater?.shutdown();
   await particleLibrary.close();
   textureDecoder=null;rejectThumbnailRequests('Editor closed.');await texturePreviews.close();

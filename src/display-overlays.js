@@ -1,24 +1,23 @@
 export function defaultEditorDisplay(vanilla = false) {
-  const base = { shaded: true, vertices: true, bones: false, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
+  const base = { shaded: true, vertices: true, bones: false, helpers: false, skeleton: false, focusedSkeleton: false, nodes: false, attachments: false, particles: false, ...(!vanilla && {sounds:false,events:false}), wires: false, normals: false, grid: false, cameras: false };
   return {
-    vertices: { ...base },
+    vertices: { ...base, ...(vanilla && { bones: true, helpers: true, attachments: true }) },
     // Bones is one shared switch across the rig editors (see shareBones).
-    bones: { ...base, bones: true },
-    movement: { ...base, bones: true, focusedSkeleton: true, ...(!vanilla && {particles:true}) },
-    animations: { ...base, bones: true, shaded: false, vertices: false, ...(!vanilla && {particles:true,sounds:true,events:true}) },
+    bones: { ...base, bones: true, ...(vanilla && { helpers: true, attachments: true }) },
+    movement: { ...base, bones: true, focusedSkeleton: true, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true}) },
+    animations: { ...base, bones: true, shaded: false, vertices: false, ...(vanilla && { helpers: true, attachments: true }), ...(!vanilla && {particles:true,sounds:true,events:true}) },
     uv: { ...base, grid: true },
     paint: { ...base, shaded: false, vertices: false },
   };
 }
 
-// Bones, Movement and Animations share one Bones switch, so bone markers stay
-// on (or off) while the user moves between the rig editors.
+// Rig marker choices follow the user between Bones, Movement and Animations.
 const RIG_EDITORS = ['bones', 'movement', 'animations'];
-function shareBones(overlays, mode) {
+function shareBones(overlays, mode, key = 'bones') {
   if (!RIG_EDITORS.includes(mode)) return overlays;
-  const bones = !!overlays[mode]?.bones;
+  const enabled = !!overlays[mode]?.[key];
   return { ...overlays, ...Object.fromEntries(RIG_EDITORS.filter(editor => editor !== mode && overlays[editor])
-    .map(editor => [editor, { ...overlays[editor], bones }])) };
+    .map(editor => [editor, { ...overlays[editor], [key]: enabled }])) };
 }
 
 export function setEditorDisplay(overlays, mode, key, value) {
@@ -28,7 +27,7 @@ export function setEditorDisplay(overlays, mode, key, value) {
   if (resolved && key === 'skeleton') next.focusedSkeleton = false;
   if (resolved && key === 'focusedSkeleton') next.skeleton = false;
   const result = { ...overlays, [mode]: next };
-  return key === 'bones' ? shareBones(result, mode) : result;
+  return ['bones', 'helpers', 'attachments'].includes(key) ? shareBones(result, mode, key) : result;
 }
 
 // Clear the active editor's visible options without changing the model or selection.
@@ -37,8 +36,10 @@ export function clearQuickDisplay(overlays, mode) {
 }
 
 // POSE starts clean, then keeps the user's own display choices separately.
+// Its only rig switch is Bones, so Helpers (often the spine and head) follow it.
 export function defaultPoseDisplay(overlays) {
-  return { ...overlays, vertices: false, bones: false, skeleton: false, focusedSkeleton: true,
+  const { helpers: _helpers, ...display } = overlays || {};
+  return { ...display, vertices: false, bones: false, skeleton: false, focusedSkeleton: true,
     nodes: false, attachments: false, particles: false, sounds: false, events: false,
     wires: false, normals: false, cameras: false };
 }
@@ -52,7 +53,7 @@ export function storedEditorDisplay(vanilla = false, storage = globalThis.localS
   try { saved = JSON.parse(storage?.getItem(EDITOR_DISPLAY_KEY) || 'null')?.[vanilla ? 'vis' : 'xl']; } catch { saved = null; }
   if (!saved || typeof saved !== 'object') return defaults;
   return Object.fromEntries(Object.entries(defaults).map(([mode, display]) => [mode, Object.fromEntries(Object.entries(display)
-    .map(([key, value]) => [key, typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
+    .map(([key, value]) => [key, vanilla && ['bones', 'helpers', 'attachments'].includes(key) ? value : typeof saved[mode]?.[key] === 'boolean' ? saved[mode][key] : value]))]));
 }
 
 export function saveEditorDisplay(xl, vis, storage = globalThis.localStorage) {

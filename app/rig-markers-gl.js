@@ -1,7 +1,7 @@
 import { Color, Matrix4, Vector3 } from 'three';
 import { visualOptions } from '../src/preferences.js';
 import { NODE_SYMBOLS, NODE_SYMBOL_COLORS } from './node-marker-symbols.js';
-import { boneDisplayColor, boneDisplayOptions, JOINT_SPHERE, STICK_JOINT } from './bone-display.js';
+import { boneDisplayColor, boneDisplayOptions, BONE_DIAMOND } from './bone-display.js';
 
 const CUBE = { vertices: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]], faces: [[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]] };
 const TETRA = { vertices: [[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]], faces: [[0,2,1],[0,1,3],[0,3,2],[1,2,3]] };
@@ -21,7 +21,8 @@ const MARKER_LIGHT = new Vector3(-.35, -.45, 1.2).normalize();
 export function boneHighlightColors(nodes, selectedIds) {
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point]));
   const boneIds = new Set(nodes.filter(point => point.overlayKind === 'bones').map(point => point.node.ObjectId));
-  const selected = new Set((selectedIds || []).filter(id => boneIds.has(id)));
+  const selectableIds = new Set(nodes.filter(point => point.overlayKind === 'bones' || point.overlayKind === 'attachments').map(point => point.node.ObjectId));
+  const selected = new Set((selectedIds || []).filter(id => selectableIds.has(id)));
   if (!selected.size) return new Map();
   const parents = new Set(), children = new Set(), byParent = new Map();
   for (const point of nodes) {
@@ -43,31 +44,29 @@ export function boneHighlightColors(nodes, selectedIds) {
   return colors;
 }
 
-export function markerStyle(point, byId, preferences, highlightColors = new Map(), vanilla = false) {
-  const visual = visualOptions(preferences), highlighted = highlightColors.get(point.node.ObjectId);
+export function markerStyle(point, byId, preferences, highlightColors = new Map(), vanilla = false, visual = visualOptions(preferences)) {
+  const highlighted = highlightColors.get(point.node.ObjectId);
   const symbolKind = point.overlayKind === 'events' ? ({SPL:'blood',FPT:'foot',UBR:'uber'}[point.node.Name?.slice(0,3).toUpperCase()]) : point.overlayKind;
+  const bones = boneDisplayOptions(preferences);
+  if (point.overlayKind === 'attachments') return { shape: vanilla ? TETRA : NODE_SYMBOLS.attachments, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.ref };
+  if (point.helperNode) return { shape: bones.style === 'diamond' ? BONE_DIAMOND : CUBE, color: highlighted ? boneDisplayColor(bones, highlighted, false) : bones.helper };
   if (!vanilla && NODE_SYMBOL_COLORS[symbolKind]) return { shape:NODE_SYMBOLS[symbolKind], color:highlighted || NODE_SYMBOL_COLORS[symbolKind] };
-  if (point.overlayKind === 'attachments') {
-    const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
-    return { shape: TETRA, color: highlighted || (hasParentBone ? visual.node : '#6666e5') };
-  }
   if (point.overlayKind === 'particles' || vanilla && point.overlayKind === 'ribbons') return { shape: vanilla?TETRA:preferences?.emitterMarker==='tetrahedron'?TETRA:preferences?.emitterMarker==='cube'?CUBE:PENTAGRAM, color: highlighted || visual.particle };
   if (point.overlayKind === 'bones') {
-    const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones', bones = boneDisplayOptions(preferences);
-    return { shape: bones.style === 'joint' ? JOINT_SPHERE : bones.style === 'stick' ? STICK_JOINT : CUBE, color: boneDisplayColor(bones, highlighted, hasParentBone) };
+    const hasParentBone = byId.get(point.node.Parent)?.overlayKind === 'bones';
+    return { shape: bones.style === 'diamond' ? BONE_DIAMOND : CUBE, color: boneDisplayColor(bones, highlighted, hasParentBone) };
   }
-  if (point.helperNode) return { shape: CUBE, color: highlighted || visual.bone };
   if (point.eventNode) return { shape: TETRA, color: highlighted || visual.event };
   return { shape: TETRA, color: highlighted || point.displayColor || visual.node };
 }
 
 export function rigMarkerVisible(point, options, highlights) {
   const kind = point.overlayKind || 'nodes';
-  return !!options[kind] || kind === 'bones' && !!options.focusedBoneMarkers && !!highlights.get(point.node.ObjectId);
+  return (point.helperNode ? !!(options.helpers ?? options.bones) : !!options[kind]) || kind === 'bones' && !!options.focusedBoneMarkers && !!highlights.get(point.node.ObjectId);
 }
 
-export function rigMarkerSize(point, shape, options = {}) {
-  const size = visualOptions(options.preferences).helperSize * 1.5, screenSize = point.unitsPerPixel * size;
+export function rigMarkerSize(point, shape, options = {}, visual = visualOptions(options.preferences)) {
+  const size = visual.helperSize * 1.5, screenSize = point.unitsPerPixel * size;
   if (!shape.billboard || options.vanilla) return screenSize;
   const modelSize = options.modelRadius == null ? screenSize * 1.5 : options.modelRadius * .035 * size / 9;
   // Keep circled symbols readable when zoomed out, with the existing close-up cap.
@@ -96,13 +95,13 @@ function markerTopology(shape) {
 }
 
 /** Actual world-space polyhedra, shared by the editor and Warcraft GL contexts. */
-export function rigMarkerGeometry(nodes, selectedIds, options = {}) {
-  const byId = new Map(nodes.map(point => [point.node.ObjectId, point])), highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds);
+export function rigMarkerGeometry(nodes, selectedIds, options = {}, visual = visualOptions(options.preferences), byId = new Map(nodes.map(point => [point.node.ObjectId, point]))) {
+  const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds);
   const markers = [];
   let triangleCount = 0, edgeCount = 0, emphasizedCount = 0;
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
-    const { shape, color } = markerStyle(point, byId, options.preferences, highlights, options.vanilla), topology = markerTopology(shape);
+    const { shape, color } = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual), topology = markerTopology(shape);
     const role = highlights.get(point.node.ObjectId), emphasized = role === '#000000';
     // Selected and child highlights stay flat (unshaded), whatever colour the user picked.
     markers.push({ point, shape, color, topology, emphasized, flat: shape.billboard || role === '#ff0000' || role === '#ffff00' });
@@ -114,7 +113,7 @@ export function rigMarkerGeometry(nodes, selectedIds, options = {}) {
   const write = (target, at, positions, id, color) => { target[at] = positions[id*3]; target[at+1] = positions[id*3+1]; target[at+2] = positions[id*3+2]; target[at+3] = color[0]; target[at+4] = color[1]; target[at+5] = color[2]; return at + 6; };
   for (const { point, shape, color, topology, emphasized, flat } of markers) {
     const baseColor = new Color(color), edgeRgb = baseColor.clone().convertLinearToSRGB().toArray();
-    const markerSize = rigMarkerSize(point, shape, options), rotation = shape.billboard ? (point.billboardRotation || point.rotation) : point.rotation;
+    const markerSize = rigMarkerSize(point, shape, options, visual), rotation = shape.billboard ? (point.billboardRotation || point.rotation) : point.rotation;
     const positions = new Float64Array(shape.vertices.length * 3);
     shape.vertices.forEach((value, id) => { vertex.set(value[0], value[1], value[2]).multiplyScalar(markerSize).applyQuaternion(rotation).add(point.world); positions[id*3] = vertex.x; positions[id*3+1] = vertex.y; positions[id*3+2] = vertex.z; });
     // Shade in linear RGB, then encode for the canvas. Multiplying encoded
@@ -164,29 +163,91 @@ export function createRigMarkersGL(gl) {
   gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   for (const [name, offset] of [['position',0],['color',12]]) { const location = gl.getAttribLocation(program,name); gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location,3,gl.FLOAT,false,24,offset); }
   gl.bindVertexArray(null);
+  // Flat symbols retain their exact topology on the GPU. Only their pose,
+  // screen/model size and colour change; do not expand every hand icon into
+  // megabytes of world-space triangle/edge arrays on every animation frame.
+  const symbolVs = compile(gl.VERTEX_SHADER, `#version 300 es
+    in vec3 position; uniform mat4 transform; uniform vec3 world;
+    uniform vec4 rotation; uniform float size;
+    void main(){
+      vec3 p=position*size, t=2.*cross(rotation.xyz,p);
+      p+=rotation.w*t+cross(rotation.xyz,t);
+      gl_Position=transform*vec4(p+world,1.);
+    }`);
+  const symbolFs = compile(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float; uniform vec3 tint; out vec4 result; void main(){result=vec4(tint,1.);}');
+  const symbolProgram = gl.createProgram(); gl.attachShader(symbolProgram,symbolVs); gl.attachShader(symbolProgram,symbolFs); gl.linkProgram(symbolProgram);
+  if (!gl.getProgramParameter(symbolProgram,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(symbolProgram));
+  const symbolUniforms = Object.fromEntries(['transform','world','rotation','size','tint'].map(name => [name,gl.getUniformLocation(symbolProgram,name)]));
+  const symbols = new Map();
+  const symbolGeometry = shape => {
+    let cached = symbols.get(shape);
+    if (cached) return cached;
+    const topology = markerTopology(shape), data = new Float32Array((topology.triangles.length + topology.edges.length) * 3);
+    let offset = 0;
+    for (const indices of [topology.triangles,topology.edges]) for (const id of indices) { data.set(shape.vertices[id],offset); offset += 3; }
+    const buffer = gl.createBuffer(), vao = gl.createVertexArray();
+    gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);
+    const location = gl.getAttribLocation(symbolProgram,'position'); gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location,3,gl.FLOAT,false,12,0);
+    cached = { buffer,vao,triangles:topology.triangles.length,edges:topology.edges.length }; symbols.set(shape,cached);
+    return cached;
+  };
   return {
     draw(camera, nodes, selectedIds, options) {
-      const { triangles, edges, emphasizedEdges } = rigMarkerGeometry(nodes, selectedIds, options);
+      const visual = visualOptions(options.preferences), byId = new Map(nodes.map(point => [point.node.ObjectId,point]));
+      const highlights = options.boneHighlights || boneHighlightColors(nodes,selectedIds), ordinary = [], draws = [];
+      let triangleOffset = 0, edgeOffset = 0;
+      for (const point of nodes) {
+        if (!point.visible || !rigMarkerVisible(point,options,highlights)) continue;
+        const { shape,color } = markerStyle(point,byId,options.preferences,highlights,options.vanilla,visual);
+        // Emphasized parent edges retain the existing screen-space expansion.
+        if (shape.billboard && highlights.get(point.node.ObjectId) !== '#000000') {
+          draws.push({ symbol:symbolGeometry(shape), world:point.world.toArray(), rotation:(point.billboardRotation || point.rotation).toArray(),
+            size:rigMarkerSize(point,shape,options,visual), tint:new Color(color).convertLinearToSRGB().toArray() });
+        } else {
+          ordinary.push(point);
+          const topology = markerTopology(shape), previous = draws.at(-1);
+          if (previous && !previous.symbol) { previous.triangles += topology.triangles.length; previous.edges += topology.edges.length; }
+          else draws.push({ triangleOffset,edgeOffset,triangles:topology.triangles.length,edges:topology.edges.length });
+          triangleOffset += topology.triangles.length; edgeOffset += topology.edges.length;
+        }
+      }
+      const { triangles, edges, emphasizedEdges } = rigMarkerGeometry(ordinary,selectedIds,{ ...options,boneHighlights:highlights },visual,byId);
       const viewport = gl.getParameter(gl.VIEWPORT);
       const thickEdges = thickMarkerEdges(emphasizedEdges, camera, viewport[2], viewport[3]);
-      const drawParentEdges = () => { gl.disable(gl.CULL_FACE); gl.bufferData(gl.ARRAY_BUFFER,thickEdges,gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES,0,thickEdges.length/6); };
-      gl.useProgram(program); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
-      gl.uniformMatrix4fv(transform,false,new Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).elements);
+      const matrix = new Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).elements;
+      const bindOrdinary = () => { gl.useProgram(program); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.uniformMatrix4fv(transform,false,matrix); };
+      const drawPass = mode => {
+        bindOrdinary(); gl.bufferData(gl.ARRAY_BUFFER,mode === gl.TRIANGLES ? triangles : edges,gl.DYNAMIC_DRAW);
+        // Keep node order and the original all-faces-then-hidden-edges passes,
+        // including equal-depth overlaps between symbols and bone markers.
+        for (const item of draws) {
+          if (item.symbol) {
+            gl.useProgram(symbolProgram); gl.bindVertexArray(item.symbol.vao);
+            gl.uniformMatrix4fv(symbolUniforms.transform,false,matrix); gl.uniform3fv(symbolUniforms.world,item.world);
+            gl.uniform4fv(symbolUniforms.rotation,item.rotation); gl.uniform1f(symbolUniforms.size,item.size); gl.uniform3fv(symbolUniforms.tint,item.tint);
+            gl.drawArrays(mode,mode === gl.TRIANGLES ? 0 : item.symbol.triangles,mode === gl.TRIANGLES ? item.symbol.triangles : item.symbol.edges);
+          } else { bindOrdinary(); gl.drawArrays(mode,mode === gl.TRIANGLES ? item.triangleOffset : item.edgeOffset,mode === gl.TRIANGLES ? item.triangles : item.edges); }
+        }
+      };
+      const drawParentEdges = () => { bindOrdinary(); gl.disable(gl.CULL_FACE); gl.bufferData(gl.ARRAY_BUFFER,thickEdges,gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES,0,thickEdges.length/6); };
       gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); gl.frontFace(gl.CCW); gl.disable(gl.BLEND); gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE); gl.depthMask(false);
       if (options.wireframeMarkers) {
-        gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.bufferData(gl.ARRAY_BUFFER,triangles,gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES,0,triangles.length/6);
+        gl.disable(gl.DEPTH_TEST); gl.depthMask(false); drawPass(gl.TRIANGLES);
         if (thickEdges.length) drawParentEdges();
         gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.bindVertexArray(null); return;
       }
       // Mesh depth splits even partially occluded markers at fragment precision.
-      gl.depthFunc(gl.LEQUAL); gl.depthMask(true); gl.bufferData(gl.ARRAY_BUFFER,triangles,gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES,0,triangles.length/6); gl.depthMask(false);
+      gl.depthFunc(gl.LEQUAL); gl.depthMask(true); drawPass(gl.TRIANGLES); gl.depthMask(false);
       if (options.occludedMarkerEdges) {
-        gl.bufferData(gl.ARRAY_BUFFER,edges,gl.DYNAMIC_DRAW); gl.lineWidth(1);
-        gl.depthFunc(gl.GREATER); gl.drawArrays(gl.LINES,0,edges.length/6);
+        gl.lineWidth(1); gl.depthFunc(gl.GREATER); drawPass(gl.LINES);
       }
       if (thickEdges.length) { if (options.occludedMarkerEdges) gl.disable(gl.DEPTH_TEST); else gl.depthFunc(gl.LEQUAL); drawParentEdges(); gl.enable(gl.DEPTH_TEST); }
       gl.depthMask(true); gl.bindVertexArray(null);
     },
-    dispose() { gl.deleteBuffer(buffer); gl.deleteVertexArray(vao); gl.deleteProgram(program); gl.deleteShader(vs); gl.deleteShader(fs); },
+    dispose() {
+      for (const symbol of symbols.values()) { gl.deleteBuffer(symbol.buffer); gl.deleteVertexArray(symbol.vao); }
+      symbols.clear(); gl.deleteProgram(symbolProgram); gl.deleteShader(symbolVs); gl.deleteShader(symbolFs);
+      gl.deleteBuffer(buffer); gl.deleteVertexArray(vao); gl.deleteProgram(program); gl.deleteShader(vs); gl.deleteShader(fs);
+    },
   };
 }

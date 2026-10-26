@@ -2,6 +2,7 @@
 // Only Updater.fetcher is routed in memory to this loopback HTTP fixture. Production
 // response handling, streaming, ZIP digest, extraction, manifest, plan, save prompt,
 // Windows install and restart execute unchanged. Inspector is detached before Close.
+// The private A/B copies send their after-update ping to this fixture, never to the real counter.
 const fs=require('node:fs/promises'),nativefs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
 const {execFile}=require('node:child_process'),{promisify}=require('node:util'),run=promisify(execFile);
 const {digest,MANIFEST,extractArchive,listFiles}=require('../electron/updater.cjs');
@@ -9,26 +10,30 @@ const base=process.env.MDLXL_GATE_ROOT||'D:/MDLxL-updater-tests/gate-0.21.1';
 const candidate=process.env.MDLXL_GATE_PACKAGE||'D:/MDLxL-updater-tests/release-0.21.1-candidate/MDLxL-win32-x64';
 const ps=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-let activeVersion='0.21.2',client,sequence=0,events=[],config;
+let activeVersion,client,sequence=0,events=[],config;
 async function log(type,data={}){const event={at:new Date().toISOString(),type,...data};events.push(event);await fs.appendFile(path.join(base,'events.jsonl'),JSON.stringify(event)+'\n');console.log(type,JSON.stringify(data));}
 async function script(name,body,args=[]){const p=path.join(base,name+'.ps1');await fs.writeFile(p,body);return run(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',p,...args],{windowsHide:true});}
 async function zip(source,out){await script('zip',"param($Source,$Archive)\nAdd-Type -AssemblyName System.IO.Compression.FileSystem\n[IO.Compression.ZipFile]::CreateFromDirectory($Source,$Archive,[IO.Compression.CompressionLevel]::Optimal,$false)\n",[source,out]);}
 async function manifestCheck(root){const m=JSON.parse(await fs.readFile(path.join(root,MANIFEST),'utf8'));for(const [file,hash]of Object.entries(m.files))if(!/^(Addons|Backgrounds|BitsAndParts|Textures)\//.test(file))assert.equal(await digest(path.join(root,file)),hash,file);return m.version;}
 async function prepare(){
  await fs.mkdir(base,{recursive:true});await fs.mkdir(path.join(base,'temp'),{recursive:true});
- const version=JSON.parse(await fs.readFile(path.join(candidate,'resources/app/package.json'),'utf8')).version;assert.equal(version,'0.21.1');
+ const version=JSON.parse(await fs.readFile(path.join(candidate,'resources/app/package.json'),'utf8')).version;assert.match(version,/^\d+\.\d+\.\d+$/);
+ const [major,minor,patch]=version.split('.').map(Number),privates=[['A',`${major}.${minor}.${patch+1}`],['B',`${major}.${minor}.${patch+2}`]];
  config={candidate,version,base,target:path.join(base,'installed/MDLxL-win32-x64'),packages:{}};
- const shipped=path.join(base,'MDLxL-0.21.1-win32-x64.zip');await zip(path.dirname(candidate),shipped);
+ const shipped=path.join(base,`MDLxL-${version}-win32-x64.zip`);await zip(path.dirname(candidate),shipped);
  config.shippingZip=shipped;config.shippingSha256=await digest(shipped);
  await fs.writeFile(shipped+'.sha256',config.shippingSha256+'  '+path.basename(shipped)+'\n');
  await fs.mkdir(path.join(base,'installed'));await extractArchive(shipped,path.join(base,'installed'));
  assert.equal(await manifestCheck(config.target),version);
- for(const [label,v]of [['A','0.21.2'],['B','0.21.3']]){
+ for(const [label,v]of privates){
    const source=path.join(base,label,'MDLxL-win32-x64');await fs.cp(candidate,source,{recursive:true});
    const pkg=path.join(source,'resources/app/package.json'),info=JSON.parse(await fs.readFile(pkg,'utf8'));info.version=v;await fs.writeFile(pkg,JSON.stringify(info,null,2)+'\n');
    await fs.appendFile(path.join(source,'MDLxL.exe'),'\nPrivate acceptance update '+label+'\n');
+   const updater=path.join(source,'resources/app/electron/updater.cjs'),code=await fs.readFile(updater,'utf8');
+   const routed=code.replace(/const USAGE = '[^']*';/,"const USAGE = 'http://127.0.0.1:18761/usage';");assert.ok(!code.includes('USAGE')||routed.includes('127.0.0.1:18761/usage'),'private copy ping not routed');
+   await fs.writeFile(updater,routed);
    const m=JSON.parse(await fs.readFile(path.join(source,MANIFEST),'utf8'));m.version=v;
-   for(const relative of ['MDLxL.exe','resources/app/package.json'])m.files[relative]=await digest(path.join(source,relative));
+   for(const relative of ['MDLxL.exe','resources/app/package.json','resources/app/electron/updater.cjs'])m.files[relative]=await digest(path.join(source,relative));
    await fs.writeFile(path.join(source,MANIFEST),JSON.stringify(m,null,2)+'\n');
    const archive=path.join(base,`MDLxL-${v}-win32-x64.zip`);await zip(path.dirname(source),archive);
    config.packages[v]={archive,sha256:await digest(archive),size:(await fs.stat(archive)).size,exeHash:m.files['MDLxL.exe']};
@@ -62,8 +67,9 @@ async function attach(){
 async function renderer(expression){await attach();return client.eval(`process.mainModule.require('electron').BrowserWindow.getAllWindows().find(w=>!w.isDestroyed()).webContents.executeJavaScript(${JSON.stringify(expression)})`);}
 async function launch(){await script('launch',"param($Exe,$Directory,$Profile,$Temp)\n$env:MDLXL_PROFILE=$Profile\n$env:TEMP=$Temp\n$env:TMP=$Temp\nStart-Process -FilePath $Exe -WorkingDirectory $Directory -WindowStyle Hidden\n",[path.join(config.target,'MDLxL.exe'),config.target,config.profile,path.join(base,'temp')]);}
 async function verify(){const runtime=await renderer('window.desktop.updateStatus()');const disk=await manifestCheck(config.target);assert.equal(runtime.currentVersion,disk);for(const [file,hash]of Object.entries(config.personal))assert.equal(await digest(path.join(config.target,file)),hash,file);const snapshot=JSON.parse(await fs.readFile(path.join(config.target,'.mdlxl-previous/snapshot.json'),'utf8'));for(const [file,hash]of Object.entries(snapshot.files))assert.equal(await digest(path.join(config.target,'.mdlxl-previous',file)),hash,file);assert.equal(await renderer('document.querySelectorAll(".classic-app canvas").length>0'),true);await log('verified',{runtime,disk,snapshot:snapshot.version,exeHash:await digest(path.join(config.target,'MDLxL.exe')),personalFiles:Object.keys(config.personal).length});return {runtime,disk,snapshot:snapshot.version};}
-async function server(){config=JSON.parse(await fs.readFile(path.join(base,'config.json'),'utf8'));
- const service=http.createServer(async(req,res)=>{try{const url=new URL(req.url,'http://localhost');if(url.pathname==='/network'){
+async function server(){config=JSON.parse(await fs.readFile(path.join(base,'config.json'),'utf8'));activeVersion=Object.keys(config.packages)[0];
+ const service=http.createServer(async(req,res)=>{try{const url=new URL(req.url,'http://localhost');if(url.pathname==='/usage'){let body='';for await(const chunk of req)body+=chunk;await log('usage-ping',{body});res.statusCode=204;res.end();return;}
+ if(url.pathname==='/network'){
   const source=new URL(url.searchParams.get('url')),p=config.packages[activeVersion];await log('request',{url:source.href});
   if(source.hostname==='api.github.com'&&source.pathname.endsWith('/releases/latest')){res.setHeader('content-type','application/json');res.end(JSON.stringify({tag_name:'v'+activeVersion,name:'Private acceptance update',html_url:'https://github.com/UnsctMagic/MDLxL/releases/tag/v'+activeVersion,body:'- Private full-package acceptance update.',assets:[{name:`MDLxL-${activeVersion}-win32-x64.zip`,size:p.size,digest:'sha256:'+p.sha256,browser_download_url:`https://github.com/UnsctMagic/MDLxL/releases/download/v${activeVersion}/MDLxL-${activeVersion}-win32-x64.zip`}]}));}
   else if(source.hostname==='github.com'&&source.pathname.endsWith('.zip')){res.setHeader('content-type','application/zip');res.setHeader('content-length',p.size);let count=0;for await(const bytes of nativefs.createReadStream(p.archive,{highWaterMark:256*1024})){res.write(bytes);count+=bytes.length;await wait(12);}res.end();await log('zip-served',{version:activeVersion,bytes:count,sha256:p.sha256});}

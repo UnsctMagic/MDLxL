@@ -1,3 +1,4 @@
+import { beginRotationDrag, rotationDragDegrees } from '../src/rotation-drag.js';
 import { Quaternion, Vector3 } from 'three';
 import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
@@ -5,6 +6,7 @@ import { samplePreviewMatrices } from './preview-pose.js';
 import { visualOptions, viewportAppearanceOptions } from '../src/preferences.js';
 import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
 import { boneDisplayColor, boneDisplayOptions, drawBoneLink } from './bone-display.js';
+import { createPixelLineBatch } from './pixel-lines.js';
 
 const COLORS = { X: '#fa4343', Y: '#34cf59', Z: '#3588ff' };
 const PLANE_COLORS = { xy: 'Y', xz: 'X', yz: 'Z' };
@@ -32,7 +34,7 @@ export function projectMovementNodes(model, frame, sequenceIndex, camera, width,
   });
 }
 
-export function movementAxisHandles(active, camera, width, height, radius, space = 'local', mode = 'rotate') {
+export function movementAxisHandles(active, camera, width, height, radius, space = 'world', mode = 'rotate') {
   if (!active?.visible) return [];
   // Move shrinks with the model at a distance, capped at the reference size.
   const distance = camera.isPerspectiveCamera ? active.world.distanceTo(camera.position) : radius * 2.6;
@@ -85,20 +87,22 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
   for (const point of nodes) if (point.visible && rigMarkerVisible(point, options, highlights)) {
     const isSelected = selected.has(point.node.ObjectId), emitter = (point.node.Flags & 4096) !== 0;
     const bone = point.overlayKind === 'bones';
-    context.fillStyle = point.displayColor || (bone ? boneDisplayColor(bones, highlights.get(point.node.ObjectId), byId.get(point.node.Parent)?.overlayKind === 'bones') : emitter || point.overlayKind === 'particles' ? visual.particle : point.eventNode ? visual.event : visual.node);
+    context.fillStyle = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual).color;
     context.strokeStyle = isSelected ? '#fff14e' : '#17263d'; context.lineWidth = isSelected ? 2.5 : 1.5;
     context.beginPath();
     if (options.glMarkers) { /* Shape rendering shares the mesh's actual GL depth. */ }
-    else if (bone && bones.style !== 'cubes') context.arc(point.x, point.y, boxSize / (bones.style === 'stick' ? 3 : 2), 0, Math.PI * 2);
+    else if ((bone || point.helperNode) && bones.style === 'diamond') { context.moveTo(point.x, point.y - boxSize / 2); context.lineTo(point.x + boxSize / 2, point.y); context.lineTo(point.x, point.y + boxSize / 2); context.lineTo(point.x - boxSize / 2, point.y); context.closePath(); }
     else if (bone || point.helperNode) context.rect(point.x - boxSize / 2, point.y - boxSize / 2, boxSize, boxSize);
     else if (point.tetrahedron) { for (const face of [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]) { const [a, b, c] = face.map(index => point.tetrahedron[index]); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.lineTo(c.x, c.y); context.lineTo(a.x, a.y); } }
     else if (emitter) context.rect(point.x - 4.5, point.y - 4.5, 9, 9);
     else context.arc(point.x, point.y, isSelected ? 5 : 4, 0, Math.PI * 2);
     context.fill(); context.stroke();
-    if (isSelected) {
-      context.font = '11px Tahoma, sans-serif'; context.lineWidth = 3; context.strokeStyle = '#17263d';
-      context.strokeText(point.node.Name || `Node ${point.node.ObjectId}`, point.x + 8, point.y - 8);
-      context.fillStyle = '#fff'; context.fillText(point.node.Name || `Node ${point.node.ObjectId}`, point.x + 8, point.y - 8);
+    // Tool previews that place a few named points (Attachemator) label those points.
+    if (isSelected || options.nodeLabels?.has?.(point.node.ObjectId)) {
+      const label = point.node.Name || `Node ${point.node.ObjectId}`;
+      context.font = isSelected ? '11px Tahoma, sans-serif' : '10px Tahoma, sans-serif'; context.lineWidth = 3; context.strokeStyle = '#17263d';
+      context.strokeText(label, point.x + 8, point.y - 8);
+      context.fillStyle = isSelected ? '#fff14e' : '#fff'; context.fillText(label, point.x + 8, point.y - 8);
     }
   }
   drawMovementGizmo(context, handles, 1, options.activeAxis, viewportAppearanceOptions(options.preferences).controllers);
@@ -143,13 +147,25 @@ function convexHull(points) {
   return [...half(sorted).slice(0, -1), ...half(sorted.reverse()).slice(0, -1)];
 }
 
+const symbolHulls = new WeakMap();
+function connectorMaskVertices(shape) {
+  if (!shape.billboard) return shape.vertices;
+  let vertices = symbolHulls.get(shape);
+  if (!vertices) {
+    vertices = convexHull(shape.vertices.map((point,index) => ({ x:point[0],y:point[1],index }))).map(point => shape.vertices[point.index]);
+    symbolHulls.set(shape,vertices);
+  }
+  return vertices;
+}
+
 /** Connectors occupy their own pixel layer below mesh wires and point overlays.
  * Remove only the projected polyhedron footprints so GL markers remain in front. */
 export function drawBoneConnectors(context, nodes, selectedIds, camera, width, height, ratio = 1, options = {}) {
   context.clearRect(0, 0, width * ratio, height * ratio);
   if (!options.boneLines) return;
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point]));
-  const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds), bones = boneDisplayOptions(options.preferences);
+  const highlights = options.boneHighlights || boneHighlightColors(nodes, selectedIds), bones = boneDisplayOptions(options.preferences), visual = visualOptions(options.preferences);
+  const pixelBatch = ['shaded', 'stick'].includes(bones.connector) && context.canvas?.width && context.createImageData && context.putImageData ? createPixelLineBatch(context) : null;
   for (const point of nodes) {
     const parent = byId.get(point.node.Parent);
     if (!point.visible || !parent?.visible) continue;
@@ -157,14 +173,15 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
     if (!line) continue;
     const appearance = boneConnectionAppearance(parent, point, highlights);
     if (!boneConnectionVisible(parent, point, highlights, options.focusedBoneLines)) continue;
-    drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio });
+    drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio, pixelBatch });
   }
+  pixelBatch?.flush();
   context.save(); context.setTransform(1, 0, 0, 1, 0, 0); context.globalCompositeOperation = 'destination-out';
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
-    const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla).shape;
-    const size = rigMarkerSize(point, shape, options);
-    const hull = convexHull(shape.vertices.map(vertex => {
+    const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual).shape;
+    const size = rigMarkerSize(point, shape, options, visual);
+    const hull = convexHull(connectorMaskVertices(shape).map(vertex => {
       const p = new Vector3(...vertex).multiplyScalar(size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world).project(camera);
       return { x: (p.x + 1) * width * ratio / 2, y: (1 - p.y) * height * ratio / 2 };
     }));
@@ -234,49 +251,30 @@ export function movementDragAmount(handle, dx, dy, mode, sensitivity = 1) {
   return mode === 'rotate' ? pixels : mode === 'scale' ? Math.max(.01, Math.exp(pixels / 100)) : pixels * handle.unitsPerPixel;
 }
 
+/** Camera facing for Pivot-based input; Linear ignores the resulting sign. */
 export function movementRotationFacing(gesture, rotation, view) {
   const normal = gesture.handle.axis === 'XYZ' ? view.clone() : new Vector3().fromArray(AXES[gesture.handle.axis]);
-  // POSE Body/Object keeps its selected space with a workplane; endpoints
-  // and ordinary workplane rotation use the world normal instead.
+  // POSE Body/Object keeps Local with a workplane. Ordinary workplane
+  // rotation and POSE endpoints instead use the world plane normal.
   const localWorkplane = gesture.pose && (gesture.target?.kind === 'body' || gesture.target?.kind === 'node');
   if ((!gesture.workplaneEnabled || localWorkplane) && gesture.space === 'local' && gesture.handle.axis !== 'XYZ') normal.applyQuaternion(rotation);
   return -normal.dot(view);
 }
 
-/** Keep the existing outward axis drag. A perpendicular start can also turn
- * the part, following an arc around its pivot when the pointer has room.
- * Choose once per drag so rotating the displayed axes cannot change the input. */
-export function movementRotationGesture(handle, start, center, facing = 1) {
-  const length = Math.max(1, Math.hypot(handle.dx, handle.dy));
-  const vector = { x: start.x - center.x, y: start.y - center.y };
-  return { direction: { x: handle.dx / length, y: handle.dy / length }, start: vector,
-    previous: vector, sign: facing < 0 ? 1 : -1, kind: null, angle: 0 };
+/** Linear Rotate uses a fixed right/up-positive screen basis.
+ * Pivot-based input is an explicit preference, shared with the other editors. */
+export function movementRotationGesture(options) {
+  return beginRotationDrag(options);
 }
 
 export function movementRotationAmount(gesture, dx, dy, sensitivity = 1) {
-  const { direction, start } = gesture;
-  const along = dx * direction.x + dy * direction.y;
-  const across = dy * direction.x - dx * direction.y;
-  if (!gesture.kind) {
-    if (Math.hypot(dx, dy) < 2) return 0;
-    const radius = Math.hypot(start.x, start.y);
-    const tangent = radius ? (dy * start.x - dx * start.y) / radius : 0;
-    const radial = radius ? (dx * start.x + dy * start.y) / radius : 0;
-    gesture.kind = Math.abs(along) >= Math.abs(across) ? 'along'
-      : radius >= 12 && Math.abs(tangent) >= Math.abs(radial) ? 'arc' : 'across';
-  }
-  if (gesture.kind === 'along') return along * sensitivity;
-  if (gesture.kind === 'across') return across * gesture.sign * sensitivity;
-  const next = { x: start.x + dx, y: start.y + dy }, previous = gesture.previous;
-  const sx = next.x - previous.x, sy = next.y - previous.y, lengthSq = sx * sx + sy * sy;
-  const t = lengthSq ? Math.max(0, Math.min(1, -(previous.x * sx + previous.y * sy) / lengthSq)) : 0;
-  // Crossing the pivot has no defined angle. Rebase there without applying a
-  // half-turn jump; the next clear segment continues from the current result.
-  if (Math.hypot(previous.x + sx * t, previous.y + sy * t) >= 12) {
-    gesture.angle += Math.atan2(previous.x * next.y - previous.y * next.x, previous.x * next.x + previous.y * next.y);
-  }
-  gesture.previous = next;
-  return gesture.angle * 180 / Math.PI * gesture.sign * sensitivity;
+  return rotationDragDegrees(gesture, dx, dy, sensitivity);
+}
+
+/** A bare bone drag turns around the nearest model axis to the view normal. */
+export function movementViewRotationHandle(view, unitsPerPixel = 1) {
+  const axis = Object.keys(AXES).reduce((best, next) => Math.abs(view[next.toLowerCase()]) > Math.abs(view[best.toLowerCase()]) ? next : best, 'X');
+  return { axis, dx: 1, dy: -1, unitsPerPixel };
 }
 
 /** Free-space Resize follows the screen gesture: right/up grows and left/down
@@ -325,6 +323,8 @@ export function pickMovementHandle(handles, x, y, mode, threshold = 10) {
     const tip = handles.filter(handle => !handle.plane).map(handle => ({ handle, distance: Math.hypot(handle.x - x, handle.y - y) }))
       .filter(hit => hit.distance <= threshold).sort((a, b) => a.distance - b.distance)[0];
     if (tip) return tip.handle;
+    // Keep the bone marker available for rotate-in-this-view dragging.
+    handles = handles.filter(handle => Math.hypot(x - handle.startX, y - handle.startY) >= 13);
   }
   if (mode === 'move') {
     // The central symbol remains available for direct dragging and overlap cycling.

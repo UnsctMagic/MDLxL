@@ -48,7 +48,7 @@ const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-5,
       window.setPosition(-3000, 0);
       window.showInactive();
     });
-    const toggle = page.getByRole('checkbox', { name: 'RGB Preview', exact: true });
+    const toggle = page.getByRole('checkbox', { name: 'RGB', exact: true });
     await toggle.waitFor({ timeout: 60000 });
     // The toolbar renders before the viewport, which mounts once the saved preferences are read.
     await page.locator('[aria-label="3D model viewport"] canvas').first().waitFor({ timeout: 60000 });

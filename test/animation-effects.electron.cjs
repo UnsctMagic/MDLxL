@@ -10,7 +10,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const profile = path.join(out, 'profile');
   await fs.mkdir(profile, { recursive: true });
   const { createDemoDocument, createNode } = await import('../src/editor-document.js');
-  const { starterTextureAsset } = await import('../src/particle-starters.js');
+  const testPicture = (await import('./starter-picture.js')).starterTextureAsset('MDLxL_Forge\\TestSoftDisc.tga'), starterTextureAsset = () => testPicture;
   const doc = createDemoDocument();
   const visibility = () => ({ LineType: 0, GlobalSeqId: null, Keys: [[0, 1], [2000, 1], [3000, 0], [5000, 0]].map(([Frame, value]) => ({ Frame, Vector: new Float32Array([value]) })) });
   doc.apply('Animation effect fixture', ['Nodes', 'PivotPoints', 'Textures', 'Materials', 'Sequences'], model => {
@@ -53,11 +53,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // would otherwise leave the same single node-overlay canvas in the DOM.
     await page.evaluate(() => {
       const markerPrograms = new WeakMap(), original = WebGL2RenderingContext.prototype.drawArrays;
+      const clear = WebGL2RenderingContext.prototype.clear;
+      WebGL2RenderingContext.prototype.clear = function (mask) {
+        if (mask & this.COLOR_BUFFER_BIT) window.markerTriangles = 0;
+        return clear.call(this, mask);
+      };
       WebGL2RenderingContext.prototype.drawArrays = function (mode, first, count) {
         const program = this.getParameter(this.CURRENT_PROGRAM);
         if (program && !markerPrograms.has(program)) markerPrograms.set(program,
-          this.getAttachedShaders(program).some(shader => this.getShaderSource(shader).includes('out vec3 tint;')));
-        if (program && markerPrograms.get(program) && mode === this.TRIANGLES) window.markerTriangles = count;
+          this.getAttachedShaders(program).some(shader => /(?:out|uniform) vec3 tint;/.test(this.getShaderSource(shader))));
+        if (program && markerPrograms.get(program) && mode === this.TRIANGLES) window.markerTriangles = (window.markerTriangles || 0) + count;
         return original.call(this, mode, first, count);
       };
     });

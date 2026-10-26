@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DataTexture, LinearFilter, LinearMipmapLinearFilter, PerspectiveCamera, OrthographicCamera, Vector3 } from 'three';
-import { EditorCameraControls, zoomEditorCamera } from '../app/editor-camera-controls.js';
+import { EditorCameraControls, MAX_BACK_AWAY, zoomEditorCamera } from '../app/editor-camera-controls.js';
 import { configureEditorTexture, cameraLeftLight, captureDimensions, improveNativeTexture } from '../app/viewport-quality.js';
 import { modelCameraGizmos } from '../app/model-camera-overlay.js';
 import { applyReplaceableTextureColor, patchWarcraftMeshVertexShader, patchWarcraftMeshFragmentShader } from '../app/warcraft-preview-adapter.js';
@@ -18,6 +18,57 @@ test('perspective zoom changes projected size while retaining camera position, t
   assert.equal(camera.near, 100); assert.equal(camera.far, 1000);
   controls.dollyIn(2); assert.equal(camera.zoom, 1);
   const ortho = new OrthographicCamera(-1, 1, 1, -1); zoomEditorCamera(ortho, 10000); assert.equal(ortho.zoom, 100);
+});
+
+test('perspective zoom out backs the camera away instead of widening the lens past normal', () => {
+  const camera = new PerspectiveCamera(42, 1.6, 1, 5000); camera.position.set(300, -400, 200); camera.up.set(0, 0, 1);
+  const controls = new EditorCameraControls(camera), target = controls.target.set(0, 0, 50).clone(); controls.update();
+  const direction = camera.position.clone().sub(target).normalize(), start = camera.position.distanceTo(target);
+  const near = new Vector3(0, 0, 50), far = new Vector3(0, 200, 50), sizeOf = () => { camera.updateMatrixWorld(); return far.clone().project(camera).distanceTo(near.clone().project(camera)); };
+  const size = sizeOf(), out = (factor, steps = 1) => { for (let i = 0; i < steps; i++) { controls.dollyIn(factor); controls.update(); } };
+  out(2);
+  assert.equal(camera.zoom, 1, 'lens keeps its normal angle');
+  assert.ok(Math.abs(camera.position.distanceTo(target) - start * 2) < 1e-6, 'camera backed away twice as far');
+  assert.ok(camera.position.clone().sub(target).normalize().distanceTo(direction) < 1e-9 && controls.target.distanceTo(target) < 1e-9, 'same viewing direction and target');
+  assert.ok(sizeOf() < size * .6, 'the model looks smaller');
+  // Zooming back in returns to the starting distance before the lens narrows.
+  controls.dollyOut(4); controls.update();
+  assert.ok(Math.abs(camera.position.distanceTo(target) - start) < 1e-6, 'camera returned to where it started');
+  assert.ok(Math.abs(camera.zoom - 2) < 1e-9, 'remaining zoom narrows the lens');
+  // A narrowed lens widens back to normal first, then the camera backs away.
+  controls.dollyIn(6); controls.update();
+  assert.equal(camera.zoom, 1); assert.ok(Math.abs(camera.position.distanceTo(target) - start * 3) < 1e-6);
+  // Thirty wheel notches out: never a wide lens, and the camera stops at the old lens limit.
+  out(1.15, 200);
+  assert.equal(camera.zoom, 1); assert.ok(Math.abs(camera.position.distanceTo(target) - start * MAX_BACK_AWAY) < 1e-6);
+});
+
+test('perspective zoom forgets where it backed away from after Fit moves the camera', () => {
+  const camera = new PerspectiveCamera(42, 1, 1, 5000); camera.position.set(0, -500, 0); camera.up.set(0, 0, 1);
+  const controls = new EditorCameraControls(camera); controls.update();
+  controls.dollyIn(4); controls.update(); assert.ok(Math.abs(camera.position.length() - 2000) < 1e-6);
+  camera.position.set(0, -800, 0); controls.update(); // Fit places the camera at its own distance.
+  controls.dollyOut(2); controls.update();
+  assert.ok(Math.abs(camera.position.length() - 800) < 1e-6, 'zooming in does not pull the camera toward the old start');
+  assert.equal(camera.zoom, 2);
+});
+
+test('zoom tool drag, orthographic, portrait and Showcase zoom keep their own behavior', () => {
+  const drag = new PerspectiveCamera(42, 1, 1, 5000); drag.position.set(0, -500, 0);
+  const dragControls = new EditorCameraControls(drag);
+  let previous = 1; for (const factor of [.8, .5, .25]) { dragControls.zoomView(factor / previous); previous = factor; }
+  assert.equal(drag.zoom, 1); assert.ok(Math.abs(drag.position.length() - 2000) < 1e-6, 'zoom tool drag backs away too');
+  for (const factor of [.5, 1, 2]) { dragControls.zoomView(factor / previous); previous = factor; }
+  assert.ok(Math.abs(drag.position.length() - 500) < 1e-6 && Math.abs(drag.zoom - 2) < 1e-9, 'dragging back returns, then narrows the lens');
+  const ortho = new OrthographicCamera(-1, 1, 1, -1); ortho.position.set(0, -500, 0);
+  const orthoControls = new EditorCameraControls(ortho); orthoControls.dollyIn(4);
+  assert.equal(ortho.zoom, .25); assert.ok(Math.abs(ortho.position.length() - 500) < 1e-9);
+  const showcase = new PerspectiveCamera(42, 1, 1, 5000); showcase.position.set(0, -500, 0);
+  const showcaseControls = new EditorCameraControls(showcase); showcaseControls.wideLensZoom = () => true; showcaseControls.dollyIn(4);
+  assert.equal(showcase.zoom, .25, 'Showcase framing still owns the lens'); assert.ok(Math.abs(showcase.position.length() - 500) < 1e-9);
+  const portrait = new PerspectiveCamera(42, 1, 1, 5000); portrait.position.set(0, -500, 0);
+  const portraitControls = new EditorCameraControls(portrait); portraitControls.portraitDolly = () => true; portraitControls.dollyIn(4);
+  assert.equal(portrait.zoom, 1); assert.ok(Math.abs(portrait.position.length() - 2000) < 1e-6, 'portrait cameras still dolly');
 });
 
 test('key light remains on viewing-camera left after rotation and pan', () => {

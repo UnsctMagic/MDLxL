@@ -1,4 +1,14 @@
-/** Review history is private to OptimizeXL. The source document is never edited. */
+import { openDocument } from './editor-document.js';
+
+/** Copy an approved OptimizeXL result into the open document's model. Keys the
+ * MDX round trip does not carry (editor-only data) stay as they are. */
+export function adoptOptimizeXLResult(model, bytes) {
+  const approved = openDocument(new Uint8Array(bytes), 'optimizexl.mdx').model;
+  if (approved.Version !== model.Version) throw Error('The OptimizeXL result has a different model version.');
+  for (const key of Object.keys(approved)) model[key] = approved[key];
+}
+
+/** Review history is private to OptimizeXL until the user saves it into the file. */
 export class OptimizeXLSession {
   constructor(bytes, name = 'model.mdx') {
     this.name = name;
@@ -48,8 +58,5 @@ export class OptimizeXLSession {
     this.candidate = null;
     this.revision++;
     return step;
-  }
-  savePayload() {
-    return { name: this.name, before: new Uint8Array(this.before), after: new Uint8Array(this.accepted), nuclear: this.steps.some(s => s.stage === 'nuclear' && !s.skipped) };
   }
 }
