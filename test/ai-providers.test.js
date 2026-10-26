@@ -128,7 +128,45 @@ test('Claude API preserves tool IDs and returns tool errors for correction', asy
     event: e => events.push(e),
   });
   assert.equal(server.requests.length, 2);
-  assert.equal(events.at(-1).text, 'Please open a viewport.');
+  assert.equal(events.findLast(e => e.type === 'text').text, 'Please open a viewport.');
+});
+test('Claude API caches the conversation and stops a prompt at its spending limit', async t => {
+  const server = await fixture(t, (data, res) => {
+    event(res, {
+      type: 'message_start',
+      message: { usage: { input_tokens: 1000, cache_creation_input_tokens: 200000, cache_read_input_tokens: 0 } },
+    });
+    event(res, {
+      type: 'content_block_start',
+      index: 0,
+      content_block: { type: 'tool_use', id: 'tool' + data.messages.length, name: 'mdlxl_context', input: {} },
+    });
+    event(res, { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 5000 } });
+    res.end();
+  });
+  const events = [];
+  await assert.rejects(
+    runApi({
+      settings: { provider: 'anthropic', baseUrl: server.url, model: 'claude-opus-5-5', spendLimit: 2 },
+      key: 'test-key',
+      tools: AI_TOOLS,
+      call: () => ({ content: [{ type: 'text', text: '{}' }] }),
+      prompt: 'Look',
+      system: 'editor',
+      conversation: { messages: [] },
+      signal: new AbortController().signal,
+      event: e => events.push(e),
+    }),
+    /Stopped at about \$2\.\d\d/,
+  );
+  // Each round is about $1.10 here: the limit stops the prompt after the second.
+  assert.equal(server.requests.length, 2);
+  const [first, second] = server.requests.map(r => r.data);
+  assert.deepEqual(first.tools.at(-1).cache_control, { type: 'ephemeral' });
+  assert.deepEqual(first.system[0].cache_control, { type: 'ephemeral' });
+  assert.deepEqual(second.messages.at(-1).content.at(-1).cache_control, { type: 'ephemeral' });
+  assert.equal(second.messages.filter(m => JSON.stringify(m).includes('cache_control')).length, 1);
+  assert.ok(events.filter(e => e.type === 'cost').every(e => e.usd > 0));
 });
 test('stream decoder handles CRLF across network chunks and Unicode', async () => {
   const chunks = ['data: {"text":"héllo"}\r', '\n\r', '\n'];

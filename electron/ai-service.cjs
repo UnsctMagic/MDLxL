@@ -32,6 +32,12 @@ const {
   settleConversation,
 } = require('./ai-offload.cjs');
 
+// Optional per-prompt limits the user can set: dollars (API) and tool rounds. 0 = none.
+const LIMITS = { spendLimit: 'Enter a spending limit in dollars, or leave it empty for none.', stepLimit: 'Enter a number of steps, or leave it empty for none.' };
+function limitOf(config, name) {
+  return typeof config[name] === 'number' ? config[name] : 0;
+}
+
 class AiService {
   constructor({ root, profile, electron, getWindow, sdBrainAvailable }) {
     this.root = root;
@@ -109,6 +115,8 @@ class AiService {
       running: this.runningChats(),
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
+      spendLimit: limitOf(config, 'spendLimit'),
+      stepLimit: limitOf(config, 'stepLimit'),
       sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
     };
@@ -145,6 +153,16 @@ class AiService {
   }
   async configure(input) {
     const config = await this.configuration();
+    // Limits can change at any time; a running prompt keeps the ones it started with.
+    for (const [name, message] of Object.entries(LIMITS)) {
+      if (input[name] === undefined) continue;
+      const limit = input[name] === '' || input[name] === null ? 0 : Number(input[name]);
+      if (!Number.isFinite(limit) || limit < 0 || limit > 100000) throw Error(message);
+      if (limit !== limitOf(config, name)) {
+        config[name] = limit;
+        await this.persist();
+      }
+    }
     if (this.busy()) {
       // Sending re-saves the connection; while other models' jobs run, an unchanged
       // connection is fine. Only an actual change has to wait.
@@ -189,7 +207,12 @@ class AiService {
   }
   async settings() {
     const c = await this.configuration();
-    return { provider: c.provider, ...c.providers?.[c.provider] };
+    return {
+      provider: c.provider,
+      spendLimit: limitOf(c, 'spendLimit'),
+      stepLimit: limitOf(c, 'stepLimit'),
+      ...c.providers?.[c.provider],
+    };
   }
   emit(value) {
     const win = this.getWindow();
@@ -280,7 +303,12 @@ class AiService {
   }
   async conversation(id, provider) {
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id || '')) throw Error('Invalid conversation ID.');
-    if (this.conversations.has(id)) return this.conversations.get(id);
+    // A chat belongs to the connection it started on, also while it is still loaded.
+    if (this.conversations.has(id)) {
+      const loaded = this.conversations.get(id);
+      if (loaded.provider !== provider) throw Error('Start a new chat after changing AI providers.');
+      return loaded;
+    }
     let value;
     try {
       // Loaded from disk means nothing of it is running in this app session.

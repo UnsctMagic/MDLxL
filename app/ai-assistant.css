@@ -89,6 +89,7 @@ body>.ai-assistant{position:fixed;top:0;left:0;bottom:0}
 .ai-step+.ai-prose,.ai-thinking+.ai-prose{margin-top:6px}
 .ai-compaction{display:flex;align-items:center;gap:7px;margin:6px 0 8px;padding:6px 10px;border-radius:8px;background:var(--ai-soft);border:1px dashed var(--ai-line);color:var(--ui-muted);font-size:12px;cursor:help;width:fit-content;max-width:100%}
 .ai-compaction.ai-live{color:var(--ui-text);animation:ai-pulse 1.6s ease-in-out infinite}
+.ai-cost{margin:2px 0 8px;color:var(--ui-muted);font-size:11px;cursor:help;width:fit-content}
 .ai-spin{animation:ai-spin .9s linear infinite}
 @keyframes ai-spin{to{transform:rotate(360deg)}}
 @keyframes ai-pulse{50%{opacity:.45}}
