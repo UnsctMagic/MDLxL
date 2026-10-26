@@ -79,6 +79,9 @@ function toolDetail(input) {
     return '';
   }
 }
+// One prompt may take at most this many tool rounds; each round costs a request.
+const API_STEP_LIMIT = 30;
+
 // Claude 4.6+ thinks adaptively; summarized display lets the console show it.
 // Older and unknown models keep the provider default.
 function anthropicThinking(model) {
@@ -127,7 +130,7 @@ async function runApi({
   });
   conversation.messages = history;
   let awarenessVersion = awareness?.version;
-  for (let step = 0; step < 64; step++) {
+  for (let step = 0; step < API_STEP_LIMIT; step++) {
     if (signal.aborted) throw Error('AI request cancelled.');
     if (awareness?.enabled && awareness.version !== awarenessVersion) {
       history.push({ role: 'user', content: [{ type: 'text', text: awarenessText(awareness.snapshot()) }] });
@@ -143,16 +146,26 @@ async function runApi({
     }
     if (anthropic) {
       const thinking = anthropicThinking(settings.model);
+      // Prompt caching: the tools/system prefix and the conversation so far are
+      // billed at the cached rate on the next step instead of full price.
+      const cache = { type: 'ephemeral' };
+      const apiTools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema }));
+      if (apiTools.length) apiTools[apiTools.length - 1] = { ...apiTools.at(-1), cache_control: cache };
+      const messages = history.slice();
+      const lastMessage = messages.at(-1);
+      if (lastMessage && Array.isArray(lastMessage.content) && lastMessage.content.length) {
+        const blocks = lastMessage.content.slice();
+        blocks[blocks.length - 1] = { ...blocks.at(-1), cache_control: cache };
+        messages[messages.length - 1] = { ...lastMessage, content: blocks };
+      }
       const response = await requestJson(
         base + '/messages',
         {
           model: settings.model,
           max_tokens: 16384,
-          system,
-          messages: history,
-          ...(tools.length
-            ? { tools: tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema })) }
-            : {}),
+          system: typeof system === 'string' && system ? [{ type: 'text', text: system, cache_control: cache }] : system,
+          messages,
+          ...(apiTools.length ? { tools: apiTools } : {}),
           ...(thinking ? { thinking } : {}),
           stream: true,
         },
@@ -340,7 +353,7 @@ async function runApi({
         });
     }
   }
-  throw Error('The AI used 64 tool rounds. Progress is retained; send another prompt to continue.');
+  throw Error(`The AI used ${API_STEP_LIMIT} tool rounds. Progress is retained; send another prompt to continue.`);
 }
 
 class CodexProcess {
