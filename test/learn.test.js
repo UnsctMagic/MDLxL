@@ -1,28 +1,72 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEFAULT_SHREDDER, SHREDDER_TEST_VERSION, normalizeShredder, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey,
+  DEFAULT_LEARN, LEARN_TEST_VERSION, normalizeLearn, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey,
   clearSilences, clearLearned, notebookCounts, reminderFor, directKey, keyCaps, paintKeyLabel,
-} from '../src/shredder-keycaps.js';
+} from '../src/learn-keycaps.js';
 import { normalizePreferences } from '../src/preferences.js';
+import { readLearnNotebook, LEARN_STORAGE_KEY } from '../src/learn-keycaps.js';
+import { exportConfiguration, importConfiguration } from '../src/portable-settings.js';
+
+test('old preferences and custom command keys migrate once, and current names win', () => {
+  const old = { shredder: { enabled: false, position: 'top', size: 'large' }, hotkeys: { shredder: ['Alt+J'], 'settings:hotkeys:shredder': ['Shift+J'] } };
+  const prefs = normalizePreferences(old);
+  assert.deepEqual(prefs.learn, { ...DEFAULT_LEARN, enabled: false, position: 'top', size: 'large' });
+  assert.deepEqual(prefs.hotkeys, { learn: ['Alt+J'], 'settings:hotkeys:learn': ['Shift+J'] });
+  assert.equal(Object.hasOwn(prefs, 'shredder'), false);
+  assert.deepEqual(normalizePreferences(prefs), prefs);
+  assert.equal(normalizePreferences({ ...old, learn: false, hotkeys: { shredder: ['Alt+J'], learn: [] } }).learn.enabled, false);
+  assert.deepEqual(normalizePreferences({ hotkeys: { shredder: ['Alt+J'], learn: [] } }).hotkeys.learn, []);
+  assert.deepEqual(importConfiguration({ schema: 'mdlxl-configuration', version: 1, preferences: old }).learn, prefs.learn);
+  assert.deepEqual(normalizePreferences({ shredder: { size: 'broken', duration: -3 } }).learn, { ...DEFAULT_LEARN });
+});
+
+test('Show hotkeys defaults off, validates booleans and survives configuration round trips', () => {
+  assert.equal(normalizePreferences({}).showHotkeys, false);
+  assert.equal(normalizePreferences({ showHotkeys: 'yes' }).showHotkeys, false);
+  const prefs = normalizePreferences({ showHotkeys: true });
+  assert.equal(normalizePreferences(JSON.parse(JSON.stringify(prefs))).showHotkeys, true);
+  assert.equal(importConfiguration(exportConfiguration(prefs)).showHotkeys, true);
+});
+
+test('old learned and muted notebook records move once; newer records and failed writes preserve data', () => {
+  const legacy = 'mdlxl-shredder-keycaps-v1';
+  const old = { version: 1, keys: { translate: { uses: 2, quietUntil: 0, silenced: false }, rotate: { uses: 0, quietUntil: 2000000000000, silenced: true }, shredder: { uses: 3 } } };
+  const entries = new Map([[legacy, JSON.stringify(old)]]);
+  const storage = { getItem: key => entries.get(key) ?? null, setItem: (key, value) => entries.set(key, value), removeItem: key => entries.delete(key) };
+  const notebook = readLearnNotebook(storage);
+  assert.deepEqual(notebook.keys.rotate, old.keys.rotate);
+  assert.equal(notebook.keys.learn.uses, 3);
+  assert.equal(Object.hasOwn(notebook.keys, 'shredder'), false);
+  assert.equal(entries.has(legacy), false);
+  assert.deepEqual(JSON.parse(entries.get(LEARN_STORAGE_KEY)), notebook);
+  entries.set(legacy, JSON.stringify({ version: 1, keys: {} }));
+  assert.deepEqual(readLearnNotebook(storage), notebook, 'current notebook wins over leftover old data');
+  entries.delete(LEARN_STORAGE_KEY); entries.set(legacy, JSON.stringify(old));
+  assert.deepEqual(readLearnNotebook({ ...storage, setItem() { throw Error('quota'); } }), notebook);
+  assert.ok(entries.has(legacy), 'failed migration never deletes the original');
+  entries.set(legacy, '{broken');
+  assert.deepEqual(readLearnNotebook(storage), emptyNotebook());
+  assert.deepEqual(normalizeNotebook({ version: 1, keys: { shredder: { uses: 3 }, learn: { uses: 1 } } }).keys.learn.uses, 1);
+});
 
 const HOUR = 60 * 60 * 1000, NOW = 1_800_000_000_000;
 
 test('defaults keep five uses and 24 quiet hours, and the test switch turns reminders on', () => {
-  assert.equal(DEFAULT_SHREDDER.learnUses, 5);
-  assert.equal(DEFAULT_SHREDDER.quietHours, 24);
-  assert.equal(DEFAULT_SHREDDER.enabled, SHREDDER_TEST_VERSION);
-  assert.deepEqual(normalizePreferences({}).shredder, normalizeShredder(undefined));
+  assert.equal(DEFAULT_LEARN.learnUses, 5);
+  assert.equal(DEFAULT_LEARN.quietHours, 24);
+  assert.equal(DEFAULT_LEARN.enabled, LEARN_TEST_VERSION);
+  assert.deepEqual(normalizePreferences({}).learn, normalizeLearn(undefined));
 });
 
 test('settings are normalized, and the old on/off switch is kept', () => {
-  assert.equal(normalizeShredder(false).enabled, false);
-  assert.equal(normalizeShredder(true).enabled, true);
-  assert.deepEqual(normalizeShredder({ enabled: true, position: 'top', size: 'large', style: 'flash', duration: 0, learnUses: 3, quietHours: 1 }),
+  assert.equal(normalizeLearn(false).enabled, false);
+  assert.equal(normalizeLearn(true).enabled, true);
+  assert.deepEqual(normalizeLearn({ enabled: true, position: 'top', size: 'large', style: 'flash', duration: 0, learnUses: 3, quietHours: 1 }),
     { enabled: true, position: 'top', size: 'large', style: 'flash', duration: 0, learnUses: 3, quietHours: 1 });
-  const junk = normalizeShredder({ position: 'moon', size: 9, style: 'disco', duration: 7, learnUses: '5', quietHours: -1 });
-  assert.deepEqual({ ...junk, enabled: DEFAULT_SHREDDER.enabled }, { ...DEFAULT_SHREDDER });
-  assert.deepEqual(normalizePreferences({ shredder: { enabled: false, size: 'small' } }).shredder, { ...DEFAULT_SHREDDER, enabled: false, size: 'small' });
+  const junk = normalizeLearn({ position: 'moon', size: 9, style: 'disco', duration: 7, learnUses: '5', quietHours: -1 });
+  assert.deepEqual({ ...junk, enabled: DEFAULT_LEARN.enabled }, { ...DEFAULT_LEARN });
+  assert.deepEqual(normalizePreferences({ learn: { enabled: false, size: 'small' } }).learn, { ...DEFAULT_LEARN, enabled: false, size: 'small' });
 });
 
 test('a click reminds of the key, or of the Ctrl+Alt+Space code when that is all it has', () => {
@@ -49,7 +93,7 @@ test('five real uses quiet that key for 24 hours, and only that key', () => {
 });
 
 test('custom learn counts and quiet hours apply', () => {
-  const settings = normalizeShredder({ learnUses: 3, quietHours: 1 });
+  const settings = normalizeLearn({ learnUses: 3, quietHours: 1 });
   let notebook = emptyNotebook();
   for (let use = 0; use < 3; use++) notebook = recordKeyUse(notebook, 'save', { now: NOW, settings });
   assert.equal(reminderFor(notebook, 'save', ['Ctrl+S'], NOW + HOUR - 1), '');

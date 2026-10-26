@@ -2,42 +2,42 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useHotkeys, controlActionId } from './Hotkeys.jsx';
 import { formatChord } from '../src/preferences.js';
 import { translate } from '../src/localization.js';
-import { SHREDDER_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps } from '../src/shredder-keycaps.js';
+import { LEARN_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, readLearnNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps } from '../src/learn-keycaps.js';
 import { isCloseControl } from '../src/hotkey-allocation.js';
-import './shredder.css';
+import './learn.css';
 
-const CHANGED = 'mdlxl-shredder-notebook';
+const CHANGED = 'mdlxl-learn-notebook';
 // Keep the session's learned and muted keys if browser storage stops working.
 let sessionNotebook = emptyNotebook(), storageUnavailable = false;
-export function loadShredderNotebook() {
+export function loadLearnNotebook() {
   if (!storageUnavailable) {
-    try { sessionNotebook = normalizeNotebook(JSON.parse(localStorage.getItem(SHREDDER_STORAGE_KEY) || 'null')); }
+    try { sessionNotebook = readLearnNotebook(localStorage); }
     catch { storageUnavailable = true; }
   }
   return sessionNotebook;
 }
 function storeNotebook(notebook) {
   sessionNotebook = notebook;
-  try { localStorage.setItem(SHREDDER_STORAGE_KEY, JSON.stringify(notebook)); }
+  try { localStorage.setItem(LEARN_STORAGE_KEY, JSON.stringify(notebook)); }
   catch { storageUnavailable = true; /* Kept for this session only. */ }
 }
 /** Settings changes the notebook (clear silences, forget learned keys); the running reminders reload it. */
-export function updateShredderNotebook(update) {
-  const next = update(loadShredderNotebook());
+export function updateLearnNotebook(update) {
+  const next = update(loadLearnNotebook());
   storeNotebook(next); window.dispatchEvent(new CustomEvent(CHANGED));
   return next;
 }
 
 const CONTROLS = 'button, summary, [role="button"], [role="tab"], [role="radio"], [role="menuitem"], input[type="checkbox"], input[type="radio"]';
-const OWN_UI = '.shredder-keycap';
+const OWN_UI = '.learn-keycap';
 const GAP = 8, EDGE = 6;
 
 /**
- * Shredder: when the user clicks something that has a key, a keycap popup shows that key.
+ * Learn: when the user clicks something that has a key, a keycap popup shows that key.
  * Using the key closes it; using it `learnUses` times quiets that key for a while; clicking
- * the popup dismisses only this reminder. Rules live in src/shredder-keycaps.js.
+ * the popup dismisses only this reminder. Rules live in src/learn-keycaps.js.
  */
-export default function Shredder({ settings }) {
+export default function Learn({ settings }) {
   const { shortcuts } = useHotkeys();
   const [popup, setPopup] = useState(null);
   const notebook = useRef(null), latest = useRef({}), box = useRef(null);
@@ -47,7 +47,7 @@ export default function Shredder({ settings }) {
   useEffect(() => {
     setPopup(null);
     if (!enabled) return;
-    notebook.current = loadShredderNotebook();
+    notebook.current = loadLearnNotebook();
     const counted = new WeakSet();
     let serial = 0;
     const save = next => { notebook.current = next; storeNotebook(next); };
@@ -92,7 +92,7 @@ export default function Shredder({ settings }) {
       if ((next.keys[id]?.quietUntil || 0) !== before) window.dispatchEvent(new CustomEvent(CHANGED));
     };
     const changed = () => {
-      notebook.current = loadShredderNotebook();
+      notebook.current = loadLearnNotebook();
       const current = latest.current.popup;
       if (current && !reminderFor(notebook.current, current.id, keysOf(current.id), Date.now())) setPopup(null);
     };
@@ -125,11 +125,11 @@ export default function Shredder({ settings }) {
   const dismiss = event => { event.stopPropagation(); setPopup(null); };
   const silence = event => {
     event.preventDefault(); event.stopPropagation();
-    updateShredderNotebook(current => silenceKey(current, popup.id));
+    updateLearnNotebook(current => silenceKey(current, popup.id));
     setPopup(null);
   };
   // A plain element, like the K.E.Y. overlay, so the app's button styles leave its look alone.
-  return <div ref={box} key={popup.serial} role="button" className="shredder-keycap" data-position={anchored ? 'control' : settings.position === 'control' ? 'bottom' : settings.position}
+  return <div ref={box} key={popup.serial} role="button" className="learn-keycap" data-position={anchored ? 'control' : settings.position === 'control' ? 'bottom' : settings.position}
     data-size={settings.size} data-style={settings.style} aria-label={popup.chord} title="Click to dismiss. Right-click to mute this shortcut."
     onPointerDown={event => { event.preventDefault(); event.stopPropagation(); }} onClick={dismiss} onContextMenu={silence}>
     {keyCaps(popup.chord).map((part, index) => <React.Fragment key={index}>{index > 0 && ' + '}<kbd translate="no">{translate(part)}</kbd></React.Fragment>)}

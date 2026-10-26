@@ -3,16 +3,16 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright');
 
-// Shredder's keycap reminders in the real app: a mouse click on a button with a key shows
+// Learn's keycap reminders in the real app: a mouse click on a button with a key shows
 // just that key; using the key closes it; five real uses quiet that key only; holding a key
 // or typing in a field does not count; clicking the popup dismisses only that reminder; Settings → Keyboard
 // Shortcuts changes the look and brings silenced and learned keys back.
 (async () => {
-  const root = process.cwd(), out = path.join(root, 'out', 'shredder');
+  const root = process.cwd(), out = path.join(root, 'out', 'learn');
   await fs.mkdir(out, { recursive: true });
   const profile = await fs.mkdtemp(path.join(out, 'profile-'));
   const { createDemoDocument } = await import('../src/editor-document.js');
-  const fixture = path.join(out, 'shredder.mdx');
+  const fixture = path.join(out, 'learn.mdx');
   await fs.writeFile(fixture, createDemoDocument().serialize('mdx'));
   const executablePath = process.env.MDLXL_ELECTRON_PATH || path.join(root, 'node_modules/electron/dist/electron.exe');
   const app = await _electron.launch({ executablePath,
@@ -26,11 +26,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1280, 800); });
     await page.locator('.classic-view canvas').first().waitFor();
-    const { SHREDDER_TEST_VERSION } = await import('../src/shredder-keycaps.js');
-    const popup = page.locator('.shredder-keycap');
+    const { LEARN_TEST_VERSION } = await import('../src/learn-keycaps.js');
+    const popup = page.locator('.learn-keycap');
     const move = page.locator('button[data-hotkey="translate"]:visible').first(), rotate = page.locator('button[data-hotkey="rotate"]:visible').first();
     // The hidden test desktop draws slowly; a missing screenshot is not a failure.
-    const snap = file => process.env.SHREDDER_NO_SHOTS ? null : page.screenshot({ path: file, timeout: 60000 }).catch(error => console.warn('screenshot skipped: ' + error.message.split('\n')[0]));
+    const snap = file => process.env.LEARN_NO_SHOTS ? null : page.screenshot({ path: file, timeout: 60000 }).catch(error => console.warn('screenshot skipped: ' + error.message.split('\n')[0]));
     const caps = () => popup.locator('kbd').allTextContents();
     const gone = () => popup.waitFor({ state: 'detached', timeout: 3000 });
     // Hidden desktops can stall animation-frame stability checks. Verify the hit
@@ -49,7 +49,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     const settings = async () => { await page.keyboard.press('Control+Comma'); await page.locator('#settings-tab-hotkeys').click(); };
     const closeSettings = async () => { await page.getByRole('button', { name: 'Close Settings', exact: true }).click(); await page.locator('#settings-tab-hotkeys').waitFor({ state: 'detached' }); };
-    if (!SHREDDER_TEST_VERSION) { await settings(); await page.locator('input[data-hotkey="hotkeys:shredder"]').check(); await closeSettings(); }
+    if (!LEARN_TEST_VERSION) { await settings(); await page.locator('input[data-hotkey="hotkeys:learn"]').check(); await closeSettings(); }
 
     // The owner-selected LER tile uses the existing toggle, not a second setting.
     const learner = page.locator('.classic-toolbar .learner-tool');
@@ -58,15 +58,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.match(await learner.locator('img').getAttribute('src'), /btn-ancient-of-lore\.png$/);
     assert.deepEqual(await learner.locator('img').evaluate(image => [image.naturalWidth, image.naturalHeight, image.getBoundingClientRect().width]), [64, 64, 40]);
     await learner.click();
+    await page.locator('.learn-menu [data-hotkey="mode"]').click();
     assert.equal(await learner.getAttribute('aria-pressed'), 'false');
     await move.click(); await page.waitForTimeout(200);
     assert.equal(await popup.count(), 0, 'LER off stops reminders');
-    await learner.click(); await move.click(); await popup.waitFor();
+    await learner.click(); await page.locator('.learn-menu [data-hotkey="mode"]').click(); await move.click(); await popup.waitFor();
     assert.deepEqual(await caps(), ['M']); await clickPopup(); await gone();
     await pressInView('Control+j');
     assert.equal(await learner.getAttribute('aria-pressed'), 'false', 'Ctrl+J updates LER');
     await settings();
-    const learningToggle = page.locator('input[data-hotkey="hotkeys:shredder"]');
+    const learningToggle = page.locator('input[data-hotkey="hotkeys:learn"]');
     assert.equal(await learningToggle.isChecked(), false);
     await learningToggle.check();
     assert.equal(await learner.getAttribute('aria-pressed'), 'true', 'Settings and LER share one value');
@@ -109,7 +110,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const firstPopup = await popup.elementHandle();
     await page.clock.runFor(2700);
     await clickMove();
-    assert.equal(await firstPopup.evaluate(element => element === document.querySelector('.shredder-keycap')), true, 'same popup is not remounted');
+    assert.equal(await firstPopup.evaluate(element => element === document.querySelector('.learn-keycap')), true, 'same popup is not remounted');
     await page.clock.runFor(2400);
     await gone();
     await page.clock.resume();
@@ -124,7 +125,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // 3. Holding a key down and typing in a field do not count; five real uses quiet M only.
     await page.locator('.classic-view canvas').first().hover();
     await page.keyboard.down('m'); await page.waitForTimeout(700); await page.keyboard.up('m');
-    const uses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1') || '{"keys":{}}').keys.translate?.uses || 0);
+    const uses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1') || '{"keys":{}}').keys.translate?.uses || 0);
     assert.equal(await uses(), 2, 'one press plus one held press: ' + await uses());
     await settings();
     await page.locator('input[data-hotkey="hotkeys:search"]').click(); await page.keyboard.type('mmmm');
@@ -134,9 +135,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await move.click(); await page.waitForTimeout(400);
     assert.equal(await popup.count(), 0, 'M is quiet after five uses');
     // Learned key uses renew quiet time in the actual app too.
-    const quietBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys.translate.quietUntil);
+    const quietBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1')).keys.translate.quietUntil);
     await pressInView('m');
-    const quietAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys.translate.quietUntil);
+    const quietAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1')).keys.translate.quietUntil);
     assert.ok(quietAfter > quietBefore, 'using learned M extends its quiet time');
 
     await rotate.click(); await popup.waitFor();
@@ -144,9 +145,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     check('Five real presses of M quiet M; a held key and typing in a field do not count; R still reminds');
 
     // 4. Clicking dismisses this popup without changing learning or silencing the key.
-    const notebookBeforeDismiss = await page.evaluate(() => localStorage.getItem('mdlxl-shredder-keycaps-v1'));
+    const notebookBeforeDismiss = await page.evaluate(() => localStorage.getItem('mdlxl-learn-keycaps-v1'));
     await clickPopup(); await gone();
-    assert.equal(await page.evaluate(() => localStorage.getItem('mdlxl-shredder-keycaps-v1')), notebookBeforeDismiss);
+    assert.equal(await page.evaluate(() => localStorage.getItem('mdlxl-learn-keycaps-v1')), notebookBeforeDismiss);
     await move.click(); await rotate.click(); await popup.waitFor();
     assert.deepEqual(await caps(), ['R'], 'a later click can remind again');
     await clickPopup(); await gone();
@@ -159,7 +160,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await rotate.click(); await popup.waitFor();
     assert.match(await popup.getAttribute('title'), /Right-click to mute/);
     await clickPopup('right'); await gone();
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys.rotate.silenced), true);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1')).keys.rotate.silenced), true);
     await rotate.click(); await page.waitForTimeout(300);
     assert.equal(await popup.count(), 0, 'muted R stays quiet on later clicks');
     await page.locator('button[data-hotkey="scale"]:visible').first().click(); await popup.waitFor();
@@ -176,7 +177,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     // Learning a key while Settings remains open updates the count only at a quiet-time change.
     await page.evaluate(() => {
       window.__notebookEvents = 0;
-      window.addEventListener('mdlxl-shredder-notebook', () => window.__notebookEvents++);
+      window.addEventListener('mdlxl-learn-notebook', () => window.__notebookEvents++);
       document.activeElement?.blur();
     });
     const hotkeysTabKey = (await page.locator('#settings-tab-hotkeys').getAttribute('data-hotkey-shortcuts')).split(' / ')[0].replace('Ctrl+', 'Control+');
@@ -189,10 +190,10 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(20); await page.keyboard.press(hotkeysTabKey);
     assert.equal(await page.evaluate(() => window.__notebookEvents), 2, 'renewing quiet time broadcasts');
     check('Settings learned count updates live; ordinary uses emit no notebook event');
-    await page.locator('select[aria-label="Shortcut reminders: Where"]').selectOption('bottom');
-    await page.locator('select[aria-label="Shortcut reminders: Size"]').selectOption('large');
-    await page.locator('select[aria-label="Shortcut reminders: Look"]').selectOption('flash');
-    await page.locator('select[aria-label="Shortcut reminders: Stays for"]').selectOption('0');
+    await page.locator('select[aria-label="Learn mode: Where"]').selectOption('bottom');
+    await page.locator('select[aria-label="Learn mode: Size"]').selectOption('large');
+    await page.locator('select[aria-label="Learn mode: Look"]').selectOption('flash');
+    await page.locator('select[aria-label="Learn mode: Stays for"]').selectOption('0');
     await snap(path.join(out, 'settings.png'));
     await restoreSilenced.click(); await restoreLearned.click();
     assert.equal(await page.getByRole('button', { name: /Bring back silenced keys/ }).count(), 0, 'mute reset is hidden once all muted keys are restored');
@@ -236,7 +237,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     check('Actual Alt-mouse drag still rotates the model');
 
     // 6. Buttons that used to have only a Ctrl+Alt+Space code now have a short key: Fit is Home.
-    const fitUses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys.fit?.uses || 0);
+    const fitUses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1')).keys.fit?.uses || 0);
     await page.locator('button[data-hotkey="fit"]:visible').first().click(); await popup.waitFor();
     assert.equal((await popup.textContent()).trim(), 'Home');
     await page.locator('.classic-view canvas').first().hover(); await page.keyboard.press('Home');
@@ -266,7 +267,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       window.__storageSet = Storage.prototype.setItem;
       window.__storageGet = Storage.prototype.getItem;
       Storage.prototype.setItem = function(key, value) {
-        if (key === 'mdlxl-shredder-keycaps-v1') throw new DOMException('Test quota failure', 'QuotaExceededError');
+        if (key === 'mdlxl-learn-keycaps-v1') throw new DOMException('Test quota failure', 'QuotaExceededError');
         return window.__storageSet.call(this, key, value);
       };
     });
@@ -277,7 +278,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     assert.equal(await popup.count(), 0, 'failed mute write preserves learned M');
     await page.evaluate(() => {
       Storage.prototype.getItem = function(key) {
-        if (key === 'mdlxl-shredder-keycaps-v1') throw new DOMException('Test storage unavailable', 'SecurityError');
+        if (key === 'mdlxl-learn-keycaps-v1') throw new DOMException('Test storage unavailable', 'SecurityError');
         return window.__storageGet.call(this, key);
       };
     });
@@ -304,10 +305,24 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: /New base coat/ }).click();
     await page.getByRole('button', { name: 'Begin painting', exact: true }).click();
     await page.getByRole('button', { name: 'Erase', exact: true }).waitFor().catch(async error => { console.log((await page.locator('body').innerText()).slice(0, 3000)); throw error; });
+    await learner.click();
+    const paintLearnMenu = page.locator('.learn-menu');
+    await paintLearnMenu.waitFor();
+    await page.keyboard.press('Escape'); await paintLearnMenu.waitFor({ state: 'detached' });
+    await learner.click();
+    const showKeysRow = paintLearnMenu.locator('[data-hotkey="show-hotkeys"]');
+    await page.waitForFunction(() => document.querySelector('.learn-menu [data-hotkey="show-hotkeys"]')?.dataset.hotkeyShortcuts);
+    const showKeysChord = (await showKeysRow.getAttribute('data-hotkey-shortcuts')).split(' / ')[0].replace('Ctrl+', 'Control+');
+    await page.keyboard.press(showKeysChord);
+    assert.equal(await showKeysRow.getAttribute('aria-checked'), 'true', 'menu row key runs inside Paint');
+    await page.keyboard.press(showKeysChord);
+    assert.equal(await showKeysRow.getAttribute('aria-checked'), 'false');
+    await page.keyboard.press('Escape'); await paintLearnMenu.waitFor({ state: 'detached' });
+    check('LER box owns Esc and its allocated row keys inside Paint without changing Paint shortcuts');
     await page.getByRole('button', { name: 'Erase', exact: true }).click(); await popup.waitFor();
     assert.equal((await popup.textContent()).trim(), 'E');
     await page.mouse.move(640, 30); await page.keyboard.press('e'); await gone();
-    const paintUses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys['paint-key:E']?.uses || 0);
+    const paintUses = () => page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-learn-keycaps-v1')).keys['paint-key:E']?.uses || 0);
     assert.equal(await paintUses(), 1, 'Paint keys count like other shortcuts');
     await page.getByRole('button', { name: 'Undo paint', exact: true }).evaluate(element => element.disabled) || await page.getByRole('button', { name: 'Undo paint', exact: true }).click();
     await page.getByRole('button', { name: 'Color', exact: true }).click(); await popup.waitFor();
@@ -327,11 +342,11 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     check('Citadel Paint: Erase shows [E] and E closes it; left-clicking [B] dismisses, right-clicking mutes B; the Opacity slider shows [− +] and − closes it');
 
     // 9. Turning the mode off stops it; the Settings menu command toggles it.
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'shredder'));
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'learn'));
     await page.waitForTimeout(300);
     await page.getByRole('button', { name: 'Erase', exact: true }).click(); await page.waitForTimeout(400);
     assert.equal(await popup.count(), 0, 'off');
-    check('Settings → Shortcut reminders turns the mode off');
+    check('Settings → Learn mode turns the mode off');
 
     assert.deepEqual(errors, []);
 

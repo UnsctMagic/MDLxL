@@ -1,0 +1,21 @@
+/* Learn: a popup with nothing but the key, in the look of the K.E.Y. (Show pressed keys) overlay. */
+.learn-keycap{position:fixed;z-index:1250;margin:0;padding:5px 12px;min-width:0;height:auto;border:0;border-radius:5px;white-space:nowrap;
+  font:600 var(--learn-size,19px)/1.4 system-ui,sans-serif;color:#fff;text-shadow:0 1px 2px #000;background:#151a22d9;box-shadow:0 2px 8px #0005;
+  cursor:pointer;user-select:none;animation:key-appear .1s ease-out}
+.learn-keycap[data-size=small]{--learn-size:14px;padding:3px 9px}
+.learn-keycap[data-size=large]{--learn-size:30px;padding:7px 16px}
+.learn-keycap kbd{font:inherit;color:inherit}
+.learn-keycap:hover{background:#151a22}
+.learn-keycap[data-position=bottom]{left:50%;bottom:70px;transform:translateX(-50%)}
+.learn-keycap[data-position=top]{left:50%;top:70px;transform:translateX(-50%)}
+.learn-keycap[data-position=bottom-right]{right:22px;bottom:66px}
+.learn-keycap[data-position=bottom-left]{left:22px;bottom:66px}
+.learn-keycap[data-style=flash]{animation:key-appear .1s ease-out,learn-flash .4s ease-in-out .1s 6 alternate}
+@keyframes learn-flash{to{background:var(--ui-accent,#3d86c6);box-shadow:0 0 0 3px #fff8,0 2px 8px #0005}}
+@media (prefers-reduced-motion:reduce){.learn-keycap,.learn-keycap[data-style=flash]{animation:none}.learn-keycap[data-style=flash]{box-shadow:0 0 0 3px var(--ui-accent,#3d86c6)}}
+
+/* Anchored like Movement's Create menu; VIS keeps the classic controls. */
+.classic-app .learn-menu{position:fixed;z-index:100;min-width:184px;padding:3px;background:var(--ui-panel,#d4d0c8);border:1px solid var(--ui-border,#888);box-shadow:2px 3px 8px #0005;color:var(--ui-text,#111)}
+.classic-app .learn-menu>button{display:flex;align-items:center;gap:7px;width:100%;height:auto;min-height:28px;padding:5px 10px;border:0;background:transparent;color:inherit;text-align:left;white-space:nowrap}
+.classic-app .learn-menu>button>span:not(.hotkey-badge){width:12px;flex-shrink:0}
+.classic-app .learn-menu>button:hover{background:var(--ui-hover,#b8cce4)}
