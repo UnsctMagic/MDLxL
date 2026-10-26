@@ -191,8 +191,9 @@ The owner's open manual test is the earlier PR build and stays untouched.
   `D:\Codex\mdlvis-rotate-drag\results\all-editors\verification.json`.
   Bones/POSE settings use the tested shared handler and source tests; separate
   packaged Bones/POSE and Quad View gestures were not exercised in this extension.
-- The owner's existing visible test remains on the earlier PR build. It has
-  unsaved work and must not be closed, replaced, or removed by this task.
+- The owner's earlier manual test was left untouched while it ran. It had
+  unsaved work and is no longer running at the final process check. Preserve its
+  model and test profile for possible recovery; no installed app/profile changed.
 
 ## Next action and review handoff
 
@@ -204,4 +205,4 @@ sign-in. Queue an automatic retry of the authorized Claude Desktop handoff,
 using Opus 5.5 Medium, then go idle after delivery. The owner authorized
 Claude to merge if review is okay; if not, Claude must create a concrete follow-up
 task and send it back to this Codex chat. No release, installed-app upgrade or
-replacement of the owner's active manual test is authorized.
+replacement of the owner's manual-test model/profile is authorized.
