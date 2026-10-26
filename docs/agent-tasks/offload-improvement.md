@@ -130,9 +130,10 @@ safe, and one after another when it is not.
    the model's structure summary, not the full history or images.
 9. **Read-only work is always parallel-safe.** Inspection, sampling, captures and
    help lookups by several birds may run at once without regions.
-10. **Limits.** A configurable maximum number of parallel birds per model, default
-    modest (for example 3), so cost does not multiply silently. Show the cost per
-    bird as in Design 6.
+10. **No forced cap.** Do not impose a limit on parallel birds. Show the cost per
+    bird as in Design 6 so the user sees what parallel work spends. A maximum may
+    exist only as an optional setting, off by default, and only after the owner
+    approves it.
 
 ### Verification for the expansion
 
@@ -145,6 +146,43 @@ safe, and one after another when it is not.
   in parallel. Report wall-clock time, calls, tokens and the final review result.
 - Packaged run on the hidden desktop with two birds editing different geosets of a
   real model at the same time, checking the result visually and through save/reopen.
+
+## Expansion: lighter models for simple jobs (owner requested)
+
+The organiser may give a simple job to a lighter, cheaper model when the user
+allows it and the provider offers one. Strong reasoning is needed for spatial
+work (shape, binding, deformation, retargeting, animation feel); many jobs are
+not that (renames, recolours, flags, exact numeric values, visibility windows,
+sequence metadata, reading or reporting), and a lighter model does them as well
+for far less.
+
+1. **The user decides.** An "Allow lighter models for simple jobs" setting, off by
+   default, in the existing AI connection settings. Off means every bird uses the
+   chosen model, as today.
+2. **Only when available.** Offer the setting only when the current connection has
+   a lighter model to use: the Claude API model list, Claude Code's model aliases,
+   or a Codex model the user's account supports. The user picks which lighter
+   model, or MDLxL suggests the provider's smallest current one. No setting where
+   the provider has no choice.
+3. **Simple jobs go automatically.** With the setting on, the routing step marks a
+   job simple when it changes values the user named exactly, or only reads and
+   reports, and needs no spatial judgement. Those go to the lighter model. Mark it
+   on the bird row ("light model") and in its cost line.
+4. **Anything else asks first.** For a job that is not clearly simple, the organiser
+   asks the user before using the lighter model and says plainly that it can lower
+   the quality of the result on this kind of edit. Without a yes, the job uses the
+   chosen model. The answer applies to that job only.
+5. **Escalate on failure.** If a lighter-model bird's review fails or it reports it
+   could not finish, hand the job to the chosen model with a handover note instead
+   of retrying with the lighter one. Count and show it.
+6. **One model per bird.** A bird keeps its model for its whole job, so its history
+   and reasoning stay consistent. A follow-up that turns complex goes to a
+   chosen-model bird with a handover note.
+7. **Verification.** Fixture tests: setting off sends everything to the chosen
+   model; setting on sends a simple job to the lighter model with no question; a
+   complex job produces the question and waits; a failed review escalates once;
+   providers without a lighter model show no setting. Report the cost difference
+   on a mixed session of simple and complex jobs.
 
 ## Relevant owners
 
