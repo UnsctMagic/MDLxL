@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import React from 'react';
+import { createSketchStore } from '../src/ai-sketch.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import VIS_MENU from '../src/vis-view-menu.json' with { type: 'json' };
 import VIEW_MENU from '../src/view-menu.json' with { type: 'json' };
@@ -80,4 +81,36 @@ test('VIS hides tabs and editors, restores classic placements and hides AI while
   assert.doesNotMatch(toolbar, /\{!?visUI && moduleDock\}/);
   assert.match(classic, /data-vis-ui\]>\.classic-toolbar>\.toolbar-modules\{position:absolute;top:calc\(100% \+ 3px\)/);
   assert.match(toolbar, /\{visUI && teamPicker\}\n\s*\{visUI && inputStrength\}/);
+});
+
+const ai = readFileSync(new URL('../app/AiAssistant.jsx', import.meta.url), 'utf8').replaceAll('\r', '');
+const sketchVisibilityBody = ai.match(/useLayoutEffect\(\(\) => \{(\s*if \(open\) setDock[\s\S]*?)\n  \}, \[open, visUI\]\)/)[1];
+const syncSketchVisibility = new Function('open', 'visUI', 'setDock', 'document', 'sketchStore', sketchVisibilityBody);
+
+test('entering VIS disarms AI drawing and routes Undo to the model without losing XL drawings', () => {
+  const store = createSketchStore(), dock = {};
+  const sync = (open, vis) => syncSketchVisibility(open, vis, () => {}, { querySelector: () => dock }, store);
+  sync(true, false);
+  store.noteModelEdit('model');
+  store.add({ documentId: 'model', tool: 'pen', points: [0, 0, 0, 1, 1, 1] });
+  store.setTool('pen');
+  const drawings = store.strokes('model');
+  sync(true, true);
+  assert.equal(store.get().visible, false);
+  assert.equal(store.get().tool, null);
+  assert.equal(store.step('model', false, { modelOnly: !store.get().visible }), 'model');
+  assert.deepEqual(store.strokes('model'), drawings);
+  assert.equal(store.step('model', true, { modelOnly: !store.get().visible }), 'model');
+  sync(true, false);
+  assert.equal(store.get().visible, true);
+  assert.equal(store.get().tool, null);
+  assert.deepEqual(store.strokes('model'), drawings);
+  sync(false, true); sync(false, false);
+  assert.equal(store.get().visible, false, 'VIS never opens an otherwise closed console');
+});
+
+test('VIS defers the body-portaled AI cleanup question and its detached hotkey root until XL', () => {
+  assert.match(app, /<AiAssistant bridge=\{aiBridge\} visUI=\{visUI\}\/>/);
+  assert.match(ai, /\{cleanup && !visUI &&\s*createPortal\(/);
+  assert.match(ai, /const root = cleanupRoot\.current;[\s\S]*?mdlxl-detached-root[\s\S]*?\}, \[cleanup, visUI\]\)/);
 });

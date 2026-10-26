@@ -296,7 +296,7 @@ function AssistantMessage({ message, live, onOpenWorker }) {
   return message.cost ? [...shown, <CostLine key="cost" cost={message.cost} />] : shown;
 }
 
-export default function AiAssistant({ bridge }) {
+export default function AiAssistant({ bridge, visUI }) {
   const [open, setOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
     [settings, setSettings] = useState({ provider: 'codex', model: '', executable: '', baseUrl: '' });
@@ -335,7 +335,7 @@ export default function AiAssistant({ bridge }) {
     if (!root) return;
     window.dispatchEvent(new CustomEvent('mdlxl-detached-root', { detail: { root, add: true } }));
     return () => window.dispatchEvent(new CustomEvent('mdlxl-detached-root', { detail: { root, add: false } }));
-  }, [cleanup]);
+  }, [cleanup, visUI]);
   const [dock, setDock] = useState(null),
     [width, setWidth] = useState(storedWidth),
     [palette, setPalette] = useState(false);
@@ -564,8 +564,8 @@ export default function AiAssistant({ bridge }) {
   }, [messages, status]);
   useLayoutEffect(() => {
     if (open) setDock(document.querySelector('.classic-workspace') || document.body);
-    sketchStore.setVisible(open);
-  }, [open]);
+    sketchStore.setVisible(open && !visUI);
+  }, [open, visUI]);
   useEffect(() => {
     const textarea = input.current;
     if (!textarea) return;
@@ -1564,7 +1564,7 @@ export default function AiAssistant({ bridge }) {
           </section>,
           dock,
         )}
-      {cleanup &&
+      {cleanup && !visUI &&
         createPortal(
           <div ref={cleanupRoot} className="ai-cleanup-shade">
             <section className="ai-cleanup" role="dialog" aria-modal="true" aria-label="Tidy up AI chats" data-hotkey-prefix="ai-cleanup" data-hotkey-scope="ai-cleanup" data-hotkey-badges="false">

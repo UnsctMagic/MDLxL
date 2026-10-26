@@ -104,7 +104,7 @@ starting main build exactly, including PR #321's overflow shortening.
   them without remounting. The no-AI follow-up passed the same full source and
   compatibility suites and all 24 packaged VIS/XL cases.
 - `pnpm test`: 57 passed, zero failures.
-- `pnpm run test:source`: 1,981 passed, 22 existing skips, zero failures.
+- `pnpm run test:source`: 1,983 passed, 22 existing skips, zero failures.
 - Focused toolbar/VIS/dock source checks: 16 passed.
 - Build/package verification passed; no renderer errors in the packaged matrix.
 - PR CI: [checks](https://github.com/UnsctMagic/MDLxL/pull/324/checks). The owner authorizes a separate Codex reviewer to merge only if acceptable;
@@ -115,6 +115,29 @@ runs disabled pnpm's automatic pre-run reinstall for that junction; no project
 configuration or dependency files changed. Test builds/profiles/runtimes are
 removed after verification; only the small report, logs and two comparison
 images are retained under the task's `report` directory.
+
+## Claude review follow-up
+
+Claude's [review of 5420b0d7](https://github.com/UnsctMagic/MDLxL/pull/324#issuecomment-6418899055)
+found two blockers. Both are addressed without changing model or provider behavior:
+
+- App passes VIS state to AiAssistant. Its existing sketch visibility lifecycle
+  now uses `open && !visUI`, which disarms drawing tools and removes rendered
+  strokes on entering VIS. Stored drawings and the XL draft/console remain intact.
+- The body-portaled cleanup question is not rendered in VIS. Its detached
+  hotkey root follows VIS transitions too. A pending question appears on return
+  to XL; an already-remembered cleanup choice retains its existing silent behavior.
+- The packaged VIS regression now draws a real Pen stroke in XL, checks it is
+  hidden/disarmed in VIS, performs plain vertex-selection drags and model
+  Undo/Redo without stepping drawings, then verifies the draft and drawings in XL.
+- Saving with simulated local AI activity in VIS creates no dialog or modal
+  shortcut capture. The question appears in XL, and remembered cleanup is silent.
+  No external AI request is used for these fixture checks.
+- All 24 packaged cases, actual file-save byte comparisons, 57 compatibility
+  tests and 1,983 source tests passed (22 existing source skips).
+- Owner requests automatic independent Claude Opus 5.5 / medium review. Claude
+  may merge if acceptable with green CI; otherwise create a fix task and contact
+  the originating Codex chat. Codex goes idle after dispatch.
 
 ## Owner click-through
 

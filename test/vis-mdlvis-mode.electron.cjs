@@ -37,18 +37,23 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
         } });
       }
       window.visProbe = () => {
-        let doc, controls;
-        for (const start of [document.querySelector('.classic-app'), document.querySelector('.game-preview-root,.viewport')]) {
+        let doc, controls, runtime, sketches, cleanupPending = false;
+        for (const start of [document.querySelector('.classic-app'), document.querySelector('.game-preview-root,.viewport'), document.querySelector('.toolbar-modules>.ai-tool')]) {
           for (let fiber = start?.[Object.keys(start).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) {
             for (let hook = fiber.memoizedState; hook; hook = hook.next) {
               const value = hook.memoizedState;
               if (value?.doc?.model) doc = value.doc;
-              if (value?.current?.controls?.object) controls = value.current.controls;
+              if (value?.current?.controls?.object) { runtime = value.current; controls = runtime.controls; }
+              if (value && typeof value.visible === 'boolean' && Array.isArray(value.strokes) && Object.hasOwn(value, 'tool')) sketches = value;
+              if (value?.modelKey && value?.name && !value.id) cleanupPending = true;
             }
           }
         }
         if (!doc || !controls) throw Error('Live document or preview controls unavailable');
-        return { model: JSON.stringify(doc.model), bytes: Array.from(new Uint8Array(doc.serialize('mdx'))), revision: doc.revision, undo: doc.historyStats.undoSteps, camera: controls.object.quaternion.toArray() };
+        const renderedSketchIds = [];
+        runtime.scene?.traverse(object => { if (object.userData?.strokeId != null) renderedSketchIds.push(object.userData.strokeId); });
+        return { sketchVisible: sketches?.visible, sketchTool: sketches?.tool, strokes: JSON.stringify(sketches?.strokes), renderedSketchIds, cleanupPending,
+          selectedVertices: Number(document.querySelector('.classic-counts>div:nth-child(2)>span')?.textContent || 0), model: JSON.stringify(doc.model), bytes: Array.from(new Uint8Array(doc.serialize('mdx'))), revision: doc.revision, undo: doc.historyStats.undoSteps, camera: controls.object.quaternion.toArray() };
       };
     });
     const menu = action => app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows()[0].webContents.send('menu', id), action);
@@ -117,19 +122,72 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
         }
       }
     }
-    // VIS is presentation only: moving the dock must not remount the AI console.
+    // An AI tool must not keep the left button or Undo when its console is hidden.
+    await menu('vertices');
+    await page.getByLabel('View direction', { exact: true }).selectOption('perspective');
+    await page.waitForTimeout(150);
+    const originalModel = (await page.evaluate(() => visProbe())).model;
+    await menu('selectAll');
+    const xCoordinate = page.getByLabel('X coordinate', { exact: true });
+    await xCoordinate.fill(String(Number(await xCoordinate.inputValue()) + 5));
+    await xCoordinate.press('Enter');
+    await page.waitForFunction(original => visProbe().model !== original, originalModel);
+    const editedModel = (await page.evaluate(() => visProbe())).model;
     await page.locator('.toolbar-modules>.ai-tool').click();
     const prompt = page.getByLabel('AI prompt', { exact: true });
     await prompt.fill('Unsent VIS toggle draft');
-    for (let i = 0; i < 2; i++) {
-      await page.locator('.vis-toggle').click();
-      const vis = await page.locator('.classic-app').getAttribute('data-vis-ui') === 'true';
-      assert.equal(await page.locator('.toolbar-modules>.ai-tool').isVisible(), !vis);
-      assert.equal(await page.locator('.ai-assistant').isVisible(), !vis);
-      assert.equal(await prompt.inputValue(), 'Unsent VIS toggle draft');
-    }
+    const pen = page.locator('.ai-assistant [data-hotkey="tool:pen"]');
+    await pen.click();
+    const drawBox = await page.locator('.viewport').boundingBox();
+    await page.mouse.move(drawBox.x + drawBox.width * .2, drawBox.y + drawBox.height * .3);
+    await page.mouse.down();
+    await page.mouse.move(drawBox.x + drawBox.width * .4, drawBox.y + drawBox.height * .4, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForFunction(() => visProbe().renderedSketchIds.length > 0);
+    const drawings = (await page.evaluate(() => visProbe())).strokes;
+    assert.equal(await pen.getAttribute('aria-pressed'), 'true');
+    await page.locator('.vis-toggle').click();
+    await page.waitForFunction(() => visProbe().sketchVisible === false && visProbe().sketchTool === null);
+    assert.equal(await page.locator('.toolbar-modules>.ai-tool').isVisible(), false);
+    assert.equal(await page.locator('.ai-assistant').isVisible(), false);
+    assert.deepEqual((await page.evaluate(() => visProbe())).renderedSketchIds, [], 'VIS removes AI stroke objects from the scene');
+    await menu('clear');
+    await page.waitForFunction(() => visProbe().selectedVertices === 0);
+    const selectBox = await page.locator('.viewport').boundingBox();
+    await page.mouse.move(selectBox.x + selectBox.width * .1, selectBox.y + selectBox.height * .12);
+    await page.mouse.down();
+    await page.mouse.move(selectBox.x + selectBox.width * .9, selectBox.y + selectBox.height * .92, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForFunction(() => visProbe().selectedVertices > 0);
+    assert.equal((await page.evaluate(() => visProbe())).strokes, drawings, 'plain VIS drag selects vertices instead of drawing');
+    await page.screenshot({ path: path.join(out, 'vis-ai-disabled.png') });
+    const travelTo = async (key, model) => {
+      for (let steps = 0; steps < 8 && (await page.evaluate(() => visProbe())).model !== model; steps++) {
+        await page.evaluate(() => document.activeElement?.blur());
+        await page.keyboard.press(key); await page.waitForTimeout(80);
+        assert.equal((await page.evaluate(() => visProbe())).strokes, drawings, 'VIS Undo/Redo never steps AI drawings');
+      }
+      assert.equal((await page.evaluate(() => visProbe())).model, model);
+    };
+    await travelTo('Control+z', originalModel);
+    await travelTo('Control+y', editedModel);
+    await travelTo('Control+z', originalModel);
+    await page.locator('.vis-toggle').click();
+    await page.waitForFunction(() => visProbe().sketchVisible === true && visProbe().renderedSketchIds.length > 0);
+    assert.equal((await page.evaluate(() => visProbe())).strokes, drawings);
+    assert.equal(await prompt.inputValue(), 'Unsent VIS toggle draft');
+    assert.equal(await pen.getAttribute('aria-pressed'), 'false', 'returning to XL keeps the AI pen disarmed');
+    await page.screenshot({ path: path.join(out, 'xl-ai-drawings-restored.png') });
     await page.getByLabel('Close AI assistant', { exact: true }).click();
-    console.log('PASS VIS hides AI; XL restores the console and unsent prompt');
+    console.log('PASS VIS disarms Pen, hides drawings, selects normally and routes Undo/Redo to model; XL restores draft and drawings');
+    // Local fixtures stand in for AI save activity; no external AI request is sent.
+    await app.evaluate(({ ipcMain }) => {
+      global.__visAiSaveActivity = false; global.__visAiRemember = 'ask'; global.__visAiCleanupCalls = 0;
+      ipcMain.removeHandler('ai:saveState');
+      ipcMain.handle('ai:saveState', () => ({ activity: global.__visAiSaveActivity, remember: global.__visAiRemember }));
+      ipcMain.removeHandler('ai:cleanup');
+      ipcMain.handle('ai:cleanup', () => { global.__visAiCleanupCalls++; return {}; });
+    });
     // Save through the real editor path, using only the disposable input copy.
     await menu('save');
     await page.waitForFunction(() => document.querySelector('.classic-status').textContent.includes('Saved VIS-test.mdx'));
@@ -137,14 +195,41 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     await page.locator('.vis-toggle').click();
     await page.waitForTimeout(100);
     const priorWrite = fs.statSync(fixture).mtimeMs;
+    await app.evaluate(() => { global.__visAiSaveActivity = true; });
     await menu('save');
     for (const deadline = Date.now() + 20000; fs.statSync(fixture).mtimeMs <= priorWrite && Date.now() < deadline;) await page.waitForTimeout(50);
     assert.ok(fs.statSync(fixture).mtimeMs > priorWrite, 'VIS save actually wrote the disposable model');
     await page.waitForFunction(() => !document.querySelector('.classic-status').textContent.includes('Saving'));
     assert.equal(digest(fs.readFileSync(fixture)), saved, 'actual XL/VIS file saves match');
     console.log('PASS actual XL/VIS file saves match');
+    await page.waitForFunction(() => visProbe().cleanupPending);
+    const cleanup = page.getByRole('dialog', { name: 'Tidy up AI chats', exact: true });
+    assert.equal(await cleanup.count(), 0, 'saving with AI activity in VIS does not portal the cleanup dialog');
+    const grid = page.locator('.quick-display input[data-hotkey="grid"]'), checked = await grid.isChecked();
+    await page.evaluate(() => document.activeElement?.blur());
+    await press(COMMANDS.find(command => command.id === 'grid').defaultKeys[0]);
+    assert.equal(await grid.isChecked(), !checked, 'pending AI cleanup does not capture VIS editor shortcuts');
+    await page.locator('.vis-toggle').click();
+    await cleanup.waitFor();
+    assert.ok((await cleanup.textContent()).includes('VIS-test.mdx'));
+    await page.locator('.vis-toggle').evaluate(button => button.click());
+    await cleanup.waitFor({ state: 'detached' });
+    await page.locator('.vis-toggle').click(); await cleanup.waitFor();
+    await page.keyboard.press('Escape'); await cleanup.waitFor({ state: 'detached' });
+    await app.evaluate(() => { global.__visAiRemember = 'keep'; });
+    await page.locator('.vis-toggle').click();
+    await menu('save');
+    await page.waitForFunction(() => !document.querySelector('.classic-status').textContent.includes('Saving'));
+    for (const deadline = Date.now() + 20000; !(await app.evaluate(() => global.__visAiCleanupCalls)) && Date.now() < deadline;) await page.waitForTimeout(50);
+    assert.equal(await app.evaluate(() => global.__visAiCleanupCalls), 1, 'remembered cleanup runs silently in VIS');
+    assert.equal(await cleanup.count(), 0);
+    console.log('PASS AI cleanup is deferred in VIS, appears in XL, and remembered cleanup stays silent');
     assert.deepEqual(errors, []);
     assert.equal(digest(fs.readFileSync(fixture)), originalHash, 'input bytes unchanged');
-    fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ records, rendererErrors: errors, originalHash }, null, 2));
-  } finally { await app.close(); }
+    fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ records, reviewChecks: { penDisarmed: true, drawingsHidden: true, normalSelection: true, modelUndoRedo: true, xlDraftAndDrawingsRestored: true, cleanupDeferred: true, rememberedCleanupSilent: true }, rendererErrors: errors, originalHash }, null, 2));
+  } finally {
+    // This app owns only a disposable fixture; never block failed tests on its save prompt.
+    await app.evaluate(({ BrowserWindow }) => { for (const win of BrowserWindow.getAllWindows()) { win.removeAllListeners('close'); win.webContents.removeAllListeners('will-prevent-unload'); win.webContents.on('will-prevent-unload', event => event.preventDefault()); } });
+    await app.close();
+  }
 })().catch(error => { console.error(error); process.exitCode = 1; });

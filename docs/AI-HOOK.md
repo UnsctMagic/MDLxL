@@ -1,10 +1,14 @@
 # AI in MDLxL
 
-Click the **AI** icon (first in the module dock; next to XL with VIS on), open **Connection**, choose a provider,
+Click the **AI** icon (first in the XL module dock), open **Connection**, choose a provider,
 and sign in or enter its API connection. Native connections check the account
 when chat opens. If you are signed out, setup opens and **Sign in to send** keeps
 your draft while you complete sign-in in the browser. After **Signed in.** appears,
 click **Send**. Cancelled or failed sign-in keeps the draft and attached images.
+VIS hides the AI interface and drawings, and disarms any drawing tool. Returning
+to XL restores the console, unsent draft and existing drawings. A chat-cleanup
+question triggered by saving in VIS waits until XL.
+
 The AI console docks at the left edge of the workspace; drag its right edge to
 make it wider. The viewport makes room while it is open and gets the space back
 when you close it. You can keep selecting and editing the model while it is open.
