@@ -107,7 +107,7 @@ const sessionDirty = session => !!session && (session.doc.dirty || Object.keys(s
 const defaultSessionView = doc => {
   const selectable = initialGeosetSelection(doc.model.Geosets.length);
   const citadel = doc.model.Textures.some(texture => /^MDLxL_Citadel[\\/]/i.test(texture.Image || ''));
-  return { mode: 'vertices', animationPanel: 'movement', selectable, selection: {}, hidden: {}, activeGeoset: selectable.size ? 0 : -1, activeGeosetTab: 'all', uvSet: 0, selectedNodeIds: [], globalSeqId: null, sequence: -1, time: 0, rgbPreview: false, rgbSequence: -1, renderMode: citadel ? 'textured' : 'wireframe', movementRenderMode: 'influence', showAllGeosets: !citadel };
+  return { mode: 'vertices', animationPanel: 'movement', selectable, selection: {}, activeGeoset: selectable.size ? 0 : -1, activeGeosetTab: 'all', uvSet: 0, selectedNodeIds: [], globalSeqId: null, sequence: -1, time: 0, rgbPreview: false, rgbSequence: -1, renderMode: citadel ? 'textured' : 'wireframe', movementRenderMode: 'influence', showAllGeosets: !citadel };
 };
 const newSession = (doc = blank(), path = null, assets = builtinTextureAssets()) => ({ doc, path, assets, uvPreviews: {}, animationDrafts: {}, paintProject: null, paintOriginalModelBytes: null, paintWorkingModel: null, paintWorkingRevision: 0, id: crypto.randomUUID(), checkpoint: 0, viewState: defaultSessionView(doc) });
 export async function readInputBytes(file){
@@ -203,7 +203,7 @@ export default function App() {
   const [tool, setTool] = useState('select'), [teamColor, setTeamColor] = useState('#ff0303'), [renderMode, setRenderMode] = useState('wireframe'), [movementRenderMode, setMovementRenderMode] = useState('influence'), untexturedModes = useRef({});
   const [previewRenderModes, setPreviewRenderModes] = useState({});
   const [visibleOnly, setVisibleOnly] = useState(new Set());
-  const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [hidden, setHidden] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
+  const [checkedGeosets, setSelectable] = useState(new Set()), [selection, setSelection] = useState({}), [activeGeoset, setActiveGeoset] = useState(0), [uvSet, setUvSet] = useState(0);
   const [normalizer, setNormalizer] = useState(null), normalizerKeepRef = useRef(null);
   const [showAllGeosets, setShowAllGeosets] = useState(true), [hideExtras, setHideExtras] = useState(false);
   const [activeGeosetTab, setActiveGeosetTab] = useState('all');
@@ -371,24 +371,23 @@ export default function App() {
     }
   }, [model, doc.revision, sequence, globalSeqId, animationDomain]);
   const selectionHistory = useMemo(() => new SelectionHistory(doc), [doc]);
-  const selectionState = { selectable, visibleOnly, selection, hidden, activeGeoset, uvSet, selectedNodeIds };
-  useLayoutEffect(() => { const record = !poseSelectionOnly.current; poseSelectionOnly.current = false; if (selectionHistory.observe(selectionState, { record })) setTick(value => value + 1); }, [selectionHistory, selectable, visibleOnly, selection, hidden, activeGeoset, uvSet, selectedNodeIds, doc.revision]);
-  latest.current = { session, sessions, showcaseSession, doc, model, selection, checkedGeosets, activeGeosetTab, selectable, visibleOnly, hidden, mode, animationPanel, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets, uvEntrySelection, uvEntryId, dialog, settingsTab, preferencesReady };
+  const selectionState = { selectable, visibleOnly, selection, activeGeoset, uvSet, selectedNodeIds };
+  useLayoutEffect(() => { const record = !poseSelectionOnly.current; poseSelectionOnly.current = false; if (selectionHistory.observe(selectionState, { record })) setTick(value => value + 1); }, [selectionHistory, selectable, visibleOnly, selection, activeGeoset, uvSet, selectedNodeIds, doc.revision]);
+  latest.current = { session, sessions, showcaseSession, doc, model, selection, checkedGeosets, activeGeosetTab, selectable, visibleOnly, mode, animationPanel, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets, uvEntrySelection, uvEntryId, dialog, settingsTab, preferencesReady };
   const refresh = () => setTick(value => value + 1);
   // Each error gets a new alert number so the status bar flashes again even when the same error repeats.
   const say = (message, error = false) => { setStatus((error ? 'Error: ' : '') + message); setStatusAlert(count => error ? count + 1 : 0); };
   const selectBackground = value => { setBackground(value); localStorage.setItem('mdlvis-preview-background', value); };
   const backgroundLibrary = usePreviewBackgrounds(mode === 'animation' || mode === 'showcase', background, selectBackground, say);
-  const {validSelection,selectionCount,centroid,totalVertices,totalFaces,hiddenCount,selectedFaces} = useMemo(() => {
+  const {validSelection,selectionCount,centroid,totalVertices,totalFaces,selectedFaces} = useMemo(() => {
     const validSelection = filterVertexSelection(selection, selectable, model);
   const selectionCount = Object.values(validSelection).reduce((sum, ids) => sum + ids.length, 0);
   const centroid = [0, 0, 0];
   for (const [gi, ids] of Object.entries(validSelection)) for (const id of ids) for (let axis = 0; axis < 3; axis++) centroid[axis] += model.Geosets[gi].Vertices[id * 3 + axis] / (selectionCount || 1);
   const totalVertices = model.Geosets.reduce((sum, g, i) => sum + (selectable.has(i) ? g.Vertices.length / 3 : 0), 0), totalFaces = model.Geosets.reduce((sum, g, i) => sum + (selectable.has(i) ? g.Faces.length / 3 : 0), 0);
-  const hiddenCount = Object.entries(hidden).reduce((sum, [gi, ids]) => sum + new Set(ids.filter(i => i < (model.Geosets[gi]?.Vertices.length || 0) / 3)).size, 0);
   let selectedFaces = 0; for (const [gi, ids] of Object.entries(validSelection)) { const picked = new Set(ids), faces = model.Geosets[gi].Faces; for (let i = 0; i < faces.length; i += 3) if (picked.has(faces[i]) && picked.has(faces[i + 1]) && picked.has(faces[i + 2])) selectedFaces++; }
-    return {validSelection,selectionCount,centroid,totalVertices,totalFaces,hiddenCount,selectedFaces};
-  }, [doc, doc.revision, selection, selectable, hidden]);
+    return {validSelection,selectionCount,centroid,totalVertices,totalFaces,selectedFaces};
+  }, [doc, doc.revision, selection, selectable]);
   useEffect(() => {
     if (!zoomAnchor) return;
     const anchorGeoset = model.Geosets[zoomAnchor.geosetIndex];
@@ -400,7 +399,7 @@ export default function App() {
     const keep = normalizerKeepRef.current === doc.revision;
     normalizerKeepRef.current = null;
     if (!keep) setNormalizer(null);
-  }, [session.id, doc.revision, mode, selection, selectable, hidden, showAllGeosets, activeGeosetTab, dialog, settingsTab, saving]);
+  }, [session.id, doc.revision, mode, selection, selectable, showAllGeosets, activeGeosetTab, dialog, settingsTab, saving]);
   useEffect(() => {
     if (!normalizer) return;
     const cancel = event => {
@@ -598,7 +597,7 @@ export default function App() {
     if (next === 'paint' && session.paintAppliedRevision !== undefined) { session.paintWorkingModel = structuredClone(doc.model); session.paintWorkingRevision++; }
     if (next === 'uv' && uvWindow) { setUVWindow(previous => ({ ...previous, minimized: false })); setUVFocused(true); return; }
     if (next === 'uv') {
-      const entry = captureUVSelection(model, validSelection, selectable, hidden), eligible = Object.keys(entry)[0];
+      const entry = captureUVSelection(model, validSelection, selectable), eligible = Object.keys(entry)[0];
       if (eligible === undefined) return;
       setUVEntrySelection(entry); setUVEntryId(value => value + 1);
       if (!entry[activeGeoset]?.length) { setActiveGeoset(Number(eligible)); setUvSet(0); }
@@ -696,7 +695,7 @@ export default function App() {
     setActiveGeoset(previous => next.has(previous) ? previous : next.values().next().value ?? -1);
   };
   const chooseSet = (index, event, checked) => { const shift = !!(event.shiftKey || event.nativeEvent?.shiftKey), ctrl = !!(event.ctrlKey || event.metaKey || event.nativeEvent?.ctrlKey); const next = chooseGeosets(selectable, index, { shift, ctrl, checked, anchor: rangeAnchor.current, count: model.Geosets.length }); chooseSets(next); if (next.has(index)) setActiveGeoset(index); setUvSet(0); if (!shift) rangeAnchor.current = index; };
-  const selectAll = () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'all'})); if(uvEditing)return uvAction('select-all'); if (mode === 'animation' || mode === 'bones') { setSelectedNodeIds(model.Nodes.filter(Boolean).map(node => node.ObjectId)); return; } const next = {}; for (const gi of selectable) { const invisible = new Set(hidden[gi] || []); next[gi] = Array.from({ length: model.Geosets[gi]?.Vertices.length / 3 || 0 }, (_, i) => i).filter(i => !invisible.has(i)); } setSelection(next); };
+  const selectAll = () => { if(mode==='paint')return window.dispatchEvent(new CustomEvent('mdlxl-paint-command',{detail:'all'})); if(uvEditing)return uvAction('select-all'); if (mode === 'animation' || mode === 'bones') { setSelectedNodeIds(model.Nodes.filter(Boolean).map(node => node.ObjectId)); return; } const next = {}; for (const gi of selectable) { next[gi] = Array.from({ length: model.Geosets[gi]?.Vertices.length / 3 || 0 }, (_, i) => i); } setSelection(next); };
   const frame = selectionOnly => window.dispatchEvent(new CustomEvent('mdlvis-frame', { detail: { selection: !!selectionOnly } }));
   const isPreviewMode = cleanAnimationPreview || mode==='uv';
   // Movement keeps its own render mode (Bone influence by default); the other
@@ -770,12 +769,12 @@ export default function App() {
   }
   function rememberSessionView(target = session) {
     if (!target) return;
-    const view=target===latest.current.session?latest.current:{ mode, animationPanel, checkedGeosets, activeGeosetTab, selectable, visibleOnly, selection, hidden, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets };
-    target.viewState = { mode:view.mode, animationPanel:view.animationPanel, selectable:new Set(view.checkedGeosets), activeGeosetTab:view.activeGeosetTab, visibleOnly:new Set(view.visibleOnly), selection:structuredClone(view.selection), hidden:structuredClone(view.hidden), activeGeoset:view.activeGeoset, uvSet:view.uvSet, selectedNodeIds:[...view.selectedNodeIds], globalSeqId:view.globalSeqId, sequence:view.sequence, time:view.time, rgbPreview:view.rgbPreview, rgbSequence:view.rgbSequence, renderMode:view.renderMode, movementRenderMode:view.movementRenderMode, showAllGeosets:view.showAllGeosets, uvEntrySelection:structuredClone(view.uvEntrySelection), uvEntryId:view.uvEntryId };
+    const view=target===latest.current.session?latest.current:{ mode, animationPanel, checkedGeosets, activeGeosetTab, selectable, visibleOnly, selection, activeGeoset, uvSet, selectedNodeIds, globalSeqId, sequence, time, rgbPreview, rgbSequence, renderMode, movementRenderMode, showAllGeosets };
+    target.viewState = { mode:view.mode, animationPanel:view.animationPanel, selectable:new Set(view.checkedGeosets), activeGeosetTab:view.activeGeosetTab, visibleOnly:new Set(view.visibleOnly), selection:structuredClone(view.selection), activeGeoset:view.activeGeoset, uvSet:view.uvSet, selectedNodeIds:[...view.selectedNodeIds], globalSeqId:view.globalSeqId, sequence:view.sequence, time:view.time, rgbPreview:view.rgbPreview, rgbSequence:view.rgbSequence, renderMode:view.renderMode, movementRenderMode:view.movementRenderMode, showAllGeosets:view.showAllGeosets, uvEntrySelection:structuredClone(view.uvEntrySelection), uvEntryId:view.uvEntryId };
   }
   function restoreSessionView(target) {
     const viewState = target.viewState || (target.viewState = defaultSessionView(target.doc));
-    setActiveGeosetTab(viewState.activeGeosetTab || 'all'); setMode(viewState.mode); setAnimationPanel(viewState.animationPanel); setSelectable(new Set(viewState.selectable)); setVisibleOnly(new Set(viewState.visibleOnly)); setSelection(structuredClone(viewState.selection)); setHidden(structuredClone(viewState.hidden)); setActiveGeoset(viewState.activeGeoset); setUvSet(viewState.uvSet); setSelectedNodeIds([...viewState.selectedNodeIds]); setGlobalSeqId(viewState.globalSeqId); setSequence(viewState.sequence); setTime(viewState.time); setRGBPreview(viewState.rgbPreview); setRGBSequence(viewState.rgbSequence); setRenderMode(viewState.renderMode); setMovementRenderMode(viewState.movementRenderMode || 'influence'); setShowAllGeosets(viewState.showAllGeosets);
+    setActiveGeosetTab(viewState.activeGeosetTab || 'all'); setMode(viewState.mode); setAnimationPanel(viewState.animationPanel); setSelectable(new Set(viewState.selectable)); setVisibleOnly(new Set(viewState.visibleOnly)); setSelection(structuredClone(viewState.selection)); setActiveGeoset(viewState.activeGeoset); setUvSet(viewState.uvSet); setSelectedNodeIds([...viewState.selectedNodeIds]); setGlobalSeqId(viewState.globalSeqId); setSequence(viewState.sequence); setTime(viewState.time); setRGBPreview(viewState.rgbPreview); setRGBSequence(viewState.rgbSequence); setRenderMode(viewState.renderMode); setMovementRenderMode(viewState.movementRenderMode || 'influence'); setShowAllGeosets(viewState.showAllGeosets);
     setUVWindowState(target.uvWindow || null); setUVFocused(false); setUVEntrySelection(viewState.uvEntrySelection || {}); setUVEntryId(viewState.uvEntryId || 0);
     setPlaying(false); setAttachSourceIds([]); setLiveUV(null); setNormalizer(null); setDialog(null); setContext(null); setPortraitEnabled(false); setShowcaseSession(null); setCleanViews({}); rangeAnchor.current = 0;
   }
@@ -1074,14 +1073,14 @@ export default function App() {
         try { validateUVPreviewGuard(doc.model, session.uvPreviews, guard); }
         catch { selectionHistory.travel(redo ? 'undo' : 'redo', restored); refresh(); say('Save or Revert temporary UV textures before undoing changes to their geoset targets.'); return; }
       }
-      setSelection(restored.selection); setHidden(restored.hidden); setSelectable(restored.selectable); setVisibleOnly(restored.visibleOnly || new Set()); setActiveGeoset(restored.activeGeoset); setUvSet(restored.uvSet); if(restored.selectedNodeIds)setSelectedNodeIds(restored.selectedNodeIds); setLiveUV(null); refresh(); say(redo ? 'Redo' : 'Undo');
+      setSelection(restored.selection); setSelectable(restored.selectable); setVisibleOnly(restored.visibleOnly || new Set()); setActiveGeoset(restored.activeGeoset); setUvSet(restored.uvSet); if(restored.selectedNodeIds)setSelectedNodeIds(restored.selectedNodeIds); setLiveUV(null); refresh(); say(redo ? 'Redo' : 'Undo');
     } catch (error) { refresh(); say(error.message, true); }
   };
   const transform = payload => { if (restPose) { if (restrictions.translation && payload.translation?.some(value=>value!==0) || restrictions.rotation && payload.rotation?.some(value=>value!==0) || restrictions.scaling && payload.scale?.some(value=>value!==1)) return false; if(payload.translation&&!payload.modelPositions)payload={...payload,translation:constrainMovementVector(payload.translation,{workplaneEnabled,workplane})}; } const picked = filterVertexSelection(payload.selections || validSelection, selectable, model); const result = edit('Transform vertices', ['Geosets'], m => { for (const [gi, ids] of Object.entries(picked)) if (ids.length) { const positions=payload.modelPositions?.[gi]; if(positions)setVertexPositions(m.Geosets[gi],ids,positions); else transformVertices(m.Geosets[gi], ids, payload.translation || [0, 0, 0], payload.scale || [1, 1, 1], payload.rotation || [0, 0, 0], payload.pivot || centroid, {allowSingularScale:payload.allowSingularScale===true}); } }); return result; };
   // NormalsXL: analyse once per opening (and after Fix facing), re-plan on
   // each angle change, and preview the plan on a copy of the model. Apply
-  // commits it as one edit. Vertex indices never change, so selection and
-  // hidden vertices carry over as they are.
+  // commits it as one edit. Vertex indices never change, so the selection
+  // carries over as it is.
   const normalAnalysis = useMemo(() => {
     if (!normalizer) return null;
     try { return { analysis: analyzeNormals(normalizer.doc.model, { geosets: normalizer.geosets, selection: normalizer.selection }) }; }
@@ -1164,7 +1163,7 @@ export default function App() {
         if (outcome?.selection) updated[gi] = outcome.selection;
       }
     });
-    if (result !== false) { if (name !== 'Uncouple') setHidden({}); if (name === 'Delete vertices') {
+    if (result !== false) { if (name === 'Delete vertices') {
       const remap = index => index - removedGeosets.filter(removed => removed < index).length;
       const next = new Set([...selectable].filter(index => !removedGeosets.includes(index)).map(remap));
       setSelection({}); setSelectable(next); setVisibleOnly(previous => new Set([...previous].filter(index => !removedGeosets.includes(index)).map(remap))); setActiveGeoset(removedGeosets.includes(activeGeoset) ? next.values().next().value ?? -1 : remap(activeGeoset));
@@ -1200,7 +1199,6 @@ export default function App() {
     const result = edit('Paste geosets', ['Geosets', 'Materials', 'Textures', 'Nodes', 'PivotPoints', 'GeosetAnims', 'GlobalSequences', 'TextureAnims', 'BindPoses'], commit);
     if (result !== false) { session.assets = new Map([...source.assets, ...session.assets]); setSelectedNodeIds([]); setSelectable(new Set(result.geosetIndices)); setSelection(result.selection || Object.fromEntries(result.geosetIndices.map(gi => [gi, Array.from({ length: doc.model.Geosets[gi].Vertices.length / 3 }, (_, i) => i)]))); setActiveGeoset(result.geosetIndices[0] ?? 0); setDialog(null); say('Pasted geosets.'); refresh(); }
   }
-  const hide = () => { setHidden(previous => { const next = { ...previous }; for (const [gi, ids] of Object.entries(validSelection)) next[gi] = [...new Set([...(next[gi] || []), ...ids])]; return next; }); setSelection({}); };
   async function listRecovery() { try { const items = window.desktop?.listRecovery ? await window.desktop.listRecovery() : await browserRecovery('list'); setRecoveries((items || []).map(({ state, ...item }) => ({ ...item, name: item.name || state?.name }))); setDialog({ type: 'recovery' }); } catch (error) { say(error.message, true); } }
   async function restoreRecovery(item) { try { const envelope = window.desktop?.readRecovery ? await window.desktop.readRecovery(item.id) : await browserRecovery('get', item.id), restored = newSession(EditorDocument.restoreRecoveryState(envelope.state || envelope), envelope.path || null); restored.id = envelope.id || restored.id; restored.checkpoint = envelope.version || 0; restored.animationDrafts = envelope.animationDrafts || {}; restored.paintProject = envelope.paintProject || null; restored.paintOriginalModelBytes = envelope.paintOriginalModelBytes || null; restored.paintWorkingModel = envelope.paintWorkingModel || null;restored.paintAppliedRevision=envelope.paintAppliedRevision;if(restored.paintProject?.materialMode){const original=restored.paintOriginalModelBytes?openDocument(restored.paintOriginalModelBytes,restored.doc.name).model:restored.doc.model;repairPaintMaterials(restored.paintProject,original,restored.paintWorkingModel||restored.doc.model);validatePaintAssignments(restored.paintProject,restored.paintWorkingModel||restored.doc.model);} for(const asset of envelope.forgeAssets||[]){const record={...asset,source:asset.source||'forge'};restored.assets.set(normalize(asset.name),record);restored.assets.set(normalize(asset.name.split(/[\\/]/).at(-1)),record);} restored.uvPreviews = restoreUVPreviews(restored.doc.model, envelope.uvPreviews); for (const draft of Object.values(restored.uvPreviews)) { restored.assets.set(normalize(draft.asset.name), draft.asset); restored.assets.set(normalize(draft.asset.name.split(/[\\/]/).at(-1)), draft.asset); } install(restored); say(`Recovered ${restored.doc.name} with undo history${restored.paintProject ? ' and paint coats' : ''}.`); } catch (error) { say(error.message, true); } }
   async function gameData() {
@@ -1277,7 +1275,7 @@ export default function App() {
     if(result===false)return false;
     // Select the new part in the same tick as its edit, so the selection joins the
     // import's undo step instead of becoming a separate 'Change selection'.
-    if(replacement)setHidden({});setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds(result.boneIds);selectMode('vertices');if(replacement){setTool('translate');setCameraMode('work');}setRenderMode('textured');if(!keepOpen)setDialog(null);requestAnimationFrame(()=>frame(false));
+    setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds(result.boneIds);selectMode('vertices');if(replacement){setTool('translate');setCameraMode('work');}setRenderMode('textured');if(!keepOpen)setDialog(null);requestAnimationFrame(()=>frame(false));
     await loadTextures(assets,target,{source:'parts'});
     if(latest.current.session!==target)return result;
     say(replacement?'Part replaced using its existing bone bindings. Place it with the vertex editor tools.':'Part imported and attached to DummyBone.');return result;
@@ -1290,7 +1288,7 @@ export default function App() {
     exit: () => window.desktop?.close?.(), settings: () => setSettingsTab('mouse'), hotkeys: () => setSettingsTab('hotkeys'), graphics: () => setSettingsTab('graphics'), appearanceSettings: () => setSettingsTab('visuals'), configurationSettings: () => setSettingsTab('configuration'), gridSettings: () => setSettingsTab('grid'), gameDataSettings: () => setSettingsTab('gameData'),
     'theme:dark': () => switchLightDark('dark'), 'theme:light': () => switchLightDark('light'),
     pressedKeys: () => changePreferences(previous=>({...previous,showPressedKeys:!previous.showPressedKeys})), learn: () => changePreferences(previous=>({...previous,learn:{...previous.learn,enabled:!previous.learn.enabled}})), captureSettings:()=>setSettingsTab('capture'),
-    importTextures, textureFolder, hide, show: () => setHidden({}),
+    importTextures, textureFolder,
     cameraToggle: toggleCamera,
     'wheel:scroll': () => toggleWheelMode('scroll'), 'wheel:pointer': () => toggleWheelMode('pointer'), 'wheel:rotate': () => changePreferences(previous => ({ ...previous, wheelMode: 'rotate' })),
     pointerUp: () => changePointerSensitivity(preferencesRef.current.pointerSensitivity * 1.15), pointerDown: () => changePointerSensitivity(preferencesRef.current.pointerSensitivity / 1.15),
@@ -1305,7 +1303,7 @@ export default function App() {
     showParticles: () => showParticlePreview(!preferencesRef.current.graphics.particles),
     cleanView: () => setCleanViews(previous => ({...previous,[mode]:!previous[mode]})),
     geosetsAll: () => chooseSets(new Set(tabVisibleGeosets)), geosetsClear: () => chooseSets(new Set()), geosetsInvert: () => chooseSets(new Set([...tabVisibleGeosets].filter(index => !selectable.has(index)))),
-    invertSelection: () => { if(uvEditing)return uvAction('select-invert'); const next={}; for(const gi of selectable) { const exclude=new Set([...(validSelection[gi]||[]),...(hidden[gi]||[])]); next[gi]=Array.from({length:model.Geosets[gi]?.Vertices.length/3||0},(_,i)=>i).filter(i=>!exclude.has(i)); } setSelection(next); },
+    invertSelection: () => { if(uvEditing)return uvAction('select-invert'); const next={}; for(const gi of selectable) { const exclude=new Set(validSelection[gi]||[]); next[gi]=Array.from({length:model.Geosets[gi]?.Vertices.length/3||0},(_,i)=>i).filter(i=>!exclude.has(i)); } setSelection(next); },
     nextGeoset: () => stepGeoset(1), previousGeoset: () => stepGeoset(-1),
     nextUV: () => setUvSet(v => (v+1)%(geoset?.TVertices.length||1)),
     convertVersion: () => { if (hasUVPreview || hasTrackDrafts) { say('Apply or revert pending previews before conversion.',true); return; } try { const target=model.Version===800?1000:800; doc.convertVersion(target); refresh(); say('Converted to MDX'+target+'. Undo is available; Save writes the result.'); } catch(error) { refresh(); say(error.message,true); } },
@@ -1357,8 +1355,6 @@ export default function App() {
     if (id==='pasteSpecial') return clipboard.current?.kind !== 'nodes' && !doc.readOnly && mode!=='animation';
     if (id==='paste') return (mode==='paint'?!!session.paintProject:!!clipboard.current) && !doc.readOnly && mode!=='animation';
     if (id==='copy') return mode==='animation'||selectedNodeIds.length>0||selectable.size>0;
-    if (id==='hide') return selectionCount>0;
-    if (id==='show') return hiddenCount>0;
     if (['play','firstFrame','lastFrame','nextFrame','previousFrame'].includes(id)) return (mode==='animation' || mode==='uv' && sequence>=0);
     if (['nextSequence','previousSequence'].includes(id)) return (mode==='animation' || mode==='uv') && model.Sequences.length>0;
     if (['nextGeoset','previousGeoset'].includes(id)) return model.Geosets.length>0;
@@ -1374,7 +1370,7 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, hiddenCount, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState,sketchState]);
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState,sketchState]);
   const runCommand = id => { if(commandEnabled(id)) commands.current[id]?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.
@@ -1388,7 +1384,7 @@ export default function App() {
       await api.whenReady?.();
       return api.captureView().toDataURL('image/png');
     },
-    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hidden,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
+    state: () => ({...latest.current,model:latest.current.doc.model,selection:validSelection,workplane,view,cameraAngles,playing,saving,uvEditing,uvEligibleSelection:uvEditing?uvEntrySelection:undefined,renderMode:effectiveRenderMode,hiddenGeosets,keyframes:timelineCommands.current.selectionContext?.()}),
     // Cheap header data for the open AI panel; state() is only built when the AI acts.
     summary: () => ({documentId:session.id,path:session.path||null,mode,name:doc.name,reference:!!session.reference,vertices:Object.values(validSelection||{}).reduce((n,ids)=>n+ids.length,0),nodes:selectedNodeIds.length,sequenceName:sequence>=0?model.Sequences[sequence]?.Name:null,time}),
     commands: () => Object.entries(commands.current).filter(([,run])=>typeof run==='function'&&run.length===0).map(([id])=>({id,label:commandCatalog.find(command=>command.id===id)?.label||id,enabled:commandEnabled(id)})),
@@ -1537,7 +1533,7 @@ export default function App() {
       }
       return next;
     };
-    setSelection(remapVertices); setHidden(remapVertices);
+    setSelection(remapVertices);
     setSelectable(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
     setVisibleOnly(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
     setActiveGeoset(previous => result.oldToNew[previous] ?? -1); setUvSet(0); clearZoomAnchor();
@@ -1568,7 +1564,6 @@ export default function App() {
     catch { return; }
     if (result === false) { say('The selected vertices contain no parts to separate.'); return; }
     setSelection(previous => { const next = { ...previous }; for (const index of result.touched) delete next[index]; return { ...next, ...result.selection }; });
-    setHidden(previous => { const next = { ...previous }; for (const index of result.touched) delete next[index]; return next; });
     setSelectable(previous => new Set([...previous, ...result.geosetIndices]));
     setActiveGeoset(result.geosetIndices[0] ?? activeGeoset); setUvSet(0); clearZoomAnchor();
     say(`Separated selected geometry into ${result.parts} new geoset${result.parts === 1 ? '' : 's'}.`);
@@ -1589,7 +1584,7 @@ export default function App() {
       }
       return next;
     };
-    setSelection(remapVertexState); setHidden(remapVertexState);
+    setSelection(remapVertexState);
     setSelectable(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
     setVisibleOnly(previous => new Set([...previous].map(index => result.oldToNew[index]).filter(index => index !== undefined)));
     setActiveGeoset(previous => result.oldToNew[previous] ?? -1); setUvSet(0); clearZoomAnchor();
@@ -1654,10 +1649,10 @@ export default function App() {
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
       activateSession, animationPanel, cameraMode, changePreferences, clearDisplay, commandEnabled, commands, copy,
-      dialog, displayMode, doc, hiddenCount, hide, inputStrength, menuChecks, mode, model, open, openLibrary,
+      dialog, displayMode, doc, inputStrength, menuChecks, mode, model, open, openLibrary,
       openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources, rgbPreview,
-      rgbSequence, runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, selectionCount, session,
-      sessionDirty, sessions, setCameraMode: chooseCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
+      rgbSequence, runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, session,
+      sessionDirty, sessions, setCameraMode: chooseCameraMode, setDialog, setRGBPreview, setRGBSequence, setRenderMode,
       setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, undo, visUI
     }} aiControl={<AiAssistant bridge={aiBridge} visUI={visUI}/>}/>
     {attachematorOpen && <Suspense fallback={null}><Attachemator key={session.id} doc={doc} modelPath={session.path} textureAssets={session.assets} preferences={preferences} teamColor={teamColor} onCommit={commitAttachemator} onClose={() => setAttachematorOpen(false)}/></Suspense>}
@@ -1683,7 +1678,7 @@ export default function App() {
         visibleGeosets={displayedGeosets} selectableGeosets={selectable} selectionByGeoset={validSelection}
         onSelectionChange={next => {setSelectedNodeIds([]);setSelection(filterVertexSelection(next, selectable, doc.model));}}
         normalizer={!!normalizer} normalChanges={normalizer?.showNormals ? normalChanges || {} : null}
-        hiddenVertices={hidden} hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
+        hiddenGeosets={hiddenGeosets} onSelectGeoset={setActiveGeoset}
         mode={normalizer ? normalizer.renderMode : cleanView ? 'textured' : viewRenderMode} overlays={normalizer ? { ...overlays, normals: normalizer.showNormals } : overlays} showVertices={showVertices}
         showSkeleton={overlays.bones || overlays.nodes || overlays.attachments || overlays.particles}
         showGrid={showGrid} showAxes={showAxes} shaded={normalizer ? true : shaded} view={view} cameraMode={cameraMode}
@@ -1723,7 +1718,7 @@ export default function App() {
       <SidebarResizer/>
       {cameraRotating && !activePortrait && cameraPanel}
       {!rigWorkspace && mode !== 'animation' && !cameraRotating && <VertexTools {...{
-        cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, hiddenCount, lockedVertexPlane,
+        cameraRotating, centroid: vertexDragCenter || centroid, commandEnabled, deleteSelectedNode, editable, lockedVertexPlane,
         meshAction, mode, moveNodes, preferences, selectedFaces, selectedNodeIds, selectionCount, selectMode,
         setDialog, setWorkplane, setWorkplaneEnabled, setWorkTool, tool, totalFaces, totalVertices, transform,
         uvAction, validSelection, vertexNodeCenter, workplane, workplaneEnabled
@@ -1751,7 +1746,7 @@ export default function App() {
       openLibrary, openParticles, openRecent, paste, preferences, quadView, recentFiles, recoveries, refresh,
       removeSession, resolveGeosetMerge, restoreRecovery, save, saveDataChoice, saveSessionWork, saving, say,
       selectAnimationPanel, selectManagerTextureFiles, selectMode, selectSequence, selectable, selectedNodeIds,
-      sequence, session, setActiveGeoset, setAnchor, setDialog, setHidden, setHistoryMB, setHistorySteps,
+      sequence, session, setActiveGeoset, setAnchor, setDialog, setHistoryMB, setHistorySteps,
       setMaterialVisibility, setMissingPortraitCamera, setNormalAngle, setNotice, setPlaying, setSaveDataChoice,
       setSelectable, setSelectedNodeIds, setSelection, setSettingsTab, setTime, setUvSet, setView,
       settings, settingsTab, tabVisibleGeosets, teamColor, textureLibraryDialog, time, tool, undo, updates,
