@@ -31,7 +31,13 @@ const ready=new Promise((resolve,reject)=>{
       const style=getComputedStyle(button.querySelector('.module-icon-badge,span:not(.hotkey-badge)'));
       return [style.color,style.backgroundColor,style.fontSize,style.fontWeight];
     })),['rgb(208, 168, 255)','rgb(255, 208, 106)','rgb(120, 198, 255)','rgb(241, 235, 224)','rgb(147, 224, 138)','rgb(102, 222, 208)','rgb(255, 139, 123)','rgb(255, 176, 98)','rgb(255, 208, 106)','rgb(255, 154, 213)'].map(color=>[color,'rgba(0, 0, 0, 0)','10px','900']));
+    // Every dock icon wears the same WC3 frame, switched on or off, at the same 64px picture size.
+    const frames=()=>toolbar.locator(':scope>button').evaluateAll(buttons=>buttons.map(button=>getComputedStyle(button).boxShadow+'|'+(button.querySelector('img')?.naturalWidth||0)));
+    const learner=toolbar.locator('.learner-tool');
+    for(const frame of [await frames(),(await learner.click(),await frames())])assert.equal(new Set(frame).size,1,frame.join('\n'));
+    await learner.click();
     fs.mkdirSync(path.join(root,'out'),{recursive:true});
+    await toolbar.screenshot({path:path.join(root,'out/toolbar-dock-frames.png')});
     // View controls share the editor row; the WC3 dock leaves the tab strip clear.
     assert.equal(await page.locator('.classic-toolbar .quick-display').count(),0);
     assert.equal(await page.locator('.editor-modules .quick-display').count(),1);

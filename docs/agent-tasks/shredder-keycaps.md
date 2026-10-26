@@ -227,6 +227,13 @@ packaged Shredder check, then report `ready for review; awaiting merge approval`
   toolbar row. Packaged LER checks pass: button on/off changes reminders, Ctrl+J
   updates its highlight, and Settings uses the same state. Full Shredder
   packaged regression is rerun; final logs and CI are retained with the report.
+- Dock frame pass (owner: LER and VIS borders differed): every dock icon now
+  shows only the 64px picture's baked WC3 frame. `wc3-vis.png` was a 1254px
+  picture with its own thin frame; it is now 64px with the shared frame copied
+  from `btn-animate-dead.png` around the same purple art. A switched-on toggle
+  (KEY, LER) no longer gets the general grey `--m-raise` ring; its label glows
+  in `--lit` instead. `module-button-labels.browser.cjs` asserts identical
+  frames on and off and writes `out/toolbar-dock-frames.png`.
 - Preserved SHREDDER_TEST_VERSION=true, original three excluded editors, popup
   placement/timing, AI shortcuts, all user-opened apps and profiles. No version
   bump, release or merge into main authorized. Ready for review.
