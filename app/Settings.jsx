@@ -88,12 +88,17 @@ const SHREDDER_CHOICES = [
 function ShredderSettings({ value, onChange }) {
   const [counts, setCounts] = useState(() => notebookCounts(loadShredderNotebook(), Date.now()));
   const reset = update => setCounts(notebookCounts(updateShredderNotebook(update), Date.now()));
+  useEffect(() => {
+    const changed = () => setCounts(notebookCounts(loadShredderNotebook(), Date.now()));
+    window.addEventListener('mdlxl-shredder-notebook', changed);
+    return () => window.removeEventListener('mdlxl-shredder-notebook', changed);
+  }, []);
   return <>
     <h3>Shortcut reminders</h3>
-    <Toggle id="hotkeys:shredder" label="Shredder: shortcut reminders" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key or click the popup to dismiss this reminder. Clicking does not turn future reminders off."/>
+    <Toggle id="hotkeys:shredder" label="Shredder: shortcut reminders" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here."/>
     <div className="settings-graphics-grid">{SHREDDER_CHOICES.map(([key, label, options]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={`Shortcut reminders: ${label}`} value={value[key]} onChange={event => onChange({ [key]: typeof value[key] === 'number' ? Number(event.target.value) : event.target.value })}>{options.map(([option, name]) => <option key={option} value={option}>{name}</option>)}</select></label>)}</div>
     <div className="settings-inline-actions">
-      {counts.silenced > 0 && <button title="Restore shortcuts silenced in an earlier version." onClick={() => reset(clearSilences)}>{`Bring back silenced keys (${counts.silenced})`}</button>}
+      {counts.silenced > 0 && <button title="Show reminders for muted shortcuts again." onClick={() => reset(clearSilences)}>{`Bring back silenced keys (${counts.silenced})`}</button>}
       <button disabled={!counts.learned} title="Each use of a learned shortcut restarts its quiet time. This shows learned keys again now." onClick={() => reset(clearLearned)}>{`Bring back learned keys (${counts.learned})`}</button>
     </div>
   </>;

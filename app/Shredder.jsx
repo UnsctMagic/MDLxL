@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useHotkeys, controlActionId } from './Hotkeys.jsx';
 import { formatChord } from '../src/preferences.js';
 import { translate } from '../src/localization.js';
-import { SHREDDER_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, normalizeNotebook, recordKeyUse, reminderFor, reminderPosition, keyCaps } from '../src/shredder-keycaps.js';
+import { SHREDDER_STORAGE_KEY, PAINT_KEY_PREFIX, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey, reminderFor, keyCaps } from '../src/shredder-keycaps.js';
 import { isCloseControl } from '../src/hotkey-allocation.js';
 import './shredder.css';
 
@@ -18,8 +18,7 @@ export function updateShredderNotebook(update) {
 
 const CONTROLS = 'button, [role="button"], [role="tab"], [role="radio"], [role="menuitem"], input[type="checkbox"], input[type="radio"]';
 const OWN_UI = '.shredder-keycap';
-const GAP = 8;
-const PLACEMENT_CONTROLS = 'button, input, select, textarea, a[href], label, [role="button"], [role="tab"], [role="radio"], [role="menuitem"]';
+const GAP = 8, EDGE = 6;
 
 /**
  * Shredder: when the user clicks something that has a key, a keycap popup shows that key.
@@ -96,39 +95,28 @@ export default function Shredder({ settings }) {
     return () => clearTimeout(timer);
   }, [popup?.serial, settings?.duration]);
 
+  // Beside what was clicked: above it, or below when there is no room; always inside the window.
   const anchored = popup?.rect && settings.position === 'control';
   useLayoutEffect(() => {
     const element = box.current;
-    if (!element || !popup) return;
-    const place = () => {
-      const width = element.offsetWidth, height = element.offsetHeight;
-      const viewport = { width: window.innerWidth, height: window.innerHeight };
-      const position = anchored ? 'control' : settings.position === 'control' ? 'bottom' : settings.position;
-      const preferred = position === 'control'
-        ? { left: popup.rect.left + (popup.rect.width - width) / 2, top: popup.rect.top - GAP - height }
-        : { left: position === 'bottom-left' ? 22 : position === 'bottom-right' ? viewport.width - width - 22 : (viewport.width - width) / 2,
-          top: position === 'top' ? 70 : viewport.height - height - (position === 'bottom' ? 70 : 66) };
-      const obstacles = [...document.querySelectorAll(PLACEMENT_CONTROLS)].filter(control => !control.closest(OWN_UI) && control.checkVisibility({ checkVisibilityCSS: true }))
-        .flatMap(control => [...control.getClientRects()]).filter(rect => rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.right > 0 && rect.top < viewport.height && rect.left < viewport.width);
-      const point = reminderPosition(preferred, { width, height }, viewport, obstacles);
-      // A completely packed window must still leave its controls usable.
-      element.style.visibility = point ? '' : 'hidden';
-      if (point) { element.style.left = point.left + 'px'; element.style.top = point.top + 'px'; }
-    };
-    place();
-    // Recheck after dialogs open or close, or the user scrolls/resizes; no polling.
-    const observer = new MutationObserver(place);
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('resize', place); window.addEventListener('scroll', place, true);
-    return () => { observer.disconnect(); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
-  }, [popup?.serial, anchored, settings?.size, settings?.position]);
+    if (!element || !anchored) return;
+    const { rect } = popup, width = element.offsetWidth, height = element.offsetHeight;
+    const above = rect.top - GAP - height, top = above >= EDGE ? above : Math.min(window.innerHeight - height - EDGE, rect.top + rect.height + GAP);
+    const left = Math.max(EDGE, Math.min(window.innerWidth - width - EDGE, rect.left + rect.width / 2 - width / 2));
+    element.style.left = `${left}px`; element.style.top = `${top}px`;
+  }, [popup?.serial, anchored, settings?.size]);
 
   if (!enabled || !popup) return null;
   const dismiss = event => { event.stopPropagation(); setPopup(null); };
+  const silence = event => {
+    event.preventDefault(); event.stopPropagation();
+    updateShredderNotebook(current => silenceKey(current, popup.id));
+    setPopup(null);
+  };
   // A plain element, like the K.E.Y. overlay, so the app's button styles leave its look alone.
   return <div ref={box} key={popup.serial} role="button" className="shredder-keycap" data-position={anchored ? 'control' : settings.position === 'control' ? 'bottom' : settings.position}
-    data-size={settings.size} data-style={settings.style} aria-label={popup.chord} title="Click to dismiss this reminder."
-    onPointerDown={event => { event.preventDefault(); event.stopPropagation(); }} onClick={dismiss}>
+    data-size={settings.size} data-style={settings.style} aria-label={popup.chord} title="Click to dismiss. Right-click to mute this shortcut."
+    onPointerDown={event => { event.preventDefault(); event.stopPropagation(); }} onClick={dismiss} onContextMenu={silence}>
     {keyCaps(popup.chord).map((part, index) => <React.Fragment key={index}>{index > 0 && ' + '}<kbd translate="no">{translate(part)}</kbd></React.Fragment>)}
   </div>;
 }

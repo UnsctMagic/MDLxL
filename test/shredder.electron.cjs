@@ -22,6 +22,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const check = message => { checks.push(message); console.log('✓ ' + message); };
   try {
     const page = await app.firstWindow(); page.setDefaultTimeout(20000);
+    await page.clock.install();
     page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setBackgroundThrottling(false); window.setSize(1280, 800); });
     await page.locator('.classic-view canvas').first().waitFor();
@@ -32,55 +33,66 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const snap = file => process.env.SHREDDER_NO_SHOTS ? null : page.screenshot({ path: file, timeout: 60000 }).catch(error => console.warn('screenshot skipped: ' + error.message.split('\n')[0]));
     const caps = () => popup.locator('kbd').allTextContents();
     const gone = () => popup.waitFor({ state: 'detached', timeout: 3000 });
+    // Hidden desktops can stall animation-frame stability checks. Verify the hit
+    // target and send a real mouse click instead of waiting for two drawn frames.
+    const clickPopup = async (button = 'left') => {
+      await popup.waitFor();
+      const point = await popup.evaluate(element => {
+        const rect = element.getBoundingClientRect(), x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
+        const assertVisible = element.contains(document.elementFromPoint(x, y));
+        if (!assertVisible) throw Error('Popup center is obscured');
+        return { x, y };
+      });
+      await page.mouse.click(point.x, point.y, { button });
+    };
     const pressInView = async key => { await page.locator('.classic-view canvas').first().hover(); await page.keyboard.press(key); };
 
     const settings = async () => { await page.keyboard.press('Control+Comma'); await page.locator('#settings-tab-hotkeys').click(); };
     const closeSettings = async () => { await page.getByRole('button', { name: 'Close Settings', exact: true }).click(); await page.locator('#settings-tab-hotkeys').waitFor({ state: 'detached' }); };
     if (!SHREDDER_TEST_VERSION) { await settings(); await page.locator('input[data-hotkey="hotkeys:shredder"]').check(); await closeSettings(); }
 
-    // 1. A click shows only the key, beside the button.
-    await move.click();
+    // Reproduce the owner's crowded sidebar case: Delete must stay over its own button.
+    await pressInView('Control+a');
+    const deleteButton = page.locator('button[data-hotkey="Delete vertices"]').first();
+    const deleteBox = await deleteButton.boundingBox();
+    await deleteButton.click(); await popup.waitFor();
+    assert.equal((await popup.textContent()).trim(), 'Delete');
+    const deleteCap = await popup.boundingBox();
+    assert.ok(Math.abs(deleteCap.x + deleteCap.width / 2 - (deleteBox.x + deleteBox.width / 2)) < 2 &&
+      Math.abs(deleteCap.y + deleteCap.height + 8 - deleteBox.y) < 4, 'Delete remains above its sidebar button despite neighboring controls');
+    await pressInView('Control+z');
+    if (await popup.count()) await clickPopup();
+    check('Delete reminder is centered above its crowded sidebar button');
+
+    // Pause the test clock so slow hidden-desktop input cannot consume the reminder.
+    await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 100);
+    const clickMove = async () => {
+      const rect = await move.boundingBox();
+      await page.mouse.click(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    };
+    // 1. A click shows only the key, above the button.
+    await clickMove();
+    await page.clock.runFor(100);
     await popup.waitFor();
     assert.deepEqual(await caps(), ['M']);
     assert.equal((await popup.textContent()).trim(), 'M', 'nothing but the key');
     const [button, cap] = await Promise.all([move.boundingBox(), popup.boundingBox()]);
-    assert.ok(cap.y + cap.height <= button.y || cap.y >= button.y + button.height || cap.x + cap.width <= button.x || cap.x >= button.x + button.width, 'does not cover its button');
-    assert.ok(await popup.evaluate(element => {
-      const box = element.getBoundingClientRect();
-      return [...document.querySelectorAll('button, input, select, textarea')].filter(control => control.checkVisibility()).every(control => {
-        const rect = control.getBoundingClientRect();
-        return box.right <= rect.left || box.left >= rect.right || box.bottom <= rect.top || box.top >= rect.bottom;
-      });
-    }), 'neighboring buttons and fields stay clear');
+    assert.ok(Math.abs(cap.x + cap.width / 2 - (button.x + button.width / 2)) < 2 &&
+      Math.abs(cap.y + cap.height + 8 - button.y) < 4, 'centered directly above the clicked button');
     await snap(path.join(out, 'keycap-beside.png'));
     check('A click on Move shows just [M] beside it');
 
     // Repeated clicks must preserve both the visible element and its original deadline.
     const firstPopup = await popup.elementHandle();
-    await page.waitForTimeout(2800);
-    await move.click();
+    await page.clock.runFor(2700);
+    await clickMove();
     assert.equal(await firstPopup.evaluate(element => element === document.querySelector('.shredder-keycap')), true, 'same popup is not remounted');
+    await page.clock.runFor(2400);
     await gone();
+    await page.clock.resume();
     check('Repeated clicks do not replay the animation or extend the original five-second lifetime');
 
     await move.click(); await popup.waitFor();
-    // A newly appearing adjacent control must remain clickable, without restarting the popup.
-    await popup.evaluate(element => {
-      const rect = element.getBoundingClientRect(), control = document.createElement('button');
-      control.id = 'shredder-neighbor-test'; control.textContent = 'Test adjacent control';
-      Object.assign(control.style, { position: 'fixed', left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px', height: rect.height + 'px', zIndex: '1200' });
-      control.onclick = () => window.neighborClicks = (window.neighborClicks || 0) + 1;
-      document.body.append(control);
-    });
-    await page.waitForFunction(() => {
-      const control = document.getElementById('shredder-neighbor-test'), rect = control.getBoundingClientRect();
-      return document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === control;
-    });
-    await page.locator('#shredder-neighbor-test').click();
-    assert.equal(await page.evaluate(() => window.neighborClicks), 1, 'the neighbor receives the actual click');
-    await page.locator('#shredder-neighbor-test').evaluate(element => element.remove());
-    check('Popup moves clear of a newly appearing button; the button receives the mouse click');
-
     // 2. Using the key closes it at once.
     await pressInView('m');
     await gone();
@@ -110,33 +122,41 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     // 4. Clicking dismisses this popup without changing learning or silencing the key.
     const notebookBeforeDismiss = await page.evaluate(() => localStorage.getItem('mdlxl-shredder-keycaps-v1'));
-    await popup.click(); await gone();
+    await clickPopup(); await gone();
     assert.equal(await page.evaluate(() => localStorage.getItem('mdlxl-shredder-keycaps-v1')), notebookBeforeDismiss);
     await move.click(); await rotate.click(); await popup.waitFor();
     assert.deepEqual(await caps(), ['R'], 'a later click can remind again');
-    await popup.click(); await gone();
+    await clickPopup(); await gone();
     await page.locator('button[data-hotkey="scale"]:visible').first().click(); await popup.waitFor();
     assert.deepEqual(await caps(), ['Z']);
     await pressInView('z'); await gone();
     check('Clicking [R] dismisses only that popup, keeps learning intact, and permits later reminders');
 
-    // Legacy silences remain recoverable; new dismissals create no silenced keys.
-    await page.evaluate(() => {
-      const notebook = JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1'));
-      notebook.keys['legacy-muted'] = { uses: 0, quietUntil: 0, silenced: true };
-      localStorage.setItem('mdlxl-shredder-keycaps-v1', JSON.stringify(notebook));
-      window.dispatchEvent(new CustomEvent('mdlxl-shredder-notebook'));
-    });
+    // Right-click deliberately mutes one shortcut; a left-click never does.
+    await rotate.click(); await popup.waitFor();
+    assert.match(await popup.getAttribute('title'), /Right-click to mute/);
+    await clickPopup('right'); await gone();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('mdlxl-shredder-keycaps-v1')).keys.rotate.silenced), true);
+    await rotate.click(); await page.waitForTimeout(300);
+    assert.equal(await popup.count(), 0, 'muted R stays quiet on later clicks');
+    await page.locator('button[data-hotkey="scale"]:visible').first().click(); await popup.waitFor();
+    assert.deepEqual(await caps(), ['Z'], 'muting R does not mute other shortcuts');
+    await clickPopup(); await gone();
+    check('Right-click mutes only R; left-click dismisses without muting; Settings can restore R');
+
     // 5. Settings: position, size, flashing, and bringing keys back.
     await settings();
-    const restoreSilenced = page.getByRole('button', { name: /Bring back silenced keys \(1\)/ }), restoreLearned = page.getByRole('button', { name: /Bring back learned keys \(1\)/ });
+    const restoreSilenced = page.getByRole('button', { name: /Bring back silenced keys/ }), restoreLearned = page.getByRole('button', { name: /Bring back learned keys \(1\)/ });
+    await page.locator('#settings-tab-hotkeys').click(); await popup.waitFor();
+    await clickPopup('right'); await gone();
+    assert.match(await restoreSilenced.textContent(), /2/, 'muting while Settings is open refreshes its count');
     await page.locator('select[aria-label="Shortcut reminders: Where"]').selectOption('bottom');
     await page.locator('select[aria-label="Shortcut reminders: Size"]').selectOption('large');
     await page.locator('select[aria-label="Shortcut reminders: Look"]').selectOption('flash');
     await page.locator('select[aria-label="Shortcut reminders: Stays for"]').selectOption('0');
     await snap(path.join(out, 'settings.png'));
     await restoreSilenced.click(); await restoreLearned.click();
-    assert.equal(await page.getByRole('button', { name: /Bring back silenced keys/ }).count(), 0, 'legacy recovery control disappears when no silences remain');
+    assert.equal(await page.getByRole('button', { name: /Bring back silenced keys/ }).count(), 0, 'mute reset is hidden once all muted keys are restored');
     await closeSettings();
     await rotate.click(); await popup.waitFor();
     const style = await popup.evaluate(element => ({ position: element.dataset.position, size: element.dataset.size, look: element.dataset.style, font: parseFloat(getComputedStyle(element).fontSize), box: element.getBoundingClientRect().toJSON() }));
@@ -149,12 +169,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(200);
     assert.ok(await popup.evaluate(element => {
       const box = element.getBoundingClientRect();
-      return box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight &&
-        [...document.querySelectorAll('button, input, select, textarea')].filter(control => control.checkVisibility()).every(control => {
-          const rect = control.getBoundingClientRect();
-          return box.right <= rect.left || box.left >= rect.right || box.bottom <= rect.top || box.top >= rect.bottom;
-        });
-    }), 'large reminders stay within a small window and clear of controls after resize');
+      return box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight;
+    }), 'fixed bottom placement stays within a small window');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 800));
     await pressInView('r'); await gone();
     await move.click(); await popup.waitFor();
@@ -207,7 +223,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     // 8. Citadel Paint's own keys: a click shows the key its button shows; Paint's key closes it.
     await page.locator('[data-hotkey="paint"]').first().click();
-    if (await popup.count()) await popup.click();
+    if (await popup.count()) await clickPopup();
     await page.getByRole('button', { name: /New base coat/ }).click();
     await page.getByRole('button', { name: 'Begin painting', exact: true }).click();
     await page.getByRole('button', { name: 'Erase', exact: true }).waitFor().catch(async error => { console.log((await page.locator('body').innerText()).slice(0, 3000)); throw error; });
@@ -219,17 +235,19 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Undo paint', exact: true }).evaluate(element => element.disabled) || await page.getByRole('button', { name: 'Undo paint', exact: true }).click();
     await page.getByRole('button', { name: 'Color', exact: true }).click(); await popup.waitFor();
     assert.equal((await popup.textContent()).trim(), 'B');
-    await popup.click(); await gone();
+    await clickPopup(); await gone();
     await page.getByRole('button', { name: 'Color', exact: true }).click(); await page.waitForTimeout(400);
     await popup.waitFor();
     assert.equal((await popup.textContent()).trim(), 'B', 'Paint dismissal also allows later reminders');
-    await popup.click(); await gone();
+    await clickPopup('right'); await gone();
+    await page.getByRole('button', { name: 'Color', exact: true }).click(); await page.waitForTimeout(300);
+    assert.equal(await popup.count(), 0, 'Paint B is muted by right-click');
     await page.locator('input[type="range"][aria-label="Opacity"]').click(); await popup.waitFor();
     assert.equal((await popup.textContent()).trim(), '− +');
     // The slider keeps focus after a click, and Paint leaves keys typed into its fields alone.
     await page.evaluate(() => document.activeElement?.blur());
     await page.keyboard.press('-'); await gone();
-    check('Citadel Paint: Erase shows [E] and E closes it; clicking [B] dismisses only that reminder; the Opacity slider shows [− +] and − closes it');
+    check('Citadel Paint: Erase shows [E] and E closes it; left-clicking [B] dismisses, right-clicking mutes B; the Opacity slider shows [− +] and − closes it');
 
     // 9. Turning the mode off stops it; the Settings menu command toggles it.
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('menu', 'shredder'));

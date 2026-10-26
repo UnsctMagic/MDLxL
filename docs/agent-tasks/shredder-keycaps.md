@@ -9,16 +9,16 @@ Updated: 2026-10-26
 - Rework Shredder into a keycap-only reminder mode (owner's request relayed by
   Codex on 2026-10-25): a mouse click on something with a key shows only that key;
   using the key closes it; 5 uses quiet that key for 24 hours, renewed by later
-  uses; clicking dismisses only this reminder; settings in the keyboard-controls
-  workflow; a plain on/off
-  mode with no other gates. Behaviour contract: [docs/SHREDDER.md](../SHREDDER.md).
+  uses; left-click dismisses this reminder; right-click mutes the shortcut;
+  settings and un-muting in the keyboard-controls workflow; a plain on/off mode. Behaviour contract: [docs/SHREDDER.md](../SHREDDER.md).
 - Draft PR only; merging and publishing were not authorized.
 
 ## Revision and local state
 
 - Branch: `claude/shredder-keycaps`, PR #304 (draft, not merged).
-- Codex working copy: `D:\Codex\mdlxl-shredder-keycaps-20261026\source`; continued
-  from pushed commit `6780d2b1`. The original Claude checkout is preserved.
+- The first Codex continuation started from pushed commit `6780d2b1`; the
+  current correction starts from `5c84c94d` in the temporary revision2 copy
+  listed below. Original checkouts and user-opened test apps are preserved.
 - Base: `origin/main` at 2d6ca1e8 (after 0.31.0).
 - Fixtures: none (the Electron test writes a demo model to `out/shredder`).
 
@@ -84,25 +84,29 @@ Updated: 2026-10-26
 
 ## Owner-requested refinement (2026-10-26)
 
-- Same visible keycaps and learning threshold; test-default switch stays true.
-- Repeated clicks on the same visible reminder preserve its element, animation
-  and expiry. Learned shortcuts renew quiet time on every actual use.
-- Popup placement avoids neighboring controls and updates for new dialogs,
-  scrolling and resizing. A completely packed window hides the popup instead
-  of blocking a control.
-- Clicking dismisses only the current reminder; it does not permanently mute.
-  Existing saved silences can still be restored in Settings; that recovery
-  control appears only when needed.
-- Particle Editor, AnimXL and Texture Library shortcut coverage stays a
-  separate follow-up. No release/default-off decision or merge is authorized.
-- Verification: focused source checks 32 pass; full source suite 1,939 pass,
-  22 skipped, zero failures; compatibility 57 pass. The catalog-size assertion
-  was updated for the four new translated help strings per language.
-- The rebuilt renderer and the packaged app both pass the Shredder interaction
-  test: repeated-click lifetime, quiet renewal, temporary dismissal, legacy
-  silence recovery, newly appearing neighboring button clicks, small-window
-  large-popup placement, actual Alt-mouse camera rotation, Fit/Home, Material
-  Manager and Paint shortcuts, settings and the menu toggle.
-- Review build: `D:\Codex\mdlxl-shredder-keycaps-20261026\review\MDLxL-win32-x64\MDLxL.exe`, separate test profile on D:.
-  The original test window has a user model open and must remain untouched.
-- Ready for the owner’s visible test. No Warcraft III gameplay test or release.
+- Keep the accepted timing changes: repeated clicks preserve the visible
+  reminder and original expiry; learned shortcuts renew quiet time on use.
+- Owner rejected the collision-avoidance placement after the visible test.
+  Restore the original position directly above the clicked button (below only
+  at the top window edge); other chosen positions stay fixed. Do not search for
+  gaps between controls or move the popup into the viewport.
+- Left-click dismisses only this reminder. Right-click mutes that shortcut until
+  Bring back silenced keys in Settings. Its count updates while Settings is open.
+- Keep SHREDDER_TEST_VERSION true. Particle Editor, AnimXL and Texture Library
+  shortcut coverage stays a separate follow-up. No merge or release authorized.
+- Current test copy: D:\Codex\mdlxl-shredder-keycaps-20261026\revision2\source,
+  same claude/shredder-keycaps branch. Both previous test apps have user work
+  open; do not replace their files, close them, or reload their windows.
+- Verification: 33 focused checks pass; full source suite 1,938 pass, 22 skipped,
+  zero failures; compatibility 57 pass. Production build and verified portable
+  packaging pass.
+- Packaged interaction test passes: Delete centered above its crowded sidebar
+  button, same-popup lifetime with a controlled test clock, learned-key renewal,
+  left-click dismissal, real right-click mute for Rotate and Paint, un-muting in
+  Settings (including live count updates), fixed position settings, Fit/Home,
+  Material Manager, global toggle and actual Alt-mouse camera rotation.
+- Review build: D:\Codex\mdlxl-shredder-keycaps-20261026\revision2\review\MDLxL-win32-x64\MDLxL.exe.
+  Open-Test.ps1 in revision2 launches it with a separate D: test profile.
+- Remove the temporary revision2/source checkout after pushing. Continue from
+  origin/claude/shredder-keycaps; old user-opened checkouts remain untouched.
+- Ready for the owner’s visible test. Warcraft III gameplay was not exercised.
