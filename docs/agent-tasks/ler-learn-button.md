@@ -1,6 +1,7 @@
 # LER button: Learn menu
 
 Status: completed implementation and local verification; ready to test; awaiting merge approval
+Follow-up PR: [#325](https://github.com/UnsctMagic/MDLxL/pull/325) (draft, same branch; not merged)
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
 
@@ -130,6 +131,7 @@ Done means:
 ## Result (2026-10-26)
 
 - Continued `claude/shredder-keycaps`; no new branch. Main was merged first.
+  Implementation: `d1ccec9a`; follow-up [PR #325](https://github.com/UnsctMagic/MDLxL/pull/325).
   Since #304 had already merged, the owner approved a follow-up PR from this
   branch. #304's description is also updated, with existing Session lines retained.
 - LER opens exactly three rows, anchored under its icon. The box reuses the
