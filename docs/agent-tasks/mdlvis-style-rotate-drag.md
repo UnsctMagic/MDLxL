@@ -272,3 +272,10 @@ passes (98 passed, 7 skipped). One regression must be fixed first.
   Disposable package, test profiles, fixtures and temporary files are removed
   after verification; the finished worktree is removed after pushing. The manual
   test model/profile/build and installed apps remain untouched.
+
+- Current main advanced to `a95afe23` during the follow-up. Integration retained
+  main’s VIS map entry and the rotation map row; that map was the only conflict.
+  Rotation production files did not conflict. Final integrated-tree validation passed:
+  focused 100 passed / 7 existing skips; compatibility 57 passed; source 2,007
+  passed / 22 existing skips; build and package passed (1,223 files, 55 locales);
+  a fresh hidden package passed all 33 Local/POSE checks with zero renderer errors.

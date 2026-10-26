@@ -194,6 +194,8 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       // Paint owns its brush/clipboard shortcuts before global mesh commands.
       if(!inLocalWindow&&latest.current.activeScope==='paint'&&!window.dispatchEvent(new CustomEvent('mdlxl-paint-key',{detail:event,cancelable:true}))){cancel();return;}
       if (!inLocalWindow && event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.bone-create-menu')) return;
+      // An active AI drawing tool leaves on Escape before a window's Close takes it.
+      if(event.key==='Escape'&&!window.dispatchEvent(new CustomEvent('mdlxl-escape-key',{detail:event,cancelable:true}))){cancel();return;}
       if (!inLocalWindow && event.key?.toLowerCase() === 'a' && !event.ctrlKey && !event.metaKey && !event.altKey &&
           event.target?.ownerDocument?.querySelector('.uv-workspace-body[data-pointer-region="preview"]')) { cancel(); return; }
       const chord = chordFromEvent(event);

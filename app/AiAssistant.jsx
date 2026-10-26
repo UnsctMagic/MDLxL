@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import AiMessage from './AiMessage.jsx';
 import './ai-assistant.css';
-import { translate } from '../src/localization.js';
+import { getLanguage, translate } from '../src/localization.js';
 import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
 import BIRDS from '../src/ai-birds.json';
 
@@ -234,7 +234,7 @@ function ToolPart({ part }) {
 }
 // A job the organiser gave to a bird; click it to open that bird's chat.
 function WorkerPart({ part, onOpen }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   return (
     <div className={'ai-worker-row ai-worker-' + part.status} style={{ '--bird': birdColor(part.name) }}>
       <button type="button" className="ai-part-toggle" title="Open this chat." onClick={() => onOpen?.(part.workerId)}>
@@ -242,7 +242,7 @@ function WorkerPart({ part, onOpen }) {
           {part.status === 'working' ? <LoaderCircle size={13} className="ai-spin" /> : part.status === 'failed' ? <X size={13} /> : <Bird size={13} />}
         </span>
         <b translate="no" style={{ color: birdColor(part.name) }}>{part.name}</b>
-        <span className="ai-step-detail">{part.job}</span>
+        <span className="ai-step-detail">{part.job}{part.region && <small> · {part.region}</small>}{part.light && <small> · light model</small>}</span>
         <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'done' ? 'done' : 'stopped'}</span>
       </button>
       {part.report && (
@@ -258,18 +258,21 @@ function WorkerPart({ part, onOpen }) {
         </button>
       )}
       {open && part.report && <AiMessage text={part.report} />}
+      {part.cost && <CostLine cost={part.cost} />}
     </div>
   );
 }
 // What one API prompt cost: dollars for known Anthropic models, otherwise tokens.
 function CostLine({ cost }) {
-  const tokens = Math.round(cost.tokens / 1000).toLocaleString() + 'k tokens';
+  const tokens = cost.tokens == null ? 'tokens unavailable' : cost.tokens.toLocaleString() + ' tokens';
+  const roles = Object.entries(cost.roles || {}).map(([role, use]) => `${role}: ${use.calls} ${use.unit === 'turn' ? 'provider turns' : 'calls'} · ${use.tokens === null ? 'tokens unavailable' : use.tokens.toLocaleString() + ' tokens'}`).join(' | ');
   return (
     <div
       className="ai-cost"
       title="What this prompt has cost on your API key so far. Each step resends the conversation; repeated text is billed at a lower rate."
     >
-      {cost.usd === null ? tokens : `About $${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`}
+      {cost.model && <span>{cost.model}{cost.light ? ' · light model' : ''} · </span>}
+      {roles || (cost.usd === null ? tokens : `About ${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`)}
     </div>
   );
 }
@@ -295,8 +298,17 @@ function AssistantMessage({ message, live, onOpenWorker }) {
   );
   return message.cost ? [...shown, <CostLine key="cost" cost={message.cost} />] : shown;
 }
+// Everything the open console shows about the editor except the frame, which
+// changes on every playback tick; FrameLabel follows that on its own.
+function headerKey(bridge) {
+  const { time, ...summary } = bridge.summary();
+  return JSON.stringify([summary, bridge.host().references?.() || [], getLanguage()]);
+}
+function FrameLabel({ bridge }) {
+  return useSyncExternalStore(bridge.subscribe, () => Math.round(bridge.summary().time));
+}
 
-export default function AiAssistant({ bridge }) {
+function AiAssistant({ bridge, visUI }) {
   const [open, setOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
     [settings, setSettings] = useState({ provider: 'codex', model: '', executable: '', baseUrl: '' });
@@ -310,6 +322,8 @@ export default function AiAssistant({ bridge }) {
   const [signedIn, setSignedIn] = useState(null);
   const [task, setTask] = useState(null),
     [awarenessBusy, setAwarenessBusy] = useState(false);
+  const [jobRoute, setJobRoute] = useState('');
+  const [modelQuestion, setModelQuestion] = useState(null);
   const [prompt, setPrompt] = useState(''),
     [images, setImages] = useState([]),
     [messages, setMessages] = useState([]),
@@ -335,7 +349,7 @@ export default function AiAssistant({ bridge }) {
     if (!root) return;
     window.dispatchEvent(new CustomEvent('mdlxl-detached-root', { detail: { root, add: true } }));
     return () => window.dispatchEvent(new CustomEvent('mdlxl-detached-root', { detail: { root, add: false } }));
-  }, [cleanup]);
+  }, [cleanup, visUI]);
   const [dock, setDock] = useState(null),
     [width, setWidth] = useState(storedWidth),
     [palette, setPalette] = useState(false);
@@ -387,7 +401,7 @@ export default function AiAssistant({ bridge }) {
             list[at] = {
               ...list[at],
               parts: list[at].parts.map(p =>
-                p.type === 'worker' && p.workerId === event.workerId && p.status === 'working' ? { ...p, status: event.status, report: event.report } : p,
+                p.type === 'worker' && p.workerId === event.workerId && p.status === 'working' ? { ...p, status: event.status, report: event.report, cost: event.cost, model: event.model, light: event.light } : p,
               ),
             };
             return list;
@@ -398,7 +412,7 @@ export default function AiAssistant({ bridge }) {
           if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
           list[list.length - 1] = {
             ...last,
-            parts: [...(last.parts || []), { type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status }],
+            parts: [...(last.parts || []), { type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status, region: event.region, model: event.model, light: event.light }],
           };
           return list;
         });
@@ -423,7 +437,7 @@ export default function AiAssistant({ bridge }) {
         });
       if (event.type === 'cost')
         update(message => {
-          message.cost = { usd: event.usd, tokens: event.tokens };
+          message.cost = { usd: event.usd, tokens: event.tokens, roles: event.roles, model: event.model, light: event.light };
         });
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       // A steering message may have split the reply since the tool started.
@@ -488,6 +502,7 @@ export default function AiAssistant({ bridge }) {
       }
     });
   }, []);
+  useSyncExternalStore(bridge.subscribe, () => (open ? headerKey(bridge) : ''));
   const summaryNow = open ? bridge.summary() : null;
   const modelKey = summaryNow ? modelKeyOf(summaryNow.path, summaryNow.documentId) : null;
   // Right after a tab switch the console still holds the previous model's chat until
@@ -564,8 +579,8 @@ export default function AiAssistant({ bridge }) {
   }, [messages, status]);
   useLayoutEffect(() => {
     if (open) setDock(document.querySelector('.classic-workspace') || document.body);
-    sketchStore.setVisible(open);
-  }, [open]);
+    sketchStore.setVisible(open && !visUI);
+  }, [open, visUI]);
   useEffect(() => {
     const textarea = input.current;
     if (!textarea) return;
@@ -581,7 +596,12 @@ export default function AiAssistant({ bridge }) {
       event.preventDefault();
     };
     window.addEventListener('mdlxl-cancel-gesture', cancel);
-    return () => window.removeEventListener('mdlxl-cancel-gesture', cancel);
+    // Escape inside the console would otherwise press its Close button.
+    window.addEventListener('mdlxl-escape-key', cancel);
+    return () => {
+      window.removeEventListener('mdlxl-cancel-gesture', cancel);
+      window.removeEventListener('mdlxl-escape-key', cancel);
+    };
   }, []);
   const summary = summaryNow;
   const references = open ? bridge.host().references?.() || [] : [];
@@ -617,7 +637,6 @@ export default function AiAssistant({ bridge }) {
       setModels([]);
       setApiKey('');
       setSignedIn(null);
-      setOrgReload(n => n + 1);
     } catch (reason) {
       setError(reason.message);
     } finally {
@@ -662,7 +681,8 @@ export default function AiAssistant({ bridge }) {
       setError(reason.message);
     }
   }
-  async function send(resumeTask = false) {
+  async function send(resumeTask = false, lightChoice) {
+    setModelQuestion(null);
     const resume = resumeTask === true;
     if (switching || !id) return;
     if (!resume && busy) return steer();
@@ -673,7 +693,7 @@ export default function AiAssistant({ bridge }) {
     }
     const text = prompt,
       attached = images;
-    const sending = id;
+    let sending = id;
     setSendingId(sending);
     setError('');
     setStatus('Connecting…');
@@ -688,10 +708,19 @@ export default function AiAssistant({ bridge }) {
           return;
         }
       }
+      if (org && !viewWorker) {
+        const fresh = await window.desktop.aiOrganiser({ modelKey: org.modelKey, name: summary.name });
+        if (fresh.id !== sending) {
+          sending = fresh.id;
+          activeId.current = sending;
+          setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setSendingId(sending); setMessages([]);
+        }
+      }
       const context = bridge.context();
       if (!resume) {
         setPrompt('');
         setImages([]);
+        setJobRoute('');
       }
       setMessages(previous => [
         ...previous,
@@ -705,12 +734,18 @@ export default function AiAssistant({ bridge }) {
         { role: 'assistant', text: '', parts: [] },
       ]);
       const result = await window.desktop.aiSend({
-        id,
+        id: sending,
         text,
         images: attached.map(image => image.data),
         context,
         resume,
+        lightChoice,
+        route: jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue'),
       });
+      if (result.modelChoiceRequired) {
+        setModelQuestion(result.message); setPrompt(text); setImages(attached); setJobRoute(jobRoute);
+        setMessages(await window.desktop.aiTranscript(sending));
+      }
       if (result.authRequired) {
         setSignedIn(false);
         setSettingsOpen(true);
@@ -736,7 +771,7 @@ export default function AiAssistant({ bridge }) {
       setSignedIn(!!result.loggedIn);
       setStatus('');
       if (!result.loggedIn) setSettingsOpen(true);
-      else if (['codex', 'claude'].includes(settings.provider) && !models.length) setModels(await window.desktop.aiModels());
+      else if (['codex', 'claude'].includes(settings.provider) && !models.length) { setModels(await window.desktop.aiModels()); setSettings(await window.desktop.aiStatus()); }
     } catch (reason) {
       setError(reason.message);
       setSettingsOpen(true);
@@ -755,6 +790,7 @@ export default function AiAssistant({ bridge }) {
     try {
       await saveSettings();
       setModels(await window.desktop.aiModels());
+      setSettings(await window.desktop.aiStatus());
       setStatus('Available models loaded.');
     } catch (reason) {
       setError(reason.message);
@@ -864,7 +900,7 @@ export default function AiAssistant({ bridge }) {
               <select
                         className="ai-model ai-header-model"
                         aria-label="Chat model" data-hotkey="chat-model"
-                        title="The AI model that does the work. A change applies from the next message."
+                        title="The model for new jobs. Existing birds keep their assigned model."
                         value={settings.model || ''}
                         disabled={authBusy}
                         onChange={event => action(async () => setSettings(await window.desktop.aiModel(event.target.value)))}
@@ -911,7 +947,7 @@ export default function AiAssistant({ bridge }) {
                 type="button"
                 role="switch"
                 className="ai-icon-button ai-offload-switch"
-                aria-label="Editing handbook"
+                aria-label="Editing handbook" data-hotkey="handbook" data-hotkey-label="WC3 editing handbook"
                 aria-checked={!!settings.editingHandbook}
                 title={translate(HANDBOOK_TIP)}
                 onClick={() => action(async () => setSettings(await window.desktop.aiEditingHandbook(!settings.editingHandbook)))}
@@ -1105,6 +1141,25 @@ export default function AiAssistant({ bridge }) {
                           </option>
                         ))}
                       </datalist>
+                    </label>
+                    {!!settings.lighterModels?.length && (<>
+                      <label title="Use a lighter available model for exact value changes and factual reports. Shape or motion work asks first. Failed reviews hand over to the chosen model.">
+                        <input data-hotkey="allow-lighter" data-hotkey-label="Allow lighter models" type="checkbox" checked={settings.allowLighter === true} onChange={event => setSettings(previous => ({ ...previous, allowLighter: event.target.checked }))} />
+                        Allow lighter models for simple jobs
+                      </label>
+                      {settings.allowLighter && <label title="Choose from lighter models returned by this connection.">Lighter model
+                        <select aria-label="Lighter model" data-hotkey="lighter-model" value={settings.lightModel || settings.lighterModels[0].id} onChange={event => setSettings(previous => ({ ...previous, lightModel: event.target.value }))}>
+                          {settings.lighterModels.map(model => <option key={model.id} value={model.id}>{model.name || model.id}</option>)}
+                        </select>
+                      </label>}
+                    </>)}
+                    <label title="Manual sends to the current bird until you choose New job. Automatic uses a small text-only AI call for unaddressed messages. Both lets you choose in the composer.">
+                      Job routing
+                      <select aria-label="Job routing" data-hotkey="job-routing" value={settings.routing || 'manual'} onChange={event => setSettings(previous => ({ ...previous, routing: event.target.value }))}>
+                        <option value="manual">Manual</option>
+                        <option value="automatic">Automatic</option>
+                        <option value="both">Both</option>
+                      </select>
                     </label>
                     {!native && (
                       <label title="Optional. A prompt stops once it has cost about this much on your API key; progress is kept. Works for Anthropic models with known prices. Leave empty for no limit.">
@@ -1316,6 +1371,11 @@ export default function AiAssistant({ bridge }) {
                     </button>
                   </div>
                 )}
+                {modelQuestion && <div className="ai-resume" role="status">
+                  <span>{modelQuestion}</span>
+                  <button data-hotkey="keep-chosen" title="Use the chosen model for this job." onClick={() => send(false, 'chosen')}>Keep chosen model</button>
+                  <button data-hotkey="use-lighter" title="Allow the lighter model for this job only." onClick={() => send(false, 'light')}>Use lighter model</button>
+                </div>}
                 <div className="ai-composer">
                   {(summary || images.length > 0 || strokes.length > 0 || references.length > 0) && (
                     <div className="ai-chips">
@@ -1333,7 +1393,10 @@ export default function AiAssistant({ bridge }) {
                             </span>
                           )}
                           {summary.sequenceName != null && (
-                            <span className="ai-chip-muted">{` · ${summary.sequenceName} @ ${Math.round(summary.time)}`}</span>
+                            <span className="ai-chip-muted">
+                              {` · ${summary.sequenceName} @ `}
+                              <FrameLabel bridge={bridge} />
+                            </span>
                           )}
                           {summary.reference && (
                             <button
@@ -1502,6 +1565,14 @@ export default function AiAssistant({ bridge }) {
                       }}
                     />
                     <span className="ai-footer-end">
+                      {settings.offload !== false && !viewWorker && !readOnly && (
+                        <select aria-label="Job destination" data-hotkey="job-destination" title="Continue sends directly to the last bird. New job starts a fresh bird. Tiny job uses the shared bird for quick tasks. Automatic asks a small router to choose." disabled={busy} value={jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue')} onChange={event => setJobRoute(event.target.value)}>
+                          <option value="continue">Continue</option>
+                          {settings.routing !== 'automatic' && <option value="new">New job</option>}
+                          {settings.routing !== 'automatic' && <option value="tiny">Tiny job</option>}
+                          {settings.routing !== 'manual' && settings.routing && <option value="auto">Automatic</option>}
+                        </select>
+                      )}
                       <span className="ai-awareness">
                         <button
                           type="button"
@@ -1564,7 +1635,7 @@ export default function AiAssistant({ bridge }) {
           </section>,
           dock,
         )}
-      {cleanup &&
+      {cleanup && !visUI &&
         createPortal(
           <div ref={cleanupRoot} className="ai-cleanup-shade">
             <section className="ai-cleanup" role="dialog" aria-modal="true" aria-label="Tidy up AI chats" data-hotkey-prefix="ai-cleanup" data-hotkey-scope="ai-cleanup" data-hotkey-badges="false">
@@ -1603,3 +1674,6 @@ export default function AiAssistant({ bridge }) {
     </>
   );
 }
+// The editor re-renders ~30 times a second during playback; the console only
+// redraws when its own state or headerKey changes.
+export default React.memo(AiAssistant);
