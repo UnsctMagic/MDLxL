@@ -74,12 +74,14 @@ test('VIS hides tabs and editors, restores classic placements and hides AI while
   assert.match(classic, /data-vis-ui\]>\.classic-modules>\.editor-modules>button/);
   assert.match(classic, /data-vis-ui\]>\.classic-toolbar>\.toolbar-modules>:not\(\.vis-toggle\)/);
   assert.match(classic, /data-vis-ui\] \.ai-assistant\{display:none!important\}/);
-  assert.match(classic, /data-vis-ui\]>\.classic-modules\{grid-template-columns:minmax\(0,1fr\) 46px\}/);
+  assert.match(classic, /data-vis-ui\]>\.classic-modules\{grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto\}/);
   assert.match(app, /const visibleOverlays = visUI \? \{ \.\.\.storedOverlays, bones: true, helpers: true, attachments: true \}/);
   assert.match(app, /'Bones \u00b7 Rest pose'/);
   assert.equal((toolbar.match(/\{moduleDock\}/g) || []).length, 1, 'dock stays mounted once across VIS toggles');
   assert.doesNotMatch(toolbar, /\{!?visUI && moduleDock\}/);
-  assert.match(classic, /data-vis-ui\]>\.classic-toolbar>\.toolbar-modules\{position:absolute;top:calc\(100% \+ 3px\)/);
+  assert.doesNotMatch(classic, /data-vis-ui\][^{}]*toolbar-modules\{position:absolute/);
+  assert.match(classic, /data-vis-ui\]>\.classic-toolbar>\.toolbar-modules>\.vis-toggle\{width:auto!important;min-width:38px!important;height:23px!important/);
+  assert.match(classic, /data-vis-ui\]>\.classic-toolbar>\.toolbar-modules>\.vis-toggle>:not\(\.module-icon-badge\)\{display:none\}/);
   assert.match(toolbar, /\{visUI && teamPicker\}\n\s*\{visUI && inputStrength\}/);
 });
 
