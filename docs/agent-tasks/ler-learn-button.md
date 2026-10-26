@@ -1,6 +1,6 @@
 # LER button: Learn menu
 
-Status: completed implementation and local verification; ready to test; awaiting merge approval
+Status: Claude review (2026-10-26) found one actionable issue; back to Codex; not merged. See "Claude review: changes required" at the end.
 Follow-up PR: [#325](https://github.com/UnsctMagic/MDLxL/pull/325) (draft, same branch; not merged)
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
@@ -211,3 +211,72 @@ Done means:
   checked on the final pushed revision. Owner visible acceptance remains pending.
 - Existing Forge shortcut packaged regression also passes: held-Alt visibility,
   custom key assignments, normal/quad-view mouse rotation, editing and undo.
+
+## Claude review: changes required (2026-10-26)
+
+Reviewed head `02283e3e` (CI run 40343931617 green) across all five areas. Not
+merged because of one actionable issue. Everything else checked out; do not
+redesign it.
+
+### Finding: Show hotkeys re-measures every label ~30 times a second during playback
+
+- Where: [Hotkeys.jsx](../../app/Hotkeys.jsx) persistent-hint effect. The
+  observer at line ~297 watches `style` and `class` on the **whole app**
+  subtree (line ~309), and every record runs `update()` (line ~254).
+  `update()` loops all `.hotkey-control` elements twice, calls `visible()`
+  (`getClientRects` + `getComputedStyle`) on each, then `hintRect()` walks
+  every badge's ancestors with `getComputedStyle` and `getBoundingClientRect`,
+  which forces a layout after each DOM change.
+- Why it fires during playback: [Viewport.jsx:834](../../app/Viewport.jsx)
+  reports the frame every 32 ms, App re-renders, and the timeline cursor's
+  inline `style.left` changes ([KeyframeTimeline.jsx:246](../../app/KeyframeTimeline.jsx)).
+  That one style record triggers the full scan. The discovery pass's
+  `classList.add('hotkey-control')` can also queue `class` records after any
+  render that adds/removes children. With Show hotkeys **off** none of this runs
+  (held Alt only), so the cost is new and only reached when the owner turns it on.
+- Not covered: the packaged checks measured camera drags but no animation
+  playback with Show hotkeys on. Owner rule: measure real playback speed, not stills.
+- Claude could not measure it: running a probe on the hidden desktop was
+  refused by this session's permission check. The probe is left in the checkout
+  at `out/claude-review/playback-cost.cjs` (untracked). It opens the demo model
+  in the verified package, starts playback in Movement and logs fps, worst frame
+  and `getBoundingClientRect` calls per second for Show hotkeys off and on.
+
+### Expected behaviour
+
+Playback, scrubbing and camera drags run as smoothly with Show hotkeys on as
+off (no measurable fps drop, no long frames). Labels still follow focus,
+dialogs, detached windows, scroll and resize exactly as now.
+
+### Suggested narrow fix (Codex's choice; keep the display unchanged)
+
+Ignore mutation records that cannot change what the labels show, for example
+attribute records whose target neither is nor contains a `.hotkey-control`
+(the reel cursor contains none), and records caused by the badges themselves.
+Optionally batch to one `requestAnimationFrame` instead of a microtask. Do not
+change the held-Alt path, the label look, or availability rules.
+
+### Required checks
+
+- Run the probe (or an equivalent packaged test) on the hidden desktop: fps and
+  worst frame with Show hotkeys off vs on while playing, default and
+  `slow-cpu` variants. Record the numbers here.
+- Re-run hidden packaged `hotkey-badges`, `learn-menu`, `learn` and the Forge
+  shortcut test; confirm labels still update when a dialog opens/closes, a
+  detached window takes focus, and a scrolled list moves.
+- Full source suite, compatibility tests, build; CI green on the new head.
+
+### Checked and fine (no change needed)
+
+- LER box: three rows only; LER/outside click/Esc close; toggles keep it open;
+  allocator keys; Ctrl+J and hotkey-driven (untrusted) LER clicks still toggle
+  Learn mode; Learn settings opens Keyboard Shortcuts and scrolls to `#learn-settings`;
+  VIS keeps LER hidden; new-look styling scoped away from VIS.
+- Migration: `preferences.shredder` -> `learn` (new name wins), the
+  `shredder` id segment in custom keys, notebook `mdlxl-shredder-keycaps-v1`
+  copied once with the original kept on write failure; config import migrates too.
+- Learn.jsx / learn-keycaps.js are a pure rename of Shredder apart from the
+  migration; timing, placement, learning, muting and recovery are unchanged.
+- Labels: complete chords via `hotkeyHint`, `<wbr>` wrap at `+`, transparent,
+  no border, `pointer-events:none`, manual top layer, control sizes untouched.
+- UpdateShredder untouched.
