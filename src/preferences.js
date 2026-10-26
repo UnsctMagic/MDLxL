@@ -279,6 +279,13 @@ export function isTextEditingTarget(target) {
   if (tag === 'input') return !['checkbox', 'radio', 'button', 'submit', 'reset', 'image'].includes(String(target.type || 'text').toLowerCase());
   return ['textarea', 'select'].includes(tag);
 }
+export function isTypingTarget(target) {
+  if (!target) return false;
+  if (target.isContentEditable || target.closest?.('[contenteditable="true"], [role="textbox"], [data-hotkey-recording]')) return true;
+  const tag = String(target.tagName || '').toLowerCase();
+  if (tag === 'input') return !['checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'range', 'color'].includes(String(target.type || 'text').toLowerCase());
+  return tag === 'textarea';
+}
 function isNativeControlKey(event, chord) {
   const target = event.target;
   const tag = String(target?.tagName || '').toLowerCase(), type = String(target?.type || '').toLowerCase();
@@ -290,6 +297,9 @@ function isNativeControlKey(event, chord) {
 export function canHandleHotkeyEvent(event, action = {}) {
   const chord = chordFromEvent(event);
   if (!chord || event.defaultPrevented || event.repeat && !action.repeat) return false;
+  // Space means playback: a clicked checkbox, button, slider or list keeps focus
+  // but must not take Space from play. Only typing fields keep their space.
+  if (chord === 'Space' && action.id === 'play' && !isTypingTarget(event.target)) return action.enabled !== false && (typeof action.enabled !== 'function' || action.enabled());
   // A focused toggle remains shortcut-addressable, while its native activation/navigation keys keep their usual meaning.
   if (isNativeControlKey(event, chord)) return false;
   if (isTextEditingTarget(event.target) && !action.allowInInput) return false;

@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import useMovableWindow from './useMovableWindow.js';
+import { isTypingTarget } from '../src/preferences.js';
 import { ANIMXL_DEFAULTS, animXLNodes, applyAnimXL, buildAnimXL, suggestAnimXLBones } from '../src/anim-xl.js';
 import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { Matrix4, Quaternion, Vector3 } from 'three';
@@ -522,7 +523,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   return <div className="resource-editor anim-xl" onKeyDown={event => {
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); if (picking) setPicking(null); else onClose(); }
-    if (event.key === ' ' && !['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(event.target.tagName)) { event.preventDefault(); setPlaying(v => !v); }
+    if (event.key === ' ' && !isTypingTarget(event.target)) { event.preventDefault(); setPlaying(v => !v); }
     if ((event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) { event.preventDefault(); undoSettings(event.key.toLowerCase() === 'y' || event.shiftKey); }
   }}>
     <section ref={dialog} style={movable.style} tabIndex={-1} className="re-window ax-window" role="dialog" aria-modal="true" aria-label="AnimXL">
