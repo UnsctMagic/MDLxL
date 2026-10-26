@@ -381,7 +381,8 @@ export default function App() {
   // Each error gets a new alert number so the status bar flashes again even when the same error repeats.
   const say = (message, error = false) => { setStatus((error ? 'Error: ' : '') + message); setStatusAlert(count => error ? count + 1 : 0); };
   const selectBackground = value => { setBackground(value); localStorage.setItem('mdlvis-preview-background', value); };
-  const backgroundLibrary = usePreviewBackgrounds(mode === 'animation' || mode === 'showcase', background, selectBackground, say);
+  // Backgrounds belong to Showcase only; the editors always show the plain view.
+  const backgroundLibrary = usePreviewBackgrounds(mode === 'showcase', background, selectBackground, say);
   const {validSelection,selectionCount,centroid,totalVertices,totalFaces,selectedFaces} = useMemo(() => {
     const validSelection = filterVertexSelection(selection, selectable, model);
   const selectionCount = Object.values(validSelection).reduce((sum, ids) => sum + ids.length, 0);
@@ -1714,7 +1715,7 @@ export default function App() {
         selectedGeoset={activeGeoset} selectionByGeoset={validSelection} visibleGeosets={displayedGeosets} selectableGeosets={selectable}
         onSelectionChange={next=>setSelection(filterVertexSelection(next,selectable,doc.model))} hiddenGeosets={hiddenGeosets} modelPath={session.path}
         mode={cleanView ? 'textured' : viewRenderMode} shaded={shaded} showGrid={cameraPortraitActive ? false : showGrid} showAxes={cameraPortraitActive ? false : showAxes} workplane={workplane}
-        backgroundUrl={backgroundLibrary.url} backgroundType={backgroundLibrary.type} onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]}
+        onCaptureReady={setCaptureAPI} timelineInterval={[animationDomain.start,animationDomain.end]}
         overlays={cameraPortraitActive ? portraitOverlays : panelOverlays} loop={previewLoop} hoveredGeoset={highlightedFromSelection}
         preferences={preferences} onSensitivityChange={changeSensitivity} onPointerSensitivityChange={changePointerSensitivity} onCameraModeToggle={toggleMiddleCamera}
         suspended={previewSuspended} key={session.id} model={previewModel} revision={doc.revision}

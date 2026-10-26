@@ -117,7 +117,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.ok(limb.x > body.x ? b.x - c.x > limb.x + 25 : b.x - c.x + b.width < limb.x - 25, 'Pin stays on the outside of the limb');
       const before = await snap(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 }); assert.deepEqual(await pin.boundingBox(), b);
       await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); await paint(); assert.deepEqual(await pin.boundingBox(), b); assert.deepEqual(await snap(), before);
-      await pin.press('Space'); await paint(); assert.deepEqual(await snap(), before);
+      await pin.press('Enter'); await paint(); assert.deepEqual(await snap(), before);
       await shot('outward-pin-' + turn);
       const cameraBefore = await page.evaluate(() => poseProbe().runtime.controls.object.position.toArray());
       await page.keyboard.down('Alt'); await page.mouse.move(c.x + 70, c.y + 90); await page.mouse.down(); await page.mouse.move(c.x + 155, c.y + 110, { steps: 8 }); await page.mouse.up(); await page.keyboard.up('Alt'); await paint();

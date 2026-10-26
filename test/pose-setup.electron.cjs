@@ -164,9 +164,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
         assert.deepEqual(JSON.parse(blockers),[{kind:'endpoint',key:'limb:27'}],'only the pinned hoof blocking this move is pinged');
         assert.deepEqual(await snap(),before,'ping adds no document or history changes');await shot('05-red-blocker-crosshair');
         if(process.env.MDLXL_POSE_CROSSHAIR_TOGGLE) {
-          await crosshair.press('Space');await settle();assert.equal(await crosshair.getAttribute('aria-pressed'),'false');assert.equal(await crosshair.locator('svg').evaluate(e=>getComputedStyle(e).color),'rgb(0, 0, 0)');
+          await crosshair.press('Enter');await settle();assert.equal(await crosshair.getAttribute('aria-pressed'),'false');assert.equal(await crosshair.locator('svg').evaluate(e=>getComputedStyle(e).color),'rgb(0, 0, 0)');
           assert.deepEqual(JSON.parse(await page.locator('[data-node-overlay]').getAttribute('data-pose-blockers')),[]);assert.deepEqual(await snap(),before);await shot('06-black-toggle-no-ping');
-          await crosshair.press('Space');await settle();assert.equal(await crosshair.getAttribute('aria-pressed'),'true');
+          await crosshair.press('Enter');await settle();assert.equal(await crosshair.getAttribute('aria-pressed'),'true');
         }
 
         await page.mouse.up();await menu('undo');await settle();assert.deepEqual((await snap()).model,initial.model);

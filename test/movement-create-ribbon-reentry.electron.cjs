@@ -8,7 +8,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const root = process.cwd(), out = path.join(root, 'out/movement-create-ribbon-reentry');
   fs.mkdirSync(out, { recursive: true });
   const { createDemoDocument } = await import('../src/editor-document.js');
-  const { createStarterRecipe, starterTextureAsset, STARTER_TEXTURE, RIBBON_TEXTURE } = await import('../src/particle-starters.js');
+  const { createStarterRecipe, STARTER_TEXTURE, RIBBON_TEXTURE } = await import('../src/particle-starters.js'), { starterTextureAsset } = await import('./starter-picture.js');
   const { placeParticleRecipe } = await import('../src/particle-recipes.js');
   const doc = createDemoDocument(), empty = path.join(out, 'No-effects.mdx');
   fs.writeFileSync(empty, doc.serialize('mdx'));

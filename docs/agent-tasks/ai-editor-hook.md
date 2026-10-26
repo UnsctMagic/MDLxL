@@ -1,6 +1,6 @@
 # AI editor hook
 
-Status: ready for review; awaiting merge approval
+Status: completed — merged in PR #287 and #291, shipped in 0.31.0
 Owner: Codex / Add AI integration to MDLxL; review fixes by Claude (session_01AvQdnF8d6Q4Km3pPERhTpy)
 Updated: 2026-10-24
 

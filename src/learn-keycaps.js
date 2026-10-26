@@ -26,8 +26,8 @@ export function readLearnNotebook(storage) {
 }
 const HOUR = 60 * 60 * 1000, MAX_KEYS = 3000, MAX_ID = 300;
 
-/** TEST VERSION: reminders are on by default. Switch to false before release. */
-export const LEARN_TEST_VERSION = true;
+/** Learn mode ships off by default (owner decision, 0.33.0); true only for hand-test builds. */
+export const LEARN_TEST_VERSION = false;
 
 export const LEARN_POSITIONS = Object.freeze(['control', 'bottom', 'top', 'bottom-right', 'bottom-left']);
 export const LEARN_SIZES = Object.freeze(['small', 'medium', 'large']);

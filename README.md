@@ -1,4 +1,4 @@
-# MDLxL 0.32.1
+# MDLxL 0.33.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.32.1 puts the Bones and Attachment chips back in the top row of the Bones editor, so bones can be turned back on after Clear. Version 0.32.0 lets the AI work in the background, with several AI jobs at once (one per model tab), and finds Codex and Claude Code on any Windows PC. It also adds separate MDL and MDX file icons, opens UV Wrapper facing the front, keeps the Quad View toolbar off the pane labels and makes dropdowns follow the theme.
+Version 0.33.0 adds the Learn menu with shortcut letters on every control, Alt-then-key shortcuts, Create in Movement, the Auto Corpse test button and per-editor Rotation settings. Space always plays or stops, EMTR opens on existing effects, new effects use stock game textures, VIS is the classic MDLVis layout again and Recovery keeps at most 15 drafts. The AI costs less (caching, limits, cost per prompt) and gains an optional Editing handbook.
 
 ## Releases
 
@@ -41,7 +41,7 @@ Releases are built by GitHub Actions; see [docs/AUTO_UPDATES.md](docs/AUTO_UPDAT
 
 ## Add-ons and notices
 
-The **AI** icon (first in the module dock, next to XL in VIS) connects Codex, Claude or a compatible API to model edits,
+The **AI** icon (first in the module dock; hidden in VIS) connects Codex, Claude or a compatible API to model edits,
 live selections, animation, viewport inspection and program help. External AI clients
 can use the same tools over MCP. See [AI setup and tools](docs/AI-HOOK.md).
 
@@ -51,6 +51,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.33.0](docs/RELEASE-0.33.0.md) ([ES](docs/RELEASE-0.33.0-ES.md), [RU](docs/RELEASE-0.33.0-RU.md), [ZH-CN](docs/RELEASE-0.33.0-ZH-CN.md))
 - [0.32.1](docs/RELEASE-0.32.1.md) ([ES](docs/RELEASE-0.32.1-ES.md), [RU](docs/RELEASE-0.32.1-RU.md), [ZH-CN](docs/RELEASE-0.32.1-ZH-CN.md))
 - [0.32.0](docs/RELEASE-0.32.0.md) ([ES](docs/RELEASE-0.32.0-ES.md), [RU](docs/RELEASE-0.32.0-RU.md), [ZH-CN](docs/RELEASE-0.32.0-ZH-CN.md))
 - [0.31.0](docs/RELEASE-0.31.0.md) ([ES](docs/RELEASE-0.31.0-ES.md), [RU](docs/RELEASE-0.31.0-RU.md), [ZH-CN](docs/RELEASE-0.31.0-ZH-CN.md))

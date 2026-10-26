@@ -1,6 +1,6 @@
 # Create animation from Movement; reopen existing ribbons in EMTR
 
-Status: ready for review; awaiting merge approval
+Status: completed — merged in PR #331 (98d5842b), shipped in 0.33.0
 Owner / consolidator: Codex (implementer); owner approves merge
 Updated: 2026-10-26
 
