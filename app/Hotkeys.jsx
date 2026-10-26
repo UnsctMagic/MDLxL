@@ -294,7 +294,17 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       if (!queued) { queued = true; queueMicrotask(refresh); }
     };
     const documents = new Set([document]);
-    const observer = new MutationObserver(() => schedule());
+    const hasHint = element => element?.nodeType === 1 && (element.matches('.hotkey-control,[data-hotkey-badge]') || element.querySelector('.hotkey-control,[data-hotkey-badge]'));
+    const affectsHints = record => {
+      if (record.type === 'attributes') {
+        // Ignore our positioning writes and unchanged discovery classes, without
+        // measuring controls for unrelated animation/cursor style changes.
+        if (record.target.matches('[data-hotkey-badge]') || record.oldValue === record.target.getAttribute(record.attributeName)) return false;
+        return hasHint(record.target);
+      }
+      return hasHint(record.target) || [...record.addedNodes, ...record.removedNodes].some(hasHint);
+    };
+    const observer = new MutationObserver(records => { if (!persistent || records.some(affectsHints)) schedule(); });
     const observe = () => {
       observer.disconnect();
       const next = new Set([document, ...controlRoots().map(element => element.ownerDocument)]);
@@ -306,7 +316,7 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
       for (const doc of next) {
         documents.add(doc); doc.addEventListener('focusin', schedule, true); doc.addEventListener('scroll', schedule, { capture: true, passive: true }); doc.defaultView?.addEventListener('focus', schedule); doc.defaultView?.addEventListener('resize', schedule);
       }
-      for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'aria-disabled', 'hidden', 'inert', 'open', 'class', 'style', 'data-hotkey', 'data-hotkey-window', 'aria-modal'] });
+      for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeOldValue: persistent, attributeFilter: ['disabled', 'aria-disabled', 'hidden', 'inert', 'open', 'class', 'style', 'data-hotkey', 'data-hotkey-window', 'aria-modal'] });
       schedule();
     };
     observe(); window.addEventListener('mdlxl-detached-root', observe);
