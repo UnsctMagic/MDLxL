@@ -81,10 +81,15 @@ the first one. The bird has its own environment for its model tab:
   picture can also be a close-up of the marked vertices, for small spots such as
   a joint or a seam. While a job runs MDLxL keeps drawing even when its window is
   covered or minimized, so pictures still work while you use another program.
-- **Binding rules.** Every chat is told Warcraft III's binding rules: matching
-  bones where pieces touch or continue, many-part pieces bound as one, joints
-  blended between both bones, and layers such as a skirt, armour or hair sharing
-  bones with the body under them so neither passes through the other.
+- **Binding rules.** Every chat is told how Blizzard's artists bind, measured
+  from all 415 SD unit models (see the [reference study](AI-SD-REFERENCE-STUDY.md#binding-vertex-groups)):
+  how the game averages a vertex's bones, how many bones a vertex usually has,
+  continuous blending across a surface, identical bones at seams, joint rings,
+  the Demoness hips and the Sorceress dress, layers taking the bones of the body
+  under them, hair and cape chains, the helper skeleton, and how to check it.
+- **Older chats keep working.** After an update or an SD Brain switch the AI's
+  tool list changes and Claude refuses its earlier reasoning; MDLxL then drops
+  that reasoning from finished turns and asks again.
 - **Its own selection and drawings.** The selection and Marker/Pen notes are taken
   when you send the prompt; what you select or draw on another tab does not change
   them. When you switch to the bird's tab you see the selection it left there.
