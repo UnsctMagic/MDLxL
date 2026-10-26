@@ -120,7 +120,7 @@ Updated: 2026-10-24 (complete pass)
 ## UI recomposition — 2026-10-26
 
 - Current follow-up: Codex chat UI RECOMP, branch `codex/ui-recomposition`,
-  PR #319. Ready for visual review; merge requires owner approval.
+  PR #319. Owner approved merging on 2026-10-26. Final correction removes the redundant active-editor name from the status bar, preserving modified/unsaved and contextual hints.
 - Current owner correction supersedes the earlier centred layout: the WC3
   dock is right-aligned in the top row. Team colour follows the editing icons
   immediately before Hide/Show. Quick Display stays beside the editor buttons;
