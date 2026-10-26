@@ -138,3 +138,7 @@ Updated: 2026-10-24 (complete pass)
   this positioning-only correction. CI runs the full suites on the updated PR.
 - No model-data or installed-app/profile changes. Owner visual acceptance
   remains pending; screenshot-only build and profile are disposable.
+
+Follow-up: visibility shortcut names stay visible at smaller window widths. Removed icon-only compaction; existing editor-row horizontal scrolling handles overflow.
+
+Responsive editors: measure the full row before compacting. Only when full names would overflow, inactive editors show their first letter; the active editor retains its full name. Full accessible names/tooltips remain. Verified narrow/wide resize, threshold crossings and active-editor switches; build and four focused tests passed.
