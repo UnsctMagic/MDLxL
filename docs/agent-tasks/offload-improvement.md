@@ -1,6 +1,6 @@
 # Offload Mode (birds): keep the benefit, remove the overhead
 
-Status: implemented, merged with current main and verified; ready for review, awaiting merge approval
+Status: completed — merged to main in PR #322 (`2dc0c52c`); Offload console controls got shortcut keys in the follow-up handbook-hotkey PR
 Owner / consolidator: Codex (written by Claude Code after reviewing the current design with the owner)
 Updated: 26 October 2026
 
