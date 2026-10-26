@@ -39,7 +39,7 @@ test('quick display follows editor buttons; WC3 dock is above the full-width tab
   const editor=bar.slice(bar.indexOf('<div className="editor-modules"'),bar.indexOf('<div className="module-divider"'));
   assert.match(toolbar,/\{moduleDock\}/);
   assert.doesNotMatch(toolbar,/quickDisplay/);
-  assert.ok(editor.indexOf('RGB preview animation')<editor.indexOf('{quickDisplay}'));
+  assert.doesNotMatch(editor,/RGB Preview|RGB preview animation/);
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);

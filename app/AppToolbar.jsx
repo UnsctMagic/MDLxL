@@ -26,9 +26,9 @@ function PressedKeysTool({ active, onClick, icon }) {
 export default function AppToolbar({
   activateSession, animationPanel, cameraMode, changePreferences, clearDisplay, commandEnabled, commands, copy,
   dialog, displayMode, doc, inputStrength, menuChecks, mode, model, open, openLibrary,
-  openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources, rgbPreview,
-  rgbSequence, runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, session,
-  sessionDirty, sessions, setCameraMode, setDialog, setRGBPreview, setRGBSequence, setRenderMode,
+  openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources,
+  runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, session,
+  sessionDirty, sessions, setCameraMode, setDialog, setRenderMode,
   setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, undo, visUI, aiControl
 }) {
   const editorRow = useRef(null);
@@ -93,7 +93,6 @@ export default function AppToolbar({
         <button data-hotkey="animations" aria-pressed={mode === 'animation' && animationPanel === 'animations'} onClick={() => selectAnimationPanel('animations')} title="Animations" aria-label="Animations"><span className="editor-name">Animations</span><span className="editor-initial" aria-hidden="true">A</span></button>
         <button data-hotkey="paint" aria-pressed={mode === 'paint'} disabled={!commandEnabled('paint')&&mode!=='paint'} onClick={() => commands.current.paint()} title={paintMessage('paint.module')} aria-label={paintMessage('paint.module')}><span className="editor-name">{paintMessage('paint.module')}</span><span className="editor-initial" aria-hidden="true">{paintMessage('paint.module').slice(0, 1)}</span></button>
         <button aria-pressed={mode === 'showcase'} onClick={() => selectMode('showcase')} title="Showcase" aria-label="Showcase"><span className="editor-name">Showcase</span><span className="editor-initial" aria-hidden="true">S</span></button>
-        {mode === 'vertices' && <><label className="check"><input type="checkbox" aria-label="RGB Preview" checked={rgbPreview} onChange={event=>{setRGBPreview(event.target.checked);if(rgbSequence<0 && model.Sequences.length)setRGBSequence(0);}}/>RGB Preview</label><select aria-label="RGB preview animation" disabled={!rgbPreview} value={rgbSequence} onChange={event=>setRGBSequence(Number(event.target.value))}><option value={-1}>Static RGB</option>{model.Sequences.map((item,index)=><option key={index} value={index}>{item.Name}</option>)}</select></>}
         {quickDisplay}
       </div>
       <div className="module-divider" aria-hidden="true"/>
