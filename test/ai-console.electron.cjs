@@ -150,7 +150,11 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await page.waitForTimeout(1500);
   const canvas = page.locator('.classic-view canvas').first();
   const shot = name => page.screenshot({ path: path.join(out, name + '.png') });
-  const viewShot = () => canvas.screenshot();
+  // Shredder's shortcut reminders float over the viewport for a few seconds; compare the view without them.
+  const viewShot = async () => {
+    await page.waitForFunction(() => !document.querySelector('.shredder-keycap'), null, { timeout: 15000 }).catch(() => {});
+    return canvas.screenshot();
+  };
   const drawings = () =>
     page.evaluate(() => {
       const chip = [...document.querySelectorAll('.ai-chip')].find(c => /drawing/.test(c.textContent));
@@ -318,10 +322,10 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   // Prompt with drawings: the organiser hands it to Crow; watch and steer Crow.
   await page.getByLabel('AI prompt').fill('Cut the marked area into its own geoset');
   await page.getByLabel('AI prompt').press('Enter');
-  await page.waitForSelector('.ai-worker-row', { timeout: 15000 });
+  await page.waitForSelector('.ai-worker-row', { timeout: 15000 }).catch(async error => { console.log('SEND FAILURE', await page.locator('.ai-assistant').innerText()); throw error; });
   await shot('05-organiser');
   const context = JSON.parse(
-    organiserRequests[0].messages
+    workerRequests[0].messages
       .find(m => m.role === 'user')
       .content[0].text.split('MDLxL context captured when this prompt was sent:\n')[1],
   );
@@ -330,20 +334,20 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const markerNote = annotations.strokes.find(s => s.tool === 'marker');
   check('the marker names the vertices it covers', Object.values(markerNote.markedVertices || {}).flat().length > 0, markerNote);
   check('the user message notes the attached drawings', (await page.locator('.ai-role-user .ai-message-note').first().innerText()).includes('2 drawings'));
-  check('the organiser only gets the worker and help tools', JSON.stringify(organiserRequests[0].tools.map(t => t.function.name)) === '["mdlxl_worker","mdlxl_help"]');
+  check('no organiser request is made for the job', organiserRequests.length === 0);
   // Names are random; the first bird of a chat is always a corvid.
   const bird = await page.locator('.ai-worker-row b').first().innerText();
   check('the first bird is a random corvid', ['Crow', 'Raven', 'Jackdaw', 'Rook', 'Magpie', 'Jay'].includes(bird), bird);
   const crowChip = page.locator('button.ai-roster-chip', { hasText: bird });
   await crowChip.waitFor({ timeout: 10000 });
   for (let i = 0; i < 100 && !workerRequests.length; i++) await wait(100);
-  check("Crow gets the user's words exactly as written", JSON.stringify(workerRequests[0].messages).includes("The user's message, exactly as written:\\nCut the marked area into its own geoset"));
+  check("Crow gets the user's words exactly as written", JSON.stringify(workerRequests[0].messages).includes("Cut the marked area into its own geoset"));
   check('the model picker and Offload switch sit in the console header', (await page.locator('.ai-heading select[aria-label="Chat model"]').count()) === 1 && (await page.locator('.ai-heading [role="switch"][aria-label="Offload Mode"]').getAttribute('aria-checked')) === 'true');
   const modelPicker = page.locator('.ai-heading select[aria-label="Chat model"]');
   check('the model dropdown stays readable and usable while the AI works', (await modelPicker.boundingBox()).width >= 80 && !(await modelPicker.isDisabled()), await modelPicker.boundingBox());
   // SD Brain is parked: no switch and nothing about it in what the AI receives.
   check('the parked SD Brain has no header switch', (await page.locator('.ai-heading [role="switch"][aria-label="SD Brain"]').count()) === 0);
-  check('the first task carries no SD Brain text', !/SD Brain|Warcraft III SD modeling rulebook/.test(organiserRequests[0].messages[0].content));
+  check('the first task carries no SD Brain text', !/SD Brain|Warcraft III SD modeling rulebook/.test(workerRequests[0].messages[0].content));
   check('each bird has its own colour', /hsl\(/.test((await crowChip.getAttribute('style')) || ''));
   await crowChip.click();
   await page.waitForSelector('.ai-from-organiser', { timeout: 5000 });
@@ -425,9 +429,10 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('returning to the tab resumes the bird', workerRequests.length === 7);
   await page.waitForFunction(() => !document.querySelector('.ai-stop'), null, { timeout: 30000 });
   check('the pause banner clears', (await page.locator('.ai-paused').count()) === 0);
-  await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('kept the shoulder pads'), null, { timeout: 10000 });
-  check('the organiser reports when Crow is done', (await page.locator('.ai-worker-row.ai-worker-done').count()) === 1);
+  await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('keep the shoulder pads in the original geoset'), null, { timeout: 10000 });
+  check('the bird report reaches the organiser view once without a recap', organiserRequests.length === 0 && (await page.locator('.ai-worker-row.ai-worker-done').count()) === 1);
   await crowChip.click();
+  await page.waitForSelector('.ai-from-organiser');
   await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('keep the shoulder pads in the original geoset'), null, { timeout: 10000 });
   check('every tool step settles once the AI finishes', (await page.locator('.ai-step').count()) >= 6 && (await page.locator('.ai-step-running').count()) === 0 && (await page.locator('.ai-step-done').count()) >= 1);
   const order = await page.evaluate(() =>

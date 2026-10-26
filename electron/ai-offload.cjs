@@ -85,6 +85,7 @@ class AiRecorder {
   }
   event(value) {
     const reply = this.reply;
+    if (value.type === 'request') return;
     if (value.type === 'text' || value.type === 'thinking') {
       if (!value.text) return;
       if (value.type === 'text') reply.text += value.text;
@@ -107,8 +108,8 @@ class AiRecorder {
       if (part) Object.assign(part, { status: value.error ? 'error' : 'done', summary: value.summary });
     } else if (value.type === 'worker') {
       const part = this.parts().findLast(p => p.type === 'worker' && p.workerId === value.workerId && p.status === 'working');
-      if (part && value.status !== 'working') Object.assign(part, { status: value.status, report: value.report });
-      else if (!part) reply.parts.push({ type: 'worker', workerId: value.workerId, name: value.name, job: value.job, status: value.status });
+      if (part && value.status !== 'working') Object.assign(part, { status: value.status, report: value.report, cost: value.cost, model: value.model, light: value.light });
+      else if (!part) reply.parts.push({ type: 'worker', workerId: value.workerId, name: value.name, job: value.job, status: value.status, region: value.region, model: value.model, light: value.light });
     } else if (value.type === 'art') {
       // SD Brain's art brief: a row that fills in once the brief is written.
       const part = reply.parts.findLast(p => p.type === 'art' && p.status === 'running');
@@ -116,7 +117,7 @@ class AiRecorder {
       else reply.parts.push({ type: 'art', status: value.status, text: value.text || '' });
     } else if (value.type === 'cost') {
       // What the prompt has spent so far, kept with the reply it belongs to.
-      reply.cost = { usd: value.usd, tokens: value.tokens };
+      reply.cost = { usd: value.usd, tokens: value.tokens, model: value.model, light: value.light, ...(value.roles ? { roles: value.roles } : {}) };
     } else if (value.type === 'usage') {
       if (value.used > 0 && value.window > 0) this.conversation.usage = { used: value.used, window: value.window };
       return;
