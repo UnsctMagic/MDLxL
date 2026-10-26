@@ -32,10 +32,10 @@ const {
   settleConversation,
 } = require('./ai-offload.cjs');
 
-// Most a single API prompt may spend, in US$, unless the user sets another (0 = no limit).
-const DEFAULT_SPEND_LIMIT = 5;
-function spendLimitOf(config) {
-  return typeof config.spendLimit === 'number' ? config.spendLimit : DEFAULT_SPEND_LIMIT;
+// Optional per-prompt limits the user can set: dollars (API) and tool rounds. 0 = none.
+const LIMITS = { spendLimit: 'Enter a spending limit in dollars, or leave it empty for none.', stepLimit: 'Enter a number of steps, or leave it empty for none.' };
+function limitOf(config, name) {
+  return typeof config[name] === 'number' ? config[name] : 0;
 }
 
 class AiService {
@@ -115,7 +115,8 @@ class AiService {
       running: this.runningChats(),
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
-      spendLimit: spendLimitOf(config),
+      spendLimit: limitOf(config, 'spendLimit'),
+      stepLimit: limitOf(config, 'stepLimit'),
       sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
     };
@@ -152,12 +153,13 @@ class AiService {
   }
   async configure(input) {
     const config = await this.configuration();
-    // The spending limit can change at any time; a running prompt keeps the one it started with.
-    if (input.spendLimit !== undefined && input.spendLimit !== '') {
-      const limit = Number(input.spendLimit);
-      if (!Number.isFinite(limit) || limit < 0 || limit > 10000) throw Error('Enter a spending limit in dollars, or 0 for none.');
-      if (limit !== spendLimitOf(config)) {
-        config.spendLimit = limit;
+    // Limits can change at any time; a running prompt keeps the ones it started with.
+    for (const [name, message] of Object.entries(LIMITS)) {
+      if (input[name] === undefined) continue;
+      const limit = input[name] === '' || input[name] === null ? 0 : Number(input[name]);
+      if (!Number.isFinite(limit) || limit < 0 || limit > 100000) throw Error(message);
+      if (limit !== limitOf(config, name)) {
+        config[name] = limit;
         await this.persist();
       }
     }
@@ -205,7 +207,12 @@ class AiService {
   }
   async settings() {
     const c = await this.configuration();
-    return { provider: c.provider, spendLimit: spendLimitOf(c), ...c.providers?.[c.provider] };
+    return {
+      provider: c.provider,
+      spendLimit: limitOf(c, 'spendLimit'),
+      stepLimit: limitOf(c, 'stepLimit'),
+      ...c.providers?.[c.provider],
+    };
   }
   emit(value) {
     const win = this.getWindow();

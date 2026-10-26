@@ -1081,14 +1081,28 @@ export default function AiAssistant({ bridge }) {
                       </datalist>
                     </label>
                     {!native && (
-                      <label title="An API prompt stops once it has cost about this much, so one request can never run up a large bill. Progress is kept. 0 means no limit. Applies to Anthropic models with known prices.">
+                      <label title="Optional. A prompt stops once it has cost about this much on your API key; progress is kept. Works for Anthropic models with known prices. Leave empty for no limit.">
                         Spending limit per prompt ($)
                         <input
                           type="number"
                           min="0"
                           step="1"
-                          value={settings.spendLimit ?? 5}
+                          placeholder="No limit"
+                          value={settings.spendLimit || ''}
                           onChange={event => setSettings(previous => ({ ...previous, spendLimit: event.target.value }))}
+                        />
+                      </label>
+                    )}
+                    {settings.provider !== 'codex' && (
+                      <label title="Optional. A prompt stops after this many AI steps (each look, edit or check is a step); progress is kept. Leave empty for the usual maximum.">
+                        Step limit per prompt
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="Default"
+                          value={settings.stepLimit || ''}
+                          onChange={event => setSettings(previous => ({ ...previous, stepLimit: event.target.value }))}
                         />
                       </label>
                     )}

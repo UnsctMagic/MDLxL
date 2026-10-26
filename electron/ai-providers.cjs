@@ -79,8 +79,8 @@ function toolDetail(input) {
     return '';
   }
 }
-// One prompt may take at most this many tool rounds; each round costs a request.
-const API_STEP_LIMIT = 30;
+// One prompt may take at most this many tool rounds unless the user sets a step limit.
+const API_STEP_LIMIT = 64;
 // Anthropic API list prices in US$ per million tokens (checked 2026-10). Cache
 // writes cost 1.25x input. Unlisted models show tokens only and have no limit.
 const ANTHROPIC_PRICES = {
@@ -159,7 +159,8 @@ async function runApi({
       );
   };
   let awarenessVersion = awareness?.version;
-  for (let step = 0; step < API_STEP_LIMIT; step++) {
+  const steps = settings.stepLimit > 0 ? settings.stepLimit : API_STEP_LIMIT;
+  for (let step = 0; step < steps; step++) {
     if (signal.aborted) throw Error('AI request cancelled.');
     if (awareness?.enabled && awareness.version !== awarenessVersion) {
       history.push({ role: 'user', content: [{ type: 'text', text: awarenessText(awareness.snapshot()) }] });
@@ -395,7 +396,7 @@ async function runApi({
         });
     }
   }
-  throw Error(`The AI used ${API_STEP_LIMIT} tool rounds. Progress is retained; send another prompt to continue.`);
+  throw Error(`The AI used ${steps} tool rounds. Progress is retained; send another prompt to continue.`);
 }
 
 class CodexProcess {
@@ -719,7 +720,7 @@ async function runClaude({
       instructions,
     ];
     if (settings.model) args.push('--model', settings.model);
-    args.push('--max-turns', String(API_STEP_LIMIT));
+    if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
     const env = providerEnvironment(directory, 'claude');
     // Worker jobs and pauses outlast Claude Code's default MCP tool timeout.
