@@ -1,6 +1,6 @@
 # MdlVis-style Rotate drag
 
-Status: active — implementation complete; final packaged verification running
+Status: ready to test — verified; awaiting owner testing and merge approval
 Owner / consolidator: Codex (implementation); Claude Code (project lead, review)
 Updated: 2026-10-26
 
@@ -49,7 +49,8 @@ panels or toolbars. Do not add a settings page for this.
 - The source contract was untracked in the owner's checkout on
   `claude/update-usage-ping` at `fabf4f8d`; it was copied into this branch.
   The owner's source files and installed app/profile were not changed.
-- PR into `main` with a `Session:` line: pending packaged verification.
+- Implementation/test revision: `dfbfc4e9fb567ab2aca39b219b944db8d448bf60`.
+- PR into `main` with a `Session:` line: being opened; no merge authorized.
 - Keep the Current tasks entry while owner testing and merge approval remain.
 
 ## Relevant owners
@@ -119,7 +120,10 @@ panels or toolbars. Do not add a settings page for this.
   from front/back/perspective, tips/shafts, bare markers, both pivot sides on
   workplanes, left/up motion, a closed circular path, snapping, sensitivity,
   cancellation, one-step undo, live labels and actual Alt+mouse camera rotation.
-  Packaged result: corrected run in progress; do not claim acceptance yet.
+  Packaged result: **341 checks passed, zero failures and zero renderer errors**.
+  Confirmed one hidden window, no popups, and actual Alt+mouse camera rotation
+  with Workplane both off and on. Bundle SHA-256:
+  `0d0864b6813d0b7e7f07d60714c71b77b27d5e9ca1dfeac50a37b3d25905cc87`.
 - Harness finding: Undo reconstructs the native renderer at frame zero before
   evaluating frame 500. The first run sampled initialization matrices after a
   fixed 100 ms delay. The corrected harness waits for the requested evaluated
@@ -127,13 +131,13 @@ panels or toolbars. Do not add a settings page for this.
   baseline matrix to return before starting the next drag. Production rendering
   behavior was not changed for these harness readiness fixes.
 - Evidence is retained under `D:\Codex\mdlvis-rotate-drag\results`.
-  Disposable package, profiles, fixture and task processes are removed after
-  verification. Finished worktree is removed after pushing.
+  Disposable package, profiles and fixture were removed after verification;
+  test processes exited. Finished worktree is removed after pushing.
 
 ## Blockers and next action
 
-- No product blocker. Finish corrected packaged checks, record PR/revision and
-  leave the branch unmerged for owner testing.
+- No implementation or automated-test blocker. Open the PR, retain the small
+  report/log/capture, and leave the branch unmerged for owner testing.
 - Owner acceptance is still required: animate a floating sword and shield.
   HerrDave's MdlVis recording and native Warcraft III acceptance were not part
   of this run.
