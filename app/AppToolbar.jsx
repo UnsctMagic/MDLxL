@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore, useLayoutEffect, useRef } from 'react';
+import React, { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Tool, CameraTools } from './EditorControls.jsx';
 import { sketchStore } from '../src/ai-sketch.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
@@ -25,13 +25,36 @@ function PressedKeysTool({ active, onClick, icon }) {
  * Every prop is the App value of the same name, so this markup reads exactly as it did inline. */
 export default function AppToolbar({
   activateSession, animationPanel, cameraMode, changePreferences, clearDisplay, commandEnabled, commands, copy,
-  dialog, displayMode, doc, hiddenCount, hide, inputStrength, menuChecks, mode, model, open, openLibrary,
-  openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources, rgbPreview,
-  rgbSequence, runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, selectionCount, session,
-  sessionDirty, sessions, setCameraMode, setDialog, setHidden, setRGBPreview, setRGBSequence, setRenderMode,
-  setTeamColor, setVisUI, settingsTab, teamColor, undo, visUI, aiControl
+  dialog, displayMode, doc, inputStrength, menuChecks, mode, model, open, openLibrary,
+  openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources,
+  runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, session,
+  sessionDirty, sessions, setCameraMode, setDialog, setRenderMode,
+  setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, undo, visUI, aiControl
 }) {
   const editorRow = useRef(null);
+  const dock = useRef(null), [learnOpen, setLearnOpen] = useState(false), [learnPosition, setLearnPosition] = useState({});
+  useLayoutEffect(() => {
+    if (!learnOpen) return;
+    const position = () => {
+      const rect = dock.current.querySelector('.learner-tool').getBoundingClientRect();
+      setLearnPosition({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
+    };
+    position();
+    window.addEventListener('resize', position);
+    return () => window.removeEventListener('resize', position);
+  }, [learnOpen, visUI]);
+  useEffect(() => {
+    if (!learnOpen) return;
+    const doc = dock.current.ownerDocument;
+    dock.current.querySelector('.learn-menu')?.focus({ preventScroll: true });
+    const outside = event => {
+      if (!dock.current.querySelector('.learner-tool')?.contains(event.target) && !dock.current.querySelector('.learn-menu')?.contains(event.target)) setLearnOpen(false);
+    };
+    const escape = event => { if (event.key === 'Escape') { event.stopPropagation(); setLearnOpen(false); } };
+    doc.addEventListener('pointerdown', outside, true);
+    doc.addEventListener('keydown', escape, true);
+    return () => { doc.removeEventListener('pointerdown', outside, true); doc.removeEventListener('keydown', escape, true); };
+  }, [learnOpen]);
   useLayoutEffect(() => {
     const row = editorRow.current;
     row.removeAttribute('data-short-editors');
@@ -48,7 +71,7 @@ export default function AppToolbar({
   // Both looks keep view controls beside the editor buttons.
   const quickDisplay = mode !== 'uv' && mode !== 'paint' && mode !== 'showcase' && <QuickDisplay key={displayMode} vanilla={visUI} viewMode={displayMode} checks={menuChecks} onCommand={runCommand} isEnabled={commandEnabled} onClear={clearDisplay}/>;
   const teamPicker = <div className="classic-toolbar-group toolbar-team-color"><label className="team-picker" style={{'--team':teamColor}}><select data-hotkey="teamColor" aria-label="Team color" value={teamColor} style={{backgroundColor:teamColor,color:neutralTextColor(teamColor)}} onChange={event => { setTeamColor(event.target.value); setRenderMode('textured'); }}>{teamColors.map(([name,color]) => <option key={color} value={color} style={{backgroundColor:color,color:neutralTextColor(color)}}>{name}</option>)}</select></label></div>;
-  const moduleDock = <div className="classic-toolbar-group toolbar-modules">{aiControl}<Tool action="textureLibrary" className="library-tool" icon="wc3-library" badge="LIBR" title="Material and Texture Library" onClick={() => openLibrary(undefined, true)}/><Tool action="forge" className="forge-tool" icon="wc3-forge.gif" badge="FRG" title="Forge" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'forge'})}/><Tool action="bitsAndParts" className="bits-tool" icon="wc3-bits-and-parts" badge="BITZ" title="BitsAndParts / Clockwork" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'bitsAndParts'})}/><Tool action="optimizeModel" className="optimizer-tool" icon="wc3-gather-gold" badge="OPXL" title="OptimizeXL" disabled={!commandEnabled('optimizeModel')} onClick={openOptimizeXL}/><Tool action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>} title="Emitter Editor" disabled={!commandEnabled('particles')} onClick={()=>openParticles()}/><Tool action="animXL" className="animxl-tool" icon="btn-animate-dead" badge="ANIM" title="AnimXL: shape an animation with sliders" disabled={!commandEnabled('animXL')} onClick={()=>setDialog({type:'animXL'})}/><PressedKeysTool icon={pressedKeysIcon} active={preferences.showPressedKeys} onClick={()=>commands.current.pressedKeys()}/><Tool action="shredder" className="learner-tool" icon="btn-ancient-of-lore" badge="LER" title="Learning mode" description="Learning mode: click buttons to see their shortcuts. Click LER to turn reminders on or off." active={preferences.shredder.enabled} onClick={() => commands.current.shredder()}/><Tool className="vis-toggle" icon={visUI ? 'wc3-xl' : 'wc3-vis'} badge={visUI ? 'XL' : 'VIS'} title={visUI ? 'XL' : 'VIS'} active={visUI} onClick={() => setVisUI(value => !value)}/></div>;
+  const moduleDock = <div className="classic-toolbar-group toolbar-modules" ref={dock}>{aiControl}<Tool action="textureLibrary" className="library-tool" icon="wc3-library" badge="LIBR" title="Material and Texture Library" onClick={() => openLibrary(undefined, true)}/><Tool action="forge" className="forge-tool" icon="wc3-forge.gif" badge="FRG" title="Forge" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'forge'})}/><Tool action="bitsAndParts" className="bits-tool" icon="wc3-bits-and-parts" badge="BITZ" title="BitsAndParts / Clockwork" disabled={doc.readOnly||saving} onClick={()=>setDialog({type:'bitsAndParts'})}/><Tool action="optimizeModel" className="optimizer-tool" icon="wc3-gather-gold" badge="OPXL" title="OptimizeXL" disabled={!commandEnabled('optimizeModel')} onClick={openOptimizeXL}/><Tool action="particles" className="emitter-tool" icon="btn-mana-flare" badge={<><b>E</b><b>M</b><b>T</b><b>R</b></>} title="Emitter Editor" disabled={!commandEnabled('particles')} onClick={()=>openParticles()}/><Tool action="animXL" className="animxl-tool" icon="btn-animate-dead" badge="ANIM" title="AnimXL: shape an animation with sliders" disabled={!commandEnabled('animXL')} onClick={()=>setDialog({type:'animXL'})}/><PressedKeysTool icon={pressedKeysIcon} active={preferences.showPressedKeys} onClick={()=>commands.current.pressedKeys()}/><Tool action="learn" className="learner-tool" icon="btn-ancient-of-lore" badge="LER" title="Learn" description="Learn: open learning controls and settings." active={preferences.learn.enabled} onClick={event => { if (event.isTrusted) setLearnOpen(value => !value); else commands.current.learn(); }}/>{learnOpen && <div className="learn-menu" role="menu" aria-label="Learn" tabIndex={-1} data-hotkey-window="" data-hotkey-scope="editor" data-hotkey-prefix="learn-menu" style={learnPosition}><button role="menuitemcheckbox" aria-checked={preferences.learn.enabled} data-hotkey="mode" data-hotkey-label="Learn mode" onClick={() => commands.current.learn()}><span aria-hidden="true">{preferences.learn.enabled ? '✓' : ''}</span>Learn mode</button><button role="menuitemcheckbox" aria-checked={preferences.showHotkeys} data-hotkey="show-hotkeys" data-hotkey-label="Show hotkeys" onClick={() => changePreferences(previous => ({ ...previous, showHotkeys: !previous.showHotkeys }))}><span aria-hidden="true">{preferences.showHotkeys ? '✓' : ''}</span>Show hotkeys</button><button role="menuitem" data-hotkey="settings" data-hotkey-label="Learn settings" onClick={() => { setLearnOpen(false); setSettingsTab('learn'); }}><span aria-hidden="true"/>Learn settings…</button></div>}<Tool className="vis-toggle" icon={visUI ? 'wc3-xl' : 'wc3-vis'} badge={visUI ? 'XL' : 'VIS'} title={visUI ? 'XL' : 'VIS'} active={visUI} onClick={() => setVisUI(value => !value)}/></div>;
   return <>
     {!window.desktop && <nav className="classic-menu">{[['File', [['New', 'new'], ['Open...', 'open'], ['Save', 'save'], ['Save as...', 'saveAs'], ['Recovery...', 'recovery']]], ['Edit', [['Undo', 'undo'], ['Redo', 'redo'], ['Copy', 'copy'], ['Paste', 'paste'], ['Special paste...', 'pasteSpecial'], ['Select all', 'selectAll'], ['Clear selection', 'clear'], ['Undo settings...', 'history'], ['Copy keyframes','keyframe:copy'], ['Copy Frame','keyframe:copyPose'], ['Paste keyframes','keyframe:paste'], ['Delete keyframes','keyframe:delete'], ['Clear keyframes','keyframe:clear']]], ['View', (visUI?VIS_VIEW_MENU:VIEW_MENU)[displayMode] || []], ['Modules', [['Vertices', 'vertices'], ['Bones', 'bones'], ['UV-maps', 'uv'], ['Movement', 'animation'], ['Animations', 'animations']]], ['Shape', SHAPE_TOOLS.map(tool=>[tool,'shape:'+tool.toLowerCase()])], ['Windows', [['Material & Texture Library', 'textureLibrary'], ['Particle Editor', 'particles'], ['AnimXL', 'animXL'], ...resources.map(v => [v, v])]], ['Settings', [['Mouse and general…', 'settings'], ['Keyboard Shortcuts…', 'hotkeys'], ['Graphical settings…', 'graphics'], ['Recording and screenshots…','captureSettings'], ['Appearance…','appearanceSettings'], ['Configuration…','configurationSettings'], ['Grid…','gridSettings'], ['Warcraft III…','gameDataSettings'], null, ['Undo cache…', 'history'], ['Show pressed keys','pressedKeys'], ['Choose Warcraft III folder…','gameData']]], ['Help', [['Help', 'help'], ['Diagnostics', 'diagnostics'], ['About', 'about']]]].map(([name, items]) => <details key={name}><summary>{name}</summary><div role="menu">{items.map((row,index) => { if(!row)return <hr key={index}/>; const [label,action]=row; return <button data-hotkey={action} role={name==='View' && action!=='clearDisplay'?'menuitemcheckbox':'menuitem'} aria-checked={name==='View' && action!=='clearDisplay'?!!menuChecks[action]:undefined} disabled={!commandEnabled(action)} key={action} onClick={event => { event.currentTarget.closest('details').open = false; runLatest.current(action); }}><span>{name==='View'?(menuChecks[action]?'✓ ':'　 '):''}{label}</span>{['frame','frameSelection','normals'].includes(action)&&<kbd>{(preferences.hotkeys[action]||COMMANDS.find(item=>item.id===action)?.defaultKeys||[]).find(key=>key.length===1)||''}</kbd>}</button>;})}</div></details>)}</nav>}
     <div className="classic-toolbar">
@@ -57,7 +80,6 @@ export default function AppToolbar({
       <CameraTools look value={cameraMode} onChange={setCameraMode}/>
       <div className="classic-toolbar-group"><Tool action="undo" look icon="sb_undo" title="Undo" disabled={!commandEnabled('undo')} onClick={() => undo(false)}/><Tool action="redo" look icon="sb_undo" flip title="Redo" disabled={!commandEnabled('redo')} onClick={() => undo(true)}/><Tool action="copy" look icon="sb_copy" title="Copy" disabled={!commandEnabled('copy')} onClick={copy}/><Tool action="paste" look icon="sb_paste" title="Paste" disabled={!commandEnabled('paste')} onClick={() => paste()}/></div>
       {!visUI && <div className="toolbar-model">{teamPicker}</div>}
-      <div className="classic-toolbar-group toolbar-visibility"><button data-hotkey="hide" onClick={hide} disabled={!selectionCount}>Hide</button><button data-hotkey="show" onClick={() => setHidden({})} disabled={!hiddenCount}>Show</button></div>
       {visUI && teamPicker}
       {visUI && inputStrength}
       </div>
@@ -71,7 +93,6 @@ export default function AppToolbar({
         <button data-hotkey="animations" aria-pressed={mode === 'animation' && animationPanel === 'animations'} onClick={() => selectAnimationPanel('animations')} title="Animations" aria-label="Animations"><span className="editor-name">Animations</span><span className="editor-initial" aria-hidden="true">A</span></button>
         <button data-hotkey="paint" aria-pressed={mode === 'paint'} disabled={!commandEnabled('paint')&&mode!=='paint'} onClick={() => commands.current.paint()} title={paintMessage('paint.module')} aria-label={paintMessage('paint.module')}><span className="editor-name">{paintMessage('paint.module')}</span><span className="editor-initial" aria-hidden="true">{paintMessage('paint.module').slice(0, 1)}</span></button>
         <button aria-pressed={mode === 'showcase'} onClick={() => selectMode('showcase')} title="Showcase" aria-label="Showcase"><span className="editor-name">Showcase</span><span className="editor-initial" aria-hidden="true">S</span></button>
-        {mode === 'vertices' && <><label className="check"><input type="checkbox" aria-label="RGB Preview" checked={rgbPreview} onChange={event=>{setRGBPreview(event.target.checked);if(rgbSequence<0 && model.Sequences.length)setRGBSequence(0);}}/>RGB Preview</label><select aria-label="RGB preview animation" disabled={!rgbPreview} value={rgbSequence} onChange={event=>setRGBSequence(Number(event.target.value))}><option value={-1}>Static RGB</option>{model.Sequences.map((item,index)=><option key={index} value={index}>{item.Name}</option>)}</select></>}
         {quickDisplay}
       </div>
       <div className="module-divider" aria-hidden="true"/>

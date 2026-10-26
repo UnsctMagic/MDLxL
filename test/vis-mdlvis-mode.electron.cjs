@@ -90,7 +90,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
           if (vis) {
             assert.equal(data.aiVisible, 0); assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 0); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
             assert.ok(data.quick.every(item => item.checkbox === 'checkbox' && item.opacity === '1' && item.position === 'static' && item.visible && item.fullName && item.radius === '0px'));
-            assert.equal(data.dockInEditorRow, true); assert.equal(data.topDock, true); assert.equal(data.inputAtTop, true);
+            assert.equal(data.dockInEditorRow, false); assert.equal(data.topDock, true); assert.equal(data.inputAtTop, true);
             assert.ok(data.hint.includes({ vertices: 'Vertex editor (F1)', bones: 'Bones · Rest pose', animation: 'Movement (F3)', animations: 'Animations' }[mode]));
           } else {
             assert.equal(data.aiVisible, 1); assert.equal(data.tabs, 1); assert.equal(data.editors, 6); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, false);

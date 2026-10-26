@@ -8,7 +8,7 @@ import {includeParticleAssets,embeddedParticleAssets,prepareParticlePlacementAss
 import React,{Suspense,lazy,useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {EditorDocument,createNode,deleteNode} from '../src/editor-document.js';
 import {particleRecipeDocument,extractParticleRecipe,placeParticleRecipe,effectNodes} from '../src/particle-recipes.js';
-import {createStarterRecipe,starterTextureAsset,addStarterTextureAssets,STARTER_TEXTURE,STARTER_TEXTURES,RIBBON_TEXTURE,PARTICLE_STARTERS} from '../src/particle-starters.js';
+import {createStarterRecipe,nativeStarterTexture,STARTER_TEXTURES,RIBBON_TEXTURE,PARTICLE_STARTERS} from '../src/particle-starters.js';
 import {parseParticleData,stringifyParticleData} from '../src/particle-data.js';
 import {createParticleGesture} from '../src/particle-bindings.js';
 import useMovableWindow from './useMovableWindow.js';
@@ -38,7 +38,9 @@ const TextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
 const pathKey=value=>String(value||'').replaceAll('/','\\').toLowerCase();
 const emptyAssets=new Map();
 const GLOW_SECTIONS=['Geosets','Materials','Textures','Bones','Nodes','PivotPoints','GeosetAnims','GlobalSequences','BindPoses','Info'];
-function starterLab(){const recipe=createStarterRecipe();return {doc:particleRecipeDocument(recipe),recipe,key:'lab-'+crypto.randomUUID(),assets:new Map([[pathKey(STARTER_TEXTURE),starterTextureAsset()]])};}
+function starterLab(){const recipe=createStarterRecipe();return {doc:particleRecipeDocument(recipe),recipe,key:'lab-'+crypto.randomUUID(),assets:new Map()};}
+/** Reads stock pictures from the game data, like every other native texture. */
+async function stockAssets(names){const records=window.desktop?.resolveTextures?await window.desktop.resolveTextures({names}):[];return new Map((records||[]).filter(record=>record.bytes).map(record=>[pathKey(record.name),record]));}
 function labDraft(lab,mode){return stringifyParticleData({schema:'mdlxl-particle-draft',version:1,key:lab.key||lab.recipe.id,state:lab.doc.captureRecoveryState(),recipe:includeParticleAssets({...lab.recipe,native:lab.doc.model},lab.assets),mode});}
 async function keepLab(lab,mode,active=true){
   const data=labDraft(lab,mode);
@@ -46,8 +48,9 @@ async function keepLab(lab,mode,active=true){
   if(active)await window.desktop?.particleDraft?.(data);
 }
 async function assetsFor(recipe){
-  const assets=embeddedParticleAssets(recipe),names=recipe.native.Textures.filter(t=>t.Image&&!STARTER_TEXTURES.includes(t.Image)&&!assets.has(pathKey(t.Image))).map(t=>t.Image);
-  addStarterTextureAssets(recipe.native.Textures,assets,pathKey);
+  // Effects saved by earlier versions used generated pictures; they now use the stock ones.
+  for(const [owner,field] of [...recipe.native.Textures.map(t=>[t,'Image']),...(recipe.dependencies||[]).map(d=>[d,'path'])]){const image=nativeStarterTexture(owner[field]);if(image)owner[field]=image;}
+  const assets=embeddedParticleAssets(recipe),names=recipe.native.Textures.filter(t=>t.Image&&!assets.has(pathKey(t.Image))).map(t=>t.Image);
   if(names.length&&window.desktop?.resolveTextures){const sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await window.desktop.resolveTextures({names});for(const record of records||[])if(record.bytes)assets.set(pathKey(record.name),record);}
   return assets;
 }
@@ -66,7 +69,10 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const [tick,setTick]=useState(0),[structure,setStructure]=useState(0),[message,setMessage]=useState(''),[snapshot,setSnapshot]=useState(null),[saveOpen,setSaveOpen]=useState(false),[name,setName]=useState('My effect'),[placement,setPlacement]=useState(null);
   const activeDoc=context==='Lab'?lab.doc:doc;
   useEffect(()=>{setMuted([]);setIngredients(null);},[activeDoc]);
-  const model=activeDoc.model,assets=context==='Lab'?lab.assets:textureAssets;
+  const [stock,setStock]=useState(emptyAssets);
+  useEffect(()=>{let live=true;stockAssets(STARTER_TEXTURES).then(found=>{if(live)setStock(found);}).catch(()=>{});return()=>{live=false;};},[]);
+  const labAssets=useMemo(()=>new Map([...stock,...lab.assets]),[stock,lab.assets]);
+  const model=activeDoc.model,assets=context==='Lab'?labAssets:textureAssets;
   const working=useMemo(()=>structuredClone(model),[activeDoc,context,structure]);
   const soloId=solo?emitterId:null,previewSequence=demo&&context==='Lab'?sequence:-1;
   const preview=useMemo(()=>{
@@ -136,7 +142,6 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   const removePicture=index=>{
     cancel();const result=apply('Remove particle picture',m=>removeParticlePicture(m,emitterId,index),['Nodes','Textures','Materials']);
     if(result===false)return;
-    if(model.Textures.some(t=>t.Image===STARTER_TEXTURE)&&!assets.has(pathKey(STARTER_TEXTURE))){const next=new Map(assets);next.set(pathKey(STARTER_TEXTURE),starterTextureAsset());if(context==='Lab')setLab(old=>({...old,assets:next}));else onPlacedAssets?.(next);}
     setStructure(v=>v+1);
   };
   const usePicture=async asset=>{
@@ -289,7 +294,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     }catch(error){setMessage(error.message);}
   };
   const placementRecipe=useMemo(()=>placement?.ribbon?.recipe||(placement?extractParticleRecipe(model,effectNodes(model).map(item=>item.node.ObjectId),{...lab.recipe,name:lab.recipe.name,defaultSequence:sequence}):null),[!!placement,placement?.ribbon,model,activeDoc.revision,sequence]);
-  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([[pathKey(RIBBON_TEXTURE),starterTextureAsset(RIBBON_TEXTURE)]]):assets,[assets,placement?.ribbon]);
+  const incomingPlacementAssets=useMemo(()=>placement?.ribbon?new Map([...stock].filter(([key])=>key===pathKey(RIBBON_TEXTURE))):assets,[assets,stock,placement?.ribbon]);
   useEffect(()=>{
     let live=true;setPreparedPlacement(null);
     if(placementRecipe)prepareParticlePlacementAssets(placementRecipe,incomingPlacementAssets,textureAssets).then(prepared=>{if(live)setPreparedPlacement({...prepared,original:placementRecipe,incoming:incomingPlacementAssets,target:textureAssets});}).catch(error=>{if(live)setPlacementError(error.message);});

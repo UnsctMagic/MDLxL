@@ -8,7 +8,7 @@ import { DEFAULT_PAINT_APPEARANCE, normalizePaintAppearance } from './paint-appe
 /** Shared, DOM-free preference validation and Hotkeys rules. */
 import { migrateHotkeyBindings, normalizeHotkeySequence, HOTKEY_LEADER } from './hotkey-defaults.js';
 import { DEFAULT_CAPTURE, normalizeCapture } from './capture-settings.js';
-import { DEFAULT_SHREDDER, normalizeShredder } from './shredder-keycaps.js';
+import { DEFAULT_LEARN, normalizeLearn } from './learn-keycaps.js';
 import { DEFAULT_UV_PREVIEW_DISPLAY, normalizeUVPreviewDisplay } from './uv-preview-display.js';
 import { DEFAULT_UV_GRID, normalizeUVGrid } from './uv-grid.js';
 import { DEFAULT_UV_VIEW_TILE_LIMIT, normalizeUVViewTileLimit } from './uv-view-limit.js';
@@ -43,7 +43,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   uvPreviewDisplay: DEFAULT_UV_PREVIEW_DISPLAY,
   uvGrid: DEFAULT_UV_GRID,
   uvViewTileLimit: DEFAULT_UV_VIEW_TILE_LIMIT,
-  language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, showPressedKeys: false, shredder: DEFAULT_SHREDDER, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
+  language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, showPressedKeys: false, showHotkeys: false, learn: DEFAULT_LEARN, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
   pointerSensitivity: 1,
@@ -143,7 +143,10 @@ export function migrateFollowupPreferences(value = {}) {
 /** One-way load migrations for saved preferences, including custom hotkeys saved under pre-rename IDs. */
 export function migratePreferences(value = {}) {
   const input = migrateFollowupPreferences(value), hotkeys = migrateHotkeyBindings(input.hotkeys);
-  return hotkeys === input.hotkeys ? input : { ...input, hotkeys };
+  const result = hotkeys === input.hotkeys ? input : { ...input, hotkeys };
+  if (!own(result, 'shredder')) return result;
+  const { shredder, ...current } = result;
+  return own(current, 'learn') ? current : { ...current, learn: shredder };
 }
 /** The appearance a Shift+F1 / Shift+F2 light/dark switch replaces and later restores. */
 export const LIGHT_DARK_KEYS = Object.freeze(['theme', 'accent', 'viewportPreset', 'viewportAppearance', 'visuals', 'citadelPaint']);
@@ -172,7 +175,7 @@ export function normalizePreferences(value = {}) {
     uvPreviewDisplay: normalizeUVPreviewDisplay(input.uvPreviewDisplay),
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
-    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), showPressedKeys: boolean(input.showPressedKeys, false), shredder: normalizeShredder(input.shredder), capture: normalizeCapture(input.capture),
+    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), showPressedKeys: boolean(input.showPressedKeys, false), showHotkeys: boolean(input.showHotkeys, false), learn: normalizeLearn(input.learn), capture: normalizeCapture(input.capture),
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(10, Math.max(0.1, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: ['rotate', 'scroll', 'pointer'].includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(4, Math.max(0.01, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,

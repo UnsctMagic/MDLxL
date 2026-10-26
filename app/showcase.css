@@ -24,6 +24,7 @@
 .showcase-section > header [hidden] { display:none; }
 
 .showcase-wide,.showcase-sidebar select.showcase-wide { width:100%; max-width:100%; }
+button.showcase-wide { margin-top:4px; }
 .showcase-file { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .showcase-list { list-style:none; background:#fff; color:#111; border:1px inset #aaa; padding:1px; margin:3px 0; min-height:76px; max-height:140px; overflow:auto; }
 .showcase-list li { padding:4px; display:flex; justify-content:space-between; align-items:center; gap:4px; min-height:24px; }

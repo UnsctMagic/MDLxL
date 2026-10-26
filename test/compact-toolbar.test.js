@@ -25,10 +25,7 @@ test('Vis is a reversible presentation toggle, not a model or editing command',(
   assert.match(app,/\[visUI, setVisUI\] = useState\(false\)/);
   assert.match(app,/data-vis-ui=\{visUI \|\| undefined\}/);
   assert.match(bar,/<Tool className="vis-toggle".*?badge=\{visUI \? 'XL' : 'VIS'\}.*?onClick=\{\(\) => setVisUI\(value => !value\)\}/);
-  const group=bar.match(/<div className="classic-toolbar-group toolbar-visibility">(.*?)<\/div>/)[1];
-  assert.doesNotMatch(group,/visUI/);
-  assert.match(group,/onClick=\{hide\}/);
-  assert.match(group,/onClick=\{\(\) => setHidden\(\{\}\)\}/);
+  assert.doesNotMatch(bar,/toolbar-visibility|data-hotkey="hide"|data-hotkey="show"/);
   assert.match(css,/data-vis-ui\]>\.classic-modules/);
   assert.match(css,/data-vis-ui\]>\.classic-modules>:not\(\.toolbar-modules\):not\(\.editor-modules\)/);
   assert.match(css,/data-vis-ui\]>\.classic-modules>\.editor-modules>button/);
@@ -42,7 +39,7 @@ test('quick display follows editor buttons; WC3 dock is above the full-width tab
   const editor=bar.slice(bar.indexOf('<div className="editor-modules"'),bar.indexOf('<div className="module-divider"'));
   assert.match(toolbar,/\{moduleDock\}/);
   assert.doesNotMatch(toolbar,/quickDisplay/);
-  assert.ok(editor.indexOf('RGB preview animation')<editor.indexOf('{quickDisplay}'));
+  assert.doesNotMatch(editor,/RGB Preview|RGB preview animation/);
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);

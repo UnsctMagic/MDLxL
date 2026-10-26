@@ -110,6 +110,16 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       return;
     }
     const workplane = page.getByLabel('Workplane', { exact: true });
+    // The alternative behavior and editor speed must reach the actual Movement drag.
+    const movementSetting = async (behavior, speed) => {
+      await menu('settings');const dialog=page.getByRole('dialog',{name:'Settings',exact:true});
+      await dialog.getByRole('tab',{name:'Mouse',exact:true}).click();await dialog.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name:'Rotation',exact:true}).click();
+      await dialog.getByLabel('Rotation editor',{exact:true}).selectOption('movement');await dialog.getByLabel('Rotational Behavior',{exact:true}).selectOption(behavior);
+      await dialog.getByLabel('Use default rotation sensitivity').uncheck();await dialog.getByLabel('Rotation sensitivity',{exact:true}).fill(String(speed));await dialog.getByLabel('Rotation sensitivity',{exact:true}).press('Tab');await dialog.getByRole('button',{name:'Close Settings',exact:true}).click();await settle();
+    };
+    // Pivot-based is the default; the steady-turn checks below measure Linear.
+    check('fresh profile defaults Rotate to Pivot-based', await page.evaluate(() => rotationProbe().props.preferences?.rotation?.behavior ?? 'pivot') === 'pivot');
+    await movementSetting('linear',1);
     const sidebarWidth = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     for (const [plane, normal] of [['xy', 'Z'], ['xz', 'Y'], ['yz', 'X']]) {
       await workplane.check(); await page.locator(`[data-hotkey="plane:${plane}"]`).check();
@@ -249,13 +259,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       check('Workplane ' + enabled + ' mouse zoom preserves model', afterDragZoom.camera.zoom > beforeDragZoom.camera.zoom && afterDragZoom.model === beforeDragZoom.model);
       await page.locator('[data-hotkey="camera:work"]').click();
     }
-    // The alternative behavior and editor speed must reach the actual Movement drag.
-    const movementSetting = async (behavior, speed) => {
-      await menu('settings');const dialog=page.getByRole('dialog',{name:'Settings',exact:true});
-      await dialog.getByRole('tab',{name:'Mouse',exact:true}).click();await dialog.getByRole('navigation',{name:'Mouse pages'}).getByRole('button',{name:'Rotation',exact:true}).click();
-      await dialog.getByLabel('Rotation editor',{exact:true}).selectOption('movement');await dialog.getByLabel('Rotational Behavior',{exact:true}).selectOption(behavior);
-      await dialog.getByLabel('Use default rotation sensitivity').uncheck();await dialog.getByLabel('Rotation sensitivity',{exact:true}).fill(String(speed));await dialog.getByLabel('Rotation sensitivity',{exact:true}).press('Tab');await dialog.getByRole('button',{name:'Close Settings',exact:true}).click();await settle();
-    };
     await page.getByLabel('View direction',{exact:true}).selectOption('top');await workplane.check();await page.locator('[data-hotkey="plane:xy"]').check();await settle();
     await movementSetting('linear',.5);
     let pivot=(await handles()).active;
@@ -272,6 +275,21 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       check('Movement Pivot-based choice follows a quarter-circle',Math.abs(actual.dot(expected))>1-1e-4);
       check('Movement Pivot-based commits one Undo step',after.undo===before.undo+1);
       await menu('undo');await settle();check('Movement Pivot-based exact Undo',(await snap()).model===before.model);
+    }
+    {
+      // Front looks down X, so the ZX (Y-axis) turn circle is edge-on: Pivot-based
+      // uses the Linear rule there instead of stalling beside the center.
+      await page.getByLabel('View direction',{exact:true}).selectOption('front');await page.locator('[data-hotkey="plane:xz"]').check();await settle();pivot=(await handles()).active;
+      const before=await snap(),box=await page.locator('[data-clean-model-canvas]').boundingBox(),x=box.x+pivot.x,y=box.y+pivot.y-80;
+      await page.mouse.move(x,y);await page.mouse.down();
+      for(let i=1;i<=6;i++)await page.mouse.move(x,y-i*5);
+      await page.mouse.up();await settle();const after=await snap();
+      const baseline=new Quaternion().setFromRotationMatrix(new Matrix4().fromArray(before.matrix)).normalize();
+      const expected=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/6).multiply(baseline);
+      const actual=new Quaternion().setFromRotationMatrix(new Matrix4().fromArray(after.matrix)).normalize();
+      check('Movement Pivot-based edge-on ZX turns with a straight up drag',Math.abs(actual.dot(expected))>1-1e-4,{actual:actual.toArray(),expected:expected.toArray()});
+      if(after.undo>before.undo){await menu('undo');await settle();}
+      await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.locator('[data-hotkey="plane:xy"]').check();await settle();
     }
     await movementSetting('',1);
     await require('./rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });

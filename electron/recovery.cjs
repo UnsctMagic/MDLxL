@@ -1,5 +1,10 @@
 const fs=require('node:fs/promises'),path=require('node:path'),v8=require('node:v8'),zlib=require('node:zlib'),util=require('node:util');
 const gzip=util.promisify(zlib.gzip),gunzip=util.promisify(zlib.gunzip),LIMIT=768*1024*1024;
+// Only the newest drafts are kept, one per model file, replaced as it is edited.
+const KEEP=15;
+// Change this tag to wipe every stored draft once on the next launch of an updated build.
+const RESET_TAG='reset-1';
+const samePath=(a,b)=>typeof a==='string'&&typeof b==='string'&&path.resolve(a).toLowerCase()===path.resolve(b).toLowerCase();
 // V8 deserialization commonly packs thousands of small typed views into a few
 // large backing buffers. Electron's context bridge copies those buffers for
 // individual views; a sub-megabyte model can otherwise allocate gigabytes.
@@ -49,12 +54,32 @@ class RecoveryStore{
       const header=Buffer.alloc(8);header.write('MDLR');header.writeUInt32LE(json.length,4);
       await fs.mkdir(this.root,{recursive:true});const temp=file+'.tmp';
       await fs.writeFile(temp,Buffer.concat([header,json,packed]));await fs.rename(temp,file);this.versions.set(payload.id,payload.version);
+      await this.prune(payload.id,payload.path).catch(error=>console.warn('Recovery cleanup: '+error.message));
     });
     this.queues.set(payload.id,op);try{await op;}finally{if(this.queues.get(payload.id)===op)this.queues.delete(payload.id);}
   }
   async metadata(id){const fd=await fs.open(this.file(id),'r');try{const head=Buffer.alloc(8);const read=await fd.read(head,0,8,0);if(read.bytesRead!==8||head.toString('ascii',0,4)!=='MDLR')throw Error('Invalid recovery header.');const n=head.readUInt32LE(4);if(n>1024*1024)throw Error('Invalid recovery metadata length.');const json=Buffer.alloc(n),r=await fd.read(json,0,n,8);if(r.bytesRead!==n)throw Error('Truncated recovery metadata.');const info=JSON.parse(json.toString('utf8'));if(info.id!==id)throw Error('Recovery identifier mismatch.');return info;}finally{await fd.close();}}
   async list(){await fs.mkdir(this.root,{recursive:true});const results=[];for(const file of await fs.readdir(this.root)){if(!file.endsWith('.recovery'))continue;const id=file.slice(0,-9);try{results.push(await this.metadata(id));}catch{try{const envelope=await this.read(id);results.push({id,version:envelope.version,name:envelope.state?.name||'Recovered model',date:envelope.date||'',dirty:envelope.dirty!==false,path:envelope.path});}catch{}}}return results.sort((a,b)=>b.date.localeCompare(a.date));}
   async read(id){const data=await fs.readFile(this.file(id));if(data.length>LIMIT)throw Error('Recovery file is too large.');let offset=0;if(data.toString('ascii',0,4)==='MDLR'){if(data.length<8)throw Error('Truncated recovery header.');offset=8+data.readUInt32LE(4);if(offset>1024*1024+8||offset>=data.length)throw Error('Invalid recovery metadata length.');}const payload=v8.deserialize(await gunzip(data.subarray(offset),{maxOutputLength:LIMIT}));if(payload.id!==id)throw Error('Recovery identifier mismatch.');return compactRecoveryBuffers(payload);}
+  // Removes older drafts of the same model file, then everything past the newest KEEP.
+  // Drafts this process wrote (another open tab of the same file) are left alone.
+  async prune(keepId,keepPath){
+    let kept=1;
+    for(const item of await this.list()){
+      if(item.id===keepId)continue;
+      if((samePath(item.path,keepPath)&&!this.versions.has(item.id))||kept>=KEEP)await fs.rm(this.file(item.id),{force:true});else kept++;
+    }
+  }
+  // One-time wipe of drafts left by older builds. Skipped while a crash draft
+  // is waiting to be offered, so it then runs on the following launch.
+  async resetOnce(crashPending){
+    const marker=path.join(this.root,'.'+RESET_TAG);
+    try{await fs.access(marker);return false;}catch{}
+    if(crashPending)return false;
+    await fs.mkdir(this.root,{recursive:true});
+    for(const file of await fs.readdir(this.root))if(/\.recovery(\.tmp)?$|^\.reset-/.test(file))await fs.rm(path.join(this.root,file),{force:true});
+    await fs.writeFile(marker,'');return true;
+  }
   async flush(){await Promise.allSettled([...this.queues.values()]);}
 }
 module.exports={RecoveryStore};

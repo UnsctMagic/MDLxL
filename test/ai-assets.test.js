@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { aiAssets, validateAiAssets } from '../app/ai-assets.js';
 import { createStarterDocument } from '../src/starter-model.js';
-import { starterTextureAsset } from '../src/particle-starters.js';
+import { starterTextureAsset } from './starter-picture.js';
 
 test('asset bridge searches personal parts and opens a reference without invoking editor commands', async () => {
   const seen = [],
@@ -91,7 +91,7 @@ test('game references retain the source variant textures and require its catalog
 });
 
 test('generated textures must decode, be newly named and belong to the edited model', () => {
-  const asset = starterTextureAsset(),
+  const asset = starterTextureAsset('MDLxL_Forge\\AiPicture.tga'),
     model = { Textures: [{ Image: asset.name }] };
   assert.equal(validateAiAssets([asset], model).length, 1);
   assert.throws(

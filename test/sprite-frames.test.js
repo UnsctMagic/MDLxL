@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {detectSpriteGrid,framesAcrossLife,playedFrames,spriteGridValues,suggestedSetups,setupValues,framePatterns,patternName,playsPattern} from '../src/sprite-frames.js';
-import {starterTextureAsset} from '../src/particle-starters.js';
+import {starterTextureAsset} from './starter-picture.js';
 
 const image=(width,height,paint)=>{const data=new Uint8ClampedArray(width*height*4);for(let y=0;y<height;y++)for(let x=0;x<width;x++){const v=paint(x,y),i=(y*width+x)*4;data[i]=data[i+1]=data[i+2]=Math.round(255*v);data[i+3]=255;}return {width,height,data};};
 const blob=(cx,cy,r)=>(x,y)=>Math.max(0,1-Math.hypot(x-cx,y-cy)/r);

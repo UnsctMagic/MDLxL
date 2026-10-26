@@ -590,6 +590,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   nativeTheme.themeSource=(APPLICATION_THEMES[settings.preferences.theme] || APPLICATION_THEMES.light).scheme;
   if(process.env.MDLVIS_GAME_DATA)settings.gameData=process.env.MDLVIS_GAME_DATA;
   try{recoveryPrompt=await sessionJournal.begin();}catch(error){console.warn('Session journal: '+error.message);}
+  try{await recoveryStore.resetOnce(recoveryPrompt);}catch(error){console.warn('Recovery reset: '+error.message);}
   gameDataDiscovery=new GameDataDiscovery({cacheFile:path.join(profile,'game-data-discovery.json'),appFolders:[path.dirname(process.execPath),app.getAppPath()],customSources:()=>settings.gameDataSources||[]});
   for(const file of launchModelPaths)try{initialModels.push(await readModel(file));}catch(e){console.error(e.message);}
   initialModel=initialModels[0]||null;
