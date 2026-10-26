@@ -11,7 +11,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Full AI editor connection | Ready for review; awaiting merge approval | [AI editor hook](ai-editor-hook.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
 | New MDLxL look (carved tools, slate-and-gold dock, floating Geosets) | Ready for review; awaiting merge approval | [New look](new-look.md) / Claude Code |
-| Offload Mode (birds): remove organiser overhead | Merged with current main; ready for review, awaiting merge approval | [Offload improvement](offload-improvement.md) / Codex |
 | WC3 editing knowledge for the AI (general rules, reuse existing research) | Core and seven guides ready for owner review; #317 overlap documented | [WC3 editing agent](wc3-editing-agent.md) / Codex |
 | VIS stays MDLVis (UI only; no tabs, VIS shortcuts, no new-look leaks) | Active; contract ready | [VIS stays MDLVis](vis-mdlvis-mode.md) / Codex |
 

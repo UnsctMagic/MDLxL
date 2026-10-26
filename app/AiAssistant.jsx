@@ -947,7 +947,7 @@ function AiAssistant({ bridge }) {
                 type="button"
                 role="switch"
                 className="ai-icon-button ai-offload-switch"
-                aria-label="Editing handbook"
+                aria-label="Editing handbook" data-hotkey="handbook" data-hotkey-label="WC3 editing handbook"
                 aria-checked={!!settings.editingHandbook}
                 title={translate(HANDBOOK_TIP)}
                 onClick={() => action(async () => setSettings(await window.desktop.aiEditingHandbook(!settings.editingHandbook)))}
@@ -1144,18 +1144,18 @@ function AiAssistant({ bridge }) {
                     </label>
                     {!!settings.lighterModels?.length && (<>
                       <label title="Use a lighter available model for exact value changes and factual reports. Shape or motion work asks first. Failed reviews hand over to the chosen model.">
-                        <input type="checkbox" checked={settings.allowLighter === true} onChange={event => setSettings(previous => ({ ...previous, allowLighter: event.target.checked }))} />
+                        <input data-hotkey="allow-lighter" data-hotkey-label="Allow lighter models" type="checkbox" checked={settings.allowLighter === true} onChange={event => setSettings(previous => ({ ...previous, allowLighter: event.target.checked }))} />
                         Allow lighter models for simple jobs
                       </label>
                       {settings.allowLighter && <label title="Choose from lighter models returned by this connection.">Lighter model
-                        <select aria-label="Lighter model" value={settings.lightModel || settings.lighterModels[0].id} onChange={event => setSettings(previous => ({ ...previous, lightModel: event.target.value }))}>
+                        <select aria-label="Lighter model" data-hotkey="lighter-model" value={settings.lightModel || settings.lighterModels[0].id} onChange={event => setSettings(previous => ({ ...previous, lightModel: event.target.value }))}>
                           {settings.lighterModels.map(model => <option key={model.id} value={model.id}>{model.name || model.id}</option>)}
                         </select>
                       </label>}
                     </>)}
                     <label title="Manual sends to the current bird until you choose New job. Automatic uses a small text-only AI call for unaddressed messages. Both lets you choose in the composer.">
                       Job routing
-                      <select aria-label="Job routing" value={settings.routing || 'manual'} onChange={event => setSettings(previous => ({ ...previous, routing: event.target.value }))}>
+                      <select aria-label="Job routing" data-hotkey="job-routing" value={settings.routing || 'manual'} onChange={event => setSettings(previous => ({ ...previous, routing: event.target.value }))}>
                         <option value="manual">Manual</option>
                         <option value="automatic">Automatic</option>
                         <option value="both">Both</option>
@@ -1373,8 +1373,8 @@ function AiAssistant({ bridge }) {
                 )}
                 {modelQuestion && <div className="ai-resume" role="status">
                   <span>{modelQuestion}</span>
-                  <button title="Use the chosen model for this job." onClick={() => send(false, 'chosen')}>Keep chosen model</button>
-                  <button title="Allow the lighter model for this job only." onClick={() => send(false, 'light')}>Use lighter model</button>
+                  <button data-hotkey="keep-chosen" title="Use the chosen model for this job." onClick={() => send(false, 'chosen')}>Keep chosen model</button>
+                  <button data-hotkey="use-lighter" title="Allow the lighter model for this job only." onClick={() => send(false, 'light')}>Use lighter model</button>
                 </div>}
                 <div className="ai-composer">
                   {(summary || images.length > 0 || strokes.length > 0 || references.length > 0) && (
@@ -1566,7 +1566,7 @@ function AiAssistant({ bridge }) {
                     />
                     <span className="ai-footer-end">
                       {settings.offload !== false && !viewWorker && !readOnly && (
-                        <select aria-label="Job destination" title="Continue sends directly to the last bird. New job starts a fresh bird. Tiny job uses the shared bird for quick tasks. Automatic asks a small router to choose." disabled={busy} value={jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue')} onChange={event => setJobRoute(event.target.value)}>
+                        <select aria-label="Job destination" data-hotkey="job-destination" title="Continue sends directly to the last bird. New job starts a fresh bird. Tiny job uses the shared bird for quick tasks. Automatic asks a small router to choose." disabled={busy} value={jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue')} onChange={event => setJobRoute(event.target.value)}>
                           <option value="continue">Continue</option>
                           {settings.routing !== 'automatic' && <option value="new">New job</option>}
                           {settings.routing !== 'automatic' && <option value="tiny">Tiny job</option>}
