@@ -12,6 +12,7 @@ import {createStarterRecipe,starterTextureAsset,addStarterTextureAssets,STARTER_
 import {parseParticleData,stringifyParticleData} from '../src/particle-data.js';
 import {createParticleGesture} from '../src/particle-bindings.js';
 import useMovableWindow from './useMovableWindow.js';
+import {isTypingTarget} from '../src/preferences.js';
 import ParticleCluelessControls from './ParticleCluelessControls.jsx';
 import {RibbonFields} from './ParticleRibbonFields.jsx';
 import ParticleKeyTrack from './ParticleKeyTrack.jsx';
@@ -302,7 +303,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     event.stopPropagation();
     if(event.key==='Escape'){event.preventDefault();if(sizeKey){setSizeKey(null);sync();}else if(gesture.current)cancel();else if(placement)setPlacement(null);else if(glow)setGlow(null);else if(ingredients)setIngredients(null);else if(library)setLibrary(false);else close();}
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){event.preventDefault();undo(event.shiftKey);}
-    if(event.key===' '&&!['INPUT','TEXTAREA','SELECT','BUTTON'].includes(event.target.tagName)){event.preventDefault();setPlaying(v=>!v);}
+    if(event.key===' '&&!isTypingTarget(event.target)){event.preventDefault();setPlaying(v=>!v);}
     if(event.key==='Tab'){const controls=[...dialog.current.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,[tabindex="0"]')].filter(e=>e.getClientRects().length);if(event.shiftKey&&document.activeElement===controls[0]){event.preventDefault();controls.at(-1)?.focus();}else if(!event.shiftKey&&document.activeElement===controls.at(-1)){event.preventDefault();controls[0]?.focus();}}
   }}>
     <section ref={dialog} style={movable.style} tabIndex={-1} className="re-window pe-window" role="dialog" aria-modal="true" aria-label="Particle Editor" data-hotkey-scope="dialog" data-hotkey-prefix="particles">
