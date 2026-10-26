@@ -23,7 +23,7 @@ const {ParticleLibrary}=require('../electron/particle-library.cjs');
   await page.getByLabel('Movement bone or node',{exact:true}).selectOption('0');
   await page.getByLabel('Current animation frame',{exact:true}).fill('350');await page.getByLabel('Current animation frame',{exact:true}).press('Enter');
   assert.equal(await shortcut.locator('img').getAttribute('src'),'./classic/btn-mana-flare.png');
-  assert.deepEqual(await shortcut.locator('b').evaluateAll(els=>els.map(el=>[el.textContent,getComputedStyle(el).color])),['E','M','T','R'].map(letter=>[letter,'rgb(102, 222, 208)']));
+  assert.deepEqual(await shortcut.locator('b').evaluateAll(els=>els.map(el=>[el.textContent,getComputedStyle(el).color])),['E','M','T','R'].map(letter=>[letter,'rgb(95, 224, 207)']));
   await shortcut.click();const dialog=page.getByRole('dialog',{name:'Particle Editor',exact:true});await dialog.waitFor();
   await page.getByRole('button',{name:'My presets',exact:true}).click();await page.locator('.pe-effect-card').nth(35).waitFor();
   await page.getByRole('button',{name:'Show more',exact:true}).click();

@@ -48,6 +48,8 @@ const root = path.resolve(__dirname, '..');
   for (const crash of [false, true]) {
     const profile = path.join(run, crash ? 'crash' : 'normal');
     await new RecoveryStore(path.join(profile, 'recovery')).write(recovery);
+    // This profile already had the one-time draft cleanup, so the planted draft stays.
+    fs.writeFileSync(path.join(profile, 'recovery', '.reset-1'), '');
     const began = performance.now();
     const app = await _electron.launch({
       executablePath: path.join(root, 'node_modules/electron/dist/electron.exe'),

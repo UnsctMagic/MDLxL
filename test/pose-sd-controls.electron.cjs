@@ -119,7 +119,7 @@ const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).d
       assert.match(await pin.getAttribute('title'), /release/);
       assert.deepEqual(await page.evaluate(() => poseProbe().props.poseConfig.target), originalTarget, 'pinning retains the active control');
       if (view === 0) await shot(`pin-${chain.kind}-active`);
-      await pin.press('Space');
+      await pin.press('Enter');
       await page.waitForFunction(() => document.querySelector('[data-pose-pin]')?.getAttribute('aria-pressed') === 'false');
       assert.deepEqual(await pin.boundingBox(), original, 'keyboard release retains the same target');
       assert.equal(await page.evaluate(() => poseProbe().props.playing), false, 'Space activates the pin instead of playback');

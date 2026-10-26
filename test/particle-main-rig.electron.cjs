@@ -11,7 +11,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.getByText('Opened Static sword.mdx',{exact:true}).waitFor();
   const read=()=>page.evaluate(()=>{let el=document.querySelector('.classic-app'),f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)for(let h=f.memoizedState;h;h=h.next){const v=h.memoizedState;if(v?.doc?.model&&v.assets)return {model:JSON.parse(JSON.stringify(v.doc.model)),undo:v.doc.historyStats.undoSteps};}throw Error('Document missing');});
   const before=await read();assert.equal(before.model.Sequences.length,0);
-  await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();await page.getByRole('button',{name:'Close Particle Library',exact:true}).click();
+  await page.getByRole('button',{name:'Emitter Editor',exact:true}).click();await page.getByLabel('Particle context',{exact:true}).waitFor();if(await page.getByRole('button',{name:'Close Particle Library',exact:true}).count())await page.getByRole('button',{name:'Close Particle Library',exact:true}).click();
   const editor=page.getByRole('dialog',{name:'Particle Editor',exact:true});await editor.getByRole('button',{name:'Add to model',exact:true}).click();
   assert.equal(await page.getByLabel('Effect end',{exact:true}).count(),0);await page.getByRole('button',{name:'Confirm placement',exact:true}).click();await page.getByText('Effect added. Undo restores the model.',{exact:true}).waitFor();
   const placed=await read(),id=placed.model.ParticleEmitters2[0].ObjectId;assert.equal(placed.model.Sequences.length,0);assert.equal(placed.undo,before.undo+1);assert.deepEqual(placed.model.Geosets,before.model.Geosets);
