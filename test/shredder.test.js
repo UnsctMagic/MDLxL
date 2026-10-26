@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_SHREDDER, SHREDDER_TEST_VERSION, normalizeShredder, emptyNotebook, normalizeNotebook, recordKeyUse, silenceKey,
-  clearSilences, clearLearned, notebookCounts, reminderFor, directKey, keyCaps, paintKeyLabel,
+  clearSilences, clearLearned, notebookCounts, reminderFor, reminderPosition, directKey, keyCaps, paintKeyLabel,
 } from '../src/shredder-keycaps.js';
 import { normalizePreferences } from '../src/preferences.js';
 
@@ -43,7 +43,7 @@ test('five real uses quiet that key for 24 hours, and only that key', () => {
   assert.equal(reminderFor(notebook, 'rotate', ['R'], NOW + 11), 'R', 'other keys still remind');
   assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 10 + 24 * HOUR - 1), '');
   assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 10 + 24 * HOUR), 'M', 'back after 24 hours');
-  // Uses while quiet do not stack up; afterwards it takes five more.
+  // A later successful use renews quiet time without stacking up uses.
   notebook = recordKeyUse(notebook, 'translate', { now: NOW + 20 });
   assert.equal(notebook.keys.translate.uses, 0);
 });
@@ -98,4 +98,32 @@ test('a key Citadel Paint ran is named the way its button shows it', () => {
   assert.equal(paintKeyLabel('-'), '− +'); assert.equal(paintKeyLabel('+', { shift: true }), '− +');
   assert.equal(paintKeyLabel('?', { shift: true }), '?');
   assert.equal(paintKeyLabel('home'), 'Home'); assert.equal(paintKeyLabel('f6'), 'F6'); assert.equal(paintKeyLabel('4'), '4');
+});
+
+
+test('learned shortcuts stay quiet from their last use, including after a break and reload', () => {
+  let notebook = emptyNotebook();
+  for (let use = 0; use < 5; use++) notebook = recordKeyUse(notebook, 'translate', { now: NOW });
+  const original = notebook;
+  notebook = recordKeyUse(notebook, 'translate', { now: NOW + 23 * HOUR });
+  assert.equal(original.keys.translate.quietUntil, NOW + 24 * HOUR, 'does not mutate the saved record');
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 25 * HOUR), '', 'daily use stays quiet');
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 47 * HOUR), 'M', 'returns after a full quiet period without use');
+  notebook = recordKeyUse(normalizeNotebook(notebook), 'translate', { now: NOW + 50 * HOUR });
+  assert.equal(notebook.keys.translate.quietUntil, NOW + 74 * HOUR, 'one remembered shortcut use renews it after a break');
+  notebook = recordKeyUse(clearLearned(notebook), 'translate', { now: NOW + 51 * HOUR });
+  assert.equal(reminderFor(notebook, 'translate', ['M'], NOW + 51 * HOUR), 'M', 'bring back learned keys resets learning');
+});
+
+test('reminder placement leaves neighboring buttons and fields clear, including at window edges', () => {
+  const size = { width: 64, height: 40 }, viewport = { width: 760, height: 560 };
+  assert.deepEqual(reminderPosition({ left: 200, top: 100 }, size, viewport, []), { left: 200, top: 100 });
+  const controls = [{ left: 0, top: 0, width: 760, height: 110 }, { left: 200, top: 120, width: 160, height: 32 }];
+  const point = reminderPosition({ left: 220, top: 25 }, size, viewport, controls);
+  assert.ok(point);
+  for (const control of controls) assert.ok(point.left + size.width <= control.left || point.left >= control.left + control.width || point.top + size.height <= control.top || point.top >= control.top + control.height);
+  const corner = reminderPosition({ left: 758, top: -20 }, size, viewport, []);
+  assert.ok(corner.left >= 0 && corner.top >= 0 && corner.left + size.width <= viewport.width && corner.top + size.height <= viewport.height);
+  assert.equal(reminderPosition({ left: 0, top: 0 }, size, viewport, [{ left: 0, top: 0, ...viewport }]), null, 'no free space must not cover controls');
+  assert.equal(reminderPosition({ left: 0, top: 0 }, { width: 900, height: 40 }, viewport, []), null);
 });

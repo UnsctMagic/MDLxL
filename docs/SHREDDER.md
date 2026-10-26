@@ -10,16 +10,25 @@ no quiet start, waiting, lesson order or progress gate.
 
 ## What decides whether a key shows
 
-Only three things:
-
 - **The mode is on.**
-- **You silenced that key** by clicking its popup. It stays silenced until you
-  press **Bring back silenced keys** in Settings → Keyboard Shortcuts.
 - **You learned that key.** Using a key 5 times quiets its reminders for 24
-  hours. This is per command: learning M (Move) does not quiet R (Rotate).
-  **Bring back learned keys** ends the quiet time at once.
+  hours. Every later successful use restarts that command's quiet period,
+  including after it expires. This is per command: learning M (Move) does not
+  quiet R (Rotate). **Bring back learned keys** resets learning immediately.
+- Shortcuts silenced in an earlier test version stay silenced until restored
+  with **Bring back silenced keys** in Settings → Keyboard Shortcuts. That
+  recovery button appears only while old silences remain.
 
-Using the key while its popup is up closes the popup at once.
+Using the key while its popup is up closes it at once. **Clicking the popup
+only dismisses this reminder**; it changes neither learning nor future reminders.
+Clicking the same command again while its reminder is visible does not restart
+its animation or extend its original lifetime.
+
+The popup uses the chosen location when clear and otherwise moves to nearby
+free space, leaving buttons, labels, fields and sliders unobstructed. Placement
+is checked again on scrolling, resizing and added/removed controls. If the
+window is entirely packed with controls, the popup stays hidden until space is
+available; it must not block a control. There is still only one popup.
 
 The popup shows the command's own key or combination: one key, or one key with
 Shift, Ctrl or Alt (see [Keyboard shortcuts](HOTKEYS.md)). A window's extra Close /
@@ -74,7 +83,9 @@ release** whether it ships on or off by default, and set the switch.
 - [test/shredder.test.js](../test/shredder.test.js): rules, defaults, damaged notebooks.
 - [test/shredder.electron.cjs](../test/shredder.electron.cjs): the real app — popup
   beside the button, key closes it, five uses quiet one key only, held keys and
-  text fields do not count, click silences, settings, Fit's Home key, the Material
+  text fields do not count, temporary dismissal, repeated-click timing, renewed
+  quiet time, neighboring-control clicks, mouse camera rotation, settings, Fit's
+  Home key, the Material
   Manager's own keys and its footer Close (Esc), Citadel Paint's own keys and
   slider, and turning it off.
 

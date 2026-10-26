@@ -6,10 +6,6 @@
 .shredder-keycap[data-size=large]{--shredder-size:30px;padding:7px 16px}
 .shredder-keycap kbd{font:inherit;color:inherit}
 .shredder-keycap:hover{background:#151a22}
-.shredder-keycap[data-position=bottom]{left:50%;bottom:70px;transform:translateX(-50%)}
-.shredder-keycap[data-position=top]{left:50%;top:70px;transform:translateX(-50%)}
-.shredder-keycap[data-position=bottom-right]{right:22px;bottom:66px}
-.shredder-keycap[data-position=bottom-left]{left:22px;bottom:66px}
 .shredder-keycap[data-style=flash]{animation:key-appear .1s ease-out,shredder-flash .4s ease-in-out .1s 6 alternate}
 @keyframes shredder-flash{to{background:var(--ui-accent,#3d86c6);box-shadow:0 0 0 3px #fff8,0 2px 8px #0005}}
 @media (prefers-reduced-motion:reduce){.shredder-keycap,.shredder-keycap[data-style=flash]{animation:none}.shredder-keycap[data-style=flash]{box-shadow:0 0 0 3px var(--ui-accent,#3d86c6)}}

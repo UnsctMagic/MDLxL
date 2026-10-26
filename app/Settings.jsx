@@ -90,11 +90,11 @@ function ShredderSettings({ value, onChange }) {
   const reset = update => setCounts(notebookCounts(updateShredderNotebook(update), Date.now()));
   return <>
     <h3>Shortcut reminders</h3>
-    <Toggle id="hotkeys:shredder" label="Shredder: shortcut reminders" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key and it goes away. Click the popup to stop showing that key."/>
+    <Toggle id="hotkeys:shredder" label="Shredder: shortcut reminders" checked={value.enabled} onChange={enabled => onChange({ enabled })} description="When you click something that has a key, its key pops up. Use the key or click the popup to dismiss this reminder. Clicking does not turn future reminders off."/>
     <div className="settings-graphics-grid">{SHREDDER_CHOICES.map(([key, label, options]) => <label className="settings-select" key={key}><span>{label}</span><select aria-label={`Shortcut reminders: ${label}`} value={value[key]} onChange={event => onChange({ [key]: typeof value[key] === 'number' ? Number(event.target.value) : event.target.value })}>{options.map(([option, name]) => <option key={option} value={option}>{name}</option>)}</select></label>)}</div>
     <div className="settings-inline-actions">
-      <button disabled={!counts.silenced} title="Keys you silenced by clicking their popup show up again." onClick={() => reset(clearSilences)}>{`Bring back silenced keys (${counts.silenced})`}</button>
-      <button disabled={!counts.learned} title={`Keys you used ${value.learnUses} times are quiet for ${value.quietHours} hours. This shows them again now.`} onClick={() => reset(clearLearned)}>{`Bring back learned keys (${counts.learned})`}</button>
+      {counts.silenced > 0 && <button title="Restore shortcuts silenced in an earlier version." onClick={() => reset(clearSilences)}>{`Bring back silenced keys (${counts.silenced})`}</button>}
+      <button disabled={!counts.learned} title="Each use of a learned shortcut restarts its quiet time. This shows learned keys again now." onClick={() => reset(clearLearned)}>{`Bring back learned keys (${counts.learned})`}</button>
     </div>
   </>;
 }

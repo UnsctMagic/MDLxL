@@ -61,16 +61,16 @@ function change(notebook, id, update) {
   return { ...notebook, keys };
 }
 
-/** One real use of a command's key. The `learnUses`-th use quiets that key for `quietHours`. */
+/** Learn after enough real uses; every later use renews that command's quiet period. */
 export function recordKeyUse(notebook, id, { now, settings = DEFAULT_SHREDDER }) {
   return change(notebook, id, record => {
-    if (record.quietUntil > now) return record;
+    if (record.quietUntil > 0) { record.quietUntil = now + settings.quietHours * HOUR; return record; }
     record.uses++;
     if (record.uses >= settings.learnUses) { record.uses = 0; record.quietUntil = now + settings.quietHours * HOUR; }
     return record;
   });
 }
-/** A click on the popup: no more reminders for this command until silences are cleared. */
+/** Legacy notebook support: saved permanent silences remain recoverable in Settings. */
 export const silenceKey = (notebook, id) => change(notebook, id, record => ({ ...record, silenced: true }));
 export function clearSilences(notebook) {
   return { ...notebook, keys: Object.fromEntries(Object.entries(notebook.keys).map(([id, record]) => [id, { ...record, silenced: false }])) };
@@ -112,3 +112,25 @@ export function paintKeyLabel(key, { ctrl = false, shift = false, alt = false } 
 
 /** A chord as key cap labels: Ctrl+Shift+K becomes ['Ctrl', 'Shift', 'K']. */
 export const keyCaps = chord => String(chord || '').split(/\+(?=.)/).filter(Boolean);
+
+/** Keep a reminder near its preferred spot without covering neighboring controls. */
+export function reminderPosition(preferred, size, viewport, obstacles) {
+  const gap = 8, edge = 6, { width, height } = size;
+  const maxLeft = viewport.width - width - edge, maxTop = viewport.height - height - edge;
+  if (maxLeft < edge || maxTop < edge) return null;
+  const candidates = [preferred];
+  for (const rect of obstacles) {
+    candidates.push(
+      { left: preferred.left, top: rect.top - height - gap },
+      { left: preferred.left, top: rect.top + rect.height + gap },
+      { left: rect.left - width - gap, top: preferred.top },
+      { left: rect.left + rect.width + gap, top: preferred.top },
+    );
+  }
+  for (const left of [edge, maxLeft]) for (const top of [edge, maxTop]) candidates.push({ left, top });
+  const distance = point => (point.left - preferred.left) ** 2 + (point.top - preferred.top) ** 2;
+  return candidates.map(point => ({ left: Math.max(edge, Math.min(maxLeft, point.left)), top: Math.max(edge, Math.min(maxTop, point.top)) }))
+    .sort((a, b) => distance(a) - distance(b))
+    .find(point => obstacles.every(rect => point.left + width + gap <= rect.left || point.left >= rect.left + rect.width + gap ||
+      point.top + height + gap <= rect.top || point.top >= rect.top + rect.height + gap)) || null;
+}
