@@ -51,7 +51,7 @@
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-coordinates) :is(select,input[type=text],input[type=number],input:not([type])):not(.team-picker select){border:1px solid var(--m-line)!important;border-radius:7px!important;background:var(--ui-field)!important;box-shadow:none!important;min-height:26px;padding:2px 8px!important}
 
 /* Top row: grouped soft wells; the new icons in the plain theme text colour. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{height:46px!important;min-height:46px!important;padding:0 10px!important;gap:6px;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important;align-items:center}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{height:50px!important;min-height:50px!important;padding:0 10px!important;gap:6px;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important;align-items:center}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .classic-toolbar-group{gap:2px;margin-right:6px!important;padding:2px;border-radius:10px;background:var(--m-soft)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar :is(.toolbar-visibility,.toolbar-team-color){background:transparent}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .classic-tool{width:30px!important;min-width:30px!important;height:30px!important;padding:5px!important;display:inline-flex;align-items:center;justify-content:center}
@@ -275,7 +275,7 @@
 /* Top row: editing tools and team colour before Hide/Show; WC3 dock at right.
    Bottom right: MDX, Add-ons, DPI/Scroll, then language at the far edge. */
 .toolbar-primary,.toolbar-model{display:contents}
-/* The old row (44px) and dock (48px) meet halfway at 46px. */
+/* The 46px dock has a subtle 2px breathing space above and below. */
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-primary{display:flex;align-items:center;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:thin}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules{grid-template-columns:minmax(0,1fr);grid-template-rows:28px 1px 27px}

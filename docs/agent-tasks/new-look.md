@@ -126,8 +126,9 @@ Updated: 2026-10-24 (complete pass)
   immediately before Hide/Show. Quick Display stays beside the editor buttons;
   model tabs retain the full row below. No red divider is added.
 - Bottom row, right-hand group: MDX conversion, Add-ons, DPI/Scroll, then
-  language at the far-right edge. Both menus open upward. The 44px row and
-  48px dock still meet halfway at 46px (38px icons).
+  language at the far-right edge. Both menus open upward. The dock remains 46px high (38px icons);
+  the owner-requested slight outer gap makes its row 50px high, adding 2px
+  of breathing space above and below. Verified in both screenshot sizes.
 - The dock stays mounted across VIS toggles to preserve the AI conversation.
   The restored original purple VIS symbol and WC3 frame remain unchanged.
 - Current correction: production build, 26 focused tests and browser checks
