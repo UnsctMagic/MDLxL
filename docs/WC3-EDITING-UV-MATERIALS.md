@@ -119,9 +119,20 @@ Use [geometry](WC3-EDITING-GEOMETRY.md) for vertex splits,
 
 ## Change colour without hiding another mechanism
 
+Read and write these fields on the opened editor `model` in RGB order:
+
+| Geoset animation field | Editor values | File boundary |
+| --- | --- | --- |
+| Static `Color`, including `_MdxDefaults.Color` | `[R,G,B]` | Static MDX stores RGB; leave the saved default intact when editing a track. |
+| `Color.Keys[].Vector`, `InTan`, `OutTan` | `[R,G,B]` | The codec converts animated MDX BGR at load/save. |
+
+Use the editor's save path for MDX/MDL conversion. Copy values between opened
+documents without swapping channels. Read the [effect field orders](WC3-EDITING-EMITTERS.md#write-effect-colours)
+before changing a light or emitter.
+
 1. Use `{kind: 'geoset', id, property: 'Color'}` with the animation-track API
-   for geoset RGB; use `Color`/`AmbColor` on supported light nodes. Supply three
-   components in 0..1. The geoset writer enables its colour flag and preserves
+   for geoset RGB. Supply three components in 0..1.
+   The geoset writer enables its colour flag and preserves
    the visible baseline when starting a track.
 2. Read the texture and multiply it mentally or numerically by the intended
    tint before writing. A multiplicative tint cannot restore detail absent

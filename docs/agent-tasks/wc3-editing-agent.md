@@ -353,7 +353,7 @@ right; retiming matches `setAnimationActualSpeed` (whole percent 1..300); the
 layered-surface method (triangle correspondence by patch, facing and side,
 copied influences in contact, blend to the independent driver) is usable.
 
-### Patch: colour channel order
+### Review request: colour channel order
 
 The guides tell the AI to write RGB for every colour. MDLxL's in-memory order
 is not uniform:
@@ -375,8 +375,49 @@ static light Color as stored, B,G,R" or "RGB; the codec converts"). Do not fix
 codec or preview code in this task: report any inconsistency found (such as the
 animated-light reversal above) in this note for the owner to decide.
 
+### Colour review response (Codex, 26 October 2026)
+
+The two guides now specify each field's editor order and boundary conversion.
+The opened `EditorDocument.model` uses RGB for all the listed fields, including
+static light colours and PE2 stages. Static MDX colours already contain RGB;
+the absence of a conversion there is intentional. Classic animated MDX tracks
+`KGAC`, `KLAC`, `KLBC`, `KRCO` store BGR; the editor converts their values and
+cubic controls. Popcorn static/`KPPC` is RGB; its MDL export shim counters the
+upstream shared colour writer. No codec or preview code was changed.
+
+Reused the extracted native manifest at `D:\Codex\sd-research` for bounded colour
+checks, rather than extracting another corpus:
+
+- `RainOfFireTarget`: static geoset `[1, .564706, 0]`, static light
+  `[.996078, .811765, .521569]` and red/orange PE2 stages agree with the raw
+  RGB triples. `FrostNovaTarget` has blue PE2 stages and static ribbon
+  `[.290196, .670588, .964706]`, also unchanged from raw MDX.
+- `DNCAshenvaleUnit`: both `KLAC` and `KLBC` values/controls reverse from raw
+  MDX into editor RGB. Sampling its independently read raw DNC at hour 1
+  agrees with sampling the editor light and its intensity/visibility.
+- An asymmetric synthetic vector `[.125, .25, .875]` survives static and cubic
+  MDX/MDL round trips for geoset, light/ambient, ribbon and popcorn colours,
+  and static PE2 stages. Independent byte assertions check every animated
+  tag's order, including RGB `KPPC`. Native evidence covers the coloured
+  static fields and animated lights; animated geoset/ribbon and popcorn
+  coverage here comes from codec/interop tests and the synthetic byte oracle.
+  The 16 existing colour/compatibility tests pass. No game visual test was run.
+
+Owner decision needed for an existing DNC inconsistency, outside this PR:
+`PaintWorkspace` and `portrait-lighting` pass `readWarcraftDnc` output to
+`sampleWarcraftDnc`, not the editor-normalized model. That independent MDX
+reader retains animated BGR, so the suspected animated-MDX double reversal
+does not occur. Its static MDX fields remain RGB, however, and the sampler
+reverses those too. Native `DNCDungeonUnit` static RGB
+`[1, .258824, .192157]` at intensity 1.6 becomes
+`[.307451, .414118, 1.6]` in the sample. The MDL DNC path also passes the
+upstream parser's normalized RGB colours to that unconditional reversal.
+Keep authored colours intact; decide a separate DNC correction and visual
+verification rather than compensating in model data.
+
 ## Next action
 
-Second pass is implemented and verified. Owner review of the revised core and
-seven method guides is next. Keep PR #318 unmerged until the owner accepts the
+Second pass and colour clarification are implemented and verified. Claude
+re-review, then owner review of the revised core and seven method guides are
+next. Keep PR #318 unmerged until the owner accepts the
 handbook and authorizes merging. Reconcile #317 using the instruction above.

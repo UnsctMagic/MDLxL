@@ -16,6 +16,36 @@ game resources. Keep the existing family unless conversion is requested.
 For any effect, read parent, pivot, transforms, flags, local/global tracks and
 referenced texture/material/path. Sample its carrier before changing placement.
 
+## Write effect colours
+
+Use the opened editor `model`; write colour values as `[R,G,B]` in 0..1.
+Keep intensity and alpha in their own fields.
+
+| Field | Static editor value | Animated editor values | MDX boundary |
+| --- | --- | --- | --- |
+| Light `Color` | RGB | RGB `Vector`, `InTan`, `OutTan` | Static RGB; `KLAC` BGR is converted at load/save. |
+| Light `AmbColor` | RGB | RGB `Vector`, `InTan`, `OutTan` | Static RGB; `KLBC` BGR is converted at load/save. |
+| PE2 `SegmentColor[0..2]` | Three RGB vectors | Particle-age stages, not key tracks | RGB. |
+| Ribbon `Color` | RGB | RGB `Vector`, `InTan`, `OutTan` | Static RGB; `KRCO` BGR is converted at load/save. |
+| Popcorn `Color` | RGB | RGB `Vector`, `InTan`, `OutTan` | Static and `KPPC` RGB. |
+
+1. Read the existing field and clock. For a static field, replace its vector
+   with `Float32Array.of(r,g,b)` inside the scoped edit script. Keep a keyed
+   field keyed and preserve its interpolation, controls and exterior keys.
+2. For light/popcorn keys call
+   `animation-tracks.setAnimationKey(model, targets, frame, value, sequenceIndex, globalSeqId = null)`
+   with `targets: [{kind: 'node', id, property}]` and RGB `value`.
+   Ribbon `Color` uses
+   `editor-commands.setKey(node, 'Color', frame, values, options = {})`;
+   retain existing `inTan`/`outTan` in `options` when replacing a cubic key.
+   For a new ribbon colour track, seed the old static colour at other clips'
+   boundaries before writing the requested keys.
+3. Copy editor colours directly between opened documents and save through the
+   document API. It handles classic MDL BGR and popcorn MDL RGB as well as MDX.
+   Preserve `_MdxDefaults` when editing keys. Swapping authored channels to
+   compensate for a preview changes the saved tint; keep the RGB data and
+   report the preview discrepancy instead.
+
 ## Add a textured emitter
 
 1. Call `editor-document.createNode(model, 'ParticleEmitter2')` inside an edit
@@ -137,7 +167,7 @@ referenced texture/material/path. Sample its carrier before changing placement.
 
 1. Create a requested light with `editor-document.createNode(model, 'Light')`.
    Set its parent/pivot, `LightType`, `AttenuationStart`/`AttenuationEnd`,
-   `Color`, `Intensity`, `AmbColor` and `AmbIntensity`. Keep colours in 0..1;
+   `Color`, `Intensity`, `AmbColor` and `AmbIntensity`. Write both colours in RGB;
    intensity is its own scalar. For existing keyed fields retain the track and
    change only selected keys through `editor-commands.setKey`. Set visibility
    through `animation-tracks` and inspect the illuminated surfaces in motion.
