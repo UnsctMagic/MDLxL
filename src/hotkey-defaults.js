@@ -1,3 +1,5 @@
+import { allocateGroup } from './hotkey-allocation.js';
+
 /** Leader sequences extend Hotkeys without taking any original MDLVis key. */
 export const HOTKEY_LEADER = 'Ctrl+Alt+Space';
 const leaderPart = value => ({ control: 'ctrl', option: 'alt', spacebar: 'space', ' ': 'space' })[value] || value;
@@ -12,18 +14,11 @@ export function normalizeHotkeySequence(value) {
 export const hotkeyCode = value => normalizeHotkeySequence(value).split(' > ')[1] || '';
 export const hotkeySequence = code => normalizeHotkeySequence(`${HOTKEY_LEADER} > ${code}`);
 
-/** Core slots use A00–AZZ. Existing direct defaults and their aliases stay intact. */
+/** Every command has its own one- or two-key default (src/commands.js); none gets a generated code. */
 export function coreHotkeyDefaults(actions) {
-  if (actions.length > 36 * 36) throw new Error('The core Hotkeys code range is full.');
-  return actions.map((action, position) => ({ ...action,
-    defaultKeys: action.defaultKeys?.length ? [...action.defaultKeys] : [hotkeySequence(`A${position.toString(36).toUpperCase().padStart(2, '0')}`)] }));
+  return actions.map(action => ({ ...action, defaultKeys: [...(action.defaultKeys || [])] }));
 }
 
-const contextPrefixes = '0123456789BCDEFGHIJKLMNOPQRSTUVWXYZ';
-const contextCapacity = contextPrefixes.length * 36 * 36;
-const validContextCode = code => typeof code === 'string' && /^[0-9B-Z][A-Z0-9]{2}$/.test(code);
-const contextCode = slot => contextPrefixes[Math.floor(slot / (36 * 36))] + (slot % (36 * 36)).toString(36).toUpperCase().padStart(2, '0');
-function hashId(id) { let value = 2166136261; for (let i = 0; i < id.length; i++) value = Math.imul(value ^ id.charCodeAt(i), 16777619) >>> 0; return value; }
 
 /**
  * Up to 0.24.0 the Hotkeys feature was internally named "WarmKeys", and the
@@ -48,37 +43,40 @@ export function migrateHotkeyBindings(hotkeys) {
   return result;
 }
 export const LEGACY_HOTKEY_CATALOG_STORAGE_KEY = 'mdlvis-classic-warmkeys-catalog-v1';
-// Contextual codes are hashed and ordered by the ID they were first allocated
-// under, so the rename moves no default Ctrl+Alt+Space code.
-const allocationId = id => swapSegment(id, HOTKEY_SEGMENT, LEGACY_HOTKEY_SEGMENT);
+/** Keys the original MDLVis leaves free in the editor, and keys Windows or the menus own. */
+export const EDITOR_RESERVED = Object.freeze(['H', 'K', 'Ctrl+X', 'Ctrl+B', 'Ctrl+W', 'Ctrl+Q', 'Alt+F4', 'Alt+F', 'Alt+E', 'F10']);
 
 /**
- * Preserve stored contextual codes first, then allocate unseen IDs in stable ID
- * order. New controls never move an existing shortcut. A separate namespace
- * prevents future core commands from taking contextual defaults.
+ * On-screen controls get a short key from their name, chosen within their own window
+ * (`group`; see src/hotkey-allocation.js). A key, once given, is kept (`defaultKey` is saved
+ * with the discovered controls), so new controls never move an existing shortcut. Windows
+ * that show the editor's own tools (`embedsEditor`) and the editor itself avoid every
+ * command key; other windows only avoid commands that also work there. Generated
+ * Ctrl+Alt+Space codes are no longer handed out; codes the user typed in still work.
  */
 export function contextualHotkeyDefaults(actions, reservedKeys = []) {
-  const used = new Set(actions.filter(action => !action.contextual).flatMap(action => action.defaultKeys || []).map(hotkeyCode).filter(Boolean));
-  const assigned = new Map();
-  const contextual = actions.filter(action => action.contextual && !action.id.startsWith('forge:')).map(action => ({ action, key: allocationId(action.id) })).sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map(({ action }) => action);
-  for (const action of contextual) {
-    const code = action.defaultCode;
-    if (validContextCode(code) && !used.has(code)) { assigned.set(action.id, code); used.add(code); }
-  }
-  // User-assigned codes also reserve slots for controls discovered in the future.
-  for (const key of reservedKeys) { const code = hotkeyCode(key); if (code) used.add(code); }
-  for (const action of contextual) {
-    if (assigned.has(action.id)) continue;
-    const start = hashId(allocationId(action.id)) % contextCapacity;
-    let code;
-    for (let step = 0; step < contextCapacity; step++) {
-      const candidate = contextCode((start + step) % contextCapacity);
-      if (!used.has(candidate)) { code = candidate; break; }
+  const commands = actions.filter(action => !action.contextual), direct = key => typeof key === 'string' && key && !hotkeyCode(key);
+  const commandKeys = commands.flatMap(action => action.defaultKeys || []).filter(direct);
+  const everywhere = commands.filter(action => action.scope === 'global' || action.allowInModal).flatMap(action => action.defaultKeys || []).filter(direct);
+  const custom = reservedKeys.filter(direct), groups = new Map(), assigned = new Map(), keysOf = new Map();
+  for (const action of actions) if (action.contextual && typeof action.group === 'string' && action.group) (groups.get(action.group) || groups.set(action.group, []).get(action.group)).push(action);
+  // The editor first, then each window, then the pages inside a window (which also avoid their window's keys).
+  const order = [...groups.keys()].sort((a, b) => (b === 'editor') - (a === 'editor') || !!groups.get(a)[0].parentGroup - !!groups.get(b)[0].parentGroup);
+  for (const group of order) {
+    const members = groups.get(group), editor = group === 'editor', embedsEditor = !editor && members.some(action => action.embedsEditor);
+    const parent = members.find(action => action.parentGroup)?.parentGroup;
+    const taken = new Set([...custom, ...everywhere, ...(editor || embedsEditor ? [...commandKeys, ...EDITOR_RESERVED] : []), ...(embedsEditor ? keysOf.get('editor') || [] : []), ...(parent ? keysOf.get(parent) || [] : [])]), fresh = [];
+    for (const action of members) {
+      if (direct(action.defaultKey) && !taken.has(action.defaultKey)) { taken.add(action.defaultKey); assigned.set(action.id, action.defaultKey); } else fresh.push(action);
     }
-    if (!code) throw new Error('The contextual Hotkeys code range is full.');
-    assigned.set(action.id, code); used.add(code);
+    for (const [id, key] of allocateGroup(fresh, taken, { editor, wide: editor || embedsEditor })) assigned.set(id, key);
+    keysOf.set(group, members.map(action => assigned.get(action.id)).filter(Boolean));
   }
-  return actions.map(action => action.contextual && action.id.startsWith('forge:') ? { ...action, defaultCode: undefined, defaultKeys: [] } : action.contextual ? { ...action, defaultCode: assigned.get(action.id), defaultKeys: [hotkeySequence(assigned.get(action.id))] } : action);
+  return actions.map(action => {
+    if (!action.contextual) return action;
+    const key = assigned.get(action.id) || '';
+    return { ...action, defaultCode: undefined, defaultKey: key, defaultKeys: key ? [key] : [] };
+  });
 }
 
 const isLeader = event => event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey && (event.key === ' ' || event.key === 'Space' || event.code === 'Space');

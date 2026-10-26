@@ -8,8 +8,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     env: { ...process.env, MDLVIS_HEADLESS: '1', MDLXL_PROFILE: path.join(out, 'profile-' + Date.now()) }, timeout: 60000 });
   const errors = [];
   try {
-    const main = await app.firstWindow(); await main.getByTitle('OptimizeXL', { exact: true }).waitFor({ timeout: 60000 });
-    const pending = app.waitForEvent('window'); await main.getByTitle('OptimizeXL', { exact: true }).click(); const p = await pending; p.setDefaultTimeout(20000); p.on('pageerror', e => errors.push(e.message));
+    const main = await app.firstWindow(); await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({ timeout: 60000 });
+    const pending = app.waitForEvent('window'); await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click(); const p = await pending; p.setDefaultTimeout(20000); p.on('pageerror', e => errors.push(e.message));
     await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) { w.webContents.setBackgroundThrottling(false); w.setBounds({ x: -3500, y: 0, width: 1600, height: 1000 }); w.showInactive(); } });
     const stage = name => p.getByRole('navigation', { name: 'Optimization stages' }).getByRole('button', { name, exact: true }).click();
     const ready = () => p.waitForFunction(() => !!document.querySelector('.ox-savings strong') && !document.querySelector('.ox-error'));

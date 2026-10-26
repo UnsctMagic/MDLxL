@@ -45,9 +45,9 @@
 /* Quiet chrome: top row, editor row, view controls, sidebar and status bar. */
 :root:not([lang=mordor]) .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float){font:12.5px/1.45 'Segoe UI',Tahoma,sans-serif}
 :root:not([lang=mordor]) .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float) :is(button,select,input){font:inherit}
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button{border:1px solid transparent!important;border-radius:7px!important;background:transparent!important;box-shadow:none!important;color:var(--ui-text)!important;min-height:26px;padding:3px 9px}
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button:hover:not(:disabled){background:var(--ui-hover)!important}
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-view-label,.classic-selection-actions) button:is(.active,[aria-pressed=true]){background:var(--ui-field)!important;box-shadow:var(--m-raise)!important}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button:not(.toolbar-modules>button){border:1px solid transparent!important;border-radius:7px!important;background:transparent!important;box-shadow:none!important;color:var(--ui-text)!important;min-height:26px;padding:3px 9px}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-app>.classic-modules .model-tabs-bar,.classic-view-label,.classic-sidebar>button:not(.sidebar-fold),.classic-geoset-operations,.classic-selection-actions,.geosets-slot) button:hover:not(:disabled,.toolbar-modules>button){background:var(--ui-hover)!important}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-view-label,.classic-selection-actions) button:is(.active,[aria-pressed=true]):not(.toolbar-modules>button){background:var(--ui-field)!important;box-shadow:var(--m-raise)!important}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-coordinates) :is(select,input[type=text],input[type=number],input:not([type])):not(.team-picker select){border:1px solid var(--m-line)!important;border-radius:7px!important;background:var(--ui-field)!important;box-shadow:none!important;min-height:26px;padding:2px 8px!important}
 
 /* Top row: grouped soft wells; the new icons in the plain theme text colour. */
@@ -89,24 +89,28 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .model-tab.active{background:var(--ui-field)!important;box-shadow:var(--m-raise)!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .model-tab button{min-height:0}
 
-/* Module dock: the square WC3 icons on a slate bar with a thin gold edge. */
+/* Module dock: the square WC3 icons on a slate bar with a thin gold edge.
+   Dock rules (docs/TOOLBAR-DOCK.md): every icon is a 64px WC3 picture with the baked frame, shown at 40px with no extra ring;
+   every label uses the one style below and its own colour; a switched-on toggle lights its label, never its frame. */
+@font-face{font-family:'MDLxL Dock';src:url('/fonts/showcase/oxanium/font.ttf') format('truetype');font-weight:400 700;font-display:block}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules{align-self:center;gap:4px!important;padding:3.4px 4.25px!important;margin:0 0.5px 0 0!important;border-radius:6px!important;background:linear-gradient(#3a3834,#262522)!important;box-shadow:var(--dock-sh)!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button{position:relative;width:40px!important;height:40px!important;min-width:40px!important;min-height:0!important;padding:0!important;border:0!important;border-radius:3px!important;background:transparent!important;box-shadow:0 0 0 1px #000,0 0 0 2px #c9a25233!important;overflow:hidden}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button[aria-pressed=true]{box-shadow:0 0 0 1px #000,0 0 0 2px var(--lit),0 0 8px color-mix(in srgb,var(--lit) 50%,transparent)!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button{position:relative;width:40px!important;height:40px!important;min-width:40px!important;min-height:0!important;padding:0!important;border:0!important;border-radius:3px!important;background:transparent!important;box-shadow:none!important;overflow:hidden}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button:disabled>img{opacity:.55}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button>img{width:40px!important;height:40px!important;max-width:40px;max-height:40px;border-radius:3px!important}
-/* All dock labels alike: bold 10px Tahoma with a 1px black outline, in the lower half. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:1px!important;height:50%!important;font:900 10px/1 Tahoma,Arial,sans-serif!important;letter-spacing:.3px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000,0 0 3px #000!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button>img{position:absolute;left:0;top:0;width:40px!important;height:40px!important;max-width:40px;max-height:40px;margin:0;border-radius:3px!important}
+/* All dock labels alike: bold 10px Oxanium with a soft black shadow, low in the icon. */
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:-1px!important;height:50%!important;font:700 10px/1 'MDLxL Dock',Tahoma,sans-serif!important;letter-spacing:.2px;text-shadow:0 1px 0 #000,0 0 2px #000,0 0 4px #000c!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button[aria-pressed=true]>:is(.module-icon-badge,span:not(.hotkey-badge)){text-shadow:0 1px 0 #000,0 0 2px #000,0 0 4px var(--lit),0 0 8px var(--lit)!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button b{color:inherit!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.ai-tool .module-icon-badge{color:#d0a8ff!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.library-tool .module-icon-badge{color:#ffd06a!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.forge-tool .module-icon-badge{color:#78c6ff!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.bits-tool .module-icon-badge{color:#f1ebe0!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.optimizer-tool .module-icon-badge{color:#93e08a!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.emitter-tool .module-icon-badge{color:#66ded0!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.animxl-tool .module-icon-badge{color:#ff8b7b!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.pressed-keys-tool>span:not(.hotkey-badge){color:#ffb062!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.vis-toggle>.module-icon-badge{color:#ff9ad5!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.ai-tool .module-icon-badge{color:#c9a2ff!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.library-tool .module-icon-badge{color:#ffbf47!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.forge-tool .module-icon-badge{color:#7cc4ff!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.bits-tool .module-icon-badge{color:#ece8de!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.optimizer-tool .module-icon-badge{color:#8fe07f!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.emitter-tool .module-icon-badge{color:#5fe0cf!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.animxl-tool .module-icon-badge{color:#ff8574!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.pressed-keys-tool>span:not(.hotkey-badge){color:#ffa257!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.learner-tool .module-icon-badge{color:#f2e35c!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.vis-toggle>.module-icon-badge{color:#ff8fd0!important}
 
 /* View controls float as a soft pill. */
 :root .classic-app.classic-app:not([data-vis-ui]) .classic-view-label{left:12px!important;top:12px!important;display:flex;gap:4px;padding:4px!important;width:auto!important;height:auto!important;border-radius:11px;background:var(--ui-panel)!important;box-shadow:0 2px 10px #0002,0 0 0 1px var(--m-line)}

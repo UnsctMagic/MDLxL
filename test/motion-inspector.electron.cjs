@@ -164,7 +164,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await page.screenshot({ path: path.join(out, '03-hold-removed-pose-kept.png') });
     await app.evaluate(({ dialog }, saved) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: saved }); }, saved);
-    await page.keyboard.press('Control+Shift+s'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
+    await page.keyboard.press('F12'); await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.waitForFunction(() => !document.querySelector('.classic-status')?.textContent.includes('Modified'));
     const expected = openDocument(original, 'fixture.mdx');
     expected.apply('Delete only the holding rotation keys', ['Nodes'], current => { const arm = current.Bones[0]; arm.Rotation.Keys = arm.Rotation.Keys.filter(k => ![2224, 2472, 2690, 2853, 2997].includes(k.Frame)); });
