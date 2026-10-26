@@ -46,8 +46,8 @@ test('quick display follows editor buttons; WC3 dock is above the full-width tab
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);
-  assert.match(toolbar,/\{visUI && inputStrength\}\s*<LanguageSwitch/);
-  assert.match(app,/\{!visUI && <>\{inputStrength\}<div className="status-model-actions">/);
+  assert.doesNotMatch(toolbar,/<LanguageSwitch|inputStrength/);
+  assert.match(app,/<LanguageSwitch[^\n]+<\/div>\}\{inputStrength\}<\/div>/);
   assert.match(css,/team-picker select\{width:auto;min-width:0;max-width:none\}/);
 });
 

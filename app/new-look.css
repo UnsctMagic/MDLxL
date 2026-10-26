@@ -272,32 +272,27 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-visibility{margin-right:0!important;padding:0!important}
 
 
-/* Top row: editing tools, centred WC3 dock, then team colour and language.
-   MDX version and Add-ons follow DPI/Scroll at the far right of the status bar.
-   VIS retains the classic layout. */
-.toolbar-primary,.toolbar-settings,.toolbar-model{display:contents}
+/* Top row: editing tools and team colour before Hide/Show; WC3 dock at right.
+   Bottom right: MDX, Add-ons, language, then DPI/Scroll at the far edge. */
+.toolbar-primary,.toolbar-model{display:contents}
 /* The old row (44px) and dock (48px) meet halfway at 46px. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{display:grid;grid-template-columns:minmax(max-content,1fr) auto minmax(max-content,1fr)}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-primary{display:flex;align-items:center;gap:6px}
-@media(max-width:1140px){
-  :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{grid-template-columns:minmax(0,1fr) auto auto}
-  :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-primary{min-width:0;overflow-x:auto;scrollbar-width:thin}
-}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-settings{display:flex;align-items:center;justify-self:end;gap:6px}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-primary{display:flex;align-items:center;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:thin}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules{grid-template-columns:minmax(0,1fr);grid-template-rows:28px 1px 27px}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules>.editor-modules>button{flex-shrink:0}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-status>.status-model-actions{display:flex;align-items:center;flex:none;gap:4px}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-status>.status-model-actions>button,
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-status>.status-model-actions>.addon-menu>button{height:22px;min-height:22px;padding:0 8px}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-status .addon-panel{top:auto;bottom:calc(100% + 4px)}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-status .language-options{top:auto;bottom:calc(100% + 2px)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model{display:flex;align-items:center;flex:none;padding:2px;border-radius:10px;background:var(--m-soft)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model>.toolbar-team-color{margin:0!important;padding:0!important;background:transparent!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker{position:relative;display:flex;align-items:center}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker::before{content:'';position:absolute;left:10px;width:12px;height:12px;border-radius:50%;background:var(--team);box-shadow:0 0 0 1px #00000040;pointer-events:none}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker select{width:auto!important;height:28px;min-height:28px;padding:0 8px 0 28px!important;border:0!important;border-radius:7px!important;background-color:transparent!important;color:var(--ui-text)!important;font-size:12.5px!important;cursor:pointer}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .toolbar-model .team-picker select:hover{background-color:var(--ui-hover)!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .language-trigger{height:28px;padding:0 8px!important;border-radius:8px!important;background:var(--m-soft)!important;gap:4px}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .language-trigger>span{display:none}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-status .language-trigger{height:22px;min-height:22px;padding:0 8px!important;border-radius:8px!important;background:var(--m-soft)!important;gap:4px}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-status .language-trigger>span{display:none}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-status>.compact-input-strength{flex:none;margin-left:0;padding:0 8px;font-size:11px;color:var(--ui-muted)}
 /* Top-row and editor-row text buttons grey out when they cannot be used (the soft chrome style otherwise keeps them dark). */
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules>.editor-modules,.classic-view-label) button:disabled{color:var(--ui-muted)!important;cursor:default}

@@ -1,5 +1,4 @@
 import React, { useSyncExternalStore } from 'react';
-import LanguageSwitch from './LanguageSwitch.jsx';
 import { Tool, CameraTools } from './EditorControls.jsx';
 import { sketchStore } from '../src/ai-sketch.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
@@ -42,16 +41,12 @@ export default function AppToolbar({
       <div className="classic-toolbar-group"><Tool action="new" look icon="new-document" title="New" onClick={() => commands.current.new()}/><Tool action="open" look icon="sb_open" title="Open" onClick={open}/><Tool action="save" look icon="sb_save" title="Save" onClick={() => save()}/></div>
       <CameraTools look value={cameraMode} onChange={setCameraMode}/>
       <div className="classic-toolbar-group"><Tool action="undo" look icon="sb_undo" title="Undo" disabled={!commandEnabled('undo')} onClick={() => undo(false)}/><Tool action="redo" look icon="sb_undo" flip title="Redo" disabled={!commandEnabled('redo')} onClick={() => undo(true)}/><Tool action="copy" look icon="sb_copy" title="Copy" disabled={!commandEnabled('copy')} onClick={copy}/><Tool action="paste" look icon="sb_paste" title="Paste" disabled={!commandEnabled('paste')} onClick={() => paste()}/></div>
-      <div className="classic-toolbar-group toolbar-visibility"><button data-hotkey="hide" onClick={hide} disabled={!selectionCount}>Hide</button><button data-hotkey="show" onClick={() => setHidden({})} disabled={!hiddenCount}>Show</button></div>
-      </div>
-      {moduleDock}
-      <div className="toolbar-settings">
       <div className="toolbar-model">
         <div className="classic-toolbar-group toolbar-team-color"><label className="team-picker" style={{'--team':teamColor}}><select data-hotkey="teamColor" aria-label="Team color" value={teamColor} style={{backgroundColor:teamColor,color:neutralTextColor(teamColor)}} onChange={event => { setTeamColor(event.target.value); setRenderMode('textured'); }}>{teamColors.map(([name,color]) => <option key={color} value={color} style={{backgroundColor:color,color:neutralTextColor(color)}}>{name}</option>)}</select></label></div>
       </div>
-      {visUI && inputStrength}
-      <LanguageSwitch language={preferences.language} onChange={language=>changePreferences(previous=>({...previous,language}))}/>
+      <div className="classic-toolbar-group toolbar-visibility"><button data-hotkey="hide" onClick={hide} disabled={!selectionCount}>Hide</button><button data-hotkey="show" onClick={() => setHidden({})} disabled={!hiddenCount}>Show</button></div>
       </div>
+      {moduleDock}
     </div>
     <div className="classic-modules" role="group" aria-label="Editors and open models">
       <div className="editor-modules" role="group" aria-label="Editor modules">
