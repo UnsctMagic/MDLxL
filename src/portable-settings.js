@@ -9,7 +9,7 @@ export function exportConfiguration(preferences) {
 export function importConfiguration(input) {
   const data = typeof input === 'string' ? JSON.parse(input) : input;
   if (data?.schema !== 'mdlxl-configuration' || data.version !== 1 || !data.preferences || typeof data.preferences !== 'object' || Array.isArray(data.preferences)) throw new Error('Unsupported MDLxL configuration. Expected version 1.');
-  const p = data.preferences, defaults = normalizePreferences({});
+  const p = migratePreferences(data.preferences), defaults = normalizePreferences({});
   for (const key of Object.keys(p)) if (!(key in defaults)) throw new Error(`Unknown preference: ${key}.`);
   const normalized = normalizePreferences(p);
   // Exported values are canonical; malformed/out-of-range values must not silently reset.

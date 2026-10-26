@@ -1,39 +1,57 @@
 /**
- * Shredder: keycap shortcut reminders. When the user clicks a button (or menu entry)
+ * Learn: keycap shortcut reminders. When the user clicks a button (or menu entry)
  * whose command has a key, a small popup shows just that key. Using the key closes it.
  * DOM-free: every update returns a new notebook so callers can persist it.
  */
-import { hotkeyCode } from './hotkey-defaults.js';
+import { hotkeyCode, migrateHotkeyId } from './hotkey-defaults.js';
 
-export const SHREDDER_STORAGE_KEY = 'mdlxl-shredder-keycaps-v1';
+const LEGACY_LEARN_STORAGE_KEY = 'mdlxl-shredder-keycaps-v1';
+export const LEARN_STORAGE_KEY = 'mdlxl-learn-keycaps-v1';
+
+/** Carry the old notebook over only when the new one has not been saved yet.
+ * Failed migration writes leave the original intact and still return its data. */
+export function readLearnNotebook(storage) {
+  const current = storage.getItem(LEARN_STORAGE_KEY);
+  const legacy = current === null ? storage.getItem(LEGACY_LEARN_STORAGE_KEY) : null;
+  let value;
+  try { value = JSON.parse(current ?? legacy ?? 'null'); } catch { value = null; }
+  const notebook = normalizeNotebook(value);
+  if (legacy !== null) {
+    try {
+      storage.setItem(LEARN_STORAGE_KEY, JSON.stringify(notebook));
+      storage.removeItem(LEGACY_LEARN_STORAGE_KEY);
+    } catch { /* Keep the old saved data and the loaded session notebook. */ }
+  }
+  return notebook;
+}
 const HOUR = 60 * 60 * 1000, MAX_KEYS = 3000, MAX_ID = 300;
 
 /** TEST VERSION: reminders are on by default. Switch to false before release. */
-export const SHREDDER_TEST_VERSION = true;
+export const LEARN_TEST_VERSION = true;
 
-export const SHREDDER_POSITIONS = Object.freeze(['control', 'bottom', 'top', 'bottom-right', 'bottom-left']);
-export const SHREDDER_SIZES = Object.freeze(['small', 'medium', 'large']);
-export const SHREDDER_STYLES = Object.freeze(['plain', 'flash']);
+export const LEARN_POSITIONS = Object.freeze(['control', 'bottom', 'top', 'bottom-right', 'bottom-left']);
+export const LEARN_SIZES = Object.freeze(['small', 'medium', 'large']);
+export const LEARN_STYLES = Object.freeze(['plain', 'flash']);
 /** How long a popup stays, in seconds; 0 keeps it until the key is used or it is clicked. */
-export const SHREDDER_DURATIONS = Object.freeze([3, 5, 10, 0]);
-export const SHREDDER_LEARN_USES = Object.freeze([3, 5, 10]);
-export const SHREDDER_QUIET_HOURS = Object.freeze([1, 8, 24, 72]);
+export const LEARN_DURATIONS = Object.freeze([3, 5, 10, 0]);
+export const LEARN_LEARN_USES = Object.freeze([3, 5, 10]);
+export const LEARN_QUIET_HOURS = Object.freeze([1, 8, 24, 72]);
 
-export const DEFAULT_SHREDDER = Object.freeze({
-  enabled: SHREDDER_TEST_VERSION, position: 'control', size: 'medium', style: 'plain', duration: 5, learnUses: 5, quietHours: 24,
+export const DEFAULT_LEARN = Object.freeze({
+  enabled: LEARN_TEST_VERSION, position: 'control', size: 'medium', style: 'plain', duration: 5, learnUses: 5, quietHours: 24,
 });
 const pick = (value, choices, fallback) => choices.includes(value) ? value : fallback;
-/** Settings from preferences; the older Shredder kept only an on/off switch. */
-export function normalizeShredder(input) {
+/** Settings from preferences; the older Learn kept only an on/off switch. */
+export function normalizeLearn(input) {
   const value = typeof input === 'boolean' ? { enabled: input } : input && typeof input === 'object' ? input : {};
   return {
-    enabled: typeof value.enabled === 'boolean' ? value.enabled : DEFAULT_SHREDDER.enabled,
-    position: pick(value.position, SHREDDER_POSITIONS, DEFAULT_SHREDDER.position),
-    size: pick(value.size, SHREDDER_SIZES, DEFAULT_SHREDDER.size),
-    style: pick(value.style, SHREDDER_STYLES, DEFAULT_SHREDDER.style),
-    duration: pick(value.duration, SHREDDER_DURATIONS, DEFAULT_SHREDDER.duration),
-    learnUses: pick(value.learnUses, SHREDDER_LEARN_USES, DEFAULT_SHREDDER.learnUses),
-    quietHours: pick(value.quietHours, SHREDDER_QUIET_HOURS, DEFAULT_SHREDDER.quietHours),
+    enabled: typeof value.enabled === 'boolean' ? value.enabled : DEFAULT_LEARN.enabled,
+    position: pick(value.position, LEARN_POSITIONS, DEFAULT_LEARN.position),
+    size: pick(value.size, LEARN_SIZES, DEFAULT_LEARN.size),
+    style: pick(value.style, LEARN_STYLES, DEFAULT_LEARN.style),
+    duration: pick(value.duration, LEARN_DURATIONS, DEFAULT_LEARN.duration),
+    learnUses: pick(value.learnUses, LEARN_LEARN_USES, DEFAULT_LEARN.learnUses),
+    quietHours: pick(value.quietHours, LEARN_QUIET_HOURS, DEFAULT_LEARN.quietHours),
   };
 }
 
@@ -49,7 +67,9 @@ export function normalizeNotebook(input) {
   const keys = input.keys && typeof input.keys === 'object' && !Array.isArray(input.keys) ? input.keys : {};
   for (const [id, record] of Object.entries(keys).slice(-MAX_KEYS)) {
     if (id.length > MAX_ID || id === '__proto__' || !record || typeof record !== 'object') continue;
-    notebook.keys[id] = { uses: count(record.uses), quietUntil: time(record.quietUntil), silenced: record.silenced === true };
+    const next = migrateHotkeyId(id);
+    if (next !== id && Object.hasOwn(keys, next)) continue;
+    notebook.keys[next] = { uses: count(record.uses), quietUntil: time(record.quietUntil), silenced: record.silenced === true };
   }
   return notebook;
 }
@@ -62,7 +82,7 @@ function change(notebook, id, update) {
 }
 
 /** Learn after enough real uses; every later use renews that command's quiet period. */
-export function recordKeyUse(notebook, id, { now, settings = DEFAULT_SHREDDER }) {
+export function recordKeyUse(notebook, id, { now, settings = DEFAULT_LEARN }) {
   return change(notebook, id, record => {
     if (record.quietUntil > 0) { record.quietUntil = now + settings.quietHours * HOUR; return record; }
     record.uses++;

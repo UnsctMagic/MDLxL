@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { canHandleHotkeyEvent, chordFromEvent, effectiveBindings, formatChord, isTextEditingTarget, MAX_HOTKEY_ID_LENGTH } from '../src/preferences.js';
 import { contextualHotkeyDefaults, hotkeyCode, HotkeySequence, HOTKEY_LEADER, LEGACY_HOTKEY_CATALOG_STORAGE_KEY, migrateHotkeyId } from '../src/hotkey-defaults.js';
-import { hotkeyBadge } from '../src/hotkey-badge.js';
+import { hotkeyHint } from '../src/hotkey-badge.js';
 import { controlKind } from '../src/hotkey-allocation.js';
 import { translate } from '../src/localization.js';
 import './settings.css';
@@ -33,6 +33,30 @@ function visible(element) {
 }
 function activeDialog(root) { return [...root.querySelectorAll('[role="dialog"][aria-modal="true"]')].filter(visible).at(-1); }
 function enabled(element) { return !element.disabled && element.getAttribute('aria-disabled') !== 'true' && !element.closest('fieldset[disabled]'); }
+
+// A badge may escape its button's clipping, but an off-screen control gets no badge.
+function hintRect(element, styles) {
+  const rect = element.getBoundingClientRect(), doc = element.ownerDocument;
+  let left = Math.max(0, rect.left), top = Math.max(0, rect.top), right = Math.min(doc.documentElement.clientWidth, rect.right), bottom = Math.min(doc.documentElement.clientHeight, rect.bottom);
+  for (let parent = element.parentElement; parent && right > left && bottom > top; parent = parent.parentElement) {
+    let style = styles.get(parent);
+    if (!style) { style = doc.defaultView.getComputedStyle(parent); styles.set(parent, style); }
+    const clipsX = /hidden|clip|auto|scroll/.test(style.overflowX), clipsY = /hidden|clip|auto|scroll/.test(style.overflowY);
+    if (!clipsX && !clipsY) continue;
+    const bounds = parent.getBoundingClientRect();
+    if (clipsX) { left = Math.max(left, bounds.left); right = Math.min(right, bounds.right); }
+    if (clipsY) { top = Math.max(top, bounds.top); bottom = Math.min(bottom, bounds.bottom); }
+  }
+  return right > left && bottom > top ? rect : null;
+}
+function placeHint(badge, rect) {
+  const set = (name, value) => { if (badge.style.getPropertyValue(name) !== value) badge.style.setProperty(name, value); };
+  set('--hotkey-hint-width', `${Math.max(28, Math.floor(rect.width))}px`);
+  if (!badge.matches(':popover-open')) badge.showPopover();
+  const box = badge.getBoundingClientRect(), viewport = badge.ownerDocument.documentElement;
+  set('left', `${Math.max(3, Math.min(rect.right - box.width, viewport.clientWidth - box.width - 3))}px`);
+  set('top', `${Math.max(3, Math.min(rect.top, viewport.clientHeight - box.height - 3))}px`);
+}
 
 /**
  * The window a control lives in, for its default key: the editor, or a modal dialog (by its
@@ -106,11 +130,11 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         // Forge's own tiles keep their compact look: their window keys show in the tooltip only.
         if (element.tagName !== 'BUTTON' || element.closest('[data-hotkey-badges]')?.getAttribute('data-hotkey-badges') === 'false' || forgeHint && !commandIds.has(id)) continue;
         let badge = element.querySelector(':scope > [data-hotkey-badge]');
-        const text = keys.length ? (forgeHint ? hotkeyCode(keys[0]) : '') || hotkeyBadge(keys[0]) || formatChord(keys[0]) : '';
+        const text = keys.length ? (forgeHint ? hotkeyCode(keys[0]) : '') || hotkeyHint(keys[0]) : '';
         if (!text) { if (badge) badge.remove(); element.classList.remove('hotkey-control'); continue; }
         element.classList.add('hotkey-control');
-        if (!badge) { badge = element.ownerDocument.createElement('span'); badge.className = 'hotkey-badge'; badge.dataset.hotkeyBadge = ''; badge.setAttribute('aria-hidden', 'true'); element.appendChild(badge); }
-        if (badge.textContent !== text) badge.textContent = text; badge.dataset.longHint=String(text.length>3);
+        if (!badge) { badge = element.ownerDocument.createElement('span'); badge.className = 'hotkey-badge'; badge.dataset.hotkeyBadge = ''; badge.setAttribute('aria-hidden', 'true'); badge.popover = 'manual'; element.appendChild(badge); }
+        if (badge.textContent !== text) badge.replaceChildren(...text.split('+').flatMap((part, index) => index ? [element.ownerDocument.createElement('wbr'), '+' + part] : [part]));
         if (badge.title !== keys.map(formatChord).join(' / ')) badge.title = keys.map(formatChord).join(' / ');
       }
       if (changed) setRevision(value => value + 1);
@@ -181,13 +205,14 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
         // A toggled checkbox keeps focus where the user works (e.g. the UV Wrapper).
         else { if (!target.matches('input[type="checkbox"]')) target.focus({ preventScroll: true }); target.click(); }
       } else if (typeof action.run === 'function') action.run(event); else dispatch(action.id, event);
-      // Shredder's reminders count only shortcuts that actually ran.
+      // Learn reminders count only shortcuts that actually ran.
       window.dispatchEvent(new CustomEvent('mdlxl-hotkey-used', { detail: { id: action.id, chord, event } }));
       return true;
     };
     const keydown = event => {
       if (event.target?.closest?.('[data-hotkey-recording]')) { cancel(); return; }
       const inLocalWindow = !!event.target?.closest?.('[data-hotkey-window]');
+      if (event.key === 'Escape' && event.target?.ownerDocument?.querySelector('.learn-menu')) return;
       if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-showcase-key',{detail:event,cancelable:true}))){cancel();return;}
       // The focused UV workspace owns numpad nudges before global number shortcuts.
       if(!inLocalWindow&&!window.dispatchEvent(new CustomEvent('mdlxl-uv-key',{detail:event,cancelable:true}))){cancel();return;}
@@ -226,28 +251,92 @@ export function HotkeysProvider({ preferences, catalog = [], activeScope = 'edit
   }, []);
 
   useEffect(() => {
-    const reveal = event => {
-      if(event.key !== 'Alt' || event.ctrlKey || event.metaKey || isTextEditingTarget(event.target))return;
-      const ownerDocument=event.target?.ownerDocument || document;
+    const persistent = !!preferences?.showHotkeys;
+    let activeDocument = document, held = false, queued = false, disposed = false;
+    const update = (ownerDocument, target) => {
+      documents.add(ownerDocument);
       const roots=controlRoots().filter(element=>element.ownerDocument===ownerDocument);
       const modal=activeDialog(root.current) || roots.map(activeDialog).filter(Boolean).at(-1);
-      const localWindow=modal||event.target?.closest?.('[data-hotkey-window]');
+      const localWindow=modal||target?.closest?.('[data-hotkey-window]');
       for(const controlRoot of controlRoots()) for(const element of controlRoot.querySelectorAll('.hotkey-control'))element.dataset.hotkeyAvailable=String(element.ownerDocument===ownerDocument&&enabled(element)&&visible(element)&&(localWindow?localWindow.contains(element):!element.closest('[data-hotkey-window]')));
+      if (persistent) for (const doc of documents) if (doc !== ownerDocument) delete doc.documentElement.dataset.shortcutHints;
       ownerDocument.documentElement.dataset.shortcutHints='true';
+      const styles = new Map();
+      for (const controlRoot of controlRoots()) for (const badge of controlRoot.querySelectorAll('[data-hotkey-badge]')) {
+        const element = badge.closest('[data-hotkey]') || badge.parentElement.querySelector('[data-hotkey]') || badge.parentElement;
+        const available = element.ownerDocument === ownerDocument && enabled(element) && visible(element) && (localWindow ? localWindow.contains(element) : !element.closest('[data-hotkey-window]'));
+        const rect = available ? hintRect(element, styles) : null;
+        if (rect) placeHint(badge, rect); else if (badge.matches(':popover-open')) badge.hidePopover();
+      }
     };
-    const dismiss = () => { for(const element of controlRoots())delete element.ownerDocument.documentElement.dataset.shortcutHints; delete document.documentElement.dataset.shortcutHints; };
+    const reveal = event => {
+      if (persistent || event.key !== 'Alt' || event.ctrlKey || event.metaKey || isTextEditingTarget(event.target)) return;
+      held = true; activeDocument = event.target?.ownerDocument || document;
+      update(event.target?.ownerDocument || document, event.target);
+    };
+    const dismiss = () => {
+      if (persistent && !disposed) return;
+      held = false;
+      for (const doc of documents) {
+        delete doc.documentElement.dataset.shortcutHints;
+        for (const badge of doc.querySelectorAll('[data-hotkey-badge]:popover-open')) badge.hidePopover();
+      }
+    };
     const released = event => { if (event.key === 'Alt' || !event.altKey) dismiss(); };
+    const refresh = () => {
+      queued = false;
+      if (disposed || !persistent && !held) return;
+      if (!controlRoots().some(element => element.ownerDocument === activeDocument)) activeDocument = document;
+      update(activeDocument, activeDocument.activeElement);
+    };
+    const schedule = event => {
+      if (!persistent && !held) return;
+      const doc = event?.target?.ownerDocument || event?.target?.document;
+      if (doc?.documentElement) activeDocument = doc;
+      if (!queued) { queued = true; queueMicrotask(refresh); }
+    };
+    const documents = new Set([document]);
+    const hasHint = element => element?.nodeType === 1 && (element.matches('.hotkey-control,[data-hotkey-badge]') || element.querySelector('.hotkey-control,[data-hotkey-badge]'));
+    const affectsHints = record => {
+      if (record.type === 'attributes') {
+        // Ignore our positioning writes and unchanged discovery classes, without
+        // measuring controls for unrelated animation/cursor style changes.
+        if (record.target.matches('[data-hotkey-badge]') || record.oldValue === record.target.getAttribute(record.attributeName)) return false;
+        return hasHint(record.target);
+      }
+      return hasHint(record.target) || [...record.addedNodes, ...record.removedNodes].some(hasHint);
+    };
+    const observer = new MutationObserver(records => { if (!persistent || records.some(affectsHints)) schedule(); });
+    const observe = () => {
+      observer.disconnect();
+      const next = new Set([document, ...controlRoots().map(element => element.ownerDocument)]);
+      for (const doc of documents) if (!next.has(doc)) {
+        delete doc.documentElement.dataset.shortcutHints;
+        doc.removeEventListener('focusin', schedule, true); doc.removeEventListener('scroll', schedule, true); doc.defaultView?.removeEventListener('focus', schedule); doc.defaultView?.removeEventListener('resize', schedule);
+        documents.delete(doc);
+      }
+      for (const doc of next) {
+        documents.add(doc); doc.addEventListener('focusin', schedule, true); doc.addEventListener('scroll', schedule, { capture: true, passive: true }); doc.defaultView?.addEventListener('focus', schedule); doc.defaultView?.addEventListener('resize', schedule);
+      }
+      for (const element of controlRoots()) observer.observe(element, { childList: true, subtree: true, attributes: true, attributeOldValue: persistent, attributeFilter: ['disabled', 'aria-disabled', 'hidden', 'inert', 'open', 'class', 'style', 'data-hotkey', 'data-hotkey-window', 'aria-modal', 'data-short-editors'] });
+      schedule();
+    };
+    observe(); window.addEventListener('mdlxl-detached-root', observe);
     window.addEventListener('keydown', reveal, true); window.addEventListener('keyup', released, true); window.addEventListener('blur', dismiss);
     const detachedReveal=event=>reveal(event.detail), detachedRelease=event=>released(event.detail);
     window.addEventListener('mdlxl-detached-keydown', detachedReveal); window.addEventListener('mdlxl-detached-keyup', detachedRelease); window.addEventListener('mdlxl-detached-blur', dismiss);
-    return () => { window.removeEventListener('keydown', reveal, true); window.removeEventListener('keyup', released, true); window.removeEventListener('blur', dismiss); window.removeEventListener('mdlxl-detached-keydown', detachedReveal); window.removeEventListener('mdlxl-detached-keyup', detachedRelease); window.removeEventListener('mdlxl-detached-blur', dismiss); dismiss(); };
-  }, []);
+    return () => {
+      disposed = true; observer.disconnect(); window.removeEventListener('mdlxl-detached-root', observe);
+      for (const doc of documents) { doc.removeEventListener('focusin', schedule, true); doc.removeEventListener('scroll', schedule, true); doc.defaultView?.removeEventListener('focus', schedule); doc.defaultView?.removeEventListener('resize', schedule); }
+      window.removeEventListener('keydown', reveal, true); window.removeEventListener('keyup', released, true); window.removeEventListener('blur', dismiss); window.removeEventListener('mdlxl-detached-keydown', detachedReveal); window.removeEventListener('mdlxl-detached-keyup', detachedRelease); window.removeEventListener('mdlxl-detached-blur', dismiss); dismiss();
+    };
+  }, [preferences?.showHotkeys]);
   return <HotkeysContext.Provider value={{ catalog: merged, shortcuts }}><div ref={root} className="hotkeys-root">{children}{leaderCode !== null && <div className="hotkeys-sequence-cue" data-hotkey-sequence="" role="status" aria-live="polite"><strong>Hotkeys</strong><kbd>{leaderCode.padEnd(3, '·')}</kbd><span>Type the green code · Esc cancels</span></div>}</div></HotkeysContext.Provider>;
 }
 
 /** Optional explicit badge for controls outside the discovery root. */
 export function HotkeyBadge({ actionId }) {
   const { shortcuts } = useHotkeys(); const keys = shortcuts[actionId] || [], forge = actionId.startsWith('forge:');
-  const label = forge && keys.length ? hotkeyCode(keys[0]) || hotkeyBadge(keys[0]) || formatChord(keys[0]) : keys.map(hotkeyBadge).find(Boolean);
-  return label ? <span className={'hotkey-badge'+(forge?' forge-key':'')} data-hotkey-badge="" aria-hidden="true" title={keys.map(formatChord).join(' / ')}>{label}</span> : null;
+  const label = keys.length ? (forge ? hotkeyCode(keys[0]) : '') || hotkeyHint(keys[0]) : '';
+  return label ? <span className={'hotkey-badge'+(forge?' forge-key':'')} data-hotkey-badge="" popover="manual" aria-hidden="true" title={keys.map(formatChord).join(' / ')}>{label.split('+').map((part, index) => <React.Fragment key={index}>{index > 0 && <wbr/>}{index ? '+' + part : part}</React.Fragment>)}</span> : null;
 }

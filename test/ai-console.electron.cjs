@@ -152,7 +152,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const shot = name => page.screenshot({ path: path.join(out, name + '.png') });
   // Shredder's shortcut reminders float over the viewport for a few seconds; compare the view without them.
   const viewShot = async () => {
-    await page.waitForFunction(() => !document.querySelector('.shredder-keycap'), null, { timeout: 15000 }).catch(() => {});
+    await page.waitForFunction(() => !document.querySelector('.learn-keycap'), null, { timeout: 15000 }).catch(() => {});
     return canvas.screenshot();
   };
   const drawings = () =>

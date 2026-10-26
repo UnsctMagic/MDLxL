@@ -38,7 +38,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       window.addEventListener('mdlxl-hotkey-used', event => window.__used.push(event.detail.id));
       Object.defineProperty(navigator.clipboard, 'writeText', { value: async value => { window.__copied = value; } });
     });
-    const ai = page.locator('.ai-assistant'), popup = page.locator('.shredder-keycap');
+    const ai = page.locator('.ai-assistant'), popup = page.locator('.learn-keycap');
     const key = async locator => { await locator.waitFor(); const value = await locator.getAttribute('data-hotkey-shortcuts'); assert.ok(value, 'shortcut missing'); return value.split(' / ')[0].replace('Ctrl+', 'Control+'); };
     const run = async locator => { const chord = await key(locator); await ai.focus(); await page.keyboard.press(chord); return chord; };
     const local = id => ai.locator(`[data-hotkey="${id}"]`);
@@ -114,7 +114,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.keyboard.press('Escape'); await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor({ state: 'detached' });
     await ai.focus(); await page.keyboard.press('Escape'); await ai.waitFor({ state: 'detached' });
     assert.deepEqual(errors, []);
-    console.log('PASS: AI keys from names; local/editor/modal isolation; compact layout; Shredder; prompt typing/copy/paste; settings/copy; reference attach/remove; Enter and named Send; cleanup and Esc.');
+    console.log('PASS: AI keys from names; local/editor/modal isolation; compact layout; Learn; prompt typing/copy/paste; settings/copy; reference attach/remove; Enter and named Send; cleanup and Esc.');
   } catch (error) {
     console.log('AI calls:', await app.evaluate(() => global.__aiShortcutCalls));
     console.log('UI:', await (await app.firstWindow()).evaluate(() => ({ used: window.__used, error: document.querySelector('.ai-error')?.textContent, focus: document.activeElement?.outerHTML.slice(0, 400) })));

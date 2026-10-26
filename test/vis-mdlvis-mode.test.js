@@ -13,7 +13,7 @@ const toolbar = readFileSync(new URL('../app/AppToolbar.jsx', import.meta.url), 
 const css = readFileSync(new URL('../app/modules.css', import.meta.url), 'utf8').replaceAll('\r', '');
 const app = readFileSync(new URL('../app/App.jsx', import.meta.url), 'utf8');
 const classic = readFileSync(new URL('../app/portrait-view.css', import.meta.url), 'utf8').replaceAll('\r', '');
-const effectBody = toolbar.match(/useLayoutEffect\(\(\) => \{([\s\S]*?)\n  \}, \[mode, animationPanel, visUI, preferences.language\]\)/)[1];
+const effectBody = toolbar.match(/useLayoutEffect\(\(\) => \{(\s*const row = editorRow\.current;[\s\S]*?)\n  \}, \[mode, animationPanel, visUI, preferences.language\]\)/)[1];
 const layout = new Function('editorRow', 'visUI', 'ResizeObserver', effectBody);
 
 test('VIS clears stale shortening without reading widths or observing the row', () => {
