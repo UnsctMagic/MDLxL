@@ -13,7 +13,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
   const root = process.cwd(), out = path.resolve(process.env.MDLXL_ROTATION_OUT || 'out/rotation-interaction/' + Date.now());
   fs.mkdirSync(out, { recursive: true });
   const recordOnly = process.env.MDLXL_ROTATION_RECORD === '1', doc = createStarterDocument();
-  const tilt = new Quaternion().setFromAxisAngle(new Vector3(1, 2, 3).normalize(), .8).toArray();
+  const tilt = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI).toArray();
   doc.apply('Asymmetric rotation fixture', ['Sequences', 'Nodes', 'Geosets'], model => {
     model.Sequences = [
       { Name: 'Stand', Interval: new Uint32Array([0, 1000]), MoveSpeed: 0, NonLooping: false, Rarity: 0 },
@@ -102,6 +102,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       const active = projectMovementNodes(data.model, data.frame, data.sequence, camera, data.width, data.height).find(item => item.node.ObjectId === 0);
       return { active, handles: movementAxisHandles(active, camera, data.width, data.height, data.radius, data.space, 'rotate') };
     };
+    if (process.env.MDLXL_ROTATION_LOCAL_ONLY === '1') {
+      await require('./rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });
+      check('no visible windows or popups', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 1 && !BrowserWindow.getAllWindows()[0].isVisible()));
+      check('input model bytes preserved', hash(fixture) === fixtureHash); check('no renderer errors', errors.length === 0, errors);
+      assert.equal(checks.filter(item => !item.pass).length, 0, 'All Local rotation checks must pass');
+      return;
+    }
     const workplane = page.getByLabel('Workplane', { exact: true });
     const sidebarWidth = await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width);
     for (const [plane, normal] of [['xy', 'Z'], ['xz', 'Y'], ['yz', 'X']]) {
@@ -267,6 +274,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       await menu('undo');await settle();check('Movement Pivot-based exact Undo',(await snap()).model===before.model);
     }
     await movementSetting('',1);
+    await require('./rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });
     await require('./rotation-editors.electron.cjs')({ app, page, check, out });
     check('no visible windows or popups', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 1 && !BrowserWindow.getAllWindows()[0].isVisible()));
     check('sidebar width preserved', await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width) === sidebarWidth);

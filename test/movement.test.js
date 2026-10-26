@@ -554,3 +554,39 @@ test('a global edit never takes over a track the model sequences already animate
   assert.throws(() => applyMovementTransform(model, [2], 500, -1, { mode: 'rotate', values: [0, 0, 30], globalSeqId: 0 }), /Child already has Rotation keys in the model's animations/);
   assert.deepEqual(model.Bones[1].Rotation, before);
 });
+
+
+test('Pivot-based Local X follows the mouse circle after a 180 degree Y turn; Linear is unchanged', async () => {
+  const { movementRotationFacing } = await import('../app/movement-overlay.js');
+  const rotated = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
+  for (const view of [new Vector3(-1, 0, 0), new Vector3(1, 0, 0)]) {
+    const results = [];
+    for (const [space, orientation] of [['world', new Quaternion()], ['local', rotated]]) {
+      const facing = movementRotationFacing({ handle: { axis: 'X' }, space }, orientation, view);
+      const options = { x: 100, y: 0, pivot: { x: 0, y: 0 }, pivotSign: facing > 0 ? -1 : 1 };
+      const degrees = movementRotationAmount(movementRotationGesture({ ...options, behavior: 'pivot' }), -100, 100);
+      const model = fixture(); model.Bones[0].Rotation = track([100, orientation.toArray()]);
+      applyMovementTransform(model, [0], 500, 0, { mode: 'rotate', space, axis: 'X', amount: degrees });
+      const actual = new Quaternion().fromArray(sampleMovement(model, model.Bones[0], 'Rotation', 500, 0));
+      // Compare the visible world delta, not the opposite signed Local angle.
+      results.push(actual.multiply(orientation.clone().invert()));
+      near(movementRotationAmount(movementRotationGesture({ ...options, behavior: 'linear' }), 30, -20), 50);
+    }
+    near(Math.abs(results[0].dot(results[1])), 1);
+    const expected = new Quaternion().setFromAxisAngle(view, Math.PI / 2);
+    near(Math.abs(results[0].dot(expected)), 1);
+  }
+});
+
+test('Pivot-based Local facing preserves ordinary workplane and POSE Body/Object exceptions', async () => {
+  const { movementRotationFacing } = await import('../app/movement-overlay.js');
+  const rotation = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI), view = new Vector3(-1, 0, 0);
+  const base = { handle: { axis: 'X' }, space: 'local', workplaneEnabled: true };
+  near(movementRotationFacing(base, rotation, view), 1);
+  for (const kind of ['body', 'node']) {
+    near(movementRotationFacing({ ...base, pose: true, target: { kind } }, rotation, view), -1);
+    near(movementRotationFacing({ ...base, pose: true, target: { kind }, space: 'world' }, rotation, view), 1);
+  }
+  near(movementRotationFacing({ ...base, pose: true, target: { kind: 'endpoint' } }, rotation, view), 1);
+  near(movementRotationFacing({ ...base, workplaneEnabled: false, handle: { axis: 'XYZ', free: true } }, rotation, view), -1);
+});

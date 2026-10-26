@@ -251,6 +251,16 @@ export function movementDragAmount(handle, dx, dy, mode, sensitivity = 1) {
   return mode === 'rotate' ? pixels : mode === 'scale' ? Math.max(.01, Math.exp(pixels / 100)) : pixels * handle.unitsPerPixel;
 }
 
+/** Camera facing for Pivot-based input; Linear ignores the resulting sign. */
+export function movementRotationFacing(gesture, rotation, view) {
+  const normal = gesture.handle.axis === 'XYZ' ? view.clone() : new Vector3().fromArray(AXES[gesture.handle.axis]);
+  // POSE Body/Object keeps Local with a workplane. Ordinary workplane
+  // rotation and POSE endpoints instead use the world plane normal.
+  const localWorkplane = gesture.pose && (gesture.target?.kind === 'body' || gesture.target?.kind === 'node');
+  if ((!gesture.workplaneEnabled || localWorkplane) && gesture.space === 'local' && gesture.handle.axis !== 'XYZ') normal.applyQuaternion(rotation);
+  return -normal.dot(view);
+}
+
 /** Linear Rotate uses a fixed right/up-positive screen basis.
  * Pivot-based input is an explicit preference, shared with the other editors. */
 export function movementRotationGesture(options) {

@@ -25,7 +25,7 @@ import { motionPose } from '../src/motion-inspector.js';
 import { applyMovementPose, applyMovementTransform, movementRestricted, prepareMovementPose } from '../src/movement.js';
 import { applyPortraitModelTransform } from '../src/portrait-model-control.js';
 import { movementBoneVertexCenter } from '../src/movement-selection.js';
-import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationGesture, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
+import { drawAttachGuide, drawBoneConnectors, drawMovementGizmo, drawMovementOverlay, movementAxisHandles, movementDragAmount, movementRotationAmount, movementRotationFacing, movementRotationGesture, movementViewRotationHandle, movementFreeScaleValues, movementNodeSelection, movementPinPosition, movementWorkplaneHandle, movementWorkplanePointer, pickMovementHandle, pickMovementNode, projectMovementNodes } from './movement-overlay.js';
 import { drawPoseOverlay, loadPoseSymbols, pickPoseHandle, poseHandleTarget, posePinPath, poseSkeletonHighlights, projectPoseHandles, projectPoseSkeleton } from './pose-overlay.js';
 import { poseNodeControl, poseNodeConstraints, posePreviewModel, poseTrackScope, samplePoseChain, solvePoseNode, solvePoseLimb, swivelPoseLimb, turnPoseEndpoint } from '../src/pose-ik.js';
 import { applyRestPoseMatrices, isUVOnlyPreviewChange, portraitBlankDragRotatesCamera, restorePreviewCamera } from './game-preview-data.js';
@@ -423,13 +423,12 @@ export default function GamePreview(inputProps) {
     // Move/Rotate/Scale edit a global sequence on the renderer's private
     // 0..duration reel; POSE stays limited to the model's sequences.
     const nodeEditSequence = (p, frame) => !p.restPose && Number.isInteger(p.globalSeqId) && p.globalSeqId >= 0 ? globalPreviewId !== null ? timelineSequenceIndex : -1 : movementSequence(p, frame);
-    const beginRotationDrag = gesture => {
+    const beginRotationDrag = (gesture, rotation) => {
       if (gesture.mode !== 'rotate') return;
       const p = latest.current, rect = canvas.getBoundingClientRect(), pivot = gesture.origin.clone().project(camera);
-      const axis = ({ X: 0, Y: 1, Z: 2 })[gesture.handle.axis];
-      const facing = axis === undefined ? 1 : new THREE.Vector3().setComponent(axis, 1).dot(camera.getWorldDirection(new THREE.Vector3()));
+      const facing = movementRotationFacing(gesture, rotation, camera.getWorldDirection(new THREE.Vector3()));
       gesture.rotationDrag = movementRotationGesture({ ...rotationOptions(p.preferences, p.rotationEditor || (p.showcase ? 'showcase' : 'movement')), x: gesture.x, y: gesture.y,
-        pivot: { x: (pivot.x + 1) * rect.width / 2, y: (1 - pivot.y) * rect.height / 2 }, pivotSign: facing < 0 ? -1 : 1 });
+        pivot: { x: (pivot.x + 1) * rect.width / 2, y: (1 - pivot.y) * rect.height / 2 }, pivotSign: facing > 0 ? -1 : 1 });
     };
     const poseStamp = config => JSON.stringify(config && [config.enabled, config.restrict, config.chains, config.body, config.pins, config.bends, config.targets, config.nodes, config.roles, config.followers, config.carriers, config.picking]);
     const poseTargetStamp = target => JSON.stringify(target && [target.kind, target.key, target.id, !!target.marker]);
@@ -476,7 +475,7 @@ export default function GamePreview(inputProps) {
           restrictionsStamp: JSON.stringify(p.restrictions), rotateOnOwnAxis: p.rotateOnOwnAxis, moved: false, changes: null, clickTarget: next ? poseHandleTarget(next) : null };
         if (!axis && !p.workplaneEnabled) gesture.handle = { axis: 'XYZ', free: true, dx: 1, dy: -1, unitsPerPixel: handle.unitsPerPixel };
         gesture.latch = shiftDragLatch({ x: 0, y: 0 }, event.shiftKey);
-        beginRotationDrag(gesture);
+        beginRotationDrag(gesture, handle.rotation);
         gesture.dragPlane = axis?.plane || p.workplane;
         if (p.workplaneEnabled || axis?.plane) {
           const axes = gesture.dragPlane === 'yz' ? [1, 2] : ['xz', 'zx'].includes(gesture.dragPlane) ? [0, 2] : [0, 1], origin = handle.world.clone().project(camera);
@@ -618,7 +617,7 @@ export default function GamePreview(inputProps) {
           if (p.transformMode === 'move' || p.transformMode === 'scale') nodeGesture.space = 'world';
           if ((workplaneDrag || directRotate) && p.transformMode === 'rotate') nodeGesture.space = 'world';
           nodeGesture.workplaneDrag = workplaneDrag; nodeGesture.freeScaleDrag = freeScaleDrag;nodeGesture.screenMove=screenMove;nodeGesture.latch=shiftDragLatch({x:0,y:0},event.shiftKey);
-          beginRotationDrag(nodeGesture);
+          beginRotationDrag(nodeGesture, active.rotation);
           controls.enabled = false; canvas.style.cursor = viewportCursor('work', nodeGesture.mode); p.onPlayingChange?.(false); canvas.setPointerCapture(event.pointerId); invalidate();
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }

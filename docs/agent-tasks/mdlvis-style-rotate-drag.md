@@ -1,6 +1,6 @@
 # MdlVis-style Rotate drag
 
-Status: ready to test — verified; Claude review handoff queued
+Status: ready for Claude re-review — Local-axis Pivot-based follow-up verified
 Owner / consolidator: Codex (implementation); Claude Code (project lead, review)
 Updated: 2026-10-26
 
@@ -73,8 +73,8 @@ The owner's open manual test is the earlier PR build and stays untouched.
 
 - [movement-overlay.js](../../app/movement-overlay.js):
   `movementRotationGesture` / `movementRotationAmount` capture the fixed screen
-  basis and convert displacement to degrees. `movementRotationFacing` was
-  removed; `movementViewRotationHandle` chooses the nearest model axis for a
+  basis and convert displacement to degrees. `movementRotationFacing` supplies the Pivot-based
+  camera sign from the effective world/local axis; `movementViewRotationHandle` chooses the nearest model axis for a
   bare-marker drag. `pickMovementHandle` leaves the marker center available.
 - [GamePreview.jsx](../../app/GamePreview.jsx): `beginRotationDrag`, ordinary
   node pointer handling, shared POSE rotation input, preview and commit path.
@@ -197,15 +197,11 @@ The owner's open manual test is the earlier PR build and stays untouched.
 
 ## Next action and review handoff
 
-The verified branch is ready for PR #327 review. The desktop handoff helper
-returned “Computer Use helper already has an active request” on the initial
-attempt, retry and recovery after a kernel reset. The installed standalone
-Claude CLI reports signed out; do not extract Desktop credentials or automate
-sign-in. Queue an automatic retry of the authorized Claude Desktop handoff,
-using Opus 5.5 Medium, then go idle after delivery. The owner authorized
-Claude to merge if review is okay; if not, Claude must create a concrete follow-up
-task and send it back to this Codex chat. No release, installed-app upgrade or
-replacement of the owner's manual-test model/profile is authorized.
+The Local-axis follow-up is verified and ready for Claude to re-review on the
+same feature branch. The owner passes review handoffs manually; automatic desktop
+delivery remains disabled. Claude may merge only after approving the current head
+and checking CI, or return new concrete findings to the original Codex chat.
+No release, installed app/profile change or manual-test replacement is authorized.
 
 ## Claude review of 26a26cee (2026-10-26): Codex follow-up required
 
@@ -247,3 +243,32 @@ passes (98 passed, 7 skipped). One regression must be fixed first.
 - The packaged check of Pivot-based + Local Rotate in Movement follows the mouse
   circle. If possible, add the Bones/POSE gesture that this PR has not yet
   exercised in the packaged app.
+
+## Codex follow-up to Claude’s Local-axis finding (2026-10-26)
+
+- Started from Claude’s notes-only `315663a2` on the same feature branch.
+- Added two regression tests before production edits (both failed), then restored
+  `movementRotationFacing` with the original Local/workplane/POSE exceptions.
+  `GamePreview.beginRotationDrag` now receives the node or POSE handle rotation.
+  Pivot-based captures its sign from the effective axis. Linear input math,
+  transforms, POSE solvers and handle rendering are unchanged.
+- Focused tests: 100 passed, 7 existing skips. Compatibility: 57 passed.
+  Full source suite: 1,982 passed, 22 existing skips. Build and packaging passed.
+- Hidden packaged mouse checks: **33 passed**, zero renderer errors,
+  no visible windows/popups. Movement Local X at 180° about Y follows the mouse
+  circle; Linear keeps its 30° displacement rule. Ordinary workplane rotation
+  retains the World normal. POSE Body and Object follow the circle in Local space
+  with the workplane both off and on; each gesture has one-step exact Undo.
+- The initial combined run passed 347 preceding Movement checks (including real
+  camera navigation), then its new POSE fixture failed because Body incorrectly
+  included an object ID. Correcting only that test target shape produced the
+  passing focused rerun. This is not claimed as one clean combined run.
+- Local setup uses the existing controller setter because there is no visible
+  Local/World switch. Every measured rotation uses real mouse drags. The POSE
+  fixture is unpinned Body/Object; separate Bones rest-pose gestures and limb
+  solving are not new acceptance claims. The older mesh/UV/Forge/Showcase evidence
+  remains in the expanded verification above.
+- Evidence: `D:\Codex\mdlvis-rotate-drag\results\local-pivot\verification.json`.
+  Disposable package, test profiles, fixtures and temporary files are removed
+  after verification; the finished worktree is removed after pushing. The manual
+  test model/profile/build and installed apps remain untouched.
