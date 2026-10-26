@@ -116,3 +116,26 @@ Updated: 2026-10-24 (complete pass)
 ## Blockers and next action
 
 - None. Next: owner review of the PR; merge only on their go-ahead.
+
+## UI recomposition — 2026-10-26
+
+- Current follow-up: Codex chat UI RECOMP, branch `codex/ui-recomposition`,
+  based on online main `548c1b89`. Ready for review; merge requires owner approval.
+- Supersedes the historical top-row layout B placement above: the WC3 dock is
+  centred in the top row, Quick Display follows the editor buttons, and model
+  tabs have the full row below. No red divider is added.
+- Team colour and language remain top right. MDX conversion and Add-ons move
+  to the far right of the status bar, immediately after DPI/Scroll. Add-ons
+  opens upward. The 44px row and 48px dock meet halfway at 46px (38px icons).
+- The dock stays mounted in the top row across VIS toggles. VIS still shows
+  only AI and XL with classic styling; an unsent AI draft survives toggling.
+- `public/classic/wc3-vis.png` is a high-resolution restoration of the original
+  purple VIS symbol with a WC3-style frame, made with built-in imagegen from
+  the original icon and neighboring Library icon. Original is retained in Git.
+- Verified: production build and disposable Windows package; 26 focused
+  checks; 57 compatibility tests; full source suite (1960 pass, 22 skip);
+  module-button browser check; hidden packaged interaction checks at 1920,
+  1440, 1280, 1100, 960 and 720px. Actual right-mouse camera rotation, view
+  toggles, upward Add-ons, full-width tabs and AI draft retention passed.
+- No model-data or installed-app/profile changes. Owner visual acceptance
+  remains pending. Temporary package and test profile removed after testing.

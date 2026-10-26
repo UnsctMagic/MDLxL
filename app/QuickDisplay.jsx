@@ -4,18 +4,19 @@ import VIS_VIEW_MENU from '../src/vis-view-menu.json';
 import LookIcon from './LookIcon.jsx';
 import './portrait-view.css';
 
-// The new look shows these as icon + name chips in the top row; when the row is
+// The new look shows these as icon + name chips beside the editor buttons; when the row is
 // too narrow for every name, they shrink to icons only (names on hover). With VIS
 // on they stay the classic checkboxes in the editor row.
 export default function QuickDisplay({ viewMode, vanilla, checks, onCommand, isEnabled, onClear }) {
   const box = useRef(null), natural = useRef(0), [compact, setCompact] = useState(false);
-  // Measure the free space in the top row (VIS keeps the classic row, never compact).
+  // Measure the free space after the editor buttons (VIS never compacts).
   useLayoutEffect(() => {
     const element = box.current, bar = element?.parentElement;
-    if (!element || !bar?.classList.contains('classic-toolbar') || typeof ResizeObserver === 'undefined') return;
+    if (vanilla) { setCompact(false); return; }
+    if (!element || !bar?.classList.contains('editor-modules') || typeof ResizeObserver === 'undefined') return;
     const check = () => {
       if (!element.classList.contains('quick-display-compact')) natural.current = element.firstElementChild.scrollWidth;
-      // Room between the neighbours (the chips sit centred in it, so measure past their own margins).
+      // Measure the room after the editor controls, excluding the chips’ auto margin.
       const prev = element.previousElementSibling, next = element.nextElementSibling, gap = parseFloat(getComputedStyle(bar).columnGap) || 0, edges = bar.getBoundingClientRect();
       const free = (next ? next.getBoundingClientRect().left : edges.right) - (prev ? prev.getBoundingClientRect().right : edges.left) - 2 * gap - 12;
       setCompact(natural.current > free);
