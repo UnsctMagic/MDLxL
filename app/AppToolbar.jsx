@@ -25,10 +25,10 @@ function PressedKeysTool({ active, onClick, icon }) {
  * Every prop is the App value of the same name, so this markup reads exactly as it did inline. */
 export default function AppToolbar({
   activateSession, animationPanel, cameraMode, changePreferences, clearDisplay, commandEnabled, commands, copy,
-  dialog, displayMode, doc, hiddenCount, hide, inputStrength, menuChecks, mode, model, open, openLibrary,
+  dialog, displayMode, doc, inputStrength, menuChecks, mode, model, open, openLibrary,
   openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources,
-  runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, selectionCount, session,
-  sessionDirty, sessions, setCameraMode, setDialog, setHidden, setRenderMode,
+  runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, session,
+  sessionDirty, sessions, setCameraMode, setDialog, setRenderMode,
   setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, undo, visUI, aiControl
 }) {
   const editorRow = useRef(null);
@@ -80,7 +80,6 @@ export default function AppToolbar({
       <CameraTools look value={cameraMode} onChange={setCameraMode}/>
       <div className="classic-toolbar-group"><Tool action="undo" look icon="sb_undo" title="Undo" disabled={!commandEnabled('undo')} onClick={() => undo(false)}/><Tool action="redo" look icon="sb_undo" flip title="Redo" disabled={!commandEnabled('redo')} onClick={() => undo(true)}/><Tool action="copy" look icon="sb_copy" title="Copy" disabled={!commandEnabled('copy')} onClick={copy}/><Tool action="paste" look icon="sb_paste" title="Paste" disabled={!commandEnabled('paste')} onClick={() => paste()}/></div>
       {!visUI && <div className="toolbar-model">{teamPicker}</div>}
-      <div className="classic-toolbar-group toolbar-visibility"><button data-hotkey="hide" onClick={hide} disabled={!selectionCount}>Hide</button><button data-hotkey="show" onClick={() => setHidden({})} disabled={!hiddenCount}>Show</button></div>
       {visUI && teamPicker}
       {visUI && inputStrength}
       </div>

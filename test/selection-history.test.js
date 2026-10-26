@@ -7,7 +7,7 @@ import { detachFaces } from '../src/mesh-tools.js';
 import { SelectionHistory, captureSelection, restoreSelection, validSelectionHistory } from '../src/selection-history.js';
 
 const ui = (selection = { 0: [0, 1] }, options = {}) => ({
-  selectable: new Set([0, 1, 2, 3, 4]), selection, hidden: {}, activeGeoset: 0, uvSet: 0, ...options,
+  selectable: new Set([0, 1, 2, 3, 4]), selection, activeGeoset: 0, uvSet: 0, ...options,
 });
 
 test('visible-only geosets stay outside edit selection and survive undo, redo and recovery', () => {
@@ -50,11 +50,11 @@ test('virtual pose selection rebases real-node selection without a transition un
 
 test('transform and property undo/redo preserve selection, visibility and independent subsequent picks', () => {
   const doc = createDemoDocument(), history = new SelectionHistory(doc);
-  const initial = ui({ 0: [0, 1], 3: [2, 4] }, { hidden: { 1: [3] }, activeGeoset: 3 });
+  const initial = ui({ 0: [0, 1], 3: [2, 4] }, { activeGeoset: 3 });
   edit(history, initial, 'Move vertices', m => { m.Geosets[0].Vertices[0] += 5; m.Geosets[3].Vertices[6] += 5; });
   assert.deepEqual(history.travel('undo', initial), initial);
   assert.deepEqual(history.travel('redo', initial), initial);
-  const later = ui({ 2: [0, 3] }, { activeGeoset: 2, hidden: { 0: [1, 2] }, selectable: new Set([0, 2]) });
+  const later = ui({ 2: [0, 3] }, { activeGeoset: 2, selectable: new Set([0, 2]) });
   assert.deepEqual(history.travel('undo', later), later);
   assert.deepEqual(history.travel('redo', later), later);
   edit(history, later, 'Material opacity', m => { m.Materials[0].Layers[0].Alpha = 0.5; });
@@ -64,8 +64,8 @@ test('transform and property undo/redo preserve selection, visibility and indepe
 
 test('vertex deletion restores original vertex IDs on undo and the completed handler state on redo', () => {
   const doc = createDemoDocument(), history = new SelectionHistory(doc);
-  const initial = ui({ 0: [0, 2], 2: [1] }, { hidden: { 0: [8], 4: [3] }, activeGeoset: 2 });
-  const after = ui({}, { hidden: {}, activeGeoset: 2 });
+  const initial = ui({ 0: [0, 2], 2: [1] }, { activeGeoset: 2 });
+  const after = ui({}, { activeGeoset: 2 });
   const originalCount = doc.model.Geosets[0].Vertices.length;
   edit(history, initial, 'Delete vertices', m => deleteVertices(m.Geosets[0], [0, 2]), after);
   assert.ok(doc.model.Geosets[0].Vertices.length < originalCount);
@@ -76,8 +76,8 @@ test('vertex deletion restores original vertex IDs on undo and the completed han
 
 test('deleting whole geosets restores multi-geoset selection and the shifted post-delete state', () => {
   const doc = createDemoDocument(), history = new SelectionHistory(doc);
-  const initial = ui({ 0: [0, 1], 2: [1, 3], 4: [2] }, { hidden: { 3: [0] }, activeGeoset: 4 });
-  const after = ui({ 2: [2] }, { selectable: new Set([0, 1, 2]), activeGeoset: 2, hidden: { 1: [0] } });
+  const initial = ui({ 0: [0, 1], 2: [1, 3], 4: [2] }, { activeGeoset: 4 });
+  const after = ui({ 2: [2] }, { selectable: new Set([0, 1, 2]), activeGeoset: 2 });
   edit(history, initial, 'Delete geosets', m => { deleteGeoset(m, 2); deleteGeoset(m, 0); }, after);
   assert.deepEqual(history.travel('undo', after), initial);
   assert.equal(doc.model.Geosets.length, 5);
@@ -103,7 +103,7 @@ test('weld records the remapped selected vertex in each geoset and never reappli
 test('detach restores selections and active geoset on both sides of newly appended geometry', () => {
   const doc = createDemoDocument(), history = new SelectionHistory(doc);
   const picked = Array.from(doc.model.Geosets[0].Faces.slice(0, 3));
-  const initial = ui({ 0: picked, 2: [1] }, { selectable: new Set([0, 2]), hidden: { 2: [3] } });
+  const initial = ui({ 0: picked, 2: [1] }, { selectable: new Set([0, 2]) });
   let after;
   edit(history, initial, 'Detach faces', m => detachFaces(m, 0, picked), gi => {
     after = ui({ [gi]: Array.from({ length: doc.model.Geosets[gi].Vertices.length / 3 }, (_, i) => i) },
@@ -188,7 +188,7 @@ test('selection snapshots copy and validate IDs while preserving insertion order
   const snapshot = captureSelection(state, doc.model);
   state.selection[0][0] = 9;
   assert.deepEqual(restoreSelection(snapshot, doc.model).selection, { 0: [3, 0] });
-  assert.deepEqual(restoreSelection(snapshot, doc.model).hidden, { 0: [2] });
+  assert.equal(restoreSelection(snapshot, doc.model).hidden, undefined);
   assert.equal(snapshot.uvSet, 0);
   assert.ok(snapshot.selection[0] instanceof Uint32Array);
 });

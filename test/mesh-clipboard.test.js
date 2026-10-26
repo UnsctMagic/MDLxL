@@ -8,7 +8,7 @@ import { addTriangle, transformVertices } from '../src/editor-commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
 
 const sections = ['Geosets', 'Materials', 'Textures', 'Nodes', 'PivotPoints', 'GeosetAnims', 'GlobalSequences', 'TextureAnims'];
-const ui = (selection, activeGeoset = Number(Object.keys(selection)[0])) => ({ selection, selectable: new Set(Object.keys(selection).map(Number)), hidden: {}, activeGeoset, uvSet: 0 });
+const ui = (selection, activeGeoset = Number(Object.keys(selection)[0])) => ({ selection, selectable: new Set(Object.keys(selection).map(Number)), activeGeoset, uvSet: 0 });
 
 test('copy retains a loose vertex and every SD/HD attribute without changing the source', () => {
   const { model } = createDemoDocument(), source = model.Geosets[0], count = source.Vertices.length / 3;
