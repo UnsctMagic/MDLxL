@@ -84,6 +84,12 @@ export class AiEditorBridge {
     // Steps run in order per model tab; tasks on different models do not wait on each other.
     this.queues = new Map();
     this.waiters = new Set();
+    // The open console listens here instead of redrawing with every editor render.
+    this.listeners = new Set();
+    this.subscribe = listener => {
+      this.listeners.add(listener);
+      return () => this.listeners.delete(listener);
+    };
   }
   state() {
     return this.host().state();
@@ -906,6 +912,7 @@ export class AiEditorBridge {
   }
   editorChanged() {
     for (const waiter of [...this.waiters]) waiter();
+    for (const listener of [...this.listeners]) listener();
     if (!this.awarenessEnabled || !this.desktop || this.awarenessTimer) return;
     // Coalesce real React/editor changes; no polling or idle provider requests.
     this.awarenessTimer = setTimeout(() => {
