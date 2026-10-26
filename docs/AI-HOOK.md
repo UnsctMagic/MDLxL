@@ -92,10 +92,8 @@ the first one. The bird has its own environment for its model tab:
   picture can also be a close-up of the marked vertices, for small spots such as
   a joint or a seam. While a job runs MDLxL keeps drawing even when its window is
   covered or minimized, so pictures still work while you use another program.
-- **Editing handbook.** Every chat gets a short core of general Warcraft III
-  editing rules and opens the matching `WC3-EDITING-*` guide (geometry, UV and
-  materials, nodes and binding, animation, emitters, game integration,
-  verification) before an unfamiliar operation.
+- **Editing handbook.** With the [Editing handbook](#editing-handbook) switch on,
+  a bird working in the background gets the same rules and guides.
 - **Older chats keep working.** After an update or an SD Brain switch the AI's
   tool list changes and Claude refuses its earlier reasoning; MDLxL then drops
   that reasoning from finished turns and asks again.
