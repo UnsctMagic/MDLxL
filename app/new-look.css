@@ -51,7 +51,7 @@
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-coordinates) :is(select,input[type=text],input[type=number],input:not([type])):not(.team-picker select){border:1px solid var(--m-line)!important;border-radius:7px!important;background:var(--ui-field)!important;box-shadow:none!important;min-height:26px;padding:2px 8px!important}
 
 /* Top row: grouped soft wells; the new icons in the plain theme text colour. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{height:52.5px!important;min-height:52.5px!important;padding:0 10px 0 10px!important;gap:6px;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important;align-items:center}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{height:64px!important;min-height:64px!important;padding:0 10px 0 10px!important;gap:6px;border:0!important;border-bottom:1px solid var(--m-line)!important;background:var(--ui-panel)!important;align-items:center}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .classic-toolbar-group{gap:2px;margin-right:6px!important;padding:2px;border-radius:10px;background:var(--m-soft)}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar :is(.toolbar-visibility,.toolbar-team-color){background:transparent}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar .classic-tool{width:30px!important;min-width:30px!important;height:30px!important;padding:5px!important;display:inline-flex;align-items:center;justify-content:center}
