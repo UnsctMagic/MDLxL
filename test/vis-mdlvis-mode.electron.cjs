@@ -37,7 +37,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
         } });
       }
       window.visProbe = () => {
-        let doc, controls, runtime, sketches, cleanupPending = false;
+        let doc, controls, runtime, sketches;
         for (const start of [document.querySelector('.classic-app'), document.querySelector('.game-preview-root,.viewport'), document.querySelector('.toolbar-modules>.ai-tool')]) {
           for (let fiber = start?.[Object.keys(start).find(key => key.startsWith('__reactFiber'))]; fiber; fiber = fiber.return) {
             for (let hook = fiber.memoizedState; hook; hook = hook.next) {
@@ -45,14 +45,13 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
               if (value?.doc?.model) doc = value.doc;
               if (value?.current?.controls?.object) { runtime = value.current; controls = runtime.controls; }
               if (value && typeof value.visible === 'boolean' && Array.isArray(value.strokes) && Object.hasOwn(value, 'tool')) sketches = value;
-              if (value?.modelKey && value?.name && !value.id) cleanupPending = true;
             }
           }
         }
         if (!doc || !controls) throw Error('Live document or preview controls unavailable');
         const renderedSketchIds = [];
         runtime.scene?.traverse(object => { if (object.userData?.strokeId != null) renderedSketchIds.push(object.userData.strokeId); });
-        return { sketchVisible: sketches?.visible, sketchTool: sketches?.tool, strokes: JSON.stringify(sketches?.strokes), renderedSketchIds, cleanupPending,
+        return { sketchVisible: sketches?.visible, sketchTool: sketches?.tool, strokes: JSON.stringify(sketches?.strokes), renderedSketchIds,
           selectedVertices: Number(document.querySelector('.classic-counts>div:nth-child(2)>span')?.textContent || 0), model: JSON.stringify(doc.model), bytes: Array.from(new Uint8Array(doc.serialize('mdx'))), revision: doc.revision, undo: doc.historyStats.undoSteps, camera: controls.object.quaternion.toArray() };
       };
     });
@@ -182,9 +181,9 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     console.log('PASS VIS disarms Pen, hides drawings, selects normally and routes Undo/Redo to model; XL restores draft and drawings');
     // Local fixtures stand in for AI save activity; no external AI request is sent.
     await app.evaluate(({ ipcMain }) => {
-      global.__visAiSaveActivity = false; global.__visAiRemember = 'ask'; global.__visAiCleanupCalls = 0;
+      global.__visAiSaveActivity = false; global.__visAiRemember = 'ask'; global.__visAiCleanupCalls = 0; global.__visAiSaveStateCalls = 0;
       ipcMain.removeHandler('ai:saveState');
-      ipcMain.handle('ai:saveState', () => ({ activity: global.__visAiSaveActivity, remember: global.__visAiRemember }));
+      ipcMain.handle('ai:saveState', () => { global.__visAiSaveStateCalls++; return { activity: global.__visAiSaveActivity, remember: global.__visAiRemember }; });
       ipcMain.removeHandler('ai:cleanup');
       ipcMain.handle('ai:cleanup', () => { global.__visAiCleanupCalls++; return {}; });
     });
@@ -202,7 +201,8 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
     await page.waitForFunction(() => !document.querySelector('.classic-status').textContent.includes('Saving'));
     assert.equal(digest(fs.readFileSync(fixture)), saved, 'actual XL/VIS file saves match');
     console.log('PASS actual XL/VIS file saves match');
-    await page.waitForFunction(() => visProbe().cleanupPending);
+    for (const deadline = Date.now() + 20000; (await app.evaluate(() => global.__visAiSaveStateCalls)) < 2 && Date.now() < deadline;) await page.waitForTimeout(50);
+    assert.equal(await app.evaluate(() => global.__visAiSaveStateCalls), 2, 'both real saves queried AI activity');
     const cleanup = page.getByRole('dialog', { name: 'Tidy up AI chats', exact: true });
     assert.equal(await cleanup.count(), 0, 'saving with AI activity in VIS does not portal the cleanup dialog');
     const grid = page.locator('.quick-display input[data-hotkey="grid"]'), checked = await grid.isChecked();

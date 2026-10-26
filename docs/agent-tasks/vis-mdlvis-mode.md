@@ -1,6 +1,6 @@
 # VIS stays MDLVis
 
-Status: completed; ready for independent review and conditional merge
+Status: Claude review blockers addressed; ready for independent review
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
 
@@ -36,6 +36,7 @@ Done means, with VIS on, at every window size:
 - Integrated newer main `a4c86621` (PR #304) after it landed during the task;
   retained its Shredder/LER, shortcut and new-look dock changes. Repeated the
   packaged checks and compared VIS-off against a matching current-main build.
+- Integrated main `528f5edf` (PR #326) after Claude's review; retained its AI console memoization and frame subscription while passing `visUI` to the same component.
 - PR: [#324](https://github.com/UnsctMagic/MDLxL/pull/324).
 - All work and disposable test data used `D:\Codex\mdlxl-vis-mdlvis-20261026`;
   installed apps and real profiles were not changed.
@@ -135,6 +136,7 @@ found two blockers. Both are addressed without changing model or provider behavi
   No external AI request is used for these fixture checks.
 - All 24 packaged cases, actual file-save byte comparisons, 57 compatibility
   tests and 1,983 source tests passed (22 existing source skips).
+- After integrating PR #326, repeated the build, both required suites and all 24 hidden packaged cases successfully. The cleanup test observes its local save IPC fixture rather than stale React fiber state; all dialog and shortcut assertions remain.
 - Owner requests automatic independent Claude Opus 5.5 / medium review. Claude
   may merge if acceptable with green CI; otherwise create a fix task and contact
   the originating Codex chat. Codex goes idle after dispatch.
@@ -152,6 +154,6 @@ found two blockers. Both are addressed without changing model or provider behavi
 
 ## Next action
 
-Independent Codex review of PR #324. Merge only if acceptable and CI is green
+Independent Claude review of the updated PR #324. The two findings on 5420b0d7 are addressed in 0b6dc090; current-main integration preserves both fixes. Merge only if acceptable and CI is green
 on the reviewed head. Otherwise send actionable findings to originating Codex
 chat `01a17855-e29f-7711-8a1b-83dca97442b1` for fixes. This editing chat has not merged it.

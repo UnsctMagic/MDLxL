@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import AiMessage from './AiMessage.jsx';
 import './ai-assistant.css';
-import { translate } from '../src/localization.js';
+import { getLanguage, translate } from '../src/localization.js';
 import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
 import BIRDS from '../src/ai-birds.json';
 
@@ -295,8 +295,17 @@ function AssistantMessage({ message, live, onOpenWorker }) {
   );
   return message.cost ? [...shown, <CostLine key="cost" cost={message.cost} />] : shown;
 }
+// Everything the open console shows about the editor except the frame, which
+// changes on every playback tick; FrameLabel follows that on its own.
+function headerKey(bridge) {
+  const { time, ...summary } = bridge.summary();
+  return JSON.stringify([summary, bridge.host().references?.() || [], getLanguage()]);
+}
+function FrameLabel({ bridge }) {
+  return useSyncExternalStore(bridge.subscribe, () => Math.round(bridge.summary().time));
+}
 
-export default function AiAssistant({ bridge, visUI }) {
+function AiAssistant({ bridge, visUI }) {
   const [open, setOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
     [settings, setSettings] = useState({ provider: 'codex', model: '', executable: '', baseUrl: '' });
@@ -488,6 +497,7 @@ export default function AiAssistant({ bridge, visUI }) {
       }
     });
   }, []);
+  useSyncExternalStore(bridge.subscribe, () => (open ? headerKey(bridge) : ''));
   const summaryNow = open ? bridge.summary() : null;
   const modelKey = summaryNow ? modelKeyOf(summaryNow.path, summaryNow.documentId) : null;
   // Right after a tab switch the console still holds the previous model's chat until
@@ -1333,7 +1343,10 @@ export default function AiAssistant({ bridge, visUI }) {
                             </span>
                           )}
                           {summary.sequenceName != null && (
-                            <span className="ai-chip-muted">{` · ${summary.sequenceName} @ ${Math.round(summary.time)}`}</span>
+                            <span className="ai-chip-muted">
+                              {` · ${summary.sequenceName} @ `}
+                              <FrameLabel bridge={bridge} />
+                            </span>
                           )}
                           {summary.reference && (
                             <button
@@ -1603,3 +1616,6 @@ export default function AiAssistant({ bridge, visUI }) {
     </>
   );
 }
+// The editor re-renders ~30 times a second during playback; the console only
+// redraws when its own state or headerKey changes.
+export default React.memo(AiAssistant);
