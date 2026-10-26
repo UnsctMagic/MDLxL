@@ -596,8 +596,9 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
   initialModel=initialModels[0]||null;
   // Discover game data only when textures are requested or the user rescans.
   // A blank editor starts without registry queries or a drive-search process.
-  await createWindow();
+  // Runs in the background; it must not wait for (or be skipped by) the editor page load.
   registerFileTypes();
+  await createWindow();
 });
 async function createWindow(bounds={}){
   externalModelsReady=false;

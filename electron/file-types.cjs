@@ -36,6 +36,9 @@ function registryEntries({ choice, executable, brandingDirectory }) {
   return [
     ...fileType(PROG_ID, 'Warcraft III model', iconLocation(choices.mdx, executable, brandingDirectory)),
     ...Object.values(MODEL_TYPES).flatMap(({ progId, kind, name }) => fileType(progId, name, iconLocation(choices[kind], executable, brandingDirectory, kind))),
+    // "Open with > Always use" makes Windows' own Applications\MDLxL.exe entry the
+    // default for .mdl/.mdx; Explorer then takes the icon from that entry instead.
+    [`${CLASSES}\\Applications\\${path.win32.basename(executable)}\\DefaultIcon`, null, 'REG_SZ', iconLocation(choices.mdx, executable, brandingDirectory)],
     ...EXTENSIONS.map(extension => [`${CLASSES}\\${extension}\\OpenWithProgids`, progIdFor(extension), 'REG_NONE', '']),
     // Paint Projects belong to MDLxL alone, so they get the file type directly.
     [`${CLASSES}\\.mdlxlpaint`, null, 'REG_SZ', PROG_ID],

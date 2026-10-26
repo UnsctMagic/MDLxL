@@ -51,6 +51,12 @@ test('file type points at the chosen icon or the program icon', () => {
   assert.equal(icon('program'), `"${executable}",0`);
 });
 
+test('the Open with > Always entry for MDLxL.exe shows the same icon', async () => {
+  const appIcon = choice => registryEntries({ choice, executable, brandingDirectory }).find(([key]) => key === 'HKCU\\Software\\Classes\\Applications\\MDLxL.exe\\DefaultIcon')[3];
+  assert.equal(appIcon('dark-page'), `${brandingDirectory}\\file-dark-page.ico`);
+  assert.equal(appIcon('program'), `"${executable}",0`);
+});
+
 test('model extensions only gain an Open with entry; nothing is written outside HKCU', () => {
   const entries = registryEntries({ choice: 'page', executable, brandingDirectory });
   assert.ok(entries.every(([key]) => key.startsWith('HKCU\\')));
@@ -75,4 +81,8 @@ test('registration writes once, then skips until the icon changes', async () => 
   assert.equal(await types.apply('page'), false);
   assert.equal(await types.apply('tile'), true);
   assert.equal(registry.get(`HKCU\\Software\\Classes\\${PROG_ID}\\DefaultIcon|`), `${brandingDirectory}\\file-tile.ico`);
+  // An earlier version registered without the Applications icon; it is filled in once.
+  registry.delete('HKCU\\Software\\Classes\\Applications\\MDLxL.exe\\DefaultIcon|');
+  assert.equal(await types.apply('tile'), true);
+  assert.equal(await types.apply('tile'), false);
 });
