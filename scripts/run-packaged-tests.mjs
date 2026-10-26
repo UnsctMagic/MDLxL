@@ -40,6 +40,7 @@ const SPECIAL = {
   learn: { env: { MDLXL_ELECTRON_PATH: exe, LEARN_NO_SHOTS: '1' } },
   'learn-menu': { env: { MDLXL_ELECTRON_PATH: exe } },
   'anim-xl': { env: { MDLXL_ANIMXL_EXE: exe } },
+  'auto-corpse': { env: { MDLXL_TEST_EXE: exe, MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },
   attachemator: { env: { MDLXL_APP: exe, MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
   'anim-xl-filmstrip': { env: { MDLXL_ANIMXL_EXE: exe }, argv: [footman], needs: [footman] },
   'appearance-contrast': { env: { MDLXL_TEST_EXE: exe } },
