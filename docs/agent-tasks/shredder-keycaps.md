@@ -1,6 +1,6 @@
 # Shredder keycap shortcut reminders
 
-Status: ready for review
+Status: patch needed (see "Review patch for Codex" at the end)
 Owner / consolidator: Codex continuation of Claude Code’s PR #304
 Updated: 2026-10-26
 
@@ -110,3 +110,48 @@ Updated: 2026-10-26
 - Remove the temporary revision2/source checkout after pushing. Continue from
   origin/claude/shredder-keycaps; old user-opened checkouts remain untouched.
 - Ready for the owner’s visible test. Warcraft III gameplay was not exercised.
+
+## Review patch for Codex (Claude Code review, 2026-10-26)
+
+Reviewed `5c84c94d` and `91dcc194` against `6780d2b1`. The owner's refinement
+is implemented as asked: same-popup timing, renewed quiet time, centered
+placement restored, left-click dismiss, right-click mute, live muted count,
+three translations, tests and docs. Remaining work, in order:
+
+1. **Merge `origin/main` into this branch (blocking).** The PR is
+   `CONFLICTING`, so GitHub has not run CI since `0671762d` (2026-10-25 11:10);
+   the hotkey pass and both refinement commits have never passed CI. Conflicts:
+   `app/App.jsx`, `app/Hotkeys.jsx`, `src/preferences.js`,
+   `test/localization-catalogs.test.js` (recount the three catalog sizes after
+   the merge; do not just pick one side). In `Hotkeys.jsx`, keep main's
+   translated "Hotkey:" tooltip prefix from `092eb378` together with this
+   branch's per-window keys. Push and get PR CI green.
+2. **Re-run the hotkey crawl after the merge.** Main gained new controls since
+   `2d6ca1e8` (AI console and its reference-model/copy/paste buttons, AI
+   settings, MDL/MDX file-icon settings, the Bones chip in the Bones editor's
+   top row). Confirm with `out/hotkey-crawl` that they get one- or two-key keys
+   from their names in their own window, no codes, no clashes, and that
+   `test/hotkey-defaults.test.js` still holds. Update the counts in
+   `docs/HOTKEYS.md` and the PR body if they change.
+3. **Learned count is not live in Settings (small).** In `app/Shredder.jsx`
+   the `used` handler saves through `save()`, which stores the notebook but
+   does not dispatch `mdlxl-shredder-notebook`. With Settings open, "Bring back
+   learned keys (n)" keeps its old number after a key becomes learned, while
+   the muted count does update. Dispatch the event after a use changes
+   `quietUntil` (not on every use), so both counts behave the same.
+4. **Mute without storage wipes the session's memory (small).** `silence` now
+   goes through `updateShredderNotebook`, whose `CHANGED` event makes
+   `changed()` reload with `loadShredderNotebook()`. When `localStorage` is
+   unavailable that returns an empty notebook, so a right-click mute is lost at
+   once and every key learned this session is forgotten. Before this commit the
+   in-memory notebook was kept. Keep the running notebook when storage cannot
+   be written (for example, apply the update to `notebook.current` first and
+   only reload from storage on events from Settings). Add a unit or Electron
+   check with storage throwing.
+
+Leave unchanged: `SHREDDER_TEST_VERSION = true`; Particle Editor, AnimXL and
+Texture Library coverage as a separate follow-up; the hidden-when-zero "Bring
+back silenced keys" button (documented in `docs/SHREDDER.md`). No merge into
+`main` or release is authorized. When done: update this note's status, re-run
+the focused Shredder tests, full `pnpm run test:source`, `pnpm test`, and the
+packaged Shredder check, then report `ready for review; awaiting merge approval`.
