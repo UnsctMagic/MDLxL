@@ -1,6 +1,6 @@
 # VIS stays MDLVis
 
-Status: completed implementation; ready for review; awaiting merge approval
+Status: completed; ready for independent review and conditional merge
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
 
@@ -21,8 +21,9 @@ Done means, with VIS on, at every window size:
   order and keys. No icon chips, no new-look styling, no shrinking to icons
   or first letters, no other responsive compaction.
 - None of the new-look rules, labels or measurements apply. VIS looks the
-  same as the last release before the new look (`v0.30.1`) unless the owner
-  approved a VIS change since (example: the AI icon beside XL, 0.31.0).
+  same as the last release before the new look (`v0.30.1`). The owner's latest
+  instruction removes AI from VIS: no AI button or console.
+  XL retains the AI console and draft state.
 - Turning VIS off restores the new look exactly as it was (tabs, chips,
   PR #321's letter shortening on overflow).
 - Out of scope: any change to the new look itself, model data, menus'
@@ -66,7 +67,7 @@ hidden Windows desktop, in Vertices, Bones, Movement and Animations at
 | DPI/Scroll in the status bar | DPI/Scroll restored to the toolbar's right edge |
 | Editor name/key hint removed from status bar | Classic editor hint restored in VIS only |
 | PR #321 measures the editor row in VIS; its CSS applies there | Remove the attribute and return before measuring/observing; scope all three shortening rules to `:not([data-vis-ui])` |
-| AI icon added since v0.30.1 | Owner-approved: retained beside XL, with the classic dock styling |
+| AI icon added since v0.30.1 | Owner now requires no AI in VIS: hide the icon and console; retain only XL in the classic dock |
 
 No visible tabs, editor buttons, icon chips or shortened checkbox names were
 found in VIS in the starting package. The checkbox styles, names, order, keys,
@@ -99,12 +100,15 @@ starting main build exactly, including PR #321's overflow shortening.
 - Model JSON, serialized MDX bytes, revision and undo history unchanged through
   toggles, shortcut interactions and camera drags. Actual XL and VIS saves of a
   disposable fixture also produce identical bytes; original input hash
-  unchanged. The open AI console and an unsent prompt also survive VIS/XL toggles; the dock stays mounted and only moves through VIS CSS.
+  unchanged. The open AI console and an unsent prompt also survive VIS/XL toggles; VIS hides the AI button and console, and XL restores
+  them without remounting. The no-AI follow-up passed the same full source and
+  compatibility suites and all 24 packaged VIS/XL cases.
 - `pnpm test`: 57 passed, zero failures.
 - `pnpm run test:source`: 1,981 passed, 22 existing skips, zero failures.
 - Focused toolbar/VIS/dock source checks: 16 passed.
 - Build/package verification passed; no renderer errors in the packaged matrix.
-- PR CI: [checks](https://github.com/UnsctMagic/MDLxL/pull/324/checks). No merge or release authorized.
+- PR CI: [checks](https://github.com/UnsctMagic/MDLxL/pull/324/checks). The owner authorizes a separate Codex reviewer to merge only if acceptable;
+  otherwise return findings to the originating chat for fixes. No release requested.
 
 The Windows toolchain used existing dependencies through a junction. Script
 runs disabled pnpm's automatic pre-run reinstall for that junction; no project
@@ -116,7 +120,7 @@ images are retained under the task's `report` directory.
 
 1. Open a model, click VIS, and resize around 900px, 1100x760 and a wide window.
 2. Use Modules / F1 and F3 to visit Vertices, Bones, Movement and Animations.
-   Check the classic checkbox row, absent tabs/editor buttons, AI beside XL,
+   Check the classic checkbox row, absent tabs/editor buttons, only XL in the classic dock,
    top-right DPI/Scroll and bottom-right editor hint.
 3. Alt + left-drag the preview to rotate. Click a visibility checkbox or use
    its existing hotkey, then switch editors and return.
@@ -125,4 +129,6 @@ images are retained under the task's `report` directory.
 
 ## Next action
 
-Ready to test / ready for review; awaiting the owner's merge approval.
+Independent Codex review of PR #324. Merge only if acceptable and CI is green
+on the reviewed head. Otherwise send actionable findings to originating Codex
+chat `01a17855-e29f-7711-8a1b-83dca97442b1` for fixes. This editing chat has not merged it.

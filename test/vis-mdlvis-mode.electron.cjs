@@ -75,7 +75,7 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
             const q = document.querySelector('.quick-display'), bounds = document.querySelector('.editor-modules').getBoundingClientRect();
             return { size: [innerWidth, innerHeight], short: document.querySelector('.editor-modules').hasAttribute('data-short-editors'), reads: window.visWidthReads,
               tabs: [...document.querySelectorAll('.model-tabs-bar')].filter(visible).length, editors: [...document.querySelectorAll('.editor-modules>button')].filter(visible).length,
-              icons: q.querySelectorAll('.look-icon').length, quick: [...q.querySelectorAll('label')].map(e => {
+              aiVisible: [...document.querySelectorAll('.ai-tool,.ai-assistant')].filter(visible).length, icons: q.querySelectorAll('.look-icon').length, quick: [...q.querySelectorAll('label')].map(e => {
                 const input = e.querySelector('input'), s = getComputedStyle(input), r = e.getBoundingClientRect(), name = e.querySelector('.quick-display-name');
                 return { name: e.textContent, action: input.dataset.hotkey, checkbox: input.type, opacity: s.opacity, position: s.position, visible: visible(e) && r.left >= bounds.left && r.right <= bounds.right, fullName: getComputedStyle(name).display !== 'none', radius: getComputedStyle(e).borderRadius };
               }), topDock: !!document.querySelector('.classic-toolbar>.toolbar-modules'), dockInEditorRow: (() => { const d = document.querySelector('.toolbar-modules').getBoundingClientRect(), r = document.querySelector('.classic-modules').getBoundingClientRect(); return d.top >= r.top && d.bottom <= r.bottom; })(),
@@ -84,12 +84,12 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
           assert.deepEqual(data.size, [width, height]);
           assert.deepEqual(data.quick.map(({ name, action }) => [name, action]), (vis ? VIS_MENU : VIEW_MENU)[viewMode].filter(([, action]) => action !== 'clearDisplay' && !(vis && ['display:bones', 'display:attachments'].includes(action))));
           if (vis) {
-            assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 0); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
+            assert.equal(data.aiVisible, 0); assert.equal(data.short, false); assert.equal(data.reads, 0); assert.equal(data.tabs, 0); assert.equal(data.editors, 0); assert.equal(data.icons, 0);
             assert.ok(data.quick.every(item => item.checkbox === 'checkbox' && item.opacity === '1' && item.position === 'static' && item.visible && item.fullName && item.radius === '0px'));
             assert.equal(data.dockInEditorRow, true); assert.equal(data.topDock, true); assert.equal(data.inputAtTop, true);
             assert.ok(data.hint.includes({ vertices: 'Vertex editor (F1)', bones: 'Bones · Rest pose', animation: 'Movement (F3)', animations: 'Animations' }[mode]));
           } else {
-            assert.equal(data.tabs, 1); assert.equal(data.editors, 6); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, false);
+            assert.equal(data.aiVisible, 1); assert.equal(data.tabs, 1); assert.equal(data.editors, 6); assert.ok(data.icons > 0); assert.equal(data.topDock, true); assert.equal(data.dockInEditorRow, false); assert.equal(data.inputAtTop, false);
             assert.equal(data.short, await row.evaluate(e => { const short = e.hasAttribute('data-short-editors'); e.removeAttribute('data-short-editors'); const overflow = e.scrollWidth > e.clientWidth; if (short) e.setAttribute('data-short-editors', ''); return overflow; }));
           }
           // Exercise each checkbox and its existing assigned key in the wide VIS view.
@@ -118,15 +118,18 @@ const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
       }
     }
     // VIS is presentation only: moving the dock must not remount the AI console.
-    await page.locator('.ai-tool').click();
+    await page.locator('.toolbar-modules>.ai-tool').click();
     const prompt = page.getByLabel('AI prompt', { exact: true });
     await prompt.fill('Unsent VIS toggle draft');
     for (let i = 0; i < 2; i++) {
       await page.locator('.vis-toggle').click();
+      const vis = await page.locator('.classic-app').getAttribute('data-vis-ui') === 'true';
+      assert.equal(await page.locator('.toolbar-modules>.ai-tool').isVisible(), !vis);
+      assert.equal(await page.locator('.ai-assistant').isVisible(), !vis);
       assert.equal(await prompt.inputValue(), 'Unsent VIS toggle draft');
     }
     await page.getByLabel('Close AI assistant', { exact: true }).click();
-    console.log('PASS AI console and unsent prompt survive VIS/XL toggles');
+    console.log('PASS VIS hides AI; XL restores the console and unsent prompt');
     // Save through the real editor path, using only the disposable input copy.
     await menu('save');
     await page.waitForFunction(() => document.querySelector('.classic-status').textContent.includes('Saved VIS-test.mdx'));
