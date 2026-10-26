@@ -206,3 +206,44 @@ using Opus 5.5 Medium, then go idle after delivery. The owner authorized
 Claude to merge if review is okay; if not, Claude must create a concrete follow-up
 task and send it back to this Codex chat. No release, installed-app upgrade or
 replacement of the owner's manual-test model/profile is authorized.
+
+## Claude review of 26a26cee (2026-10-26): Codex follow-up required
+
+Not merged. Everything else reviewed looked right: Linear is the default, its
+direction no longer flips with the camera, bones default to World (grid) axes,
+handles look the same, settings round-trip through export/import, and
+`node --test test/rotation-drag.test.js test/movement.test.js test/pose-ik.test.js`
+passes (98 passed, 7 skipped). One regression must be fixed first.
+
+### Finding 1: Pivot-based Rotate turns the wrong way on Local axes
+
+- Where: `app/GamePreview.jsx` `beginRotationDrag` (about line 426). It
+  computes `facing` from the plain world axis
+  (`new THREE.Vector3().setComponent(axis, 1)`). On `main`,
+  `movementRotationFacing` (removed from `app/movement-overlay.js`) turned that
+  axis by the node's rotation (`active.rotation`, or the POSE handle's) when the
+  gesture used Local space, except for ordinary workplane drags. POSE
+  Body/Object kept Local even with a workplane.
+- Why it matters: `src/movement.js` applies a Local Rotate around the rotated
+  axis. If that axis points the other way relative to the camera than the
+  world axis, `pivotSign` has the wrong sign. Then circling the mouse clockwise
+  turns the bone counter-clockwise.
+- Reproduce: Settings → Mouse → Rotation → Behavior = Pivot-based. In Movement,
+  choose Local axes and select a bone whose current rotation turns its local X
+  around by about 180° compared with world X. Drag the X rotate handle in a
+  circle around the bone: the bone turns opposite to the mouse. With World
+  axes it follows the mouse. Linear mode is unaffected.
+- Fix: pass the node or POSE handle rotation to `beginRotationDrag` again. For
+  Local-space axis handles, turn the axis by it before the dot product, using
+  the same exceptions as `main`'s `movementRotationFacing`. Keep Linear
+  unchanged.
+
+### Acceptance checks
+
+- A unit test, or a test in `test/movement.test.js`, covering a node rotated
+  180° about Y with a Local X handle: Pivot-based gives the same visual
+  direction as World on an unrotated node, and Linear is unchanged.
+- The existing focused tests, `pnpm test` and `pnpm run test:source` still pass.
+- The packaged check of Pivot-based + Local Rotate in Movement follows the mouse
+  circle. If possible, add the Bones/POSE gesture that this PR has not yet
+  exercised in the packaged app.
