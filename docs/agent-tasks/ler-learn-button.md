@@ -1,6 +1,6 @@
 # LER button: Learn menu
 
-Status: Claude review (2026-10-26) found one actionable issue; back to Codex; not merged. See "Claude review: changes required" at the end.
+Status: Codex addressed the observer issue (2026-10-26); local regressions pass; ready for Claude re-review, not merged. See "Codex response to Claude review" at the end, including the playback measurements and remaining timing variation.
 Follow-up PR: [#325](https://github.com/UnsctMagic/MDLxL/pull/325) (draft, same branch; not merged)
 Owner / consolidator: Codex; written by Claude Code
 Updated: 2026-10-26
@@ -280,3 +280,78 @@ change the held-Alt path, the label look, or availability rules.
 - Labels: complete chords via `hotkeyHint`, `<wbr>` wrap at `+`, transparent,
   no border, `pointer-events:none`, manual top layer, control sizes untouched.
 - UpdateShredder untouched.
+
+## Codex response to Claude review (2026-10-26)
+
+The persistent-hint observer now schedules a refresh only for mutations that
+can affect a control or badge. Attribute changes on unrelated elements (including
+the timeline cursor), badge positioning writes, and unchanged discovery classes
+are ignored. Relevant ancestor changes, inserted/removed controls and badge text
+changes still refresh the labels. The held-Alt callback, scheduling, label CSS,
+placement and availability rules are unchanged.
+
+Current main `1de79ac1` was merged on the same branch. The two conflicts retain
+both the Learn menu/settings wiring and main's VIS team-picker/AI changes. Main's
+VIS test needed its source extraction anchored to the editor-row layout effect;
+its assertions are unchanged and all nine tests pass.
+
+### Packaged playback measurements
+
+The committed `test/hotkey-playback.electron.cjs` replaces the unrun review probe
+with an equivalent check against Movement's actual `GamePreview.native.render`
+(Movement does not mount `Viewport`). It selects Stand on the demo model, starts
+real playback, counts rendered frames and timeline cursor style writes, and
+checks that more than ten persistent labels remain open. Measurements count
+hint `getBoundingClientRect` and `getComputedStyle` calls; the regression assertion
+requires zero such reads during steady playback. The reviewed package records
+the repeated reads that this regression assertion rejects with hints on.
+
+All runs use the hidden `MDLxLTests` desktop, a fresh disposable profile, a
+1600x900 window, disabled background throttling/vsync, and the existing runner's
+default or 4x CPU variant. No source tests or builds run alongside timing samples.
+FPS is rendered frames divided by elapsed time; worst frame is the largest
+interval between native renders. Baseline: one five-second sample per state on
+the reviewed `02283e3e` package. Final code: three ten-second samples per state,
+balanced off/on, on/off, off/on, with one-second warmups. The final comparison
+was repeated once on the unchanged package to assess timing variation.
+
+| Package / run | Variant | Hints off FPS | Hints on FPS | Worst off (ms) | Worst on (ms) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Reviewed baseline | default | 57.77 | 57.98 | 27.2 | 29.9 |
+| Reviewed baseline | slow-cpu | 56.10 | 38.73 | 34.8 | 42.6 |
+| Final, first comparison | default | 57.76 | 57.48 | 26.8 | 120.7 |
+| Final, first comparison | slow-cpu | 56.51 | 54.06 | 44.5 | 49.9 |
+| Final, unchanged repeat | default | 58.01 | 58.19 | 42.2 | 33.6 |
+| Final, unchanged repeat | slow-cpu | 48.45 | 52.67 | 50.9 | 49.5 |
+
+With hints on, the baseline measured 1,351 / 1,448 hint rectangle reads per
+second (default / slow-cpu), and 1,395 / 1,495 hint style reads per second. The
+final code measures **zero** of both during playback, with 30 labels displayed
+and the timeline still moving. The first final comparison retains the isolated
+120.7 ms frame and the 4.3% throttled FPS difference above; those are not hidden
+or treated as proof of equal playback speed or an absence of long frames.
+The unchanged repeat reverses the FPS difference in both variants and does not
+repeat the 120.7 ms spike. Throttled samples vary substantially even with hints
+off (36.36–59.04 FPS across the two comparisons). This supports removal of the
+observer's repeated layout work, but cannot establish an absolute "no long
+frames" guarantee on this active PC. The full numbers remain for re-review.
+
+### Verification and handoff
+
+- Full source suite: **2,003 passed, 22 skipped, zero failures** after the VIS
+  test extraction correction. Compatibility: **57 passed**.
+- Production build and portable packaging pass; **1,220 runtime/assets** and
+  55 Electron locales verified.
+- Hidden packaged `hotkey-playback` passes in default and slow-cpu. Hidden
+  `hotkey-badges`, `learn-menu`, `learn`, and `forge-shape-hotkeys` all pass.
+  These exercise dialog opening/closing, detached-root focus and return,
+  scrolling, resizing, unchanged badge appearance, held Alt, Learn/Paint,
+  remapping, and real mouse camera rotation in normal and quad views.
+- CI is checked on the final pushed head before handoff; its run is recorded in
+  PR #325's description/checks. This note does not authorize a merge or release.
+- `D:\Codex\mdlxl-learn-menu-20261026` was not touched. Small measurement JSON
+  files, the original Claude probe and verification logs are retained under
+  `D:\Codex\mdlxl-hotkey-badges-20261026`; disposable test profiles/builds are
+  removed after their last use.
+
+Session: codex MDLxL persistent hotkey observer playback review
