@@ -39,22 +39,27 @@ test('the AI button is the first dock icon: Illidan Metamorphosis with an AI lab
   assert.match(ai,/src="\.\/classic\/btn-metamorphosis\.png"/);
 });
 
-test('new-look dock labels: one style like FRG/OPXL, one colour each, only with VIS off',()=>{
+test('new-look dock follows docs/TOOLBAR-DOCK.md: one frame, one label style, one colour each, only with VIS off',()=>{
   const P=':root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>';
-  assert.ok(look.includes(P+'button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:1px!important;height:50%!important;font:900 10px/1 Tahoma,Arial,sans-serif!important'));
-  assert.ok(look.includes('text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000'));
-  for(const [selector,color] of [
-    ['.ai-tool .module-icon-badge','#d0a8ff'],
-    ['.library-tool .module-icon-badge','#ffd06a'],
-    ['.forge-tool .module-icon-badge','#78c6ff'],
-    ['.bits-tool .module-icon-badge','#f1ebe0'],
-    ['.optimizer-tool .module-icon-badge','#93e08a'],
-    ['.emitter-tool .module-icon-badge','#66ded0'],
-    ['.animxl-tool .module-icon-badge','#ff8b7b'],
-    ['.pressed-keys-tool>span:not(.hotkey-badge)','#ffb062'],
-    ['.learner-tool .module-icon-badge','#ffd06a'],
-    ['.vis-toggle>.module-icon-badge','#ff9ad5'],
-  ])assert.ok(look.includes(`${P}${selector}{color:${color}!important}`),selector);
+  assert.ok(look.includes(P+'button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:-1px!important;height:50%!important;font:700 10px/1 \'MDLxL Dock\',Tahoma,sans-serif!important'));
+  assert.ok(look.includes("@font-face{font-family:'MDLxL Dock';src:url('/fonts/showcase/oxanium/font.ttf')"));
+  assert.match(look,/>\.toolbar-modules>button\{[^}]*border:0!important;[^}]*background:transparent!important;box-shadow:none!important/);
+  assert.match(look,/button:not\(\.toolbar-modules>button\)\{border:1px solid transparent!important/,'the general toolbar border skips the dock');
+  assert.doesNotMatch(look,/toolbar-modules>button\[aria-pressed=true\]\{/,'switched-on icons keep their frame');
+  const colors=[
+    ['.ai-tool .module-icon-badge','#c9a2ff'],
+    ['.library-tool .module-icon-badge','#ffbf47'],
+    ['.forge-tool .module-icon-badge','#7cc4ff'],
+    ['.bits-tool .module-icon-badge','#ece8de'],
+    ['.optimizer-tool .module-icon-badge','#8fe07f'],
+    ['.emitter-tool .module-icon-badge','#5fe0cf'],
+    ['.animxl-tool .module-icon-badge','#ff8574'],
+    ['.pressed-keys-tool>span:not(.hotkey-badge)','#ffa257'],
+    ['.learner-tool .module-icon-badge','#f2e35c'],
+    ['.vis-toggle>.module-icon-badge','#ff8fd0'],
+  ];
+  for(const [selector,color] of colors)assert.ok(look.includes(`${P}${selector}{color:${color}!important}`),selector);
+  assert.equal(new Set(colors.map(([,color])=>color)).size,colors.length,'every dock label has its own colour');
   assert.ok(look.includes(P+'button b{color:inherit!important}'),'EMTR and KEY letters share one colour');
   // Every new-look rule is scoped away from VIS.
   for(const rule of look.split('}').map(part=>part.trim()).filter(part=>part.startsWith(':root')))assert.match(rule,/:not\(\[data-vis-ui\]\)/);

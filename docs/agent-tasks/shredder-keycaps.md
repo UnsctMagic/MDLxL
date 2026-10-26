@@ -234,6 +234,12 @@ packaged Shredder check, then report `ready for review; awaiting merge approval`
   (KEY, LER) no longer gets the general grey `--m-raise` ring; its label glows
   in `--lit` instead. `module-button-labels.browser.cjs` asserts identical
   frames on and off and writes `out/toolbar-dock-frames.png`.
+- Owner picked dock label option 3 (Oxanium), set slightly lower, each icon its
+  own colour (LER no longer shares LIBR's gold). KEY's picture sat 1px off
+  because the general toolbar border rule still applied; the dock is now
+  excluded from it. Rules for future icons: [TOOLBAR-DOCK.md](../TOOLBAR-DOCK.md).
+  Browser test now checks frame, picture position, font, label place and
+  unique colours for every dock button.
 - Preserved SHREDDER_TEST_VERSION=true, original three excluded editors, popup
   placement/timing, AI shortcuts, all user-opened apps and profiles. No version
   bump, release or merge into main authorized. Ready for review.

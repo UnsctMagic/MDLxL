@@ -26,13 +26,21 @@ const ready=new Promise((resolve,reject)=>{
     const toolbar=page.locator('.toolbar-modules');
     await toolbar.waitFor();
     assert.deepEqual(await toolbar.locator('.module-icon-badge,.pressed-keys-tool>span:not(.hotkey-badge)').allTextContents(),['AI','LIBR','FRG','BITZ','OPXL','EMTR','ANIM','KEY','LER','VIS']);
-    // New look (VIS off): every label in its own colour, bold 10px Tahoma, on a transparent background.
+    // New look (VIS off), docs/TOOLBAR-DOCK.md: every label in its own colour, bold 10px Oxanium, on a transparent background.
     assert.deepEqual(await toolbar.locator('.ai-tool,.library-tool,.forge-tool,.bits-tool,.optimizer-tool,.emitter-tool,.animxl-tool,.pressed-keys-tool,.learner-tool,.vis-toggle').evaluateAll(buttons=>buttons.map(button=>{
       const style=getComputedStyle(button.querySelector('.module-icon-badge,span:not(.hotkey-badge)'));
       return [style.color,style.backgroundColor,style.fontSize,style.fontWeight];
-    })),['rgb(208, 168, 255)','rgb(255, 208, 106)','rgb(120, 198, 255)','rgb(241, 235, 224)','rgb(147, 224, 138)','rgb(102, 222, 208)','rgb(255, 139, 123)','rgb(255, 176, 98)','rgb(255, 208, 106)','rgb(255, 154, 213)'].map(color=>[color,'rgba(0, 0, 0, 0)','10px','900']));
-    // Every dock icon wears the same WC3 frame, switched on or off, at the same 64px picture size.
-    const frames=()=>toolbar.locator(':scope>button').evaluateAll(buttons=>buttons.map(button=>getComputedStyle(button).boxShadow+'|'+(button.querySelector('img')?.naturalWidth||0)));
+    })),['rgb(201, 162, 255)','rgb(255, 191, 71)','rgb(124, 196, 255)','rgb(236, 232, 222)','rgb(143, 224, 127)','rgb(95, 224, 207)','rgb(255, 133, 116)','rgb(255, 162, 87)','rgb(242, 227, 92)','rgb(255, 143, 208)'].map(color=>[color,'rgba(0, 0, 0, 0)','10px','700']));
+    const dockColors=await toolbar.locator(':scope>button').evaluateAll(buttons=>buttons.map(button=>getComputedStyle(button.querySelector('.module-icon-badge,span:not(.hotkey-badge)')).color));
+    assert.equal(new Set(dockColors).size,dockColors.length,'every dock icon, including new ones, has its own label colour');
+    // Every dock icon wears the same WC3 frame, switched on or off: a 64px picture filling the button, no ring or border, one label font and place.
+    await page.evaluate(()=>document.fonts.ready);
+    assert.ok(await page.evaluate(()=>document.fonts.check("700 10px 'MDLxL Dock'")),'the dock font loads');
+    const frames=()=>toolbar.locator(':scope>button').evaluateAll(buttons=>buttons.map(button=>{
+      const style=getComputedStyle(button),image=button.querySelector('img'),label=button.querySelector('.module-icon-badge,span:not(.hotkey-badge)');
+      const box=button.getBoundingClientRect(),picture=image.getBoundingClientRect(),text=label.getBoundingClientRect();
+      return [style.boxShadow,style.borderTopWidth,style.backgroundColor,image.naturalWidth,picture.x-box.x,picture.y-box.y,picture.width,picture.height,getComputedStyle(label).fontFamily,text.bottom-box.bottom,text.height].join('|');
+    }));
     const learner=toolbar.locator('.learner-tool');
     for(const frame of [await frames(),(await learner.click(),await frames())])assert.equal(new Set(frame).size,1,frame.join('\n'));
     await learner.click();
