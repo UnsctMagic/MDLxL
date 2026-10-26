@@ -50,7 +50,8 @@ panels or toolbars. Do not add a settings page for this.
   `claude/update-usage-ping` at `fabf4f8d`; it was copied into this branch.
   The owner's source files and installed app/profile were not changed.
 - Implementation/test revision: `dfbfc4e9fb567ab2aca39b219b944db8d448bf60`.
-- PR into `main` with a `Session:` line: being opened; no merge authorized.
+- PR: [#327](https://github.com/UnsctMagic/MDLxL/pull/327) into `main`, with the
+  `Session:` line. Open and unmerged; no merge authorized.
 - Keep the Current tasks entry while owner testing and merge approval remain.
 
 ## Relevant owners
@@ -136,8 +137,9 @@ panels or toolbars. Do not add a settings page for this.
 
 ## Blockers and next action
 
-- No implementation or automated-test blocker. Open the PR, retain the small
-  report/log/capture, and leave the branch unmerged for owner testing.
+- No implementation or local automated-test blocker. PR #327 is ready to test;
+  await owner testing and explicit merge approval. GitHub CI is checked on the
+  PR; retained local evidence covers the exact implementation revision above.
 - Owner acceptance is still required: animate a floating sword and shield.
   HerrDave's MdlVis recording and native Warcraft III acceptance were not part
   of this run.
