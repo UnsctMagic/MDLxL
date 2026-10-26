@@ -358,7 +358,9 @@ test('region scheduler overlaps independent birds, queues dependencies and struc
     assert.equal(result.ok,true,JSON.stringify(result));
     assert.equal(peak,mode==='parallel'?2:1);
     assert.equal(regionsConflict(declarations[0].region,declarations[1].region),mode!=='parallel');
-    assert.deepEqual(starts,[0,1]); assert.deepEqual(ends,[0,1]); assert.equal(combined,1);
+    // Overlapping birds may start in either order; queued ones keep the declared order.
+    const order=list=>mode==='parallel'?[...list].sort():list;
+    assert.deepEqual(order(starts),[0,1]); assert.deepEqual(order(ends),[0,1]); assert.equal(combined,1);
     const org=await f.service.conversation(id,'compatible');
     const rows=org.transcript.flatMap(e=>e.parts||[]).filter(p=>p.type==='worker');
     assert.equal(rows.length,2); assert.ok(rows.every(r=>r.status==='done'&&r.region));

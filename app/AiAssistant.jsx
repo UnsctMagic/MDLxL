@@ -596,7 +596,12 @@ function AiAssistant({ bridge }) {
       event.preventDefault();
     };
     window.addEventListener('mdlxl-cancel-gesture', cancel);
-    return () => window.removeEventListener('mdlxl-cancel-gesture', cancel);
+    // Escape inside the console would otherwise press its Close button.
+    window.addEventListener('mdlxl-escape-key', cancel);
+    return () => {
+      window.removeEventListener('mdlxl-cancel-gesture', cancel);
+      window.removeEventListener('mdlxl-escape-key', cancel);
+    };
   }, []);
   const summary = summaryNow;
   const references = open ? bridge.host().references?.() || [] : [];

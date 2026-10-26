@@ -1,6 +1,6 @@
 # Offload Mode (birds): keep the benefit, remove the overhead
 
-Status: implemented and verified; current-main integration delegated by owner; PR unmerged
+Status: implemented, merged with current main and verified; ready for review, awaiting merge approval
 Owner / consolidator: Codex (written by Claude Code after reviewing the current design with the owner)
 Updated: 26 October 2026
 
@@ -352,3 +352,35 @@ extra handover call versus Offload off; the token reduction is measured, but a
 literal fewer-calls criterion for that scenario is not met. Current-main merge
 was not performed: automatic approval review required explicit permission, and
 the owner chose a manual handoff.
+
+## Current-main integration (26 October 2026, Claude Code)
+
+Merged main `528f5edf` (includes #326 console redraw fix, #304 Shredder/hotkeys)
+into this branch. Conflicts: `app/AiAssistant.jsx` keeps main's
+`data-hotkey="chat-model"` with Offload's tooltip (existing birds keep their
+model); `docs/agent-tasks/README.md` keeps all rows. Main's `React.memo`,
+`headerKey`/`FrameLabel` and `bridge.subscribe` survive unchanged; Offload adds
+no render-time bridge reads, so the memoized console does not go stale.
+
+Fixes made during integration:
+
+- `test/ai-offload.test.js` region-scheduler test was flaky before the merge
+  (3/8 failures on `bc397a85`): overlapping birds may start in either order.
+  Parallel mode now compares order-free; queued modes keep strict order. 10/10.
+- Main's hotkeys gave Escape inside the console to its Close button, so Escape
+  with a drawing tool focused closed the console instead of leaving the tool.
+  `Hotkeys.jsx` now offers Escape to owners first (`mdlxl-escape-key`, same
+  pattern as the showcase/UV/paint key events); the console takes it only while
+  a drawing tool is active. Otherwise Escape still closes the console.
+- `test/ai-console.electron.cjs` viewport comparisons now wait for Shredder's
+  keycap reminder to disappear; it otherwise differs a pixel comparison.
+
+Verification after merge: build ok; compatibility 57/57; full source 1,998
+passed, 14 skipped, 0 failed (FFmpeg binaries copied in for the recording
+tests); focused `test/ai-*.test.js` 117 passed, 1 skipped. Hidden packaged
+(`out/pkg-ai`, Footman fixture): ai-console 71/71, ai-parallel 14/14,
+shredder pass. No paid AI trials.
+
+Known outside this task: packaged `test/ai-hotkeys.electron.cjs` fails on main
+too, because main's Editing handbook switch has no `data-hotkey`. Not changed
+here, since assigning it a key may shift the hand-picked console keys.
