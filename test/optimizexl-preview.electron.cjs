@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
 (async()=>{
   const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','preview-ui-'+Date.now()),profile=path.join(out,'profile');fs.mkdirSync(profile,{recursive:true});
-  const {createDemoDocument,createNode,openDocument}=await import('../src/editor-document.js'),{starterTextureAsset}=await import('../src/particle-starters.js');
+  const {createDemoDocument,createNode,openDocument}=await import('../src/editor-document.js'),testPicture=(await import('./starter-picture.js')).starterTextureAsset('MDLxL_Forge\\TestSoftDisc.tga'),starterTextureAsset=()=>testPicture;
   const {evaluateModelCamera}=await import('../app/portrait-view.js');
   const doc=createDemoDocument(),texture=starterTextureAsset();
   const key=(Frame,values)=>({Frame,Vector:new Float32Array(values)}),track=Keys=>({LineType:1,GlobalSeqId:null,Keys});

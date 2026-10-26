@@ -10,7 +10,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
   const profile = path.join(out, 'profile');
   await fs.mkdir(profile, { recursive: true });
   const { createDemoDocument, createNode } = await import('../src/editor-document.js');
-  const { starterTextureAsset } = await import('../src/particle-starters.js');
+  const testPicture = (await import('./starter-picture.js')).starterTextureAsset('MDLxL_Forge\\TestSoftDisc.tga'), starterTextureAsset = () => testPicture;
   const doc = createDemoDocument();
   const visibility = () => ({ LineType: 0, GlobalSeqId: null, Keys: [[0, 1], [2000, 1], [3000, 0], [5000, 0]].map(([Frame, value]) => ({ Frame, Vector: new Float32Array([value]) })) });
   doc.apply('Animation effect fixture', ['Nodes', 'PivotPoints', 'Textures', 'Materials', 'Sequences'], model => {

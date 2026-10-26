@@ -837,10 +837,10 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
     code: `
     const {buildForgePrimitive}=await api.module('forge-primitives'),{commitForge}=await api.module('forge');
     const {createRigNode,changeVertexBinding}=await api.module('bone-tools');
-    const {createStarterRecipe,starterTextureAsset}=await api.module('particle-starters'),{placeParticleRecipe}=await api.module('particle-recipes');
+    const {createStarterRecipe}=await api.module('particle-starters'),{encodeForgeTga}=await api.module('forge'),{placeParticleRecipe}=await api.module('particle-recipes');
     const bone=createRigNode(model,'Bone',{0:[0]});changeVertexBinding(model,model.Geosets[0],[0],bone.ObjectId,'hard');
     model.Geosets[0].TVertices[0][0]+=.125;model.Materials[0].Layers[0].Alpha=.75;
-    const picture=starterTextureAsset();assets.push(picture);
+    const picture={name:'MDLxL_Forge\\\\AI_Disc_Test.tga',bytes:encodeForgeTga({width:1,height:1,data:new Uint8Array([255,255,255,255])})};assets.push(picture);
     commitForge(model,buildForgePrimitive({shape:'Circle',width:20,height:20,position:[60,0,0]}),{texturePath:picture.name});
     const effect=placeParticleRecipe(model,createStarterRecipe('sparks'),{parent:bone.ObjectId,position:[0,0,10]});
     return {bone:bone.ObjectId,effects:effect.ids};
@@ -879,7 +879,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',async 
   await tool('mdlxl_document', { target: context.target, action: 'export', path: assetExport });
   check(
     'normal export includes generated texture bytes',
-    fs.existsSync(path.join(out, 'MDLxL_Forge/Particle_SoftDisc_v1.tga')),
+    fs.existsSync(path.join(out, 'MDLxL_Forge/AI_Disc_Test.tga')),
   );
   await tool('mdlxl_command', { target: context.target, id: 'undo' });
   check(

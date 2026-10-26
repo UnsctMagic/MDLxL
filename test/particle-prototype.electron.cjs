@@ -183,7 +183,7 @@ const path=require('node:path'),fs=require('node:fs'),assert=require('node:asser
     await page.waitForFunction(()=>document.querySelectorAll('.pe-blend-pair img').length===10,{},{timeout:30000});
     await page.locator('.pe-blend-pair').last().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'picture-blends.png')});
     await page.getByRole('button',{name:'Close comparison',exact:true}).click();
-    const {starterTextureAsset}=await import('../src/particle-starters.js'),picture=path.join(out,'own-picture.tga');fs.writeFileSync(picture,starterTextureAsset().bytes);
+    const {starterTextureAsset}=await import('./starter-picture.js'),picture=path.join(out,'own-picture.tga');fs.writeFileSync(picture,starterTextureAsset().bytes);
     await app.evaluate(({dialog},picture)=>{global.__particleOpen=dialog.showOpenDialog;dialog.showOpenDialog=async()=>({canceled:false,filePaths:[picture]});},picture);
     if(!await page.getByRole('button',{name:'Load picture…',exact:true}).isVisible())await page.getByText('Choose picture',{exact:true}).click();
     await page.getByText('Orientation and draw options',{exact:true}).click();const beforeFlags=await readLab();await page.getByRole('button',{name:'Flat',exact:true}).click();assert.ok((await readLab()).model.ParticleEmitters2[0].Flags&1048576);await page.getByRole('button',{name:'Face camera',exact:true}).click();assert.equal((await readLab()).model.ParticleEmitters2[0].Flags&1048576,0);
