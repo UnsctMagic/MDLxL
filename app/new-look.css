@@ -40,7 +40,7 @@
 :root .classic-app.classic-app:not([data-vis-ui]) .look-icon{overflow:visible;flex:none}
 :root .classic-app.classic-app:not([data-vis-ui]) .look-icon *{stroke-linecap:round;stroke-linejoin:round;fill:none;stroke:currentColor;stroke-width:var(--sw,1.7)}
 :root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-sidebar .classic-tools,.classic-app>.classic-toolbar,.forge-editor-toolbar,.forge-overlay .classic-tools) .has-look-icon>.look-icon{display:block}
-:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-sidebar .classic-tools,.classic-app>.classic-toolbar,.forge-editor-toolbar,.forge-overlay .classic-tools) .has-look-icon>:not(.look-icon):not(.module-icon-badge){display:none!important}
+:root .classic-app.classic-app:not([data-vis-ui]) :is(.classic-sidebar .classic-tools,.classic-app>.classic-toolbar,.forge-editor-toolbar,.forge-overlay .classic-tools) .has-look-icon>:not(.look-icon):not(.module-icon-badge):not(.hotkey-badge){display:none!important}
 
 /* Quiet chrome: top row, editor row, view controls, sidebar and status bar. */
 :root:not([lang=mordor]) .classic-app.classic-app:not([data-vis-ui]) :is(.classic-app>.classic-toolbar,.classic-app>.classic-modules,.classic-view-label,.classic-app>.classic-status,.classic-sidebar:has(>.classic-counts),.geosets-float){font:12.5px/1.45 'Segoe UI',Tahoma,sans-serif}

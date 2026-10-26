@@ -185,3 +185,29 @@ Done means:
 - Owner click-through: LER → Learn mode / Show hotkeys / Learn settings;
   try Ctrl+J, close the box with Esc or an outside click, rotate the preview,
   open and close a dialog, restart, then check VIS still hides LER.
+
+## Owner test refinement: readable shortcut labels (2026-10-26)
+
+- Owner found multi-part shortcuts cropped on icons and surrounded by white
+  boxes. Fixed the shared badge rendering on this same branch / PR #325.
+- Removed the special long-label box and negative top offset. Complete compact
+  chords use existing key aliases and wrap on narrow controls. All labels share
+  transparent styling, 11px bold green text and a sharp dark contrast shadow.
+- Existing badge spans use manual top-layer rendering to escape icon/container
+  clipping; no new panel, setting, key assignment or control size. Corrected the
+  new-look icon-content hide rule to exclude badges. Existing held-Alt and
+  persistent availability rules remain; labels follow scroll/resize, dialogs
+  and detached roots and never take mouse input.
+- Required existing main update was merged first, retaining the AI idle-lag fix.
+  Original visible test / model / profile remain untouched in
+  `D:\Codex\mdlxl-learn-menu-20261026`; refinement work is isolated in
+  `D:\Codex\mdlxl-hotkey-badges-20261026`.
+- Hidden packaged badge, Learn-menu and dock checks pass at 1100/1920, including
+  full text bounds, actual rendered visibility, zero box/border, unchanged dock
+  geometry, clipped scrolling, modal availability, persistence, detached roots,
+  normal Alt dismissal and real mouse camera rotation. Full source: 1,978 pass /
+  22 skipped / zero failures; compatibility: 57 pass; focused: 18 pass. Production
+  build and verified portable package (1,216 runtime/assets) pass. PR CI is
+  checked on the final pushed revision. Owner visible acceptance remains pending.
+- Existing Forge shortcut packaged regression also passes: held-Alt visibility,
+  custom key assignments, normal/quad-view mouse rotation, editing and undo.

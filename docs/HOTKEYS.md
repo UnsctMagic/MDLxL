@@ -6,6 +6,25 @@ with Shift, Ctrl or Alt**. Nothing longer. Current coverage gaps are listed belo
 else got a proper short key. Generated Ctrl+Alt+Space codes are no longer handed
 out. A code the user typed in themselves still works.
 
+## Shortcut labels
+
+Held-Alt and Show hotkeys use the same transparent green labels, with a sharp
+dark text shadow for contrast. Labels retain the complete chord: for example
+`Ctrl+J`, `Shift+K`, `Shift+Home`. On narrow icons a chord wraps before `+`
+without dropping a modifier or its key. Existing single-key aliases such as
+DEL, ESC and arrow glyphs also work inside chords.
+
+Labels are drawn in the browser's top layer while remaining attached to their
+original control, so an icon's clipping cannot cut them off. They have no box,
+border, or mouse hit area and do not change control sizes or icon frames.
+Position and visibility follow resize, scroll, active dialogs and detached
+windows. A control fully outside its scroll area gets no floating label.
+
+Owners: [hotkey-badge.js](../src/hotkey-badge.js), the existing hint effect in
+[Hotkeys.jsx](../app/Hotkeys.jsx), and [settings.css](../app/settings.css).
+Verification: [readable labels](../test/hotkey-badges.test.js) and
+[packaged rendering/input](../test/hotkey-badges.electron.cjs).
+
 ## Where the keys come from
 
 - **Commands** (menus, toolbar, modes; [src/commands.js](../src/commands.js)) have
