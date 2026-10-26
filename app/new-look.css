@@ -92,13 +92,13 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules .model-tab button{min-height:0}
 
 /* Module dock: the square WC3 icons on a slate bar with a thin gold edge. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules{align-self:center;gap:2.89px!important;padding:2.89px 3.6125px!important;margin:0 0.5px 0 0!important;border-radius:6px!important;background:linear-gradient(#3a3834,#262522)!important;box-shadow:var(--dock-sh)!important}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button{position:relative;width:28.9px!important;height:28.9px!important;min-width:28.9px!important;min-height:0!important;padding:0!important;border:0!important;border-radius:3px!important;background:transparent!important;box-shadow:0 0 0 1px #000,0 0 0 2px #c9a25233!important;overflow:hidden}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules{align-self:center;gap:4px!important;padding:3.4px 4.25px!important;margin:0 0.5px 0 0!important;border-radius:6px!important;background:linear-gradient(#3a3834,#262522)!important;box-shadow:var(--dock-sh)!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button{position:relative;width:40px!important;height:40px!important;min-width:40px!important;min-height:0!important;padding:0!important;border:0!important;border-radius:3px!important;background:transparent!important;box-shadow:0 0 0 1px #000,0 0 0 2px #c9a25233!important;overflow:hidden}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button[aria-pressed=true]{box-shadow:0 0 0 1px #000,0 0 0 2px var(--lit),0 0 8px color-mix(in srgb,var(--lit) 50%,transparent)!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button:disabled>img{opacity:.55}
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button>img{width:28.9px!important;height:28.9px!important;max-width:28.9px;max-height:28.9px;border-radius:3px!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button>img{width:40px!important;height:40px!important;max-width:40px;max-height:40px;border-radius:3px!important}
 /* All dock labels alike: bold 10px Tahoma with a 1px black outline, in the lower half. */
-:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:1px!important;height:50%!important;font:900 7.225px/1 Tahoma,Arial,sans-serif!important;letter-spacing:.3px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000,0 0 3px #000!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button>:is(.module-icon-badge,span:not(.hotkey-badge)){position:absolute;display:flex;align-items:center;justify-content:center;background:transparent;top:auto!important;left:1px!important;right:1px!important;bottom:1px!important;height:50%!important;font:900 10px/1 Tahoma,Arial,sans-serif!important;letter-spacing:.3px;text-shadow:-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000,0 0 3px #000!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>button b{color:inherit!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.ai-tool .module-icon-badge{color:#d0a8ff!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.library-tool .module-icon-badge{color:#ffd06a!important}
@@ -275,7 +275,7 @@
 /* Top row: editing tools and team colour before Hide/Show; WC3 dock at right.
    Bottom right: MDX, Add-ons, DPI/Scroll, then language at the far edge. */
 .toolbar-primary,.toolbar-model{display:contents}
-/* The dock is reduced by another 15%; the surrounding row allowance grows by 5%. */
+/* Original icon and label sizes; only the padding inside the dock frame is reduced by 15%. */
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-primary{display:flex;align-items:center;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:thin}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-modules{grid-template-columns:minmax(0,1fr);grid-template-rows:28px 1px 27px}
