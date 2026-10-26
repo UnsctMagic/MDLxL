@@ -110,6 +110,24 @@ function anthropicThinking(model) {
     minor = Number(match[2] || 0);
   return major > 4 || (major === 4 && minor >= 6) ? { type: 'adaptive', display: 'summarized' } : null;
 }
+// Claude signs its reasoning for the tool list it was written with, and refuses
+// it once that list changes (an MDLxL update, SD Brain switched on or off).
+// Finished turns do not need it: drop it from them, keeping the reasoning of a
+// tool loop still running unless everything has to go. Returns true if changed.
+function dropStaleThinking(history, everything = false) {
+  const last = history.findLastIndex(m => m.role === 'assistant');
+  const running = !everything && Array.isArray(history[last + 1]?.content) && history[last + 1].content.some(b => b.type === 'tool_result');
+  let changed = false;
+  history.forEach((message, index) => {
+    if (message.role !== 'assistant' || !Array.isArray(message.content) || (running && index === last)) return;
+    const content = message.content.filter(b => b.type !== 'thinking' && b.type !== 'redacted_thinking');
+    if (content.length === message.content.length) return;
+    message.content = content.length ? content : [{ type: 'text', text: '(reasoning omitted)' }];
+    changed = true;
+  });
+  return changed;
+}
+const STALE_THINKING = /HTTP 400.*(signature|thinking)/is;
 // Claude Code reports compaction as a status and ends it with a boundary marker.
 // Returns true/false when compaction starts/ends, otherwise null.
 function claudeCompaction(data) {
@@ -188,21 +206,29 @@ async function runApi({
         blocks[blocks.length - 1] = { ...blocks.at(-1), cache_control: cache };
         messages[messages.length - 1] = { ...lastMessage, content: blocks };
       }
-      const response = await requestJson(
-        base + '/messages',
-        {
-          model: settings.model,
-          max_tokens: 16384,
-          system: typeof system === 'string' && system ? [{ type: 'text', text: system, cache_control: cache }] : system,
-          messages,
-          ...(apiTools.length ? { tools: apiTools } : {}),
-          ...(thinking ? { thinking } : {}),
-          stream: true,
-        },
-        key,
-        signal,
-        { 'anthropic-version': '2023-06-01' },
-      );
+      let response;
+      try {
+        response = await requestJson(
+          base + '/messages',
+          {
+            model: settings.model,
+            max_tokens: 16384,
+            system: typeof system === 'string' && system ? [{ type: 'text', text: system, cache_control: cache }] : system,
+            messages,
+            ...(apiTools.length ? { tools: apiTools } : {}),
+            ...(thinking ? { thinking } : {}),
+            stream: true,
+          },
+          key,
+          signal,
+          { 'anthropic-version': '2023-06-01' },
+        );
+      } catch (error) {
+        // Old reasoning refused: drop it (finished turns first, then all) and ask again.
+        if (!STALE_THINKING.test(error.message) || !(dropStaleThinking(history) || dropStaleThinking(history, true))) throw error;
+        step--;
+        continue;
+      }
       const content = [];
       let stopReason = null;
       for await (const data of sseEvents(response)) {
