@@ -1,145 +1,165 @@
 # WC3 editing: animation and motion transfer
 
-Read this for posing, key changes, retiming, sequence changes or donor motion.
-Use [nodes/binding](WC3-EDITING-NODES-BINDING.md) to establish the actual drivers
-and [emitters](WC3-EDITING-EMITTERS.md) for synchronized effects.
+Use this for key editing, donor motion, retiming and sequence transitions.
+Use [binding](WC3-EDITING-NODES-BINDING.md) for hierarchy/pivots,
+[effects](WC3-EDITING-EMITTERS.md) for emitters/events and
+[verification](WC3-EDITING-VERIFICATION.md) for completion.
 
-## Work in the correct time domain
+## Choose the clock and controller
 
-**Warcraft key times are milliseconds.** A displayed frame value is not a frame
-number at an assumed 30 or 60 fps. Local keys share one timeline and are selected
-by the sequence interval. Inspect its exact endpoints before editing or copying.
-Keep keys sorted and avoid creating duplicate timestamps or unintended overlap;
-shared sequence endpoints need an explicit scope decision. Compare keys outside
-the authorized intervals byte-for-value, including tangents. [A1, A2]
+1. Read `Sequences[index].Interval`, `NonLooping`, `Rarity` and `MoveSpeed`.
+   Local key times are absolute milliseconds inside the sequence interval.
+   A track with a nonnegative `GlobalSeqId` uses the corresponding
+   `GlobalSequences` duration and its independent repeating clock.
+2. Load `keyframe-timeline` and call `timelineTracks(model)`. Select targets
+   by `kind`, `id` and `property`; retain their `trackId`. Read their data with
+   `timelineReadTrack(model, target)`. Use
+   `timelineDomain(model, sequenceIndex = -1, globalSeqId = null)` for the
+   intended local or global timeline.
+3. Read `LineType`, `GlobalSeqId`, `Keys[].Frame`, `Vector`, `InTan` and `OutTan`.
+   `LineType` 0 holds, 1 interpolates linearly, 2 uses Hermite controls and 3
+   uses Bezier controls. Rotation vectors are quaternions, not Euler angles.
+4. Inventory node, geoset, material, texture, camera and effect controllers
+   plus `EventTrack` records affected by the requested motion. Timeline targets
+   marked `readOnly` are inspection context; edit their actual owning record
+   through its supported module or a precisely scoped typed script.
 
-**A global sequence belongs to the track, not the whole node.**
-`GlobalSeqId` selects a duration in `GlobalSequences`; that track runs on its
-own repeating clock. Other properties of the same node can use other domains.
-Changing the duration affects every user of that global sequence, including
-materials or effects. Inspect all references before changing it, and test several
-global phases while local sequences change. Do not retime globals as if their
-keys belonged to the selected local clip. [A1, A2, X1]
+## Edit a pose or a local key range
 
-**Sequence metadata is behavior, not labelling decoration.** Preserve names and
-animation tags, `NonLooping`, `Rarity`, `MoveSpeed`, sync data and extents unless
-the request concerns them. Names/tags participate in game animation selection;
-rarity describes variant selection, not a keyframe value to normalize.
-`MoveSpeed` is movement metadata, not a command to translate the root.
-Changing an interval alone does not retime its keys:
-`sequence-editor.setSequenceInterval` only changes the interval.
-Check duration, event alignment and actual game selection/playback when those
-fields change; do not invent a rarity probability formula. [A2, A3, X1]
+1. Select only the intended targets. For sampled values use
+   `timelineSample(model, target, time, domain)`. For transform poses use
+   `movement.sampleMovement(model, node, property, time, sequenceIndex)`.
+2. Write exact local transform values with
+   `movement.applyMovementPose(model, changes, time, sequenceIndex, restrictions = {})`,
+   where each change is `{id, property, value}` and property is `Translation`,
+   `Rotation` or `Scaling`. The writer validates the whole pose, normalizes
+   rotation and handles clip boundary keys. Keep its refusal intact if a static
+   or global controller cannot be localized without altering other motion.
+3. For supported timeline channels call
+   `setTimelineKeys(model, targets, time, domain, values = null)`, with
+   `values = {[target.trackId]: [components]}`. Sample existing boundary values
+   first; put keys at the requested change boundaries so interpolation stays
+   inside the intended interval.
+4. Select a range using
+   `selectTimelineRange(model, targets, domain, from, to)`. Copy it with
+   `copyTimelineKeys(model, targets, selection, domain, origin)` and paste with
+   `pasteTimelineKeys(model, targets, clipboard, time, domain, policy = 'reject')`.
+   Use `clearTimelineKeys(model, targets, selection, domain)` only for the
+   explicitly replaced keys. `'replace'` overwrites collisions; `'merge'` keeps
+   existing collided keys. Start with `'reject'` to expose conflicts.
+5. Keep untouched interpolation and controls. A track-wide change through
+   `movement.setMovementControllerType(model, ids, sequenceIndex, mode, lineType)`
+   changes the whole controller and its tangents; use it only when that is the
+   intended scope. For a local curve edit preserve exterior controls and compare
+   both neighbouring segments.
+6. For a loop, make the terminal pose agree with the initial pose on changed
+   controllers and inspect velocity across the wrap. Keep sparse meaningful
+   keys for anticipation, change and recovery; add keys where intermediate
+   sampling exposes drift, penetration or an abrupt transition.
 
-## Preserve the curve, not just the stored poses
+## Copy donor keys when the structures agree
 
-**Interpolation is part of the motion.** `LineType` is 0 None/held, 1 Linear,
-2 Hermite or 3 Bezier. Vector splines use their stored controls; rotation keys
-are quaternions and need quaternion interpolation, not component-wise Euler
-interpolation. MDLxL's sampler uses slerp for linear rotations and squad for cubic
-rotations. Use the existing evaluator with the correct scalar/vector fallback,
-sequence interval and global time. Check between keys: matching their values
-does not establish matching motion. [A1]
+1. Open the donor as a reference through `mdlxl_document({action: 'open', path})`
+   or `mdlxl_assets`. Read `references[documentId].model` in the script.
+   Build an explicit donor-to-recipient ObjectId map from hierarchy, pivots,
+   rest orientation and structural role. Include keyed helpers in that map.
+2. Compare the mapped nodes' parent spaces, pivot offsets, inheritance flags
+   and transform conventions. Use direct key copying only where those spaces
+   produce the intended recipient motion. Keep the recipient's geometry,
+   hierarchy and bindings when the request is motion transfer.
+3. Read donor targets and domain, select the source interval and call
+   `copyTimelineKeys`. Build recipient targets with `timelineTracks(model)`.
+   Replace each clipboard entry's `target` with its mapped recipient target,
+   including `trackId`. Paste at the target start with `pasteTimelineKeys`.
+   The paste matches target IDs, not node names, and preserves the copied
+   controls. Its local/global domain and interpolation must match.
+4. For a different duration, first map copied key times by
+   `round(targetStart + (sourceTime-sourceStart)*targetDuration/sourceDuration)`.
+   Set the copied origin to `targetStart` before pasting at that time.
+   Reject distinct keys that land on one timestamp. For a zero-duration source,
+   transfer a pose rather than dividing by its duration.
+5. Copy required visibility, effect and event timing separately through their
+   owners with the same time mapping. Remap referenced resources and global
+   sequence IDs explicitly. Compare exterior recipient keys and every
+   unrequested controller after transfer.
 
-**Track-wide changes can affect protected clips.** Interpolation and global
-association live on the track, while several local sequences may have keys in
-it. Changing `LineType`, deleting tangents or attaching a global sequence can
-alter all those clips. Preserve track metadata for a local repair; inspect any
-operation that recreates a track. Compare exterior keys and metadata as well as
-samples just before and after the edited span. [A2, A4]
+## Retarget motion to different proportions
 
-**Retain deliberate holds and small motion.** Repeated values can hold a pose;
-a small turn can carry expression, recoil or a controlled reversal. Native
-research supports sparse keys, but does not prescribe a key count or authorize
-removing every similar value. Inspect the requested defect and nearby anchors,
-then adjust only the responsible span. If reducing keys, compare the evaluated
-curve and skinned surface with the original, not only endpoint values.
-A clean warning list is not a substitute for retained intent. [A4, A5]
+1. Match roots, chains, independent drivers and helper ancestry structurally.
+   Choose donor/recipient reference poses, a world orientation alignment and
+   the intended root travel scale. Record contacts and release times.
+   Preserve recipient pivots and segment lengths.
+2. Sample donor motion at keys, contact changes and intermediate times. Align
+   donor root displacement to the recipient axes and scale it to the requested
+   travel. Write the corresponding recipient local Translation with
+   `applyMovementPose`, accounting for its parent transform.
+3. For each chain, call
+   `pose-ik.poseChainBetween(model, root, end, excluded = [])` and
+   `samplePoseChain(model, chain, frame, sequence, globalTime = frame)`.
+   Map the donor endpoint vector from its chain root through the chosen
+   orientation alignment; scale by the recipient/donor chain-length ratio.
+   Add the recipient chain root position to obtain the target world point.
+   Map the donor bend direction to a world pole point as well.
+4. Call `solvePoseLimb(model, chain, frame, sequence, target, settings = {})`
+   with `settings.pole` as a world point and `settings.orientation` as the
+   desired world quaternion `[x,y,z,w]`. For an aligned donor rotation change,
+   use `Qtarget = C * (Qdonor(t) * inverse(Qdonor(ref))) * inverse(C) * Qrecipient(ref)`.
+   Use the returned `changes` with `applyMovementPose`. The solver works on a
+   preview and returns local changes; apply them from root toward descendants.
+   It requires supported ancestry and positive uniform scale. Keep an
+   unsupported rig intact and edit its local controllers instead of stripping
+   flags or scale to force IK.
+5. Hold a planted endpoint at its recorded world contact until release.
+   Check the solver's `clamped` result; move the root or revise the target when
+   it is out of reach. Carry a consistent pole through near-straight poses.
+6. For an independently animated child transferred to another carrier, compute
+   the desired world transform first, then
+   `local = inverse(effectiveParentWorld) * desiredWorld`.
+   Obtain the parent with `movement.movementParentMatrix(node, matrices)` and
+   matrices with `animation.sampleNodeMatrices(model, frame, sequence, globalTime)`.
+   Decompose local rotation/scale, then recover native translation from pivot
+   `p` as `t = localTranslation - p + R*S*p`. Write those local transforms;
+   reparenting alone changes the motion on a differently moving carrier.
+7. Sample the result between written poses. Add keys only where contacts,
+   orientation or path differ beyond the chosen tolerance. Inspect seam
+   deformation, attachments, effect alignment, loop wrap and root travel.
 
-**Check loops as transitions.** Compare the final pose with the first, then motion
-immediately on each side of the wrap. Equal endpoint positions can still have
-a speed/direction discontinuity. Preserve intentional non-looping actions.
-For sequence transitions involving replacement surfaces or remains, inspect
-both pose continuity and visibility ownership; do not force unrelated clips
-to share endpoints. [A1, A4]
+## Retime a clip with events and effects
 
-## Transfer motion through the recipient's structure
+1. Read every sequence interval and
+   `animation-speed.animationSpeed(sequence)`. The speed value is an absolute
+   percent of the remembered original duration, not a multiplier applied to
+   the current duration. Record local event times and active global associations.
+2. Call `animation-speed.setAnimationActualSpeed(model, index, percent)` with
+   an integer percent from 1 to 300. The selected clip's new duration is the
+   original duration times `100/percent`, rounded to milliseconds. The operation
+   shifts subsequent clips, retimes all local key families and local event
+   tracks, and preserves values and spline controls. Global clocks stay intact.
+3. For a batch, call `setAnimationSpeedChecked(model, index, checked)` for the
+   intended clips, then `setAnimationActualSpeed(model, null, percent)`.
+   Include all changed canonical track collections, `/Sequences` and
+   `/_AnimationSpeed` in the script scope. Include the shifted later ranges in
+   `animationRanges` and compare their relative timing.
+4. If later absolute times must stay fixed, use a scoped script instead:
+   require a free destination interval, map every local key/event inside the
+   selected interval with the formula above, preserve exterior records,
+   precheck duplicate timestamps and interval overlap, then write the new
+   interval and mapped times together. Keep typed event arrays and track
+   controls. `sequence-editor.setSequenceInterval(model, index, start, end)`
+   changes interval metadata only; pair it with the actual time remapping.
+5. Check each event against its associated pose, emission onset and visibility
+   change before and after. Particle lifetime is in seconds and stays unchanged
+   when key times move; change it separately only if the requested effect must
+   also run faster. Inspect residual trails and particles after the clip.
+6. Recalculate affected animated bounds and compare the whole state transition.
+   Keep sequence names, loop flags, rarity and movement metadata unless the
+   requested timing change includes them.
 
-Treat this as a staged editing method derived from the transform model and
-existing POSE constraints, not a claim that MDLxL has a universal retarget button.
-[A1, A6]
+## Set sequence metadata deliberately
 
-1. **Map drivers by function and hierarchy.** Inspect source and recipient
-   parent chains, pivots, keyed helpers, skinned descendants and independent
-   roots. Names can aid the mapping but do not prove it. Verify which surface
-   moves when a driver changes before copying an entire clip.
-2. **Reconcile rest orientation, scale and joint placement.** Donor local
-   rotations operate in the donor's parent/pivot arrangement. Copying them
-   unchanged can rotate the recipient around the wrong centre or axis.
-   Prove a representative pose using world-space landmarks; retain the
-   recipient's proportions and binding unless rebuilding them was requested.
-3. **Transfer the requested domain.** Preserve recipient sequence names,
-   timestamps and protected clips unless the task changes them. Map donor local
-   times into the chosen interval, keep sparse controls where they reproduce
-   the motion, and reject timestamp collisions rather than silently losing keys.
-4. **Check contacts and relative motion.** Compare support/contact points,
-   reach, carried-part alignment and clearance through anticipation, maximum
-   excursion, impact and recovery. A correct skeleton pose can still stretch a
-   differently proportioned mesh. Use positional samples and actual images.
-5. **Carry only necessary dependencies.** Effects, events, attachment behavior
-   and visibility need their own mapping and timing decisions. Validate imported
-   IDs and paths. Do not import the donor's entire rig or overwrite every
-   recipient track merely to obtain one useful action.
-
-A documented solved transfer case required manual key adjustment after importing
-a starting animation; successful import alone did not establish a useful result.
-[H1]
-
-## Retiming and bounds
-
-**Retiming includes every affected local channel.** Bone motion, geoset/layer
-alpha, texture animation, emitter parameters, camera tracks and event times can
-share the action. Use the existing retiming owner, inspect its affected
-collections and protect global/unrequested records. Check the same normalized
-phases before/after, plus exact event onset times. Changing playback speed in a
-preview alone does not rewrite the saved action. [A3]
-
-**Changed motion can outgrow stored extents.** Model, sequence and per-geoset
-sequence bounds have distinct owners. Rest-pose bounds are insufficient for a
-moving surface; sample extrema and intermediate poses for affected clips.
-`recalculateExtents` deliberately retains existing animation bounds.
-Use the supported animated-bounds workflow where applicable, then test
-edge-of-screen visibility in Warcraft. Sampling is evidence, not a mathematical
-guarantee of every cubic extremum. [A7]
-
-## MDLxL tools and common mistakes
-
-Discover `animation`, `animation-tracks`, `keyframe-timeline`,
-`sequence-editor`, `animation-speed`, `pose-ik` and `motion-inspector`.
-POSE writes ordinary native keys and preserves hierarchy/binding; it is not
-physics, automatic balancing or unrestricted IK for every transform.
-Use `mdlxl_sample` and `mdlxl_capture` on matching frames.
-
-Common mistakes: assuming fps, copying by names alone, treating MoveSpeed as
-root motion, making a local repair by changing a whole track's interpolation,
-adding keys repeatedly without diagnosing overshoot, and checking only endpoints.
-Timestamp/reference checks, protected-key comparison and sampled trajectory
-errors are automatable; believable contact, weight and character require review.
-
-## Sources
-
-- **A1:** [Track evaluation, hierarchy and skinning](../src/animation.js).
-- **A2:** [Track editing](../src/animation-tracks.js), [AI edit scopes](AI-HOOK.md).
-- **A3:** [Sequence fields](../src/sequence-editor.js),
-  [retiming across native records](../src/animation-speed.js).
-- **A4:** [Motion warning constraints](MOTION-INSPECTOR.md),
-  [existing repair ownership and preservation](OPTIMIZEXL_TEACHING.md).
-- **A5:** [Measured animation economy](AI-SD-REFERENCE-STUDY.md#animation-economy).
-- **A6:** [POSE supported domain and structural recognition](POSE_IK.md).
-- **A7:** [Rest extents](../src/editor-document.js),
-  [sampled animated bounds](../src/optimizexl-bounds.js).
-- **X1:** [XGM: Animation from A to Z](https://xgm.guru/forum/showthread.php?t=43883),
-  local/global animation and sequence controls. Historical tool-specific bug
-  advice is not used as an engine rule.
-- **H1:** [Hive: solved animation transfer discussion](https://www.hiveworkshop.com/threads/throne-animation-transfers.372380/),
-  A]mun's explanation of the adjustment performed after import, May 2026.
+Use `sequence-editor.setSequenceMoveSpeed(model, index, value)` for movement
+metadata, and `animation.setSequenceOptions(model, index, {nonLooping, rarity})`
+for those fields. Read the existing values first, set only requested fields and
+check the corresponding game state. Metadata edits and retiming are separate
+operations. Recompute animated extent tables after changing motion with the
+[game integration procedure](WC3-EDITING-GAME-INTEGRATION.md).

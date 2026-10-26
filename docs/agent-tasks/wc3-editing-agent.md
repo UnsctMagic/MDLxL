@@ -1,6 +1,6 @@
 # WC3 editing agent: what MDLxL's AI must know to edit Warcraft III SD models
 
-Status: implemented for owner review; integration with PR #317 must retain only the general core
+Status: second pass implemented for owner review; integration with PR #317 must retain only the general core
 Owner / consolidator: Codex (written by Claude Code from its conversation with the owner)
 Updated: 26 October 2026
 
@@ -33,8 +33,8 @@ Done when:
 2. **Area sections** (geometry, UV/materials, nodes/binding, animation, emitters,
    game integration, verification) are reachable through the AI's existing help
    tool, and the core tells the AI which section to read for which kind of edit.
-3. Every rule says *why* (engine behaviour or how experienced modellers work
-   experienced source) and how to check it was followed.
+3. Each actionable rule gives the ordered method, data to read/write, existing
+   API/tool and verification. General limits appear once in the verification guide.
 4. The owner reviews it and agrees it reads like an experienced modeller's
    handbook, not a report.
 
@@ -91,7 +91,7 @@ rule actually needs, and say which gap.
   `docs/MOTION-INSPECTOR.md`, `docs/OPTIMIZEXL_TEACHING.md`,
   `docs/MDL-MDX-COMPATIBILITY-FIXES.md`, `docs/AI-HOOK.md`.
 
-New research, condensed into rules with links:
+Research inputs for the methods; keep attribution outside the handbook:
 
 - Hive Workshop tutorials, the modelling and animation forums, and answered threads
   (accepted or well-received answers by experienced modellers).
@@ -128,13 +128,15 @@ New research, condensed into rules with links:
 
 ## Handbook delivered for review
 
-The core is in `src/ai-tools.js` inside `AI_SYSTEM_PROMPT` (3,005 characters).
+The core is in `src/ai-tools.js` inside `AI_SYSTEM_PROMPT` (2,982 characters; first pass: 3,005).
 The existing ordinary-editing and worker prompt paths both use this constant.
 No tool schema, help dispatch, provider, SD Brain switch or model-editing API changed.
 
 The owner was shown the core and section list before the sections were drafted.
-Final editorial acceptance is still pending. Each section includes structural
-rules, reasons, concrete checks, current tool owners and source links:
+Final editorial acceptance is still pending. The second pass replaces principles
+with numbered procedures, exact existing signatures and read/write/check steps.
+Rules use structural terms. The seven guides contain no source tags, Sources
+sections, author names, research attribution or source links:
 
 1. [Geometry and shading](../WC3-EDITING-GEOMETRY.md)
 2. [UVs, materials and visibility](../WC3-EDITING-UV-MATERIALS.md)
@@ -146,29 +148,30 @@ rules, reasons, concrete checks, current tool owners and source links:
 
 All seven top-level Markdown topics load through the existing `mdlxl_help`
 glob and dispatcher while SD Brain is parked. No new checker or automatic repair
-was built. Existing source/renderer behavior is distinguished from game acceptance.
+was built. General verification limits are collected in the verification guide.
 
 ### Core for editorial review
 
 ```text
 Warcraft III SD editing
-Inspect the requested surface and its dependencies before changing it: mesh, UV set, material layers, skinning, hierarchy and relevant sequences. A visible defect can come from another mechanism. Identify the cause, preserve unrelated data, and compare the same views and poses before and after.
-Preserve the input's format and authored conventions. SD appearance does not imply MDX 800 or classic skinning. Check actual fields and the target game version; reference-model counts are examples, not engine limits.
-Coincident positions are not necessarily redundant vertices: UV seams, hard normals, material boundaries and independently moving parts need splits. Weld only compatible corners unless the user explicitly requests collapsing their attributes. Distinguish wrong triangle facing, shading and shape; check each with the appropriate view.
-Bind by intended motion. Classic matrix groups average their bones equally; weighted skin stores explicit influences. Across a continuous surface, transition through blended regions and keep seam copies moving together. A layered surface that must follow an underlying deforming surface needs corresponding influences where they overlap. Separate parts and freely moving chains retain their own motion. Proximity alone does not establish correspondence. Check joint extremes and intermediate poses for opening seams, sliding and intersections.
-Trace visibility through geoset alpha, every material layer, texture alpha and active local/global tracks. Editor hiding is separate. Preserve layer order, filter modes, replaceable textures and paths; inspect the textured result at relevant times and contrasting team colours.
-Animation includes more than bone keys. Preserve sequence names, intervals, loop flags, rarity, movement metadata, events and effect timing. Retarget through actual hierarchy, pivots and rest orientation; matching names alone is insufficient. Keep sparse keys where they reproduce the motion, preserve interpolation and tangents, and test between keys and across loop boundaries.
-Verify the requested change and protected data separately. Inspect posed geometry and actual captures, check affected bounds, then save/reopen through the existing serializer. A viewer, sampler or clean checker cannot certify Warcraft III behavior. Report which checks ran and which game behaviors remain untested.
-Read the affected mdlxl_help topics before unfamiliar edits; reuse sections already read in this conversation: shape/weld/normals -> WC3-EDITING-GEOMETRY.md; wrap/texture/colour/visibility -> WC3-EDITING-UV-MATERIALS.md; hierarchy/pivots/skin/layered surfaces -> WC3-EDITING-NODES-BINDING.md; keys/retiming/donor motion -> WC3-EDITING-ANIMATION.md; particles/ribbons/lights/events -> WC3-EDITING-EMITTERS.md; format/attachments/collision/portrait/glow/lifecycle -> WC3-EDITING-GAME-INTEGRATION.md; completion checks -> WC3-EDITING-VERIFICATION.md. Each section explains why, how to check, existing tools and sources.
+Inspect the selected surface's mesh, UVs, material layers, bindings, ancestors and clips. Identify the responsible data, record protected fields, then edit that owner. Preserve the input format, authored conventions and unrelated data.
+For a continuous join, pair boundary vertices by connectivity, surface side and adjoining faces. Match their positions and resolved influences while retaining UV and hard-normal splits. Weld only compatible corners. Diagnose shape, triangle facing and shading separately; use the geometry guide's edge-split and normal-rebuild procedures.
+Bind by intended motion. Classic groups average their bone members equally; weighted skin takes explicit normalized influences. Give seam copies the same motion and carry joint changes through blend rows. For layers, map to the correct underlying triangles by component, facing and side; copy the underlying transition through contact, then blend toward the independent driver where the layer lifts away. Keep free chains independent beyond their anchor. Sample bends, twists and intermediate poses for gaps, sliding and penetration.
+Resolve every rendered layer and its UV set before changing a wrap. Duplicate shared face corners when only one side needs different UVs. Edit visibility at its geoset, material-layer or effect owner and retain the existing local/global clock. Preserve layer order, filter modes, replaceable textures and paths; inspect the textured result at relevant times and contrasting team colours.
+Map donor motion through hierarchy, pivots and parent spaces. Copy keys only between compatible spaces; otherwise solve recipient poses from aligned trajectories. Retiming includes every local controller and event, plus shifted later clips. Preserve interpolation, controls, sequence metadata and global clocks. Keep meaningful keys, check between them and match loop endpoints.
+Place effects with their parents and resources. Separate emission timing, particle lifetime and visibility; replay from onset through residual particles and trails. Use the pivot-compensation procedure before relocating an animated pivot.
+Read the relevant mdlxl_help topic before an unfamiliar operation; reuse sections already read: shape/weld/normals -> WC3-EDITING-GEOMETRY.md; wrap/texture/colour/visibility -> WC3-EDITING-UV-MATERIALS.md; hierarchy/pivots/skin/layers -> WC3-EDITING-NODES-BINDING.md; keys/retiming/donor motion -> WC3-EDITING-ANIMATION.md; particles/ribbons/lights/events -> WC3-EDITING-EMITTERS.md; format/bounds/attachments/collision/portrait/glow/lifecycle -> WC3-EDITING-GAME-INTEGRATION.md; review/limits -> WC3-EDITING-VERIFICATION.md. Follow their ordered procedures and existing API signatures.
+Verify the requested result and protected data separately. Compare the same poses and views, inspect actual captures, recalculate affected bounds, validate save/reopen, then finish through mdlxl_review. Report the checks performed and remaining game tests.
 ```
 
 ## Evidence and limits
 
 Existing datasets were reused; no new corpus extraction or model remeasurement
 was needed. Current API owners were checked against their actual implementation.
-Hive and XGM pages cited by the sections were read successfully in this session;
-no browser takeover was needed. The handbook uses format facts, qualified measured
-practice and attributed practitioner explanations, not object-specific recipes.
+Additional Hive and XGM rigging, transfer and emitter explanations were read
+successfully for the second pass; no bot-check interruption or desktop control
+was needed. Techniques were checked against current module behavior and condensed
+into structural procedures. Attribution remains outside the seven guides.
 
 The original binding-study shorthand needs these qualifications:
 
@@ -224,7 +227,7 @@ warnings are qualified when their authors revised them or reported uncertainty.
 
 ### PR #317 coordination
 
-PR #317 was still open at implementation time, head
+PR #317 was rechecked during the second pass and remains open, head
 `1d4af59eae24adfa5124c5e7f4c798d21019605f`.
 The owner explicitly authorized: "Prepare core on #318 now; document overlap".
 This branch therefore adds the general core without importing #317's unrelated
@@ -237,25 +240,28 @@ Neither PR was merged by this task.
 
 ## Verification
 
-Checked on 26 October 2026 after inserting the core:
+Second pass checked on 26 October 2026:
 
-- `pnpm run build`: passed. Both generated AI-tool bundles contain the core.
+- `pnpm run build`: passed; the revised core is present in the built AI-tool bundles.
 - `node --test test/ai-*.test.js`: 98 passed, zero failed, one skipped.
 - `pnpm run test:source`: 1,960 passed, zero failed, 22 skipped.
 - `pnpm test`: 57 passed, zero failed.
-- Imported `AI_SYSTEM_PROMPT`: the core is 3,005 characters and references exactly
-  the seven delivered topics. Removing that block reproduces the original
-  `src/ai-tools.js`, confirming no other prompt/tool-contract change.
-- Actual Vite glob + `AiEditorBridge.dispatch('mdlxl_help', ...)`: all seven
-  guides listed and returned their real text while SD Brain was parked.
-- 86 relative links/anchors and 139 in-text source references resolved across
-  the seven guides. Named tool/module owners were checked in current source.
+- Temporary procedure checks exercised pivot compensation with varying rotation
+  and scale (maximum sampled matrix error below 0.000002), donor ObjectId remapping
+  with preserved cubic controls, retiming of events/materials/later clips with
+  global clocks preserved, seam splitting with protected streams, and all three
+  conforming edge-split cases.
+- All documented module exports resolve; actual Vite help dispatch lists and
+  loads all seven revised guides with SD Brain parked.
+- All 26 guide links/anchors resolve. No source tags, attribution, external
+  citations or Sources sections remain in the guides.
+- The core is 2,982 characters, down from 3,005. The rest of
+  `src/ai-tools.js` matches the pulled revision exactly.
 - `git diff --check`: passed.
 
-The first full-source run lacked the built particle/validation modules and
-FFmpeg. Building and supplying the existing binaries after verifying their
-pinned hashes resolved all 14 failures; no product fix or baseline change was
-needed. The final full run above includes all prerequisites and the final core.
+The full source run used built runtime modules and existing FFmpeg binaries
+verified against the repository's pinned hashes. No baseline change was needed.
+No permanent test/tool/checker or automatic repair was added.
 
 Not exercised: packaged desktop interaction, paid before/after AI editing trials,
 or Warcraft III gameplay. No model assets, installed app, personal profiles or
@@ -338,6 +344,6 @@ Research inputs stay where they are for reference; do not copy them into the gui
 
 ## Next action
 
-Second pass as described above, then owner review of the core and the seven
-sections. Keep PR #318 unmerged until the owner accepts the handbook and
-authorizes merging.
+Second pass is implemented and verified. Owner review of the revised core and
+seven method guides is next. Keep PR #318 unmerged until the owner accepts the
+handbook and authorizes merging. Reconcile #317 using the instruction above.

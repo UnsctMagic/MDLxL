@@ -1,142 +1,155 @@
 # WC3 editing: particles, ribbons, lights and events
 
-Read this for effect placement, timing, appearance or copying. Use
-[animation](WC3-EDITING-ANIMATION.md) for local/global clocks and
-[game integration](WC3-EDITING-GAME-INTEGRATION.md) for game-resolved events.
+Use this for adding/copying effects, their timing and their resource dependencies.
+Use [animation](WC3-EDITING-ANIMATION.md) for retiming,
+[materials](WC3-EDITING-UV-MATERIALS.md) for layer composition and
+[verification](WC3-EDITING-VERIFICATION.md) for the review procedure.
 
-## Identify the effect mechanism first
+## Choose the effect mechanism
 
-**PE1, PE2, ribbons and events are different records.** A classic particle emitter
-can reference an external model; Particle Emitter 2 emits textured particles;
-a ribbon joins a history of emitted points; event objects trigger game-defined
-sounds or spawned visuals. Popcorn emitters are another system. Editing a
-geoset's alpha will not necessarily control any of these. Inspect the actual
-node family, parent, pivot, referenced resource and time domain, then observe
-the corresponding effect through a full emission cycle. [E1, E2]
+Read the canonical collection and fields before editing. `ParticleEmitters2`
+emit textured particles; `RibbonEmitters` connect sampled moving edges;
+`ParticleEmitters` refer to external model paths; `ParticleEmitterPopcorns`
+use their own effect path/guide. `Lights` illuminate; `EventObjects` trigger
+game resources. Keep the existing family unless conversion is requested.
 
-**Copy the dependency graph, not just the visible emitter.** Parent transforms,
-textures, ribbon materials, texture animations and global sequences can all
-contribute. The existing effect-copy owner remaps those references and rejects
-unsupported version/bind-pose combinations. Preserve that boundary.
-Inspect the returned mapping and timing policy; compare source/recipient
-trajectories and appearance. Identical filenames alone do not establish identical
-resource contents. [E1]
+For any effect, read parent, pivot, transforms, flags, local/global tracks and
+referenced texture/material/path. Sample its carrier before changing placement.
 
-## Keep emission, particle age and visibility distinct
+## Add a textured emitter
 
-**Stopping emission is not erasing particles already alive.** Visibility controls
-whether an emitter creates new particles; particle lifetime and age alpha govern
-what remains afterwards. Set the requested onset/cutoff using the appropriate
-channel and inspect the residual tail. For a hard visual stop, first understand
-which supported mechanism the model already uses; do not shorten every lifetime
-or delete the effect blindly. [H1, E3]
+1. Call `editor-document.createNode(model, 'ParticleEmitter2')` inside an edit
+   script. Retain its allocated ObjectId, set `Parent` to the chosen carrier,
+   and move its pivot using
+   `movement.applyRestPoseTransform(model, [id], {mode: 'move', values: [dx,dy,dz]})`.
+   Scope `/ParticleEmitters2` and `/PivotPoints`, plus newly added dependencies.
+2. Set `TextureID` to an existing resolved texture index or append the requested
+   texture record and use its index. Set `ReplaceableId` only for a replaceable
+   texture. Keep emitter `FilterMode` separate from material-layer filter
+   enums; use the emitter's own editor options.
+3. Set `Width` and `Length` for the local X/Y emission rectangle, `Speed`,
+   `Variation`, `Latitude`, `Gravity`, `EmissionRate` and `LifeSpan`. Lifetime
+   is seconds; ordinary emission rate is particles per second. Emission points
+   start along local +Z. Orient it with
+   `particle-editing.setParticleRotationDegrees(model, id, frame, sequenceIndex, angles)`,
+   where `angles` is absolute local XYZ degrees. Read the rotation clock first.
+4. Write the particle-age stages: three RGB vectors in `SegmentColor`,
+   three byte opacities in `Alpha` and three sizes in `ParticleScaling`.
+   `Time` is the normalized age of the middle stage. Keep its value between
+   the birth and end stages. Node scale changes the field/velocity; set
+   `ParticleScaling` when the particle image itself needs a different size.
+5. Set atlas `Rows`/`Columns` and the required quad/trail `FrameFlags`.
+   `LifeSpanUVAnim`, `DecayUVAnim`, `TailUVAnim` and `TailDecayUVAnim` each hold
+   `[startCell, endCell, repeats]`. Cells start at zero in the upper-left;
+   keep cell indices inside `Rows*Columns`. Set `TailLength` for the trail
+   component while particle scaling controls its width.
+6. Choose whether emitted particles follow the moving frame. Set the ModelSpace
+   flag `524288` for carried particles, or clear only that bit for world-space
+   trails. Preserve other flags. Test carrier translation and rotation during
+   emission and after the emitter stops.
+7. Start with the requested visibility/emission window, then replay from before
+   onset through at least one lifetime after cutoff. Inspect birth direction,
+   density, fade, atlas sequence and residual particles before increasing rate.
 
-**Continuous rate and Squirt are different timing models.** Continuous
-`EmissionRate` describes particles per second; Squirt uses keyed emission for
-bursts. A visibility-only edit does not fully specify burst timing. Preserve
-the existing emission keys and test entering the sequence, the intended burst
-frame, repeated playback and frames after it. Historical tutorials disagree on
-Squirt details; use the target game's result for onset behavior instead of
-assuming an editor's scrub preview is authoritative. [H1, E3]
+## Time continuous emission or a burst
 
-**Use the field's units, not a shared numeric scale.** Sequence/key times are
-milliseconds, while PE2 `LifeSpan` is seconds. `Time` places the middle segment
-within a particle's lifetime, rather than an absolute sequence timestamp.
-PE2's three `Alpha` entries are bytes 0..255; geoset/layer alpha uses 0..1.
-`SegmentColor`, `Alpha` and `ParticleScaling` describe age stages.
-Inspect the start, middle and terminal appearance of a particle, independently
-of the sequence's emission schedule. [E2, X1]
+1. Read existing `Visibility` and `EmissionRate` tracks and their clocks.
+   Sample the clip start, onset, cutoff and end. Preserve a global controller
+   when the request applies to that global cycle.
+2. For a new continuous emitter, start with zero emission, set the requested
+   rate at onset and zero at cutoff. Use
+   `editor-commands.setKey(node, property, frame, values, options = {})` with
+   `property: 'EmissionRate'`, `values: [rate]` and `{lineType: 0}` for a new
+   held track. Seed zero at other clips' boundaries for a clip-specific effect.
+   The generic writer does not add those preservation keys for you.
+3. For a new burst, set `Squirt = true`. Seed zero at the clip start, set the
+   intended particle count at the burst time, then return the rate to zero.
+   Retain distinct timestamps so repeated bursts stay separate. Visibility
+   enables the emitter; the emission keys place the bursts.
+4. For an existing authored rate curve, preserve `LineType`, `GlobalSeqId` and
+   exterior keys/controls. When replacing one key with `setKey`, pass its
+   original `inTan`/`outTan` if present. Passing `lineType` changes the whole
+   controller; use it only for an intended controller-wide change.
+5. Read binary visibility spans with
+   `emitter-timing.emitterSpans(model, id, sequenceIndex)`. For a static/binary
+   held controller, use `setEmitterSpans(model, id, sequenceIndex, spans)`,
+   where spans are `[[on, off], ...]` in milliseconds. It rebuilds visibility
+   as held 0/1 values, including exterior keys; use
+   `animation-tracks.setAnimationKey` for an authored fade instead.
+   A span reaching the clip end remains on at that endpoint; place an earlier
+   cutoff or an explicit final key when the next state requires it off.
+6. Preview by replaying elapsed time. Speed keys affect newly emitted particles;
+   change gravity for ongoing acceleration. Compare density while the carrier
+   moves: rate times lifetime estimates the steady live count, while overlapping
+   transparent quads determine much of the visible fill.
 
-**An atlas has both a layout and an age animation.** Preserve Rows/Columns,
-head/tail lifetime and decay intervals, and their repeat settings.
-These select texture cells; they are not interchangeable with ordinary
-animated material TextureID. Verify referenced cells fit the actual image grid,
-then inspect newly emitted, midlife and dying particles. A missing old game
-sheet cannot be validated by a substitute white or checkerboard texture.
-[E2, X1]
+## Copy an existing effect graph
 
-## Preserve motion and rendering behavior
+1. Read the selected donor effect IDs and all their ancestors/dependencies.
+   Use `references[documentId].model` as the donor in the script. Choose a
+   recipient parent and explicit source/target intervals.
+2. For matching native versions without bind-pose matrices, call
+   `particle-recipes.copyEffectGraph(target, source, ids, {parent: null, sourceInterval, targetInterval, fit: false})`.
+   It copies the selected effects, required ancestor transforms, textures,
+   materials, texture animations and global sequences. Read its returned
+   `ids` and `maps`; keep the donor intact.
+3. Set `fit: true` to scale local key times into the target interval. With
+   `false`, keys receive only a start offset and must fit. This operation
+   transfers existing visibility as part of the graph; it does not create
+   a new visibility window.
+4. For a placed recipe use
+   `extractParticleRecipe(source, ids, metadata = {})` on the donor, then
+   `particle-placement.placeTimedParticleRecipe(model, recipe, placement, {preview: false, convertHD: false})`.
+   Set placement `{sequence, from, to, parent, position: [x,y,z], fit, motion}`.
+   The placement creates an anchor and writes the new effects' visibility
+   window. Choose `motion: 'target'` only when copied ancestor animation should
+   be removed so the recipient carrier owns the movement; otherwise retain
+   donor ancestor motion. Keep effect-local animation.
+5. Scope the actual effect families, Helpers, PivotPoints and resource arrays
+   that the graph adds. Inspect mapped parents and texture/material/global IDs,
+   then replay the recipient before/inside/after the window. Compare the donor
+   motion in the chosen interval and leave recipient effects untouched.
 
-**Parent motion and Model Space answer different questions.** Parent transforms
-position/orient the emitter. Model Space determines whether emitted particles
-continue to move with the model/parent system. XY Quad and Head/Tail flags further
-change orientation and visible geometry. Check while the carrier translates and
-turns, and from multiple camera angles; a stationary preview cannot prove a trail
-will remain in the intended space. Preserve the bits independently of their
-preview representation. [H1, E2]
+## Fit or edit a ribbon
 
-**Particle filter numbers are not material filter numbers.** PE2 uses
-0 Blend, 1 Additive, 2 Modulate, 3 Modulate2x, 4 AlphaKey. Material-layer
-0 means None instead. Use the actual enum for the object being edited.
-Check bright and dark backgrounds, overlap and occlusion after a mode change.
-Unshaded, Unfogged, depth/sort flags and PriorityPlane can change the result
-without changing texture pixels; preserve them outside scope. [E2, E4]
+1. Select complete polygons defining the intended moving edge and call
+   `particle-ribbon-fit.fitRibbonToPolygons(model, selection)`. Read its
+   `recipe`, `endpoints`, `parent` and `needsBone`. A ribbon follows a straight
+   local-Y edge; inspect the fitted endpoints against the selected geometry.
+2. Use an existing rigid carrier for that edge. If `needsBone` is true, choose
+   a rigid subregion or design a separate driver explicitly; rebinding the
+   deforming surface just to fit a ribbon would change its motion.
+3. Place the returned recipe with `placeTimedParticleRecipe` using
+   `{ribbon: true, sequence, sequences: [selectedClipIndices], parent, position: [0,0,0]}`.
+   This path stores the fitted edge directly in the carrier space and assigns
+   visibility for the chosen complete clips. It canonicalizes node order;
+   read returned maps and refresh every affected node reference/scope.
+4. Set `MaterialID` to the intended material, retain its layer stack, and set
+   `LifeSpan`, `EmissionRate`, `Gravity`, `Rows`/`Columns` and `TextureSlot`.
+   For keyed edge size call
+   `emitter-timing.setRibbonSizeKey(model, id, frame, sequenceIndex, {above, below})`
+   with nonnegative distances.
+5. Replay slow and fast turns. Adjust sampling rate for gaps, lifetime for
+   trail persistence and edge size for coverage. Inspect the trail after
+   visibility switches off; previously emitted segments age out separately.
 
-**Tune visible cost through coverage as well as count.** For constant-rate,
-non-Squirt emitters, rate × lifetime estimates a steady-state live-particle
-count; it is not an FPS guarantee or a burst estimate. Large overlapping
-translucent quads can be expensive even with few particles.
-Compare the requested effect at intended size and repeated-instance density
-before increasing rate, size or lifetime. Keep burst and animated-rate cases
-separate from the constant estimate. [E5]
+## Edit lights and events
 
-## Ribbons, lights and events
-
-**A ribbon needs movement history.** Its parent/pivot and height-above/below
-fields define the emitting edge; lifetime and emission determine the trail left
-behind. A single static frame can show no ribbon even when the saved setup is
-valid. Replay from a known start, inspect the full sweep and cutoff, and check
-material/atlas references. Fit it to the intended surface in posed frames,
-rather than assuming the bone pivot is the visible edge. [E1, E6]
-
-**A light is illumination, not a glow card.** Preserve its type, attenuation,
-colour/intensity, visibility and parent motion. A luminous-looking unshaded
-material does not necessarily illuminate nearby geometry. Inspect the affected
-surfaces and lighting context in the target game, especially for UI/portrait
-scenes with different ambient lighting; do not replace a light with an additive
-plane solely because one view looks similar. [E2, X2]
-
-**Events need a valid game identifier and a correct time.** Preserve the event's
-type/code, parent, pivot, EventTrack and optional global-sequence reference.
-Use the configured game event definitions instead of inventing names.
-Sound, footprint, splat, ubersplat and spawned-model behavior depends on game
-resources and playback. Preview what the editor supports, then verify the
-triggered result in Warcraft. Retiming transforms without retiming an event can
-detach its visible or audible cue from the action. [E7, E8]
-
-## MDLxL tools and common mistakes
-
-Discover `particle-recipes`, `particle-editing`, `particle-placement`,
-`particle-ribbon-fit`, `emitter-timing`, `particle-inspection`,
-`glow-up` and `animation-tracks` through `mdlxl_capabilities`.
-EMTR's existing controls own live placement drafts; Node Manager owns event
-selection. Read exact signatures and changed collections before scripting.
-
-Common mistakes: using particle Alpha 1 as fully opaque, setting LifeSpan in
-milliseconds, copying a material filter number into PE2, changing Visibility
-instead of age alpha, judging a ribbon without replay, and calling an unsupported
-effect preview a broken model.
-
-Reference/atlas validity, clock consistency and protected-field comparison are
-automatable. Emission history, sorting, appearance and game event behavior need
-the appropriate renderer/game check.
-
-## Sources
-
-- **E1:** [Effect extraction/copy/placement](../src/particle-recipes.js).
-- **E2:** [war3-model record types and enums](https://github.com/4eb0da/war3-model/blob/master/model.ts);
-  checked against installed 4.0.1 types/source map.
-- **E3:** [Native timing owner](../src/emitter-timing.js),
-  [animated particle fields](../src/particle-editing.js).
-- **E4:** [Material modes for comparison](WC3-EDITING-UV-MATERIALS.md).
-- **E5:** [Constant-rate estimate and repeated instances](../src/particle-inspection.js).
-- **E6:** [Ribbon fitting](../src/particle-ribbon-fit.js).
-- **E7:** [Resource managers and native event lookup](RESOURCE-MANAGERS-XL.md).
-- **E8:** [Event global-sequence preservation](../src/event-object-codec.js).
-- **H1:** [Hive: Particle Emitters 2](https://www.hiveworkshop.com/threads/particle-emitters-2.329335/),
-  Vinz with credited research by Hermit, GhostWolf and other practitioners.
-  Its viewer/game distinctions matter; unverified timing estimates are not caps.
-- **X1:** [XGM: Particle Emitter 2](https://xgm.guru/p/heavens-gallery/particle-emitter-2),
-  Empyreal's field explanations. Its struck-out Squirt advice is not used.
-- **X2:** [XGM: Modelling FAQ](https://xgm.guru/p/wc3/mfaq),
-  scene-lighting context and light-object distinctions.
+1. Create a requested light with `editor-document.createNode(model, 'Light')`.
+   Set its parent/pivot, `LightType`, `AttenuationStart`/`AttenuationEnd`,
+   `Color`, `Intensity`, `AmbColor` and `AmbIntensity`. Keep colours in 0..1;
+   intensity is its own scalar. For existing keyed fields retain the track and
+   change only selected keys through `editor-commands.setKey`. Set visibility
+   through `animation-tracks` and inspect the illuminated surfaces in motion.
+2. For an event, use the existing Event Object chooser to select a valid game
+   resource. Read its exact resulting `Name` and retain the complete identifier.
+   Use `mdlxl_context`/`mdlxl_ui({action: 'inspect'})` to obtain the actual
+   enabled command/control IDs when using that chooser; do not invent a code.
+3. For a known requested event definition, create
+   `editor-document.createNode(model, 'EventObject')`, set that exact `Name`,
+   parent/pivot and sorted `EventTrack` times. Preserve the array constructor
+   for edits and `GlobalSeqId` for global events. Sample the pivot at every
+   trigger and align it with the intended pose.
+4. Retiming must include local event tracks, as described in
+   [animation](WC3-EDITING-ANIMATION.md#retime-a-clip-with-events-and-effects).
+   Check resource resolution and the actual event in the target game.

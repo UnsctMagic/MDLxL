@@ -1,130 +1,196 @@
 # WC3 editing: nodes, hierarchy and binding
 
-Read this before binding, changing a pivot/parent, joining deforming surfaces,
-adding a layered surface or transferring rigged parts. Pair with
-[animation](WC3-EDITING-ANIMATION.md) for motion and
-[game integration](WC3-EDITING-GAME-INTEGRATION.md) for attachments/collision.
+Use this for continuous joins, layered surfaces, joints, free chains and pivots.
+Use [animation](WC3-EDITING-ANIMATION.md) for keys and motion transfer,
+[geometry](WC3-EDITING-GEOMETRY.md) for topology and
+[verification](WC3-EDITING-VERIFICATION.md) for the edit/review contract.
 
-## Understand which transform reaches the vertex
+## Read the actual rig
 
-**Classic binding is an equal-weight matrix group.**
-`VertexGroup[v]` indexes that geoset's `Groups`; the group contains node
-ObjectIds, not indices into the Bones array. Each member contributes equally to
-the transformed position. A two-bone group produces a half-and-half blend, not an
-arbitrary weight slider. Do not repeat a bone to approximate a custom weight:
-the study found no repeated members, and such a construction is not a supported
-weight-authoring contract. Resolve every ID and compare sampled positions before
-and after a binding change. [B1, B2]
+1. In `mdlxl_script`, load `animation` with `await api.module('animation')`.
+   Call `allNodes(model)` and map `ObjectId` to node, canonical collection and
+   collection index. Read `Parent`, `Flags`, `model.PivotPoints[ObjectId]`,
+   `Translation`, `Rotation` and `Scaling`. Follow ancestors as well as directly
+   bound nodes. A helper carries inherited motion even without vertex influences.
+2. For a classic vertex `v`, read
+   `g.Groups[g.VertexGroup[v]]`. Members are bone ObjectIds with equal influence.
+   For weighted data, read the eight entries at `8*v` in `g.SkinWeights`: four
+   IDs followed by four byte weights. Use the document's editable format and
+   preserve the array constructor and bind-pose data.
+3. Read the surrounding triangle connectivity, coincident seam copies, material
+   and visibility owners. Group vertices by connected surface and intended
+   movement, then establish correspondence within those groups.
+4. Sample relevant clips with
+   `sampleNodeMatrices(model, frame = 0, sequenceIndex = -1, globalTime = frame)`
+   and `skinGeoset(geoset, matrices, out)`. Keep the original world positions for
+   comparison. Use a real sequence for poses; sequence `-1` gives the rest view.
 
-**Weighted skin is a different representation.** Where `SkinWeights` is present,
-MDLxL stores four bone IDs followed by four weights per vertex; authored
-weights use 0..255. Current writers support wider bone IDs in version 1400+
-without turning the weights into wider-range values. Preserve the actual stream,
-type and influence values; do not replace it with an equal-weight classic group
-because the model looks SD. Check resolved positive-weight influences and
-saved/reopened arrays. [B1, B3]
+## Write influences without changing neighbouring vertices
 
-**Do not confuse a group-table limit with bones per vertex.** Classic group
-indices are bytes: at most 256 addressable groups per geoset. This is neither a
-256-bone model limit nor a four-bone format limit for classic groups. The native
-study contains larger classic groups; MDLxL's current Soft Bind operation refuses
-to add a fifth influence. Preserve authored groups and treat that refusal as a
-tool boundary, not permission to truncate them. Check group count/references
-before topology or binding operations. [B2, B3]
+1. Choose the final influence set before writing. Every bound vertex needs a
+   surviving driver. For a rigid assignment use
+   `bone-tools.changeVertexBinding(model, geoset, indices, boneId, 'hard')`.
+   Hard binding replaces all influences. Use `'soft'` to add an influence and
+   `'detach'` to remove one. Precheck the final set before detaching.
+2. For an exact classic set, reuse a `Groups` entry with the same bone members
+   or append a copy; set only the selected `VertexGroup` entries to that index.
+   Keep at most 256 addressable groups and update
+   `TotalGroupsCount = Groups.reduce((n, group) => n + group.length, 0)`.
+   Copy members across geosets, not the source group index. Leave shared group
+   entries intact when unselected vertices use them.
+3. Soft binding adds at most four members. Preserve an existing larger classic
+   group through the exact group-table assignment above. Classic groups have
+   equal weights; use intermediate group combinations for a discrete transition.
+4. For editable weighted data, merge contributions by bone ID, remove zero
+   contributions, and require at most four nonzero influences. Normalize to 255:
+   floor each `255*w/sum`, then distribute the remaining units to the largest
+   fractional remainders. Write IDs and weights into the existing eight-entry
+   layout; set unused weights to zero. Resolve an ambiguous correspondence
+   before reducing influences, since truncation changes motion.
+5. Scope the affected `/Geosets/<index>` records. Compare protected vertices'
+   resolved influences, positions, normals and every UV set after the edit.
 
-## Bind the structural relationship
+## Join one continuous moving surface
 
-**A continuous deforming surface needs a transition, not a sudden driver swap.**
-Adjacent regions usually retain a shared influence through blended vertex rings.
-This follows from the equal-average transform and is strongly represented in
-the measured native sample. Inspect edges whose endpoint groups share no bone,
-then determine whether they cross a real deforming join or an intentional
-independent part. Check edge length, silhouette and pinch/stretch at joint
-extremes and intermediate poses. A disjoint edge is an inspection candidate,
-not an automatic repair instruction. [B1, B2]
+1. Select the two boundary loops by topology. Pair their ordered vertices in
+   rest space using boundary direction, adjoining faces and surface side.
+   Match every UV/hard-normal duplicate at each boundary position. Keep nearby
+   independent surfaces outside this pairing.
+2. If the loops should meet, write each matched set to its agreed common rest
+   position. Use `classic-mesh.collapseVertices(geoset, indices, center)` for
+   copies within one geoset, or write the same position into each geoset's
+   `Vertices` triplet. Preserve distinct UVs, normals and material ownership.
+3. Give each matched seam set the same resolved influences. Across geosets,
+   create/reuse the destination group by members. Carry the transition into
+   adjoining rows using the joint procedure below.
+4. Keep the geosets separate when their rendering or visibility differs.
+   Joining positions and motion needs no geoset merge. For an explicitly
+   requested merge, use the conflict procedure in [geometry](WC3-EDITING-GEOMETRY.md).
+5. Sample the paired vertices through maximum relative rotation and intermediate
+   poses. Measure pair distance and adjacent edge stretch, then inspect the
+   join from both sides. Correct the correspondence or transition where it opens.
 
-**Seam copies that continue the same surface must move together.** Coincident
-vertices can retain different UVs or normals while sharing their skinning.
-Compare their effective influences, including weights, across material/geoset
-boundaries. Keep exceptions for separate parts and mutually exclusive surfaces.
-Sample the seam through the relevant motion; matching rest positions alone
-does not prevent a moving crack. [B1, B2]
+## Bind a layer to its underlying deforming surface
 
-**A layered surface intended to follow another must follow its deformation.**
-Where a layer rests over a deforming region, establish correspondence to the
-underlying surface and use compatible influences so relative motion does not
-open a gap or cause sliding. Correspondence depends on the surface, its side and
-motion; the nearest vertex may belong to a different overlapping part. A rigid
-layer meant to articulate separately retains its own driver. Inspect relative
-separation through bends, twists and crossings. The proximity study supports
-investigation, not automatic nearest-neighbour rebinding. [B1, B2]
+1. In a read-only `mdlxl_script`, identify the layer's connected patches, the
+   underlying connected patches and their intended sides. Read rest positions, face indices, normals and bindings.
+   For each layer vertex, search triangles only in the matching underlying
+   patch. Project toward that surface along the local surface normal, or find
+   the closest point on its triangles within an explicitly chosen clearance.
+   Reject opposite-facing triangles, the reverse side of a thin surface and
+   unrelated components. Keep ambiguous matches for explicit inspection.
+2. Store the matched triangle, barycentric coordinates and signed rest clearance.
+   Check neighbouring layer vertices map to neighbouring triangles and preserve
+   order. Follow continuity across a legitimate underlying UV/geoset seam;
+   match its duplicate positions and influences before crossing it.
+3. Inside the contact region, copy a coherent underlying classic group where
+   the matched triangle has one. Where triangle corners differ, follow the
+   underlying transition with the same ordered group bands; add layer vertices
+   if its topology cannot represent the boundary. For weighted skin, barycentrically
+   interpolate the three resolved influence maps, then normalize as above.
+4. Where the layer lifts away, keep the contact row's underlying influences.
+   Progress through adjoining rows toward the independent driver: for two
+   classic drivers use `[A]`, `[A,B]`, `[B]`. With more drivers, retain the
+   underlying combination at contact and choose intermediate equal-weight
+   groups that preserve the underlying region's motion. For weighted skin
+   interpolate `(1-u)*underlying + u*independent` along the transition.
+   Keep UV-seam copies identical at every row.
+5. If the layer spans two deforming regions, map each side to its own underlying
+   patch and continue the underlying blend across their shared joint. Place
+   enough rows through that joint to carry the transition. Assign the free
+   boundary to its independent driver only after the supported region ends.
+6. Sample both meshes at joint extremes, twists and between-key frames.
+   Recompute the matched triangle point with its stored barycentric coordinates;
+   compare signed clearance and tangential displacement with the rest relation.
+   Inspect penetration, sliding and silhouette. Adjust the transition's width,
+   correspondence or rest clearance, then repeat those poses.
 
-**A free chain needs its own motion and an attached root.** Retain the authored
-run of keyed nodes for a flexible independent extension; blend its root into the
-carrying region when that is how the connection deforms. Binding the whole chain
-to its carrier removes its secondary motion, while assigning an entire layer
-to an unrelated neighbouring driver creates separation. Inspect the root join
-and progressive motion down the chain, including extreme and reversed poses.
-[B2, B4]
+## Add a blend ring at a joint
 
-**Inspect scale-collapse behavior before blending a new group.** Mixing a bone
-whose world transform collapses to a point with a live bone is a known Warcraft
-compatibility concern in MDLxL's diagnostic rules. A whole hidden part or a
-one-axis flatten is not the same condition. Check own and inherited scale across
-the relevant sequences; preserve intentional visibility mechanics and obtain an
-in-game check for this case. The diagnostic is inspection-only: do not rebind
-automatically to silence it. [B5]
+1. Read both drivers' hierarchy and posed transforms. Locate the joint in the
+   mesh and identify existing rows on each side. Use existing rows when they can
+   bend smoothly; add topology only where the transition lacks support.
+2. For a new ring, split the crossed edges with the conforming edge procedure in
+   [geometry](WC3-EDITING-GEOMETRY.md#add-a-ring-with-conforming-edges). Preserve
+   UV/normal copies at seams and give every incident triangle the same split.
+3. Keep the outer rows on their original drivers. For classic binding use
+   `[A]`, `[A,B]`, `[B]` across the bend; widen the middle band when a single row
+   pinches. For weighted binding vary the ratio gradually across rows while
+   keeping each row's seam copies equal. Use the exact assignment procedure.
+4. Pose both flexion directions and a twist using existing clips or
+   `movement.applyMovementPose(model, changes, time, sequenceIndex, restrictions = {})`
+   on a detached comparison model. A change is
+   `{id, property: 'Rotation', value: [x,y,z,w]}` in local coordinates.
+   Check volume, edge stretch and opposing-surface intersections before committing.
 
-## Preserve the hierarchy that owns the motion
+## Add a free chain
 
-**A helper can be the important animated joint.** Nodes with no directly skinned
-vertices can drive many descendants. Inspect keys, parents and descendant
-influences before deleting, reparenting or choosing a joint for a transfer.
-Native rigs often use keyed helpers above skinned bones; this is an observed
-construction, not a requirement to rebuild every skeleton that way.
-Compare world-space pivots and descendant trajectories, not only node names.
-[B1, B2, B4]
+1. Establish the anchored root, joint positions and contiguous vertex rows.
+   Create each driver with `bone-tools.createRigNode(model, 'Bone', selection = {})`
+   or `editor-document.createNode(model, 'Bone')`. Retain its allocated ObjectId.
+2. Set each new pivot using
+   `movement.applyRestPoseTransform(model, [id], {mode: 'move', values: [dx,dy,dz]})`,
+   where the delta is desired pivot minus current pivot. Scope `/PivotPoints`
+   and the canonical node collection.
+3. Parent root to its carrier and each next driver to the preceding driver.
+   `bone-tools.attachToBone(model, childId, parentId)` takes a bone parent.
+   Precheck that the parent is not a descendant: this operation otherwise
+   detaches a conflicting branch. For a helper parent, assign the new node's
+   `Parent` directly after the same cycle check.
+4. Bind the anchored row to the carrier, transition into the first driver, and
+   continue through joint bands. Keep the free end on its own driver. Test
+   isolated driver rotations from root outward before adding motion.
+5. Add local keys with `applyMovementPose` at the clip start, meaningful poses
+   and end. Copy the starting pose to the endpoint for a loop, then offset
+   successive drivers' change times to create follow-through. Inspect the whole
+   chain between keys and at the wrap; retain independent motion beyond the anchor.
 
-**Pivots, parents and inheritance flags change the result of existing keys.**
-Rotation/scaling act around the pivot, with parent transforms and inheritance
-flags contributing to the world transform. Moving a pivot or reparenting a node
-can alter every sequence without changing a single key value. Preserve
-ObjectIds, canonical `PivotPoints`, child references and bind-pose records unless
-the requested edit requires them to change. Verify all affected descendants and
-clips. `Nodes` and node `PivotPoint` are editor aliases; scope the canonical
-collections changed by an API. [B1, B3, B6]
+## Set camera-facing motion
 
-**Billboards are camera-dependent, not ordinary rigid joints.** Preserve
-Billboarded, axis locks and CameraAnchored behavior when moving their nodes.
-A correctly positioned pivot helps the attached surface turn around its intended
-centre. Inspect actual captures from different camera directions; a numeric
-sampler without camera-facing transforms cannot certify the billboard.
-Do not remove the flag just because a fixed view looks unusual. [B4, B6]
+1. Read the node's billboard bits and inherited transforms. Give independently
+   facing surface patches separate drivers; place each pivot at its intended
+   turning centre, parent it to the moving carrier and bind its patch rigidly
+   using the creation/binding procedures above.
+2. For a bone that should face the camera freely, call
+   `bone-tools.setBoneBillboarded(model, id, enabled)`. This clears the billboard
+   mask (8, 16, 32, 64) and sets bit 8 when enabled. Preserve unrelated flags.
+3. For a new axis lock, clear the free-billboard bit 8 and other lock bits,
+   then set the chosen X/Y/Z bit 16/32/64 in `Flags` through a scoped script.
+   Retain an existing authored combination when the lock is outside the edit.
+   Avoid the free-billboard setter when an existing axis lock must survive.
+4. Inspect the patch while rotating the camera and while its carrier moves.
+   Check that neighbouring independent patches turn around their own pivots
+   and the shared anchor stays attached.
 
-## MDLxL tools and common mistakes
+## Relocate a pivot while preserving motion
 
-Discover `bone-tools`, `rig-node-order`, `movement`, `movement-selection`,
-`pose-ik`, `animation` and `editor-document`. Read the operation before use:
-Hard Bind replaces influences; Soft Bind adds one under its supported limit;
-parenting is not vertex binding. `mdlxl_sample` measures posed geometry and
-`mdlxl_capture` supplies the visual check.
-
-Automatable checks include unresolved IDs, cycles, group-table overflow,
-coincident-surface influence differences, disjoint edge groups and sampled
-separation. Surface correspondence and intended independent motion need judgment.
-Do not infer them from a bone name, a geoset number or a proximity percentage.
-
-## Sources
-
-- **B1:** [Hierarchy sampling and skinning](../src/animation.js).
-- **B2:** 26 October binding study: 415 native unit models and a separate
-  ten-model LowPolyWorks sample. [Research provenance and measurement limits](agent-tasks/wc3-editing-agent.md#evidence-and-limits).
-  Measurements concern observed practice, not engine acceptance.
-- **B3:** [Binding operations](../src/bone-tools.js),
-  [modern skin preservation](MDL-MDX-COMPATIBILITY-FIXES.md);
-  [independent GEOS reader](https://github.com/flowtsohg/mdx-m3-viewer/blob/master/src/parsers/mdlx/geoset.ts).
-- **B4:** [POSE hierarchy recognition and unsupported domains](POSE_IK.md),
-  [measured billboard/glow construction](GLOW_UP.md).
-- **B5:** [Zero-scale skin blending boundary](OPTIMIZEXL_TEACHING.md).
-- **B6:** [AI canonical-data contract](AI-HOOK.md),
-  [node creation/deletion and reference mapping](../src/editor-document.js).
+1. Read the pivot, all transform tracks, their local/global domains and inheritance
+   flags. If the request is only for another attachment position, add a helper
+   or attachment under the existing driver at that position and keep its pivot.
+2. For an actual pivot relocation, keep an untouched model for sampling. Let
+   `d = newPivot - oldPivot`. With the same parent and flags, the local transform
+   is `T(t) T(p) R S T(-p)`. Preserve it by writing
+   `tNew(time) = tOld(time) + (R(time)*S(time) - I)*d`, while retaining rotation
+   and scale. A pivot-only write would shift animated geometry.
+3. Sample `movement.sampleMovement(model, node, property, time, sequenceIndex)`
+   for Translation, Rotation and Scaling. Form `R*S*d` by component-scaling
+   `d` then rotating it by the sampled quaternion. For constant rotation/scale,
+   the compensation is constant; add it to each translation value, to Bezier
+   control values, and to static translation. Leave Hermite derivative tangents
+   unchanged for a constant offset.
+4. For varying rotation/scale, prepare a new translation curve from the old
+   model's samples at endpoints, all involved keys and subdivided intervals.
+   Clone the old translation track's metadata, then set `LineType: 1`,
+   `GlobalSeqId: null` and `Keys: [{Frame, Vector: new Float32Array(values)}, ...]`
+   for a local bake. Cover every existing clip and compensate setup values
+   outside them; sample any retained exterior curve spans too. Refine until
+   old/new world matrices and influenced vertices
+   agree within the chosen positional tolerance at intermediate times.
+   For one shared global clock, sample 0 through its duration and retain that
+   `GlobalSeqId` in the new track. Use this only when every varying contributing
+   curve uses that same clock. For mixed independent clocks, retain the driver and add an anchor;
+   one local translation curve cannot retain both clocks.
+5. Apply the pivot delta with `applyRestPoseTransform` and the prepared translation
+   in one scoped script. Compare descendants and attached effects as well as
+   skinned vertices through every affected clip. Keep the original curve if the
+   sampling tolerance or interpolation change is unacceptable.

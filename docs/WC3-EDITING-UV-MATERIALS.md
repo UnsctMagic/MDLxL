@@ -1,131 +1,133 @@
 # WC3 editing: UVs, materials and visibility
 
-Read this for wrapping, texture changes, tint, transparency, team colour or
-geoset visibility. Pair it with [geometry](WC3-EDITING-GEOMETRY.md) when splitting
-vertices and [animation](WC3-EDITING-ANIMATION.md) when editing tracks.
+Use this for seam wrapping, textures, layer changes, colour and visibility.
+Use [geometry](WC3-EDITING-GEOMETRY.md) for vertex splits,
+[animation](WC3-EDITING-ANIMATION.md) for timing and
+[verification](WC3-EDITING-VERIFICATION.md) before finishing.
 
-## Follow the material actually used
+## Resolve the rendered layer
 
-**Trace the complete reference chain at the relevant time.** A geoset's
-`MaterialID` chooses a material; each ordered layer chooses a `TextureID`,
-`CoordId` UV set and optional `TVertexAnimId`. Texture IDs and layer alpha can
-be animated. Inspect every used layer at the failing frame before changing a
-texture or UV set. A valid path on an unused texture or a correct wrap in the
-wrong UV set will not change the visible result. Check that the edited references
-still resolve after saving. [U1, U2]
+1. Read `Geosets[g].MaterialID` and call
+   `uv-tools.uvMaterialLayers(model, materialID, time = 0, sequenceIndex = -1)`.
+   Each result gives `layerIndex`, the sampled `textureID`, `texture` and
+   `coordId`. Read the actual `TVertices[coordId]`, layer `TVertexAnimId`,
+   texture path/replaceable ID and wrapping flags.
+2. Preview the resolved image with
+   `mdlxl_assets({target, source: 'model', action: 'preview', textureId})`.
+   Inspect texture alpha and the region used by the selected faces. Repeat at
+   texture-switch keys if `TextureID` is animated.
+3. Read every layer in order, including `FilterMode`, `Shading`, `Alpha` and
+   texture animation. Read `GeosetAnims` by `GeosetId` for geoset alpha/colour.
+   `Geosets[g].Anims` contains bounds, not colour tracks.
+4. Identify the layer and UV set that control the requested appearance before
+   changing coordinates or transparency. Keep unresolved texture paths intact;
+   resolve the asset before replacing a material to compensate for a missing image.
 
-**Choose paint by the pixels under the island.** Native sheets can serve a new
-purpose when their painted material, light direction, colour and alpha suit the
-surface. A filename is only a search aid. Preview the actual image and relevant
-islands, then the composed model material: geoset tint and team colour can make
-the final colour very different from the source RGB. Compare the mapping at the
-intended size and from an oblique view before stretching a small region over a
-large surface. Preserve useful authored reuse and mirroring. [U3]
+## Adjust UVs across a seam
 
-**Keep mapping discontinuities without tearing the mesh.** A UV seam needs
-independent vertex copies at a shared position. Use face-side selection or the
-UV uncoupling operation when one side must move independently; preserve its
-position, normal, binding and other UV sets. Check the seam in textured poses.
-An island flipped by design is not automatically a folded chart, and UVs outside
-0..1 can intentionally tile: check the texture's wrap flags before clamping.
-[H1, U1]
+1. Select the faces to rewrap and gather their vertex indices. Find shared
+   corners between selected and protected faces. Keep positional/normal/binding
+   seam copies and each UV set's current values.
+2. If selected and protected faces share a vertex that needs different UVs,
+   duplicate just that boundary vertex: call
+   `mesh-tools.gather(geoset, sourceIndices)` with all original indices followed
+   by the needed copies, assign the gathered streams, and redirect only the
+   selected face corners to the new indices. Copy all UV sets, normals, groups,
+   tangents and weighted skin before editing the chosen UV set.
+3. To retain the existing wrap while splitting, use that copying procedure.
+   `uv-tools.uncoupleUVVertices(geoset, indices, uvSet = 0)` splits incident
+   corners and insets their UVs; use it only when that inset is intended.
+4. Build a new UV buffer from the original `TVertices[coordId]`. Place matching
+   boundary coordinates together for a continuous painted feature, while
+   retaining a split for a texture island or hard change in paint. Move/rotate/
+   scale the selected island around its chosen UV centre and preserve its
+   orientation unless a mirrored texture result is requested.
+5. Assign
+   `g.TVertices[coordId] = uv-selection.restrictUVChange(g, coordId, values, indices)`.
+   This returns a new buffer with only eligible selected coordinates replaced.
+   For a view projection, call
+   `uv-tools.projectUVFromView(geoset, indices, viewMatrix, projectionMatrix, source = geoset.TVertices[0])`
+   using the actual chosen camera matrices; assign its returned UV buffer
+   through `restrictUVChange`. Inspect foreshortened faces separately. When
+   editable geometry has tangents and UV set 0 changes, compute
+   `geoset-tangents.forgeTangents(geoset)` and copy its four-component entries
+   to `Tangents` for vertices of affected triangles; retain exterior entries.
+6. Check the seam with the actual texture in rest and bent poses, including
+   oblique views and the normal viewing scale. Keep UVs outside 0..1 for an
+   intentional repeated wrap. Use
+   `uv-tools.setUVTextureWrapping(model, textureIDs, enabled)` to set both
+   repeat axes only when requested; it changes all users of those textures.
 
-**Projection is a starting mapping, not proof of a good wrap.** A flat projection
-can collapse edge-on faces or fold a surface that curves around itself. Inspect
-triangle areas in UV space, direction changes and landmark placement over the
-actual sheet; rotate the model to see the reverse side. Preserve deliberate
-constant-colour sampling or overlapping islands rather than treating every
-overlap or small UV triangle as damage. [U1, U3]
+## Change one material layer
 
-## Keep the material's rendering job
+1. Read all geosets using the material. If the change applies to only one,
+   append `structuredClone(model.Materials[materialID])` and point only that
+   geoset's `MaterialID` at the new index. Keep its other layers unchanged.
+2. For a texture assignment call
+   `material-presets.setMaterialLayerTexture(material, layerIndex, value)`,
+   where `value` is a texture index or a complete typed TextureID track.
+   It synchronizes the paired base passes of a generated tint stack. Preserve
+   animated assignments when only one key is changing: clone that track,
+   replace the selected key's integer texture value and pass the clone.
+3. For one filter change write the chosen layer's `FilterMode` directly in a
+   scoped script. Material filter values are 0 opaque, 1 alpha-tested,
+   2 alpha-blended, 3 additive, 4 additive with alpha, 5 modulate, 6 modulate2x.
+   Keep `Shading`, layer order, `CoordId`, texture animation and alpha intact.
+4. Use `material-presets.applyMaterialPreset(model, materialID, preset, tint = 0)`
+   only for a requested whole preset. A team/tint preset rebuilds the stack;
+   use the single-layer operations above for an authored stack.
+5. For team colour keep the replaceable texture with `ReplaceableId: 1` and
+   the intended base/overlay order. Team glow uses `ReplaceableId: 2`. Keep the
+   replaceable slot rather than writing one selected team's ordinary image
+   into it. Inspect contrasting team colours and layered transparency.
+6. Before deleting/reindexing textures, enumerate all consumers with
+   `texture-references.visitTextureReferences(model, (id, set, owner) => {...})`.
+   Use the callback's setter to remap every affected reference, including
+   animated IDs and emitter textures. Keep paths and unrequested texture flags.
 
-The classic material modes below use **material-layer** enum values. Particle
-Emitter 2 uses a different enum; do not copy these numbers into it. [U4]
+## Change visibility at its owner
 
-| Material value / MDL name | Rendering job | Check after changing it |
-| --- | --- | --- |
-| 0 / None | Opaque surface; texture alpha is not an ordinary cutout | Intended holes and opaque interior |
-| 1 / Transparent | Alpha test, with a cutout rather than a smooth fade | Fine edges at small scale; compare the target game's cutoff |
-| 2 / Blend | Source-alpha blending; MDLxL labels it Alpha | Semi-transparent overlap and viewing-angle changes |
-| 3 / Additive | Adds light; MDLxL labels it Add | Bright/dark backgrounds; black RGB contributes no light |
-| 4 / AddAlpha | Alpha-modulated added light | Texture and layer alpha both affect the result |
-| 5 / Modulate | Multiplies the background colour | Darkening against real terrain |
-| 6 / Modulate2x | Twice the multiplicative contribution | Contrast and overbright areas |
+1. Trace the surface's visibility through geoset `Alpha`, every material-layer
+   `Alpha`, texture alpha and active local/global tracks. For effects use the
+   node's `Visibility`. Editor hiding changes only the working view.
+2. Load `animation-tracks` and define the exact target:
+   - `{kind: 'geoset', id: geosetIndex, property: 'Alpha'}`.
+   - `{kind: 'material', id: materialIndex, layer: layerIndex, property: 'Alpha'}`.
+   - `{kind: 'node', id: objectId, property: 'Visibility'}`.
+   Read `readAnimationTrack(model, target)` and sample with
+   `sampleAnimationProperty(model, target, frame, sequenceIndex, globalSeqId = null)`.
+3. For a constant change to a static property call
+   `setAnimationInlineValues(model, targets, value)`. It rejects keyed tracks.
+   For a key call
+   `setAnimationKey(model, targets, frame, value, sequenceIndex, globalSeqId = null)`.
+   Values are 0..1. Read the current domain first: an already-global track
+   remains global even if the optional argument is omitted.
+4. For a local on/off interval, retain the original endpoint values, set
+   visibility to 1 at its start and 0 at its cutoff, and keep hold interpolation
+   when the whole track is an on/off controller. Preserve an authored fade's
+   interpolation and exterior controls; edit only its intended keys.
+5. To make a local property constant throughout selected complete clips, use
+   `setAnimationSequences(model, targets, value, sequenceIndices = null)`.
+   Pass the explicit clip indices. It replaces keys within those clips and can
+   convert global tracks to local; use per-key editing for an authored global
+   controller or a fade that must survive.
+6. Missing geoset owners can be created with
+   `createGeosetAnimations(model, geosetIds = [])`. Scope `/GeosetAnims`,
+   `/Materials` or the actual node collection. Check just before/at/after each
+   transition and in neighbouring clips. Keep separate surfaces/effects on
+   separate owners when they need different visibility.
 
-**Preserve layer order and shading/depth flags.** They determine how the image
-is built, lit and occluded. Additive is not interchangeable with Blend:
-MDLxL's compositor scales Additive RGB by layer opacity without using texture
-alpha as a mask; AddAlpha uses that mask. An unshaded surface ignores scene
-lighting, and disabling depth behavior can make an overlay appear through other
-geometry. Inspect overlap from several angles and on contrasting backgrounds.
-Do not flatten an authored stack just to obtain a simpler material. [U4]
+## Change colour without hiding another mechanism
 
-**Team colour is a replaceable texture plus a material arrangement.**
-`ReplaceableId: 1` requests team colour; `2` requests team glow. An alpha channel
-by itself does not establish either. MDLxL's Team Color preset places a None
-team-colour layer before the base image's Blend layer, allowing that image's alpha
-to reveal the player colour. Preserve the actual stack when editing an existing
-model. Test at least two contrasting team colours and verify which parts change;
-a fixed team-colour image path is not the same as a replaceable texture. [U4]
-
-## Diagnose visibility and colour at their owners
-
-**Geoset animation is separate from material animation.** Find
-`model.GeosetAnims` by `GeosetId`, not by array position.
-`Geosets[i].Anims` contains sequence extents, not visibility or tint.
-A missing geoset-animation record is not inherently broken.
-Tint uses its enable flag as well as `Color`; dormant data must survive.
-Inspect geoset alpha and every layer's alpha, filter, sampled texture and texture
-alpha at the same local/global time. Raising only one alpha may leave the surface
-hidden. Editor checkboxes are another, unsaved visibility layer. [U2, H2]
-
-**Local visibility edits must remain local.** Preserve other sequences and global
-tracks, including fades and constant zero values. When making a new local track,
-give the other intended states their retained values rather than allowing an
-unintended default. A continuous surface's material splits should hide together
-when that is its authored behavior; alternate or independently moving surfaces
-need not. Check starts, switching times and ends for every affected state.
-[U2, U5]
-
-**Preserve texture identity and dependency coverage.** Native paths, replaceable
-IDs, wrap flags and supplied external files have different roles. Do not replace
-a native path with a machine-local absolute path, or assume the local library's
-successful lookup proves map imports are complete. Inspect animated texture IDs
-as well as static bases. Generated assets must use the exact relative name
-written into the model. Validate through the normal serializer and test imports
-in the target game when packaging is part of the request. [U1, U5]
-
-## MDLxL tools and common mistakes
-
-Use `mdlxl_assets` sources `model`, `textures` or `game` to inspect actual
-assets. Discover `uv-tools`, `uv-selection`, `uv-preview`,
-`material-presets`, `texture-references`, `animation-tracks` and
-`geoset-animation-defaults` with `mdlxl_capabilities`.
-`applyMaterialPreset` can replace a generated stack: inspect its behavior before
-using it on authored layers. Citadel Paint has a separate working copy; use its
-controls and normal apply/exit path before model scripts.
-
-Common mistakes: welding away a UV seam, flipping already mirrored UVs again,
-changing unused texture entries, setting every alpha to 1, confusing team glow
-with team colour, and accepting a missing-texture placeholder as a correct wrap.
-
-Reference validity, UV/stream preservation, local-track boundaries and sampled
-alpha values are automatable. Paint suitability, bleeding at small scale and
-translucent sorting still require rendered inspection.
-
-## Sources
-
-- **U1:** [UV tools](../src/uv-tools.js), [texture references](../src/texture-references.js),
-  [UV-set preservation](../src/uv-coordinate-codec.js).
-- **U2:** [Geoset animation schema and save behavior](GEOSET-ANIMATION-SAVE.md),
-  [track editing](../src/animation-tracks.js).
-- **U3:** [Existing SD study](AI-SD-REFERENCE-STUDY.md) and
-  [PR #302's measured texture-region/reuse study](https://github.com/UnsctMagic/MDLxL/pull/302).
-- **U4:** [Material presets](../src/material-presets.js),
-  [reference compositor](../src/uv-material-compositor.js).
-- **U5:** [AI tool/save contract](AI-HOOK.md),
-  [compatibility boundaries](MDL-MDX-COMPATIBILITY-FIXES.md).
-- **H1:** [Hive: Wrap up Model with ingame Texture s](https://www.hiveworkshop.com/threads/wrap-up-model-with-ingame-texture-s.255041/),
-  seam selection and projection.
-- **H2:** [Hive: Normal map and Geoset Visibility](https://www.hiveworkshop.com/threads/problems-normal-map-looks-glossy-and-geoset-visibility.350666/),
-  Retera's explanation of layer alpha as a separate visibility source.
+1. Use `{kind: 'geoset', id, property: 'Color'}` with the animation-track API
+   for geoset RGB; use `Color`/`AmbColor` on supported light nodes. Supply three
+   components in 0..1. The geoset writer enables its colour flag and preserves
+   the visible baseline when starting a track.
+2. Read the texture and multiply it mentally or numerically by the intended
+   tint before writing. A multiplicative tint cannot restore detail absent
+   from the texture. Choose a texture edit only when the request actually
+   changes that detail.
+3. For a single keyed colour use `setAnimationKey`; for a static colour use
+   `setAnimationInlineValues`. Preserve unrequested alpha, filter mode and
+   lighting flags. Inspect the result with the resolved texture, normal scene
+   lighting and the same comparison views.

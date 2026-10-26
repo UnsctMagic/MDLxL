@@ -1,145 +1,156 @@
 # WC3 editing: file format and game integration
 
-Read this for export targets, visibility in game, attachments, portraits,
-collision, hero glow, death/decay or linked resources. Pair with
-[emitters](WC3-EDITING-EMITTERS.md) and
-[verification](WC3-EDITING-VERIFICATION.md).
+Use this for versions, bounds, attachments, collision, cameras, lifecycle and
+delivered dependencies. Use [effects](WC3-EDITING-EMITTERS.md) for events and
+[verification](WC3-EDITING-VERIFICATION.md) for acceptance and general limits.
 
-## Separate format, editor support and game acceptance
+## Preserve or convert the format
 
-**SD is not a version number.** Version 800 is the classic file layout;
-900/1000 and later layouts add fields and record variants. Current native files
-with SD appearance can use newer versions, including 1800 in the existing study.
-Inspect actual materials, skinning and chunks before deciding compatibility.
-Preserve the source version for an ordinary edit; changing only the version
-number is not a conversion. Test the saved file on the requested game build.
-[I1, I2, H1]
+1. Read `model.Version`, material/texture-slot layout, geoset skinning,
+   `BindPoses` and retained opaque records. Keep the input version for an
+   ordinary edit. SD appearance can use classic or newer file layouts.
+2. Read the document's editable state. Use
+   `model-version.hdContentIssues(model)` to inspect content restrictions.
+   Keep unsupported fields intact; choose a supported edit instead of removing
+   them to force the document into another editing mode.
+3. For an explicitly requested 800/1000 conversion, call
+   `model-version.versionConversionIssues(model, target)` first. Resolve the
+   reported losses with the owner. After any separately authorized conversion
+   resolves those issues, require an empty issue list before calling
+   `normalizeVersionFields(model, target)`
+   and validate both the saved format and retained content. This conversion
+   path accepts editable 800/1000 inputs and targets.
+4. Keep concrete representation constraints in the edit: classic `VertexGroup`
+   indices are bytes (0..255); triangle indices are unsigned 16-bit (0..65535);
+   weighted skin has four ID/weight slots and byte weights totalling 255.
+   Preserve version-dependent ID widths, typed key/event times and field lengths.
+5. Use `mdlxl_document({target, action: 'validate', format: 'mdx'})` or the
+   requested `'mdl'` format after the edit. Read any preservation/loss report
+   before exporting; retain the supplied file.
 
-**Reading a format does not imply unrestricted editing or conversion.** MDLxL's
-compatibility boundary preserves multiple modern versions and opaque data, but
-its explicit version-conversion API currently accepts editable 800/1000 inputs
-and targets. Content with weighted skin or HD fields can be view-only or require
-an explicit conversion choice. Do not bypass a refusal by stripping fields.
-Inspect the actual editable/diagnostic state and conversion losses; reopen the
-result and compare protected data. [I1, I3]
+## Recalculate the affected bounds
 
-**Use real representation limits without turning them into performance promises.**
+1. List what moved: rest vertices, skinned motion, sequence timing or visibility.
+   Read `Info`, each affected geoset's bounds, `Sequences[s]` bounds and
+   `Geosets[g].Anims[s]`. Keep authored special bounds outside the edit.
+2. For changed rest geometry call
+   `editor-document.recalculateExtents(model, geosetIndices = null)` with the
+   explicit affected indices. It updates rest bounds; calculate animated bounds
+   separately for changed poses.
+3. Load `optimizexl-bounds` and call
+   `repairBounds(model, {targets}, {includeGlobalKeys: false})`. Build targets
+   for the records that need recomputation:
+   - `{path: ['Sequences', s], sequence: s}` for a sequence's combined geometry.
+   - `{path: ['Geosets', g, 'Anims', s], geoset: g, sequence: s}` for an existing
+     geoset/sequence extent.
+   - `{path: ['Geosets', g, 'Anims'], geoset: g, sequenceExtents: true}` to build
+     the complete per-sequence table when it is missing or mismatched.
+   - `{path: ['Geosets', g], geoset: g}` for rest bounds.
+   - `{path: ['Info']}` for combined rest/animated model bounds.
+4. Use `includeGlobalKeys: true` when affected geometry uses global transforms.
+   The operation samples stored poses and intervening frames. Include additional
+   observed extremes in the resulting minimum/maximum extents if needed;
+   preserve the enclosing radius. Scope just these owning records.
+5. Recheck poses near maximum displacement and view the asset crossing the
+   screen edge in the target game. Check effects' visible reach separately
+   from geometry. For portrait-only extent work,
+   `portrait-extents.recalculatePortraitExtents(model, indices)` fills and
+   recalculates the selected portrait sequence entries.
 
-| Representation | Constraint to check | What it does not establish |
-| --- | --- | --- |
-| Classic vertex-group index | Byte index: 0..255, up to 256 addressable groups per geoset | Total model bone cap or a four-member classic group cap |
-| Geoset face index | Unsigned 16-bit vertex reference: 0..65535 | A target game's safe draw size, or a triangle budget |
-| Weighted skin | Four slots per vertex; preserve the version-dependent ID width and 0..255 weights | Arbitrary conversion to classic groups |
-| Local key/event time | Preserve the codec's signed 32-bit key/event representation | Permission to normalize authored negative setup records |
-| Names/paths/UV streams | Respect the specific codec field and operation validation | One universal character, texture-size or UV-set rule for every dialect |
+## Keep attachments with their carrier
 
-These are format/editor checks, not a certification of every game build's
-renderer. Historical in-game geoset-size reports give lower practical thresholds
-with uncertainty; do not present the file's 16-bit address space as a guaranteed
-working maximum. Inspect the target and a known-good asset when approaching a
-reported engine boundary. [I1, I4, H2]
+1. Read the attachment's `Name`, `AttachmentID`, `Path`, ObjectId, parent,
+   pivot and visibility. Preserve exact game-facing identifiers.
+2. For a requested addition use `bone-tools.createRigNode(model, 'Attachment', selection = {})`
+   or `editor-document.createNode(model, 'Attachment')`. Set the required name
+   and path, parent to the chosen carrier and move the new pivot with
+   `movement.applyRestPoseTransform(model, [id], {mode: 'move', values: [dx,dy,dz]})`.
+3. Sample the carrier and attachment through the relevant clips. If moving an
+   already animated pivot or reparenting keyed data, use the compensation/local
+   transform procedures in [binding](WC3-EDITING-NODES-BINDING.md) and
+   [animation](WC3-EDITING-ANIMATION.md).
+4. Load the intended attached effect in the target context and check its
+   placement, orientation and visibility through the state transitions.
 
-**Preserve unfamiliar material/chunk structure.** A modern SD material may use
-texture-slot arrangements an older editor cannot rewrite. Opaque chunks,
-FaceFX or unsupported emitter records are not unused junk. Same-format
-preservation and conversion have different guarantees. Use the existing loss
-checks and report an unsupported edit rather than deleting data to make a
-serializer succeed. [I1, H1]
+## Set collision independently from bounds
 
-## Keep the model connected to its game role
+1. Read `CollisionShapes` and distinguish the selected shape from model/sequence
+   bounds and map pathing configuration. Preserve unrelated shape records.
+2. For an existing sphere (`Shape: 2`), write its centre to `Vertices` and
+   enclosing `BoundsRadius` in the shape's authored coordinate frame. For a
+   box (`Shape: 0`), write minimum and maximum corner triplets in `Vertices`.
+   Set centre/size from the intended selection volume, not from unrelated
+   effect geometry.
+3. For a requested new sphere use
+   `editor-document.createNode(model, 'CollisionShape')` and set its parent,
+   centre and radius. Preserve the node's allocated ID and collection flags.
+   Check a posed shape when it inherits animated transforms.
+4. Test selection/hit interaction and culling separately. Change map collision
+   or pathing settings only when that configuration is part of the request.
 
-**An attachment is a named transform, not a bone nickname.** The game uses
-attachment-point conventions to place external effects. Preserve the exact name,
-ID, path, parent, pivot and visibility behavior required by the model's use.
-When its carrier changes, inspect the attachment's world position through the
-relevant sequences and test an actual attached effect. Moving only the mesh can
-leave the effect behind. Do not rename attachment points as cosmetic cleanup.
-[I5, I6]
+## Preserve the camera and portrait relationship
 
-**Collision shapes, extents and map pathing solve different problems.** Collision
-shapes support model interaction/selection; extents describe bounds used for
-visibility/culling. Object-editor collision/pathing settings are separate game
-configuration, not a substitute for either model record.
-Check selection and edge-of-screen visibility separately in Warcraft.
-A large collision sphere does not repair stale sequence extents; rebuilding
-rest bounds alone does not cover animated motion. [I7, X1]
+1. Read the actual package arrangement: an embedded camera, a separate
+   `_Portrait.mdx` counterpart, or both. Keep the expected relative path and
+   existing sequence tags.
+2. For an existing camera read `Position`, `TargetPosition`, `FieldOfView`,
+   `NearClip`, `FarClip` and its `Translation`, `TargetTranslation` and
+   `Rotation` tracks. The camera rotation controller is a scalar roll.
+3. In a scoped `mdlxl_script`, write only requested camera position/target,
+   field of view or clipping values, preserving typed vectors and unrelated
+   controllers. `FieldOfView` is radians; keep it between 0 and pi, with
+   `0 < NearClip < FarClip` and distinct position/target points.
+   For a keyed change clone the existing track and replace only
+   selected `Frame`/`Vector`/control entries. Keep the target distinct from
+   camera translation.
+4. Frame the intended visible geometry at the relevant sequence times, then
+   recalculate the affected portrait bounds. Inspect the actual portrait
+   camera's crop, clipping and transitions in game. Keep deliberately partial
+   geometry when it belongs to that view.
 
-**Test sequence states as a connected lifecycle.** Stand/Walk, Attack, Birth,
-Morph, Death, Decay and Dissipate are game conventions with different jobs.
-Preserve the source's appropriate states and tags; not every asset needs all
-of them. For a changed lifecycle, inspect the last visible pose, the next state's
-first pose, replacement surfaces and effect visibility together. Check the game
-object's death/decay configuration as well as the model: model naming alone does
-not establish corpse duration or removal behavior. Existing long decay intervals
-are observed conventions, not a command to retime every asset. [I2, I8]
+## Edit a connected lifecycle
 
-**Events encode behavior in the name and track.** Classic prefixes include SND
-(sound), SPL (blood splat), FPT (footprint), UBR (ubersplat) and SPN (spawned
-object). The remaining identifier selects game data; it is not arbitrary prose.
-Use the existing event chooser/catalogue, retain the event clock and inspect
-the pivot at its trigger time. Verify resource resolution and the actual
-sound/visual in game, including after a retime. [I5, H3]
+1. Read the existing sequence names/tags, intervals, loop flags and runtime
+   configuration for entry, active, terminal and removal states. Keep only the
+   states required by that asset's use; retain their exact game-facing names.
+2. Capture the last visible pose of the outgoing state and the first pose of
+   the incoming state. Read geoset alpha, effect visibility, emission and event
+   times at the transition.
+3. Edit the responsible owners using the animation and visibility procedures.
+   Keep replacement surfaces aligned with the outgoing posed geometry and
+   coordinate their visibility at the handoff. Set terminal/removal durations
+   from the requested behavior and actual game configuration.
+4. Replay the full transition in order, including lingering effects and final
+   removal. Verify the target configuration uses the intended clips and paths.
 
-**Portraits need their intended camera and asset relationship.** Preserve
-camera position, target, field of view, clipping and animation. A separate
-portrait convention uses the same model basename with `_Portrait.mdx`; an
-embedded camera/portrait sequence is a different arrangement. Check the actual
-package path, intended portrait view, talk/idle motion and clipping in the game.
-A full-body orbit image does not validate portrait framing, and a deliberately
-partial portrait mesh is not unfinished body geometry. [I2, I8, H4]
+## Add requested team glow
 
-**Hero glow is authored effect behavior.** Team glow uses ReplaceableId 2 and
-an appropriate material; it is not the same as assigning hero gameplay status.
-The existing study distinguishes origin planes with pulsing scale from attached
-billboard surfaces that follow a carrier. Preserve parent/pivot placement and
-death/decay visibility, and inspect the glow on terrain and through turns.
-Do not add it to an ordinary edit unless requested. Use the existing Glow Up
-owner for authorized additions rather than inventing another setup. [I9]
+1. Read the intended placement, carrier and lifecycle visibility. Use
+   `glow-up.addHeroGlow(model, {origin: true, originSize: 1, originOffset: [0,0], brightness: 0.75})`
+   for an origin-plane addition, with size/offset/brightness chosen from the
+   requested result. These are options of the existing operation.
+2. For an attached addition call
+   `addHeroGlow(model, {origin: false, weapon: true, weaponIds: [driverId], weaponSize: 1, weaponFrom: 0, weaponTo: 1, brightness: 0.75})`.
+   These literal API option names select the carrier and normalized start/end
+   along its fitted geometry. Choose the intended range, a size multiplier
+   from 0.1 to 5 and brightness from 0 to 1. Inspect the returned
+   `geosetIndices`, `materialId` and `textureId`.
+3. Compare the generated geosets, materials, textures, nodes and visibility;
+   scope all those changed collections. Inspect terrain overlap, turning,
+   team colour and the terminal/removal states.
 
-**Verify the delivered dependency paths.** Texture and external model paths,
-portrait counterparts and event resources must resolve in the intended map/game
-environment. Successful local-library lookup can conceal missing map imports.
-Preserve native references, export requested custom assets with matching relative
-paths, then reload in a fresh target context. Preserve supplied originals during verification.
-[I1, I5, I6, X1]
+## Deliver the required dependencies
 
-## MDLxL tools and common mistakes
-
-Discover `model-version`, `editor-document`, `texture-references`,
-`sequence-editor`, `portrait-extents`, `optimizexl-bounds` and `glow-up`.
-Use `mdlxl_document validate` for serialization checks and the existing resource
-managers for cameras, attachments, lights and game event data. The installed
-capability list, not this document, determines whether an operation is callable.
-
-Common mistakes: relabelling a modern file as 800, treating every warning as a
-game crash, claiming a 65,536-vertex geoset must work in game, confusing collision
-with pathing, or testing a portrait only through a free camera.
-Reference/format checks are automatable; the game-specific outcomes above require
-the named target and an actual game test.
-
-## Sources
-
-- **I1:** [MDL/MDX preservation and remaining boundaries](MDL-MDX-COMPATIBILITY-FIXES.md).
-- **I2:** [Existing native/reference study](AI-SD-REFERENCE-STUDY.md).
-- **I3:** [Current conversion and content classification](../src/model-version.js).
-- **I4:** [Classic mesh limits](../src/classic-mesh.js),
-  [binding limits](../src/bone-tools.js),
-  [independent GEOS format reader](https://github.com/flowtsohg/mdx-m3-viewer/blob/master/src/parsers/mdlx/geoset.ts).
-- **I5:** [Resource managers and game event definitions](RESOURCE-MANAGERS-XL.md).
-- **I6:** [AI save and asset contract](AI-HOOK.md).
-- **I7:** [Rest bounds](../src/editor-document.js),
-  [animated bounds](../src/optimizexl-bounds.js).
-- **I8:** [Sequence operations](../src/sequence-editor.js),
-  [portrait bounds](../src/portrait-extents.js).
-- **I9:** [Measured glow construction and native writer](GLOW_UP.md).
-- **H1:** [Hive: MDX 1100 parsing discussion](https://www.hiveworkshop.com/threads/bug-in-the-mdx-1100-parsing-by-thompzon-and-twilac.349270/),
-  Retera's explanation of multiple assignments within a layer and preservation loss.
-- **H2:** [Hive: Mdx sanity tester](https://www.hiveworkshop.com/threads/mdx-sanity-tester.290476/),
-  GhostWolf's 2021 notes distinguish uncertain engine thresholds from warnings.
-- **H3:** [Hive: Adding Event Objects](https://www.hiveworkshop.com/threads/adding-event-objects-in-3dsmax-5.7396/),
-  Chriz's approved explanation of native event codes.
-- **H4:** [Hive: Modeling and Animation 101](https://www.hiveworkshop.com/threads/modeling-and-animation-101.41840/),
-  portrait camera and separate-file conventions; historical crash claims are not
-  treated as universal modern behavior.
-- **X1:** [XGM: Modelling FAQ](https://xgm.guru/p/wc3/mfaq),
-  separate selection, bounds, import-path and scene-lighting diagnoses.
+1. Enumerate texture references with
+   `texture-references.visitTextureReferences(model, visit)` and read external
+   emitter/attachment paths, event identifiers and portrait counterparts.
+   Separate game-resident paths from custom files that the package must supply.
+2. Export the requested edited model to an explicit new path through
+   `mdlxl_document({target, action: 'export', path, format: 'mdx'})`.
+   Keep custom asset paths exactly aligned with the exported files/imports.
+3. Open the exported file with `mdlxl_document({action: 'open', path})`.
+   Compare references and animation ownership, then load it in the intended
+   map/game environment with its delivered dependencies.
+4. Check resource resolution, attachments, selection, culling, portrait and
+   lifecycle behaviors affected by the edit. Record the tested game build and
+   the remaining checks in the final review.
