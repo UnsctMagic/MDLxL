@@ -263,8 +263,73 @@ source inputs were changed. Owner editorial review is still the acceptance gate.
 The optional paid AI comparison still requires the owner's approval.
 
 
+## Second pass (owner requested, 26 October 2026)
+
+Review of the first pass: the wording rule, reuse of research, factual accuracy
+and checks are good. It does not yet meet the goal "the AI spends less time
+figuring things out and goes straight to work", for three reasons. Fix these on
+this branch; keep everything that is already right.
+
+### 1. Turn principles into methods
+
+Each section says what must be true, rarely how to make it true. For every rule an
+AI is likely to act on, add the method: the order of steps, the data to read, the
+values to write, and the MDLxL API or tool that does it (with its real signature).
+Write it as a short numbered procedure where order matters.
+
+Example of the level required (binding a layered surface over a deforming region):
+which vertices of the underlying surface correspond to each layer vertex and how
+to find them robustly (not nearest vertex alone: surface side, facing, part
+membership); which groups the layer takes inside the overlap; how the blend runs
+out to the layer's own driver where it lifts away; what to do when the layer
+spans two deforming regions; how to check the result in posed frames. Do the same
+for every comparable task: joining a continuous surface across a seam or geoset
+split, adding a blend ring at a joint, adding a free chain, moving a pivot without
+breaking existing clips, retargeting a donor's motion, retiming a clip with its
+events, adding or copying an emitter, changing visibility or a material layer,
+welding, repairing normals, adjusting UVs over a seam.
+
+### 2. State rules directly; put caution in one place
+
+The sections repeat what the AI must not conclude ("does not prove", "inspection
+candidate, not an automatic repair", "does not establish", "cannot certify").
+That makes an AI hesitate and re-check, the opposite of the goal.
+
+- Write rules as instructions: "do X", "X takes Y", "check Z".
+- Keep a caution only where acting on the rule would damage authored data, and then
+  say what to do instead.
+- Move the general limits (editor previews versus the game, samples versus every
+  frame, measurements versus engine limits) into `WC3-EDITING-VERIFICATION.md`
+  once, and remove the repeats from the other sections and the core.
+- Keep the core tight (about its current size); it may become more direct, not longer.
+
+### 3. Add experienced modellers' knowledge
+
+There are about fifteen external citations across seven sections, none in nodes and
+binding. Practitioner knowledge is meant to be a main source. Read and condense:
+
+- Hive Workshop modelling, rigging, animation and effects tutorials, and answered
+  forum threads where experienced modellers explain a fix that worked.
+- XGM (xgm.guru) articles and FAQ threads on the same topics.
+- Tool documentation and notes from experienced authors (Retera's Model Studio,
+  Magos, Mdlvis, war3-model, 3ds Max/Blender export notes) where they explain how
+  the game treats the data.
+
+Prioritise binding and rigging, animation transfer and retiming, geometry at
+seams/joints, and emitters. For each source, keep the technique, not the story;
+cite it after the rule it supports. Where practitioners disagree, give the
+version supported by measurement or engine behaviour and note the other briefly.
+
+### Unchanged
+
+- The wording rule: structural terms only, no object, part or model names in rules.
+- Reuse existing research; open game models only for a gap a method needs.
+- No new tools or automatic repairs in this task.
+- Keep PR #318 unmerged until the owner accepts it. Reconcile with #317 as
+  described above.
+
 ## Next action
 
-Owner review of the core and seven linked sections. Keep PR #318 unmerged until
-the owner accepts the handbook and authorizes merging. Reconcile #317's overlapping
-binding paragraph as described above; preserve its unrelated fixes.
+Second pass as described above, then owner review of the core and the seven
+sections. Keep PR #318 unmerged until the owner accepts the handbook and
+authorizes merging.
