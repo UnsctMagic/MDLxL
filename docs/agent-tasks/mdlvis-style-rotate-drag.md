@@ -1,6 +1,6 @@
 # MdlVis-style Rotate drag
 
-Status: ready for Claude re-review — Local-axis Pivot-based follow-up verified
+Status: owner follow-up on `claude/rotate-linear-pivot-default` — Pivot-based is the default again
 Owner / consolidator: Codex (implementation); Claude Code (project lead, review)
 Updated: 2026-10-26
 
@@ -279,3 +279,22 @@ passes (98 passed, 7 skipped). One regression must be fixed first.
   focused 100 passed / 7 existing skips; compatibility 57 passed; source 2,007
   passed / 22 existing skips; build and package passed (1,223 files, 55 locales);
   a fresh hidden package passed all 33 Local/POSE checks with zero renderer errors.
+
+## Owner follow-up (2026-10-26, Claude Code)
+
+- Owner decision after hand-testing #327: the new mode is not what MdlVis does by
+  default, so it is labelled just **Linear**. **Pivot-based stays the default**
+  for every editor (`DEFAULT_ROTATION` / `normalizeRotationPreferences`); Linear
+  remains a Settings → Mouse → Rotation choice.
+- Owner report: Pivot on the ZX workplane "sometimes gates moving up and down
+  after moving left and right and gets stuck until I release". Cause (verified
+  with real hidden mouse drags): Front looks down X and Top down Z, so the ZX
+  (Y-axis) turn circle is seen edge-on in the common views. Pivot measured the
+  angle of the mouse around the center *on screen*, which no longer matches the
+  turn: dragging straight up/down beside the center gives 0°, and crossing the
+  center snaps 180°. Fix: `beginRotationDrag` takes `facing` (cosine between the
+  turn axis and the view); below 0.3 (about 73° off the view) Pivot-based uses
+  the Linear rule, the same fallback it already used for drags that start on the
+  center. GamePreview passes `movementRotationFacing`; Viewport now normalizes
+  its facing. Face-on circles are unchanged.
+
