@@ -56,6 +56,7 @@ const activity = {
   mdlxl_review: 'Checking the result',
   mdlxl_plan: 'Planning the change',
   mdlxl_versions: 'Comparing versions',
+  outside_check: 'Outside check',
   mdlxl_worker: 'Handing the job to a worker',
 };
 const phases = {
@@ -202,6 +203,22 @@ function CompactionPart({ part }) {
     </div>
   );
 }
+// The AI's plan as plain lines instead of the data it sent.
+function readablePlan(detail) {
+  try {
+    const plan = JSON.parse(detail);
+    return [
+      'Cause: ' + plan.cause,
+      'Reaches: ' + plan.reach,
+      'Keeps: ' + (plan.keep || []).join('; '),
+      'Options:',
+      ...(plan.options || []).map((option, index) => `  ${index + 1}. ${option.fix} (${option.cost})${index === plan.choice ? '  ← chosen' : ''}`),
+      'Why: ' + plan.why,
+    ].join('\n');
+  } catch {
+    return detail;
+  }
+}
 function ToolPart({ part }) {
   const [open, setOpen] = useState(false),
     name = toolName(part.name),
@@ -233,8 +250,8 @@ function ToolPart({ part }) {
       </button>
       {open && (
         <pre className="ai-step-body" translate="no">
-          {name}
-          {part.detail ? '\n' + part.detail : ''}
+          {name === 'mdlxl_plan' ? readablePlan(part.detail) : name}
+          {part.detail && name !== 'mdlxl_plan' ? '\n' + part.detail : ''}
           {part.summary ? '\n\n→ ' + part.summary : ''}
         </pre>
       )}

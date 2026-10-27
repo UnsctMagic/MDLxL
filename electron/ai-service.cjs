@@ -1216,6 +1216,10 @@ class AiService {
       awareness: null,
       steering: new AiSteering(() => {}),
     };
+    // The check is a step in the chat like any tool: a tick when good, a cross otherwise;
+    // clicking it shows the verdict.
+    const callId = `${judge.id}-${Date.now()}`;
+    recorder.event({ type: 'tool', name: 'outside_check', callId, detail: 'Judging the request, the keep list and the pictures.' });
     try {
       if (settings.provider === 'codex') await runCodex(options);
       else if (settings.provider === 'claude') await runClaude(options);
@@ -1228,15 +1232,16 @@ class AiService {
         problems: (Array.isArray(found.problems) ? found.problems : []).map(String).slice(0, 8),
         strengths: (Array.isArray(found.strengths) ? found.strengths : []).map(String).slice(0, 8),
       };
-      recorder.event({
-        type: 'notice',
-        text: `Outside check: ${verdict.verdict} (confidence ${Math.round(verdict.confidence * 100)}%)${verdict.problems.length ? ' — ' + verdict.problems.join('; ') : ''}`,
-      });
+      const text = `Outside check: ${verdict.verdict} (confidence ${Math.round(verdict.confidence * 100)}%)${verdict.problems.length ? ' — ' + verdict.problems.join('; ') : ''}`;
+      recorder.event({ type: 'tool-result', name: 'outside_check', callId, error: verdict.verdict !== 'good', summary: text });
+      recorder.event({ type: 'notice', text });
       return verdict;
     } catch (error) {
       if (signal.aborted) throw error;
-      // A check that could not run never blocks the job; the console says so.
-      recorder.event({ type: 'notice', text: 'Outside check could not judge this result: ' + error.message });
+      // A check that could not run never blocks the job; the chat says so.
+      const text = 'Outside check could not judge this result: ' + error.message;
+      recorder.event({ type: 'tool-result', name: 'outside_check', callId, error: true, summary: text });
+      recorder.event({ type: 'notice', text });
       return null;
     }
   }

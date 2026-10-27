@@ -263,6 +263,12 @@ test('the outside check judges a finished edit from the request and pictures onl
   assert.equal(task.phase, 'verified');
   assert.equal(task.outsideCheck.verdict, 'good');
   assert.ok(f.events.some(e => e.type === 'notice' && /Outside check: doubtful \(confidence 60%\)/.test(e.text)));
+  // Each verdict stays in the chat as a step: a cross for doubt, a tick for good.
+  const steps = f.events.filter(e => e.type === 'tool-result' && e.name === 'outside_check');
+  assert.deepEqual(steps.map(e => e.error), [true, false]);
+  assert.match(steps[0].summary, /the rim reads as smooth/);
+  const saved = (await f.service.conversation('test', 'compatible')).transcript.flatMap(entry => entry.parts || []);
+  assert.equal(saved.filter(p => p.type === 'tool' && p.name === 'outside_check').length, 2, 'the steps are kept in the transcript');
 });
 
 test('the outside check can be switched off in connection settings', async t => {

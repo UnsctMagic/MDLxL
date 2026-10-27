@@ -9,7 +9,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 | Task | State | Note / owner |
 | --- | --- | --- |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
-| AI hook harness | Ready for review; PRs #346–#350 (stacked) | [AI hook harness](ai-hook-harness.md), from [learning facts](ai-hook-learning-facts.md) / Claude Code |
 | New MDLxL look (carved tools, slate-and-gold dock, floating Geosets) | Ready for review; awaiting merge approval | [New look](new-look.md) / Claude Code |
 | WC3 editing knowledge for the AI (general rules, reuse existing research) | Core and seven guides ready for owner review; #317 overlap documented | [WC3 editing agent](wc3-editing-agent.md) / Codex |
 

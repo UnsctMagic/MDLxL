@@ -1,4 +1,4 @@
-# MDLxL 0.33.0
+# MDLxL 0.34.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.33.0 adds the Learn menu with shortcut letters on every control, Alt-then-key shortcuts, Create in Movement, the Auto Corpse test button and per-editor Rotation settings. Space always plays or stops, EMTR opens on existing effects, new effects use stock game textures, VIS is the classic MDLVis layout again and Recovery keeps at most 15 drafts. The AI costs less (caching, limits, cost per prompt) and gains an optional Editing handbook.
+Version 0.34.0 makes the AI look first: it records a plan before editing, keeps versions side by side, keeps a decision diary per model and has its finished edits judged by a separate outside check. It adds optional Web research, a Thinking effort setting and topic guides from the Editing handbook. Glow Up weapon glows fit hammer and axe heads with separate brightness, and MDLxL offers once to turn on Auto update.
 
 ## Releases
 
@@ -51,6 +51,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.34.0](docs/RELEASE-0.34.0.md) ([ES](docs/RELEASE-0.34.0-ES.md), [RU](docs/RELEASE-0.34.0-RU.md), [ZH-CN](docs/RELEASE-0.34.0-ZH-CN.md))
 - [0.33.0](docs/RELEASE-0.33.0.md) ([ES](docs/RELEASE-0.33.0-ES.md), [RU](docs/RELEASE-0.33.0-RU.md), [ZH-CN](docs/RELEASE-0.33.0-ZH-CN.md))
 - [0.32.1](docs/RELEASE-0.32.1.md) ([ES](docs/RELEASE-0.32.1-ES.md), [RU](docs/RELEASE-0.32.1-RU.md), [ZH-CN](docs/RELEASE-0.32.1-ZH-CN.md))
 - [0.32.0](docs/RELEASE-0.32.0.md) ([ES](docs/RELEASE-0.32.0-ES.md), [RU](docs/RELEASE-0.32.0-RU.md), [ZH-CN](docs/RELEASE-0.32.0-ZH-CN.md))
