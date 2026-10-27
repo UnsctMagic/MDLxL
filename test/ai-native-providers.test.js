@@ -45,6 +45,7 @@ test('separate streamed assistant messages retain paragraph boundaries', () => {
 const fixture = String.raw`
 const fs=require('node:fs');const args=process.argv.slice(2),codex=args[0]==='app-server';
 const send=value=>process.stdout.write(JSON.stringify(value)+'\n');
+const web=fs.existsSync('expect-web');if(codex&&!args.includes('web_search="'+(web?'live':'disabled')+'"'))process.exit(8);
 async function tool(url,authorization){const response=await fetch(url,{method:'POST',headers:{authorization,'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'mdlxl_read',arguments:{path:'/Info'}}})});const result=await response.json();if(!result.result?.content[0]?.text.includes('fixture'))throw Error('MCP failed');}
 if(codex){
  require('node:readline').createInterface({input:process.stdin}).on('line',async line=>{const m=JSON.parse(line);if(m.id===undefined)return;
@@ -57,7 +58,7 @@ if(codex){
  send({id:m.id,result:{}});
  });
 }else{
- if(args[args.indexOf('--tools')+1]!==''||args[args.indexOf('--allowedTools')+1]!=='mcp__mdlxl__*'||!args.includes('--strict-mcp-config')||args.includes('--dangerously-skip-permissions'))process.exit(5);
+ if(args[args.indexOf('--tools')+1]!==(web?'WebSearch,WebFetch':'')||args[args.indexOf('--allowedTools')+1]!==(web?'mcp__mdlxl__*,WebSearch,WebFetch':'mcp__mdlxl__*')||!args.includes('--strict-mcp-config')||args.includes('--dangerously-skip-permissions'))process.exit(5);
  let input='';process.stdin.on('data',chunk=>input+=chunk);process.stdin.on('end',async()=>{const message=JSON.parse(input);if(message.message.content[0].text!=='test prompt')process.exit(6);const config=JSON.parse(fs.readFileSync(args[args.indexOf('--mcp-config')+1],'utf8')).mcpServers.mdlxl;await tool(config.url,config.headers.Authorization);send({type:'stream_event',session_id:'claude-fixture',event:{type:'content_block_delta',delta:{type:'text_delta',text:'Native Claude response'}}});send({type:'result',session_id:'claude-fixture',is_error:false,result:'Native Claude response'});});
 }
 `;
@@ -76,16 +77,21 @@ async function executable(t) {
   }
   return { directory, executable: file };
 }
-for (const [name, run] of [
-  ['Codex', runCodex],
-  ['Claude', runClaude],
+for (const [name, run, web] of [
+  ['Codex', runCodex, false],
+  ['Claude', runClaude, false],
+  ['Codex', runCodex, true],
+  ['Claude', runClaude, true],
 ])
-  test(name + ' native adapter drives its own MCP client and preserves conversation', async t => {
+  test(name + ' native adapter drives its own MCP client and preserves conversation' + (web ? ', with web research' : ''), async t => {
     const config = await executable(t),
       calls = [],
       events = [],
       conversation = {};
+    // The fixture exits unless web search is off, or on exactly when the switch is.
+    if (web) await fs.writeFile(path.join(config.directory, 'expect-web'), '');
     await run({
+      web,
       settings: { executable: config.executable },
       directory: config.directory,
       tools: AI_TOOLS,
