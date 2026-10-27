@@ -277,6 +277,32 @@ test('the outside check can be switched off in connection settings', async t => 
   assert.equal(f.checks.length, 0, 'no extra AI call while it is off');
 });
 
+test('with the handbook on, a job carries the guides its request touches; effort defaults to high', async t => {
+  const received = [],
+    read = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  const call = f.service.call;
+  f.service.call = async (name, args, ...rest) => {
+    if (name === 'mdlxl_help') {
+      read.push(args.topic);
+      return { topic: args.topic, text: 'GUIDE ' + args.topic };
+    }
+    return call(name, args, ...rest);
+  };
+  assert.equal((await f.service.status()).effort, 'high');
+  await f.service.send({ id: 'test', text: 'the legs clip into the skirt during the walk; fix the binding', context });
+  assert.deepEqual(read, [], 'no guides while the handbook is off');
+  await f.service.setEditingHandbook(true);
+  await f.service.send({ id: 'test', text: 'the legs clip into the skirt during the walk; fix the binding', context });
+  assert.deepEqual(read, ['WC3-EDITING-NODES-BINDING.md', 'WC3-EDITING-ANIMATION.md']);
+  const prompt = JSON.stringify(received.at(-1).messages.filter(m => m.role === 'user').at(-1));
+  assert.match(prompt, /Editing guide for this job \(WC3-EDITING-NODES-BINDING.md\)/);
+  assert.match(prompt, /GUIDE WC3-EDITING-ANIMATION.md/);
+});
+
 test('an exact value edit needs no plan, and the AI doing the work is offered the plan tool', async t => {
   const seen = [];
   const f = await setup(t, ({ data, requests }) => {

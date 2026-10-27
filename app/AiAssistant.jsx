@@ -100,6 +100,8 @@ const SD_BRAIN_TIP =
   'SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.';
 const HANDBOOK_TIP =
   'Editing handbook: gives the AI general Warcraft III editing rules and step-by-step guides for geometry, UVs, bones, animation and effects, so it works with less trial and error. Applies from the next request.';
+const EFFORT_TIP =
+  'Thinking effort: how hard the AI thinks before each step. Higher is slower and uses more of your plan or credits, but plans and checks model edits more carefully. High is the default for editing.';
 const OUTSIDE_CHECK_TIP =
   'Outside check: when the AI says a model edit is finished, a separate AI that never saw its work judges your request, what it promised to keep and the before/after pictures. A doubtful result goes back for more work before you see it. Costs one extra AI call per finished edit.';
 const WEB_TIP =
@@ -1172,6 +1174,17 @@ function AiAssistant({ bridge, visUI }) {
                         </select>
                       </label>}
                     </>)}
+                    {settings.provider !== 'compatible' && (
+                      <label title={translate(EFFORT_TIP)}>
+                        Thinking effort
+                        <select aria-label="Thinking effort" data-hotkey="thinking-effort" value={settings.effort || 'high'} onChange={event => setSettings(previous => ({ ...previous, effort: event.target.value }))}>
+                          <option value="default">{translate('Provider default')}</option>
+                          <option value="medium">{translate('Medium')}</option>
+                          <option value="high">{translate('High')}</option>
+                          <option value="xhigh">{translate('Extra high')}</option>
+                        </select>
+                      </label>
+                    )}
                     <label title="Manual sends to the current bird until you choose New job. Automatic uses a small text-only AI call for unaddressed messages. Both lets you choose in the composer.">
                       Job routing
                       <select aria-label="Job routing" data-hotkey="job-routing" value={settings.routing || 'manual'} onChange={event => setSettings(previous => ({ ...previous, routing: event.target.value }))}>

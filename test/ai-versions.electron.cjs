@@ -46,7 +46,14 @@ async function raise(by, label) {
   fs.mkdirSync(path.join(out, 'temp'), { recursive: true });
   const { createStarterDocument } = await import('../src/starter-model.js');
   const fixture = path.join(out, 'Versions-fixture.mdx');
-  fs.writeFileSync(fixture, createStarterDocument().serialize('mdx'));
+  // A second part off to the side, so a picture of only the first one must differ.
+  const doc = createStarterDocument();
+  doc.apply('Second part', ['Geosets'], model => {
+    const copy = structuredClone(model.Geosets[0]);
+    for (let i = 0; i < copy.Vertices.length; i += 3) copy.Vertices[i] += 200;
+    model.Geosets.push(copy);
+  });
+  fs.writeFileSync(fixture, doc.serialize('mdx'));
   app = await _electron.launch({
     executablePath: process.env.MDLXL_AI_TEST_EXE,
     args: [fixture],
@@ -84,6 +91,14 @@ async function raise(by, label) {
   check('one Undo step takes the model back to before the version was used', (await height()) === original + 15);
   await assert.rejects(() => tool('mdlxl_versions', { target, action: 'use', name: 'missing' }), /no version called "missing"/);
   check('an unknown version is refused by name', true);
+  // Pictures of only the parts in question, in plain shading.
+  const captured = await rpc('tools/call', { name: 'mdlxl_capture', arguments: { target, samples: [{ view: 'front', geosets: [0], plain: true }, { view: 'front' }] } });
+  const texts = captured.content.filter(c => c.type === 'text').map(c => c.text).join('\n'),
+    pictures = captured.content.filter(c => c.type === 'image');
+  check('an isolated plain picture is drawn and labelled', !captured.isError && pictures.length === 2 && /only geosets 0; plain shading/.test(texts), texts.slice(0, 300));
+  check('isolated and normal pictures differ', pictures[0]?.data !== pictures[1]?.data);
+  const missing = await rpc('tools/call', { name: 'mdlxl_capture', arguments: { target, samples: [{ view: 'front', geosets: [99] }] } });
+  check('a picture of geosets that do not exist is refused', missing.isError && /None of those geosets exist/.test(missing.content[0].text));
   check('no page errors', errors.length === 0, errors);
   fs.writeFileSync(path.join(out, 'checks.json'), JSON.stringify(checks, null, 2));
   console.log(JSON.stringify(checks, null, 2));

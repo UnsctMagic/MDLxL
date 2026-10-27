@@ -1,6 +1,6 @@
 # AI hook harness (fixes from the learning facts)
 
-Status: active. Steps 1–3 are ready for review and awaiting merge approval; steps 4–5 haven't started.
+Status: ready for review. All five steps are in PRs #346–#350, awaiting merge approval and the owner's hand test.
 Owner / consolidator: Claude Code (session local_a1193075-94ec-4f8b-9517-9fe5d83a2c75)
 Updated: 2026-10-27
 
@@ -27,8 +27,10 @@ Updated: 2026-10-27
 - Step 1: [PR #346](https://github.com/UnsctMagic/MDLxL/pull/346), `claude/ai-plan-first`, into `main`.
 - Step 2: [PR #347](https://github.com/UnsctMagic/MDLxL/pull/347), `claude/ai-versions`, stacked on #346.
 - Step 3: [PR #348](https://github.com/UnsctMagic/MDLxL/pull/348), `claude/ai-diary`, stacked on #347.
-- Steps 1–3 share the worktree `.claude/worktrees/ai-plan-first`.
-- Merge #346, #347 and #348 in that order. Retarget each to `main` after the one below it merges.
+- Step 4: [PR #349](https://github.com/UnsctMagic/MDLxL/pull/349), `claude/ai-outside-check`, stacked on #348.
+- Step 5: [PR #350](https://github.com/UnsctMagic/MDLxL/pull/350), `claude/ai-effort-knowledge`, stacked on #349. It covers isolated pictures, thinking effort, guides by topic, and patterns treated as evidence.
+- Steps 1–5 share the worktree `.claude/worktrees/ai-plan-first`.
+- Merge #346, #347, #348, #349 and #350 in that order. Retarget each to `main` after the one below it merges.
 - #345 and #346 both bump `test/localization-catalogs.test.js` counts from main's `[6419,6431,3618]`. The second one merged needs the counts summed (+1 for web, +1 per step label).
 - Fixtures for packaged AI tests: copy `out/pose` (Footman.mdx and its Textures) from `.claude/worktrees/release-0.33.0/out/pose`. Without it, `ai-console` silently skips. For `ai-parallel`, set `MDLXL_AI_CONSOLE_MODEL`.
 
@@ -65,11 +67,14 @@ Updated: 2026-10-27
 
 ## Blockers and next action
 
-- Next step 4 has two parts:
-  - **Outside check.** After the AI's own `mdlxl_review finish` passes, a fresh tool-less provider call judges the result. It gets the owner's request, the plan's keep list, the review's before/after pictures and the check results, but never the worker's reasoning. It gives a graded verdict with reasons. A doubtful verdict sends the job back once with those reasons. It's on by default, with an off switch in Connection settings, because it costs a call. Reuse the `artDirection` pattern (tool-less `runCodex` / `runClaude` / `runApi`).
-  - **Isolated pictures.** Review and capture pictures that show only the named geosets, in plain shading, with the same camera and frame before and after.
-- Next step 5 has two parts:
-  - Attach the Editing-handbook guide section for the job's topic directly to the job.
-  - Reword the SD and binding statistics as evidence ("most Blizzard units do X, because Y"). Add a thinking-effort choice next to the model picker (Codex `reasoning_effort`, Claude `--effort` or `output_config.effort`), defaulting to high for editing.
-- Not covered by step 3: trimming the ~23 KB captured context repeated with every message.
+- Built in step 4 (#349): `AiService.outsideCheck`, `AI_OUTSIDE_CHECK` and `config.outsideCheck` (on by default). A doubtful or wrong verdict sends the job back up to twice.
+- Built in step 5 (#350):
+  - `capture` samples take `geosets` and `plain` (`picture()` in `app/ai-editor.js`);
+  - `effortFor` in `electron/ai-providers.cjs`, with the provider setting `effort` defaulting to `high`; Claude API `max_tokens` is 64000 for adaptive models;
+  - `guidesForRequest` in `src/ai-tools.js` attaches up to two handbook guides while the handbook is on;
+  - the look-first paragraph treats patterns as evidence.
+- Not done:
+  - `mdlxl_review inspect` still draws whole-model before/after pictures. Isolated before pictures would need a render of the saved version.
+  - The ~23 KB captured context is still repeated with every message.
+- Next: the owner hand-tests with a real provider. Merge in order on approval.
 - On completion: mark this note completed, remove its table row and fold durable rules into `docs/AI-HOOK.md`.

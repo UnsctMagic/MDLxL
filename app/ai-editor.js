@@ -857,9 +857,15 @@ export class AiEditorBridge {
           : s.time);
     const view = sample.view || s.view,
       // Pictures show the surface; wireframe marks belong to the live viewport.
-      renderMode = s.renderMode === 'solid' ? 'solid' : 'textured';
+      renderMode = sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured';
     const marked = markedPositions(model, target.selection, sequence, globalSequence, frame);
     if (sample.fit === 'selection' && !marked.length) throw Error('A close-up needs marked vertices: mark them with select first.');
+    // Only the parts in question: the other geosets are hidden and the picture frames the rest.
+    const only = sample.geosets?.length ? sample.geosets.filter(g => model.Geosets[g]) : null;
+    if (sample.geosets?.length && !only.length) throw Error('None of those geosets exist in this model.');
+    const parts = only
+      ? markedPositions(model, Object.fromEntries(only.map(g => [g, Array.from({ length: model.Geosets[g].Vertices.length / 3 }, (_, i) => i)])), sequence, globalSequence, frame)
+      : null;
     const image = await this.host().render({
       documentId: target.documentId,
       view,
@@ -867,12 +873,12 @@ export class AiEditorBridge {
       globalSequence,
       frame,
       renderMode,
-      hiddenGeosets: s.hiddenGeosets,
+      hiddenGeosets: only ? model.Geosets.map((_, g) => g).filter(g => !only.includes(g)) : s.hiddenGeosets,
       marks: { strokes: target.strokes || [], vertices: marked },
-      focus: sample.fit === 'selection' ? marked : null,
+      focus: sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts,
     });
     return {
-      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}`,
+      label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${sample.plain ? '; plain shading' : ''}`,
       image,
     };
   }

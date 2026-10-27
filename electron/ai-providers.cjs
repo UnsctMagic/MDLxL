@@ -110,6 +110,15 @@ function anthropicThinking(model) {
     minor = Number(match[2] || 0);
   return major > 4 || (major === 4 && minor >= 6) ? { type: 'adaptive', display: 'summarized' } : null;
 }
+// The connection's thinking effort, or null to leave it to the provider.
+// Claude 4.6 and OpenAI stop at high; the others also take xhigh.
+function effortFor(settings) {
+  const effort = settings.effort;
+  if (!effort || effort === 'default') return null;
+  const capped = effort === 'xhigh' && (/claude-(?:opus|sonnet)-4-6/.test(settings.model || '') || settings.provider === 'openai');
+  return capped ? 'high' : effort;
+}
+
 // Anthropic's own web search and page reading. The dynamic-filtering versions need
 // Opus or Sonnet 4.6 or later; other models get the basic versions.
 function anthropicWebTools(model) {
@@ -229,11 +238,13 @@ async function runApi({
           base + '/messages',
           {
             model: settings.model,
-            max_tokens: 16384,
+            // Models that think adaptively get room to think and answer; older ones keep their limit.
+            max_tokens: thinking ? 64000 : 16384,
             system: typeof system === 'string' && system ? [{ type: 'text', text: system, cache_control: cache }] : system,
             messages,
             ...(apiTools.length ? { tools: apiTools } : {}),
             ...(thinking ? { thinking } : {}),
+            ...(thinking && effortFor(settings) ? { output_config: { effort: effortFor(settings) } } : {}),
             stream: true,
           },
           key,
@@ -355,6 +366,8 @@ async function runApi({
               }
             : {}),
           ...(settings.provider === 'openai' ? { stream_options: { include_usage: true } } : {}),
+          // Only OpenAI's reasoning models take an effort; others would refuse the request.
+          ...(settings.provider === 'openai' && /^(?:o\d|gpt-[5-9])/.test(settings.model) && effortFor(settings) ? { reasoning_effort: effortFor(settings) } : {}),
           stream: true,
         },
         key,
@@ -471,6 +484,7 @@ class CodexProcess {
   async start() {
     await fs.mkdir(this.directory, { recursive: true });
     const args = ['app-server', '-c', 'features.shell_tool=false', '-c', `web_search="${this.web ? 'live' : 'disabled'}"`];
+    if (effortFor(this.settings)) args.push('-c', `model_reasoning_effort="${effortFor(this.settings)}"`);
     const env = providerEnvironment(this.directory, 'codex');
     await fs.mkdir(env.TEMP, { recursive: true });
     await fs.mkdir(env.CODEX_HOME, { recursive: true });
@@ -798,6 +812,7 @@ async function runClaude({
       instructions,
     ];
     if (settings.model) args.push('--model', settings.model);
+    if (effortFor(settings)) args.push('--effort', effortFor(settings));
     if (settings.stepLimit > 0) args.push('--max-turns', String(settings.stepLimit));
     if (conversation.threadId) args.push('--resume', conversation.threadId);
     const env = providerEnvironment(directory, 'claude');
@@ -976,5 +991,6 @@ module.exports = {
   runClaude,
   providerModels,
   CodexProcess,
+  effortFor,
   authenticationRequired,
 };
