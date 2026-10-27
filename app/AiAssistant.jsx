@@ -5,6 +5,7 @@ import {
   Bird,
   BookOpen,
   Brain,
+  Globe,
   Check,
   ChevronRight,
   Eraser,
@@ -97,6 +98,8 @@ const SD_BRAIN_TIP =
   'SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.';
 const HANDBOOK_TIP =
   'Editing handbook: gives the AI general Warcraft III editing rules and step-by-step guides for geometry, UVs, bones, animation and effects, so it works with less trial and error. Applies from the next request.';
+const WEB_TIP =
+  'Web research: lets the AI search the web and read pages, such as Hive Workshop tutorials, when it needs to look something up. Works with Codex, Claude Code and the Claude API. Applies from the next request.';
 const OFFLOAD_TIP ='Offload Mode: this chat hands each job to a separate worker chat with its own memory, keeping this chat short.';
 const CLEANUP_CHOICES = [
   ['keep', 'Keep everything', 'Keep all chats.'],
@@ -389,6 +392,7 @@ function AiAssistant({ bridge, visUI }) {
       if (event.type === 'roster') setOrg(previous => (previous?.id === event.id ? { ...previous, workers: event.workers } : previous));
       if (event.type === 'offload') setSettings(previous => ({ ...previous, offload: event.enabled }));
       if (event.type === 'editing-handbook') setSettings(previous => ({ ...previous, editingHandbook: event.enabled }));
+      if (event.type === 'web-research') setSettings(previous => ({ ...previous, webResearch: event.enabled }));
       if (event.type === 'sd-brain') setSettings(previous => ({ ...previous, sdBrain: event.enabled }));
       if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
       if (event.type === 'running') setRunning(event.running);
@@ -953,6 +957,17 @@ function AiAssistant({ bridge, visUI }) {
                 onClick={() => action(async () => setSettings(await window.desktop.aiEditingHandbook(!settings.editingHandbook)))}
               >
                 <BookOpen size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                role="switch"
+                className="ai-icon-button ai-offload-switch"
+                aria-label="Web research" data-hotkey="web-research"
+                aria-checked={!!settings.webResearch}
+                title={translate(WEB_TIP)}
+                onClick={() => action(async () => setSettings(await window.desktop.aiWebResearch(!settings.webResearch)))}
+              >
+                <Globe size={15} aria-hidden="true" />
               </button>
               <span className="ai-heading-gap" />
               <button

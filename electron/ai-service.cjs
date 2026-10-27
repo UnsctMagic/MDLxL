@@ -125,6 +125,7 @@ class AiService {
       sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
       editingHandbook: config.editingHandbook === true,
+      webResearch: config.webResearch === true,
     };
   }
   async setAwareness(enabled) {
@@ -435,7 +436,7 @@ class AiService {
         contract,
         signal: controller.signal,
         organiser: conversation.kind === 'organiser' && config.offload !== false ? active : null,
-        policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true },
+        policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true, web: config.webResearch === true },
       });
       recorder.event({ type: 'done' });
       return { ok: true };
@@ -619,6 +620,7 @@ class AiService {
       AI_TOOLS,
       AI_SYSTEM_PROMPT,
       AI_EDITING_HANDBOOK,
+      AI_WEB_RESEARCH,
       AI_WORKER_TOOL,
       AI_ORGANISER_PROMPT,
       AI_WORKER_NOTE,
@@ -812,7 +814,11 @@ class AiService {
       : conversation.toolsOff
         ? []
         : AI_TOOLS;
-    const editing = sd.handbook === true ? AI_SYSTEM_PROMPT + '\n' + AI_EDITING_HANDBOOK : AI_SYSTEM_PROMPT;
+    // The organiser only routes, so web research goes to the AI that does the work.
+    const web = sd.web === true && !organiser;
+    const editing =
+      (sd.handbook === true ? AI_SYSTEM_PROMPT + '\n' + AI_EDITING_HANDBOOK : AI_SYSTEM_PROMPT) +
+      (web ? '\n' + AI_WEB_RESEARCH : '');
     const system =
       organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
       ? AI_ORGANISER_PROMPT
@@ -843,6 +849,7 @@ class AiService {
           signal,
           awareness: this.awareness,
           steering,
+          web,
         };
         if (settings.provider === 'codex') await runCodex(options);
         else if (settings.provider === 'claude') await runClaude(options);
@@ -1196,6 +1203,15 @@ class AiService {
     this.emit({ type: 'editing-handbook', enabled });
     return this.status();
   }
+  // Web research is off until the user turns it on; it applies from the next task.
+  async setWebResearch(enabled) {
+    if (typeof enabled !== 'boolean') throw Error('Choose on or off.');
+    const config = await this.configuration();
+    config.webResearch = enabled;
+    await this.persist();
+    this.emit({ type: 'web-research', enabled });
+    return this.status();
+  }
   async sdBrainPolicy() {
     const config = await this.configuration(),
       { SD_BRAIN_REVISION } = await this.init();
@@ -1516,6 +1532,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:offload', enabled => service.setOffload(enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
+  handle('ai:webResearch', enabled => service.setWebResearch(enabled));
   handle('ai:model', model => service.setModel(model));
   handle('ai:auth', action => service.auth(action));
   handle('ai:models', () => service.models());
