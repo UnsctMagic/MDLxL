@@ -15,17 +15,29 @@ export default function GlowStageTools({snapshot,glow,layout,onChange}) {
   function mapping(kind) {
     if(kind==='move'){const ex=[marks.originX[0]-marks.origin[0],marks.originX[1]-marks.origin[1]],ey=[marks.originY[0]-marks.origin[0],marks.originY[1]-marks.origin[1]],det=ex[0]*ey[1]-ex[1]*ey[0];return Math.abs(det)>1e-6?{ex,ey,det}:null;}
     if(kind==='originSize')return particleAxisMapping(marks.edge,marks.edgeUnit);
-    if(kind==='weaponFrom'||kind==='weaponTo'){const v=[marks.tip[0]-marks.butt[0],marks.tip[1]-marks.butt[1]],length=v[0]**2+v[1]**2;return length>1?{v,length}:null;}
+    if(kind==='weaponFrom'||kind==='weaponTo'){
+      // Screen movement per model unit along the weapon and its two sides; the
+      // drag takes the smallest move that lands under the pointer, so the end
+      // slides in the view plane like a free handle.
+      const key=kind==='weaponFrom'?'start':'end',p=marks[key],columns=['along','side','other'].map(axis=>marks[key+'-'+axis]&&[marks[key+'-'+axis][0]-p[0],marks[key+'-'+axis][1]-p[1]]);
+      if(!columns.every(Boolean))return null;
+      const a=columns.reduce((s,c)=>s+c[0]*c[0],0),b=columns.reduce((s,c)=>s+c[0]*c[1],0),c=columns.reduce((s,c)=>s+c[1]*c[1],0),det=a*c-b*b;
+      return Math.abs(det)>1e-9?{columns,inverse:[c/det,-b/det,a/det],size:layout.weapons[0].frame.size}:null;
+    }
     return {};
   }
   function next(d,dx,dy) {
     const b=d.before,m=d.basis;
     if(d.kind==='move'){const wx=(dx*m.ey[1]-dy*m.ey[0])/m.det,wy=(m.ex[0]*dy-m.ex[1]*dx)/m.det;return {originOffset:[b.originOffset[0]+wx,b.originOffset[1]+wy]};}
     if(d.kind==='originSize')return {originSize:clamp(b.originSize*(d.half+movementDragAmount(m,dx,dy,'move'))/d.half,.2,5)};
-    if(d.kind==='weaponFrom'||d.kind==='weaponTo')return {[d.kind]:clamp(d.value+(dx*m.v[0]+dy*m.v[1])/m.length,0,1)};
+    if(d.kind==='weaponFrom'||d.kind==='weaponTo'){
+      const [i,j,k]=m.inverse,x=i*dx+j*dy,y=j*dx+k*dy,limits=[[-.5,1.5],[-1,1],[-1,1]];
+      return {[d.kind]:d.value.map((v,axis)=>clamp(v+(m.columns[axis][0]*x+m.columns[axis][1]*y)/m.size,...limits[axis]))};
+    }
     return {weaponSize:clamp(b.weaponSize*movementFreeScaleValues(dx,dy)[0],.1,5)};
   }
-  const value=kind=>kind==='weaponFrom'?glow.weaponFrom??layout.weapons[0]?.from:kind==='weaponTo'?glow.weaponTo??layout.weapons[0]?.to:kind==='move'?undefined:glow[kind];
+  const triple=v=>v==null?v:Array.isArray(v)?v:[v,0,0];
+  const value=kind=>kind==='weaponFrom'?triple(glow.weaponFrom??layout.weapons[0]?.from):kind==='weaponTo'?triple(glow.weaponTo??layout.weapons[0]?.to):kind==='move'?undefined:glow[kind];
   function begin(kind){const basis=mapping(kind);return basis&&{kind,basis,before:structuredClone(glow),value:value(kind),half:layout.origin.half};}
   function start(event,kind) {
     event.preventDefault();event.stopPropagation();
@@ -36,7 +48,7 @@ export default function GlowStageTools({snapshot,glow,layout,onChange}) {
   function move(event){const d=drag.current;if(!d)return;const dx=event.clientX-d.x,dy=event.clientY-d.y;if(dx===0&&dy===0)return;set(next(d,dx,dy));}
   function end(){drag.current=null;}
   function abort(){const d=drag.current;drag.current=null;if(d)set(d.before);}
-  const handle=(point,kind,label)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={value(kind)} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
+  const handle=(point,kind,label)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={[value(kind)].flat()[0]} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(event.key==='Escape'&&drag.current){event.preventDefault();event.stopPropagation();abort();}
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
   }}><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;

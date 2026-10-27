@@ -198,7 +198,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
   };
   // Glow Up: hero glow at the origin and along the weapon (docs/GLOW_UP.md).
   const glowChoices=useMemo(()=>glow&&doc?weaponChoices(doc.model,selectedGeometry):[],[!!glow,doc,revision,selectedGeometry]);
-  const glowOptions=value=>{const choice=glowChoices.find(c=>c.key===value.weaponKey);return {origin:value.origin,originSize:value.originSize,originOffset:value.originOffset,weapon:value.weapon,weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize:value.weaponSize,weaponFrom:value.weaponFrom??undefined,weaponTo:value.weaponTo??undefined,brightness:value.brightness};};
+  const glowOptions=value=>{const choice=glowChoices.find(c=>c.key===value.weaponKey);return {origin:value.origin,originSize:value.originSize,originOffset:value.originOffset,weapon:value.weapon,weaponIds:choice?.ids||[],marked:choice?.marked,weaponSize:value.weaponSize,weaponFrom:value.weaponFrom??undefined,weaponTo:value.weaponTo??undefined,originBrightness:value.originBrightness,weaponBrightness:value.weaponBrightness};};
   // Drag handles in the preview, as for emitters: their bind-pose points follow the weapon bone.
   const glowLayoutNow=useMemo(()=>{if(!glow||!doc)return null;try{return glowLayout(doc.model,glowOptions(glow));}catch{return null;}},[glow,doc,revision,glowChoices]);
   const glowMarks=useMemo(()=>{
@@ -206,6 +206,8 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
     if(glow.origin){const {center:[x,y,z],half}=glowLayoutNow.origin;Object.assign(marks,{origin:{point:[x,y,z]},originX:{point:[x+1,y,z]},originY:{point:[x,y+1,z]},edge:{point:[x+half,y,z]},edgeUnit:{point:[x+half+1,y,z]}});[[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b],i)=>{marks['corner'+i]={point:[x+a*half,y+b*half,z]};});}
     const weapon=glow.weapon&&glowLayoutNow.weapons[0];
     if(weapon)for(const key of ['butt','tip','start','end','mid'])marks[key]={point:weapon[key],node:weapon.parentId,...(key==='mid'?{radius:weapon.half}:{})};
+    // One model unit along the weapon and its two sides from each end: the drag turns screen movement into these.
+    if(weapon)for(const key of ['start','end'])for(const axis of ['along','side','other'])marks[key+'-'+axis]={point:weapon[key].map((v,a)=>v+weapon.frame[axis][a]),node:weapon.parentId};
     return marks;
   },[glowLayoutNow,glow?.origin,glow?.weapon]);
   // Each slider change rebuilds the preview; fit the view once, then keep the user's camera.
@@ -226,7 +228,7 @@ export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refre
       // Weapon glow starts on only for a clear weapon: marked polygons or a weapon-named bone.
       glowFitted.current=false;
       setGlowSnapshot(null);
-      setGlow({origin:true,originSize:1,originOffset:[0,0],weapon:!!best?.sure,weaponKey:best?.key??'',weaponSize:1,weaponFrom:null,weaponTo:null,brightness:.75});
+      setGlow({origin:true,originSize:1,originOffset:[0,0],weapon:!!best?.sure,weaponKey:best?.key??'',weaponSize:1,weaponFrom:null,weaponTo:null,originBrightness:.75,weaponBrightness:.75});
       setPlacement(null);setLibrary(false);setNewOpen(false);setIngredients(null);setExamples(false);setTestView(null);setMessage('');
     }catch(error){setMessage(error.message);}
   };

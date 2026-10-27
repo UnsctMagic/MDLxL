@@ -9,11 +9,11 @@ Placement and size are dragged in the preview with EMTR's emitter handles
 | --- | --- | --- |
 | Move (green) | Move emitter | origin glow position on the ground |
 | Edge of the ground outline | Spawn width handle | origin glow size |
-| Two ends of the weapon line | Ribbon edge handles | where the weapon glow starts and ends (a spear tip: drag the start to the tip) |
+| Two ends of the weapon line | Ribbon edge handles | where the weapon glow starts and ends, free in the view plane (a spear tip: drag the start to the tip; a hammer or axe head: drag an end onto it, up to half a weapon past the tip) |
 | Corners of the Size square | Particle size corners | weapon glow square size |
 
 Escape cancels a drag, arrow keys nudge a focused handle, and dragging a handle
-never moves the camera. **Brightness %** is EMTR's own `ParticleSlider`. The
+never moves the camera. **Origin brightness %** and **Weapon brightness %** are EMTR's own `ParticleSlider`. The
 preview plays the model's Stand with the glow, orbits with the mouse, fits the
 view once and then keeps the user's camera. Create is one undo step; Cancel or
 Escape leaves the model alone. Glow Up used to be a Forge mode; Forge no longer has it.
@@ -62,14 +62,16 @@ Visibility: the glow geosets go dark in Death, Decay and Dissipate (Dissipate on
 
 ## What Glow Up writes
 
-- One material (team glow, Additive, Unshaded + TwoSided, alpha = Brightness).
+- One material per brightness (team glow, Additive, Unshaded + TwoSided, alpha =
+  Brightness); origin and weapon share it when their brightness matches.
 - Origin: one geoset with three quads on bones `Glow Origin 1–3`, Scaling tracks
   as above on reused or new global sequences.
 - Weapon: one geoset of 1–10 squares built in YZ (Warcraft billboards face +X)
   on bones `Glow Weapon n`, Flags Bone + Billboarded, parented to the weapon.
   By default the row runs from 30% to 100% of the reach from the grip (the
   nearest `hand` ancestor's pivot) to the tip; the end handles override it as
-  fractions of the whole weapon. The tip is the side with more of the weapon's
+  fractions of the whole weapon, plus two sideways offsets (weapon lengths) when an
+  end is dragged off the weapon's line. The tip is the side with more of the weapon's
   length × vertices, so hammer and staff heads win over handles. Spacing
   follows the unscaled square, so Weapon size shrinks squares without adding
   more, and a short stretch gets one to three.
