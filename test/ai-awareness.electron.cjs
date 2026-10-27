@@ -129,7 +129,7 @@ async function close() {
         .at(-1)
         ?.tool_calls.at(-1)?.function;
     const lastResult = messages.filter(m => m.role === 'tool').at(-1)?.content || '';
-    if (mode === 'interrupt' && previous) {
+    if (mode === 'interrupt' && previous && previous.name !== 'mdlxl_plan') {
       res.writeHead(503, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Fixture interruption after the first applied edit.' } }));
       return;
@@ -153,6 +153,19 @@ async function close() {
         finish_reason: 'tool_calls',
       });
     };
+    // Look first: the plan comes before the first edit.
+    if (mode === 'interrupt' && !previous)
+      return call('mdlxl_plan', {
+        cause: 'The two marked top-edge vertices are five units too low.',
+        reach: 'Only those two vertices of geoset 0.',
+        keep: ['every unmarked coordinate'],
+        options: [
+          { fix: 'Raise the two vertices by five', cost: 'Changes two Z values' },
+          { fix: 'Move the whole geoset', cost: 'Moves unmarked vertices too' },
+        ],
+        choice: 0,
+        why: 'Only the marked vertices change.',
+      });
     if (mode === 'interrupt') {
       firstEdits++;
       return call('mdlxl_patch', {

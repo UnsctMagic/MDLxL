@@ -33,7 +33,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const organiserRequests = [],
     workerRequests = [];
   // The bird's background edit waits until the owner has edited the other tab.
-  let ownerEdited = false;
+  let ownerEdited = false,
+    planCalls = 0;
   const secondRequests = [];
   server = http.createServer(async (req, res) => {
     let body = '';
@@ -87,7 +88,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       return stop();
     }
     workerRequests.push(data);
-    const n = workerRequests.length;
+    // The plan the bird records before its first edit is one extra request.
+    const n = workerRequests.length - planCalls;
     if (n === 1) {
       await stream('reasoning_content', 'The user marked an area on the chest and drew an outline with the pen. ', 60);
       await stream('content', 'I will look at the marked area first. ', 40);
@@ -101,6 +103,20 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     // Background work on Footman while the owner is on Second: an edit, then the
     // review with its off-screen pictures, then a step that needs the screen.
     const target = JSON.stringify(data.messages).match(/\\"target\\":\\"([0-9a-f-]{36})/)?.[1];
+    if (n === 3 && !planCalls) {
+      planCalls = 1;
+      return callTool('mdlxl_plan', {
+        cause: 'The marked vertex sits in the wrong place.',
+        reach: 'Only that vertex of geoset 0.',
+        keep: ['every other vertex'],
+        options: [
+          { fix: 'Move the vertex', cost: 'Changes one position' },
+          { fix: 'Rebuild the area', cost: 'Changes many vertices' },
+        ],
+        choice: 0,
+        why: 'Smallest change.',
+      });
+    }
     if (n === 3) {
       for (let i = 0; i < 300 && !ownerEdited; i++) await wait(100);
       return callTool('mdlxl_patch', {
@@ -387,18 +403,19 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       console.log('SECOND', secondRequests.length, organiserRequests.length, (await page.locator('.ai-assistant').innerText()).slice(-600));
       throw error;
     });
-  check("Second's bird finishes its job while Crow is still working on Footman", secondRequests.length >= 1 && workerRequests.length <= 3, { second: secondRequests.length, crow: workerRequests.length });
+  check("Second's bird finishes its job while Crow is still working on Footman", secondRequests.length >= 1 && workerRequests.length <= 4, { second: secondRequests.length, crow: workerRequests.length });
   await shot('06a-two-jobs');
   await page.waitForTimeout(600);
   const ownerView = await viewShot();
   ownerEdited = true;
-  for (let i = 0; i < 300 && workerRequests.length < 6; i++) await wait(100);
-  const patched = JSON.stringify(workerRequests[3]?.messages || []);
+  // One more request than before the plan step: the bird records its plan first.
+  for (let i = 0; i < 300 && workerRequests.length < 7; i++) await wait(100);
+  const patched = JSON.stringify(workerRequests[4]?.messages || []);
   check('Crow edits Footman while you are on another tab', patched.includes('\\"applied\\":true') && (await dirty('Footman.mdx')) === '●', patched.slice(-400));
   check('steering reaches the running bird', JSON.stringify(workerRequests[2].messages).includes('steering for the current task:\\nKeep the shoulder pads'));
-  const reviewed = JSON.stringify(workerRequests[4]?.messages || []);
+  const reviewed = JSON.stringify(workerRequests[5]?.messages || []);
   check('the review gets before and after pictures drawn off-screen', reviewed.includes('After the edit') && reviewed.includes('Before the task') && reviewed.includes('data:image/png;base64'), reviewed.length);
-  check('the review passes on the background model', JSON.stringify(workerRequests[5]?.messages || []).includes('\\"phase\\":\\"verified\\"'));
+  check('the review passes on the background model', JSON.stringify(workerRequests[6]?.messages || []).includes('\\"phase\\":\\"verified\\"'));
   // A step that needs MDLxL's own controls on screen pauses until you return.
   await page.waitForSelector('.ai-paused', { timeout: 15000 });
   check('a step that needs the screen waits for its model tab', (await page.locator('.ai-paused').innerText()).includes('Footman.mdx'));
@@ -406,7 +423,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('the tab on screen stays Second', await page.evaluate(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('Second.mdx')));
   const pausedAt = workerRequests.length;
   await wait(2500);
-  check('nothing more happens on the paused model while you are away', workerRequests.length === pausedAt && pausedAt === 6, { pausedAt, now: workerRequests.length });
+  check('nothing more happens on the paused model while you are away', workerRequests.length === pausedAt && pausedAt === 7, { pausedAt, now: workerRequests.length });
   await shot('06b-paused');
   // Each tab keeps its own Undo: Ctrl+Z on Second undoes the owner's edit only.
   // Selection changes are Undo steps too, so step back until Second is unchanged.
@@ -425,8 +442,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   }
   check("Undo on Second undoes only the owner's edit; Footman keeps Crow's", undone && (await dirty('Second.mdx')) === '●');
   await page.locator('.model-tab [role="tab"]', { hasText: 'Footman.mdx' }).click();
-  for (let i = 0; i < 150 && workerRequests.length < 7; i++) await wait(100);
-  check('returning to the tab resumes the bird', workerRequests.length === 7);
+  for (let i = 0; i < 150 && workerRequests.length < 8; i++) await wait(100);
+  check('returning to the tab resumes the bird', workerRequests.length === 8);
   await page.waitForFunction(() => !document.querySelector('.ai-stop'), null, { timeout: 30000 });
   check('the pause banner clears', (await page.locator('.ai-paused').count()) === 0);
   await page.waitForFunction(() => document.querySelector('.ai-messages')?.textContent.includes('keep the shoulder pads in the original geoset'), null, { timeout: 10000 });

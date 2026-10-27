@@ -620,6 +620,7 @@ class AiService {
       AI_TOOLS,
       AI_SYSTEM_PROMPT,
       AI_EDITING_HANDBOOK,
+      AI_PLAN_TOOL,
       AI_WEB_RESEARCH,
       AI_WORKER_TOOL,
       AI_ORGANISER_PROMPT,
@@ -732,10 +733,31 @@ class AiService {
         workerImages = [];
         return this.runWorker({ organiser: conversation, active: organiser, args, userText: text, images: attached, context, settings, contract, signal, parent: recorder, parentSteering: steering, policy: sd, artBrief: task.artBrief });
       }
+      // Look first, then change once: the plan is kept with the task, not sent to the editor.
+      if (name === 'mdlxl_plan') {
+        const options = Array.isArray(args.options) ? args.options : [];
+        if (!String(args.cause || '').trim() || !String(args.reach || '').trim() || !args.keep?.length)
+          throw Error('A plan names the cause, how far it reaches and what must stay the same.');
+        if (options.length < 2 && !simpleJob(text, images))
+          throw Error('Give at least two genuinely different fixes with what each costs, then choose one.');
+        if (!Number.isInteger(args.choice) || !options[args.choice]) throw Error('choice must be the index of one of the options.');
+        const replaces = !!task.plan;
+        task.plan = { cause: args.cause, reach: args.reach, keep: args.keep, options, choice: args.choice, why: args.why, afterStep: task.steps.length };
+        await this.persistConversation(conversation);
+        return {
+          recorded: true,
+          ...(replaces ? { replaced: 'the previous plan' } : {}),
+          chosen: options[args.choice].fix,
+          next: 'Edit according to this plan. The review checks every keep item.',
+        };
+      }
       if (args.target && args.target !== context.target)
         throw Error('Use the target captured with the current prompt.');
       const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       const edit = aiToolEditsModel(name, args);
+      // Model edits need a plan, except exact value edits; switching the view does not.
+      if (edit && name !== 'mdlxl_view' && !task.plan && tools.includes(AI_PLAN_TOOL) && !simpleJob(text, images))
+        throw Error('Look first: inspect what the request touches, then record your plan with mdlxl_plan before the first edit.');
       if (edit) {
         task.unresolvedEditError = 'An edit did not finish. Inspect the current model before continuing.';
         const checkpoint = await this.call(
@@ -782,6 +804,9 @@ class AiService {
           },
           requestSignal,
         );
+        // The review judges the plan's keep list along with the request.
+        if (name === 'mdlxl_review' && args.action === 'inspect' && task.plan && result && typeof result === 'object')
+          result.plan = { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice].fix, keep: task.plan.keep, check: 'Confirm each keep item with a measured check or a visible comparison.' };
         if (edit || name === 'mdlxl_review') {
           task.checkpoint = await this.call('mdlxl_checkpoint', { target: context.target }, requestSignal);
           if (edit)
@@ -813,7 +838,7 @@ class AiService {
         ]
       : conversation.toolsOff
         ? []
-        : AI_TOOLS;
+        : [...AI_TOOLS, AI_PLAN_TOOL];
     // The organiser only routes, so web research goes to the AI that does the work.
     const web = sd.web === true && !organiser;
     const editing =

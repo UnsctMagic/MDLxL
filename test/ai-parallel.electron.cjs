@@ -30,9 +30,11 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   const i=raw.includes('Job: Move first accessory')?0:1,gi=indices[i],target=JSON.stringify(data.messages).match(/\\"target\\":\\"([0-9a-f-]{36})/)?.[1];
   const call=(name,args)=>answer({tool_calls:[{index:0,id:'c'+i+'-'+turns[i],function:{name,arguments:JSON.stringify(args)}}]});
   const n=++turns[i];
-  if(n===1){starts.add(i);for(let j=0;j<300&&!release;j++)await wait(50);return call('mdlxl_script',{target,edit:true,label:'Move accessory '+gi,scope:['/Geosets/'+gi],code:`for(let i=2;i<model.Geosets[${gi}].Vertices.length;i+=3)model.Geosets[${gi}].Vertices[i]+=2; return 'Moved accessory';`});}
-  if(n===2)return call('mdlxl_review',{target,action:'inspect',checksCode:`return [{name:'Own accessory moved',passed:Math.abs(model.Geosets[${gi}].Vertices[2]-${base.Geosets[gi].Vertices[2]+2})<0.0001}];`});
-  if(n===3)return call('mdlxl_review',{target,action:'finish',outcome:'passed',summary:'Accessory moved two units; reviewed both pictures.'});
+  // Look first: each bird records its plan before its first edit.
+  if(n===1)return call('mdlxl_plan',{cause:'Accessory '+gi+' sits two units too low.',reach:'Only geoset '+gi+'.',keep:['every other geoset'],options:[{fix:'Raise geoset '+gi,cost:'Moves that accessory only'},{fix:'Raise the whole model',cost:'Moves everything'}],choice:0,why:'Only the requested part moves.'});
+  if(n===2){starts.add(i);for(let j=0;j<300&&!release;j++)await wait(50);return call('mdlxl_script',{target,edit:true,label:'Move accessory '+gi,scope:['/Geosets/'+gi],code:`for(let i=2;i<model.Geosets[${gi}].Vertices.length;i+=3)model.Geosets[${gi}].Vertices[i]+=2; return 'Moved accessory';`});}
+  if(n===3)return call('mdlxl_review',{target,action:'inspect',checksCode:`return [{name:'Own accessory moved',passed:Math.abs(model.Geosets[${gi}].Vertices[2]-${base.Geosets[gi].Vertices[2]+2})<0.0001}];`});
+  if(n===4)return call('mdlxl_review',{target,action:'finish',outcome:'passed',summary:'Accessory moved two units; reviewed both pictures.'});
   return answer({content:'Finished '+jobs[i].job});
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
