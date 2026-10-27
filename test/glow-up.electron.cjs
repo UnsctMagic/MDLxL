@@ -45,8 +45,8 @@ async function heroFixture(file){
   const origin=panel.getByLabel('Origin glow',{exact:true}),weapon=panel.getByLabel('Weapon glow',{exact:true});
   assert.equal(await origin.isChecked(),true);
   if(!custom){assert.equal(await weapon.isChecked(),true);assert.equal(await panel.getByLabel('Weapon',{exact:true}).locator('option:checked').textContent(),'Sword');}
-  // As for emitters: one EMTR slider (Brightness) and drag handles in the preview.
-  assert.equal(await panel.locator('input[type=range]').count(),1);
+  // As for emitters: EMTR sliders (one brightness per glow) and drag handles in the preview.
+  assert.equal(await panel.locator('input[type=range]').count(),await weapon.isChecked()?2:1);
   const stage=emtr.locator('svg[aria-label="Glow handles"]');
   await page.waitForFunction(()=>document.querySelector('.pe-preview canvas'));await sleep(800);
   let shown=await preview();const weaponOn=await weapon.isChecked();assert.equal(shown.model.Geosets.length,original.Geosets.length+(weaponOn?2:1));
@@ -83,12 +83,20 @@ async function heroFixture(file){
    const run=m=>{const s=squares(m);return Math.hypot(...s[0].c.map((v,i)=>v-s.at(-1).c[i]));};
    assert.ok(run(now)<run(before)*.8&&squares(now).length<=squares(before).length,'dragging the start toward the tip shortens the weapon glow');
    const big=m=>Math.max(...squares(m).map(s=>s.w));before=now;await drag('Resize weapon glow',30,-30);now=(await preview()).model;
-   assert.ok(big(now)>big(before)*1.1,'the corner enlarges the weapon glow');await capture('glow-tip');
+   assert.ok(big(now)>big(before)*1.1,'the corner enlarges the weapon glow');
+   // The ends are free: a sideways drag takes the glow off the weapon's line (a hammer head, an axe blade).
+   const [ax,ay]=await centerOf('Weapon glow start'),[bx,by]=await centerOf('Weapon glow end'),span=Math.hypot(bx-ax,by-ay)||1;
+   before=now;await drag('Weapon glow end',-(by-ay)/span*40,(bx-ax)/span*40);now=(await preview()).model;
+   const line=m=>{const s=squares(m),a=s[0].c,b=s.at(-1).c;return b.map((v,i)=>v-a[i]);},cos=(u,v)=>u.reduce((t,x,i)=>t+x*v[i],0)/Math.hypot(...u)/Math.hypot(...v);
+   assert.ok(cos(line(now),line(before))<.995,'dragging an end sideways turns the weapon glow off the weapon line');
+   await capture('glow-tip');
   }
   assert.ok(same((await preview()).camera,kept),'handle drags keep the camera');
-  const value=panel.getByLabel('Brightness % value',{exact:true});await value.fill('50');await value.press('Enter');await sleep(800);
-  assert.equal((await preview()).model.Materials.at(-1).Layers[0].Alpha,.5);
-  checks.push('Handles resize and move the ground glow, place and size the weapon glow, Escape cancels; the camera stays put; Brightness is the EMTR slider');
+  const value=panel.getByLabel('Origin brightness % value',{exact:true});await value.fill('50');await value.press('Enter');await sleep(800);
+  const glowAlpha=m=>m.Materials.slice(original.Materials.length).map(x=>x.Layers[0].Alpha);
+  assert.equal(glowAlpha((await preview()).model)[0],.5);
+  if(weaponOn){const strong=panel.getByLabel('Weapon brightness % value',{exact:true});await strong.fill('90');await strong.press('Enter');await sleep(800);assert.deepEqual(glowAlpha((await preview()).model),[.5,.9],'the weapon glow has its own brightness');}
+  checks.push('Handles resize and move the ground glow, place and size the weapon glow, Escape cancels; the camera stays put; origin and weapon each have their own Brightness slider');
 
   if(await weapon.isChecked()){await weapon.uncheck();await sleep(500);assert.equal((await preview()).model.Geosets.length,original.Geosets.length+1);await weapon.check();await sleep(500);}
   const undoBefore=(await read()).undo,added=await weapon.isChecked()?2:1;

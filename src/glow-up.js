@@ -12,7 +12,7 @@ import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
 // The planes, heights and pulse keys are the Paladin/Jaina/Uther template,
 // scaled to the model. Layer three runs on its own period, as Gluma does.
 
-const WEAPON_NAME = /weapon|(^|[\s_])w_|sword|sord|blade|axe|hammer|mace|club|staff|stave|spear|lance|pike|glaive|scythe|halberd|polearm|flail|maul|wand|dagger|knife|katana|scimitar|trident|bow|gun|rifle|pipe/i;
+const WEAPON_NAME = /weapon|(^|[\s_])(w_|wep)|sword|sord|blade|axe|hammer|mace|club|staff|stave|spear|lance|pike|glaive|scythe|halberd|polearm|flail|maul|wand|dagger|knife|katana|scimitar|trident|bow|gun|rifle|pipe/i;
 const SIDE = /(^|[\s_.-])(l|r|left|right)(?=$|[\s_.\d-])/i;
 const HIDDEN = /death|decay|dissipate/i;
 const HERMITE = 2;
@@ -154,10 +154,26 @@ export function weaponLine(model, { weaponId, marked, from, to } = {}) {
   const tipT = ahead * (fit.max - gripT) >= behind * (gripT - fit.min) ? fit.max : fit.min, reach = tipT - gripT;
   if (Math.abs(reach) < 2) throw Error('That weapon is too short for a glow.');
   const buttT = tipT === fit.max ? fit.min : fit.max, length = tipT - buttT, held = (gripT - buttT) / length;
-  const clamp = v => Math.min(1, Math.max(0, v));
-  from = clamp(from ?? held + (1 - held) * .3); to = clamp(to ?? 1);
-  if (from > to) [from, to] = [to, from];
-  return { start: at(buttT + length * from), end: at(buttT + length * to), butt: at(buttT), tip: at(tipT), parentId, from, to };
+  // A frame along the weapon (butt → tip) with two sides, so an end can leave
+  // the axis: onto a hammer's head, an axe's blade, past the tip.
+  const along = fit.axis.map(v => v * Math.sign(length)), size = Math.abs(length);
+  let side = [0, 0, 1].map((v, a) => v - along[2] * along[a]);
+  if (Math.hypot(...side) < .1) side = [1, 0, 0].map((v, a) => v - along[0] * along[a]);
+  side = side.map(v => v / Math.hypot(...side));
+  const other = [along[1] * side[2] - along[2] * side[1], along[2] * side[0] - along[0] * side[2], along[0] * side[1] - along[1] * side[0]];
+  const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+  const end = (value, fallback) => {
+    const [t, u = 0, w = 0] = Array.isArray(value) ? value : [value ?? fallback];
+    return [clamp(Number.isFinite(t) ? t : fallback, -.5, 1.5), clamp(Number.isFinite(u) ? u : 0, -1, 1), clamp(Number.isFinite(w) ? w : 0, -1, 1)];
+  };
+  // Reversed numbers mean the same stretch. Dragged ends stay whose they are: across a
+  // hammer head both sit near the tip, and swapping would make the dragged dot jump.
+  const swap = !Array.isArray(from) && !Array.isArray(to);
+  from = end(from, held + (1 - held) * .3); to = end(to, 1);
+  if (swap && from[0] > to[0]) [from, to] = [to, from];
+  const butt = at(buttT), place = ([t, u, w]) => butt.map((v, a) => v + size * (along[a] * t + side[a] * u + other[a] * w));
+  const onAxis = f => f[1] === 0 && f[2] === 0 ? f[0] : f;
+  return { start: place(from), end: place(to), butt, tip: at(tipT), parentId, from: onAxis(from), to: onAxis(to), frame: { along, side, other, size } };
 }
 
 function uniqueName(model, base) {
@@ -257,30 +273,35 @@ function addWeapon(model, lines, size, originSize, materialId) {
 /**
  * Add hero glow. One undo step when run inside EditorDocument.apply.
  * options: origin, originSize (× fitted width), weapon, weaponIds | marked, weaponSize,
- * weaponFrom/weaponTo (0 butt … 1 tip; default from past the grip to the tip), brightness.
+ * weaponFrom/weaponTo (0 butt … 1 tip, or [along, side, side] in weapon lengths;
+ * default from past the grip to the tip), brightness, or originBrightness and
+ * weaponBrightness to light the two apart.
  */
-export function addHeroGlow(model, { origin = true, originSize = 1, originOffset = [0, 0], weapon = false, weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, brightness = .75 } = {}) {
+export function addHeroGlow(model, { origin = true, originSize = 1, originOffset = [0, 0], weapon = false, weaponIds = [], marked, weaponSize = 1, weaponFrom, weaponTo, brightness = .75, originBrightness = brightness, weaponBrightness = brightness } = {}) {
   if (!origin && !weapon) throw Error('Choose origin glow, weapon glow, or both.');
   if (!(originOffset.length === 2 && originOffset.every(Number.isFinite))) throw Error('The origin glow position is invalid.');
   if (![originSize, weaponSize].every(v => Number.isFinite(v) && v >= .1 && v <= 5)) throw Error('Glow size must be between 10% and 500%.');
-  if (!Number.isFinite(brightness) || brightness < 0 || brightness > 1) throw Error('Glow brightness must be between 0 and 100%.');
+  if (![originBrightness, weaponBrightness].every(v => Number.isFinite(v) && v >= 0 && v <= 1)) throw Error('Glow brightness must be between 0 and 100%.');
   if (weapon && !marked && !weaponIds.length) throw Error('Choose the weapon’s bone.');
   const fitted = originGlowSize(model), range = { from: weaponFrom, to: weaponTo };
   const lines = !weapon ? [] : marked ? [weaponLine(model, { marked, ...range })] : weaponIds.map(weaponId => weaponLine(model, { weaponId, ...range }));
   model.Textures ||= []; model.Materials ||= []; model.Geosets ||= []; model.GeosetAnims ||= [];
   let textureId = model.Textures.findIndex(t => t.ReplaceableId === 2 && !t.Image);
   if (textureId < 0) textureId = model.Textures.push({ Image: '', ReplaceableId: 2, Flags: 0 }) - 1;
-  const materialId = model.Materials.push({ PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 3, Shading: 17, TextureID: textureId, TVertexAnimId: null, CoordId: 0, Alpha: brightness }] }) - 1;
+  // One material per brightness: the ground and the weapon share it when they match.
+  const material = alpha => model.Materials.push({ PriorityPlane: 0, RenderMode: 0, Layers: [{ FilterMode: 3, Shading: 17, TextureID: textureId, TVertexAnimId: null, CoordId: 0, Alpha: alpha }] }) - 1;
+  const materialId = material(origin ? originBrightness : weaponBrightness);
+  const weaponMaterialId = origin && weapon && weaponBrightness !== originBrightness ? material(weaponBrightness) : materialId;
   const geosetIndices = [];
   if (origin) geosetIndices.push(addOrigin(model, fitted * originSize, materialId, originOffset));
-  if (weapon) geosetIndices.push(addWeapon(model, lines, weaponSize, fitted, materialId));
+  if (weapon) geosetIndices.push(addWeapon(model, lines, weaponSize, fitted, weaponMaterialId));
   if (model.Info) {
     const added = geosetIndices.map(i => model.Geosets[i]);
     for (const key of ['MinimumExtent', 'MaximumExtent']) model.Info[key] = new Float32Array([0, 1, 2].map(a => (key === 'MinimumExtent' ? Math.min : Math.max)(model.Info[key]?.[a] ?? added[0][key][a], ...added.map(g => g[key][a]))));
     model.Info.BoundsRadius = Math.max(model.Info.BoundsRadius || 0, Math.hypot(...model.Info.MaximumExtent.map((v, i) => (v - model.Info.MinimumExtent[i]) / 2)));
     model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; model.Info.NumBones = model.Bones.length;
   }
-  return { geosetIndices, materialId, textureId, size: fitted };
+  return { geosetIndices, materialId, weaponMaterialId, textureId, size: fitted };
 }
 
 /**
