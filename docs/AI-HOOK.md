@@ -271,6 +271,17 @@ Undo step, so you can undo it too. This means "go back to the good version" work
 ask for it by name or by job. Versions are kept until MDLxL closes; they are not
 saved into the model file.
 
+**Outside check.** When the AI says a model edit is finished, a separate AI that
+never saw its work judges the result. It gets only your request, the plan's keep
+list, the AI's own measured checks and the before/after pictures. It answers
+good, doubtful or wrong, with how sure it is and what it saw. A doubtful or wrong
+answer sends the job back with those reasons (up to twice) before the result
+counts as verified. The chat shows each verdict as a line such as "Outside check:
+doubtful (confidence 60%) — the rim reads as smooth in the after picture". It is
+on by default and costs one extra AI call per finished edit; turn it off with
+**Outside check** in Connection settings. If the check cannot run, the job is not
+blocked and the chat says why.
+
 **Decision diary.** MDLxL keeps a short diary for each model: for every AI job,
 your request, the plan (cause, chosen fix, why, what it kept), the edits it made,
 whether the result was verified, and your next message as your reaction. Every new

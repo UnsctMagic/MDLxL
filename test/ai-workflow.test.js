@@ -18,7 +18,9 @@ async function setup(t, respond) {
     phase = 'unchanged',
     fingerprint = 'before';
   const events = [],
-    arts = [];
+    arts = [],
+    checks = [],
+    verdicts = [];
   const server = http.createServer(async (req, res) => {
     let body = '';
     for await (const part of req) body += part;
@@ -28,6 +30,13 @@ async function setup(t, respond) {
       arts.push(data);
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       res.end('data: ' + JSON.stringify({ choices: [{ delta: { content: 'Goal: an SD test brief.' }, finish_reason: 'stop' }] }) + '\n\n');
+      return;
+    }
+    // The outside check: answered from a queue of verdicts (good by default), outside the counts.
+    if (String(data.messages?.find(m => m.role === 'system')?.content).includes('independent reviewer')) {
+      checks.push(data);
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end('data: ' + JSON.stringify({ choices: [{ delta: { content: JSON.stringify(verdicts.shift() || { verdict: 'good', confidence: 0.9, problems: [], strengths: ['matches the request'] }) }, finish_reason: 'stop' }] }) + '\n\n');
       return;
     }
     requests++;
@@ -94,6 +103,8 @@ async function setup(t, respond) {
     make,
     events,
     arts,
+    checks,
+    verdicts,
     profile,
     counts: () => ({ requests, edits }),
     changeFingerprint: () => {
@@ -212,7 +223,7 @@ test('the decision diary keeps each job with the model, with the owner reaction,
   const entry = await f.service.registry.model('file:d:\\model.mdx');
   assert.equal(entry.diary.length, 1);
   assert.deepEqual(entry.diary[0].edits, ['Move marked vertices']);
-  assert.equal(entry.diary[0].outcome, 'verified');
+  assert.equal(entry.diary[0].outcome, 'verified; outside check: good');
   assert.equal(entry.diary[0].plan.chosen, 'Reshape the rim ring');
   // The next message is the owner's reaction, and the next job reads it all.
   await f.service.send({ id: 'test', text: 'too shiny, and the rim lost its bevel', context });
@@ -224,6 +235,46 @@ test('the decision diary keeps each job with the model, with the owner reaction,
   // Wiping the chats after a save removes the diary too; a summary keeps it.
   await f.service.cleanup({ modelKey: 'file:d:\\model.mdx', mode: 'wipe' });
   assert.equal((await f.service.registry.model('file:d:\\model.mdx')).diary, undefined);
+});
+
+test('the outside check judges a finished edit from the request and pictures only, and sends doubt back', async t => {
+  const toolMessages = [];
+  let round = 0;
+  const f = await setup(t, ({ data }) => {
+    const last = data.messages.at(-1);
+    if (last.role === 'tool') toolMessages.push(last.content);
+    round++;
+    if (round === 1) return plan();
+    if (round === 2) return { delta: { content: 'My private reasoning: the rim is fine. ', tool_calls: edit().delta.tool_calls }, finish_reason: 'tool_calls' };
+    if (round === 3 || round === 5) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"rim",passed:true}]' });
+    if (round === 4 || round === 6) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Rim hammered.' });
+    return done();
+  });
+  f.verdicts.push({ verdict: 'doubtful', confidence: 0.6, problems: ['the rim reads as smooth in the after picture'], strengths: [] });
+  assert.equal((await f.service.send({ id: 'test', text: 'fix the rim so it looks hammered', context })).ok, true);
+  assert.equal(f.checks.length, 2, 'judged once, sent back, judged again');
+  assert.match(toolMessages.find(m => /Outside check/.test(m)), /says doubtful: the rim reads as smooth in the after picture/);
+  const judged = JSON.stringify(f.checks[0].messages);
+  assert.match(judged, /fix the rim so it looks hammered/);
+  assert.match(judged, /promised to keep: cup body; stem; UVs/);
+  assert.match(judged, /data:image\/png;base64/, 'the judge gets the pictures');
+  assert.ok(!judged.includes('My private reasoning'), "the judge never sees the worker's reasoning");
+  const task = (await f.service.conversation('test', 'compatible')).task;
+  assert.equal(task.phase, 'verified');
+  assert.equal(task.outsideCheck.verdict, 'good');
+  assert.ok(f.events.some(e => e.type === 'notice' && /Outside check: doubtful \(confidence 60%\)/.test(e.text)));
+});
+
+test('the outside check can be switched off in connection settings', async t => {
+  const f = await setup(t, ({ requests }) =>
+    requests === 1 ? edit() : requests === 2 ? tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return []' }) : requests === 3 ? tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'ok' }) : done(),
+  );
+  assert.equal((await f.service.status()).outsideCheck, true, 'on by default');
+  const settings = await f.service.status();
+  await f.service.configure({ provider: 'compatible', model: 'test', baseUrl: settings.baseUrl, outsideCheck: false });
+  assert.equal((await f.service.status()).outsideCheck, false);
+  assert.equal((await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context })).ok, true);
+  assert.equal(f.checks.length, 0, 'no extra AI call while it is off');
 });
 
 test('an exact value edit needs no plan, and the AI doing the work is offered the plan tool', async t => {

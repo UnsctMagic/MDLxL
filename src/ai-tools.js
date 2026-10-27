@@ -344,6 +344,14 @@ export const AI_PLAN_TOOL = {
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 };
 
+// The outside check: a separate AI call that never saw the worker's reasoning
+// judges the result from the owner's request, the keep list and the pictures.
+export const AI_OUTSIDE_CHECK = `You are an independent reviewer of a Warcraft III model edit made in MDLxL by another AI. You did not do the work and you do not see its reasoning. You get the owner's request in their own words, what the worker planned and promised to keep, the worker's own measured checks, and pictures of the model before and after.
+Judge what the owner will see. Checks the worker wrote for itself often only confirm what it chose to change; rely on the pictures, and on the checks only where they measure the request or the keep list directly.
+Reply with only this JSON: {"verdict":"good"|"doubtful"|"wrong","confidence":0.0-1.0,"problems":["..."],"strengths":["..."]}
+good: the request is visibly met and nothing on the keep list is visibly broken. doubtful: it may be met, but something looks off or cannot be judged from these pictures. wrong: the request is not met, or something that had to stay the same is broken.
+Name each problem concretely: where on the model, what is wrong, and in which picture. Do not invent problems you cannot see; say what the pictures cannot show instead.`;
+
 // Offload Mode: the per-model organiser hands work to named workers ("birds")
 // so its own conversation stays small. Only the organiser gets this tool.
 export const AI_WORKER_TOOL = {

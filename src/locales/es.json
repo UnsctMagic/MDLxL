@@ -6382,6 +6382,8 @@
   "Applying a precise edit": "Aplicando una edición precisa",
   "Planning the change": "Planificando el cambio",
   "Comparing versions": "Comparando versiones",
+  "Outside check": "Comprobación externa",
+  "Outside check: when the AI says a model edit is finished, a separate AI that never saw its work judges your request, what it promised to keep and the before/after pictures. A doubtful result goes back for more work before you see it. Costs one extra AI call per finished edit.": "Comprobación externa: cuando la IA dice que una edición del modelo está terminada, otra IA que no vio su trabajo juzga tu solicitud, lo que prometió conservar y las imágenes de antes y después. Un resultado dudoso vuelve a trabajarse antes de que lo veas. Cuesta una llamada de IA más por cada edición terminada.",
   "Selecting model elements": "Seleccionando elementos del modelo",
   "Using an editor tool": "Usando una herramienta del editor",
   "Inspecting a view": "Inspeccionando una vista",

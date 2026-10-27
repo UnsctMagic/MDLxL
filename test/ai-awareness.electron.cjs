@@ -111,6 +111,12 @@ async function close() {
     let raw = '';
     for await (const chunk of req) raw += chunk;
     const data = JSON.parse(raw);
+    // The outside check of a finished edit is a separate call, outside the counts.
+    if (String(data.messages[0]?.content).includes('independent reviewer')) {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end('data: ' + JSON.stringify({ choices: [{ delta: { content: '{"verdict":"good","confidence":0.9,"problems":[],"strengths":["both vertices raised"]}' }, finish_reason: 'stop' }] }) + '\n\n');
+      return;
+    }
     requests++;
     const user = [...data.messages]
       .reverse()
