@@ -23,7 +23,8 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   const answer=delta=>res.end('data: '+JSON.stringify({choices:[{delta,finish_reason:delta.tool_calls?'tool_calls':'stop'}],usage:{prompt_tokens:100,completion_tokens:20}})+'\n\n');
   if(system.startsWith('Route one message'))return answer({content:JSON.stringify({jobs})});
   workingModels.push(data.model);
-  const allText=JSON.stringify(data.messages);
+  // The job's own request, not the decision diary of earlier jobs that later prompts carry.
+  const firstUser=data.messages.find(m=>m.role==='user'),allText=JSON.stringify(firstUser?.content).split('Decision diary:')[0];
   if(allText.includes('Count geosets'))return answer({content:'Factual count: five geosets.'});
   if(allText.includes('Improve the walk pose'))return answer({content:'Chosen model received the complex job.'});
   const user=data.messages.find(m=>m.role==='user'),raw=typeof user.content==='string'?user.content:user.content[0].text;
