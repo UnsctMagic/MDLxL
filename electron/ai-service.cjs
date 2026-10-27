@@ -118,6 +118,7 @@ class AiService {
       awareness: this.awareness.enabled,
       offload: config.offload !== false,
       routing: config.routing || 'manual',
+      outsideCheck: config.outsideCheck !== false,
       allowLighter: provider.allowLighter === true,
       lightModel: provider.lightModel || '',
       lighterModels: this.lighterChoices({ ...provider, provider: name }),
@@ -217,6 +218,7 @@ class AiService {
     const providerChanged = config.provider !== input.provider;
     config.provider = input.provider;
     if (input.routing !== undefined) config.routing = input.routing;
+    if (input.outsideCheck !== undefined) config.outsideCheck = input.outsideCheck === true;
     config.providers ||= {};
     config.providers[input.provider] = next;
     await this.persist();
@@ -442,7 +444,7 @@ class AiService {
         contract,
         signal: controller.signal,
         organiser: conversation.kind === 'organiser' && config.offload !== false ? active : null,
-        policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true, web: config.webResearch === true },
+        policy: { ...(await this.sdBrainPolicy()), handbook: config.editingHandbook === true, web: config.webResearch === true, outside: config.outsideCheck !== false },
       });
       recorder.event({ type: 'done' });
       return { ok: true };
@@ -735,7 +737,8 @@ class AiService {
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
-    let workerImages = images;
+    let workerImages = images,
+      lastInspect = null;
     const call = async (name, args, callSignal) => {
       if (signal.aborted) throw Error('AI request cancelled.');
       if (!tools.some(tool => tool.name === name)) throw Error('This tool is not available to this bird.');
@@ -802,6 +805,18 @@ class AiService {
           }
           if (args.action === 'finish' && args.outcome === 'passed') task.criteria = args.criteria;
         }
+        // The outside check: a separate AI that never saw this work judges the result
+        // before it counts as verified; a doubtful result goes back with its reasons.
+        if (args.action === 'finish' && args.outcome === 'passed' && sd.outside === true && !organiser && lastInspect) {
+          const verdict = await this.outsideCheck({ request: task.prompt || text, plan: task.plan, inspect: lastInspect, settings, contract, signal, conversation, recorder });
+          if (verdict) {
+            task.outsideCheck = verdict;
+            if (verdict.verdict !== 'good' && (task.outsideRounds = (task.outsideRounds || 0) + 1) <= 2)
+              throw Error(
+                `Outside check (a separate AI that saw only the request, the keep list, your checks and the pictures) says ${verdict.verdict}: ${verdict.problems.join('; ') || 'no reason given'}. Correct what is real, run mdlxl_review inspect again, then finish.`,
+              );
+          }
+        }
         await progress(
           args.action === 'finish' && args.outcome === 'needs-correction' ? 'correcting' : 'verifying',
         );
@@ -816,6 +831,10 @@ class AiService {
           },
           requestSignal,
         );
+        // What the outside check will judge: the latest inspected checks and pictures.
+        if (edit) lastInspect = null;
+        if (name === 'mdlxl_review' && args.action === 'inspect' && result && typeof result === 'object')
+          lastInspect = { checks: result.review?.checks || [], images: result.images || [] };
         // The review judges the plan's keep list along with the request.
         if (name === 'mdlxl_review' && args.action === 'inspect' && task.plan && result && typeof result === 'object')
           result.plan = { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice].fix, keep: task.plan.keep, check: 'Confirm each keep item with a measured check or a visible comparison.' };
@@ -942,7 +961,9 @@ class AiService {
         try {
           const entry = await this.registry.model(conversation.modelKey);
           task.diaryId ||= crypto.randomUUID();
-          const outcome = task.phase === 'verified' ? 'verified' : task.status === 'complete' ? 'complete' : (task.status || 'incomplete') + (task.summary ? ': ' + task.summary : '');
+          const outcome =
+            (task.phase === 'verified' ? 'verified' : task.status === 'complete' ? 'complete' : (task.status || 'incomplete') + (task.summary ? ': ' + task.summary : '')) +
+            (task.outsideCheck ? `; outside check: ${task.outsideCheck.verdict}` : '');
           if (recordJob(entry, { id: task.diaryId, request: task.prompt || text, plan: task.plan, steps: task.steps, outcome, bird: conversation.kind === 'worker' ? conversation.name : undefined })) {
             await this.persistConversation(conversation);
             await this.registry.save();
@@ -1142,6 +1163,65 @@ class AiService {
     else if (settings.provider === 'claude') await runClaude(options);
     else await runApi(options);
     return reply.trim().slice(0, 4000);
+  }
+  // One tool-free call to a fresh AI with no part of the worker's conversation.
+  // Returns {verdict, confidence, problems, strengths}, or null when it could not judge.
+  async outsideCheck({ request, plan, inspect, settings, contract, signal, conversation, recorder }) {
+    const judge = { id: `${conversation.id}-check`, provider: settings.provider, transcript: [], messages: [], kind: 'check' };
+    const pictures = inspect.images.slice(0, 8);
+    let reply = '';
+    const meter = this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'outside check');
+    const options = {
+      settings,
+      key: this.decrypt(settings.key),
+      directory: this.directory,
+      event: value => {
+        if (value.type === 'text') reply += value.text;
+        else meter(value);
+      },
+      tools: [],
+      call: async () => {
+        throw Error('The outside check has no tools.');
+      },
+      system: contract.AI_OUTSIDE_CHECK,
+      prompt: [
+        `The owner's request, exactly as written:\n${request}`,
+        plan
+          ? `The worker's plan: cause: ${plan.cause}; chosen fix: ${plan.options?.[plan.choice]?.fix}; promised to keep: ${(plan.keep || []).join('; ')}.`
+          : 'The worker recorded no plan (an exact value edit).',
+        `The worker's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
+        `Pictures, in order: ${pictures.map((p, i) => `${i + 1}. ${p.label}`).join('; ') || 'none'}.`,
+      ].join('\n\n'),
+      images: pictures.map(p => p.image),
+      conversation: judge,
+      signal,
+      // The judge never watches the editor and is never steered.
+      awareness: null,
+      steering: new AiSteering(() => {}),
+    };
+    try {
+      if (settings.provider === 'codex') await runCodex(options);
+      else if (settings.provider === 'claude') await runClaude(options);
+      else await runApi(options);
+      const found = JSON.parse(reply.slice(reply.indexOf('{'), reply.lastIndexOf('}') + 1));
+      if (!['good', 'doubtful', 'wrong'].includes(found.verdict)) throw Error('no verdict');
+      const verdict = {
+        verdict: found.verdict,
+        confidence: Math.max(0, Math.min(1, Number(found.confidence) || 0)),
+        problems: (Array.isArray(found.problems) ? found.problems : []).map(String).slice(0, 8),
+        strengths: (Array.isArray(found.strengths) ? found.strengths : []).map(String).slice(0, 8),
+      };
+      recorder.event({
+        type: 'notice',
+        text: `Outside check: ${verdict.verdict} (confidence ${Math.round(verdict.confidence * 100)}%)${verdict.problems.length ? ' — ' + verdict.problems.join('; ') : ''}`,
+      });
+      return verdict;
+    } catch (error) {
+      if (signal.aborted) throw error;
+      // A check that could not run never blocks the job; the console says so.
+      recorder.event({ type: 'notice', text: 'Outside check could not judge this result: ' + error.message });
+      return null;
+    }
   }
   async handover(worker, settings, contract, context, signal, policy) {
     const conversation = await this.conversation(worker.id, settings.provider);

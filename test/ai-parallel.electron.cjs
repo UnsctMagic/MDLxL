@@ -22,6 +22,8 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   res.writeHead(200,{'content-type':'text/event-stream'});
   const answer=delta=>res.end('data: '+JSON.stringify({choices:[{delta,finish_reason:delta.tool_calls?'tool_calls':'stop'}],usage:{prompt_tokens:100,completion_tokens:20}})+'\n\n');
   if(system.startsWith('Route one message'))return answer({content:JSON.stringify({jobs})});
+  // The outside check of each bird's finished edit.
+  if(system.includes('independent reviewer'))return answer({content:'{"verdict":"good","confidence":0.9,"problems":[],"strengths":["accessory moved"]}'});
   workingModels.push(data.model);
   // The job's own request, not the decision diary of earlier jobs that later prompts carry.
   const firstUser=data.messages.find(m=>m.role==='user'),allText=JSON.stringify(firstUser?.content).split('Decision diary:')[0];

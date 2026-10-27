@@ -3569,6 +3569,8 @@
   "Applying a precise edit": "正在应用精确修改",
   "Planning the change": "正在规划修改",
   "Comparing versions": "正在比较版本",
+  "Outside check": "外部检查",
+  "Outside check: when the AI says a model edit is finished, a separate AI that never saw its work judges your request, what it promised to keep and the before/after pictures. A doubtful result goes back for more work before you see it. Costs one extra AI call per finished edit.": "外部检查：当 AI 表示模型编辑已完成时，另一个未见过其工作的 AI 会根据你的请求、它承诺保留的内容以及前后对比图进行评判。可疑的结果会在你看到之前退回继续修改。每次完成编辑会多花费一次 AI 调用。",
   "Selecting model elements": "正在选择模型元素",
   "Using an editor tool": "正在使用编辑器工具",
   "Inspecting a view": "正在检查视图",

@@ -100,6 +100,8 @@ const SD_BRAIN_TIP =
   'SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.';
 const HANDBOOK_TIP =
   'Editing handbook: gives the AI general Warcraft III editing rules and step-by-step guides for geometry, UVs, bones, animation and effects, so it works with less trial and error. Applies from the next request.';
+const OUTSIDE_CHECK_TIP =
+  'Outside check: when the AI says a model edit is finished, a separate AI that never saw its work judges your request, what it promised to keep and the before/after pictures. A doubtful result goes back for more work before you see it. Costs one extra AI call per finished edit.';
 const WEB_TIP =
   'Web research: lets the AI search the web and read pages, such as Hive Workshop tutorials, when it needs to look something up. Works with Codex, Claude Code and the Claude API. Applies from the next request.';
 const OFFLOAD_TIP ='Offload Mode: this chat hands each job to a separate worker chat with its own memory, keeping this chat short.';
@@ -1177,6 +1179,10 @@ function AiAssistant({ bridge, visUI }) {
                         <option value="automatic">Automatic</option>
                         <option value="both">Both</option>
                       </select>
+                    </label>
+                    <label title={translate(OUTSIDE_CHECK_TIP)}>
+                      <input data-hotkey="outside-check" data-hotkey-label="Outside check" type="checkbox" checked={settings.outsideCheck !== false} onChange={event => setSettings(previous => ({ ...previous, outsideCheck: event.target.checked }))} />
+                      Outside check
                     </label>
                     {!native && (
                       <label title="Optional. A prompt stops once it has cost about this much on your API key; progress is kept. Works for Anthropic models with known prices. Leave empty for no limit.">

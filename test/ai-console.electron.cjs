@@ -35,7 +35,8 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   // The bird's background edit waits until the owner has edited the other tab.
   let ownerEdited = false,
     planCalls = 0;
-  const secondRequests = [];
+  const secondRequests = [],
+    outsideChecks = [];
   server = http.createServer(async (req, res) => {
     let body = '';
     for await (const part of req) body += part;
@@ -67,6 +68,12 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       });
       res.end();
     };
+    // The outside check of a finished edit: a separate tool-free call.
+    if (String(data.messages[0]?.content).includes('independent reviewer')) {
+      outsideChecks.push(data);
+      await stream('content', '{"verdict":"good","confidence":0.9,"problems":[],"strengths":["the vertex moved"]}', 0);
+      return stop();
+    }
     if (String(data.messages[0]?.content).includes('You are the organiser')) {
       organiserRequests.push(data);
       if (!data.tools) {
@@ -416,6 +423,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const reviewed = JSON.stringify(workerRequests[5]?.messages || []);
   check('the review gets before and after pictures drawn off-screen', reviewed.includes('After the edit') && reviewed.includes('Before the task') && reviewed.includes('data:image/png;base64'), reviewed.length);
   check('the review passes on the background model', JSON.stringify(workerRequests[6]?.messages || []).includes('\\"phase\\":\\"verified\\"'));
+  check('a separate outside check judged the background edit before it counted as verified', outsideChecks.length === 1 && !JSON.stringify(outsideChecks[0].messages).includes('Move one vertex'), outsideChecks.length);
   // A step that needs MDLxL's own controls on screen pauses until you return.
   await page.waitForSelector('.ai-paused', { timeout: 15000 });
   check('a step that needs the screen waits for its model tab', (await page.locator('.ai-paused').innerText()).includes('Footman.mdx'));
