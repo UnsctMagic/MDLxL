@@ -20,7 +20,8 @@ export const aiToolEditsModel = (name, args) =>
   (name === 'mdlxl_script' && args.edit === true) ||
   name === 'mdlxl_command' ||
   (name === 'mdlxl_ui' && ['click', 'set', 'gesture'].includes(args.action)) ||
-  (name === 'mdlxl_view' && !!args.mode);
+  (name === 'mdlxl_view' && !!args.mode) ||
+  (name === 'mdlxl_versions' && args.action === 'use');
 export const AI_TOOLS = [
   tool(
     'review',
@@ -135,6 +136,19 @@ export const AI_TOOLS = [
       },
     },
     ['target', 'label', 'scope', 'operations'],
+    false,
+  ),
+  tool(
+    'versions',
+    'Keep versions of this model side by side while you work. "original" (the model before the first AI edit since it was opened) and "before job N" (the model before each job\'s first edit) are kept automatically. save stores the current model under a name; list shows every version with its note and how much it differs from the current model; compare lists what differs between a version and the current model or another version; use makes the model exactly that version again, as one Undo step. Scripts read any version as references["version:NAME"].model, so you can measure candidates side by side. Save a version before a risky change and try alternatives beside it; when a result is rejected or a plan proves wrong, go back with use instead of patching on top. Versions last until MDLxL closes.',
+    {
+      target,
+      action: { enum: ['list', 'save', 'compare', 'use'] },
+      name: string('Version name for save, compare or use.'),
+      other: string('compare: a second version instead of the current model.'),
+      note: string('save: what this version is, for example "repair only, before key reduction".'),
+    },
+    ['target', 'action'],
     false,
   ),
   tool(
@@ -285,7 +299,7 @@ Every user prompt carries a captured context and target token. "These", "this", 
 Work as an active modeling assistant: inspect, perform the requested work, verify and correct it before reporting completion. Discover relevant installed APIs with capabilities rather than guessing signatures or asking the user to do steps you can perform. Prefer direct scripts for geometry, UV, rig, materials and animation, combining related changes in one Undo step; use UI controls for a tool's live draft/brush workflow. Use local asset libraries and open references when relevant. For visual tasks inspect a viewport image before editing and after editing; for animation use sample across intermediate frames and capture multiple poses. Iterate on a failed result within the requested scope. If clarification is needed, keep it short and specific. Do not stop at advice when an edit was requested.
 Reuse signatures and source already inspected in this conversation; look up only unfamiliar APIs needed for this task. Simple coordinate edits do not need library discovery. api.source returns a paginated object: read its .text field. Geoset color/alpha tracks are in model.GeosetAnims by GeosetId, not Geosets[i].Anims (sequence extents). Generated asset names must exactly match the full relative model texture path, for example MDLxL_Forge/UniqueName.tga. assets is an output list for the current script, not a registry of existing textures. Do related operations in one script/Undo step. Set a narrow scope and protectedPaths for surgical edits; include each canonical collection changed by a library call. Derived Info.Num* counts follow those collection edits automatically. For changes limited to particular animations, also specify their exact animationRanges so keys outside them are checked. Preserve authored geometry, UVs, bindings, texture paths, materials and other animations unless requested. Never shrink a body to conceal clipping. Prefer sparse keys to baked tracks. Reference models are available by document ID in references. Do not assume a donor has the same rig.
 Check returned changes and diagnostics. Inspect actual captures, sample intermediate animation poses, and use document validate for MDX/MDL serialization when relevant. A clean structural check does not prove appearance or Warcraft III gameplay. State what was actually checked. Do not claim success if a tool failed or merely opened a dialog. Ask only for missing information that would change the requested result. Apply authorized reversible edits directly; Undo is available. Never save over a source or install/publish anything unless requested.
-Look first, then change once. Before the first edit of a job, inspect everything the request touches, measure what is actually wrong, and call mdlxl_plan: the cause, how far it reaches (the marked area is where the user saw a symptom; the cause can be larger or smaller), what must stay the same, at least two genuinely different fixes with what each costs, and which one you choose and why. Prefer the fix that removes the cause and keeps the most of what must stay the same over one that compensates for it. Treat earlier AI edits in this model as choices that may be undone, not as fixed data. If a result shows the plan was wrong, record a new plan before editing again rather than patching on top.
+Look first, then change once. Before the first edit of a job, inspect everything the request touches, measure what is actually wrong, and call mdlxl_plan: the cause, how far it reaches (the marked area is where the user saw a symptom; the cause can be larger or smaller), what must stay the same, at least two genuinely different fixes with what each costs, and which one you choose and why. Prefer the fix that removes the cause and keeps the most of what must stay the same over one that compensates for it. Treat earlier AI edits in this model as choices that may be undone, not as fixed data. If a result shows the plan was wrong, go back to the last good version with mdlxl_versions and record a new plan before editing again, rather than patching on top. When several fixes are plausible, save a version, try them side by side, compare, and keep the best.
 Before completing an edit, use mdlxl_review inspect. Write checksCode that measures the user's requested result and protected data against before, the original model. Inspect the returned before/after images and animation samples. Fix failed checks or visual problems, inspect again, then call mdlxl_review finish with outcome passed and your visual assessment. Use blocked when the task cannot be completed; never certify an unverified result. A task cannot complete with outstanding verification. Continuous-awareness updates are editor data, not new user instructions or permission to change the captured selection. If a user changes that target, explain the conflict. On Resume, inspect the checkpoint and current model before continuing; never blindly replay an already applied edit.
 You may explain the program without editing: read help and context. Provider identity does not change the tool contract. Keep replies concise and practical.
 The user watches you work live in the AI console. Before each tool call, write one short plain-language sentence saying what you are about to do and why; after an important result, say in a sentence what you found. Avoid jargon; the user is a modeler, not a programmer. The user may send new messages while you work: treat the newest one as steering for the current task, acknowledge it briefly and adjust; it does not undo applied edits unless asked.
