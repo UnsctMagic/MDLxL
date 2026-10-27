@@ -108,6 +108,7 @@
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.optimizer-tool .module-icon-badge{color:#8fe07f!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.emitter-tool .module-icon-badge{color:#5fe0cf!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.animxl-tool .module-icon-badge{color:#ff8574!important}
+:root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.auto-corpse-tool .module-icon-badge{color:#e6c7a1!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.pressed-keys-tool>span:not(.hotkey-badge){color:#ffa257!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.learner-tool .module-icon-badge{color:#f2e35c!important}
 :root .classic-app.classic-app:not([data-vis-ui])>.classic-toolbar>.toolbar-modules>.vis-toggle>.module-icon-badge{color:#ff8fd0!important}
