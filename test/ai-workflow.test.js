@@ -115,9 +115,22 @@ const edit = () =>
     operations: [{ op: 'set', path: '/Geosets/0/Vertices/0', value: 2 }],
   });
 const done = () => ({ delta: { content: 'Done.' }, finish_reason: 'stop' });
+const plan = (extra = {}) =>
+  tool('mdlxl_plan', {
+    cause: 'The rim is a flat strip with no ornament.',
+    reach: 'Only the rim ring of geoset 0.',
+    keep: ['cup body', 'stem', 'UVs'],
+    options: [
+      { fix: 'Reshape the rim ring', cost: 'Changes the rim silhouette only' },
+      { fix: 'Add a separate ornament geoset', cost: 'More triangles' },
+    ],
+    choice: 0,
+    why: 'Keeps the triangle count and every other part.',
+    ...extra,
+  });
 test('an unverified edit cannot produce a success message and is checkpointed for Resume', async t => {
   const f = await setup(t, ({ requests }) => (requests === 1 ? edit() : done()));
-  const result = await f.service.send({ id: 'test', text: 'Move these', context });
+  const result = await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
   assert.equal(result.ok, false);
   assert.match(result.error, /verification is incomplete/);
   assert.equal(f.counts().edits, 1);
@@ -142,7 +155,7 @@ test('a failed edit cannot be reported as success when the model is unchanged', 
     if (name === 'mdlxl_patch') throw Error('The marked vertices changed before this edit.');
     return originalCall(name, args, ...rest);
   };
-  const result = await f.service.send({ id: 'test', text: 'Move these', context });
+  const result = await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
   assert.equal(result.ok, false);
   assert.match(result.error, /marked vertices changed/);
   assert.equal(f.counts().edits, 0);
@@ -151,6 +164,47 @@ test('a failed edit cannot be reported as success when the model is unchanged', 
   const task = await f.service.taskInfo('test');
   assert.equal(task.canResume, true);
   assert.equal(task.steps[0].status, 'failed');
+});
+
+test('look first: an edit is refused until the job has a plan, and the review gets its keep list', async t => {
+  const toolMessages = [];
+  let lastRequest;
+  const f = await setup(t, ({ data, requests }) => {
+    if (requests === 7) lastRequest = data;
+    const last = data.messages.at(-1);
+    if (last.role === 'tool') toolMessages.push(last.content);
+    if (requests === 1) return edit();
+    // One option is not a choice for a repair.
+    if (requests === 2) return plan({ options: [{ fix: 'Reshape the rim ring', cost: 'rim only' }] });
+    if (requests === 3) return plan({ choice: 5 });
+    if (requests === 4) return plan();
+    if (requests === 5) return edit();
+    if (requests === 6) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"rim",passed:true}]' });
+    return done();
+  });
+  await f.service.send({ id: 'test', text: 'fix the rim so it looks hammered', context });
+  assert.match(toolMessages[0], /Look first/);
+  assert.equal(f.counts().edits, 1, 'only the edit made after the plan ran');
+  assert.match(toolMessages[1], /at least two genuinely different fixes/);
+  assert.match(toolMessages[2], /choice must be the index/);
+  assert.match(toolMessages[3], /"recorded":true/);
+  // The review result reminds the AI of the plan's keep list.
+  const reviewed = lastRequest.messages.filter(m => m.role !== 'assistant').map(m => JSON.stringify(m.content)).join('');
+  assert.ok(reviewed.includes('Confirm each keep item') && /cup body.*stem.*UVs/.test(reviewed));
+  const task = (await f.service.conversation('test', 'compatible')).task;
+  assert.equal(task.plan.options[task.plan.choice].fix, 'Reshape the rim ring');
+  assert.equal(task.steps.length, 1, 'the refused edit left no step behind');
+});
+
+test('an exact value edit needs no plan, and the AI doing the work is offered the plan tool', async t => {
+  const seen = [];
+  const f = await setup(t, ({ data, requests }) => {
+    seen.push(data.tools?.map(tool => tool.function.name) || []);
+    return requests === 1 ? edit() : done();
+  });
+  await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
+  assert.equal(f.counts().edits, 1);
+  assert.ok(seen[0].includes('mdlxl_plan'), 'the AI doing the work is offered the plan tool');
 });
 
 test('verified completion requires measured review before finish and removes the temporary baseline', async t => {
@@ -172,7 +226,7 @@ test('verified completion requires measured review before finish and removes the
             })
           : done(),
   );
-  assert.equal((await f.service.send({ id: 'test', text: 'Move these', context })).ok, true);
+  assert.equal((await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context })).ok, true);
   assert.equal((await f.service.taskInfo('test')).phase, 'verified');
   assert.equal(
     f.events
@@ -207,7 +261,7 @@ test('Resume after a service restart inspects the checkpoint without repeating a
             })
           : done(),
   );
-  await f.service.send({ id: 'test', text: 'Move these', context });
+  await f.service.send({ id: 'test', text: 'Set the marked vertex to 2', context });
   resume = true;
   const restarted = f.make();
   assert.equal((await restarted.send({ id: 'test', context, resume: true })).ok, true);
@@ -398,13 +452,14 @@ test('with SD Brain on, a passed review needs a verdict per criterion and repeat
   const f = await setup(t, ({ data, requests }) => {
     const last = data.messages.at(-1);
     if (last.role === 'tool' && /SD Brain review/.test(last.content)) toolErrors.push(last.content);
-    if (requests === 1) return edit();
-    if (requests === 2)
+    if (requests === 1) return plan();
+    if (requests === 2) return edit();
+    if (requests === 3)
       return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"moved",passed:true}]' });
-    if (requests === 3) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Looks good.' });
-    if (requests === 4)
+    if (requests === 4) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Looks good.' });
+    if (requests === 5)
       return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Rim clutter.', criteria: criteria.map(c => (c.name === 'detail-value' ? { ...c, result: 'needs-correction', observation: 'rim ornament merges into a bright strip' } : c)) });
-    if (requests === 5) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Chalice reads clearly.', criteria });
+    if (requests === 6) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Chalice reads clearly.', criteria });
     return done();
   });
   const call = f.service.call,
@@ -429,7 +484,8 @@ test('with SD Brain on, a passed review needs a verdict per criterion and repeat
     const last = data.messages.at(-1);
     if (last.role === 'tool' && /failed three times/.test(last.content)) return done();
     round++;
-    if (round === 1) return edit();
+    if (round === 1) return plan();
+    if (round === 2) return edit();
     return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'needs-correction', summary: 'Still cluttered.', criteria: [{ name: 'detail-value', result: 'needs-correction', observation: 'still cluttered' }] });
   });
   await g.service.setSdBrain(true);
