@@ -12,6 +12,8 @@
 
 .particle-editor svg.pe-stage-tools{display:block}
 .pe-stage-tools .pe-move-emitter circle{cursor:move;fill:#b6ffd0}
+/* Glow Up: an invisible ring makes a near miss grab the handle. */
+.pe-stage-tools circle.pe-grab,.pe-stage-tools [role=slider]:focus circle.pe-grab{fill:transparent;stroke:none}
 .pe-library-loading{position:sticky;top:0;z-index:5;padding:8px;background:var(--panel,#e6e6e6);border:1px solid #888}
 .particle-editor .pe-body.pe-browsing{grid-template-columns:minmax(0,1fr)}
 .pe-browsing>.pe-controls{display:none}

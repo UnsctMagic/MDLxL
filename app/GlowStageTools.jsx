@@ -6,7 +6,8 @@ import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js'
 // spawn width, the weapon glow's two ends like a ribbon's edges, and its corners
 // like a particle's size corners. Escape cancels a drag; arrow keys nudge.
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
-export default function GlowStageTools({snapshot,glow,layout,onChange}) {
+// onDrag(true/false) brackets a drag so the preview can hold the animation still.
+export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
   const drag=useRef(null),marks=snapshot?.marks;
   if(!marks||!layout)return null;
   const {width,height}=snapshot,set=change=>onChange(value=>({...value,...change}));
@@ -43,15 +44,15 @@ export default function GlowStageTools({snapshot,glow,layout,onChange}) {
     event.preventDefault();event.stopPropagation();
     const d=begin(kind);if(!d)return;
     event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus();
-    drag.current={...d,x:event.clientX,y:event.clientY};
+    drag.current={...d,x:event.clientX,y:event.clientY};onDrag?.(true);
   }
   function move(event){const d=drag.current;if(!d)return;const dx=event.clientX-d.x,dy=event.clientY-d.y;if(dx===0&&dy===0)return;set(next(d,dx,dy));}
-  function end(){drag.current=null;}
-  function abort(){const d=drag.current;drag.current=null;if(d)set(d.before);}
+  function end(){if(drag.current)onDrag?.(false);drag.current=null;}
+  function abort(){const d=drag.current;drag.current=null;if(d){set(d.before);onDrag?.(false);}}
   const handle=(point,kind,label)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={[value(kind)].flat()[0]} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
     if(event.key==='Escape'&&drag.current){event.preventDefault();event.stopPropagation();abort();}
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
-  }}><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
+  }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
   const square=marks.mid&&[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[marks.mid[0]+a*marks.mid[4],marks.mid[1]+b*marks.mid[4]]);
   return <svg className="pe-stage-tools" viewBox={'0 0 '+width+' '+height} aria-label="Glow handles">
     {glow.origin&&marks.origin&&<>
