@@ -172,6 +172,60 @@ test('Claude API drops reasoning signed for an older tool list and asks again', 
   assert.deepEqual(conversation.messages[1].content, [{ type: 'text', text: 'Done.' }], 'the old reasoning is gone, the answer stays');
   assert.equal(events.findLast(e => e.type === 'text').text, 'Carrying on.');
 });
+test('Claude API web research: web tools only when on, searches show as steps, a paused turn continues', async t => {
+  const server = await fixture(t, (data, res, round) => {
+    if (round === 1) {
+      event(res, { type: 'content_block_start', index: 0, content_block: { type: 'server_tool_use', id: 'srv1', name: 'web_search', input: {} } });
+      event(res, { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"query":"wc3 skirt binding"}' } });
+      event(res, {
+        type: 'content_block_start',
+        index: 1,
+        content_block: { type: 'web_search_tool_result', tool_use_id: 'srv1', content: [{ type: 'web_search_result', url: 'https://www.hiveworkshop.com/x', title: 'Binding', encrypted_content: 'e' }] },
+      });
+      event(res, { type: 'message_delta', delta: { stop_reason: 'pause_turn' } });
+    } else if (round === 2) {
+      // The paused assistant turn goes back exactly as received, without a cache mark.
+      const last = data.messages.at(-1);
+      assert.equal(last.role, 'assistant');
+      assert.deepEqual(last.content[0], { type: 'server_tool_use', id: 'srv1', name: 'web_search', input: { query: 'wc3 skirt binding' } });
+      assert.equal(last.content[1].type, 'web_search_tool_result');
+      assert.ok(!JSON.stringify(last).includes('cache_control'));
+      event(res, { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+      event(res, { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Classic groups share bones equally.' } });
+      event(res, { type: 'content_block_delta', index: 0, delta: { type: 'citations_delta', citation: { type: 'web_search_result_location', url: 'https://www.hiveworkshop.com/x' } } });
+      event(res, { type: 'message_delta', delta: { stop_reason: 'end_turn' } });
+    } else {
+      event(res, { type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'Done.' } });
+      event(res, { type: 'message_delta', delta: { stop_reason: 'end_turn' } });
+    }
+    res.end();
+  });
+  const events = [];
+  const conversation = { messages: [] };
+  const options = model => ({
+    settings: { provider: 'anthropic', baseUrl: server.url, model },
+    key: 'test-key',
+    tools: AI_TOOLS,
+    call: () => ({ content: [{ type: 'text', text: '{}' }] }),
+    prompt: 'Look it up',
+    system: 'editor',
+    conversation,
+    signal: new AbortController().signal,
+    event: e => events.push(e),
+  });
+  await runApi({ ...options('claude-opus-5-5'), web: true });
+  assert.equal(server.requests.length, 2);
+  const types = server.requests[0].data.tools.filter(tool => tool.type).map(tool => tool.type);
+  assert.deepEqual(types, ['web_search_20260209', 'web_fetch_20260209']);
+  assert.ok(events.some(e => e.type === 'tool' && e.name === 'web_search' && e.detail.includes('skirt binding')));
+  assert.ok(events.some(e => e.type === 'tool-result' && e.callId === 'srv1' && !e.error));
+  assert.equal(conversation.messages.at(-1).content[0].citations.length, 1, 'citations stay with the text');
+  // Older models get the basic web tools; with the switch off there are none.
+  await runApi({ ...options('claude-haiku-5-5'), conversation: { messages: [] }, web: true });
+  assert.deepEqual(server.requests[2].data.tools.filter(tool => tool.type).map(tool => tool.type), ['web_search_20250305', 'web_fetch_20250910']);
+  await runApi({ ...options('claude-opus-5-5'), conversation: { messages: [] } });
+  assert.ok(server.requests.at(-1).data.tools.every(tool => !tool.type));
+});
 test('Claude API caches the conversation and stops a prompt at its spending limit', async t => {
   const server = await fixture(t, (data, res) => {
     event(res, {

@@ -57,6 +57,23 @@ verification). While it is off, neither is sent and the guides are not listed in
 help. Like SD Brain, a running job keeps the setting it started with; a change
 applies from the next request.
 
+### Web research
+
+The **Web research** switch (the globe next to the Editing handbook book) is off
+until you turn it on, and MDLxL remembers your choice. While it is on, the AI can
+search the web and read pages, such as Hive Workshop and XGM tutorials, when it
+needs to look something up or you ask it to. Each search shows as a step in the
+chat. It works with Codex, Claude Code and the Claude API; the OpenAI API and
+local-model connections stay offline. On the Claude API, searches are billed by
+Anthropic on top of the tokens.
+
+The AI is told to treat pages as information only: it never follows instructions
+found on a page and never sends your model or conversation to a website. Its
+editing tools are unchanged, so it can still only change the open model, and
+every edit stays in Undo. The organiser of Offload Mode never searches; the bird
+doing the work does. Like the handbook, a running job keeps the setting it
+started with; a change applies from the next request.
+
 ### Offload Mode: an organiser per model and its birds
 
 Each model has its own AI chat: switch model tabs to switch chats. With **Offload
