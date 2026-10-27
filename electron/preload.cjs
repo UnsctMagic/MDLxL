@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('desktop', {
   openLink: url => ipcRenderer.invoke('app:openLink',url),
   openDefaultApps: () => ipcRenderer.invoke('app:openDefaultApps'),
   fileTypesNeedDefaultAgain: () => ipcRenderer.invoke('app:fileTypesNeedDefaultAgain'),
+  onPreferences: callback => {const listener=(_,value)=>callback(value);ipcRenderer.on('settings:preferences',listener);return ()=>ipcRenderer.removeListener('settings:preferences',listener);},
   onUpdateStatus: callback => {const listener=(_,status)=>callback(status);ipcRenderer.on('updates:status',listener);ipcRenderer.send('updates:startup');return ()=>ipcRenderer.removeListener('updates:status',listener);},
   close: () => ipcRenderer.send('app:close'),
   setMenuState: value => ipcRenderer.send('menu:state', value),

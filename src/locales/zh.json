@@ -3608,9 +3608,13 @@
   "Learn settings…": "学习设置…",
   "Learn settings": "学习设置",
   "Learn: open learning controls and settings.": "学习：打开学习控制和设置。",
-  "Existing MdlVis shortcuts are preserved. Every other command and button has its own key: one key, or one key with Shift, Ctrl or Alt. Buttons in a window use the letters of their names there, so a letter can do different things in different windows. Peon: Shift+P · Wisp: Shift+I. You can change any key here; a Ctrl+Alt+Space code you set yourself still works.": "现有的 MdlVis 快捷键会被保留。其他每个命令和按钮都有自己的按键：一个键，或一个键加 Shift、Ctrl 或 Alt。窗口中的按钮使用其名称中的字母，因此同一个字母在不同窗口中可以有不同作用。Peon：Shift+P · Wisp：Shift+I。您可以在此更改任何按键；您自己设置的 Ctrl+Alt+Space 代码仍然有效。",
+  "Existing MdlVis shortcuts are preserved. Every other command and button has its own key: one key, or one key with Shift, Ctrl or Alt. Buttons in a window use the letters of their names there, so a letter can do different things in different windows. Peon: Shift+P · Wisp: Shift+I. You can change any key here; a Ctrl+Alt+Space code you set yourself still works.": "现有的 MdlVis 快捷键会被保留。其他每个命令和按钮都有自己的按键：一个键，或一个键加 Shift、Ctrl 或 Alt。窗口中的按钮使用其名称中的字母，因此同一个字母在不同窗口中可以有不同作用。Peon：Shift+P · Wisp：Shift+I。您可以在此更改任何按键；您自己设置的 Ctrl+Alt+Space 代码仍然有效。",
   "Click to dismiss. Right-click to mute this shortcut.": "左键点击关闭本次提示。右键点击停用此快捷键的提示。",
   "When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here.": "点击有快捷键的控件时会显示按键提示。使用快捷键或左键点击提示可关闭本次提示。右键点击会停用该快捷键的提示，直到您在这里恢复。",
   "Show reminders for muted shortcuts again.": "重新显示已停用的快捷键提示。",
-  "Each use of a learned shortcut restarts its quiet time. This shows learned keys again now.": "每次使用已学会的快捷键都会重新计算免提示时间。此按钮会立即恢复这些按键的提示。"
+  "Each use of a learned shortcut restarts its quiet time. This shows learned keys again now.": "每次使用已学会的快捷键都会重新计算免提示时间。此按钮会立即恢复这些按键的提示。",
+  "Let MDLxL tell you when a new version is out?": "有新版本时让 MDLxL 通知你？",
+  "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.": "MDLxL 会在启动时检查新版本，并先询问你。在你选择“更新并重启”之前，不会下载或安装任何内容。你可以随时在 设置 → 外观 → 自动更新 中更改。",
+  "Turn on": "开启",
+  "No thanks": "不用了"
 }

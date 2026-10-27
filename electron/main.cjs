@@ -444,10 +444,23 @@ ipcMain.handle('app:initial',async()=>({settings:publicSettings(),model:initialM
 ipcMain.handle('settings:get',publicSettings);
 ipcMain.handle('updates:status',()=>updater?.status());
 ipcMain.handle('updates:check',event=>{if(event.sender!==win?.webContents)throw Error('Update checks require the main editor.');return updater.check(settings.preferences.language);});
-ipcMain.on('updates:startup',event=>{
+// People who download each release by hand often never find Auto update, so a
+// fresh copy asks once. Test profiles and headless runs are never asked.
+async function offerStartupUpdates(){
+  const answer=await dialog.showMessageBox(win,{type:'question',title:'Auto update',message:'Let MDLxL tell you when a new version is out?',detail:'MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.',buttons:['Turn on','No thanks'],defaultId:0,cancelId:1});
+  const preferences={updateOfferAnswered:true,checkUpdatesOnStartup:answer.response===0};
+  await updateSettings({preferences});
+  // The editor keeps its own copy of preferences and would save the old answer back.
+  if(win&&!win.isDestroyed())win.webContents.send('settings:preferences',preferences);
+}
+ipcMain.on('updates:startup',async event=>{
   if(event.sender!==win?.webContents||startupUpdateChecked)return;
   startupUpdateChecked=true;
-  if(settings.preferences.checkUpdatesOnStartup&&!updater.status().error)void updater.check(settings.preferences.language);
+  if(updater.status().error)return;
+  if(app.isPackaged&&!process.env.MDLXL_PROFILE&&process.env.MDLVIS_HEADLESS!=='1'&&!settings.preferences.checkUpdatesOnStartup&&!settings.preferences.updateOfferAnswered){
+    try{await offerStartupUpdates();}catch(error){console.error(error);}
+  }
+  if(settings.preferences.checkUpdatesOnStartup)void updater.check(settings.preferences.language);
 });
 ipcMain.handle('updates:install',async event=>{
   if(event.sender!==win?.webContents)throw Error('Updates require the main editor.');
