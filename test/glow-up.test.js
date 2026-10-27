@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PerspectiveCamera, Vector3 } from 'three';
 import { createStarterDocument } from '../src/starter-model.js';
 import { openDocument, createNode } from '../src/editor-document.js';
-import { addHeroGlow, glowLayout, hasHeroGlow, originGlowSize, weaponChoices, weaponLine } from '../src/glow-up.js';
+import { addHeroGlow, glowLayout, hasHeroGlow, originGlowSize, weaponCandidates, weaponChoices, weaponLine } from '../src/glow-up.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { samplePreviewMatrices } from '../app/preview-pose.js';
 
@@ -199,4 +199,13 @@ test('origin and weapon glow have their own brightness', () => {
   assert.equal(same.Materials.length, materials + 1, 'equal brightness shares one material');
   const only = structuredClone(m); addHeroGlow(only, { origin: false, weapon: true, weaponIds: [sword.ObjectId], originBrightness: .2, weaponBrightness: .9 });
   assert.equal(only.Materials.at(-1).Layers[0].Alpha, .9);
+});
+
+test('a glow across a hammer head keeps its dragged ends apart', () => {
+  const doc = hero(), m = doc.model, sword = m.Bones.find(b => b.Name === 'Sword');
+  // Both ends near the tip, one on each side: the start is further along than the end.
+  const across = weaponLine(m, { weaponId: sword.ObjectId, from: [1.02, -.3, 0], to: [1, .3, 0] }), { side } = across.frame;
+  assert.ok(across.start.reduce((s, v, a) => s + (v - across.end[a]) * side[a], 0) < 0, 'the start stays on its own side');
+  assert.deepEqual(across.from, [1.02, -.3, 0]);
+  assert.ok(weaponCandidates({ ...m, Bones: m.Bones.map(b => b === sword ? { ...b, Name: 'Wep' } : b) })[0].score >= 4, 'Wep is a weapon name');
 });

@@ -12,7 +12,7 @@ import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
 // The planes, heights and pulse keys are the Paladin/Jaina/Uther template,
 // scaled to the model. Layer three runs on its own period, as Gluma does.
 
-const WEAPON_NAME = /weapon|(^|[\s_])w_|sword|sord|blade|axe|hammer|mace|club|staff|stave|spear|lance|pike|glaive|scythe|halberd|polearm|flail|maul|wand|dagger|knife|katana|scimitar|trident|bow|gun|rifle|pipe/i;
+const WEAPON_NAME = /weapon|(^|[\s_])(w_|wep)|sword|sord|blade|axe|hammer|mace|club|staff|stave|spear|lance|pike|glaive|scythe|halberd|polearm|flail|maul|wand|dagger|knife|katana|scimitar|trident|bow|gun|rifle|pipe/i;
 const SIDE = /(^|[\s_.-])(l|r|left|right)(?=$|[\s_.\d-])/i;
 const HIDDEN = /death|decay|dissipate/i;
 const HERMITE = 2;
@@ -166,8 +166,11 @@ export function weaponLine(model, { weaponId, marked, from, to } = {}) {
     const [t, u = 0, w = 0] = Array.isArray(value) ? value : [value ?? fallback];
     return [clamp(Number.isFinite(t) ? t : fallback, -.5, 1.5), clamp(Number.isFinite(u) ? u : 0, -1, 1), clamp(Number.isFinite(w) ? w : 0, -1, 1)];
   };
+  // Reversed numbers mean the same stretch. Dragged ends stay whose they are: across a
+  // hammer head both sit near the tip, and swapping would make the dragged dot jump.
+  const swap = !Array.isArray(from) && !Array.isArray(to);
   from = end(from, held + (1 - held) * .3); to = end(to, 1);
-  if (from[0] > to[0]) [from, to] = [to, from];
+  if (swap && from[0] > to[0]) [from, to] = [to, from];
   const butt = at(buttT), place = ([t, u, w]) => butt.map((v, a) => v + size * (along[a] * t + side[a] * u + other[a] * w));
   const onAxis = f => f[1] === 0 && f[2] === 0 ? f[0] : f;
   return { start: place(from), end: place(to), butt, tip: at(tipT), parentId, from: onAxis(from), to: onAxis(to), frame: { along, side, other, size } };
