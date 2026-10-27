@@ -50,7 +50,7 @@ async function heroFixture(file){
   const stage=emtr.locator('svg[aria-label="Glow handles"]');
   await page.waitForFunction(()=>document.querySelector('.pe-preview canvas'));await sleep(800);
   let shown=await preview();const weaponOn=await weapon.isChecked();assert.equal(shown.model.Geosets.length,original.Geosets.length+(weaponOn?2:1));
-  for(const label of ['Move origin glow','Resize origin glow',...(weaponOn?['Weapon glow start','Weapon glow end','Resize weapon glow']:[])])await stage.locator(`[aria-label="${label}"] circle`).waitFor();
+  for(const label of ['Move origin glow','Resize origin glow',...(weaponOn?['Weapon glow start','Weapon glow end','Resize weapon glow']:[])])await stage.locator(`[aria-label="${label}"] circle:not(.pe-grab)`).waitFor();
   await sleep(2500);await capture('glow-panel');checks.push('Glow Up panel: origin + weapon toggles, weapon pick, Brightness; drag handles in the preview like emitters');
 
   // Real left-button drags orbit the preview camera both ways.
@@ -62,7 +62,7 @@ async function heroFixture(file){
   await sleep(1500);await capture('glow-orbit');checks.push('Mouse drags rotate the Glow Up preview in both directions');
 
   // Handle drags change the glow and never move the camera.
-  const centerOf=async label=>{const b=await stage.locator(`[aria-label="${label}"] circle`).boundingBox();return [b.x+b.width/2,b.y+b.height/2];};
+  const centerOf=async label=>{const b=await stage.locator(`[aria-label="${label}"] circle:not(.pe-grab)`).boundingBox();return [b.x+b.width/2,b.y+b.height/2];};
   let kept=(await preview()).camera;const same=(a,b)=>a.every((v,i)=>Math.abs(v-b[i])<1e-3);
   const drag=async(label,dx,dy,escape)=>{const [x,y]=await centerOf(label);await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:6});if(escape)await page.keyboard.press('Escape');await page.mouse.up();await sleep(1000);};
   const plane=m=>Object.values(m.Geosets[original.Geosets.length].Vertices).slice(12,24),width=m=>{const v=plane(m);return v[3]-v[0];},middle=m=>{const v=plane(m);return [(v[0]+v[3])/2,(v[1]+v[7])/2];};
@@ -73,6 +73,14 @@ async function heroFixture(file){
   before=now;await drag('Move origin glow',40,25);now=(await preview()).model;
   assert.ok(Math.hypot(...middle(now).map((v,i)=>v-middle(before)[i]))>2,'Move shifts the ground glow');
   assert.ok(same((await preview()).camera,kept),'origin handle drags keep the camera');
+  // A near miss still grabs (animation moves the dots), and the animation holds still during the drag.
+  const playingNow=()=>page.evaluate(()=>{const el=document.querySelector('.pe-preview .game-preview-root')||document.querySelector('.pe-preview canvas');let f=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];for(;f;f=f.return)if(f.memoizedProps?.presentation==='preview'&&'playing' in f.memoizedProps)return f.memoizedProps.playing;});
+  assert.equal(await playingNow(),true);
+  {const [mx,my]=await centerOf('Move origin glow');before=(await preview()).model;await page.mouse.move(mx+13,my+9);await page.mouse.down();await page.mouse.move(mx+43,my+29,{steps:6});await sleep(500);
+   assert.equal(await playingNow(),false,'the animation pauses while a handle is dragged');
+   await page.mouse.up();await sleep(1000);assert.equal(await playingNow(),true,'the animation plays on after the drag');
+   assert.ok(Math.hypot(...middle((await preview()).model).map((v,i)=>v-middle(before)[i]))>2,'a press next to a handle grabs it');}
+  checks.push('A press near a handle grabs it; the animation pauses during the drag and resumes after');
   if(weaponOn){
    // A small hero: zoom in with the wheel, as a user would, until the weapon's two handles are apart.
    for(let i=0;i<12;i++){const [sx,sy]=await centerOf('Weapon glow start'),[tx,ty]=await centerOf('Weapon glow end');if(Math.hypot(tx-sx,ty-sy)>=40)break;await page.mouse.move(box.x+20,box.y+20);await page.mouse.wheel(0,-240);await sleep(400);}
