@@ -1,6 +1,6 @@
 # AI hook harness (fixes from the learning facts)
 
-Status: ready for review. All five steps are in PRs #346–#350, awaiting merge approval and the owner's hand test.
+Status: completed. PRs #345–#350 merged on 2026-10-27 and shipped in 0.34.0, which also shows the outside check as a chat step and the plan as plain lines. Not yet tried with a real provider by the owner.
 Owner / consolidator: Claude Code (session local_a1193075-94ec-4f8b-9517-9fe5d83a2c75)
 Updated: 2026-10-27
 
