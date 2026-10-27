@@ -311,6 +311,7 @@ export const AI_PLAN_TOOL = {
     'Record the plan for this job before its first edit; edits are refused until it exists. Calling it again replaces the plan (do so when results show the plan was wrong). Reads nothing and changes nothing.',
   inputSchema: {
     ...object({
+      target,
       cause: string('What is actually wrong or needed, as measured in the model, not guessed.'),
       reach: string('How far the cause reaches: which parts, vertices, bones or animations it really involves, beyond or within what the user marked.'),
       keep: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string' }, description: 'What must stay the same; the review checks these.' },
