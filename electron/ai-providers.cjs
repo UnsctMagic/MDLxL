@@ -119,6 +119,19 @@ function effortFor(settings) {
   return capped ? 'high' : effort;
 }
 
+// Anthropic's own web search and page reading. The dynamic-filtering versions need
+// Opus or Sonnet 4.6 or later; other models get the basic versions.
+function anthropicWebTools(model) {
+  const match = /claude-(opus|sonnet)-(\d+)(?:-(\d{1,2})(?!\d))?/.exec(model || '');
+  const major = Number(match?.[2]),
+    minor = Number(match?.[3] || 0);
+  const dynamic = !!match && (major > 4 || (major === 4 && minor >= 6));
+  return [
+    { type: dynamic ? 'web_search_20260209' : 'web_search_20250305', name: 'web_search' },
+    { type: dynamic ? 'web_fetch_20260209' : 'web_fetch_20250910', name: 'web_fetch' },
+  ];
+}
+
 // Claude signs its reasoning for the tool list it was written with, and refuses
 // it once that list changes (an MDLxL update, SD Brain switched on or off).
 // Finished turns do not need it: drop it from them, keeping the reasoning of a
@@ -163,6 +176,7 @@ async function runApi({
   event,
   awareness,
   steering,
+  web,
 }) {
   const anthropic = settings.provider === 'anthropic';
   const base = endpoint(
@@ -208,9 +222,11 @@ async function runApi({
       const cache = { type: 'ephemeral' };
       const apiTools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema }));
       if (apiTools.length) apiTools[apiTools.length - 1] = { ...apiTools.at(-1), cache_control: cache };
+      if (web) apiTools.push(...anthropicWebTools(settings.model));
       const messages = history.slice();
       const lastMessage = messages.at(-1);
-      if (lastMessage && Array.isArray(lastMessage.content) && lastMessage.content.length) {
+      // A paused web search resumes from its own assistant turn, which stays as sent.
+      if (lastMessage?.role === 'user' && Array.isArray(lastMessage.content) && lastMessage.content.length) {
         const blocks = lastMessage.content.slice();
         blocks[blocks.length - 1] = { ...blocks.at(-1), cache_control: cache };
         messages[messages.length - 1] = { ...lastMessage, content: blocks };
@@ -272,6 +288,7 @@ async function runApi({
           }
           if (data.delta.type === 'signature_delta')
             block.signature = (block.signature || '') + data.delta.signature;
+          if (data.delta.type === 'citations_delta') (block.citations ||= []).push(data.delta.citation);
         }
         if (data.type === 'message_delta') {
           stopReason = data.delta?.stop_reason;
@@ -282,11 +299,24 @@ async function runApi({
       if (!stopReason) throw Error('The provider stream ended before completion.');
       charge(anthropicCost(settings.model, spent));
       for (const block of content) {
-        if (block.type === 'tool_use' && block._json) block.input = JSON.parse(block._json);
+        if ((block.type === 'tool_use' || block.type === 'server_tool_use') && block._json) block.input = JSON.parse(block._json);
         delete block._json;
+        // Web searches and page reads ran at Anthropic; show them as steps.
+        if (block.type === 'server_tool_use')
+          event({ type: 'tool', name: block.name, callId: block.id, detail: toolDetail(block.input) });
+        if (/^web_(search|fetch)_tool_result$/.test(block.type))
+          event({
+            type: 'tool-result',
+            name: block.type.replace('_tool_result', ''),
+            callId: block.tool_use_id,
+            error: !Array.isArray(block.content) && !!block.content?.error_code,
+            summary: block.content?.error_code || '',
+          });
       }
       history.push({ role: 'assistant', content });
       const calls = content.filter(b => b.type === 'tool_use');
+      // A long web search can pause the turn; sending it back lets it continue.
+      if (!calls.length && stopReason === 'pause_turn') continue;
       if (!calls.length) {
         if (stopReason === 'max_tokens')
           throw Error('The provider reached its output limit. Continue the conversation to finish.');
@@ -441,9 +471,10 @@ async function runApi({
 }
 
 class CodexProcess {
-  constructor(settings, { directory, event = () => {}, mcp, signal } = {}) {
+  constructor(settings, { directory, event = () => {}, mcp, signal, web = false } = {}) {
     this.settings = settings;
     this.directory = directory;
+    this.web = web;
     this.event = event;
     this.mcp = mcp;
     this.signal = signal;
@@ -452,7 +483,7 @@ class CodexProcess {
   }
   async start() {
     await fs.mkdir(this.directory, { recursive: true });
-    const args = ['app-server', '-c', 'features.shell_tool=false', '-c', 'web_search="disabled"'];
+    const args = ['app-server', '-c', 'features.shell_tool=false', '-c', `web_search="${this.web ? 'live' : 'disabled'}"`];
     if (effortFor(this.settings)) args.push('-c', `model_reasoning_effort="${effortFor(this.settings)}"`);
     const env = providerEnvironment(this.directory, 'codex');
     await fs.mkdir(env.TEMP, { recursive: true });
@@ -583,6 +614,11 @@ class CodexProcess {
         error: p.item.status === 'failed',
         summary: (p.item.error?.message || p.item.result?.content?.find(c => c.type === 'text')?.text)?.slice(0, 300),
       });
+    // Web research runs inside Codex; its searches show as steps.
+    if (message.method === 'item/started' && p.item?.type === 'webSearch')
+      this.event({ type: 'tool', name: 'web_search', callId: p.item.id, detail: toolDetail(p.item.query || '') });
+    if (message.method === 'item/completed' && p.item?.type === 'webSearch')
+      this.event({ type: 'tool-result', name: 'web_search', callId: p.item.id, error: false, summary: p.item.query || '' });
     if (message.method === 'account/login/completed') this.login?.(p);
     if (message.method === 'turn/completed') this.turn?.(p.turn);
     if (message.method === 'error')
@@ -621,6 +657,7 @@ async function runCodex(options) {
     signal,
     awareness,
     steering,
+    web,
   } = options;
   const mcp = await startMcpServer({ tools, call, awareness });
   const tokenBaseline = conversation.providerTotalTokens ?? (conversation.threadId ? null : 0);
@@ -632,7 +669,7 @@ async function runCodex(options) {
       value = { ...value, tokens: Math.max(0, value.tokens - tokenBaseline) };
     }
     event(value);
-  }, mcp, signal });
+  }, mcp, signal, web });
   let unsubscribe,
     unsteer,
     turnId,
@@ -742,6 +779,7 @@ async function runClaude({
   signal,
   awareness,
   steering,
+  web,
 }) {
   await fs.mkdir(directory, { recursive: true });
   const mcp = await startMcpServer({ tools, call, awareness });
@@ -760,10 +798,11 @@ async function runClaude({
       'stream-json',
       '--verbose',
       '--include-partial-messages',
+      // Built-in tools stay off, except web search and page reading when the user allows them.
       '--tools',
-      '',
+      web ? 'WebSearch,WebFetch' : '',
       '--allowedTools',
-      'mcp__mdlxl__*',
+      web ? 'mcp__mdlxl__*,WebSearch,WebFetch' : 'mcp__mdlxl__*',
       '--strict-mcp-config',
       '--mcp-config',
       config,

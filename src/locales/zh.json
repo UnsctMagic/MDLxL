@@ -3597,6 +3597,7 @@
   "Stopped. Applied edits remain in Undo. Resume task to continue from the checkpoint.": "已停止。可撤销已应用的修改。继续任务可从检查点恢复。",
   "SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.": "SD Brain：将《魔兽争霸III》SD 设计规则应用到你的建模请求中，补全常规美术细节并检查结果。支持精细的自定义 SD。",
   "Editing handbook: gives the AI general Warcraft III editing rules and step-by-step guides for geometry, UVs, bones, animation and effects, so it works with less trial and error. Applies from the next request.": "编辑手册：为 AI 提供《魔兽争霸III》通用编辑规则，以及几何、UV、骨骼、动画和特效的分步指南，减少反复试错。从下一个请求开始生效。",
+  "Web research: lets the AI search the web and read pages, such as Hive Workshop tutorials, when it needs to look something up. Works with Codex, Claude Code and the Claude API. Applies from the next request.": "网络研究：允许 AI 在需要查证时搜索网络并阅读网页，例如 Hive Workshop 教程。适用于 Codex、Claude Code 和 Claude API。从下一次请求起生效。",
   "Duplicate geoset animations": "重复的几何体动画",
   "Some geosets have more than one animation record. The model works; click to choose which record to keep.": "部分几何体有多个动画记录。模型可正常使用；点击选择要保留的记录。",
   "Some geosets have more than one animation record. The model works as it is; only keyframe edits on those geosets wait for this fix.": "部分几何体有多个动画记录。模型可照常使用；只有这些几何体的关键帧编辑需要先修复。",
