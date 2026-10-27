@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('desktop', {
   aiOffload:value=>ipcRenderer.invoke('ai:offload',value),
   aiSdBrain:value=>ipcRenderer.invoke('ai:sdBrain',value),
   aiEditingHandbook:value=>ipcRenderer.invoke('ai:editingHandbook',value),
+  aiWebResearch:value=>ipcRenderer.invoke('ai:webResearch',value),
   aiModel:value=>ipcRenderer.invoke('ai:model',value),
   aiToolWaiting:value=>ipcRenderer.send('ai:toolWaiting',value),
   aiAuth:action=>ipcRenderer.invoke('ai:auth',action),

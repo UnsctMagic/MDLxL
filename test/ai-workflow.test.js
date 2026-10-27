@@ -6,7 +6,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { createRequire } from 'node:module';
 import { AI_SD_RULES, AI_SD_BRAIN } from '../src/ai-sd-rules.js';
-import { AI_EDITING_HANDBOOK } from '../src/ai-tools.js';
+import { AI_EDITING_HANDBOOK, AI_WEB_RESEARCH } from '../src/ai-tools.js';
 const { AiService } = createRequire(import.meta.url)('../electron/ai-service.cjs');
 const root = path.resolve(import.meta.dirname, '..');
 const context = { target: 'selected', documentId: 'model', name: 'model.mdx', selection: { 0: [1, 2] } };
@@ -396,6 +396,28 @@ test('the editing handbook is off until switched on, then the next task carries 
   await f.service.send({ id: 'test', text: 'rename the material', context });
   assert.ok(!system().includes(AI_EDITING_HANDBOOK));
   await assert.rejects(() => f.service.setEditingHandbook('yes'), /Choose on or off/);
+});
+
+test('web research is off until switched on, then the next task may look things up', async t => {
+  const received = [];
+  const f = await setup(t, ({ data }) => {
+    received.push(data);
+    return done();
+  });
+  const system = () => received.at(-1).messages.find(message => message.role === 'system').content;
+  assert.equal((await f.service.status()).webResearch, false);
+  await f.service.send({ id: 'test', text: 'rename the geoset', context });
+  assert.ok(!system().includes(AI_WEB_RESEARCH));
+  // Switching it on starts nothing; the next task is told it can research, and the choice is saved.
+  await f.service.setWebResearch(true);
+  assert.equal(f.counts().requests, 1);
+  assert.equal((await f.make().status()).webResearch, true, 'remembered after a restart');
+  await f.service.send({ id: 'test', text: 'how do Blizzard skirts bind?', context });
+  assert.ok(system().includes(AI_WEB_RESEARCH));
+  await f.service.setWebResearch(false);
+  await f.service.send({ id: 'test', text: 'rename the material', context });
+  assert.ok(!system().includes(AI_WEB_RESEARCH));
+  await assert.rejects(() => f.service.setWebResearch('yes'), /Choose on or off/);
 });
 
 test('SD Brain is parked: no switch, no art director and nothing about it in prompts', async t => {
