@@ -196,6 +196,36 @@ test('look first: an edit is refused until the job has a plan, and the review ge
   assert.equal(task.steps.length, 1, 'the refused edit left no step behind');
 });
 
+test('the decision diary keeps each job with the model, with the owner reaction, for the next job', async t => {
+  const received = [];
+  const f = await setup(t, ({ data, requests }) => {
+    received.push(data);
+    if (requests === 1) return plan();
+    if (requests === 2) return edit();
+    if (requests === 3) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"rim",passed:true}]' });
+    if (requests === 4) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Rim hammered.' });
+    return done();
+  });
+  const conversation = await f.service.conversation('test', 'compatible');
+  conversation.modelKey = 'file:d:\\model.mdx';
+  assert.equal((await f.service.send({ id: 'test', text: 'fix the rim so it looks hammered', context })).ok, true);
+  const entry = await f.service.registry.model('file:d:\\model.mdx');
+  assert.equal(entry.diary.length, 1);
+  assert.deepEqual(entry.diary[0].edits, ['Move marked vertices']);
+  assert.equal(entry.diary[0].outcome, 'verified');
+  assert.equal(entry.diary[0].plan.chosen, 'Reshape the rim ring');
+  // The next message is the owner's reaction, and the next job reads it all.
+  await f.service.send({ id: 'test', text: 'too shiny, and the rim lost its bevel', context });
+  assert.equal(entry.diary[0].ownerNext, 'too shiny, and the rim lost its bevel');
+  const prompt = JSON.stringify(received.at(-1).messages.filter(m => m.role === 'user').at(-1));
+  assert.match(prompt, /Decision diary/);
+  assert.match(prompt, /chose: Reshape the rim ring/);
+  assert.match(prompt, /the owner then said: \\"too shiny/);
+  // Wiping the chats after a save removes the diary too; a summary keeps it.
+  await f.service.cleanup({ modelKey: 'file:d:\\model.mdx', mode: 'wipe' });
+  assert.equal((await f.service.registry.model('file:d:\\model.mdx')).diary, undefined);
+});
+
 test('an exact value edit needs no plan, and the AI doing the work is offered the plan tool', async t => {
   const seen = [];
   const f = await setup(t, ({ data, requests }) => {

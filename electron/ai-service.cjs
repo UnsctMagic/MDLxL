@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { simpleJob, lighterModels } = require('./ai-model-choice.cjs');
+const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
@@ -400,6 +401,11 @@ class AiService {
     if (!resume && conversation.kind === 'worker' && conversation.light) {
       return this.send({ id: conversation.organiserId, text, images, context, worker: conversation.name, route: 'continue', lightChoice: simpleJob(text, images) ? lightChoice : 'chosen' });
     }
+    // The owner's next message is their reaction to the last job on this model.
+    if (!resume && conversation.modelKey) {
+      const entry = await this.registry.model(conversation.modelKey);
+      if (noteOwnerReply(entry, text)) await this.registry.save();
+    }
     if (settings.allowLighter && !this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] && settings.provider !== 'claude') await this.models();
     const choices = this.lighterChoices(settings);
     const light = choices.find(m => m.id === settings.lightModel) || choices[0];
@@ -719,6 +725,11 @@ class AiService {
     }
     if (task.artBrief)
       prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
+    // The AI doing the work sees what earlier jobs on this model did and why.
+    if (!organiser && !conversation.toolsOff && conversation.modelKey) {
+      const diary = diaryText(await this.registry.model(conversation.modelKey));
+      if (diary) prompt += '\n\n' + diary;
+    }
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
     prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
@@ -919,6 +930,19 @@ class AiService {
       throw error;
     } finally {
       this.runningIds.delete(id);
+      // The decision diary keeps what this job did and why with the model.
+      if (conversation.modelKey && !organiser)
+        try {
+          const entry = await this.registry.model(conversation.modelKey);
+          task.diaryId ||= crypto.randomUUID();
+          const outcome = task.phase === 'verified' ? 'verified' : task.status === 'complete' ? 'complete' : (task.status || 'incomplete') + (task.summary ? ': ' + task.summary : '');
+          if (recordJob(entry, { id: task.diaryId, request: task.prompt || text, plan: task.plan, steps: task.steps, outcome, bird: conversation.kind === 'worker' ? conversation.name : undefined })) {
+            await this.persistConversation(conversation);
+            await this.registry.save();
+          }
+        } catch {
+          // A diary that cannot be written never fails the job itself.
+        }
     }
   }
   // The roster and memory the organiser needs for routing, added to each prompt.
@@ -1278,6 +1302,8 @@ class AiService {
     }
     const providerFiles = await deleteProviderSessions(this.directory, threads);
     entry.note = mode === 'summary' ? note || entry.note : null;
+    // A summary keeps the decision diary; wiping removes it with the chats.
+    if (mode === 'wipe') delete entry.diary;
     entry.organiser = null;
     entry.earlier = [];
     await this.registry.save();

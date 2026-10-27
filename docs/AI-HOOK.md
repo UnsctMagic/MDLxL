@@ -271,6 +271,15 @@ Undo step, so you can undo it too. This means "go back to the good version" work
 ask for it by name or by job. Versions are kept until MDLxL closes; they are not
 saved into the model file.
 
+**Decision diary.** MDLxL keeps a short diary for each model: for every AI job,
+your request, the plan (cause, chosen fix, why, what it kept), the edits it made,
+whether the result was verified, and your next message as your reaction. Every new
+job on that model, by any bird or provider, gets the last eight entries and is
+told that earlier AI edits were choices it may undo, not part of your authored
+model. The diary lives in MDLxL's own profile, so it survives switching between
+Codex and Claude, a bird's memory filling up, and **Keep a summary** after
+saving. **Wipe it all** deletes it with the chats.
+
 After model edits, **Result verified** appears only after the AI runs measured,
 read-only checks against the original model, validates MDX/MDL reopening, receives
 actual before/after images, and finishes its visual review. Animation edits also
