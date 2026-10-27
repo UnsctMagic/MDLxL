@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { createRequire } from 'node:module';
 import { AI_TOOLS } from '../src/ai-tools.js';
-const { runApi, endpoint, sseEvents } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
+const { runApi, endpoint, sseEvents, effortFor } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
 
 async function fixture(t, handle) {
   const requests = [];
@@ -171,6 +171,27 @@ test('Claude API drops reasoning signed for an older tool list and asks again', 
   assert.equal(bodies.length, 2, 'refused once, then asked again');
   assert.deepEqual(conversation.messages[1].content, [{ type: 'text', text: 'Done.' }], 'the old reasoning is gone, the answer stays');
   assert.equal(events.findLast(e => e.type === 'text').text, 'Carrying on.');
+});
+test('thinking effort reaches each connection in the form it accepts', async t => {
+  assert.equal(effortFor({ provider: 'anthropic', model: 'claude-opus-5-5', effort: 'xhigh' }), 'xhigh');
+  assert.equal(effortFor({ provider: 'anthropic', model: 'claude-opus-4-6', effort: 'xhigh' }), 'high', 'Claude 4.6 stops at high');
+  assert.equal(effortFor({ provider: 'openai', model: 'gpt-6', effort: 'xhigh' }), 'high');
+  assert.equal(effortFor({ provider: 'codex', effort: 'default' }), null);
+  assert.equal(effortFor({ provider: 'codex' }), null);
+  const server = await fixture(t, (data, res) => {
+    event(res, { type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'Done.' } });
+    event(res, { type: 'message_delta', delta: { stop_reason: 'end_turn' } });
+    res.end();
+  });
+  const run = settings =>
+    runApi({ settings: { provider: 'anthropic', baseUrl: server.url, ...settings }, key: 'k', tools: AI_TOOLS, call: () => ({ content: [] }), prompt: 'Look', system: 'editor', conversation: { messages: [] }, signal: new AbortController().signal, event: () => {} });
+  await run({ model: 'claude-opus-5-5', effort: 'high' });
+  await run({ model: 'claude-3-5-sonnet', effort: 'high' });
+  const [modern, older] = server.requests.map(r => r.data);
+  assert.deepEqual(modern.output_config, { effort: 'high' });
+  assert.equal(modern.max_tokens, 64000, 'adaptive models get room to think and answer');
+  assert.equal(older.output_config, undefined, 'older models keep their own settings');
+  assert.equal(older.max_tokens, 16384);
 });
 test('Claude API caches the conversation and stops a prompt at its spending limit', async t => {
   const server = await fixture(t, (data, res) => {

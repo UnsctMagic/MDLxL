@@ -282,6 +282,26 @@ on by default and costs one extra AI call per finished edit; turn it off with
 **Outside check** in Connection settings. If the check cannot run, the job is not
 blocked and the chat says why.
 
+**Pictures of the parts in question.** The AI's pictures can show only chosen
+geosets, framed on them, and use plain shading without textures, so shape, folds
+and gaps are not hidden by the rest of the model. The AI is told to take the same
+pictures before and after a change, so the pair compares like with like.
+
+**Thinking effort.** Connection settings has a **Thinking effort** choice:
+Provider default, Medium, High (the default) or Extra high. It sets how hard the
+AI thinks before each step: Codex's reasoning effort, Claude Code's effort, or the
+Claude API's effort (Claude 4.6 stops at High; older Claude models keep their own
+setting). Higher is slower and uses more of your plan or credits. Job routing
+always uses the provider default, since it only picks a bird. Other AI / local
+model connections do not offer it.
+
+**Guides and patterns.** With the Editing handbook on, each job also carries the
+full guide (or two) its request touches, for example the binding guide for "the
+legs clip into the skirt", instead of only a pointer to it. Patterns from
+reference models, and rules you pass on in the chat, are given to the AI as
+evidence about what is common and why, not as orders: it checks that this model
+is like the cases the pattern comes from before applying it.
+
 **Decision diary.** MDLxL keeps a short diary for each model: for every AI job,
 your request, the plan (cause, chosen fix, why, what it kept), the edits it made,
 whether the result was verified, and your next message as your reaction. Every new

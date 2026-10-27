@@ -2,6 +2,8 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { simpleJob, lighterModels } = require('./ai-model-choice.cjs');
 const { recordJob, noteOwnerReply, diaryText } = require('./ai-diary.cjs');
+// Thinking effort for a connection; "default" leaves it to the provider.
+const EFFORTS = ['default', 'medium', 'high', 'xhigh'];
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { startMcpServer } = require('./ai-mcp.cjs');
@@ -121,6 +123,7 @@ class AiService {
       outsideCheck: config.outsideCheck !== false,
       allowLighter: provider.allowLighter === true,
       lightModel: provider.lightModel || '',
+      effort: provider.effort || 'high',
       lighterModels: this.lighterChoices({ ...provider, provider: name }),
       spendLimit: limitOf(config, 'spendLimit'),
       stepLimit: limitOf(config, 'stepLimit'),
@@ -211,6 +214,7 @@ class AiService {
       key: baseUrl === (previous.baseUrl || '') ? previous.key || '' : '',
       allowLighter: input.allowLighter === undefined ? previous.allowLighter === true : input.allowLighter === true,
       lightModel: String(input.lightModel ?? previous.lightModel ?? ''),
+      effort: EFFORTS.includes(input.effort) ? input.effort : previous.effort || 'high',
     };
     if (input.apiKey !== undefined && input.apiKey !== '') next.key = this.encrypt(String(input.apiKey));
     if (input.clearKey) next.key = '';
@@ -234,6 +238,8 @@ class AiService {
       provider: c.provider,
       spendLimit: limitOf(c, 'spendLimit'),
       stepLimit: limitOf(c, 'stepLimit'),
+      // Editing work thinks hard unless the owner chose otherwise.
+      effort: 'high',
       ...c.providers?.[c.provider],
     };
   }
@@ -582,7 +588,7 @@ class AiService {
     const available = this.modelCatalog?.[settings.provider + ':' + (settings.baseUrl || '')] || (settings.provider === 'claude' ? [{ id: 'haiku' }] : []);
     const light = available.find(m => /haiku|nano|mini|luna/i.test(m.id));
     const options = {
-      settings: { ...settings, model: light?.id || settings.model, stepLimit: 1 }, key: this.decrypt(settings.key), directory: this.directory,
+      settings: { ...settings, model: light?.id || settings.model, stepLimit: 1, effort: 'default' }, key: this.decrypt(settings.key), directory: this.directory,
       event: value => { if (value.type === 'text') reply += value.text; else meter(value); },
       tools: [], call: async () => { throw Error('Routing has no editor tools.'); },
       system: 'Route one message. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. Continue the relevant bird for follow-ups. New unrelated jobs have an empty worker. Small one-step jobs use tiny:true. Do not answer or paraphrase the request. If the supplied structure proves a multi-part request can be split, return {"jobs":[{"job":"short part-specific task","scope":["/Geosets/0"],"readOnly":false,"structural":false}]}. Each job must have explicit canonical model paths (or readOnly:true). Include protectedPaths, animationRanges and globalSequence when needed. Adding, deleting or reordering tables, changing IDs, bindings or group tables is structural and exclusive. Unknown dependencies mean one job. Do not split a follow-up already addressed to a bird.',
@@ -628,6 +634,7 @@ class AiService {
       AI_SYSTEM_PROMPT,
       AI_EDITING_HANDBOOK,
       AI_PLAN_TOOL,
+      guidesForRequest,
       AI_WORKER_TOOL,
       AI_ORGANISER_PROMPT,
       AI_WORKER_NOTE,
@@ -727,6 +734,16 @@ class AiService {
     }
     if (task.artBrief)
       prompt += "\n\nSD art brief for this request (the user's own words above come first):\n" + task.artBrief;
+    // With the handbook on, the job carries the guides its request touches.
+    if (sd.handbook === true && !organiser && !conversation.toolsOff && !resume)
+      for (const topic of guidesForRequest(text)) {
+        try {
+          const guide = await this.call('mdlxl_help', { topic }, signal);
+          if (guide?.text) prompt += `\n\nEditing guide for this job (${topic}). Use its procedures where they fit this model:\n${guide.text}`;
+        } catch {
+          // A guide that cannot be read leaves the job as it was.
+        }
+      }
     // The AI doing the work sees what earlier jobs on this model did and why.
     if (!organiser && !conversation.toolsOff && conversation.modelKey) {
       const diary = diaryText(await this.registry.model(conversation.modelKey));
