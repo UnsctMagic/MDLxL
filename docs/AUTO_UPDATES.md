@@ -1,9 +1,17 @@
 # Portable MDLxL updates
 
-Settings → Mouse contains **Auto update**, **Search for updates**, and
+Settings → Appearance contains **Auto update**, **Search for updates**, and
 **Revert to last version**. Auto update is off by default. Enabling it checks
 once after the editor starts; it does not download or install anything until
 the user selects **Update and restart**. Manual searches work independently.
+
+Many people download every release by hand and never find Auto update, so the
+first start of a copy with Auto update off asks once whether to turn it on
+(**Turn on** / **No thanks**). The answer is kept as `updateOfferAnswered` in
+the profile and the question never returns; Settings can still change it. A
+fresh download has a fresh profile, so it asks again. The question is skipped
+in development builds, headless runs, and whenever `MDLXL_PROFILE` is set, so
+automated tests never see it.
 
 The prompt shows the newer version and the release's bullet-point summary.
 English, Russian, Spanish and Chinese use their corresponding release log.

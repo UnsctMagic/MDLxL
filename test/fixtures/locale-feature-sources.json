@@ -1373,7 +1373,11 @@
     "Using program controls",
     "Using the editor",
     "The AI is checking an editor error.",
-    "{0} vertices · {1} nodes"
+    "{0} vertices · {1} nodes",
+    "Let MDLxL tell you when a new version is out?",
+    "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.",
+    "Turn on",
+    "No thanks"
   ],
   "paint": [
     "Citadel Paint",

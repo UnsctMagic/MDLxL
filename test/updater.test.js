@@ -32,6 +32,9 @@ async function fixture(t) {
 test('startup update checks are opt-in and versions compare numerically', () => {
   assert.equal(normalizePreferences({}).checkUpdatesOnStartup, false);
   assert.equal(normalizePreferences({checkUpdatesOnStartup:true}).checkUpdatesOnStartup, true);
+  // A fresh copy asks once whether to turn startup checks on; the answer is kept.
+  assert.equal(normalizePreferences({}).updateOfferAnswered, false);
+  assert.equal(normalizePreferences({updateOfferAnswered:true}).updateOfferAnswered, true);
   assert.equal(newerVersion('v0.19.0', '0.18.8'), true);
   assert.equal(newerVersion('v0.18.10', '0.18.9'), true);
   for (const version of ['0.18.8', '0.17.9', '0.19.0-beta.1', 'unrelated']) assert.equal(newerVersion(version, '0.18.8'), false);
