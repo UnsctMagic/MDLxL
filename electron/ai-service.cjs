@@ -753,8 +753,9 @@ class AiService {
         throw Error('Use the target captured with the current prompt.');
       const requestSignal = callSignal ? AbortSignal.any([callSignal, signal]) : signal;
       const edit = aiToolEditsModel(name, args);
-      // Model edits need a plan, except exact value edits; switching the view does not.
-      if (edit && name !== 'mdlxl_view' && !task.plan && tools.includes(AI_PLAN_TOOL) && !simpleJob(text, images))
+      // Model edits need a plan, except exact value edits; switching the view or going
+      // back to a saved version does not.
+      if (edit && name !== 'mdlxl_view' && name !== 'mdlxl_versions' && !task.plan && tools.includes(AI_PLAN_TOOL) && !simpleJob(text, images))
         throw Error('Look first: inspect what the request touches, then record your plan with mdlxl_plan before the first edit.');
       if (edit) {
         task.unresolvedEditError = 'An edit did not finish. Inspect the current model before continuing.';

@@ -18,6 +18,7 @@ import { aiAssets, validateAiAssets } from './ai-assets.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus, reviewRegionBatch } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
+import { createVersionStore } from '../src/ai-versions.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
 const settle = () => new Promise(resolve => setTimeout(resolve, 60));
@@ -85,6 +86,8 @@ export class AiEditorBridge {
     // Steps run in order per model tab; tasks on different models do not wait on each other.
     this.queues = new Map();
     this.waiters = new Set();
+    // Versions the AI keeps side by side, per model tab, until MDLxL closes.
+    this.versionStore = createVersionStore();
     // The open console listens here instead of redrawing with every editor render.
     this.listeners = new Set();
     this.subscribe = listener => {
@@ -462,6 +465,26 @@ export class AiEditorBridge {
       env = this.env(target),
       state = env.state;
     if (name === 'mdlxl_sample') return sampleAiModel(env.model, this.contextFor(args.target), args);
+    if (name === 'mdlxl_versions') {
+      const versions = this.versionStore,
+        id = target.documentId;
+      if (args.action === 'list') return { versions: versions.list(id, env.doc.model) };
+      if (args.action === 'save') {
+        versions.save(id, args.name, env.doc.model, args.note);
+        return { saved: args.name, versions: versions.list(id, env.doc.model) };
+      }
+      if (args.action === 'compare') return versions.compare(id, args.name, env.doc.model, args.other);
+      if (args.action === 'use') {
+        // One normal Undo step through the same validation as any AI edit.
+        const result = await this.dispatch(
+          'mdlxl_patch',
+          { target: args.target, label: 'Back to version ' + args.name, ...versions.restore(id, args.name, env.doc.model) },
+          { signal, requestId },
+        );
+        return { ...result, now: args.name };
+      }
+      throw Error('Choose list, save, compare or use.');
+    }
     if (name === 'mdlxl_assets') {
       const result = await aiAssets(args, { ...host, state: () => env.state }, () => {
         active();
@@ -487,11 +510,15 @@ export class AiEditorBridge {
           model: structuredClone(before),
           selection: structuredClone(target.selection),
           context: this.contextFor(args.target),
-          references: Object.fromEntries(
-            state.sessions
+          references: Object.fromEntries([
+            ...state.sessions
               .filter(s => s !== env.session)
               .map(s => [s.id, { name: s.doc.name, model: structuredClone(s.doc.model) }]),
-          ),
+            // Saved versions of this model, for measuring candidates side by side.
+            ...this.versionStore
+              .names(target.documentId)
+              .map(v => ['version:' + v, { name: 'Version ' + v, model: structuredClone(this.versionStore.get(target.documentId, v)) }]),
+          ]),
         });
       active();
       this.requireTarget(args.target);

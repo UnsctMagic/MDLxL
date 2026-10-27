@@ -54,6 +54,7 @@ const activity = {
   mdlxl_ui: 'Using program controls',
   mdlxl_review: 'Checking the result',
   mdlxl_plan: 'Planning the change',
+  mdlxl_versions: 'Comparing versions',
   mdlxl_worker: 'Handing the job to a worker',
 };
 const phases = {

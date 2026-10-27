@@ -74,6 +74,8 @@ export async function beginAiReview(bridge, id, options) {
   const target = bridge.requireTarget(id);
   if (target.review) return target.review;
   const before = structuredClone(bridge.env(target).model);
+  // Every job can go back to how the model was before it started.
+  bridge.versionStore?.beforeJob(target.documentId, before);
   // Review pictures are drawn off-screen, so before and after match whichever tab shows.
   const image = (await bridge.picture(id)).image;
   bridge.requireTarget(id);

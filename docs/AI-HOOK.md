@@ -260,6 +260,17 @@ MDLxL refuses the AI's edits until the plan exists. Exact value edits, such as
 to confirm every item it promised to keep. If a result shows the plan was wrong,
 the AI records a new plan before editing again instead of patching on top.
 
+**Versions side by side.** While it works, the AI can keep versions of the model
+next to each other (the **Comparing versions** step). MDLxL keeps two kinds
+automatically: **original** (the model before the first AI edit since it was
+opened) and **before job 1**, **before job 2** and so on (the model before each
+job's first edit). The AI can also save its own, such as "repair only". It can
+list them, see what differs between any two, measure them side by side in a
+script, and make the model exactly one of them again. Going back is one normal
+Undo step, so you can undo it too. This means "go back to the good version" works:
+ask for it by name or by job. Versions are kept until MDLxL closes; they are not
+saved into the model file.
+
 After model edits, **Result verified** appears only after the AI runs measured,
 read-only checks against the original model, validates MDX/MDL reopening, receives
 actual before/after images, and finishes its visual review. Animation edits also
@@ -366,6 +377,7 @@ Embedded chat works without enabling this external listener.
 | --- | --- |
 | `mdlxl_capabilities` | Search installed editing libraries by task, discover exported functions and read their actual runtime signatures. |
 | `mdlxl_plan` | Embedded chat only: record the job's cause, reach, keep list, alternative fixes and choice before the first edit. |
+| `mdlxl_versions` | Keep versions of the model side by side: list, save, compare, and use one again as one Undo step. Scripts read them as `references["version:NAME"]`. |
 | `mdlxl_review` | Run task-specific assertions against `model` and original `before`, validate files, inspect actual images/animation samples and finish or request correction. |
 | `mdlxl_context` | Live document, exact selection, animation context, references, diagnostics and enabled commands. |
 | `mdlxl_read` | Read any model field, with typed arrays and explicit pagination. |
