@@ -1317,7 +1317,8 @@ export default function App() {
     nextUV: () => setUvSet(v => (v+1)%(geoset?.TVertices.length||1)),
     convertVersion: () => { if (hasUVPreview || hasTrackDrafts) { say('Apply or revert pending previews before conversion.',true); return; } try { const target=model.Version===800?1000:800; doc.convertVersion(target); refresh(); say('Converted to MDX'+target+'. Undo is available; Save writes the result.'); } catch(error) { refresh(); say(error.message,true); } },
     normalRotate: () => setDialog({type:'normalRotate'}),
-    anchorSelect: () => { setChoosingZoomAnchor(true); say('Drag a selection box over one selected vertex.'); },
+    anchorSelect: () => { setChoosingZoomAnchor('anchor'); say('Drag a selection box over one selected vertex.'); },
+    alignSelect: () => { setChoosingZoomAnchor('align'); say('Drag a selection box over one selected vertex.'); },
     play: () => setPlaying(v => !v),
     nextSequence: () => { const ids = model.Sequences.map((_, i) => i); if (ids.length) selectSequence(ids[(ids.indexOf(sequence) + 1) % ids.length]); },
     previousSequence: () => { const ids = model.Sequences.map((_, i) => i); if (ids.length) selectSequence(ids[(ids.indexOf(sequence) + ids.length - 1) % ids.length]); },
@@ -1351,7 +1352,7 @@ export default function App() {
     if (id==='normals' && uvEditing && !overlays.normals) return false;
     if (id==='uv' && uvWindow) return true;
     if (id==='uv') return Object.entries(validSelection).some(([index,ids])=>ids.length && model.Geosets[index]?.TVertices?.length);
-    if (id==='anchorSelect') return editable && mode === 'vertices' && tool === 'scale' && selectionCount > 1;
+    if (id==='anchorSelect' || id==='alignSelect') return editable && mode === 'vertices' && tool === 'scale' && selectionCount > 1;
     if (rigWorkspace && ['select','translate','rotate','scale'].includes(id)) return !movementRestricted(id === 'translate' ? 'move' : id, restrictions) && (!restPose || ['select','translate'].includes(id));
     if (id==='exit') return !!window.desktop;
     if (['undo','redo'].includes(id)&&mode==='showcase')return showcaseHistoryState[id];
@@ -1699,7 +1700,7 @@ export default function App() {
         showGrid={showGrid} showAxes={showAxes} shaded={normalizer ? true : shaded} view={view} cameraMode={cameraMode}
         workplane={workplane} transformMode={tool}
         zoomAnchor={zoomAnchor} choosingZoomAnchor={!normalizer && choosingZoomAnchor}
-        onChooseZoomAnchor={next => { if (tool === 'scale' && validSelection[next.geosetIndex]?.includes(next.vertexIndex)) { setZoomAnchor(next); setChoosingZoomAnchor(false); say('Anchor vertex selected.'); } }}
+        onChooseZoomAnchor={next => { if (tool === 'scale' && validSelection[next.geosetIndex]?.includes(next.vertexIndex)) { setZoomAnchor({ ...next, kind: choosingZoomAnchor }); setChoosingZoomAnchor(false); say(choosingZoomAnchor === 'align' ? 'Align vertex selected.' : 'Anchor vertex selected.'); } }}
         rgbPreview={rgbPreview} rgbPreviewSequenceIndex={rgbSequence} sequenceIndex={-1} time={0} playing={false}
         teamColor={teamColor} textureAssets={session.assets} onTransform={transform} onTransformPreview={setVertexDragCenter}/>}
       {uvWindow && <UVWindow key={`uv:${session.id}`} state={uvWindow} onChange={setUVWindow} onClose={closeUVWindow}>{uvWorkspace}{dialog?.host === 'uv' && textureLibraryDialog}</UVWindow>}

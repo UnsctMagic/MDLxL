@@ -6425,5 +6425,7 @@
   "Let MDLxL tell you when a new version is out?": "Сообщать о выходе новой версии MDLxL?",
   "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.": "MDLxL проверяет наличие новой версии при запуске и сначала спрашивает вас. Ничего не загружается и не устанавливается, пока вы не выберете «Обновить и перезапустить». Это можно изменить в любой момент: Настройки → Оформление → Автообновление.",
   "Turn on": "Включить",
-  "No thanks": "Нет, спасибо"
+  "No thanks": "Нет, спасибо",
+  "Choose Zoom align": "Выбрать вершину выравнивания",
+  "Align vertex selected.": "Выбрана вершина выравнивания."
 }
