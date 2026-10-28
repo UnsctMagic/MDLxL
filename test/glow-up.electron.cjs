@@ -81,6 +81,12 @@ async function heroFixture(file){
    await page.mouse.up();await sleep(1000);assert.equal(await playingNow(),true,'the animation plays on after the drag');
    assert.ok(Math.hypot(...middle((await preview()).model).map((v,i)=>v-middle(before)[i]))>2,'a press next to a handle grabs it');}
   checks.push('A press near a handle grabs it; the animation pauses during the drag and resumes after');
+  // Pause holds the animation through several drags (two weapon ends) until Play.
+  {const pause=emtr.locator('.pe-transport').getByRole('button',{name:'Pause',exact:true});await pause.click();await sleep(300);assert.equal(await playingNow(),false,'Pause stops the animation');
+   const [mx,my]=await centerOf('Move origin glow');await page.mouse.move(mx,my);await page.mouse.down();await page.mouse.move(mx+12,my+6,{steps:4});await page.mouse.up();await sleep(800);
+   assert.equal(await playingNow(),false,'a drag while paused stays paused');
+   await emtr.locator('.pe-transport').getByRole('button',{name:'Play',exact:true}).click();await sleep(300);assert.equal(await playingNow(),true,'Play starts it again');}
+  checks.push('Pause keeps the animation still through drags until Play');
   if(weaponOn){
    // A small hero: zoom in with the wheel, as a user would, until the weapon's two handles are apart.
    for(let i=0;i<12;i++){const [sx,sy]=await centerOf('Weapon glow start'),[tx,ty]=await centerOf('Weapon glow end');if(Math.hypot(tx-sx,ty-sy)>=40)break;await page.mouse.move(box.x+20,box.y+20);await page.mouse.wheel(0,-240);await sleep(400);}
