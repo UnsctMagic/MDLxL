@@ -1,12 +1,12 @@
 # Manager workspace and visual model editing
 
-Status: ready for owner testing; draft PR unmerged
+Status: owner accepted; merge authorized, final integration in progress
 Owner: Codex, Manager polish chat
 Updated: 2026-10-28
 
 ## Scope
 
-Manager sits after Animations and before Paint and opens Materials in the full
+Managers sits after Animations and before Paint and opens Materials in the full
 editor workspace. The top Managers menu retains movable popup managers. Existing
 manager controls, selection wiring, texture loading, previews and other editor
 sidebars are preserved. The owner chose tabs and explicitly rejected replacement
@@ -45,4 +45,4 @@ field. The collapsed Comments section explains that limitation for MDX files.
   The displayed sphere is an unsaved example. No installed app, personal profile
   or supplied user model was changed. The review app remains available for testing.
 - Owner design acceptance and Warcraft III in-game validation remain outstanding.
-  No merge, release, version change or installation was authorized.
+  Merge authorized by the owner. No release, version change or installation was requested.
