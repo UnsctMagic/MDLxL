@@ -1,8 +1,8 @@
 // A dark western-fantasy fanfare made on the spot, so no sound file ships with
 // the app: a timpani boom and low strings under a solemn three-note horn call,
 // all in a large stone hall.
-export function playUpdateChime(){
-  const audio=new AudioContext(),t=audio.currentTime+.05,out=audio.createGain(),dry=audio.createGain(),wet=audio.createGain(),hall=audio.createConvolver(),dark=audio.createBiquadFilter();
+export function playUpdateChime({audio=new AudioContext(),startAt}={}){
+  const t=startAt??audio.currentTime+.05,out=audio.createGain(),dry=audio.createGain(),wet=audio.createGain(),hall=audio.createConvolver(),dark=audio.createBiquadFilter();
   const seconds=3.6,impulse=audio.createBuffer(2,audio.sampleRate*seconds,audio.sampleRate);
   for(let c=0;c<2;c++){const data=impulse.getChannelData(c);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/data.length,2.5);}
   hall.buffer=impulse;dark.type='lowpass';dark.frequency.value=2200;out.gain.value=.5;dry.gain.value=.6;wet.gain.value=.6;

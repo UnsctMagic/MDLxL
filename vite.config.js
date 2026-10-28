@@ -8,5 +8,7 @@ export default defineConfig({ base: './', esbuild:{jsxFactory:'localizedCreateEl
     this.emitFile({type:'asset',fileName:'optimizexl-validation.cjs',source:result.outputFiles[0].contents});
     const particles=await bundleNode({entryPoints:['electron/particle-runtime.js'],bundle:true,platform:'node',format:'esm',target:'node22',minify:true,write:false});
     this.emitFile({type:'asset',fileName:'particle-runtime.mjs',source:particles.outputFiles[0].contents});
+    const popupEffects=await bundleNode({entryPoints:['app/welcome-popup-effects.js'],bundle:true,platform:'browser',format:'iife',target:'chrome144',minify:true,write:false});
+    this.emitFile({type:'asset',fileName:'update-popup-effects.js',source:popupEffects.outputFiles[0].contents});
   },
 }] });

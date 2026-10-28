@@ -620,7 +620,7 @@ if(singleInstanceLock)app.whenReady().then(async()=>{
 });
 async function createWindow(bounds={}){
   externalModelsReady=false;
-  const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:process.env.MDLVIS_HEADLESS!=='1',backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  const current=new BrowserWindow({width:1100,height:760,...bounds,minWidth:720,minHeight:480,show:process.env.MDLVIS_HEADLESS!=='1',backgroundColor:(APPLICATION_THEMES[settings.preferences?.theme] || APPLICATION_THEMES.light).colors.panel,title:'MDLxL',icon:path.join(__dirname,'../dist/branding/MDLxL.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,autoplayPolicy:'no-user-gesture-required'}});
   if(process.env.MDLVIS_HEADLESS!=='1')current.maximize();
   win=current;nativeEditorState={readOnly:true,saving:false};
   current.once('closed',()=>{if(current===win)aiService.close().catch(error=>console.error('AI shutdown: '+error.message));});
