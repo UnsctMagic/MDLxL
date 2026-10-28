@@ -6422,8 +6422,10 @@
   "When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here.": "При нажатии на элемент с горячей клавишей появляется подсказка. Нажмите клавишу или щёлкните подсказку левой кнопкой, чтобы закрыть её. Правая кнопка отключает подсказки этой клавиши, пока вы не вернёте их здесь.",
   "Show reminders for muted shortcuts again.": "Снова показывать подсказки отключённых клавиш.",
   "Each use of a learned shortcut restarts its quiet time. This shows learned keys again now.": "Каждое использование изученной клавиши продлевает время без подсказок. Эта кнопка возвращает подсказки прямо сейчас.",
-  "Let MDLxL tell you when a new version is out?": "Сообщать о выходе новой версии MDLxL?",
-  "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.": "MDLxL проверяет наличие новой версии при запуске и сначала спрашивает вас. Ничего не загружается и не устанавливается, пока вы не выберете «Обновить и перезапустить». Это можно изменить в любой момент: Настройки → Оформление → Автообновление.",
+  "Welcome to MDLxL": "Добро пожаловать в MDLxL",
+  "Welcome to MDLxL! Want a heads-up when a new version comes out?": "Добро пожаловать в MDLxL! Сообщать вам о выходе новой версии?",
+  "We only ask this once. If you say yes, MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart. You can change your mind any time in Settings → Appearance → Auto update.": "Мы спросим об этом только один раз. Если вы согласитесь, MDLxL будет быстро проверять наличие новой версии при каждом запуске и сообщит, когда она появится. Ничего не загружается и не устанавливается, пока вы не выберете «Обновить и перезапустить». Передумать можно в любой момент: Настройки → Оформление → Автообновление.",
+  "Yes, let me know": "Да, сообщать",
   "Turn on": "Включить",
   "No thanks": "Нет, спасибо"
 }

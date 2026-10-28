@@ -1374,9 +1374,10 @@
     "Using the editor",
     "The AI is checking an editor error.",
     "{0} vertices · {1} nodes",
-    "Let MDLxL tell you when a new version is out?",
-    "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.",
-    "Turn on",
+    "Welcome to MDLxL",
+    "Welcome to MDLxL! Want a heads-up when a new version comes out?",
+    "We only ask this once. If you say yes, MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart. You can change your mind any time in Settings → Appearance → Auto update.",
+    "Yes, let me know",
     "No thanks"
   ],
   "paint": [

@@ -6434,8 +6434,10 @@
   "When you click something that has a key, its key pops up. Use the key or left-click the popup to dismiss this reminder. Right-click the popup to mute that shortcut until you bring it back here.": "Al hacer clic en un control con atajo, aparece su tecla. Use el atajo o haga clic izquierdo en el aviso para cerrarlo. Un clic derecho silencia ese atajo hasta que lo restaure aquí.",
   "Show reminders for muted shortcuts again.": "Volver a mostrar los recordatorios de atajos silenciados.",
   "Each use of a learned shortcut restarts its quiet time. This shows learned keys again now.": "Cada uso de un atajo aprendido reinicia su periodo sin avisos. Esto vuelve a mostrar sus recordatorios ahora.",
-  "Let MDLxL tell you when a new version is out?": "¿Quieres que MDLxL te avise cuando salga una nueva versión?",
-  "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.": "MDLxL busca una nueva versión al iniciarse y primero te pregunta. No se descarga ni se instala nada hasta que elijas Actualizar y reiniciar. Puedes cambiarlo cuando quieras en Configuración → Apariencia → Actualización automática.",
+  "Welcome to MDLxL": "Te damos la bienvenida a MDLxL",
+  "Welcome to MDLxL! Want a heads-up when a new version comes out?": "¡Te damos la bienvenida a MDLxL! ¿Quieres que te avisemos cuando salga una nueva versión?",
+  "We only ask this once. If you say yes, MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart. You can change your mind any time in Settings → Appearance → Auto update.": "Solo te lo preguntamos una vez. Si dices que sí, MDLxL comprobará rápidamente si hay una nueva versión cada vez que se inicie y te avisará cuando la haya. No se descarga ni se instala nada hasta que elijas Actualizar y reiniciar. Puedes cambiar de opinión cuando quieras en Configuración → Apariencia → Actualización automática.",
+  "Yes, let me know": "Sí, avísame",
   "Turn on": "Activar",
   "No thanks": "No, gracias"
 }

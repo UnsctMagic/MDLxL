@@ -446,8 +446,11 @@ ipcMain.handle('updates:status',()=>updater?.status());
 ipcMain.handle('updates:check',event=>{if(event.sender!==win?.webContents)throw Error('Update checks require the main editor.');return updater.check(settings.preferences.language);});
 // People who download each release by hand often never find Auto update, so a
 // fresh copy asks once. Test profiles and headless runs are never asked.
+// The MDLxL icon replaces Windows' info icon, which also drops the alert sound
+// that made this welcome feel like an error.
 async function offerStartupUpdates(){
-  const answer=await dialog.showMessageBox(win,{type:'question',title:'Auto update',message:'Let MDLxL tell you when a new version is out?',detail:'MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.',buttons:['Turn on','No thanks'],defaultId:0,cancelId:1});
+  const icon=nativeImage.createFromPath(path.join(__dirname,'../dist/branding/MDLxL.png'));
+  const answer=await dialog.showMessageBox(win,{type:'none',icon,title:'Welcome to MDLxL',message:'Welcome to MDLxL! Want a heads-up when a new version comes out?',detail:'We only ask this once. If you say yes, MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart. You can change your mind any time in Settings → Appearance → Auto update.',buttons:['Yes, let me know','No thanks'],defaultId:0,cancelId:1});
   const preferences={updateOfferAnswered:true,checkUpdatesOnStartup:answer.response===0};
   await updateSettings({preferences});
   // The editor keeps its own copy of preferences and would save the old answer back.
