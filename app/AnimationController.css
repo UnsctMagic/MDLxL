@@ -56,3 +56,9 @@
 .ac-speed-row .ac-actual-speed>span{justify-content:flex-end}
 .ac-speed-row .ac-actual-speed>span{font-size:0}
 .ac-speed-row .ac-speed-number{font-size:11px}
+.ac-reorder-menu .classic-modal-window{width:330px;max-width:calc(100vw - 24px)}
+.ac-reorder-menu .classic-modal-body{display:flex;flex-direction:column;gap:6px}
+.ac-reorder-list{width:100%;min-height:150px}
+.ac-reorder-actions{display:flex;justify-content:flex-end;gap:5px}
+.ac-reorder-menu p{margin:0;font-size:11px}
+.ac-reorder-menu .ac-error{color:var(--ui-danger,#b00000)}

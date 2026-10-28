@@ -10,6 +10,7 @@ import SidebarSection from './SidebarSection.jsx';
 import {
   createGlobalSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
   setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
+  reorderSequences, reorderGlobalSequences, SEQUENCE_REORDER_SECTIONS,
 } from '../src/sequence-editor.js';
 import { addAnimationSequence } from './sequence-actions.js';
 import './AnimationController.css';
@@ -74,6 +75,7 @@ export default function AnimationController({
   disabled = false, Dialog,
 }) {
   const [speedMenu, setSpeedMenu] = useState(false);
+  const [reorder, setReorder] = useState(null);
   const [notice, setNotice] = useState(''), [error, setError] = useState('');
   const [moveSpeedDrafts, setMoveSpeedDrafts] = useState({});
   const sequenceNameInput = useRef(null);
@@ -178,6 +180,35 @@ export default function AnimationController({
 
   function addSequence() {
     return addAnimationSequence({ onEdit, onTimelineChange, onSeek, onNotice: setNotice, onError: setError });
+  }
+
+  function openReorder(global = globalDomain) {
+    const items = global ? model.GlobalSequences : model.Sequences;
+    setError('');
+    setReorder({ global, order: (items || []).map((_, index) => index), selected: Math.max(0, global ? globalSeqId ?? 0 : sequenceIndex), revision });
+  }
+
+  function moveReorder(destination) {
+    setReorder(current => {
+      const order = [...current.order], from = order.indexOf(current.selected);
+      order.splice(destination, 0, order.splice(from, 1)[0]);
+      return { ...current, order };
+    });
+  }
+
+  function applyReorder() {
+    if (revision !== reorder.revision) { setError('The model changed. Close and reopen Reorder before applying.'); return; }
+    const { order, global } = reorder;
+    const offset = sequence ? Math.max(0, Math.min(time - sequence.Interval[0], sequence.Interval[1] - sequence.Interval[0])) : 0;
+    const nextSequence = order.indexOf(sequenceIndex), nextGlobal = order.indexOf(globalSeqId);
+    if (!commit(global ? 'Reorder global sequences' : 'Reorder animations', global ? ['GlobalSequences', ...SEQUENCE_REORDER_SECTIONS] : SEQUENCE_REORDER_SECTIONS,
+      current => global ? reorderGlobalSequences(current, order) : reorderSequences(current, order), 'Animation order updated.')) return;
+    if (global && globalDomain) { onTimelineChange?.(`global:${nextGlobal}`); onSeek?.(time); }
+    else if (!global) {
+      setMoveSpeedDrafts(previous => Object.fromEntries(order.flatMap((old, index) => previous[old] === undefined ? [] : [[index, previous[old]]])));
+      if (!globalDomain && nextSequence >= 0) { onTimelineChange?.(nextSequence); onSeek?.(model.Sequences[nextSequence].Interval[0] + offset); }
+    }
+    setReorder(null);
   }
 
   function copyCurrentSequence() {
@@ -327,7 +358,7 @@ export default function AnimationController({
       <input aria-label="Sequence first frame" type="number" min="0" step="1" disabled={disabled || !sequence || globalDomain} value={startText} onChange={event => setStartText(event.target.value)} onBlur={commitInterval} onKeyDown={enterBlurs}/><span>–</span>
       <input aria-label="Sequence last frame" type="number" min={globalDomain ? 1 : Math.max(0, Number(startText) || 0)} step="1" disabled={disabled || !sequence && !globalDomain} value={endText} onChange={event => setEndText(event.target.value)} onBlur={commitInterval} onKeyDown={enterBlurs}/>
     </div>
-    <div className="ac-sequence-actions"><button disabled={disabled} onClick={addSequence}>Create</button><button disabled={noLocalSequence} onClick={copyCurrentSequence}>Create from current</button><button disabled={disabled} onClick={addGlobal}>Global</button><button disabled={disabled || !sequence && !globalDomain} onClick={removeCurrent}>Delete</button></div>
+    <div className="ac-sequence-actions"><button disabled={disabled} onClick={addSequence}>Create</button><button disabled={noLocalSequence} onClick={copyCurrentSequence}>Create from current</button><button disabled={disabled} onClick={addGlobal}>Global</button><button disabled={disabled || !sequence && !globalDomain} onClick={removeCurrent}>Delete</button><button disabled={disabled || Math.max(model.Sequences?.length || 0, model.GlobalSequences?.length || 0) < 2} onClick={() => openReorder()}>Reorder…</button></div>
     </SidebarSection>
     <SidebarSection title="Visibility & Color">
     {materialVisibility && <div className="ac-caption">Material {materialVisibility.id+1} · Layer {materialVisibility.layer+1}</div>}
@@ -340,7 +371,22 @@ export default function AnimationController({
     <button disabled={nodeSelection || noLocalSequence || !geosetIds.length} onClick={() => bakeRgb(false)}>Bake Sequence RGB</button>
     <button disabled={nodeSelection || disabled || globalDomain || !model.Sequences?.length || !geosetIds.length} onClick={() => bakeRgb(true)}>Bake All RGB</button>
     </SidebarSection>
-    {error && !speedMenu && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
+    {error && !speedMenu && !reorder && <p className="ac-error" role="alert">{error}</p>}{notice && <p className="ac-notice" role="status">{notice}</p>}
+    {reorder && <Dialog title="Reorder Animations" onClose={() => setReorder(null)} overlayClass="ac-reorder-menu" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setReorder(null); }} footer={<><button onClick={() => setReorder(null)}>Cancel</button><button disabled={disabled || reorder.order.every((index, position) => index === position)} onClick={applyReorder}>Apply</button></>}>
+      <select aria-label="Animation order type" value={reorder.global ? 'global' : 'local'} onChange={event => openReorder(event.target.value === 'global')}><option value="local">Animations</option><option value="global">Global sequences</option></select>
+      <select className="ac-reorder-list" aria-label="Animation order" size="10" value={reorder.selected} onChange={event => setReorder(current => ({ ...current, selected: Number(event.target.value) }))}>
+        {reorder.order.map((index, position) => <option key={index} value={index} translate="no">{position + 1}. {reorder.global ? `${model.GlobalSequences[index]} ms (${index + 1})` : model.Sequences[index]?.Name}</option>)}
+      </select>
+      <div className="ac-reorder-actions">
+        <button disabled={reorder.order.indexOf(reorder.selected) <= 0} onClick={() => moveReorder(0)}>Move to top</button>
+        <button disabled={reorder.order.indexOf(reorder.selected) <= 0} onClick={() => moveReorder(reorder.order.indexOf(reorder.selected) - 1)}>Up</button>
+        <button disabled={reorder.order.indexOf(reorder.selected) < 0 || reorder.order.indexOf(reorder.selected) >= reorder.order.length - 1} onClick={() => moveReorder(reorder.order.indexOf(reorder.selected) + 1)}>Down</button>
+        <button disabled={reorder.order.indexOf(reorder.selected) < 0 || reorder.order.indexOf(reorder.selected) >= reorder.order.length - 1} onClick={() => moveReorder(reorder.order.length - 1)}>Move to bottom</button>
+      </div>
+      <p>{reorder.global ? 'Global sequence references follow the new order. Their timing stays unchanged.' : 'Keyframes and events move with each animation. Durations and global timing stay unchanged.'}</p>
+      {!reorder.global && <p>Animation indices change to match this order.</p>}
+      {error && <p className="ac-error" role="alert">{error}</p>}
+    </Dialog>}
     {speedMenu && <Dialog title="Adjust All Speed" onClose={() => setSpeedMenu(false)} overlayClass="ac-speed-menu" onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') setSpeedMenu(false); }}>
       <SpeedControl label="Master Controller" value={animationMasterSpeed(model)} disabled={disabled} onCommit={percent => changeActualSpeed(null, percent)}/>
       <div className="ac-speed-list">{(model.Sequences || []).map((item, index) => <div className="ac-speed-row" key={index}>
