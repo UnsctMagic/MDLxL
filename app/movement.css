@@ -13,7 +13,7 @@
 .movement-object-details>summary{cursor:pointer;line-height:18px}.movement-object-details[open]{margin-bottom:3px}
 
 /* Controller type sits in the Controller heading as a small text dropdown. */
-.movement-controller-select{position:relative;display:inline-flex;align-items:center;margin-left:6px;min-width:0;font-weight:normal;cursor:default}
+.movement-controller-select{position:relative;display:inline-flex;align-items:center;margin-left:auto;min-width:0;font-weight:normal;cursor:default}
 .movement-controller-select::after{content:'▾';position:absolute;right:3px;pointer-events:none;font-size:10px;line-height:1}
 .movement-controller-select select{appearance:none!important;-webkit-appearance:none!important;width:auto!important;max-width:112px;height:16px!important;min-height:0!important;margin:0!important;padding:0 13px 0 4px!important;border:0!important;border-radius:4px!important;background:transparent!important;box-shadow:none!important;color:inherit!important;font:inherit!important;cursor:pointer}
 .movement-controller-select select:hover:not(:disabled){background:color-mix(in srgb,currentColor 10%,transparent)!important}
