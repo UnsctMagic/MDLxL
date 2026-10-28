@@ -140,7 +140,7 @@ test('save cleanup keeps everything, keeps a memory note, or wipes every chat fo
   });
   const first = await f.service.organiser({ modelKey, name: 'Footman.mdx' });
   await f.service.send({ id: first.id, text: 'separate the garment', context });
-  assert.deepEqual(await f.service.saveState({ modelKey }), { activity: true, remember: 'ask' });
+  assert.deepEqual(await f.service.saveState({ modelKey }), { activity: true, remember: 'ask', important: false });
   assert.deepEqual(await f.service.cleanup({ modelKey, mode: 'keep' }), { mode: 'keep' });
   assert.equal((await f.service.saveState({ modelKey })).activity, false);
   assert.equal((await f.service.organiser({ modelKey })).id, first.id);
@@ -167,6 +167,56 @@ test('save cleanup keeps everything, keeps a memory note, or wipes every chat fo
   const wiped = await f.service.cleanup({ modelKey, mode: 'wipe' });
   assert.equal(wiped.note, null);
   assert.equal((await f.service.organiser({ modelKey })).hasNote, false);
+});
+
+test('automatic cleanup removes models unused for the set days, keeps important ones and leftover files of current chats', async t => {
+  const f = await setup(t, { organiser: () => say('x'), worker: () => say('done') });
+  assert.equal((await f.service.status()).cleanupDays, 3);
+  const ai = path.join(f.profile, 'ai'),
+    day = 24 * 60 * 60 * 1000,
+    later = Date.now() + 4 * day;
+  const moved = await f.service.organiser({ modelKey: 'D:/Old/Moved.mdx', name: 'Moved.mdx' });
+  const kept = await f.service.organiser({ modelKey, name: 'Footman.mdx' });
+  const recent = await f.service.organiser({ modelKey: 'D:/Models/Grunt.mdx', name: 'Grunt.mdx' });
+  assert.deepEqual(await f.service.setImportant({ modelKey, important: true }), { important: true });
+  assert.equal((await f.service.saveState({ modelKey })).important, true);
+  (await f.service.conversation(moved.id, 'compatible')).threadId = 'thread-moved-123456';
+  (await f.service.conversation(kept.id, 'compatible')).threadId = 'thread-kept-1234567';
+  await f.service.persistConversation(await f.service.conversation(moved.id, 'compatible'));
+  await f.service.persistConversation(await f.service.conversation(kept.id, 'compatible'));
+  f.service.conversations.clear();
+  const old = new Date(Date.now() - day);
+  const write = async (file, text = '{}') => (await fs.mkdir(path.dirname(file), { recursive: true }), await fs.writeFile(file, text), file);
+  const files = {
+    movedLog: await write(path.join(ai, 'codex', 'sessions', '2026', 'rollout-thread-moved-123456.jsonl')),
+    keptLog: await write(path.join(ai, 'codex', 'sessions', '2026', 'rollout-thread-kept-1234567.jsonl')),
+    orphan: await write(path.join(ai, 'chat-orphan.json')),
+    temp: await write(path.join(ai, 'temp', 'shot.png')),
+    run: await write(path.join(ai, 'claude-run-abc', 'mcp.json')),
+    auth: await write(path.join(ai, 'codex', 'auth.json')),
+  };
+  for (const file of [...Object.values(files), path.join(ai, 'claude-run-abc'), path.join(ai, 'chat-' + moved.id + '.json'), path.join(ai, 'chat-' + kept.id + '.json')])
+    await fs.utimes(file, old, old);
+  // Grunt was used within the last three days.
+  (await f.service.registry.model('D:/Models/Grunt.mdx')).used = later - day;
+  for (const key of ['D:/Old/Moved.mdx', modelKey]) (await f.service.registry.model(key)).used = old.getTime();
+
+  const result = await f.service.cleanupUnused(later);
+  assert.equal(result.models, 1);
+  const data = await f.service.registry.load();
+  assert.deepEqual(Object.keys(data.models).sort(), ['D:/Models/Footman.mdx', 'D:/Models/Grunt.mdx']);
+  await assert.rejects(fs.stat(path.join(ai, 'chat-' + moved.id + '.json')));
+  for (const gone of [files.movedLog, files.orphan, files.temp, path.join(ai, 'claude-run-abc')]) await assert.rejects(fs.stat(gone), gone);
+  for (const stays of [files.keptLog, files.auth, path.join(ai, 'chat-' + kept.id + '.json'), path.join(ai, 'chat-' + recent.id + '.json'), path.join(ai, 'connections.json')])
+    await fs.stat(stays);
+  assert.ok(f.events.some(event => event.type === 'organiser-reset' && event.modelKey === 'D:/Old/Moved.mdx'));
+
+  // Empty days means never; the setting is kept.
+  await f.service.configure({ provider: 'compatible', model: 'test', baseUrl: (await f.service.status()).baseUrl, cleanupDays: '' });
+  assert.equal((await f.service.status()).cleanupDays, 0);
+  await f.service.setImportant({ modelKey, important: false });
+  assert.deepEqual(await f.service.cleanupUnused(later + 100 * day), { models: 0, files: 0 });
+  await assert.rejects(() => f.service.configure({ provider: 'compatible', cleanupDays: '1.5' }), /number of days/);
 });
 
 test('Offload Mode off gives the model chat the normal tools; saving a new file moves its organiser', async t => {

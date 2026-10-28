@@ -164,6 +164,16 @@ organiser for this model starts with the note) or **Wipe it all**. **Remember fo
 this model** skips the question next time; **After saving** in the connection
 settings changes the remembered choice.
 
+**Automatic cleanup.** Chats are kept per model file, so a model that is moved,
+renamed or edited in another program leaves its chats behind. MDLxL therefore
+deletes the chats, memory note, decision diary, Codex/Claude copies and temporary
+files of every model whose AI chat you have not opened or used for three days. It
+checks a minute after start and every six hours while MDLxL is open, never while
+the AI is working. **Clean up unused chats after (days)** in the connection
+settings changes the number of days; leave it empty to never clean up. Tick
+**Important model** there to keep that model's chats; automatic cleanup skips it.
+Sign-in and connection settings are never touched.
+
 With Offload Mode off, the model's chat edits directly, as one assistant.
 
 ### Marker and Pen

@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('desktop', {
   aiSaveState:value=>ipcRenderer.invoke('ai:saveState',value),
   aiCleanup:value=>ipcRenderer.invoke('ai:cleanup',value),
   aiRememberCleanup:value=>ipcRenderer.invoke('ai:rememberCleanup',value),
+  aiImportant:value=>ipcRenderer.invoke('ai:important',value),
   aiOffload:value=>ipcRenderer.invoke('ai:offload',value),
   aiSdBrain:value=>ipcRenderer.invoke('ai:sdBrain',value),
   aiEditingHandbook:value=>ipcRenderer.invoke('ai:editingHandbook',value),

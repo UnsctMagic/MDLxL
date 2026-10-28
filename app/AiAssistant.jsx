@@ -361,6 +361,7 @@ function AiAssistant({ bridge, visUI }) {
     [cleanup, setCleanup] = useState(null),
     [rememberCleanup, setRememberCleanup] = useState(false),
     [savedChoice, setSavedChoice] = useState('ask'),
+    [important, setImportant] = useState(false),
     [connected, setConnected] = useState(false);
   const id = view;
   // Each model's chat works on its own: this chat is busy while its task or one of
@@ -569,7 +570,10 @@ function AiAssistant({ bridge, visUI }) {
   }, [view]);
   useEffect(() => {
     if (!settingsOpen || !org?.modelKey || !window.desktop?.aiSaveState) return;
-    window.desktop.aiSaveState({ modelKey: org.modelKey }).then(value => setSavedChoice(value.remember), () => {});
+    window.desktop.aiSaveState({ modelKey: org.modelKey }).then(value => {
+      setSavedChoice(value.remember);
+      setImportant(value.important === true);
+    }, () => {});
   }, [settingsOpen, org?.modelKey]);
   // A bird working on another model tab waits until you return to it.
   useEffect(() => {
@@ -1101,6 +1105,17 @@ function AiAssistant({ bridge, visUI }) {
                         </select>
                       </label>
                     )}
+                    {org && (
+                      <label title="Keep this model's AI chats. Automatic cleanup never removes them.">
+                        <input
+                          data-hotkey="important-model" data-hotkey-label="Important model" type="checkbox" checked={important}
+                          onChange={event =>
+                            action(async () => setImportant((await window.desktop.aiImportant({ modelKey: org.modelKey, important: event.target.checked })).important))
+                          }
+                        />
+                        Important model
+                      </label>
+                    )}
                     <label title="Which AI service to use.">
                       AI provider
                       <select
@@ -1240,6 +1255,17 @@ function AiAssistant({ bridge, visUI }) {
                         />
                       </label>
                     )}
+                    <label title="Deletes the AI chats, notes and leftover files of models you have not used for this many days, so they do not pile up when models are moved or edited elsewhere. Important models are kept. Leave empty to never clean up.">
+                      Clean up unused chats after (days)
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="Never"
+                        data-hotkey="cleanup-days" data-hotkey-label="Clean up unused chats after" value={settings.cleanupDays || ''}
+                        onChange={event => setSettings(previous => ({ ...previous, cleanupDays: event.target.value }))}
+                      />
+                    </label>
                     <div className="ai-row">
                       <button
                         disabled={anyBusy || authBusy}
