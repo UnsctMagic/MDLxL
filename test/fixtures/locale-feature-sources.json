@@ -1381,7 +1381,9 @@
     "Yes, enable it",
     "No thanks",
     "Choose Zoom align",
-    "Align vertex selected."
+    "Align vertex selected.",
+    "Model name",
+    "The name stored inside the model, separate from the file name."
   ],
   "paint": [
     "Citadel Paint",

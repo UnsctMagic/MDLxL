@@ -49,11 +49,15 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     if (await page.evaluate(() => window.saveEvents[0].error)) throw Error('MDL save verification failed');
     if (await app.evaluate(() => globalThis.saveDialogs) !== 1 || !fs.existsSync(path.join(out, 'ui-saved.mdl'))) throw Error('MDL save did not write output');
     await page.keyboard.press('F12');
+    // Save as also names the model itself, not only the file.
+    await page.getByLabel('Model name').fill('Renamed Knight');
+    await page.screenshot({ path: path.join(out, 'electron-save-as-name.png') });
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).click();
     await page.waitForFunction(() => window.saveEvents.length === 2);
     await page.getByRole('button', { name: 'Save MDX…', exact: true }).waitFor({ state: 'hidden' });
     console.log('SAVED', await page.evaluate(() => ({ events: window.saveEvents, workers: window.saveWorkerCount, ticks: window.saveTicks, alpha: document.querySelector('[aria-label="Visibility alpha percent"]').value })));
     if (!fs.existsSync(path.join(out, 'ui-saved.mdx'))) throw Error('Save did not write output');
+    if (!fs.readFileSync(path.join(out, 'ui-saved.mdx')).includes('Renamed Knight')) throw Error('Save as did not write the model name');
     const metrics = await page.evaluate(() => window.saveEvents);
     if (metrics.some(event => event.ticksDuringSave < 1)) throw Error('UI did not tick during worker save');
     fs.writeFileSync(path.join(out, 'electron-metrics.json'), JSON.stringify(metrics, null, 2));
