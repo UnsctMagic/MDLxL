@@ -14,7 +14,8 @@ Placement and size are dragged in the preview with EMTR's emitter handles
 
 Escape cancels a drag, arrow keys nudge a focused handle, and dragging a handle
 never moves the camera. **Origin brightness %** and **Weapon brightness %** are EMTR's own `ParticleSlider`. The
-preview plays the model's Stand with the glow, orbits with the mouse, fits the
+preview plays the model's Stand with the glow (a drag holds it still; **Pause**
+under the preview, or Space, keeps it still across several drags until **Play**), orbits with the mouse, fits the
 view once and then keeps the user's camera. Create is one undo step; Cancel or
 Escape leaves the model alone. Glow Up used to be a Forge mode; Forge no longer has it.
 
