@@ -59,7 +59,7 @@
 .gf-info code{display:block;overflow-wrap:anywhere;font:11px Consolas,monospace;color:#a8c1d1;line-height:1.5}
 .gf-info>select,.gf-transport>button,.gf-transport>select,.gf-file-actions>button{border:1px solid #64737c;background:#35424c;color:#eee;border-radius:2px;padding:5px 9px}
 .gf-transport{display:flex;gap:6px;align-items:center}
-.gf-transport>select{flex:1;min-width:0}
+.gf-transport>select{flex:1;min-width:0;height:auto;min-height:28px;line-height:1.35}
 .gf-time{width:100%;margin:0;box-sizing:border-box;accent-color:#af9256}
 .gf-missing code{display:block}
 .gf-file-actions{display:flex;gap:6px;flex-wrap:wrap}
