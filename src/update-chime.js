@@ -32,5 +32,6 @@ export function playUpdateChime(){
   timpani(t,73.42,.55);
   // Horn call: three heavy notes, D, A and the high D, the last one ringing out.
   [[146.83,0,.42],[220,.42,.42],[293.66,.84,1.6]].forEach(([f,at,length])=>voice(f,t+at,length+.25,.09,.06,1200));
-  setTimeout(()=>audio.close(),8000);
+  const timer=setTimeout(()=>audio.close(),8000);
+  return ()=>{clearTimeout(timer);if(audio.state!=='closed')void audio.close();};
 }

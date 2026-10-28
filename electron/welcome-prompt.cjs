@@ -42,7 +42,7 @@ const chime=${playUpdateChime.toString()};
 }
 
 // Resolves 'yes' or 'no'. Closing the window itself counts as no.
-function showWelcomePrompt(parent, { title, heading, question, detail, note, labels, icon, theme }) {
+function showWelcomePrompt(parent, { title, heading, question, detail, note, labels, icon, theme, disableSounds = false }) {
   // Loaded on use so main.cjs stays loadable where Electron is stubbed or absent.
   const { BrowserWindow } = require('electron');
   const width = 520;
@@ -68,7 +68,7 @@ function showWelcomePrompt(parent, { title, heading, question, detail, note, lab
         const height = await prompt.webContents.executeJavaScript('document.documentElement.scrollHeight');
         if (!prompt.isDestroyed()) prompt.setContentSize(width, Math.min(600, Math.ceil(height)));
       } catch {}
-      if (!prompt.isDestroyed() && process.env.MDLVIS_HEADLESS !== '1') { prompt.show(); prompt.webContents.focus(); prompt.webContents.executeJavaScript('chime()').catch(() => {}); }
+      if (!prompt.isDestroyed() && process.env.MDLVIS_HEADLESS !== '1') { prompt.show(); prompt.webContents.focus(); if (!disableSounds) prompt.webContents.executeJavaScript('chime()').catch(() => {}); }
     });
     prompt.on('closed', () => resolve(answer));
     prompt.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(welcomePromptHtml({ heading, question, detail, note, labels, icon, theme })));

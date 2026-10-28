@@ -138,9 +138,9 @@ export default function App() {
   useEffect(() => installTextureLibraryDecoder(window.desktop), []);
   const [preferences, setPreferences] = useState(() => { try { return normalizePreferences(JSON.parse(localStorage.getItem('mdlvis-preferences') || '{}')); } catch { return normalizePreferences({}); } });
   setLanguage(preferences.language);
-  const updates = useUpdates();
   useEffect(()=>{document.documentElement.lang=preferences.language;},[preferences.language]);
   const [settingsTab, setSettingsTab] = useState(null), [preferencesReady, setPreferencesReady] = useState(!window.desktop);
+  const updates = useUpdates({ disableSounds: preferences.disableSounds, preferencesReady });
   const pressedKeysIcon = './classic/btn-magical-sentry.png';
   useEffect(() => bindDropdownWheel(document), []);
   const textureUrls = useRef(new Set());
