@@ -15,7 +15,7 @@ export default function SanityCheck({ model, revision, doc, Dialog, onClose }) {
     return () => { active = false; clearTimeout(timer); };
   }, [model, revision, doc]);
   const report = state?.report;
-  return <Dialog title="Sanity Check" onClose={onClose}>
+  return <Dialog title="Sanity Check" onClose={onClose} footer={<><small style={{ marginRight: 'auto', textAlign: 'left', lineHeight: 1.3 }}>mdx-m3-viewer 5.12.0<br/>by GhostWolf and contributors</small><button data-hotkey="app:action:1" onClick={onClose}>Close</button></>}>
     <div style={{ maxWidth: '100%', overflowWrap: 'anywhere' }}>
       <p><strong>{model.Info?.Name || 'Untitled'}</strong> · Format {model.Version}</p>
       <p role="status" aria-live="polite"><strong>{state?.error ? 'Check could not complete' : report?.status || 'Checking current model…'}</strong></p>
@@ -27,9 +27,9 @@ export default function SanityCheck({ model, revision, doc, Dialog, onClose }) {
           <ul style={{ maxHeight: 220, overflowY: 'auto' }}>{report.structural.map((f, i) => <li key={i}><strong>{f.severity}: {sanityLocation(f.path)}</strong><br/>{sanityLocation(f.message)} <small>({f.code})</small></li>)}</ul>
         </details>}
         {report.hive && <details open={report.hive.errors + report.hive.severe > 0}>
-          <summary>mdx-m3-viewer advisory findings ({report.hive.findings.length})</summary>
+          <summary>Advisory findings ({report.hive.findings.length})</summary>
           <p>{report.hive.errors} errors · {report.hive.severe} severe · {report.hive.warnings} warnings · {report.hive.unused} unused notices</p>
-          <p>mdx-m3-viewer 5.12.0 by GhostWolf and contributors. Findings use zero-based indices. Naming, unused data and older compatibility heuristics require review; they are not proof of a game failure.</p>
+          <p>Findings use zero-based indices. Naming, unused data and older compatibility heuristics require review; they are not proof of a game failure.</p>
           <ul style={{ maxHeight: 220, overflowY: 'auto' }}>{report.hive.findings.map((f, i) => <li key={i}><strong>{f.type}: {f.path}</strong><br/>{f.message}</li>)}</ul>
         </details>}
       </>}

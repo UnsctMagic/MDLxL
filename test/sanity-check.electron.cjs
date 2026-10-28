@@ -10,7 +10,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await app.evaluate(({Menu})=>Menu.getApplicationMenu().items.find(x=>x.label==='Help').submenu.items.find(x=>x.label==='Sanity Check').click());
   const popup=page.getByRole('dialog',{name:'Sanity Check',exact:true});await popup.waitFor();
   await popup.getByText(/structural errors ·/).waitFor();
-  assert.ok(await popup.getByText('mdx-m3-viewer advisory findings', {exact:false}).count());
+  assert.ok(await popup.getByText('Advisory findings', {exact:false}).count());
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const png=await app.evaluate(async ({BrowserWindow}) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage({}, {stayHidden:true,stayAwake:true})).toPNG().toString('base64'));
   fs.writeFileSync(path.join(out,'sanity-check.png'),Buffer.from(png,'base64'));
