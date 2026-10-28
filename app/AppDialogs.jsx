@@ -7,6 +7,7 @@ import { GEOSET_TABS_KEY, assignGeosetTab } from '../src/geoset-tabs.js';
 import PortraitSetup from './PortraitSetup.jsx';
 import { allGeosets } from '../src/classic-selection.js';
 import { version } from '../package.json';
+const SanityCheck = lazy(() => import('./SanityCheck.jsx'));
 const BitsAndParts = lazy(() => import('./BitsAndParts.jsx'));
 const ParticleEditor = lazy(() => import('./ParticleEditor.jsx'));
 const ResourceEditor = lazy(() => import('./ResourceEditors.jsx'));
@@ -40,6 +41,7 @@ export default function AppDialogs({
     if (await save(true, format)) setDialog(null);
   };
   return <>
+    {dialog?.type === 'sanityCheck' && <Suspense fallback={<Dialog title="Sanity Check" onClose={() => setDialog(null)}>Loading checker…</Dialog>}><SanityCheck model={model} doc={doc} revision={doc.revision} Dialog={Dialog} onClose={() => setDialog(null)}/></Suspense>}
     {dialog?.type === 'portraitSetup' && <PortraitSetup model={model} missingCamera={dialog.missingCamera} missingSequence={dialog.missingSequence} sourceIndex={sequence >= 0 ? sequence : model.Sequences.length ? 0 : -1} disabled={doc.readOnly || saving} onCreate={completePortraitSetup} onSetCamera={setMissingPortraitCamera} onClose={() => setDialog(null)}/>}
     {dialog?.type==='forge' && <Suspense fallback={<div className="classic-modal">Loading Forge…</div>}><Forge editorState={{ view, quadView, workplane, workplaneEnabled, tool, grabThrough }} preferences={preferences} model={model} modelPath={session.path} onClose={()=>setDialog(null)} onCommit={forgeItem}/></Suspense>}
     {dialog?.type==='bitsAndParts' && <Suspense fallback={<div className="classic-modal">Loading BitsAndParts…</div>}><BitsAndParts model={model} selectionByGeoset={mode === 'vertices' ? validSelection : null} preferences={preferences} textureAssets={session.assets} teamColor={teamColor} onClose={()=>setDialog(null)} onCommit={importPart}/></Suspense>}

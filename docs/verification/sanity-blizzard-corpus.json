@@ -1,0 +1,1011 @@
+{
+  "date": "2026-10-28T13:24:31.008Z",
+  "game": "D:\\Warcraft III",
+  "rows": [
+    {
+      "name": "war3.w3mod:units\\creeps\\archnathid\\archnathid.mdx",
+      "hash": "b784bd7b013e1e682cfaebe67766328c714ffb0c56f7b5b57f4cd6478005c345",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\creeps\\centaur\\centaur.mdx",
+      "hash": "c882eaf8b3f4dcb7f6a196ed96176ad4703d3704f0dfe1afeeeaef19b1d7b60d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\creeps\\foresttroll\\foresttroll.mdx",
+      "hash": "627c2a2f3e99a80fa396ba1d1f0896812891ea2a2e61b77f7519c594d3ad04f8",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\creeps\\grizzlybear\\grizzlybear_portrait.mdx",
+      "hash": "27094fa7338ef45f642847c22e8c92accba87786f7febbfc65850e4e1f92d211",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\creeps\\junglebeast\\junglebeast_portrait.mdx",
+      "hash": "bbab34736874c8d74d996ecbdebd80fd90daab6545c2a79141088fc0b224dda8",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\creeps\\murgultidewarrior\\murgultidewarrior_portrait.mdx",
+      "hash": "a31bbcb9e695d1658472d376d865c85fdfab2f2b6aab15a99277eb665f373aaf",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[2]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\creeps\\ogreoneheadedarmored\\ogreoneheadedarmored.mdx",
+      "hash": "4bec0b7f9d516941ad681607b5723d47abf6b196ee9ddabf72c908fc3cc5c6a0",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\creeps\\satyrtrickster\\satyrtrickster.mdx",
+      "hash": "a06ae66ba1f85dbd2964469318422ef1d4a67d43f5824a2b837b80356a06aa2a",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\creeps\\thunderlizardvizier\\thunderlizardvizier_portrait.mdx",
+      "hash": "432134997a391998a6ff9d417ef3d256ec4b4c11634d4a01970afad874453779",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\critters\\duneworm\\duneworm.mdx",
+      "hash": "ae2086b3057c727338d8e3b4fd46a0eed9bec1e2abf46fb1bdb85f1fe7abf905",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\critters\\skink\\skink_portrait.mdx",
+      "hash": "ca44431f2dadc7071566a5ec5a4c36fdd53fcb03866564e37a4982b110533d1a",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[1]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\demon\\doomguard\\doomguard.mdx",
+      "hash": "ab71be3f2004ed03c764308faa252dcf2acb5618029adfdda322da31b80aa0d2",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\human\\bloodelfspellthief\\bloodelfspellthief_portrait.mdx",
+      "hash": "eaf6ffaa64e3ff99000446dbe19f8108027fe688c10e819757f33f166808e0ac",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\human\\muradin\\muradin.mdx",
+      "hash": "4d0c7af6f8a6f8f467b132f18983b3b3f0881abc329cf699c67bf26226e03e47",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[2]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\naga\\nagasiren\\nagasiren_portrait.mdx",
+      "hash": "b63416ac97f9479f0c7d6887e2147e46f1dfc41998a3f98a53b7a21a5e09e0cb",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\nightelf\\herokeeperofthegroveghost\\herokeeperofthegroveghost.mdx",
+      "hash": "32f0bcfebc2f0a4c303fc8edc3a234dc2487fc32caa4663b4db97ce9b6ec9be0",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\orc\\battroll\\battroll_portrait.mdx",
+      "hash": "8c1e3b6d370bff947b78e0c71dcc0b4882d37cd164bcacca8e6f979854132d50",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\orc\\serpentward\\serpentward_portrait.mdx",
+      "hash": "9feabef192d5cff3ea610d8b53e8728ee8fdaceb3c8f128cc3c7985133b0ba65",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\other\\fleshgolem\\fleshgolem.mdx",
+      "hash": "6f0c76d69ae37d74adf0de9bef4ff3e5bf9f017251be640b066b7382ab2374e3",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:units\\undead\\herodeathknight\\herodeathknight.mdx",
+      "hash": "c89b240299d7c337c560efe1571456dd553ea8fe3a2903fe5fb9368a5bd5d8fd",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\demon\\corruptedancientofwar\\corruptedancientofwar.mdx",
+      "hash": "8be0349ac5c2902df8c777cf0852adad221e01f73017bc6f44b258b18735049b",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\human\\altarofkings\\altarofkings.mdx",
+      "hash": "e1d4267747b6bf5ea9c839186282fa317d68f147c2212d81cfd0b41da1883c63",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\human\\humantower\\humantower.mdx",
+      "hash": "f9652e7259df0b4caa4791fbb5c535c0d1e07d3c040d2e0e3110ddfe04bcef72",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\naga\\tidalguardian\\tidalguardian.mdx",
+      "hash": "a632558b8d14e98583c1b0378bea69787de44fc62d94ad4b123b37464e8af0e3",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\nightelf\\ancientofwonder\\ancientofwonder_portrait.mdx",
+      "hash": "a2b2496b7abf1eba660b57fb9b7c673dbd9cb3f839cb5a741cd79b755ed1a208",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[2]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\nightelf\\treeoflife\\treeoflife.mdx",
+      "hash": "6d935f7690ea3886c0b040ee54d112b9c939276dc3a5dfc519d6e351cb45ea0e",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\orc\\trollburrow\\trollburrow.mdx",
+      "hash": "21dba7a8c96670fa1e438c8000c2289e5eab2b076afe5954a02c4942e4b6510d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\barrowdens\\barrowdens.mdx",
+      "hash": "ca92aea29d7fc60b6bfe6c67ca8ba5dd109857e203220da932a080df60818d69",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\circleofpower\\circleofpower.mdx",
+      "hash": "4f78363a1c69cf13fe1ccc6fb42c0728892ca0159d68f445a9792269f5887ff1",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\citybuildingsmall135_1\\citybuildingsmall135_1.mdx",
+      "hash": "480664c8c54915bf2b9b1e627a2f27bfc48415559e0099a7f6430654452ebf6e",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\dalaranguardtower\\dalaranguardtower.mdx",
+      "hash": "acbc7abbe7fa94a2a7fd3590593985047c71281fc2eacf1707fb8f134421689b",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\draneihut0\\draneihut0.mdx",
+      "hash": "628c3f04253ad09e22ff93cce241d7aa57ee227791b3b96fbc7ae7189e7c87b0",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\elvenfishvillagebuildingruined1\\elvenfishvillagebuildingruined1.mdx",
+      "hash": "66efdebbdc2548510dbcc8968ab55c4c5e136b72acfc83cdb8f393bfcbc1f4ef",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\elvenvillagebuilding3\\elvenvillagebuilding3.mdx",
+      "hash": "35d86521bc3de1374650fd42e35333ccf1817d38a831a67498d5e97f719dc538",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\fountainoflifedefiled\\fountainoflifedefiled.mdx",
+      "hash": "f1a239f4175b388ed3d802bc3623dcaaff52aa2b3d632bc3eec48740eeba6e49",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\goblinshipyard\\goblinshipyard.mdx",
+      "hash": "40f32e6a72d942088b5b579e8d2ffc8ec8cd4ba0cb5e19385d68f3d5a971db1f",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\icetrollhut1\\icetrollhut1.mdx",
+      "hash": "386f97a36a58542972fb4203d39b139f274024409bb5cf413a943803a9a26fec",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\pigfarm\\pigfarm.mdx",
+      "hash": "fa927324b721ff50685292735603ac3538a0dbfba0ec76ce496204ce0f31263c",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\other\\tent\\tent.mdx",
+      "hash": "f9e3b9c3f7c6fb8bb5272e0a095b601bfd72b0ff124c58eac1bc1610e19ddea6",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:buildings\\undead\\graveyard\\graveyard.mdx",
+      "hash": "7e27a5408d2e238d4dfde42504f44bf13c112b53587906c4101c01d8e310d944",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\ashenvale\\plants\\ashenbush0\\ashenbush0.mdx",
+      "hash": "9a5d3a56e7d0f60121446d84fcbf2976a00a6ae08749b4d67897011b4729874d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\barrens\\props\\centaurtotem\\centaurtotem0.mdx",
+      "hash": "4eb563a39aba2a058063d1c4a0d2e0770a51ec537c65d3df06dbfcf010d5c915",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\cinematic\\illidanvictorycinematic\\illidanvictorycinematic.mdx",
+      "hash": "3055cc06beb916b35b93844ae80a74d484250b4b8b3885820e351bf237b1415f",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\cityscape\\structures\\citybuildinglarge_0_ruined\\citybuildinglarge_0_ruined.mdx",
+      "hash": "ac2480b7da2bb9862882e1f56cf4864f8b55db60f5ea14b83e60de41d28f951d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\dungeon\\props\\chainpost\\chainpost.mdx",
+      "hash": "5e79f28db62809ab87d29b40efa44cad394010f5743ace6bf6149b3ff738a096",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\felwood\\rocks\\felwood_spires\\felwood_spires6.mdx",
+      "hash": "591146c9fbfae7be7ba1b47eb799b63509e64bf0164dcaca117bb81e21929998",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\icecrown\\terrain\\clearicerock\\clearicerock2.mdx",
+      "hash": "e34ca7842af36c89ae2234dfe125905865296c3f7b95e17ea3e057a52d593bf5",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\lordaeronsummer\\props\\impaledbody\\impaledbody0.mdx",
+      "hash": "cfb3b7af43045054e43e1258f42412bd1ef7b7795354e08330615dbd02306ba2",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\lordaeronsummer\\terrain\\crates\\crates0.mdx",
+      "hash": "37c6e4e931a9ca39105575c2b57a4f21cb9de9e385caaafaf5aa1720d6dee46b",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\northrend\\rocks\\north_rocks\\north_rocks4.mdx",
+      "hash": "7d60dd51c973119af909a941498d05bea4d958c4814ddc7bb4ec54217eb0b219",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\outland\\rocks\\outland_spires\\outland_spires5.mdx",
+      "hash": "aefb9276f447e5adac9bf2e26ace21d6259f5a7d024caf56fd34df2a9ab23d84",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\ruins\\props\\ruinspillar\\ruinspillar1.mdx",
+      "hash": "db0068d0e73ef7faacfc85ba5f1db0f844affd6d47d7a014168e1cafe3acfb06",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\ruins\\water\\coral\\coral4.mdx",
+      "hash": "9ca7839ea45818d1459610fde4165dc2a964db3b2d23e11b6b5730e493dd94fe",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\terrain\\barrenstree\\barrenstree5.mdx",
+      "hash": "60e3798d6955224d92824ea55e2a17b3a1578061583602b0f7062d71958d552a",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\terrain\\citycliffs\\citycliffsbaba1.mdx",
+      "hash": "4c07629888f773aacb85b682435dff20563560b2ff275eddc88be75f3688fad9",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\terrain\\cliffdoodad\\citycliffdoodadcollapseshort2\\citycliffdoodadcollapseshort2.mdx",
+      "hash": "10454a70575ff2d627e5d2c91936b07ad37f58f9ea1c7e4bb0f7523874e4b15d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\terrain\\cliffs\\cliffsacca1.mdx",
+      "hash": "6819d534ecece77d55f612d47f544dfb0342a3a1389ce50dd86f8a645aef2f5d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\terrain\\clifftrans\\clifftransxcah0.mdx",
+      "hash": "bbafc37cb1ec2241274cadae64ec968e86d5dc4141e08e57138838d6a31efcb5",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\terrain\\northrendtree\\northrendtree9s.mdx",
+      "hash": "c64cb4cb819042d55f9cd996342d66f739694875599abea229a1a4a5a50ccd24",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:doodads\\terrain\\ruinstree\\ruinstree9d.mdx",
+      "hash": "5d0cdee0206365b8012de2595eeef0429afc9e0e6dbbb6a88d3278cb7b6c7ce9",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\demon\\darkconversion\\zombifytarget.mdx",
+      "hash": "e34aedd09c06ce11024eb362921c51fb0cffcbaf7c423991c5236808e8e1b158",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\human\\flamestrike\\flamestrike2.mdx",
+      "hash": "f2de06e9656d29e649aa3e802d1913d5aad0fab882796cc922967e0d8067236b",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\human\\massteleport\\massteleporttarget.mdx",
+      "hash": "a375d3e761ca9f3f1fe2e639a82c137e2b1c260f5ced02dbd111eeb691f6d08d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\items\\aiem\\aiemtarget.mdx",
+      "hash": "5b619000e31e832dbdca22f61af50b662ad9b252b839bcb94477071aa9ce1cd3",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\items\\healingsalve\\healingsalvetarget.mdx",
+      "hash": "25cb7394ddb44553146bc044fcaa0beb18f331963e29479540c78d91b85dbfef",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\items\\wandofneutralization\\neutralizationmissile.mdx",
+      "hash": "c0ef7e6a087d63187e8b19499dc3de8917b9c953047e772aa1bccd97152b089e",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\nightelf\\moonwell\\moonwellcasterart.mdx",
+      "hash": "5a786f08e9c7ad92e489f7f80a521c4d718167a770881e53e9933369c02262f2",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\nightelf\\treeoflifeupgrade\\treeoflifeupgradetargetart.mdx",
+      "hash": "519c18c644152a61eb7eff52a000126800c9522cd4c0c4913e63fb5f1f0f41e2",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\orc\\liquidfire\\batridermissile.mdx",
+      "hash": "9041792c01ad15cc7b06d09f331a7c402d231c2bb5b5193eb667f0911398b716",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\other\\acidbomb\\bottleimpact.mdx",
+      "hash": "82156b0098f04538f2226b8023054a5b5b0456da4f1aee26a1570edac46ae3ef",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\other\\crushingwave\\crushingwavedamage.mdx",
+      "hash": "fbc27e1f1680a431315b3c5d90fa578c67bc937302e0c4fd6da2dd5c31d2c33d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\other\\levelup\\levelupcaster.mdx",
+      "hash": "028efd5f4c3f4990cc303f104028290068b204bde101817f5a2201c4a3e27a25",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\other\\tornado\\tornadospinner.mdx",
+      "hash": "f7425474bf566bd13383b5027c2139a80de4c983defa907f6aff8ac42836fac7",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\undead\\deathpact\\deathpacttarget.mdx",
+      "hash": "b72ff9119ea41e570e769b963f9383c5b2baa63bbc2c0919e874e56fd5993dea",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\spells\\undead\\replenishmana\\replenishmanacaster.mdx",
+      "hash": "51380bac10ce82a0c99e42cf686ab70b329160653272f8487c1594b48e514d61",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\weapons\\arrow\\arrowmissile.mdx",
+      "hash": "a617a8f2e2527a78d00fd4d6fe42695df69c8d5729e4b3097b06f31f21806ef6",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\weapons\\chimaeraacidmissilesmall\\chimaeraacidmissilesmall.mdx",
+      "hash": "c43984bd28fcd1dfeab74f9cd7979ba639bcfda131af473bface49acd399330f",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\weapons\\glaivemissile\\glaivemissile.mdx",
+      "hash": "1b87c90a38ce2621f08ccde2e3628bc25555bcec35eac7cb8dc1a5d4610b51de",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\weapons\\mortar\\scattershotmissile.mdx",
+      "hash": "9613266a602e90946784bb74fb570bbda55fbe4a527a79d82d5e645a666fcdff",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:abilities\\weapons\\searingarrow\\searingarrowmissile.mdx",
+      "hash": "7f068a8968279881114886908bc9b6b28b4a93c644a7ce2c224c60106fb539bc",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\buttons\\herolevel\\herolevel.mdx",
+      "hash": "aca94bdeda8cb3960f2fa627b64cf45fa4d88f9091ad7cb1fbe35429a3afdc0c",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\console\\nightelf\\nightelfui-inventorycover.mdx",
+      "hash": "b2bb81f207b4e23eee55aada4130398ffac741df40bec1b99690e69d696f866b",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\console\\orc\\orcuiportraitmask.mdx",
+      "hash": "a06d3482d13ac4a35d56618d4341773a7eeb7c148b249c71d923fcc093632478",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\cursor\\humancursor.mdx",
+      "hash": "ef5198cd74c0cc3f1a97533a1ba72a6217e068ac4d7104d35cad133555027977",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\feedback\\commandbutton\\ui-commandbuttonhighlight.mdx",
+      "hash": "9f6a9a84b30b80523bbbb479c3db365ab73b7a4d23fd4739e7f2c3b24af7f1b4",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\feedback\\progressbar\\timerbar.mdx",
+      "hash": "60a8e553a14fcaf99af524ef0a7f96a80f8452f25f2b2127f97211e3dd3ecb5d",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\feedback\\rallypoint\\undeadrallyflag.mdx",
+      "hash": "3f4f97982ee0f169dda00f1db083317f262550e26d43262a636264d3b1af01de",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[0]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\feedback\\targetpreselected\\targetpreselected.mdx",
+      "hash": "83c9fb03ea51d40cc09780c4d40df79ffeeea6741042f6722144daea379ba13c",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\battlenet\\battlenetchatglue\\expansion\\centerpanel-expansion.mdx",
+      "hash": "19613649b260a68f7753954e9d314b7230d33df22bc64491bd05ade444f0283c",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\battlenet\\progressbar\\battlenetprogressbar.mdx",
+      "hash": "72a452a121844a8fb2f6828db81f900eb01465d0d6207fa2d662597b36e7038f",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\loading\\backgrounds\\campaigns\\barrensexpansionquest03background.mdx",
+      "hash": "0fba776ea198dad65131851302443acab12f6261f02a15e23b867581a77399f7",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\loading\\backgrounds\\campaigns\\outlandexpansionbackground.mdx",
+      "hash": "4b27b36e978b6f951a4b5eac3362c72da1e0b50a208f57c84d9aeb95fb247d2c",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\loading\\multiplayer\\load-multiplayer-orc.mdx",
+      "hash": "62279098902a5f625ba3ac8e255288fcae04d5ac87a78e68be26859235c3266c",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\mainmenu\\warcraftiiilogo\\warcraftiiilogo.mdx",
+      "hash": "24841ae74336cbe4ee6d0f4cdd03dcb566697e3859567c907331111e143f53d4",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\scorescreen\\scorescreen-humanvictoryexpansion\\scorescreen-humanvictoryexpansion.mdx",
+      "hash": "c219529db354600715592a0813c2cf54aaf85cd5d351c7855520ba59978cca46",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\scorescreen\\scorescreen-undeadvictory\\scorescreen-undeadvictory.mdx",
+      "hash": "7c6c2db040b5546835d4d30c389074e16dcc2ba9dcdf7f1983da3b45d5b9591e",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\singleplayer\\nightelfcampaign3d\\nightelfcampaign3d.mdx",
+      "hash": "da9fbdfc15ce35a07deff65c943f55262c3f34a43c61f301443fc347c1c86d48",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [
+        {
+          "severity": "warning",
+          "code": "GLOBAL_SEQUENCE_DURATION",
+          "message": "Zero-duration global sequence; also occurs in Blizzard assets. Review whether any tracks use it.",
+          "path": "GlobalSequences[35]"
+        }
+      ],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\glues\\spritelayers\\expansion\\topleftpanel-expansion.mdx",
+      "hash": "220452914816d7e0e5b158787dd6965040f2d2330ad6d8daabf79fa76c1c9eb3",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\minimap\\minimap-entrance-medium.mdx",
+      "hash": "7246c06ecbb2c688336e3cadecb6ecfa118a9b107149a74352b9115ddcd6be24",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    },
+    {
+      "name": "war3.w3mod:ui\\minimap\\minimap-neutralbuildingbw.mdx",
+      "hash": "d93bcf928ce95790a61d28a6755ca1da29e63c5883c29f3d7a9710e85e3da714",
+      "version": 1800,
+      "status": "Check partially completed",
+      "structural": [],
+      "hiveCounts": null,
+      "limitation": "The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III."
+    }
+  ]
+}
