@@ -423,7 +423,13 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const reviewed = JSON.stringify(workerRequests[5]?.messages || []);
   check('the review gets original and edited pictures drawn off-screen', reviewed.includes('Edited target') && reviewed.includes('Original target before the task') && reviewed.includes('data:image/png;base64'), reviewed.length);
   // Keep the compared pair, drawn with one framing, for a look.
-  [...reviewed.matchAll(/data:image\/png;base64,([A-Za-z0-9+/=]+)/g)].slice(0, 2).forEach((m, i) => fs.writeFileSync(path.join(out, `review-${i ? 'edited' : 'original'}.png`), Buffer.from(m[1], 'base64')));
+  // The tool text lists "Image n: label"; the pictures follow in the next message with images.
+  const messages = workerRequests[5]?.messages || [],
+    at = messages.findIndex(m => m.role === 'tool' && String(m.content).includes('Original target before the task'));
+  const labels = [...String(messages[at]?.content || '').matchAll(/Image \d+: ([^\n]+)/g)].map(m => m[1]),
+    pictures = (messages.slice(at + 1).find(m => Array.isArray(m.content) && m.content.some(c => c.type === 'image_url'))?.content || []).filter(c => c.type === 'image_url');
+  labels.forEach((label, i) => pictures[i] && fs.writeFileSync(path.join(out, `review-${i + 1}.png`), Buffer.from(pictures[i].image_url.url.split(',')[1], 'base64')));
+  fs.writeFileSync(path.join(out, 'review-labels.json'), JSON.stringify(labels, null, 1));
   check('the review passes on the background model', JSON.stringify(workerRequests[6]?.messages || []).includes('\\"phase\\":\\"verified\\"'));
   check('a separate outside check judged the background edit before it counted as verified', outsideChecks.length === 1 && !JSON.stringify(outsideChecks[0].messages).includes('Move one vertex'), outsideChecks.length);
   // A step that needs MDLxL's own controls on screen pauses until you return.
