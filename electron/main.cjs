@@ -452,7 +452,7 @@ ipcMain.handle('updates:check',event=>{if(event.sender!==win?.webContents)throw 
 async function offerStartupUpdates(){
   const t=text=>translateText(text,settings.preferences.language);
   const icon=nativeImage.createFromPath(path.join(__dirname,'../dist/branding/MDLxL.png')).resize({width:192,height:192,quality:'best'}).toDataURL();
-  const answer=await showWelcomePrompt(win,{title:'MDLxL',heading:t('Welcome to MDLxL'),question:t('Would you like to enable auto updating?'),detail:t('MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart.'),note:t('We only ask this once like this. You can also change this setting at any time via Settings → Appearance → Auto update.'),labels:{yes:t('Yes, enable it'),no:t('No thanks')},icon,theme:settings.preferences.theme});
+  const answer=await showWelcomePrompt(win,{title:'MDLxL',heading:t('Welcome to MDLxL'),question:t('Would you like to enable auto updating?'),detail:t('MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart.'),note:t('We only ask this once like this. You can also change this setting at any time via Settings → Appearance → Auto update.'),labels:{yes:t('Yes, enable it'),no:t('No thanks')},icon,theme:settings.preferences.theme,disableSounds:settings.preferences.disableSounds});
   const preferences={updateOfferAnswered:true,checkUpdatesOnStartup:answer==='yes'};
   await updateSettings({preferences});
   // The editor keeps its own copy of preferences and would save the old answer back.
