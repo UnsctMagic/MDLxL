@@ -6814,5 +6814,7 @@
   "Direct": "Напрямую",
   "Follow": "Следовать",
   "Backspace": "Backspace",
-  "Insert": "Вставка"
+  "Insert": "Вставка",
+  "Model name": "Имя модели",
+  "The name stored inside the model, separate from the file name.": "Имя, сохранённое внутри модели, отдельно от имени файла."
 }

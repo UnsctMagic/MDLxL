@@ -9,6 +9,7 @@
 - **Zoom Align** (Mayús+1, rosa): con la Herramienta de zoom, encuadra un vértice seleccionado y acerca el zoom. El resto de la selección se desliza hasta que cada punto queda alineado detrás del vértice rosa desde tu punto de vista, manteniendo su distancia al ojo, así que una superficie torcida queda plana vista desde ahí. Ancla (1, verde) y Align funcionan de uno en uno.
 
 **Editor**
+- **Guardar como > Nombre del modelo**: cambia el nombre guardado dentro del modelo, distinto del nombre del archivo, en la misma ventana Guardar como.
 - **Glow Up** muestra el botón **Pausa / Reproducir** de EMTR bajo la vista previa (Espacio hace lo mismo), para colocar ambos extremos del brillo con la animación quieta.
 - **Ventana de bienvenida**: la pregunta de Actualización automática del primer arranque es ahora una pequeña ventana de bienvenida de MDLxL con una breve fanfarria, en lugar de un aviso de Windows.
 - **Ayuda > Acerca de** es un Acerca de real: versión, qué es MDLxL, quién lo hizo, agradecimientos y los componentes en los que se basa.

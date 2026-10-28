@@ -6692,5 +6692,7 @@
   "Choose Zoom anchor": "选择缩放锚点",
   "Select geoset or light": "选择几何集或灯光",
   "Paint / draw": "绘画 / 绘制",
-  "Detach selected vertices from bone": "将所选顶点从骨骼分离"
+  "Detach selected vertices from bone": "将所选顶点从骨骼分离",
+  "Model name": "模型名称",
+  "The name stored inside the model, separate from the file name.": "保存在模型内部的名称，与文件名无关。"
 }

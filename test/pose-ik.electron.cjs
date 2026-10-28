@@ -99,12 +99,12 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       await page.getByLabel('Movement bone or node').selectOption(String(end));await settle();await page.getByRole('button',{name:/^(Add|Replace) handle$/}).click();await page.getByRole('button',{name:'Close POSE setup',exact:true}).click();await settle();
     }
     const initial = await snap(), sidebarWidth = await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width);
-    const section = title => page.locator('details.sidebar-section').filter({ has: page.locator('summary').filter({ hasText: new RegExp('^' + title + '$') }) });
+    const section = title => page.locator('details.sidebar-section').filter({ has: page.locator('summary').filter({ hasText: new RegExp('^' + title) }) });
     for (const title of ['Controller', 'Restrictions']) {
       const initiallyOpen = title === 'Controller';
       assert.equal(await section(title).evaluate(element => element.open), initiallyOpen, title + ' starts in its default state');
-      await section(title).locator('summary').click(); assert.equal(await section(title).evaluate(element => element.open), !initiallyOpen);
-      await section(title).locator('summary').click(); assert.equal(await section(title).evaluate(element => element.open), initiallyOpen);
+      await section(title).locator('summary').click({ position: { x: 12, y: 8 } }); assert.equal(await section(title).evaluate(element => element.open), !initiallyOpen);
+      await section(title).locator('summary').click({ position: { x: 12, y: 8 } }); assert.equal(await section(title).evaluate(element => element.open), initiallyOpen);
     }
     assert.equal(await page.getByRole('checkbox', { name: 'Rotate on Own Axis', exact: true }).count(), 0);
     results.checks.push('Own Axis tool is absent; Controller starts expanded and Restrictions minimized; both toggle through their existing headers');

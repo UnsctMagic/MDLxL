@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.35.0 shows bone pivots: a double-click on any part selects its bones in Focused Skeleton with an axis cross through each pivot. Zoom gets Align (Shift+1) to flatten a selection as seen from the camera, Controller type moves into the Controller heading with multiselect always on, and Glow Up gets Pause/Play. First launch greets you with a themed welcome window, Help > About is a real About, the empty Check model entry is gone, and Spanish, Russian and Chinese translations are caught up.
+Version 0.35.0 shows bone pivots: a double-click on any part selects its bones in Focused Skeleton with an axis cross through each pivot. Zoom gets Align (Shift+1) to flatten a selection as seen from the camera, Controller type moves into the Controller heading with multiselect always on, Glow Up gets Pause/Play, and Save as can set the model name. First launch greets you with a themed welcome window, Help > About is a real About, the empty Check model entry is gone, and Spanish, Russian and Chinese translations are caught up.
 
 ## Releases
 
