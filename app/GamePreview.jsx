@@ -944,13 +944,15 @@ export default function GamePreview(inputProps) {
       return { center: box.getCenter(new THREE.Vector3()).toArray(), radius: Math.max(1, radius * .04, box.getSize(new THREE.Vector3()).length() * .75), focus: true };
     }
     // points: frame these model-space points; detail.selection (Fit selection): the selection.
-    function fit({ initialize = false, detail, points } = {}) {
+    // exact: the AI's pictures frame exactly these points, also when they reach past the
+    // model's own size, so two models compared side by side get one scale.
+    function fit({ initialize = false, detail, points, exact = false } = {}) {
       if (state.portraitActive || (latest.current.suspended && !initialize)) return;
       const width = Math.max(1, host.current?.clientWidth || 1), height = Math.max(1, host.current?.clientHeight || 1);
       const focus = pointsFit(points || (detail?.selection ? selectionPoints() : null));
       const effect=focus||(latest.current.particleAuthoring&&!initialize?particlePreviewBounds(native,{selectedId:latest.current.particleSelectedId,sweepRange:latest.current.particleSweepRange,camera,hiddenGeosets:latest.current.hiddenGeosets}):null||sequenceFit()),fitCenter=effect?new THREE.Vector3(...effect.center):center;
       perspective.position.copy(fitCenter).add(new THREE.Vector3(1, -1.5, .9).normalize().multiplyScalar(perspectiveFitDistance(effect?.radius||fitRadius(), perspective.fov, width / height)));
-      controls.target.copy(fitCenter); perspective.zoom = 1; ortho.zoom = focus ? Math.max(1, radius / focus.radius) : 1; resize(); setView(latest.current.view || 'perspective');
+      controls.target.copy(fitCenter); perspective.zoom = 1; ortho.zoom = focus ? (exact ? Math.max(1, radius) / focus.radius : Math.max(1, radius / focus.radius)) : 1; resize(); setView(latest.current.view || 'perspective');
     }
     function centerShowcaseModel(crop, fullOrbit = false, horizontal = 1, vertical = 1) {
       const p=latest.current;if(!p.showcase)return;
@@ -1567,7 +1569,7 @@ export default function GamePreview(inputProps) {
         applyEvaluatedModelCamera(camera,controls,view,canvas.width/canvas.height);invalidate();
       },
       invalidate() { state.scheduler.invalidate(); },
-      fit(points) { fit({ points }); },
+      fit(points) { fit({ points, exact: true }); },
       centerModel(crop) { centerShowcaseModel(crop); },
       maximalZoom(crop) { centerShowcaseModel(crop,true); },
       alignModel(crop,x,y) { centerShowcaseModel(crop,false,x,y); },
