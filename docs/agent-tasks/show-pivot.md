@@ -1,6 +1,6 @@
 # Show pivot: double-click selects a part's bones; axis cross on Focused Skeleton
 
-Status: ready for review
+Status: completed (merged via PR #352, owner approved 2026-10-28)
 Owner / consolidator: Claude Code (session local_2c30e3da-07ed-4506-81d1-2e0d2e59deeb)
 Updated: 2026-10-28
 
@@ -51,4 +51,4 @@ Updated: 2026-10-28
 
 ## Blockers and next action
 
-- Owner test, then merge approval.
+- None. Owner tested the build and approved the merge.
