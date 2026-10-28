@@ -1463,7 +1463,8 @@ export default function App() {
       const target = aiHost.current.sessionOf(spec.documentId);
       if (!aiOffscreen) throw Error('The off-screen preview is not ready.');
       // The hidden preview gets its own copy: the renderer must never touch the document.
-      return aiOffscreen.render({ ...spec, model: structuredClone(target.doc.model), revision: target.doc.revision, assets: target.assets, path: target.path });
+      // spec.model is the AI review's kept original, drawn with this tab's textures.
+      return aiOffscreen.render({ ...spec, model: spec.model || structuredClone(target.doc.model), revision: target.doc.revision, assets: target.assets, path: target.path });
     },
     // Reference models open as tabs; the console lists them as attachments the user can remove.
     references: () => latest.current.sessions.filter(item => item.reference && item !== latest.current.session).map(item => ({id:item.id,name:item.doc.name})),

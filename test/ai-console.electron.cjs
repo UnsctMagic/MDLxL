@@ -421,7 +421,9 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('Crow edits Footman while you are on another tab', patched.includes('\\"applied\\":true') && (await dirty('Footman.mdx')) === '●', patched.slice(-400));
   check('steering reaches the running bird', JSON.stringify(workerRequests[2].messages).includes('steering for the current task:\\nKeep the shoulder pads'));
   const reviewed = JSON.stringify(workerRequests[5]?.messages || []);
-  check('the review gets before and after pictures drawn off-screen', reviewed.includes('After the edit') && reviewed.includes('Before the task') && reviewed.includes('data:image/png;base64'), reviewed.length);
+  check('the review gets original and edited pictures drawn off-screen', reviewed.includes('Edited target') && reviewed.includes('Original target before the task') && reviewed.includes('data:image/png;base64'), reviewed.length);
+  // Keep the compared pair, drawn with one framing, for a look.
+  [...reviewed.matchAll(/data:image\/png;base64,([A-Za-z0-9+/=]+)/g)].slice(0, 2).forEach((m, i) => fs.writeFileSync(path.join(out, `review-${i ? 'edited' : 'original'}.png`), Buffer.from(m[1], 'base64')));
   check('the review passes on the background model', JSON.stringify(workerRequests[6]?.messages || []).includes('\\"phase\\":\\"verified\\"'));
   check('a separate outside check judged the background edit before it counted as verified', outsideChecks.length === 1 && !JSON.stringify(outsideChecks[0].messages).includes('Move one vertex'), outsideChecks.length);
   // A step that needs MDLxL's own controls on screen pauses until you return.
