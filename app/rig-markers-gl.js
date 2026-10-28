@@ -17,6 +17,39 @@ const PENTAGRAM = (() => {
   return {vertices,faces,billboard:true};
 })();
 const MARKER_LIGHT = new Vector3(-.35, -.45, 1.2).normalize();
+// Highlighted bones (Focused Skeleton, or a double-clicked chain) are long bone
+// shapes from their pivot (the thick end) to their child, so turning shows.
+// One light quarter shows which way the bone rolls.
+const BONE_SHAPE = { vertices: Array.from({ length: 6 }, () => [0, 0, 0]), faces: [[1,2,3],[1,3,4],[1,4,5],[1,5,2],[0,3,2],[0,4,3],[0,5,4],[0,2,5]] };
+const BONE_SHAPE_FIN = new Set([0, 4]);
+
+/** Where each highlighted bone's shape ends: a highlighted child, else any child bone, else a stub. */
+export function boneShapeTails(nodes, highlights) {
+  const shaped = point => point.visible && (point.overlayKind === 'bones' || point.helperNode) && !!highlights.get(point.node.ObjectId);
+  const byId = new Map(nodes.map(point => [point.node.ObjectId, point])), children = new Map(), tails = new Map();
+  for (const point of nodes) if (point.visible && (point.overlayKind === 'bones' || point.helperNode)) { const list = children.get(point.node.Parent) || []; list.push(point); children.set(point.node.Parent, list); }
+  for (const point of nodes) {
+    if (!shaped(point)) continue;
+    const apart = (children.get(point.node.ObjectId) || []).filter(other => other.world.distanceTo(point.world) > 1e-4);
+    const child = apart.find(shaped) || apart[0];
+    if (child) { tails.set(point.node.ObjectId, { tail: child.world, childId: child.node.ObjectId }); continue; }
+    const parent = byId.get(point.node.Parent);
+    const direction = parent && parent.world.distanceTo(point.world) > 1e-4 ? point.world.clone().sub(parent.world) : new Vector3(1, 0, 0).applyQuaternion(point.rotation);
+    tails.set(point.node.ObjectId, { tail: point.world.clone().add(direction.setLength(point.unitsPerPixel * 60)), childId: null });
+  }
+  return tails;
+}
+
+/** Head, tail and a square ring near the head that turns with the bone. */
+export function boneShapePositions(point, tail, markerSize) {
+  const direction = tail.clone().sub(point.world), length = direction.length(); direction.normalize();
+  const width = Math.min(length * .25, Math.max(length * .1, markerSize));
+  const side = [new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)].map(axis => axis.applyQuaternion(point.rotation))
+    .reduce((best, axis) => Math.abs(axis.dot(direction)) < Math.abs(best.dot(direction)) ? axis : best);
+  side.addScaledVector(direction, -side.dot(direction)).normalize();
+  const up = direction.clone().cross(side), ring = point.world.clone().addScaledVector(direction, length * .2);
+  return [point.world.clone(), tail.clone(), ring.clone().addScaledVector(side, width), ring.clone().addScaledVector(up, width), ring.clone().addScaledVector(side, -width), ring.clone().addScaledVector(up, -width)];
+}
 
 export function boneHighlightColors(nodes, selectedIds) {
   const byId = new Map(nodes.map(point => [point.node.ObjectId, point]));
@@ -41,6 +74,13 @@ export function boneHighlightColors(nodes, selectedIds) {
     else if (children.has(id)) colors.set(id, '#ffff00');
     else if (boneIds.has(id)) colors.set(id, null);
   }
+  return colors;
+}
+
+/** A double-clicked chain: every bone from the clicked spot up to the root. */
+export function chainHighlightColors(nodes, chainIds, selectedIds) {
+  const chain = new Set(chainIds), selected = new Set(selectedIds || []), colors = new Map();
+  for (const point of nodes) if (point.overlayKind === 'bones') colors.set(point.node.ObjectId, !chain.has(point.node.ObjectId) ? null : selected.has(point.node.ObjectId) ? '#ff0000' : '#ffff00');
   return colors;
 }
 
@@ -101,21 +141,24 @@ export function rigMarkerGeometry(nodes, selectedIds, options = {}, visual = vis
   let triangleCount = 0, edgeCount = 0, emphasizedCount = 0;
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
-    const { shape, color } = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual), topology = markerTopology(shape);
+    const style = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual), tail = options.boneShapeTails?.get(point.node.ObjectId)?.tail;
+    const shape = tail ? BONE_SHAPE : style.shape, color = style.color, topology = markerTopology(shape);
     const role = highlights.get(point.node.ObjectId), emphasized = role === '#000000';
     // Selected and child highlights stay flat (unshaded), whatever colour the user picked.
-    markers.push({ point, shape, color, topology, emphasized, flat: shape.billboard || role === '#ff0000' || role === '#ffff00' });
+    markers.push({ point, shape, color, topology, emphasized, tail, flat: shape.billboard || role === '#ff0000' || role === '#ffff00' });
     triangleCount += topology.triangles.length; edgeCount += topology.edges.length; if (emphasized) emphasizedCount += topology.edges.length;
   }
   const triangles = new Float32Array(triangleCount * 6), edges = new Float32Array(edgeCount * 6), emphasizedEdges = new Float32Array(emphasizedCount * 6);
   const vertex = new Vector3(), side = new Vector3(), normal = new Vector3(), shade = new Color(), rgb = [0,0,0];
   let t = 0, e = 0, m = 0;
   const write = (target, at, positions, id, color) => { target[at] = positions[id*3]; target[at+1] = positions[id*3+1]; target[at+2] = positions[id*3+2]; target[at+3] = color[0]; target[at+4] = color[1]; target[at+5] = color[2]; return at + 6; };
-  for (const { point, shape, color, topology, emphasized, flat } of markers) {
+  for (const { point, shape, color, topology, emphasized, flat, tail } of markers) {
     const baseColor = new Color(color), edgeRgb = baseColor.clone().convertLinearToSRGB().toArray();
     const markerSize = rigMarkerSize(point, shape, options, visual), rotation = shape.billboard ? (point.billboardRotation || point.rotation) : point.rotation;
     const positions = new Float64Array(shape.vertices.length * 3);
-    shape.vertices.forEach((value, id) => { vertex.set(value[0], value[1], value[2]).multiplyScalar(markerSize).applyQuaternion(rotation).add(point.world); positions[id*3] = vertex.x; positions[id*3+1] = vertex.y; positions[id*3+2] = vertex.z; });
+    if (tail) boneShapePositions(point, tail, markerSize).forEach((value, id) => value.toArray(positions, id * 3));
+    else shape.vertices.forEach((value, id) => { vertex.set(value[0], value[1], value[2]).multiplyScalar(markerSize).applyQuaternion(rotation).add(point.world); positions[id*3] = vertex.x; positions[id*3+1] = vertex.y; positions[id*3+2] = vertex.z; });
+    const finRgb = tail && new Color(baseColor.r * .299 + baseColor.g * .587 + baseColor.b * .114 > .35 ? '#2a2a2a' : '#ffffff').convertLinearToSRGB().toArray();
     // Shade in linear RGB, then encode for the canvas. Multiplying encoded
     // green made the side faces far darker than the fixed-angle reference.
     if (flat) shade.copy(baseColor).convertLinearToSRGB().toArray(rgb);
@@ -129,7 +172,8 @@ export function rigMarkerGeometry(nodes, selectedIds, options = {}, visual = vis
         normal.copy(vertex).cross(side).normalize();
         shade.copy(baseColor).multiplyScalar(Math.min(1, .72 + .30 * Math.max(0, normal.dot(MARKER_LIGHT)))).convertLinearToSRGB().toArray(rgb);
       }
-      for (const end = corner + topology.faceTriangles[index] * 3; corner < end; corner++) t = write(triangles, t, positions, topology.triangles[corner], rgb);
+      const faceRgb = finRgb && BONE_SHAPE_FIN.has(index) ? finRgb : rgb;
+      for (const end = corner + topology.faceTriangles[index] * 3; corner < end; corner++) t = write(triangles, t, positions, topology.triangles[corner], faceRgb);
     });
     for (const id of topology.edges) { e = write(edges, e, positions, id, edgeRgb); if (emphasized) m = write(emphasizedEdges, m, positions, id, edgeRgb); }
   }
@@ -198,7 +242,8 @@ export function createRigMarkersGL(gl) {
       let triangleOffset = 0, edgeOffset = 0;
       for (const point of nodes) {
         if (!point.visible || !rigMarkerVisible(point,options,highlights)) continue;
-        const { shape,color } = markerStyle(point,byId,options.preferences,highlights,options.vanilla,visual);
+        const style = markerStyle(point,byId,options.preferences,highlights,options.vanilla,visual), color = style.color;
+        const shape = options.boneShapeTails?.has(point.node.ObjectId) ? BONE_SHAPE : style.shape;
         // Emphasized parent edges retain the existing screen-space expansion.
         if (shape.billboard && highlights.get(point.node.ObjectId) !== '#000000') {
           draws.push({ symbol:symbolGeometry(shape), world:point.world.toArray(), rotation:(point.billboardRotation || point.rotation).toArray(),

@@ -1,4 +1,4 @@
-# Show pivot (Movement)
+# Show pivot: double-click chain + bone shapes (Movement)
 
 Status: ready for review
 Owner / consolidator: Claude Code (session local_2c30e3da-07ed-4506-81d1-2e0d2e59deeb)
@@ -6,53 +6,52 @@ Updated: 2026-10-28
 
 ## Goal and completion criteria
 
-- Owner wants to find where a movement comes from by clicking the moving part,
-  not by hunting for a small bone box that moves. Approved mockup: a big ring
-  at the pivot, a line to the clicked spot, the spot's path through the
-  animation, other bone boxes out of the way, click the ring to select the bone.
-- No new panel, button or menu. One gesture, dismissible with Esc.
+- Owner: watching an animated model (often with bones hidden), double-click the
+  part that moves and see every bone that moves it, so a small rotation that
+  bends a whole arm is easy to trace. No extras: no rings, lines, trails or labels.
+- Highlighted (Focused Skeleton) bones show their pivot and turning clearly as
+  bone shapes; with Bones on, the other bones keep their normal MDLVis markers.
 
 ## Revision and local state
 
-- Branch / checkout: `claude/show-pivot` in `.claude/worktrees/show-pivot`.
-- Base: `origin/main` at 912ecf40.
-- Required local fixtures: none (the Electron check builds a synthetic model).
+- Branch / checkout: `claude/show-pivot` in `.claude/worktrees/show-pivot`; PR #352.
+- Required local fixtures: none (Electron check builds a synthetic model).
 
 ## Relevant owners
 
-- `src/pivot-finder.js`: `findMotionPivots` (which bones move one vertex in a
-  sequence), `pivotsAtFrame` (ring and spot positions at the current frame).
-- `src/animation.js`: `sampleNodeMatrices` gained an optional `frozen` map
-  (node id -> frame) used to freeze one bone at a time.
-- `app/GamePreview.jsx`: `probePivot` (double-click), ring drawing in the path
-  overlay (`PIVOT_COLOR`, `pivotScreens`, `data-pivots`), ring click in
-  `pointerDown`, bone boxes hidden while rings show (`shownNodes`).
-- `app/App.jsx`: `pivotProbe` state, `probePivot`, Esc via `mdlxl-escape-key`.
+- `src/motion-chain.js` `motionChain`: skinned bones of a vertex (or one bone)
+  plus all parents, root first.
+- `app/GamePreview.jsx` `probeChain` (double-click: bone marker first, else the
+  mesh vertex nearest the pointer; emitters keep their own double-click first).
+  A `chainIds` prop forces Focused Skeleton lines and markers on.
+- `app/rig-markers-gl.js`: `chainHighlightColors`, `boneShapeTails`,
+  `boneShapePositions`, `BONE_SHAPE`. Every highlighted bone marker (Focused
+  Skeleton from a selection, or a double-clicked chain) is drawn as an
+  eight-face bone from its pivot to a highlighted child, else its own child
+  bone, else a stub. One quarter is light or dark so roll is visible.
+- `app/movement-overlay.js`: connectors that a bone shape already covers are
+  skipped; the connector mask uses the shape's outline.
+- `app/App.jsx` `probeChain`, chain status line, Esc via `mdlxl-escape-key`.
 
 ## Findings and decisions
 
-- Decision: the gesture is **double-click** on a part in Movement with an
-  animation chosen. Alt+click already rotates the camera and Ctrl+click picks a
-  geoset; double-click on an emitter still picks the emitter first.
-- Decision: a bone's share is the motion of the clicked spot that disappears
-  when that bone alone is frozen at the sequence start. Bones whose keys never
-  change in the sequence are skipped. Up to three rings, those with at least
-  15% of the strongest; the strongest is bright with a crosshair and name.
-- Verified: the app's global Esc handler consumes the key before the preview
-  sees it, so Esc must use the cancelable `mdlxl-escape-key` event.
-- Rings, line and trail use the orange from the approved mockup with a black
-  edge, so they stay visible on the orange Bone influence view.
+- First version (rings at the strongest mover, link line, motion trail,
+  labels) was rejected by the owner as redundant extras; removed.
+- Highlight Chain (Controller panel) only scopes timeline keys; the view's
+  highlighted skeleton is the Focused Skeleton display. The chain uses that.
+- The app's global Esc consumes the key before the preview; use the cancelable
+  `mdlxl-escape-key` event.
+- Verified on a D: copy of the owner's WH_WOC_WarriorNurgle_Flail03: a
+  double-click on the arm gives Bone_Root › Bone_Chest › Bone_Arm1_L ›
+  Bone_Arm2_L › Bone_Hand_L as bone shapes; Bones on adds the other cubes.
 
 ## Changes and verification
 
-- Checks: `node --test test/pivot-finder.test.js` (5 pass);
-  `pnpm run test:source` 2082 tests, 0 failures; `pnpm run build` ok;
-  `test/show-pivot.electron.cjs` on the hidden desktop with dev Electron and
-  `dist/`: double-click finds Blade_Root, one ring, ring click selects it, Esc
-  clears, Alt+drag still turns the camera.
-- Remaining: not tried on the owner's own large models (e.g. the vampire dragon
-  with a rider); not checked in the packaged exe.
+- Checks: `node --test test/motion-chain.test.js test/bone-shapes.test.js
+  test/bone-appearance.test.js` pass; `pnpm run test:source` 2085 tests, 0
+  failures; `test/motion-chain.electron.cjs` hidden against `dist/` passes.
+- Remaining: owner hand test in the packaged test build.
 
 ## Blockers and next action
 
-- Owner test on a real model, then merge approval.
+- Owner test, then merge approval.
