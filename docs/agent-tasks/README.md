@@ -8,7 +8,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| Manager access and polish | Full workspace and visual Model manager ready for owner testing | [Manager polish](manager-polish.md) / Codex |
 | Bitz replacement size and position fitting | Ready for review; awaiting merge approval | [Replacement fitting](bitz-replacement-fit.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |
 | New MDLxL look (carved tools, slate-and-gold dock, floating Geosets) | Ready for review; awaiting merge approval | [New look](new-look.md) / Claude Code |

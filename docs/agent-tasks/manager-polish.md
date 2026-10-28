@@ -1,6 +1,6 @@
 # Manager workspace and visual model editing
 
-Status: owner accepted; merge authorized, final integration in progress
+Status: implementation completed and accepted; owner authorized PR #363 merge
 Owner: Codex, Manager polish chat
 Updated: 2026-10-28
 
@@ -24,7 +24,7 @@ field. The collapsed Comments section explains that limitation for MDX files.
 ## Source and handoff
 
 - Branch: `codex/manager-schemes`.
-- Draft PR: https://github.com/UnsctMagic/MDLxL/pull/363 (unmerged).
+- PR: https://github.com/UnsctMagic/MDLxL/pull/363 (merge authorized).
 - Working checkout: `D:\Codex\mdlxl-manager-schemes-20261028\source`.
 - App/AppToolbar/AppDialogs own workspace routing and shared manager wiring.
 - ResourceEditors retains existing manager bodies and supports embedded/window modes.
@@ -44,5 +44,9 @@ field. The collapsed Comments section explains that limitation for MDX files.
 - A visible isolated portable app was opened at Manager > Model using demo.mdx.
   The displayed sphere is an unsaved example. No installed app, personal profile
   or supplied user model was changed. The review app remains available for testing.
-- Owner design acceptance and Warcraft III in-game validation remain outstanding.
+- The owner accepted the design. Warcraft III in-game validation remains outstanding.
   Merge authorized by the owner. No release, version change or installation was requested.
+
+Final integration retains main's Sanity Check menu entry and updated translations.
+The optimizer verifies native MDX fields separately from standard MDL comments;
+an apply/save regression proves those comments remain in the MDL document.

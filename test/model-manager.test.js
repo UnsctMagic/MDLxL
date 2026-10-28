@@ -1,3 +1,4 @@
+import { analyzeOptimization, applyOptimization } from '../src/model-optimizer.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Matrix4, PerspectiveCamera, Vector3 } from 'three';
@@ -68,4 +69,19 @@ test('comment editing leaves inline comments untouched and cannot inject native 
   assert.ok(result.toString().endsWith('Version { FormatVersion 800, } // inline\n'));
   assert.deepEqual(writeModelComments(result, 'mdl', text), result);
   assert.deepEqual(writeModelComments(Buffer.from('MDLX'), 'mdx', text), Buffer.from('MDLX'));
+});
+
+
+test('optimizer MDX verification permits MDL comments and preserves them on apply and save', () => {
+  const doc = openDocument(createDemoDocument().serialize('mdl'), 'comments.mdl');
+  doc.apply('Comments and unused material', [MODEL_COMMENTS_KEY, 'Materials'], m => {
+    m[MODEL_COMMENTS_KEY] = 'Keep these standard model comments';
+    m.Materials.push(structuredClone(m.Materials[0]));
+  });
+  const report = analyzeOptimization(doc);
+  assert.equal(report.canApply, true);
+  applyOptimization(doc, report);
+  assert.equal(openDocument(doc.serialize('mdl'), 'saved.mdl').model[MODEL_COMMENTS_KEY], 'Keep these standard model comments');
+  doc.undo();
+  assert.equal(doc.model[MODEL_COMMENTS_KEY], 'Keep these standard model comments');
 });
