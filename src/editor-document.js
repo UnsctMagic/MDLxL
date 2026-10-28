@@ -288,7 +288,8 @@ export class EditorDocument {
           this.model.GeosetAnims = convertMdxGeosetColorTracks(this.model.GeosetAnims);
         }
         normalizeModel(this.model);
-        this.model[MODEL_COMMENTS_KEY] = readModelComments(this._original, this.format);
+        const comments = readModelComments(this._original, this.format);
+        if (comments) this.model[MODEL_COMMENTS_KEY] = comments;
         this._sourceWarnings.push(...readGeosetTabs(this._original, this.format, this.model, this._container));
       } catch (error) {
         this.readOnly = true;

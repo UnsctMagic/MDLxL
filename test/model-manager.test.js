@@ -85,3 +85,11 @@ test('optimizer MDX verification permits MDL comments and preserves them on appl
   doc.undo();
   assert.equal(doc.model[MODEL_COMMENTS_KEY], 'Keep these standard model comments');
 });
+
+
+test('models without standard comments do not acquire extra serialization fields', () => {
+  for (const format of ['mdl', 'mdx']) {
+    const doc = openDocument(writeModelComments(createDemoDocument().serialize(format), format, ''), `plain.${format}`);
+    assert.equal(Object.hasOwn(doc.model, MODEL_COMMENTS_KEY), false);
+  }
+});
