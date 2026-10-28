@@ -1377,7 +1377,9 @@
     "Let MDLxL tell you when a new version is out?",
     "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.",
     "Turn on",
-    "No thanks"
+    "No thanks",
+    "Choose Zoom align",
+    "Align vertex selected."
   ],
   "paint": [
     "Citadel Paint",

@@ -28,7 +28,7 @@ import { decodeBLP, getBLPImageData } from 'war3-model';
 import { advanceSequence, allNodes, inverseGeosetSkinMatrix, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
 import { decodeDds } from '../src/dds.js';
 import { decodeBlp2 } from '../src/blp2.js';
-import { applySelection, dragScale, insideTriangle, marqueeContainsPoint, moveDragPoint, planeAxes, shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
+import { alignTowardView, applySelection, dragScale, insideTriangle, marqueeContainsPoint, moveDragPoint, planeAxes, shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
 import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
@@ -557,6 +557,8 @@ export default function Viewport(inputProps) {
       pivot.multiplyScalar(1 / count);
       const anchor = p.zoomAnchor, anchorIndices = anchor && selectedMap[anchor.geosetIndex];
       if (anchorIndices?.includes(anchor.vertexIndex)) pivot.fromArray(snapshots[anchor.geosetIndex], anchor.vertexIndex * 3);
+      // Align is locked to this view for the whole drag.
+      if (down.action === 'scale' && anchor?.kind === 'align' && anchorIndices?.includes(anchor.vertexIndex)) down.align = camera.isOrthographicCamera ? { direction: camera.getWorldDirection(new THREE.Vector3()).toArray() } : { eye: camera.position.toArray() };
       down.pivotScreen = screenPosition(pivot, start);
       const lockedPlane = quad && boundPane.workplane;
       if (down.action === 'rotate') {
@@ -627,7 +629,9 @@ export default function Viewport(inputProps) {
           : shiftTranslation(end, drag, event.shiftKey));
         payload.translation = translation.toArray();
       }
-      if (drag.action === 'scale') { scale.fromArray(dragScale(dx, drag.workplane, event.shiftKey)); payload.scale = scale.toArray(); payload.allowSingularScale = true; }
+      // Align only pulls inward and stops once everything is lined up.
+      if (drag.action === 'scale' && drag.align) payload.scale = [1, 1, 1].fill(Math.min(1, dragScale(dx)[0]));
+      else if (drag.action === 'scale') { scale.fromArray(dragScale(dx, drag.workplane, event.shiftKey)); payload.scale = scale.toArray(); payload.allowSingularScale = true; }
       if (drag.action === 'rotate') {
         let angle = rotationDragDegrees(drag.rotationDrag, rawEnd.x - down.x, rawEnd.y - down.y, down.pointerSensitivity) * Math.PI / 180;
         const axis = [0, 1, 2].find(i => !planeAxes(drag.workplane).includes(i));
@@ -641,19 +645,20 @@ export default function Viewport(inputProps) {
       for (const [key, indices] of Object.entries(drag.selections)) {
         const entry = state.entries[key], position = entry.geometry.attributes.position; position.array.set(drag.snapshots[key]);
         for (const index of indices) {
-          vertex.fromArray(drag.snapshots[key], index * 3).sub(drag.pivot).multiply(scale).applyEuler(rotation).add(drag.pivot).add(translation);
+          if (drag.align) vertex.fromArray(alignTowardView(Array.from(drag.snapshots[key].subarray(index * 3, index * 3 + 3)), drag.pivot.toArray(), drag.align, 1 - payload.scale[0]));
+          else vertex.fromArray(drag.snapshots[key], index * 3).sub(drag.pivot).multiply(scale).applyEuler(rotation).add(drag.pivot).add(translation);
           position.setXYZ(index, vertex.x, vertex.y, vertex.z);
         }
         const positions=constrained?.modelPositions?.[key];
         if(positions)indices.forEach((index,i)=>position.setXYZ(index,...positions.slice(i*3,i*3+3)));
         position.needsUpdate = true; entry.geometry.computeBoundingSphere(); updateWideWireGeometry(entry);
       }
-      if (drag.action === 'translate' && drag.poseInverses) {
+      if (drag.action === 'translate' && drag.poseInverses || drag.align) {
         const modelPositions = {};
         for (const [key, indices] of Object.entries(drag.selections)) {
-          const entry = state.entries[key], position = entry.geometry.attributes.position, inverses = drag.poseInverses[key], values = [];
+          const entry = state.entries[key], position = entry.geometry.attributes.position, inverses = drag.poseInverses?.[key], values = [];
           for (let slot = 0; slot < indices.length; slot++) {
-            vertex.fromBufferAttribute(position, indices[slot]).applyMatrix4(inverses[slot]);
+            vertex.fromBufferAttribute(position, indices[slot]); if (inverses) vertex.applyMatrix4(inverses[slot]);
             values.push(vertex.x, vertex.y, vertex.z);
           }
           modelPositions[key] = values;
@@ -1026,13 +1031,14 @@ export default function Viewport(inputProps) {
           anchorCanvas.width = Math.round(surface.clientWidth * renderer.getPixelRatio()); anchorCanvas.height = Math.round(surface.clientHeight * renderer.getPixelRatio());
           const context = anchorCanvas.getContext('2d'), pixelRatio = renderer.getPixelRatio(), width = surface.clientWidth, height = surface.clientHeight;
           context.setTransform(1, 0, 0, 1, 0, 0); context.clearRect(0, 0, anchorCanvas.width, anchorCanvas.height);
-          context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0); context.fillStyle = '#39ff14';
+          context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0); context.fillStyle = p.choosingZoomAnchor === 'align' ? '#ff4fd8' : '#39ff14';
           if (candidatePoint) {
             context.beginPath(); context.arc((candidatePoint.x + 1) * width / 2, (1 - candidatePoint.y) * height / 2, 7, 0, Math.PI * 2); context.fill();
           }
           if (anchorPoint) {
             context.font = 'bold 12px Tahoma, Arial, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'bottom';
-            context.fillText('ANCHOR', (anchorPoint.x + 1) * width / 2, (1 - anchorPoint.y) * height / 2 - 10);
+            context.fillStyle = p.zoomAnchor.kind === 'align' ? '#ff4fd8' : '#39ff14';
+            context.fillText(p.zoomAnchor.kind === 'align' ? 'ALIGN' : 'ANCHOR', (anchorPoint.x + 1) * width / 2, (1 - anchorPoint.y) * height / 2 - 10);
           }
         } else if (anchorCanvas) { anchorCanvas.remove(); anchorCanvas = null; }
       }

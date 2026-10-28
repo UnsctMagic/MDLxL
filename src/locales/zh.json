@@ -3624,5 +3624,7 @@
   "Let MDLxL tell you when a new version is out?": "有新版本时让 MDLxL 通知你？",
   "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.": "MDLxL 会在启动时检查新版本，并先询问你。在你选择“更新并重启”之前，不会下载或安装任何内容。你可以随时在 设置 → 外观 → 自动更新 中更改。",
   "Turn on": "开启",
-  "No thanks": "不用了"
+  "No thanks": "不用了",
+  "Choose Zoom align": "选择对齐顶点",
+  "Align vertex selected.": "已选择对齐顶点。"
 }

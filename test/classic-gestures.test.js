@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applySelection, dragScale, connectedVertices, insideTriangle, marqueeContainsPoint, moveDragPoint } from '../app/classic-gestures.js';
+import { alignTowardView, applySelection, dragScale, connectedVertices, insideTriangle, marqueeContainsPoint, moveDragPoint } from '../app/classic-gestures.js';
 
 function moveGesture() {
   const start = { x: 100, y: 100, width: 800, height: 600 };
@@ -73,4 +73,17 @@ test('triangle fallback accepts either winding and rejects outside and degenerat
   assert.equal(insideTriangle([.25, .25], [0, 0], [0, 1], [1, 0]), true);
   assert.equal(insideTriangle([1, 1], [0, 0], [1, 0], [0, 1]), false);
   assert.equal(insideTriangle([.5, 0], [0, 0], [1, 0], [2, 0]), false);
+});
+
+test('zoom align lines points up behind the target from the eye, keeping their distance', () => {
+  const eye = [0, 0, 10], target = [1, 2, 0], point = [-3, 4, -6], close = (a, b) => a.forEach((value, i) => assert.ok(Math.abs(value - b[i]) < 1e-9, `${a} vs ${b}`));
+  const lined = alignTowardView(point, target, { eye }, 1), distance = values => Math.hypot(...values.map((value, i) => value - eye[i]));
+  assert.ok(Math.abs(distance(lined) - distance(point)) < 1e-9);
+  const ray = target.map((value, i) => value - eye[i]), fromEye = lined.map((value, i) => value - eye[i]);
+  close(fromEye.map(value => value / distance(lined)), ray.map(value => value / Math.hypot(...ray)));
+  close(alignTowardView(point, target, { eye }, 0), point);
+  close(alignTowardView(point, target, { eye }, 2), lined);
+  // Orthographic: depth along the view stays, the sideways offset goes.
+  close(alignTowardView([5, 7, -3], [1, 2, 0], { direction: [0, 0, -2] }, 1), [1, 2, -3]);
+  close(alignTowardView([5, 7, -3], [1, 2, 0], { direction: [0, 0, -1] }, .5), [3, 4.5, -3]);
 });

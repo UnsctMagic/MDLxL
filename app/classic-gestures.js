@@ -56,6 +56,26 @@ export function dragScale(horizontalPixels, workplane = 'xz', constrain = false)
   return scale;
 }
 
+/**
+ * Zoom with an align vertex pulls a point across the screen until it hides
+ * behind the target, keeping its distance from the eye (or its depth in an
+ * orthographic view). Amount 0 leaves it, 1 lines it up exactly.
+ */
+export function alignTowardView(point, target, view, amount) {
+  const t = Math.min(1, Math.max(0, amount));
+  if (view.direction) {
+    const length = Math.hypot(...view.direction) || 1, d = view.direction.map(value => value / length);
+    const offset = point.map((value, axis) => value - target[axis]), along = offset[0] * d[0] + offset[1] * d[1] + offset[2] * d[2];
+    return point.map((value, axis) => value - (offset[axis] - d[axis] * along) * t);
+  }
+  const from = point.map((value, axis) => value - view.eye[axis]), to = target.map((value, axis) => value - view.eye[axis]);
+  const distance = Math.hypot(...from), toLength = Math.hypot(...to);
+  if (!distance || !toLength) return point.slice();
+  const mixed = from.map((value, axis) => value / distance * (1 - t) + to[axis] / toLength * t), mixedLength = Math.hypot(...mixed);
+  if (!mixedLength) return point.slice();
+  return mixed.map((value, axis) => view.eye[axis] + value / mixedLength * distance);
+}
+
 /** A marquee can catch any visible part of a vertex marker, not just its center. */
 export function marqueeContainsPoint(point, start, end, radius = 0) {
   return point[0] >= Math.min(start.x, end.x) - radius && point[0] <= Math.max(start.x, end.x) + radius && point[1] >= Math.min(start.y, end.y) - radius && point[1] <= Math.max(start.y, end.y) + radius;

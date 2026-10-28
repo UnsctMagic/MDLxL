@@ -6437,5 +6437,7 @@
   "Let MDLxL tell you when a new version is out?": "¿Quieres que MDLxL te avise cuando salga una nueva versión?",
   "MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.": "MDLxL busca una nueva versión al iniciarse y primero te pregunta. No se descarga ni se instala nada hasta que elijas Actualizar y reiniciar. Puedes cambiarlo cuando quieras en Configuración → Apariencia → Actualización automática.",
   "Turn on": "Activar",
-  "No thanks": "No, gracias"
+  "No thanks": "No, gracias",
+  "Choose Zoom align": "Elegir vértice de alineación",
+  "Align vertex selected.": "Vértice de alineación seleccionado."
 }

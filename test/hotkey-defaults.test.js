@@ -22,6 +22,7 @@ test('every core action has a default of one or two keys, unique where it works,
   for (const [key, action] of Object.entries({ A:'select', M:'translate', Q:'translate', R:'rotate', Z:'scale', W:'cameraToggle', T:'Create triangle', U:'Uncouple', C:'Collapse', B:'Weld', F:'frame', '`':'frame', S:'frameSelection', F1:'vertices', F2:'uv', F3:'animation', 'Ctrl+Z':'undo', 'Ctrl+Y':'redo', 'Ctrl+C':'copy', 'Ctrl+V':'paste', 'Ctrl+P':'paste', 'Ctrl+A':'selectAll' })) assert.equal(editor.get(key), action);
   assert.equal(editor.get('N'), 'normals'); // Final patch explicitly assigns normal visibility.
   assert.equal(editor.get('1'), 'anchorSelect');
+  assert.equal(editor.get('Shift+1'), 'alignSelect');
   for (const key of EDITOR_RESERVED) assert.equal(editor.has(key), key === 'Alt+F4', `${key} is reserved`);
   assert.equal(editor.get('Alt+F4'), 'exit', 'Exit teaches the Windows key');
   assert.deepEqual(COMMANDS.find(command => command.id === 'keyframe:clear').defaultKeys, ['Ctrl+D']);
