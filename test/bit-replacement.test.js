@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createNode, openDocument, validateModel } from '../src/editor-document.js';
 import { createStarterDocument } from '../src/starter-model.js';
 import { collectPart, collectedPartModel, commitPart, partRgbSnapshot, positionPart, previewPartReplacement, serializeCollectedPart, transformPart } from '../src/bits-and-parts.js';
+import { transformVertices } from '../src/editor-commands.js';
 import { sampleGeosetAnimation } from '../src/animation.js';
 import { selectedVertexCenter } from '../src/bone-tools.js';
 
@@ -141,4 +142,93 @@ test('saved RGB palettes retain all tracks; selecting Red or Blue imports the co
     }
     assert.deepEqual(saved, before);
   }
+});
+
+const bounds = (model, selection = all(model)) => {
+  const points = Object.entries(selection).flatMap(([index, ids]) => ids.map(id => Array.from(model.Geosets[index].Vertices.slice(id * 3, id * 3 + 3))));
+  return [0, 1, 2].map(axis => [Math.min(...points.map(point => point[axis])), Math.max(...points.map(point => point[axis]))]);
+};
+const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-4, actual + ' != ' + expected);
+
+test('replacement fits actual selected bounds across geosets, independent of saved bounds and vertex density', () => {
+  const source = createStarterDocument().model, target = createStarterDocument().model;
+  source.Geosets.push(structuredClone(source.Geosets[0]));
+  // Different pieces retain their relative placement under one shared transform.
+  transformVertices(source.Geosets[1], all(source)[1], [64, 0, 0]);
+  transformVertices(target.Geosets[0], all(target)[0], [120, -70, 25], [2, .5, 3]);
+  target.Geosets.push(structuredClone(target.Geosets[0]));
+  transformVertices(target.Geosets[1], all(target)[1], [50, 0, 0]);
+  const selection = { 0: [0, 1, 2, 3, 4, 0], 1: [6, 7] };
+  // An unselected distant part and intentionally stale Info/geoset extents
+  // must not participate in measuring what is being replaced.
+  target.Geosets.push(structuredClone(target.Geosets[0]));
+  transformVertices(target.Geosets[2], all(target)[2], [10000, 10000, 10000]);
+  const before = structuredClone({ source, target }), expected = bounds(target, selection);
+  const fitted = positionPart(source, target, selection);
+  bounds(fitted).flat().forEach((value, index) => near(value, expected.flat()[index]));
+  assert.deepEqual(fitted.Geosets[0].TVertices, source.Geosets[0].TVertices);
+  assert.deepEqual(fitted.Geosets[0].Faces, source.Geosets[0].Faces);
+  // The adjoining ends of the two source pieces still meet after fitting.
+  near(fitted.Geosets[0].Vertices[3], fitted.Geosets[1].Vertices[0]);
+  assert.deepEqual({ source, target }, before);
+});
+
+test('fitted replacement uses the existing inverse-scale normals/tangents and transfers bindings at fitted positions', () => {
+  for (const version of [800, 1000]) {
+    const source = createStarterDocument(version).model, doc = createStarterDocument(version);
+    const geoset = source.Geosets[0];
+    if (version === 1000) {
+      geoset.Tangents = new Float32Array(8 * 4);
+      for (let id = 0; id < 8; id++) geoset.Tangents.set([Math.SQRT1_2, -Math.SQRT1_2, 0, 1], id * 4);
+    }
+    let second;
+    doc.apply('Add binding fixture', [], model => { second = createNode(model, 'Bone'); });
+    const target = doc.model, selection = all(target);
+    target.Geosets[0].Groups = [[0], [second.ObjectId]];
+    target.Geosets[0].TotalGroupsCount = 2;
+    if (version === 1000) target.Geosets[0].SkinWeights = new Uint8Array(64);
+    for (let id = 0; id < 8; id++) {
+      target.Geosets[0].VertexGroup[id] = id % 2;
+      if (version === 1000) target.Geosets[0].SkinWeights.set([0, second.ObjectId, 0, 0, id % 2 ? 64 : 192, id % 2 ? 191 : 63, 0, 0], id * 8);
+    }
+    transformVertices(target.Geosets[0], selection[0], [250, -80, 30], [2, .5, 3]);
+    doc.apply('Record target fixture', [], () => {});
+    const original = structuredClone(target.Geosets[0]), fitted = positionPart(source, target, selection);
+    const expectedNormal = [-.5, -2, -1 / 3], length = Math.hypot(...expectedNormal);
+    Array.from(fitted.Geosets[0].Normals.slice(0, 3)).forEach((value, axis) => near(value, expectedNormal[axis] / length));
+    if (version === 1000) {
+      const n = fitted.Geosets[0].Normals, t = fitted.Geosets[0].Tangents;
+      near(Math.hypot(...t.slice(0, 3)), 1); near(n[0] * t[0] + n[1] * t[1] + n[2] * t[2], 0);
+      assert.equal(t[3], 1);
+    }
+    const before = doc.serialize('mdx'), preview = previewPartReplacement(target, fitted, selection);
+    doc.apply('Replace fitted Bit', [], model => commitPart(model, fitted, { replacement: selection }));
+    assert.deepEqual(doc.model.Geosets[0].Vertices, original.Vertices);
+    assert.deepEqual(doc.model.Geosets[0].Vertices, preview.model.Geosets[0].Vertices);
+    if (version === 800) assert.deepEqual(doc.model.Geosets[0].VertexGroup, original.VertexGroup);
+    if (version === 1000) assert.deepEqual(doc.model.Geosets[0].SkinWeights, original.SkinWeights);
+    for (const format of ['mdl', 'mdx']) {
+      const reopened = openDocument(doc.serialize(format));
+      assert.deepEqual(reopened.model.Geosets[0].Vertices, original.Vertices);
+      assert.deepEqual(errors(reopened.model), []);
+    }
+    const after = doc.serialize('mdx'); doc.undo(); assert.deepEqual(doc.serialize('mdx'), before);
+    doc.redo(); assert.deepEqual(doc.serialize('mdx'), after);
+  }
+});
+
+test('flat and point selections fit measurable axes without collapsing the Bit or inventing thickness', () => {
+  const target = createStarterDocument().model, source = createStarterDocument().model;
+  transformVertices(target.Geosets[0], all(target)[0], [20, 30, 40], [2, 3, 4]);
+  const flat = positionPart(source, target, { 0: [0, 1, 2, 3] });
+  assert.deepEqual(bounds(flat), [[-44, 84], [-66, 126], [-120, -56]]);
+  const point = positionPart(source, target, { 0: [6] });
+  assert.deepEqual(bounds(point), [[52, 116], [94, 158], [136, 200]]);
+  for (let id = 0; id < 8; id++) source.Geosets[0].Vertices[id * 3 + 2] = 10;
+  const planar = positionPart(source, target, all(target));
+  assert.deepEqual(bounds(planar), [[-44, 84], [-66, 126], [40, 40]]);
+  assert.ok(planar.Geosets[0].Vertices.every(Number.isFinite));
+  assert.throws(() => positionPart(source, target, {}), /Select vertices/);
+  source.Geosets = [];
+  assert.throws(() => positionPart(source, target, all(target)), /no vertices/);
 });
