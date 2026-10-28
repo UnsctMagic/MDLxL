@@ -31,7 +31,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
     await page.getByRole('button', { name: 'Animations', exact: true }).click();
-    const choose = page.getByLabel('Choose animation sequence', { exact: true }), button = page.getByRole('button', { name: 'Reorder…', exact: true });
+    const choose = page.getByLabel('Choose animation sequence', { exact: true }), button = page.getByRole('button', { name: 'Reorder', exact: true });
     await choose.selectOption('2');
     const readRuntime = () => page.evaluate(() => {
       const element = document.querySelector('.game-preview-root');
@@ -49,6 +49,13 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     };
     await waitFor(state => state.ready, 'Preview ready');
     const sidebarWidth = await page.locator('.classic-sidebar').evaluate(element => element.getBoundingClientRect().width);
+    const actionLayout = await page.locator('.ac-sequence-actions').evaluate(element => ({ height: element.getBoundingClientRect().height, buttons: [...element.querySelectorAll('button')].map(button => ({ name: button.textContent, x: button.offsetLeft, y: button.offsetTop, width: button.offsetWidth, height: button.offsetHeight, clipped: button.scrollWidth > button.clientWidth })) }));
+    assert.deepEqual(actionLayout.buttons.map(button => button.name), ['Create', 'Global', 'Create from current', 'Delete', 'Reorder']);
+    const [create, globalButton, copy, remove, reorderButton] = actionLayout.buttons;
+    assert.equal(create.y, globalButton.y); assert.equal(remove.y, reorderButton.y);
+    assert.ok(create.y < copy.y && copy.y < remove.y); assert.ok(copy.width > create.width * 1.9);
+    assert.ok(actionLayout.height <= 90, 'Actions occupy three compact rows');
+    assert.ok(actionLayout.buttons.every(button => !button.clipped), 'Button labels fit');
     assert.equal(await page.getByRole('dialog').count(), 0);
     await screenshot('default.png');
     await button.click();
@@ -113,7 +120,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const playback = await readRuntime(); await waitFor(state => Math.abs(state.frame - playback.frame) > 10, 'Playback advances');
     assert.deepEqual(await fs.readFile(fixture), Buffer.from(original)); assert.deepEqual(errors, []);
-    const result = { passed: true, executablePath, sidebarWidth, localOrder: ['Stand 3', 'Stand', 'Walk'], globalDurations: [1200, 800], undoRedo: true, saveReopen: ['mdx', 'mdl'], mouseRotation: true, playback: true, rendererErrors: errors };
+    const result = { passed: true, executablePath, sidebarWidth, actionLayout, localOrder: ['Stand 3', 'Stand', 'Walk'], globalDurations: [1200, 800], undoRedo: true, saveReopen: ['mdx', 'mdl'], mouseRotation: true, playback: true, rendererErrors: errors };
     await fs.writeFile(path.join(out, 'result.json'), JSON.stringify(result, null, 2)); console.log(JSON.stringify(result));
   } catch (error) {
     if (page) { await screenshot('failure.png').catch(() => {}); console.error((await page.locator('body').innerText()).slice(-1400)); }
