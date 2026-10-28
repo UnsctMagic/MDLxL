@@ -333,7 +333,7 @@ export function generateCompatibleMdx(inputModel) {
         const n = model[key][i];
         if(emitterBases[c.tag]){
           const at=4+b.readUInt32LE(4);
-          // Hive's PRE2 layout is length then width. The upstream codec has
+          // mdx-m3-viewer's PRE2 layout is length then width. The upstream codec has
           // these two static slots swapped; its KP2N/KP2W tracks are correct.
           if(c.tag==='PRE2'){b.writeFloatLE(base(n,'Length'),at+24);b.writeFloatLE(base(n,'Width'),at+28);}
           for(const [field,offset,width]of emitterBases[c.tag].fields)if(n[field]?.Keys&&n._MdxDefaults?.[field]!=null){const value=n._MdxDefaults[field];if(width===3)floats(value).copy(b,at+offset);else b.writeFloatLE(value,at+offset);}

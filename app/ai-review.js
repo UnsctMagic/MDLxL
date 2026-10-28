@@ -49,6 +49,8 @@ export async function aiCheckpoint(
       phase: restoreReview?.changed ? 'pending' : 'unchanged',
       changes: restoreReview?.changes || [],
       animation: !!restoreReview?.animation,
+      sequences: restoreReview?.sequences || [],
+      globalSequences: restoreReview?.globalSequences || [],
     };
   const { doc, session } = bridge.env(target);
   const bytes = target.region ? new TextEncoder().encode(regionSignature(doc.model, target.region)) : (await prepareModelSaveAsync(doc, 'mdx')).bytes;
@@ -68,6 +70,8 @@ export const reviewStatus = review => ({
   phase: review?.phase || 'unchanged',
   changes: review?.changes || [],
   animation: !!review?.animation,
+  sequences: review?.sequences || [],
+  globalSequences: review?.globalSequences || [],
   summary: review?.summary || '',
 });
 export async function beginAiReview(bridge, id, options) {
@@ -76,17 +80,17 @@ export async function beginAiReview(bridge, id, options) {
   const before = structuredClone(bridge.env(target).model);
   // Every job can go back to how the model was before it started.
   bridge.versionStore?.beforeJob(target.documentId, before);
-  // Review pictures are drawn off-screen, so before and after match whichever tab shows.
-  const image = (await bridge.picture(id)).image;
-  bridge.requireTarget(id);
+  // No picture is taken now: inspect draws the kept original with the same
+  // animation, frame and framing as the edited result, also after a resume.
   return (target.review = {
     before,
     region: target.region,
-    image,
     changed: false,
     phase: 'unchanged',
     changes: [],
     animation: false,
+    sequences: [],
+    globalSequences: [],
   });
 }
 const containsTrack = value =>
@@ -107,6 +111,173 @@ export function recordAiChange(review, result, model) {
       containsTrack(c.before) ||
       containsTrack(c.after),
   );
+  Object.assign(review, touchedAnimations(changes, review.before, model));
+}
+// The animations an edit changed: each sequence whose interval holds a changed
+// key, and each global sequence whose track changed. Review compares these,
+// whatever animation the user happens to show.
+export function touchedAnimations(changes, before, model) {
+  const frames = new Set(),
+    globals = new Set();
+  const walk = (value, global, depth = 0) => {
+    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || depth > 8) return;
+    if (Array.isArray(value.Keys)) global = value.GlobalSeqId >= 0 ? value.GlobalSeqId : null;
+    if (Number.isFinite(value.Frame)) {
+      if (global == null) frames.add(value.Frame);
+      else globals.add(global);
+    }
+    for (const item of Array.isArray(value) ? value : Object.values(value)) walk(item, global, depth + 1);
+  };
+  const at = (source, path) => path.reduce((value, key) => value?.[key], source);
+  for (const c of changes) {
+    const keys = c.path.indexOf('Keys');
+    if (keys < 0) {
+      walk(c.before, null);
+      walk(c.after, null);
+      continue;
+    }
+    for (const source of [before, model]) {
+      const track = at(source, c.path.slice(0, keys));
+      walk(at(source, c.path.slice(0, keys + 2)), track?.GlobalSeqId >= 0 ? track.GlobalSeqId : null);
+    }
+  }
+  const sequences = (model.Sequences || []).flatMap((s, i) =>
+    [...frames].some(f => f >= s.Interval[0] && f <= s.Interval[1]) ? [i] : [],
+  );
+  return { sequences, globalSequences: [...globals].filter(g => model.GlobalSequences?.[g] > 0) };
+}
+// One tool result carries at most 16 pictures (ai-mcp.cjs toolContent).
+const MAX_REVIEW_PICTURES = 16;
+const animationRange = (model, a) =>
+  a.globalSequence != null
+    ? model.GlobalSequences?.[a.globalSequence] > 0 && [0, model.GlobalSequences[a.globalSequence]]
+    : a.sequence >= 0 && model.Sequences[a.sequence]?.Interval;
+const animationName = (model, a) =>
+  a.globalSequence != null
+    ? `global sequence ${a.globalSequence}`
+    : a.sequence >= 0
+      ? `"${model.Sequences[a.sequence].Name}" (sequence ${a.sequence})`
+      : 'no animation';
+// The same animation in another model: same index and name, else the same name.
+function sameAnimation(source, model, a) {
+  if (a.globalSequence != null) return source.GlobalSequences?.[a.globalSequence] > 0 ? a : null;
+  if (a.sequence < 0) return a;
+  const name = String(model.Sequences[a.sequence]?.Name || '').trim().toLowerCase(),
+    named = s => String(s?.Name || '').trim().toLowerCase() === name;
+  if (named(source.Sequences?.[a.sequence])) return a;
+  const index = (source.Sequences || []).findIndex(named);
+  return index < 0 ? null : { sequence: index };
+}
+function checkAnimation(model, a, what) {
+  if (a.globalSequence != null && !(model.GlobalSequences?.[a.globalSequence] > 0))
+    throw Error(`${what}: global animation index is out of range.`);
+  if (a.globalSequence == null && (!Number.isInteger(a.sequence) || a.sequence < -1 || a.sequence >= model.Sequences.length))
+    throw Error(`${what}: animation index is out of range.`);
+}
+// Corners of the posed, visible model at one frame, so a picture pair can share one framing.
+function posedCorners(model, a, frame, hidden) {
+  const vertices = {};
+  model.Geosets.forEach((g, i) => {
+    if (!hidden.has(i) && g.Vertices.length) vertices[i] = Array.from({ length: g.Vertices.length / 3 }, (_, v) => v);
+  });
+  const min = [Infinity, Infinity, Infinity],
+    max = [-Infinity, -Infinity, -Infinity];
+  const add = p => p.forEach((v, i) => ((min[i] = Math.min(min[i], v)), (max[i] = Math.max(max[i], v))));
+  if (a.sequence < 0 && a.globalSequence == null)
+    for (const gi of Object.keys(vertices)) for (let i = 0; i < model.Geosets[gi].Vertices.length; i += 3) add(model.Geosets[gi].Vertices.subarray(i, i + 3));
+  else {
+    const count = Math.max(0, ...Object.values(vertices).map(v => v.length));
+    for (let offset = 0; offset < count; offset += 1000)
+      for (const g of sampleAiModel(model, { frame, sequence: -1, selectedNodeIds: [] }, { sequence: a.sequence ?? -1, globalSequence: a.globalSequence ?? null, frames: [frame], vertices, offset, limit: 1000 }).samples[0].geosets)
+        for (const p of g.selected.positions) add(p.position);
+  }
+  if (!Number.isFinite(min[0])) return [];
+  return [0, 1, 2, 3, 4, 5, 6, 7].flatMap(c => [c & 1 ? max[0] : min[0], c & 2 ? max[1] : min[1], c & 4 ? max[2] : min[2]]);
+}
+// Pictures that compare like with like: the kept original and the edited model,
+// and a donor when the task copies from one, drawn at the same animation phase
+// with the same view, display settings and framing. The user's view never decides.
+async function comparisonPictures(bridge, id, review, before, args) {
+  const target = bridge.requireTarget(id),
+    { model, state } = bridge.env(target),
+    hidden = new Set(state.hiddenGeosets || []);
+  // The animation compared: the one named, else the one the edit changed, else the task's own.
+  const own = target.globalSequence != null ? { globalSequence: target.globalSequence } : { sequence: target.sequence ?? -1 };
+  const touched = [...(review.sequences || []).map(sequence => ({ sequence })), ...(review.globalSequences || []).map(globalSequence => ({ globalSequence }))];
+  const same = (x, y) => (x.globalSequence ?? null) === (y.globalSequence ?? null) && (x.sequence ?? -1) === (y.sequence ?? -1);
+  const shown =
+    args.globalSequence != null
+      ? { globalSequence: args.globalSequence }
+      : args.sequence !== undefined
+        ? { sequence: args.sequence }
+        : touched.some(t => same(t, own)) || touched.length !== 1
+          ? own
+          : touched[0];
+  checkAnimation(model, shown, 'Review');
+  const range = animationRange(model, shown);
+  const original = sameAnimation(before, model, shown),
+    originalRange = original && animationRange(before, original);
+  let donor = null;
+  if (args.donor) {
+    const session = bridge.state().sessions.find(s => s.id === args.donor.documentId);
+    if (!session || session.id === target.documentId) throw Error('donor.documentId must be another open model (see references in the context).');
+    const explicit = args.donor.globalSequence != null ? { globalSequence: args.donor.globalSequence } : args.donor.sequence !== undefined ? { sequence: args.donor.sequence } : null;
+    if (explicit) checkAnimation(session.doc.model, explicit, 'Donor');
+    const animation = explicit || sameAnimation(session.doc.model, model, shown);
+    if (!animation)
+      throw Error(`The donor ${session.doc.name} has no animation named like ${animationName(model, shown)}. Give donor.sequence.`);
+    donor = { id: session.id, name: session.doc.name, model: session.doc.model, animation, range: animationRange(session.doc.model, animation) };
+  }
+  // Animation edits compare 3–8 phases; other edits compare one still at the task's frame.
+  let frames = [];
+  if (review.animation) {
+    if (!range) throw Error('Animation verification needs an animation. Give sequence or globalSequence.');
+    frames = args.frames || [range[0], (range[0] + range[1]) / 2, range[1]];
+    if (new Set(frames).size < 3) throw Error('Animation verification needs at least three distinct frames. Provide frames in the edited animation.');
+    if (frames.some(f => f < range[0] || f > range[1])) throw Error(`frames must lie inside ${animationName(model, shown)}: ${range[0]}–${range[1]}.`);
+  } else frames = [same(shown, own) ? (target.frame ?? range?.[0] ?? 0) : (range?.[0] ?? 0)];
+  const perFrame = 2 + (donor ? 1 : 0);
+  if (frames.length * perFrame + (args.turnaround ? 4 : 0) > MAX_REVIEW_PICTURES)
+    throw Error(`That is more than ${MAX_REVIEW_PICTURES} pictures. Use fewer frames.`);
+  const images = [],
+    missing = [];
+  if (!original) missing.push(`The original model has no ${animationName(model, shown)}, so there are no original pictures to compare.`);
+  const sample = a => (a.globalSequence != null ? { globalSequence: a.globalSequence } : { sequence: a.sequence });
+  for (const frame of frames) {
+    bridge.requireTarget(id);
+    const phase = range && range[1] > range[0] ? (frame - range[0]) / (range[1] - range[0]) : null;
+    const at = r => (phase == null || !r ? (r?.[0] ?? frame) : Math.round(r[0] + phase * (r[1] - r[0])));
+    const group = review.animation ? `frame ${frame}` : 'still',
+      when = `${phase == null ? '' : `${Math.round(phase * 100)}% through; `}frame `;
+    // One framing for the pair: both posed models fit inside it.
+    const originalFrame = original && at(originalRange);
+    const focus = [
+      ...posedCorners(model, shown, frame, hidden),
+      ...(original ? posedCorners(before, original, originalFrame, before.Geosets.length === model.Geosets.length ? hidden : new Set()) : []),
+    ];
+    if (original)
+      images.push({
+        role: 'original', group,
+        label: `Original target before the task; ${animationName(before, original)}; ${when}${originalFrame}`,
+        image: (await bridge.picture(id, { ...sample(original), frame: originalFrame }, { model: before, focus })).image,
+      });
+    images.push({
+      role: 'edited', group,
+      label: `Edited target; ${animationName(model, shown)}; ${when}${frame}`,
+      image: (await bridge.picture(id, { ...sample(shown), frame }, { focus })).image,
+    });
+    if (donor) {
+      const donorFrame = at(donor.range);
+      images.push({
+        role: 'donor', group,
+        label: `Donor ${donor.name}; ${animationName(donor.model, donor.animation)}; ${when}${donorFrame}`,
+        image: (await bridge.picture(id, { ...sample(donor.animation), frame: donorFrame }, { documentId: donor.id, focus: posedCorners(donor.model, donor.animation, donorFrame, new Set()) })).image,
+      });
+    }
+  }
+  // Side views show the edited result at the middle compared frame.
+  const pose = { ...sample(shown), frame: frames[Math.floor(frames.length / 2)] };
+  return { images, frames, shown, pose, missing, compared: { animation: animationName(model, shown), original: original ? animationName(before, original) : null, donor: donor ? `${donor.name}: ${animationName(donor.model, donor.animation)}` : null } };
 }
 export async function reviewAiModel(bridge, args, options) {
   const target = bridge.requireTarget(args.target),
@@ -168,39 +339,30 @@ export async function reviewAiModel(bridge, args, options) {
     { target: args.target, action: 'validate' },
     options,
   );
-  const images = [],
-    poses = [];
-  if (review.image) images.push({ label: 'Before the task', image: review.image });
-  images.push({ label: 'After the edit', image: (await bridge.picture(args.target)).image });
+  const poses = [];
+  const comparison = await comparisonPictures(bridge, args.target, review, before, args),
+    images = comparison.images;
   if (args.turnaround)
     // The result from every side: a part that only works from the front shows here.
     // Drawn off-screen, so the user's own view and camera never move.
     for (const side of ['front', 'back', 'left', 'right']) {
       bridge.requireTarget(args.target);
       images.push({
-        label: `After the edit; ${side} view`,
-        image: (await bridge.picture(args.target, { view: side })).image,
+        role: 'edited',
+        group: `${side} view`,
+        label: `Edited target; ${side} view`,
+        image: (await bridge.picture(args.target, { ...comparison.pose, view: side })).image,
       });
     }
   if (review.animation) {
-    const interval =
-      state.globalSeqId == null
-        ? state.model.Sequences[state.sequence]?.Interval
-        : [0, state.model.GlobalSequences[state.globalSeqId]];
-    const samples =
-      args.frames || (interval ? [interval[0], (interval[0] + interval[1]) / 2, interval[1]] : []);
-    if (new Set(samples).size < 3)
-      throw Error(
-        'Animation verification needs at least three distinct frames. Select the edited sequence and provide frames.',
-      );
-    poses.push(await bridge.dispatch('mdlxl_sample', { target: args.target, frames: samples }, options));
-    for (const frame of samples) {
-      bridge.requireTarget(args.target);
-      images.push({
-        label: `After; animation frame ${frame}`,
-        image: (await bridge.picture(args.target, { frame })).image,
-      });
-    }
+    const { shown } = comparison;
+    poses.push(
+      await bridge.dispatch(
+        'mdlxl_sample',
+        { target: args.target, frames: comparison.frames, ...(shown.globalSequence != null ? { globalSequence: shown.globalSequence } : { sequence: shown.sequence, globalSequence: null }) },
+        options,
+      ),
+    );
   }
   bridge.requireTarget(args.target);
   const current = bridge.env(target);
@@ -222,6 +384,8 @@ export async function reviewAiModel(bridge, args, options) {
       checks,
       validation,
       poses,
+      compared: comparison.compared,
+      ...(comparison.missing.length ? { missingEvidence: comparison.missing } : {}),
       pendingPreviews: !!drafts,
       next: args.turnaround
         ? 'Inspect every image, including each side view. Name the weakest visible spot from each side (gaps, clipping, flat or floating parts, unpainted or noisy texture). Correct failures, or call mdlxl_review finish with outcome passed and a short visual assessment. Structural checks do not prove appearance.'

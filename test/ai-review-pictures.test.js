@@ -1,0 +1,154 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { beginAiReview, recordAiChange, reviewAiModel, aiCheckpoint, touchedAnimations } from '../app/ai-review.js';
+import { createChanges } from '../src/history-store.js';
+import { encodeAiValue } from '../src/ai-model.js';
+const { choosePictures } = createRequire(import.meta.url)('../electron/ai-service.cjs');
+
+// One bone and one triangle; Portrait Talk 0–100, Walk 200–400 (the flail swings in Walk).
+const key = (Frame, x) => ({ Frame, Vector: new Float32Array([x, 0, 0]) });
+function unit(walk = [key(200, 0), key(300, 5), key(400, 0)]) {
+  return {
+    Sequences: [
+      { Name: 'Portrait Talk', Interval: new Uint32Array([0, 100]) },
+      { Name: 'Walk', Interval: new Uint32Array([200, 400]) },
+    ],
+    GlobalSequences: [],
+    PivotPoints: [new Float32Array([0, 0, 0])],
+    Bones: [{ ObjectId: 0, Name: 'Bone_Flail', Parent: -1, Flags: 256, Translation: { LineType: 1, GlobalSeqId: -1, Keys: [key(0, 0), ...walk] } }],
+    Helpers: [],
+    Geosets: [{ Vertices: new Float32Array([0, 0, 0, 10, 0, 0, 0, 10, 0]), VertexGroup: new Uint8Array([0, 0, 0]), Groups: [[0]], Faces: new Uint16Array([0, 1, 2]) }],
+  };
+}
+// The editor as ai-review sees it: one task tab showing Portrait Talk, a donor tab, and an
+// off-screen renderer that records what each picture was asked to draw.
+function editor({ sequence = 0, frame = 50 } = {}) {
+  const sessions = [
+    { id: 'target', doc: { name: 'Flail08.mdx', model: unit(), revision: 1, captureRecoveryState: () => ({}), rememberSerializedSnapshot() {} } },
+    { id: 'donor', doc: { name: 'Flail07.mdx', model: { ...unit(), Sequences: [{ Name: 'Walk', Interval: new Uint32Array([1000, 1800]) }] } } },
+  ];
+  const target = { documentId: 'target', sequence, frame, globalSequence: null, selection: {} };
+  const drawn = [];
+  const bridge = {
+    targets: new Map([['t', target]]),
+    requireTarget: () => target,
+    state: () => ({ sessions }),
+    env: () => ({ live: true, model: sessions[0].doc.model, doc: sessions[0].doc, session: { assets: [] }, state: { model: sessions[0].doc.model, hiddenGeosets: new Set(), view: 'perspective', sequence: target.sequence, time: target.frame } }),
+    context: () => ({}),
+    contextFor: () => ({}),
+    picture: async (id, sample, source = {}) => {
+      drawn.push({ sample, source: source.documentId || (source.model ? 'original' : 'edited'), model: source.model, focus: source.focus });
+      return { image: 'data:image/png;base64,YQ==' };
+    },
+    dispatch: async name => (name === 'mdlxl_document' ? { results: [{ format: 'mdx', diagnostics: [] }] } : { samples: [] }),
+  };
+  // Checkpoints fingerprint the saved bytes through the save worker.
+  globalThis.Worker = class {
+    postMessage() { setTimeout(() => this.onmessage({ data: { bytes: new Uint8Array([1]) } })); }
+    terminate() {}
+  };
+  globalThis.window = { desktop: { aiScript: async ({ model, before }) => ({ value: [{ name: 'flail swings', passed: true }], model, before }) } };
+  // The worker's edit: Flail07's swing copied into Flail08's Walk only.
+  const edit = async () => {
+    await beginAiReview(bridge, 't');
+    const model = sessions[0].doc.model;
+    model.Bones[0].Translation.Keys = [key(0, 0), key(200, 0), key(300, 30), key(400, 0)];
+    sessions[0].doc.revision++;
+    recordAiChange(target.review, {}, model);
+  };
+  return { bridge, target, sessions, drawn, edit };
+}
+const inspect = (bridge, extra = {}) => reviewAiModel(bridge, { target: 't', action: 'inspect', checksCode: 'return []', ...extra }, {});
+
+test('an animation edit is found by the keys it changed, not by the animation on screen', () => {
+  const before = unit(), after = unit([key(200, 0), key(300, 30), key(400, 0)]);
+  assert.deepEqual(touchedAnimations(createChanges(before, after), before, after), { sequences: [1], globalSequences: [] });
+  const global = unit();
+  global.GlobalSequences = [500];
+  global.Bones[0].Rotation = { LineType: 1, GlobalSeqId: 0, Keys: [{ Frame: 100, Vector: new Float32Array([0, 0, 0, 1]) }] };
+  const turned = structuredClone(global);
+  turned.Bones[0].Rotation.Keys[0].Vector = new Float32Array([0, 0, 1, 0]);
+  assert.deepEqual(touchedAnimations(createChanges(global, turned), global, turned), { sequences: [], globalSequences: [0] }, 'a global key at 100 is not Portrait Talk');
+});
+
+test('with Portrait Talk on screen, a Walk edit is reviewed with matching original and edited Walk poses', async () => {
+  const { bridge, drawn, edit } = editor();
+  await edit();
+  const result = await inspect(bridge);
+  assert.equal(result.review.compared.animation, '"Walk" (sequence 1)');
+  assert.deepEqual(result.images.map(i => i.role), ['original', 'edited', 'original', 'edited', 'original', 'edited']);
+  assert.ok(result.images.every(i => /Walk/.test(i.label) && !/Portrait/.test(i.label)), 'no Portrait Talk picture');
+  assert.match(result.images[2].label, /^Original target before the task; "Walk" \(sequence 1\); 50% through; frame 300$/);
+  for (let i = 0; i < drawn.length; i += 2) {
+    const [original, edited] = [drawn[i], drawn[i + 1]];
+    assert.equal(original.source, 'original');
+    assert.equal(original.model.Bones[0].Translation.Keys[2].Vector[0], 5, 'the original is the kept model, not the edited one');
+    assert.deepEqual(original.sample, edited.sample, 'same animation and frame');
+    assert.deepEqual(original.focus, edited.focus, 'same framing');
+    assert.equal(original.focus.length, 48, 'framed on both posed models (8 corners each)');
+  }
+  assert.deepEqual(drawn.map(d => d.sample.frame), [200, 200, 300, 300, 400, 400]);
+});
+
+test('a donor adds its matching phases, mapped across a different frame range', async () => {
+  const { bridge, drawn, edit } = editor();
+  await edit();
+  const result = await inspect(bridge, { donor: { documentId: 'donor' } });
+  assert.deepEqual(result.images.map(i => i.role), ['original', 'edited', 'donor', 'original', 'edited', 'donor', 'original', 'edited', 'donor']);
+  assert.deepEqual(drawn.filter(d => d.source === 'donor').map(d => d.sample.frame), [1000, 1400, 1800]);
+  assert.match(result.images[5].label, /^Donor Flail07\.mdx; "Walk" \(sequence 0\); 50% through; frame 1400$/);
+  assert.equal(result.review.compared.donor, 'Flail07.mdx: "Walk" (sequence 0)');
+  await assert.rejects(inspect(bridge, { donor: { documentId: 'target' } }), /another open model/);
+  await assert.rejects(inspect(bridge, { donor: { documentId: 'donor', sequence: 4 } }), /Donor: animation index is out of range/);
+});
+
+test('switching the view to Attack and resuming keeps comparing Walk against the kept original', async () => {
+  const { bridge, target, drawn, edit } = editor();
+  await edit();
+  const saved = await aiCheckpoint(bridge, 't', { includeBaseline: true });
+  // The app restarts: the review is rebuilt from the saved baseline, while the user shows another animation.
+  delete target.review;
+  Object.assign(target, { sequence: 0, frame: 10 });
+  await aiCheckpoint(bridge, 't', { baseline: saved.baseline, restoreReview: saved.review });
+  const result = await inspect(bridge);
+  assert.equal(result.review.compared.animation, '"Walk" (sequence 1)');
+  assert.equal(drawn[0].model.Bones[0].Translation.Keys[2].Vector[0], 5, 'the original survives the resume');
+  assert.equal(result.images.length, 6);
+});
+
+test('a missing original animation is said plainly instead of comparing the wrong pose', async () => {
+  const { bridge, target, edit } = editor();
+  await edit();
+  target.review.before.Sequences[1].Name = 'Walk Old';
+  const result = await inspect(bridge);
+  assert.deepEqual(result.images.map(i => i.role), ['edited', 'edited', 'edited']);
+  assert.match(result.review.missingEvidence[0], /original model has no "Walk"/);
+});
+
+test('too many pictures for one result is refused, not cut off', async () => {
+  const { bridge, edit } = editor();
+  await edit();
+  await assert.rejects(inspect(bridge, { donor: { documentId: 'donor' }, turnaround: true, frames: [200, 250, 300, 350, 400] }), /more than 16 pictures/);
+});
+
+test('the outside check gets whole comparison groups spread over the animation, never a cut-off tail', () => {
+  const images = [];
+  for (const frame of [0, 10, 20, 30, 40]) for (const role of ['original', 'edited', 'donor']) images.push({ role, group: `frame ${frame}`, label: `${role} ${frame}` });
+  for (const side of ['front', 'back']) images.push({ role: 'edited', group: `${side} view`, label: side });
+  const { pictures, left } = choosePictures(images, 12);
+  const frames = [...new Set(pictures.map(p => p.group))];
+  assert.deepEqual(frames, ['frame 0', 'frame 10', 'frame 30', 'frame 40'], 'four whole phases, first and last included');
+  assert.ok(frames.every(f => pictures.filter(p => p.group === f).length === 3), 'each phase keeps original, edited and donor');
+  assert.deepEqual(left, ['original 20', 'edited 20', 'donor 20', 'front', 'back']);
+  // Small sets go through whole.
+  assert.equal(choosePictures(images.slice(0, 9)).pictures.length, 9);
+});
+
+test('the kept original is encoded with the checkpoint and restored on resume', async () => {
+  const { bridge, edit } = editor();
+  await edit();
+  const saved = await aiCheckpoint(bridge, 't', { includeBaseline: true });
+  assert.deepEqual(saved.review.sequences, [1]);
+  assert.deepEqual(saved.baseline, encodeAiValue(bridge.targets.get('t').review.before));
+});

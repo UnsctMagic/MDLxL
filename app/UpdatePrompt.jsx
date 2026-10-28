@@ -10,17 +10,17 @@ function ExternalLink({ href, children, ...props }) {
 }
 export const updateStatusText = status => ({ idle: '', checking: 'Searching for updates…', current: 'You have the latest version.', available: `MDLxL ${status?.release?.version || ''} is available.`, downloading: 'Downloading update…', reverting: 'Preparing previous version…', ready: 'Update ready. Close MDLxL to install and restart.', error: status?.error })[status?.state] || '';
 
-export default function UpdatePrompt({ status, Dialog, onInstall, onClose }) {
+export default function UpdatePrompt({ status, Dialog, onInstall, onClose, disableSounds, onDisableSounds }) {
   const release = status?.release, busy = ['downloading', 'ready'].includes(status?.state);
   useEffect(()=>{const previous=document.activeElement;document.querySelector('[data-hotkey="update:later"]')?.focus();return ()=>{if(previous?.isConnected)previous.focus();};},[]);
   const trapFocus = event => {
     if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!busy)onClose();}
     if(event.key!=='Tab')return;
-    const controls=[...event.currentTarget.querySelectorAll('button:not(:disabled), a[href]')].filter(node=>node.getClientRects().length),first=controls[0],last=controls.at(-1);
+    const controls=[...event.currentTarget.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(node=>node.getClientRects().length),first=controls[0],last=controls.at(-1);
     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
   };
   if (!release) return null;
-  return <Dialog overlayClass="update-overlay" onKeyDown={trapFocus} title="MDLxL update" onClose={busy ? () => {} : onClose} footer={<><button data-hotkey="update:install" disabled={busy || !status.canInstall} onClick={onInstall}>Update and restart</button><button data-hotkey="update:later" disabled={busy} onClick={onClose}>Later</button></>}>
+  return <Dialog overlayClass="update-overlay" onKeyDown={trapFocus} title="MDLxL update" onClose={busy ? () => {} : onClose} footer={<><label style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}><input type="checkbox" data-hotkey="update:disableSounds" checked={disableSounds} onChange={event => onDisableSounds(event.target.checked)}/>Disable sounds</label><button data-hotkey="update:install" disabled={busy || !status.canInstall} onClick={onInstall}>Update and restart</button><button data-hotkey="update:later" disabled={busy} onClick={onClose}>Later</button></>}>
     <UpdateShredder status={status}/>
     <p><strong>{`MDLxL ${release.version} is available.`}</strong></p>
     <p>{`Installed version: ${status.currentVersion}`}</p>

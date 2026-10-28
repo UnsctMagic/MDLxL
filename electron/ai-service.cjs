@@ -828,10 +828,15 @@ class AiService {
           const verdict = await this.outsideCheck({ request: task.prompt || text, plan: task.plan, inspect: lastInspect, settings, contract, signal, conversation, recorder });
           if (verdict) {
             task.outsideCheck = verdict;
-            if (verdict.verdict !== 'good' && (task.outsideRounds = (task.outsideRounds || 0) + 1) <= 2)
+            if (verdict.verdict !== 'good') {
+              const said = `Outside check (a separate AI that saw only the request, the keep list, your checks and the pictures) says ${verdict.verdict}: ${verdict.problems.join('; ') || 'no reason given'}.`;
+              if ((task.outsideRounds = (task.outsideRounds || 0) + 1) <= 2)
+                throw Error(`${said} Correct what is real, run mdlxl_review inspect again, then finish.`);
+              // Running out of rounds never turns a rejection into a pass.
               throw Error(
-                `Outside check (a separate AI that saw only the request, the keep list, your checks and the pictures) says ${verdict.verdict}: ${verdict.problems.join('; ') || 'no reason given'}. Correct what is real, run mdlxl_review inspect again, then finish.`,
+                `${said} This was round ${task.outsideRounds}; the result cannot be marked passed. Keep the edit and call mdlxl_review finish with outcome blocked, saying in one short plain sentence what the review could not confirm (for example that it could not compare matching poses).`,
               );
+            }
           }
         }
         await progress(
@@ -851,7 +856,7 @@ class AiService {
         // What the outside check will judge: the latest inspected checks and pictures.
         if (edit) lastInspect = null;
         if (name === 'mdlxl_review' && args.action === 'inspect' && result && typeof result === 'object')
-          lastInspect = { checks: result.review?.checks || [], images: result.images || [] };
+          lastInspect = { checks: result.review?.checks || [], images: result.images || [], missing: result.review?.missingEvidence || [] };
         // The review judges the plan's keep list along with the request.
         if (name === 'mdlxl_review' && args.action === 'inspect' && task.plan && result && typeof result === 'object')
           result.plan = { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice].fix, keep: task.plan.keep, check: 'Confirm each keep item with a measured check or a visible comparison.' };
@@ -952,8 +957,9 @@ class AiService {
           return;
         }
         if (conversation.light && review.changed && review.phase !== 'verified') escalate('The lighter model could not verify its edit.');
+        // A short first line; the worker's own explanation follows in the same box.
         if (review.phase === 'blocked')
-          throw Error(review.summary || 'The edited model still needs verification.');
+          throw Error(review.summary ? 'The edit is kept but not verified.\n' + review.summary : 'The edited model still needs verification.');
         if (attempt >= 4) break;
         await progress('verifying');
         recorder.event({ type: 'notice', text: 'Checking the result before completing the task.' });
@@ -1185,7 +1191,7 @@ class AiService {
   // Returns {verdict, confidence, problems, strengths}, or null when it could not judge.
   async outsideCheck({ request, plan, inspect, settings, contract, signal, conversation, recorder }) {
     const judge = { id: `${conversation.id}-check`, provider: settings.provider, transcript: [], messages: [], kind: 'check' };
-    const pictures = inspect.images.slice(0, 8);
+    const { pictures, left } = choosePictures(inspect.images);
     let reply = '';
     const meter = this.measureUsage(conversation, new AiRecorder(conversation, () => {}), 'outside check');
     const options = {
@@ -1208,6 +1214,8 @@ class AiService {
           : 'The worker recorded no plan (an exact value edit).',
         `The worker's own checks:\n${JSON.stringify(inspect.checks.map(c => ({ name: c.name, passed: c.passed, actual: c.actual, expected: c.expected }))).slice(0, 4000)}`,
         `Pictures, in order: ${pictures.map((p, i) => `${i + 1}. ${p.label}`).join('; ') || 'none'}.`,
+        ...(left.length ? [`Not sent, to keep the set small (the worker saw them): ${left.join('; ')}.`] : []),
+        ...(inspect.missing?.length ? [`Evidence the review could not produce: ${inspect.missing.join(' ')}`] : []),
       ].join('\n\n'),
       images: pictures.map(p => p.image),
       conversation: judge,
@@ -1806,4 +1814,37 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   });
   return service;
 }
-module.exports = { AiService, AiSteering, registerAiService };
+// The outside check gets a bounded but complete comparison set: whole groups only,
+// so the original, edited and donor pictures of one phase stay together. The still
+// comparison comes first, then as many phases as fit, spread over the animation,
+// then side views. Returns the labels left out so the judge is told.
+function choosePictures(images, limit = 12) {
+  const groups = [];
+  for (const image of images) {
+    const key = image.group || image.label,
+      group = groups.find(g => g.key === key);
+    if (group) group.items.push(image);
+    else groups.push({ key, items: [image] });
+  }
+  const chosen = new Set();
+  let room = limit;
+  const take = group => {
+    if (group.items.length > room) return;
+    chosen.add(group);
+    room -= group.items.length;
+  };
+  const phases = groups.filter(g => /^frame /.test(g.key));
+  groups.filter(g => g.key === 'still').forEach(take);
+  for (let count = phases.length; count > 0; count--) {
+    const spread = [...new Set(Array.from({ length: count }, (_, i) => Math.round(count === 1 ? (phases.length - 1) / 2 : (i * (phases.length - 1)) / (count - 1))))].map(i => phases[i]);
+    if (spread.reduce((n, g) => n + g.items.length, 0) <= room) {
+      spread.forEach(take);
+      break;
+    }
+  }
+  groups.filter(g => g.key !== 'still' && !phases.includes(g)).forEach(take);
+  const pictures = groups.filter(g => chosen.has(g)).flatMap(g => g.items);
+  return { pictures, left: images.filter(image => !pictures.includes(image)).map(image => image.label) };
+}
+
+module.exports = { AiService, AiSteering, registerAiService, choosePictures };

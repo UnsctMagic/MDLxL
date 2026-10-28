@@ -16,7 +16,7 @@ function fixture(property='Rotation',global=false){const d=createStarterDocument
   const a=property==='Rotation'?[0,0,0,1]:property==='Scaling'?[1,1,1]:[2,3,4],b=[...a];b[0]+=1e-7;
   m.Bones[0][property]={LineType:1,GlobalSeqId:global?0:null,Keys:[key(100,a),key(170,b),key(230,b),key(300,a),...(!global?[key(500,property==='Rotation'?[1,1,1,1]:[9,8,7]),key(700,property==='Rotation'?[1,1,1,1]:[9,8,7])]:[])]};
 });return d;}
-for(const property of ['Translation','Rotation','Scaling'])for(const global of [false,true])test(`${property} ${global?'global':'local'}: actual Hive notices map to one correction and clear after approval`,()=>{
+for(const property of ['Translation','Rotation','Scaling'])for(const global of [false,true])test(`${property} ${global?'global':'local'}: actual mdx-m3-viewer notices map to one correction and clear after approval`,()=>{
   const d=fixture(property,global),source=d.serialize('mdx'),model=openDocument(source,'x.mdx').model;
   const proposals=sanityProposals(model),f=proposals.find(f=>f.kind==='redundantTracks');assert.ok(f);assert.equal(f.frames.length,2);assert.ok(!f.inspectionOnly);
   const actual=hive(source).findings.filter(f=>f.type==='unused');assert.equal(actual.length,2);
@@ -56,7 +56,7 @@ test('overlap and non-unit affected spans remain inspection-only; stale plans fa
   const m=fixture().model;m.Sequences.push(seq('Overlap',150,250));
   assert.ok(sanityProposals(m).filter(f=>f.kind==='redundantTracks').every(f=>f.inspectionOnly));
 });
-test('every Hive unused family and unknown findings have an explicit disposition',()=>{
+test('every mdx-m3-viewer unused family and unknown findings have an explicit disposition',()=>{
   const rows=[
     {path:'/Bone 2 - "A/B"/Rotation',message:'Track 1 at frame 200 has roughly the same value as tracks 0 and 2'},
     {path:'/Material 1/Layer 0/Alpha',message:'Track 3 at frame 999 is not in any sequence'},
@@ -71,7 +71,7 @@ test('every Hive unused family and unknown findings have an explicit disposition
   assert.equal(classifyHiveFindings([{type:'warning',path:'/ParticleEmitter2 3 - "Fire"/Gravity',message:'Using a gravity animation.'}],
     [{id:'gravity:3',kind:'gravity',emitter:3}])[0].status,'preview');
 });
-test('scalar material channels use the same Hive classifier and repair engine',()=>{
+test('scalar material channels use the same mdx-m3-viewer classifier and repair engine',()=>{
   const d=fixture();delete d.model.Bones[0].Rotation;
   d.model.Materials[0].Layers[0].Alpha={LineType:1,GlobalSeqId:null,Keys:[key(100,[.8]),key(200,[.8000001]),key(300,[.8])]};
   const source=d.serialize('mdx'),m=openDocument(source,'x.mdx').model,proposals=sanityProposals(m),actual=hive(source).findings.filter(f=>f.type==='unused');

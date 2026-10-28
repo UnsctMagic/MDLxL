@@ -7,7 +7,7 @@ export function unusedTrackProposals(model, entries) {
   for (const { track, path } of entries) {
     if (!local(track) || !model.Sequences.length) continue;
     const active = key => model.Sequences.some(s => key.Frame >= s.Interval[0] && key.Frame <= s.Interval[1]);
-    // Hive exempts frame zero (the setup key). Match its unused-key diagnostic
+    // mdx-m3-viewer exempts frame zero (the setup key). Match its unused-key diagnostic
     // rather than deleting setup data simply because sequences start later.
     const frames = track.Keys.filter(k => k.Frame !== 0 && !active(k)).map(k => k.Frame);
     // Retain wholly unassigned tracks: removing the track requires a separate

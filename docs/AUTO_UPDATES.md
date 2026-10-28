@@ -5,6 +5,9 @@ Settings → Appearance contains **Auto update**, **Search for updates**, and
 once after the editor starts; it does not download or install anything until
 the user selects **Update and restart**. Manual searches work independently.
 
+The update popup’s bottom-left **Disable sounds** checkbox saves the choice in
+your preferences and mutes the update and first-launch welcome fanfares.
+
 Many people download every release by hand and never find Auto update, so the
 first start of a copy with Auto update off asks once whether to turn it on
 (**Turn on** / **No thanks**). The answer is kept as `updateOfferAnswered` in

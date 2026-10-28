@@ -54,7 +54,7 @@ if(codex){
  if(m.method==='account/read'){if(m.params.refreshToken!==true)process.exit(7);return send({id:m.id,result:{account:fs.existsSync('signed-out')?null:{type:'chatgpt',planType:'plus'},requiresOpenaiAuth:true}});}
  if(m.method==='account/login/start'){send({id:m.id,result:{type:'chatgpt',loginId:'fixture',authUrl:'https://auth.openai.com/fixture'}});setTimeout(()=>{const failure=fs.existsSync('login-fails');if(!failure&&fs.existsSync('signed-out'))fs.unlinkSync('signed-out');send({method:'account/login/completed',params:{success:!failure,error:failure?'Login declined':null}});},25);return;}
  if(m.method==='thread/start'||m.method==='thread/resume'){if(m.params.sandbox!=='read-only'||m.params.approvalPolicy!=='never')process.exit(4);return send({id:m.id,result:{thread:{id:'codex-fixture'}}});}
- if(m.method==='turn/start'){send({id:m.id,result:{turn:{id:'turn-fixture'}}});const setting=args.find(a=>a.startsWith('mcp_servers.mdlxl.url='));await tool(JSON.parse(setting.split('=').slice(1).join('=')),'Bearer '+process.env.MDLXL_AI_TOKEN);send({method:'item/agentMessage/delta',params:{delta:'Native Codex response'}});send({method:'turn/completed',params:{turn:{status:'completed'}}});return;}
+ if(m.method==='turn/start'){send({id:m.id,result:{turn:{id:'turn-fixture'}}});const setting=args.find(a=>a.startsWith('mcp_servers.mdlxl.url='));await tool(JSON.parse(setting.split('=').slice(1).join('=')),'Bearer '+process.env.MDLXL_AI_TOKEN);send({method:'thread/tokenUsage/updated',params:{tokenUsage:{total:{totalTokens:120}}}});send({method:'item/agentMessage/delta',params:{delta:'Native Codex response'}});send({method:'turn/completed',params:{turn:{status:'completed'}}});return;}
  send({id:m.id,result:{}});
  });
 }else{
@@ -147,6 +147,32 @@ test('signed-out Codex cannot create a turn or call an editor tool', async t => 
     .split('\n')
     .map(line => JSON.parse(line).method);
   assert.deepEqual(requests, ['initialize', 'account/read']);
+});
+
+test('Codex tokens count from zero on a new thread, also after Resume dropped the old one', async t => {
+  const config = await executable(t);
+  const run = async conversation => {
+    const costs = [];
+    await runCodex({
+      settings: { executable: config.executable },
+      directory: config.directory,
+      tools: AI_TOOLS,
+      call: async () => ({ name: 'fixture' }),
+      system: 'MDLxL tools only',
+      prompt: 'test prompt',
+      images: [],
+      conversation,
+      signal: new AbortController().signal,
+      event: event => event.type === 'cost' && costs.push(event.tokens),
+    });
+    return costs;
+  };
+  // Resume deletes threadId but keeps the old thread's running total of 5000.
+  const resumed = { providerTotalTokens: 5000 };
+  assert.deepEqual(await run(resumed), [120], 'the new thread is not hidden behind the old total');
+  assert.equal(resumed.providerTotalTokens, 120);
+  // The same thread continued: only what this turn added.
+  assert.deepEqual(await run({ threadId: 'codex-fixture', providerTotalTokens: 100 }), [20]);
 });
 
 test('native Codex receives enabled live context during a running turn without another user turn', async t => {

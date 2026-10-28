@@ -16,6 +16,7 @@ async function setup(t, respond) {
   let requests = 0,
     edits = 0,
     phase = 'unchanged',
+    summary = 'Checked the edited shape.',
     fingerprint = 'before';
   const events = [],
     arts = [],
@@ -84,9 +85,10 @@ async function setup(t, respond) {
         }
         if (args.action === 'finish') {
           assert.equal(phase, 'inspected');
-          phase = 'verified';
+          phase = args.outcome === 'blocked' ? 'blocked' : 'verified';
+          if (args.outcome === 'blocked') summary = args.summary;
         }
-        return { changed: edits > 0, phase, summary: 'Checked the edited shape.' };
+        return { changed: edits > 0, phase, summary };
       }
       throw Error('Unexpected tool ' + name);
     };
@@ -269,6 +271,32 @@ test('the outside check judges a finished edit from the request and pictures onl
   assert.match(steps[0].summary, /the rim reads as smooth/);
   const saved = (await f.service.conversation('test', 'compatible')).transcript.flatMap(entry => entry.parts || []);
   assert.equal(saved.filter(p => p.type === 'tool' && p.name === 'outside_check').length, 2, 'the steps are kept in the transcript');
+});
+
+test('doubt that outlasts the correction rounds never becomes a pass', async t => {
+  const toolMessages = [];
+  let round = 0;
+  const f = await setup(t, ({ data }) => {
+    const last = data.messages.at(-1);
+    if (last.role === 'tool') toolMessages.push(last.content);
+    if (last.role === 'tool' && /cannot be marked passed/.test(last.content))
+      return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'blocked', summary: 'The review could not compare matching Walk poses.' });
+    round++;
+    if (round === 1) return plan();
+    if (round === 2) return edit();
+    if (round % 2 === 1 && round < 9) return tool('mdlxl_review', { target: 'selected', action: 'inspect', checksCode: 'return [{name:"rim",passed:true}]' });
+    if (round < 9) return tool('mdlxl_review', { target: 'selected', action: 'finish', outcome: 'passed', summary: 'Rim hammered.' });
+    return done();
+  });
+  for (let i = 0; i < 3; i++) f.verdicts.push({ verdict: i === 2 ? 'wrong' : 'doubtful', confidence: 0.5, problems: ['the baseline shows another animation'], strengths: [] });
+  const result = await f.service.send({ id: 'test', text: 'fix the rim so it looks hammered', context });
+  assert.equal(f.checks.length, 3);
+  assert.equal(result.ok, false, 'the task does not complete');
+  assert.match(toolMessages.find(m => /cannot be marked passed/.test(m)), /round 3.*outcome blocked/);
+  assert.equal(result.error, 'The edit is kept but not verified.\nThe review could not compare matching Walk poses.');
+  const task = (await f.service.conversation('test', 'compatible')).task;
+  assert.notEqual(task.phase, 'verified');
+  assert.equal(task.outsideCheck.verdict, 'wrong');
 });
 
 test('the outside check can be switched off in connection settings', async t => {

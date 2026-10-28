@@ -35,13 +35,13 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   await p.mouse.move(b.x+b.width/2,b.y+b.height/2);await p.mouse.down();await p.mouse.move(b.x+b.width/2+160,b.y+b.height/2+30,{steps:12});await p.mouse.up();await p.waitForTimeout(800);
   assert.notEqual(await shot('Before preview'),still[0],'the Before view rotates with the mouse');assert.notEqual(await shot('After preview'),still[1],'the After view follows');
   // One click previews every repair; approving clears the checker.
-  await p.getByText(/^Hive: \d+ errors/).waitFor();
+  await p.getByText(/^mdx-m3-viewer: \d+ errors/).waitFor();
   await p.getByRole('button',{name:'Fix everything',exact:true}).click();
   await p.waitForFunction(()=>!!document.querySelector('.ox-savings strong'));
   await p.screenshot({path:path.join(out,'02-fix-everything-preview.png')});
   assert.equal(await p.getByRole('button',{name:'Save',exact:true}).isDisabled(),true,'nothing approved yet');assert.equal(await p.getByRole('button',{name:'Commit',exact:true}).isDisabled(),true);
   await p.getByRole('button',{name:'Approve all fixes',exact:true}).click();
-  await p.getByText(/^Hive: 0 errors · 0 severe · 0 warnings/).waitFor();
+  await p.getByText(/^mdx-m3-viewer: 0 errors · 0 severe · 0 warnings/).waitFor();
   // Close with unsaved approved work asks first.
   await p.getByRole('button',{name:'Close',exact:true}).click();await p.getByRole('dialog',{name:'Unsaved changes'}).waitFor();
   await p.getByRole('button',{name:'Cancel',exact:true}).click();

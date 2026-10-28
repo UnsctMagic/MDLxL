@@ -106,7 +106,7 @@ const EFFORT_TIP =
 const OUTSIDE_CHECK_TIP =
   'Outside check: when the AI says a model edit is finished, a separate AI that never saw its work judges your request, what it promised to keep and the before/after pictures. A doubtful result goes back for more work before you see it. Costs one extra AI call per finished edit.';
 const WEB_TIP =
-  'Web research: lets the AI search the web and read pages, such as Hive Workshop tutorials, when it needs to look something up. Works with Codex, Claude Code and the Claude API. Applies from the next request.';
+  'Web research: lets the AI search the web and read pages, such as XGM tutorials, when it needs to look something up. Works with Codex, Claude Code and the Claude API. Applies from the next request.';
 const OFFLOAD_TIP ='Offload Mode: this chat hands each job to a separate worker chat with its own memory, keeping this chat short.';
 const CLEANUP_CHOICES = [
   ['keep', 'Keep everything', 'Keep all chats.'],

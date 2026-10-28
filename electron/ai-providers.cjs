@@ -660,7 +660,9 @@ async function runCodex(options) {
     web,
   } = options;
   const mcp = await startMcpServer({ tools, call, awareness });
-  const tokenBaseline = conversation.providerTotalTokens ?? (conversation.threadId ? null : 0);
+  // A new thread (first turn, or a resume, which drops the old thread) counts from 0;
+  // the previous thread's running total would otherwise hide this run's tokens.
+  const tokenBaseline = conversation.threadId ? (conversation.providerTotalTokens ?? null) : 0;
   const client = new CodexProcess(settings, { directory, event: value => {
     if (value.type === 'cost') {
       conversation.providerTotalTokens = value.tokens;

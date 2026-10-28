@@ -39,7 +39,7 @@ const nearVector=(actual,expected)=>{assert.equal(actual.length,expected.length)
   await popup.getByRole('button',{name:'Play',exact:true}).click();await popup.waitForTimeout(250);await popup.getByRole('button',{name:'Pause',exact:true}).click();
   assert.ok(Number(await popup.getByLabel('Animation frame',{exact:true}).inputValue())>333);
   await popup.waitForTimeout(150);const frames=await popup.evaluate(()=>oxState().map(x=>x.frame));assert.ok(Math.abs(frames[0]-frames[1])<.001);
-  await popup.getByRole('button',{name:'Insanity FIxer',exact:true}).click();await popup.getByText(/Hive: 0 errors/).waitFor();
+  await popup.getByRole('button',{name:'Insanity FIxer',exact:true}).click();await popup.getByText(/mdx-m3-viewer: 0 errors/).waitFor();
   await popup.getByRole('button',{name:'Irregularities Fixer',exact:true}).click();
   await popup.getByLabel('Proposed fix',{exact:true}).selectOption('visibility:45:13');
   await popup.getByRole('button',{name:'Approve',exact:true}).waitFor({state:'visible'});

@@ -120,7 +120,7 @@ test('editing existing MDL repairs encounter order even when its numeric IDs are
   verify(doc, 'mdl');
 });
 
-test('MDX PRE2 static slots follow Hive length/width order even with one animated dimension', () => {
+test('MDX PRE2 static slots follow mdx-m3-viewer length/width order even with one animated dimension', () => {
   for (const animated of [null, 'Width', 'Length']) {
     const doc = createStarterDocument();
     doc.apply('Unequal emitter dimensions', [], model => {

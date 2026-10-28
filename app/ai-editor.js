@@ -48,7 +48,10 @@ const needsScreen = (name, args) =>
   (name === 'mdlxl_select' && !!args.keyframes);
 // Model-space positions of the marked vertices, posed at the picture's frame.
 function markedPositions(model, selection = {}, sequence, globalSequence, frame) {
-  const valid = Object.entries(selection).filter(([gi, ids]) => model.Geosets[gi] && ids.length);
+  // The kept original of an edited model can have fewer vertices than the selection names.
+  const valid = Object.entries(selection)
+    .map(([gi, ids]) => [gi, model.Geosets[gi] ? ids.filter(i => i * 3 < model.Geosets[gi].Vertices.length) : []])
+    .filter(([, ids]) => ids.length);
   if (!valid.length) return [];
   if (sequence < 0 && globalSequence == null)
     return valid.flatMap(([gi, ids]) => ids.flatMap(id => Array.from(model.Geosets[gi].Vertices.subarray(id * 3, id * 3 + 3))));
@@ -841,10 +844,32 @@ export class AiEditorBridge {
     }
   }
   // A picture of the task's model from its own view, drawn off-screen. A sample
-  // chooses another view, animation or frame for this picture only.
-  async picture(id, sample = {}) {
+  // chooses another view, animation or frame for this picture only. source.model
+  // draws another state of the task's model (the original kept for review),
+  // source.documentId another open model (a donor), and source.focus frames
+  // these model-space points so pictures meant to be compared match.
+  async picture(id, sample = {}, source = {}) {
     const target = this.targets.get(id),
-      { state: s, model } = this.env(target);
+      env = this.env(target),
+      s = env.state;
+    if (source.documentId) {
+      const donor = this.state().sessions.find(x => x.id === source.documentId);
+      if (!donor) throw Error('Reference model is no longer open.');
+      const sequence = sample.globalSequence != null ? -1 : (sample.sequence ?? -1);
+      const image = await this.host().render({
+        documentId: donor.id,
+        view: sample.view || s.view,
+        sequence,
+        globalSequence: sample.globalSequence ?? null,
+        frame: sample.frame ?? 0,
+        renderMode: sample.plain || s.renderMode === 'solid' ? 'solid' : 'textured',
+        hiddenGeosets: [],
+        marks: null,
+        focus: source.focus || null,
+      });
+      return { label: donor.doc.name, image };
+    }
+    const model = source.model || env.model;
     const globalSequence =
       sample.globalSequence !== undefined ? sample.globalSequence : sample.sequence !== undefined ? null : s.globalSeqId;
     const sequence = globalSequence == null ? (sample.sequence ?? s.sequence) : -1;
@@ -868,14 +893,19 @@ export class AiEditorBridge {
       : null;
     const image = await this.host().render({
       documentId: target.documentId,
+      ...(source.model ? { model: structuredClone(source.model) } : {}),
       view,
       sequence,
       globalSequence,
       frame,
       renderMode,
-      hiddenGeosets: only ? model.Geosets.map((_, g) => g).filter(g => !only.includes(g)) : s.hiddenGeosets,
+      hiddenGeosets: only
+        ? model.Geosets.map((_, g) => g).filter(g => !only.includes(g))
+        : source.model && source.model.Geosets.length !== env.model.Geosets.length
+          ? []
+          : s.hiddenGeosets,
       marks: { strokes: target.strokes || [], vertices: marked },
-      focus: sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts,
+      focus: source.focus || (sample.fit === 'selection' ? marked : sample.fit === 'model' ? null : parts),
     });
     return {
       label: `${view}; ${globalSequence == null ? 'sequence ' + sequence : 'global sequence ' + globalSequence}; frame ${frame}${sample.fit === 'selection' ? '; close-up of the marked vertices' : ''}${only ? '; only geosets ' + only.join(', ') : ''}${sample.plain ? '; plain shading' : ''}`,

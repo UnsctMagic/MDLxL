@@ -21,8 +21,9 @@
 .animation-controller .ac-interval input{width:100%;text-align:center}
 .animation-controller .ac-interval span{text-align:center}
 .animation-controller .global-sequence-value,.animation-controller .global-sequence-value input{color:var(--ui-danger,#b00000)!important;-webkit-text-fill-color:var(--ui-danger,#b00000);opacity:1}
-.animation-controller .ac-sequence-actions{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0 4px}
-.animation-controller .ac-sequence-actions button{width:86px}
+.animation-controller .ac-sequence-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;padding:5px 0 4px}
+.animation-controller .ac-sequence-actions button{width:100%;min-width:0}
+.animation-controller .ac-copy-sequence{grid-column:1/-1}
 .animation-controller .ac-geoset-animation{display:grid;grid-template-columns:1fr 1.08fr;gap:7px;padding:2px 2px 3px}
 .animation-controller .ac-visibility,.animation-controller .ac-color{display:flex;flex-direction:column;gap:4px;min-width:0}
 .animation-controller .ac-visibility>span,.animation-controller .ac-color>span{text-align:center;white-space:nowrap}
@@ -56,3 +57,9 @@
 .ac-speed-row .ac-actual-speed>span{justify-content:flex-end}
 .ac-speed-row .ac-actual-speed>span{font-size:0}
 .ac-speed-row .ac-speed-number{font-size:11px}
+.ac-reorder-menu .classic-modal-window{width:330px;max-width:calc(100vw - 24px)}
+.ac-reorder-menu .classic-modal-body{display:flex;flex-direction:column;gap:6px}
+.ac-reorder-list{width:100%;min-height:150px}
+.ac-reorder-actions{display:flex;justify-content:flex-end;gap:5px}
+.ac-reorder-menu p{margin:0;font-size:11px}
+.ac-reorder-menu .ac-error{color:var(--ui-danger,#b00000)}

@@ -1,4 +1,4 @@
-// General repairs for the bundled Hive checker's findings. Each rule mirrors
+// General repairs for the bundled mdx-m3-viewer checker's findings. Each rule mirrors
 // one checker condition, so it works on any model rather than on the example
 // it was first seen in. A rule fixes every instance in the model at once and
 // re-detects at apply time, so rules can run in any order and be repeated.
@@ -125,7 +125,7 @@ const RULES = [
     detect: m => trackEntries(m).filter(({ track }) => !local(track) && !(track.GlobalSeqId < m.GlobalSequences.length)).map(e => e.path.join('.')),
     apply: m => { for (const { track, path } of trackEntries(m)) if (!local(track) && !(track.GlobalSeqId < m.GlobalSequences.length)) { if (!track.Keys.length || !makeStatic(m, path, keyValue(track.Keys[0]))) track.GlobalSeqId = null; } } },
   { id: 'variation', exact: false, label: n => `Make ${plural(n, 'particle variation')} constant`,
-    detail: 'Hive flags animated particle variation. Keep each emitter at its first variation value.',
+    detail: 'mdx-m3-viewer flags animated particle variation. Keep each emitter at its first variation value.',
     detect: m => (m.ParticleEmitters2 || []).filter(e => e.Variation?.Keys).map(nodeName),
     apply: m => { (m.ParticleEmitters2 || []).forEach((e, i) => { if (e.Variation?.Keys) makeStatic(m, ['ParticleEmitters2', i, 'Variation'], e.Variation.Keys.length ? e.Variation.Keys[0].Vector[0] : (e._MdxDefaults?.Variation ?? 0)); }); } },
   { id: 'texturePath', exact: true, label: n => `Clear ${plural(n, 'texture path')} the game ignores`,
@@ -175,7 +175,7 @@ const RULES = [
     detect: m => m.Geosets.flatMap((g, i) => g.Vertices.length / 3 >= GEOSET_VERTEX_LIMIT ? [`Geoset ${i + 1}`] : []),
     apply: m => { for (let i = m.Geosets.length - 1; i >= 0; i--) if (m.Geosets[i].Vertices.length / 3 >= GEOSET_VERTEX_LIMIT) splitGeoset(m, i); } },
   { id: 'lightAttenuation', exact: false, label: n => `Bring ${plural(n, 'light')} into the 80–200 range`,
-    detail: 'Hive expects light attenuation to start at 80 or more and end at 200 or less.',
+    detail: 'mdx-m3-viewer expects light attenuation to start at 80 or more and end at 200 or less.',
     detect: m => (m.Lights || []).filter(l => { const [s, e] = attenuation(l); return s < 80 || e > 200 || e <= s; }).map(nodeName),
     apply: m => { for (const l of m.Lights || []) { const [s, e] = attenuation(l), start = Math.min(199, Math.max(80, s)), end = Math.min(200, Math.max(start + 1, e)); setAttenuation(l, 'AttenuationStart', start); setAttenuation(l, 'AttenuationEnd', end); } } },
   { id: 'origin', exact: true, label: () => 'Add the missing Origin attachment point',
