@@ -1,4 +1,4 @@
-# MDLxL 0.34.0
+# MDLxL 0.35.0
 
 Warcraft III model editor. This source continues the requested MDLVis rebuild lane, with the MDLxL name and icon. Downloads and multilingual update posts are available at [Low Polyworks](https://www.lowpolyworks.com/mdlxl).
 
@@ -33,7 +33,7 @@ Agents maintain these documents as part of the task.
 
 ## Current version
 
-Version 0.34.0 makes the AI look first: it records a plan before editing, keeps versions side by side, keeps a decision diary per model and has its finished edits judged by a separate outside check. It adds optional Web research, a Thinking effort setting and topic guides from the Editing handbook. Glow Up weapon glows fit hammer and axe heads with separate brightness, and MDLxL offers once to turn on Auto update.
+Version 0.35.0 shows bone pivots: a double-click on any part selects its bones in Focused Skeleton with an axis cross through each pivot. Zoom gets Align (Shift+1) to flatten a selection as seen from the camera, Controller type moves into the Controller heading with multiselect always on, and Glow Up gets Pause/Play. First launch greets you with a themed welcome window, Help > About is a real About, the empty Check model entry is gone, and Spanish, Russian and Chinese translations are caught up.
 
 ## Releases
 
@@ -51,6 +51,7 @@ See [docs/ADDONS.md](docs/ADDONS.md) for add-ons and [THIRD_PARTY_NOTICES.md](TH
 
 Newest first. Translations are linked in parentheses. Older text that existed only in the README is preserved in [docs/RELEASE-HISTORY-LEGACY.md](docs/RELEASE-HISTORY-LEGACY.md).
 
+- [0.35.0](docs/RELEASE-0.35.0.md) ([ES](docs/RELEASE-0.35.0-ES.md), [RU](docs/RELEASE-0.35.0-RU.md), [ZH-CN](docs/RELEASE-0.35.0-ZH-CN.md))
 - [0.34.0](docs/RELEASE-0.34.0.md) ([ES](docs/RELEASE-0.34.0-ES.md), [RU](docs/RELEASE-0.34.0-RU.md), [ZH-CN](docs/RELEASE-0.34.0-ZH-CN.md))
 - [0.33.0](docs/RELEASE-0.33.0.md) ([ES](docs/RELEASE-0.33.0-ES.md), [RU](docs/RELEASE-0.33.0-RU.md), [ZH-CN](docs/RELEASE-0.33.0-ZH-CN.md))
 - [0.32.1](docs/RELEASE-0.32.1.md) ([ES](docs/RELEASE-0.32.1-ES.md), [RU](docs/RELEASE-0.32.1-RU.md), [ZH-CN](docs/RELEASE-0.32.1-ZH-CN.md))

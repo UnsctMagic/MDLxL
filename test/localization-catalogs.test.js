@@ -19,7 +19,7 @@ test('consolidated catalogs keep the text that previously won each override', ()
 
 test('each language catalog has the expected size and only usable entries', () => {
   assert.deepEqual(russian, ru);
-  assert.deepEqual([ru, es, zh].map(pack => Object.keys(pack).length), [6432, 6444, 3631]);
+  assert.deepEqual([ru, es, zh].map(pack => Object.keys(pack).length), [6816, 6832, 6694]);
   for (const source of Object.keys(ru)) assert.ok(Object.hasOwn(es, source), `es: ${source}`);
   for (const [locale, pack] of Object.entries({ ru, es, zh })) for (const [source, value] of Object.entries(pack)) {
     assert.equal(source, source.trim(), `${locale}: ${source}`);

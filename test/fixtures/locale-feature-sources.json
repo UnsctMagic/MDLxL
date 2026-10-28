@@ -1381,7 +1381,11 @@
     "Yes, enable it",
     "No thanks",
     "Choose Zoom align",
-    "Align vertex selected."
+    "Align vertex selected.",
+    "Warcraft III model editor for MDL and MDX files: models, animation, textures, particles and effects.",
+    "Made by Unsanctioned Magic, with OpenAI Codex and Anthropic Claude.",
+    "Thanks to HerrDave and POMEXI for testing and feedback.",
+    "Built on war3-model, mdx-m3-viewer, WhiteoutLib, Three.js, React, Electron and FFmpeg. Credits and licenses are in THIRD_PARTY_NOTICES.md in the MDLxL folder."
   ],
   "paint": [
     "Citadel Paint",
