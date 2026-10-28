@@ -3629,5 +3629,7 @@
   "Turn on": "开启",
   "No thanks": "不用了",
   "Choose Zoom align": "选择对齐顶点",
-  "Align vertex selected.": "已选择对齐顶点。"
+  "Align vertex selected.": "已选择对齐顶点。",
+  "Model name": "模型名称",
+  "The name stored inside the model, separate from the file name.": "保存在模型内部的名称，与文件名无关。"
 }

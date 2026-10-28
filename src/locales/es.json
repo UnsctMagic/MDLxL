@@ -6442,5 +6442,7 @@
   "Turn on": "Activar",
   "No thanks": "No, gracias",
   "Choose Zoom align": "Elegir vértice de alineación",
-  "Align vertex selected.": "Vértice de alineación seleccionado."
+  "Align vertex selected.": "Vértice de alineación seleccionado.",
+  "Model name": "Nombre del modelo",
+  "The name stored inside the model, separate from the file name.": "El nombre guardado dentro del modelo, distinto del nombre del archivo."
 }

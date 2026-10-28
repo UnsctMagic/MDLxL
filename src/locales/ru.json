@@ -6430,5 +6430,7 @@
   "Turn on": "Включить",
   "No thanks": "Нет, спасибо",
   "Choose Zoom align": "Выбрать вершину выравнивания",
-  "Align vertex selected.": "Выбрана вершина выравнивания."
+  "Align vertex selected.": "Выбрана вершина выравнивания.",
+  "Model name": "Имя модели",
+  "The name stored inside the model, separate from the file name.": "Имя, сохранённое внутри модели, отдельно от имени файла."
 }
