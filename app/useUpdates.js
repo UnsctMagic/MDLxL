@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { playUpdateChime } from '../src/update-chime.js';
 export default function useUpdates() {
   const [status, setStatus] = useState({ state: 'idle' }), [open, setOpen] = useState(false);
+  useEffect(() => { if (open) playUpdateChime(); }, [open]);
   // A status broadcast that arrives while a request is pending is newer than that
   // request's reply (e.g. a cancelled close prompt returns the update to
   // 'available' before the install reply lands), so the reply must not overwrite it.
