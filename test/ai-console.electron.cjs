@@ -296,9 +296,9 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     (await tool('Marker').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0 && (await editorTool('Move').getAttribute('aria-pressed')) === 'true',
   );
   await tool('Pen').click();
-  await page.getByRole('button', { name: 'Camera rotation', exact: true }).click();
+  await page.keyboard.press('Shift+E');
   check('switching the camera mode puts the drawing tool away', (await tool('Pen').getAttribute('aria-pressed')) === 'false');
-  await page.getByRole('button', { name: 'Work mode', exact: true }).click();
+  await page.keyboard.press('Shift+Q');
   await tool('Pen').click();
   await page.mouse.move(cx, cy);
   await page.mouse.down({ button: 'middle' });
@@ -307,10 +307,10 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check(
     'a middle-click into camera rotation puts the drawing tool away',
     (await tool('Pen').getAttribute('aria-pressed')) === 'false' && (await tag.count()) === 0 &&
-      (await page.getByRole('button', { name: 'Camera rotation', exact: true }).getAttribute('aria-pressed')) === 'true',
+      (await page.locator('.camera-angle-panel').isVisible()),
   );
   await tool('Pen').click();
-  check('picking a drawing tool returns the camera to Work mode', (await page.getByRole('button', { name: 'Work mode', exact: true }).getAttribute('aria-pressed')) === 'true');
+  check('picking a drawing tool returns the camera to Work mode', !(await page.locator('.camera-angle-panel').isVisible()));
   const penCursor = () => canvas.evaluate(element => element.style.cursor);
   await page.mouse.move(cx + 5, cy);
   await page.waitForTimeout(100);
@@ -388,7 +388,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await app.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
   }, secondModel);
-  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await app.evaluate(({Menu})=>{const all=m=>m.items.flatMap(i=>[i,...(i.submenu?all(i.submenu):[])]);all(Menu.getApplicationMenu()).find(i=>i.label.replace('&','')==='Open…').click();});
   await page.waitForFunction(() => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes('Second.mdx'), null, { timeout: 20000 });
   const dirty = name => page.locator('.model-tab', { hasText: name }).locator('.model-tab-dirty').innerText();
   await page.waitForTimeout(800);

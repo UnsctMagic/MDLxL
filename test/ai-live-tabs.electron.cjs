@@ -79,7 +79,7 @@ let app, page;
     await page.locator('.classic-modal').getByRole('button', { name: 'Close', exact: true }).click();
   for (const key of ['B', 'C']) {
     await app.evaluate(({ dialog }, file) => (dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] })), models[key].file);
-    await page.getByRole('button', { name: 'Open', exact: true }).click();
+    await app.evaluate(({Menu})=>{const all=m=>m.items.flatMap(i=>[i,...(i.submenu?all(i.submenu):[])]);all(Menu.getApplicationMenu()).find(i=>i.label.replace('&','')==='Open…').click();});
     await page.waitForFunction(name => document.querySelector('.model-tab.active [role="tab"]')?.textContent.includes(name), models[key].name, { timeout: 20000 });
   }
   if (process.env.MDLXL_AI_LIVE_MODEL) await page.evaluate(model => window.desktop.aiModel(model), process.env.MDLXL_AI_LIVE_MODEL);

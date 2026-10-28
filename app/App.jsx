@@ -5,7 +5,6 @@ import PaintBoundary from './PaintBoundary.jsx';
 import {validatePaintAssignments,repairPaintMaterials} from '../src/paint-materials.js';
 import {preparePaintModelCommit,commitPaintModel,adoptCommittedPaintUVs} from '../src/paint-model-integration.js';
 import Addons from './Addons.jsx';
-import LanguageSwitch from './LanguageSwitch.jsx';
 import AiAssistant from './AiAssistant.jsx';
 import { AiEditorBridge } from './ai-editor.js';
 import AiOffscreenRender from './AiOffscreenRender.jsx';
@@ -1671,12 +1670,12 @@ export default function App() {
   return <HotkeysProvider preferences={preferences} catalog={commandCatalog} activeScope={settingsTab?'settings':dialog||mode==='manager'?'dialog':mode==='paint'?'paint':'editor'} onAction={id=>runLatest.current(id)}><div data-vis-ui={visUI || undefined} data-hotkey-scope={mode==='paint'?'paint':'editor'} className={`classic-app${rigWorkspace?' rig-workspace':''}${mode==='bones'?' bones-workspace':''}${activePortrait?' portrait-workspace':''}${mode==='uv'?' uv-mode':''}${mode==='paint'?' paint-mode':''}`} onPointerDownCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onFocusCapture={event => setUVFocused(!!event.target.closest('.uv-tab-window'))} onDragOver={dragFiles} onDrop={dropFiles} onClick={() => context && setContext(null)}>{fileDrag && <div className="file-drop-overlay" aria-hidden="true"/>}
     <input hidden ref={files} type="file" accept=".mdl,.mdx,.mdlxlpaint" onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) (mode==='showcase'?loadShowcaseModel:loadFile)(file); }}/><input hidden ref={textures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { loadTextures([...event.target.files]); event.target.value = ''; }}/><input hidden ref={managerTextures} type="file" accept=".blp,.tga,.dds,.png,.jpg,.jpeg,.webp" multiple onChange={event => { const selected = [...event.target.files]; event.target.value = ''; selectManagerTextures(selected); }}/><input hidden ref={folder} type="file" webkitdirectory="" multiple onChange={event => loadTextures([...event.target.files])}/>
     <AppToolbar {...{
-      activateSession, animationPanel, cameraMode, changePreferences, clearDisplay, commandEnabled, commands, copy,
-      dialog, displayMode, doc, inputStrength, menuChecks, mode, model, open, openLibrary,
-      openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources,
-      runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, session,
-      sessionDirty, sessions, setCameraMode: chooseCameraMode, setDialog, setRenderMode,
-      setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, undo, visUI,
+      activateSession, animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
+      dialog, displayMode, doc, inputStrength, menuChecks, mode, model, openLibrary,
+      openOptimizeXL, openParticles, preferences, pressedKeysIcon, requestCloseSession, resources,
+      runCommand, runLatest, saving, selectAnimationPanel, selectMode, session,
+      sessionDirty, sessions, setDialog, setRenderMode,
+      setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI,
       placeCorpse: async () => {
         setPlaying(false);
         const result = edit('Auto Corpse', AUTO_CORPSE_SECTIONS, autoCorpse);
@@ -1767,7 +1766,7 @@ export default function App() {
       {rigWorkspace && (mode === 'bones' || boundBoneIds.length > 0) && bindingPanel}
     </aside>}</main>
     {mode==='animation' && timeline}
-    <div className="classic-status" role="status"><span key={statusAlert || 'status'} data-alert={statusAlert && !saving ? '' : undefined}>{saving ? 'Saving…' : status}</span>{duplicateAnimations.length > 0 && <button key={session.id} className="status-warning" data-alert="" title="Some geosets have more than one animation record. The model works; click to choose which record to keep." onClick={() => setDialog({ type: 'geosetRepair' })}><TriangleAlert size={13} aria-hidden="true"/>Duplicate geoset animations</button>}<span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'paint' ? paintMessage('paint.hint') : visUI ? mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations' : ''}</span>{!visUI && <div className="status-model-actions"><button data-hotkey="convertVersion" title="Convert between MDX800 and MDX1000; unsupported data blocks conversion" disabled={doc.readOnly||saving} onClick={()=>commands.current.convertVersion()}>MDX{model.Version} ⇄</button><Addons onCommand={runCommand} isEnabled={id=>!dialog&&!settingsTab&&commandEnabled(id)}/></div>}{!visUI && inputStrength}{!visUI && <LanguageSwitch language={preferences.language} onChange={language=>changePreferences(previous=>({...previous,language}))}/>}</div>
+    <div className="classic-status" role="status"><span key={statusAlert || 'status'} data-alert={statusAlert && !saving ? '' : undefined}>{saving ? 'Saving…' : status}</span>{duplicateAnimations.length > 0 && <button key={session.id} className="status-warning" data-alert="" title="Some geosets have more than one animation record. The model works; click to choose which record to keep." onClick={() => setDialog({ type: 'geosetRepair' })}><TriangleAlert size={13} aria-hidden="true"/>Duplicate geoset animations</button>}<span>{doc.dirty || hasUVPreview || hasTrackDrafts ? 'Modified · ' : hasPaintChanges ? 'Paint preset unsaved · ' : ''}{activePortrait ? `Human UI portrait simulation · ${model.Cameras?.[portraitCameraIndex]?.Name || 'no camera'}` : mode === 'paint' ? paintMessage('paint.hint') : visUI ? mode === 'showcase' ? 'Showcase · Classic SD' : mode === 'vertices' ? 'Vertex editor (F1)' : mode === 'uv' ? 'UV editor (F2)' : mode === 'bones' ? 'Bones · Rest pose' : animationPanel === 'movement' ? 'Movement (F3)' : 'Animations' : ''}</span>{!visUI && <div className="status-model-actions"><button data-hotkey="convertVersion" title="Convert between MDX800 and MDX1000; unsupported data blocks conversion" disabled={doc.readOnly||saving} onClick={()=>commands.current.convertVersion()}>MDX{model.Version} ⇄</button><Addons onCommand={runCommand} isEnabled={id=>!dialog&&!settingsTab&&commandEnabled(id)}/></div>}{!visUI && inputStrength}</div>
     <AppDialogs {...{
       Dialog, activeGeoset, anchor, changeGameDataSource, changeOverlay, changePreferences, chooseSets,
       clearGameData, clearRecent, completePortraitSetup, context, convertToSD, dialog, doc, edit, editable,

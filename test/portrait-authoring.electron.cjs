@@ -48,7 +48,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByRole('button',{name:'Front',exact:true}).click();
     saved=await save('edited-camera');assert.equal(saved.Cameras.length,2);assert.equal(saved.Cameras[0].Name,'Test portrait');assert.equal(saved.Cameras[0].Position[2],saved.Cameras[0].TargetPosition[2]);assert.equal(saved.Cameras[0].NearClip,.5);assert.equal(saved.Cameras[0].FarClip,3000);assert.deepEqual(saved.Cameras[1],(await import('../src/editor-document.js')).openDocument(fs.readFileSync(path.join(out,'first-camera.mdx')),'first-camera.mdx').model.Cameras[0]);
     console.log('PASS add, promote, name, lens, coordinates, clips, Front/Level and Save As');
-    await page.getByRole('button',{name:'Camera rotation',exact:true}).click();
+    await page.keyboard.press('Shift+E');
     const before=await page.evaluate(()=>({view:portraitRuntime().cameraView(),z:portraitRuntime().controls.object.position.z}));
     const box=await page.locator('.game-preview-root canvas[tabindex]').boundingBox();
     const x=box.x+box.width*.55,y=box.y+box.height*.5;
