@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { LANGUAGES } from '../src/localization.js';
 
 /** SVG flags keep the language picker legible on Windows, where flag emoji can render as letters. */
@@ -13,8 +13,11 @@ function Flag({ language }) {
 export default function LanguageSwitch({ language, onChange }) {
   const [open, setOpen] = useState(false), root = useRef(null);
   const current = LANGUAGES.find(item => item.id === language) || LANGUAGES[0];
+  // The top bar scrolls sideways, which would clip a dropdown, so the list is placed on screen under the button.
+  const [position, setPosition] = useState({});
+  useLayoutEffect(() => { if (open) { const rect = root.current.getBoundingClientRect(); setPosition({ top: rect.bottom + 2, left: rect.left }); } }, [open]);
   return <div ref={root} className="language-switch" onBlur={event => { if (!root.current?.contains(event.relatedTarget)) setOpen(false); }}>
     <button className="language-trigger" type="button" title="Language" aria-label="Language" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(value => !value)}><Flag language={current.id}/><span translate="no">{current.nativeLabel}</span><b aria-hidden="true">▾</b></button>
-    {open && <div className="language-options" role="listbox" aria-label="Language">{LANGUAGES.map(item => <button key={item.id} type="button" role="option" aria-selected={item.id === current.id} onClick={() => { onChange(item.id); setOpen(false); }}><Flag language={item.id}/><span translate="no">{item.label}</span></button>)}</div>}
+    {open && <div className="language-options" role="listbox" aria-label="Language" style={position}>{LANGUAGES.map(item => <button key={item.id} type="button" role="option" aria-selected={item.id === current.id} onClick={() => { onChange(item.id); setOpen(false); }}><Flag language={item.id}/><span translate="no">{item.label}</span></button>)}</div>}
   </div>;
 }
