@@ -15,7 +15,7 @@ export const COMMANDS = coreHotkeyDefaults([
   ...group('Resources', [['Materials','Alt+M'],['Textures','Alt+T'],['Nodes','Alt+O'],['Geosets','Alt+G'],['Sequences','Alt+Q'],['TextureAnims','Alt+X'],['GlobalSequences','Alt+L']].map(([id,key])=>[id,({TextureAnims:'Texture Animation',GlobalSequences:'Global Sequence'})[id] || id.replace(/s$/,'')+' Manager',key])),
   ...group('Settings', [['settings','Mouse and general settings','Ctrl+,'],['hotkeys','Keyboard Shortcuts','Ctrl+K'],['graphics','Graphical settings','Ctrl+4'],['appearanceSettings','Appearance settings','Ctrl+6'],['configurationSettings','Configuration settings','Ctrl+1'],['gridSettings','Grid settings','Ctrl+7'],['gameDataSettings','Warcraft III settings','Ctrl+8'],['sensitivityUp','Increase scroll sensitivity','='],['sensitivityDown','Decrease scroll sensitivity','-']]),
   ...group('File', [['exit','Exit MDLxL','Alt+F4']]),
-  ...group('Help', [['help','Help','Ctrl+F1'],['diagnostics','Model diagnostics','Ctrl+F2'],['about','About MDLxL','Ctrl+F3']]),
+  ...group('Help', [['help','Help','Ctrl+F1'],['about','About MDLxL','Ctrl+F3']]),
   ...group('Mouse', [['wheel:rotate','Normal wheel zoom / middle-button camera rotation','Shift+U'],['wheel:scroll','Peon: wheel adjusts scroll sensitivity','Shift+P'],['wheel:pointer','Wisp: left click + wheel activates and adjusts mouse DPI','Shift+I'],['pointerUp','Increase mouse DPI','Alt+='],['pointerDown','Decrease mouse DPI','Alt+-']]),
   ...group('File', [['game-data-rescan','Search for Warcraft III game archives again','Alt+W']]),
   ...group('Modules', [['animations','Animations: visibility and RGB','F5'],['textureLibrary','Material and Texture Library','L']]),
