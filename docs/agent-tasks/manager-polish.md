@@ -7,7 +7,7 @@ Updated: 2026-10-28
 ## Scope
 
 Manager sits after Animations and before Paint and opens Materials in the full
-editor workspace. The top Windows menu retains movable popup managers. Existing
+editor workspace. The top Managers menu retains movable popup managers. Existing
 manager controls, selection wiring, texture loading, previews and other editor
 sidebars are preserved. The owner chose tabs and explicitly rejected replacement
 mockups, clutter and numerical forms where visual editing is appropriate.
