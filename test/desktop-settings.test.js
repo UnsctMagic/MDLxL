@@ -157,7 +157,7 @@ test('middle button and DPI preferences persist with desktop validation and long
 });
 
 test('independent particle Lab is available for read-only models while model resource editing stays disabled', () => {
-  const select = menu => [menu.find(item => item.label === 'Modules').submenu.find(item => item.label === 'Particle Editor…'), menu.find(item => item.label === 'Windows').submenu.find(item => item.label === 'Geoset Animation Manager…')];
+  const select = menu => [menu.find(item => item.label === 'Modules').submenu.find(item => item.label === 'Particle Editor…'), menu.find(item => item.label === 'Managers').submenu.find(item => item.label === 'Geoset Animation Manager…')];
   const actions = [];
   for (const state of [{ readOnly: true, saving: false }, { readOnly: false, saving: true }, { readOnly: true, saving: true }]) {
     const entries = select(buildMenuTemplate({}, id => actions.push(id), 'win32', [], value => value, state));

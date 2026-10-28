@@ -74,7 +74,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
       assert.equal(coordinates, JSON.stringify(locale === 'zh' ? 'Coords:' : translate('Coords:', locale)));
       // The deliberate Mordor cipher can give two top-level menus the same word.
       const windowLabels = menu[5].children;
-      assert.equal(menu[5].label, translate('Windows', locale));
+      assert.equal(menu[5].label, translate('Managers', locale));
       assert.ok(windowLabels.includes(translate('Material Manager…', locale)), `${locale}: ${JSON.stringify(windowLabels)}`);
       assert.equal(await page.evaluate(() => JSON.stringify(testDocument().model)), before, `${locale}: language must not mutate the model`);
       assert.deepEqual(await page.locator('.classic-sidebar').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width)), widths);

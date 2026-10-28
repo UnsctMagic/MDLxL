@@ -1,3 +1,4 @@
+import { MODEL_COMMENTS_KEY } from './model-comments.js';
 import { generateCompatibleMdx as generateMDX } from './mdx-compatibility.js';
 import { EditorDocument, openDocument, validateModel } from './editor-document.js';
 import { parseMdx } from './mdx-container.js';
@@ -195,6 +196,9 @@ export function assertRoundTripFields(source, reopened, path = '') {
     source = clone(source);
     canonicalizeSerializedNodeOrder(source, { preserveUnusedPivots: true });
   }
+  // Native MDL header comments are checked by EditorDocument on MDL save.
+  // The optimizer's temporary MDX baseline has no comment field.
+  if (path === MODEL_COMMENTS_KEY) return;
   if (source === undefined || path === 'Nodes' || /\.PivotPoint$/.test(path) || /^Info\.Num/.test(path)) return;
   // MDL omits default layer alpha; its decoder represents that as null while
   // MDX stores the same fully opaque value explicitly.

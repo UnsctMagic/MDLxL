@@ -1,3 +1,4 @@
+import { collisionStageSnapshot } from './collision-stage.js';
 import { rotationOptions } from '../src/rotation-drag.js';
 import { loadPortraitLights, portraitLightFromRig } from './portrait-lighting.js';
 import { particlePreviewBounds, installParticleNativeCompatibility, particleSurfaceAnchor, ParticleAuthoringPreview, updateParticlePreview, particleStageSnapshot, rememberParticlePicture, pickPreviewParticles, seededParticleRandom, withParticleRandom, replayParticlePreview } from './particle-preview-adapter.js';
@@ -342,6 +343,7 @@ export default function GamePreview(inputProps) {
       gl.depthFunc(gl.LEQUAL);
     }
     catch (cause) { setError(`Warcraft preview could not load this model: ${cause.message}`); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas); backgroundCanvas.remove(); return; }
+    let collisionReportKey = '';
     let particleRandom=seededParticleRandom(),particleReportAt=0,particleStatusKey='',particleReportKey='';
     const particleAuthor=latest.current.particleAuthoring?new ParticleAuthoringPreview(native):null;
     const nativeBackground = createGLPreviewBackground(gl);
@@ -1351,6 +1353,13 @@ export default function GamePreview(inputProps) {
         if (wireframe) gl.colorMask(false, false, false, false);
         try {
           native.render(displayCamera.matrixWorldInverse.elements, displayCamera.projectionMatrix.elements, { wireframe: false, useEnvironmentMap: p.shaded !== false && graphics.lighting });
+          if (p.onCollisionStage) {
+            const key = [native.getFrame(), p.collisionSelectedId, JSON.stringify(p.collisionShapes), canvas.width, canvas.height, ...displayCamera.matrixWorldInverse.elements, ...displayCamera.projectionMatrix.elements].join(':');
+            if (key !== collisionReportKey) {
+              collisionReportKey = key;
+              p.onCollisionStage(collisionStageSnapshot(native, displayCamera, canvas.clientWidth, canvas.clientHeight, p.collisionShapes, p.collisionSelectedId));
+            }
+          }
           if(p.onParticleStage){
             // A paused view may draw only once after a seek, edit or camera change.
             // Publish that pose immediately; playback still uses the normal report rate.
@@ -1724,7 +1733,7 @@ export default function GamePreview(inputProps) {
 
   useEffect(() => { runtime.current?.scheduler.sync(); }, [props.poseConfig, props.showcasePlaying, props.showcaseConfig, props.playbackRange, props.presentation, props.previewMode, props.previewOverlay, props.restPose, props.cleanAnimationPreview, props.restrictions, props.workplaneEnabled, props.selectableGeosets, props.visibleGeosets, props.multiple, props.showAxes, props.selectionByGeoset, props.hiddenGeosets, props.hideRgbGeoset, props.cameraMode, props.hoveredGeoset, props.mode, props.shaded, props.showGrid, props.workplane, props.preferences, props.grabThrough, props.showNodes, props.overlays, props.showCameras, props.selectedNodeIds, props.attachSourceIds, props.transformMode, props.transformSpace, props.rotateOnOwnAxis, props.playbackSpeed, props.playing, props.loop, props.time, sequenceIndex, props.globalSeqId, props.teamColor, props.suspended, graphics.maxFps, graphics.pauseWhenHidden]);
 
-  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
+  useEffect(() => { runtime.current?.scheduler.sync(); }, [props.collisionShapes, props.collisionSelectedId, props.showCollisionSpheres, props.seekId, props.playbackRunning, props.playbackGlobalTime, props.portraitSettings]);
   const marqueeColor = previewOverlaySettings(props.previewOverlay).color;
   const frame = portraitFrame.current, portrait = !!props.portraitMode, framed = portraitHasFrame(props), hasCamera = !!model?.Cameras?.[props.portraitCameraIndex];
   const composition = portraitComposition(props), crop = portraitCompositionRect(portraitArea.width,portraitArea.height);

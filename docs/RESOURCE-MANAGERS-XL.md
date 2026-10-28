@@ -1,5 +1,17 @@
 # Resource managers
 
+The editor-row Managers button opens Materials in the full editor workspace.
+The eight existing managers and Model share the same tabs. Top-menu manager
+commands still open movable popups. Existing controls and normal preview camera
+interaction are retained. See the [manager task](agent-tasks/manager-polish.md).
+
+Model edits the internal name and native collision spheres/boxes. New shapes fit
+the bind-pose mesh. Drag the center to move, edge handles to resize, or use size
+sliders. Each gesture is one undo step; Escape cancels it. The preview uses the
+renderer's node transforms, including parent animation. Standard MDL header
+comments are editable in the collapsed Comments section. MDX has no standard
+comment field; no private metadata replacement is written.
+
 The original geoset grids and Vertices, Bones and Movement controls are retained.
 Animations adds a compact Nodes selection below Geosets, using the existing
 Visibility On/Alpha controls and bottom timeline. New visibility tracks use held
