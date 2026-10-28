@@ -25,7 +25,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
    const {openDocument:open}=await import('../src/editor-document.js'),plain=x=>JSON.stringify(open(new Uint8Array(x),'x.mdx').model,(k,v)=>k==='Nodes'?undefined:ArrayBuffer.isView(v)?Array.from(v):v);
    assert.equal(plain(fs.readFileSync(work)),plain(bytes),'The open file holds exactly the approved model');
   };
-    await stage();await p.getByText('Hive: 0 errors · 8 severe · 1 warnings · 3 notices',{exact:true}).waitFor();
+    await stage();await p.getByText('mdx-m3-viewer: 0 errors · 8 severe · 1 warnings · 3 notices',{exact:true}).waitFor();
     assert.equal(await p.locator('.ox-fix-selection details[open]').count(),0);
     const pinned=await p.locator('[aria-label="Before preview"] h2').textContent();
     await p.evaluate(()=>{window.formatState=()=>Array.from(document.querySelectorAll('.ox-preview .game-preview-root'),root=>{
@@ -52,11 +52,11 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
     await p.getByRole('button',{name:'Play',exact:true}).click();await p.waitForFunction(frame=>formatState()[0].frame>frame,rotated[0].frame);await p.getByRole('button',{name:'Pause',exact:true}).click();await pose();
     await p.screenshot({path:path.join(out,'02-paired-rotated-preview.png')});
     await p.getByLabel('Animation',{exact:true}).selectOption('8');await p.getByRole('button',{name:'Start',exact:true}).click();await pose();await p.getByRole('button',{name:'Play',exact:true}).click();await p.waitForFunction(()=>formatState().every(s=>s.frameLoaded&&s.particles[0]>0));await p.getByRole('button',{name:'Pause',exact:true}).click();await pose();await p.screenshot({path:path.join(out,'02b-portrait-breath-effects.png')});
-    await p.getByRole('button',{name:'Approve selected',exact:true}).click();await p.getByText('Hive: 0 errors · 0 severe · 0 warnings · 3 notices',{exact:true}).waitFor();
+    await p.getByRole('button',{name:'Approve selected',exact:true}).click();await p.getByText('mdx-m3-viewer: 0 errors · 0 severe · 0 warnings · 3 notices',{exact:true}).waitFor();
     assert.equal(await p.locator('[aria-label="Before preview"] h2').textContent(),pinned);await save(expected);
     for(let si=0;si<before.Sequences.length;si++){await p.getByLabel('Animation',{exact:true}).selectOption(String(si));await p.getByRole('button',{name:'End',exact:true}).click();await pose();}
     await p.screenshot({path:path.join(out,'03-approved-preserved-motion.png')});
-    await p.getByRole('button',{name:'Back',exact:true}).click();await p.getByText('Hive: 0 errors · 8 severe · 1 warnings · 3 notices',{exact:true}).waitFor();await ready();await save(source);await pose();
+    await p.getByRole('button',{name:'Back',exact:true}).click();await p.getByText('mdx-m3-viewer: 0 errors · 8 severe · 1 warnings · 3 notices',{exact:true}).waitFor();await ready();await save(source);await pose();
     assert.deepEqual(fs.readFileSync(file),source);assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!exe,allAnimations:before.Sequences.length,exactNativePoses:true,realMouseRotation:true,pairedCamera:true,pairedPortraitFrames:true,authoredBreathEffects:true,playback:true,approvedOnlySaves:true,beforePinned:true,backRestoresFindings:true,retainedMotionNotices:3,sourceUnchanged:true,errors,copies},null,2));console.log(out);
   }catch(e){if(p){fs.writeFileSync(path.join(out,'failed-state.json'),JSON.stringify(await p.evaluate(()=>window.formatState?.()),null,2));await p.screenshot({path:path.join(out,'failed-state.png')});}throw e;}finally{await app.close();}

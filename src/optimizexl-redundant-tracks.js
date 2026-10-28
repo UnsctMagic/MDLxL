@@ -4,7 +4,7 @@ const json = value => JSON.stringify(value,(_,v)=>ArrayBuffer.isView(v)?Array.fr
 const local = t => t.GlobalSeqId == null || t.GlobalSeqId === -1 || t.GlobalSeqId === 0xffffffff;
 // Largest component difference; NaN anywhere gives NaN, like Math.max.
 const distance = (a,b) => {let d=-Infinity;for(let i=0;i<a.length;i++){const x=Math.abs(a[i]-b[i]);if(x>d||x!==x){d=x;if(x!==x)break;}}return d;};
-// The pinned Hive checker calls an interior key unused when every component
+// The pinned mdx-m3-viewer checker calls an interior key unused when every component
 // differs from BOTH neighbors by less than .001. Controls still need checking.
 function redundant(keys,i) {
   const a=keys[i-1]?.Vector,b=keys[i]?.Vector,c=keys[i+1]?.Vector;
@@ -72,8 +72,8 @@ export function redundantTrackProposals(model,entries) {
         sequence:domain.sequence,frame:global?(model.Sequences[0]?.Interval[0]||0):noticed[0],globalSequence:global?domain.global:null,
         frames,noticed,remaining,preservedTurns,signature:`[${trackSignature()},${json(domain.interval)}]`,...(frames.length?{}:{inspectionOnly:true}),
         label:`${name}: ${frames.length||noticed.length} redundant ${path.at(-1)} key${(frames.length||noticed.length)===1?'':'s'}`,
-        detail:frames.length?`Remove ${frames.length} Hive-redundant keys after checking the surrounding curve against the original. ${remaining.length?`${remaining.length} other notices need manual review.`:'Keep the first and last keys and every other animation.'}`:
-          'Hive flags similar values, but an authored turn, overlapping animations, invalid controls or the intervening curve prevent this removal. Review manually.'});
+        detail:frames.length?`Remove ${frames.length} mdx-m3-viewer-redundant keys after checking the surrounding curve against the original. ${remaining.length?`${remaining.length} other notices need manual review.`:'Keep the first and last keys and every other animation.'}`:
+          'mdx-m3-viewer flags similar values, but an authored turn, overlapping animations, invalid controls or the intervening curve prevent this removal. Review manually.'});
     }
   }
   return out;

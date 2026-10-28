@@ -51,7 +51,7 @@ The reference program's About resource credits **Alexey2005**, dated **19 August
 
 The main form's controls, captions and placement were studied from the 1.41 resource tree. Published 1.40 Delphi source was also used to understand behavior and shortcuts. The rebuild has new JavaScript/Electron implementations; its distribution does not include the original MDLVis executable or Delphi runtime. Earlier wording that described every legacy asset as merely a research reference no longer applies to this classic rebuild.
 
-Original documentation and additional provenance are linked in the [Hive/XGM research report](docs/COMMUNITY_RESEARCH.md), including its original MDLVis documentation sources. The new MPQ reader identifies StormLib's `SBaseCommon.cpp` as a file-format reference in its source comments; it does not load a legacy Storm DLL.
+Original documentation and additional provenance are linked in the [community research report](docs/COMMUNITY_RESEARCH.md), including its original MDLVis documentation sources. The new MPQ reader identifies StormLib's `SBaseCommon.cpp` as a file-format reference in its source comments; it does not load a legacy Storm DLL.
 
 ## Warcraft data
 

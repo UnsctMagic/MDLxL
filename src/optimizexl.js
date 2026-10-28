@@ -29,10 +29,10 @@ export const STAGES = [
   {id:'nuclear',name:'Nuclear Polygon Destroyer'},
 ];
 export const SPHERE_PRESETS = [
-  {name:'Small unit',spheres:[[0,0,24,24]],source:'Scaled from the Hive basic-unit starting sphere.'},
+  {name:'Small unit',spheres:[[0,0,24,24]],source:'Scaled from the community basic-unit starting sphere.'},
   {name:'Standard unit',spheres:[[5.257450103759766,0,63.22100067138672,38.07600021362305],[3.239419937133789,0,22.847400665283203,38.07600021362305]],source:'Footman: two radius-38.076 collision spheres, matching its authored centers.'},
-  {name:'Large unit',spheres:[[0,0,60,60]],source:'Hive collision-shape tutorial: radius 60 example.'},
-  {name:'Tall unit',spheres:[[0,0,60,60],[0,0,140,60]],source:'Hive collision-shape tutorial: two radius-60 spheres, upper Z 140.'},
+  {name:'Large unit',spheres:[[0,0,60,60]],source:'Community collision-shape tutorial: radius 60 example.'},
+  {name:'Tall unit',spheres:[[0,0,60,60],[0,0,140,60]],source:'Community collision-shape tutorial: two radius-60 spheres, upper Z 140.'},
   {name:'Mounted rider',spheres:[[0,0,45,55],[35,0,95,55],[-15,0,75,55]],source:'The reviewed Khorne rider: three radius-55 spheres.'},
 ];
 const collections = Object.values(NODE_TYPES).map(([key])=>key);
@@ -111,7 +111,7 @@ export function findIrregularities(m){const findings=[],seq=m.Sequences,live=seq
  const context=scanModelMotionContext(m,findings.filter(f=>f.kind==='motion'||f.kind==='snap'));
  return [...findings.map(f=>context.review.has(f.id)?{...f,motionContext:context.review.get(f.id)}:f),...context.findings,...effectVisibilityProposals(m)];
 }
-export function sanityProposals(m){const findings=boundsProposals(m);for(const [i,e]of m.ParticleEmitters2.entries())if(e.Gravity?.Keys)findings.push({id:`gravity:${i}`,kind:'gravity',emitter:i,value:e.Gravity.Keys[0]?.Vector[0]||0,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${e.Name}: animated gravity`,detail:'Hive flags animated gravity. Choose a static value and review its particle motion.'});
+export function sanityProposals(m){const findings=boundsProposals(m);for(const [i,e]of m.ParticleEmitters2.entries())if(e.Gravity?.Keys)findings.push({id:`gravity:${i}`,kind:'gravity',emitter:i,value:e.Gravity.Keys[0]?.Vector[0]||0,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${e.Name}: animated gravity`,detail:'mdx-m3-viewer flags animated gravity. Choose a static value and review its particle motion.'});
  for(const {track:t,path}of tracks(m)){if(t.GlobalSeqId>=0&&m.GlobalSequences[t.GlobalSeqId]>0&&t.Keys.some(k=>k.Frame>m.GlobalSequences[t.GlobalSeqId])&&t.Keys.some(k=>k.Frame<=m.GlobalSequences[t.GlobalSeqId]))findings.push({id:`outside:${path.join('.')}`,kind:'globalKeys',path,sequence:0,frame:m.Sequences[0]?.Interval[0]||0,label:`${path.join('.')}: keys beyond global duration`,detail:'Remove keys outside the declared global sequence. Review effects and animation before approval.'});}
  const proposals=[...findings,...openingTrackProposals(m,tracks(m)),...unusedTrackProposals(m,tracks(m)),...redundantTrackProposals(m,tracks(m))];
  // Static gravity replaces its entire track. It owns that track's diagnostics;

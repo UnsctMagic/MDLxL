@@ -8,7 +8,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
  const hive=bytes=>{const m=new ModelViewer.parsers.mdlx.Model();m.load(new Uint8Array(bytes).buffer);return ModelViewer.utils.mdlx.sanityTest(m);};
  const beforeModel=openDocument(new Uint8Array(source),'input.mdx').model,fix=sanityProposals(beforeModel).find(f=>f.kind==='bounds'),expected=Buffer.from(runOptimizeStage(new Uint8Array(source),'sanity',{},fix).bytes);
  assert.ok(fix.targets.every(t=>t.sequenceExtents));
- const originalCheck=hive(source),repairedCheck=hive(expected),summary=r=>`Hive: ${r.errors} errors · ${r.severe} severe · ${r.warnings} warnings · ${r.unused} notices`;
+ const originalCheck=hive(source),repairedCheck=hive(expected),summary=r=>`mdx-m3-viewer: ${r.errors} errors · ${r.severe} severe · ${r.warnings} warnings · ${r.unused} notices`;
  const exe=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[],app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),work],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
  try{
   const main=await app.firstWindow();main.on('pageerror',e=>errors.push(e.message));await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});

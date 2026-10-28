@@ -1,4 +1,4 @@
-// Each Hive checker finding gets one small model broken in exactly that way.
+// Each mdx-m3-viewer checker finding gets one small model broken in exactly that way.
 // "Fix everything" must clear the finding without adding errors or severe ones.
 import test from 'node:test';
 import assert from 'node:assert/strict';
