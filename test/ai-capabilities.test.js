@@ -20,8 +20,16 @@ test('capability areas point to existing public editor APIs; search and paginati
   assert.ok(all.total > 150);
   assert.equal(all.modules.length, 100);
   assert.equal(all.truncated, true);
-  const second = searchAiCapabilities(sources, { offset: 100, limit: 100 });
-  assert.equal(new Set([...all.modules, ...second.modules].map(m => m.module)).size, all.total);
+  const modules = [...all.modules];
+  for (let offset = 100; offset < all.total; offset += 100) {
+    const page = searchAiCapabilities(sources, { offset, limit: 100 });
+    assert.equal(page.total, all.total);
+    assert.equal(page.modules.length, Math.min(100, all.total - offset));
+    assert.equal(page.truncated, offset + 100 < all.total);
+    modules.push(...page.modules);
+  }
+  assert.equal(modules.length, all.total);
+  assert.equal(new Set(modules.map(m => m.module)).size, all.total);
   const extrude = searchAiCapabilities(sources, { query: 'extrude' });
   assert.ok(extrude.modules.some(m => m.module === 'mesh-tools' && m.exports.includes('extrudeFaces')));
   assert.ok(searchAiCapabilities(sources, { area: 'rig' }).modules.some(m => m.module === 'pose-ik'));
