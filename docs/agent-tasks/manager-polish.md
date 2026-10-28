@@ -19,6 +19,7 @@ Updated: 2026-10-28
 ## Revision and owners
 
 - Branch: `codex/manager-schemes`; base: `dc60ad3d`.
+- Draft PR: https://github.com/UnsctMagic/MDLxL/pull/363 (unmerged).
 - D: working checkout: `D:\Codex\mdlxl-manager-schemes-20261028\source`.
 - `app/AppToolbar.jsx`: editor-row Manager entry.
 - `app/ResourceEditors.jsx`: existing window and manager navigation.
@@ -41,7 +42,9 @@ Updated: 2026-10-28
 - Production build passed.
 - Existing manager simplification and appearance/theme suites: 15 tests passed.
 - Background Electron verification uses the production bundle and disposable
-  profile; results and actual-app capture are kept in the task directory.
+  profile. Entry position, Materials reopening, all eight manager tabs, all
+  seven palettes, 1000px tab wrapping, actual mouse rotation and a hidden window
+  all passed. Results and actual-app capture are kept in the task directory.
 - Review the actual first-pass screenshot before continuing visual changes.
 - Model manager, collision manipulation, comments persistence and packaged-app
   acceptance are still pending. The current patch does not claim those features.
