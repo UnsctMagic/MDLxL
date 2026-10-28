@@ -82,6 +82,7 @@ import { bindDropdownWheel } from '../src/dropdown-wheel.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { clearEditorData, EDITOR_DATA_SECTIONS } from '../src/editor-data.js';
 import { sampleTrack } from '../src/animation.js';
+import { findMotionPivots, pivotsAtFrame } from '../src/pivot-finder.js';
 import { buildPaintExportArtifact, buildPaintProjectArtifact } from '../src/paint-export.js';
 import { markPaintProjectSaved, restorePaintProject, travelPaintHistory } from '../src/paint-project.js';
 import { enumeratePaintTargets, installFreshPaintLayer, paintTargetsForGeoset } from '../src/paint-targets.js';
@@ -654,6 +655,27 @@ export default function App() {
     }
     return mapped;
   }, [texturedModel, liveUV, uvWindow, uvSet, activeGeoset, uvEntrySelection]);
+  // Show pivot (Movement): double-click a part to see where its motion swings from.
+  const [pivotProbe, setPivotProbe] = useState(null);
+  const pivotAvailable = rigWorkspace && mode === 'animation';
+  const pivotCurrent = pivotAvailable && pivotProbe?.sequence === sequence && pivotProbe.revision === doc.revision && pivotProbe.session === session.id ? pivotProbe : null;
+  const pivotMarkers = useMemo(() => {
+    const placed = pivotCurrent && pivotsAtFrame(model, sequence, pivotCurrent.found, time);
+    return placed ? { ...placed, trail: pivotCurrent.found.trail } : null;
+  }, [pivotCurrent, model, sequence, time]);
+  const probePivot = probe => {
+    if (!model.Sequences[sequence]) { say('Choose an animation to see where a part moves from.'); return; }
+    const found = findMotionPivots(model, sequence, probe.geosetIndex, probe.vertexIndex);
+    if (!found?.pivots.length) { setPivotProbe(null); say('This part does not move in this animation.'); return; }
+    setPivotProbe({ found, sequence, revision: doc.revision, session: session.id });
+    say(`Moves from ${found.pivots.map(pivot => pivot.name).join(', ')}. Click a ring to select that bone; Esc clears.`);
+  };
+  useEffect(() => {
+    if (!pivotMarkers) return;
+    const clear = event => { event.preventDefault(); setPivotProbe(null); };
+    window.addEventListener('mdlxl-escape-key', clear);
+    return () => window.removeEventListener('mdlxl-escape-key', clear);
+  }, [!!pivotMarkers]);
   const hasUVPreview = Object.keys(session.uvPreviews).length > 0;
   const hasTrackDrafts = Object.keys(session.animationDrafts).length > 0;
   const hasPaintChanges = !!session.paintProject?.dirty;
@@ -1726,6 +1748,7 @@ export default function App() {
         portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
         liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
         selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}}
+        pivotMarkers={pivotMarkers} onPivotProbe={pivotAvailable ? probePivot : undefined} onPivotPick={id => { setPivotProbe(null); setSelectedNodeIds([id]); }}
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 

@@ -50,6 +50,8 @@ import { HUMAN_FRAME_CROP, HUMAN_FRAME_SIZE, HUMAN_TILE_LAYOUT, PORTRAIT_ASPECT,
 import './portrait-view.css';
 import ShowcaseLayers from './ShowcaseLayers.jsx';
 
+// Show pivot rings, line and trail; the colour from the approved mockup.
+const PIVOT_COLOR = '#ff9a1f';
 const pathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 let humanFramePromise;
 const portraitComposition = props => !!props.portraitMode && !props.showcase && !!props.portraitSettings?.composition;
@@ -265,7 +267,7 @@ export default function GamePreview(inputProps) {
     hostElement.appendChild(canvas);
     const gl = canvas.getContext('webgl2', { antialias: graphicsOptions(latest.current.preferences).antialias, alpha: false, premultipliedAlpha: false });
     if (!gl) { setError('This preview needs WebGL 2. The geometry editor remains available.'); canvas.remove(); backgroundCanvas.remove(); return; }
-    let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
+    let posePing = null, pinButton, pinPlacement = null, pinOffset = null, native, disposed = false, observer, scheduler, hoverCanvas, connectorCanvas, nodeCanvas, pathCanvas, geometryCanvas, cameraCanvas, pivotScreens = [], nodePoints = [], nodeHandles = [], poseHandles = [], poseHoverTarget = null, nodeGesture = null, selectionGesture = null, posedGeosets = [], posedGeometryCache = null, rotating = false, portraitBackup = null, cameraGestureStart = null, attachPointer = null;
     const cursorSampler=latest.current.showcase?ownerDocument.createElement('canvas'):null;
     const cursorContext=cursorSampler?.getContext('2d',{willReadFrequently:true});
     let cursorPixels=null,cursorPoint={x:.5,y:.5};
@@ -563,6 +565,10 @@ export default function GamePreview(inputProps) {
       const work = (p.cameraMode ?? 'work') === 'work' && !event.altKey;
       const portraitCameraDrag = portraitBlankDragRotatesCamera(p, event);
       const pickable = nodePoints;
+      if (event.button === 0 && !event.altKey && p.onPivotPick && pivotScreens.length) {
+        const rect = canvas.getBoundingClientRect(), ring = pivotScreens.find(item => Math.hypot(item.x - event.clientX + rect.left, item.y - event.clientY + rect.top) <= item.radius);
+        if (ring) { p.onPivotPick(ring.nodeId); event.preventDefault(); event.stopImmediatePropagation(); return; }
+      }
       if (!p.vanilla && event.button === 2) {
         const rect = canvas.getBoundingClientRect(), picked = pickMovementNode(pickable,event.clientX-rect.left,event.clientY-rect.top);
         if (picked && ['particles','ribbons','sounds','events'].includes(picked.overlayKind)) {
@@ -792,6 +798,9 @@ export default function GamePreview(inputProps) {
     let lastPickedParticle=null;
     const pickParticle=event=>{const p=latest.current;if(event.button!==0)return;if(p.onParticleSurfacePlace){const rect=canvas.getBoundingClientRect(),point=particleSurfaceAnchor(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleAnchorId);if(point){event.preventDefault();event.stopImmediatePropagation();p.onParticleSurfacePlace(point);}return;}if(!p.onParticlePick)return;const rect=canvas.getBoundingClientRect(),hits=pickPreviewParticles(native,displayCamera||camera,rect.width,rect.height,event.clientX-rect.left,event.clientY-rect.top,p.particleSelectedId,p.hiddenGeosets);if(hits.length){event.preventDefault();event.stopImmediatePropagation();const from=hits.some(h=>h.owner===p.particleSelectedId)?p.particleSelectedId:lastPickedParticle,current=hits.findIndex(h=>h.owner===from);lastPickedParticle=hits[(current+1)%hits.length].owner;p.onParticlePick(lastPickedParticle,hits.map(h=>h.owner));}};
     canvas.addEventListener('dblclick',pickParticle,true);
+    // Show pivot: double-clicking a part reports the vertex under the pointer.
+    const probePivot=event=>{const p=latest.current;if(event.button!==0||event.altKey||!p.onPivotProbe)return;const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,geometry=projectPreviewGeosets(posedGeosets,camera,rect.width,rect.height),hit=pickPreviewGeoset(geometry,x,y);if(!hit)return;const points=geometry.find(geo=>geo.index===hit.index).points,distance=id=>Math.hypot(points[id].x-x,points[id].y-y);event.preventDefault();event.stopImmediatePropagation();p.onPivotProbe({geosetIndex:hit.index,vertexIndex:hit.ids.reduce((best,id)=>distance(id)<distance(best)?id:best)});};
+    canvas.addEventListener('dblclick',probePivot,true);
     canvas.addEventListener('pointermove', nodePointerMove, true); canvas.addEventListener('pointerup', finishNodeGesture, true); canvas.addEventListener('pointercancel', finishNodeGesture, true); canvas.addEventListener('keydown', cancelNodeGesture, true);
     canvas.addEventListener('lostpointercapture', endShowcaseCursor);
     canvas.addEventListener('lostpointercapture', cancelGestureCapture);
@@ -1487,9 +1496,10 @@ export default function GamePreview(inputProps) {
         const focusedPose = poseVisible && !p.poseConfig.picking && overlayOptions.focusedBoneLines;
         const poseSkeleton = focusedPose ? projectPoseSkeleton(projectedNodes, poseHandles, p.poseConfig) : null;
         const markerOptions = { ...overlayOptions, activeAxis, preferences: p.preferences, ...(poseVisible && !p.poseConfig.picking ? { boneHighlights: poseSkeletonHighlights(projectedNodes, markerModel, p.poseConfig), focusedBoneMarkers: false } : {}), ...(focusedPose ? { boneLines: false, bones: false } : {}), modelRadius:radius, wireframeMarkers: p.mode === 'wireframe' || p.mode === 'vertices' || p.mode === 'influence' || !!p.markersOnTop, occludedMarkerEdges: p.mode === 'solid' || p.mode === 'textured' };
-        rigMarkers.draw(camera, projectedNodes, p.selectedNodeIds || [], markerOptions);
-        drawBoneConnectors(connectorCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
-        drawMovementOverlay(nodeCanvas.getContext('2d'), projectedNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true, nodeLabels: p.nodeLabels });
+        const shownNodes = p.pivotMarkers?.pivots.length ? [] : projectedNodes; // Show pivot's rings stand in for the bone boxes.
+        rigMarkers.draw(camera, shownNodes, p.selectedNodeIds || [], markerOptions);
+        drawBoneConnectors(connectorCanvas.getContext('2d'), shownNodes, p.selectedNodeIds || [], camera, width, height, canvas.width / Math.max(1, width), { ...markerOptions, preferences: p.preferences });
+        drawMovementOverlay(nodeCanvas.getContext('2d'), shownNodes, p.selectedNodeIds || [], activePose ? [] : nodeHandles, width, height, canvas.width / Math.max(1, width), { ...markerOptions, boneLines: false, glMarkers: true, nodeLabels: p.nodeLabels });
         const pingAge = posePing ? ownerWindow.performance.now() - posePing.started : 1200;
         const ping = poseVisible && p.poseConfig.crosshair !== false && !p.poseConfig?.picking && pingAge < 1200 ? posePing : null;
         nodeCanvas.dataset.poseBlockers = JSON.stringify(ping?.targets || []);
@@ -1507,14 +1517,15 @@ export default function GamePreview(inputProps) {
       } else { if (pinButton) { pinButton.remove(); pinButton = null; } nodePoints = []; nodeHandles = []; poseHandles = []; if (nodeCanvas) { nodeCanvas.remove(); nodeCanvas = null; } if (connectorCanvas) { connectorCanvas.remove(); connectorCanvas = null; } }
       }
       // Motion arcs (AnimXL): model-space polylines over the view, through the live camera.
-      if (p.overlayPaths?.length) {
+      pivotScreens = [];
+      if (p.overlayPaths?.length || p.pivotMarkers?.pivots.length) {
         if (!pathCanvas) { pathCanvas = ownerDocument.createElement('canvas'); pathCanvas.dataset.pathOverlay = ''; pathCanvas.style.cssText = 'position:absolute;z-index:41;inset:0;width:100%;height:100%;pointer-events:none'; hostElement.appendChild(pathCanvas); }
         if (pathCanvas.width !== canvas.width) pathCanvas.width = canvas.width;
         if (pathCanvas.height !== canvas.height) pathCanvas.height = canvas.height;
         const pw = canvas.clientWidth, ph = canvas.clientHeight, context = pathCanvas.getContext('2d'), point = new THREE.Vector3();
         context.setTransform(1, 0, 0, 1, 0, 0); context.clearRect(0, 0, pathCanvas.width, pathCanvas.height); context.setTransform(pathCanvas.width / Math.max(1, pw), 0, 0, pathCanvas.width / Math.max(1, pw), 0, 0);
         const screen = value => { point.set(value[0], value[1], value[2]).project(camera); return point.z > 1 ? null : [(point.x + 1) / 2 * pw, (1 - point.y) / 2 * ph]; };
-        for (const path of p.overlayPaths) {
+        for (const path of p.overlayPaths || []) {
           context.strokeStyle = path.color; context.fillStyle = path.color; context.lineWidth = path.width || 2; context.setLineDash(path.dash || []); context.globalAlpha = path.alpha ?? 1;
           context.beginPath(); let open = false;
           for (const value of path.points) { const xy = screen(value); if (!xy) { open = false; continue; } if (open) context.lineTo(xy[0], xy[1]); else { context.moveTo(xy[0], xy[1]); open = true; } }
@@ -1522,6 +1533,36 @@ export default function GamePreview(inputProps) {
           const at = path.marker != null && path.points[path.marker] && screen(path.points[path.marker]);
           if (at) { context.beginPath(); context.arc(at[0], at[1], (path.width || 2) + 2.5, 0, Math.PI * 2); context.fill(); }
         }
+        // Show pivot: a ring where each found bone swings from, joined to the clicked spot.
+        const spot = p.pivotMarkers && screen(p.pivotMarkers.spot);
+        if (p.pivotMarkers?.trail) {
+          context.lineCap = 'round'; context.lineJoin = 'round'; context.beginPath(); let open = false;
+          for (const value of p.pivotMarkers.trail) { const xy = screen(value); if (!xy) { open = false; continue; } if (open) context.lineTo(xy[0], xy[1]); else { context.moveTo(xy[0], xy[1]); open = true; } }
+          for (const [color, width] of [['#000', 5.5], [PIVOT_COLOR, 3]]) { context.strokeStyle = color; context.lineWidth = width; context.stroke(); }
+        }
+        (p.pivotMarkers?.pivots || []).forEach((pivot, index) => {
+          const xy = screen(pivot.world); if (!xy) return;
+          const main = index === 0, radius = main ? 22 : 15;
+          pivotScreens.push({ nodeId: pivot.nodeId, x: xy[0], y: xy[1], radius: radius + 6 });
+          context.globalAlpha = main ? 1 : .6; context.lineCap = 'round';
+          if (spot) {
+            context.setLineDash(main ? [] : [6, 5]); context.beginPath(); context.moveTo(xy[0], xy[1]); context.lineTo(spot[0], spot[1]);
+            for (const [color, width] of [['#000', 4], [PIVOT_COLOR, 2]]) { context.strokeStyle = color; context.lineWidth = width; context.stroke(); }
+            context.setLineDash([]);
+          }
+          for (const [color, width] of [['#000', 5], [PIVOT_COLOR, 2.5]]) {
+            context.strokeStyle = color; context.lineWidth = width; context.beginPath(); context.arc(xy[0], xy[1], radius, 0, Math.PI * 2);
+            if (main) { context.moveTo(xy[0] - radius - 8, xy[1]); context.lineTo(xy[0] + radius + 8, xy[1]); context.moveTo(xy[0], xy[1] - radius - 8); context.lineTo(xy[0], xy[1] + radius + 8); }
+            context.stroke();
+          }
+          context.fillStyle = PIVOT_COLOR; context.beginPath(); context.arc(xy[0], xy[1], 4, 0, Math.PI * 2); context.fill();
+          context.font = `600 ${main ? 13 : 11}px system-ui, sans-serif`; context.textBaseline = 'middle';
+          const label = pivot.name, left = xy[0] + radius + 12, labelWidth = context.measureText(label).width;
+          context.fillStyle = 'rgba(17,17,17,.85)'; context.fillRect(left - 5, xy[1] - 11, labelWidth + 10, 22);
+          context.fillStyle = PIVOT_COLOR; context.fillText(label, left, xy[1]);
+        });
+        pathCanvas.dataset.pivots = JSON.stringify(pivotScreens);
+        if (spot) { context.globalAlpha = 1; context.fillStyle = PIVOT_COLOR; context.strokeStyle = '#000'; context.lineWidth = 2; context.beginPath(); context.arc(spot[0], spot[1], 6, 0, Math.PI * 2); context.fill(); context.stroke(); }
         context.globalAlpha = 1;
       } else if (pathCanvas) { pathCanvas.remove(); pathCanvas = null; }
       if (!captureOnly && playback.finished) { reportAt = now; reportedFrame = start; p.onTimeChange?.(start); p.onPlayingChange?.(false); }
@@ -1682,7 +1723,7 @@ export default function GamePreview(inputProps) {
       compareCamera?.listeners.delete(receiveCamera); collisionCanvas?.remove();
       if (nodeGesture?.pose) { restoreGestureTracks(nodeGesture); nodeGesture = null; }
       canvas.removeEventListener('lostpointercapture', cancelGestureCapture);
-      disposed = true; cancelPreviewFrame(glideFrame); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
+      disposed = true; cancelPreviewFrame(glideFrame); pinButton?.remove(); canvas.removeEventListener('dblclick',pickParticle,true); canvas.removeEventListener('dblclick',probePivot,true); leaveGeoset(); canvas.removeEventListener('pointermove', hoverGeoset); canvas.removeEventListener('pointerleave', leaveGeoset); latest.current.onCaptureReady?.(null); backgroundCanvas.remove(); hoverCanvas?.remove(); connectorCanvas?.remove(); nodeCanvas?.remove(); pathCanvas?.remove(); geometryCanvas?.remove(); cameraCanvas?.remove(); scheduler.dispose(); ownerDocument.removeEventListener('visibilitychange', scheduler.sync); window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlxl-view-camera', viewCamera); unbindScroll(); observer?.disconnect(); ownerWindow.removeEventListener('keydown', previewKeyDown, true); ownerWindow.removeEventListener('keyup', previewKeyUp, true); ownerWindow.removeEventListener('blur', previewWindowBlur); ownerWindow.removeEventListener('mdlxl-cancel-gesture', cancelPreviewCommand); canvas.removeEventListener('lostpointercapture', endShowcaseCursor); canvas.removeEventListener('pointerdown', pointerDown, true); canvas.removeEventListener('pointermove', suppressAdjustedMove, true); canvas.removeEventListener('pointerup', finishLeftGesture, true); canvas.removeEventListener('pointercancel', finishLeftGesture, true); canvas.removeEventListener('pointermove', nodePointerMove, true); canvas.removeEventListener('pointerup', finishNodeGesture, true); canvas.removeEventListener('pointercancel', finishNodeGesture, true); canvas.removeEventListener('keydown', cancelNodeGesture, true); controls.removeEventListener('change', cameraChanged); controls.removeEventListener('start', cameraStarted); controls.removeEventListener('end', cameraEnded); controls.dispose(); canvas.removeEventListener('webglcontextlost', contextLost); runtime.current = null; rigMarkers.dispose(); presentation.dispose(); nativeBackground.dispose(); nodeEffects.dispose(); soundPreview.dispose(); eventPreview.dispose(); previewAdapter.dispose(); releasePreviewGraphics(native, gl, canvas);
     };
   }, [rendererModel, rendererRevision, textureAssets, props.isolatedGeosets?.join(','), props.modelPath, graphics.antialias, graphics.anisotropy, graphics.textureFiltering, graphics.lighting, graphics.textures, timelineStart, timelineEnd, globalPreviewId]);
 
@@ -1697,7 +1738,7 @@ export default function GamePreview(inputProps) {
   // its hierarchy to the old runtime during this earlier layout-effect phase.
   useLayoutEffect(()=>{const current=runtime.current;if(props.particleLiveModel&&current?.particleSourceModel===rendererModel)current.updateParticles(props.particleLiveModel,props.particleLiveField,props.particleSelectedId);},[props.particleLiveModel,props.particleLiveRevision,rendererModel]);
   // Redraw when AnimXL's motion arcs change, even while paused.
-  useLayoutEffect(() => { runtime.current?.redraw?.(); }, [props.overlayPaths]);
+  useLayoutEffect(() => { runtime.current?.redraw?.(); }, [props.overlayPaths, props.pivotMarkers]);
   // AnimXL swaps node tracks in the renderer's own copy; no WebGL rebuild per slider move.
   useLayoutEffect(() => { const current = runtime.current; if (props.liveNodeTracks && current?.particleSourceModel === rendererModel) current.updateNodeTracks(props.liveNodeTracks); }, [props.liveNodeTracks, rendererModel]);
   useEffect(() => { if(runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view]);

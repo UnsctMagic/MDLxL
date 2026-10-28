@@ -61,7 +61,8 @@ export function allNodes(model) {
   return [...byId.values()].sort((a, b) => a.ObjectId - b.ObjectId);
 }
 
-export function sampleNodeMatrices(model, frame = 0, sequenceIndex = -1, globalTime = frame) {
+/** `frozen` (node id -> frame) holds those nodes' own animation at another frame. */
+export function sampleNodeMatrices(model, frame = 0, sequenceIndex = -1, globalTime = frame, frozen = null) {
   const nodes = allNodes(model), byId = new Map(nodes.map(n => [n.ObjectId, n]));
   const matrices = new Map(), visiting = new Set();
   const interval = model.Sequences?.[sequenceIndex]?.Interval;
@@ -74,9 +75,10 @@ export function sampleNodeMatrices(model, frame = 0, sequenceIndex = -1, globalT
     visiting.add(id);
     let matrix = new Matrix4();
     if (!bindPose) {
-      const translation = new Vector3().fromArray(sampleTrack(node.Translation, frame, { ...options, fallback: [0, 0, 0] }));
-      const rotation = new Quaternion().fromArray(sampleTrack(node.Rotation, frame, { ...options, fallback: [0, 0, 0, 1], quaternion: true }));
-      const scale = new Vector3().fromArray(sampleTrack(node.Scaling, frame, { ...options, fallback: [1, 1, 1] }));
+      const at = frozen?.has(id) ? frozen.get(id) : frame, own = at === frame ? options : { ...options, globalTime: at };
+      const translation = new Vector3().fromArray(sampleTrack(node.Translation, at, { ...own, fallback: [0, 0, 0] }));
+      const rotation = new Quaternion().fromArray(sampleTrack(node.Rotation, at, { ...own, fallback: [0, 0, 0, 1], quaternion: true }));
+      const scale = new Vector3().fromArray(sampleTrack(node.Scaling, at, { ...own, fallback: [1, 1, 1] }));
       const pivot = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]);
       matrix.compose(translation, rotation, scale);
       const rotatedPivot = pivot.clone().applyMatrix4(matrix).sub(translation);
