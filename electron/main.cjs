@@ -27,6 +27,7 @@ const {PreviewRecordingStore}=require('./preview-ffmpeg.cjs');
 const {saveForgeAssets}=require('./forge-assets.cjs');
 const {normalizeModelCloseState,needsModelClosePrompt,modelClosePrompt,modelCloseAction}=require('./model-close.cjs');
 const {showClosePrompt}=require('./close-prompt.cjs');
+const {showWelcomePrompt}=require('./welcome-prompt.cjs');
 const {backupModelFile}=require('./optimizexl-save.cjs');
 const {BackgroundLibrary}=require('./preview-backgrounds.cjs');
 const {PaintTextureLibrary}=require('./paint-textures.cjs');
@@ -446,9 +447,13 @@ ipcMain.handle('updates:status',()=>updater?.status());
 ipcMain.handle('updates:check',event=>{if(event.sender!==win?.webContents)throw Error('Update checks require the main editor.');return updater.check(settings.preferences.language);});
 // People who download each release by hand often never find Auto update, so a
 // fresh copy asks once. Test profiles and headless runs are never asked.
+// It is a themed welcome window with a short fanfare, not a native message box,
+// whose alert sound made the welcome feel like an error.
 async function offerStartupUpdates(){
-  const answer=await dialog.showMessageBox(win,{type:'question',title:'Auto update',message:'Let MDLxL tell you when a new version is out?',detail:'MDLxL checks for a new version when it starts and asks you first. Nothing is downloaded or installed until you choose Update and restart. You can change this any time in Settings → Appearance → Auto update.',buttons:['Turn on','No thanks'],defaultId:0,cancelId:1});
-  const preferences={updateOfferAnswered:true,checkUpdatesOnStartup:answer.response===0};
+  const t=text=>translateText(text,settings.preferences.language);
+  const icon=nativeImage.createFromPath(path.join(__dirname,'../dist/branding/MDLxL.png')).resize({width:192,height:192,quality:'best'}).toDataURL();
+  const answer=await showWelcomePrompt(win,{title:'MDLxL',heading:t('Welcome to MDLxL'),question:t('Would you like to enable auto updating?'),detail:t('MDLxL takes a quick look for a new version each time it starts and lets you know when there is one. Nothing is downloaded or installed until you choose Update and restart.'),note:t('We only ask this once like this. You can also change this setting at any time via Settings → Appearance → Auto update.'),labels:{yes:t('Yes, enable it'),no:t('No thanks')},icon,theme:settings.preferences.theme});
+  const preferences={updateOfferAnswered:true,checkUpdatesOnStartup:answer==='yes'};
   await updateSettings({preferences});
   // The editor keeps its own copy of preferences and would save the old answer back.
   if(win&&!win.isDestroyed())win.webContents.send('settings:preferences',preferences);
