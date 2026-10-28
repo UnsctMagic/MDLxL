@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   animationTargets, createGeosetAnimations, sampleAnimationProperty,
-  readAnimationTrack, setAnimationInlineValues, setAnimationKey, setAnimationSequences,
+  readAnimationTrack, setAnimationInlineValues, setAnimationKey, bakeGeosetAnimationSettings,
 } from '../src/animation-tracks.js';
 import { setSequenceOptions } from '../src/animation.js';
 import { clampAlphaPercentText } from '../src/animation-controller-inputs.js';
@@ -294,10 +294,14 @@ export default function AnimationController({
   }
 
   function bakeRgb(all) {
-    let value;
-    try { value = rgbValue(); } catch (failure) { setError(failure.message); setNotice(''); return; }
+    let value, visibility;
+    try {
+      value = rgbValue();
+      if (alpha.trim() === '' || !Number.isFinite(Number(alpha))) throw new Error('Alpha must be a number from 0 to 100.');
+      visibility = Math.max(0, Math.min(100, Number(alpha))) / 100;
+    } catch (failure) { setError(failure.message); setNotice(''); return; }
     commit(all ? 'Bake RGB in all sequences' : 'Bake RGB in selected sequence', ['GeosetAnims', 'Info'],
-      current => setAnimationSequences(current, colorTargets, value, all ? null : [sequenceIndex]),
+      current => bakeGeosetAnimationSettings(current, { geosetIds, alpha: visibility, color: value, sequenceIndices: all ? null : [sequenceIndex] }),
       all ? 'RGB baked at the beginning and end of every sequence.' : 'RGB baked at the beginning and end of this sequence.');
   }
 

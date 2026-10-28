@@ -41,3 +41,18 @@ Full source suite: 2068 passed, 22 skipped; compatibility: 57 passed. Production
 build, packaging and hidden UI passed. Detailed local reports/captures are in
 D:\Codex\mdlxl-reorder-validation-20261028. Ready for review; awaiting merge
 approval. Version remains 0.35.0.
+
+## Visibility bake follow-up
+
+The existing Bake Sequence RGB and Bake All RGB buttons now use
+`bakeGeosetAnimationSettings` to bake the displayed Alpha and RGB together.
+Sequence scope, checked geoset scope, labels and notices remain unchanged.
+Both channels are prepared atomically and committed as one undo step.
+
+`test/animation-bake.electron.cjs` clicks the real buttons and verifies 25%
+alpha in one sequence, zero alpha in all sequences, RGB, untouched unchecked
+geosets/other sequences, preserved gap keys, undo/redo, and MDX/MDL saves.
+The hidden packaged test passed with zero renderer errors. Focused tests:
+54 passed. Full source: 2068 passed, 22 skipped; compatibility: 57 passed.
+Detailed results and the refreshed test build are in
+D:\Codex\mdlxl-bake-visibility-20261028. No text or version update was made.
