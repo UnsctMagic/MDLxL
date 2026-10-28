@@ -1,4 +1,5 @@
-const { playUpdateChime } = require('../src/update-chime.js');
+const fs = require('node:fs');
+const path = require('node:path');
 const APPLICATION_THEMES = require('../src/application-themes.json');
 
 const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -6,10 +7,11 @@ const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&am
 // The native Windows message box plays the alert sound and only fits a small
 // icon, so the first-launch welcome is a small frameless themed window like the close
 // prompt: the big MDLxL icon beside a blue welcome title.
-function welcomePromptHtml({ heading, question, detail, note, labels, icon, theme }) {
+function welcomePromptHtml({ heading, question, detail, note, labels, icon, theme, effectsScript = '' }) {
   const { colors, scheme } = APPLICATION_THEMES[theme] || APPLICATION_THEMES.light;
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <style>
+${fs.readFileSync(path.join(__dirname,'../src/update-helmet.css'),'utf8')}
 :root{color-scheme:${scheme}}
 *{box-sizing:border-box}
 html{border:1px solid ${colors.border};height:100%}
@@ -27,7 +29,7 @@ button:focus-visible{outline:2px solid ${colors.link};outline-offset:2px}
 .yes{background:${colors.link};border-color:${colors.link};color:#fff;font-weight:bold}
 .yes:hover{background:${colors.link};filter:brightness(1.12)}
 </style></head><body>
-<div class="row">${icon ? `<img src="${escapeHtml(icon)}" alt="">` : ''}<div>
+<div class="row">${icon ? `<span class="update-helmet" id="welcome-update-helmet" aria-hidden="true"><img src="${escapeHtml(icon)}" alt=""><canvas data-helmet="" width="256" height="256"></canvas><canvas data-particles="" width="384" height="384"></canvas></span>` : ''}<div>
 <h1>${escapeHtml(heading)}</h1>
 <p><b>${escapeHtml(question)}</b></p>
 <p class="detail">${escapeHtml(detail)}</p>
@@ -37,8 +39,7 @@ button:focus-visible{outline:2px solid ${colors.link};outline-offset:2px}
 <script>
 for(const button of document.querySelectorAll('button'))button.onclick=()=>{document.title='mdlxl-welcome:'+button.dataset.action;};
 addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();document.title='mdlxl-welcome:no';}});
-const chime=${playUpdateChime.toString()};
-</script></body></html>`;
+</script><script>${effectsScript.replace(/<\/script/gi,'<\\/script')}</script></body></html>`;
 }
 
 // Resolves 'yes' or 'no'. Closing the window itself counts as no.
@@ -65,13 +66,15 @@ function showWelcomePrompt(parent, { title, heading, question, detail, note, lab
     });
     prompt.webContents.once('did-finish-load', async () => {
       try {
+        await prompt.webContents.executeJavaScript('window.prepareWelcomeEffects()');
         const height = await prompt.webContents.executeJavaScript('document.documentElement.scrollHeight');
         if (!prompt.isDestroyed()) prompt.setContentSize(width, Math.min(600, Math.ceil(height)));
       } catch {}
-      if (!prompt.isDestroyed() && process.env.MDLVIS_HEADLESS !== '1') { prompt.show(); prompt.webContents.focus(); if (!disableSounds) prompt.webContents.executeJavaScript('chime()').catch(() => {}); }
+      if (!prompt.isDestroyed() && process.env.MDLVIS_HEADLESS !== '1') { prompt.show(); prompt.webContents.focus(); prompt.webContents.executeJavaScript(`requestAnimationFrame(()=>window.startWelcomeEffects(${!!disableSounds}))`).catch(error=>console.error(error)); }
     });
     prompt.on('closed', () => resolve(answer));
-    prompt.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(welcomePromptHtml({ heading, question, detail, note, labels, icon, theme })));
+    const effectsScript=fs.readFileSync(path.join(__dirname,'../dist/update-popup-effects.js'),'utf8');
+    prompt.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(welcomePromptHtml({ heading, question, detail, note, labels, icon, theme, effectsScript })));
   });
 }
 

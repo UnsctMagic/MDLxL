@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { playUpdateChime } from '../src/update-chime.js';
+import { UpdatePopupEffects } from '../src/update-popup-effects.js';
 export default function useUpdates({ disableSounds = false, preferencesReady = true } = {}) {
   const [status, setStatus] = useState({ state: 'idle' }), [open, setOpen] = useState(false);
-  const announced = useRef(false);
+  const effects = useRef(null);
+  effects.current ||= new UpdatePopupEffects();
   useEffect(() => {
-    if (!open) { announced.current = false; return; }
-    if (!preferencesReady || announced.current) return;
-    announced.current = true;
-    if (!disableSounds) return playUpdateChime();
-  }, [open, preferencesReady, disableSounds]);
+    if (!open) { effects.current.close(); return; }
+    if (preferencesReady) effects.current.open({ muted: disableSounds });
+  }, [open, preferencesReady]);
+  useEffect(() => effects.current.setMuted(disableSounds), [disableSounds]);
+  useEffect(() => () => effects.current.close(), []);
   // A status broadcast that arrives while a request is pending is newer than that
   // request's reply (e.g. a cancelled close prompt returns the update to
   // 'available' before the install reply lands), so the reply must not overwrite it.
@@ -25,5 +26,5 @@ export default function useUpdates({ disableSounds = false, preferencesReady = t
   const check = async () => { try { const value = await reply(() => window.desktop.checkUpdates()); if (value.state === 'available') setOpen(true); } catch (error) { setStatus(previous => ({ ...previous, state: 'error', error: error.message })); } };
   const install = async () => { try { await reply(() => window.desktop.installUpdate()); } catch (error) { setStatus(previous => ({ ...previous, error: error.message })); } };
   const revert = async () => { try { await reply(() => window.desktop.revertUpdate()); } catch (error) { setStatus(previous => ({ ...previous, error: error.message })); } };
-  return { status, open, check, install, revert, close: () => setOpen(false) };
+  return { status, open, check, install, revert, close: () => setOpen(false), effects: effects.current };
 }
