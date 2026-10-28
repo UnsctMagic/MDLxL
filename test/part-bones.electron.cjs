@@ -1,7 +1,6 @@
-// Double-click a part in Movement: the bones that move it show as a Focused
-// Skeleton of bone shapes even with Bones and Focused Skeleton off; with Bones
-// on, the other bones keep their normal markers. Esc clears. Synthetic data
-// and an isolated profile only.
+// Double-click a part in Movement with Bones and Focused Skeleton off: the bone
+// it hangs on is selected and Focused Skeleton turns on, showing the axis cross
+// on its pivot. Synthetic data and an isolated profile only.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
@@ -9,9 +8,9 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
 (async () => {
   const { createDemoDocument } = await import('../src/editor-document.js');
-  const cwd = process.cwd(), out = path.join(cwd, 'out/motion-chain');
+  const cwd = process.cwd(), out = path.join(cwd, 'out/part-bones');
   fs.mkdirSync(out, { recursive: true });
-  const fixture = path.join(out, 'motion-chain-fixture.mdx'), errors = [];
+  const fixture = path.join(out, 'part-bones-fixture.mdx'), errors = [];
   const doc = createDemoDocument();
   doc.apply('Synthetic sway', ['Nodes'], model => {
     const tilt = degrees => new Float32Array([Math.sin(degrees * Math.PI / 360), 0, 0, Math.cos(degrees * Math.PI / 360)]);
@@ -27,32 +26,20 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.getByLabel('Movement current sequence').selectOption('0');
     const quick = page.getByRole('group', { name: 'Quick display', exact: true }), toggle = key => quick.locator(`input[data-hotkey="${key}"]`);
     for (const key of ['display:bones', 'display:skeleton', 'display:focusedSkeleton']) if (await toggle(key).count()) await toggle(key).setChecked(false);
-    const canvas = page.locator('canvas[data-clean-model-canvas]'), status = page.locator('.classic-status');
-    const shapes = () => page.evaluate(() => document.querySelector('[data-node-overlay]')?.dataset.boneShapes ?? null);
+    await page.getByLabel('Movement bone or node').selectOption({ index: 0 }).catch(() => {});
+    const canvas = page.locator('canvas[data-clean-model-canvas]'), object = page.getByLabel('Movement bone or node');
     await canvas.waitFor();
     const box = await canvas.boundingBox();
-    assert.ok(!await shapes(), 'no bone shapes before the double-click');
     let hit = null;
     for (const [dx, dy] of [[0, 0], [0, -40], [0, 40], [-30, 0], [30, 0], [0, -80], [0, 80]]) {
       await canvas.dblclick({ position: { x: box.width / 2 + dx, y: box.height / 2 + dy } });
-      if (/Moved by/.test(await status.innerText())) { hit = [dx, dy]; break; }
+      if (await toggle('display:focusedSkeleton').isChecked()) { hit = [dx, dy]; break; }
     }
-    assert.ok(hit, `no part found: ${await status.innerText()}`);
-    assert.match(await status.innerText(), /Moved by Blade_Root/);
-    await page.waitForFunction(() => document.querySelector('[data-node-overlay]')?.dataset.boneShapes);
-    const chain = (await shapes()).split(',');
-    assert.ok(chain.includes('0'), `chain shown as bone shapes with the overlays off: ${chain}`);
-    await page.screenshot({ path: path.join(out, 'chain-overlays-off.png') });
-
-    // With Bones on, bones outside the chain keep their normal markers.
-    await toggle('display:bones').setChecked(true);
+    assert.ok(hit, 'double-click turned Focused Skeleton on');
+    assert.match(await object.evaluate(select => select.selectedOptions[0]?.textContent || ''), /Blade_Root/, 'the bone the part hangs on is selected');
+    assert.equal(await toggle('display:bones').isChecked(), false, 'Bones stays as it was');
     await page.waitForTimeout(300);
-    assert.deepEqual((await shapes()).split(','), chain, 'Bones on does not change the chain shapes');
-    await page.screenshot({ path: path.join(out, 'chain-bones-on.png') });
-
-    await page.keyboard.press('Escape');
-    await page.waitForFunction(() => document.querySelector('[data-node-overlay]')?.dataset.boneShapes === '');
-    await toggle('display:bones').setChecked(false);
+    await page.screenshot({ path: path.join(out, 'focused-cross.png'), clip: box });
 
     // Normal mouse camera rotation still works.
     const before = await page.screenshot({ clip: box });
@@ -61,6 +48,6 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     await page.waitForTimeout(300);
     assert.ok(!before.equals(await page.screenshot({ clip: box })), 'Alt+drag still turns the camera');
     assert.deepEqual(errors, []);
-    console.log('motion-chain: ok', JSON.stringify({ hit, chain }));
+    console.log('part-bones: ok', JSON.stringify({ hit }));
   } finally { await app.close().catch(() => {}); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

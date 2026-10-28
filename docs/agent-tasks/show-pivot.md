@@ -1,4 +1,4 @@
-# Show pivot: double-click chain + bone shapes (Movement)
+# Show pivot: double-click selects a part's bones; axis cross on Focused Skeleton
 
 Status: ready for review
 Owner / consolidator: Claude Code (session local_2c30e3da-07ed-4506-81d1-2e0d2e59deeb)
@@ -6,11 +6,12 @@ Updated: 2026-10-28
 
 ## Goal and completion criteria
 
-- Owner: watching an animated model (often with bones hidden), double-click the
-  part that moves and see every bone that moves it, so a small rotation that
-  bends a whole arm is easy to trace. No extras: no rings, lines, trails or labels.
-- Highlighted (Focused Skeleton) bones show their pivot and turning clearly as
-  bone shapes; with Bones on, the other bones keep their normal MDLVis markers.
+- Owner: watching an animated model (often with bones hidden), double-click
+  the part that moves; its bone(s) get selected and Focused Skeleton turns on,
+  showing exactly as it always has (cubes, lines, parent/child colours).
+- On the Focused Skeleton bones, add a visible pivot that turns with the bone.
+  The owner chose style B from a mockup: an axis cross through the pivot.
+- With Bones on, all other bones keep their normal MDLVis markers.
 
 ## Revision and local state
 
@@ -19,37 +20,33 @@ Updated: 2026-10-28
 
 ## Relevant owners
 
-- `src/motion-chain.js` `motionChain`: skinned bones of a vertex (or one bone)
-  plus all parents, root first.
-- `app/GamePreview.jsx` `probeChain` (double-click: bone marker first, else the
-  mesh vertex nearest the pointer; emitters keep their own double-click first).
-  A `chainIds` prop forces Focused Skeleton lines and markers on.
-- `app/rig-markers-gl.js`: `chainHighlightColors`, `boneShapeTails`,
-  `boneShapePositions`, `BONE_SHAPE`. Every highlighted bone marker (Focused
-  Skeleton from a selection, or a double-clicked chain) is drawn as an
-  eight-face bone from its pivot to a highlighted child, else its own child
-  bone, else a stub. One quarter is light or dark so roll is visible.
-- `app/movement-overlay.js`: connectors that a bone shape already covers are
-  skipped; the connector mask uses the shape's outline.
-- `app/App.jsx` `probeChain`, chain status line, Esc via `mdlxl-escape-key`.
+- `src/part-bones.js` `partBones`: the bones a vertex hangs on.
+- `app/GamePreview.jsx` `pickPartBones` (double-click: a bone marker first,
+  else the mesh vertex nearest the pointer; emitters keep their double-click).
+- `app/App.jsx` `selectPartBones`: selects those bones and turns the
+  `focusedSkeleton` display on via `changeOverlay`.
+- `app/movement-overlay.js` `drawPivotCrosses`: on every bone highlighted by
+  Focused Skeleton, the bone's own X (red), Y (green) and Z (blue) axes drawn
+  through its pivot, 28/20/20 pixels, black-edged, on the node canvas.
 
 ## Findings and decisions
 
-- First version (rings at the strongest mover, link line, motion trail,
-  labels) was rejected by the owner as redundant extras; removed.
-- Highlight Chain (Controller panel) only scopes timeline keys; the view's
-  highlighted skeleton is the Focused Skeleton display. The chain uses that.
-- The app's global Esc consumes the key before the preview; use the cancelable
-  `mdlxl-escape-key` event.
+- Rejected earlier versions (do not repeat): rings at the strongest mover with
+  a link line, motion trail and labels ("redundant extras"); replacing Focused
+  Skeleton cubes with diamond bone shapes and a custom ancestor chain ("who
+  asked you to change how focused skeleton works", "100% useless without
+  visible bones"). Focused Skeleton must stay unchanged; only add the cross.
+- The mockup showed two arms; the build adds the Z axis so a cross never
+  collapses to a dot when one axis points at the camera.
 - Verified on a D: copy of the owner's WH_WOC_WarriorNurgle_Flail03: a
-  double-click on the arm gives Bone_Root › Bone_Chest › Bone_Arm1_L ›
-  Bone_Arm2_L › Bone_Hand_L as bone shapes; Bones on adds the other cubes.
+  double-click on the hand selects Bone_Hand_L, Focused Skeleton turns on, the
+  crosses sit on the black parent and red selected pivots and turn in playback.
 
 ## Changes and verification
 
-- Checks: `node --test test/motion-chain.test.js test/bone-shapes.test.js
-  test/bone-appearance.test.js` pass; `pnpm run test:source` 2085 tests, 0
-  failures; `test/motion-chain.electron.cjs` hidden against `dist/` passes.
+- Checks: `node --test test/part-bones.test.js`; `pnpm run test:source` 2079
+  tests, 0 failures; hidden-desktop `part-bones`, `bones-picker`,
+  `movement-chain-focus-speed`, `rotation-interaction` against `dist/`.
 - Remaining: owner hand test in the packaged test build.
 
 ## Blockers and next action

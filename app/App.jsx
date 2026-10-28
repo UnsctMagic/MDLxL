@@ -81,8 +81,8 @@ import { createEmptyDocument } from '../src/starter-model.js';
 import { bindDropdownWheel } from '../src/dropdown-wheel.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { clearEditorData, EDITOR_DATA_SECTIONS } from '../src/editor-data.js';
-import { allNodes, sampleTrack } from '../src/animation.js';
-import { motionChain } from '../src/motion-chain.js';
+import { sampleTrack } from '../src/animation.js';
+import { partBones } from '../src/part-bones.js';
 import { buildPaintExportArtifact, buildPaintProjectArtifact } from '../src/paint-export.js';
 import { markPaintProjectSaved, restorePaintProject, travelPaintHistory } from '../src/paint-project.js';
 import { enumeratePaintTargets, installFreshPaintLayer, paintTargetsForGeoset } from '../src/paint-targets.js';
@@ -286,6 +286,13 @@ export default function App() {
   const visibleOverlays = visUI ? { ...storedOverlays, bones: true, helpers: true, attachments: true } : storedOverlays;
   const overlays = visibleOverlays.cameras ? { ...visibleOverlays, cameras: false } : visibleOverlays;
   const panelOverlays = overlays;
+  // Double-click in the preview: select the bones a part hangs on and show them as Focused Skeleton.
+  const selectPartBones = target => {
+    const ids = target.nodeId != null ? [target.nodeId] : partBones(model, target.geosetIndex, target.vertexIndex);
+    if (!ids.length) { say('No bone moves this part.'); return; }
+    setSelectedNodeIds(ids);
+    if (!overlays.focusedSkeleton) changeOverlay('focusedSkeleton', true);
+  };
   function changeOverlay(key, value) { setOverlayModes(previous => setEditorDisplay(previous, displayMode, key, value)); setCleanViews(previous => ({ ...previous, [mode]: false })); }
   const shaded = overlays.shaded, setShaded = value => changeOverlay('shaded', value);
   const showAxes = !cleanView && !cleanAnimationPreview && Object.values(preferences.grid.axes).some(Boolean);
@@ -655,22 +662,6 @@ export default function App() {
     }
     return mapped;
   }, [texturedModel, liveUV, uvWindow, uvSet, activeGeoset, uvEntrySelection]);
-  // Double-click in the preview: highlight the bones that move that spot, up to the root.
-  const [motionChainState, setMotionChainState] = useState(null);
-  const chainIds = motionChainState?.session === session.id ? motionChainState.ids : null;
-  const probeChain = target => {
-    const ids = motionChain(model, target);
-    if (!ids.length) { setMotionChainState(null); say('No bone moves this part.'); return; }
-    setMotionChainState({ ids, session: session.id });
-    const names = new Map(allNodes(model).map(node => [node.ObjectId, node.Name || `Object ${node.ObjectId}`]));
-    say(`Moved by ${ids.map(id => names.get(id)).join(' › ')}. Esc clears.`);
-  };
-  useEffect(() => {
-    if (!chainIds) return;
-    const clear = event => { event.preventDefault(); setMotionChainState(null); };
-    window.addEventListener('mdlxl-escape-key', clear);
-    return () => window.removeEventListener('mdlxl-escape-key', clear);
-  }, [!!chainIds]);
   const hasUVPreview = Object.keys(session.uvPreviews).length > 0;
   const hasTrackDrafts = Object.keys(session.animationDrafts).length > 0;
   const hasPaintChanges = !!session.paintProject?.dirty;
@@ -1743,7 +1734,7 @@ export default function App() {
         portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
         liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
         selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}}
-        chainIds={chainIds} onChainProbe={probeChain}
+        onPartBones={selectPartBones}
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 

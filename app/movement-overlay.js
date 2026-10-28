@@ -4,7 +4,7 @@ import { allNodes, sampleNodeMatrices, sampleTrack } from '../src/animation.js';
 import { movementNodeCategories } from './preview-overlays.js';
 import { samplePreviewMatrices } from './preview-pose.js';
 import { visualOptions, viewportAppearanceOptions } from '../src/preferences.js';
-import { boneHighlightColors, boneShapePositions, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
+import { boneHighlightColors, markerStyle, rigMarkerSize, rigMarkerVisible } from './rig-markers-gl.js';
 import { boneDisplayColor, boneDisplayOptions, drawBoneLink } from './bone-display.js';
 import { createPixelLineBatch } from './pixel-lines.js';
 
@@ -82,7 +82,6 @@ export function drawMovementOverlay(context, nodes, selectedIds, handles, width,
     if (!line) continue;
     const appearance = boneConnectionAppearance(parent, point, highlights);
     if (!boneConnectionVisible(parent, point, highlights, options.focusedBoneLines)) continue;
-    if (options.boneShapeTails?.get(parent.node.ObjectId)?.childId === point.node.ObjectId) continue;
     drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio });
   }
   for (const point of nodes) if (point.visible && rigMarkerVisible(point, options, highlights)) {
@@ -159,6 +158,23 @@ function connectorMaskVertices(shape) {
   return vertices;
 }
 
+/** Focused Skeleton: an axis cross on each highlighted bone's pivot. The arms
+ * are the bone's own X (red), Y (green) and Z (blue) axes, so they turn as the
+ * bone turns and show its rotation far better than the small cube. */
+export function drawPivotCrosses(context, nodes, highlights, camera, width, height, ratio = 1) {
+  const at = new Vector3(), screen = value => { at.copy(value).project(camera); return [(at.x + 1) * width / 2, (1 - at.y) * height / 2]; };
+  context.save(); context.scale(ratio, ratio); context.lineCap = 'round';
+  for (const point of nodes) {
+    if (!point.visible || point.overlayKind !== 'bones' || !highlights?.get(point.node.ObjectId)) continue;
+    for (const [axis, color, pixels] of [[[1, 0, 0], '#ff4040', 28], [[0, 1, 0], '#40d040', 20], [[0, 0, 1], '#4a8cff', 20]]) {
+      const arm = new Vector3(...axis).applyQuaternion(point.rotation).multiplyScalar(point.unitsPerPixel * pixels);
+      const from = screen(point.world.clone().add(arm)), to = screen(point.world.clone().sub(arm));
+      for (const [stroke, lineWidth] of [['#000', 6], [color, 3]]) { context.strokeStyle = stroke; context.lineWidth = lineWidth; context.beginPath(); context.moveTo(...from); context.lineTo(...to); context.stroke(); }
+    }
+  }
+  context.restore();
+}
+
 /** Connectors occupy their own pixel layer below mesh wires and point overlays.
  * Remove only the projected polyhedron footprints so GL markers remain in front. */
 export function drawBoneConnectors(context, nodes, selectedIds, camera, width, height, ratio = 1, options = {}) {
@@ -174,7 +190,6 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
     if (!line) continue;
     const appearance = boneConnectionAppearance(parent, point, highlights);
     if (!boneConnectionVisible(parent, point, highlights, options.focusedBoneLines)) continue;
-    if (options.boneShapeTails?.get(parent.node.ObjectId)?.childId === point.node.ObjectId) continue;
     drawBoneLink(context, line.from, line.to, { bones, highlight: appearance, ratio, pixelBatch });
   }
   pixelBatch?.flush();
@@ -182,10 +197,9 @@ export function drawBoneConnectors(context, nodes, selectedIds, camera, width, h
   for (const point of nodes) {
     if (!point.visible || !rigMarkerVisible(point, options, highlights)) continue;
     const shape = markerStyle(point, byId, options.preferences, highlights, options.vanilla, visual).shape;
-    const size = rigMarkerSize(point, shape, options, visual), tail = options.boneShapeTails?.get(point.node.ObjectId)?.tail;
-    const corners = tail ? boneShapePositions(point, tail, size) : connectorMaskVertices(shape).map(vertex => new Vector3(...vertex).multiplyScalar(size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world));
-    const hull = convexHull(corners.map(corner => {
-      const p = corner.project(camera);
+    const size = rigMarkerSize(point, shape, options, visual);
+    const hull = convexHull(connectorMaskVertices(shape).map(vertex => {
+      const p = new Vector3(...vertex).multiplyScalar(size).applyQuaternion(shape.billboard?(point.billboardRotation||point.rotation):point.rotation).add(point.world).project(camera);
       return { x: (p.x + 1) * width * ratio / 2, y: (1 - p.y) * height * ratio / 2 };
     }));
     if (hull.length < 3) continue;
