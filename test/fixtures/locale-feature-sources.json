@@ -463,7 +463,7 @@
     "Normal View",
     "Placement view",
     "Placement plane",
-    "Apply drops the Bit at the replaced part and selects it in the vertex editor, so you can place it with Move, Rotate and Scale. It inherits the replaced vertices’ bones and weights; source rig motion is not imported.",
+    "The Bit is fitted to the selected part’s size and position. Apply selects it in the vertex editor for adjustments with Move, Rotate and Scale. It inherits the replaced vertices’ bones and weights; source rig motion is not imported.",
     "The selected part is hidden. Choose a Bit to position in its place.",
     "Apply removes the selected geometry. Cancel keeps the model unchanged.",
     "The displayed RGB is imported; saved Bit tracks stay intact.",

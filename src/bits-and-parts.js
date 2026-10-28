@@ -2,6 +2,7 @@ import { ensureDummyBone } from './dummy-bone.js';
 import { deleteGeoset, importGeosets, openDocument, recalculateExtents } from './editor-document.js';
 import { deleteVertices, setVertexPositions, transformVertices } from './editor-commands.js';
 import { selectedVertexCenter } from './bone-tools.js';
+import { updateBounds } from './mesh-tools.js';
 import { captureMeshSelection } from './mesh-clipboard.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, setSequenceName } from './sequence-editor.js';
@@ -309,10 +310,23 @@ export function transformPart(source, payload) {
 }
 
 export function positionPart(source, target, selection) {
-  replacementVertices(target, selection);
-  const sourceSelection = Object.fromEntries(source.Geosets.map((geoset, index) => [index, Array.from({ length: geoset.Vertices.length / 3 }, (_, id) => id)]));
-  const origin = selectedVertexCenter(source, sourceSelection), center = selectedVertexCenter(target, selection);
-  return transformPart(source, { translation: center.map((value, axis) => value - origin[axis]) });
+  const donors = replacementVertices(target, selection);
+  // Measure the actual selected geometry, not saved extents or vertex averages:
+  // uneven tessellation must not pull the replacement away from its envelope.
+  const incoming = { Vertices: source.Geosets.flatMap(geoset => Array.from(geoset.Vertices)) };
+  const outgoing = { Vertices: donors.flatMap(vertex => vertex.position) };
+  if (!incoming.Vertices.length) throw Error('This part has no vertices.');
+  updateBounds(incoming); updateBounds(outgoing);
+  const pivot = Array.from(incoming.MinimumExtent, (value, axis) => (value + incoming.MaximumExtent[axis]) / 2);
+  const center = Array.from(outgoing.MinimumExtent, (value, axis) => (value + outgoing.MaximumExtent[axis]) / 2);
+  const scale = Array.from(incoming.MinimumExtent, (value, axis) => {
+    const size = incoming.MaximumExtent[axis] - value;
+    const targetSize = outgoing.MaximumExtent[axis] - outgoing.MinimumExtent[axis];
+    // A flat/point selection cannot define thickness; keep that axis instead
+    // of dividing by zero or flattening a solid Bit into degenerate triangles.
+    return size > 0 && targetSize > 0 ? targetSize / size : 1;
+  });
+  return transformPart(source, { pivot, scale, translation: center.map((value, axis) => value - pivot[axis]) });
 }
 
 /** Palette animations stay in the saved Bit. An import takes the displayed
