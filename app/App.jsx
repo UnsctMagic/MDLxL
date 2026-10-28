@@ -244,7 +244,7 @@ export default function App() {
   const paintCamera = session.paintCamera ||= { current: null };
   const portraitModeActive = portraitEnabled && mode === 'animation';
   const cameraRotating = cameraMode === 'rotate' && !lockedVertexPlane || cameraGesture;
-  const [storedWorkplaneEnabled, setStoredWorkplaneEnabled] = useState(true), [multipleNodes, setMultipleNodes] = useState(false);
+  const [storedWorkplaneEnabled, setStoredWorkplaneEnabled] = useState(true);
   const [restrictions, setRestrictions] = useState({translation:false,rotation:false,scaling:false});
   const rigWorkspace = mode === 'bones' || mode === 'animation' && animationPanel === 'movement';
   const restPose = mode === 'bones', cleanAnimationPreview = mode === 'animation' && animationPanel === 'animations';
@@ -468,7 +468,7 @@ export default function App() {
   const renameSelectedNode = (id, value) => edit('Rename object', ['Nodes'], current => renameRigNode(current, id, value));
   const setSelectedBoneBillboarded = (id, enabled) => edit('Set bone billboarded', ['Nodes'], current => setBoneBillboarded(current, id, enabled));
   const beginAttach = () => {
-    if (!selectedRigNodes.length || selectedRigNodes.length > 1 && !multipleNodes) return;
+    if (!selectedRigNodes.length) return;
     setCameraMode('work'); setMovementMode('select'); setAttachSourceIds(selectedRigNodes.map(node => node.ObjectId));
   };
   const finishAttach = parentId => {
@@ -479,7 +479,7 @@ export default function App() {
     if (result !== false) setAttachSourceIds([]);
   };
   const detachSelectedNode = () => {
-    if (!parentedRigNodes.length || selectedRigNodes.length > 1 && !multipleNodes) return;
+    if (!parentedRigNodes.length) return;
     edit('Detach from parent bone', ['Nodes'], current => parentedRigNodes.forEach(node => detachFromBone(current, node.ObjectId)));
   };
   const bindSelectedVertices = kind => {
@@ -1350,9 +1350,9 @@ export default function App() {
     if(id==='optimizeModel')return !doc.readOnly&&!saving&&!liveUV&&!Object.keys(session.uvPreviews).length;
     if (mode === 'bones') {
       if (id === 'Delete vertices') return editable && !!singleRigNode;
-      if (id === 'Create triangle') return editable && selectedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1);
+      if (id === 'Create triangle') return editable && selectedRigNodes.length > 0;
       if (id === 'Collapse' || id === 'rotate' || id === 'bone:detachVertices') return editable && !!selectedBone && selectionCount > 0;
-      if (id === 'bone:detach') return editable && parentedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1);
+      if (id === 'bone:detach') return editable && parentedRigNodes.length > 0;
       if (['scale', 'Delete triangles', 'Uncouple', 'Weld', 'Mirror', 'Extrude', 'Detach', 'Reverse normals', 'Smooth normals', 'Restore normals'].includes(id)) return false;
     } else if (id.startsWith('bone:')) return false;
     // N is easy to hit while wrapping UVs and would leave normals on in the main view.
@@ -1388,7 +1388,7 @@ export default function App() {
   }
   // Playback time changes do not change available commands or shortcut bindings.
   const settingsCommands = ['settings','hotkeys','graphics','captureSettings','appearanceSettings','configurationSettings','gridSettings','gameDataSettings'];
-  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, multipleNodes, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState,sketchState]);
+  const commandCatalog = useMemo(() => COMMANDS.map(command => ({...command,scope:['undo','redo'].includes(command.id)?'global':command.scope,label: mode === 'bones' ? ({ rotate: 'Hard Bind', 'Delete vertices': 'Delete object', 'Create triangle': 'Attach', Collapse: 'Soft Bind' }[command.id] || command.label) : command.label,allowInModal:settingsCommands.includes(command.id),enabled:commandEnabled(command.id)})), [doc, doc.revision, uvEditing, overlays.normals, doc.historyStats.undoSteps, doc.historyStats.redoSteps, mode, tool, sequence, validSelection, selectable, selectionCount, selectedNodeIds, singleRigNode, selectedBone, parentBone, selectedFaces, geoset, clipboard.current, restrictions, restPose, rigWorkspace, cleanAnimationPreview, visUI, saving, session.paintProject?.revision,showcaseHistoryState,sketchState]);
   const runCommand = id => { if(commandEnabled(id)) commands.current[id]?.(); };
   const runLatest = useRef(runCommand); runLatest.current = runCommand;
   // Waits for React to commit and the viewport to paint before the AI reads the editor again.
@@ -1656,7 +1656,7 @@ export default function App() {
     vanilla: visUI, objectDisplay: overlays, onObjectDisplay: changeOverlay,
     poseConfig, onPoseChange: changePose, onPoseSelect: selectPose, onOpenEmitter: openParticles, restPose, selectionByGeoset: validSelection,
     workplaneEnabled, onWorkplaneEnabled: setWorkplaneEnabled, workplane, onWorkplane: setWorkplane, restrictions, onRestrictions: setRestrictions,
-    multiple: multipleNodes, onMultiple: setMultipleNodes, onVertexTransform: transform, globalSeqId: restPose ? null : globalSeqId,
+    onVertexTransform: transform, globalSeqId: restPose ? null : globalSeqId,
     onTimelineChange: selectTimeline, highlightKeyframes, onHighlightKeyframes: setHighlightKeyframes, highlightChain,
     onHighlightChain: changeHighlightChain, preferences, disabled: doc.readOnly || saving, model, revision: doc.revision, sequenceIndex: sequence,
     time, selectedNodeIds, onSelectNodes: setSelectedNodeIds, onEdit: edit, onSeek: setTime, onSequenceChange: selectSequence, playing,
@@ -1719,7 +1719,7 @@ export default function App() {
         onParticlePick={id=>{setMaterialVisibility(null);setSelectedNodeIds([id]);if(mode!=='animation'||animationPanel!=='animations')openParticles(id);}} particleSelectedId={selectedNodeIds[0]}
         cameraHandoff={cameraHandoff} attachSourceIds={mode === 'bones' ? attachSourceIds : []} onAttachTarget={finishAttach} onCancelAttach={() => setAttachSourceIds([])}
         previewMode={previewRenderModes.animation} presentation={cleanAnimationPreview?"preview":"editor"} rotationEditor={mode === 'bones' ? 'bones' : 'movement'} restPose={restPose} cleanAnimationPreview={cleanAnimationPreview}
-        workplaneEnabled={workplaneEnabled} restrictions={restrictions} multiple={multipleNodes}
+        workplaneEnabled={workplaneEnabled} restrictions={restrictions}
         {...cameraProps}
         onInspectGeoset={inspectGeoset} onHoverGeoset={setViewHoveredGeoset} highlightSelection={!cleanView && preferences.highlightSelection && highlightAppearance.viaView}
         selectedGeoset={activeGeoset} selectionByGeoset={validSelection} visibleGeosets={displayedGeosets} selectableGeosets={selectable}
@@ -1751,7 +1751,7 @@ export default function App() {
       <RigSidebar {...{
         activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen,
         cameraGesture, controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, Dialog, openAttachemator,
-        doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps, multipleNodes,
+        doc, edit, geosetPicker, globalSeqId, materialVisibility, mode, model, movementControllerProps,
         parentedRigNodes, renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes,
         selectionCount, selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying,
         setSelectedBoneBillboarded, setSelectedNodeIds, setTime, singleRigNode, time

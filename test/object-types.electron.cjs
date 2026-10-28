@@ -67,9 +67,9 @@ const { buildSync } = require('esbuild');
     assert.deepEqual(await checks(),[true,false,false]);
     const order = await page.evaluate(() => {
       const y = selector => document.querySelector(selector).getBoundingClientRect().top;
-      return [y('.movement-object-combo'),y('.movement-object-filters'),y('.movement-list-selection')];
+      return [y('.movement-object-combo'),y('.movement-object-filters')];
     });
-    assert.ok(order[0] < order[1] && order[1] < order[2], 'filters sit below the dropdown and above Multiselect');
+    assert.ok(order[0] < order[1], 'filters sit below the dropdown');
     const refCount = await page.evaluate(() => rigState().props.model.Attachments.length);
     await page.getByRole('button',{name:'Create',exact:true}).click();
     await page.getByRole('menuitem',{name:'Ref',exact:true}).click(); await idle();

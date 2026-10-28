@@ -623,7 +623,7 @@ export default function GamePreview(inputProps) {
         }
         if (picked && p.onSelectNodes) {
           const ids = p.selectedNodeIds || [], id = picked.node.ObjectId;
-          p.onSelectNodes(movementNodeSelection(ids, id, { multiple: p.multiple, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey }));
+          p.onSelectNodes(movementNodeSelection(ids, id, { multiple: true, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey }));
           event.preventDefault(); event.stopImmediatePropagation(); return;
         }
       }
