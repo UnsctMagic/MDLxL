@@ -1,7 +1,7 @@
 import { recalculateExtents } from './editor-document.js';
 import { sampleTrack } from './animation.js';
 import { recalculatePortraitExtents } from './portrait-extents.js';
-import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, animationSpeed } from './animation-speed.js';
+import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, animationSpeed } from './animation-speed.js';
 
 const MAX_FRAME = 0x7fffffff;
 const isTrack = value => value && Array.isArray(value.Keys);
@@ -206,6 +206,120 @@ function visitModel(model, visitor) {
 
 function sameGlobalId(value, id) {
   return Number.isInteger(value?.GlobalSeqId) && value.GlobalSeqId >= 0 && value.GlobalSeqId === id;
+}
+
+export const SEQUENCE_REORDER_SECTIONS = ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras'];
+
+function checkOrder(order, count) {
+  if (!Array.isArray(order) || order.length !== count || new Set(order).size !== count || order.some(index => !Number.isInteger(index) || index < 0 || index >= count))
+    throw new Error('The animation order must contain every animation exactly once.');
+}
+
+/** Move complete clips, not just their names. Gaps retain their positional
+ * lengths and their unused keys; all local channels use the same translation.
+ * Shared endpoints are copied into both clips. Globals have independent clocks.
+ * Prepare every write first so a bad interval/overflow cannot partially retime.
+ */
+export function reorderSequences(model, order) {
+  const sequences = model.Sequences || [];
+  checkOrder(order, sequences.length);
+  if (order.every((index, position) => index === position)) return false;
+  let shift = 0;
+  const ranges = sequences.map((sequence, index) => {
+    const current = Array.from(sequence.Interval || []);
+    if (current.length !== 2) throw new Error('Every animation needs a valid frame interval before reordering.');
+    current.forEach(frame => wholeFrame(frame, 'Animation frame'));
+    if (current[1] < current[0]) throw new Error('An animation ends before it starts.');
+    return { sequence, index, current };
+  }).sort((a, b) => a.current[0] - b.current[0]);
+  for (const [position, range] of ranges.entries()) {
+    range.original = range.sequence[ANIMATION_SPEED_KEY]?.originalInterval || range.current.map(frame => frame - shift);
+    shift = range.current[1] - range.original[1];
+    if (position && (range.current[0] < ranges[position - 1].current[1] || range.original[0] < ranges[position - 1].original[1]))
+      throw new Error('Overlapping animation intervals must be separated before reordering.');
+  }
+  const byIndex = new Map(ranges.map(range => [range.index, range]));
+  const next = order.map(index => byIndex.get(index));
+  // Preserve both the native timeline and the speed control's 100% baseline.
+  for (const domain of ['current', 'original']) {
+    let start = ranges[0][domain][0];
+    next.forEach((range, position) => {
+      const end = start + range[domain][1] - range[domain][0];
+      wholeFrame(start, 'Animation frame'); wholeFrame(end, 'Animation frame');
+      range[domain + 'Next'] = [start, end];
+      if (position + 1 < next.length) start = end + Math.max(1, ranges[position + 1][domain][0] - ranges[position][domain][1]);
+    });
+  }
+  const outside = (frame, domain) => {
+    if (frame < ranges[0][domain][0]) return frame;
+    for (let i = 0; i + 1 < ranges.length; i++) {
+      if (frame > ranges[i][domain][1] && frame < ranges[i + 1][domain][0])
+        return frame + next[i][domain + 'Next'][1] - ranges[i][domain][1];
+    }
+    return frame + next.at(-1)[domain + 'Next'][1] - ranges.at(-1)[domain][1];
+  };
+  const mapped = (frame, stored) => {
+    const owners = ranges.filter(range => frame >= range.current[0] && frame <= range.current[1]);
+    const previous = stored?.frame === frame ? stored.originalFrame : null;
+    const result = owners.length ? owners.map(range => {
+      const original = previous ?? range.original[0] + (frame - range.current[0]) * (range.original[1] - range.original[0]) / Math.max(1, range.current[1] - range.current[0]);
+      return { frame: frame + range.currentNext[0] - range.current[0], originalFrame: original + range.originalNext[0] - range.original[0] };
+    }) : [{ frame: outside(frame, 'current'), originalFrame: outside(previous ?? (() => {
+      const preceding = ranges.filter(range => range.current[1] < frame).at(-1);
+      return frame - (preceding ? preceding.current[1] - preceding.original[1] : 0);
+    })(), 'original') }];
+    for (const record of result) if (!Number.isInteger(record.frame) || record.frame < -0x80000000 || record.frame > MAX_FRAME)
+      throw new Error('There is not enough frame space to reorder these animations.');
+    return result;
+  };
+  const edits = [];
+  visitModel(model, {
+    track(track) {
+      if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      const keys = track.Keys.flatMap(key => mapped(key.Frame, key[ANIMATION_SPEED_FRAME]).map(record => ({
+        ...structuredClone(key), Frame: record.frame,
+        ...(key[ANIMATION_SPEED_FRAME] ? { [ANIMATION_SPEED_FRAME]: record } : {}),
+      }))).sort((a, b) => a.Frame - b.Frame);
+      edits.push(() => { track.Keys = keys; });
+    },
+    event(node) {
+      if (Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0) return;
+      const stored = [...(node[ANIMATION_SPEED_EVENTS] || [])];
+      const records = Array.from(node.EventTrack).flatMap(frame => {
+        const index = stored.findIndex(record => record?.frame === frame);
+        return mapped(frame, index < 0 ? null : stored.splice(index, 1)[0]);
+      }).sort((a, b) => a.frame - b.frame);
+      edits.push(() => {
+        const frames = records.map(record => record.frame);
+        node.EventTrack = ArrayBuffer.isView(node.EventTrack) ? new node.EventTrack.constructor(frames) : frames;
+        if (node[ANIMATION_SPEED_EVENTS]) node[ANIMATION_SPEED_EVENTS] = records;
+      });
+    },
+  });
+  for (const geoset of model.Geosets || []) if (geoset.Anims?.length) {
+    if (geoset.Anims.length !== sequences.length) throw new Error('Geoset animation bounds must match the animation count before reordering.');
+    const anims = order.map(index => geoset.Anims[index]);
+    edits.push(() => { geoset.Anims = anims; });
+  }
+  for (const range of next) {
+    range.sequence.Interval = intervalLike(range.sequence.Interval, ...range.currentNext);
+    if (range.sequence[ANIMATION_SPEED_KEY]?.originalInterval) range.sequence[ANIMATION_SPEED_KEY].originalInterval = range.originalNext;
+  }
+  model.Sequences = next.map(range => range.sequence);
+  for (const edit of edits) edit();
+  return true;
+}
+
+/** A global sequence is a duration referenced by ID, not a local frame range. */
+export function reorderGlobalSequences(model, order) {
+  const globals = model.GlobalSequences || [];
+  checkOrder(order, globals.length);
+  if (order.every((index, position) => index === position)) return false;
+  const ids = new Map(order.map((old, index) => [old, index]));
+  const remap = value => { if (ids.has(value.GlobalSeqId)) value.GlobalSeqId = ids.get(value.GlobalSeqId); };
+  visitModel(model, { track: remap, event: remap });
+  model.GlobalSequences = order.map(index => globals[index]);
+  return true;
 }
 
 export function deleteSequence(model, sequenceIndex) {
