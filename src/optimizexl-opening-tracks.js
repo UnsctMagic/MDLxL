@@ -2,7 +2,7 @@ const json = value => JSON.stringify(value, (_, v) => ArrayBuffer.isView(v) ? Ar
 const resolve = (model, path) => path.reduce((value, key) => value?.[key], model);
 const local = track => track.GlobalSeqId == null || track.GlobalSeqId === -1 || track.GlobalSeqId === 0xffffffff;
 
-/** Match Hive's missing-opening rule. Do not invent motion in empty sequences,
+/** Match mdx-m3-viewer's missing-opening rule. Do not invent motion in empty sequences,
  * constant/step channels, globals, or ambiguous overlapping intervals. */
 export function openingTrackProposals(model, entries) {
   const findings = [];

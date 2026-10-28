@@ -1,7 +1,7 @@
 import { validateModel } from './editor-document.js';
 import { generateCompatibleMdx } from './mdx-compatibility.js';
 
-// The bundled Hive engine predates modern MDX versions. Its results are kept
+// The bundled mdx-m3-viewer engine predates modern MDX versions. Its results are kept
 // verbatim as advisory evidence, separate from the current editor's validator.
 export async function checkSanity(model, hive, sourceDiagnostics = []) {
   const snapshot = structuredClone(model);
@@ -20,14 +20,14 @@ export async function checkSanity(model, hive, sourceDiagnostics = []) {
   }
   const report = { structural, hive: null, limitation: '', version: snapshot.Version };
   if (structural.some(f => f.severity === 'error')) {
-    report.limitation = 'Hive comparison was skipped because structural errors prevent a reliable serialized comparison.';
+    report.limitation = 'mdx-m3-viewer comparison was skipped because structural errors prevent a reliable serialized comparison.';
   } else if (structural.some(f => f.code === 'OPAQUE_DATA_PRESERVED')) {
     report.limitation = 'Unrecognized source data is preserved but cannot be fully checked.';
   } else if (snapshot.Version !== 800) {
-    report.limitation = 'The bundled Hive checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III.';
+    report.limitation = 'The bundled mdx-m3-viewer checker supports this comparison for classic version 800 only. Structural checks ran; modern format compatibility needs testing in Warcraft III.';
   } else {
     try { report.hive = await hive(new Uint8Array(generateCompatibleMdx(snapshot))); }
-    catch (error) { report.limitation = `Hive comparison could not complete: ${error.message}`; }
+    catch (error) { report.limitation = `mdx-m3-viewer comparison could not complete: ${error.message}`; }
   }
   report.errors = structural.filter(f => f.severity === 'error').length;
   report.warnings = structural.filter(f => f.severity === 'warning').length;

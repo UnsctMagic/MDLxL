@@ -115,7 +115,7 @@ test('constant global visibility is exact; fades, cubic curves and stale visibil
   assert.ok(!supported(d.model).some(f=>f.kind==='visibilityInterpolation'));
 });
 
-test('small genuine extrema survive Hive cleanup and spline resampling while roundoff and constant cleanup retain their owner',()=>{
+test('small genuine extrema survive mdx-m3-viewer cleanup and spline resampling while roundoff and constant cleanup retain their owner',()=>{
   for(const type of [1,3])for(const property of ['Translation','Scaling','Rotation']){
     const d=fixture();d.model.Sequences.sort((a,b)=>a.Interval[0]-b.Interval[0]);
     const base=property==='Rotation'?[0,0,0,1]:[1,1,1],turn=[...base];turn[0]+=.0005;

@@ -56,6 +56,6 @@ export function classifyHiveFindings(findings,proposals=[]){
         reason:manual?proposal.preservedTurns?.includes(frame)?'Similar values contain an authored turn; keep this key to preserve motion.':'Detected; its curve or domain requires manual review.':'Supported correction available.'};}
     if(kind==='unusedObject')return {...f,kind,owner,status:'stage',reason:'Review reference-based removal in Unused data; retained dependencies remain reported here.'};
     if(kind==='unskinnedBone')return {...f,kind,owner,status:'manual',reason:'An unskinned bone may still drive child nodes or reference geoset animation. Inspect its hierarchy and references before changing or removing it.'};
-    return {...f,kind,owner,status:'manual',reason:kind==='unsupported'?'Detected by Hive; no supported automatic correction.':'Detected; no safe automatic correction for this domain.'};
+    return {...f,kind,owner,status:'manual',reason:kind==='unsupported'?'Detected by mdx-m3-viewer; no supported automatic correction.':'Detected; no safe automatic correction for this domain.'};
   });
 }

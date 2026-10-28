@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js', import.meta.url), 'utf8'));
 const hive = async bytes => {const m = new ModelViewer.parsers.mdlx.Model();m.load(bytes.slice().buffer);const r = ModelViewer.utils.mdlx.sanityTest(m);return {...r,findings:flattenHiveFindings(r.nodes)};};
-test('current unsaved data is checked without mutation, including Hive notices', async () => {
+test('current unsaved data is checked without mutation, including mdx-m3-viewer notices', async () => {
  const m = createStarterDocument().model, before = structuredClone(m);
  const result = await checkSanity(m, hive);
  assert.deepEqual(m,before); assert.ok(result.hive); assert.equal(result.status,'Review findings');
@@ -17,7 +17,7 @@ test('current unsaved data is checked without mutation, including Hive notices',
  const broken = await checkSanity(m, hive);
  assert.ok(broken.structural.some(f=>f.code==='MATERIAL_REFERENCE')); assert.equal(broken.hive,null); assert.equal(broken.status,'Structural errors found');
 });
-test('modern formats and failed Hive execution cannot claim a complete pass', async () => {
+test('modern formats and failed mdx-m3-viewer execution cannot claim a complete pass', async () => {
  const m = createStarterDocument().model;
  m.Version=1000; assert.equal((await checkSanity(m, hive)).status,'Check partially completed');
  m.Version=800; const r=await checkSanity(m,async()=>{throw Error('unavailable');}); assert.match(r.limitation,/unavailable/); assert.equal(r.status,'Check partially completed');

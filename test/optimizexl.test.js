@@ -45,7 +45,7 @@ test('Death to Decay Flesh repair matches the endpoint and preserves later decay
  const m=openDocument(runOptimizeStage(bytes,'irregularities',{},fix).bytes,'x.mdx').model;
  assert.deepEqual(sampleNodeMatrices(m,1000,0),sampleNodeMatrices(m,2000,1));assert.deepEqual(m.Bones[0].Translation.Keys.filter(k=>k.Frame>=2500),before.Bones[0].Translation.Keys.filter(k=>k.Frame>=2500));
 });
-test('Hive findings include unused objects with no child messages and severe findings',()=>{
+test('mdx-m3-viewer findings include unused objects with no child messages and severe findings',()=>{
  const findings=flattenHiveFindings([{type:'node',name:'Texture 0',uses:0,nodes:[]},{type:'node',name:'Geoset 0',nodes:[{type:'severe',message:'Broken face'}]}]);
  assert.equal(findings.length,2);assert.equal(findings[0].type,'unused');assert.equal(findings[1].type,'severe');
 });
