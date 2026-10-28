@@ -41,6 +41,11 @@ const LIMITS = { spendLimit: 'Enter a spending limit in dollars, or leave it emp
 function limitOf(config, name) {
   return typeof config[name] === 'number' ? config[name] : 0;
 }
+// Chats of models not used for this many days are cleaned up; 0 = never.
+const DAY = 24 * 60 * 60 * 1000;
+function cleanupDaysOf(config) {
+  return typeof config.cleanupDays === 'number' ? config.cleanupDays : 3;
+}
 
 class AiService {
   constructor({ root, profile, electron, getWindow, sdBrainAvailable }) {
@@ -127,7 +132,8 @@ class AiService {
       lighterModels: this.lighterChoices({ ...provider, provider: name }),
       spendLimit: limitOf(config, 'spendLimit'),
       stepLimit: limitOf(config, 'stepLimit'),
-      sdBrain: (await this.sdBrainAvailable()) && config.sdBrain === true,
+      cleanupDays: cleanupDaysOf(config),
+      sdBrain:(await this.sdBrainAvailable()) && config.sdBrain === true,
       sdBrainAvailable: await this.sdBrainAvailable(),
       editingHandbook: config.editingHandbook === true,
       webResearch: config.webResearch === true,
@@ -176,6 +182,14 @@ class AiService {
       if (!Number.isFinite(limit) || limit < 0 || limit > 100000) throw Error(message);
       if (limit !== limitOf(config, name)) {
         config[name] = limit;
+        await this.persist();
+      }
+    }
+    if (input.cleanupDays !== undefined) {
+      const days = input.cleanupDays === '' || input.cleanupDays === null ? 0 : Number(input.cleanupDays);
+      if (!Number.isInteger(days) || days < 0 || days > 3650) throw Error('Enter a number of days, or leave it empty to never clean up.');
+      if (days !== cleanupDaysOf(config)) {
+        config.cleanupDays = days;
         await this.persist();
       }
     }
@@ -1293,6 +1307,9 @@ class AiService {
     const settings = await this.settings(),
       config = await this.configuration(),
       entry = await this.registry.model(modelKey, name);
+    // Opening a model's chat counts as using it for automatic cleanup.
+    entry.used = Date.now();
+    await this.registry.save();
     let conversation = null;
     if (entry.organiser)
       try {
@@ -1339,7 +1356,7 @@ class AiService {
   }
   async saveState({ modelKey }) {
     const entry = await this.registry.model(modelKey);
-    return { activity: !!entry.activity, remember: entry.remember || 'ask' };
+    return { activity: !!entry.activity, remember: entry.remember || 'ask', important: entry.important === true };
   }
   // SD Brain is off until the user turns it on; it applies from the next task.
   async sdBrainAvailable() {
@@ -1409,9 +1426,21 @@ class AiService {
       const organiser = await this.conversation(entry.organiser, settings.provider).catch(() => null);
       if (organiser?.transcript.length) note = await this.memoryNote(organiser, settings, entry.note);
     }
+    const { ids, providerFiles } = await this.removeChats(entry);
+    entry.note = mode === 'summary' ? note || entry.note : null;
+    // A summary keeps the decision diary; wiping removes it with the chats.
+    if (mode === 'wipe') delete entry.diary;
+    entry.organiser = null;
+    entry.earlier = [];
+    await this.registry.save();
+    this.emit({ type: 'organiser-reset', modelKey });
+    return { mode, removedChats: ids.length, providerFiles, note: entry.note };
+  }
+  // A model's chat files: its organisers, their birds, and the provider thread ids.
+  async chatsOf(entry) {
     const ids = [],
       threads = [];
-    for (const organiserId of [entry.organiser, ...entry.earlier].filter(Boolean)) {
+    for (const organiserId of [entry.organiser, ...(entry.earlier || [])].filter(Boolean)) {
       const organiser = await this.readConversation(organiserId);
       ids.push(organiserId);
       if (organiser?.threadId) threads.push(organiser.threadId);
@@ -1421,20 +1450,95 @@ class AiService {
         if (conversation?.threadId) threads.push(conversation.threadId);
       }
     }
+    return { ids, threads };
+  }
+  async removeChats(entry) {
+    const { ids, threads } = await this.chatsOf(entry);
     for (const id of ids) {
       this.conversations.delete(id);
       await this.writes.get(id)?.catch(() => {});
       await fs.rm(path.join(this.directory, 'chat-' + id + '.json'), { force: true });
     }
-    const providerFiles = await deleteProviderSessions(this.directory, threads);
-    entry.note = mode === 'summary' ? note || entry.note : null;
-    // A summary keeps the decision diary; wiping removes it with the chats.
-    if (mode === 'wipe') delete entry.diary;
-    entry.organiser = null;
-    entry.earlier = [];
+    return { ids, providerFiles: await deleteProviderSessions(this.directory, threads) };
+  }
+  // Important models keep their chats; automatic cleanup never removes them.
+  async setImportant({ modelKey, important }) {
+    if (typeof important !== 'boolean') throw Error('Choose on or off.');
+    const entry = await this.registry.model(modelKey);
+    entry.important = important;
     await this.registry.save();
-    this.emit({ type: 'organiser-reset', modelKey });
-    return { mode, removedChats: ids.length, providerFiles, note: entry.note };
+    return { important };
+  }
+  // Models get moved, renamed or edited in other programs, so their chats can be
+  // left behind. Every chat, note, diary, provider copy and temporary file of a
+  // model not used for `cleanupDays` days is deleted, unless the model is important.
+  async cleanupUnused(now = Date.now()) {
+    const days = cleanupDaysOf(await this.configuration());
+    if (!days || this.active || this.tasks.size || this.closing) return { models: 0, files: 0 };
+    const cutoff = now - days * DAY,
+      data = await this.registry.load(),
+      kept = new Set(),
+      keptThreads = new Set();
+    let models = 0,
+      files = 0;
+    const newest = async ids => {
+      let time = 0;
+      for (const id of ids) {
+        const stat = await fs.stat(path.join(this.directory, 'chat-' + id + '.json')).catch(() => null);
+        if (stat) time = Math.max(time, stat.mtimeMs);
+      }
+      return time;
+    };
+    for (const [key, entry] of Object.entries(data.models)) {
+      const chats = await this.chatsOf(entry);
+      const used = Math.max(entry.used || 0, await newest(chats.ids));
+      // An entry with no date yet starts its timer now.
+      if (!used) entry.used = now;
+      if (entry.important || this.modelBusy(key) || !used || used > cutoff) {
+        for (const id of chats.ids) kept.add(id);
+        for (const thread of chats.threads) keptThreads.add(thread);
+        continue;
+      }
+      const removed = await this.removeChats(entry);
+      files += removed.ids.length + removed.providerFiles;
+      delete data.models[key];
+      models++;
+      this.emit({ type: 'organiser-reset', modelKey: key });
+    }
+    await this.registry.save();
+    // Chats no model points to any more, and provider copies and run folders left by them.
+    const old = async full => ((await fs.stat(full).catch(() => null))?.mtimeMs ?? now) <= cutoff;
+    for (const name of await fs.readdir(this.directory).catch(() => [])) {
+      const full = path.join(this.directory, name),
+        chat = /^chat-([a-zA-Z0-9_-]{1,80})\.json(\.tmp)?$/.exec(name);
+      if (chat ? kept.has(chat[1]) || this.conversations.has(chat[1]) : !/^claude-run-/.test(name)) continue;
+      if (!(await old(full))) continue;
+      await fs.rm(full, { recursive: true, force: true });
+      files++;
+    }
+    // Only session logs and temporary files: sign-in and provider settings stay.
+    const sweep = async (folder, unwanted, depth = 0) => {
+      for (const item of await fs.readdir(folder, { withFileTypes: true }).catch(() => [])) {
+        const full = path.join(folder, item.name);
+        if (item.isDirectory()) {
+          if (depth < 6) await sweep(full, unwanted, depth + 1);
+        } else if (unwanted(item.name) && (await old(full))) {
+          await fs.rm(full, { force: true });
+          files++;
+        }
+      }
+    };
+    const orphanLog = name => /\.jsonl?$/i.test(name) && ![...keptThreads].some(id => name.includes(id));
+    await sweep(path.join(this.directory, 'temp'), () => true);
+    for (const folder of ['codex/sessions', 'codex/archived_sessions', 'claude/projects'])
+      await sweep(path.join(this.directory, folder), orphanLog);
+    return { models, files };
+  }
+  // Checks a minute after start and then every few hours while MDLxL is open.
+  startCleanup() {
+    const run = () => this.cleanupUnused().catch(error => console.error('AI cleanup: ' + error.message));
+    this.cleanupTimers = [setTimeout(run, 60000), setInterval(run, 6 * 60 * 60 * 1000)];
+    for (const timer of this.cleanupTimers) timer.unref?.();
   }
   async memoryNote(organiser, settings, previousNote) {
     const contract = await this.init(),
@@ -1644,6 +1748,7 @@ class AiService {
   close() {
     return (this.closePromise ||= Promise.resolve().then(async () => {
       this.closing = true;
+      for (const timer of this.cleanupTimers || []) clearTimeout(timer);
       this.cancel();
       for (const pending of [...this.pending.values()]) pending.cancel();
       await this.enabling?.catch(() => {});
@@ -1658,6 +1763,7 @@ class AiService {
 function registerAiService({ root, profile, electron, getWindow, readModel, writeModel }) {
   const service = new AiService({ root, profile, electron, getWindow }),
     { ipcMain } = electron;
+  service.startCleanup();
   const own = event => {
     if (event.sender !== getWindow()?.webContents || event.senderFrame !== event.sender.mainFrame)
       throw Error('Only the editor can use its AI connection.');
@@ -1691,6 +1797,7 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   handle('ai:saveState', input => service.saveState(input));
   handle('ai:cleanup', input => service.cleanup(input));
   handle('ai:rememberCleanup', input => service.setRememberedCleanup(input));
+  handle('ai:important', input => service.setImportant(input));
   handle('ai:offload', enabled => service.setOffload(enabled));
   handle('ai:sdBrain', enabled => service.setSdBrain(enabled));
   handle('ai:editingHandbook', enabled => service.setEditingHandbook(enabled));
