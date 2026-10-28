@@ -46,11 +46,13 @@ test('Movement removes Own Axis, starts Restrictions minimized and Controller ex
   const model=fixture(), selectedNodeIds=[model.Bones[0].ObjectId];
   const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds,time:0,rotateOnOwnAxis:true}));
   assert.doesNotMatch(html,/Rotate on Own Axis/);
-  assert.ok(html.indexOf('<summary>Controller</summary>') < html.indexOf('<summary>Restrictions</summary>'));
-  assert.match(html, /<select aria-label="Controller type"/);
+  assert.ok(html.indexOf('<summary>Controller<') < html.indexOf('<summary>Restrictions</summary>'));
+  assert.match(html, /<summary>Controller<span class="movement-controller-select"><select aria-label="Controller type"/);
+  assert.doesNotMatch(html, /Multiselect from List/);
   assert.doesNotMatch(html, /name="movement-controller-type"/);
   for(const title of ['Restrictions']) assert.match(html,new RegExp(`<details class="sidebar-section"><summary>${title}<\\/summary>`));
-  for(const title of ['Current Sequence','Object','Workplane','Tools','Controller']) assert.match(html,new RegExp(`<details class="sidebar-section" open=""><summary>${title}<\\/summary>`));
+  for(const title of ['Current Sequence','Object','Workplane','Tools']) assert.match(html,new RegExp(`<details class="sidebar-section" open=""><summary>${title}<\\/summary>`));
+  assert.match(html,/<details class="sidebar-section" open=""><summary>Controller<span/);
 });
 
 test('Movement workplanes do not disable XYZ rotation fields or bypass Rotation restrictions',()=>{
@@ -69,9 +71,8 @@ test('Movement places Highlight Chain directly under Highlight KF and exposes co
   const model=fixture(), selectedNodeIds=[model.Bones[0].ObjectId];
   const html=renderToStaticMarkup(React.createElement(Movement,{model,sequenceIndex:0,selectedNodeIds,time:0,highlightKeyframes:true,highlightChain:true}));
   assert.ok(html.indexOf('Highlight KF') < html.indexOf('Highlight Chain'));
-  assert.ok(html.indexOf('Highlight Chain') < html.indexOf('aria-label="Controller type"'));
   assert.match(html,/Highlight KF<\/label><label[^>]*><input type="checkbox" checked=""\/>Highlight Chain/);
-  for(const title of ['Current Sequence','Object','Workplane','Tools','Restrictions','Controller']) assert.match(html,new RegExp(`<summary>${title}<\\/summary>`));
+  for(const title of ['Current Sequence','Object','Workplane','Tools','Restrictions']) assert.match(html,new RegExp(`<summary>${title}<\\/summary>`));
 });
 test('Movement object list separates colored Bones from purple Helpers at the bottom',()=>{
   const model=fixture(),helper=createNode(model,'Helper');helper.Name='Bone_Chest';

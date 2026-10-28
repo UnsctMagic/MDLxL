@@ -87,13 +87,13 @@ function FloatingGeosets({ at, onMove, onContextMenu, children }) {
 export function RigSidebar({
   activePortrait, animationPanel, attachSourceIds, beginAttach, bindSelectedVertices, boneCreateOpen, cameraGesture,
   controlsWholeModel, createBoneOrAttachment, deleteSelectedNode, detachSelectedNode, Dialog, doc, edit, geosetPicker,
-  globalSeqId, materialVisibility, mode, model, movementControllerProps, multipleNodes, openAttachemator, parentedRigNodes,
+  globalSeqId, materialVisibility, mode, model, movementControllerProps, openAttachemator, parentedRigNodes,
   renameSelectedNode, saving, selectable, selectedBone, selectedNodeIds, selectedRigNodes, selectionCount,
   selectTimeline, sequence, session, setBoneCreateOpen, setMaterialVisibility, setPlaying, setSelectedBoneBillboarded,
   setSelectedNodeIds, setTime, singleRigNode, time
 }) {
   return <>
-      {mode === 'bones' && <Suspense fallback={<p>Loading controller…</p>}><MovementController key={session.id} {...movementControllerProps()} onDeleteNode={deleteSelectedNode} onRenameNode={renameSelectedNode} onBillboarded={setSelectedBoneBillboarded} onCreateRigNode={createBoneOrAttachment} onAttach={beginAttach} onDetach={detachSelectedNode} onSoftBind={() => bindSelectedVertices('soft')} onHardBind={() => bindSelectedVertices('hard')} onDetachVertices={() => bindSelectedVertices('detach')} onAttachemator={openAttachemator} attachActive={attachSourceIds.length > 0} createOpen={boneCreateOpen} onCreateOpen={setBoneCreateOpen} canDeleteNode={!!singleRigNode} canAttach={selectedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1)} canDetach={parentedRigNodes.length > 0 && (multipleNodes || selectedRigNodes.length === 1)} canBind={!!selectedBone && selectionCount > 0} /></Suspense>}
+      {mode === 'bones' && <Suspense fallback={<p>Loading controller…</p>}><MovementController key={session.id} {...movementControllerProps()} onDeleteNode={deleteSelectedNode} onRenameNode={renameSelectedNode} onBillboarded={setSelectedBoneBillboarded} onCreateRigNode={createBoneOrAttachment} onAttach={beginAttach} onDetach={detachSelectedNode} onSoftBind={() => bindSelectedVertices('soft')} onHardBind={() => bindSelectedVertices('hard')} onDetachVertices={() => bindSelectedVertices('detach')} onAttachemator={openAttachemator} attachActive={attachSourceIds.length > 0} createOpen={boneCreateOpen} onCreateOpen={setBoneCreateOpen} canDeleteNode={!!singleRigNode} canAttach={selectedRigNodes.length > 0} canDetach={parentedRigNodes.length > 0} canBind={!!selectedBone && selectionCount > 0} /></Suspense>}
       {/* Rotate camera mode carries over between tabs, so only an active camera
           drag may swap the Animations controls for the camera view. */}
       {mode === 'animation' && (!cameraGesture || animationPanel === 'movement') && <Suspense fallback={<p>Loading controller…</p>}>
