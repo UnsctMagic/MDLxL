@@ -34,9 +34,9 @@ function runtime() {
     if(process.env.MDLXL_CORPSE_CAPTURE_ONLY==='1')return;
     // Normal camera tool plus actual pointer drag through Chromium on the
     // hidden window, never OS-level input on the user's desktop.
-    await page.getByLabel('View direction',{exact:true}).selectOption('perspective');await page.getByRole('button',{name:'Camera rotation',exact:true}).click();
+    await page.getByLabel('View direction',{exact:true}).selectOption('perspective');await page.keyboard.press('Shift+E');
     const view=await page.evaluate(runtime),r=view.rect;await page.mouse.move(r.x+r.width*.6,r.y+r.height*.5);await page.mouse.down();await page.mouse.move(r.x+r.width*.6+70,r.y+r.height*.5+35,{steps:8});await page.mouse.up();await page.waitForTimeout(100);assert.notDeepEqual((await page.evaluate(runtime)).quaternion,view.quaternion);checks.push('Normal mouse camera rotation remains functional');
-    await page.getByRole('button',{name:'Undo',exact:true}).click();await page.waitForTimeout(120);assert.deepEqual((await page.evaluate(runtime)).model,before.model);await page.getByRole('button',{name:'Redo',exact:true}).click();await page.waitForTimeout(120);assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('One Undo restores the exact original model; Redo restores the result');
+    await page.keyboard.press('Control+z');await page.waitForTimeout(120);assert.deepEqual((await page.evaluate(runtime)).model,before.model);await page.keyboard.press('Control+y');await page.waitForTimeout(120);assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('One Undo restores the exact original model; Redo restores the result');
     await button.click();await page.waitForTimeout(100);assert.deepEqual((await page.evaluate(runtime)).model,after.model);checks.push('Repeat click creates no duplicate corpse, mesh, material or key');
     console.log('Camera, Undo, Redo and repeat click passed.');
     const {EditorDocument}=await import('../src/editor-document.js');

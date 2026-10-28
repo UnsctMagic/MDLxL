@@ -1,5 +1,5 @@
 import React, { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Tool, CameraTools } from './EditorControls.jsx';
+import { Tool } from './EditorControls.jsx';
 import { sketchStore } from '../src/ai-sketch.js';
 import { SHAPE_TOOLS } from '../src/shaping.js';
 import { COMMANDS } from '../src/commands.js';
@@ -24,12 +24,12 @@ function PressedKeysTool({ active, onClick, icon }) {
 /** The browser menu, the top toolbar and the module row with the open-model tabs.
  * Every prop is the App value of the same name, so this markup reads exactly as it did inline. */
 export default function AppToolbar({
-  activateSession, animationPanel, cameraMode, changePreferences, clearDisplay, commandEnabled, commands, copy,
-  dialog, displayMode, doc, inputStrength, menuChecks, mode, model, open, openLibrary,
-  openOptimizeXL, openParticles, paste, preferences, pressedKeysIcon, requestCloseSession, resources,
-  runCommand, runLatest, save, saving, selectAnimationPanel, selectMode, session,
-  sessionDirty, sessions, setCameraMode, setDialog, setRenderMode,
-  setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, undo, visUI, aiControl, placeCorpse
+  activateSession, animationPanel, changePreferences, clearDisplay, commandEnabled, commands,
+  dialog, displayMode, doc, inputStrength, menuChecks, mode, model, openLibrary,
+  openOptimizeXL, openParticles, preferences, pressedKeysIcon, requestCloseSession, resources,
+  runCommand, runLatest, saving, selectAnimationPanel, selectMode, session,
+  sessionDirty, sessions, setDialog, setRenderMode,
+  setTeamColor, setVisUI, settingsTab, setSettingsTab, teamColor, visUI, aiControl, placeCorpse
 }) {
   const editorRow = useRef(null);
   const dock = useRef(null), [learnOpen, setLearnOpen] = useState(false), [learnPosition, setLearnPosition] = useState({});
@@ -76,9 +76,6 @@ export default function AppToolbar({
     {!window.desktop && <nav className="classic-menu">{[['File', [['New', 'new'], ['Open...', 'open'], ['Save', 'save'], ['Save as...', 'saveAs'], ['Recovery...', 'recovery']]], ['Edit', [['Undo', 'undo'], ['Redo', 'redo'], ['Copy', 'copy'], ['Paste', 'paste'], ['Special paste...', 'pasteSpecial'], ['Select all', 'selectAll'], ['Clear selection', 'clear'], ['Undo settings...', 'history'], ['Copy keyframes','keyframe:copy'], ['Copy Frame','keyframe:copyPose'], ['Paste keyframes','keyframe:paste'], ['Delete keyframes','keyframe:delete'], ['Clear keyframes','keyframe:clear']]], ['View', (visUI?VIS_VIEW_MENU:VIEW_MENU)[displayMode] || []], ['Modules', [['Vertices', 'vertices'], ['Bones', 'bones'], ['UV-maps', 'uv'], ['Movement', 'animation'], ['Animations', 'animations']]], ['Shape', SHAPE_TOOLS.map(tool=>[tool,'shape:'+tool.toLowerCase()])], ['Windows', [['Material & Texture Library', 'textureLibrary'], ['Particle Editor', 'particles'], ['AnimXL', 'animXL'], ...resources.map(v => [v, v])]], ['Settings', [['Mouse and general…', 'settings'], ['Keyboard Shortcuts…', 'hotkeys'], ['Graphical settings…', 'graphics'], ['Recording and screenshots…','captureSettings'], ['Appearance…','appearanceSettings'], ['Configuration…','configurationSettings'], ['Grid…','gridSettings'], ['Warcraft III…','gameDataSettings'], null, ['Undo cache…', 'history'], ['Show pressed keys','pressedKeys'], ['Choose Warcraft III folder…','gameData']]], ['Help', [['Help', 'help'], ['Sanity Check', 'sanityCheck'], ['About', 'about']]]].map(([name, items]) => <details key={name}><summary>{name}</summary><div role="menu">{items.map((row,index) => { if(!row)return <hr key={index}/>; const [label,action]=row; return <button data-hotkey={action} role={name==='View' && action!=='clearDisplay'?'menuitemcheckbox':'menuitem'} aria-checked={name==='View' && action!=='clearDisplay'?!!menuChecks[action]:undefined} disabled={!commandEnabled(action)} key={action} onClick={event => { event.currentTarget.closest('details').open = false; runLatest.current(action); }}><span>{name==='View'?(menuChecks[action]?'✓ ':'　 '):''}{label}</span>{['frame','frameSelection','normals'].includes(action)&&<kbd>{(preferences.hotkeys[action]||COMMANDS.find(item=>item.id===action)?.defaultKeys||[]).find(key=>key.length===1)||''}</kbd>}</button>;})}</div></details>)}</nav>}
     <div className="classic-toolbar">
       <div className="toolbar-primary">
-      <div className="classic-toolbar-group"><Tool action="new" look icon="new-document" title="New" onClick={() => commands.current.new()}/><Tool action="open" look icon="sb_open" title="Open" onClick={open}/><Tool action="save" look icon="sb_save" title="Save" onClick={() => save()}/></div>
-      <CameraTools look value={cameraMode} onChange={setCameraMode}/>
-      <div className="classic-toolbar-group"><Tool action="undo" look icon="sb_undo" title="Undo" disabled={!commandEnabled('undo')} onClick={() => undo(false)}/><Tool action="redo" look icon="sb_undo" flip title="Redo" disabled={!commandEnabled('redo')} onClick={() => undo(true)}/><Tool action="copy" look icon="sb_copy" title="Copy" disabled={!commandEnabled('copy')} onClick={copy}/><Tool action="paste" look icon="sb_paste" title="Paste" disabled={!commandEnabled('paste')} onClick={() => paste()}/></div>
       {!visUI && <div className="toolbar-model">{teamPicker}</div>}
       {visUI && teamPicker}
       {visUI && inputStrength}

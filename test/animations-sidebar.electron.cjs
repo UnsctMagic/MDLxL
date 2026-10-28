@@ -22,17 +22,15 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
     const toolbox = page.getByRole('region', { name: 'Animations toolbox', exact: true });
-    const cameraRotation = page.getByRole('button', { name: 'Camera rotation', exact: true });
     const anglePanel = page.locator('.camera-angle-panel');
     const tab = name => page.getByRole('button', { name, exact: true }).click();
     const expectToolbox = async label => { await toolbox.waitFor({ state: 'visible' }); checks.push(label); };
 
     await page.locator('.classic-sidebar').waitFor();
-    await cameraRotation.click();
-    assert.equal(await cameraRotation.getAttribute('aria-pressed'), 'true');
+    await page.keyboard.press('Shift+E');
     await anglePanel.waitFor({ state: 'visible' });
     await tab('Animations');
-    assert.equal(await cameraRotation.getAttribute('aria-pressed'), 'true', 'rotation mode carries over');
+    assert.equal(await anglePanel.isVisible(), true, 'rotation mode carries over');
     await expectToolbox('Vertices (camera rotation) -> Animations keeps the Animations toolbox');
 
     await tab('Movement'); await tab('Animations');
@@ -58,7 +56,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
 
     await tab('Vertices'); await tab('Animations');
     await expectToolbox('Vertices -> Animations again keeps the toolbox');
-    await page.getByRole('button', { name: 'Work mode', exact: true }).click();
+    await page.keyboard.press('Shift+Q');
     await expectToolbox('Work mode keeps the toolbox');
     await fs.writeFile(path.join(out, 'animations-sidebar.png'), Buffer.from(await capture(undefined), 'base64'));
     assert.deepEqual(errors, []);

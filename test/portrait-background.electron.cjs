@@ -59,7 +59,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'playwright
     const kept=await litShare();assert.ok(Math.abs(kept-spotlight)<.05,`plain Refresh keeps the look (${spotlight.toFixed(2)} vs ${kept.toFixed(2)})`);
     console.log('PASS Background options: Spotlight',spotlight.toFixed(2),'kept by Refresh',kept.toFixed(2));
     await page.getByRole('button',{name:'Movement',exact:true}).click();
-    await page.getByRole('button',{name:'Camera rotation',exact:true}).click();
+    await page.keyboard.press('Shift+E');
     const view=await page.evaluate(()=>portraitRuntime().cameraView());
     const box=await page.locator('.game-preview-root canvas[tabindex]').boundingBox(),x=box.x+box.width*.55,y=box.y+box.height*.5;
     await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+60,y+30,{steps:12});await page.mouse.up();
