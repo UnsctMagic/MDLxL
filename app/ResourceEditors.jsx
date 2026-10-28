@@ -1,3 +1,4 @@
+import ModelManager from './ModelManager.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import Inspector from './Inspectors.jsx';
 import NodeEventEditor from './NodeEventEditor.jsx';
@@ -17,8 +18,8 @@ import useMovableWindow from './useMovableWindow.js';
 import './resource-editors.css';
 import './resource-managers-xl.css';
 
-const titles = { Materials: 'Material Manager', Textures: 'Texture Manager', Nodes: 'Node Manager', Sequences: 'Sequence Manager', Geosets: 'Geoset Manager', GeosetAnims: 'Geoset Animation Manager', TextureAnims: 'Texture Animation Manager', GlobalSequences: 'Global Sequence Manager' };
-const managerTabs = { Materials: 'Materials', Textures: 'Textures', Nodes: 'Nodes', Geosets: 'Geosets', Sequences: 'Sequences', GeosetAnims: 'Geoset animations', TextureAnims: 'Texture animations', GlobalSequences: 'Global sequences' };
+const titles = { Model: 'Model Manager', Materials: 'Material Manager', Textures: 'Texture Manager', Nodes: 'Node Manager', Sequences: 'Sequence Manager', Geosets: 'Geoset Manager', GeosetAnims: 'Geoset Animation Manager', TextureAnims: 'Texture Animation Manager', GlobalSequences: 'Global Sequence Manager' };
+const managerTabs = { Materials: 'Materials', Textures: 'Textures', Nodes: 'Nodes', Geosets: 'Geosets', Sequences: 'Sequences', GeosetAnims: 'Geoset animations', TextureAnims: 'Texture animations', GlobalSequences: 'Global sequences', Model: 'Model' };
 const nodeIcons = { Bones: Bone, Helpers: Paperclip, Attachments: Paperclip, EventObjects: Camera, Lights: Lightbulb, ParticleEmitters: Sparkles, ParticleEmitters2: Sparkles, ParticleEmitterPopcorns: Sparkles, RibbonEmitters: Sparkles, CollisionShapes: Box };
 const nodeTypeFor = collection => Object.keys(NODE_TYPES).find(type => NODE_TYPES[type][0] === collection);
 
@@ -77,7 +78,7 @@ function removeResource(model, kind, index) {
 }
 
 /** Resource windows share the document's history and preserve native properties. */
-export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCamera, onOpenParticleEditor, livePreview = false, selectedNodeId, previewFrame, sequenceIndex = 0, onSeek, onSequenceChange, textureAssets, preferences, teamColor, onUndo, onRedo, onNodeChange, onKindChange, kind = 'Materials', doc, edit, refresh, onClose, onImportTexture, onTextureFolder, selectionByGeoset, activeGeoset = 0, inspectedGeoset = activeGeoset, onGeosetChange, onVerticesChange, onSelectionClear }) {
+export function ResourceEditor({embedded = false, modelPath, onEditVisibility, onHotkeys, onViewCamera, onOpenParticleEditor, livePreview = false, selectedNodeId, previewFrame, sequenceIndex = 0, onSeek, onSequenceChange, textureAssets, preferences, teamColor, onUndo, onRedo, onNodeChange, onKindChange, kind = 'Materials', doc, edit, refresh, onClose, onImportTexture, onTextureFolder, selectionByGeoset, activeGeoset = 0, inspectedGeoset = activeGeoset, onGeosetChange, onVerticesChange, onSelectionClear }) {
   const initialIndex = () => kind === 'Nodes' && doc?.model?.Nodes[selectedNodeId] ? selectedNodeId : ['Geosets', 'Materials', 'GeosetAnims'].includes(kind) ? relatedResourceIndices(doc?.model, inspectedGeoset, kind)[0] ?? null : 0;
   const [currentKind, setCurrentKind] = useState(kind), [selectedIndex, setSelectedIndex] = useState(initialIndex);
   const [nodeType, setNodeType] = useState('Bone'), [tree, setTree] = useState(true), [localSelection, setLocalSelection] = useState({});
@@ -99,7 +100,7 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
   useEffect(() => { if (list.current?.contains(document.activeElement)) list.current.querySelector(`[data-node-id="${selectedIndex}"]`)?.focus(); }, [selectedIndex]);
   useEffect(() => { list.current?.querySelector(`[data-${currentKind === 'Nodes' ? 'node-id' : 'resource-index'}="${selectedIndex}"]`)?.scrollIntoView({ block: 'nearest' }); const properties = dialog.current?.querySelector('.re-properties'); if (properties) properties.scrollTop = 0; }, [selectedIndex, currentKind, tree]);
   const model = doc?.model;
-  const friendly = ['Materials', 'Textures', 'Nodes', 'Geosets', 'GeosetAnims'].includes(currentKind);
+  const friendly = ['Materials', 'Textures', 'Nodes', 'Geosets', 'GeosetAnims', 'Model'].includes(currentKind);
   const allRows = model ? resourceRows(model, currentKind, tree) : [];
   const matching = query.trim().toLowerCase();
   const rowLabel = row => currentKind === 'Materials' ? materialName(model, row.index) : resourceName(currentKind, row);
@@ -121,7 +122,6 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
     onSelectionClear?.(index);
   };
   const choose = (nextKind, index) => {
-    if (nextKind === 'Model') { nextKind = currentKind; index = Math.max(0, Math.min(selectedIndex, resourceRows(doc.model, currentKind, tree).length - 1)); }
     if (nextKind === 'Nodes' && !doc.model.Nodes[index]) index = resourceRows(doc.model, 'Nodes', tree)[0]?.index ?? null;
     setCurrentKind(nextKind); setSelectedIndex(index); setMessage(''); setQuery(''); setPropertiesOpen(true);
     if (nextKind !== currentKind) onKindChange?.(nextKind);
@@ -195,8 +195,8 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
       return;
     }
     if (['Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.stopPropagation();
-    if (event.key === 'Escape' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) { event.stopPropagation(); onClose?.(); }
-    if (event.key === 'Tab' && !livePreview) {
+    if (event.key === 'Escape' && !embedded && !['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) { event.stopPropagation(); onClose?.(); }
+    if (event.key === 'Tab' && !livePreview && !embedded) {
       const focusable = [...dialog.current.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')].filter(element => element.getClientRects().length);
       const first = focusable[0], last = focusable.at(-1);
       if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { event.preventDefault(); last?.focus(); }
@@ -207,11 +207,11 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
   const seek = value => { setFrame(value); onSeek?.(value); };
   const changeSequence = value => { setManagerSequence(value); onSequenceChange?.(value); seek(model.Sequences[value].Interval[0]); };
   if (sorting) return <SortMyMess doc={doc} modelPath={modelPath} textureAssets={textureAssets} preferences={preferences} teamColor={teamColor} sequenceIndex={managerSequence} frame={frame} onClose={() => { setSorting(false); requestAnimationFrame(() => dialog.current?.focus()); }} onCommit={decisions => apply('Sort My Mess', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Materials', 'Textures', 'RibbonEmitters', 'ParticleEmitters2', 'Info'], m => applySortMyMess(m, decisions))}/>;
-  return <div className={`resource-editor re-xl ${friendly ? '' : 're-compact-manager'}`} onKeyDown={keyDown}>
-    <section data-hotkey-scope="dialog" data-hotkey-prefix={`resource:${currentKind}`} data-hotkey-category={`${title} controls`} className={`re-window ${currentKind === 'Nodes' ? 're-node-window' : ''} ${propertiesOpen ? 're-properties-open' : ''}`} role="dialog" aria-modal={!livePreview} aria-label={title} tabIndex={-1} ref={dialog} style={movable.style}>
-      <header className="re-caption" {...movable.handleProps}><span>{title}</span><div>{onHotkeys && <button data-hotkey="hotkeys" title="Configure hotkeys for this window" onClick={onHotkeys}>Hotkeys</button>}<button data-hotkey="close" className="re-caption-close" aria-label={`Close ${title}`} onClick={onClose}>×</button></div></header>
+  return <div className={`resource-editor re-xl ${embedded ? 're-workspace' : ''} ${friendly ? '' : 're-compact-manager'}`} onKeyDown={keyDown}>
+    <section data-hotkey-scope="dialog" data-hotkey-prefix={`resource:${currentKind}`} data-hotkey-category={`${title} controls`} className={`re-window ${currentKind === 'Nodes' ? 're-node-window' : ''} ${propertiesOpen ? 're-properties-open' : ''}`} role={embedded ? "region" : "dialog"} aria-modal={embedded ? undefined : !livePreview} aria-label={title} tabIndex={-1} ref={dialog} style={embedded ? undefined : movable.style}>
+      {!embedded && <header className="re-caption" {...movable.handleProps}><span>{title}</span><div>{onHotkeys && <button data-hotkey="hotkeys" title="Configure hotkeys for this window" onClick={onHotkeys}>Hotkeys</button>}<button data-hotkey="close" className="re-caption-close" aria-label={`Close ${title}`} onClick={onClose}>×</button></div></header>}
       <nav className="re-manager-tabs" aria-label="Resource managers">{Object.entries(managerTabs).map(([next, label]) => <button key={next} disabled={!model} aria-pressed={next === currentKind} title={titles[next]} onClick={() => choose(next, next === 'Nodes' ? selectedNodeId ?? 0 : relatedResourceIndices(model, inspectedGeoset, next)[0] ?? 0)}>{label}</button>)}</nav>
-      <div className="re-body"><aside className="re-list-pane">
+      {currentKind === 'Model' ? <ModelManager key={modelPath} doc={doc} edit={apply} assets={textureAssets} preferences={preferences} teamColor={teamColor}/> : <div className="re-body"><aside className="re-list-pane">
         {friendly && <input className="re-search" type="search" aria-label={`Search ${currentKind.toLowerCase()}`} placeholder="Search name, type or ID…" value={query} onChange={event => setQuery(event.target.value)}/>}
         <div ref={list} className="re-list" role={currentKind === 'Nodes' && tree ? 'tree' : 'listbox'} aria-label={`${currentKind} list`} onKeyDown={event => {
           const offset = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
@@ -238,8 +238,8 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
 
         {currentKind === 'Nodes' && selected && nodeKind(model, selected.item) === 'EventObjects' ? <fieldset className="inspector-fields" disabled={doc.readOnly}><NodeEventEditor key={selected.index} node={selected.item} model={model} modelPath={modelPath} catalog={catalog} error={catalogError} edit={apply} frame={frame} onSeek={seek} sequenceIndex={managerSequence} onSequenceChange={changeSequence}><Inspector resourceManager key={`properties:Nodes:${selected.index}`} doc={doc} selection={{ kind: 'Nodes', index: selected.index }} edit={apply} select={choose} frame={frame}/></NodeEventEditor></fieldset> : selected ? currentKind === 'GeosetAnims' ? <fieldset className="inspector-fields" disabled={doc.readOnly}><Section title="Geoset animation"><SelectField label="Geoset" value={selected.item.GeosetId} options={model.Geosets.map((_, value) => ({ value, label: `Geoset ${displayNumber(value)}` }))} onChange={value => apply('Assign geoset animation', ['GeosetAnims'], m => { m.GeosetAnims[selected.index].GeosetId = Number(value); })}/><Check label="Drop shadow" value={selected.item.Flags & 1} onChange={value => apply('Set geoset shadow', ['GeosetAnims'], m => { const anim = m.GeosetAnims[selected.index]; anim.Flags = value ? (anim.Flags || 0) | 1 : (anim.Flags || 0) & ~1; })}/>{['Color'].map(property => <TrackEditor key={`${selected.index}:${property}`} label={property === 'Alpha' ? 'Visibility' : 'Color (RGB 0–1)'} value={selected.item[property]} dimensions={property === 'Color' ? 3 : 1} defaultValue={property === 'Color' ? [1, 1, 1] : 1} globalSequences={model.GlobalSequences} frame={frame} onChange={value => apply(`Edit geoset ${property}`, ['GeosetAnims'], m => { const anim = m.GeosetAnims[selected.index]; anim[property] = value; if (property === 'Color') anim.Flags = (anim.Flags || 0) | 2; })}/>)}</Section></fieldset> : <Inspector resourceManager onEditVisibility={onEditVisibility} onOpenEmitter={onOpenParticleEditor} key={`properties:${currentKind}:${selected.index}`} doc={doc} selection={{ kind: currentKind, index: selected.index }} edit={apply} select={choose} selectedVertices={vertices} frame={frame} onImportTexture={onImportTexture || (() => setMessage('Texture loading is unavailable in this window.'))} onTextureFolder={onTextureFolder || (() => setMessage('Folder resolution is unavailable in this window.'))} onSelectionClear={() => { if (lastApplySucceeded.current) clearVertices(selected.index); }} onVerticesChange={ids => { if (lastApplySucceeded.current) changeVertices(selected.index, ids); }}/> : <p className="re-empty-properties">{currentKind === 'GeosetAnims' && model?.Geosets?.[inspectedGeoset] ? `Geoset ${displayNumber(inspectedGeoset)} has no geoset-animation record. Click New to create it.` : 'Select an item, or click New.'}</p>}
 
-      </div></div>
-      <footer className="re-footer">{['Materials', 'Textures', 'Geosets'].includes(currentKind) && <button data-hotkey="sort-my-mess" disabled={!model || doc.readOnly} onClick={() => setSorting(true)}>Sort My Mess</button>}{friendly && onUndo && <div className="re-history-actions"><button aria-label="Undo manager edit" disabled={!doc.canUndo || doc.readOnly} onClick={onUndo}>Undo</button><button aria-label="Redo manager edit" disabled={!doc.canRedo || doc.readOnly} onClick={onRedo}>Redo</button></div>}<div key={warnings} className="re-status" role="status" data-alert={message ? '' : undefined}>{message || (doc?.readOnly ? 'Read-only model.' : '')}</div>{(!friendly || currentKind === 'Nodes' && selected && nodeKind(model,selected.item) === 'EventObjects') && <label className="re-frame">Frame:<input data-hotkey="frame" aria-label="Resource keyframe time" type="number" min="0" step="1" value={frame} onChange={event => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 0 && value <= 0x7fffffff) seek(value); }}/></label>}<button data-hotkey="resourceeditors:action:4" onClick={onClose}>Close</button></footer>
+      </div></div>}
+      <footer className="re-footer">{['Materials', 'Textures', 'Geosets'].includes(currentKind) && <button data-hotkey="sort-my-mess" disabled={!model || doc.readOnly} onClick={() => setSorting(true)}>Sort My Mess</button>}{friendly && onUndo && <div className="re-history-actions"><button aria-label="Undo manager edit" disabled={!doc.canUndo || doc.readOnly} onClick={onUndo}>Undo</button><button aria-label="Redo manager edit" disabled={!doc.canRedo || doc.readOnly} onClick={onRedo}>Redo</button></div>}<div key={warnings} className="re-status" role="status" data-alert={message ? '' : undefined}>{message || (doc?.readOnly ? 'Read-only model.' : '')}</div>{(!friendly || currentKind === 'Nodes' && selected && nodeKind(model,selected.item) === 'EventObjects') && <label className="re-frame">Frame:<input data-hotkey="frame" aria-label="Resource keyframe time" type="number" min="0" step="1" value={frame} onChange={event => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 0 && value <= 0x7fffffff) seek(value); }}/></label>}{!embedded && <button data-hotkey="resourceeditors:action:4" onClick={onClose}>Close</button>}</footer>
     </section>
   </div>;
 }

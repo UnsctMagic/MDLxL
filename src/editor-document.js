@@ -1,3 +1,4 @@
+import { MODEL_COMMENTS_KEY, readModelComments, writeModelComments } from './model-comments.js';
 import { versionConversionIssues, normalizeVersionFields, hdContentIssues, hdContentKind, clearHDMaterialSettings, HD_VIEW_ONLY_MESSAGE } from './model-version.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { Buffer } from 'buffer';
@@ -287,6 +288,7 @@ export class EditorDocument {
           this.model.GeosetAnims = convertMdxGeosetColorTracks(this.model.GeosetAnims);
         }
         normalizeModel(this.model);
+        this.model[MODEL_COMMENTS_KEY] = readModelComments(this._original, this.format);
         this._sourceWarnings.push(...readGeosetTabs(this._original, this.format, this.model, this._container));
       } catch (error) {
         this.readOnly = true;
@@ -353,7 +355,8 @@ export class EditorDocument {
     return this._changeCache.keys;
   }
   get _tabsChanged() { return JSON.stringify(geosetTabsData(this._savedModel)) !== JSON.stringify(geosetTabsData(this.model)); }
-  get dirty() { return this._changedKeys().length > 0 || this._tabsChanged; }
+  get _commentsChanged() { return (this.model[MODEL_COMMENTS_KEY] || '') !== (this._savedModel[MODEL_COMMENTS_KEY] || ''); }
+  get dirty() { return this._changedKeys().length > 0 || this._tabsChanged || this._commentsChanged; }
   get canUndo() { return this._historyStore.stats.undoSteps > 0; }
   get canRedo() { return this._historyStore.stats.redoSteps > 0; }
   get historyStats() { return this._historyStore.stats; }
@@ -536,7 +539,7 @@ export class EditorDocument {
     const droppedColors = format === 'mdl' ? mdlDroppedGeosetColors(this.model.GeosetAnims) : [];
     if (blocking.length) warnings.push(`Cannot convert unrecognized source data: ${blocking.join(', ')}.`);
     if (this.hdViewOnly) warnings.push(HD_VIEW_ONLY_MESSAGE);
-    return { format, conversion, leftOut: [...dropped.length ? [`Editor-only data the game ignores is left out: ${dropped.join(', ')}.`] : [], ...droppedColors.length ? [`MDL leaves out geoset colors whose tint is off (the game ignores them): ${droppedColors.length}. Save as MDX to keep them.`] : []], exact: !conversion && changed.length === 0 && !this._tabsChanged && !this._speedChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: !this.hdViewOnly && ['mdl', 'mdx'].includes(format) &&(!this.readOnly || !conversion && !changed.length && !this._tabsChanged && !this._speedChanged) && !stringIssues.length && !blocking.length };
+    return { format, conversion, leftOut: [...dropped.length ? [`Editor-only data the game ignores is left out: ${dropped.join(', ')}.`] : [], ...droppedColors.length ? [`MDL leaves out geoset colors whose tint is off (the game ignores them): ${droppedColors.length}. Save as MDX to keep them.`] : []], exact: !conversion && changed.length === 0 && !this._tabsChanged && !this._commentsChanged && !this._speedChanged, readOnly: this.readOnly, changedSections: changed.map((key) => key === 'Info' ? 'Model' : key), preservedUnknown: unknown, warnings, canSave: !this.hdViewOnly && ['mdl', 'mdx'].includes(format) &&(!this.readOnly || !conversion && !changed.length && !this._tabsChanged && !this._commentsChanged && !this._speedChanged) && !stringIssues.length && !blocking.length };
   }
   serialize(format = this.format, { timings = {} } = {}) {
     Object.assign(timings, { serializationMs: 0, reparsingMs: 0, verificationMs: 0, errorFormattingMs: 0 });
@@ -556,11 +559,12 @@ export class EditorDocument {
     };
     if (impact.exact && (this.readOnly || stripAnimationSpeed(this._original, format).equals(this._original))) return remember(this._original);
     if (!impact.conversion && !impact.changedSections.length) {
-      const output = stripAnimationSpeed(writeGeosetTabs(this._original, format, this.model), format);
+      const output = writeModelComments(stripAnimationSpeed(writeGeosetTabs(this._original, format, this.model), format), format, this.model[MODEL_COMMENTS_KEY]);
       nextStage('reparsingMs');
       const reopened = openDocument(output, `validation.${format}`, { allowHD: true });
       nextStage('verificationMs');
       if (reopened.readOnly || JSON.stringify(geosetTabsData(this.model)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata did not reopen.');
+      if (format === 'mdl' && (reopened.model[MODEL_COMMENTS_KEY] || '') !== (this.model[MODEL_COMMENTS_KEY] || '')) throw new Error('Model comments did not reopen.');
       return remember(output);
     }
     // Object IDs stay stable in the editor and its undo history. Only the save
@@ -601,7 +605,7 @@ export class EditorDocument {
     const keys = saveModel !== this.model || this._recoverySavedChanges.length
       ? Object.keys(SECTION_TYPES).filter(key => fingerprint(sourceModel[key]) !== fingerprint(saveModel[key]))
       : this._changedKeys();
-    const output = stripAnimationSpeed(writeGeosetTabs(impact.conversion ? generated : format === 'mdl' ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys), format, saveModel), format);
+    const output = writeModelComments(stripAnimationSpeed(writeGeosetTabs(impact.conversion ? generated : format === 'mdl' ? surgicalMdl(this._original, this._sections, generated, keys) : surgicalMdx(this._original, this._container, generated, keys), format, saveModel), format), format, saveModel[MODEL_COMMENTS_KEY]);
     // A writer can succeed while emitting a dialect the reader cannot parse.
     // Check the final surgical/conversion result before allowing it onto disk.
     nextStage('reparsingMs');
@@ -612,6 +616,7 @@ export class EditorDocument {
       throw new Error(formatSaveIssues('Save verification failed', reopened.diagnostics.filter(d => d.severity === 'error').map(d => d.message)));
     }
     if (reopened.version !== this.version) throw new Error('Save verification failed: model version changed.');
+    if (format === 'mdl' && (reopened.model[MODEL_COMMENTS_KEY] || '') !== (saveModel[MODEL_COMMENTS_KEY] || '')) throw new Error('Model comments did not reopen.');
     assertModelEquivalent(saveModel, reopened.model, { keys: Object.keys(SECTION_TYPES), timings, format });
     if (JSON.stringify(geosetTabsData(saveModel)) !== JSON.stringify(geosetTabsData(reopened.model))) throw new Error('Save verification failed: geoset tab metadata changed.');
     for (const key of Object.keys(SECTION_TYPES)) if (Array.isArray(this.model[key]) && this.model[key].length !== reopened.model[key]?.length) throw new Error(`Save verification failed: ${key} count changed during serialization.`);

@@ -1,52 +1,48 @@
-# Manager access and polish
+# Manager workspace and visual model editing
 
-Status: active; first visual pass awaiting owner review
+Status: ready for owner testing; draft PR unmerged
 Owner: Codex, Manager polish chat
 Updated: 2026-10-28
 
-## Goal and scope
+## Scope
 
-- Add Manager after Animations and before Paint, opening Materials directly.
-- Polish the existing managers in MDLxL's own visual language, taking cues from
-  Library. Preserve working controls, previews, layout and existing sidebars.
-- Keep the UI uncluttered. Use visual interaction where it helps; do not replace
-  previews with coordinate forms or explanatory text.
-- Later in this same task: add Model for model name, standard saved model
-  comments, and visual collision sphere/box editing using existing controls.
-- The owner chose tabs, rejected replacement mockups, and asked to see a small
-  real-app polish pass before proceeding further. This is that first pass.
+Manager sits after Animations and before Paint and opens Materials in the full
+editor workspace. The top Windows menu retains movable popup managers. Existing
+manager controls, selection wiring, texture loading, previews and other editor
+sidebars are preserved. The owner chose tabs and explicitly rejected replacement
+mockups, clutter and numerical forms where visual editing is appropriate.
 
-## Revision and owners
+Model adds the internal model name, sphere and box collision creation, selection,
+direct center dragging, symmetric edge resizing and size sliders. New shapes fit
+the model's bind-pose geometry. Existing node transforms are evaluated for the
+outlines and inverted for dragging; parenting and animation tracks remain intact.
+A gesture commits one document history step; Escape cancels its draft. Camera
+rotation uses the normal preview controls. No private comment format was added:
+standard MDL header comments can be edited and saved; MDX has no native comment
+field. The collapsed Comments section explains that limitation for MDX files.
 
-- Branch: `codex/manager-schemes`; base: `dc60ad3d`.
+## Source and handoff
+
+- Branch: `codex/manager-schemes`.
 - Draft PR: https://github.com/UnsctMagic/MDLxL/pull/363 (unmerged).
-- D: working checkout: `D:\Codex\mdlxl-manager-schemes-20261028\source`.
-- `app/AppToolbar.jsx`: editor-row Manager entry.
-- `app/ResourceEditors.jsx`: existing window and manager navigation.
-- `app/ResourceDetails.jsx`: existing texture/geoset previews, unchanged.
-- `app/resource-managers-xl.css`: manager-specific styling using existing tokens.
-- Reference: [Resource managers](../RESOURCE-MANAGERS-XL.md).
+- Working checkout: `D:\Codex\mdlxl-manager-schemes-20261028\source`.
+- App/AppToolbar/AppDialogs own workspace routing and shared manager wiring.
+- ResourceEditors retains existing manager bodies and supports embedded/window modes.
+- ModelManager, collision-stage and model-collisions own the new visual controls.
+- model-comments/editor-document preserve native MDL header comments and history.
 
-## First pass
-
-- Manager opens the existing Materials dialog; reopening also starts there.
-- The existing eight managers share accessible tabs and existing theme styling.
-- Removed the resource-list heading that repeated the selected tab.
-- Library-like tabs and quieter section borders retain the existing controls,
-  window layout, list widths, and custom node-tree colors.
-- Existing texture and collapsible geoset previews are unchanged.
-- No version, installed application, real profile, or user model changes.
-
-## Verification and next action
+## Verification
 
 - Production build passed.
-- Existing manager simplification and appearance/theme suites: 15 tests passed.
-- Background Electron verification uses the production bundle and disposable
-  profile. Entry position, Materials reopening, all eight manager tabs, all
-  seven palettes, 1000px tab wrapping, actual mouse rotation and a hidden window
-  all passed. Results and actual-app capture are kept in the task directory.
-- Review the actual first-pass screenshot before continuing visual changes.
-- Model manager, collision manipulation, comments persistence and packaged-app
-  acceptance are still pending. The current patch does not claim those features.
-- MDX comment representation remains to be verified; do not invent a private
-  metadata format or silently discard text on format conversion.
+- 30 focused tests passed: native MDL/MDX name/collision round trips, removal,
+  undo/redo, transformed drag mapping, standard MDL comment persistence,
+  inline-comment preservation, existing manager and appearance regressions.
+- An isolated unpacked portable UI test assembly reported app.isPackaged=true.
+  Actual mouse tests passed: full workspace, sphere/box creation, center drag,
+  edge resize, slider edit, undo, camera orbit, native-menu popup, and Materials
+  on re-entry. This was UI packaging, not the complete release packaging pipeline.
+- A visible isolated portable app was opened at Manager > Model using demo.mdx.
+  The displayed sphere is an unsaved example. No installed app, personal profile
+  or supplied user model was changed. The review app remains available for testing.
+- Owner design acceptance and Warcraft III in-game validation remain outstanding.
+  No merge, release, version change or installation was authorized.
