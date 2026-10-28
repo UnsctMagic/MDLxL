@@ -3627,5 +3627,7 @@
   "We only ask this once like this. You can also change this setting at any time via Settings → Appearance → Auto update.": "这样的询问只有一次。你也可以随时在 设置 → 外观 → 自动更新 中更改此设置。",
   "Yes, enable it": "好的，开启",
   "Turn on": "开启",
-  "No thanks": "不用了"
+  "No thanks": "不用了",
+  "Choose Zoom align": "选择对齐顶点",
+  "Align vertex selected.": "已选择对齐顶点。"
 }
