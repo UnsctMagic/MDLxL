@@ -14,6 +14,13 @@ Exact dependency versions and transitive packages are recorded in `package-lock.
 - **Electron 40.8.0**, Electron contributors — MIT. Chromium's component notices accompany its runtime.
 - **Vite 7.3.1** and **esbuild** — MIT; build/development tools.
 
+## Update popup eye textures
+
+Blizzard Entertainment, `Textures\red_Glow2.blp`
+  and `Units\NightElf\EvilIllidan\Shadow.blp`, used by Unsanctioned Magic's Aspiring
+  Champion eye emitters. The popup preserves the four approved native emitter
+  definitions and original texture pixels; it does not include the model mesh.
+
 ## Project contributions
 
 - **Unsanctioned Magic** — Project direction, feature requests, modeling workflows and hands-on testing.

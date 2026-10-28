@@ -8,6 +8,11 @@ the user selects **Update and restart**. Manual searches work independently.
 The update popup’s bottom-left **Disable sounds** checkbox saves the choice in
 your preferences and mutes the update and first-launch welcome fanfares.
 
+Both popups appear normally with dark helmet eyes. After 0.65 seconds, the
+original red eyes and the Aspiring Champion's native eye emitters light up with
+the fanfare. The emitters continue until the popup closes, including when sound
+is disabled. Progress changes do not restart the effect or fanfare.
+
 Many people download every release by hand and never find Auto update, so the
 first start of a copy with Auto update off asks once whether to turn it on
 (**Turn on** / **No thanks**). The answer is kept as `updateOfferAnswered` in

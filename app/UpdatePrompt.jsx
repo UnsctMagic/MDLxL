@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import UpdateShredder from './UpdateShredder.jsx';
+import UpdateHelmet from './UpdateHelmet.jsx';
 
 export const WEBSITE = 'https://www.lowpolyworks.com/mdlxl';
 export function OfficialWebsite() {
@@ -10,7 +11,7 @@ function ExternalLink({ href, children, ...props }) {
 }
 export const updateStatusText = status => ({ idle: '', checking: 'Searching for updates…', current: 'You have the latest version.', available: `MDLxL ${status?.release?.version || ''} is available.`, downloading: 'Downloading update…', reverting: 'Preparing previous version…', ready: 'Update ready. Close MDLxL to install and restart.', error: status?.error })[status?.state] || '';
 
-export default function UpdatePrompt({ status, Dialog, onInstall, onClose, disableSounds, onDisableSounds }) {
+export default function UpdatePrompt({ status, Dialog, onInstall, onClose, disableSounds, onDisableSounds, helmetEffects }) {
   const release = status?.release, busy = ['downloading', 'ready'].includes(status?.state);
   useEffect(()=>{const previous=document.activeElement;document.querySelector('[data-hotkey="update:later"]')?.focus();return ()=>{if(previous?.isConnected)previous.focus();};},[]);
   const trapFocus = event => {
@@ -22,6 +23,7 @@ export default function UpdatePrompt({ status, Dialog, onInstall, onClose, disab
   if (!release) return null;
   return <Dialog overlayClass="update-overlay" onKeyDown={trapFocus} title="MDLxL update" onClose={busy ? () => {} : onClose} footer={<><label style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}><input type="checkbox" data-hotkey="update:disableSounds" checked={disableSounds} onChange={event => onDisableSounds(event.target.checked)}/>Disable sounds</label><button data-hotkey="update:install" disabled={busy || !status.canInstall} onClick={onInstall}>Update and restart</button><button data-hotkey="update:later" disabled={busy} onClick={onClose}>Later</button></>}>
     <UpdateShredder status={status}/>
+    <UpdateHelmet effects={helmetEffects}/>
     <p><strong>{`MDLxL ${release.version} is available.`}</strong></p>
     <p>{`Installed version: ${status.currentVersion}`}</p>
     <ul className="update-summary" translate="no">{release.summary.map((line, index) => <li translate="no" key={index}>{line}</li>)}</ul>
