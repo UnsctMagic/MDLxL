@@ -1,5 +1,11 @@
 # Resource managers
 
+The editor-row Manager button opens Materials. All eight existing managers are
+reachable through the same tabs. The existing collapsible geoset preview and
+normal mouse camera controls are unchanged. The ongoing
+[manager polish task](agent-tasks/manager-polish.md) records the first visual
+review and the separately pending Model manager work.
+
 The original geoset grids and Vertices, Bones and Movement controls are retained.
 Animations adds a compact Nodes selection below Geosets, using the existing
 Visibility On/Alpha controls and bottom timeline. New visibility tracks use held

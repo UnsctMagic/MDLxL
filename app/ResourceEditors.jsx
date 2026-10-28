@@ -18,6 +18,7 @@ import './resource-editors.css';
 import './resource-managers-xl.css';
 
 const titles = { Materials: 'Material Manager', Textures: 'Texture Manager', Nodes: 'Node Manager', Sequences: 'Sequence Manager', Geosets: 'Geoset Manager', GeosetAnims: 'Geoset Animation Manager', TextureAnims: 'Texture Animation Manager', GlobalSequences: 'Global Sequence Manager' };
+const managerTabs = { Materials: 'Materials', Textures: 'Textures', Nodes: 'Nodes', Geosets: 'Geosets', Sequences: 'Sequences', GeosetAnims: 'Geoset animations', TextureAnims: 'Texture animations', GlobalSequences: 'Global sequences' };
 const nodeIcons = { Bones: Bone, Helpers: Paperclip, Attachments: Paperclip, EventObjects: Camera, Lights: Lightbulb, ParticleEmitters: Sparkles, ParticleEmitters2: Sparkles, ParticleEmitterPopcorns: Sparkles, RibbonEmitters: Sparkles, CollisionShapes: Box };
 const nodeTypeFor = collection => Object.keys(NODE_TYPES).find(type => NODE_TYPES[type][0] === collection);
 
@@ -206,11 +207,11 @@ export function ResourceEditor({modelPath, onEditVisibility, onHotkeys, onViewCa
   const seek = value => { setFrame(value); onSeek?.(value); };
   const changeSequence = value => { setManagerSequence(value); onSequenceChange?.(value); seek(model.Sequences[value].Interval[0]); };
   if (sorting) return <SortMyMess doc={doc} modelPath={modelPath} textureAssets={textureAssets} preferences={preferences} teamColor={teamColor} sequenceIndex={managerSequence} frame={frame} onClose={() => { setSorting(false); requestAnimationFrame(() => dialog.current?.focus()); }} onCommit={decisions => apply('Sort My Mess', ['Geosets', 'GeosetAnims', 'Bones', 'Gliders', 'Materials', 'Textures', 'RibbonEmitters', 'ParticleEmitters2', 'Info'], m => applySortMyMess(m, decisions))}/>;
-  return <div className={`resource-editor ${friendly ? 're-xl' : ''}`} onKeyDown={keyDown}>
+  return <div className={`resource-editor re-xl ${friendly ? '' : 're-compact-manager'}`} onKeyDown={keyDown}>
     <section data-hotkey-scope="dialog" data-hotkey-prefix={`resource:${currentKind}`} data-hotkey-category={`${title} controls`} className={`re-window ${currentKind === 'Nodes' ? 're-node-window' : ''} ${propertiesOpen ? 're-properties-open' : ''}`} role="dialog" aria-modal={!livePreview} aria-label={title} tabIndex={-1} ref={dialog} style={movable.style}>
       <header className="re-caption" {...movable.handleProps}><span>{title}</span><div>{onHotkeys && <button data-hotkey="hotkeys" title="Configure hotkeys for this window" onClick={onHotkeys}>Hotkeys</button>}<button data-hotkey="close" className="re-caption-close" aria-label={`Close ${title}`} onClick={onClose}>×</button></div></header>
-      {friendly && <nav className="re-manager-tabs" aria-label="Resource managers">{['Materials', 'Textures', 'Nodes', 'Geosets'].map(next => <button key={next} disabled={!model} aria-pressed={next === currentKind} onClick={() => choose(next, next === 'Nodes' ? selectedNodeId ?? 0 : relatedResourceIndices(model, inspectedGeoset, next)[0] ?? 0)}>{next}</button>)}</nav>}
-      <div className="re-body"><aside className="re-list-pane"><div className="re-list-label">{currentKind}</div>
+      <nav className="re-manager-tabs" aria-label="Resource managers">{Object.entries(managerTabs).map(([next, label]) => <button key={next} disabled={!model} aria-pressed={next === currentKind} title={titles[next]} onClick={() => choose(next, next === 'Nodes' ? selectedNodeId ?? 0 : relatedResourceIndices(model, inspectedGeoset, next)[0] ?? 0)}>{label}</button>)}</nav>
+      <div className="re-body"><aside className="re-list-pane">
         {friendly && <input className="re-search" type="search" aria-label={`Search ${currentKind.toLowerCase()}`} placeholder="Search name, type or ID…" value={query} onChange={event => setQuery(event.target.value)}/>}
         <div ref={list} className="re-list" role={currentKind === 'Nodes' && tree ? 'tree' : 'listbox'} aria-label={`${currentKind} list`} onKeyDown={event => {
           const offset = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
