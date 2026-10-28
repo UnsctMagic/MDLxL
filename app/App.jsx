@@ -82,6 +82,7 @@ import { bindDropdownWheel } from '../src/dropdown-wheel.js';
 import { prepareModelSaveAsync } from './model-save.js';
 import { clearEditorData, EDITOR_DATA_SECTIONS } from '../src/editor-data.js';
 import { sampleTrack } from '../src/animation.js';
+import { partBones } from '../src/part-bones.js';
 import { buildPaintExportArtifact, buildPaintProjectArtifact } from '../src/paint-export.js';
 import { markPaintProjectSaved, restorePaintProject, travelPaintHistory } from '../src/paint-project.js';
 import { enumeratePaintTargets, installFreshPaintLayer, paintTargetsForGeoset } from '../src/paint-targets.js';
@@ -285,6 +286,13 @@ export default function App() {
   const visibleOverlays = visUI ? { ...storedOverlays, bones: true, helpers: true, attachments: true } : storedOverlays;
   const overlays = visibleOverlays.cameras ? { ...visibleOverlays, cameras: false } : visibleOverlays;
   const panelOverlays = overlays;
+  // Double-click in the preview: select the bones a part hangs on and show them as Focused Skeleton.
+  const selectPartBones = target => {
+    const ids = target.nodeId != null ? [target.nodeId] : partBones(model, target.geosetIndex, target.vertexIndex);
+    if (!ids.length) { say('No bone moves this part.'); return; }
+    setSelectedNodeIds(ids);
+    if (!overlays.focusedSkeleton) changeOverlay('focusedSkeleton', true);
+  };
   function changeOverlay(key, value) { setOverlayModes(previous => setEditorDisplay(previous, displayMode, key, value)); setCleanViews(previous => ({ ...previous, [mode]: false })); }
   const shaded = overlays.shaded, setShaded = value => changeOverlay('shaded', value);
   const showAxes = !cleanView && !cleanAnimationPreview && Object.values(preferences.grid.axes).some(Boolean);
@@ -1727,6 +1735,7 @@ export default function App() {
         portraitMode={activePortrait} portraitSettings={portraitSettings} onPortraitPreviewChange={setPortraitPreviewChanged} onPortraitLightingStatus={setPortraitLightingStatus} controlModel={controlsWholeModel(selectedNodeIds)} portraitCameraIndex={portraitCameraIndex} portraitSnapRevision={portraitSnapRevision}
         liveMovementRevision={liveMovementRevision.current} playbackRange={inspectingMotion ? motion.focus : null} globalSeqId={globalSeqId}
         selectedNodeIds={selectedNodeIds} onSelectNodes={ids=>{if(animationPanel==='animations')setMaterialVisibility(null);setSelectedNodeIds(ids);}}
+        onPartBones={selectPartBones}
         onNodeTransform={doc.readOnly || saving || sharedMotionChannel || !rigWorkspace ? undefined : moveNodes}
         showNodes={showNodes} showParticles={overlays.particles} transformMode={rigWorkspace ? movementMode : 'select'} transformSpace={movementSpace} /></Suspense>}
 
