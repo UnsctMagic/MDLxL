@@ -37,6 +37,8 @@ function validateArguments(schema, value, path = 'arguments') {
     }
   }
 }
+// A PNG, JPEG or WebP data URL: [1] is the MIME type, [2] the base64 data.
+const IMAGE_DATA_URL = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s;
 function toolContent(value) {
   if (value?.images) {
     if (!Array.isArray(value.images) || !value.images.length || value.images.length > 16)
@@ -51,7 +53,7 @@ function toolContent(value) {
     ];
   }
   if (value?.image) {
-    const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s.exec(value.image);
+    const match = IMAGE_DATA_URL.exec(value.image);
     if (!match) throw Error('Invalid viewport capture.');
     const { image, ...metadata } = value;
     return [
@@ -289,4 +291,4 @@ async function startMcpServer({
     },
   };
 }
-module.exports = { startMcpServer, callEditorTool, toolContent, validateArguments };
+module.exports = { startMcpServer, callEditorTool, toolContent, validateArguments, IMAGE_DATA_URL };

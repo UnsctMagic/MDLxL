@@ -2,7 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnAgent, stopAgent, lines, providerEnvironment } = require('./ai-process.cjs');
-const { startMcpServer, callEditorTool } = require('./ai-mcp.cjs');
+const { startMcpServer, callEditorTool, IMAGE_DATA_URL } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
 const { mcpForm, codexQuestions, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
 
@@ -62,13 +62,18 @@ async function* sseEvents(response) {
     }
   }
 }
+// An image ({ mimeType, data }) in the provider's own shape: 'anthropic', 'openai' or 'codex'.
+function providerImage({ mimeType, data }, kind) {
+  if (kind === 'anthropic') return { type: 'image', source: { type: 'base64', media_type: mimeType, data } };
+  const url = 'data:' + mimeType + ';base64,' + data;
+  return kind === 'codex' ? { type: 'inputImage', imageUrl: url } : { type: 'image_url', image_url: { url } };
+}
+// Attached images must be plain base64 (no whitespace), stricter than tool captures.
 function imageParts(images = [], kind = 'openai') {
   return images.map(image => {
-    const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(image);
-    if (!match) throw Error('Attach PNG, JPEG or WebP images.');
-    return kind === 'anthropic'
-      ? { type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } }
-      : { type: 'image_url', image_url: { url: image } };
+    const match = IMAGE_DATA_URL.exec(image);
+    if (!match || !/^[A-Za-z0-9+/=]+$/.test(match[2])) throw Error('Attach PNG, JPEG or WebP images.');
+    return providerImage({ mimeType: match[1], data: match[2] }, kind);
   });
 }
 // Short, readable form of a tool call's input for the console's activity rows.
@@ -79,6 +84,10 @@ function toolDetail(input) {
   } catch {
     return '';
   }
+}
+// The start of a tool result's text for its activity row.
+function toolSummary(text) {
+  return typeof text === 'string' ? text.slice(0, 300) : undefined;
 }
 // One prompt may take at most this many tool rounds unless the user sets a step limit.
 const API_STEP_LIMIT = 64;
@@ -336,18 +345,14 @@ async function runApi({
           type: 'tool_result',
           tool_use_id: block.id,
           is_error: !!result.isError,
-          content: result.content.map(c =>
-            c.type === 'image'
-              ? { type: 'image', source: { type: 'base64', media_type: c.mimeType, data: c.data } }
-              : c,
-          ),
+          content: result.content.map(c => (c.type === 'image' ? providerImage(c, 'anthropic') : c)),
         });
         event({
           type: 'tool-result',
           name: block.name,
           callId: block.id,
           error: !!result.isError,
-          summary: result.content.find(c => c.type === 'text')?.text?.slice(0, 300),
+          summary: toolSummary(result.content.find(c => c.type === 'text')?.text),
         });
       }
       history.push({ role: 'user', content: results });
@@ -449,16 +454,13 @@ async function runApi({
           content: textContent || 'Viewport image follows.',
         });
         for (const image of result.content.filter(c => c.type === 'image'))
-          imageMessages.push({
-            type: 'image_url',
-            image_url: { url: `data:${image.mimeType};base64,${image.data}` },
-          });
+          imageMessages.push(providerImage(image, 'openai'));
         event({
           type: 'tool-result',
           name: toolCall.function.name,
           callId: toolCall.id,
           error: !!result.isError,
-          summary: textContent.slice(0, 300),
+          summary: toolSummary(textContent),
         });
       }
       if (imageMessages.length)
@@ -577,7 +579,7 @@ class CodexProcess {
         const tool = this.tools?.find(t => t.name === p.tool && (!p.namespace || p.namespace === 'mdlxl'));
         if (!tool) this.notice('Provider requested an unregistered tool: ' + p.tool, 'Terminal and filesystem access remain disabled.', 'warning');
         const run = tool ? callEditorTool(this.tools, this.call, p.tool, p.arguments, this.signal) : Promise.resolve({ isError: true, content: [{ type: 'text', text: 'Only registered MDLxL editor tools are available. Terminal and filesystem access are disabled.' }] });
-        run.then(result => { if (!this.questions.signal.aborted) this.write({ id: message.id, result: { success: !result.isError, contentItems: result.content.map(c => c.type === 'text' ? { type: 'inputText', text: c.text } : { type: 'inputImage', imageUrl: 'data:' + c.mimeType + ';base64,' + c.data }) } }); }, error => this.write({ id: message.id, error: { code: -32602, message: error.message } }));
+        run.then(result => { if (!this.questions.signal.aborted) this.write({ id: message.id, result: { success: !result.isError, contentItems: result.content.map(c => c.type === 'text' ? { type: 'inputText', text: c.text } : providerImage(c, 'codex')) } }); }, error => this.write({ id: message.id, error: { code: -32602, message: error.message } }));
         return;
       } else {
         const text = method === 'account/chatgptAuthTokens/refresh'
@@ -655,7 +657,7 @@ class CodexProcess {
         name: p.item.tool,
         callId: p.item.id,
         error: p.item.status === 'failed',
-        summary: (p.item.error?.message || p.item.result?.content?.find(c => c.type === 'text')?.text)?.slice(0, 300),
+        summary: toolSummary(p.item.error?.message || p.item.result?.content?.find(c => c.type === 'text')?.text),
       });
     // Web research runs inside Codex; its searches show as steps.
     if (message.method === 'item/started' && p.item?.type === 'webSearch')
@@ -1052,7 +1054,7 @@ async function runClaude({
                     name: toolNames.get(block.tool_use_id),
                     callId: block.tool_use_id,
                     error: !!block.is_error,
-                    summary: typeof text === 'string' ? text.slice(0, 300) : undefined,
+                    summary: toolSummary(text),
                   });
                 }
             if (data.type === 'result') {
