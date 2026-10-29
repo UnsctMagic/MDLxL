@@ -78,7 +78,7 @@ Verification: [readable labels](../test/hotkey-badges.test.js) and
   - A key, once given, is saved with the discovered controls (`defaultKey`), so
     new controls never move an existing shortcut.
 
-Tool-window keys come from the catalog, including local Undo/Redo/Play and Paint’s plain keys. Window actions follow the user’s command bindings until rebound separately, so Settings, badges and Learn agree. Escape closes every tool window after its active inner state is cancelled. AI drawing tools, Learn, bone creation and shortcut recording keep their Escape order through claims; the generic `mdlxl-window-key` event carries `detail.scope` and `detail.event`.
+Tool-window keys come from the catalog, including local Undo/Redo/Play and Paint’s plain keys. Window actions follow the user’s command bindings until rebound separately, so Settings, badges and Learn agree. Escape closes every tool window after its active inner state is cancelled. AI drawing tools, Learn, bone creation and shortcut recording keep their Escape order through claims; the generic `mdlxl-window-key` event carries `detail.scope` and `detail.event`. Active drags claim at priority 0, after the menus and before window-local dismissal (priority 10), so the first Escape restores the drag and a later Escape dismisses its window.
 
 ## The same key in different windows
 

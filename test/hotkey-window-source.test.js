@@ -21,10 +21,6 @@ const documentedClaims = {
     4,
     "Cancel attachment picking and pointer gestures; rotation belongs to PR #409."
   ],
-  "GlowStageTools.jsx": [
-    1,
-    "Cancel a glow-handle drag."
-  ],
   "KeyframeTimeline.jsx": [
     3,
     "Cancel key/range selection and restore frame/speed drafts."
@@ -61,10 +57,6 @@ const documentedClaims = {
     1,
     "Cancel an active life-marker drag."
   ],
-  "ParticlePlacementStage.jsx": [
-    1,
-    "Cancel an active placement-handle drag."
-  ],
   "ParticleRibbonFields.jsx": [
     1,
     "Keep numeric draft cancellation inside the field."
@@ -72,10 +64,6 @@ const documentedClaims = {
   "ParticleSourceContext.jsx": [
     1,
     "Dismiss an inner source-context pane."
-  ],
-  "ParticleStageTools.jsx": [
-    1,
-    "Cancel the active emitter-handle drag."
   ],
   "ParticleTestView.jsx": [
     1,
