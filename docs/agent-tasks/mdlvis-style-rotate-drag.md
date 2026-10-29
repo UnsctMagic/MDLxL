@@ -1,6 +1,6 @@
 # MdlVis-style Rotate drag
 
-Status: in review — "Along the ring" default (branch `claude/audit-wp-r1-rotate-ring-344cc4`,
+Status: in review, awaiting merge approval — "Along the ring" default ([PR #409](https://github.com/UnsctMagic/MDLxL/pull/409), branch `claude/audit-wp-r1-rotate-ring-344cc4`,
 from `origin/main` `4b3487f2`); earlier PR #327 then #336 (Pivot-based default) shipped in 0.33.0
 Owner / consolidator: Codex (implementation); Claude Code (project lead, review)
 Updated: 2026-10-29
