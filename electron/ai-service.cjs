@@ -15,6 +15,7 @@ const {
   CodexProcess,
   endpoint,
   authenticationRequired,
+  CANCELLED,
 } = require('./ai-providers.cjs');
 const {
   spawnAgent,
@@ -54,6 +55,16 @@ const CHAT_FILE = new RegExp('^chat-(' + CHAT_ID_PATTERN + ')\\.json(\\.tmp)?$')
 function catalogKey(settings) {
   return settings.provider + ':' + (settings.baseUrl || '');
 }
+// The editing instructions, with the handbook and web research when they are on.
+// A worker bird gets its own note in place of the opening line.
+function editingPrompt(contract, { handbook, web, worker }) {
+  return (
+    (worker ? contract.AI_WORKER_NOTE + '\n' + contract.AI_EDITING_BODY : contract.AI_SYSTEM_PROMPT) +
+    (handbook ? '\n' + contract.AI_EDITING_HANDBOOK : '') +
+    (web ? '\n' + contract.AI_WEB_RESEARCH : '')
+  );
+}
+const memoryNoteText = note => '\n\nMemory note from earlier work on this model:\n' + note;
 // The bird a message is addressed to by name: "Crow: …", "Crow, …" or "ask Crow to …".
 function addressedBird(workers, text) {
   return workers.find(w => new RegExp('^(?:ask\\s+)?' + w.name + '(?:[:,]|\\s+to\\b)', 'i').test(text.trim()));
@@ -308,7 +319,7 @@ class AiService {
         finish(
           controller.signal.reason instanceof Error
             ? controller.signal.reason
-            : Error('AI request cancelled.'),
+            : Error(CANCELLED),
         );
       };
       let timer = setTimeout(() => controller.abort(Error('The editor tool timed out.')), 180000);
@@ -613,7 +624,7 @@ class AiService {
     };
     try {
       while (waiting.length || running.size) {
-        if (signal.aborted) throw Error('AI request cancelled.');
+        if (signal.aborted) throw Error(CANCELLED);
         for (let i = 0; i < waiting.length;) {
           const entry = waiting[i];
           // Earlier conflicting jobs keep their order, including an exclusive structural job.
@@ -668,7 +679,7 @@ class AiService {
     }
     return reply;
   }
-  async routeJob({ conversation, recorder, text, workers, settings, signal, structure }) {
+  async routeJob({ conversation, recorder, text, workers, settings, contract, signal, structure }) {
     const routing = { id: conversation.id + '-router', messages: [], transcript: [], organiserId: conversation.id };
     const current = workers.find(w => w.id === conversation.currentWorker);
     const next = this.pendingBird(conversation);
@@ -684,7 +695,7 @@ class AiService {
     };
     const options = {
       settings, stepLimit: 1, label: 'Routing has no editor tools.',
-      system: 'Route one message. In bird mode, act as the organiser. Judge the complexity and needs of the task, then delegate it. Return only JSON: {"worker":"existing bird name or empty","job":"short title","tiny":false}. The worker must be an existing bird name or id from birds, or an empty string for a new bird; nextBird names that new bird. Use current and recent to identify follow-ups and continue the relevant bird. New unrelated jobs have an empty worker. Set tiny:true only for simple factual or exact one-step jobs; these may use lighterModel only when it is supplied. Shape, motion, binding, creative decisions and uncertain or dependent work use tiny:false and the chosen model. Do not answer or paraphrase the request. If the supplied structure proves a multi-part request can be split, return {"jobs":[{"worker":"","job":"short part-specific task","tiny":false,"scope":["/Geosets/0"],"readOnly":false,"structural":false}]}. Judge complexity for each part. Each job must have explicit canonical model paths (or readOnly:true). Include protectedPaths, animationRanges and globalSequence when needed. Adding, deleting or reordering tables, changing IDs, bindings or group tables is structural and exclusive. Unknown dependencies mean one job. Do not split a follow-up already addressed to a bird. Prefer one editor for coupled changes and at most one read-only helper for independent reference analysis or measurements. For a single job you may add helper:{"job":"short title","instructions":"specific read-only investigation"}; omit it for simple jobs or when there is no useful independent work. Include checks:["concrete completion criteria"] for complex work. Region jobs may include instructions and dependsOn:[earlier zero-based job indices]; their reports are passed only to dependent jobs. Do not parallelize coupled writes or duplicate the full investigation.',
+      system: contract.AI_ROUTER_PROMPT,
       prompt: JSON.stringify(input),
       conversation: routing, signal,
     };
@@ -760,14 +771,10 @@ class AiService {
       AI_JOB_TOOLS,
       AI_JOB_CHECKPOINT,
       AI_HELPER_NOTE,
-      AI_SYSTEM_PROMPT,
-      AI_EDITING_HANDBOOK,
       AI_PLAN_TOOL,
       guidesForRequest,
-      AI_WEB_RESEARCH,
       AI_WORKER_TOOL,
       AI_ORGANISER_PROMPT,
-      AI_WORKER_NOTE,
       aiToolEditsModel,
       sdBrainInstructions,
       sdReviewProblem,
@@ -915,7 +922,7 @@ class AiService {
     let workerImages = images,
       lastInspect = null;
     const performCall = async (name, args, callSignal) => {
-      if (signal.aborted) throw Error('AI request cancelled.');
+      if (signal.aborted) throw Error(CANCELLED);
       if (!tools.some(tool => tool.name === name)) throw Error('This tool is not available to this bird.');
       if (organiser && name === 'mdlxl_worker') {
         const attached = workerImages;
@@ -1095,16 +1102,11 @@ class AiService {
         : (conversation.helperOnly || context.region?.readOnly) ? AI_JOB_TOOLS.filter(t => READ_TOOLS.has(t.name)) : [...AI_JOB_TOOLS, AI_PLAN_TOOL, AI_JOB_CHECKPOINT];
     // The organiser only routes, so web research goes to the AI that does the work.
     const web = sd.web === true && !organiser;
-    const editing =
-      (sd.handbook === true ? AI_SYSTEM_PROMPT + '\n' + AI_EDITING_HANDBOOK : AI_SYSTEM_PROMPT) +
-      (web ? '\n' + AI_WEB_RESEARCH : '');
     const system =
       organiser || (conversation.kind === 'organiser' && conversation.toolsOff)
       ? AI_ORGANISER_PROMPT
       : conversation.helperOnly ? AI_HELPER_NOTE
-      : conversation.kind === 'worker'
-        ? AI_WORKER_NOTE + '\n' + editing.slice(editing.indexOf('\n') + 1)
-        : editing;
+      : editingPrompt(contract, { handbook: sd.handbook === true, web, worker: conversation.kind === 'worker' });
     // The SD Brain policy travels in the trusted instructions of every turn, so an
     // earlier "on" can never keep governing a task that started with it off.
     const instructions = (await this.sdBrainAvailable())
@@ -1239,9 +1241,7 @@ class AiService {
     return (
       (lines.length ? 'Workers for this model:\n' + lines.join('\n') : 'No workers yet for this model.') +
       names +
-      (entry?.note && conversation.transcript.length <= 2
-        ? '\n\nMemory note from earlier work on this model:\n' + entry.note
-        : '')
+      (entry?.note && conversation.transcript.length <= 2 ? memoryNoteText(entry.note) : '')
     );
   }
   // The next new worker's name is drawn once, so the organiser can announce it.
@@ -1329,7 +1329,7 @@ class AiService {
         (args.instructions ? '\n\nAssigned investigation or prerequisite evidence:\n' + args.instructions : '') +
         (policy?.enabled && artBrief ? `\n\nSD art brief for this request:\n${artBrief}` : '') +
         (handover ? `\n\nHandover note from ${handover.name}, who worked on this before you:\n${handover.note}` : '') +
-        (!conversation.messages.length && memory ? `\n\nMemory note from earlier work on this model:\n${memory}` : '');
+        (!conversation.messages.length && memory ? memoryNoteText(memory) : '');
       if (context.region) {
         await this.call('mdlxl_regions', { action: 'label', target: context.target, name: worker.name });
       }
@@ -1855,7 +1855,7 @@ class AiService {
       const conversation = await this.readConversation(active.id);
       const workers = (conversation.workers || []).filter(w => active.workers.has(w.id));
       const named = addressedBird(workers, text);
-      const choice = named ? { worker: named.name } : await this.routeJob({ conversation, recorder: active.recorder, text, workers, settings: await this.settings(), signal: active.controller.signal });
+      const choice = named ? { worker: named.name } : await this.routeJob({ conversation, recorder: active.recorder, text, workers, settings: await this.settings(), contract: await this.init(), signal: active.controller.signal });
       const selected = workers.find(w => w.name === choice.worker);
       const targets = selected ? [active.workers.get(selected.id)] : [...active.workers.values()];
       for (const w of targets) deliver(w);
@@ -2106,12 +2106,12 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
         modifiers: [...modifiers, ...(type === 'mouseMove' ? [button + 'buttondown'] : [])],
       });
     let last = points[0];
-    if (request.signal?.aborted) throw Error('AI request cancelled.');
+    if (request.signal?.aborted) throw Error(CANCELLED);
     mouse('mouseMove', last);
     mouse('mouseDown', last);
     try {
       for (const point of points.slice(1)) {
-        if (request.signal?.aborted) throw Error('AI request cancelled.');
+        if (request.signal?.aborted) throw Error(CANCELLED);
         last = point;
         mouse('mouseMove', point);
         await new Promise(resolve => setTimeout(resolve, 16));
@@ -2202,4 +2202,4 @@ function choosePictures(images, limit = 12) {
   return { pictures, left: images.filter(image => !pictures.includes(image)).map(image => image.label) };
 }
 
-module.exports = { AiService, AiSteering, registerAiService, choosePictures };
+module.exports = { AiService, AiSteering, registerAiService, choosePictures, editingPrompt };

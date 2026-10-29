@@ -177,6 +177,9 @@ function claudeCompaction(data) {
   if (data.subtype === 'status') return data.status === 'compacting';
   return null;
 }
+const CANCELLED = 'AI request cancelled.';
+// Said when a provider asks for anything beyond MDLxL's own editor tools.
+const TOOLS_ONLY = 'Terminal and filesystem access remain disabled.';
 function authenticationRequired() {
   return Object.assign(Error('Sign in to connect your AI. Your prompt has been kept.'), {
     code: 'AI_AUTH_REQUIRED',
@@ -219,7 +222,7 @@ async function runApi({
   let awarenessVersion = awareness?.version;
   const steps = settings.stepLimit > 0 ? settings.stepLimit : API_STEP_LIMIT;
   for (let step = 0; step < steps; step++) {
-    if (signal.aborted) throw Error('AI request cancelled.');
+    if (signal.aborted) throw Error(CANCELLED);
     if (awareness?.enabled && awareness.version !== awarenessVersion) {
       history.push({ role: 'user', content: [{ type: 'text', text: awarenessText(awareness.snapshot()) }] });
       awarenessVersion = awareness.version;
@@ -538,13 +541,13 @@ class CodexProcess {
     );
     this.child.stderr.on('data', () => {});
     this.abort = () => {
-      this.fail(Error('AI request cancelled.'));
+      this.fail(Error(CANCELLED));
       this.close();
     };
     this.signal?.addEventListener('abort', this.abort, { once: true });
     if (this.signal?.aborted) {
       this.abort();
-      throw Error('AI request cancelled.');
+      throw Error(CANCELLED);
     }
     await this.request('initialize', { clientInfo: { name: 'mdlxl', title: 'MDLxL', version: '1.0.0' } });
     this.write({ method: 'initialized', params: {} });
@@ -582,7 +585,7 @@ class CodexProcess {
       else if (method === 'item/tool/call') {
         const p = message.params || {};
         const tool = this.tools?.find(t => t.name === p.tool && (!p.namespace || p.namespace === 'mdlxl'));
-        if (!tool) this.notice('Provider requested an unregistered tool: ' + p.tool, 'Terminal and filesystem access remain disabled.', 'warning');
+        if (!tool) this.notice('Provider requested an unregistered tool: ' + p.tool, TOOLS_ONLY, 'warning');
         const run = tool ? callEditorTool(this.tools, this.call, p.tool, p.arguments, this.signal) : Promise.resolve({ isError: true, content: [{ type: 'text', text: 'Only registered MDLxL editor tools are available. Terminal and filesystem access are disabled.' }] });
         run.then(result => { if (!this.questions.signal.aborted) this.write({ id: message.id, result: { success: !result.isError, contentItems: result.content.map(c => c.type === 'text' ? { type: 'inputText', text: c.text } : providerImage(c, 'codex')) } }); }, error => this.write({ id: message.id, error: { code: -32602, message: error.message } }));
         return;
@@ -597,7 +600,7 @@ class CodexProcess {
         if (method === 'account/chatgptAuthTokens/refresh') this.event({ type: 'error', text, authRequired: true });
         return;
       }
-      this.notice('Terminal and filesystem access remain disabled. The provider request was declined.', method);
+      this.notice(TOOLS_ONLY + ' The provider request was declined.', method);
       return;
     }
     if (message.id !== undefined) {
@@ -959,7 +962,7 @@ async function runClaude({
           } else {
             const own = tools.some(t => request.tool_name === 'mcp__mdlxl__' + t.name);
             response = { subtype: 'success', request_id: requestId, response: own ? { behavior: 'allow', updatedInput: request.input } : { behavior: 'deny', message: 'Terminal and filesystem access are disabled. Use the registered MDLxL editor tools.' } };
-            if (!own) event({ type: 'provider-notice', text: 'Claude requested an unavailable tool: ' + request.tool_name, detail: 'Terminal and filesystem access remain disabled.', severity: 'warning' });
+            if (!own) event({ type: 'provider-notice', text: 'Claude requested an unavailable tool: ' + request.tool_name, detail: TOOLS_ONLY, severity: 'warning' });
           }
         } catch (error) {
           response = error.code === 'AI_QUESTION_CANCELLED'
@@ -987,7 +990,7 @@ async function runClaude({
         child.on('error', reject);
         child.once('close', code =>
           signal.aborted
-            ? reject(Error('AI request cancelled.'))
+            ? reject(Error(CANCELLED))
             : !finalResult || finalResult.is_error || code !== 0
               ? reject(
                   Error(
@@ -1142,4 +1145,5 @@ module.exports = {
   CodexProcess,
   effortFor,
   authenticationRequired,
+  CANCELLED,
 };
