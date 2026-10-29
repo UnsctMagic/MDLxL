@@ -8,7 +8,6 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
-| Fixes from the review of recent Codex changes (popup WebGL crash, sanity HD error, AI resume/draft bugs) | Active | [Review fixes](codex-review-fixes.md) / Codex |
 | AI clarification questions and answers | Ready for review; awaiting merge approval | [Question route](ai-question-route.md) / Codex |
 | Automatic organiser checkpoints and helper birds | Ready for review; awaiting merge approval | [Organiser checkpoints](ai-organiser-checkpoints.md) / Codex |
 | Automatic job routing in bird mode | Ready for review; awaiting merge approval | [Bird job routing](ai-bird-job-routing.md) / Codex |
