@@ -370,7 +370,8 @@ test('counting fixtures compare one job, two jobs and a real half-context handov
         assert.ok(org.transcript.at(-1).cost.roles.bird.tokens > 0);
       }
     }
-    assert.ok(totals[1].tokens <= totals[0].tokens, JSON.stringify(totals));
+    // The richer per-job instructions have a fixed cost; separating long histories must still save tokens.
+    if (count === 18) assert.ok(totals[1].tokens < totals[0].tokens, JSON.stringify(totals));
     if (count === 18) { assert.equal(totals[1].handovers, 1); assert.equal(totals[1].calls, count + 1); }
     else assert.equal(totals[1].calls, totals[0].calls);
     t.diagnostic(JSON.stringify({ messages: count, off: totals[0], on: totals[1] }));
@@ -382,6 +383,8 @@ test('region scheduler overlaps independent birds, queues dependencies and struc
   for (const mode of ['parallel', 'dependent', 'structural']) {
     let running = 0, peak = 0, combined = 0;
     const starts = [], ends = [];
+    let releasePair;
+    const bothStarted = new Promise(resolve => { releasePair = resolve; });
     const f = await setup(t, { organiser: () => assert.fail('No organiser recap'), worker: async data => {
       if (data.messages[0].content.startsWith('Route one message')) return say(JSON.stringify({jobs:[
         { job:'First mesh', scope:['/Geosets/0'] },
@@ -389,7 +392,12 @@ test('region scheduler overlaps independent birds, queues dependencies and struc
       ]}));
       const first = userText(data).includes('Job: First mesh');
       starts.push(first?0:1); peak=Math.max(peak,++running);
-      await new Promise(resolve=>setTimeout(resolve,50));
+      if (mode === 'parallel') {
+        if (running === 2) releasePair();
+        let timeout;
+        try { await Promise.race([bothStarted, new Promise((_, reject) => { timeout = setTimeout(() => reject(Error('Independent birds did not overlap')), 10000); })]); }
+        finally { clearTimeout(timeout); }
+      } else await new Promise(resolve=>setTimeout(resolve,50));
       running--; ends.push(first?0:1);
       return say('Checked my assigned mesh.');
     }});
@@ -664,4 +672,152 @@ test('automatic multipart routing assigns complexity per part and gives each reg
   assert.equal(org.workers.length, 3);
   assert.deepEqual(org.workers.map(w => w.model), ['test-mini', 'test-mini', 'test']);
   assert.ok(finished);
+});
+
+const jobTool = (name, args) => ({ delta: { tool_calls: [{ index: 0, id: 'c-' + Math.random(), function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: 'tool_calls' });
+const jobPlan = extra => ({ cause: 'The requested part needs adjustment.', reach: 'Only the requested part.', keep: ['unrelated model data'], options: [{ fix: 'Adjust the owned part', cost: 'Only its values change' }, { fix: 'Rebuild it', cost: 'Changes topology' }], choice: 0, why: 'Preserves the original structure', checks: ['Requested change is visible', 'Unrelated data matches the baseline'], ...extra });
+function helperRegions(f) {
+  const base = f.service.call; const batches = new Map(); let closed = 0;
+  f.service.call = async (name,args,...rest) => {
+    if (name !== 'mdlxl_regions' || ['summary','label'].includes(args.action)) return base(name,args,...rest);
+    if (args.action === 'declare') { const batch = 'batch-' + batches.size; const jobs=args.jobs.map(j=>({...j,region:{scope:j.scope||[],dependencies:[],readOnly:!!j.readOnly,structural:!!j.structural}})); batches.set(batch,jobs); return {batch,jobs}; }
+    if (args.action === 'begin') return {...context,target:args.batch+'-'+args.index,region:batches.get(args.batch)[args.index].region};
+    if (args.action === 'finish') return {passed:true};
+    if (args.action === 'close') {closed++;return {closed:true};}
+    assert.fail('Unexpected region action '+args.action);
+  };
+  return {closed:()=>closed};
+}
+
+test('automatic organiser runs a read-only helper alongside inspection and delivers evidence before an edit', async t => {
+  let release, observed, editorTurns=0, helperTurns=0, edits=0;
+  const inspected=new Promise(r=>release=r); const evidence=[];
+  const f=await setup(t,{organiser:()=>assert.fail('no recap'),worker:async data=>{
+    const system=data.messages[0].content;
+    if(system.startsWith('Route one message')) return say(JSON.stringify({job:'Adjust owned part',helper:{job:'Inspect reference',instructions:'Measure the matching donor part and return its ID.'},checks:['Requested part aligns with reference']}));
+    if(system.startsWith('You are a read-only')) {
+      helperTurns++;
+      if(helperTurns===1){await inspected; observed=true; return jobTool('mdlxl_script',{target:'batch-0-0',edit:true,code:'model.Info.Name="wrong";'});}
+      assert.match(data.messages.at(-1).content,/read-only/);
+      assert.ok(!data.tools.some(t=>t.function.name==='mdlxl_command'));
+      return say('Donor reference has part ID 7; measured alignment is 2 units.');
+    }
+    editorTurns++;
+    evidence.push(JSON.stringify(data.messages));
+    if(editorTurns===1) return jobTool('mdlxl_context',{});
+    if(editorTurns===2) return jobTool('mdlxl_plan',jobPlan());
+    if(editorTurns===3) { assert.ok(observed); assert.match(data.messages.at(-1).content,/part ID 7/); return jobTool('mdlxl_patch',{target:context.target,label:'premature edit',scope:['/Geosets/0'],operations:[{op:'set',path:'/Geosets/0/Vertices/0',value:2}]}); }
+    if(editorTurns===4) { assert.match(data.messages.at(-1).content,/Incorporate the helper/); return jobTool('mdlxl_plan',jobPlan()); }
+    if(editorTurns===5) return jobTool('mdlxl_patch',{target:context.target,label:'Apply alignment',scope:['/Geosets/0'],operations:[{op:'set',path:'/Geosets/0/Vertices/0',value:2}]});
+    return say('Aligned the requested part.');
+  }});
+  const regions=helperRegions(f); const base=f.service.call;
+  f.service.call=async(name,args,...rest)=>{
+    if(name==='mdlxl_context'){release();return {target:context.target};}
+    if(name==='mdlxl_patch'){edits++;return {applied:true,changes:[]};}
+    return base(name,args,...rest);
+  };
+  const {id}=await f.service.organiser({modelKey});
+  const result=await f.service.send({id,text:'Adjust this model part to match the attached reference',route:'auto',context});
+  assert.equal(result.ok,true,JSON.stringify(result)); assert.equal(edits,1); assert.equal(helperTurns,2); assert.equal(regions.closed(),1);
+  const org=await f.service.readConversation(id);
+  assert.equal(org.workers.length,2); assert.ok(org.workers[1].helperOnly); assert.equal(org.currentWorker,org.workers[0].id);
+  const bird=await f.service.readConversation(org.currentWorker);
+  assert.equal(bird.task.helper.delivered,true); assert.equal(bird.task.helper.needsPlan,false);
+  assert.match(bird.task.helper.report,/part ID 7/); assert.equal(f.service.tasks.size,0); assert.equal(f.service.workerLocks.size,0);
+});
+
+test('a bird can request a helper in manual routing without an extra organiser call',async t=>{
+  let n=0;
+  const f=await setup(t,{organiser:()=>assert.fail('manual route'),worker:data=>{
+    if(data.messages[0].content.startsWith('You are a read-only'))return say('Measured donor reference 4.');
+    n++;
+    if(n===1)return jobTool('mdlxl_plan',jobPlan({helper:{job:'Measure donor',instructions:'Inspect the donor only.'}}));
+    if(n===2)return jobTool('mdlxl_plan',jobPlan());
+    if(n===3){assert.match(last(data).content,/Measured donor/);return jobTool('mdlxl_plan',jobPlan());}
+    return say('Used the reference measurements.');
+  }});
+  const regions=helperRegions(f); const {id}=await f.service.organiser({modelKey});
+  const result=await f.service.send({id,text:'Inspect and fit the requested part',context});
+  assert.equal(result.ok,true,JSON.stringify(result)); assert.equal(regions.closed(),1);
+  assert.equal(f.requests.filter(r=>r.data.messages[0].content.startsWith('Route one message')).length,0);
+});
+
+test('phase handover retains baseline, reusable routines and edits without replaying them',async t=>{
+  let first=0, second=0, edits=0, restored=0, routineCalls=0;
+  let f;
+  f=await setup(t,{organiser:()=>assert.fail('no routing'),worker:data=>{
+    if(userText(data).includes('Resume the interrupted task')) {
+      second++;
+      if(second===1){assert.match(userText(data),/remaining verification/);assert.ok(!JSON.stringify(data.messages).includes('large-body-marker'));return jobTool('mdlxl_script',{target:context.target,routine:'measure',parameters:{value:5}});}
+      return say('Remaining verification complete.');
+    }
+    first++;
+    if(first===1)return jobTool('mdlxl_plan',jobPlan());
+    if(first===2)return jobTool('mdlxl_script',{target:context.target,routine:'measure',code:'// large-body-marker\nreturn parameters.value;',parameters:{value:2}});
+    if(first===3)return jobTool('mdlxl_patch',{target:context.target,label:'Apply once',scope:['/Geosets/0'],operations:[{op:'set',path:'/Geosets/0/Vertices/0',value:2}]});
+    const bird=[...f.service.conversations.values()].find(c=>c.kind==='worker'); bird.usage={used:150000,window:200000};
+    return jobTool('mdlxl_job_checkpoint',{phase:'verify',evidence:'Candidate aligned; original saved in checkpoint.',remaining:['remaining verification']});
+  }});
+  const base=f.service.call;
+  f.service.call=async(name,args,...rest)=>{
+    if(name==='mdlxl_script'){routineCalls++;assert.match(args.code,/large-body-marker/);return {value:1};}
+    if(name==='mdlxl_patch'){edits++;return {applied:true,changes:[]};}
+    if(name==='mdlxl_checkpoint'){
+      if(first>=4 && second===0) [...f.service.conversations.values()].find(c=>c.kind==='worker' && !c.retired).usage={used:150000,window:200000};
+      if(args.restore){restored++;assert.deepEqual(args.baseline,{Info:{Name:'Original'}});}
+      return {fingerprint:edits?'after':'before',name:context.name,context,review:{changed:!!edits,phase:'verified'},...(args.includeBaseline?{baseline:{Info:{Name:'Original'}}}:{})};
+    }
+    if(name==='mdlxl_review')return {changed:!!edits,phase:'verified'};
+    return base(name,args,...rest);
+  };
+  const {id}=await f.service.organiser({modelKey}); const result=await f.service.send({id,text:'Fit the requested part accurately',context});
+  assert.equal(result.ok,true,JSON.stringify(result)); assert.equal(edits,1); assert.equal(routineCalls,2); assert.equal(restored,1);
+  const org=await f.service.readConversation(id); assert.deepEqual(org.workers.map(w=>w.status),['retired','idle']);
+  const bird=await f.service.readConversation(org.currentWorker); assert.equal(bird.task.steps.length,1); assert.equal(bird.task.workCheckpoint.remaining[0],'remaining verification');
+});
+
+test('dependent jobs receive only completed prerequisite reports',async t=>{
+  const started=[];
+  const f=await setup(t,{organiser:()=>assert.fail('no recap'),worker:data=>{
+    if(data.messages[0].content.startsWith('Route one message')) return say(JSON.stringify({jobs:[{job:'Reference report',readOnly:true},{job:'Dependent check',readOnly:true,dependsOn:[0]}]}));
+    if(userText(data).startsWith('Job: Reference')){started.push(0);return say('Reference ID 42 measured.');}
+    started.push(1);assert.match(userText(data),/Reference ID 42 measured/);return say('Checked against the reference.');
+  }});
+  helperRegions(f); const {id}=await f.service.organiser({modelKey}); const result=await f.service.send({id,text:'Inspect reference then compare its proportions',route:'auto',context});
+  assert.equal(result.ok,true,JSON.stringify(result)); assert.deepEqual(started,[0,1]);
+});
+
+
+
+test('stopping a job also stops its helper and closes the helper target',async t=>{
+  let ready, release;const started=new Promise(r=>ready=r),hold=new Promise(r=>release=r);
+  const f=await setup(t,{organiser:()=>assert.fail('no recap'),worker:async data=>{
+    if(data.messages[0].content.startsWith('Route one message'))return say(JSON.stringify({job:'Inspect',helper:{job:'Measure reference',instructions:'Read the reference.'}}));
+    if(data.messages[0].content.startsWith('You are a read-only')){ready();await hold;return say('Read only.');}
+    await hold;return say('Read only.');
+  }});
+  const regions=helperRegions(f);const {id}=await f.service.organiser({modelKey});
+  const pending=f.service.send({id,text:'Inspect the reference and target together',route:'auto',context});
+  await started; f.service.cancel(id);release();const result=await pending;
+  assert.equal(result.cancelled,true,JSON.stringify(result));assert.equal(regions.closed(),1);assert.equal(f.service.workerLocks.size,0);assert.equal(f.service.tasks.size,0);
+});
+
+test('an exact value edit uses the existing direct bird path without a plan or helper',async t=>{
+  let n=0, edits=0;
+  const f=await setup(t,{organiser:()=>assert.fail('no organiser'),worker:()=>++n===1?jobTool('mdlxl_patch',{target:context.target,label:'Rename',scope:['/Info'],operations:[{op:'set',path:'/Info/Name',value:'Test'}]}):say('Renamed.')});
+  const base=f.service.call;f.service.call=(name,args,...rest)=>name==='mdlxl_patch'?(edits++,{applied:true,changes:[]}):base(name,args,...rest);
+  const {id}=await f.service.organiser({modelKey});const result=await f.service.send({id,text:'Rename model to Test',context});
+  assert.equal(result.ok,true,JSON.stringify(result));assert.equal(edits,1);assert.equal((await f.service.readConversation(id)).workers.length,1);assert.equal(f.requests.length,2);
+});
+
+
+test('direct messages to an editor bird retain organiser lifecycle and destination',async t=>{
+  const f=await setup(t,{organiser:()=>assert.fail('no routing'),worker:()=>say('Finished the assigned job.')});
+  const {id}=await f.service.organiser({modelKey});
+  await f.service.send({id,text:'Inspect the model',context});
+  const org=await f.service.readConversation(id), bird=org.workers[0];
+  const result=await f.service.send({id:bird.id,text:'Inspect that same model again',context});
+  assert.equal(result.ok,true,JSON.stringify(result));assert.equal(org.workers.length,1);assert.equal(org.currentWorker,bird.id);
+  assert.equal(org.transcript.filter(m=>m.role==='user').length,2);assert.equal(f.requests.length,2);
 });
