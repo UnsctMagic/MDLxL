@@ -178,8 +178,9 @@ function AiAssistant({ bridge, visUI }) {
       if (event.type === 'running') setRunning(event.running);
       if (event.id && event.id !== activeId.current) return;
       // A chat's events stream into its thread by the same rules main saves them
-      // with: what the AI says, thinks and does, in the order it happens.
-      if (event.id) setMessages(previous => applyAiEvent(previous, event));
+      // with: what the AI says, thinks and does, in the order it happens. An error
+      // without a chat is about the app, not a reply, so it stays in the banner.
+      if (event.id || event.type !== 'error') setMessages(previous => applyAiEvent(previous, event));
       if (event.type === 'worker') setStatus(event.status === 'working' ? `The ${event.name} is working on: ${event.job}` : 'Organising');
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
       if (event.type === 'compaction')
