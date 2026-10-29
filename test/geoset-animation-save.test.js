@@ -220,7 +220,7 @@ test('real model with a dormant color saves as MDL and back to MDX', () => {
   const mdl = openDocument(prepareModelSave(doc, 'mdl').bytes, 'saved.mdl');
   assert.equal(mdl.readOnly, false);
   openDocument(prepareModelSave(mdl, 'mdx').bytes, 'again.mdx');
-  assert.deepEqual(prepareModelSave(doc, 'mdx').notes, []);
+  assert.deepEqual(prepareModelSave(doc, 'mdx').notes, ['MDX leaves out standard model comments. Save as MDL to keep them.']);
 });
 
 test('active malformed colors and real reference/nonfinite errors are never whitened or accepted', () => {

@@ -236,3 +236,7 @@ code and may be removed.
   preserved cylinder/plane deletion, live drag draft, cancellation when the
   top-view projection removes its handle, no later stale commit, actual Alt+mouse
   camera rotation, and no renderer errors.
+- Full-suite follow-up: two assertions needed updating for requested behavior:
+  catalog counts now include Loading chat and MDX-comment notice; the existing
+  MDL demo-save test must expect that omission notice. Both focused suites
+  passed after updating those exact expectations; CI failure baseline unchanged.
