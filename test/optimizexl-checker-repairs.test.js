@@ -8,7 +8,7 @@ import { createStarterDocument } from '../src/starter-model.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { generateCompatibleMdx } from '../src/mdx-compatibility.js';
 import { runOptimizeStage, sanityProposals } from '../src/optimizexl.js';
-import { checkerRepairProposals, GEOSET_VERTEX_LIMIT } from '../src/optimizexl-checker-repairs.js';
+import { applyCheckerRepair, checkerRepairProposals, GEOSET_VERTEX_LIMIT } from '../src/optimizexl-checker-repairs.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
 vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js', import.meta.url), 'utf8'));
 
@@ -109,4 +109,21 @@ test('every checker repair is listed with a plain label and a default', () => {
   assert.ok(list.every(f => f.label && f.detail));
   assert.equal(list.find(f => f.rule === 'materialReference').choice, 'first');
   assert.ok(sanityProposals(m).some(f => f.id === 'checker:sequenceNames'));
+});
+
+test('removing faceless geosets keeps bone and glider references consistent', () => {
+  const m = cleanModel(), empty = structuredClone(geoset(m)), last = structuredClone(geoset(m));
+  empty.Faces = new Uint16Array(0);
+  m.Geosets.push(empty, last);
+  m.GeosetAnims = [0, 1, 2].map(GeosetId => ({ GeosetId, Flags: 0, Color: new Float32Array([1, 1, 1]), Alpha: 1 }));
+  Object.assign(bone(m), { GeosetId: 2, GeosetAnimId: 2 });
+  createNode(m, 'Bone').GeosetId = 7;
+  m.Gliders = [{ GeosetId: 1 }, { GeosetId: 2 }];
+  applyCheckerRepair(m, { rule: 'zeroFaces' });
+  assert.equal(m.Geosets.length, 2);
+  assert.deepEqual(m.GeosetAnims.map(a => a.GeosetId), [0, 1]);
+  assert.deepEqual([bone(m).GeosetId, bone(m).GeosetAnimId], [1, 1]);
+  assert.equal(m.Bones.at(-1).GeosetId, null, 'a reference that was already invalid is cleared, as before');
+  // Gliders were left stale before the shared removeGeosets; they now follow too.
+  assert.deepEqual(m.Gliders, [{ GeosetId: 1 }]);
 });

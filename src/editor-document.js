@@ -859,22 +859,50 @@ export function duplicateGeoset(model, index) {
   updateCounts(model);
   return newIndex;
 }
+const noReference = id => id == null || id === -1 || id === 0xffffffff;
+/** Remove geosets and repair every reference to them: geoset animations,
+ * Bone.GeosetId/GeosetAnimId, Gliders and the Info counts. `removed` is a Set
+ * of indices, or a Map old index → kept target index (a merge) or null (a
+ * delete). A merged geoset's references move to its target, and bones that
+ * used its geoset animation use the target's one in the same position.
+ * References that were already out of range are kept unless `clearInvalid`.
+ * Returns oldToNew: the new index of every old geoset, or null. */
+export function removeGeosets(model, removed, { clearInvalid = false } = {}) {
+  const targets = removed instanceof Map ? removed : new Map([...removed].map(id => [id, null]));
+  const count = model.Geosets.length, oldToNew = new Array(count).fill(null);
+  for (let i = 0, next = 0; i < count; i++) if (!targets.has(i)) oldToNew[i] = next++;
+  for (const [id, target] of targets) oldToNew[id] = target == null ? null : oldToNew[target];
+  if (!targets.size) return oldToNew;
+  const valid = id => Number.isInteger(id) && id >= 0 && id < count;
+  const old = model.GeosetAnims || [], owned = new Map(), animMap = new Map(), kept = [];
+  old.forEach((anim, i) => {
+    if (!owned.has(anim.GeosetId)) owned.set(anim.GeosetId, []);
+    owned.get(anim.GeosetId).push(i);
+    if (!targets.has(anim.GeosetId)) { animMap.set(i, kept.length); kept.push(anim); }
+  });
+  old.forEach((anim, i) => {
+    if (!targets.has(anim.GeosetId)) return;
+    const target = targets.get(anim.GeosetId), into = target == null ? [] : owned.get(target) || [];
+    const owner = into[owned.get(anim.GeosetId).indexOf(i)] ?? into[0];
+    animMap.set(i, owner == null ? null : animMap.get(owner));
+  });
+  for (const anim of kept) if (valid(anim.GeosetId)) anim.GeosetId = oldToNew[anim.GeosetId];
+  model.GeosetAnims = kept;
+  model.Geosets = model.Geosets.filter((_, i) => !targets.has(i));
+  for (const bone of model.Bones || []) {
+    if (valid(bone.GeosetId)) bone.GeosetId = oldToNew[bone.GeosetId];
+    else if (clearInvalid && !noReference(bone.GeosetId)) bone.GeosetId = null;
+    if (animMap.has(bone.GeosetAnimId)) bone.GeosetAnimId = animMap.get(bone.GeosetAnimId);
+    else if (clearInvalid && !noReference(bone.GeosetAnimId)) bone.GeosetAnimId = null;
+  }
+  if (model.Gliders) model.Gliders = model.Gliders.filter(glider => !valid(glider.GeosetId) || oldToNew[glider.GeosetId] != null)
+    .map(glider => valid(glider.GeosetId) ? { ...glider, GeosetId: oldToNew[glider.GeosetId] } : glider);
+  if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; }
+  return oldToNew;
+}
 export function deleteGeoset(model, index) {
   if (!model.Geosets?.[index]) throw new Error('Select an existing geoset to delete.');
-  const animMap = new Map(); const anims = [];
-  for (const [old, anim] of model.GeosetAnims.entries()) {
-    if (anim.GeosetId === index) { animMap.set(old, null); continue; }
-    animMap.set(old, anims.length);
-    if (anim.GeosetId > index) anim.GeosetId--;
-    anims.push(anim);
-  }
-  model.Geosets.splice(index, 1); model.GeosetAnims = anims;
-  model.Gliders = (model.Gliders || []).filter(g=>g.GeosetId!==index).map(g=>({...g,GeosetId:g.GeosetId>index?g.GeosetId-1:g.GeosetId}));
-  for (const bone of model.Bones || []) {
-    if (bone.GeosetId === index) bone.GeosetId = null;
-    else if (bone.GeosetId > index) bone.GeosetId--;
-    if (bone.GeosetAnimId != null && bone.GeosetAnimId !== -1) bone.GeosetAnimId = animMap.get(bone.GeosetAnimId) ?? null;
-  }
+  removeGeosets(model, new Set([index]));
   updateCounts(model);
 }
 

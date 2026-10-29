@@ -5,7 +5,7 @@ import { typedJson } from './value-key.js';
 // re-detects at apply time, so rules can run in any order and be repeated.
 // `exact` rules do not change how the model looks or plays in the game;
 // rules with `choices` need a decision and start on the listed default.
-import { createNode } from './editor-document.js';
+import { createNode, removeGeosets } from './editor-document.js';
 import { allNodes, sampleTrack, TRANSFORM_DEFAULTS } from './animation.js';
 import { changeNodeType, remapNodes } from './optimizexl-nodes.js';
 
@@ -61,23 +61,14 @@ function removeNodes(m, ids) { if (ids.size) remapNodes(m, ids); }
 function nodeName(node) { return node?.Name || `node ${node?.ObjectId}`; }
 function ownerName(m, path) { const owner = resolve(m, path.slice(0, -1)); return owner?.Name || path.slice(0, -1).join(' '); }
 
-// Geoset indices are referenced by geoset animations and bones; geoset
-// animation indices by bones. Keep both consistent when either list shrinks.
+// Geoset animation indices are referenced by bones; keep them consistent when
+// the list shrinks. Removing geosets uses the shared removeGeosets.
 function removeGeosetAnims(m, removed) {
   if (!removed.size) return;
   const map = new Map(); let next = 0;
   m.GeosetAnims.forEach((_, i) => { if (!removed.has(i)) map.set(i, next++); });
   m.GeosetAnims = m.GeosetAnims.filter((_, i) => !removed.has(i));
   for (const bone of m.Bones) if (!none(bone.GeosetAnimId)) bone.GeosetAnimId = map.has(bone.GeosetAnimId) ? map.get(bone.GeosetAnimId) : null;
-}
-function removeGeosets(m, removed) {
-  if (!removed.size) return;
-  const map = new Map(); let next = 0;
-  m.Geosets.forEach((_, i) => { if (!removed.has(i)) map.set(i, next++); });
-  m.Geosets = m.Geosets.filter((_, i) => !removed.has(i));
-  removeGeosetAnims(m, new Set(m.GeosetAnims.flatMap((a, i) => removed.has(a.GeosetId) ? [i] : [])));
-  for (const a of m.GeosetAnims) if (map.has(a.GeosetId)) a.GeosetId = map.get(a.GeosetId);
-  for (const bone of m.Bones) if (!none(bone.GeosetId)) bone.GeosetId = map.has(bone.GeosetId) ? map.get(bone.GeosetId) : null;
 }
 /** Bone object IDs actually reached through each vertex's matrix group. */
 function boneUsage(m) {
@@ -170,7 +161,7 @@ const RULES = [
   { id: 'zeroFaces', exact: true, label: n => `Remove ${plural(n, 'geoset')} with no faces`,
     detail: 'A geoset without triangles is never drawn in the game.',
     detect: m => m.Geosets.flatMap((g, i) => g.Faces.length ? [] : [`Geoset ${i + 1}`]),
-    apply: m => removeGeosets(m, new Set(m.Geosets.flatMap((g, i) => g.Faces.length ? [] : [i]))) },
+    apply: m => removeGeosets(m, new Set(m.Geosets.flatMap((g, i) => g.Faces.length ? [] : [i])), { clearInvalid: true }) },
   { id: 'vertexLimit', exact: true, label: n => `Split ${plural(n, 'oversized geoset')}`,
     detail: `The game limits a geoset to ${GEOSET_VERTEX_LIMIT - 1} vertices. Split it into smaller geosets with the same material and animation; it looks the same.`,
     detect: m => m.Geosets.flatMap((g, i) => g.Vertices.length / 3 >= GEOSET_VERTEX_LIMIT ? [`Geoset ${i + 1}`] : []),
