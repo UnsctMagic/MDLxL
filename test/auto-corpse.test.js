@@ -176,3 +176,18 @@ test('blood kinds: splat codes carry their race, sprays their first letter (nigh
   assert.equal(splatCode('U','L',2),'UBL2');assert.equal(parseSplat('DBS1').race,'D');
   assert.deepEqual(['HBF0','OBG0','UBGH','NBAR','DBPT','CBAL'].map(sprayKind),['H','O','U','E','D','X']);
 });
+
+test('corpse excludes tracked team glow, retaining its every-layer and additive rules', () => {
+  for (const mixed of [false, true]) {
+    const d = fixture(), model = d.model, glowId = model.Geosets.length;
+    const textureId = model.Textures.push({ Image: '', ReplaceableId: 2, Flags: 0 }) - 1;
+    const layer = { ...structuredClone(model.Materials[0].Layers[0]), FilterMode: 0, TextureID: track([[0, [textureId]], [1900, [textureId]]], 0) };
+    const materialId = model.Materials.push({ Layers: [layer, ...(mixed ? [structuredClone(model.Materials[0].Layers[0])] : [])] }) - 1;
+    model.Geosets.push({ ...structuredClone(model.Geosets[0]), MaterialID: materialId });
+    const before = structuredClone(model.Geosets[glowId]), materialBefore = structuredClone(model.Materials[materialId]);
+    const result = apply(d).corpses[0];
+    assert.equal(result.sourceBodyGeosets.includes(glowId), mixed, 'only all-glow/additive layers are excluded');
+    assert.deepEqual(model.Geosets[glowId], before);
+    if (!mixed) assert.deepEqual(model.Materials[materialId], materialBefore);
+  }
+});

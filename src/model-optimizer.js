@@ -1,3 +1,4 @@
+import { visitTextureReferences } from './texture-references.js';
 import { MODEL_COMMENTS_KEY } from './model-comments.js';
 import { generateCompatibleMdx as generateMDX, TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { EditorDocument, openDocument, validateModel } from './editor-document.js';
@@ -104,12 +105,6 @@ function textureRefs(model) {
   for (const emitter of model.ParticleEmitters2) refs.push([emitter, 'TextureID']);
   return refs;
 }
-function visitIds(value, visit) {
-  if (typeof value === 'number' || value == null) return visit(value);
-  if (!Array.isArray(value.Keys)) throw Error('Unsupported texture reference data.');
-  for (const key of value.Keys) for (const field of ['Vector', 'InTan', 'OutTan']) if (key[field]) for (let i = 0; i < key[field].length; i++) key[field][i] = visit(key[field][i]);
-  return value;
-}
 export function resources(model, counts, skipped) {
   const usedMaterials = new Set([...model.Geosets, ...model.RibbonEmitters].map(consumer => consumer.MaterialID).filter(id => !sentinel(id)));
   const materialMap = new Map(); model.Materials = model.Materials.filter((material, i) => { if (!usedMaterials.has(i)) return false; materialMap.set(i, materialMap.size); return true; });
@@ -120,7 +115,11 @@ export function resources(model, counts, skipped) {
     skipped.add('Texture cleanup skipped: interpolated texture-ID tracks cannot be safely reindexed.'); return;
   }
   const live = new Set();
-  for (const [owner, field] of refs) visitIds(owner[field], id => { if (!sentinel(id)) { if (!Number.isInteger(id) || !model.Textures[id]) throw Error(`Missing animated/effect texture ${id}.`); live.add(id); } return id; });
+  for (const [owner, field] of refs) {
+    const value = owner[field];
+    if (value != null && typeof value !== 'number' && !Array.isArray(value.Keys)) throw Error('Unsupported texture reference data.');
+  }
+  visitTextureReferences(model, id => { if (!sentinel(id)) { if (!Number.isInteger(id) || !model.Textures[id]) throw Error(`Missing animated/effect texture ${id}.`); live.add(id); } });
   const kept = [], byRecord = new Map(), textureMap = new Map();
   for (const [id, texture] of model.Textures.entries()) {
     if (!live.has(id)) continue;
@@ -129,7 +128,7 @@ export function resources(model, counts, skipped) {
     textureMap.set(id, byRecord.get(key));
   }
   counts.textures += model.Textures.length - kept.length; model.Textures = kept;
-  for (const [owner, field] of refs) owner[field] = visitIds(owner[field], id => sentinel(id) ? id : textureMap.get(id));
+  visitTextureReferences(model, (id, set) => set(sentinel(id) ? id : textureMap.get(id)));
 }
 
 /** Independent preservation predicate: this deliberately does not consult the

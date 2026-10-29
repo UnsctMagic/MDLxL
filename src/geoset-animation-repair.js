@@ -1,3 +1,4 @@
+import { isTeamGlowLayer } from './texture-references.js';
 import { typedJson } from './value-key.js';
 import { directlyBoundBoneIds } from './binding-inspection.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
@@ -45,7 +46,7 @@ export function classifyVisibilityGeoset(model, geosetId) {
     const texture = model.Textures?.[layer.TextureID];
     if (!texture) throw Error(`Geoset ${geosetId + 1}: texture is missing. Use duplicate-only repair.`);
     if (gamePathKey(texture.Image) === 'textures\\gutz.blp') return 'guts';
-    if (texture.ReplaceableId === 2) return [3, 4].includes(layer.FilterMode) ? 'additive-glow' : 'team-glow';
+    if (isTeamGlowLayer(model, layer)) return [3, 4].includes(layer.FilterMode) ? 'additive-glow' : 'team-glow';
     return 'body';
   });
   const family = new Set(types.map(type => type.includes('glow') ? 'team-glow' : type));

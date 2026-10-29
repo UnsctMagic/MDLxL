@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPaintProject,addPaintProjectTarget,readStoredZip} from '../src/paint-project.js';
 import {createPaintRaster} from '../src/paint-raster.js';
-import {assignPaintMaterial,createPaintMaterial,enablePaintMaterials,markPaintMaterialEdited,renamePaintMaterial,validatePaintAssignments} from '../src/paint-materials.js';
+import {paintableGeosets,assignPaintMaterial,createPaintMaterial,enablePaintMaterials,markPaintMaterialEdited,renamePaintMaterial,validatePaintAssignments} from '../src/paint-materials.js';
 import {enumeratePaintTargets} from '../src/paint-targets.js';
 import {paintProjectModel} from '../src/paint-view.js';
 import {buildPaintExportArtifact} from '../src/paint-export.js';
@@ -50,4 +50,18 @@ test('current-skin migration chooses the first image layer per geoset rather tha
   assert.equal(project.targets[0].textureId,0);enablePaintMaterials(project,model);
   const first=project.targets.find(t=>t.sourcePath==='Textures\\Fixture.blp'),second=project.targets.find(t=>t.sourcePath==='Base2.blp');
   assert.deepEqual(first.geosetIndices,[0]);assert.deepEqual(second.geosetIndices,[1]);validatePaintAssignments(project,model);
+});
+
+test('paint eligibility resolves tracked team glow and team colour with its existing aggregation', () => {
+  const model = paintFixtureModel([triangleGeoset(), triangleGeoset(), triangleGeoset()]);
+  model.Textures = [{ Image: '', ReplaceableId: 2 }, { Image: '', ReplaceableId: 1 }, { Image: 'Body.blp', ReplaceableId: 0 }];
+  const track = id => ({ LineType: 0, Keys: [{ Frame: 0, Vector: Int32Array.of(id) }] });
+  model.Materials = [
+    { Layers: [{ TextureID: track(0), FilterMode: 0 }] },
+    { Layers: [{ TextureID: track(0), FilterMode: 0 }, { TextureID: 2, FilterMode: 0 }] },
+    { Layers: [{ TextureID: track(1), FilterMode: 0 }] },
+  ];
+  model.Geosets.forEach((g, i) => { g.MaterialID = i; });
+  assert.deepEqual(paintableGeosets(model, { requireUV: false }), [1, 2]);
+  assert.ok(paintableGeosets(model).includes(2), 'tracked solid team colour can receive basecoat');
 });

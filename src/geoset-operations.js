@@ -1,9 +1,8 @@
-import { TEXTURE_SLOTS } from './mdx-compatibility.js';
+import { visitTextureReferences } from './texture-references.js';
 import { canonicalValue, stableKey } from './value-key.js';
 import { appendGeosetGeometry, deleteGeoset, removeGeosets } from './editor-document.js';
 import { gatherStreams, updateBounds } from './mesh-tools.js';
 
-const textureSlots = TEXTURE_SLOTS;
 const geometryFields = new Set(['Vertices', 'Normals', 'Faces', 'TVertices', 'VertexGroup', 'Groups', 'TotalGroupsCount', 'Tangents', 'SkinWeights', 'PrimitiveTypes', 'PrimitiveCounts', 'MinimumExtent', 'MaximumExtent', 'BoundsRadius', 'Anims', 'MaterialID', 'Name']);
 
 const signature = canonicalValue;
@@ -14,17 +13,8 @@ function materialKey(model, materialId) {
   if (!material) return null;
   const resolved = structuredClone(material);
   const texture = id => id == null || id === -1 ? id : model.Textures?.[id] ? { texture: signature(model.Textures[id]) } : { missingTexture: id };
-  const resolveSlot = value => {
-    if (typeof value === 'number') return texture(value);
-    if (!value?.Keys) return value;
-    for (const frame of value.Keys) for (const field of ['Vector', 'InTan', 'OutTan']) if (frame[field]) frame[field] = Array.from(frame[field], texture);
-    return value;
-  };
+  visitTextureReferences({ Materials: [resolved] }, (id, set) => set(texture(id)), { arrayType: Array });
   for (const layer of resolved.Layers || []) {
-    for (const slot of textureSlots) {
-      if (layer[slot] !== undefined) layer[slot] = resolveSlot(layer[slot]);
-      if (layer._MdxDefaults?.[slot] !== undefined) layer._MdxDefaults[slot] = texture(layer._MdxDefaults[slot]);
-    }
     if (layer.TVertexAnimId != null && layer.TVertexAnimId !== -1) layer.TVertexAnimId = { animation: signature(model.TextureAnims?.[layer.TVertexAnimId]) };
   }
   return keyOf(resolved);
