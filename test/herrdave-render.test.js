@@ -31,7 +31,8 @@ test('HD03/05 palette enters native encoded exactly once and ambient includes La
 });
 test('HD06 native pixel ratio remains sharp independently from filtered texture quality',()=>{
   for(const device of [1,1.25,1.5,2])assert.equal(viewportPixelRatio({antialias:false,pixelRatio:1},device),device);
-  assert.equal(viewportPixelRatio({antialias:true,pixelRatio:1},2),1);
+  // Smooth adds multisampling at the SAME native resolution; Classic keeps HD06.
+  for(const device of [1,1.25,1.5,2,3])assert.equal(viewportPixelRatio({antialias:true,pixelRatio:1},device),device);
 });
 test('unchecked Vertices workplane drags in the camera plane without a fixed world-axis lock',()=>{
   const c=camera();c.position.set(100,150,250);c.lookAt(0,0,0);c.updateMatrixWorld();const pivot=new Vector3(1,2,3),before=pivot.clone();

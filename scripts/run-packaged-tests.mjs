@@ -38,6 +38,7 @@ const VARIANTS = {
 const SPECIAL = {
   learn: { env: { LEARN_NO_SHOTS: '1' } },
   'auto-corpse': { env: { MDLXL_CORPSE_FIXTURE: footman }, needs: [footman] },
+  'smooth-edges': { needs: [footman] },
   attachemator: { env: { MDLXL_ATTACHEMATOR_MODEL: footman }, needs: [footman] },
   'anim-xl-filmstrip': { argv: [footman], needs: [footman] },
   'event-focus': { env: { MDLXL_TEST_MODEL: footman }, needs: [footman] },

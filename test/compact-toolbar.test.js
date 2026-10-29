@@ -43,7 +43,7 @@ test('quick display follows editor buttons; WC3 dock is above the full-width tab
   assert.equal((bar.match(/<QuickDisplay/g)||[]).length,1);
   assert.doesNotMatch(app,/<QuickDisplay/);
   assert.doesNotMatch(app+bar,/className="module-hint"/);
-  assert.match(toolbar,/<div className="toolbar-model"><LanguageSwitch [^\n]+\{teamPicker\}<\/div>/);
+  assert.match(toolbar,/<div className="toolbar-model"><LanguageSwitch [^\n]+\{teamPicker\}<Tool className="smooth-edges-toggle"[^\n]+<\/Tool><\/div>/);
   assert.match(toolbar,/\{visUI && inputStrength\}/);
   assert.match(app,/\{!visUI && inputStrength\}<\/div>/);
   assert.doesNotMatch(app,/<LanguageSwitch/);

@@ -1578,7 +1578,7 @@
   "Appearance": "Внешний вид",
   "Camera controls": "Управление камерой",
   "Choose camera navigation buttons. Left mouse continues to use the active camera or editing tool.": "Выберите кнопки навигации камеры. Левая кнопка использует активный инструмент камеры или редактирования.",
-  "Classic MDLVis": "Классическое управление MDLVis",
+  "Classic MDLVis": "Классический MDLVis",
   "Orbit navigation": "Орбитальная навигация",
   "Right mouse": "Правая кнопка мыши",
   "Middle mouse": "Средняя кнопка мыши",
@@ -6968,5 +6968,11 @@
   "A fixed 612 × 490 GIF, the usual main picture size on model pages": "GIF фиксированного размера 612 × 490 — обычный размер главной картинки на страницах моделей",
   "Frames per second. Fewer frames make smaller files.": "Кадров в секунду. Меньше кадров — меньше файл.",
   "Up to {0} px · {1} FPS · under {2} MB": "До {0} пикс. · {1} кадр/с · меньше {2} МБ",
-  "612 × 490 px · {0} FPS": "612 × 490 пикс. · {0} кадр/с"
+  "612 × 490 px · {0} FPS": "612 × 490 пикс. · {0} кадр/с",
+  "How should your models look?": "Как должны выглядеть ваши модели?",
+  "Clean, soft edges. Bones and lines stay sharp.": "Чистые, мягкие края. Кости и линии остаются чёткими.",
+  "Crisp pixel edges, like the old MDLVis.": "Чёткие пиксельные края, как в старом MDLVis.",
+  "You can change this any time in Settings → Graphics.": "Это можно изменить в любое время в Настройки → Графика.",
+  "Smooth edges: switch between Smooth and Classic MDLVis. Bones and lines stay sharp.": "Сглаживание: переключение между сглаживанием и классическим MDLVis. Кости и линии остаются чёткими.",
+  "Smooth model edges. Bones, wireframe and editor lines stay sharp. Turn off for Classic MDLVis pixel edges.": "Сглаживание краёв модели. Кости, каркас и линии редактора остаются чёткими. Отключите для пиксельных краёв классического MDLVis."
 }

@@ -43,7 +43,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   uvPreviewDisplay: DEFAULT_UV_PREVIEW_DISPLAY,
   uvGrid: DEFAULT_UV_GRID,
   uvViewTileLimit: DEFAULT_UV_VIEW_TILE_LIMIT,
-  language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, updateOfferAnswered: false, disableSounds: false, showPressedKeys: false, showHotkeys: false, learn: DEFAULT_LEARN, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
+  language: 'en', fileIcon: 'page', fileIconMdl: 'page', checkUpdatesOnStartup: false, updateOfferAnswered: false, modelLookAnswered: false, disableSounds: false, showPressedKeys: false, showHotkeys: false, learn: DEFAULT_LEARN, capture: DEFAULT_CAPTURE, emitterMarker: 'pentagram',
   scrollSensitivity: 2.5,
   wheelMode: 'rotate',
   pointerSensitivity: 1,
@@ -148,8 +148,7 @@ export function migrateFollowupPreferences(value = {}) {
   if (visuals.occludedOpacity == null || visuals.occludedOpacity === 0.35) visuals.occludedOpacity = 1;
   return {...input, rendererRevision:3, visuals, grid,
     ...(input.viewportPreset === 'mdlvis-vanilla' ? {viewportAppearance: BUILT_IN_VIEWPORT_PRESETS['mdlvis-vanilla'].appearance} : {}),
-    ...(input.rendererRevision !== 1 && input.panelWidth === 178 ? {panelWidth:164} : {}),
-    ...(input.rendererRevision !== 1 ? {graphics:{...record(input.graphics),antialias:false}} : {})};
+    ...(input.rendererRevision !== 1 && input.panelWidth === 178 ? {panelWidth:164} : {})};
 }
 /** One-way load migrations for saved preferences, including custom hotkeys saved under pre-rename IDs. */
 /** Rotation revision 2 makes "Along the ring" the Rotate default. Saved
@@ -175,6 +174,8 @@ function normalizeLightDarkReturn(input) {
   const normalized = normalizePreferences({ ...input, ...Object.fromEntries(LIGHT_DARK_KEYS.filter(key => own(saved, key)).map(key => [key, saved[key]])), lightDarkReturn: null });
   return Object.fromEntries(LIGHT_DARK_KEYS.map(key => [key, normalized[key]]));
 }
+// Only an empty first profile needs the model-look question. Any older saved
+// preference record opts out; an explicit false survives normal saves until answered.
 export function normalizePreferences(value = {}) {
   const input = migratePreferences(value), graphic = record(input.graphics), defaults = DEFAULT_PREFERENCES.graphics;
   const sensitivity = Number(input.scrollSensitivity);
@@ -194,7 +195,7 @@ export function normalizePreferences(value = {}) {
     uvPreviewDisplay: normalizeUVPreviewDisplay(input.uvPreviewDisplay),
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
-    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), updateOfferAnswered: boolean(input.updateOfferAnswered, false), disableSounds: boolean(input.disableSounds, false), showPressedKeys: boolean(input.showPressedKeys, false), showHotkeys: boolean(input.showHotkeys, false), learn: normalizeLearn(input.learn), capture: normalizeCapture(input.capture),
+    language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), updateOfferAnswered: boolean(input.updateOfferAnswered, false), modelLookAnswered: boolean(input.modelLookAnswered, Object.keys(record(value)).length > 0), disableSounds: boolean(input.disableSounds, false), showPressedKeys: boolean(input.showPressedKeys, false), showHotkeys: boolean(input.showHotkeys, false), learn: normalizeLearn(input.learn), capture: normalizeCapture(input.capture),
     scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(PREFERENCE_LIMITS.scrollSensitivity.max, Math.max(PREFERENCE_LIMITS.scrollSensitivity.min, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
     wheelMode: PREFERENCE_LIMITS.wheelModes.includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
     pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(PREFERENCE_LIMITS.pointerSensitivity.max, Math.max(PREFERENCE_LIMITS.pointerSensitivity.min, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,

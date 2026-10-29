@@ -1,3 +1,4 @@
+import { createModelSmoothing, MODEL_LAYER } from './model-smoothing.js';
 export { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
@@ -70,6 +71,7 @@ export default function Viewport(inputProps) {
     renderer.domElement.style.cssText = 'display:block;position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;outline:none';
     renderer.domElement.tabIndex = 0;
     host.current.appendChild(renderer.domElement);
+    const modelSmoothing = createModelSmoothing(renderer);
     const scene = new THREE.Scene(), modelGroup = new THREE.Group();
     scene.add(modelGroup);
     // The classic single view uses the canvas; Quad View adds its own input panes.
@@ -77,7 +79,7 @@ export default function Viewport(inputProps) {
     let { perspective, ortho, controls } = createEditorCameras(surface, { target: [0, 0, 45] });
     perspective.position.set(180, -260, 170); controls.update();
     let camera = perspective;
-    const { ambient, key } = createEditorLights(scene);
+    const { ambient, key } = createEditorLights(scene); ambient.layers.enable(MODEL_LAYER); key.layers.enable(MODEL_LAYER);
     let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, magnetButton, rotating = false, altHover = false;
     let grid = createViewportGrid(); scene.add(grid);
     const rigMarkers = createRigMarkersGL(renderer.getContext()); renderer.resetState();
@@ -87,7 +89,7 @@ export default function Viewport(inputProps) {
     const sketch = createViewportSketch({ parent: scene, entries: () => state.entries, invalidate: () => invalidate() });
     const backgroundCanvas = document.createElement('canvas'), backgroundTexture = new THREE.CanvasTexture(backgroundCanvas);
     backgroundTexture.colorSpace = THREE.SRGBColorSpace;
-    const state = { renderer, scene, modelGroup, perspective, ortho, camera, controls, grid, entries: [], nodes: [], textures: new Map(), markerTextures: new Map(), checker: makeChecker(), background: { canvas: backgroundCanvas, texture: backgroundTexture, data: null, image: null, status: 'idle', drawKey: '' }, frame: 0, lastExternalTime: undefined, sequenceIndex: -1, wasPlaying: false, drag: null, anchorCandidate: null, dirty: true, radius: 100, center: new THREE.Vector3(0, 0, 40), loadedSignature: null, selectionKey: '', hoveredGeoset: null, disposed: false };
+    const state = { renderer, modelSmoothing, scene, modelGroup, perspective, ortho, camera, controls, grid, entries: [], nodes: [], textures: new Map(), markerTextures: new Map(), checker: makeChecker(), background: { canvas: backgroundCanvas, texture: backgroundTexture, data: null, image: null, status: 'idle', drawKey: '' }, frame: 0, lastExternalTime: undefined, sequenceIndex: -1, wasPlaying: false, drag: null, anchorCandidate: null, dirty: true, radius: 100, center: new THREE.Vector3(0, 0, 40), loadedSignature: null, selectionKey: '', hoveredGeoset: null, disposed: false };
     runtime.current = state; state.sketch = sketch;
     state.teamGlow = makeTeamGlow();
     state.globalTime = 0;
@@ -282,7 +284,7 @@ export default function Viewport(inputProps) {
       bindPane(activePane); resize(); activatePane(activePane);
     };
 
-    const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
+    const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2(); raycaster.layers.enable(MODEL_LAYER);
     let down = null, editClicks = 0, partHover = null;
     function point(event) { const rect = surface.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top, width: rect.width, height: rect.height, shift: !!event.shiftKey }; }
     function clearHoveredGeoset() {
@@ -788,6 +790,8 @@ export default function Viewport(inputProps) {
         for (let layerIndex = 0; layerIndex < entry.meshes.length; layerIndex++) {
           const mesh = entry.meshes[layerIndex], material = mesh.material, layer = entry.layers[layerIndex];
           applyPreviewMaterialLighting(material, lighting);
+          const coverage = layer.FilterMode === 1 && renderGraphics.antialias;
+          if (material.alphaToCoverage !== coverage) { material.alphaToCoverage = coverage; material.needsUpdate = true; }
           mesh.visible = !pureWireframe && (p.mode === 'textured' || layerIndex === 0);
           const textureIndex = Math.round(sampleTrack(layer.TextureID, state.frame, { ...animOptions, fallback: 0 }));
           const textureInfo = p.model?.Textures?.[textureIndex];
@@ -836,7 +840,7 @@ export default function Viewport(inputProps) {
       const light = cameraLeftLight(camera, controls.target, state.radius);
       key.position.copy(light.position); key.target.position.copy(controls.target);
       ambient.position.copy(light.direction);
-      try { renderer.render(scene, camera);
+      try { modelSmoothing.render(scene, camera, renderGraphics.antialias, [grid, platform]);
         if (p.editHandles) {
           if (!editCanvas) { editCanvas = document.createElement('canvas'); editCanvas.dataset.editHandles = ''; editCanvas.setAttribute('aria-label', 'Shaping handles'); editCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; overlayHost.appendChild(editCanvas); }
           drawEditHandles(editCanvas, p.editHandles, camera, surface.clientWidth, surface.clientHeight, renderer.getPixelRatio());
@@ -952,9 +956,9 @@ export default function Viewport(inputProps) {
       unwatchContext();
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
       window.removeEventListener('mdlxl-cancel-gesture', cancelCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey);
-      cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); magnetButton?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
+      cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); magnetButton?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); modelSmoothing.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };
-  }, [graphics.antialias]);
+  }, []);
 
   useEffect(() => {
     const state = runtime.current; if (!state) return;
@@ -977,12 +981,11 @@ export default function Viewport(inputProps) {
         layerGeometry.setAttribute('uv', new THREE.BufferAttribute(uv?.length ? new Float32Array(uv) : new Float32Array(geoset.Vertices.length / 3 * 2), 2));
         const material = layerMaterial(layer, shaded && graphics.lighting); material.polygonOffset = false;
         material.flatShading = !!props.modelingOverlay;
-        // Match the animation renderer: coverage requires a multisampled canvas.
-        // On a single-sample canvas it leaks fractional alpha as white cutout edges.
-        material.alphaToCoverage = layer.FilterMode === 1 && !!state.renderer.getContext().getContextAttributes()?.antialias;
-        const mesh = new THREE.Mesh(layerGeometry, material); mesh.userData.geosetIndex = index; mesh.userData.baseUV = new Float32Array(layerGeometry.attributes.uv.array); mesh.renderOrder = index * 16 + layerIndex; mesh.frustumCulled = false; group.add(mesh); meshes.push(mesh);
+        // Coverage is enabled only while rendering into the multisampled model target.
+        material.alphaToCoverage = layer.FilterMode === 1 && graphics.antialias;
+        const mesh = new THREE.Mesh(layerGeometry, material); mesh.layers.set(MODEL_LAYER); mesh.userData.geosetIndex = index; mesh.userData.baseUV = new Float32Array(layerGeometry.attributes.uv.array); mesh.renderOrder = index * 16 + layerIndex; mesh.frustumCulled = false; group.add(mesh); meshes.push(mesh);
       }
-      const depth = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })); depth.renderOrder = -1; depth.frustumCulled = false; group.add(depth);
+      const depth = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })); depth.layers.set(MODEL_LAYER); depth.renderOrder = -1; depth.frustumCulled = false; group.add(depth);
       const edgeIndices = props.modelingOverlay?.[index]?.edgeIndices || uniqueEdges(geoset.Faces), wireGeometry = new LineSegmentsGeometry();
       const wire = new LineSegments2(wireGeometry, new LineMaterial({ color: 0xffffff, linewidth: 1, transparent: true, opacity: 1, depthTest: true, depthWrite: false })); wire.renderOrder = 10000; wire.frustumCulled = false; wire.userData.overlay = 'wires'; group.add(wire);
       const hiddenWire = new LineSegments2(wireGeometry, new LineMaterial({ color: 0xffffff, linewidth: 1, transparent: true, opacity: .35, depthTest: true, depthFunc: THREE.GreaterDepth, depthWrite: false })); hiddenWire.renderOrder = 9999; hiddenWire.frustumCulled = false; group.add(hiddenWire);
@@ -1015,7 +1018,7 @@ export default function Viewport(inputProps) {
       const saved = cameraMemory.current || latest.current.cameraHandoff?.current;
       if (saved && (latest.current.quadView || saved.view === latest.current.view || latest.current.cameraHandoff?.current === saved)) { if (latest.current.quadView) state.setView(saved.view); state.restoreCamera(saved); if (saved.center) state.center.copy(saved.center); if (saved.radius) state.radius=saved.radius; state.resize(); state.controls.update(); }
     }
-  }, [model, revision, shaded, graphics.lighting, graphics.antialias, !!props.modelingOverlay]);
+  }, [model, revision, shaded, graphics.lighting, !!props.modelingOverlay]);
 
   useEffect(() => {
     const state = runtime.current; if (!state) return;
@@ -1047,13 +1050,13 @@ export default function Viewport(inputProps) {
     });
     Promise.all(jobs).then(() => { if (!cancelled && failures.length) setTextureMessage(failures.join('; ')); });
     return () => { cancelled = true; };
-  }, [textureSignature, textureAssets, texturesNeeded, graphics.textures, graphics.antialias]);
+  }, [textureSignature, textureAssets, texturesNeeded, graphics.textures]);
 
   useEffect(() => { props.onCaptureReady?.(runtime.current?.captureApi || null); }, [props.onCaptureReady]);
-  useEffect(() => { runtime.current?.sketch?.configure({ enabled: props.sketchDocument != null, documentId: props.sketchDocument }); }, [props.sketchDocument, graphics.antialias]);
+  useEffect(() => { runtime.current?.sketch?.configure({ enabled: props.sketchDocument != null, documentId: props.sketchDocument }); }, [props.sketchDocument]);
   useEffect(() => { if (!props.normalizer) runtime.current?.cancelNormalizer?.(); }, [!!props.normalizer]);
-  useEffect(() => { runtime.current?.setQuad(props.quadView); }, [props.quadView, graphics.antialias]);
-  useEffect(() => { if(!props.quadView && runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view, props.quadView, graphics.antialias]);
+  useEffect(() => { runtime.current?.setQuad(props.quadView); }, [props.quadView]);
+  useEffect(() => { if(!props.quadView && runtime.current && runtime.current.appliedView !== view) runtime.current.setView(view); }, [view, props.quadView]);
   useEffect(() => { if (props.quadView && props.viewRequest) runtime.current?.setView(props.viewRequest.view); }, [props.viewRequest]);
   useEffect(() => { if (props.cameraAnglesRequest) runtime.current?.setCameraAngles(props.cameraAnglesRequest); }, [props.cameraAnglesRequest]);
   useEffect(() => { runtime.current?.refreshCursor(); }, [cameraMode, transformMode, props.rotationNormals]);
