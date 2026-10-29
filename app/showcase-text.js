@@ -1,4 +1,5 @@
 import { styledTextRuns } from './showcase-rich-text.js';
+import { customFontFamily } from './showcase-custom-fonts.js';
 export const SHOWCASE_FONTS = [
   {id:'cinzeldecorative',name:'Cinzel Decorative',family:'Showcase Cinzel'},
   {id:'medievalsharp',name:'MedievalSharp',family:'Showcase Medieval'},
@@ -22,7 +23,7 @@ export const TEXT_EFFECTS = [
   ['frost','Frost'],['arcane','Arcane'],['lightning','Lightning'],
   ['prism','Prism'],['wave','Wave'],['shimmer','Shimmer'],
 ];
-export const textFont = layer => SHOWCASE_FONTS.find(font=>font.id===layer.font)?.family || SHOWCASE_FONTS[0].family;
+export const textFont = layer => SHOWCASE_FONTS.find(font=>font.id===layer.font)?.family || customFontFamily(layer.font) || SHOWCASE_FONTS[0].family;
 export const textFonts = layer => [...new Set(styledTextRuns(layer).map(run=>(run.italic?'italic ':'')+(run.bold?'700 ':'400 ')+'48px "'+textFont(run)+'"'))];
 const clamp = (value,min=0,max=1) => Math.max(min,Math.min(max,value));
 const smooth = value => {const t=clamp(value);return t*t*(3-2*t);};

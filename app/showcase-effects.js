@@ -3,6 +3,10 @@ import {parseEventName} from './event-preview-data.js';
 
 const value = v => typeof v === 'number' ? v : Number(v?.[0] || 0);
 const roundUp = seconds => Math.max(.02, Math.ceil(seconds * 100 - 1e-8) / 100);
+// Death tails (corpse decals, lingering particles) can run for minutes. A death
+// take stops after this many seconds unless its motion alone is longer.
+export const SHOWCASE_DEATH_SECONDS = 10;
+const isDeath = sequence => /\bdeath\b/i.test(String(sequence?.Name || '').replace(/[^a-z]+/gi, ' '));
 const globalPeriod = (model, track) => model.GlobalSequences?.[track?.GlobalSeqId] || 0;
 const localKeys = (track, sequence) => (track?.Keys || []).filter(key => key.Frame >= sequence.Interval[0] && key.Frame <= sequence.Interval[1]);
 
@@ -88,7 +92,8 @@ export function loopEffectTiming(model, index, loops = 1, speed = 1, globalStart
   }
   // A complete action includes its own tail, BEFORE the next action starts.
   // Continuous loops keep the exact authored period (no per-loop rounding/holds).
-  const cycleSeconds = finishEffects ? roundUp((finish + (finish > motion + 1e-6 ? 1000 / 30 : 0)) / 1000) : motion / 1000;
+  let cycleSeconds = finishEffects ? roundUp((finish + (finish > motion + 1e-6 ? 1000 / 30 : 0)) / 1000) : motion / 1000;
+  if (finishEffects && isDeath(sequence)) cycleSeconds = Math.min(cycleSeconds, Math.max(SHOWCASE_DEATH_SECONDS, roundUp(motion / 1000)));
   return {seconds: roundUp(cycleSeconds * count), durationLoops: count, motionSeconds: motion * count / 1000,
     cycleSeconds, cycleMotionSeconds: motion / 1000, finishEffects, emissionEnds};
 }
@@ -97,8 +102,9 @@ export function timeShowcasePlaylist(model, rows, definitions) {
   return rows.map(row => {
     if (!row.useDuration) return row;
     const timing = loopEffectTiming(model, row.sequence, row.durationLoops ?? 1, row.speed > 0 ? row.speed : 1, 0, definitions, row.disabledEmitters);
-    const extraTime = Math.max(0, Number(row.extraTime) || 0);
+    // Negative extra time cuts the end of this animation.
+    const extraTime = Number(row.extraTime) || 0;
     const {cycleGlobalEmitters, ...localRow} = row;
-    return {...localRow, ...timing, extraTime, seconds: Math.round((timing.seconds + extraTime) * 100) / 100};
+    return {...localRow, ...timing, extraTime, seconds: Math.max(.02, Math.round((timing.seconds + extraTime) * 100) / 100)};
   });
 }

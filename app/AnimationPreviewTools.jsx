@@ -5,7 +5,7 @@ import { recordingTimeline } from './showcase-timeline.js';
 import { showcaseExportPreferences } from './showcase-export.js';
 import { queueRecording, subscribeRecordings, recordingQueueSnapshot, retryRecordingSaves } from './preview-recording-queue.js';
 
-export default function AnimationPreviewTools({ active, sessionId, captureAPI, modelName, loop, length, crop, disabled, onStatus, onBusy, preferences, locked=false,recordingList=[],prepareTake,onTakeComplete,beforeBatch,afterBatch,exportTarget=null,onExportTarget,cropAspect,mainPicture=false }) {
+export default function AnimationPreviewTools({ active, sessionId, captureAPI, modelName, loop, length, crop, disabled, onStatus, onBusy, preferences, locked=false,recordingList=[],prepareTake,onTakeComplete,beforeBatch,afterBatch,exportTarget=null,cropAspect,mainPicture=false }) {
   const [state,setState] = useState('idle'), [progress,setProgress] = useState(''), [error,setError] = useState(''), [batchLabel,setBatchLabel]=useState('');
   const latest = useRef(); latest.current = {onStatus,onBusy,prepareTake,onTakeComplete,beforeBatch,afterBatch};
   const running = useRef(null), retained = useRef(null), mounted = useRef(true);
@@ -161,8 +161,6 @@ export default function AnimationPreviewTools({ active, sessionId, captureAPI, m
   const stoppable=['starting','recording','finishing'].includes(state);
   return <div className="showcase-capture">
     <button className="showcase-record" disabled={!stoppable&&(state!=='idle'||!captureAPI||locked||(disabled&&!recordingList.length))} onClick={stoppable?stop:start}>{stoppable?'STOP':'RECORD'}</button>
-    <div className="showcase-export-target" role="group" aria-label="GIF destination"><button disabled={state!=='idle'||locked} aria-pressed={exportTarget==='low-size'} onClick={()=>onExportTarget?.('low-size')}>Low Size</button></div>
-    <small className="showcase-export-note">{mainPicture?'Low Size Main Picture · 612 × 490 · local GIF':exportTarget==='low-size'?'Low Size · 30 FPS':'864 px max · ≤20 MiB · local GIF'}</small>
     {state!=='idle'&&<div className="showcase-capture-status" role="status">{state==='retry'?'Save needs retry':state==='saving'?'Saving…':<>{translate(batchLabel)}{translate(progress)}</>}</div>}
     {background.pending>0&&<div className="showcase-capture-status" role="status">Making GIFs… {background.pending}</div>}
     {state==='retry'&&<button onClick={retry}>Retry Save</button>}

@@ -20,7 +20,7 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'C:/Users/PC/.cac
   clipboard=await app.evaluate(({clipboard})=>clipboard.readText());const page=await app.firstWindow();page.setDefaultTimeout(20000);
   await page.getByRole('button',{name:'Showcase',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.showcase-record')&&!document.querySelector('.showcase-record').disabled);
   const lowSize=page.getByRole('button',{name:'Low Size',exact:true}),controls=page.getByRole('complementary',{name:'Showcase controls'});
-  assert.equal(await lowSize.getAttribute('aria-pressed'),'false');assert.equal(await page.locator('.showcase-export-target button').count(),1);
+  assert.equal(await lowSize.getAttribute('aria-pressed'),'false');assert.deepEqual(await page.locator('.showcase-format button').allInnerTexts(),['Standard','Low Size','Main Picture']);
   assert.equal(await page.getByLabel('Recording FPS').evaluate(el=>el.tagName),'SELECT');
   await lowSize.click();await lowSize.click();assert.equal(await lowSize.getAttribute('aria-pressed'),'false');
   const short=async()=>{await page.getByRole('list',{name:'Animation sequence'}).locator('li').first().dblclick();await page.getByRole('dialog').getByLabel('Animation Extra Time').fill('0');await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();};

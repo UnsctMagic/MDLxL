@@ -34,3 +34,17 @@ test('spawned event effects keep aging after the final animation pose',()=>{
  const active=activeEventInstances(m,definitions,{sequenceIndex:0,frame:1000,globalTime:1300,playback:{clipTime:1300,motionSeconds:1,durationLoops:1,speed:1,segment:0}});assert.equal(active[0].ageMs,400);
  assert.equal(activeEventInstances(m,definitions,{sequenceIndex:0,frame:1000,globalTime:1600,playback:{clipTime:1600,motionSeconds:1,durationLoops:1,speed:1,segment:0}}).length,0);
 });
+
+test('death takes stop after ten seconds while other action tails keep their full length',()=>{
+ const m={Sequences:[{Name:'Death',Interval:[0,2000]},{Name:'Death Alternate',Interval:[3000,5000]},{Name:'Attack',Interval:[6000,8000]},{Name:'Death',Interval:[9000,24000]}],ParticleEmitters2:[{ObjectId:1,LifeSpan:120,Visibility:1,EmissionRate:20}]};
+ assert.equal(loopEffectTiming(m,0).seconds,10);assert.equal(loopEffectTiming(m,1).seconds,10);
+ assert.ok(loopEffectTiming(m,2).seconds>120,'an Attack tail is not capped');
+ assert.equal(loopEffectTiming(m,3).seconds,15,'a death whose motion is longer keeps its motion');
+ const short={Sequences:[{Name:'Death',Interval:[0,2000]}]};assert.equal(loopEffectTiming(short,0).seconds,2,'short deaths are not padded to ten seconds');
+});
+
+test('negative extra time cuts an animation but never below one frame',()=>{
+ const m={Sequences:[{Name:'Death',Interval:[0,2000]}]};
+ assert.equal(timeShowcasePlaylist(m,[{sequence:0,useDuration:true,extraTime:-.5}])[0].seconds,1.5);
+ assert.equal(timeShowcasePlaylist(m,[{sequence:0,useDuration:true,extraTime:-9}])[0].seconds,.02);
+});
