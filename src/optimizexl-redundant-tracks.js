@@ -1,8 +1,8 @@
 import { typedJson } from './value-key.js';
 import { sampleTrack } from './animation.js';
+import { optimizexlLocalTrack } from './optimizexl-format.js';
 
 const json = typedJson;
-const local = t => t.GlobalSeqId == null || t.GlobalSeqId === -1 || t.GlobalSeqId === 0xffffffff;
 // Largest component difference; NaN anywhere gives NaN, like Math.max.
 const distance = (a,b) => {let d=-Infinity;for(let i=0;i<a.length;i++){const x=Math.abs(a[i]-b[i]);if(x>d||x!==x){d=x;if(x!==x)break;}}return d;};
 // The pinned mdx-m3-viewer checker calls an interior key unused when every component
@@ -48,7 +48,7 @@ export function redundantTrackProposals(model,entries) {
   for(const {track,path}of entries){
     // Clone and serialize the (possibly long) track once, not per animation.
     let trackJson=null;const trackSignature=()=>trackJson??=json(track);
-    const global=!local(track),duration=model.GlobalSequences[track.GlobalSeqId];
+    const global=!optimizexlLocalTrack(track),duration=model.GlobalSequences[track.GlobalSeqId];
     const domains=global?(duration>0?[{interval:[0,duration],sequence:0,global:track.GlobalSeqId}]:[]):
       model.Sequences.map((s,sequence)=>({interval:Array.from(s.Interval),sequence}));
     for(const domain of domains){

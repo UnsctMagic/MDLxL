@@ -1,9 +1,10 @@
 import { allNodes, sampleNodeProperty } from './animation.js';
 import { protectedGeosetData } from './optimizexl-exclusions.js';
 import { trackValueError } from './optimizexl-animation.js';
+import { optimizexlLocalTrack } from './optimizexl-format.js';
 
 const properties=['Translation','Rotation','Scaling'];
-const local=t=>t?.Keys&&(t.GlobalSeqId==null||t.GlobalSeqId===-1||t.GlobalSeqId===0xffffffff);
+const local=t=>t?.Keys&&optimizexlLocalTrack(t);
 const value=(m,n,p,sequence,frame)=>sampleNodeProperty(m,n,p,frame,sequence,0);
 // Exactly equal (or negated quaternion) poses are 0 before any arithmetic.
 const error=(a,b,p)=>a.every((v,i)=>v===b[i])||p==='Rotation'&&a.every((v,i)=>v===-b[i])?0:trackValueError(a,b,p==='Rotation');

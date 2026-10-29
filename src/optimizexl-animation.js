@@ -1,4 +1,5 @@
 import { sampleTrack } from './animation.js';
+import { optimizexlLocalTrack } from './optimizexl-format.js';
 
 const same=(a,b)=>a?.length===b?.length&&Array.from(a||[]).every((v,i)=>v===b[i]);
 const zero=a=>a&&Array.from(a).every(v=>v===0);
@@ -92,7 +93,7 @@ function preserveMotion(track,original,probes,sample,rotation,worldLimit){
  * `reach` is the farthest model distance this node moves; with a positive
  * `position` it limits turns and scaling to that distance at the far end. */
 export function reduceAnimationTrack(model,track,property,tolerance,onRemove,{reach=0,position=0}={}){
- if(track.GlobalSeqId!=null&&track.GlobalSeqId!==-1&&track.GlobalSeqId!==0xffffffff)return 0;
+ if(!optimizexlLocalTrack(track))return 0;
  if(![0,1,2,3].includes(track.LineType)||track.Keys.some((k,i,a)=>!Number.isInteger(k.Frame)||i&&k.Frame<=a[i-1].Frame))return 0;
  const rotation=property==='Rotation',transform=['Translation','Rotation','Scaling'].includes(property),width=rotation?4:transform?3:track.Keys[0]?.Vector?.length;
  if(![1,3,4].includes(width))return 0;

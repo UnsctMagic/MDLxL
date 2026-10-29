@@ -1,14 +1,14 @@
 import { typedJson } from './value-key.js';
+import { optimizexlLocalTrack } from './optimizexl-format.js';
 const json = typedJson;
 const resolve = (model, path) => path.reduce((value, key) => value?.[key], model);
-const local = track => track.GlobalSeqId == null || track.GlobalSeqId === -1 || track.GlobalSeqId === 0xffffffff;
 
 /** Match mdx-m3-viewer's missing-opening rule. Do not invent motion in empty sequences,
  * constant/step channels, globals, or ambiguous overlapping intervals. */
 export function openingTrackProposals(model, entries) {
   const findings = [];
   for (const { track, path } of entries) {
-    if (!local(track) || ![1, 2, 3].includes(track.LineType)) continue;
+    if (!optimizexlLocalTrack(track) || ![1, 2, 3].includes(track.LineType)) continue;
     const property = path.at(-1), owner = resolve(model, path.slice(0, -1));
     for (const [sequence, animation] of model.Sequences.entries()) {
       const [start, end] = animation.Interval;

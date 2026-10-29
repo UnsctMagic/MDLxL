@@ -8,7 +8,7 @@ import { updateBounds } from './mesh-tools.js';
 import { captureMeshSelection } from './mesh-clipboard.js';
 import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, setSequenceName } from './sequence-editor.js';
-import { sampleGeosetAnimation, sampleTrack } from './animation.js';
+import { isGlobalTrack, sampleGeosetAnimation, sampleTrack } from './animation.js';
 
 import { gamePathKey } from './game-path.js';
 export const partPathKey = gamePathKey;
@@ -29,7 +29,7 @@ export function partMaterialKey(model, source) {
   }
   const globals = value => {
     if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
-    if (Number.isInteger(value.GlobalSeqId) && value.GlobalSeqId >= 0) value.GlobalSeqId = model.GlobalSequences[value.GlobalSeqId];
+    if (isGlobalTrack(value)) value.GlobalSeqId = model.GlobalSequences[value.GlobalSeqId];
     for (const child of Object.values(value)) globals(child);
   };
   globals(material);
@@ -82,7 +82,7 @@ export function selectPartAnimations(source, animations = null) {
     names.add(key);
   });
   visitPartTracks(model, track => {
-    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+    if (isGlobalTrack(track)) return;
     track.Keys = track.Keys.filter(key => model.Sequences.some(sequence => key.Frame >= sequence.Interval[0] && key.Frame <= sequence.Interval[1]));
   });
   for (const geoset of model.Geosets) geoset.Anims = animations.map(({ sequenceIndex }) => structuredClone(geoset.Anims?.[sequenceIndex] || { MinimumExtent: geoset.MinimumExtent, MaximumExtent: geoset.MaximumExtent, BoundsRadius: geoset.BoundsRadius }));
@@ -146,7 +146,7 @@ export function commitPart(target, source, { animations = null, rgbSequence = nu
   const reuse = (collection, item) => { const key = fingerprint(item), index = collection.findIndex(existing => fingerprint(existing) === key); return index < 0 ? collection.push(item) - 1 : index; };
   const remapGlobals = value => {
     if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return;
-    if (Number.isInteger(value.GlobalSeqId) && value.GlobalSeqId >= 0) {
+    if (isGlobalTrack(value)) {
       const id = value.GlobalSeqId, duration = staged.GlobalSequences?.[id];
       if (!Number.isFinite(duration) || duration <= 0) throw Error('The part references a missing global sequence.');
       if (!maps.globals.has(id)) maps.globals.set(id, reuse(next.GlobalSequences, duration));
@@ -190,7 +190,7 @@ export function commitPart(target, source, { animations = null, rgbSequence = nu
   const sequenceIndices = [];
   let sourceStart = Math.min(...staged.Sequences.map(sequence => sequence.Interval[0])), offset = 0;
   visitPartTracks(staged, track => {
-    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+    if (isGlobalTrack(track)) return;
     for (const key of track.Keys) sourceStart = Math.min(sourceStart, key.Frame);
   });
   for (const sequence of staged.Sequences) {
@@ -202,7 +202,7 @@ export function commitPart(target, source, { animations = null, rgbSequence = nu
     sequenceIndices.push(index);
   }
   if (sequenceIndices.length) visitPartTracks(staged, track => {
-    if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+    if (isGlobalTrack(track)) return;
     for (const key of track.Keys) {
       if (key.Frame + offset > 0x7fffffff) throw Error('There is not enough frame space to import these animation keys.');
       key.Frame += offset;

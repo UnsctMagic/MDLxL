@@ -1,6 +1,6 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { degreesToQuaternion } from './rotation-math.js';
-import { allNodes, inheritedParentMatrix, nodePivot, sampleNodeMatrices, sampleNodeProperty, TRANSFORM_DEFAULTS } from './animation.js';
+import { allNodes, inheritedParentMatrix, isGlobalTrack, nodePivot, sampleNodeMatrices, sampleNodeProperty, TRANSFORM_DEFAULTS } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
 import { isolateGlobalSequence } from './global-sequence-preview.js';
 
@@ -204,7 +204,7 @@ export function deleteMovementControllers(model, ids, sequenceIndex = -1) {
       if (track !== undefined) { delete node[property]; count++; }
       continue;
     }
-    if (!track?.Keys || Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) continue;
+    if (!track?.Keys || isGlobalTrack(track)) continue;
     const before = track.Keys.length;
     track.Keys = track.Keys.filter(key => !keyInSequence(key, interval));
     count += before - track.Keys.length;
@@ -269,7 +269,7 @@ export function prepareMovementPose(model, changes, time, sequenceIndex, restric
     seen.add(stamp);
     if (movementRestricted(Object.keys(movementProperties).find(mode => movementProperties[mode] === property), restrictions)) throw new Error(`${property} is restricted.`);
     const prior = node[property];
-    if (Number.isInteger(prior?.GlobalSeqId) && prior.GlobalSeqId >= 0) throw new Error('POSE cannot change a global controller. Choose a local transform track.');
+    if (isGlobalTrack(prior)) throw new Error('POSE cannot change a global controller. Choose a local transform track.');
     let values = Array.from(change.value || []);
     if (values.length !== (property === 'Rotation' ? 4 : 3) || values.some(value => !Number.isFinite(value) || Math.abs(value) > 3.4028234663852886e38)) throw new Error('POSE produced an invalid native transform.');
     const sampled = sampleMovement(model, node, property, time, sequenceIndex);
@@ -332,7 +332,7 @@ function applyGlobalMovementTransform(model, ids, time, change) {
     // A WC3 track belongs to one timeline; keys of the model's sequences
     // cannot also be global, so never overwrite them with a global track.
     if (original?.Keys?.length && original.GlobalSeqId !== globalSeqId) {
-      const owner = Number.isInteger(original.GlobalSeqId) && original.GlobalSeqId >= 0 ? `Global ${original.GlobalSeqId + 1}` : "the model's animations";
+      const owner = isGlobalTrack(original) ? `Global ${original.GlobalSeqId + 1}` : "the model's animations";
       throw new Error(`${node.Name || `Node ${node.ObjectId}`} already has ${property} keys in ${owner}. A ${property} track can play in only one place, so add a new bone or helper for Global ${globalSeqId + 1}.`);
     }
     node[property] = { ...edited, GlobalSeqId: globalSeqId };
