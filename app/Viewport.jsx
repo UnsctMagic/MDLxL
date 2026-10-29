@@ -677,12 +677,18 @@ export default function Viewport(inputProps) {
     };
     // Hotkeys consumes Escape before viewport key listeners. Its Clear command
     // gives an in-progress drag first refusal through this cancelable event.
-    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); } else if (!event.detail?.history && latest.current.onCancelPartDrag?.()) event.preventDefault(); };
+    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); return true; } if (!event.detail?.history && latest.current.onCancelPartDrag?.()) { event.preventDefault(); return true; } return false; };
+    const claimWindowKey = claim => {
+      const {event,localWindow}=claim.detail,canvas=renderer.domElement;
+      if(event.key!=='Escape'||(event.target?.ownerDocument||document)!==canvas.ownerDocument||!canvas.getClientRects().length||localWindow&&!localWindow.contains(canvas))return;
+      claim.detail.claims.push({priority:0,run:()=>cancelCommand(claim)});
+    };
     const contextMenu = event => event.preventDefault();
     const pointerLeave = () => { if (!down) { clearHoveredGeoset(); partHover=null; latest.current.onHoverParts?.(null); } };
     bindInput(singlePane);
     window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
     window.addEventListener('mdlxl-cancel-gesture', cancelCommand);
+    window.addEventListener('mdlxl-window-key',claimWindowKey);
     const unwatchContext = watchContextLoss(renderer.domElement, () => { state.scheduler?.dispose(); setError('The graphics context was lost. Reload the editor to restore the viewport. Save your work first.'); });
 
     let callbackTime = performance.now();
@@ -945,7 +951,7 @@ export default function Viewport(inputProps) {
       state.disposed = true; sketch.dispose(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       unwatchContext();
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
-      window.removeEventListener('mdlxl-cancel-gesture', cancelCommand);
+      window.removeEventListener('mdlxl-cancel-gesture', cancelCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey);
       cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); magnetButton?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };
   }, [graphics.antialias]);

@@ -279,6 +279,10 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     const cancelKey = event => { if (event.key === 'Escape' && s.drag) { cancelGesture(); event.preventDefault(); } };
     const nudgeKey = event => {
       const key = event.detail.event, p = current.current, workspace = container.closest('.uv-workspace') || container;
+      if (key.key === 'Escape' && s.drag && (key.target?.ownerDocument || document) === ownerDocument && container.getClientRects().length && (!event.detail.localWindow || event.detail.localWindow.contains(container))) {
+        event.detail.claims.push({ priority: 0, run: () => { if (!s.drag) return false; cancelGesture(); return true; } });
+        return;
+      }
       // The focused UV workspace owns the number pad, even when nothing can move: its keys never
       // reach the app's digit shortcuts from here.
       if (workspace.contains(key.target) && !isTextEditingTarget(key.target) && /^Numpad[1-9]$/.test(key.code)) event.preventDefault();
@@ -301,7 +305,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     return () => {
       observer.disconnect(); unbindScroll(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
       element.removeEventListener('pointerdown', pointerDown); element.removeEventListener('pointermove', pointerMove); element.removeEventListener('pointerup', pointerUp); element.removeEventListener('pointercancel', cancelGesture); element.removeEventListener('contextmenu', contextMenu);
-      window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-uv-key', nudgeKey);
+      window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-window-key', nudgeKey);
     };
   }, []);
   useEffect(() => { state.current.resize?.(); }, [graphics.pixelRatio, suspended, graphics.pauseWhenHidden]);
