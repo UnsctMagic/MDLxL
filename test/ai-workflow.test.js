@@ -133,6 +133,7 @@ const plan = (extra = {}) =>
     cause: 'The rim is a flat strip with no ornament.',
     reach: 'Only the rim ring of geoset 0.',
     keep: ['cup body', 'stem', 'UVs'],
+    checks: ['The rim looks hammered in the matching views', 'Cup body, stem and UVs match the original'],
     options: [
       { fix: 'Reshape the rim ring', cost: 'Changes the rim silhouette only' },
       { fix: 'Add a separate ornament geoset', cost: 'More triangles' },
@@ -657,4 +658,47 @@ test('with SD Brain on, a passed review needs a verdict per criterion and repeat
   assert.equal(stopped.ok, false);
   assert.ok((await g.service.conversation('test', 'compatible')).task.corrections['detail-value'] >= 3);
   assert.ok(g.events.some(e => e.type === 'tool-result' && /failed three times/.test(e.summary || '')));
+});
+
+test('two measured failures require a different plan before a third edit', async t=>{
+  const errors=[]; let edits=0, phase='unchanged', inspections=0;
+  const f=await setup(t,({data,requests})=>{
+    if(lastMessage(data)?.role==='tool')errors.push(lastMessage(data).content);
+    if(requests===1)return plan();
+    if([2,4,6,9].includes(requests))return edit();
+    if([3,5,10].includes(requests))return tool('mdlxl_review',{target:'selected',action:'inspect',checksCode:'return [{name:"rim contact",passed:false}];'});
+    if(requests===7)return plan();
+    if(requests===8)return plan({cause:'Measured contact is caused by the neighboring ring, not the rim strip.',choice:1});
+    if(requests===11)return tool('mdlxl_review',{target:'selected',action:'finish',outcome:'passed',summary:'Measured contact cleared.'});
+    return done();
+  });
+  function lastMessage(data){return data.messages.at(-1);}
+  f.service.call=async(name,args)=>{
+    if(name==='mdlxl_checkpoint')return {fingerprint:'rev'+edits,context,review:{changed:edits>0,phase},...(args.includeBaseline?{baseline:{Info:{Name:'original'}}}:{})};
+    if(name==='mdlxl_patch'){edits++;phase='pending';return {applied:true,changes:[]};}
+    if(name==='mdlxl_review'){
+      if(args.action==='inspect'){inspections++;phase='inspected';return {review:{checks:[{name:'rim contact',passed:inspections>2}],passed:inspections>2},images:[]};}
+      if(args.action==='finish')phase='verified';
+      return {changed:edits>0,phase};
+    }
+    assert.fail(name);
+  };
+  const result=await f.service.send({id:'test',text:'Fix the rim contact while preserving the rest',context});
+  assert.equal(result.ok,true,JSON.stringify(result)); assert.equal(edits,3,'third blind edit was refused; the changed plan allowed one new edit');
+  assert.ok(errors.some(s=>/same check failed twice/.test(s))); assert.ok(errors.some(s=>/materially different plan/.test(s)));
+  const task=(await f.service.readConversation('test')).task; assert.equal(task.replanRequired,undefined); assert.equal(task.phase,'verified');
+});
+
+test('embedded routines reuse bodies with parameters and remain isolated from other jobs',async t=>{
+  const {expandRoutine}=createRequire(import.meta.url)('../electron/ai-job-plan.cjs');
+  const task={}; const code='return parameters.value + 1;';
+  const first=expandRoutine(task,'mdlxl_script',{routine:'measure',code,parameters:{value:3}});
+  const second=expandRoutine(task,'mdlxl_script',{routine:'measure',parameters:{value:8}});
+  const AsyncFunction=Object.getPrototypeOf(async()=>{}).constructor;
+  assert.equal(await new AsyncFunction(first.code)(),4);assert.equal(await new AsyncFunction(second.code)(),9);
+  assert.throws(()=>expandRoutine({},'mdlxl_script',{routine:'measure'}),/No saved/);
+  assert.throws(()=>expandRoutine(task,'mdlxl_review',{action:'inspect',routine:'measure'}),/No saved/);
+  assert.deepEqual(task.routines.measure,{tool:'mdlxl_script',code});
+  const restored=JSON.parse(JSON.stringify(task)); assert.match(expandRoutine(restored,'mdlxl_script',{routine:'measure'}).code,/parameters.value/);
+  assert.ok(JSON.stringify({routine:'measure',parameters:{value:8}}).length < JSON.stringify({routine:'measure',code:code.repeat(100),parameters:{value:8}}).length);
 });
