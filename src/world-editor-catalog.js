@@ -70,8 +70,9 @@ export function buildWorldEditorCatalog(files, strings = [], { skin: version = '
   // Skin fields can be per game version: Art:sd, file:hd, file:de.
   const field = (section, key) => section?.get(key + ':' + version) ?? section?.get(key);
   const text = path => files.get(path.toLowerCase()) || '';
-  const names = new Map(), westrings = new Map();
+  const names = new Map(), unitNames = new Map(), westrings = new Map();
   for (const source of strings) {
+    parseProfile(source, unitNames);
     for (const [id, section] of parseProfile(source)) {
       if (section.has('name')) names.set(id.toLowerCase(), { name: unquote(section.get('name')), suffix: unquote(section.get('editorsuffix') || '') });
     }
@@ -79,6 +80,17 @@ export function buildWorldEditorCatalog(files, strings = [], { skin: version = '
   }
   const we = value => westrings.get(String(value)) || String(value || '').replace(/^WESTRING_/, '').replaceAll('_', ' ');
   const label = (id, fallback) => { const entry = names.get(String(id).toLowerCase()); return entry ? entry.name + (entry.suffix ? ' ' + entry.suffix.trim() : '') : fallback || id; };
+  const unitLabel = (id, fallback) => {
+    // Rawcodes are case-sensitive. Merge partial locale sections before reading
+    // per-version names; a hero's class and fixed character name are distinct.
+    const entry = unitNames.get(id), value = field(entry, 'name');
+    let name = empty(value) ? fallback || id : unquote(value);
+    const proper = String(field(entry, 'propernames') ?? '').trim().replace(/^"|"$/g, '').split(',').map(value => value.trim()).filter(value => !empty(value));
+    // Melee heroes have random-name pools, not one character identity.
+    if (proper.length === 1) name = proper[0];
+    const suffix = unquote(field(entry, 'editorsuffix') || '').trim();
+    return name + (suffix ? ' ' + suffix : '');
+  };
   const root = { name: 'World Editor', children: [] };
   const races = new Map(RACES.map(([key, name], order) => [key, Object.assign(folder(name), { order })]));
   for (const node of races.values()) root.children.push(node);
@@ -101,7 +113,7 @@ export function buildWorldEditorCatalog(files, strings = [], { skin: version = '
     const group = child(races.get(key), building ? 'Buildings' : 'Units');
     const kind = special ? 'Special' : campaign ? (hero && !building ? 'Campaign heroes' : 'Campaign') : hero && !building ? 'Heroes' : 'Normal';
     const models = modelPaths(field(skin, 'file') || row.file).map(path => ({ label: 'Model', path }));
-    leaf(child(group, kind), id, label(id, row.name), iconPath(field(skin, 'art')), models);
+    leaf(child(group, kind), id, unitLabel(id, row.name), iconPath(field(skin, 'art')), models);
   }
   // Spells: race abilities by unit and hero; item abilities live with items.
   const abilities = parseSlk(text('units\\abilitydata.slk')), abilitySkins = parseProfile(text('units\\abilityskin.txt'), funcTables(files, 'ability'));

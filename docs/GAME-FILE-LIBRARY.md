@@ -59,7 +59,11 @@ existing hotkey behaviour.
     with destructibles, and every-tileset doodads in each tileset. Every entry
     keeps its game icon (`Art`, shown only in the tree) and models; spells list their Caster/Target/
     Effect/Missile/Area/Special art, doodads their variations. Skin fields are
-    read per version (`Art:sd`, `file:hd`, `file:de`). Entries hidden from the
+    read per version (`Art:sd`, `file:hd`, `file:de`). Unit labels use the installed
+    locale's fixed `Propernames` when it identifies one character (Jaina, Arthas,
+    Uther), keeping `EditorSuffix` variants. Random-name hero pools keep their
+    unit/class `Name`; partial locale sections and version overrides are merged
+    by case-sensitive unit rawcode. Entries hidden from the
     editor, and entries without a model, are left out. The tables are read by `gameFiles:worldEditorSources`;
     `gameFiles:findPath`/`readPath` resolve the game paths per version.
 - **Camera**: one `GamePreview` stays mounted (`glideCamera`,

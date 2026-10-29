@@ -56,3 +56,49 @@ test('profile and model path helpers',()=>{
   assert.deepEqual(modelPaths('_'),[]);
   assert.equal(parseProfile('[x]\n// note\nName="Quoted, name"\n').get('x').get('name'),'"Quoted, name"');
 });
+
+test('unit labels use fixed character names across races and retain classes for random hero pools',()=>{
+  const units=[
+    ['Hjai','Archmage','Jaina',''],['Hart','Paladin','Arthas',''],
+    ['Harf','Paladin','Arthas','(wielding Frostmourne)'],['Huth','Paladin','Uther',''],
+    ['Hkal','Blood Mage','Kael',''],['Hmbr','Mountain King','Muradin Bronzebeard',''],
+    ['Othr','Far Seer','Thrall',''],['Ogrh','Blademaster','Grommash Hellscream',''],
+    ['Etyr','Priestess of the Moon','Tyrande',''],['Ewrd','Warden','Maiev',''],
+    ['Uear','Death Knight','Arthas','(Evil)'],['Uktl','Lich',"Kel'Thuzad",'(Lich)'],
+    ['Uwar','Warlock','Archimonde',''],['Nsjs','Brewmaster','Chen Stormstout',''],
+    ['Hpal','Paladin','Granis Darkhammer,Jorn the Redeemer',''],
+    ['Npld','Pit Lord','"Azgalor,Brutillus,Magtheridon"',''],
+    ['hfoo','Footman','_',''],['hpea','Peasant','-',''],
+  ];
+  const source=new Map([
+    ['units\\unitui.slk',slk(['unitUIID','name','campaign','inEditor'],units.map(([id])=>[id,id,1,1]))],
+    ['units\\unitdata.slk',slk(['unitID','race'],units.map(([id])=>[id,'human']))],
+    ['units\\unitskin.txt',units.map(([id])=>`[${id}]\nfile=Units\\${id}`).join('\n')],
+  ]);
+  const locale=units.map(([id,name,proper,suffix])=>`[${id}]\nName=${name}\nPropernames=${proper}\nEditorSuffix=${suffix}`).join('\n');
+  const {root}=buildWorldEditorCatalog(source,[locale]);
+  const leaves=new Map();const visit=node=>node.children?node.children.forEach(visit):leaves.set(node.id,node);visit(root);
+  for(const [id,name,proper,suffix] of units){
+    const expected=['Hpal','Npld','hfoo','hpea'].includes(id)?name:proper;
+    assert.equal(leaves.get(id).name,expected+(suffix?' '+suffix:''),id);
+    assert.equal(leaves.get(id).models[0].path,`Units\\${id}.mdx`);
+  }
+});
+
+test('locale overlays preserve partial fields, version names and case-sensitive unit identities',()=>{
+  const source=new Map([
+    ['units\\unitui.slk',slk(['unitUIID','name','campaign','inEditor'],[['Hjai','jaina',1,1],['hjai','other',0,1],['Hpal','paladin',0,1]])],
+    ['units\\unitdata.slk',slk(['unitID','race'],[['Hjai','human'],['hjai','human'],['Hpal','human']])],
+    ['units\\unitskin.txt','[Hjai]\nfile=Units\\Jaina\n[hjai]\nfile=Units\\Other\n[Hpal]\nfile=Units\\Paladin'],
+  ]);
+  const locales=[
+    '[Hjai]\nName=Archmage\nPropernames="Jaina"\nEditorSuffix=(Campaign)\n[hjai]\nName=Other unit\n[Hpal]\nName=Paladin\nPropernames="Granis Darkhammer,Jorn the Redeemer"',
+    '[Hjai]\nName:hd=Archmage HD\nPropernames:hd=Jaina Proudmoore\nPropernames:de=Джайна\nEditorSuffix:hd=(Reforged)\n[Hpal]\nName:hd=Paladin HD',
+  ];
+  for(const [skin,expected] of [['sd','Jaina (Campaign)'],['hd','Jaina Proudmoore (Reforged)'],['de','Джайна (Campaign)']]){
+    const {root}=buildWorldEditorCatalog(source,locales,{skin}),find=finder(root);
+    assert.equal(find('Human','Units','Campaign heroes',expected).id,'Hjai');
+    assert.equal(find('Human','Units','Normal','Other unit').id,'hjai');
+    assert.equal(find('Human','Units','Heroes',skin==='hd'?'Paladin HD':'Paladin').id,'Hpal');
+  }
+});
