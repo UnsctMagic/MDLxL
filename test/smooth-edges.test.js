@@ -5,6 +5,7 @@ import { readFileSync, rmSync } from 'node:fs';
 import { build } from 'esbuild';
 import React from 'react';
 import { normalizePreferences, DEFAULT_PREFERENCES } from '../src/preferences.js';
+import { SHOWCASE_QUALITY } from '../app/showcase-director.js';
 import { graphicsOptions } from '../app/viewport-performance.js';
 import { translate } from '../src/localization.js';
 import { Scene, PerspectiveCamera, Vector4 } from 'three';
@@ -116,4 +117,17 @@ test('the native model resolves color and depth before single-sample rig drawing
   calls.length = 0; smoothing.prepare(false, 800, 600); smoothing.resolve(); assert.deepEqual(calls, []);
   smoothing.prepare(true, 800, 600); assert.equal(calls.filter(c => c[0] === 'storage').length, 0, 'toggle does not recreate the target');
   smoothing.resolve(); smoothing.dispose(); assert.deepEqual(calls.at(-1), ['delete', 'model-target']);
+});
+
+
+test('Showcase quality cannot override Classic; Low and software still force smoothing off', () => {
+  const source = readFileSync(new URL('../app/ShowcaseWorkspace.jsx', import.meta.url), 'utf8');
+  const expression = source.split('\n').find(line => line.includes('graphics:{...preferences.graphics,...SHOWCASE_QUALITY[quality]')).trim().slice('graphics:'.length).replace(/,$/, '');
+  const graphics = new Function('preferences', 'SHOWCASE_QUALITY', 'quality', 'return (' + expression + ');');
+  for (const quality of ['low', 'medium', 'high']) for (const antialias of [false, true]) {
+    const result = graphics({ graphics: { antialias } }, SHOWCASE_QUALITY, quality);
+    assert.equal(result.antialias, antialias && quality !== 'low');
+    assert.equal(result.pixelRatio, SHOWCASE_QUALITY[quality].pixelRatio);
+    assert.equal(graphicsOptions({ graphics: { ...result, softwareLow: true } }).antialias, false);
+  }
 });

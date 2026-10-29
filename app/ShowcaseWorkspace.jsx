@@ -235,7 +235,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
   const backgroundUrl = portrait ? '' : backgroundMode === 'folder' ? backgroundAsset?.url || backgroundLibrary.url : backgroundMode === 'media' ? media?.url : '';
   const backgroundType = portrait ? '' : backgroundMode === 'folder' ? backgroundAsset?.type || backgroundLibrary.type : backgroundMode === 'media' ? media?.type : '';
   const localPreferences = useMemo(() => ({ ...preferences,
-    graphics:{...preferences.graphics,...SHOWCASE_QUALITY[quality],textures:true,lighting:true,particles:true,maxFps:60,pauseWhenHidden:false},
+    graphics:{...preferences.graphics,...SHOWCASE_QUALITY[quality],antialias:preferences.graphics.antialias && SHOWCASE_QUALITY[quality].antialias,textures:true,lighting:true,particles:true,maxFps:60,pauseWhenHidden:false},
     viewportAppearance:{...preferences.viewportAppearance,background:{type:'color',color:portrait&&(!portraitFrameEnabled||mainPicture)?'#000000':color,imageData:'',display:'fill',opacity:1}},
     platform:{enabled:false},lighting:{...preferences.lighting,preset:'legacy'},capture:{fps,recordingQuality:quality},
   }),[preferences,quality,fps,color,portrait,portraitFrameEnabled,mainPicture]);
