@@ -1,10 +1,9 @@
 # Auto Corpse
 
 The temporary **CORP** button lives in the existing VIS toolbar row. It runs one
-undoable edit and selects Decay Flesh. There is no dialog, settings panel or
-additional permanent inspector. After success the button highlights and reads
-**DONE** for three seconds, and the status bar confirms creation and Undo. The
-existing animation controls preview the
+undoable edit and immediately shows the first frame of Decay Bone, paused.
+There is no dialog, settings panel or
+additional permanent inspector. The existing animation controls preview the
 result. A second click regenerates from Death and does not accumulate copies.
 
 ## What owns the result

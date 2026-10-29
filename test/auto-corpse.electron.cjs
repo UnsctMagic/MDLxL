@@ -6,7 +6,7 @@ if(!fixture)throw Error('Set MDLXL_CORPSE_FIXTURE to a model with Death.');
 function runtime() {
   const el=document.querySelector('.game-preview-root')||document.querySelector('.classic-view [aria-label="3D model viewport"]');
   if(!el)throw Error('Missing viewport');let top=el[Object.keys(el).find(k=>k.startsWith('__reactFiber'))];while(top.return)top=top.return;
-  const stack=[top.stateNode.current];while(stack.length){const f=stack.pop();for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(f.memoizedProps?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){const p=f.memoizedProps,c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}}for(let c=f.child;c;c=c.sibling)stack.push(c);}
+  const stack=[top.stateNode.current];while(stack.length){const f=stack.pop();for(let h=f.memoizedState;h;h=h.next){const s=h.memoizedState?.current;if(f.memoizedProps?.model&&(s?.native&&s?.controls||s?.renderer&&s?.entries)){const p=f.memoizedProps,c=s.controls?.object||s.camera,canvas=s.renderer?.domElement||document.querySelector('[data-clean-model-canvas]');return {model:structuredClone(p.model),frame:s.native?.getFrame()??p.frame,sequence:p.sequenceIndex,playing:p.playing,camera:c.position.toArray(),quaternion:c.quaternion.toArray(),ready:s.captureApi?.isReady??true,rect:canvas.getBoundingClientRect().toJSON()};}}for(let c=f.child;c;c=c.sibling)stack.push(c);}
   throw Error('Missing viewport runtime');
 }
 (async()=>{
@@ -21,22 +21,19 @@ function runtime() {
     await page.getByLabel('3D model viewport',{exact:true}).waitFor();
     const before=await page.evaluate(runtime),button=page.getByRole('button',{name:'Auto Corpse (test)',exact:true}),vis=page.getByRole('button',{name:'VIS',exact:true});
     const a=await button.boundingBox(),b=await vis.boundingBox();assert.ok(Math.abs(a.y-b.y)<4);assert.ok(a.width<=50);assert.equal(await page.getByRole('dialog').count(),0);
-    await page.evaluate(()=>document.fonts.ready);
     await button.click();await page.locator('[data-clean-model-canvas]').waitFor();await page.waitForTimeout(700);
-    const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Flesh/i);assert.equal(await page.getByRole('dialog').count(),0);
-    assert.equal(await button.locator('.module-icon-badge').textContent(),'DONE');
-    assert.equal(await button.getAttribute('aria-pressed'),'true');
-    assert.match(await page.getByRole('status').innerText(),/Corpse created\. Undo restores the model\./);
-    checks.push('One compact button beside VIS; one click creates corpse and opens Decay Flesh without a dialog');
+    const after=await page.evaluate(runtime);assert.ok(after.model.Geosets.length>before.model.Geosets.length);assert.match(after.model.Sequences[after.sequence].Name,/Decay Bones?/i);assert.equal(await page.getByRole('dialog').count(),0);
+    assert.equal(after.frame,after.model.Sequences[after.sequence].Interval[0]);
+    assert.equal(after.playing,false);
+    await page.waitForTimeout(200);
+    assert.equal((await page.evaluate(runtime)).frame,after.frame);
+    checks.push('One CORP click immediately displays the first Bone Decay frame, paused, without a dialog');
     const input=page.getByLabel('Current animation frame',{exact:true});
     async function seek(time){await input.fill(String(time));await input.press('Enter');await page.waitForFunction(t=>Math.abs(window.corpseRuntime().frame-t)<1,time);await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));}
     async function capture(name){const data=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true}).then(i=>i.toPNG().toString('base64')));fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(data,'base64'));}
-    await page.screenshot({path:path.join(out,'confirmation.png')});
-    await page.waitForFunction(()=>document.querySelector('.auto-corpse-tool .module-icon-badge')?.textContent==='CORP');
-    assert.equal(await button.getAttribute('aria-pressed'),'false');
-    checks.push('Successful CORP click shows highlighted DONE and a success message, then restores CORP after three seconds');
     for(const label of ['Bones','Skeleton','Nodes','Emitters','Events','Sounds']) {const box=page.getByRole('checkbox',{name:label,exact:true});if(await box.count())await box.uncheck();}
-    const s=after.model.Sequences[after.sequence];await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
+    const fi=after.model.Sequences.findIndex(s=>/^Decay Flesh$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(fi));
+    const s=after.model.Sequences[fi];await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.getByRole('button',{name:'Fit',exact:true}).click();await seek(s.Interval[0]+167);await capture('body-cover');
     const bi=after.model.Sequences.findIndex(s=>/^Decay Bones?$/i.test(s.Name));await page.getByLabel('Choose animation sequence',{exact:true}).selectOption(String(bi));await seek(after.model.Sequences[bi].Interval[0]);await capture('corpse');
     console.log('Body and corpse captured at the same camera scale.');
     if(process.env.MDLXL_CORPSE_CAPTURE_ONLY==='1')return;
@@ -57,13 +54,6 @@ function runtime() {
       const reopened=new EditorDocument(fs.readFileSync(saved),saved);assert.equal(reopened.readOnly,false);assert.equal(reopened.model.Geosets.length,after.model.Geosets.length);
       assert.ok(reopened.model.Bones.some(n=>n.Name==='MDLxL Corpse 0'));checks.push('Native Save As '+format+' reopens with the corpse');fs.unlinkSync(saved);
     }
-    await page.keyboard.press('Control+n');
-    await page.waitForFunction(()=>document.querySelector('.auto-corpse-tool .module-icon-badge')?.textContent==='CORP');
-    await button.click();
-    assert.match(await page.getByRole('status').innerText(),/Error: Auto Corpse needs a Death animation\./);
-    assert.equal(await button.locator('.module-icon-badge').textContent(),'CORP');
-    assert.equal(await button.getAttribute('aria-pressed'),'false');
-    checks.push('Failed corpse creation shows its error without success feedback');
     assert.deepEqual(fs.readFileSync(fixture),original);assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({checks,errors,fixture,hidden:true,geosetsBefore:before.model.Geosets.length,geosetsAfter:after.model.Geosets.length},null,2));
     console.log(JSON.stringify({checks,errors}));
