@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Matrix4, Vector3 } from 'three';
-import { sampleTrack, sampleNodeMatrices, skinGeoset, skinGeosetNormals, unskinGeosetPoint, advanceSequence } from '../src/animation.js';
+import { globalSequenceId, isGlobalTrack, sampleTrack, sampleNodeMatrices, skinGeoset, skinGeosetNormals, unskinGeosetPoint, advanceSequence } from '../src/animation.js';
 
 const key = (Frame, Vector, extra = {}) => ({ Frame, Vector, ...extra });
 const track = (Keys, LineType = 1) => ({ Keys, LineType });
@@ -67,4 +67,24 @@ test('authored normals rotate without translation and use inverse transpose for 
   near(normal[0], 1 / Math.sqrt(5)); near(normal[1], 2 / Math.sqrt(5)); near(normal[2], 0);
   const rotated = skinGeosetNormals(geo, new Map([[0, new Matrix4().makeRotationZ(Math.PI / 2)]]));
   near(rotated[0], -Math.SQRT1_2); near(rotated[1], Math.SQRT1_2);
+});
+
+test('global sequence id: whole id >= 0, and with a model the playback rule', () => {
+  const ids = [undefined, null, -1, -2, 0, 1, 2, 1.5, NaN, 0xffffffff, '0'];
+  const model = { GlobalSequences: [1000, 0] };
+  for (const GlobalSeqId of ids) {
+    const t = { GlobalSeqId, Keys: [key(0, [1]), key(500, [3])] };
+    // The model-less form is the family-A predicate the editors used to copy.
+    const old = Number.isInteger(t.GlobalSeqId) && t.GlobalSeqId >= 0 ? t.GlobalSeqId : null;
+    assert.equal(globalSequenceId(t), old);
+    assert.equal(isGlobalTrack(t), old !== null);
+    // The model form agrees with what sampleTrack plays.
+    const plays = sampleTrack(t, 1250, { globalSequences: model.GlobalSequences, interval: [0, 500] }) !== 3;
+    assert.equal(isGlobalTrack(t, model), plays, String(GlobalSeqId));
+  }
+  assert.equal(globalSequenceId({ GlobalSeqId: 0 }, model), 0);
+  assert.equal(globalSequenceId({ GlobalSeqId: 1 }, model), null, 'zero duration plays as local');
+  assert.equal(globalSequenceId({ GlobalSeqId: 2 }, model), null, 'missing global plays as local');
+  assert.equal(globalSequenceId({ GlobalSeqId: 0 }, {}), null);
+  assert.equal(globalSequenceId(undefined), null);
 });

@@ -1,6 +1,6 @@
 // Private examples stay outside Git; this audit accepts arbitrary model paths.
 import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {ModelRenderer} from 'war3-model';
@@ -9,10 +9,9 @@ import {assertRoundTripFields} from '../src/model-optimizer.js';
 import {sanityProposals,runOptimizeStage} from '../src/optimizexl.js';
 import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
 import {flattenHiveFindings} from '../app/optimizexl-hive.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const chunks=bytes=>{const result=new Map(),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);for(let i=4;i<bytes.length;){const name=String.fromCharCode(...bytes.slice(i,i+4)),size=view.getUint32(i+4,true);result.set(name,bytes.slice(i,i+8+size));i+=8+size;}return result;};
-const hive=bytes=>{const m=new ModelViewer.parsers.mdlx.Model();m.load(bytes.slice().buffer);const r=ModelViewer.utils.mdlx.sanityTest(m);return {...r,findings:flattenHiveFindings(r.nodes)};};
+const hive=bytes=>{const r=sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};
 for(const path of process.argv.slice(2)){
  const source=new Uint8Array(fs.readFileSync(path)),before=openDocument(source,'input.mdx').model,check=hive(source),proposals=sanityProposals(before),fix=proposals.find(f=>f.kind==='bounds');
  assert.ok(fix?.targets.every(t=>t.sequenceExtents),'Use a model with only table-size extent defects for this exact field audit');

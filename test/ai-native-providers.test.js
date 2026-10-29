@@ -293,3 +293,64 @@ test(
     assert.equal(await exited, 'SIGKILL');
   },
 );
+
+test('the provider table keeps the settings order, labels and what each connection supports', () => {
+  const { PROVIDERS, providerInfo } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
+  assert.deepEqual(PROVIDERS.map(p => [p.id, p.label]), [
+    ['codex', 'Codex / ChatGPT'],
+    ['claude', 'Claude Code'],
+    ['openai', 'OpenAI API'],
+    ['anthropic', 'Claude API'],
+    ['compatible', 'Other AI / local model'],
+  ]);
+  const has = flag => PROVIDERS.filter(p => p[flag]).map(p => p.id);
+  assert.deepEqual(has('native'), ['codex', 'claude']);
+  assert.deepEqual(has('apiKey'), ['openai', 'anthropic', 'compatible']);
+  assert.deepEqual(has('baseUrl'), ['compatible']);
+  assert.deepEqual(has('effort'), ['codex', 'claude', 'openai', 'anthropic']);
+  assert.deepEqual(has('spendLimit'), ['openai', 'anthropic', 'compatible']);
+  assert.deepEqual(has('stepLimit'), ['claude', 'openai', 'anthropic', 'compatible']);
+  assert.deepEqual(has('web'), ['codex', 'claude', 'anthropic']);
+  assert.deepEqual(PROVIDERS.flatMap(p => p.logFolders), ['codex/sessions', 'codex/archived_sessions', 'claude/projects']);
+  assert.equal(providerInfo('unknown'), undefined);
+});
+
+test('Codex model lists come from its app server through providerModels and are kept per connection', async t => {
+  const config = await executable(t);
+  const service = new AiService({ root: path.resolve('.'), profile: config.directory, electron: {}, getWindow: () => null });
+  t.after(() => service.close());
+  await service.configure({ provider: 'codex', executable: config.executable });
+  assert.deepEqual(await service.models(), []);
+  assert.deepEqual(service.modelCatalog['codex:'], []);
+  assert.equal(service.active, null);
+  const requests = (await fs.readFile(path.join(service.directory, 'fixture-calls.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line).method);
+  assert.deepEqual(requests, ['initialize', 'model/list']);
+});
+
+test('native sign-in is checked once per session; signing in or out and a signed-out turn check again', async t => {
+  const config = await executable(t);
+  const service = new AiService({ root: path.resolve('.'), profile: config.directory, electron: { shell: { openExternal: async () => {} } }, getWindow: () => null });
+  t.after(() => service.close());
+  await service.configure({ provider: 'codex', executable: config.executable });
+  const checks = [],
+    auth = service.auth.bind(service);
+  service.auth = action => (checks.push(action), auth(action));
+  service.runTask = async () => {};
+  const send = n => service.send({ id: 'cache-' + n, text: 'Make it red', context: { target: 'selected' } });
+  assert.equal((await send(1)).ok, true);
+  assert.equal((await send(2)).ok, true);
+  assert.deepEqual(checks, ['status']);
+  await service.auth('logout');
+  assert.equal((await send(3)).ok, true);
+  assert.deepEqual(checks, ['status', 'logout', 'status']);
+  // The provider found the account signed out during a turn: the next send checks.
+  service.runTask = async () => {
+    throw Object.assign(Error('Sign in again.'), { code: 'AI_AUTH_REQUIRED' });
+  };
+  assert.equal((await send(4)).authRequired, true);
+  assert.deepEqual(checks, ['status', 'logout', 'status']);
+  await fs.writeFile(path.join(service.directory, 'signed-out'), '');
+  service.runTask = async () => {};
+  assert.equal((await send(5)).authRequired, true);
+  assert.deepEqual(checks, ['status', 'logout', 'status', 'status']);
+});

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { teamColorPixels } from './viewport-quality.js';
 
 export function makeChecker() {
   const data = new Uint8Array(16 * 16 * 4);
@@ -14,12 +15,7 @@ export function makeChecker() {
 }
 
 export function makeTeamGlow() {
-  const size = 128, pixels = new Uint8Array(size * size * 4);
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const distance = Math.hypot((x + .5) / size - .5, (y + .5) / size - .5) * 2;
-    const intensity = Math.round(Math.sin(Math.max(0, Math.min(1, 1 - distance * 1.4))) * 255);
-    pixels.set([intensity, intensity, intensity, 255], (y * size + x) * 4);
-  }
+  const size = 128, pixels = teamColorPixels(2, [1, 1, 1], size);
   const texture = new THREE.DataTexture(pixels, size, size); texture.needsUpdate = true;
   texture.magFilter = THREE.LinearFilter; return texture;
 }

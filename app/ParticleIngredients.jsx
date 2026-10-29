@@ -1,6 +1,7 @@
 import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {EFFECT_FAMILIES,effectNodes} from '../src/particle-recipes.js';
 import {activeParticleSample} from '../src/particle-sampling.js';
+import { capturePreviewThumbnail } from './game-preview-capture.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 
 export default function ParticleIngredients({source,assets,preferences,teamColor,mode,muted,onMute,onSelect,onClose}) {
@@ -21,8 +22,7 @@ export default function ParticleIngredients({source,assets,preferences,teamColor
     if(!api||!current||busy.current)return;
     busy.current=true;
     try {
-      await api.whenReady();if(!mounted.current)return;
-      api.fit();const url=api.captureFrame({maxDimension:256}).toDataURL('image/png');
+      const url=await capturePreviewThumbnail(api,{maxDimension:256});if(!mounted.current)return;
       setImages(old=>({...old,[current.id]:{url}}));
     } catch(error) {
       if(mounted.current)setImages(old=>({...old,[current.id]:{error:error.message}}));

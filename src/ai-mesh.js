@@ -1,4 +1,4 @@
-import { gather, updateBounds, weldVertices } from './mesh-tools.js';
+import { gatherStreams, updateBounds, weldVertices } from './mesh-tools.js';
 import { transformVertices } from './editor-commands.js';
 
 /** Mirror a marked piece into the same geoset, so compatible seam vertices can weld.
@@ -30,7 +30,7 @@ export function mirrorSelection(
       const face = Array.from(g.Faces.slice(i, i + 3));
       if (face.every(id => set.has(id))) faces.push(...face.map(id => map.get(id)));
     }
-    const copy = gather(g, ids),
+    const copy = gatherStreams(g, ids),
       append = (a, b) => {
         const out = new a.constructor(a.length + b.length);
         out.set(a);

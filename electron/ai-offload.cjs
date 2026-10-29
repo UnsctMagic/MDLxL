@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 // Everyday birds only; a model's organiser never reuses a name. The console
 // colours each bird by its place in this list.
 const BIRDS = require('../src/ai-birds.json');
+const PROVIDERS = require('../src/ai-providers.json');
 // The first bird of a chat is a corvid; later ones come from the whole list.
 const CORVIDS = ['Crow', 'Raven', 'Jackdaw', 'Rook', 'Magpie', 'Jay'];
 function nextBird(used = [], random = Math.random) {
@@ -69,11 +70,13 @@ class AiSteering {
 }
 
 // Records what the AI says, thinks and does into a conversation's transcript as
-// it streams, and forwards every event to the console.
+// it streams, and forwards every event to the console. `recordAiEvent` comes
+// from src/ai-transcript.js, which the console uses for the same events.
 class AiRecorder {
-  constructor(conversation, emit) {
+  constructor(conversation, emit, recordAiEvent) {
     this.conversation = conversation;
     this.emit = emit;
+    this.record = recordAiEvent;
     this.reply = { role: 'assistant', text: '', parts: [] };
   }
   start(entry) {
@@ -81,60 +84,23 @@ class AiRecorder {
   }
   // A steering message splits the reply where it was sent, as it appears in the chat.
   split(text) {
-    this.reply = { role: 'assistant', text: '', parts: [] };
-    this.conversation.transcript.push({ role: 'user', text, steer: true }, this.reply);
+    this.record(this.conversation.transcript, { type: 'steer', text });
+    this.reply = this.conversation.transcript.at(-1);
   }
   parts() {
     return this.conversation.transcript.flatMap(entry => entry.parts || []);
   }
   event(value) {
-    const reply = this.reply;
     if (value.type === 'request') return;
-    if (value.type === 'text' || value.type === 'thinking') {
-      if (!value.text) return;
-      if (value.type === 'text') reply.text += value.text;
-      const last = reply.parts.at(-1);
-      if (last?.type === value.type) last.text += value.text;
-      else reply.parts.push({ type: value.type, text: value.text });
-    } else if (value.type === 'compaction') {
-      const running = this.parts().findLast(p => p.type === 'compaction' && p.status === 'running');
-      if (value.active && !running) reply.parts.push({ type: 'compaction', status: 'running' });
-      else if (!value.active && running) running.status = 'done';
-      else return;
-    } else if (value.type === 'question') {
-      reply.parts.push({ type: 'question', questionId: value.questionId, questions: value.questions, name: value.name, message: value.message, status: 'running' });
-    } else if (value.type === 'question-result') {
-      const part = this.parts().find(p => p.type === 'question' && p.questionId === value.questionId);
-      if (part) Object.assign(part, { status: value.status, answers: value.answers, reason: value.reason });
-    } else if (value.type === 'provider-notice') {
-      const part = { type: 'provider-notice', text: value.text, detail: value.detail, severity: value.severity, name: value.name };
-      const same = reply.parts.findIndex(p => p.type === part.type && p.text === part.text && p.name === part.name);
-      if (same < 0) reply.parts.push(part); else reply.parts[same] = part;
-    } else if (value.type === 'tool') {
-      reply.parts.push({ type: 'tool', id: value.callId, name: value.name, detail: value.detail, status: 'running' });
-    } else if (value.type === 'tool-result') {
-      // A steering message may have split the reply since the tool started.
-      const parts = this.parts();
-      const part =
-        parts.findLast(p => p.type === 'tool' && value.callId && p.id === value.callId) ||
-        parts.findLast(p => p.type === 'tool' && p.status === 'running' && p.name === value.name);
-      if (part) Object.assign(part, { status: value.error ? 'error' : 'done', summary: value.summary });
-    } else if (value.type === 'worker') {
-      const part = this.parts().findLast(p => p.type === 'worker' && p.workerId === value.workerId && p.status === 'working');
-      if (part && value.status !== 'working') Object.assign(part, { status: value.status, report: value.report, cost: value.cost, model: value.model, light: value.light });
-      else if (!part) reply.parts.push({ type: 'worker', workerId: value.workerId, name: value.name, job: value.job, status: value.status, region: value.region, model: value.model, light: value.light });
-    } else if (value.type === 'art') {
-      // SD Brain's art brief: a row that fills in once the brief is written.
-      const part = reply.parts.findLast(p => p.type === 'art' && p.status === 'running');
-      if (part) Object.assign(part, { status: value.status, text: value.text || '' });
-      else reply.parts.push({ type: 'art', status: value.status, text: value.text || '' });
-    } else if (value.type === 'cost') {
-      // What the prompt has spent so far, kept with the reply it belongs to.
-      reply.cost = { usd: value.usd, tokens: value.tokens, model: value.model, light: value.light, ...(value.roles ? { roles: value.roles } : {}) };
-    } else if (value.type === 'usage') {
+    if (value.type === 'usage') {
       if (value.used > 0 && value.window > 0) this.conversation.usage = { used: value.used, window: value.window };
       return;
     }
+    // A reply not started yet (a one-off call metered on this chat) stays out of the saved chat.
+    const transcript = this.conversation.transcript,
+      changed = this.record(transcript.at(-1) === this.reply ? transcript : [...transcript, this.reply], value);
+    // Empty text and a compaction state that did not change are not news.
+    if (!changed && ['text', 'thinking', 'compaction'].includes(value.type)) return;
     this.emit(value);
   }
   separate() {
@@ -179,6 +145,25 @@ function contextUse(conversation) {
   return stored / 4 / handoverAt(200000);
 }
 
+// Saves JSON (as it is now) through a temporary file, so a crash or a full disk
+// never leaves half a file. Writes to one file happen in the order asked.
+const writing = new Map();
+function writeJsonAtomic(file, value, space) {
+  const text = JSON.stringify(value, null, space);
+  const write = (writing.get(file) || Promise.resolve())
+    .catch(() => {})
+    .then(async () => {
+      await fs.writeFile(file + '.tmp', text, { mode: 0o600 });
+      await fs.rename(file + '.tmp', file);
+    });
+  writing.set(file, write);
+  write.then(
+    () => writing.get(file) === write && writing.delete(file),
+    () => writing.get(file) === write && writing.delete(file),
+  );
+  return write;
+}
+
 // Organisers per model file (or per unsaved tab), their earlier chats, memory notes
 // and the remembered save-cleanup choice.
 class OrganiserRegistry {
@@ -196,9 +181,8 @@ class OrganiserRegistry {
     }
     return this.data;
   }
-  async save() {
-    await fs.writeFile(this.file + '.tmp', JSON.stringify(this.data, null, 2), { mode: 0o600 });
-    await fs.rename(this.file + '.tmp', this.file);
+  save() {
+    return writeJsonAtomic(this.file, this.data, 2);
   }
   async model(key, name) {
     if (typeof key !== 'string' || !key || key.length > 1000) throw Error('Invalid model key.');
@@ -220,30 +204,29 @@ class OrganiserRegistry {
   }
 }
 
+// Deletes the files under `folder`, at most `depth` folders down, that
+// `wanted(name, fullPath)` picks. Returns how many were deleted.
+async function removeFiles(folder, wanted, depth = 6) {
+  let removed = 0;
+  for (const entry of await fs.readdir(folder, { withFileTypes: true }).catch(() => [])) {
+    const full = path.join(folder, entry.name);
+    if (entry.isDirectory()) {
+      if (depth > 0) removed += await removeFiles(full, wanted, depth - 1);
+    } else if (await wanted(entry.name, full)) {
+      await fs.rm(full, { force: true });
+      removed++;
+    }
+  }
+  return removed;
+}
 // Provider-side copies of a conversation (Codex rollouts, Claude Code sessions)
 // are named after their thread or session id.
 async function deleteProviderSessions(directory, ids) {
   const wanted = ids.filter(id => typeof id === 'string' && /^[a-zA-Z0-9-]{8,}$/.test(id));
   if (!wanted.length) return 0;
   let removed = 0;
-  const walk = async (folder, depth) => {
-    let entries;
-    try {
-      entries = await fs.readdir(folder, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      const full = path.join(folder, entry.name);
-      if (entry.isDirectory()) {
-        if (depth < 6) await walk(full, depth + 1);
-      } else if (/\.jsonl?$/i.test(entry.name) && wanted.some(id => entry.name.includes(id))) {
-        await fs.rm(full, { force: true });
-        removed++;
-      }
-    }
-  };
-  for (const provider of ['codex', 'claude']) await walk(path.join(directory, provider), 0);
+  for (const provider of PROVIDERS.filter(p => p.native))
+    removed += await removeFiles(path.join(directory, provider.id), name => /\.jsonl?$/i.test(name) && wanted.some(id => name.includes(id)));
   return removed;
 }
 
@@ -258,5 +241,7 @@ module.exports = {
   AiRecorder,
   contextUse,
   OrganiserRegistry,
+  writeJsonAtomic,
+  removeFiles,
   deleteProviderSessions,
 };

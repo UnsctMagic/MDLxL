@@ -103,3 +103,20 @@ test('the app test hook appears only when the desktop bridge enables it, and is 
     assert.ok(Object.isFrozen(hook));
   } finally { globalThis.window = saved.window; globalThis.document = saved.document; }
 });
+
+
+test('page probes distinguish sibling previews and find Citadel props and ref states across the tree', () => {
+  const page = fakeFiberPage(undefined), fiber = page.element['__reactFiber$abc'];
+  const runtime = { renderer: {}, camera: {} }, props = { originalModel: {}, onWorkingModelChange() {} };
+  const workspace = { memoizedProps: props, memoizedState: null };
+  const viewport = { memoizedState: { memoizedState: { current: runtime }, next: null }, sibling: null };
+  workspace.sibling = viewport;
+  const root = { child: workspace, memoizedState: null };
+  fiber.return = { stateNode: { current: root }, memoizedState: null, return: null };
+  assert.equal(page.window.findFiberState('.paint-workspace', value => value?.originalModel, { tree: true, props: true }), props);
+  assert.equal(page.window.findFiberState('.paint-workspace', value => value?.renderer && value.camera, { tree: true }), runtime);
+  assert.equal(page.window.findFiberState('.paint-workspace', value => value?.renderer), null);
+  const other = fakeFiberPage(undefined);
+  assert.equal(page.window.mdlxlProbe(other.element).runtime, other.runtime);
+  assert.equal(page.window.mdlxlProbe(other.element).props, other.props);
+});

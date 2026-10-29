@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { writeFileAtomic, serialQueue } = require('./atomic-file.cjs');
 const PNG = Buffer.from([137,80,78,71,13,10,26,10]);
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const validKey = key => typeof key === 'string' && /^[a-f0-9]{24,64}$/.test(key);
@@ -19,7 +20,7 @@ class TexturePreviewCache {
   constructor({directory,concurrency=2,onProgress=()=>{},now=()=>Date.now(),progressInterval=100}={}) {
     Object.assign(this,{directory,onProgress,now,progressInterval});this.lastProgress=-Infinity;
     this.concurrency=Math.max(1,Math.min(4,Math.floor(concurrency)||2));
-    this.entries=new Map();this.known=new Set();this.writeQueue=Promise.resolve();this.ready=null;this.active=null;this.journalWrites=0;
+    this.entries=new Map();this.known=new Set();this.enqueue=serialQueue();this.ready=null;this.active=null;this.journalWrites=0;
     this.status={state:'idle',jobId:null,signature:null,total:0,completed:0,cached:0,failed:0,bytes:0,errors:[],elapsedMs:0};
   }
   async load() {
@@ -38,10 +39,8 @@ class TexturePreviewCache {
   snapshot() {return {...this.status,errors:this.status.errors.map(error=>({...error})),elapsedMs:this.active?this.now()-this.active.started:this.status.elapsedMs};}
   async getStatus() {await this.load();return this.snapshot();}
   publish(patch={}) {const time=this.now();Object.assign(this.status,patch,{updatedAt:time});if(patch.state||time-this.lastProgress>=this.progressInterval||this.status.completed===this.status.total){this.lastProgress=time;this.onProgress(this.snapshot());}}
-  enqueue(operation) {const result=this.writeQueue.catch(()=>{}).then(operation);this.writeQueue=result;return result;}
   checkpoint() {return this.enqueue(async()=>{
-    const file=path.join(this.directory,'index.json'),temporary=file+'.tmp';
-    await fs.writeFile(temporary,JSON.stringify({version:1,entries:Object.fromEntries(this.entries),status:this.snapshot()}));await fs.rename(temporary,file);
+    await writeFileAtomic(path.join(this.directory,'index.json'),JSON.stringify({version:1,entries:Object.fromEntries(this.entries),status:this.snapshot()}));
     await fs.writeFile(path.join(this.directory,'journal.ndjson'),'');this.journalWrites=0;
   });}
   async read(key) {
@@ -60,7 +59,7 @@ class TexturePreviewCache {
     if(typeof url!=='string'||!url.startsWith('data:image/png;base64,')||url.length>1400000)throw Error('Expected a PNG thumbnail.');
     const bytes=Buffer.from(url.slice(22),'base64'),dimensions=imageInfo(bytes),entry={...dimensions,bytes:bytes.length,sha256:digest(bytes)};
     await this.enqueue(async()=>{
-      const file=path.join(this.directory,key+'.png'),temporary=file+'.tmp';await fs.writeFile(temporary,bytes);await fs.rename(temporary,file);
+      await writeFileAtomic(path.join(this.directory,key+'.png'),bytes);
       this.entries.set(key,entry);await fs.appendFile(path.join(this.directory,'journal.ndjson'),JSON.stringify({key,entry})+'\n');this.journalWrites++;
     });
     if(this.journalWrites>=128)await this.checkpoint();
@@ -107,7 +106,7 @@ class TexturePreviewCache {
     return Promise.resolve({state:'indexing',jobId:job.id,total:0,completed:0,cached:0,failed:0,bytes:0,errors:[]});
   }
   cancel(jobId) {if(this.active&&(!jobId||jobId===this.active.id)){this.active.cancelled=true;this.publish({state:'cancelled'});}return this.snapshot();}
-  async settle() {await this.active?.done;await this.writeQueue.catch(()=>{});return this.snapshot();}
+  async settle() {await this.active?.done;await this.enqueue.idle();return this.snapshot();}
   async close() {this.cancel();await this.settle();}
 }
 module.exports={TexturePreviewCache,validKey,imageInfo};

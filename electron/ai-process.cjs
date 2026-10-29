@@ -1,6 +1,9 @@
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+// Each native CLI keeps its sign-in, settings and session logs in its own home folder.
+const PROVIDERS = require('../src/ai-providers.json');
+const homeVariable = provider => PROVIDERS.find(p => p.id === provider).homeVariable;
 function providerEnvironment(directory, provider) {
   const env = { ...process.env, TEMP: path.join(directory, 'temp'), TMP: path.join(directory, 'temp') };
   for (const key of [
@@ -15,14 +18,14 @@ function providerEnvironment(directory, provider) {
     'CLAUDE_CODE_USE_FOUNDRY',
   ])
     delete env[key];
-  env[provider === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR'] = path.join(directory, provider);
+  env[homeVariable(provider)] = path.join(directory, provider);
   return env;
 }
 // The provider environment, with its temporary folder and provider home created.
 async function prepareEnvironment(directory, provider) {
   const env = providerEnvironment(directory, provider);
   await fs.promises.mkdir(env.TEMP, { recursive: true });
-  await fs.promises.mkdir(env[provider === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR'], { recursive: true });
+  await fs.promises.mkdir(env[homeVariable(provider)], { recursive: true });
   return env;
 }
 // PATH can omit a CLI, for example one installed after Windows sign-in or one

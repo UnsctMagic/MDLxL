@@ -1,7 +1,7 @@
 // Optional private teaching pair: damaged 06, authored restoration 07.
 // No model names, bone identities or counterpart data enter runtime reduction.
 import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
 import { ModelRenderer } from 'war3-model';
@@ -17,8 +17,7 @@ const index=changed[0],authored=models[1].Bones[index].Translation,damaged=model
 assert.equal(authored.Keys.length-damaged.Keys.length,4);
 models[0].Bones[index].Translation=authored;assert.deepEqual(models[0],models[1]);
 const model=models[1],source=bytes[1],sequence=model.Sequences.findIndex(s=>authored.Keys.every(k=>k.Frame>=s.Interval[0]&&k.Frame<=s.Interval[1]));assert.ok(sequence>=0);
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
-const hive=b=>{const m=new ModelViewer.parsers.mdlx.Model();m.load(b.buffer);const {errors,severe,warnings,unused}=ModelViewer.utils.mdlx.sanityTest(m);return {errors,severe,warnings,unused};};
+const hive=b=>{const {errors,severe,warnings,unused}=sanityTest(bytes);return {errors,severe,warnings,unused};};
 let result;
 for(const strength of [0,40,80,100]){
  result=runOptimizeStage(source,'animation',simpleSettings('animation',strength,model));

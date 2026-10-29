@@ -9,6 +9,8 @@ import { Section, SelectField, Check, TrackEditor } from './Fields.jsx';
 import { nodeHierarchyRows, visibleNodeRows, relatedResourceIndices } from '../src/node-hierarchy.js';
 import { NODE_TYPES, createNode, deleteNode, duplicateGeoset, deleteGeoset, recalculateNormals } from '../src/editor-document.js';
 import { makeCube, nodeKind } from '../src/editor-commands.js';
+import { ensureGeosetAnimation } from '../src/geoset-animation-defaults.js';
+import { createSequence } from '../src/sequence-editor.js';
 import { displayNumber } from '../src/display-number.js';
 import { visitTextureReferences } from '../src/texture-references.js';
 import { materialName, textureName } from '../src/resource-relations.js';
@@ -149,18 +151,17 @@ export function ResourceEditor({embedded = false, modelPath, onEditVisibility, o
     } catch (error) { lastApplySucceeded.current = false; setMessage(error.message); setWarnings(count => count + 1); redraw(value => value + 1); refresh?.(); return false; }
   };
   const add = () => {
-    const index = apply(`New ${currentKind}`, [currentKind, 'Nodes', 'PivotPoints', 'Info'], m => {
+    const index = apply(`New ${currentKind}`, [currentKind, 'Nodes', 'PivotPoints', 'Info', 'Geosets'], m => {
       if (currentKind === 'Nodes') return createNode(m, nodeType).ObjectId;
       if (currentKind === 'Materials') return ensureMaterial(m);
       if (currentKind === 'GeosetAnims') {
         if (!m.Geosets[activeGeoset]) throw new Error('Choose a geoset before creating its animation.');
-        const existing = m.GeosetAnims.findIndex(anim => anim.GeosetId === activeGeoset);
-        return existing >= 0 ? existing : m.GeosetAnims.push({ GeosetId: activeGeoset, Alpha: 1, Flags: 0 }) - 1;
+        return m.GeosetAnims.indexOf(ensureGeosetAnimation(m, activeGeoset, { refuseDuplicates: false }));
       }
       if (currentKind === 'Textures') return m.Textures.push({ Image: '', ReplaceableId: 0, Flags: 0 }) - 1;
       if (currentKind === 'Geosets') { if (!m.Materials.length) ensureMaterial(m); if (!m.Bones.length) createNode(m, 'Bone'); const geoset = makeCube(m); recalculateNormals(geoset); return m.Geosets.push(geoset) - 1; }
 
-      if (currentKind === 'Sequences') { const start = Math.max(0, ...m.Sequences.map(sequence => sequence.Interval[1])) + 100; return m.Sequences.push({ Name: 'Stand', Interval: new Uint32Array([start, start + 1000]), NonLooping: false, MoveSpeed: 0, Rarity: 0, MinimumExtent: new Float32Array(m.Info.MinimumExtent), MaximumExtent: new Float32Array(m.Info.MaximumExtent), BoundsRadius: m.Info.BoundsRadius }) - 1; }
+      if (currentKind === 'Sequences') return createSequence(m, 1000, { name: 'Stand', gap: 100 });
       if (currentKind === 'TextureAnims') return m.TextureAnims.push({}) - 1;
       if (currentKind === 'GlobalSequences') return m.GlobalSequences.push(1000) - 1;
       throw new Error('This resource type cannot be created here.');

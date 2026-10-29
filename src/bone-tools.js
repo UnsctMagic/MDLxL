@@ -1,5 +1,9 @@
 import { createNode, deleteNode } from './editor-document.js';
 import { bindVertices } from './editor-commands.js';
+import { checkedVertexSelection } from './mesh-tools.js';
+import { vertexBones } from './part-bones.js';
+import { allNodes } from './animation.js';
+import { uniqueName } from './node-hierarchy.js';
 
 const IDENTITY_BIND_POSE = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
 
@@ -20,24 +24,9 @@ export function selectedVertexCenter(model, selection = {}) {
 
 export function createRigNode(model, type, selection = {}) {
   if (!['Bone', 'Attachment'].includes(type)) throw new Error('Choose Bone or Attachment.');
-  const name = type === 'Bone' ? (() => {
-    const used = new Set((model.Bones || []).map(bone => bone.Name));
-    let index = 0;
-    while (used.has(`bone_new${index}`)) index++;
-    return `bone_new${index}`;
-  })() : 'New Ref';
-  // Object IDs remain stable. Extend each bind-pose array at the new ID while
-  // leaving every existing inverse matrix in its original slot.
-  const bindPoses = model.BindPoses;
-  if (bindPoses?.length) model.BindPoses = [];
-  let node;
-  try { node = createNode(model, type); }
-  finally { if (bindPoses?.length) model.BindPoses = bindPoses; }
-  for (const pose of bindPoses || []) {
-    const cameras = pose.Matrices.splice(pose.Matrices.length - (model.Cameras?.length || 0));
-    while (pose.Matrices.length <= node.ObjectId) pose.Matrices.push(new Float32Array(IDENTITY_BIND_POSE));
-    pose.Matrices.push(...cameras);
-  }
+  // Any node already named bone_newN (a helper or attachment too) takes N.
+  const name = type === 'Bone' ? uniqueName('bone_new0', new Set(allNodes(model).map(node => node.Name)), n => `bone_new${n}`, 1) : 'New Ref';
+  const node = createNode(model, type);
   node.Name = name;
   node.PivotPoint = new Float32Array(selectedVertexCenter(model, selection));
   model.PivotPoints[node.ObjectId] = node.PivotPoint;
@@ -70,9 +59,7 @@ export function detachFromBone(model, childId) {
 }
 
 function selectedIndices(geoset, indices) {
-  const count = (geoset?.Vertices?.length || 0) / 3;
-  const ids = [...new Set(indices || [])];
-  if (!ids.length || ids.some(id => !Number.isInteger(id) || id < 0 || id >= count)) throw new Error('Select valid vertices first.');
+  const { count, selected: ids } = checkedVertexSelection(geoset, indices, { streams: false, message: 'Select valid vertices first.' });
   if (geoset.VertexGroup?.length !== count) throw new Error('Vertex groups do not match the vertex count.');
   if (geoset.SkinWeights?.length && geoset.SkinWeights.length !== count * 8) throw new Error('Skin weights do not match the vertex count.');
   return ids;
@@ -178,10 +165,7 @@ export function boneVertexHighlights(model, selectedNodeIds = []) {
   (model.Geosets || []).forEach((geoset, geosetIndex) => {
     const vertices = new Map(), count = (geoset.Vertices?.length || 0) / 3;
     for (let vertex = 0; vertex < count; vertex++) {
-      const skin = geoset.SkinWeights, offset = vertex * 8;
-      const influences = skin?.length === count * 8
-        ? Array.from({ length: 4 }, (_, slot) => skin[offset + 4 + slot] > 0 ? skin[offset + slot] : null).filter(id => id != null)
-        : geoset.Groups?.[geoset.VertexGroup?.[vertex]] || [];
+      const influences = vertexBones(geoset, vertex);
       if (influences.some(id => selected.has(id))) vertices.set(vertex, '#000000');
       else if (influences.some(id => descendants.has(id))) vertices.set(vertex, '#808080');
     }

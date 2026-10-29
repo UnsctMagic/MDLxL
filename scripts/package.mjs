@@ -99,7 +99,7 @@ async function makeStage(stage) {
 }
 
 async function verifyStage(stage) {
-  for(const file of ['dist/ai-sandbox.html','electron/ai-service.cjs','electron/ai-providers.cjs','electron/ai-mcp.cjs','electron/ai-process.cjs','electron/ai-sandbox.cjs','electron/ai-sandbox-preload.cjs','src/ai-tools.js'])if(!await exists(path.join(stage,file)))throw Error('AI runtime file missing: '+file);
+  for(const file of ['dist/ai-sandbox.html','electron/ai-service.cjs','electron/ai-providers.cjs','electron/ai-mcp.cjs','electron/ai-process.cjs','electron/ai-sandbox.cjs','electron/ai-sandbox-preload.cjs','electron/ai-chats.cjs','src/ai-tools.js','src/ai-transcript.js','src/ai-providers.json'])if(!await exists(path.join(stage,file)))throw Error('AI runtime file missing: '+file);
   await verifyFFmpegBundle(path.join(stage, 'electron', 'ffmpeg'));
   const particles=await import(pathToFileURL(path.join(stage,'dist','particle-runtime.mjs')).href);
   for(const name of ['openDocument','effectNodes','extractParticleRecipe','validateParticleRecipe','activeParticleSample'])if(typeof particles[name]!=='function')throw Error(`Packaged particle runtime missing ${name}`);

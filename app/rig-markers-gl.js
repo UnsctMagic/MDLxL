@@ -2,6 +2,7 @@ import { Color, Matrix4, Vector3 } from 'three';
 import { visualOptions } from '../src/preferences.js';
 import { NODE_SYMBOLS, NODE_SYMBOL_COLORS } from './node-marker-symbols.js';
 import { boneDisplayColor, boneDisplayOptions, BONE_DIAMOND } from './bone-display.js';
+import { createGLProgram } from './gl-utils.js';
 
 const CUBE = { vertices: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]], faces: [[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]] };
 const TETRA = { vertices: [[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]], faces: [[0,2,1],[0,1,3],[0,3,2],[1,2,3]] };
@@ -154,11 +155,7 @@ export function thickMarkerEdges(edges, camera, width, height, pixels = 2) {
 }
 
 export function createRigMarkersGL(gl) {
-  const compile = (type, source) => { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader)); return shader; };
-  const vs = compile(gl.VERTEX_SHADER, '#version 300 es\nin vec3 position; in vec3 color; uniform mat4 transform; out vec3 tint; void main(){gl_Position=transform*vec4(position,1.);tint=color;}');
-  const fs = compile(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float; in vec3 tint; out vec4 result; void main(){result=vec4(tint,1.);}');
-  const program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+  const program = createGLProgram(gl, '#version 300 es\nin vec3 position; in vec3 color; uniform mat4 transform; out vec3 tint; void main(){gl_Position=transform*vec4(position,1.);tint=color;}', '#version 300 es\nprecision highp float; in vec3 tint; out vec4 result; void main(){result=vec4(tint,1.);}');
   const buffer = gl.createBuffer(), vao = gl.createVertexArray(), transform = gl.getUniformLocation(program, 'transform');
   gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   for (const [name, offset] of [['position',0],['color',12]]) { const location = gl.getAttribLocation(program,name); gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location,3,gl.FLOAT,false,24,offset); }
@@ -166,17 +163,14 @@ export function createRigMarkersGL(gl) {
   // Flat symbols retain their exact topology on the GPU. Only their pose,
   // screen/model size and colour change; do not expand every hand icon into
   // megabytes of world-space triangle/edge arrays on every animation frame.
-  const symbolVs = compile(gl.VERTEX_SHADER, `#version 300 es
+  const symbolProgram = createGLProgram(gl, `#version 300 es
     in vec3 position; uniform mat4 transform; uniform vec3 world;
     uniform vec4 rotation; uniform float size;
     void main(){
       vec3 p=position*size, t=2.*cross(rotation.xyz,p);
       p+=rotation.w*t+cross(rotation.xyz,t);
       gl_Position=transform*vec4(p+world,1.);
-    }`);
-  const symbolFs = compile(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float; uniform vec3 tint; out vec4 result; void main(){result=vec4(tint,1.);}');
-  const symbolProgram = gl.createProgram(); gl.attachShader(symbolProgram,symbolVs); gl.attachShader(symbolProgram,symbolFs); gl.linkProgram(symbolProgram);
-  if (!gl.getProgramParameter(symbolProgram,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(symbolProgram));
+    }`, '#version 300 es\nprecision highp float; uniform vec3 tint; out vec4 result; void main(){result=vec4(tint,1.);}');
   const symbolUniforms = Object.fromEntries(['transform','world','rotation','size','tint'].map(name => [name,gl.getUniformLocation(symbolProgram,name)]));
   const symbols = new Map();
   const symbolGeometry = shape => {
@@ -246,8 +240,8 @@ export function createRigMarkersGL(gl) {
     },
     dispose() {
       for (const symbol of symbols.values()) { gl.deleteBuffer(symbol.buffer); gl.deleteVertexArray(symbol.vao); }
-      symbols.clear(); gl.deleteProgram(symbolProgram); gl.deleteShader(symbolVs); gl.deleteShader(symbolFs);
-      gl.deleteBuffer(buffer); gl.deleteVertexArray(vao); gl.deleteProgram(program); gl.deleteShader(vs); gl.deleteShader(fs);
+      symbols.clear(); gl.deleteProgram(symbolProgram);
+      gl.deleteBuffer(buffer); gl.deleteVertexArray(vao); gl.deleteProgram(program);
     },
   };
 }

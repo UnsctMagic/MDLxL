@@ -159,6 +159,16 @@ test('skin weights add and remove only the selected bone while retaining a valid
   assert.equal(openDocument(doc.serialize('mdx'), undefined, { allowHD: true }).readOnly, false);
 });
 
+test('createNode extends bind poses before the cameras and keeps a matrix already in the new slot', () => {
+  const kept = new Float32Array([2, 0, 0, 0, 2, 0, 0, 0, 2, 7, 8, 9]), camera = new Float32Array(12).fill(3);
+  const model = { Info: {}, Bones: [{ ObjectId: 0 }], Nodes: [], PivotPoints: [new Float32Array(3)], Cameras: [{}], BindPoses: [{ Matrices: [new Float32Array(12), kept, camera] }] };
+  const node = createNode(model, 'Helper');
+  assert.equal(node.ObjectId, 1);
+  assert.deepEqual(model.BindPoses[0].Matrices, [new Float32Array(12), kept, camera]);
+  createNode(model, 'Helper');
+  assert.deepEqual(model.BindPoses[0].Matrices, [new Float32Array(12), kept, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]), camera]);
+});
+
 test('rig edits keep existing bind-pose matrix slots and round-trip MDX1000', () => {
   const doc = createStarterDocument(1000);
   const original = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6]);
@@ -188,4 +198,12 @@ test('creating and deleting rig bones retain the camera matrices after the node 
   assert.equal(doc.model.BindPoses[0].Matrices.length, 2);
   assert.deepEqual(doc.model.BindPoses[0].Matrices.at(-1), cameraPose);
   for (const format of ['mdx','mdl']) assert.deepEqual(openDocument(doc.serialize(format)).model.BindPoses[0].Matrices.at(-1), cameraPose);
+});
+
+test('a new bone name skips helper and attachment names too', () => {
+  const doc = createStarterDocument();
+  const helper = doc.apply('Create helper', [], model => { const node = createNode(model, 'Helper'); node.Name = 'bone_new0'; return node; });
+  assert.equal(helper.Name, 'bone_new0');
+  const bone = doc.apply('Create bone', [], model => createRigNode(model, 'Bone'));
+  assert.equal(bone.Name, 'bone_new1');
 });

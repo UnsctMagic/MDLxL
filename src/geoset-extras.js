@@ -1,4 +1,4 @@
-import { sampleTrack } from './animation.js';
+import { isGlobalTrack, sampleTrack } from './animation.js';
 
 // Corpse (Death/Decay) and portrait-background geosets only clutter the work
 // area. "Everyday" sequences are everything else (Stand, Walk, Attack, ...).
@@ -17,7 +17,7 @@ export function corpseAndBackgroundGeosets(model) {
   if (!everyday.length) return extras;
   (model.Geosets || []).forEach((_, index) => {
     const track = (model.GeosetAnims || []).find(item => item.GeosetId === index)?.Alpha;
-    if (Number.isInteger(track?.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+    if (isGlobalTrack(track)) return;
     if (!everyday.some(sequence => visibleIn(model, track, sequence))) extras.add(index);
   });
   // Never empty the work area.

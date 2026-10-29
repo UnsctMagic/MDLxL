@@ -1,5 +1,6 @@
 // Exercise the shipped shelf in Electron with a clean profile and demo model.
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp } = require('./helpers/app.cjs');
+
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=process.cwd(),out=path.resolve('out/default-paint-library');
 (async()=>{
@@ -8,10 +9,9 @@ const root=process.cwd(),out=path.resolve('out/default-paint-library');
   const fixture=path.join(out,'demo.mdx'),document=createDemoDocument();
   fs.copyFileSync(path.join(root,'public/paint-library/Skin/Human/Tan Human Skin.png'),path.join(out,'Skin.png'));
   document.model.Textures[0]={Image:'Skin.png',ReplaceableId:0,Flags:0};fs.writeFileSync(fixture,document.serialize('mdx'));
-  const app=await _electron.launch({executablePath:path.join(root,'node_modules/electron/dist/electron.exe'),args:[root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
+  const { app, page } = await launchApp({ fixture: fixture, out, pageTimeout: 20000 });
   try{
-    const page=await app.firstWindow();page.setDefaultTimeout(20000);
-    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setSize(1280,920);w.showInactive();});
+
     await page.locator('[data-hotkey="paint"]').click();await page.getByRole('button',{name:'Begin painting',exact:true}).click();
     const collection=page.getByRole('button',{name:'Texture library',exact:true});
     await collection.waitFor();assert.equal(await collection.getAttribute('aria-pressed'),'true');
@@ -28,5 +28,5 @@ const root=process.cwd(),out=path.resolve('out/default-paint-library');
     await page.waitForFunction(()=>document.querySelectorAll('.paint-shelf-tile').length===5);
     assert.equal(await page.locator('.paint-shelf-tile').count(),5);
     console.log('PASS: 31 shipped defaults open selected, folders/search/thumbnails/source selection work, native starters remain available.');
-  }finally{await app.evaluate(({app})=>app.exit(0));}
+  }finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

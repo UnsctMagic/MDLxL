@@ -1,7 +1,7 @@
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { canonicalValue, stableKey } from './value-key.js';
-import { appendGeosetGeometry, deleteGeoset } from './editor-document.js';
-import { gather, updateBounds } from './mesh-tools.js';
+import { appendGeosetGeometry, deleteGeoset, removeGeosets } from './editor-document.js';
+import { gatherStreams, updateBounds } from './mesh-tools.js';
 
 const textureSlots = TEXTURE_SLOTS;
 const geometryFields = new Set(['Vertices', 'Normals', 'Faces', 'TVertices', 'VertexGroup', 'Groups', 'TotalGroupsCount', 'Tangents', 'SkinWeights', 'PrimitiveTypes', 'PrimitiveCounts', 'MinimumExtent', 'MaximumExtent', 'BoundsRadius', 'Anims', 'MaterialID', 'Name']);
@@ -292,7 +292,7 @@ function groupSmallDetails(parts) {
 function piece(g, component) {
   const remap = new Map(component.vertices.map((old, index) => [old, index]));
   const result = structuredClone(g);
-  Object.assign(result, gather(g, component.vertices));
+  Object.assign(result, gatherStreams(g, component.vertices));
   result.Faces = new g.Faces.constructor(component.faces.map(index => remap.get(index)));
   result.PrimitiveTypes = result.Faces.length ? Uint32Array.of(4) : new Uint32Array();
   result.PrimitiveCounts = result.Faces.length ? Uint32Array.of(result.Faces.length) : new Uint32Array();
@@ -365,7 +365,7 @@ export function deleteFreeVertices(model, geosetIndices) {
     if (!plan.kept.length) { removedGeosets.push(plan.index); continue; }
     const geoset = geosets[plan.index], remap = new Map(plan.kept.map((old, next) => [old, next]));
     vertexMaps[plan.index] = Object.fromEntries(remap);
-    Object.assign(geoset, gather(geoset, plan.kept));
+    Object.assign(geoset, gatherStreams(geoset, plan.kept));
     geoset.Faces = new geoset.Faces.constructor(Array.from(geoset.Faces, vertex => remap.get(vertex)));
     updateBounds(geoset);
   }
@@ -443,25 +443,6 @@ export function mergeSimilarGeosets(model, selectionByGeoset, resolutions) {
     targets.add(leader);
   }
   if (!targets.size) return false;
-  const oldToNew = new Map(), kept = [];
-  for (let index = 0; index < original.length; index++) if (leaders[index] === index) { oldToNew.set(index, kept.length); kept.push(original[index]); }
-  for (let index = 0; index < original.length; index++) oldToNew.set(index, oldToNew.get(leaders[index]));
-  const oldAnimToNew = new Map(), keptAnimations = [];
-  (model.GeosetAnims || []).forEach((anim, index) => {
-    if (leaders[anim.GeosetId] !== anim.GeosetId) return;
-    oldAnimToNew.set(index, keptAnimations.length);
-    anim.GeosetId = oldToNew.get(anim.GeosetId);
-    keptAnimations.push(anim);
-  });
-  for (let index = 0; index < original.length; index++) if (leaders[index] !== index) animations[index].forEach((oldAnim, position) => oldAnimToNew.set(oldAnim, oldAnimToNew.get(animations[leaders[index]][position])));
-  model.Geosets = kept;
-  model.GeosetAnims = keptAnimations;
-  for (const bone of model.Bones || []) {
-    if (oldToNew.has(bone.GeosetId)) bone.GeosetId = oldToNew.get(bone.GeosetId);
-    if (oldAnimToNew.has(bone.GeosetAnimId)) bone.GeosetAnimId = oldAnimToNew.get(bone.GeosetAnimId);
-  }
-  for (const glider of model.Gliders || []) if (oldToNew.has(glider.GeosetId)) glider.GeosetId = oldToNew.get(glider.GeosetId);
-  model.Info.NumGeosets = kept.length;
-  model.Info.NumGeosetAnims = keptAnimations.length;
-  return { merged: original.length - kept.length, geosetIndices: [...targets].map(index => oldToNew.get(index)), oldToNew: Object.fromEntries(oldToNew), vertexOffsets };
+  const oldToNew = removeGeosets(model, new Map(leaders.flatMap((leader, index) => leader === index ? [] : [[index, leader]])));
+  return { merged: original.length - model.Geosets.length, geosetIndices: [...targets].map(index => oldToNew[index]), oldToNew: Object.fromEntries(oldToNew.entries()), vertexOffsets };
 }

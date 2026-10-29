@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import {ModelRenderer} from 'war3-model';
 import {createStarterDocument} from '../src/starter-model.js';
 import {createNode,openDocument} from '../src/editor-document.js';
@@ -11,8 +10,7 @@ import {assertRoundTripFields} from '../src/model-optimizer.js';
 import {sanityProposals,runOptimizeStage} from '../src/optimizexl.js';
 import {classifyHiveFindings} from '../src/optimizexl-diagnostics.js';
 import {flattenHiveFindings} from '../app/optimizexl-hive.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
-const hive=bytes=>{const m=new ModelViewer.parsers.mdlx.Model();m.load(bytes.slice().buffer);const r=ModelViewer.utils.mdlx.sanityTest(m);return {...r,findings:flattenHiveFindings(r.nodes)};};
+const hive=bytes=>{const r=sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};
 const key=(Frame,Vector,InTan=Vector,OutTan=Vector)=>({Frame,Vector:new Float32Array(Vector),InTan:new Float32Array(InTan),OutTan:new Float32Array(OutTan)});
 function fixture(type=2,rotation=false){
   const d=createStarterDocument();d.model.Sequences=[{Name:'Arbitrary',Interval:new Uint32Array([100,2100]),MinimumExtent:new Float32Array(3),MaximumExtent:new Float32Array(3),BoundsRadius:0}];

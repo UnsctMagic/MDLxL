@@ -1,22 +1,23 @@
 // Source acquisition and personal library roundtrip through actual editor UI.
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { launchApp, closeApp, settle: waitForSettle } = require('./helpers/app.cjs');
+const { fixturePath } = require('./helpers/fixtures.cjs');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const root=process.cwd(),fixture=process.env.MDLXL_PAINT_FIXTURE,out=path.resolve('out/citadel-audit/library-'+Date.now());
+const root=process.cwd(),fixture=(process.env.MDLXL_PAINT_FIXTURE || fixturePath('citadel-footman')),out=path.resolve('out/citadel-audit/library-'+Date.now());
 if(!fixture)throw Error('Set MDLXL_PAINT_FIXTURE.');
 fs.mkdirSync(out,{recursive:true});let app,page;const result={checks:[],errors:[]};
-const idle=()=>page.waitForTimeout(160),shot=name=>page.screenshot({path:path.join(out,name+'.png')});
+const idle=()=>waitForSettle(page, 160),shot=name=>page.screenshot({path:path.join(out,name+'.png')});
 const material=()=>page.evaluate(()=>{const m=studio().material;return m?{name:m.name,width:m.raster.width,height:m.raster.height,data:Array.from(m.raster.data)}:null;});
 async function run(){
   const {encodePaintPng,decodePaintPng}=await import('../src/paint-project.js');
   const original={width:64,height:32,data:new Uint8ClampedArray(64*32*4)};
   for(let y=0;y<32;y++)for(let x=0;x<64;x++)original.data.set([x*4,y*8,77,x<8?x*32:255],(y*64+x)*4);
   const source=path.join(out,'source.png');fs.writeFileSync(source,await encodePaintPng(original));
-  app=await _electron.launch({executablePath:path.join(root,'node_modules/electron/dist/electron.exe'),args:['--disable-backgrounding-occluded-windows',root,fixture],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile')},timeout:60000});
-  page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>result.errors.push(e.message));
+  ({ app, page, errors: result.errors } = await launchApp({ fixture: fixture, out, pageTimeout: 15000 }));
+
   // The real library implementation writes to a fresh test directory only.
-  await app.evaluate(({BrowserWindow,ipcMain},{root,out})=>{const {PaintTextureLibrary}=process.mainModule.require(root+'/electron/paint-textures.cjs'),library=new PaintTextureLibrary(out+'/Textures');for(const key of ['paint:textures','paint:texture','paint:saveTexture'])ipcMain.removeHandler(key);ipcMain.handle('paint:textures',()=>library.list());ipcMain.handle('paint:texture',(_,id)=>library.read(id));ipcMain.handle('paint:saveTexture',(_,p)=>library.save(p));const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setSize(1280,920);w.setPosition(-3000,0);w.showInactive();},{root,out});
+  await app.evaluate(({ipcMain},{root,out})=>{const {PaintTextureLibrary}=process.mainModule.require(root+'/electron/paint-textures.cjs'),library=new PaintTextureLibrary(out+'/Textures');for(const key of ['paint:textures','paint:texture','paint:saveTexture'])ipcMain.removeHandler(key);ipcMain.handle('paint:textures',()=>library.list());ipcMain.handle('paint:texture',(_,id)=>library.read(id));ipcMain.handle('paint:saveTexture',(_,p)=>library.save(p));},{root,out});
   await page.locator('[data-hotkey="paint"]').click();await page.getByText('Texture detail',{exact:true}).click();await page.getByLabel('Working size',{exact:true}).selectOption('0');await page.getByRole('button',{name:'Begin painting',exact:true}).click();await page.locator('.paint-texture-view').waitFor();
-  await page.evaluate(()=>{window.studio=()=>{const e=document.querySelector('.paint-workspace');let f=e[Object.keys(e).find(k=>k.startsWith('__reactFiber'))];while(f.return)f=f.return;const find=f=>{if(f.memoizedProps?.onSaveSource&&f.memoizedProps?.onCommit)return f.memoizedProps;for(let c=f.child;c;c=c.sibling){const r=find(c);if(r)return r;}};return find(f.stateNode.current);};});
+  await page.evaluate(()=>{window.studio=()=>findFiberState('.paint-workspace', p => p?.onSaveSource && p?.onCommit, { tree: true, props: true });});
   assert.equal(await page.evaluate(()=>studio().project.targets[0].base.width),256);result.checks.push('Native precision option retains original 256 px skin');
   await page.locator('input[accept=".blp,.dds,.tga,.png,.jpg,.jpeg,.webp"]').setInputFiles(source);await page.getByRole('button',{name:'Use full texture as source',exact:true}).click();await idle();
   const imported=await material();assert.equal(imported.width,64);assert.deepEqual(imported.data,Array.from(original.data),'PNG source pixels must survive import, including alpha');
@@ -29,4 +30,4 @@ async function run(){
   await page.getByRole('button',{name:'WC3 library…',exact:true}).click();await page.getByLabel('Search textures',{exact:true}).fill('HumanCampaignFootman');await page.locator('.tl-tile').filter({hasText:'Human Campaign Footman'}).first().click();await page.getByRole('button',{name:'Crop / select…',exact:true}).click();await page.locator('.paint-cutout-image').waitFor();await shot('03-native-source');await page.getByRole('button',{name:'Use cutout as source',exact:true}).click();await idle();assert.ok((await material()).width>=256);result.checks.push('Native Warcraft library image opens directly in the cutout editor');
   assert.deepEqual(result.errors,[]);console.log(JSON.stringify({out,...result},null,2));
 }
-run().catch(async error=>{result.failure=error.stack;console.error(error);if(page){console.error((await page.locator('body').innerText()).slice(-4000));await shot('failure');}process.exitCode=1;}).finally(async()=>{fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));if(app)await app.evaluate(({app})=>app.exit(0)).catch(()=>{});});
+run().catch(async error=>{result.failure=error.stack;console.error(error);if(page){console.error((await page.locator('body').innerText()).slice(-4000));await shot('failure');}process.exitCode=1;}).finally(async()=>{fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));if(app)await closeApp(app);});

@@ -16,9 +16,11 @@ import { effectVisibilityProposals } from './optimizexl-effect-visibility.js';
 import { skinCollapseProposals } from './optimizexl-skin-collapse.js';
 import { redundantTrackProposals, applyRedundantTrack } from './optimizexl-redundant-tracks.js';
 import { splineTrackProposals, applySplineTrack } from './optimizexl-spline-tracks.js';
-import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair } from './optimizexl-format.js';
+import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair, optimizexlLocalTrack } from './optimizexl-format.js';
 import { rebuildNodes, remapNodes } from './optimizexl-nodes.js';
+import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { checkerRepairProposals, applyCheckerRepair } from './optimizexl-checker-repairs.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 export const STAGES = [
   // Repairs come first: later reductions refuse models with broken references.
@@ -39,7 +41,7 @@ const collections = Object.values(NODE_TYPES).map(([key])=>key);
 const sections = ['Info','Sequences','Geosets','GeosetAnims','Materials','Textures','TextureAnims','GlobalSequences','PivotPoints',...collections];
 const json=x=>JSON.stringify(x,(_,v)=>ArrayBuffer.isView(v)?Array.from(v):v);
 const same=(a,b)=>json(a)===json(b);
-const local=t=>t?.Keys && (t.GlobalSeqId==null||t.GlobalSeqId===-1||t.GlobalSeqId===0xffffffff);
+const local=t=>t?.Keys && optimizexlLocalTrack(t);
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,Number(v)||0));
 export const triangleCount=m=>m.Geosets.reduce((n,g)=>n+g.Faces.length/3,0);
 export function dimensions(m){const points=m.Geosets.flatMap(g=>Array.from(g.Vertices));const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];points.forEach((v,i)=>{lo[i%3]=Math.min(lo[i%3],v);hi[i%3]=Math.max(hi[i%3],v);});return Math.max(1,...hi.map((v,i)=>v-lo[i]).filter(Number.isFinite));}
@@ -64,8 +66,8 @@ function duplicateBones(m,settings,changes){
  for(const n of m.Bones){if(parents.has(n.ObjectId)||protectedNodes.has(n.ObjectId))continue;const {Name,ObjectId,...rest}=n,key=json(rest);if(known.has(key)){removed.add(ObjectId);map.set(ObjectId,known.get(key));}else known.set(key,ObjectId);}
  if(removed.size){changes.push({kind:'bones',nodes:[...removed]});remapNodes(m,removed,map);}return removed.size;
 }
-function unusedNodes(m,changes){const used=new Set(m.Geosets.flatMap(g=>g.Groups.flat()));const nodes=allNodes(m),byId=new Map(nodes.map(n=>[n.ObjectId,n]));for(const k of collections)if(!['Bones','Helpers'].includes(k))for(const n of m[k]||[])used.add(n.ObjectId);for(const n of [...m.Bones,...m.Helpers])if(n.GeosetId!=null||n.GeosetAnimId!=null)used.add(n.ObjectId);
- for(const id of [...used]){let n=byId.get(id),seen=new Set();while(n&&n.Parent!=null&&!seen.has(n.Parent)){seen.add(n.Parent);used.add(n.Parent);n=byId.get(n.Parent);}}
+function unusedNodes(m,changes){const used=new Set(m.Geosets.flatMap(g=>g.Groups.flat()));const nodes=allNodes(m),tree=nodeIndex(m,nodes);for(const k of collections)if(!['Bones','Helpers'].includes(k))for(const n of m[k]||[])used.add(n.ObjectId);for(const n of [...m.Bones,...m.Helpers])if(n.GeosetId!=null||n.GeosetAnimId!=null)used.add(n.ObjectId);
+ for(const id of [...used])for(const parent of tree.ancestors(id))used.add(parent);
  const removed=new Set([...m.Bones,...m.Helpers].filter(n=>!used.has(n.ObjectId)).map(n=>n.ObjectId));for(const n of nodes)if(removed.has(n.ObjectId))changes.push({label:`${m.Bones.includes(n)?'Bone':'Helper'}: ${n.Name||n.ObjectId}`});if(removed.size)remapNodes(m,removed);return removed.size;}
 function unusedGlobals(m,changes){const owners=[...tracks(m).map(t=>t.track),...m.EventObjects],used=new Set(owners.map(t=>t.GlobalSeqId).filter(id=>Number.isInteger(id)&&id>=0&&id<m.GlobalSequences.length)),map=new Map(),kept=[];m.GlobalSequences.forEach((duration,id)=>{if(used.has(id)){map.set(id,kept.length);kept.push(duration);}else changes.push({label:`Global sequence ${id+1}`});});const removed=m.GlobalSequences.length-kept.length;for(const t of owners)if(map.has(t.GlobalSeqId))t.GlobalSeqId=map.get(t.GlobalSeqId);m.GlobalSequences=kept;return removed;}
 function unusedResources(m,stats,skipped,changes){
@@ -97,7 +99,7 @@ function animationReduction(m,settings,changes){const protectedData=protectedGeo
  removed+=reduceAnimationTrack(m,t,p,tolerance,change=>changes.push({path,...change}),{reach:node?reach.get(node.ObjectId)||0:0,position:settings.position||0});
  }return removed;}
 function setKey(t,frame,value){const i=t.Keys.findIndex(k=>k.Frame===frame),key={Frame:frame,Vector:new Float32Array(Array.isArray(value)||ArrayBuffer.isView(value)?value:[value])};if(i>=0)t.Keys[i]=key;else t.Keys.push(key);t.Keys.sort((a,b)=>a.Frame-b.Frame);}
-function hideGeoset(m,gi,si){let a=m.GeosetAnims.find(a=>a.GeosetId===gi);if(!a){a={GeosetId:gi,Flags:0,Alpha:1,Color:new Float32Array([1,1,1])};m.GeosetAnims.push(a);}const existing=a.Alpha;let t=local(existing)?existing:null;if(!t){if(existing?.Keys)throw Error('Global visibility cannot be changed for only one sequence.');const value=typeof existing==='number'?existing:1;t={LineType:0,GlobalSeqId:null,Keys:[]};for(const s of m.Sequences){setKey(t,s.Interval[0],value);setKey(t,s.Interval[1],value);}a.Alpha=t;}
+function hideGeoset(m,gi,si){const a=ensureGeosetAnimation(m,gi,{refuseDuplicates:false});const existing=a.Alpha;let t=local(existing)?existing:null;if(!t){if(existing?.Keys)throw Error('Global visibility cannot be changed for only one sequence.');const value=typeof existing==='number'?existing:1;t={LineType:0,GlobalSeqId:null,Keys:[]};for(const s of m.Sequences){setKey(t,s.Interval[0],value);setKey(t,s.Interval[1],value);}a.Alpha=t;}
  const [lo,hi]=m.Sequences[si].Interval;for(const k of t.Keys)if(k.Frame>=lo&&k.Frame<=hi)k.Vector[0]=0;setKey(t,lo,0);setKey(t,hi,0);}
 function alpha(m,gi,si,f){const a=m.GeosetAnims.find(a=>a.GeosetId===gi);return sampleTrack(a?.Alpha,f,{interval:m.Sequences[si].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:1});}
 function allVisible(m,gi,si){const s=m.Sequences[si];return [s.Interval[0],(s.Interval[0]+s.Interval[1])/2,s.Interval[1]].some(f=>alpha(m,gi,si,f)>.001);}

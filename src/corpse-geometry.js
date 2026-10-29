@@ -1,3 +1,4 @@
+import { isWeaponName } from './rig-names.js';
 import { Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset } from './animation.js';
 import { suggestPoseRig, poseChainIds, poseNodeRole } from './pose-ik.js';
@@ -5,10 +6,13 @@ import { updateBounds } from './mesh-tools.js';
 import { booleanContours, polygonGroups, signedArea } from './forge-geometry.js';
 import { lerp as mix } from './vec.js';
 import { quantile } from './math.js';
+import { nodeIndex } from './node-hierarchy.js';
+import { vertexBones } from './part-bones.js';
 
 const mean = points => points.length ? points.reduce((sum,p) => sum.map((v,i) => v+p[i]/points.length), [0,0,0]) : null;
 const distance = (a,b) => Math.hypot(a[0]-b[0],a[1]-b[1]);
-const accessory = /weapon|sword|axe|shield|bow|staff|spear|hammer|gun|rifle|cape|cloth|hair|banner|rein|ribbon|glow|camera|event|attachment|ref\b|corpse|gutz/i;
+const accessoryExtra = /cape|cloth|hair|banner|rein|ribbon|glow|camera|event|attachment|ref\b|corpse|gutz/i;
+const accessory = name => isWeaponName(name) || accessoryExtra.test(name);
 const headAccessory = /flare|horn|hair|helmet|jaw|eye|ear|mouth/i;
 // Native gutz proportions, measured on the 58 study models with a native
 // corpse (docs/AUTO-CORPSE.md). Sizes are in the unit's typical limb bone
@@ -54,10 +58,8 @@ function trianglesOverlap(a,b,tolerance) {
   return true;
 }
 
-function influences(g,i) {
-  if(g.SkinWeights?.length >= (i+1)*8) return Array.from(g.SkinWeights.slice(i*8,i*8+4)).filter((id,k)=>g.SkinWeights[i*8+4+k]>=32);
-  return Array.from(g.Groups?.[g.VertexGroup?.[i]]||[]);
-}
+// HD slots under 32/255 are blend noise, not the body part a vertex belongs to.
+const influences=(g,i)=>vertexBones(g,i,{minWeight:32});
 
 /** Build a ground corpse from this model's joints and its skinned final Death
  * frame. No source-model names, vertex numbers or race/size presets are used. */
@@ -75,11 +77,11 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // disappearance frame, not a body-sized pose from which to make a corpse.
   if(!(span>1e-5)||Math.hypot(...hi.map((v,i)=>v-lo[i]))<Math.hypot(...restHi.map((v,i)=>v-restLo[i]))*.005) throw Error('The last Death frame collapses the body to a point. A corpse needs a visible final pose.');
   const ground=span*.012, top=surface(meshes,span), bodyHeight=Math.min(Math.max(hi[2],span*.15),span*.6);
-  const nodes=allNodes(model),byId=new Map(nodes.map(n=>[n.ObjectId,n])),clouds=new Map();
+  const nodes=allNodes(model),tree=nodeIndex(model,nodes),byId=tree.byId,clouds=new Map();
   for(const {g,vertices} of meshes) for(let i=0;i<g.Vertices.length/3;i++) for(const id of influences(g,i)) {
     const cloud=clouds.get(id)||[];cloud.push(Array.from(vertices.slice(i*3,i*3+3)));clouds.set(id,cloud);
   }
-  const ancestors=id=>{const result=[],seen=new Set();while(byId.has(id)&&!seen.has(id)){seen.add(id);result.push(id);id=byId.get(id).Parent;}return result;};
+  const ancestors=id=>tree.ancestors(id,true);
   const hasSkin=id=>[...clouds.keys()].some(key=>ancestors(key).includes(id));
   const at=id=>new Vector3().fromArray(nodePivot(model,byId.get(id),id)).applyMatrix4(matrices.get(id)).toArray();
   const rig=suggestPoseRig(model,frame,deathIndex),role=id=>rig.roles[id]||poseNodeRole(byId.get(id));
@@ -87,7 +89,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // carried object), never anatomy, whatever its bones are called.
   const hands=new Set(rig.chains.filter(c=>c.kind==='arm').map(c=>c.end));
   const held=id=>ancestors(byId.get(id)?.Parent).some(a=>hands.has(a)||role(a)==='Hand');
-  const chains=rig.chains.filter(c=>!held(c.root)&&poseChainIds(c).some(hasSkin)&&!poseChainIds(c).some(id=>accessory.test(byId.get(id)?.Name||'')&&!/hand|foot|toe|hoof|ref\b/i.test(byId.get(id)?.Name||'')));
+  const chains=rig.chains.filter(c=>!held(c.root)&&poseChainIds(c).some(hasSkin)&&!poseChainIds(c).some(id=>accessory(byId.get(id)?.Name||'')&&!/hand|foot|toe|hoof|ref\b/i.test(byId.get(id)?.Name||'')));
   // Blizzard commonly binds skin to Mesh/Box children, while the actual
   // anatomical joints own no vertices. Attribute that skin to the nearest
   // recognized joint. Measuring only directly bound skin turns full bodies
@@ -95,7 +97,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   const landmarks=new Set([rig.body,...rig.nodes,...chains.flatMap(poseChainIds)]),regions=new Map(),candidates=new Map();
   const ownerOf=id=>ancestors(id).find(i=>landmarks.has(i))??id;
   for(const {g,vertices} of meshes) {
-    const owners=Array.from({length:g.Vertices.length/3},(_,i)=>[...new Set(influences(g,i).filter(id=>!ancestors(id).some(a=>accessory.test(byId.get(a)?.Name||'')&&!/hand|foot|ref\b/i.test(byId.get(a)?.Name||''))).map(ownerOf))]);
+    const owners=Array.from({length:g.Vertices.length/3},(_,i)=>[...new Set(influences(g,i).filter(id=>!ancestors(id).some(a=>accessory(byId.get(a)?.Name||'')&&!/hand|foot|ref\b/i.test(byId.get(a)?.Name||''))).map(ownerOf))]);
     const covered=new Set(owners.flat()),bodySurface=covered.size>=3;
     for(const owner of covered) {
       const ids=owners.flatMap((list,i)=>list.includes(owner)?[i]:[]),parent=new Map(ids.map(i=>[i,i])),coincident=new Map();
@@ -208,7 +210,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
     }
     const key=pelvis.slice(0,2).map(v=>Math.round(v/Math.max(span*.01,1e-4))).join(':');
     const torso=torsos.get(key)||{necks:[],skulls:[],pelvis,ids:new Set()};torso.necks.push(neck);torso.skulls.push({skull,axis});
-    for(const i of [...headAncestors.slice(1),...hips.flatMap(ancestors)])if(!accessory.test(byId.get(i)?.Name||'')&&!held(i))torso.ids.add(i);
+    for(const i of [...headAncestors.slice(1),...hips.flatMap(ancestors)])if(!accessory(byId.get(i)?.Name||'')&&!held(i))torso.ids.add(i);
     torsos.set(key,torso);
   }
   // Without limbs, the neck-to-pelvis distance stands in for the limb bone.
@@ -233,7 +235,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   for(const chain of chains){const owner=ancestors(chain.root).at(-1),list=actors.get(owner)||[];list.push(chain);actors.set(owner,list);}
   for(const [owner,limbs] of actors) {
     if(headed.has(owner)||pieces.some(p=>p.kind==='torso'))continue;
-    const trunkIds=[...new Set(limbs.flatMap(c=>ancestors(byId.get(c.root)?.Parent)))].filter(id=>!limbIds.has(id)&&!held(id)&&!accessory.test(byId.get(id)?.Name||''));
+    const trunkIds=[...new Set(limbs.flatMap(c=>ancestors(byId.get(c.root)?.Parent)))].filter(id=>!limbIds.has(id)&&!held(id)&&!accessory(byId.get(id)?.Name||''));
     let skin=trunkIds.flatMap(cloud);if(skin.length<3)skin=limbs.map(c=>at(c.root));
     if(skin.length<2)continue;
     const [a,b]=axisEnds(skin);if(distance(a,b)>span*.05)ribs(a,b,trunkIds);
@@ -242,7 +244,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   // Geometry evidence excludes weapon/cloth branches; no humanoid-only template.
   const inferredAnatomy=pieces.length>0,trunkJoints=new Set([...torsos.values()].flatMap(t=>[...t.ids]));
   for(const node of nodes) {
-    const parent=byId.get(node.Parent);if(!parent||accessory.test(node.Name)||accessory.test(parent.Name)||held(node.ObjectId))continue;
+    const parent=byId.get(node.Parent);if(!parent||accessory(node.Name)||accessory(parent.Name)||held(node.ObjectId))continue;
     if(inferredAnatomy&&(node.GeosetId!==undefined||['Chest','Pelvis','Body','Spine'].includes(role(node.ObjectId))||chains.some(c=>c.root===node.ObjectId)&&!/leg|tail|wing/i.test(parent.Name)))continue;
     const key=[parent.ObjectId,node.ObjectId].sort().join(':');if(used.has(key))continue;
     // The rib cage covers the trunk and neck; limbs have their own pieces.
@@ -297,7 +299,7 @@ export function buildCorpseGeometry(model, bodyIds, deathIndex, {size=1,height=1
   }
   // The footprint gives the window's chalk outline of the dead body: the
   // body only, without what it holds or wears as equipment.
-  const equipment=id=>held(id)||ancestors(id).some(a=>accessory.test(byId.get(a)?.Name||'')&&!/hand|foot|ref\b/i.test(byId.get(a)?.Name||''));
+  const equipment=id=>held(id)||ancestors(id).some(a=>accessory(byId.get(a)?.Name||'')&&!/hand|foot|ref\b/i.test(byId.get(a)?.Name||''));
   const projected=[];
   for(const {g,vertices:v} of meshes)for(let i=0;i<g.Faces.length;i+=3){
     const ids=Array.from(g.Faces.slice(i,i+3));if(ids.every(k=>{const bones=influences(g,k);return bones.length&&bones.every(equipment);}))continue;

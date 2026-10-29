@@ -2,8 +2,9 @@ import React,{useRef} from 'react';
 import {ParticleSlider} from './ParticleCluelessControls.jsx';
 import {particleValue} from '../src/particle-bindings.js';
 import {particleBurstTrack} from '../src/particle-sweep.js';
+import {isGlobalTrack} from '../src/animation.js';
 export default function ParticleTimingTool({emitter,options,begin,change,finish,cancel,update,patch,onSeek}){
- const edit=useRef(null),[start,end]=options.interval,global=Number.isInteger(emitter.EmissionRate?.GlobalSeqId)&&emitter.EmissionRate.GlobalSeqId>=0;
+ const edit=useRef(null),[start,end]=options.interval,global=isGlobalTrack(emitter.EmissionRate);
  const events=(emitter.EmissionRate?.Keys||[]).filter(k=>k.Frame>=start&&k.Frame<=end&&k.Vector[0]>0),single=emitter.Squirt&&!global&&events.length===1&&emitter.EmissionRate.LineType===0;
  const amount=particleValue(emitter,'EmissionRate',options);
  const place=()=>{try{const at=Math.max(start,Math.min(end-1,Math.round(options.frame)));patch({Squirt:true,EmissionRate:particleBurstTrack(emitter,options.interval,at,Math.max(1,amount))});onSeek?.(Math.min(end,at+120));}catch(error){patch(null,error.message);}};

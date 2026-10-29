@@ -115,6 +115,17 @@ export function cameraBindings(preferences) {
 export function uvTransformSensitivity(preferences) { return bounded(preferences?.uvSensitivity, 0.01, 4, DEFAULT_PREFERENCES.uvSensitivity); }
 // Nested resource, section, track, and vector identities remain intact when persisted.
 export const MAX_HOTKEY_ID_LENGTH = 2048;
+/** Allowed preference values. The editor clamps to these; the desktop settings
+ * store (electron/settings.cjs) refuses values outside them. One rule for both. */
+export const PREFERENCE_LIMITS = Object.freeze({
+  scrollSensitivity: Object.freeze({ min: 0.1, max: 10 }),
+  pointerSensitivity: Object.freeze({ min: 0.01, max: 4 }),
+  wheelModes: Object.freeze(['rotate', 'scroll', 'pointer']),
+  pixelRatios: Object.freeze([0.5, 0.75, 1, 1.5, 2]),
+  maxFps: Object.freeze([30, 60, 120]),
+  hotkeyIdLength: MAX_HOTKEY_ID_LENGTH,
+  hotkeysPerAction: 8,
+});
 /** Right-hand editor panel width in CSS px; the panel's left edge drags between these. */
 export const PANEL_WIDTH_MIN = 180, PANEL_WIDTH_MAX = 640, PANEL_WIDTH_DEFAULT = 240;
 /** Adopt the requested follow-up raster/grid defaults once for older profiles.
@@ -171,7 +182,7 @@ export function normalizePreferences(value = {}) {
   const hotkeys = {};
   for (const [id, keys] of Object.entries(record(input.hotkeys))) {
     if (!id || id.length > MAX_HOTKEY_ID_LENGTH || ['__proto__', 'constructor', 'prototype'].includes(id) || !Array.isArray(keys)) continue;
-    hotkeys[id] = [...new Set(keys.map(normalizeChord).filter(Boolean))].slice(0, 8);
+    hotkeys[id] = [...new Set(keys.map(normalizeChord).filter(Boolean))].slice(0, PREFERENCE_LIMITS.hotkeysPerAction);
   }
   const legacyVisuals = legacyVisualOptions(input), legacyCustomized = !input.viewportAppearance && customizedLegacyVisuals(input.visuals);
   const viewportPresets = normalizeViewportPresets(input.viewportPresets);
@@ -184,9 +195,9 @@ export function normalizePreferences(value = {}) {
     uvGrid: normalizeUVGrid(input.uvGrid),
     uvViewTileLimit: normalizeUVViewTileLimit(input.uvViewTileLimit),
     language: ['ru', 'es', 'zh', 'mordor'].includes(input.language) ? input.language : 'en', fileIcon: FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', fileIconMdl: FILE_ICON_CHOICES.includes(input.fileIconMdl) ? input.fileIconMdl : FILE_ICON_CHOICES.includes(input.fileIcon) ? input.fileIcon : 'page', checkUpdatesOnStartup: boolean(input.checkUpdatesOnStartup, false), updateOfferAnswered: boolean(input.updateOfferAnswered, false), disableSounds: boolean(input.disableSounds, false), showPressedKeys: boolean(input.showPressedKeys, false), showHotkeys: boolean(input.showHotkeys, false), learn: normalizeLearn(input.learn), capture: normalizeCapture(input.capture),
-    scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(10, Math.max(0.1, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
-    wheelMode: ['rotate', 'scroll', 'pointer'].includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
-    pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(4, Math.max(0.01, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,
+    scrollSensitivity: Number.isFinite(sensitivity) && input.scrollSensitivity !== null ? Math.round(Math.min(PREFERENCE_LIMITS.scrollSensitivity.max, Math.max(PREFERENCE_LIMITS.scrollSensitivity.min, sensitivity)) * 100) / 100 : DEFAULT_PREFERENCES.scrollSensitivity,
+    wheelMode: PREFERENCE_LIMITS.wheelModes.includes(input.wheelMode) ? input.wheelMode : DEFAULT_PREFERENCES.wheelMode,
+    pointerSensitivity: Number.isFinite(pointer) && input.pointerSensitivity !== null ? Math.round(Math.min(PREFERENCE_LIMITS.pointerSensitivity.max, Math.max(PREFERENCE_LIMITS.pointerSensitivity.min, pointer)) * 100) / 100 : DEFAULT_PREFERENCES.pointerSensitivity,
     rotation: normalizeRotationPreferences(input.rotation), rotationRevision: 2,
     highlightSelection: boolean(input.highlightSelection, false),
     theme: Object.hasOwn(APPLICATION_THEMES, input.theme) ? input.theme : 'light',
@@ -202,9 +213,9 @@ export function normalizePreferences(value = {}) {
     viewportPreset, viewportAppearance, viewportPresets, citadelPaint: normalizePaintAppearance(input.citadelPaint),
     rightScrollAdjust: boolean(input.rightScrollAdjust, DEFAULT_PREFERENCES.rightScrollAdjust),
     graphics: {
-      pixelRatio: choice(graphic.pixelRatio, [0.5, 0.75, 1, 1.5, 2], defaults.pixelRatio),
+      pixelRatio: choice(graphic.pixelRatio, PREFERENCE_LIMITS.pixelRatios, defaults.pixelRatio),
       antialias: boolean(graphic.antialias, defaults.antialias),
-      maxFps: choice(graphic.maxFps, [30, 60, 120], defaults.maxFps),
+      maxFps: choice(graphic.maxFps, PREFERENCE_LIMITS.maxFps, defaults.maxFps),
       textures: boolean(graphic.textures, defaults.textures), lighting: boolean(graphic.lighting, defaults.lighting),
       particles: boolean(graphic.particles, defaults.particles), pauseWhenHidden: boolean(graphic.pauseWhenHidden, defaults.pauseWhenHidden),
       softwareLow: boolean(graphic.softwareLow, defaults.softwareLow),

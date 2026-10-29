@@ -1,17 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import { ModelRenderer } from 'war3-model';
 import { createStarterDocument } from '../src/starter-model.js';
 import { createNode, openDocument } from '../src/editor-document.js';
 import { sanityProposals, runOptimizeStage } from '../src/optimizexl.js';
+import { optimizexlLocalTrack } from '../src/optimizexl-format.js';
+import { isGlobalTrack } from '../src/animation.js';
 import { classifyHiveFindings } from '../src/optimizexl-diagnostics.js';
 import { flattenHiveFindings } from '../app/optimizexl-hive.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js',import.meta.url),'utf8'));
 const key=(Frame,Vector)=>({Frame,Vector:new Float32Array(Vector)});
 const track=(Keys,GlobalSeqId=null)=>({LineType:1,GlobalSeqId,Keys});
-const hive=bytes=>{const m=new ModelViewer.parsers.mdlx.Model();m.load(bytes.slice().buffer);const r=ModelViewer.utils.mdlx.sanityTest(m);return {...r,findings:flattenHiveFindings(r.nodes)};};
+const hive=bytes=>{const r=sanityTest(bytes);return {...r,findings:flattenHiveFindings(r.nodes)};};
 function fixture(){
   const d=createStarterDocument();d.apply('Format fixture',['Sequences','Geosets','Bones','GlobalSequences','EventObjects','ParticleEmitters2','PivotPoints'],m=>{
     const s={MinimumExtent:new Float32Array(3),MaximumExtent:new Float32Array(3),BoundsRadius:0,MoveSpeed:0,NonLooping:false,Rarity:0};
@@ -127,4 +127,14 @@ test('small genuine extrema survive mdx-m3-viewer cleanup and spline resampling 
     turn[0]=base[0];t.Keys[1].Vector=new Float32Array(turn);t.LineType=1;
     assert.ok(sanityProposals(d.model).some(f=>f.path?.join('.')===`Bones.0.${property}`&&f.kind==='redundantTracks'&&!f.inspectionOnly));
   }
+});
+
+test('OptimizeXL keeps its checker local-track rule, separate from the editor rule', () => {
+  for (const GlobalSeqId of [undefined, null, -1, 0, 3, 0xffffffff, -2, 1.5])
+    assert.equal(optimizexlLocalTrack({ GlobalSeqId }), GlobalSeqId == null || GlobalSeqId === -1 || GlobalSeqId === 0xffffffff);
+  // The two rules differ only on ids a parsed file never holds; they stay apart on purpose.
+  assert.equal(optimizexlLocalTrack({ GlobalSeqId: 0xffffffff }), true);
+  assert.equal(isGlobalTrack({ GlobalSeqId: 0xffffffff }), true);
+  assert.equal(optimizexlLocalTrack({ GlobalSeqId: -2 }), false);
+  assert.equal(isGlobalTrack({ GlobalSeqId: -2 }), false);
 });

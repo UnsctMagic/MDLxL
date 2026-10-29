@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { writeFileAtomic } = require('./atomic-file.cjs');
 
 // A journal belongs to one process. Historical drafts and another running copy
 // never count as a crash. Normal close removes only this process's journal.
@@ -30,11 +31,7 @@ class SessionJournal {
   write() {
     if (this.closed) return this.queue;
     const state = JSON.stringify(this.state);
-    this.queue = this.queue.catch(() => {}).then(async () => {
-      const temporary = this.file + '.tmp';
-      await fs.writeFile(temporary, state);
-      await fs.rename(temporary, this.file);
-    });
+    this.queue = this.queue.catch(() => {}).then(() => writeFileAtomic(this.file, state));
     return this.queue;
   }
   setDirty(dirty) {

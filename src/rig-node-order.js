@@ -1,4 +1,7 @@
+import { nameRegion, nameSide } from './rig-names.js';
 import { allNodes } from './animation.js';
+import { nodeIndex } from './node-hierarchy.js';
+import { vertexBones } from './part-bones.js';
 
 export const HELPER_LIST_COLOR = '#8a2be2';
 
@@ -14,24 +17,6 @@ function words(value) {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
   return { spaced, compact: spaced.replace(/\s+/g, ''), tokens: spaced ? spaced.split(/\s+/) : [] };
-}
-
-function nameRegion(text) {
-  const { spaced, compact } = text;
-  if (/\b(chest|torso|spine|ribcage|breast|upper body)\b/.test(spaced) || /upperbody/.test(compact)) return 'chest';
-  if (/\b(arm|shoulder|clavicle|elbow|forearm|wrist|hand|finger|thumb)\b/.test(spaced) || /(arm|shoulder|elbow|forearm|wrist|hand|finger|thumb)/.test(compact)) return 'arm';
-  if (/\b(leg|thigh|knee|calf|shin|ankle|foot|toe)\b/.test(spaced) || /(leg|thigh|knee|calf|shin|ankle|foot|toe)/.test(compact)) return 'leg';
-  if (/\b(head|neck|face|jaw|mouth|eye|brow|cheek|nose|ear)\b/.test(spaced) || /(head|neck|face|jaw|mouth|eye|brow|cheek|nose|ear)/.test(compact)) return 'head';
-  if (/\b(root|pelvis|hip|waist|abdomen|belly|gut|gutz)\b/.test(spaced) || /(pelvis|abdomen|belly|gutz)/.test(compact)) return 'pelvis';
-  if (/\b(mesh|object|box|dummy|chain|ribbon|reference|ref|copied|backdrop)\b/.test(spaced) || /(copiedmodeldummy|portraitbackdrop)/.test(compact)) return 'other';
-  return null;
-}
-
-function nameSide(text) {
-  const { tokens, compact } = text;
-  if (tokens.includes('right') || tokens.includes('r') || /(?:arm|leg|hand|foot|shoulder|wrist|thigh|knee|toe)r\d*$/.test(compact) || /^r(?:arm|leg|hand|foot|shoulder|wrist|thigh|knee|toe)/.test(compact)) return 'right';
-  if (tokens.includes('left') || tokens.includes('l') || /(?:arm|leg|hand|foot|shoulder|wrist|thigh|knee|toe)l\d*$/.test(compact) || /^l(?:arm|leg|hand|foot|shoulder|wrist|thigh|knee|toe)/.test(compact)) return 'left';
-  return null;
 }
 
 function nameSegment(text, region) {
@@ -88,7 +73,7 @@ function pivot(node) {
 function layoutEvidence(nodes) {
   const points = nodes.map(pivot), axes = [0, 1].map(axis => ({ axis, values: points.map(point => point[axis]) }));
   const zValues = points.map(point => point[2]), zLow = quantile(zValues, .1), zHigh = quantile(zValues, .9), zRange = Math.max(1e-6, zHigh - zLow);
-  const named = nodes.map(node => ({ node, side: nameSide(words(node.Name)), point: pivot(node) })).filter(item => item.side);
+  const named = nodes.map(node => ({ node, side: nameSide(node.Name), point: pivot(node) })).filter(item => item.side);
   let lateralAxis = 1;
   if (named.some(item => item.side === 'right') && named.some(item => item.side === 'left')) {
     lateralAxis = axes.map(({ axis, values }) => {
@@ -111,12 +96,9 @@ function layoutEvidence(nodes) {
 function directInfluences(model) {
   const counts = new Map();
   for (const geoset of model.Geosets || []) {
-    const count = Math.floor((geoset.Vertices?.length || 0) / 3), skin = geoset.SkinWeights;
+    const count = Math.floor((geoset.Vertices?.length || 0) / 3);
     for (let vertex = 0; vertex < count; vertex++) {
-      const ids = skin?.length === count * 8
-        ? [0, 1, 2, 3].filter(slot => skin[vertex * 8 + 4 + slot] > 0).map(slot => skin[vertex * 8 + slot])
-        : geoset.Groups?.[geoset.VertexGroup?.[vertex]] || [];
-      for (const id of new Set(ids)) counts.set(id, (counts.get(id) || 0) + 1);
+      for (const id of new Set(vertexBones(geoset, vertex))) counts.set(id, (counts.get(id) || 0) + 1);
     }
   }
   return counts;
@@ -129,29 +111,24 @@ function sideRegion(region, side) {
 }
 
 function analyze(model) {
-  const nodes = allNodes(model), byId = new Map(nodes.map(node => [node.ObjectId, node])), children = new Map();
-  for (const node of nodes) { const list = children.get(node.Parent) || []; list.push(node); children.set(node.Parent, list); }
+  const nodes = allNodes(model), tree = nodeIndex(model, nodes), { byId, children } = tree;
   const layout = layoutEvidence([...(model.Bones || []), ...(model.Helpers || [])]), direct = directInfluences(model), evidence = new Map();
   const branchInfluence = (id, visiting = new Set()) => {
     if (visiting.has(id)) return direct.get(id) || 0;
     const next = new Set(visiting).add(id);
     return (direct.get(id) || 0) + (children.get(id) || []).reduce((sum, child) => sum + branchInfluence(child.ObjectId, next), 0);
   };
-  const hierarchyDepth = node => {
-    let depth = 0, current = node, seen = new Set([node.ObjectId]);
-    while ((current = byId.get(current.Parent)) && !seen.has(current.ObjectId)) { seen.add(current.ObjectId); depth++; }
-    return depth;
-  };
+  const hierarchyDepth = node => tree.depth(node.ObjectId);
   for (const node of nodes) {
     const regionScores = { chest: 0, arm: 0, leg: 0, head: 0, pelvis: 0, other: 0 }, sideScores = { right: 0, left: 0 }, segments = [];
     let current = node;
     for (let distance = 0; current && distance < NAME_WEIGHTS.length; distance++, current = byId.get(current.Parent)) {
-      const text = words(current.Name), region = nameRegion(text), side = nameSide(text), weight = NAME_WEIGHTS[distance];
+      const text = words(current.Name), region = nameRegion(current.Name), side = nameSide(current.Name), weight = NAME_WEIGHTS[distance];
       if (region) { regionScores[region] += region === 'other' ? weight * .4 : weight; const segment = nameSegment(text, region); if (segment != null) segments.push({ region, segment, distance }); }
       if (side) sideScores[side] += weight;
     }
     for (const child of children.get(node.ObjectId) || []) {
-      const text = words(child.Name), region = nameRegion(text), side = nameSide(text);
+      const region = nameRegion(child.Name), side = nameSide(child.Name);
       if (region) regionScores[region] += 1;
       if (side) sideScores[side] += 1;
     }

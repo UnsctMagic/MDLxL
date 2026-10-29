@@ -1,5 +1,6 @@
 import { createNode } from './editor-document.js';
 import { canonicalizeSerializedNodeOrder, serializedNodes } from './node-id-order.js';
+import { uniqueName } from './node-hierarchy.js';
 
 const validPivot = value => value && value.length === 3 && Array.from(value).every(Number.isFinite);
 const identity = () => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
@@ -14,9 +15,7 @@ export function ensureDummyBone(model, { weighted = false } = {}) {
   let bone = named.find(node => (model.Bones || []).includes(node));
   const usedNames = new Set(serializedNodes(model).map(node => node.Name));
   for (const node of named) if (node !== bone) {
-    let suffix = 2;
-    while (usedNames.has(`DummyBone_${suffix}`)) suffix++;
-    node.Name = `DummyBone_${suffix}`; usedNames.add(node.Name);
+    node.Name = uniqueName('DummyBone', usedNames, n => `DummyBone_${n}`); usedNames.add(node.Name);
   }
   if (bone) {
     const nodes = serializedNodes(model), otherIds = new Set(nodes.filter(node => node !== bone).map(node => node.ObjectId));

@@ -1,10 +1,10 @@
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { canonicalValue, stableKey } from './value-key.js';
-import { keysInInterval, sampleTrack } from './animation.js';
-import { appendGeosetGeometry } from './editor-document.js';
+import { isGlobalTrack, keysInInterval, sampleTrack } from './animation.js';
+import { appendGeosetGeometry, removeGeosets } from './editor-document.js';
 import { unionAnimatedExtents } from './geoset-operations.js';
 import { setAnimationSequences } from './animation-tracks.js';
-import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
+import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { visitTextureReferences } from './texture-references.js';
 import { tintTexturePath } from './material-presets.js';
 import { TEAM_COLORS } from './team-colors.js';
@@ -26,7 +26,7 @@ const n = displayNumber;
 const canonical = canonicalValue;
 const keyOf = stableKey;
 const isTrack = value => Array.isArray(value?.Keys);
-const isGlobal = track => isTrack(track) && Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0;
+const isGlobal = track => isTrack(track) && isGlobalTrack(track);
 const animsFor = (model, id) => (model.GeosetAnims || []).filter(anim => anim.GeosetId === id);
 const rgb255 = color => Array.from(color || [1, 1, 1], value => Math.round(Math.max(0, Math.min(1, value)) * 255)).join(',');
 const round = value => Math.round(value * 1000) / 1000;
@@ -347,12 +347,7 @@ export function unionVisibilityOverrides(model, ids) {
 }
 
 function ensureAnim(model, id) {
-  const existing = animsFor(model, id);
-  if (existing.length > 1) throw Error(`Geoset ${n(id)} has several geoset animations. Resolve them before changing it here.`);
-  if (existing.length) return existing[0];
-  const anim = createVisibilityGeosetAnimation(id);
-  (model.GeosetAnims ||= []).push(anim);
-  return anim;
+  return ensureGeosetAnimation(model, id, { refuseDuplicates: `Geoset ${n(id)} has several geoset animations. Resolve them before changing it here.` });
 }
 function setDefault(anim, field, value) {
   if (value === undefined) { if (anim._MdxDefaults) { delete anim._MdxDefaults[field]; if (!Object.keys(anim._MdxDefaults).length) delete anim._MdxDefaults; } }
@@ -437,29 +432,6 @@ function shareIdentical(model, kept) {
     else if (isTrack(layer[slot])) for (const key of layer[slot].Keys) if (key.Vector) key.Vector = new key.Vector.constructor(Array.from(key.Vector, canonicalTexture));
     if (typeof layer._MdxDefaults?.[slot] === 'number') layer._MdxDefaults[slot] = canonicalTexture(layer._MdxDefaults[slot]);
   }
-}
-function removeGeosets(model, removed) {
-  const count = model.Geosets.length, oldToNew = new Array(count).fill(null);
-  for (let i = 0, next = 0; i < count; i++) if (!removed.has(i)) oldToNew[i] = next++;
-  for (const [id, target] of removed) oldToNew[id] = target == null ? null : oldToNew[target];
-  if (!removed.size) return oldToNew;
-  const old = model.GeosetAnims || [], animMap = new Map(), kept = [];
-  old.forEach((anim, i) => { if (!removed.has(anim.GeosetId)) { animMap.set(i, kept.length); kept.push(anim); } });
-  old.forEach((anim, i) => {
-    if (!removed.has(anim.GeosetId)) return;
-    const target = removed.get(anim.GeosetId), owner = target == null ? -1 : old.findIndex(other => other.GeosetId === target);
-    animMap.set(i, owner >= 0 ? animMap.get(owner) : null);
-  });
-  for (const anim of kept) anim.GeosetId = oldToNew[anim.GeosetId];
-  model.GeosetAnims = kept;
-  model.Geosets = model.Geosets.filter((_, i) => !removed.has(i));
-  for (const bone of model.Bones || []) {
-    if (Number.isInteger(bone.GeosetId) && bone.GeosetId >= 0 && bone.GeosetId < count) bone.GeosetId = oldToNew[bone.GeosetId];
-    if (Number.isInteger(bone.GeosetAnimId) && animMap.has(bone.GeosetAnimId)) bone.GeosetAnimId = animMap.get(bone.GeosetAnimId);
-  }
-  if (model.Gliders) model.Gliders = model.Gliders.filter(glider => oldToNew[glider.GeosetId] != null).map(glider => ({ ...glider, GeosetId: oldToNew[glider.GeosetId] }));
-  if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; }
-  return oldToNew;
 }
 function referencedTextures(model) {
   const ids = new Set();

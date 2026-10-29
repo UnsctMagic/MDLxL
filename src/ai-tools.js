@@ -15,6 +15,15 @@ const tool = (name, description, properties, required = [], readOnlyHint = true)
   inputSchema: { ...object(properties), required },
   annotations: { readOnlyHint, destructiveHint: !readOnlyHint, openWorldHint: false },
 });
+// Four questions decide where a tool call may run. They differ on purpose, so
+// each has its own answer, kept together here:
+// | Answer                  | Question                                                  |
+// | readOnlyHint (per tool) | MCP hint: does the tool leave the model and files alone?  |
+// | aiToolEditsModel        | Does this call change the model? (Undo and edit tracking) |
+// | aiHelperCanCall         | May a read-only helper bird make this call?               |
+// | aiToolRunsUnqueued      | May it run beside the model's queued edits?               |
+// For example mdlxl_assets is not read-only for MCP, yet a helper may search,
+// preview and load with it; mdlxl_context is read-only but waits in the queue.
 export const aiToolEditsModel = (name, args) =>
   name === 'mdlxl_patch' ||
   (name === 'mdlxl_script' && args.edit === true) ||
@@ -22,6 +31,14 @@ export const aiToolEditsModel = (name, args) =>
   (name === 'mdlxl_ui' && ['click', 'set', 'gesture'].includes(args.action)) ||
   (name === 'mdlxl_view' && !!args.mode) ||
   (name === 'mdlxl_versions' && args.action === 'use');
+// What a helper bird is given; aiHelperCanCall narrows script and assets calls.
+export const AI_HELPER_TOOLS = new Set(['mdlxl_context', 'mdlxl_read', 'mdlxl_capabilities', 'mdlxl_help', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_script', 'mdlxl_assets']);
+export const aiHelperCanCall = (name, args) =>
+  AI_HELPER_TOOLS.has(name) &&
+  !(name === 'mdlxl_script' && args.edit) &&
+  !(name === 'mdlxl_assets' && !['search', 'preview', 'load'].includes(args.action));
+export const aiToolRunsUnqueued = (name, args) =>
+  ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities'].includes(name) || (name === 'mdlxl_script' && !args.edit);
 export const AI_TOOLS = [
   tool(
     'review',

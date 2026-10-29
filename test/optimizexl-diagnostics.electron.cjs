@@ -1,14 +1,15 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { appTarget, launchApp, prepareWindow, closeApp } = require('./helpers/app.cjs');
+
 (async()=>{
   const model=process.env.MDLXL_DIAGNOSTICS_MODEL||'C:/Users/PC/Desktop/fINALS/WH_WOC_KnightKhorneAxe02.mdx',source=fs.readFileSync(model);
   const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','diagnostics-ui');fs.mkdirSync(out,{recursive:true});
-  const exe=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[];
-  const app=await _electron.launch({executablePath:exe||path.resolve('node_modules/electron/dist/electron.exe'),args:[...(exe?[]:[process.cwd()]),model],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile-'+Date.now())},timeout:60000});
+  const exe=appTarget().packaged;
+  const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out });
   try{
     const main=await app.firstWindow();await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
-    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));
-    await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1600,height:1000});w.showInactive();}});
+    const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;
+    await prepareWindow(app, p, { bounds: { x: -3500, y: 0, width: 1600, height: 1000 }, errors, pageTimeout: 20000 });
   // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
   await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
     const stage=name=>p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name,exact:true}).click();
@@ -32,5 +33,5 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
     assert.deepEqual(fs.readFileSync(model),source);assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,allFiveNoticesRouted:true,zeroAfterApproval:true,backRestoresFindings:true,sourceUnchanged:true,errors},null,2));
     console.log('Passed unused routing, five direct repair links, combined cleanup, zero mdx-m3-viewer result and Back.');
-  }finally{await app.close();}
+  }finally{await closeApp(app);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

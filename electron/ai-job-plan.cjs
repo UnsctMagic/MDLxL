@@ -1,15 +1,10 @@
 // Per-job orchestration state. No editor mutations or provider calls live here.
-const READ_TOOLS = new Set(['mdlxl_context', 'mdlxl_read', 'mdlxl_capabilities', 'mdlxl_help', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_script', 'mdlxl_assets']);
 function helperSpec(value) {
   if (value == null) return null;
   if (!value || typeof value !== 'object' || typeof value.job !== 'string' || !value.job.trim() || typeof value.instructions !== 'string' || !value.instructions.trim())
     throw Error('A helper needs a short job and specific read-only instructions.');
   if (value.job.length > 160 || value.instructions.length > 2000) throw Error('Keep helper instructions under 2000 characters and its title under 160.');
   return { job: value.job.trim(), instructions: value.instructions.trim() };
-}
-function helperCanCall(name, args) {
-  return READ_TOOLS.has(name) && !(name === 'mdlxl_script' && args.edit) &&
-    !(name === 'mdlxl_assets' && !['search', 'preview', 'load'].includes(args.action));
 }
 function acceptanceChecks(value) {
   if (!Array.isArray(value) || !value.length || value.length > 20 || value.some(v => typeof v !== 'string' || !v.trim() || v.length > 500))
@@ -59,4 +54,4 @@ function checkpointNote(task) {
     failures: task.replanRequired,
   });
 }
-module.exports = { READ_TOOLS, helperSpec, helperCanCall, acceptanceChecks, expandRoutine, recordFailures, checkpointNote };
+module.exports = { helperSpec, acceptanceChecks, expandRoutine, recordFailures, checkpointNote };

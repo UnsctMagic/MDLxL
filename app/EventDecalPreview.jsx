@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Matrix4, OrthographicCamera } from 'three';
 import { textureFromAsset } from './Viewport.jsx';
 import { createDecalRenderer } from './event-preview-runtime.js';
+import { uploadTexture } from './gl-utils.js';
 
 export default function EventDecalPreview({ definition, modelPath }) {
   const canvas = useRef(null), clock = useRef({age:0, playing:true});
@@ -31,10 +32,7 @@ export default function EventDecalPreview({ definition, modelPath }) {
       try {
         if (disposed) return;
         const image = decoded.image?.data ? new ImageData(new Uint8ClampedArray(decoded.image.data), decoded.image.width, decoded.image.height) : decoded.image;
-        texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-        for (const parameter of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, parameter, gl.LINEAR);
-        for (const parameter of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, parameter, gl.CLAMP_TO_EDGE);
+        texture = gl.createTexture(); uploadTexture(gl, texture, image);
         renderer = createDecalRenderer(gl); request = requestAnimationFrame(draw);
       } finally { decoded.dispose(); }
     })().catch(cause => { if (!disposed) setError(cause.message); });

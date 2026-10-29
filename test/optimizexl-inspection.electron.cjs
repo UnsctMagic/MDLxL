@@ -1,23 +1,24 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
+const { appTarget, launchApp, prepareWindow, closeApp, settle: waitForSettle } = require('./helpers/app.cjs');
+
 (async()=>{
  const out=path.resolve(process.env.MDLXL_OPTIMIZEXL_PROOF_ROOT||'out','optimizexl-inspection-proof');fs.mkdirSync(out,{recursive:true});
  const model=process.env.MDLXL_OPTIMIZEXL_MODEL||'C:/Users/PC/Documents/ChatGPT/MDLxL/out/Khorne_Optimized_Review/WH_WOC_KnightKhorneFlail01_HIVE_OPTIMIZED.mdx';
- const source=fs.readFileSync(model),packaged=process.env.MDLXL_OPTIMIZEXL_EXE,errors=[];
- const app=await _electron.launch({executablePath:packaged||path.resolve('node_modules/electron/dist/electron.exe'),args:packaged?[model]:[process.cwd(),model],env:{...process.env,MDLVIS_HEADLESS:'1',MDLXL_PROFILE:path.join(out,'profile-'+Date.now())},timeout:60000});
+ const source=fs.readFileSync(model),packaged=appTarget().packaged;
+ const { app, errors } = await launchApp({ pageTimeout: 30000, fixture: model, out });
  try{
-  const main=await app.firstWindow();main.on('pageerror',e=>errors.push(e.message));await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
-  const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;p.setDefaultTimeout(15000);p.on('pageerror',e=>errors.push(e.message));
-  await app.evaluate(({BrowserWindow})=>{for(const w of BrowserWindow.getAllWindows()){w.webContents.setBackgroundThrottling(false);w.setBounds({x:-3500,y:0,width:1440,height:900});w.showInactive();}});
+  const main=await app.firstWindow();await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).waitFor({timeout:60000});
+  const pending=app.waitForEvent('window');await main.getByTitle(/^OptimizeXL(\nHotkey: .+)?$/).click();const p=await pending;
+  await prepareWindow(app, p, { bounds: { x: -3500, y: 0, width: 1440, height: 900 }, errors, pageTimeout: 15000 });
   // OptimizeXL opens on the Insanity FIxer; this review starts at Duplicate data.
   await p.getByRole('navigation',{name:'Optimization stages'}).getByRole('button',{name:'Duplicate data',exact:true}).click();
   const animation=p.getByLabel('Animation',{exact:true}),frame=p.getByLabel('Animation frame',{exact:true});
   await animation.selectOption({label:'Stand'});await frame.fill('2000');await p.getByLabel('Playback speed (%)',{exact:true}).fill('50');
   await p.getByRole('checkbox',{name:'Loop',exact:true}).uncheck();
   await p.waitForFunction(()=>document.querySelectorAll('.ox-preview canvas:not([data-background])').length>=2);
-  await p.evaluate(()=>{window.inspectState=()=>Array.from(document.querySelectorAll('.ox-preview .game-preview-root'),root=>{let fiber=root[Object.keys(root).find(k=>k.startsWith('__reactFiber'))];for(;fiber;fiber=fiber.return)for(let h=fiber.memoizedState;h;h=h.next){const r=h.memoizedState?.current;if(r?.native&&r?.controls)return {sequence:r.native.getSequence(),frame:r.native.getFrame(),position:r.controls.object.position.toArray(),target:r.controls.target.toArray(),zoom:r.controls.object.zoom};}return null;});});
+  await p.evaluate(()=>{window.inspectState=()=>Array.from(document.querySelectorAll('.ox-preview .game-preview-root'),root=>{const { runtime: r } = mdlxlProbe(root);if(r)return {sequence:r.native.getSequence(),frame:r.native.getFrame(),position:r.controls.object.position.toArray(),target:r.controls.target.toArray(),zoom:r.controls.object.zoom};return null;});});
   await p.waitForFunction(()=>inspectState().every(s=>s?.sequence===1&&s.frame===2000));
-  const box=await p.getByLabel('Before preview',{exact:true}).boundingBox();await p.mouse.move(box.x+200,box.y+230);await p.mouse.down();await p.mouse.move(box.x+230,box.y+240,{steps:6});await p.mouse.up();await p.mouse.wheel(0,-200);await p.waitForTimeout(150);
+  const box=await p.getByLabel('Before preview',{exact:true}).boundingBox();await p.mouse.move(box.x+200,box.y+230);await p.mouse.down();await p.mouse.move(box.x+230,box.y+240,{steps:6});await p.mouse.up();await p.mouse.wheel(0,-200);await waitForSettle(p, 150);
   const camera=(await p.evaluate(()=>inspectState()))[0];
   const ready=()=>p.waitForFunction(()=>!!document.querySelector('.ox-savings strong')&&!document.querySelector('.ox-savings').textContent.includes('Updating'));
   const inspect=async(id='decay:37')=>{await p.getByRole('button',{name:'Irregularities Fixer',exact:true}).click();await p.getByLabel('Proposed fix',{exact:true}).selectOption(id);await ready();};
@@ -51,5 +52,5 @@ const {_electron}=require(process.env.MDLXL_PLAYWRIGHT_MODULE||'playwright');
   await animation.selectOption({label:'Stand'});await frame.fill('2000');await restored();await ready();
   assert.match(await p.locator('footer').textContent(),/Total saved: 0.00 KB/);await p.screenshot({path:path.join(out,'04-restored-final.png')});
   assert.deepEqual(fs.readFileSync(model),source);assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,packaged:!!packaged,errors,sourceUnchanged:true,stageExits:6,restoredSequence:'Stand',restoredFrame:2000},null,2));
- }finally{await app.close();}
+ }finally{await closeApp(app);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

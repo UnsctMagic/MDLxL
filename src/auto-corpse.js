@@ -1,7 +1,7 @@
-import { allNodes, sampleNodeMatrices, sampleTrack, sampleGeosetAnimation, skinGeoset, skinGeosetNormals } from './animation.js';
+import { allNodes, isGlobalTrack, sampleNodeMatrices, sampleTrack, sampleGeosetAnimation, skinGeoset, skinGeosetNormals } from './animation.js';
 import { createRigNode } from './bone-tools.js';
 import { deleteGeoset } from './editor-document.js';
-import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
+import { createVisibilityGeosetAnimation, ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { updateBounds } from './mesh-tools.js';
 import { buildCorpseGeometry } from './corpse-geometry.js';
 import { applyDeathBlood } from './corpse-blood.js';
@@ -12,7 +12,7 @@ const vector=v=>new Float32Array(typeof v==='number'?[v]:v);
 // Some native sequences retain an unsigned wrapped negative start. Keep that
 // source metadata, but never emit an invalid signed animation key from it.
 const track=(pairs,line=0)=>({LineType:line,GlobalSeqId:null,Keys:[...new Map(pairs.filter(([f])=>Number.isInteger(f)&&f>=-0x80000000&&f<=0x7fffffff).map(([Frame,v])=>[Frame,{Frame,Vector:vector(v)}])).values()].sort((a,b)=>a.Frame-b.Frame)});
-const global=property=>property?.Keys&&Number.isInteger(property.GlobalSeqId)&&property.GlobalSeqId>=0;
+const global=property=>property?.Keys&&isGlobalTrack(property);
 const generated=n=>n?.Name?.startsWith(PREFIX)||n?.Name?.startsWith(FLESH);
 const suffix=name=>name.trim().toLowerCase().split(/\s+/).filter(t=>!['death','decay','flesh','bone','bones'].includes(t)).join(' ');
 const deathSequence=s=>/(?:^|\s)death(?:\s|$)/i.test(s.Name);
@@ -40,10 +40,7 @@ function localMask(value,sequences,intervals,fallback=1) {
 }
 
 function visibility(model,id) {
-  const found=model.GeosetAnims.filter(a=>a.GeosetId===id);
-  if(found.length>1)throw Error('A body geoset has duplicate visibility records. Resolve them before using Auto Corpse.');
-  if(found.length)return found[0];
-  const anim=createVisibilityGeosetAnimation(id);model.GeosetAnims.push(anim);return anim;
+  return ensureGeosetAnimation(model,id,{refuseDuplicates:'A body geoset has duplicate visibility records. Resolve them before using Auto Corpse.'});
 }
 function material(model,value) {
   const signature=JSON.stringify(value),existing=model.Materials.findIndex(m=>JSON.stringify(m)===signature);

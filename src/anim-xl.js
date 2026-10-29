@@ -1,6 +1,9 @@
+import { isWeaponName, nameRegion } from './rig-names.js';
 import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 import { allNodes, composeNodeMatrices, nodePivot, sampleNodeMatrices, sampleTrack, TRANSFORM_DEFAULTS, worldPivot } from './animation.js';
 import { suggestPoseRig } from './pose-ik.js';
+import { nodeIndex } from './node-hierarchy.js';
+import { isHdSkinned, vertexBones } from './part-bones.js';
 
 // AnimXL: flavour for hand-keyed animations. The authored keys drive a target
 // pose; springs on top add easing, overlap, settle and weight. The result is
@@ -84,7 +87,7 @@ export function animXLKeyTimes(model, sequenceIndex) {
  * feet that land, and the spine/neck/head that react. Uses POSE's rig reading
  * and falls back to bone names. */
 export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
-  const nodes = animXLNodes(model), ids = new Set(nodes.map(n => n.ObjectId)), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
+  const nodes = animXLNodes(model), ids = new Set(nodes.map(n => n.ObjectId)), tree = nodeIndex(model), { byId } = tree;
   let body = null, feet = [], legLength = 0, legs = [], arms = [];
   const roles = new Map();
   try {
@@ -119,18 +122,13 @@ export function animXLRig(model, sequenceIndex = 0, overrides = {}) {
     legLength = legs.length ? legs.reduce((sum, c) => sum + pivot(c.root).distanceTo(pivot(c.middle)) + pivot(c.middle).distanceTo(pivot(c.end)), 0) / legs.length : 0;
   } catch { /* unusual rigs fall back to names */ }
   for (const node of nodes) if (!roles.has(node.ObjectId)) {
-    const name = node.Name || '';
-    if (/chest|torso/i.test(name)) roles.set(node.ObjectId, 'Chest');
-    else if (/spine|back|abdomen/i.test(name)) roles.set(node.ObjectId, 'Spine');
-    else if (/neck/i.test(name)) roles.set(node.ObjectId, 'Neck');
-    else if (/head/i.test(name)) roles.set(node.ObjectId, 'Head');
-    else if (/pelvis|hip|body/i.test(name)) roles.set(node.ObjectId, 'Pelvis');
-    else if (/foot|feet|toe|hoof/i.test(name)) roles.set(node.ObjectId, 'Foot');
+    const role = nameRegion(node.Name, { detailed: true });
+    if (role) roles.set(node.ObjectId, role);
   }
   if (body == null || !ids.has(body)) body = [...roles].find(([id, role]) => ['Pelvis', 'Body'].includes(role) && ids.has(id))?.[0] ?? null;
   if (body == null) {
     // The highest bone with a moving translation usually carries the body.
-    const depth = node => { let d = 0, p = node.Parent; while (byId.has(p) && d < 64) { d++; p = byId.get(p).Parent; } return d; };
+    const depth = node => tree.depth(node.ObjectId);
     body = nodes.filter(n => n.Translation?.Keys?.length > 1).sort((a, b) => depth(a) - depth(b))[0]?.ObjectId ?? null;
   }
   // Without leg chains, only bones named as feet count. Foot attachments alone
@@ -267,7 +265,7 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   if (!seq) throw new Error('Choose an animation first.');
   const [from, to] = Array.from(seq.Interval), duration = to - from;
   if (duration < 30) throw new Error('This animation is too short to shape.');
-  const nodes = animXLNodes(model), byId = new Map(allNodes(model).map(n => [n.ObjectId, n]));
+  const nodes = animXLNodes(model), tree = nodeIndex(model), { byId } = tree;
   const keys = animXLKeyTimes(model, sequenceIndex), outKeys = animXLRetimed(keys, settings), timeMap = animXLTimeMap(keys, settings, outKeys);
   // Source time -> output time (ignoring ease), for events found in the authored animation.
   const toOutput = t => { let i = 0; while (i < keys.length - 2 && t >= keys[i + 1]) i++; const span = keys[i + 1] - keys[i]; return span > 0 ? outKeys[i] + (t - keys[i]) / span * (outKeys[i + 1] - outKeys[i]) : outKeys[i]; };
@@ -280,16 +278,15 @@ export function buildAnimXL(model, sequenceIndex, input = {}) {
   const footfalls = settings.steps > 0 ? animXLFootfalls(model, sequenceIndex, rig).map(t => Math.round(toOutput(t))) : [];
   const reactive = settings.steps > 0 || flinches.length > 0;
   const general = settings.overlap > 0 || settings.settle > 0 || settings.weight > 0 || reactive;
-  function depthOf(node) { let d = 0, p = node.Parent; const seen = new Set(); while (byId.has(p) && !seen.has(p)) { seen.add(p); d++; p = byId.get(p).Parent; } return d; }
-  const order = [...nodes].sort((a, b) => depthOf(a) - depthOf(b));
+  const order = [...nodes].sort((a, b) => tree.depth(a.ObjectId) - tree.depth(b.ObjectId));
   // Stiff bones (and everything below them) follow exactly: no lag, wobble or drag.
-  const stiffRoots = new Set(settings.stiffIds || []), stiff = new Set(order.filter(n => { for (let p = n.ObjectId, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) if (stiffRoots.has(p)) return true; return false; }).map(n => n.ObjectId));
+  const stiffRoots = new Set(settings.stiffIds || []), stiff = new Set(order.filter(n => tree.ancestors(n.ObjectId, true).some(p => stiffRoots.has(p))).map(n => n.ObjectId));
   const simIds = new Set(order.filter(n => !stiff.has(n.ObjectId) && (heavy.has(n.ObjectId) || loose.has(n.ObjectId) || (general && byId.has(n.Parent) && !((n.Flags || 0) & 7)))).map(n => n.ObjectId));
   const index = new Map(order.map((n, i) => [n.ObjectId, i]));
   const kinds = order.map(n => heavy.has(n.ObjectId) ? 'heavy' : loose.has(n.ObjectId) ? 'loose' : 'general');
   // Reactions need some give even with Overlap and Settle at zero.
   const springSettings = reactive ? { ...settings, overlap: Math.max(settings.overlap, 25), settle: Math.max(settings.settle, 6.25) } : settings;
-  const params = order.map((n, i) => springParams(springSettings, kinds[i], depthOf(n)));
+  const params = order.map((n, i) => springParams(springSettings, kinds[i], tree.depth(n.ObjectId)));
   const interval = seq.Interval, sampleOpts = { interval, globalSequences: model.GlobalSequences || [] };
   const rotOpts = { ...sampleOpts, quaternion: true, fallback: TRANSFORM_DEFAULTS.Rotation }, posOpts = { ...sampleOpts, fallback: TRANSFORM_DEFAULTS.Translation };
   const authored = (node, t, out = new Quaternion()) => {
@@ -739,14 +736,14 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
   // The skeleton: the unit's own tree of bones and helpers (the one holding the body; loose
   // effect bones stay as they are), parents first, each with its main child (the biggest branch).
   const all = [...(model.Bones || []), ...(model.Helpers || [])].map(n => n.ObjectId).filter(id => byId.has(id));
-  const topOf = id => { let top = id; for (let p = byId.get(id)?.Parent, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) top = p; return top; };
+  const tree = nodeIndex(model), topOf = tree.root;
   const tops = new Map(); for (const id of all) tops.set(topOf(id), (tops.get(topOf(id)) || 0) + 1);
   const unit = bodyNode ? topOf(bodyNode.ObjectId) : [...tops].sort((a, b) => b[1] - a[1])[0]?.[0];
   const ids = all.filter(id => topOf(id) === unit);
   const inSet = new Set(ids), children = new Map(ids.map(id => [id, []]));
   for (const id of ids) if (inSet.has(byId.get(id).Parent)) children.get(byId.get(id).Parent).push(id);
   const size = new Map(), sizeOf = id => { if (!size.has(id)) size.set(id, 1 + children.get(id).reduce((s, c) => s + sizeOf(c), 0)); return size.get(id); };
-  const depth = id => { let d = 0; for (let p = byId.get(id).Parent; inSet.has(p) && d < 64; p = byId.get(p).Parent) d++; return d; };
+  const depth = id => { const up = tree.ancestors(id), out = up.findIndex(p => !inSet.has(p)); return out < 0 ? up.length : out; };
   const order = [...ids].sort((a, b) => depth(a) - depth(b));
   const mainChild = new Map(ids.map(id => [id, children.get(id).sort((a, b) => sizeOf(b) - sizeOf(a))[0]]));
   const position = (k, id) => pivotOf(id).applyMatrix4(frames[k].get(id));
@@ -855,7 +852,7 @@ function collapseBody({ model, byId, samples, bodyNode, bodySamples, outFrames, 
 function solveLimbs({ model, sequenceIndex, byId, legs, arms, weapon, legLength, samples, bodyNode, bodySamples, srcFrames, rotOpts, posOpts }) {
   const pivotOf = id => new Vector3().fromArray(nodePivot(model, byId.get(id), id));
   const position = (matrices, id) => pivotOf(id).applyMatrix4(matrices.get(id));
-  const descendsFrom = (id, ancestor) => { for (let p = id, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) if (p === ancestor) return true; return false; };
+  const descendsFrom = nodeIndex(model).isAncestor;
   const usable = chain => [chain.root, chain.middle, chain.end].every(id => samples.has(id));
   const authored = srcFrames.map(src => sampleNodeMatrices(model, Math.round(src), sequenceIndex));
   const limbs = [];
@@ -952,11 +949,10 @@ function boneRadii(model) {
   const pivots = new Map([...(model.Bones || []), ...(model.Helpers || [])].map(n => [n.ObjectId, nodePivot(model, n)]));
   const distances = new Map(), add = (id, v, x, y, z) => { const p = pivots.get(id); if (!p) return; (distances.get(id) || distances.set(id, []).get(id)).push(Math.hypot(x - p[0], y - p[1], z - p[2])); };
   for (const geo of model.Geosets || []) {
-    const vertices = geo.Vertices || [], count = vertices.length / 3, skin = geo.SkinWeights;
+    const vertices = geo.Vertices || [], count = vertices.length / 3;
     for (let v = 0; v < count; v++) {
       const x = vertices[v * 3], y = vertices[v * 3 + 1], z = vertices[v * 3 + 2];
-      if (skin?.length === count * 8) { for (let s = 0; s < 4; s++) if (skin[v * 8 + s + 4] > 127) add(skin[v * 8 + s], v, x, y, z); }
-      else for (const id of geo.Groups?.[geo.VertexGroup?.[v]] || []) add(id, v, x, y, z);
+      for (const id of vertexBones(geo, v, { minWeight: 128 })) add(id, v, x, y, z);
     }
   }
   return new Map([...distances].map(([id, list]) => [id, list.sort((a, b) => a - b)[list.length >> 1]]));
@@ -1061,8 +1057,7 @@ export function applyAnimXL(model, result) {
 /** Name-based first guess for heavy (weapon) and loose (cloth, hair) bones. */
 export function suggestAnimXLBones(model) {
   const heavyIds = [], looseIds = [], nodes = animXLNodes(model), ids = new Set(nodes.map(n => n.ObjectId));
-  const byId = new Map(allNodes(model).map(n => [n.ObjectId, n])), children = new Map();
-  for (const node of byId.values()) { if (!children.has(node.Parent)) children.set(node.Parent, []); children.get(node.Parent).push(node.ObjectId); }
+  const tree = nodeIndex(model), { byId } = tree, children = new Map([...tree.children].map(([parent, list]) => [parent, list.map(n => n.ObjectId)]));
   // Only bones that move something visible are worth shaping: an empty "weapon"
   // leaf does nothing when the real sword is skinned to the hand.
   const skinned = skinnedBoneIds(model);
@@ -1070,7 +1065,7 @@ export function suggestAnimXLBones(model) {
   // Heads, jaws and natural claws are never "the weapon", even with a Weapon Ref at the mouth.
   const headLike = /head|neck|jaw|mouth|beak|skull|face|tongue|teeth|fang/i;
   // Biped rigs hang the arms under the neck, so a hand on the way up means it is held, not part of the head.
-  const underHead = id => { for (let p = id, guard = 0; byId.has(p) && guard < 64; p = byId.get(p).Parent, guard++) { const name = byId.get(p).Name || ''; if (/hand|arm|clavicle/i.test(name)) return false; if (headLike.test(name)) return true; } return false; };
+  const underHead = id => { for (const p of tree.ancestors(id, true)) { const name = byId.get(p).Name || ''; if (/hand|arm|clavicle/i.test(name)) return false; if (headLike.test(name)) return true; } return false; };
   const subtree = id => { let count = 0; const stack = [id], seen = new Set(); while (stack.length) { const at = stack.pop(); if (seen.has(at)) continue; seen.add(at); count++; stack.push(...(children.get(at) || [])); } return count; };
   // Hands, limbs and mounts are never "the weapon", even when named after it ("Sword Hand").
   let rig = null;
@@ -1078,11 +1073,11 @@ export function suggestAnimXLBones(model) {
   // A machine (no legs, no arms) has no body parts: its arm is the throwing arm.
   const machine = rig && nodes.length >= 6 && !rig.legs.length && !rig.arms.length && !nodes.some(n => /hand|leg|foot|head|neck|spine|pelvis|chest/i.test(n.Name || ''));
   const bodyPart = machine ? /wheel|tail|mesh|death/i : /hand|arm|finger|wrist|toe|foot|leg|paw|claw|pinc|wolf|horse|boar|mount|mesh|death|tail|wheel|pelvis|spine|chest/i;
-  const weaponName = machine ? /weapon|sword|axe|hammer|blade|mace|staff|spear|club|flail|glaive|attack|arm|launch|throw|bucket|crusher|barrel|cannon|turret/i : /weapon|sword|axe|hammer|blade|mace|staff|spear|club|flail|choppa|glaive|halberd|scythe/i;
+  const weaponWords = machine ? ['attack', 'arm', 'launch', 'throw', 'bucket', 'crusher', 'barrel', 'cannon', 'turret'] : [];
   const soft = /cape|cloak|hair|tail|plume|ribbon|cloth|banner|skirt|robe|chain|beard|tabard|sling|(?<![a-z])rope/i;
   for (const node of nodes) {
     const name = node.Name || '';
-    if (weaponName.test(name) && !bodyPart.test(name) && !/cape|cloak|cloth|ribbon|banner|(?<![a-z])rope|sling/i.test(name) && carriesSkin(node.ObjectId)) heavyIds.push(node.ObjectId);
+    if (isWeaponName(name, weaponWords) && !bodyPart.test(name) && !/cape|cloak|cloth|ribbon|banner|(?<![a-z])rope|sling/i.test(name) && carriesSkin(node.ObjectId)) heavyIds.push(node.ObjectId);
     else if (soft.test(name) && carriesSkin(node.ObjectId)) looseIds.push(node.ObjectId);
   }
   // A "Weapon Ref" attachment names the weapon bone even when the bone itself has a generic name.
@@ -1104,7 +1099,7 @@ export function suggestAnimXLBones(model) {
     const bodyX = rig.body != null ? pivot(rig.body).x : (Math.max(...xs) + Math.min(...xs)) / 2, midY = rig.body != null ? pivot(rig.body).y : 0;
     const ownSkin = id => !skinned.size || skinned.has(id);
     const taken = new Set([...heavyIds, ...looseIds, ...rig.torso, rig.body]);
-    const depth = id => { let d = 0; for (let p = byId.get(id)?.Parent; byId.has(p) && d < 64; p = byId.get(p).Parent) d++; return d; };
+    const depth = tree.depth;
     for (const node of [...nodes].sort((a, b) => depth(a.ObjectId) - depth(b.ObjectId))) {
       const id = node.ObjectId;
       if (taken.has(id) || holdsLimb(id) || pivot(id).x >= bodyX || Math.abs(pivot(id).y - midY) > size * 0.1 || !ownSkin(id)) continue;
@@ -1129,8 +1124,8 @@ export function suggestAnimXLBones(model) {
 function skinnedBoneIds(model) {
   const out = new Set();
   for (const geo of model.Geosets || []) {
-    const vertices = (geo.Vertices?.length || 0) / 3, skin = geo.SkinWeights;
-    if (skin?.length === vertices * 8) { for (let v = 0; v < vertices; v++) for (let s = 0; s < 4; s++) if (skin[v * 8 + s + 4] > 0) out.add(skin[v * 8 + s]); }
+    const vertices = (geo.Vertices?.length || 0) / 3;
+    if (isHdSkinned(geo)) { for (let v = 0; v < vertices; v++) for (const id of vertexBones(geo, v)) out.add(id); }
     else for (const index of new Set(geo.VertexGroup || [])) for (const id of geo.Groups?.[index] || []) out.add(id);
   }
   return out;

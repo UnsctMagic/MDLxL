@@ -1,10 +1,9 @@
 import { recalculateExtents } from './editor-document.js';
-import { keysInInterval, sampleTrack } from './animation.js';
+import { globalSequenceId, isGlobalTrack, keysInInterval, sampleTrack, visitTracks } from './animation.js';
 import { recalculatePortraitExtents } from './portrait-extents.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, animationSpeed } from './animation-speed.js';
 
 const MAX_FRAME = 0x7fffffff;
-const isTrack = value => value && Array.isArray(value.Keys);
 
 function wholeFrame(value, label) {
   if (!Number.isInteger(value) || value < 0 || value > MAX_FRAME) throw new Error(`${label} must be a whole frame from 0 to ${MAX_FRAME}.`);
@@ -63,26 +62,42 @@ export function setGlobalSequenceDuration(model, globalSeqId, duration) {
   return duration;
 }
 
-export function createSequence(model, duration = 1000) {
+/** One extent per sequence, each a copy of the geoset's own bounds.
+ * onlyIfPresent leaves a geoset without per-sequence extents as it is. */
+export function fillSequenceExtents(model, geoset, { onlyIfPresent = false } = {}) {
+  if (onlyIfPresent && !geoset.Anims?.length) return geoset.Anims;
+  return geoset.Anims = (model.Sequences || []).map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius }));
+}
+
+/** Append a sequence `gap` frames after the last one. Without a name it is
+ * "New Sequence N". A template's fields are copied, otherwise the extents come
+ * from the model. extents 'always' adds one per-sequence extent to every
+ * geoset; 'ifPresent' only to geosets that already have them. */
+export function createSequence(model, duration = 1000, { name, gap = 1000, template, nonLooping = false, extents = 'always' } = {}) {
   duration = wholeFrame(Number(duration), 'Sequence length');
   if (duration < 1) throw new Error('Sequence length must be at least 1 ms.');
+  if (!['always', 'ifPresent'].includes(extents)) throw new Error('Unknown sequence extent option.');
   model.Sequences ||= [];
-  const previousEnd = model.Sequences.length ? Math.max(...model.Sequences.map(sequence => Number(sequence.Interval?.[1]) || 0)) : -1000;
-  const start = previousEnd + 1000, end = start + duration;
+  const previousEnd = model.Sequences.length ? Math.max(...model.Sequences.map(sequence => Number(sequence.Interval?.[1]) || 0)) : -gap;
+  const start = previousEnd + gap, end = start + duration;
   if (end > MAX_FRAME) throw new Error('There is not enough frame space to create another sequence.');
-  const taken = new Set(model.Sequences.map(sequence => sequence.Name));
-  let number = model.Sequences.length + 1, name = `New Sequence ${number}`;
-  while (taken.has(name)) name = `New Sequence ${++number}`;
+  if (name == null) {
+    const taken = new Set(model.Sequences.map(sequence => sequence.Name));
+    let number = model.Sequences.length + 1;
+    name = `New Sequence ${number}`;
+    while (taken.has(name)) name = `New Sequence ${++number}`;
+  }
   const sequence = {
+    ...(template ? structuredClone(template) : {}),
     Name: name,
     Interval: new Uint32Array([start, end]),
-    NonLooping: false,
+    NonLooping: nonLooping,
     MoveSpeed: 0,
     Rarity: 0,
-    ...extentCopy(model.Info),
+    ...(template ? {} : extentCopy(model.Info)),
   };
   const index = model.Sequences.push(sequence) - 1;
-  for (const geoset of model.Geosets || []) (geoset.Anims ||= []).push(extentCopy(geoset));
+  for (const geoset of model.Geosets || []) if (extents === 'always' || geoset.Anims?.length) (geoset.Anims ||= []).push(extentCopy(geoset));
   return index;
 }
 
@@ -110,7 +125,7 @@ export function createSequenceFromCurrent(model, sourceIndex) {
   }
   visitModel(model, {
     track(track) {
-      if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(track)) return;
       const copies = keysInInterval(track, [start, end]).map(key => {
         const copy = { ...structuredClone(key), Frame: key.Frame + offset };
         if (source[ANIMATION_SPEED_KEY]) {
@@ -123,7 +138,7 @@ export function createSequenceFromCurrent(model, sourceIndex) {
       track.Keys.sort((a, b) => a.Frame - b.Frame);
     },
     event(node) {
-      if (Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(node)) return;
       const frames = Array.from(node.EventTrack);
       const copies = frames.filter(frame => frame >= start && frame <= end).map(frame => frame + offset);
       const combined = [...frames, ...copies].sort((a, b) => a - b);
@@ -158,7 +173,7 @@ export function createPortraitSequence(model, duration, sourceIndex = -1) {
   const copies = [];
   if (source) visitModel(model, {
     track(track, owner, property) {
-      if (!['Alpha', 'Color', 'AmbColor', 'Visibility'].includes(property) || !track.Keys.length || Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      if (!['Alpha', 'Color', 'AmbColor', 'Visibility'].includes(property) || !track.Keys.length || isGlobalTrack(track)) return;
       const [start, end] = source.Interval;
       const sample = Frame => {
         const value = sampleTrack(track, Frame, { interval: source.Interval, fallback: property === 'Color' || property === 'AmbColor' ? [1, 1, 1] : 1 });
@@ -189,23 +204,13 @@ export function createPortraitSequence(model, duration, sourceIndex = -1) {
 }
 
 function visitModel(model, visitor) {
-  const seen = new Set();
-  function visit(value, owner, property) {
-    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || seen.has(value)) return;
-    seen.add(value);
-    if (isTrack(value)) visitor.track(value, owner, property);
-    if (value.EventTrack && (ArrayBuffer.isView(value.EventTrack) || Array.isArray(value.EventTrack))) visitor.event(value);
-    for (const [key, child] of Object.entries(value)) {
-      if (key === 'Keys' || key === 'EventTrack' || key === 'Interval' || key === 'Anims') continue;
-      if (Array.isArray(child)) for (const item of child) visit(item, child, null);
-      else visit(child, value, key);
-    }
-  }
-  visit(model, null, null);
+  visitTracks(model, (track, { owner, property }) => visitor.track(track, owner, Array.isArray(owner) ? null : property), {
+    skip: ['Keys', 'EventTrack', 'Interval', 'Anims'], event: node => visitor.event(node),
+  });
 }
 
 function sameGlobalId(value, id) {
-  return Number.isInteger(value?.GlobalSeqId) && value.GlobalSeqId >= 0 && value.GlobalSeqId === id;
+  return globalSequenceId(value) === id;
 }
 
 export const SEQUENCE_REORDER_SECTIONS = ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras'];
@@ -275,7 +280,7 @@ export function reorderSequences(model, order) {
   const edits = [];
   visitModel(model, {
     track(track) {
-      if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(track)) return;
       const keys = track.Keys.flatMap(key => mapped(key.Frame, key[ANIMATION_SPEED_FRAME]).map(record => ({
         ...structuredClone(key), Frame: record.frame,
         ...(key[ANIMATION_SPEED_FRAME] ? { [ANIMATION_SPEED_FRAME]: record } : {}),
@@ -283,7 +288,7 @@ export function reorderSequences(model, order) {
       edits.push(() => { track.Keys = keys; });
     },
     event(node) {
-      if (Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(node)) return;
       const stored = [...(node[ANIMATION_SPEED_EVENTS] || [])];
       const records = Array.from(node.EventTrack).flatMap(frame => {
         const index = stored.findIndex(record => record?.frame === frame);
@@ -329,13 +334,13 @@ export function deleteSequence(model, sequenceIndex) {
   let removedKeys = 0;
   visitModel(model, {
     track(track) {
-      if (Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(track)) return;
       const before = track.Keys.length;
       track.Keys = track.Keys.filter(key => key.Frame < start || key.Frame > end);
       removedKeys += before - track.Keys.length;
     },
     event(node) {
-      if (Number.isInteger(node.GlobalSeqId) && node.GlobalSeqId >= 0) return;
+      if (isGlobalTrack(node)) return;
       const values = Array.from(node.EventTrack), filtered = values.filter(frame => frame < start || frame > end);
       removedKeys += values.length - filtered.length;
       node.EventTrack = ArrayBuffer.isView(node.EventTrack) ? new node.EventTrack.constructor(filtered) : filtered;

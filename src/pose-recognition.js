@@ -1,14 +1,15 @@
+import { isWeaponName } from './rig-names.js';
 import { Quaternion, Vector3 } from 'three';
 import { nodePivot } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 // Recognition evidence is computed from the authored model, once per setup.
 // No filenames, node IDs, training assets, or edited preview poses are consulted.
 export function poseRecognitionEvidence(model) {
-  const nodes = [...(model.Bones || []), ...(model.Helpers || [])], byId = new Map(nodes.map(node => [node.ObjectId, node]));
-  const children = new Map(), profiles = new Map();
+  const nodes = [...(model.Bones || []), ...(model.Helpers || [])], tree = nodeIndex(model, nodes), { byId, children } = tree;
+  const profiles = new Map();
   const rigidSkinModel = { ...model, Geosets: (model.Geosets || []).filter(geo => !geo.SkinWeights?.length).map(geo => ({ ...geo, Groups: (geo.Groups || []).map(ids => ids.length === 1 ? ids : []) })) };
-  for (const node of nodes) { const list = children.get(node.Parent) || []; list.push(node); children.set(node.Parent, list); }
   for (const node of nodes) {
     let swing = 0, clips = 0;
     for (const sequence of model.Sequences || []) {
@@ -37,7 +38,7 @@ export function poseRecognitionEvidence(model) {
     if (av.getComponent(axis) * bv.getComponent(axis) >= 0) return Infinity;
     av.setComponent(axis, -av.getComponent(axis)); return av.distanceTo(bv) / Math.max(span, 1e-6);
   }));
-  return { nodes, byId, children, profiles, descendants, moving, supported, articulated, links, pivot, mirrorError };
+  return { nodes, byId, children, tree, profiles, descendants, moving, supported, articulated, links, pivot, mirrorError };
 }
 
 /** Unknown branches need both real articulation and a skinned, symmetric peer.
@@ -45,16 +46,17 @@ export function poseRecognitionEvidence(model) {
  * because they point down. This also leaves tiny fingers and rigid props alone. */
 export function inferPoseBranches(evidence, roleOf, occupied) {
   const { nodes, children, profiles, moving, supported, links, pivot, mirrorError } = evidence, result = [];
-  const excluded = /cloth|cape|banner|hair|beard|finger|thumb|weapon|sword|axe|reins?|chain|decoration|jaw|lip|eye|brow/i;
+  const excludedExtra = /cloth|cape|banner|hair|beard|finger|thumb|reins?|chain|decoration|jaw|lip|eye|brow/i;
+  const excluded = name => isWeaponName(name) || excludedExtra.test(name);
   for (const parent of nodes) {
-    if (excluded.test(parent.Name) || ['Hand','Foot','Hoof','Head','Tail'].includes(roleOf(parent)) || roleOf(parent) === 'Chest' && (children.get(parent.ObjectId) || []).some(node => occupied.has(node.ObjectId))) continue;
+    if (excluded(parent.Name) || ['Hand','Foot','Hoof','Head','Tail'].includes(roleOf(parent)) || roleOf(parent) === 'Chest' && (children.get(parent.ObjectId) || []).some(node => occupied.has(node.ObjectId))) continue;
     const paths = [];
     for (const first of links(parent.ObjectId)) {
-      if (excluded.test(first.Name) || occupied.has(first.ObjectId) || !moving(first)) continue;
+      if (excluded(first.Name) || occupied.has(first.ObjectId) || !moving(first)) continue;
       const path = [first], seen = new Set([first.ObjectId]); let next = first;
       while (path.length < 12) {
         const children = links(next.ObjectId);
-        if (children.length !== 1 || seen.has(children[0].ObjectId) || occupied.has(children[0].ObjectId) || excluded.test(children[0].Name)) break;
+        if (children.length !== 1 || seen.has(children[0].ObjectId) || occupied.has(children[0].ObjectId) || excluded(children[0].Name)) break;
         next = children[0]; if (pivot(next).distanceTo(pivot(path.at(-1))) < 1e-5) break;
         path.push(next); seen.add(next.ObjectId);
       }
@@ -78,7 +80,7 @@ export function inferPoseBranches(evidence, roleOf, occupied) {
   }
   // Among anonymous branches on one actor, ground limbs end substantially
   // lower than its hands. Do not label lowered arms as feet solely by slope.
-  const rootOf = id => { const seen = new Set(); while (evidence.byId.has(evidence.byId.get(id)?.Parent) && !seen.has(id)) { seen.add(id); id = evidence.byId.get(id).Parent; } return id; };
+  const rootOf = evidence.tree.root;
   for (const branch of result.filter(branch => branch.kind === 'leg')) {
     const group = result.filter(other => rootOf(other.ids[0]) === rootOf(branch.ids[0]));
     const bottom = Math.min(...group.map(other => pivot(evidence.byId.get(other.ids.at(-1))).z));

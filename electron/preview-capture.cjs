@@ -2,11 +2,10 @@ const fs = require('node:fs/promises');
 const { createReadStream } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { safeWindowsName } = require('./windows-name.cjs');
 
 function showcaseDirectory(root, modelName) {
-  let name = String(modelName || 'Untitled').split(/[\\/]/).at(-1).replace(/\.(mdl|mdx)$/i, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/g, '').trim();
-  if (!name || /^\.+$/.test(name)) name = 'Untitled';
-  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)) name = '_' + name;
+  const name = safeWindowsName(String(modelName || 'Untitled').split(/[\\/]/).at(-1).replace(/\.(mdl|mdx)$/i, ''));
   return path.join(root, name.slice(0, 120));
 }
 

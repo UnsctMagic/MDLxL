@@ -1,13 +1,12 @@
 // Optional supplied-model integration test. No input file is overwritten.
 import fs from 'node:fs';
-import vm from 'node:vm';
+import { sanityTest } from './helpers/hive.mjs';
 import assert from 'node:assert/strict';
-import { ModelRenderer } from 'war3-model';
+import { comparePoses } from './helpers/pose-compare.mjs';
 import { openDocument } from '../src/editor-document.js';
 import { sanityProposals, runOptimizeStage } from '../src/optimizexl.js';
-vm.runInThisContext(fs.readFileSync(new URL('../public/vendor/hive-viewer-5.12.0.js', import.meta.url), 'utf8'));
 const reports = [];
-const sanity = bytes => { const model = new ModelViewer.parsers.mdlx.Model(); model.load(bytes.buffer); return ModelViewer.utils.mdlx.sanityTest(model); };
+const sanity = bytes => { return sanityTest(bytes); };
 for (const path of process.argv.slice(2)) {
   const source = new Uint8Array(fs.readFileSync(path)), before = openDocument(source, 'before.mdx').model;
   const fixes = sanityProposals(before).filter(f => f.kind === 'openingTrack');
@@ -17,18 +16,13 @@ for (const path of process.argv.slice(2)) {
   assert.equal(originalHive.severe, 1); assert.equal(repairedHive.errors + repairedHive.severe + repairedHive.warnings, 0);
   assert.equal(repairedHive.unused, 3, 'Unused notices remain intact; this repair does not remove their keys');
   const resolve = (m, p) => p.reduce((v, k) => v[k], m), originalTrack = resolve(before, fix.path), afterTrack = resolve(after, fix.path);
-  const a = new ModelRenderer(structuredClone(before)), b = new ModelRenderer(structuredClone(after));
   let samples = 0, maxError = 0;
-  for (const [sequence, animation] of before.Sequences.entries()) {
-    a.setSequence(sequence); b.setSequence(sequence);
-    for (let frame = animation.Interval[0]; frame <= animation.Interval[1]; frame++) {
-      a.setFrame(frame); b.setFrame(frame);
+  comparePoses(before, after, ({ a, b }) => {
       const p = a.interp.vec3(new Float32Array(3), originalTrack), q = b.interp.vec3(new Float32Array(3), afterTrack);
       if (p === null || q === null) assert.equal(p, q);
       else maxError = Math.max(maxError, Math.hypot(...Array.from(p, (v, i) => v - q[i])));
       samples++;
-    }
-  }
+  });
   assert.ok(maxError < 1e-5, `Particle motion changed by ${maxError}`);
   const retained = afterTrack.Keys.filter(k => k.Frame !== fix.frame);
   assert.equal(retained.length, originalTrack.Keys.length);
