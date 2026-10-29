@@ -29,6 +29,7 @@ import PressedKeys from './PressedKeys.jsx';
 import Learn from './Learn.jsx';
 import AppDialogs, { ResourceManagerView } from './AppDialogs.jsx';
 import useUpdates from './useUpdates.js';
+import usePreferences from './usePreferences.js';
 import { Coordinate } from './EditorControls.jsx';
 import { setLanguage, translate } from '../src/localization.js';
 import { usePreviewBackgrounds } from './usePreviewBackgrounds.js';
@@ -58,7 +59,7 @@ import './material-properties.css';
 import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { HotkeysProvider } from './Hotkeys.jsx';
-import { APPLICATION_THEMES, normalizePreferences, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
+import { APPLICATION_THEMES, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
 import { readStoredText, writeStoredText } from '../src/local-store.js';
 import { lightDarkChange } from '../src/light-dark-switch.js';
 import { COMMANDS } from '../src/commands.js';
@@ -103,7 +104,7 @@ import { corpseAndBackgroundGeosets } from '../src/geoset-extras.js';
 import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence-editor.js';
 import { effectNodes } from '../src/particle-recipes.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
-import SidebarResizer, { PANEL_WIDTH_EVENT } from './SidebarResizer.jsx';
+import SidebarResizer from './SidebarResizer.jsx';
 import { exposeAppForTests } from './test-hook.js';
 import { gamePathKey } from '../src/game-path.js';
 
@@ -133,21 +134,12 @@ function browserRecovery(operation, value) {
   });
 }
 
-// On desktop, settings.json is the only preference store. `mdlvis-preferences`
-// in localStorage is only a first-paint cache there, not a store: it lets the very
-// first frame use the saved theme and language, it is rewritten only after
-// settings.json accepted a write (configure() resolved) or initial() answered, and
-// initial() always replaces whatever it held.
-function writePaintCache(encoded) { try { localStorage.setItem('mdlvis-preferences', encoded); } catch {} }
-
 export default function App() {
   useEffect(() => installTextureLibraryDecoder(window.desktop), []);
-  // Browser runs keep preferences in localStorage. On desktop the same key is the
-  // first-paint cache (see writePaintCache); initial() replaces it from settings.json.
-  const [preferences, setPreferences] = useState(() => { try { return normalizePreferences(JSON.parse(localStorage.getItem('mdlvis-preferences') || '{}')); } catch { return normalizePreferences({}); } });
+  const settings = useRef({});
+  const { preferences, preferencesReady, settingsTab, setSettingsTab, setPreferencesReady, preferencesRef, changePreferences, loadPreferences, flushPreferences } = usePreferences({ settings, say: (...args) => say(...args) });
   setLanguage(preferences.language);
   useEffect(()=>{document.documentElement.lang=preferences.language;},[preferences.language]);
-  const [settingsTab, setSettingsTab] = useState(null), [preferencesReady, setPreferencesReady] = useState(!window.desktop);
   const updates = useUpdates({ disableSounds: preferences.disableSounds, preferencesReady });
   const pressedKeysIcon = './classic/btn-magical-sentry.png';
   useEffect(() => bindDropdownWheel(document), []);
@@ -155,14 +147,7 @@ export default function App() {
   const timelineCommands = useRef({});
   const [materialVisibility,setMaterialVisibility] = useState(null);
   const registerTimelineCommands = useCallback(value=>{timelineCommands.current=value;},[]);
-  const preferencesRef = useRef(preferences); preferencesRef.current = preferences;
-  const savedPreferences = useRef(null), preferencesTimer = useRef(), saveBeforeCloseRef = useRef(async () => false), modelOpenQueue = useRef(Promise.resolve());
-  function changePreferences(next) { const value = normalizePreferences(typeof next === 'function' ? next(preferencesRef.current) : next); preferencesRef.current = value; setPreferences(value); }
-  useEffect(() => {
-    const resizePanel = event => changePreferences(previous => ({ ...previous, panelWidth: event.detail }));
-    window.addEventListener(PANEL_WIDTH_EVENT, resizePanel);
-    return () => window.removeEventListener(PANEL_WIDTH_EVENT, resizePanel);
-  }, []);
+  const saveBeforeCloseRef = useRef(async () => false), modelOpenQueue = useRef(Promise.resolve());
   function switchLightDark(scheme) {
     const change = lightDarkChange(preferencesRef.current, scheme);
     if (!change) { say(`Already using a ${scheme} look.`); return; }
@@ -324,7 +309,7 @@ export default function App() {
   const [recoveries, setRecoveries] = useState([]), [historyMB, setHistoryMB] = useState(512), [historySteps, setHistorySteps] = useState(10000), [anchor, setAnchor] = useState(''), [normalAngle, setNormalAngle] = useState(90), [gameDataPath, setGameDataPath] = useState('');
   const [gameDataSources, setGameDataSources] = useState([]);
   const [zoomAnchor, setZoomAnchor] = useState(null), [choosingZoomAnchor, setChoosingZoomAnchor] = useState(false);
-  const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), settings = useRef({}), textureResolutions = useRef(new WeakMap());
+  const files = useRef(), textures = useRef(), managerTextures = useRef(), folder = useRef(), clipboard = useRef(null), latest = useRef(), commands = useRef({}), rangeAnchor = useRef(0), textureResolutions = useRef(new WeakMap());
   const doc = session.doc, model = doc.model, geoset = model.Geosets[activeGeoset];
   useEffect(() => {
     const was = lastRevision.current;
@@ -1519,7 +1504,7 @@ export default function App() {
   useEffect(()=>{window.desktop?.setMenuState?.({readOnly:doc.readOnly,saving,viewMode:displayMode,vanilla:visUI,checks:menuChecks,uvEnabled:commandEnabled('uv')});},[doc.readOnly,saving,displayMode,visUI,JSON.stringify(menuChecks),selectionCount,activeGeoset]);
   useEffect(() => window.desktop?.onPreferences?.(patch => changePreferences(previous => ({ ...previous, ...patch }))), []);
   useEffect(() => window.desktop?.onMenu(action => { if (action?.action === 'openRecent') { if (!latest.current.dialog && !latest.current.settingsTab) commands.current.openRecent(action.path); return; } if(['exit',...settingsCommands].includes(action) || latest.current.dialog?.type === 'resource' && ['undo','redo'].includes(action) || (!latest.current.dialog && !latest.current.settingsTab)) { runLatest.current(action); window.dispatchEvent(new CustomEvent('mdlxl-menu-command', { detail: { id: action } })); } }), []);
-  useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); const persisted=normalizePreferences(settings.current.preferences || preferencesRef.current); savedPreferences.current=JSON.stringify(persisted); writePaintCache(savedPreferences.current); changePreferences(persisted); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
+  useEffect(() => { const boot = session.id; window.desktop?.initial?.().then(async initial => { settings.current = initial.settings || {}; setGameDataPath(settings.current.gameData || ''); setGameDataSources(settings.current.gameDataSources || []); loadPreferences(); const current = latest.current.session; current.doc.configureHistory({ budgetBytes: settings.current.historyBudgetBytes ?? 512 * 1048576, maxSteps: settings.current.historyMaxSteps ?? 10000 }); setRecoveries(initial.recovery || []); const records=initial.models?.length?initial.models:initial.model?[initial.model]:[]; if(records.length&&current.id===boot&&!current.doc.dirty)await queueModelRecords(records); else refresh(); setPreferencesReady(true); if(initial.recoveryPrompt && initial.recovery?.length)setDialog({type:'recovery'}); }).catch(error => { setPreferencesReady(true); say(error.message, true); }); }, []);
   useEffect(() => window.desktop?.onExternalModels?.(records => { queueModelRecords(records).catch(error=>say(error.message,true)); }), []);
   const hasUnsavedWork=doc.dirty||hasUVPreview||hasTrackDrafts||hasPaintChanges;
   const hasAnyUnsavedWork=sessions.some(sessionDirty);
@@ -1545,15 +1530,7 @@ export default function App() {
     const timer = setTimeout(async () => { try { await checkpoint(session); } catch (error) { say(`Recovery checkpoint failed: ${error.message}`, true); } }, 350);
     return () => clearTimeout(timer);
   }, [doc, doc.revision, session, session.uvPreviews, session.animationDrafts]);
-  useEffect(() => {
-    if(!preferencesReady) return;
-    const encoded=JSON.stringify(preferences);
-    if(!window.desktop){ try { localStorage.setItem('mdlvis-preferences',encoded); } catch(error) { say('Settings could not be stored in this browser: '+error.message,true); } return; }
-    if(savedPreferences.current===encoded)return;
-    const timer=preferencesTimer.current=setTimeout(() => { window.desktop.configure({preferences}).then(result => {settings.current=result; savedPreferences.current=encoded; writePaintCache(encoded);}).catch(error=>say('Settings could not be saved: '+error.message,true)); },200);
-    return () => clearTimeout(timer);
-  },[preferences,preferencesReady]);
-  useEffect(() => window.desktop?.onBeforeClose?.(async () => { const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); clearTimeout(preferencesTimer.current); if(!latest.current.preferencesReady)return; const current=preferencesRef.current, encoded=JSON.stringify(current); if(savedPreferences.current!==encoded) {await window.desktop.configure({preferences:current});savedPreferences.current=encoded;writePaintCache(encoded);} }),[]);
+  useEffect(() => window.desktop?.onBeforeClose?.(async () => { const captures=[]; window.dispatchEvent(new CustomEvent('mdlvis-flush-captures',{detail:captures})); window.dispatchEvent(new CustomEvent('mdlxl-flush-particle-draft',{detail:captures})); await Promise.all(captures); await flushRecordingQueue(); await flushPreferences(latest.current.preferencesReady); }),[]);
   useEffect(() => window.desktop?.onSaveBeforeClose?.(() => saveBeforeCloseRef.current()),[]);
   useEffect(() => { if(preferencesReady) resolveTextures(); },[preferencesReady, JSON.stringify(model.Textures.map(texture => texture.Image))]);
 
