@@ -41,7 +41,7 @@ function recordFailures(task, checks, fingerprint) {
     const previous = Object.hasOwn(failures,key) ? failures[key] : null;
     Object.defineProperty(failures, key, { value: { count: (previous?.count || 0) + (previous && previous.fingerprint === fingerprint ? 0 : 1), fingerprint }, enumerable: true, configurable: true, writable: true });
   }
-  for (const check of checks || []) if (check.passed === true) delete failures[check.name];
+  for (const check of checks || []) if (check.passed === true && typeof check.name === 'string') delete failures[check.name.slice(0, 200)];
   const repeated = Object.entries(failures).filter(([,v]) => v.count >= 2).map(([name]) => name);
   if (repeated.length) task.replanRequired = repeated.join('; ');
   return task.replanRequired;
@@ -51,6 +51,7 @@ function checkpointNote(task) {
     plan: task.plan && { cause: task.plan.cause, chosen: task.plan.options[task.plan.choice], keep: task.plan.keep, checks: task.plan.checks },
     checkpoint: task.workCheckpoint,
     appliedStepCount: task.steps.filter(s => s.status === 'applied').length,
+    appliedSteps: task.steps.filter(s => s.status === 'applied').map(s => ({ tool:s.tool, label:s.label })),
     recentSteps: task.steps.slice(-20).map(s => ({ tool:s.tool, label:s.label, status:s.status })),
     routines: Object.keys(task.routines || {}),
     helper: task.helper?.report,

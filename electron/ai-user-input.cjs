@@ -44,9 +44,19 @@ function mcpForm(params) {
   }));
   return { questions, validateAnswers: content, content, empty: !Object.keys(schema.properties).length };
 }
+// Only plain question text and choices pass from a provider; links, input types and
+// validators come from MDLxL's own adapters.
+function providerQuestion(q) {
+  return { id: q.id, question: q.question, description: typeof q.description === 'string' ? q.description : '',
+    options: Array.isArray(q.options) ? q.options.map(o => ({ label: o?.label, description: typeof o?.description === 'string' ? o.description : '' })) : undefined,
+    multiSelect: q.multiSelect === true, isSecret: q.isSecret === true, ...(q.isOther === false && q.options?.length ? { allowCustom: false } : {}) };
+}
+function codexQuestions(params) {
+  return { message: typeof params?.message === 'string' ? params.message : '', questions: Array.isArray(params?.questions) ? params.questions.map(q => providerQuestion(q || {})) : params?.questions };
+}
 function claudeQuestions(input) {
   if (!Array.isArray(input?.questions) || !input.questions.length) throw Error('Claude did not supply a question.');
-  return input.questions.map((q, i) => ({ ...q, id: String(i), required: true, multiSelect: q.multiSelect === true }));
+  return input.questions.map((q, i) => ({ ...providerQuestion(q || {}), id: String(i), required: true }));
 }
 function questionCancelled(message) { return Object.assign(Error(message), { code: 'AI_QUESTION_CANCELLED' }); }
-module.exports = { mcpForm, claudeQuestions, questionCancelled };
+module.exports = { mcpForm, codexQuestions, claudeQuestions, questionCancelled };

@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const { spawnAgent, stopAgent, lines, providerEnvironment } = require('./ai-process.cjs');
 const { startMcpServer, callEditorTool } = require('./ai-mcp.cjs');
 const { awarenessText } = require('./ai-awareness.cjs');
-const { mcpForm, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
+const { mcpForm, codexQuestions, claudeQuestions, questionCancelled } = require('./ai-user-input.cjs');
 
 function endpoint(value) {
   const url = new URL(value);
@@ -692,7 +692,7 @@ class CodexProcess {
             const input = await this.askUser({ ...form, message: params.message }, signal);
             result = form.empty && input.answers.confirm.answers[0] === 'No' ? { action: 'decline' } : { action: 'accept', content: form.content(input.answers) };
           }
-        } else result = await this.askUser(params, signal);
+        } else result = await this.askUser(codexQuestions(params), signal);
         if (!signal.aborted) this.write({ id: message.id, result });
       } catch (error) {
         if (signal.aborted) return;

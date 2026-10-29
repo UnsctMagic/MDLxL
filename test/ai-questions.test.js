@@ -101,3 +101,21 @@ test('question routing never grants terminal or filesystem approval; provider ex
   assert.deepEqual(sent, [{ id: 2, result: { decision: 'decline' } }]);
   client.fail(Error('Provider exited')); assert.equal(signal.aborted, true);
 });
+
+test('provider questions keep only plain text and choices; repeated notices share one row', () => {
+  const { codexQuestions, claudeQuestions } = require('../electron/ai-user-input.cjs');
+  const raw = { id: 'q', question: 'Which arm?', link: 'https://example.com', validateAnswers: 'x', inputType: 'password', isOther: false, options: [{ label: 'Left', extra: 1 }] };
+  const [codex] = codexQuestions({ questions: [raw] }).questions;
+  assert.deepEqual(codex, { id: 'q', question: 'Which arm?', description: '', options: [{ label: 'Left', description: '' }], multiSelect: false, isSecret: false, allowCustom: false });
+  const [claude] = claudeQuestions({ questions: [raw] });
+  assert.equal(claude.link, undefined);
+  assert.equal(claude.allowCustom, false);
+  assert.equal(codexQuestions({ questions: [{ ...raw, isOther: true }] }).questions[0].allowCustom, undefined);
+  const conversation = { id: 'n', transcript: [], messages: [] };
+  const recorder = new AiRecorder(conversation, () => {});
+  recorder.start({ role: 'user', text: 'Go' });
+  for (const detail of ['1 of 3', '2 of 3']) recorder.event({ type: 'provider-notice', text: 'Tool progress', detail, severity: 'info' });
+  const notices = recorder.parts().filter(p => p.type === 'provider-notice');
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].detail, '2 of 3');
+});

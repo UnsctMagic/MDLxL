@@ -103,7 +103,9 @@ class AiRecorder {
       const part = this.parts().find(p => p.type === 'question' && p.questionId === value.questionId);
       if (part) Object.assign(part, { status: value.status, answers: value.answers, reason: value.reason });
     } else if (value.type === 'provider-notice') {
-      reply.parts.push({ type: 'provider-notice', text: value.text, detail: value.detail, severity: value.severity, name: value.name });
+      const part = { type: 'provider-notice', text: value.text, detail: value.detail, severity: value.severity, name: value.name };
+      const same = reply.parts.findIndex(p => p.type === part.type && p.text === part.text && p.name === part.name);
+      if (same < 0) reply.parts.push(part); else reply.parts[same] = part;
     } else if (value.type === 'tool') {
       reply.parts.push({ type: 'tool', id: value.callId, name: value.name, detail: value.detail, status: 'running' });
     } else if (value.type === 'tool-result') {

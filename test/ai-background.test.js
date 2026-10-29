@@ -394,3 +394,21 @@ test('references opened by a background job retain its original model and chat',
   assert.deepEqual(bridge.references(), []);
   assert.deepEqual(bridge.context(target).documents.map(d => d.id), [a.id, 'Background donor.mdx', 'Part donor.mdx']);
 });
+
+
+test('replacing an organiser carries its own references without changing another viewed chat',()=>{
+ const {a,b,app,bridge,show}=editor();
+ const donorA=tab('Donor A.mdx'), donorB=tab('Donor B.mdx'), earlier=tab('Earlier donor.mdx');
+ for(const [reference,owner,chat] of [[donorA,a,'old-a'],[donorB,b,'chat-b'],[earlier,a,'earlier-a']])
+   Object.assign(reference,{reference:true,referenceOwnerId:owner.id,referenceChatId:chat});
+ app.references.push(donorA,donorB,earlier);
+ bridge.setChat(a.id,'old-a');const captured=bridge.context();
+ show(b);bridge.setChat(b.id,'chat-b');
+ bridge.rebindChat(a.id,'old-a','fresh-a');
+ assert.deepEqual(bridge.context(captured.target,'fresh-a').documents.map(d=>d.id),[a.id,donorA.id]);
+ assert.deepEqual(bridge.references().map(d=>d.id),[donorB.id]);
+ assert.equal(earlier.referenceChatId,'earlier-a');
+ show(a);bridge.setChat(a.id,'earlier-a');bridge.rebindChat(a.id,'fresh-a','newer-a');
+ assert.equal(bridge.chats.get(a.id),'earlier-a');
+ assert.deepEqual(bridge.references().map(d=>d.id),[earlier.id]);
+});

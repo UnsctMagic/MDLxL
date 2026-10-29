@@ -109,6 +109,11 @@ export class AiEditorBridge {
     this.chats.set(documentId, chatId);
     this.editorChanged();
   }
+  rebindChat(documentId, from, to) {
+    for (const reference of this.referenceSessions({ documentId, chatId: from })) reference.referenceChatId = to;
+    if (this.chats.get(documentId) === from) this.chats.set(documentId, to);
+    this.editorChanged();
+  }
   referenceScope(target) {
     const documentId = target?.documentId || this.state().session.id;
     return { documentId, chatId: target ? target.chatId : this.chats.get(documentId) || null };

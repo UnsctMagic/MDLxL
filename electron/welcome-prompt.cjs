@@ -66,11 +66,13 @@ function showWelcomePrompt(parent, { title, heading, question, detail, note, lab
     });
     prompt.webContents.once('did-finish-load', async () => {
       try {
-        await prompt.webContents.executeJavaScript('window.prepareWelcomeEffects()');
+        await prompt.webContents.executeJavaScript('window.prepareWelcomeEffects?.()');
+      } catch (error) { console.warn('Welcome effects unavailable.', error); }
+      try {
         const height = await prompt.webContents.executeJavaScript('document.documentElement.scrollHeight');
         if (!prompt.isDestroyed()) prompt.setContentSize(width, Math.min(600, Math.ceil(height)));
       } catch {}
-      if (!prompt.isDestroyed() && process.env.MDLVIS_HEADLESS !== '1') { prompt.show(); prompt.webContents.focus(); prompt.webContents.executeJavaScript(`requestAnimationFrame(()=>window.startWelcomeEffects(${!!disableSounds}))`).catch(error=>console.error(error)); }
+      if (!prompt.isDestroyed() && process.env.MDLVIS_HEADLESS !== '1') { prompt.show(); prompt.webContents.focus(); prompt.webContents.executeJavaScript(`requestAnimationFrame(()=>window.startWelcomeEffects?.(${!!disableSounds}))`).catch(error=>console.error(error)); }
     });
     prompt.on('closed', () => resolve(answer));
     const effectsScript=fs.readFileSync(path.join(__dirname,'../dist/update-popup-effects.js'),'utf8');

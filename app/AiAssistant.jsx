@@ -318,15 +318,17 @@ function QuestionPart({ part }) {
     finally { setSending(false); }
   }
   return <form className="ai-question" onSubmit={submit}>
-    <div className="ai-message-note">{part.name ? part.name + ': ' : ''}{pending ? 'Waiting for your answer' : part.status === 'done' ? 'Answered' : 'Question stopped'}</div>
+    <div className="ai-message-note">{part.name && <span translate="no">{part.name}: </span>}{pending ? 'Waiting for your answer' : part.status === 'done' ? 'Answered' : 'Question stopped'}</div>
     {part.message && <p translate="no">{part.message}</p>}
     {part.questions.map(q => <fieldset key={q.id} disabled={!pending || sending}>
-      <legend translate="no">{q.question}{q.required === false && <small> (optional)</small>}</legend>
+      <legend><span translate="no">{q.question}</span>{q.required === false && <small title={q.multiSelect ? undefined : 'Click a chosen answer again to clear it.'}> (optional)</small>}</legend>
       {q.description && <p translate="no">{q.description}</p>}
-      {q.link && <a href={q.link} target="_blank" rel="noreferrer" onClick={event => { event.preventDefault(); window.desktop.aiQuestionLink({ questionId: part.questionId, id: q.id }).catch(reason => setError(reason.message)); }}>Open input page</a>}
+      {q.link && <a href={q.link} target="_blank" rel="noreferrer" onClick={event => { event.preventDefault(); window.desktop.aiQuestionLink({ questionId: part.questionId, id: q.id }).catch(reason => setError(reason.message)); }} title="Opens this address in your web browser.">Open input page</a>}
+      {q.link && <small translate="no"> {linkHost(q.link)}</small>}
       {pending ? <>
         {!q.isSecret && (q.options || []).map((option, index) => <label key={index} className="ai-question-option">
           <input type={q.multiSelect ? 'checkbox' : 'radio'} name={part.questionId + ':' + q.id} checked={(values[q.id] || []).includes(option.label)}
+            onClick={() => { if (!q.multiSelect && q.required === false && (values[q.id] || []).includes(option.label)) setValues(old => ({ ...old, [q.id]: [] })); }}
             onChange={event => { const checked = event.target.checked; setValues(old => ({ ...old, [q.id]: q.multiSelect ? checked ? [...(old[q.id] || []), option.label] : (old[q.id] || []).filter(v => v !== option.label) : [option.label] })); if (!q.multiSelect) setCustom(old => ({ ...old, [q.id]: '' })); }} />
           <span translate="no"><b>{option.label}</b>{option.description && <small>{option.description}</small>}</span>
         </label>)}
@@ -340,15 +342,19 @@ function QuestionPart({ part }) {
       <button type="submit" title="Send these answers to the AI that asked." disabled={sending || part.questions.some(q => q.required !== false && !answer(q).length)}>Send answer</button>
       <button type="button" title="Cancel this question without answering it." disabled={sending} onClick={event => submit(event, true)}>Cancel question</button>
     </div>}
-    {part.reason && <p className="ai-message-note" translate="no">{part.reason}</p>}
+    {part.reason && <p className="ai-message-note">{part.reason}</p>}
     {error && <p className="ai-message-error" role="alert">{error}</p>}
   </form>;
+}
+// The input page's site, shown beside its link so a question cannot hide where it leads.
+function linkHost(link) {
+  try { return new URL(link).host; } catch { return ''; }
 }
 function ProviderNotice({ part }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
   return <details className={'ai-provider-notice ai-provider-' + part.severity}>
-    <summary title="Provider notice: click to show or hide details."><ChevronRight size={12} aria-hidden="true" /><span translate="no">{part.name ? part.name + ': ' : ''}{part.text}</span>
+    <summary title="Provider notice: click to show or hide details."><ChevronRight size={12} aria-hidden="true" /><span>{part.name && <span translate="no">{part.name}: </span>}{part.text}</span>
       <button type="button" aria-label="Dismiss provider notice" title="Hide this notice." onClick={event => { event.preventDefault(); setDismissed(true); }}><X size={12} /></button>
     </summary>
     {part.detail && <pre translate="no">{part.detail}</pre>}
@@ -507,7 +513,11 @@ function AiAssistant({ bridge, visUI }) {
         });
       if (event.type === 'question')
         update(message => message.parts.push({ type: 'question', questionId: event.questionId, questions: event.questions, name: event.name, message: event.message, status: 'running' }));
-      if (event.type === 'provider-notice') update(message => message.parts.push({ ...event, type: 'provider-notice' }));
+      // A repeated notice (usage, plan, tool progress) updates its row instead of adding one.
+      if (event.type === 'provider-notice') update(message => {
+        const part = { ...event, type: 'provider-notice' }, same = message.parts.findIndex(p => p.type === part.type && p.text === part.text && p.name === part.name);
+        if (same < 0) message.parts.push(part); else message.parts[same] = part;
+      });
       if (event.type === 'question-result')
         setMessages(previous => previous.map(message => ({ ...message, parts: message.parts?.map(part =>
           part.type === 'question' && part.questionId === event.questionId ? { ...part, status: event.status, answers: event.answers, reason: event.reason } : part) })));
@@ -805,6 +815,12 @@ function AiAssistant({ bridge, visUI }) {
       attached = images,
       context = bridge.context();
     let sending = id;
+    // The box keeps its draft under the organiser while a live bird is viewed.
+    let draftOwner = draftKey;
+    const updateSendingDraft = patch => {
+      const key = draftOwner;
+      setDrafts(previous => ({ ...previous, [key]: { ...previous[key], ...patch } }));
+    };
     setSendingId(sending);
     setError('');
     setStatus('Connecting…');
@@ -822,19 +838,25 @@ function AiAssistant({ bridge, visUI }) {
       if (org && !viewWorker) {
         const fresh = await window.desktop.aiOrganiser({ modelKey: org.modelKey, name: summary.name });
         if (fresh.id !== sending) {
+          const previousId = sending;
           sending = fresh.id;
-          bridge.setChat(context.documentId, fresh.id);
+          if (draftOwner === previousId) draftOwner = sending;
+          bridge.rebindChat(context.documentId, previousId, sending);
+          setDrafts(previous => {
+            const next = { ...previous, [sending]: { ...previous[sending], ...previous[previousId] } };
+            delete next[previousId];
+            return next;
+          });
+          setSendingId(current => current === previousId ? fresh.id : current);
           Object.assign(context, bridge.context(context.target, fresh.id));
           if (activeId.current === id) {
             activeId.current = sending;
-            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setSendingId(sending); setMessages([]);
+            setOrg({ ...fresh, modelKey: org.modelKey }); setView(sending); setMessages([]);
           }
         }
       }
       if (!resume) {
-        setPrompt('');
-        setImages([]);
-        setJobRoute('');
+        updateSendingDraft({ prompt: '', images: [], jobRoute: '' });
       }
       if (activeId.current === sending) setMessages(previous => [
         ...previous,
@@ -857,7 +879,7 @@ function AiAssistant({ bridge, visUI }) {
         route: jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue'),
       });
       if (result.modelChoiceRequired) {
-        setModelQuestion(result.message); setPrompt(text); setImages(attached); setJobRoute(jobRoute);
+        updateSendingDraft({ modelQuestion: result.message, prompt: text, images: attached, jobRoute });
         const transcript = await window.desktop.aiTranscript(sending);
         if (activeId.current === sending) setMessages(transcript);
       }
@@ -865,8 +887,7 @@ function AiAssistant({ bridge, visUI }) {
         setSignedIn(false);
         setSettingsOpen(true);
         if (!resume) {
-          setPrompt(text);
-          setImages(attached);
+          updateSendingDraft({ prompt: text, images: attached });
         }
         const transcript = await window.desktop.aiTranscript(sending);
         if (activeId.current === sending) setMessages(transcript);
@@ -874,7 +895,7 @@ function AiAssistant({ bridge, visUI }) {
     } catch (reason) {
       if (activeId.current === sending) setError(reason.message);
     } finally {
-      setSendingId(current => (current === sending ? null : current));
+      setSendingId(current => (current === id || current === sending ? null : current));
       if (activeId.current === sending) setStatus('');
     }
   }
@@ -915,7 +936,7 @@ function AiAssistant({ bridge, visUI }) {
     }
   }
   async function attach(list) {
-    if (switching || !org) return;
+    if (!draftKey || switching || readOnly) return;
     const scope = bridge.referenceScope();
     for (const file of list) {
       if (/\.(mdl|mdx)$/i.test(file.name)) {
@@ -1627,10 +1648,12 @@ function AiAssistant({ bridge, visUI }) {
                   <textarea
                     ref={input}
                     rows={1}
-                    disabled={readOnly}
+                    disabled={readOnly || !draftKey}
                     aria-label="AI prompt" data-hotkey="prompt"
                     placeholder={
-                      readOnly
+                      !draftKey
+                        ? 'Loading chat…'
+                        : readOnly
                         ? viewWorker
                           ? `The ${viewWorker.name} is retired. Talk to the organiser to continue.`
                           : 'An earlier chat, read only. Use the organiser to continue.'
@@ -1662,7 +1685,7 @@ function AiAssistant({ bridge, visUI }) {
                       type="button"
                       className="ai-tool"
                       aria-label="Attach" data-hotkey="attach"
-                      disabled={busy || authBusy}
+                      disabled={readOnly || !draftKey || busy || authBusy}
                       title="Attach a model or picture."
                       onClick={() => files.current.click()}
                     >
@@ -1721,6 +1744,7 @@ function AiAssistant({ bridge, visUI }) {
                     <input
                       ref={files}
                       type="file"
+                      disabled={readOnly || !draftKey || busy || authBusy}
                       hidden
                       multiple
                       accept=".mdl,.mdx,.png,.jpg,.jpeg,.webp"

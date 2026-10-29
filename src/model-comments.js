@@ -29,5 +29,5 @@ export function writeModelComments(input, format, text = '') {
   }
   parts.push(bytes.subarray(cursor));
   const body = Buffer.concat(parts);
-  return text ? Buffer.concat([Buffer.from(text.replace(/\r\n?/g, '\n').split('\n').map(line => '// ' + line).join('\n') + '\n', 'utf8'), body]) : body;
+  return text ? Buffer.concat([Buffer.from(text.replace(/\r\n?/g, '\n').split('\n').map(line => (line.startsWith('MDLXL_') ? '//' : '// ') + line).join('\n') + '\n', 'utf8'), body]) : body;
 }

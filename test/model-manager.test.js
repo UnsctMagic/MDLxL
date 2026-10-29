@@ -93,3 +93,30 @@ test('models without standard comments do not acquire extra serialization fields
     assert.equal(Object.hasOwn(doc.model, MODEL_COMMENTS_KEY), false);
   }
 });
+
+
+test('reserved-looking user comments and literal escape prefixes survive repeated MDL saves', () => {
+  const doc=openDocument(createDemoDocument().serialize('mdl'),'comments.mdl');
+  const slash=String.fromCharCode(92);
+  const text=['MDLXL_GEOSET_TABS is a user note',slash+'MDLXL_ESCAPED',slash.repeat(2)+'two backslashes',slash+'ordinary',' MDLXL_indented'].join('\n');
+  doc.apply('Comments',[MODEL_COMMENTS_KEY],m=>{m[MODEL_COMMENTS_KEY]=text;});
+  doc.apply('Tabs',[GEOSET_TABS_KEY],m=>{createGeosetTab(m,'Armor');});
+  assert.equal(readModelComments(Buffer.from('// '+slash+'MDLXL_literal\nVersion { FormatVersion 800, }'),'mdl'),slash+'MDLXL_literal','pre-existing literal backslashes stay literal');
+  const saved=doc.serialize('mdl'), reopened=openDocument(saved,'reopened.mdl');
+  assert.equal(reopened.model[MODEL_COMMENTS_KEY],text);
+  assert.equal(reopened.model[GEOSET_TABS_KEY][0].name,'Armor');
+  reopened.apply('Name',['Info'],m=>{m.Info.Name='Renamed';});
+  assert.equal(openDocument(reopened.serialize('mdl'),'again.mdl').model[MODEL_COMMENTS_KEY],text);
+  assert.equal(readModelComments(writeModelComments(saved,'mdl',''),'mdl'),'');
+});
+
+
+test('Save as MDX lists standard comments among omitted data before marking clean',()=>{
+ const doc=openDocument(createDemoDocument().serialize('mdl'),'comments.mdl');
+ doc.apply('Comments',[MODEL_COMMENTS_KEY],m=>{m[MODEL_COMMENTS_KEY]='Author note';});
+ assert.ok(doc.saveImpact('mdx').leftOut.some(text=>text.includes('standard model comments')));
+ assert.ok(!doc.saveImpact('mdl').leftOut.some(text=>text.includes('standard model comments')));
+ const bytes=doc.serialize('mdx');
+ assert.equal(openDocument(bytes,'saved.mdx').model[MODEL_COMMENTS_KEY],undefined);
+ doc.markSaved(bytes,'saved.mdx');assert.equal(doc.dirty,false);
+});

@@ -17,7 +17,7 @@ const footman = path.resolve(process.env.MDLXL_SUITE_FOOTMAN || out('pose/Footma
 const citadelFootman = path.resolve(process.env.MDLXL_SUITE_CITADEL_FOOTMAN || out('citadel-fixture/Footman.mdx'));
 const particleIndex = path.resolve(process.env.MDLXL_PARTICLE_INDEX || out('particle-index/particles'));
 const reviewModel = path.resolve(process.env.MDLXL_OPTIMIZEXL_REVIEW_MODEL || out('optimizexl-review/WH_WOC_KnightKhorneFlail03.mdx'));
-const archer = process.env.MDLXL_SUITE_ARCHER, effectModel = process.env.MDLXL_EFFECT_MODEL;
+const archer = process.env.MDLXL_SUITE_ARCHER, effectModel = process.env.MDLXL_EFFECT_MODEL, hoofprintModel = process.env.MDLXL_SUITE_HOOFPRINT;
 const chrome = process.env.MDLXL_CHROMIUM_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 
 const VARIANTS = {
@@ -57,6 +57,8 @@ const SPECIAL = {
   'module-button-labels.browser': { env: { MDLXL_CHROMIUM_PATH: chrome }, needs: [chrome], hint: 'set MDLXL_CHROMIUM_PATH to chrome.exe' },
   'particle-lifecycle': { env: { MDLXL_PARTICLE_INDEX: particleIndex }, needs: [particleIndex] },
   'optimizexl-workflow': { env: { MDLXL_OPTIMIZEXL_EXE: exe } },
+  'particle-travel': { env: { MDLXL_ELECTRON_PATH: exe } },
+  'footprint-travel': { env: { MDLXL_ELECTRON_PATH: exe, MDLXL_TEST_MODEL: hoofprintModel }, needs: [hoofprintModel && path.resolve(hoofprintModel)], hint: 'set MDLXL_SUITE_HOOFPRINT to a Chaos Knight .mdx with hoofprint events' },
   'showcase-effects': { env: { MDLXL_EFFECT_MODEL: effectModel }, needs: [effectModel && path.resolve(effectModel)], hint: 'set MDLXL_EFFECT_MODEL to WH_WOC_KnightKhorneFlail03.mdx' },
 };
 for (const name of ['forge-bevel-sides', 'forge-cuts', 'forge-double-click', 'forge-face-editing', 'forge-glow', 'forge-house', 'forge-molding', 'forge-shape-hotkeys', 'forge-shape', 'mesh-density', 'uv-team-color', 'normalizer', 'perspective-zoom', 'glow-up']) SPECIAL[name] = { env: { MDLXL_TEST_EXE: exe } };
