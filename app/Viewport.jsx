@@ -41,6 +41,8 @@ import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings }
 import { backgroundImageRect } from '../src/viewport-appearance.js';
 import { QUAD_VIEWS, viewWorkplane, viewportRects } from './quad-view.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
+import { aiActivity } from './ai-activity.js';
+import { drawAiActivity } from './ai-activity-overlay.js';
 import { composeViewportLayers } from './game-preview-capture.js';
 import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
 
@@ -812,6 +814,14 @@ export default function Viewport(inputProps) {
     const contextLost = event => { event.preventDefault(); state.scheduler?.dispose(); setError('The graphics context was lost. Reload the editor to restore the viewport. Save your work first.'); };
     renderer.domElement.addEventListener('webglcontextlost', contextLost);
 
+    let activityCanvas = null;
+    const visibleActivity = () => !quad && latest.current.aiActivityDocument && !latest.current.normalizer
+      ? aiActivity.visible(latest.current.aiActivityDocument, latest.current.revision) : [];
+    const clearActivity = () => { activityCanvas?.remove(); activityCanvas = null; };
+    const unsubscribeActivity = aiActivity.subscribe(() => {
+      if (!visibleActivity().length) clearActivity();
+      state.scheduler?.sync();
+    });
     let callbackTime = performance.now();
     function render(now, delta) {
       const visible = quad ? panes.slice(1) : [singlePane];
@@ -824,6 +834,16 @@ export default function Viewport(inputProps) {
         if (renderPane(now, delta) === false) { bindPane(activePane); return false; }
       }
       bindPane(activePane);
+      const activities = visibleActivity();
+      if (activities.length) {
+        if (!activityCanvas) {
+          activityCanvas = document.createElement('canvas'); activityCanvas.dataset.aiActivity = '';
+          activityCanvas.setAttribute('aria-hidden', 'true');
+          activityCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2';
+          viewportHost.appendChild(activityCanvas);
+        }
+        drawAiActivity(activityCanvas, activities, state.entries, camera, surface.clientWidth, surface.clientHeight, renderer.getPixelRatio(), latest.current.preferences, latest.current.hiddenVertices, now);
+      } else clearActivity();
     }
     function renderPane(now, delta) {
       if (state.disposed) return;
@@ -1047,7 +1067,7 @@ export default function Viewport(inputProps) {
     state.scheduler = createRenderScheduler({ render,
       continuous: () => {
         const p = latest.current, sequence = p.model?.Sequences?.[p.sequenceIndex];
-        return p.playing && p.sequenceIndex >= 0 && !(sequence?.NonLooping && state.frame >= sequence.Interval?.[1]);
+        return visibleActivity().length > 0 || p.playing && p.sequenceIndex >= 0 && !(sequence?.NonLooping && state.frame >= sequence.Interval?.[1]);
       },
       paused: () => latest.current.suspended || (document.hidden && graphicsOptions(latest.current.preferences).pauseWhenHidden),
       maxFps: () => graphicsOptions(latest.current.preferences).maxFps,
@@ -1069,6 +1089,7 @@ export default function Viewport(inputProps) {
         // Quad panes own their cameras. Other editors inherit the single view.
         latest.current.cameraHandoff.current = { ...remember(singlePane), camera: singlePane.camera === singlePane.ortho ? 'ortho' : 'perspective' };
       }
+      unsubscribeActivity(); clearActivity();
       state.disposed = true; sketch.dispose(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
       renderer.domElement.removeEventListener('webglcontextlost', contextLost);
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);

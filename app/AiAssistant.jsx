@@ -1,3 +1,4 @@
+import { aiActivity } from './ai-activity.js';
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -335,6 +336,7 @@ function FrameLabel({ bridge }) {
 }
 
 function AiAssistant({ bridge, visUI }) {
+  const activityEnabled = useSyncExternalStore(aiActivity.subscribe, aiActivity.enabled);
   const [open, setOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
     [settings, setSettings] = useState({ provider: 'codex', model: '', executable: '', baseUrl: '' });
@@ -1110,6 +1112,10 @@ function AiAssistant({ bridge, visUI }) {
                 )}
                 {settingsOpen && (
                   <div className="ai-connection">
+                    <label title="Session-only trial for geometry edits in vertex mode. Pulses a possible target while a tool runs; briefly marks applied changes after save validation, not AI review.">
+                      <input type="checkbox" checked={activityEnabled} onChange={event => aiActivity.setEnabled(event.target.checked)} />
+                      AI activity preview
+                    </label>
                     {org && (
                       <label title="What happens to this model's AI chats when you save.">
                         After saving

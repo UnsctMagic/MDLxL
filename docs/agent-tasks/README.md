@@ -8,6 +8,7 @@ an existing topic handoff for the same task instead of creating competing notes.
 
 | Task | State | Note / owner |
 | --- | --- | --- |
+| AI activity preview trial | Ready for review; awaiting merge approval | [Activity trial](ai-activity-trial.md) / Codex |
 | AI-only model references | Ready for review; awaiting merge approval | [AI-only references](ai-private-references.md) / Codex |
 | Bitz replacement size and position fitting | Ready for review; awaiting merge approval | [Replacement fitting](bitz-replacement-fit.md) / Codex |
 | Shared project context | Ready for review; awaiting merge approval | [Context efficiency](context-efficiency.md) / Codex |

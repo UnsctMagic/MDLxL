@@ -40,7 +40,7 @@ export function composeViewportLayers(host, modelCanvas) {
   const context = snapshot.getContext('2d'), bounds = modelCanvas.getBoundingClientRect();
   if (!context || !bounds.width || !bounds.height) throw new Error('The model viewport is not visible.');
   const scaleX = snapshot.width / bounds.width, scaleY = snapshot.height / bounds.height;
-  const layers = [...host.querySelectorAll('canvas')].map((canvas, order) => {
+  const layers = [...host.querySelectorAll('canvas')].filter(canvas => !canvas.hasAttribute('data-ai-activity')).map((canvas, order) => {
     const style = host.ownerDocument.defaultView.getComputedStyle(canvas);
     return {canvas, order, style, z: Number(style.zIndex) || 0};
   }).sort((a,b) => a.z - b.z || a.order - b.order);
@@ -61,4 +61,17 @@ export function previewPlaybackStep(interval, frame, delta, loop = true) {
   if (!(duration > 0)) return { frame: start, elapsed: 0, finished: true };
   if (!loop && current + elapsed >= end) return { frame: start, elapsed: Math.max(0, end - current), finished: true };
   return { frame: loop ? start + ((current - start + elapsed) % duration) : current + elapsed, elapsed, finished: false };
+}
+
+// Full-editor capture uses the compositor, so also hide activity during that capture.
+// A style covers canvases created while the asynchronous capture is in flight.
+export async function withoutAiActivity(capture) {
+  const style = document.createElement("style");
+  style.textContent = "[data-ai-activity]{visibility:hidden!important}";
+  document.head.appendChild(style);
+  try {
+    // capturePage reads the compositor: let it present the hidden overlay first.
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return await capture();
+  } finally { style.remove(); }
 }

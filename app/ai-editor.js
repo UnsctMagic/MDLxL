@@ -18,6 +18,8 @@ import { aiAssets, validateAiAssets } from './ai-assets.js';
 import { sketchContext, sketchStore } from '../src/ai-sketch.js';
 import { aiCheckpoint, beginAiReview, recordAiChange, reviewAiModel, reviewStatus, reviewRegionBatch } from './ai-review.js';
 import { SD_BRAIN_AVAILABLE } from '../src/ai-sd-rules.js';
+import { aiActivity, activityTarget, changedActivity } from './ai-activity.js';
+import { withoutAiActivity } from './game-preview-capture.js';
 import { createVersionStore } from '../src/ai-versions.js';
 
 const guides = import.meta.glob(['../docs/*.md', '../README.md'], { query: '?raw', import: 'default' });
@@ -404,10 +406,13 @@ export class AiEditorBridge {
         paint = current()?.session.paintWorkingRevision;
       }
       let result;
+      const activity = {};
       try {
-        result = await this.dispatch(name, args, options);
+        result = await this.dispatch(name, args, { ...options, activity });
         return result;
       } finally {
+        if (result?.applied && activity.areas) aiActivity.finish(activity.token, activity.areas, activity.doc);
+        aiActivity.end(activity.token, !!result?.applied);
         const env = review && current();
         if (env && (env.doc.revision !== revision || env.session.paintWorkingRevision !== paint))
           recordAiChange(review, result, env.model);
@@ -423,7 +428,7 @@ export class AiEditorBridge {
     settled.then(() => this.queues.get(key) === settled && this.queues.delete(key));
     return op;
   }
-  async dispatch(name, args, { signal, requestId } = {}) {
+  async dispatch(name, args, { signal, requestId, activity } = {}) {
     const active = () => {
       if (signal?.aborted) throw Error('AI request cancelled; no further edit was applied.');
     };
@@ -522,6 +527,8 @@ export class AiEditorBridge {
         throw Error(
           'Paint has its own working model. Use Paint controls, or use mdlxl_view to leave Paint and apply it through the editor before editing the model.',
         );
+      if (activity && (name === 'mdlxl_patch' || args.edit) && state.mode === 'vertices' && aiActivity.enabled())
+        activity.token = aiActivity.begin(target.documentId, env.doc, activityTarget(env.model, args.scope, target.selection), signal);
       const before = structuredClone(env.doc.model);
       let result;
       if (name === 'mdlxl_patch') result = { model: patchAiModel(before, args.operations) };
@@ -562,9 +569,11 @@ export class AiEditorBridge {
         { doc } = now;
       const assets = validateAiAssets(result.assets || [], result.model, now.session.assets);
       if (!prepared.changeCount) return { applied: false, changes: [], value, logs: result.logs || [] };
+      let committedChanges;
       const options = { rethrow: true, validate: (model, committed) => {
         const checked = prepareAiEdit(committed, model, scopeArgs);
         if (target.region) checkRegionEdit(committed, model, target.region, checked.changes);
+        committedChanges = checked.changes;
         return checked;
       } };
       if (now.live)
@@ -598,6 +607,10 @@ export class AiEditorBridge {
         throw Error(
           `Not applied: the model could not be saved after this edit (${error.message}), so it was undone. Check each new or changed geoset: Vertices and Normals as Float32Array (3 per vertex), TVertices as [Float32Array] (2 per vertex), Faces as Uint16Array of valid indices, VertexGroup as Uint8Array (1 per vertex), Groups and MaterialID valid. sd-kit commit and Forge commitForge build complete geosets.`,
         );
+      }
+      if (activity?.token) {
+        activity.doc = doc;
+        activity.areas = changedActivity(before, doc.model, committedChanges || []);
       }
       this.advance(args.target);
       // Texture bytes load only after a successful commit, so a refused edit leaves none behind.
@@ -697,7 +710,7 @@ export class AiEditorBridge {
         return { image: env.live ? await host.capture() : (await this.picture(args.target)).image };
       // Mask the assistant only in the returned UI image. Never alter the live panel.
       const panel = document.querySelector('section.ai-assistant'), rect = panel?.getBoundingClientRect();
-      const image = await window.desktop.aiCapture();
+      const image = await withoutAiActivity(() => window.desktop.aiCapture());
       if (!rect?.width || !rect.height) return {image};
       const source = new Image(); source.src = image; await source.decode();
       const canvas = document.createElement('canvas'); canvas.width = source.naturalWidth; canvas.height = source.naturalHeight;
@@ -938,7 +951,7 @@ export class AiEditorBridge {
       'button,input,select,textarea,canvas,[role=button],[role=slider]',
     )) {
       if (
-        el.closest('.ai-assistant,.ai-open') ||
+        el.closest('.ai-assistant,.ai-open,[data-ai-activity]') ||
         el.type === 'password' ||
         el.type === 'file' ||
         !el.getBoundingClientRect().width ||
@@ -1062,6 +1075,7 @@ export class AiEditorBridge {
     }
   }
   editorChanged() {
+    aiActivity.reconcile(this.host().sessions());
     for (const waiter of [...this.waiters]) waiter();
     for (const listener of [...this.listeners]) listener();
     if (!this.awarenessEnabled || !this.desktop || this.awarenessTimer) return;
