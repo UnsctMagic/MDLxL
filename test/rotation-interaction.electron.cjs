@@ -103,7 +103,7 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       return { active, handles: movementAxisHandles(active, camera, data.width, data.height, data.radius, data.space, 'rotate') };
     };
     if (process.env.MDLXL_ROTATION_LOCAL_ONLY === '1') {
-      await require('./rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });
+      await require('./helpers/rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });
       check('no visible windows or popups', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 1 && !BrowserWindow.getAllWindows()[0].isVisible()));
       check('input model bytes preserved', hash(fixture) === fixtureHash); check('no renderer errors', errors.length === 0, errors);
       assert.equal(checks.filter(item => !item.pass).length, 0, 'All Local rotation checks must pass');
@@ -292,8 +292,8 @@ const { _electron } = require(process.env.MDLXL_PLAYWRIGHT_MODULE || 'C:/Users/P
       await page.getByLabel('View direction',{exact:true}).selectOption('top');await page.locator('[data-hotkey="plane:xy"]').check();await settle();
     }
     await movementSetting('',1);
-    await require('./rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });
-    await require('./rotation-editors.electron.cjs')({ app, page, check, out });
+    await require('./helpers/rotation-local.electron.cjs')({ app, page, check, settle, snap, menu, waitMatrix });
+    await require('./helpers/rotation-editors.electron.cjs')({ app, page, check, out });
     check('no visible windows or popups', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 1 && !BrowserWindow.getAllWindows()[0].isVisible()));
     check('sidebar width preserved', await page.locator('.classic-sidebar').evaluate(el => el.getBoundingClientRect().width) === sidebarWidth);
     check('input model bytes preserved', hash(fixture) === fixtureHash); check('no renderer errors', errors.length === 0, errors);

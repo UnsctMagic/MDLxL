@@ -1,6 +1,6 @@
 # Third-party components and reference assets
 
-Exact dependency versions and transitive packages are recorded in `package-lock.json`. Their respective license terms continue to apply.
+Exact dependency versions and transitive packages are recorded in `pnpm-lock.yaml`. Their respective license terms continue to apply.
 
 - **war3-model 4.0.1**, 4eb0da and contributors — MIT. Model parsing/generation, BLP1 decoding and Warcraft rendering. [Project source](https://github.com/4eb0da/war3-model).
 - **WhiteoutLib**, Fernando Sahmkow — BSD-3-Clause. Citadel Paint BLP decoding and BLP/DDS export. Pinned codec provenance and the complete license are in `public/whiteout/build.json` and `public/whiteout/LICENSE`. [Project source](https://github.com/FernandoS27/WhiteoutLib).

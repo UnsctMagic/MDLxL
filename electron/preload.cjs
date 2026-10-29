@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld('desktop', {
   initial: () => call('app:initial'),
   onExternalModels: callback => subscribe('model:externalOpen',callback,{ready:'model:externalReady'}),
   configure: payload => call('settings:configure',payload),
+  // Test-facing: the app reads settings through other channels.
   getSettings: () => call('settings:get'),
   updateStatus: () => call('updates:status'),
   checkUpdates: () => call('updates:check'),

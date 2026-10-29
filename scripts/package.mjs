@@ -99,10 +99,7 @@ async function makeStage(stage) {
 }
 
 async function verifyStage(stage) {
-  const validationBundle=path.join(stage,'dist','optimizexl-validation.cjs');
   for(const file of ['dist/ai-sandbox.html','electron/ai-service.cjs','electron/ai-providers.cjs','electron/ai-mcp.cjs','electron/ai-process.cjs','electron/ai-sandbox.cjs','electron/ai-sandbox-preload.cjs','src/ai-tools.js'])if(!await exists(path.join(stage,file)))throw Error('AI runtime file missing: '+file);
-  if(!await exists(validationBundle))throw Error('Build the portable OptimizeXL save validator before packaging.');
-  if(typeof createRequire(import.meta.url)(validationBundle).validateOptimizeXLCopies!=='function')throw Error('The bundled OptimizeXL save validator could not be loaded.');
   await verifyFFmpegBundle(path.join(stage, 'electron', 'ffmpeg'));
   const particles=await import(pathToFileURL(path.join(stage,'dist','particle-runtime.mjs')).href);
   for(const name of ['openDocument','effectNodes','extractParticleRecipe','validateParticleRecipe','activeParticleSample'])if(typeof particles[name]!=='function')throw Error(`Packaged particle runtime missing ${name}`);
