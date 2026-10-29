@@ -180,3 +180,6 @@ code and may be removed.
 
 - [x] Item 2: exclude the HD_VIEW_ONLY mode notice from structural findings;
   retain actual parser/validator errors. Focused sanity tests: 8 passed.
+- [x] Item 3: re-keyed and corrected the es/ru/zh HD preview notice. The locale
+  fixture did not track the old notice; regression tests the exported current
+  message directly. Localization current/catalog checks passed.

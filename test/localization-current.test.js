@@ -16,3 +16,9 @@ test('newer UI and update controls have entries in all three translated language
 test('update messages preserve actual versions and localized native revert prompts',()=>{
   for(const locale of ['ru','es','zh','mordor'])for(const message of ['MDLxL 0.19.0 is available.','Installed version: 0.18.8','Previous version: 0.18.7','Revert to MDLxL 0.18.7?']){assert.notEqual(translate(message,locale),message);assert.match(translate(message,locale),/0\.1[89]\.[078]/);}
 });
+
+
+test('the current HD view-only notice is translated in every supported catalog', async()=>{
+ const {HD_VIEW_ONLY_MESSAGE}=await import('../src/model-version.js');
+ for(const locale of ['ru','es','zh']) assert.notEqual(translate(HD_VIEW_ONLY_MESSAGE,locale),HD_VIEW_ONLY_MESSAGE,locale);
+});

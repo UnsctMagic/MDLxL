@@ -5032,7 +5032,7 @@
   "Forge: Twist": "Forge: retorcer",
   "Events": "Eventos",
   "HD models aren't supported yet.": "Los modelos HD aún no son compatibles.",
-  "HD models aren't supported yet. This model is open view-only; saving is disabled.": "Los modelos HD aún no son compatibles. Este modelo está abierto solo para visualización; el guardado está desactivado.",
+  "HD models can be previewed. This model is open view-only; saving is disabled.": "Los modelos HD se pueden previsualizar. Este modelo está abierto solo para visualización; el guardado está desactivado.",
   "HD content isn't supported yet, so it will be converted to SD.": "El contenido HD aún no es compatible, así que se convertirá a SD.",
   "HD content isn't supported yet, so it was converted to SD.": "El contenido HD aún no es compatible, así que se convirtió a SD.",
   "HD shaders aren't supported yet, so the shader was not applied.": "Los sombreadores HD aún no son compatibles, así que no se aplicó el sombreador.",
