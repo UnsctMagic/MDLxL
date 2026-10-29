@@ -161,3 +161,12 @@ test('missing Death or unsupported double-global visibility fails atomically',()
   const d=fixture();d.apply('No Death',[],m=>{m.Sequences=m.Sequences.slice(0,1);});let before=structuredClone(d.model);assert.throws(()=>apply(d),/needs a Death/);assert.deepEqual(d.model,before);
   const other=fixture();other.apply('Global',[],m=>{m.GlobalSequences=[1000];m.GeosetAnims[0].Alpha=track([[0,[1]],[1000,[0]]],1,0);m.Materials[0].Layers[0].Alpha=track([[0,[1]],[1000,[0]]],1,0);});before=structuredClone(other.model);assert.throws(()=>apply(other),/global visibility/);assert.deepEqual(other.model,before);
 });
+test('Death blood: splats and a spray are keyed in Death, other animations keep their events',()=>{
+  const d=fixture();d.apply('Blood',[],m=>{const old=createNode(m,'EventObject');old.Name='SPLxHBS0';old.EventTrack=new Uint32Array([500,1400]);});
+  const r=d.apply('Auto Corpse',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,{blood:[{type:'SPL',id:'OBL2',time:300,position:[5,6,0]},{type:'SPN',id:'HBF0',time:100,position:[0,0,0]}]})).corpses[0],m=d.model,[start]=m.Sequences[r.death].Interval;
+  const names=m.EventObjects.map(e=>e.Name+':'+Array.from(e.EventTrack).join(','));
+  assert.ok(names.includes('SPLxHBS0:500'),'The Stand key of an existing splat stays; its Death key is replaced');
+  assert.ok(m.EventObjects.some(e=>/^SPL.OBL2$/.test(e.Name)&&e.EventTrack[0]===start+300&&e.PivotPoint[0]===5));
+  assert.ok(m.EventObjects.some(e=>/^SPN.HBF0$/.test(e.Name)&&e.EventTrack[0]===start+100));
+  assert.throws(()=>fixture().apply('Bad',AUTO_CORPSE_SECTIONS,m=>autoCorpse(m,{blood:[{type:'SPL',id:'SND0',time:0,position:[0,0,0]}]}),{rethrow:true}),/not a blood event/);
+});

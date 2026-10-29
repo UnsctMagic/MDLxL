@@ -4,6 +4,7 @@ import { deleteGeoset } from './editor-document.js';
 import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
 import { updateBounds } from './mesh-tools.js';
 import { buildCorpseGeometry } from './corpse-geometry.js';
+import { applyDeathBlood } from './corpse-blood.js';
 
 const PREFIX='MDLxL Corpse ', FLESH='MDLxL Flesh ';
 export const AUTO_CORPSE_SECTIONS=['Sequences','GlobalSequences','Geosets','GeosetAnims','Materials','Textures','TextureAnims','Bones','PivotPoints','BindPoses','Nodes','Attachments','ParticleEmitters','ParticleEmitters2','ParticleEmitterPopcorns','RibbonEmitters','Lights','EventObjects'];
@@ -97,7 +98,8 @@ function decayExtents(model,pair,ids) {
  * curves, living animations or skin bindings. Original meshes are only masked
  * during decay. A second click replaces this command's meshes and reuses bones.
  * Options from the Auto Corpse window: size, height, color ([r,g,b], 0-1) and
- * pieces (the first Death's edited piece list). */
+ * pieces (the first Death's edited piece list); blood replaces the first
+ * Death's blood splats and spray (see corpse-blood.js). */
 export function autoCorpse(model, options={}) {
   const deaths=model.Sequences.map((s,i)=>({s,i})).filter(({s})=>deathSequence(s));
   if(!deaths.length)throw Error('Auto Corpse needs a Death animation.');
@@ -180,5 +182,6 @@ export function autoCorpse(model, options={}) {
   // Original per-sequence bounds remain byte-for-byte; new slots get bounds
   // only when a geoset already uses the per-sequence extent convention.
   for(const g of model.Geosets.slice(0,originalGeosetCount))if(g.Anims?.length)while(g.Anims.length<model.Sequences.length)g.Anims.push({MinimumExtent:new Float32Array(g.MinimumExtent),MaximumExtent:new Float32Array(g.MaximumExtent),BoundsRadius:g.BoundsRadius});
+  if(options.blood)applyDeathBlood(model,deaths[0].i,options.blood);
   return {corpses:results,originalNodes:originals.length};
 }

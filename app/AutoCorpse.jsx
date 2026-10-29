@@ -5,11 +5,18 @@ import { autoCorpse } from '../src/auto-corpse.js';
 import { allNodes } from '../src/animation.js';
 import { createVisibilityGeosetAnimation } from '../src/geoset-animation-defaults.js';
 import { updateBounds } from '../src/mesh-tools.js';
+import { BLOOD_RACES, deathBlood, isBloodSpray, parseSplat, splatCode } from '../src/corpse-blood.js';
+import { loadEventCatalog } from './node-event-data.js';
 import './attachemator.css';
 import './particle-editor.css';
 import './auto-corpse.css';
 
+// Blood spray prefixes in SpawnData per blood kind (night elf sprays use N).
+const SPRAY_PREFIX = { H: 'HB', O: 'OB', U: 'UB', E: 'NB', D: 'DB' };
+const seconds = ms => (ms / 1000).toFixed(2) + ' s';
 const OVERLAYS = { attachments: false, bones: false, helpers: false, nodes: false, particles: false, sounds: false, events: false, skeleton: false, focusedSkeleton: false };
+// Blood: splats and sprays play, without extra node markers.
+const BLOOD_OVERLAYS = { ...OVERLAYS, events: true };
 const NAMES = { torso: 'Ribs', skull: 'Skull', arm: 'Arm', leg: 'Leg', hand: 'Hand', foot: 'Foot', branch: 'Bone', 'rigid remnant': 'Remnant' };
 // New pieces: gutz atlas region, length and half-width as shares of the body.
 const ADD = {
@@ -57,8 +64,14 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
   const names = useMemo(() => new Map(allNodes(current).map(node => [node.ObjectId, node.Name])), [current]);
   const [size, setSize] = useState(100), [height, setHeight] = useState(100), [rgb, setRgb] = useState([255, 255, 255]);
   const [pieces, setPieces] = useState(null), [selected, setSelected] = useState(null), [outline, setOutline] = useState(false), [error, setError] = useState(''), [snapshot, setSnapshot] = useState(null);
+  // Blood tab: null means the Death animation's own blood is left untouched.
+  const deathIndex = useMemo(() => current.Sequences.findIndex(seq => /(?:^|\s)death(?:\s|$)/i.test(seq.Name)), [current]);
+  const ownBlood = useMemo(() => deathIndex >= 0 ? deathBlood(current, deathIndex) : [], [current, deathIndex]);
+  const [tab, setTab] = useState('corpse'), [blood, setBlood] = useState(null), [bloodSelected, setBloodSelected] = useState(null), [sprays, setSprays] = useState([]);
+  const [race, setRace] = useState(() => parseSplat(ownBlood.find(row => row.type === 'SPL')?.id)?.race || 'H'), [bloodTime, setBloodTime] = useState(0), [playing, setPlaying] = useState(false);
+  const rows = blood || ownBlood;
   const color = rgb.map(value => Math.min(255, Math.max(0, Number(value) || 0)) / 255);
-  const options = useDeferredValue(useMemo(() => ({ size: size / 100, height: height / 100, color, pieces }), [size, height, rgb.join(), pieces]));
+  const options = useDeferredValue(useMemo(() => ({ size: size / 100, height: height / 100, color, pieces, ...(blood ? { blood } : {}) }), [size, height, rgb.join(), pieces, blood]));
   const root = useRef(null), camera = useRef({ saved: null, listeners: new Set() }), drafts = useRef(0), api = useRef(null), framed = useRef(false);
   const draft = useMemo(() => {
     const model = structuredClone(current);
@@ -69,10 +82,14 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
     } catch (cause) { return { model: current, error: cause.message }; }
   }, [current, options, outline]);
   const { corpse } = draft, shown = pieces || corpse?.pieces || [];
-  const sequenceIndex = corpse ? corpse.bone : -1, time = corpse ? draft.model.Sequences[corpse.bone].Interval[0] : 0;
+  const deathStart = corpse ? draft.model.Sequences[corpse.death].Interval[0] : 0, deathLength = corpse ? draft.model.Sequences[corpse.death].Interval[1] - deathStart : 0;
+  // Corpse: the start of Decay Bone. Blood: the Death animation, played or scrubbed.
+  const bloodTab = tab === 'blood', sequenceIndex = corpse ? (bloodTab ? corpse.death : corpse.bone) : -1;
+  const time = corpse ? (bloodTab ? deathStart + bloodTime : draft.model.Sequences[corpse.bone].Interval[0]) : 0;
   // Pieces are planned before Size scales the corpse about the body's centre.
   const show = point => { const c = corpse?.sizeCenter || [0, 0], s = size / 100; return [c[0] + (point[0] - c[0]) * s, c[1] + (point[1] - c[1]) * s, (corpse?.ground || 0) * 1.5]; };
-  const marks = useMemo(() => corpse ? pieceMarks(shown, selected, show) : undefined, [shown, selected, corpse, size]);
+  const bloodPoints = rows.map(row => ({ start: row.position, end: row.position, half: 0 }));
+  const marks = useMemo(() => !corpse ? undefined : bloodTab ? pieceMarks(bloodPoints, bloodSelected, point => [point[0], point[1], point[2] || 0]) : pieceMarks(shown, selected, show), [shown, selected, corpse, size, bloodTab, rows, bloodSelected]);
   const label = piece => `${NAMES[piece.kind] || 'Bone'}${piece.ids?.length ? ' · ' + names.get(piece.ids.at(-1)) : ''}${piece.free ? ' *' : ''}`;
 
   useEffect(() => { const previous = document.activeElement; root.current?.focus(); return () => previous?.focus?.(); }, []);
@@ -95,20 +112,71 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
     setPieces([...list, { kind, start: [cx - length / 2, cy, 0], end: [cx + length / 2, cy, 0], half: corpse.span * spec.half, rect: spec.rect, ids: [], free: true }]);
     setSelected(list.length);
   };
-  const reset = () => { setSize(100); setHeight(100); setRgb([255, 255, 255]); setPieces(null); setSelected(null); };
+  useEffect(() => {
+    if (!window.desktop?.resolveEventResources) return;
+    let active = true;
+    loadEventCatalog(modelPath).then(catalog => { if (active) setSprays(catalog.SPN.filter(row => isBloodSpray(row.id) && row.definition?.resourcePath)); }).catch(() => {});
+    return () => { active = false; };
+  }, [modelPath]);
+  const editBlood = (index, change) => setBlood(list => (list || ownBlood).map((row, i) => i === index ? { ...row, ...change } : row));
+  const removeBlood = index => { setBlood(list => (list || ownBlood).filter((_, i) => i !== index)); setBloodSelected(null); };
+  const addBlood = type => {
+    if (!corpse) return;
+    const [cx, cy] = corpse.sizeCenter, list = rows, spread = corpse.span * .15, angle = list.length * 2.4;
+    const id = type === 'SPL' ? splatCode(race, 'S', list.filter(row => row.type === 'SPL').length % 4) : sprays.find(row => row.id.startsWith(SPRAY_PREFIX[race]))?.id || 'HBS0';
+    setBlood([...list, { type, id, time: bloodTime, position: [cx + Math.cos(angle) * spread * (type === 'SPL' ? 1 : 0), cy + Math.sin(angle) * spread * (type === 'SPL' ? 1 : 0), 0], parent: null }]);
+    setBloodSelected(list.length);
+  };
+  const changeRace = value => { setRace(value); setBlood(list => (list || ownBlood).map(row => row.type === 'SPL' && parseSplat(row.id) ? { ...row, id: value + row.id.slice(1) } : row)); };
+  // Catalog labels are model paths: show the model's own name.
+  const sprayLabel = id => { const row = sprays.find(item => item.id === id), name = row?.definition?.resourcePath || row?.label?.replace(/ · [A-Z0-9]{4}$/, '') || id; return name.split(/[\\/]/).pop().replace(/\.md[lx]$/i, '') || id; };
+  const bloodLabel = row => row.type === 'SPL' ? `Splat · ${parseSplat(row.id)?.size === 'L' ? 'Large' : 'Small'} ${(parseSplat(row.id)?.variant ?? 0) + 1} · ${seconds(row.time)}` : `Spray · ${sprayLabel(row.id)} · ${seconds(row.time)}`;
+  const reset = () => { setSize(100); setHeight(100); setRgb([255, 255, 255]); setPieces(null); setSelected(null); setBlood(null); setBloodSelected(null); };
   const commit = () => {
     setError('');
     try { if (onCommit(options)) onClose(); else setError('This exact corpse is already in the model.'); }
     catch (cause) { setError(cause.message); }
   };
-  const keys = event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); onClose(); } if (event.key === 'Delete' && selected != null && event.target === root.current) remove(selected); };
-  const changed = size !== 100 || height !== 100 || rgb.join() !== '255,255,255' || pieces;
+  const keys = event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); onClose(); } if (event.key === 'Delete' && event.target === root.current) { if (bloodTab && bloodSelected != null) removeBlood(bloodSelected); else if (!bloodTab && selected != null) remove(selected); } };
+  const changed = size !== 100 || height !== 100 || rgb.join() !== '255,255,255' || pieces || blood;
 
   return <div className="atm-overlay" onKeyDown={keys}>
     <section className="atm-window acp-window" role="dialog" aria-modal="true" aria-label="Auto Corpse" data-hotkey-scope="autoCorpse" tabIndex={-1} ref={root}>
-      <header><strong title="Fits a corpse under the last Death frame, then adds Decay Flesh and Decay Bone.">Auto Corpse</strong><span className="atm-spacer"/><button aria-label="Close Auto Corpse" onClick={onClose}>×</button></header>
+      <header><strong title="Fits a corpse under the last Death frame, then adds Decay Flesh and Decay Bone.">Auto Corpse</strong>
+        <div className="acp-tabs" role="tablist" aria-label="Auto Corpse editors">
+          <button role="tab" aria-selected={!bloodTab} title="Fit the corpse that lies under the body" onClick={() => { setTab('corpse'); setPlaying(false); }}>Corpse Editor</button>
+          <button role="tab" aria-selected={bloodTab} title="Blood splats on the ground and a blood spray during the Death animation" onClick={() => setTab('blood')}>Blood Editor</button>
+        </div><span className="atm-spacer"/><button aria-label="Close Auto Corpse" onClick={onClose}>×</button></header>
       <div className="atm-body acp-body">
-        <div className="acp-controls">
+        {bloodTab ? <div className="acp-controls" role="tabpanel" aria-label="Blood Editor">
+          <label className="acp-field" title="The colour of the splats. Changing it recolours every splat; sprays have their own colour.">Blood
+            <select aria-label="Blood kind" value={race} onChange={event => changeRace(event.target.value)}>{Object.entries(BLOOD_RACES).map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select>
+          </label>
+          <div className="atm-list acp-pieces" role="listbox" aria-label="Death blood">
+            {rows.map((row, index) => <div key={index} role="option" aria-selected={bloodSelected === index} className={`atm-row acp-piece${bloodSelected === index ? ' is-selected' : ''}`} onClick={() => { setBloodSelected(index); setPlaying(false); setBloodTime(row.time); }}>
+              <span translate="no">{bloodLabel(row)}</span>
+              <button className="atm-small" aria-label={`Remove ${bloodLabel(row)}`} title="Remove this blood" onClick={event => { event.stopPropagation(); removeBlood(index); }}>×</button>
+            </div>)}
+            {!rows.length && <p className="atm-muted atm-empty">No blood yet. Add a splat or a spray.</p>}
+          </div>
+          {rows[bloodSelected] && <div className="acp-blood-row">
+            {rows[bloodSelected].type === 'SPL' ? <>
+              <label className="acp-field" title="Small or large blood stain on the ground">Size<select aria-label="Splat size" value={parseSplat(rows[bloodSelected].id)?.size} onChange={event => { const p = parseSplat(rows[bloodSelected].id); editBlood(bloodSelected, { id: splatCode(p.race, event.target.value, p.variant) }); }}><option value="S">Small</option><option value="L">Large</option></select></label>
+              <label className="acp-field" title="One of the game's four stain shapes">Shape<select aria-label="Splat shape" value={parseSplat(rows[bloodSelected].id)?.variant} onChange={event => { const p = parseSplat(rows[bloodSelected].id); editBlood(bloodSelected, { id: splatCode(p.race, p.size, Number(event.target.value)) }); }}>{[0, 1, 2, 3].map(v => <option key={v} value={v}>{v + 1}</option>)}</select></label>
+            </> : <label className="acp-field" title="The game's blood spray made for this unit type">Spray<select aria-label="Blood spray" value={rows[bloodSelected].id} onChange={event => editBlood(bloodSelected, { id: event.target.value })}>{(sprays.some(row => row.id === rows[bloodSelected].id) ? sprays : [{ id: rows[bloodSelected].id, label: rows[bloodSelected].id }, ...sprays]).map(row => <option key={row.id} value={row.id} translate="no">{sprayLabel(row.id)}</option>)}</select></label>}
+            <label className="acp-field" title="When in the Death animation it appears">Time<input aria-label="Blood time in seconds" type="number" min="0" max={deathLength / 1000} step="0.05" value={(rows[bloodSelected].time / 1000).toFixed(2)} onChange={event => editBlood(bloodSelected, { time: Math.max(0, Math.min(deathLength, Math.round(Number(event.target.value) * 1000) || 0)) })}/>
+              <button className="atm-small" title="Use the time shown in the preview" onClick={() => editBlood(bloodSelected, { time: Math.round(bloodTime) })}>Now</button></label>
+          </div>}
+          <div className="acp-add" role="group" aria-label="Add blood" title="Adds blood at the time shown in the preview; drag it into place.">
+            <button onClick={() => addBlood('SPL')}>+ Splat</button><button onClick={() => addBlood('SPN')}>+ Spray</button>
+          </div>
+          <div className="acp-transport" title="Play or scrub the Death animation to see the blood">
+            <button aria-label={playing ? 'Pause Death' : 'Play Death'} onClick={() => setPlaying(value => !value)}>{playing ? '❚❚' : '▶'}</button>
+            <input type="range" aria-label="Death time" min="0" max={deathLength} step="10" value={Math.min(deathLength, Math.round(bloodTime))} onChange={event => { setPlaying(false); setBloodTime(Number(event.target.value)); }}/>
+            <output>{seconds(bloodTime)}</output>
+          </div>
+          <button disabled={!changed} title="Back to the fitted corpse and the model's own blood" onClick={reset}>Reset</button>
+        </div> : <div className="acp-controls" role="tabpanel" aria-label="Corpse Editor">
           <Slider label="Size" low="Smaller" high="Bigger" value={size} onChange={setSize}
             tip="Scales the whole corpse. 100% fits it under the body. Bigger corpses can show around the body while it sinks."/>
           <Slider label="Height" low="Flatter" high="Taller" value={height} onChange={setHeight}
@@ -127,16 +195,17 @@ export default function AutoCorpse({ doc, modelPath, textureAssets, preferences,
             <input type="checkbox" checked={outline} onChange={event => setOutline(event.target.checked)}/>Body outline
           </label>
           <button disabled={!changed} title="Back to the fitted corpse" onClick={reset}>Reset</button>
-        </div>
+        </div>}
         <section className="atm-preview acp-preview" aria-label="Auto Corpse preview">
           <GamePreview presentation="preview" interactivePreview fitModel fitSequenceExtent model={draft.model} revision={drafts.current} textureAssets={textureAssets} modelPath={modelPath} preferences={preferences} teamColor={teamColor}
-            sequenceIndex={sequenceIndex} time={time} playing={false} showGrid showParticles={false} overlays={OVERLAYS} compareCamera={camera.current} preserveCameraView
+            sequenceIndex={sequenceIndex} time={time} playing={bloodTab && playing} loop onTimeChange={value => { if (bloodTab) setBloodTime(Math.max(0, value - deathStart)); }} showGrid showParticles={bloodTab} overlays={bloodTab ? BLOOD_OVERLAYS : OVERLAYS} compareCamera={camera.current} preserveCameraView
             onParticleStage={setSnapshot} particleStageMarks={marks} onCaptureReady={preview => { api.current = preview; frame(); }}/>
-          <CorpseStageTools snapshot={snapshot} pieces={shown} selected={selected} scale={size / 100} onSelect={setSelected} onChange={edit}/>
+          {bloodTab ? <CorpseStageTools snapshot={snapshot} pieces={bloodPoints} selected={bloodSelected} moveOnly onSelect={index => { setBloodSelected(index); setPlaying(false); }} onChange={(index, point) => editBlood(index, { position: point.start })} onDrag={dragging => dragging && setPlaying(false)}/>
+            : <CorpseStageTools snapshot={snapshot} pieces={shown} selected={selected} scale={size / 100} onSelect={setSelected} onChange={edit}/>}
         </section>
       </div>
       <footer>
-        <span role="status" className={error || draft.error ? 'atm-error' : 'atm-muted'}>{error || draft.error || (selected != null ? 'Drag the handles to move, stretch or widen this piece. Delete removes it.' : 'Click a piece to fit it by hand. Drag empty space to turn the camera.')}</span>
+        <span role="status" className={error || draft.error ? 'atm-error' : 'atm-muted'}>{error || draft.error || (bloodTab ? (bloodSelected != null ? 'Drag the handle to move this blood. Delete removes it.' : 'Click blood to move it, or add a splat or spray. Play to see it.') : selected != null ? 'Drag the handles to move, stretch or widen this piece. Delete removes it.' : 'Click a piece to fit it by hand. Drag empty space to turn the camera.')}</span>
         <button className="atm-commit active" disabled={!!draft.error || doc.readOnly} title="Make this corpse and its decay animations as one undoable edit" onClick={commit}>Create</button>
         <button onClick={onClose}>Close</button>
       </footer>

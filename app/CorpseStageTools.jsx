@@ -17,7 +17,8 @@ export const pieceMarks=(pieces,selected,show)=>{
   }
   return marks;
 };
-export default function CorpseStageTools({snapshot,pieces,selected,scale=1,onSelect,onChange,onDrag}) {
+// moveOnly (Blood): points with only the move handle; others show as dots.
+export default function CorpseStageTools({snapshot,pieces,selected,scale=1,moveOnly=false,onSelect,onChange,onDrag}) {
   const drag=useRef(null),raw=snapshot?.marks;
   if(!raw||!pieces)return null;
   // A just-added piece has no projected marks until the preview draws again.
@@ -35,7 +36,7 @@ export default function CorpseStageTools({snapshot,pieces,selected,scale=1,onSel
     const len=Math.hypot(b.end[0]-b.start[0],b.end[1]-b.start[1])||1,normal=[(b.end[1]-b.start[1])/len,-(b.end[0]-b.start[0])/len];
     return {...b,half:Math.max(.5,b.half+wx*normal[0]+wy*normal[1])};
   }
-  const set=value=>onChange(selected,{...value,free:true});
+  const set=value=>onChange(selected,moveOnly?value:{...value,free:true});
   function begin(kind){const m=basis();return m&&{kind,basis:m,before:structuredClone(piece)};}
   function start(event,kind) {
     event.preventDefault();event.stopPropagation();
@@ -51,9 +52,11 @@ export default function CorpseStageTools({snapshot,pieces,selected,scale=1,onSel
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
   }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
   return <svg className="pe-stage-tools acp-stage-tools" viewBox={'0 0 '+snapshot.width+' '+snapshot.height} aria-label="Corpse piece handles">
-    {pieces.map((_,k)=>k!==selected&&ends(k)&&<line key={k} className="acp-piece-hit" x1={marks[k+'s'][0]} y1={marks[k+'s'][1]} x2={marks[k+'e'][0]} y2={marks[k+'e'][1]} onPointerDown={event=>{event.stopPropagation();onSelect(k);}}><title>Select this piece</title></line>)}
-    {pieces.map((_,k)=>k!==selected&&ends(k)&&<line key={'v'+k} className="acp-piece-line" x1={marks[k+'s'][0]} y1={marks[k+'s'][1]} x2={marks[k+'e'][0]} y2={marks[k+'e'][1]}/>)}
-    {piece&&<>
+    {moveOnly&&pieces.map((_,k)=>k!==selected&&marks[k+'s']&&<circle key={'d'+k} className="acp-blood-dot" cx={marks[k+'s'][0]} cy={marks[k+'s'][1]} r="5" onPointerDown={event=>{event.stopPropagation();onSelect(k);}}><title>Select this blood</title></circle>)}
+    {!moveOnly&&pieces.map((_,k)=>k!==selected&&ends(k)&&<line key={k} className="acp-piece-hit" x1={marks[k+'s'][0]} y1={marks[k+'s'][1]} x2={marks[k+'e'][0]} y2={marks[k+'e'][1]} onPointerDown={event=>{event.stopPropagation();onSelect(k);}}><title>Select this piece</title></line>)}
+    {!moveOnly&&pieces.map((_,k)=>k!==selected&&ends(k)&&<line key={'v'+k} className="acp-piece-line" x1={marks[k+'s'][0]} y1={marks[k+'s'][1]} x2={marks[k+'e'][0]} y2={marks[k+'e'][1]}/>)}
+    {piece&&moveOnly&&handle(marks.mid,'move','Move this blood','pe-move-emitter')}
+    {piece&&!moveOnly&&<>
       <polygon points={[0,1,2,3].map(i=>marks['corner'+i].slice(0,2).join(',')).join(' ')}/>
       <line x1={marks[selected+'s'][0]} y1={marks[selected+'s'][1]} x2={marks[selected+'e'][0]} y2={marks[selected+'e'][1]}/>
       {handle(marks[selected+'s'],'start','Stretch from this end')}

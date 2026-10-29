@@ -2,16 +2,42 @@
 
 The temporary **CORP** button lives in the existing VIS toolbar row. It opens
 the small Auto Corpse window (`app/AutoCorpse.jsx`, laid out like
-Attachemator): a preview that turns with the mouse, **Size** and **Height**
-sliders in AnimXL's slider style (25–200%, 100% = fitted), **Show body** and
-**Reset**. The preview shows the corpse alone at the start of Decay Bone, or
-under the body 200 ms into Decay Flesh with Show body. **Create** runs one
-undoable edit and immediately shows the first frame of Decay Bone, paused; **Close** changes nothing. Size scales
-the fitted corpse's footprint about its centre; Height scales how far each
-piece rises above its own level. Above 100% the corpse is no longer fitted
-under the body and can show through it while the body sinks; the tooltips
-say so. Burial before the last-frame hide still uses the scaled corpse.
-Creating again regenerates from Death and does not accumulate copies.
+Attachemator) with two tabs and one preview that turns with the mouse.
+**Create** runs one undoable edit for both tabs and immediately shows the
+first frame of Decay Bone, paused; **Close** changes nothing; **Reset** goes
+back to the fitted corpse and the model's own blood. Creating again
+regenerates from Death and does not accumulate copies.
+
+**Corpse Editor** shows the corpse at the start of Decay Bone.
+- **Size** and **Height** sliders in AnimXL's slider style (25–200%, 100% =
+  fitted). Size scales the footprint about the dead body's centre; Height
+  scales how far each piece rises above its own level. Above 100% the corpse
+  can show through the body while it sinks; the tooltips say so.
+- **Color Tint** R/G/B, like the Animations colour tint, sets the corpse
+  geoset's colour.
+- The pieces list (skull, ribs, limb bones, hands, feet). Click a row or a
+  piece's line in the preview, then drag the EMTR/Glow Up handles
+  (`app/CorpseStageTools.jsx`): the middle moves it, the ends stretch it, the
+  side handle widens it. **+ Skull / + Ribs / + Bone / + Hand** add a piece;
+  × or Delete removes one. Edited and added pieces are kept exactly as
+  placed (not trimmed to the body outline) and are marked with *.
+- **Body outline** draws a chalk line around where the body lies (preview
+  only), so the corpse can be fitted without the textured body hiding it.
+
+**Blood Editor** (`src/corpse-blood.js`) plays or scrubs the Death animation
+with its splats and sprays. It works like Blizzard's own units, which bleed
+with 2–5 ground splats (`SPL` events from `Splats\SplatData.slk`, code =
+race letter + B + S/L + shape 0–3: H red, O dark red, U undead, E night elf,
+D green demon) and one spray model (an `SPN` event from
+`Splats\SpawnData.slk`; blood sprays have B as their second letter and
+spawn particle-only models). The list starts with the Death animation's own
+blood. **Blood** recolours every splat; each splat has Size and Shape, each
+spray a choice of the game's sprays that have a model; every row has a Time
+(**Now** takes the preview's time) and a position dragged with the move
+handle. Only blood keys inside the first Death animation are replaced; keys
+in other animations and all non-blood events stay. Community blood models
+were studied (Hive Workshop, XGM) but are not bundled: their credit terms
+could not be confirmed, and the game's own blood ships with every copy.
 
 ## What owns the result
 

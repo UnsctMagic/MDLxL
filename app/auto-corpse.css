@@ -16,3 +16,9 @@
 .acp-stage-tools .acp-piece-hit{stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:pointer}
 .acp-stage-tools .acp-piece-line{stroke:#83d4ff80;stroke-dasharray:3 3}
 @media (max-width:820px){.atm-body.acp-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(240px,1fr)}}
+.acp-tabs{display:flex;gap:2px;margin-left:10px}
+.atm-window .acp-tabs button[aria-selected=true]{background:var(--ui-selected);color:var(--ui-selected-text)}
+.acp-field{display:flex;align-items:center;gap:6px}.acp-field select,.acp-field input{flex:1;min-width:0}
+.acp-blood-row{display:flex;flex-direction:column;gap:6px}
+.acp-transport{display:flex;align-items:center;gap:6px}.acp-transport input{flex:1;min-width:0}
+.acp-stage-tools .acp-blood-dot{fill:#c81414;stroke:#fff;stroke-width:1.5;cursor:pointer}
