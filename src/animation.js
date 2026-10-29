@@ -95,6 +95,28 @@ export const worldPivot = (model, id, matrices, node) => new Vector3().fromArray
 /** Keys of a sorted track inside an inclusive [start, end] interval. */
 export const keysInInterval = (track, [start, end]) => track.Keys.filter(key => key.Frame >= start && key.Frame <= end);
 
+/** Visit every track (an object with a Keys array) in a model once, depth first
+ * in property order, without entering the track or typed arrays. Objects reached
+ * twice, such as nodes listed in both Nodes and Bones, are walked once. `path` is
+ * the keys from the model, array positions as numbers. `skip` names keys never
+ * entered; `event` sees each record with an EventTrack array, and is walked on. */
+export function visitTracks(model, visit, { skip = [], event } = {}) {
+  const seen = new Set(), skipped = new Set(skip), path = [];
+  function walk(value, owner, property) {
+    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value.Keys)) { visit(value, { owner, property, path: [...path] }); return; }
+    if (event && (ArrayBuffer.isView(value.EventTrack) || Array.isArray(value.EventTrack))) event(value, { owner, property, path: [...path] });
+    const list = Array.isArray(value);
+    for (const [key, child] of Object.entries(value)) {
+      if (skipped.has(key)) continue;
+      const step = list ? Number(key) : key;
+      path.push(step); walk(child, value, step); path.pop();
+    }
+  }
+  walk(model, null, null);
+}
+
 /** The parent matrix a child sees: inherit-translation/rotation/scaling flags
  * (Flags & 1, 2, 4) drop that part of the parent. Returns `parent` itself when
  * nothing is dropped. */

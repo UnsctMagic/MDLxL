@@ -1,4 +1,4 @@
-import { isGlobalTrack } from './animation.js';
+import { isGlobalTrack, visitTracks } from './animation.js';
 import { animationTrackId } from './animation-tracks.js';
 import { timelineDomain, timelineTracks, timelineReadTrack, pasteTimelineKeys, pasteTimelinePose } from './keyframe-timeline.js';
 
@@ -22,18 +22,7 @@ export function classicTimelineDomain(model, sequenceIndex = -1, globalSeqId = n
   let end = null;
   const include = frame => { if (Number.isInteger(frame) && frame >= 0) end = Math.max(end ?? 0, frame); };
   for (const sequence of model.Sequences || []) for (const frame of sequence.Interval || []) include(frame);
-  // Avoid traversing large vertex arrays and the repeated Nodes/Bones references.
-  const visited = new WeakSet();
-  function visit(value) {
-    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || visited.has(value)) return;
-    visited.add(value);
-    if (Array.isArray(value.Keys)) {
-      if (!isGlobalTrack(value)) for (const key of value.Keys) include(key.Frame);
-      return;
-    }
-    for (const child of Object.values(value)) visit(child);
-  }
-  visit(model);
+  visitTracks(model, track => { if (!isGlobalTrack(track)) for (const key of track.Keys) include(key.Frame); });
   return { kind: 'local', globalSeqId: null, sequenceIndex: -1, start: 0, end: end ?? 1000, label: 'All' };
 }
 

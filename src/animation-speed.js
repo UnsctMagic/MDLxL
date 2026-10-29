@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import { parseMdl } from './mdl-lossless.js';
 import { parseMdx } from './mdx-container.js';
-import { isGlobalTrack } from './animation.js';
+import { isGlobalTrack, visitTracks } from './animation.js';
 
 export const ANIMATION_SPEED_KEY = '_AnimationSpeed';
 export const ANIMATION_SPEED_FRAME = '_AnimationSpeedFrame';
@@ -31,18 +31,11 @@ export function forgetAnimationSpeed(model) {
 
 // Visit native records once, avoiding the Nodes aliases and editor annotations.
 function timingRecords(model) {
-  const tracks = [], events = [], seen = new Set();
-  function visit(value, path) {
-    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || seen.has(value)) return;
-    seen.add(value);
-    if (Array.isArray(value.Keys)) { if (!isGlobalTrack(value)) tracks.push({ value, path }); return; }
-    if (value.EventTrack && !isGlobalTrack(value)) events.push({ value, path });
-    for (const [key, child] of Object.entries(value)) {
-      if (privateKeys.has(key) || key === 'Nodes' || key === 'EventTrack') continue;
-      visit(child, [...path, Array.isArray(value) ? Number(key) : key]);
-    }
-  }
-  visit(model, []);
+  const tracks = [], events = [];
+  visitTracks(model, (value, { path }) => { if (!isGlobalTrack(value)) tracks.push({ value, path }); }, {
+    skip: [...privateKeys, 'Nodes', 'EventTrack'],
+    event: (value, { path }) => { if (!isGlobalTrack(value)) events.push({ value, path }); },
+  });
   return { tracks, events };
 }
 

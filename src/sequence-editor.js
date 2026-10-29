@@ -1,10 +1,9 @@
 import { recalculateExtents } from './editor-document.js';
-import { globalSequenceId, isGlobalTrack, keysInInterval, sampleTrack } from './animation.js';
+import { globalSequenceId, isGlobalTrack, keysInInterval, sampleTrack, visitTracks } from './animation.js';
 import { recalculatePortraitExtents } from './portrait-extents.js';
 import { ANIMATION_SPEED_KEY, ANIMATION_SPEED_FRAME, ANIMATION_SPEED_EVENTS, animationSpeed } from './animation-speed.js';
 
 const MAX_FRAME = 0x7fffffff;
-const isTrack = value => value && Array.isArray(value.Keys);
 
 function wholeFrame(value, label) {
   if (!Number.isInteger(value) || value < 0 || value > MAX_FRAME) throw new Error(`${label} must be a whole frame from 0 to ${MAX_FRAME}.`);
@@ -189,19 +188,9 @@ export function createPortraitSequence(model, duration, sourceIndex = -1) {
 }
 
 function visitModel(model, visitor) {
-  const seen = new Set();
-  function visit(value, owner, property) {
-    if (!value || typeof value !== 'object' || ArrayBuffer.isView(value) || seen.has(value)) return;
-    seen.add(value);
-    if (isTrack(value)) visitor.track(value, owner, property);
-    if (value.EventTrack && (ArrayBuffer.isView(value.EventTrack) || Array.isArray(value.EventTrack))) visitor.event(value);
-    for (const [key, child] of Object.entries(value)) {
-      if (key === 'Keys' || key === 'EventTrack' || key === 'Interval' || key === 'Anims') continue;
-      if (Array.isArray(child)) for (const item of child) visit(item, child, null);
-      else visit(child, value, key);
-    }
-  }
-  visit(model, null, null);
+  visitTracks(model, (track, { owner, property }) => visitor.track(track, owner, Array.isArray(owner) ? null : property), {
+    skip: ['Keys', 'EventTrack', 'Interval', 'Anims'], event: node => visitor.event(node),
+  });
 }
 
 function sameGlobalId(value, id) {
