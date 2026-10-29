@@ -159,6 +159,16 @@ test('skin weights add and remove only the selected bone while retaining a valid
   assert.equal(openDocument(doc.serialize('mdx'), undefined, { allowHD: true }).readOnly, false);
 });
 
+test('createNode extends bind poses before the cameras and keeps a matrix already in the new slot', () => {
+  const kept = new Float32Array([2, 0, 0, 0, 2, 0, 0, 0, 2, 7, 8, 9]), camera = new Float32Array(12).fill(3);
+  const model = { Info: {}, Bones: [{ ObjectId: 0 }], Nodes: [], PivotPoints: [new Float32Array(3)], Cameras: [{}], BindPoses: [{ Matrices: [new Float32Array(12), kept, camera] }] };
+  const node = createNode(model, 'Helper');
+  assert.equal(node.ObjectId, 1);
+  assert.deepEqual(model.BindPoses[0].Matrices, [new Float32Array(12), kept, camera]);
+  createNode(model, 'Helper');
+  assert.deepEqual(model.BindPoses[0].Matrices, [new Float32Array(12), kept, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]), camera]);
+});
+
 test('rig edits keep existing bind-pose matrix slots and round-trip MDX1000', () => {
   const doc = createStarterDocument(1000);
   const original = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6]);

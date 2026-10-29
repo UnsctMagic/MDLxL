@@ -29,6 +29,9 @@ export function recalculatePortraitExtents(model, indices = portraitSequenceIndi
 
 // Every node collection except Nodes, plus pivots and timing.
 const RIG_KEYS = [...NODE_COLLECTION_KEYS.slice(1), 'PivotPoints', 'GlobalSequences', 'Sequences'];
+const NODE_KEYS = new Set([...NODE_COLLECTION_KEYS.slice(1), 'PivotPoints']);
+/** Whether an edit's actually changed sections include nodes or pivots. */
+export const nodeSectionsChanged = sections => sections.some(key => NODE_KEYS.has(key));
 /** Refresh portrait extents only when an edit actually changed the rig, so an
  * unchanged commit never rewrites authored bounds. */
 export function refreshPortraitExtentsAfterRigEdit(before, model) {

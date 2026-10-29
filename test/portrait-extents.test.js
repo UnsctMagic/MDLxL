@@ -4,7 +4,7 @@ import { createDemoDocument, openDocument } from '../src/editor-document.js';
 import { sampleNodeMatrices, skinGeoset } from '../src/animation.js';
 import { createPortraitSequence } from '../src/sequence-editor.js';
 import { applyPortraitModelTransform, modelControlRoots } from '../src/portrait-model-control.js';
-import { recalculatePortraitExtents } from '../src/portrait-extents.js';
+import { nodeSectionsChanged, recalculatePortraitExtents, refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
 import { setCameraFromCurrentView } from '../app/portrait-camera-edit.js';
 
 const extentKeys = ['MinimumExtent', 'MaximumExtent', 'BoundsRadius'];
@@ -91,4 +91,23 @@ test('scope stays on the edited portrait and missing geoset extent slots are ali
   checkPortrait(model, 1);
   assert.deepEqual(model.Sequences[2], untouched);
   model.Geosets.slice(1).forEach((geoset, index) => assert.deepEqual(geoset.Anims[2], slots[index + 1]));
+});
+
+test('the portrait refresh follows the sections an edit actually changed, in one undo step (B14)', () => {
+  const doc = fixture(), roots = modelControlRoots(doc.model).map(root => root.id), seen = [];
+  const refresh = (m, changed, before) => { seen.push(changed); return nodeSectionsChanged(changed) && refreshPortraitExtentsAfterRigEdit(before, m); };
+  const before = structuredClone(doc.model);
+  // Declared as Bones only (no 'Nodes'): the refresh still runs because nodes moved.
+  doc.apply('Move portrait', ['Bones'], m => applyPortraitModelTransform(m, roots, 3500, 1, { mode: 'move', values: [600, -350, 80] }), { beforeCommit: refresh });
+  assert.ok(nodeSectionsChanged(seen[0]));
+  for (const index of [1, 2]) checkPortrait(doc.model, index);
+  assert.ok(doc.history.at(-1).sections.includes('Sequences'), 'the refreshed extents are part of the same history entry');
+  assert.deepEqual(doc.history.at(-1).requestedSections, ['Bones']);
+  doc.undo(); assert.deepEqual(doc.model, before);
+  // A sequence-only edit does not touch the rig, so authored extents stay.
+  doc.apply('Rename', ['Nodes'], m => { m.Sequences[0].Name = 'Stand Ready'; }, { beforeCommit: refresh });
+  assert.deepEqual(seen.at(-1), ['Sequences']);
+  assert.deepEqual(doc.model.Sequences[1], before.Sequences[1]);
+  assert.equal(nodeSectionsChanged(['PivotPoints']), true);
+  assert.equal(nodeSectionsChanged(['Geosets', 'Sequences']), false);
 });

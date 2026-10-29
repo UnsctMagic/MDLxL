@@ -2,8 +2,9 @@ import { Matrix4, Vector3 } from 'three';
 import { allNodes, inverseGeosetSkinMatrix, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset } from '../src/animation.js';
 import { createRigNode } from '../src/bone-tools.js';
 import { recalculateExtents } from '../src/editor-document.js';
-import { createVisibilityGeosetAnimation } from '../src/geoset-animation-defaults.js';
+import { createVisibilityGeosetAnimation, ensureGeosetAnimation } from '../src/geoset-animation-defaults.js';
 import { recalculatePortraitExtents } from '../src/portrait-extents.js';
+import { fillSequenceExtents } from '../src/sequence-editor.js';
 import { uniqueName } from '../src/node-hierarchy.js';
 import { evaluateModelCamera, MODEL_CAMERA_FOV_FACTOR, PORTRAIT_ASPECT } from './portrait-view.js';
 
@@ -239,7 +240,7 @@ function placeBackdrop(model, index, placement, frame, sequenceIndex) {
     }
   }
   const bounds = { Geosets: [geoset], Info: {} }; recalculateExtents(bounds);
-  geoset.Anims = (model.Sequences || []).map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius }));
+  fillSequenceExtents(model, geoset);
   if (model.Info) {
     for (const key of ['MinimumExtent', 'MaximumExtent']) model.Info[key] = new Float32Array([0, 1, 2].map(axis => (key === 'MinimumExtent' ? Math.min : Math.max)(model.Info[key]?.[axis] ?? geoset[key][axis], geoset[key][axis])));
     model.Info.BoundsRadius = Math.max(model.Info.BoundsRadius || 0, Math.hypot(...[0, 1, 2].map(axis => (model.Info.MaximumExtent[axis] - model.Info.MinimumExtent[axis]) / 2)));
@@ -263,10 +264,7 @@ export function refreshPortraitBackground(model, cameraIndex, { frame = 0, seque
   if (placement.farClip) camera.FarClip = placement.farClip;
   if (created) index = createBackdrop(model, placement.center);
   placeBackdrop(model, index, placement, pose.frame, pose.sequenceIndex);
-  model.GeosetAnims ||= [];
-  let animation = model.GeosetAnims.find(item => item.GeosetId === index);
-  if (!animation) animation = model.GeosetAnims[model.GeosetAnims.push(createVisibilityGeosetAnimation(index)) - 1];
-  animation.Alpha = visibility;
+  ensureGeosetAnimation(model, index, { refuseDuplicates: false }).Alpha = visibility;
   recalculatePortraitExtents(model);
   if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; model.Info.NumBones = model.Bones?.length || 0; }
   return { geosetIndex: index, created, farClip: placement.farClip, look: normalizeBackdropLook(look || kept || fallback || BACKDROP_LOOK) };

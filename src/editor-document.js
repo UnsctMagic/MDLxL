@@ -397,7 +397,11 @@ export class EditorDocument {
     try { return this.apply('Convert to MDX'+target,['Version','Materials','Geosets'],model=>normalizeVersionFields(model,target)); }
     finally { this._versionConversion=false; }
   }
-  apply(label, sections, mutator, { validate } = {}) {
+  /** sections is the caller's declared list, kept on the history entry as
+   * requestedSections; the recorded sections are the ones that actually
+   * changed. beforeCommit(model, changedSections, before) runs once those are
+   * known, inside the same undo step; it returns true when it changed the model. */
+  apply(label, sections, mutator, { validate, beforeCommit } = {}) {
     if (this.readOnly) throw new Error(`This document is read-only (format ${this.version ?? 'unknown'} or unsupported data).`);
     if (typeof mutator !== 'function') throw new TypeError('apply requires a model mutator function.');
     if (this._applying) throw new Error('Nested document edits are not supported.');
@@ -417,6 +421,12 @@ export class EditorDocument {
       // reused only after the complete byte-preserving diff proves their scope.
       changes = createChanges(before, next, { ignore: ignoreHistoryAlias });
       changed = [...new Set(changes.map((change) => change.path[0]).filter((key) => key in SECTION_TYPES))];
+      if (changes.length && beforeCommit?.(next, changed, before)) {
+        normalizeModel(next, before);
+        validate?.(next, before);
+        changes = createChanges(before, next, { ignore: ignoreHistoryAlias });
+        changed = [...new Set(changes.map((change) => change.path[0]).filter((key) => key in SECTION_TYPES))];
+      }
       const previousDiagnostics = this._committedDiagnostics ||= validateModel(before);
       const existingErrors = this._committedErrors ||= new Set(previousDiagnostics.filter((d) => d.severity === 'error').map((d) => `${d.code}:${d.path}`));
       const numericSections = changed.includes('GlobalSequences') ? null : new Set(changes.map(change => change.path[0]));
@@ -821,11 +831,12 @@ export function createNode(model, type = 'Bone') {
   }
   (model[collection] ||= []).push(node);
   (model.Nodes ||= [])[id] = node; (model.PivotPoints ||= [])[id] = pivot;
+  // Object IDs remain stable. Extend each bind-pose array up to the new ID,
+  // before the camera matrices, leaving every existing matrix in its slot.
   for (const pose of model.BindPoses || []) {
-    const cameraStart = pose.Matrices.length - (model.Cameras?.length || 0);
-    const matrices = Array.from({ length: Math.max(0, id - cameraStart + 1) }, () => new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]));
-    pose.Matrices.splice(cameraStart, 0, ...matrices);
-    pose.Matrices[id] = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
+    const cameras = pose.Matrices.splice(pose.Matrices.length - (model.Cameras?.length || 0));
+    while (pose.Matrices.length <= id) pose.Matrices.push(new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]));
+    pose.Matrices.push(...cameras);
   }
   updateCounts(model);
   return node;
@@ -859,22 +870,50 @@ export function duplicateGeoset(model, index) {
   updateCounts(model);
   return newIndex;
 }
+const noReference = id => id == null || id === -1 || id === 0xffffffff;
+/** Remove geosets and repair every reference to them: geoset animations,
+ * Bone.GeosetId/GeosetAnimId, Gliders and the Info counts. `removed` is a Set
+ * of indices, or a Map old index → kept target index (a merge) or null (a
+ * delete). A merged geoset's references move to its target, and bones that
+ * used its geoset animation use the target's one in the same position.
+ * References that were already out of range are kept unless `clearInvalid`.
+ * Returns oldToNew: the new index of every old geoset, or null. */
+export function removeGeosets(model, removed, { clearInvalid = false } = {}) {
+  const targets = removed instanceof Map ? removed : new Map([...removed].map(id => [id, null]));
+  const count = model.Geosets.length, oldToNew = new Array(count).fill(null);
+  for (let i = 0, next = 0; i < count; i++) if (!targets.has(i)) oldToNew[i] = next++;
+  for (const [id, target] of targets) oldToNew[id] = target == null ? null : oldToNew[target];
+  if (!targets.size) return oldToNew;
+  const valid = id => Number.isInteger(id) && id >= 0 && id < count;
+  const old = model.GeosetAnims || [], owned = new Map(), animMap = new Map(), kept = [];
+  old.forEach((anim, i) => {
+    if (!owned.has(anim.GeosetId)) owned.set(anim.GeosetId, []);
+    owned.get(anim.GeosetId).push(i);
+    if (!targets.has(anim.GeosetId)) { animMap.set(i, kept.length); kept.push(anim); }
+  });
+  old.forEach((anim, i) => {
+    if (!targets.has(anim.GeosetId)) return;
+    const target = targets.get(anim.GeosetId), into = target == null ? [] : owned.get(target) || [];
+    const owner = into[owned.get(anim.GeosetId).indexOf(i)] ?? into[0];
+    animMap.set(i, owner == null ? null : animMap.get(owner));
+  });
+  for (const anim of kept) if (valid(anim.GeosetId)) anim.GeosetId = oldToNew[anim.GeosetId];
+  model.GeosetAnims = kept;
+  model.Geosets = model.Geosets.filter((_, i) => !targets.has(i));
+  for (const bone of model.Bones || []) {
+    if (valid(bone.GeosetId)) bone.GeosetId = oldToNew[bone.GeosetId];
+    else if (clearInvalid && !noReference(bone.GeosetId)) bone.GeosetId = null;
+    if (animMap.has(bone.GeosetAnimId)) bone.GeosetAnimId = animMap.get(bone.GeosetAnimId);
+    else if (clearInvalid && !noReference(bone.GeosetAnimId)) bone.GeosetAnimId = null;
+  }
+  if (model.Gliders) model.Gliders = model.Gliders.filter(glider => !valid(glider.GeosetId) || oldToNew[glider.GeosetId] != null)
+    .map(glider => valid(glider.GeosetId) ? { ...glider, GeosetId: oldToNew[glider.GeosetId] } : glider);
+  if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; }
+  return oldToNew;
+}
 export function deleteGeoset(model, index) {
   if (!model.Geosets?.[index]) throw new Error('Select an existing geoset to delete.');
-  const animMap = new Map(); const anims = [];
-  for (const [old, anim] of model.GeosetAnims.entries()) {
-    if (anim.GeosetId === index) { animMap.set(old, null); continue; }
-    animMap.set(old, anims.length);
-    if (anim.GeosetId > index) anim.GeosetId--;
-    anims.push(anim);
-  }
-  model.Geosets.splice(index, 1); model.GeosetAnims = anims;
-  model.Gliders = (model.Gliders || []).filter(g=>g.GeosetId!==index).map(g=>({...g,GeosetId:g.GeosetId>index?g.GeosetId-1:g.GeosetId}));
-  for (const bone of model.Bones || []) {
-    if (bone.GeosetId === index) bone.GeosetId = null;
-    else if (bone.GeosetId > index) bone.GeosetId--;
-    if (bone.GeosetAnimId != null && bone.GeosetAnimId !== -1) bone.GeosetAnimId = animMap.get(bone.GeosetAnimId) ?? null;
-  }
+  removeGeosets(model, new Set([index]));
   updateCounts(model);
 }
 
@@ -896,12 +935,15 @@ export function recalculateNormals(geoset) {
   geoset.Normals = normals;
   return normals;
 }
-function bounds(vertices) {
+/** Box and radius (farthest vertex from the box centre) of flat XYZ vertices.
+ * No vertices give zero extents. Throws when the radius cannot be stored. */
+export function geosetBounds(vertices) {
   const min = V3(Infinity, Infinity, Infinity), max = V3(-Infinity, -Infinity, -Infinity);
   if (!vertices.length) return { MinimumExtent: V3(), MaximumExtent: V3(), BoundsRadius: 0 };
   for (let i = 0; i < vertices.length; i++) { const k = i % 3; min[k] = Math.min(min[k], vertices[i]); max[k] = Math.max(max[k], vertices[i]); }
   const center = min.map((v, i) => (v + max[i]) / 2); let radius = 0;
   for (let i = 0; i < vertices.length; i += 3) radius = Math.max(radius, Math.hypot(vertices[i] - center[0], vertices[i + 1] - center[1], vertices[i + 2] - center[2]));
+  if (!Number.isFinite(Math.fround(radius))) throw new Error('The resulting mesh bounds exceed the file format’s coordinate range.');
   return { MinimumExtent: min, MaximumExtent: max, BoundsRadius: radius };
 }
 /** With geosetIndices, only those geosets are rewritten; the others keep their stored bounds. */
@@ -909,11 +951,11 @@ export function recalculateExtents(model, geosetIndices = null) {
   const min = V3(Infinity, Infinity, Infinity), max = V3(-Infinity, -Infinity, -Infinity), only = geosetIndices && new Set(geosetIndices);
   for (const [index, g] of (model.Geosets || []).entries()) {
     const stored = g.MinimumExtent?.length === 3 && g.MaximumExtent?.length === 3;
-    const extent = !only || only.has(index) ? Object.assign(g, bounds(g.Vertices)) : stored ? g : bounds(g.Vertices);
+    const extent = !only || only.has(index) ? Object.assign(g, geosetBounds(g.Vertices)) : stored ? g : geosetBounds(g.Vertices);
     for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], extent.MinimumExtent[k]); max[k] = Math.max(max[k], extent.MaximumExtent[k]); }
   }
   const vertices = model.Geosets?.length ? new Float32Array([...min, ...max]) : new Float32Array();
-  Object.assign(model.Info, bounds(vertices));
+  Object.assign(model.Info, geosetBounds(vertices));
   // Existing animation bounds are intentionally retained; bind-pose geometry is
   // insufficient to compute their animated swept bounds.
   return model.Info;
@@ -944,7 +986,7 @@ export function transformGeoset(geoset, { translation = [0, 0, 0], rotation = [0
     if (scale[0] * scale[1] * scale[2] < 0) geoset.Tangents[i + 3] *= -1;
   }
   if (scale[0] * scale[1] * scale[2] < 0) for (let i = 0; i < geoset.Faces.length; i += 3) [geoset.Faces[i + 1], geoset.Faces[i + 2]] = [geoset.Faces[i + 2], geoset.Faces[i + 1]];
-  Object.assign(geoset, bounds(geoset.Vertices));
+  Object.assign(geoset, geosetBounds(geoset.Vertices));
   return geoset;
 }
 
@@ -983,7 +1025,7 @@ export function appendGeosetGeometry(target, source) {
   target.TotalGroupsCount = groups.reduce((total, group) => total + group.length, 0);
   if (target.Tangents?.length) target.Tangents = append(target.Tangents, source.Tangents);
   if (target.SkinWeights?.length) target.SkinWeights = append(target.SkinWeights, source.SkinWeights);
-  Object.assign(target, bounds(target.Vertices));
+  Object.assign(target, geosetBounds(target.Vertices));
   return Array.from({ length: sourceCount }, (_, index) => targetCount + index);
 }
 
@@ -1172,7 +1214,7 @@ function makeGeoset(vertices, faces, material, bone = 0) {
   const geoset = {
     Vertices: new Float32Array(vertices), Faces: new Uint16Array(faces), Normals: new Float32Array(vertices.length),
     TVertices: [new Float32Array(vertices.length / 3 * 2)], VertexGroup: new Uint8Array(vertices.length / 3), Groups: [[bone]], TotalGroupsCount: 1,
-    ...bounds(vertices), Anims: [], MaterialID: material, SelectionGroup: 0, Unselectable: false,
+    ...geosetBounds(vertices), Anims: [], MaterialID: material, SelectionGroup: 0, Unselectable: false,
   };
   for (let i = 0; i < vertices.length / 3; i++) { geoset.TVertices[0][i * 2] = (vertices[i * 3] + 50) / 100; geoset.TVertices[0][i * 2 + 1] = vertices[i * 3 + 2] / 200; }
   recalculateNormals(geoset); return geoset;

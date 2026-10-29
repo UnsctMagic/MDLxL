@@ -1,4 +1,4 @@
-import {gather} from './mesh-tools.js';
+import {gatherStreams} from './mesh-tools.js';
 import {createPaintRaster,samplePaintRaster} from './paint-raster.js';
 import {createFreshPaintAtlas} from './paint-uv-atlas.js';
 
@@ -17,7 +17,7 @@ export function preparePaintUVSelectionChange(model,project,target,index,selecte
   if([...owners].some(i=>Number.isInteger(layers[i]?.TVertexAnimId)&&layers[i].TVertexAnimId>=0))throw Error('This part has animated UVs.');
   const shared=layers.some((l,i)=>!owners.has(i)&&(l.CoordId||0)===coord),destCoord=shared?geo.TVertices.length:coord;
   if(destCoord>=16)throw Error('This geoset has no free UV set.');
-  const copied=sources.length===count?geo:{...geo,...gather({...geo,VertexGroup:geo.VertexGroup||new Uint8Array(count)},sources)},TVertices=[...copied.TVertices],mapped=new Float32Array(sources.length*2);
+  const copied=sources.length===count?geo:{...geo,...gatherStreams({...geo,VertexGroup:geo.VertexGroup||new Uint8Array(count)},sources)},TVertices=[...copied.TVertices],mapped=new Float32Array(sources.length*2);
   for(let i=0;i<sources.length;i++){mapped[i*2]=uv[sources[i]*2];mapped[i*2+1]=uv[sources[i]*2+1];}
   for(const [from,to] of moved){mapped[to*2]=next[from*2];mapped[to*2+1]=next[from*2+1];}
   TVertices[destCoord]=mapped;
@@ -116,8 +116,8 @@ export function preparePaintSelectionSpace(model,project,target,region){
       faces[offset]=vertex;
     }
     if(sources.length>65536)throw Error('Separating this selection would exceed the Warcraft geoset vertex limit.');
-    // gather is the mesh editor's existing parallel-stream copier.
-    const copied=sources.length===count?original:{...original,...gather({...original,VertexGroup:original.VertexGroup||new Uint8Array(count)},sources)},mapped=new Float32Array(sources.length*2);
+    // gatherStreams is the mesh editor's existing parallel-stream copier.
+    const copied=sources.length===count?original:{...original,...gatherStreams({...original,VertexGroup:original.VertexGroup||new Uint8Array(count)},sources)},mapped=new Float32Array(sources.length*2);
     for(let vertex=0;vertex<sources.length;vertex++){const source=sources[vertex];mapped[vertex*2]=(leftPad+uv[source*2]*width)/nextWidth;mapped[vertex*2+1]=(topPad+uv[source*2+1]*height)/nextHeight;}
     if(index===region.geosetIndex)for(const face of selected)for(let corner=0;corner<3;corner++){
       const vertex=faces[face*3+corner],source=sources[vertex],localVertex=localAtlas?.Faces[localOffsets.get(face)+corner],localUV=localAtlas?.TVertices[0];

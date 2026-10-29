@@ -4,7 +4,7 @@ import { Buffer } from 'buffer';
 import { parseMdx } from '../src/mdx-container.js';
 import {
   openDocument, createDemoDocument, createNode, deleteNode, duplicateGeoset,
-  deleteGeoset, importGeosets, validateModel, recalculateNormals,
+  deleteGeoset, removeGeosets, importGeosets, validateModel, recalculateNormals,
   recalculateExtents, transformGeoset, scanMdlSections,
 } from '../src/editor-document.js';
 
@@ -247,6 +247,37 @@ test('geoset duplicate/delete repair geoset-animation and bone references', () =
   assert.equal(doc.model.GeosetAnims[4].GeosetId, 4);
   assert.equal(doc.model.Bones[0].GeosetAnimId, null);
   assert.deepEqual(errors(openDocument(doc.serialize('mdx'))), []);
+});
+
+test('removeGeosets deletes or merges geosets and repairs every reference', () => {
+  const model = () => ({
+    Geosets: [{ n: 0 }, { n: 1 }, { n: 2 }, { n: 3 }],
+    GeosetAnims: [{ GeosetId: 0 }, { GeosetId: 1 }, { GeosetId: 2 }, { GeosetId: 3 }],
+    Bones: [{ GeosetId: 1, GeosetAnimId: 1 }, { GeosetId: 2, GeosetAnimId: 2 }, { GeosetId: 3, GeosetAnimId: 3 }, { GeosetId: null, GeosetAnimId: null }, { GeosetId: 9, GeosetAnimId: 9 }],
+    Gliders: [{ GeosetId: 1 }, { GeosetId: 2 }, { GeosetId: 3 }],
+    Info: { NumGeosets: 4, NumGeosetAnims: 4 },
+  });
+  // A Set deletes: references to the deleted geoset clear, later ones shift.
+  const deleted = model(), oldToNew = removeGeosets(deleted, new Set([1]));
+  assert.deepEqual(oldToNew, [0, null, 1, 2]);
+  assert.deepEqual(deleted.Geosets.map(g => g.n), [0, 2, 3]);
+  assert.deepEqual(deleted.GeosetAnims.map(a => a.GeosetId), [0, 1, 2]);
+  assert.deepEqual(deleted.Bones.map(b => [b.GeosetId, b.GeosetAnimId]), [[null, null], [1, 1], [2, 2], [null, null], [9, 9]]);
+  assert.deepEqual(deleted.Gliders, [{ GeosetId: 1 }, { GeosetId: 2 }]);
+  assert.deepEqual(deleted.Info, { NumGeosets: 3, NumGeosetAnims: 3 });
+  // A Map merges: geoset 3 goes into 0, so its references follow geoset 0.
+  const merged = model();
+  assert.deepEqual(removeGeosets(merged, new Map([[3, 0], [1, null]])), [0, null, 1, 0]);
+  assert.deepEqual(merged.GeosetAnims.map(a => a.GeosetId), [0, 1]);
+  assert.deepEqual(merged.Bones.map(b => [b.GeosetId, b.GeosetAnimId]), [[null, null], [1, 1], [0, 0], [null, null], [9, 9]]);
+  assert.deepEqual(merged.Gliders, [{ GeosetId: 1 }, { GeosetId: 0 }]);
+  // clearInvalid also drops references that were already out of range.
+  const strict = model();
+  removeGeosets(strict, new Set([1]), { clearInvalid: true });
+  assert.deepEqual(strict.Bones[4], { GeosetId: null, GeosetAnimId: null });
+  const untouched = model();
+  assert.deepEqual(removeGeosets(untouched, new Set()), [0, 1, 2, 3]);
+  assert.deepEqual(untouched, model());
 });
 
 test('rig-aware import maps ancestors, animated texture IDs, pivots and global sequences', () => {

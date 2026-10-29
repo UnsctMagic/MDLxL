@@ -1,7 +1,7 @@
 import { allNodes, isGlobalTrack, sampleNodeMatrices, sampleTrack, sampleGeosetAnimation, skinGeoset, skinGeosetNormals } from './animation.js';
 import { createRigNode } from './bone-tools.js';
 import { deleteGeoset } from './editor-document.js';
-import { createVisibilityGeosetAnimation } from './geoset-animation-defaults.js';
+import { createVisibilityGeosetAnimation, ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { updateBounds } from './mesh-tools.js';
 import { buildCorpseGeometry } from './corpse-geometry.js';
 import { applyDeathBlood } from './corpse-blood.js';
@@ -40,10 +40,7 @@ function localMask(value,sequences,intervals,fallback=1) {
 }
 
 function visibility(model,id) {
-  const found=model.GeosetAnims.filter(a=>a.GeosetId===id);
-  if(found.length>1)throw Error('A body geoset has duplicate visibility records. Resolve them before using Auto Corpse.');
-  if(found.length)return found[0];
-  const anim=createVisibilityGeosetAnimation(id);model.GeosetAnims.push(anim);return anim;
+  return ensureGeosetAnimation(model,id,{refuseDuplicates:'A body geoset has duplicate visibility records. Resolve them before using Auto Corpse.'});
 }
 function material(model,value) {
   const signature=JSON.stringify(value),existing=model.Materials.findIndex(m=>JSON.stringify(m)===signature);

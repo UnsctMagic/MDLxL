@@ -1,6 +1,7 @@
 import { clamp } from './math.js';
 import { createRigNode } from './bone-tools.js';
 import { recalculateExtents } from './editor-document.js';
+import { fillSequenceExtents } from './sequence-editor.js';
 import { allNodes } from './animation.js';
 import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
 import { nodeIndex, uniqueName } from './node-hierarchy.js';
@@ -224,7 +225,7 @@ function addQuads(model, quads, materialId) {
   for (const { bone } of quads) { bone.GeosetId = geosetIndex; bone.GeosetAnimId = geosetAnimId; }
   // Bounds for the new geoset only; authored bounds on existing meshes stay.
   recalculateExtents({ Geosets: [g], Info: {} });
-  g.Anims = (model.Sequences || []).map(() => ({ MinimumExtent: g.MinimumExtent.slice(), MaximumExtent: g.MaximumExtent.slice(), BoundsRadius: g.BoundsRadius }));
+  fillSequenceExtents(model, g);
   return geosetIndex;
 }
 

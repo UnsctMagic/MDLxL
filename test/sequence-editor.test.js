@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   createGlobalSequence, createSequence, createSequenceFromCurrent, deleteGlobalSequence, deleteSequence,
-  setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
+  fillSequenceExtents, setGlobalSequenceDuration, setSequenceInterval, setSequenceMoveSpeed, setSequenceName,
 } from '../src/sequence-editor.js';
 import { createDemoDocument, openDocument } from '../src/editor-document.js';
 
@@ -10,6 +11,18 @@ const key = (Frame, values) => ({ Frame, Vector: new Float32Array(values) });
 const track = (...keys) => ({ LineType: 1, GlobalSeqId: null, Keys: keys });
 const extent = () => ({ MinimumExtent: new Float32Array([-1, -2, -3]), MaximumExtent: new Float32Array([4, 5, 6]), BoundsRadius: 8 });
 const geoset = () => ({ Vertices: new Float32Array([0, 0, 0, 2, 4, 6]), Groups: [[0]], Anims: [extent(), extent()], ...extent() });
+
+test('fillSequenceExtents copies the geoset bounds once per sequence', () => {
+  const model = { Sequences: [{}, {}, {}] }, g = geoset();
+  const anims = fillSequenceExtents(model, g);
+  assert.equal(g.Anims, anims);
+  assert.deepEqual(anims, [extent(), extent(), extent()]);
+  assert.notEqual(anims[0].MinimumExtent, g.MinimumExtent);
+  const bare = { ...extent(), Anims: [] };
+  fillSequenceExtents(model, bare, { onlyIfPresent: true });
+  assert.deepEqual(bare.Anims, []);
+  assert.deepEqual(fillSequenceExtents({}, geoset()), []);
+});
 
 test('Create from current copies metadata, local keys, tangents and events independently', () => {
   const motion = track({ ...key(100, [1, 2, 3]), InTan: new Float32Array([4, 5, 6]), OutTan: new Float32Array([7, 8, 9]) }, key(1100, [3, 2, 1]), key(4000, [9, 9, 9]));
@@ -63,6 +76,36 @@ test('Create leaves a one-second blank gap and keeps geoset sequence extents ali
   assert.equal(model.Sequences[1].Name, 'New Sequence 2');
   assert.equal(model.Geosets[0].Anims.length, 3);
   assert.equal(createGlobalSequence(model), 0); assert.equal(model.GlobalSequences[0], 1000);
+});
+
+test('Create options: name, gap, template, non-looping and which geosets get extents', () => {
+  // The resource manager's Add sequence: a Stand 100 frames after the last one,
+  // with one extent per geoset like every other path (B12).
+  const model = { Info: extent(), Sequences: [{ Name: 'Stand', Interval: new Uint32Array([0, 1000]) }], Geosets: [geoset(), { ...extent(), Anims: [] }] };
+  assert.equal(createSequence(model, 1000, { name: 'Stand', gap: 100 }), 1);
+  assert.deepEqual(model.Sequences[1], { Name: 'Stand', Interval: new Uint32Array([1100, 2100]), NonLooping: false, MoveSpeed: 0, Rarity: 0, ...extent() });
+  assert.deepEqual(model.Geosets.map(g => g.Anims.length), [3, 1]);
+  const template = { Name: 'Death', Interval: new Uint32Array([5, 6]), SyncPoint: 7, MoveSpeed: 9, Rarity: 2, MinimumExtent: new Float32Array(3), MaximumExtent: new Float32Array(3), BoundsRadius: 1 };
+  createSequence(model, 500, { template, nonLooping: true, extents: 'ifPresent' });
+  assert.deepEqual(model.Sequences[2], { ...template, Name: 'New Sequence 3', Interval: new Uint32Array([3100, 3600]), NonLooping: true, MoveSpeed: 0, Rarity: 0 });
+  assert.notEqual(model.Sequences[2].MinimumExtent, template.MinimumExtent);
+  assert.deepEqual(model.Geosets.map(g => g.Anims.length), [4, 2]);
+  const bare = { Info: extent(), Geosets: [{ ...extent() }] };
+  createSequence(bare, 10, { gap: 100, extents: 'ifPresent' });
+  assert.deepEqual(Array.from(bare.Sequences[0].Interval), [0, 10]);
+  assert.equal(bare.Geosets[0].Anims, undefined);
+  assert.throws(() => createSequence(bare, 10, { extents: 'never' }), /extent option/);
+});
+
+test('the Inspector and resource manager edit sequences through these functions (B12, B13)', () => {
+  const inspector = readFileSync(new URL('../app/Inspectors.jsx', import.meta.url), 'utf8');
+  const resources = readFileSync(new URL('../app/ResourceEditors.jsx', import.meta.url), 'utf8');
+  // Renames strip line breaks and keep the 79-byte limit; intervals stay whole, ordered frames.
+  assert.match(inspector, /mutate\('Rename sequence',\['Sequences'\],model=>setSequenceName\(model,index,v\)\)/);
+  assert.match(inspector, /mutate\('Set sequence start',\['Sequences'\],model=>setSequenceInterval\(model,index,v,/);
+  assert.match(inspector, /mutate\('Set sequence end',\['Sequences'\],model=>setSequenceInterval\(model,index,model\.Sequences\[index\]\.Interval\[0\],v\)\)/);
+  assert.doesNotMatch(inspector, /s\.Name=v|s\.Interval\[[01]\]=v/);
+  assert.match(resources, /if \(currentKind === 'Sequences'\) return createSequence\(m, 1000, \{ name: 'Stand', gap: 100 \}\);/);
 });
 
 test('Delete removes every local key and event inside the sequence, then realigns extents', () => {

@@ -1,3 +1,4 @@
+import { checkedVertexSelection } from './mesh-tools.js';
 export const nodeCollections = ['Bones','Helpers','Attachments','Lights','ParticleEmitters','ParticleEmitters2','RibbonEmitters','EventObjects','CollisionShapes','ParticleEmitterPopcorns'];
 export function nodeKind(model,node){return nodeCollections.find(k=>model[k]?.some(n=>n.ObjectId===node.ObjectId))||'Nodes';}
 export function setKey(target,property,frame,values,options={}) {
@@ -16,10 +17,7 @@ export function setKey(target,property,frame,values,options={}) {
 function selectedIndices(geoset,indices,{allowEmpty=false}={}) {
   const count=geoset.Vertices?.length/3;
   if(!Number.isInteger(count)||count<0)throw new Error('Geoset vertex data must contain complete XYZ coordinates.');
-  const ids=[...new Set(indices)];
-  if(!ids.length&&!allowEmpty)throw new Error('Select vertices first.');
-  if(ids.some(i=>!Number.isInteger(i)||i<0||i>=count))throw new Error('Vertex selection is out of range.');
-  return ids;
+  return checkedVertexSelection(geoset,indices,{streams:false,allowEmpty}).selected;
 }
 function checkAttribute(array,count,stride,label) {
   if(array?.length&&array.length!==count*stride)throw new Error(`${label} do not match the vertex count.`);

@@ -18,6 +18,7 @@ import { redundantTrackProposals, applyRedundantTrack } from './optimizexl-redun
 import { splineTrackProposals, applySplineTrack } from './optimizexl-spline-tracks.js';
 import { visibilityInterpolationProposals, sequenceTimelineProposals, applyFormatRepair, optimizexlLocalTrack } from './optimizexl-format.js';
 import { rebuildNodes, remapNodes } from './optimizexl-nodes.js';
+import { ensureGeosetAnimation } from './geoset-animation-defaults.js';
 import { checkerRepairProposals, applyCheckerRepair } from './optimizexl-checker-repairs.js';
 import { nodeIndex } from './node-hierarchy.js';
 
@@ -98,7 +99,7 @@ function animationReduction(m,settings,changes){const protectedData=protectedGeo
  removed+=reduceAnimationTrack(m,t,p,tolerance,change=>changes.push({path,...change}),{reach:node?reach.get(node.ObjectId)||0:0,position:settings.position||0});
  }return removed;}
 function setKey(t,frame,value){const i=t.Keys.findIndex(k=>k.Frame===frame),key={Frame:frame,Vector:new Float32Array(Array.isArray(value)||ArrayBuffer.isView(value)?value:[value])};if(i>=0)t.Keys[i]=key;else t.Keys.push(key);t.Keys.sort((a,b)=>a.Frame-b.Frame);}
-function hideGeoset(m,gi,si){let a=m.GeosetAnims.find(a=>a.GeosetId===gi);if(!a){a={GeosetId:gi,Flags:0,Alpha:1,Color:new Float32Array([1,1,1])};m.GeosetAnims.push(a);}const existing=a.Alpha;let t=local(existing)?existing:null;if(!t){if(existing?.Keys)throw Error('Global visibility cannot be changed for only one sequence.');const value=typeof existing==='number'?existing:1;t={LineType:0,GlobalSeqId:null,Keys:[]};for(const s of m.Sequences){setKey(t,s.Interval[0],value);setKey(t,s.Interval[1],value);}a.Alpha=t;}
+function hideGeoset(m,gi,si){const a=ensureGeosetAnimation(m,gi,{refuseDuplicates:false});const existing=a.Alpha;let t=local(existing)?existing:null;if(!t){if(existing?.Keys)throw Error('Global visibility cannot be changed for only one sequence.');const value=typeof existing==='number'?existing:1;t={LineType:0,GlobalSeqId:null,Keys:[]};for(const s of m.Sequences){setKey(t,s.Interval[0],value);setKey(t,s.Interval[1],value);}a.Alpha=t;}
  const [lo,hi]=m.Sequences[si].Interval;for(const k of t.Keys)if(k.Frame>=lo&&k.Frame<=hi)k.Vector[0]=0;setKey(t,lo,0);setKey(t,hi,0);}
 function alpha(m,gi,si,f){const a=m.GeosetAnims.find(a=>a.GeosetId===gi);return sampleTrack(a?.Alpha,f,{interval:m.Sequences[si].Interval,globalSequences:m.GlobalSequences,globalTime:0,fallback:1});}
 function allVisible(m,gi,si){const s=m.Sequences[si];return [s.Interval[0],(s.Interval[0]+s.Interval[1])/2,s.Interval[1]].some(f=>alpha(m,gi,si,f)>.001);}

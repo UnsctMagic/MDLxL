@@ -7,6 +7,7 @@ export { forgeTangents } from './geoset-tangents.js';
  */
 import { booleanContours, exteriorFrame, triangulateContours, signedArea as area, pointInside as pointIn, cross, segmentDistance } from './forge-geometry.js';
 import { createNode, recalculateNormals, recalculateExtents } from './editor-document.js';
+import { fillSequenceExtents } from './sequence-editor.js';
 import { ensureDummyBone } from './dummy-bone.js';
 export { ensureDummyBone } from './dummy-bone.js';
 
@@ -249,7 +250,7 @@ export function commitForge(model, mesh, { texturePath, trimColor = [0.8, 0.65, 
     if (i) model.GeosetAnims.push({ GeosetId: index, Flags: 2, Alpha: 1, Color: new Float32Array(trimColor) });
   }
   recalculateExtents(model, geosetIndices);
-  for (const i of geosetIndices) model.Geosets[i].Anims = (model.Sequences || []).map(() => ({ MinimumExtent: model.Geosets[i].MinimumExtent.slice(), MaximumExtent: model.Geosets[i].MaximumExtent.slice(), BoundsRadius: model.Geosets[i].BoundsRadius }));
+  for (const i of geosetIndices) fillSequenceExtents(model, model.Geosets[i]);
   if (model.Info) { model.Info.NumGeosets = model.Geosets.length; model.Info.NumGeosetAnims = model.GeosetAnims.length; model.Info.NumBones = model.Bones.length; }
   return { geosetIndices, boneId: bone.ObjectId, textureId, extraAssets };
 }

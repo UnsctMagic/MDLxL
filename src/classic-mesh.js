@@ -1,25 +1,7 @@
 /** MDLVis geometry commands. Invoke within EditorDocument.apply for undo. */
+import { geosetBounds } from './editor-document.js';
+import { checkedVertexSelection, gatherStreams } from './mesh-tools.js';
 const LIMIT = 65536;
-const STREAMS = [['Vertices', 3], ['Normals', 3], ['VertexGroup', 1], ['Tangents', 4], ['SkinWeights', 8]];
-
-function checkedSelection(g, indices) {
-  if (!g || !ArrayBuffer.isView(g.Vertices) || !g.Vertices.length || g.Vertices.length % 3) throw new Error('The geoset needs complete vertex coordinates.');
-  const count = g.Vertices.length / 3;
-  if (count > LIMIT) throw new Error('The geoset exceeds the 65536-vertex file-format limit.');
-  for (const [name, stride] of STREAMS) {
-    const data = g[name];
-    if (['Tangents', 'SkinWeights'].includes(name) && !data?.length) continue;
-    if (!ArrayBuffer.isView(data) || data.length !== count * stride || data.some((v) => !Number.isFinite(v))) throw new Error(`${name} does not match the vertices or contains invalid values.`);
-  }
-  if (!Array.isArray(g.TVertices) || g.TVertices.some((uv) => !ArrayBuffer.isView(uv) || uv.length !== count * 2 || uv.some((v) => !Number.isFinite(v)))) throw new Error('Texture coordinates do not match the vertices.');
-  if (!ArrayBuffer.isView(g.Faces) || g.Faces.length % 3 || g.Faces.some((v) => !Number.isInteger(v) || v < 0 || v >= count)) throw new Error('The geoset contains invalid triangles.');
-  if (!Array.isArray(g.Groups) || g.VertexGroup.some((v) => !Number.isInteger(v) || !g.Groups[v])) throw new Error('The geoset contains invalid vertex-group references.');
-  if (!indices || typeof indices[Symbol.iterator] !== 'function') throw new Error('Select vertices first.');
-  const selected = [...new Set(indices)];
-  if (!selected.length) throw new Error('Select vertices first.');
-  if (selected.some((i) => !Number.isInteger(i) || i < 0 || i >= count)) throw new Error('Vertex selection is out of range.');
-  return { count, selected };
-}
 
 function centerOf(g, selected, supplied) {
   const center = supplied === undefined ? [0, 0, 0] : Array.from(supplied);
@@ -28,34 +10,14 @@ function centerOf(g, selected, supplied) {
   return center;
 }
 
-function bounds(vertices) {
-  const minimum = new Float32Array([Infinity, Infinity, Infinity]), maximum = new Float32Array([-Infinity, -Infinity, -Infinity]);
-  for (let i = 0; i < vertices.length; i++) { minimum[i % 3] = Math.min(minimum[i % 3], vertices[i]); maximum[i % 3] = Math.max(maximum[i % 3], vertices[i]); }
-  const center = Array.from(minimum, (v, i) => (v + maximum[i]) / 2);
-  let radius = 0;
-  for (let i = 0; i < vertices.length; i += 3) radius = Math.max(radius, Math.hypot(vertices[i] - center[0], vertices[i + 1] - center[1], vertices[i + 2] - center[2]));
-  if (!Number.isFinite(Math.fround(radius))) throw new Error('The resulting mesh bounds exceed the file format’s coordinate range.');
-  return { MinimumExtent: minimum, MaximumExtent: maximum, BoundsRadius: radius };
-}
-
-function gather(g, indices) {
-  const take = (data, stride) => {
-    const out = new data.constructor(indices.length * stride);
-    for (let i = 0; i < indices.length; i++) out.set(data.subarray(indices[i] * stride, indices[i] * stride + stride), i * stride);
-    return out;
-  };
-  const result = { TVertices: g.TVertices.map((uv) => take(uv, 2)) };
-  for (const [name, stride] of STREAMS) if (g[name]?.length) result[name] = take(g[name], stride);
-  return result;
-}
 
 /** C: put selected positions at their arithmetic center without merging streams. */
 export function collapseVertices(geoset, indices, center) {
-  const { selected } = checkedSelection(geoset, indices);
+  const { selected } = checkedVertexSelection(geoset, indices);
   center = centerOf(geoset, selected, center);
   const vertices = geoset.Vertices.slice();
   for (const i of selected) vertices.set(center, i * 3);
-  const extents = bounds(vertices);
+  const extents = geosetBounds(vertices);
   geoset.Vertices = vertices; Object.assign(geoset, extents);
   return { selection: selected, center };
 }
@@ -66,7 +28,7 @@ export function collapseVertices(geoset, indices, center) {
  * common center. Keep this explicit behavior separate from tolerance welding.
  */
 export function weldSelectedVertices(geoset, indices, center) {
-  const { count, selected } = checkedSelection(geoset, indices);
+  const { count, selected } = checkedVertexSelection(geoset, indices);
   center = centerOf(geoset, selected, center);
   const retained = selected.at(-1), removed = new Set(selected.slice(0, -1));
   const kept = Array.from({ length: count }, (_, i) => i).filter((i) => !removed.has(i));
@@ -81,8 +43,8 @@ export function weldSelectedVertices(geoset, indices, center) {
     if (a !== b && b !== c && a !== c) faces.push(a, b, c);
   }
   if (geoset.Faces.length && !faces.length) throw new Error('This weld would remove every triangle. Delete the geoset instead.');
-  const streams = gather(geoset, kept); streams.Vertices.set(center, target * 3);
-  const extents = bounds(streams.Vertices), removedFaces = (geoset.Faces.length - faces.length) / 3;
+  const streams = gatherStreams(geoset, kept); streams.Vertices.set(center, target * 3);
+  const extents = geosetBounds(streams.Vertices), removedFaces = (geoset.Faces.length - faces.length) / 3;
   Object.assign(geoset, streams, extents, { Faces: new Uint16Array(faces) });
   return { selection: [target], merged: removed.size, removedFaces, retainedVertex: target };
 }
@@ -94,7 +56,7 @@ export function weldSelectedVertices(geoset, indices, center) {
  * can be seen and picked. Keep all resulting corners selected, as in MDLVis.
  */
 export function uncoupleVertices(geoset, indices) {
-  const { count, selected } = checkedSelection(geoset, indices);
+  const { count, selected } = checkedVertexSelection(geoset, indices);
   const chosen = new Set(selected), occurrences = new Uint32Array(count);
   let added = 0;
   for (const i of geoset.Faces) if (chosen.has(i) && occurrences[i]++ > 0) added++;
@@ -108,7 +70,7 @@ export function uncoupleVertices(geoset, indices) {
       const next = sources.length; sources.push(source); faces[i] = next; selection.push(next);
     }
   }
-  const streams = gather(geoset, sources);
+  const streams = gatherStreams(geoset, sources);
   // Same inward-corner operation as TransferTriangle, with a stable, bounded
   // inset instead of the legacy zoom formula that can collapse/extrapolate.
   // Read every neighbour from the pre-edit mesh to avoid order-dependent skew.
@@ -120,14 +82,14 @@ export function uncoupleVertices(geoset, indices) {
     for (let axis = 0; axis < 3; axis++) streams.Vertices[faces[offset + corner] * 3 + axis] =
       (1 - inset) * geoset.Vertices[source * 3 + axis] + inset / 2 * geoset.Vertices[left * 3 + axis] + inset / 2 * geoset.Vertices[right * 3 + axis];
   }
-  const extents = bounds(streams.Vertices);
+  const extents = geosetBounds(streams.Vertices);
   Object.assign(geoset, streams, extents, { Faces: faces });
   return { selection, added };
 }
 
 /** Delete complete selected triangles, retaining loose vertices and all streams. */
 export function deleteSelectedFaces(geoset, indices) {
-  const { selected } = checkedSelection(geoset, indices), chosen = new Set(selected), faces = [];
+  const { selected } = checkedVertexSelection(geoset, indices), chosen = new Set(selected), faces = [];
   for (let i = 0; i < geoset.Faces.length; i += 3) if (![0, 1, 2].every((a) => chosen.has(geoset.Faces[i + a]))) faces.push(geoset.Faces[i], geoset.Faces[i + 1], geoset.Faces[i + 2]);
   const removedFaces = (geoset.Faces.length - faces.length) / 3;
   if (removedFaces) geoset.Faces = new Uint16Array(faces);
@@ -136,7 +98,7 @@ export function deleteSelectedFaces(geoset, indices) {
 
 /** Bake the normalized average into selected normals; keep tangent orthogonality. */
 export function averageSelectedNormals(geoset, indices) {
-  const { selected } = checkedSelection(geoset, indices), normal = [0, 0, 0];
+  const { selected } = checkedVertexSelection(geoset, indices), normal = [0, 0, 0];
   for (const i of selected) for (let axis = 0; axis < 3; axis++) normal[axis] += geoset.Normals[i * 3 + axis] / selected.length;
   const length = Math.hypot(...normal);
   if (length < 1e-10) throw new Error('Selected normals cancel each other out. Select normals facing a common direction.');
