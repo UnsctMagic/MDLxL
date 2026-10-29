@@ -1,10 +1,12 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { safeWindowsName } = require('./windows-name.cjs');
 
 class BitsAndPartsLibrary {
   constructor(directory) { this.directory = path.resolve(directory); this.openedPaths = new Set(); }
   async save({ name, bytes }) {
-    if (typeof name !== 'string' || !name.trim() || name.length > 120 || /[<>:"/\\|?*\x00-\x1f]/.test(name) || /[. ]$/.test(name) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)) throw Error('Choose a valid Bit filename.');
+    if (typeof name !== 'string' || !name.trim() || name.length > 120) throw Error('Choose a valid Bit filename.');
+    safeWindowsName(name, { reject: 'Choose a valid Bit filename.' });
     const data = Buffer.from(bytes || []);
     if (!data.length || data.length > 128 * 1024 * 1024 || data.toString('ascii', 0, 4) !== 'MDLX') throw Error('Save a readable MDX Bit smaller than 128 MB.');
     await this.list();

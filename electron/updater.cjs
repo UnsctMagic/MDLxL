@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const run = promisify(execFile);
+const { isWindowsName } = require('./windows-name.cjs');
 const WEBSITE = 'https://www.lowpolyworks.com/mdlxl';
 const REPOSITORY = 'UnsctMagic/MDLxL';
 const USAGE = 'https://lowpolyworks-vault.lowpolyworks-internal-tracker.workers.dev/api/events';
@@ -56,7 +57,7 @@ function summaryLines(markdown) {
   return markdown.split(/\r?\n/).filter(line => /^\s*[-*]\s+/.test(line)).map(line => line.replace(/^\s*[-*]\s+/, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*`]/g, '').trim()).filter(Boolean);
 }
 function safeRelative(relative) {
-  return typeof relative === 'string' && relative.length > 0 && relative.split('/').every(part => part && part !== '.' && part !== '..' && !/[\\:\x00-\x1f<>"|?*]/.test(part) && !/[. ]$/.test(part) && !/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part)) && !PROTECTED.test(relative);
+  return typeof relative === 'string' && relative.length > 0 && relative.split('/').every(part => part !== '.' && part !== '..' && isWindowsName(part)) && !PROTECTED.test(relative);
 }
 function validateManifest(manifest, version) {
   if (manifest?.schema !== 1 || manifest.product !== 'mdlxl' || manifest.platform !== 'win32' || manifest.arch !== 'x64' || manifest.version !== version || !manifest.files || Array.isArray(manifest.files)) throw Error('The update package is invalid.');

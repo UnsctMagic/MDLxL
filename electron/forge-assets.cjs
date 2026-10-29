@@ -1,11 +1,12 @@
 const fs=require('node:fs/promises'),path=require('node:path');
+const {isWindowsName}=require('./windows-name.cjs');
 /** Generated assets and Bitz textures stay at their declared relative paths. */
 async function saveForgeAssets(modelPath,assets=[]){
  if(!Array.isArray(assets)||assets.length>2048)throw Error('Invalid Forge texture list.');
  const prepared=[];let total=0;
  for(const asset of assets){
   const name=String(asset?.name||'').replaceAll('\\','/');
-  const originalPart=asset?.source==='parts'&&/\.(blp|dds|tga|png|jpg|jpeg|webp)$/i.test(name)&&name.split('/').every(segment=>segment&&!/[<>:"|?*\x00-\x1f]/.test(segment)&&!/[. ]$/.test(segment)&&!/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(segment));
+  const originalPart=asset?.source==='parts'&&/\.(blp|dds|tga|png|jpg|jpeg|webp)$/i.test(name)&&name.split('/').every(isWindowsName);
   if(!originalPart&&!/^MDLxL_(?:Forge|Parts|Citadel)\/[a-z0-9][a-z0-9_.-]{0,200}\.(blp|dds|tga)$/i.test(name))throw Error('Imported textures need a supported filename at a relative texture path.');
   const bytes=Buffer.from(asset.bytes||[]);total+=bytes.length;
   if(!bytes.length||bytes.length>64*1024*1024||total>256*1024*1024)throw Error('Forge texture data exceeds the save limit.');

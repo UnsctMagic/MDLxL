@@ -41,6 +41,7 @@ const {modelPathsFromArguments,MODEL_EXTENSIONS,WARCRAFT_MODEL_EXTENSIONS}=requi
 const {Updater,externalURL}=require('./updater.cjs');
 const {FileTypeRegistration}=require('./file-types.cjs');
 const {writeFileAtomic,serialQueue}=require('./atomic-file.cjs');
+const {safeWindowsName}=require('./windows-name.cjs');
 let updater, startupUpdateChecked=false;
 let bitsAndPartsLibrary;
 function getBitsAndPartsLibrary() { return bitsAndPartsLibrary ||= new BitsAndPartsLibrary(path.join(appFolder, 'BitsAndParts')); }
@@ -89,7 +90,7 @@ ipcMain.handle('particles:import',async()=>{
 });
 ipcMain.handle('particles:export',async(_,id)=>{
  const data=await particleLibrary.exportData(id),{parseParticleData}=await import('../src/particle-data.js'),recipe=parseParticleData(data);
- const destination=await chooseSavePath({title:'Export particle preset',defaultPath:recipe.name.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_')+'.mdlxl-particle',extension:'mdlxl-particle',filterName:'MDLxL particle preset'});
+ const destination=await chooseSavePath({title:'Export particle preset',defaultPath:safeWindowsName(recipe.name,{fallback:'Particle preset'})+'.mdlxl-particle',extension:'mdlxl-particle',filterName:'MDLxL particle preset'});
  if(!destination)return null;await fs.writeFile(destination,data,'utf8');return {path:destination};
 });
 ipcMain.handle('particles:thumbnail',(_,data)=>particleLibrary.thumbnail(data));
