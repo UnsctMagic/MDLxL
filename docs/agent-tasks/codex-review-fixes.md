@@ -214,3 +214,10 @@ code and may be removed.
   ID used for the sending indicator. Updates do not steal another viewed chat.
   Background reference migration regression passed; delayed IPC/tab-switch
   composer regression pending in the packaged suite.
+- [declined] Item 15: retain the existing fitted-replacement contract. The
+  current note and flat/point regression explicitly preserve scale 1 on axes
+  with no measurable thickness. Borrowing another axis scale or choosing a
+  relative flatness threshold changes that approved fitting behavior; no
+  thickness rule was requested. Very small measurable axes still fit exactly
+  or reject atomically rather than inventing thickness. Existing replacement
+  tests passed; no fit implementation change.
