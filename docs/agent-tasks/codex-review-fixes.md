@@ -177,3 +177,6 @@ code and may be removed.
 
 - None. Start with item 1, then 2-6, then 7-14, then decide 15-18.
 - On completion: PR URL here, mark this note completed, remove its index row.
+
+- [x] Item 2: exclude the HD_VIEW_ONLY mode notice from structural findings;
+  retain actual parser/validator errors. Focused sanity tests: 8 passed.
