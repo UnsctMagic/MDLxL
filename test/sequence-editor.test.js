@@ -77,6 +77,25 @@ test('Create leaves a one-second blank gap and keeps geoset sequence extents ali
   assert.equal(createGlobalSequence(model), 0); assert.equal(model.GlobalSequences[0], 1000);
 });
 
+test('Create options: name, gap, template, non-looping and which geosets get extents', () => {
+  // The resource manager's Add sequence: a Stand 100 frames after the last one,
+  // with one extent per geoset like every other path (B12).
+  const model = { Info: extent(), Sequences: [{ Name: 'Stand', Interval: new Uint32Array([0, 1000]) }], Geosets: [geoset(), { ...extent(), Anims: [] }] };
+  assert.equal(createSequence(model, 1000, { name: 'Stand', gap: 100 }), 1);
+  assert.deepEqual(model.Sequences[1], { Name: 'Stand', Interval: new Uint32Array([1100, 2100]), NonLooping: false, MoveSpeed: 0, Rarity: 0, ...extent() });
+  assert.deepEqual(model.Geosets.map(g => g.Anims.length), [3, 1]);
+  const template = { Name: 'Death', Interval: new Uint32Array([5, 6]), SyncPoint: 7, MoveSpeed: 9, Rarity: 2, MinimumExtent: new Float32Array(3), MaximumExtent: new Float32Array(3), BoundsRadius: 1 };
+  createSequence(model, 500, { template, nonLooping: true, extents: 'ifPresent' });
+  assert.deepEqual(model.Sequences[2], { ...template, Name: 'New Sequence 3', Interval: new Uint32Array([3100, 3600]), NonLooping: true, MoveSpeed: 0, Rarity: 0 });
+  assert.notEqual(model.Sequences[2].MinimumExtent, template.MinimumExtent);
+  assert.deepEqual(model.Geosets.map(g => g.Anims.length), [4, 2]);
+  const bare = { Info: extent(), Geosets: [{ ...extent() }] };
+  createSequence(bare, 10, { gap: 100, extents: 'ifPresent' });
+  assert.deepEqual(Array.from(bare.Sequences[0].Interval), [0, 10]);
+  assert.equal(bare.Geosets[0].Anims, undefined);
+  assert.throws(() => createSequence(bare, 10, { extents: 'never' }), /extent option/);
+});
+
 test('Delete removes every local key and event inside the sequence, then realigns extents', () => {
   const model = {
     Info: extent(), Geosets: [geoset()],

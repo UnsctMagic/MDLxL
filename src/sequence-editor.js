@@ -70,26 +70,35 @@ export function fillSequenceExtents(model, geoset, { onlyIfPresent = false } = {
   return geoset.Anims = (model.Sequences || []).map(() => ({ MinimumExtent: geoset.MinimumExtent.slice(), MaximumExtent: geoset.MaximumExtent.slice(), BoundsRadius: geoset.BoundsRadius }));
 }
 
-export function createSequence(model, duration = 1000) {
+/** Append a sequence `gap` frames after the last one. Without a name it is
+ * "New Sequence N". A template's fields are copied, otherwise the extents come
+ * from the model. extents 'always' adds one per-sequence extent to every
+ * geoset; 'ifPresent' only to geosets that already have them. */
+export function createSequence(model, duration = 1000, { name, gap = 1000, template, nonLooping = false, extents = 'always' } = {}) {
   duration = wholeFrame(Number(duration), 'Sequence length');
   if (duration < 1) throw new Error('Sequence length must be at least 1 ms.');
+  if (!['always', 'ifPresent'].includes(extents)) throw new Error('Unknown sequence extent option.');
   model.Sequences ||= [];
-  const previousEnd = model.Sequences.length ? Math.max(...model.Sequences.map(sequence => Number(sequence.Interval?.[1]) || 0)) : -1000;
-  const start = previousEnd + 1000, end = start + duration;
+  const previousEnd = model.Sequences.length ? Math.max(...model.Sequences.map(sequence => Number(sequence.Interval?.[1]) || 0)) : -gap;
+  const start = previousEnd + gap, end = start + duration;
   if (end > MAX_FRAME) throw new Error('There is not enough frame space to create another sequence.');
-  const taken = new Set(model.Sequences.map(sequence => sequence.Name));
-  let number = model.Sequences.length + 1, name = `New Sequence ${number}`;
-  while (taken.has(name)) name = `New Sequence ${++number}`;
+  if (name == null) {
+    const taken = new Set(model.Sequences.map(sequence => sequence.Name));
+    let number = model.Sequences.length + 1;
+    name = `New Sequence ${number}`;
+    while (taken.has(name)) name = `New Sequence ${++number}`;
+  }
   const sequence = {
+    ...(template ? structuredClone(template) : {}),
     Name: name,
     Interval: new Uint32Array([start, end]),
-    NonLooping: false,
+    NonLooping: nonLooping,
     MoveSpeed: 0,
     Rarity: 0,
-    ...extentCopy(model.Info),
+    ...(template ? {} : extentCopy(model.Info)),
   };
   const index = model.Sequences.push(sequence) - 1;
-  for (const geoset of model.Geosets || []) (geoset.Anims ||= []).push(extentCopy(geoset));
+  for (const geoset of model.Geosets || []) if (extents === 'always' || geoset.Anims?.length) (geoset.Anims ||= []).push(extentCopy(geoset));
   return index;
 }
 
