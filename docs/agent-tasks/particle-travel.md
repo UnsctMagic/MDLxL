@@ -1,6 +1,6 @@
 # Forward-travel particle previews
 
-Status: ready for review; awaiting merge approval
+Status: implementation complete; owner authorized merge of [PR #377](https://github.com/UnsctMagic/MDLxL/pull/377)
 Owner: Codex
 Updated: 2026-10-29
 
@@ -45,7 +45,7 @@ change, installed-app update, or release is included.
   timing assertion failed under concurrent packaging load. Its 26-test file
   passed in isolation. Final bounded-concurrency source run: 2120 passed,
   22 skipped, zero failures.
-- Hoofprint follow-up: build plus 14 focused event/particle tests passed.
+- Final hoofprint lifetime correction: build plus 45 focused event/particle/Showcase tests passed.
   `footprint-travel.electron.cjs` verified all four real Chaos Knight hoofprint
   GPU transforms against their contact positions and authored speed, repeated
   paused draws, unchanged model data, normal Alt-drag rotation and no page errors.

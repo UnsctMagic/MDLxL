@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('desktop', {
   aiSend:value=>ipcRenderer.invoke('ai:send',value),
   aiCancel:id=>ipcRenderer.invoke('ai:cancel',id),
   aiSteer:value=>ipcRenderer.invoke('ai:steer',value),
+  aiAnswerQuestion:value=>ipcRenderer.invoke('ai:answerQuestion',value),
+  aiQuestionLink:value=>ipcRenderer.invoke('ai:questionLink',value),
   aiOrganiser:value=>ipcRenderer.invoke('ai:organiser',value),
   aiNewOrganiser:value=>ipcRenderer.invoke('ai:newOrganiser',value),
   aiRekey:value=>ipcRenderer.invoke('ai:rekey',value),
