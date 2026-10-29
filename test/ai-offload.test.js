@@ -847,3 +847,20 @@ test('resuming an interrupted bird preserves its job title rather than its plan 
  assert.equal(org.workers[0].job,'Shoulder inspection');
  assert.equal(org.workers.length,1);
 });
+
+
+test('region routing rejects the same bird named by both name and id before dispatch',async t=>{
+ let existing;
+ const f=await setup(t,{organiser:()=>assert.fail('no recap'),worker:data=>{
+   if(!data.messages[0].content.startsWith('Route one message')) return say('Initial inspection complete.');
+   return say(JSON.stringify({jobs:[{job:'First region',worker:existing.name,readOnly:true},{job:'Second region',worker:existing.id.toUpperCase(),readOnly:true}]}));
+ }});
+ const {id}=await f.service.organiser({modelKey});
+ assert.equal((await f.service.send({id,text:'Inspect the model',route:'new',context})).ok,true);
+ existing=(await f.service.readConversation(id)).workers[0];
+ const before=f.requests.length, result=await f.service.send({id,text:'Inspect two regions',route:'auto',context});
+ assert.equal(result.ok,false); assert.match(result.error,/different bird/);
+ assert.equal(f.requests.length-before,2,'only the router and its correction ran');
+ assert.equal((await f.service.readConversation(id)).workers.length,1);
+ assert.equal(f.service.workerLocks.size,0);assert.equal(f.service.tasks.size,0);
+});

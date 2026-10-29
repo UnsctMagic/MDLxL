@@ -202,3 +202,6 @@ code and may be removed.
 - [x] Item 10: Resume restarts working, failed or cancelled read-only helpers;
   completed reports remain reusable. Extended Stop/Resume regression proves
   a second investigation runs, delivers its report, and closes both targets.
+- [x] Item 11: region routing rejects duplicate destinations after resolving
+  names/IDs to canonical birds, before region dispatch. Existing correction
+  retry remains. Name plus uppercase-ID duplicate regression passed.

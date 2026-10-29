@@ -647,6 +647,8 @@ class AiService {
           const args = JSON.parse(reply.trim().replace(/^\x60\x60\x60(?:json)?\s*|\s*\x60\x60\x60$/g, ''));
           if (Array.isArray(args?.jobs) && args.jobs.length) {
             const jobs = args.jobs.map(jobOf);
+            const assigned = jobs.filter(j => j.worker).map(j => j.worker);
+            if (new Set(assigned).size !== assigned.length) throw Error('Each region job must use a different bird. Use an empty worker to create a new bird.');
             jobs.forEach((j, i) => {
               if (j.dependsOn !== undefined && (!Array.isArray(j.dependsOn) || j.dependsOn.some(n => !Number.isInteger(n) || n < 0 || n >= i))) throw Error('dependsOn must list earlier job indices.');
               if (j.readOnly && j.helper) throw Error('Read-only jobs cannot delegate helpers.');
