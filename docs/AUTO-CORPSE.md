@@ -28,8 +28,12 @@ race letter + B + S/L + shape 0–3: H red, O dark red, U undead, E night elf,
 D green demon) and one spray model (an `SPN` event from
 `Splats\SpawnData.slk`; blood sprays have B as their second letter and
 spawn particle-only models). The list starts with the Death animation's own
-blood. **Blood** recolours every splat; each splat has Size and Shape, each
-spray a choice of the game's sprays that have a model; every row has a Time
+blood. Every splat and spray has its own **Kind** (human red, orc, undead,
+night elf, demon green; sprays also other creatures, whose spray codes start
+with another letter; night elf sprays start with N). A splat's kind is its
+colour; a spray's kind narrows its list to that kind's sprays and starts
+with that kind's plain small spray. New blood takes the kind picked last.
+Each splat also has Size and Shape; every row has a Time
 (**Now** takes the preview's time) and a position dragged with the move
 handle. Only blood keys inside the first Death animation are replaced; keys
 in other animations and all non-blood events stay. Community blood models

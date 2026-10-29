@@ -8,6 +8,9 @@ export const BLOOD_RACES = Object.freeze({ H: 'Human (red)', O: 'Orc (dark red)'
 export const splatCode = (race, size, variant) => `${race}B${size}${variant}`;
 export const parseSplat = id => /^([HOUED])B([SL])([0-3])$/.exec(id || '') && { race: id[0], size: id[2], variant: Number(id[3]) };
 // Blood sprays in SpawnData use B as their second letter (HBF0, OBG0, UBGH, NBAR, DBPT).
+// Their first letter is the kind; night elf sprays use N where splats use E.
+export const sprayKind = id => ({ H: 'H', O: 'O', U: 'U', N: 'E', D: 'D' })[id?.[0]] || 'X';
+export const BLOOD_KINDS = Object.freeze({ ...BLOOD_RACES, X: 'Other (creatures)' });
 export const isBloodSpray = id => /^[A-Z]B[A-Z0-9]{2}$/.test(id || '');
 const isBlood = event => {
   const type = event.Name?.slice(0, 3), id = event.Name?.slice(4, 8);
