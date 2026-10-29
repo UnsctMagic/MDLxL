@@ -725,14 +725,6 @@ function AiAssistant({ bridge, visUI }) {
     pinned.current = true;
     try {
       await saveSettings();
-      if (native) {
-        const auth = await window.desktop.aiAuth('status');
-        setSignedIn(auth.loggedIn);
-        if (!auth.loggedIn) {
-          setSettingsOpen(true);
-          return;
-        }
-      }
       if (org && !viewWorker) {
         const fresh = await window.desktop.aiOrganiser({ modelKey: org.modelKey, name: summary.name });
         if (fresh.id !== sending) {
@@ -776,6 +768,8 @@ function AiAssistant({ bridge, visUI }) {
         lightChoice,
         route: jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue'),
       });
+      // Main checks the account once per session; a reply means it is signed in.
+      if (native && result.ok) setSignedIn(true);
       if (result.modelChoiceRequired) {
         updateSendingDraft({ modelQuestion: result.message, prompt: text, images: attached, jobRoute });
         const transcript = await window.desktop.aiTranscript(sending);

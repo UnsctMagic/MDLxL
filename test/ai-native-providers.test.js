@@ -326,3 +326,31 @@ test('Codex model lists come from its app server through providerModels and are 
   const requests = (await fs.readFile(path.join(service.directory, 'fixture-calls.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line).method);
   assert.deepEqual(requests, ['initialize', 'model/list']);
 });
+
+test('native sign-in is checked once per session; signing in or out and a signed-out turn check again', async t => {
+  const config = await executable(t);
+  const service = new AiService({ root: path.resolve('.'), profile: config.directory, electron: { shell: { openExternal: async () => {} } }, getWindow: () => null });
+  t.after(() => service.close());
+  await service.configure({ provider: 'codex', executable: config.executable });
+  const checks = [],
+    auth = service.auth.bind(service);
+  service.auth = action => (checks.push(action), auth(action));
+  service.runTask = async () => {};
+  const send = n => service.send({ id: 'cache-' + n, text: 'Make it red', context: { target: 'selected' } });
+  assert.equal((await send(1)).ok, true);
+  assert.equal((await send(2)).ok, true);
+  assert.deepEqual(checks, ['status']);
+  await service.auth('logout');
+  assert.equal((await send(3)).ok, true);
+  assert.deepEqual(checks, ['status', 'logout', 'status']);
+  // The provider found the account signed out during a turn: the next send checks.
+  service.runTask = async () => {
+    throw Object.assign(Error('Sign in again.'), { code: 'AI_AUTH_REQUIRED' });
+  };
+  assert.equal((await send(4)).authRequired, true);
+  assert.deepEqual(checks, ['status', 'logout', 'status']);
+  await fs.writeFile(path.join(service.directory, 'signed-out'), '');
+  service.runTask = async () => {};
+  assert.equal((await send(5)).authRequired, true);
+  assert.deepEqual(checks, ['status', 'logout', 'status', 'status']);
+});

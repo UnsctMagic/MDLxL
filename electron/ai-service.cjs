@@ -51,6 +51,10 @@ const CHAT_FILE = new RegExp('^chat-(' + CHAT_ID_PATTERN + ')\\.json(\\.tmp)?$')
 function catalogKey(settings) {
   return settings.provider + ':' + (settings.baseUrl || '');
 }
+// A native connection's account, per provider and CLI.
+function accountKey(settings) {
+  return settings.provider + ':' + (settings.executable || '');
+}
 // The editing instructions, with the handbook and web research when they are on.
 // A worker bird gets its own note in place of the opening line.
 function editingPrompt(contract, { handbook, web, worker }) {
@@ -107,6 +111,8 @@ class AiService {
     this.registry = new OrganiserRegistry(this.directory);
     this.workerLocks = new Map();
     this.random = Math.random;
+    // Native accounts found signed in this session; sending checks only the others.
+    this.signedIn = new Set();
   }
   // The tool contract and prompts, and the transcript rules the console shares.
   async init() {
@@ -465,8 +471,9 @@ class AiService {
       contract = await this.init(),
       controller = new AbortController();
     // Account discovery/model lists can work while signed out. Check the actual
-    // account before recording a turn or letting a provider make a model request.
-    if (providerInfo(settings.provider)?.native) {
+    // account before recording a turn or letting a provider make a model request,
+    // once per session: a signed-out turn or signing in or out checks again.
+    if (providerInfo(settings.provider)?.native && !this.signedIn.has(accountKey(settings))) {
       const auth = await this.auth('status');
       if (!auth.loggedIn) {
         const error = authenticationRequired();
@@ -537,6 +544,7 @@ class AiService {
         return { ok: false, cancelled: true };
       }
       const authRequired = error.code === 'AI_AUTH_REQUIRED';
+      if (authRequired) this.signedIn.delete(accountKey(settings));
       recorder.event({ type: 'error', text: error.message, authRequired });
       return { ok: false, error: error.message, authRequired };
     } finally {
@@ -1900,20 +1908,26 @@ class AiService {
   async auth(action) {
     if (!['login', 'logout', 'status'].includes(action)) throw Error('Unknown sign-in action.');
     // Checking the account only reads it, so it runs beside jobs on other models (the
-    // console checks before every send); signing in or out waits for every job.
+    // first send of a session checks it); signing in or out waits for every job.
     const exclusive = action !== 'status';
     if (exclusive && this.busy()) throw Error('Stop the current AI request before signing in or out.');
     const settings = await this.settings();
     if (!providerInfo(settings.provider)?.native) throw Error('This provider uses an API key.');
-    const controller = new AbortController();
-    if (exclusive) this.active = { controller, auth: true };
+    const controller = new AbortController(),
+      key = accountKey(settings);
+    if (exclusive) {
+      this.active = { controller, auth: true };
+      this.signedIn.clear();
+    }
     try {
-      return await providerAuth(settings, action, {
+      const result = await providerAuth(settings, action, {
         directory: this.directory,
         signal: controller.signal,
         openExternal: url => this.electron.shell.openExternal(url),
         notify: text => this.emit({ type: 'auth', text }),
       });
+      if (action === 'status') result.loggedIn ? this.signedIn.add(key) : this.signedIn.delete(key);
+      return result;
     } finally {
       if (exclusive) this.active = null;
     }
