@@ -9,6 +9,7 @@ import { flushSync } from 'react-dom';
 import { SHOWCASE_PRESETS, builtinSetup, listShowcasePresets, saveShowcasePreset, snapshotShowcase, hydrateShowcase } from './showcase-presets.js';
 import { ShowcaseHistory } from './showcase-history.js';
 import { chordFromEvent } from '../src/preferences.js';
+import { readStored, writeStored } from '../src/local-store.js';
 import { moveDragPoint } from './classic-gestures.js';
 import { loopEffectTiming, timeShowcasePlaylist, showcaseEmitters } from './showcase-effects.js';
 import { remapShowcasePlaylist, remapShowcaseTake, snapshotShowcaseModel, hydrateShowcaseModel } from './showcase-model.js';
@@ -30,10 +31,7 @@ const GIF_LEVEL_HINTS = {
 };
 const SAVED_COLORS_KEY = 'mdlxl-showcase-saved-colors-v1';
 function readSavedColors() {
-  try {
-    const values = JSON.parse(localStorage.getItem(SAVED_COLORS_KEY) || '[]');
-    return Array.isArray(values) ? values.slice(0, 3).map(value => /^#[0-9a-f]{6}$/i.test(value) ? value : null) : [];
-  } catch { return []; }
+  return readStored(SAVED_COLORS_KEY, [], values => Array.isArray(values) ? values.slice(0, 3).map(value => /^#[0-9a-f]{6}$/i.test(value) ? value : null) : []);
 }
 const isPortrait = sequence => /portrait/i.test(String(sequence?.Name || ''));
 const CLEAN = Object.fromEntries(['bones','nodes','attachments','particles','boneLines','wires','vertices','grid','axes','normals','cameras'].map(key => [key, false]));
@@ -166,7 +164,7 @@ export default function ShowcaseWorkspace({ model: inputModel, modelName: inputM
     const next=[...savedColors]; if (next[index]) setColor(next[index]); else { next[index]=color; setSavedColors(next); }
   }
   function clearColor(index) { const next=[...savedColors]; next[index]=null; setSavedColors(next); }
-  useEffect(()=>{ try { localStorage.setItem(SAVED_COLORS_KEY,JSON.stringify(savedColors.slice(0,3))); } catch { /* Browser storage can be unavailable. */ } },[savedColors]);
+  useEffect(()=>{ writeStored(SAVED_COLORS_KEY,savedColors.slice(0,3)); },[savedColors]);
   function colorPicker() { return <div className="showcase-colors" role="group" aria-label="Colors">{SHOWCASE_COLORS.map(([name,value])=><button key={name} type="button" aria-label={name} aria-pressed={color===value} title={name} style={{backgroundColor:value}} onClick={()=>setColor(value)}/>)}
     {[0,1,2].map(index=><button key={index} className={savedColors[index]?'saved':'empty'} type="button" aria-label={savedColors[index]?`Saved color ${index+1}: ${savedColors[index]}`:`Save color ${index+1}`} title={savedColors[index]?'Click to use; right-click to clear':'Click to save current color'} style={{backgroundColor:savedColors[index]||undefined}} onClick={()=>saveColor(index)} onContextMenu={event=>{event.preventDefault();clearColor(index);}}>{savedColors[index]?'':'+'}</button>)}
     <input aria-label="Background color" type="color" value={color} onChange={event=>setColor(event.target.value)}/></div>; }

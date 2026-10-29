@@ -1,6 +1,7 @@
 import MaterialProperties from './MaterialProperties.jsx';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import UVEditor from './UVEditor.jsx';
+import useStoredState from './useStoredState.js';
 import MeshDensitySlider from './MeshDensitySlider.jsx';
 import { selectedDensityTriangles } from '../src/mesh-density.js';
 import { combineSelectedUVGeosets, projectUVFromView, relevantUVMaterials, splitSelectedUVGeosets } from '../src/uv-tools.js';
@@ -27,14 +28,6 @@ const ANGLED_PROJECTIONS = [
   ['bottom-front-right','Bottom Front Right'],['bottom-front-left','Bottom Front Left'],['bottom-back-right','Bottom Back Right'],['bottom-back-left','Bottom Back Left'],
 ];
 const gridSpacingLabel = value => value < 0.01 ? value.toFixed(4) : value < 1 ? value.toFixed(3) : value.toFixed(2);
-
-function storedLayout(key, fallback, normalize) {
-  try { return normalize(localStorage.getItem(key) ?? fallback); } catch { return fallback; }
-}
-
-function rememberLayout(key, value) {
-  try { localStorage.setItem(key, String(value)); } catch { /* A locked-down browser can keep the in-session layout. */ }
-}
 
 const UV_ICONS = { select: MousePointer2, move: Hand, rotate: RotateCw, scale: Maximize2, mirrorX: FlipHorizontal2, mirrorY: FlipVertical2, uncouple: Unlink2, fold: FoldHorizontal };
 function Tool({ action, icon, label, active, disabled, onClick }) {
@@ -93,8 +86,8 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
   const [projectionPreset, setProjectionPreset] = useState({ name: 'front', revision: 0, fit: true });
   const [scrollSensitivity, setScrollSensitivity] = useState(1.3);
   const [materialPreview, setMaterialPreview] = useState(null), [materialError, setMaterialError] = useState('');
-  const [sidePercent, setSidePercent] = useState(() => storedLayout(LAYOUT_KEYS.side, UV_SIDE_DEFAULT, clampUVSidePercent));
-  const [previewPercent, setPreviewPercent] = useState(() => storedLayout(LAYOUT_KEYS.preview, UV_PREVIEW_DEFAULT, clampUVPreviewPercent));
+  const [sidePercent, setSidePercent] = useStoredState(LAYOUT_KEYS.side, UV_SIDE_DEFAULT, clampUVSidePercent);
+  const [previewPercent, setPreviewPercent] = useStoredState(LAYOUT_KEYS.preview, UV_PREVIEW_DEFAULT, clampUVPreviewPercent);
   const [rightHeaderHeight, setRightHeaderHeight] = useState(69);
   const [leftHeaderHeight, setLeftHeaderHeight] = useState(38);
   const [densityOpen, setDensityOpen] = useState(false), [densityValue, setDensityValue] = useState(0), [densityResult, setDensityResult] = useState(null);
@@ -135,8 +128,6 @@ export default function UVWorkspace({ model: sourceModel, materialModel: supplie
     if (materialID !== current.materialID) setMaterialID(current.materialID);
   }, [current?.materialID, materialID]);
 
-  useEffect(() => { rememberLayout(LAYOUT_KEYS.side, sidePercent); }, [sidePercent]);
-  useEffect(() => { rememberLayout(LAYOUT_KEYS.preview, previewPercent); }, [previewPercent]);
   useEffect(() => {
     const element = header.current, ownerWindow = element?.ownerDocument.defaultView;
     if (!element || !ownerWindow?.ResizeObserver) return;

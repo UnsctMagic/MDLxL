@@ -58,6 +58,7 @@ import { installTextureLibraryDecoder } from './asset-preload-client.js';
 import { flushRecordingQueue } from './preview-recording-queue.js';
 import { HotkeysProvider } from './Hotkeys.jsx';
 import { APPLICATION_THEMES, normalizePreferences, SOFTWARE_RENDERING_GRAPHICS } from '../src/preferences.js';
+import { readStoredText, writeStoredText } from '../src/local-store.js';
 import { lightDarkChange } from '../src/light-dark-switch.js';
 import { COMMANDS } from '../src/commands.js';
 import { SelectionHistory } from '../src/selection-history.js';
@@ -262,7 +263,7 @@ export default function App() {
   };
   const closeUVWindow = () => { document.activeElement?.blur?.(); setUVWindow(null); setUVFocused(false); setLiveUV(null); if (dialog?.host === 'uv') setDialog(null); };
   const [rgbPreview, setRGBPreview] = useState(false), [rgbSequence, setRGBSequence] = useState(-1);
-  const [background, setBackground] = useState(() => localStorage.getItem('mdlvis-preview-background') || '');
+  const [background, setBackground] = useState(() => readStoredText('mdlvis-preview-background', ''));
   const [xlCleanViews, setXLCleanViews] = useState({}), [visCleanViews, setVISCleanViews] = useState({});
   const [xlOverlayModes, setXLOverlayModes] = useState(()=>storedEditorDisplay()), [visOverlayModes, setVISOverlayModes] = useState(()=>storedEditorDisplay(true));
   useEffect(() => saveEditorDisplay(xlOverlayModes, visOverlayModes), [xlOverlayModes, visOverlayModes]);
@@ -386,7 +387,7 @@ export default function App() {
   const refresh = () => setTick(value => value + 1);
   // Each error gets a new alert number so the status bar flashes again even when the same error repeats.
   const say = (message, error = false) => { setStatus((error ? 'Error: ' : '') + message); setStatusAlert(count => error ? count + 1 : 0); };
-  const selectBackground = value => { setBackground(value); localStorage.setItem('mdlvis-preview-background', value); };
+  const selectBackground = value => { setBackground(value); writeStoredText('mdlvis-preview-background', value); };
   // Backgrounds belong to Showcase only; the editors always show the plain view.
   const backgroundLibrary = usePreviewBackgrounds(mode === 'showcase', background, selectBackground, say);
   const {validSelection,selectionCount,centroid,totalVertices,totalFaces,selectedFaces} = useMemo(() => {

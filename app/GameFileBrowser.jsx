@@ -3,6 +3,7 @@ import {Box,ChevronDown,ChevronRight,File,FileText,Film,Folder,FolderOpen,Image,
 import {openDocument,deleteGeoset} from '../src/editor-document.js';
 import {separateGeosetsByLoosePart,nuclearSeparateGeosets} from '../src/geoset-operations.js';
 import {collectPart} from '../src/bits-and-parts.js';
+import {readStoredText,writeStoredText} from '../src/local-store.js';
 import LibraryGeosets from './LibraryGeosets.jsx';
 import {builtinTextureAssets} from '../src/builtin-textures.js';
 import {decodeTextureThumbnail} from '../src/texture-thumbnail.js';
@@ -21,8 +22,8 @@ const FOLDER_ICONS={Human:'ReplaceableTextures\\CommandButtons\\BTNFootman.blp',
 const ROW=24;
 const normalize=value=>String(value||'').replaceAll('/','\\').toLowerCase();
 const fileSize=bytes=>bytes>=1048576?(bytes/1048576).toFixed(1)+' MB':bytes>=1024?Math.round(bytes/1024)+' KB':bytes+' B';
-function remembered(key,fallback,allowed){try{const value=localStorage.getItem(key);return allowed.includes(value)?value:fallback;}catch{return fallback;}}
-function remember(key,value){try{localStorage.setItem(key,value);}catch{}}
+const remembered=(key,fallback,allowed)=>readStoredText(key,fallback,value=>allowed.includes(value)?value:fallback);
+const remember=writeStoredText;
 
 /** One installed model with its own module's textures; the preview never edits it. */
 async function loadGameModel(entry,signature){
