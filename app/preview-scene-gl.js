@@ -1,15 +1,12 @@
 import { Color, Matrix4, Vector4 } from 'three';
 import { gridSegments } from './viewport-grid.js';
 import { platformGeometry, previewPlatformOptions } from './preview-platform.js';
+import { createGLProgram, uploadTexture } from './gl-utils.js';
 
 /** Grid is an editor background aid drawn before opaque model surfaces.
  * The display platform is ordinary depth-tested presentation geometry. */
 export function createPreviewSceneGL(gl, invalidate = () => {}) {
-  const compile = (type, source) => { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader)); return shader; };
-  const vs = compile(gl.VERTEX_SHADER, '#version 300 es\nin vec3 position; in vec4 color; in vec2 uv; uniform mat4 transform; uniform bool clipSpace; out vec4 tint; out vec2 coord; void main(){gl_Position=clipSpace?vec4(position,1.):transform*vec4(position,1.);tint=color;coord=uv;}');
-  const fs = compile(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float; in vec4 tint; in vec2 coord; uniform sampler2D picture; uniform bool textured; out vec4 result; void main(){result=tint*(textured?texture(picture,coord):vec4(1.));}');
-  const program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+  const program = createGLProgram(gl, '#version 300 es\nin vec3 position; in vec4 color; in vec2 uv; uniform mat4 transform; uniform bool clipSpace; out vec4 tint; out vec2 coord; void main(){gl_Position=clipSpace?vec4(position,1.):transform*vec4(position,1.);tint=color;coord=uv;}', '#version 300 es\nprecision highp float; in vec4 tint; in vec2 coord; uniform sampler2D picture; uniform bool textured; out vec4 result; void main(){result=tint*(textured?texture(picture,coord):vec4(1.));}');
   const buffer = gl.createBuffer(), vao = gl.createVertexArray(), texture = gl.createTexture();
   const matrix = gl.getUniformLocation(program, 'transform'), textured = gl.getUniformLocation(program, 'textured'), clipSpace = gl.getUniformLocation(program, 'clipSpace');
   gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -18,12 +15,7 @@ export function createPreviewSceneGL(gl, invalidate = () => {}) {
   let url = '', ready = false, image = null, generation = 0;
   const upload = () => {
     if (!image) return;
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texture);
-    const flip = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flip);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    uploadTexture(gl, texture, image);
     image = null; ready = true;
   };
   return {
@@ -58,7 +50,7 @@ export function createPreviewSceneGL(gl, invalidate = () => {}) {
       }
       gl.depthMask(true); gl.bindVertexArray(null);
     },
-    dispose() { generation++; gl.deleteTexture(texture); gl.deleteBuffer(buffer); gl.deleteVertexArray(vao); gl.deleteProgram(program); gl.deleteShader(vs); gl.deleteShader(fs); },
+    dispose() { generation++; gl.deleteTexture(texture); gl.deleteBuffer(buffer); gl.deleteVertexArray(vao); gl.deleteProgram(program); },
   };
 }
 
