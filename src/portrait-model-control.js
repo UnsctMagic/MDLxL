@@ -1,4 +1,5 @@
-import { Euler, Quaternion, Vector3 } from 'three';
+import { Quaternion, Vector3 } from 'three';
+import { degreesToQuaternion } from './rotation-math.js';
 import { allNodes, sampleNodeMatrices } from './animation.js';
 import { applyMovementTransform, movementRestricted, sampleMovement } from './movement.js';
 import { portraitSequenceIndices } from './sequence-editor.js';
@@ -116,7 +117,7 @@ export function applyPortraitModelTransform(model, roots, time, sequenceIndex, c
   applyMovementTransform(model, selection, time, sequenceIndex, { ...change, mode, space: 'world', rotateOnOwnAxis: false });
   if (mode === 'rotate') {
     const values = change.values ? Array.from(change.values) : ['X', 'Y', 'Z'].map(axis => axis === String(change.axis).toUpperCase() ? Number(change.amount) : 0);
-    const delta = new Quaternion().setFromEuler(new Euler(...values.map(value => value * Math.PI / 180), 'XYZ'));
+    const delta = degreesToQuaternion(values);
     for (const id of selection) {
       const node = nodes.get(id), origin = new Vector3().fromArray(node.PivotPoint || model.PivotPoints?.[id] || [0, 0, 0]).applyMatrix4(before.get(id));
       const target = origin.clone().sub(pivot).applyQuaternion(delta).add(pivot);

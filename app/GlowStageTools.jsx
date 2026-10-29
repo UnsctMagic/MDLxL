@@ -1,3 +1,4 @@
+import { clamp } from '../src/math.js';
 import React,{useRef} from 'react';
 import {particleAxisMapping} from '../src/particle-handles.js';
 import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js';
@@ -5,7 +6,6 @@ import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js'
 // ParticleStageTools: Move like an emitter, the ground glow's edge like the
 // spawn width, the weapon glow's two ends like a ribbon's edges, and its corners
 // like a particle's size corners. Escape cancels a drag; arrow keys nudge.
-const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
 // onDrag(true/false) brackets a drag so the preview can hold the animation still.
 export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
   const drag=useRef(null),marks=snapshot?.marks;

@@ -24,6 +24,9 @@
  *   return b.commit(model, { name: 'MordorChalice' });
  */
 import { commitForge, encodeForgeTga } from './forge.js';
+import { cross } from './forge-geometry.js';
+import * as vec from './vec.js';
+import { lerp } from './math.js';
 
 export const SD_MATERIALS = Object.freeze({
   iron: { dark: '#16171b', mid: '#4b4e55', light: '#8f939b', edge: '#dfe3ea' , metal: true },
@@ -52,16 +55,17 @@ export const SD_MATERIALS = Object.freeze({
 export const SD_PATTERNS = ['none', 'grain', 'rivets', 'runes', 'engraved', 'scratches', 'wrap', 'slitEye', 'gem', 'flames'];
 
 const V = {
-  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
-  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
-  mul: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
-  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
-  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
-  len: a => Math.hypot(a[0], a[1], a[2]),
+  add: vec.add,
+  sub: vec.sub,
+  mul: vec.scale,
+  dot: vec.dot,
+  cross: vec.cross,
+  len: vec.length,
+  // Divides rather than multiplying by the reciprocal, so the last bits stay as they were.
   norm: a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
 };
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
-const mix = (a, b, t) => a + (b - a) * t;
+const mix = lerp;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const rgb = hex => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex)); if (!m) throw Error(`Use #rrggbb colours, not ${hex}.`); const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const finiteVector = (v, name) => { if (!Array.isArray(v) || v.length !== 3 || v.some(n => !Number.isFinite(n))) throw Error(`${name} must be three numbers.`); return v; };
@@ -109,7 +113,6 @@ function towards(d) {
 function signedArea(loop) { let s = 0; for (let i = 0; i < loop.length; i++) { const p = loop[i], q = loop[(i + 1) % loop.length]; s += p[0] * q[1] - p[1] * q[0]; } return s / 2; }
 function triangulate(loop) {
   const index = loop.map((_, i) => i), out = [];
-  const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
   const inside = (p, a, b, c) => cross(a, b, p) >= 0 && cross(b, c, p) >= 0 && cross(c, a, p) >= 0;
   let guard = 0;
   while (index.length > 3 && guard++ < 10000) {

@@ -1,3 +1,4 @@
+import { clamp } from '../src/math.js';
 export const UV_SIDE_DEFAULT = 40;
 export const UV_SIDE_MIN = 18;
 export const UV_SIDE_MAX = 75;
@@ -6,7 +7,6 @@ export const UV_PREVIEW_MIN = 28;
 export const UV_PREVIEW_MAX = 88;
 
 const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 
 export const clampUVSidePercent = value => clamp(finite(value, UV_SIDE_DEFAULT), UV_SIDE_MIN, UV_SIDE_MAX);
 export const clampUVPreviewPercent = value => clamp(finite(value, UV_PREVIEW_DEFAULT), UV_PREVIEW_MIN, UV_PREVIEW_MAX);

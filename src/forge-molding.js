@@ -1,11 +1,10 @@
 import { Vector2, Vector3, ShapeUtils, Triangle } from 'three';
 import { cutForgeShape, forgeEdgeKey, forgeFaceNormal, forgeSelectionVertices } from './forge-shape-editing.js';
 import { TRIANGLE_ICON_UV } from './forge-primitives.js';
+import { clamp } from './math.js';
 
-const add = (a,b) => a.map((n,i)=>n+b[i]), sub = (a,b) => a.map((n,i)=>n-b[i]), mul = (a,s) => a.map(n=>n*s);
-const dot = (a,b) => a.reduce((n,v,i)=>n+v*b[i],0), cross = (a,b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
-const unit = a => mul(a,1/(Math.hypot(...a)||1));
-export const clamp = (n,a,b) => Math.min(b,Math.max(a,n));
+import { add, sub, scale as mul, dot, cross, unit } from './vec.js';
+export { clamp };
 
 export function forgeMoldBounds(draft) {
   const points = draft.shapes.flatMap(s=>forgeSelectionVertices(s,draft.selection[s.id],draft.mode).map(i=>s.vertices[i]));
