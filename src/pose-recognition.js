@@ -1,3 +1,4 @@
+import { isWeaponName } from './rig-names.js';
 import { Quaternion, Vector3 } from 'three';
 import { nodePivot } from './animation.js';
 import { movementBoneVertexCenter } from './movement-selection.js';
@@ -45,16 +46,17 @@ export function poseRecognitionEvidence(model) {
  * because they point down. This also leaves tiny fingers and rigid props alone. */
 export function inferPoseBranches(evidence, roleOf, occupied) {
   const { nodes, children, profiles, moving, supported, links, pivot, mirrorError } = evidence, result = [];
-  const excluded = /cloth|cape|banner|hair|beard|finger|thumb|weapon|sword|axe|reins?|chain|decoration|jaw|lip|eye|brow/i;
+  const excludedExtra = /cloth|cape|banner|hair|beard|finger|thumb|reins?|chain|decoration|jaw|lip|eye|brow/i;
+  const excluded = name => isWeaponName(name) || excludedExtra.test(name);
   for (const parent of nodes) {
-    if (excluded.test(parent.Name) || ['Hand','Foot','Hoof','Head','Tail'].includes(roleOf(parent)) || roleOf(parent) === 'Chest' && (children.get(parent.ObjectId) || []).some(node => occupied.has(node.ObjectId))) continue;
+    if (excluded(parent.Name) || ['Hand','Foot','Hoof','Head','Tail'].includes(roleOf(parent)) || roleOf(parent) === 'Chest' && (children.get(parent.ObjectId) || []).some(node => occupied.has(node.ObjectId))) continue;
     const paths = [];
     for (const first of links(parent.ObjectId)) {
-      if (excluded.test(first.Name) || occupied.has(first.ObjectId) || !moving(first)) continue;
+      if (excluded(first.Name) || occupied.has(first.ObjectId) || !moving(first)) continue;
       const path = [first], seen = new Set([first.ObjectId]); let next = first;
       while (path.length < 12) {
         const children = links(next.ObjectId);
-        if (children.length !== 1 || seen.has(children[0].ObjectId) || occupied.has(children[0].ObjectId) || excluded.test(children[0].Name)) break;
+        if (children.length !== 1 || seen.has(children[0].ObjectId) || occupied.has(children[0].ObjectId) || excluded(children[0].Name)) break;
         next = children[0]; if (pivot(next).distanceTo(pivot(path.at(-1))) < 1e-5) break;
         path.push(next); seen.add(next.ObjectId);
       }
