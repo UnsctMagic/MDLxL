@@ -39,7 +39,7 @@ import {paintRegionFaces,paintRegionEntries,paintConnectedPieces} from '../src/p
 import { createPaintLightUniforms, updatePaintLights, applyPaintLightShader } from './paint-lighting.js';
 
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
-const normalizedPath = path => String(path || '').replaceAll('/', '\\').toLowerCase();
+import { gamePathKey as normalizedPath } from '../src/game-path.js';
 const selectionArray = selection => Array.from(selection || []);
 const asBuffer = bytes => bytes instanceof ArrayBuffer ? bytes : bytes?.buffer?.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 // Decoding BLP/TGA/DDS and browser images dominates repeated preview startup.

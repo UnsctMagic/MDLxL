@@ -1,10 +1,10 @@
 import { TEAM_COLORS } from './team-colors.js';
+import { gamePathKey } from './game-path.js';
 
 export const MATERIAL_PRESETS = ['Team Color Overlay', 'Color Tint', 'Team Color'];
 export const MATERIAL_FILTER_MODES = ['None', 'Transparent', 'Alpha', 'Add', 'Add Alpha', 'Modulate', 'Modulate2x'];
-const normalize = path => String(path || '').replaceAll('/', '\\').toLowerCase();
 export const tintTexturePath = index => `ReplaceableTextures\\TeamColor\\TeamColor${String(index ?? 24).padStart(2, '0')}.blp`;
-const colorIndex = texture => TEAM_COLORS.findIndex(color => !texture?.ReplaceableId && normalize(texture?.Image) === normalize(tintTexturePath(color.index)));
+const colorIndex = texture => TEAM_COLORS.findIndex(color => !texture?.ReplaceableId && gamePathKey(texture?.Image) === gamePathKey(tintTexturePath(color.index)));
 const texture = (model, layer) => model.Textures?.[layer?.TextureID];
 const materialSettings = new WeakMap();
 
@@ -25,7 +25,7 @@ export function materialPreset(model, materialID) {
 }
 
 function ensureTexture(model, definition) {
-  const index = model.Textures.findIndex(item => (item.ReplaceableId || 0) === definition.ReplaceableId && normalize(item.Image) === normalize(definition.Image));
+  const index = model.Textures.findIndex(item => (item.ReplaceableId || 0) === definition.ReplaceableId && gamePathKey(item.Image) === gamePathKey(definition.Image));
   return index >= 0 ? index : model.Textures.push(definition) - 1;
 }
 

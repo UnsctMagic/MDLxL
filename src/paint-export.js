@@ -7,9 +7,9 @@ import { encodePaintBlp1, PAINT_BLP_ENCODER } from './paint-blp.js';
 import { compositePaintTarget, paintProjectArchive } from './paint-project.js';
 import { findTextureAsset } from './paint-targets.js';
 import { paintProjectModel } from './paint-view.js';
+import { toForwardSlashes } from './game-path.js';
 
 const encoder = new TextEncoder();
-const slash = value => String(value || '').replaceAll('\\','/');
 const safeBase = value => String(value || 'model').replace(/\.(?:mdl|mdx)$/i,'').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,80) || 'model';
 
 function exportPaintModel(model,project,originalModelBytes,modelName){
@@ -20,7 +20,7 @@ function exportPaintModel(model,project,originalModelBytes,modelName){
 }
 
 function uniqueTexturePath(model, base, number, reserved) {
-  const used = new Set((model.Textures || []).map(texture=>slash(texture.Image).toLowerCase()));
+  const used = new Set((model.Textures || []).map(texture=>toForwardSlashes(texture.Image).toLowerCase()));
   let suffix = number + 1, path;
   do { path = `MDLxL_Forge/${base}_paint_${suffix}.blp`; suffix++; } while (used.has(path.toLowerCase()) || reserved.has(path.toLowerCase()));
   reserved.add(path.toLowerCase()); return path;
@@ -35,7 +35,7 @@ function validateBlp(bytes, expected) {
 export async function buildPaintProjectArtifact(doc, project, assets, originalModelBytes = doc.originalBytes) {
   const sourceTextures = [], seen = new Set();
   for (const texture of doc.model.Textures || []) {
-    const key = slash(texture.Image).toLowerCase(); if (!key || texture.ReplaceableId || seen.has(key)) continue;
+    const key = toForwardSlashes(texture.Image).toLowerCase(); if (!key || texture.ReplaceableId || seen.has(key)) continue;
     seen.add(key); const asset = findTextureAsset(assets, texture.Image);
     if (asset?.bytes) sourceTextures.push({ ...asset, name: texture.Image });
   }
@@ -62,7 +62,7 @@ export async function buildPaintExportArtifact(doc, project, assets, originalMod
   const exportInfo={schema:'mdlxl-paint-export',version:1,model:modelName,project:projectName,textureEncoder:PAINT_BLP_ENCODER,textures:textures.map(item=>item.name),createdAt:new Date().toISOString()};
   const originals = [], used = new Set(textures.map(texture => texture.name.toLowerCase()));
   for (const texture of staged.model.Textures || []) {
-    const name = slash(texture.Image); if (!name || texture.ReplaceableId || used.has(name.toLowerCase())) continue;
+    const name = toForwardSlashes(texture.Image); if (!name || texture.ReplaceableId || used.has(name.toLowerCase())) continue;
     const asset = findTextureAsset(assets, texture.Image); if (!asset?.bytes) continue;
     if (name.startsWith('/') || name.includes(':') || name.split('/').includes('..')) throw Error(`Texture path cannot be exported: ${name}`);
     originals.push({ name, bytes: asset.bytes }); used.add(name.toLowerCase());

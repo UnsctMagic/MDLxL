@@ -3,6 +3,7 @@
 // Skins, terrain, icons, UI frames and the rendered profile portraits
 // (webui\portraits, 3D renders rather than paintings) are not included.
 // Paths were checked against the installed 3.0.1 game files (classic and Reforged).
+import { gamePathKey } from './game-path.js';
 const ART_PATHS = [
   /^ui\\glues\\loading\\backgrounds\\(?!.*(?:locationicons|symbol))/,      // classic loading screens and campaign maps, not their map icons
   /^webui\\loadingscreen\\(?!.*(?:frame|piece|fill|lineart|crest|bar))/,   // Reforged loading screens, not their frames
@@ -21,7 +22,7 @@ const ART_WORDS = ['painting', 'paintings', 'painted art', 'art', 'artwork', 'ar
 
 /** Whether a native texture path (with or without its CASC module prefix) is a work of art. */
 export function isArtworkPath(sourcePath, annotation = null) {
-  const logical = String(sourcePath || '').replaceAll('/', '\\').toLowerCase().split(':').at(-1);
+  const logical = gamePathKey(sourcePath).split(':').at(-1);
   if (ART_PATHS.some(rule => rule.test(logical))) return true;
   // Reviewed catalog entries tagged as painted artwork; photographs and logos are not paintings.
   return !!annotation?.tags?.includes('artwork') && /paint|illustrat|concept/i.test(annotation.notes || '') && !/photograph|logo/i.test(annotation.notes || '');

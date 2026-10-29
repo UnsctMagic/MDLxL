@@ -1,6 +1,7 @@
 import { openDocument } from '../src/editor-document.js';
 import { decodeTextureThumbnail, thumbnailPixels } from '../src/texture-thumbnail.js';
 import { isForgeAssetPath } from '../src/forge-assets.js';
+import { gamePathKey } from '../src/game-path.js';
 import { prepareTextureLibrary, searchTextureLibrary } from '../src/texture-library-search.js';
 
 const page = (items, { offset = 0, limit = 30 } = {}) => ({
@@ -18,7 +19,7 @@ const matches = (text, query = '') =>
 
 export function validateAiAssets(assets, model, existing = new Map()) {
   if (!Array.isArray(assets) || assets.length > 32) throw Error('Provide up to 32 generated textures.');
-  const key = name => name.replaceAll('/', '\\').toLowerCase(),
+  const key = gamePathKey,
     names = new Set();
   let size = 0;
   for (const asset of assets) {
@@ -58,7 +59,7 @@ export async function aiAssets(args, host, active, desktop = window.desktop) {
     if (action === 'preview') {
       const texture = state.model.Textures[args.textureId];
       if (!texture?.Image) throw Error('Choose an image texture in this model.');
-      const key = texture.Image.replaceAll('/', '\\').toLowerCase();
+      const key = gamePathKey(texture.Image);
       const asset =
         state.session.assets?.get(key) ||
         (await desktop.resolveTextures({ path: state.session.path, names: [texture.Image] }))?.[0];

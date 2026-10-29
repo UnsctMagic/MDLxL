@@ -102,8 +102,8 @@ import { createPortraitSequence, portraitSequenceIndices } from '../src/sequence
 import { effectNodes } from '../src/particle-recipes.js';
 import { scanGeosetAnimationDuplicates, repairGeosetAnimations } from '../src/geoset-animation-repair.js';
 import SidebarResizer, { PANEL_WIDTH_EVENT } from './SidebarResizer.jsx';
+import { gamePathKey } from '../src/game-path.js';
 
-const normalize = value => String(value || '').replaceAll('/', '\\').toLowerCase();
 const views = ['orthographic', 'perspective', 'front', 'back', 'left', 'right', 'top', 'bottom'];
 const resources = ['Materials', 'Textures', 'Nodes', 'Geosets', 'GeosetAnims', 'Sequences', 'TextureAnims', 'GlobalSequences'];
 const blank = () => openDocument(new TextEncoder().encode('Version { FormatVersion 800, }\nModel "Untitled" { BlendTime 150, MinimumExtent { 0, 0, 0 }, MaximumExtent { 0, 0, 0 }, BoundsRadius 0, }\n'), 'Untitled.mdl');
@@ -765,11 +765,11 @@ export default function App() {
         if (!current()) { discard(); return 0; }
         const bytes = await readInputBytes(record), name = record.logicalName || record.texturePath || record.webkitRelativePath || record.name;
         if (!name) continue;
-        if (source === 'gameData' && assets.get(normalize(name))?.source === 'gameFile') continue;
+        if (source === 'gameData' && assets.get(gamePathKey(name))?.source === 'gameFile') continue;
         const asset = { name, bytes, source: isForgeAssetPath(name) ? 'forge' : source }; const mime = /\.png$/i.test(name) ? 'image/png' : /\.jpe?g$/i.test(name) ? 'image/jpeg' : /\.webp$/i.test(name) ? 'image/webp' : null;
         if (mime) { asset.url = URL.createObjectURL(new Blob([bytes], { type: mime })); textureUrls.current.add(asset.url); createdUrls.push(asset.url); }
         if (!current()) { discard(); return 0; }
-        assets.set(normalize(name), asset); assets.set(normalize(name.split(/[\\/]/).at(-1)), asset); count++;
+        assets.set(gamePathKey(name), asset); assets.set(gamePathKey(name.split(/[\\/]/).at(-1)), asset); count++;
       } catch (error) { say(`${record.name || 'Texture'}: ${error.message}`, true); }
     }
     if (!current()) { discard(); return 0; }
@@ -988,7 +988,7 @@ export default function App() {
       repairPaintMaterials(value,paintOriginalModel,session.paintWorkingModel||doc.model);
       const prepared=await preparePaintModelCommit(session.paintWorkingModel||doc.model,value,paintOriginalModel);
       const assets=new Map(session.assets);
-      for(const asset of prepared.assets){if(!asset.bytes?.byteLength)throw Error('A painted texture is empty.');assets.set(normalize(asset.name),asset);assets.set(normalize(asset.name.split(/[\\/]/).at(-1)),asset);}
+      for(const asset of prepared.assets){if(!asset.bytes?.byteLength)throw Error('A painted texture is empty.');assets.set(gamePathKey(asset.name),asset);assets.set(gamePathKey(asset.name.split(/[\\/]/).at(-1)),asset);}
       commitPaintModel(doc,prepared);
       nextTextureResolution(session);session.assets=assets;adoptCommittedPaintUVs(value);
       session.paintWorkingModel=structuredClone(doc.model);session.paintWorkingRevision++;
@@ -1014,8 +1014,8 @@ export default function App() {
     const existing=paintTargetsForGeoset(enumeratePaintTargets(working),geosetIndex);
     if(existing.length)return enumeratePaintTargets(working);
     const base=doc.name.replace(/\.(?:mdl|mdx)$/i,'').replace(/[^a-z0-9_-]+/gi,'-').toLowerCase()||'model';
-    const used=new Set(working.Textures.map(texture=>normalize(texture.Image)));let number=1,imagePath;
-    do{imagePath='CitadelPaint/'+base+'_texture_'+(number++)+'.blp';}while(used.has(normalize(imagePath)));
+    const used=new Set(working.Textures.map(texture=>gamePathKey(texture.Image)));let number=1,imagePath;
+    do{imagePath='CitadelPaint/'+base+'_texture_'+(number++)+'.blp';}while(used.has(gamePathKey(imagePath)));
     installFreshPaintLayer(working,geosetIndex,imagePath);session.paintWorkingRevision++;refresh();
     return enumeratePaintTargets(working);
   }
@@ -1028,7 +1028,7 @@ export default function App() {
       return;
     }
     if (existing >= 0 && Number.isSafeInteger(material)) { await loadTextures([asset], session, { source: 'library' }); say(`Kept Material ${material + 1}, which already uses ${asset.name}.`); return; }
-    if (model.Textures.some(texture => normalize(texture.Image) === normalize(asset.name))) { await loadTextures([asset], session, { source: 'library' }); say('This texture is already in the model.'); return; }
+    if (model.Textures.some(texture => gamePathKey(texture.Image) === gamePathKey(asset.name))) { await loadTextures([asset], session, { source: 'library' }); say('This texture is already in the model.'); return; }
     const result = edit('Add library texture', ['Textures'], m => addLibraryTexture(m, asset));
     if (result !== false) { await loadTextures([asset], session, { source: 'library' }); say(`Added ${asset.name} to the model.`); }
   }
@@ -1061,9 +1061,9 @@ export default function App() {
       if (!records.length) return;
       const selected = await Promise.all(records.map(async record => ({ name: record.name, bytes: await readInputBytes(record) })));
       const loaded = await loadTextures(selected);
-      const existing = new Set(model.Textures.map(texture => normalize(texture.Image.split(/[\\/]/).at(-1))));
+      const existing = new Set(model.Textures.map(texture => gamePathKey(texture.Image.split(/[\\/]/).at(-1))));
       const additions = selected.filter(record => {
-        const name = normalize(record.name);
+        const name = gamePathKey(record.name);
         if (existing.has(name)) return false;
         existing.add(name);
         return true;
@@ -1227,7 +1227,7 @@ export default function App() {
     if (result !== false) { session.assets = new Map([...source.assets, ...session.assets]); setSelectedNodeIds([]); setSelectable(new Set(result.geosetIndices)); setSelection(result.selection || Object.fromEntries(result.geosetIndices.map(gi => [gi, Array.from({ length: doc.model.Geosets[gi].Vertices.length / 3 }, (_, i) => i)]))); setActiveGeoset(result.geosetIndices[0] ?? 0); setDialog(null); say('Pasted geosets.'); refresh(); }
   }
   async function listRecovery() { try { const items = window.desktop?.listRecovery ? await window.desktop.listRecovery() : await browserRecovery('list'); setRecoveries((items || []).map(({ state, ...item }) => ({ ...item, name: item.name || state?.name }))); setDialog({ type: 'recovery' }); } catch (error) { say(error.message, true); } }
-  async function restoreRecovery(item) { try { const envelope = window.desktop?.readRecovery ? await window.desktop.readRecovery(item.id) : await browserRecovery('get', item.id), restored = newSession(EditorDocument.restoreRecoveryState(envelope.state || envelope), envelope.path || null); restored.id = envelope.id || restored.id; restored.checkpoint = envelope.version || 0; restored.animationDrafts = envelope.animationDrafts || {}; restored.paintProject = envelope.paintProject || null; restored.paintOriginalModelBytes = envelope.paintOriginalModelBytes || null; restored.paintWorkingModel = envelope.paintWorkingModel || null;restored.paintAppliedRevision=envelope.paintAppliedRevision;if(restored.paintProject?.materialMode){const original=restored.paintOriginalModelBytes?openDocument(restored.paintOriginalModelBytes,restored.doc.name).model:restored.doc.model;repairPaintMaterials(restored.paintProject,original,restored.paintWorkingModel||restored.doc.model);validatePaintAssignments(restored.paintProject,restored.paintWorkingModel||restored.doc.model);} for(const asset of envelope.forgeAssets||[]){const record={...asset,source:asset.source||'forge'};restored.assets.set(normalize(asset.name),record);restored.assets.set(normalize(asset.name.split(/[\\/]/).at(-1)),record);} restored.uvPreviews = restoreUVPreviews(restored.doc.model, envelope.uvPreviews); for (const draft of Object.values(restored.uvPreviews)) { restored.assets.set(normalize(draft.asset.name), draft.asset); restored.assets.set(normalize(draft.asset.name.split(/[\\/]/).at(-1)), draft.asset); } install(restored); say(`Recovered ${restored.doc.name} with undo history${restored.paintProject ? ' and paint coats' : ''}.`); } catch (error) { say(error.message, true); } }
+  async function restoreRecovery(item) { try { const envelope = window.desktop?.readRecovery ? await window.desktop.readRecovery(item.id) : await browserRecovery('get', item.id), restored = newSession(EditorDocument.restoreRecoveryState(envelope.state || envelope), envelope.path || null); restored.id = envelope.id || restored.id; restored.checkpoint = envelope.version || 0; restored.animationDrafts = envelope.animationDrafts || {}; restored.paintProject = envelope.paintProject || null; restored.paintOriginalModelBytes = envelope.paintOriginalModelBytes || null; restored.paintWorkingModel = envelope.paintWorkingModel || null;restored.paintAppliedRevision=envelope.paintAppliedRevision;if(restored.paintProject?.materialMode){const original=restored.paintOriginalModelBytes?openDocument(restored.paintOriginalModelBytes,restored.doc.name).model:restored.doc.model;repairPaintMaterials(restored.paintProject,original,restored.paintWorkingModel||restored.doc.model);validatePaintAssignments(restored.paintProject,restored.paintWorkingModel||restored.doc.model);} for(const asset of envelope.forgeAssets||[]){const record={...asset,source:asset.source||'forge'};restored.assets.set(gamePathKey(asset.name),record);restored.assets.set(gamePathKey(asset.name.split(/[\\/]/).at(-1)),record);} restored.uvPreviews = restoreUVPreviews(restored.doc.model, envelope.uvPreviews); for (const draft of Object.values(restored.uvPreviews)) { restored.assets.set(gamePathKey(draft.asset.name), draft.asset); restored.assets.set(gamePathKey(draft.asset.name.split(/[\\/]/).at(-1)), draft.asset); } install(restored); say(`Recovered ${restored.doc.name} with undo history${restored.paintProject ? ' and paint coats' : ''}.`); } catch (error) { say(error.message, true); } }
   async function gameData() {
     if (!window.desktop?.chooseGameData) { say('Choose a Warcraft III installation folder in the desktop application.'); return; }
     try {
@@ -1275,7 +1275,7 @@ export default function App() {
     if(result===false)return false;
     for(const draft of drafts)if(draft.asset) await loadTextures([{...draft.asset,name:draft.texturePath}],session,{source:draft.asset.source==='forge'?'forge':'gameData'});
     if(result.extraAssets?.length) await loadTextures(result.extraAssets,session,{source:'forge'});
-    if(drafts.some(d=>d.mesh.geosets.length>1)){const white={name:'Textures\\white.blp',bytes:new Uint8Array([0,0,2,0,0,0,0,0,0,0,0,0,1,0,1,0,32,40,255,255,255,255]),source:'forge-preview'};session.assets.set(normalize('Textures\\white.blp'),{...white,name:'white.tga'});}
+    if(drafts.some(d=>d.mesh.geosets.length>1)){const white={name:'Textures\\white.blp',bytes:new Uint8Array([0,0,2,0,0,0,0,0,0,0,0,0,1,0,1,0,32,40,255,255,255,255]),source:'forge-preview'};session.assets.set(gamePathKey('Textures\\white.blp'),{...white,name:'white.tga'});}
     setSelectable(new Set(result.geosetIndices));setSelection(Object.fromEntries(result.geosetIndices.map(i=>[i,Array.from({length:doc.model.Geosets[i].Vertices.length/3},(_,v)=>v)])));setActiveGeoset(result.geosetIndices[0]);setSelectedNodeIds([result.boneId]);selectMode('vertices');setRenderMode('textured');setDialog(null);requestAnimationFrame(()=>frame(false));
     say('Forge item created and attached to DummyBone.');return result;
   }

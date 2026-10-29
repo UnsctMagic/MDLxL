@@ -1,15 +1,16 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { gamePathKey } = require('./game-path.cjs');
 const { spawn } = require('node:child_process');
 const { createInterface } = require('node:readline');
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 /** Identifies one Warcraft installation and build; caches and particle presets are keyed by it. */
 const installKey = (folder, buildBytes) => digest(path.resolve(folder).toLowerCase() + '|' + digest(buildBytes));
-const soundStem = name => name.replaceAll('/', '\\').toLowerCase().split(':').at(-1).replace(/\.(wav|mp3|ogg|flac)$/, '');
+const soundStem = name => gamePathKey(name).split(':').at(-1).replace(/\.(wav|mp3|ogg|flac)$/, '');
 
 function soundCandidates(name, names, locales) {
-  const requested = name.replaceAll('/', '\\').toLowerCase(), stem = soundStem(requested);
+  const requested = gamePathKey(name), stem = soundStem(requested);
   const explicitModules = requested.split(':').slice(1, -1);
   return names.filter(candidate => {
     const lower = candidate.toLowerCase(), locale = lower.match(/_locales\\([a-z]{4})\.w3mod:/)?.[1];

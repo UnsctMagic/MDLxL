@@ -30,6 +30,7 @@ import './ai-assistant.css';
 import { getLanguage, translate } from '../src/localization.js';
 import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
 import BIRDS from '../src/ai-birds.json';
+import { gamePathKey } from '../src/game-path.js';
 
 const providers = [
   ['codex', 'Codex / ChatGPT'],
@@ -96,7 +97,7 @@ const birdColor = name => {
 };
 // Each model file (or unsaved tab) has its own organiser chat.
 const modelKeyOf = (path, documentId) =>
-  path ? 'file:' + String(path).replaceAll('/', '\\').toLowerCase() : 'unsaved:' + documentId;
+  path ? 'file:' + gamePathKey(path) : 'unsaved:' + documentId;
 const SD_BRAIN_TIP =
   'SD Brain: applies Warcraft III SD design rules to your modeling requests, fills in routine art-direction details and checks the result. Supports detailed custom SD.';
 const HANDBOOK_TIP =
