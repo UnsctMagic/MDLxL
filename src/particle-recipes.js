@@ -1,5 +1,5 @@
 import {validateParticleAssets} from './particle-assets.js';
-import {generateCompatibleMdx} from './mdx-compatibility.js';
+import {generateCompatibleMdx, TEXTURE_SLOTS} from './mdx-compatibility.js';
 import { createNode, NODE_TYPES, validateModel, openDocument } from './editor-document.js';
 import { stringifyParticleData, safeParticlePath } from './particle-data.js';
 import { hdContentIssues } from './model-version.js';
@@ -7,7 +7,7 @@ import { convertHDToSD } from './paste-format.js';
 
 export const EFFECT_FAMILIES = ['ParticleEmitters2', 'RibbonEmitters', 'ParticleEmitters', 'ParticleEmitterPopcorns'];
 const clone = value => structuredClone(value);
-const textureSlots = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
+const textureSlots = TEXTURE_SLOTS;
 export function emptyParticleModel(version = 800) {
   const model = { Version: version, Info: { Name: 'Particle Lab', MinimumExtent: new Float32Array([-64,-64,-16]), MaximumExtent: new Float32Array([64,64,128]), BoundsRadius: 120, BlendTime: 150 }, Nodes: [] };
   for (const key of ['Sequences','GlobalSequences','Textures','Materials','TextureAnims','Geosets','GeosetAnims','PivotPoints','Cameras','FaceFX','BindPoses','Gliders', ...Object.values(NODE_TYPES).map(v => v[0])]) model[key] = [];

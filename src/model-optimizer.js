@@ -1,5 +1,5 @@
 import { MODEL_COMMENTS_KEY } from './model-comments.js';
-import { generateCompatibleMdx as generateMDX } from './mdx-compatibility.js';
+import { generateCompatibleMdx as generateMDX, TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { EditorDocument, openDocument, validateModel } from './editor-document.js';
 import { parseMdx } from './mdx-container.js';
 import { sampleTrack } from './animation.js';
@@ -9,7 +9,7 @@ import { Buffer } from 'buffer';
 import { canonicalizeSerializedNodeOrder, hasCanonicalSerializedNodeOrder, serializedNodes } from './node-id-order.js';
 
 export const OPTIMIZER_SECTIONS = ['Geosets', 'Bones', 'Helpers', 'Materials', 'Textures', 'ParticleEmitters2', 'RibbonEmitters'];
-const slots = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
+const slots = TEXTURE_SLOTS;
 const tags = { Geosets: 'GEOS', Bones: 'BONE', Helpers: 'HELP', Materials: 'MTLS', Textures: 'TEXS', ParticleEmitters2: 'PRE2', RibbonEmitters: 'RIBB' };
 const results = new WeakMap();
 const clone = value => structuredClone(value);

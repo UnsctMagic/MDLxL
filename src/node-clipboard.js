@@ -1,9 +1,9 @@
+import { TEXTURE_SLOTS } from './mdx-compatibility.js';
 import { createNode, NODE_TYPES } from './editor-document.js';
 import { ensureDummyBone } from './dummy-bone.js';
 import { canonicalizeSerializedNodeOrder } from './node-id-order.js';
 import { adaptPasteFormat } from './paste-format.js';
 
-const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
 const clone = value => structuredClone(value);
 const canonical = value => Array.isArray(value) || ArrayBuffer.isView(value) ? Array.from(value, canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined && key !== 'PivotPoint').map(key => [key, canonical(value[key])])) : value;
 const fingerprint = value => JSON.stringify(canonical(value));

@@ -1,3 +1,5 @@
+import { TEXTURE_SLOTS } from './mdx-compatibility.js';
+import { canonicalValue, stableKey } from './value-key.js';
 import { sampleTrack } from './animation.js';
 import { appendGeosetGeometry } from './editor-document.js';
 import { unionAnimatedExtents } from './geoset-operations.js';
@@ -14,19 +16,15 @@ import { displayNumber } from './display-number.js';
 // are structured so the dialog can translate every label and value.
 
 const clone = value => structuredClone(value);
-const slots = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
+const slots = TEXTURE_SLOTS;
 export const FILTER_NAMES = ['Opaque', 'Transparent', 'Blend', 'Additive', 'Add Alpha', 'Modulate', 'Modulate 2X'];
 const SHADING = [[1, 'unshaded'], [2, 'sphere map'], [16, 'two-sided'], [32, 'unfogged'], [64, 'no depth test'], [128, 'no depth write']];
 const TWO_SIDED = 16;
 const fixedTints = new Set(TEAM_COLORS.filter(color => color.index !== null).map(color => tintTexturePath(color.index).toLowerCase()));
 const n = displayNumber;
 
-function canonical(value) {
-  if (Array.isArray(value) || ArrayBuffer.isView(value)) return Array.from(value, canonical);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined).map(key => [key, canonical(value[key])]));
-  return value;
-}
-const keyOf = value => JSON.stringify(canonical(value));
+const canonical = canonicalValue;
+const keyOf = stableKey;
 const isTrack = value => Array.isArray(value?.Keys);
 const isGlobal = track => isTrack(track) && Number.isInteger(track.GlobalSeqId) && track.GlobalSeqId >= 0;
 const animsFor = (model, id) => (model.GeosetAnims || []).filter(anim => anim.GeosetId === id);

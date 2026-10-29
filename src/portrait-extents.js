@@ -1,10 +1,11 @@
+import { portraitSequenceIndices } from './sequence-editor.js';
 import { repairBounds } from './optimizexl-bounds.js';
 import { createChanges } from './history-store.js';
 
 /** Portrait edits move the rendered rig without moving its bind-pose vertices.
  * WC3 culls against sequence/geoset animation extents, so refresh those from
  * native animation samples. Keep model/mesh bounds and other sequences intact. */
-export function recalculatePortraitExtents(model, indices = model.Sequences?.flatMap((sequence, index) => /portrait/i.test(sequence.Name || '') ? [index] : []) || []) {
+export function recalculatePortraitExtents(model, indices = portraitSequenceIndices(model)) {
   if (!model.Geosets?.some(geoset => geoset.Vertices?.length) || !indices.length) return;
   const targets = [];
   for (const sequence of new Set(indices)) {
