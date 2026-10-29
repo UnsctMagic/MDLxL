@@ -1,7 +1,7 @@
 import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { applySelection, connectedVertices, insideTriangle } from './classic-gestures.js';
-import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText, wheelZoomFactor } from './viewport-performance.js';
+import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator, wheelZoomFactor } from './viewport-performance.js';
 import { cameraBindings, isTextEditingTarget, uvTransformSensitivity, visualOptions } from '../src/preferences.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { eligibleUVVertices, eligibleUVFaces, restrictUVChange } from '../src/uv-selection.js';
@@ -279,6 +279,10 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     const cancelKey = event => { if (event.key === 'Escape' && s.drag) { cancelGesture(); event.preventDefault(); } };
     const nudgeKey = event => {
       const key = event.detail.event, p = current.current, workspace = container.closest('.uv-workspace') || container;
+      if (key.key === 'Escape' && s.drag && (key.target?.ownerDocument || document) === ownerDocument && container.getClientRects().length && (!event.detail.localWindow || event.detail.localWindow.contains(container))) {
+        event.detail.claims.push({ priority: 0, run: () => { if (!s.drag) return false; cancelGesture(); return true; } });
+        return;
+      }
       // The focused UV workspace owns the number pad, even when nothing can move: its keys never
       // reach the app's digit shortcuts from here.
       if (workspace.contains(key.target) && !isTextEditingTarget(key.target) && /^Numpad[1-9]$/.test(key.code)) event.preventDefault();
@@ -288,24 +292,20 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
       key.preventDefault(); key.stopImmediatePropagation(); event.preventDefault();
       action({ detail: { kind: 'move', value: direction.map(value => value * .005) } });
     };
-    const unbindScroll = bindScrollSensitivity(element, {
-      getPreferences: () => current.current.preferences,
-      onChange: value => current.current.onSensitivityChange?.(value),
-      onPointerChange: value => current.current.onPointerSensitivityChange?.(value),
-      onWheelModeChange: value => current.current.onWheelModeChange?.(value),
+    const unbindScroll = bindScrollSensitivity(element, scrollSensitivityCallbacks(current, {
+
       // Cancel and restore any drag started by the held left button before it can commit.
       onPointerAdjustment: () => cancelGesture(),
-      onCameraModeToggle: () => current.current.onCameraModeToggle?.(),
       onIndicator: setAdjustingSensitivity,
       onWheel: wheel,
-    });
+    }));
     element.addEventListener('pointerdown', pointerDown); element.addEventListener('pointermove', pointerMove); element.addEventListener('pointerup', pointerUp); element.addEventListener('pointercancel', cancelGesture); element.addEventListener('contextmenu', contextMenu);
     ownerDocument.addEventListener('visibilitychange', draw);
     window.addEventListener('mdlvis-frame', fit); window.addEventListener('mdlvis-uv-action', action); ownerWindow.addEventListener('keydown', cancelKey); window.addEventListener('mdlxl-window-key', nudgeKey);
     return () => {
       observer.disconnect(); unbindScroll(); s.draw = () => {}; s.resize = null; ownerDocument.removeEventListener('visibilitychange', draw);
       element.removeEventListener('pointerdown', pointerDown); element.removeEventListener('pointermove', pointerMove); element.removeEventListener('pointerup', pointerUp); element.removeEventListener('pointercancel', cancelGesture); element.removeEventListener('contextmenu', contextMenu);
-      window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-uv-key', nudgeKey);
+      window.removeEventListener('mdlvis-frame', fit); window.removeEventListener('mdlvis-uv-action', action); ownerWindow.removeEventListener('keydown', cancelKey); window.removeEventListener('mdlxl-window-key', nudgeKey);
     };
   }, []);
   useEffect(() => { state.current.resize?.(); }, [graphics.pixelRatio, suspended, graphics.pauseWhenHidden]);
@@ -314,9 +314,8 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
 
   return <div className="uv-editor" ref={host} style={{ position: 'relative', width: '100%', height: '100%', minHeight: 180, overflow: 'hidden', background: visualOptions(preferences).background }}>
     <canvas ref={canvas} tabIndex={0} aria-label="UV coordinate editor" style={{ display: 'block', outline: 'none', touchAction: 'none', cursor: viewportCursor(cameraMode, transformMode) }} />
-    {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}
+    <SensitivityIndicator value={adjustingSensitivity} />
     {!count && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#eee', pointerEvents: 'none', fontSize: 12 }}>Select a geoset with texture coordinates.</div>}
     {imageError && <div role="status" style={{ position: 'absolute', bottom: 4, left: 5, color: '#fff0cb', fontSize: 11, pointerEvents: 'none' }}>Texture unavailable.</div>}
   </div>;
 }
-

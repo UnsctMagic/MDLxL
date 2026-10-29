@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+
 export const sensitivityValue = value => Math.max(.1, Math.min(10, Number.isFinite(Number(value)) ? Number(value) : 2.5));
 export const pointerSensitivityValue = value => Math.max(.01, Math.min(4, Number.isFinite(Number(value)) ? Number(value) : 1));
 export const graphicsOptions = preferences => ({ pixelRatio: 1.5, antialias: false, maxFps: 60, textures: true, lighting: true, particles: true, pauseWhenHidden: true, ...preferences?.graphics, ...(preferences?.graphics?.softwareLow ? { antialias: false } : {}) });
@@ -166,3 +168,24 @@ export function createRenderScheduler({ render, continuous, paused, maxFps, requ
 
 export const sensitivityIndicatorStyle = { position: 'absolute', top: 32, left: 5, padding: '4px 7px', background: '#f1f5ed', border: '1px solid #527742', color: '#215316', fontSize: 11, pointerEvents: 'none', zIndex: 2 };
 
+
+export function watchContextLoss(canvas, onLost) {
+  const lost = event => { event.preventDefault(); onLost(event); };
+  canvas.addEventListener('webglcontextlost', lost);
+  return () => canvas.removeEventListener('webglcontextlost', lost);
+}
+
+export function scrollSensitivityCallbacks(latestRef, overrides = {}) {
+  return {
+    getPreferences: () => latestRef.current.preferences,
+    onChange: value => latestRef.current.onSensitivityChange?.(value),
+    onPointerChange: value => latestRef.current.onPointerSensitivityChange?.(value),
+    onWheelModeChange: value => latestRef.current.onWheelModeChange?.(value),
+    onCameraModeToggle: () => latestRef.current.onCameraModeToggle?.(),
+    ...overrides,
+  };
+}
+
+export function SensitivityIndicator({ value }) {
+  return value !== null ? createElement('div', { role: 'status', style: sensitivityIndicatorStyle }, sensitivityIndicatorText(value)) : null;
+}

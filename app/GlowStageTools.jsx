@@ -1,3 +1,4 @@
+import {useWindowKeyClaim} from './Hotkeys.jsx';
 import { clamp } from '../src/math.js';
 import React,{useRef} from 'react';
 import {particleAxisMapping} from '../src/particle-handles.js';
@@ -9,8 +10,13 @@ import {movementDragAmount,movementFreeScaleValues} from './movement-overlay.js'
 // onDrag(true/false) brackets a drag so the preview can hold the animation still.
 export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
   const drag=useRef(null),marks=snapshot?.marks;
+  const set=change=>onChange(value=>({...value,...change}));
+  useWindowKeyClaim(({event})=>{
+    if(event.key!=='Escape'||!drag.current)return false;
+    abort();return true;
+  },0);
   if(!marks||!layout)return null;
-  const {width,height}=snapshot,set=change=>onChange(value=>({...value,...change}));
+  const {width,height}=snapshot;
   const weapon=glow.weapon&&marks.start&&marks.end&&marks.butt&&marks.tip&&marks.mid;
   // Latched screen-space mappings, taken when the drag starts.
   function mapping(kind) {
@@ -50,7 +56,6 @@ export default function GlowStageTools({snapshot,glow,layout,onChange,onDrag}) {
   function end(){if(drag.current)onDrag?.(false);drag.current=null;}
   function abort(){const d=drag.current;drag.current=null;if(d){set(d.before);onDrag?.(false);}}
   const handle=(point,kind,label)=>point&&<g role="slider" tabIndex={0} aria-label={label} aria-valuenow={[value(kind)].flat()[0]} onPointerDown={event=>start(event,kind)} onPointerMove={move} onPointerUp={end} onPointerCancel={abort} onKeyDown={event=>{
-    if(event.key==='Escape'&&drag.current){event.preventDefault();event.stopPropagation();abort();}
     if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();event.stopPropagation();const d=begin(kind);if(d)set(next(d,event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0,event.key==='ArrowDown'?10:event.key==='ArrowUp'?-10:0));}
   }}><circle className="pe-grab" cx={point[0]} cy={point[1]} r="20"/><circle cx={point[0]} cy={point[1]} r="7"/><title>{label}</title></g>;
   const square=marks.mid&&[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[marks.mid[0]+a*marks.mid[4],marks.mid[1]+b*marks.mid[4]]);

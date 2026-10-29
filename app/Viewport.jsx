@@ -1,10 +1,12 @@
 import { createModelSmoothing, MODEL_LAYER } from './model-smoothing.js';
+export { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
+import { textureFromAsset, layerMaterial, updateWideWireGeometry, configureWideLine } from './viewport-materials.js';
 import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { drawEditHandles } from './viewport-edit-handles.js';
 import * as THREE from 'three';
-import { EditorCameraControls, editorCameraAngles, preserveShiftCameraAction, setEditorCameraAngles } from './editor-camera-controls.js';
-import { previewLighting, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
+import { createEditorCameras, applyCameraButtons, editorCameraAngles, setEditorCameraAngles } from './editor-camera-controls.js';
+import { previewLighting, createEditorLights, configurePreviewLights, applyPreviewMaterialLighting } from './preview-lighting.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { createPreviewPlatform } from './preview-platform.js';
 import { drawPreviewGeometryOverlay, drawPresentationOverlay, HIDDEN_LINE_DASH, HIDDEN_LINE_FADE } from './preview-overlays.js';
@@ -19,141 +21,32 @@ import { configureGeosetHighlightMaterial } from './geoset-highlight.js';
 import { configureEditorTexture, cameraLeftLight, viewportPixelRatio } from './viewport-quality.js';
 import { createRigMarkersGL } from './rig-markers-gl.js';
 import { drawModelCameraOverlay } from './model-camera-overlay.js';
-import { TGALoader } from 'three/addons/loaders/TGALoader.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { createOverlayDepth, needsSolidDepthPrepass } from './preview-depth.js';
 import { vertexRgbPreviewState } from './vertex-rgb-preview.js';
-import { decodeBLP, getBLPImageData } from 'war3-model';
 import { advanceSequence, allNodes, inverseGeosetSkinMatrix, sampleGeosetAnimation, sampleNodeMatrices, sampleTrack, skinGeoset, skinGeosetNormals } from '../src/animation.js';
-import { decodeDds } from '../src/dds.js';
-import { decodeBlp2 } from '../src/blp2.js';
 import { alignTowardView, applySelection, dragScale, insideTriangle, marqueeContainsPoint, moveDragPoint, planeAxes, shiftDragLatch, shiftDragOffset } from './classic-gestures.js';
-import { bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText } from './viewport-performance.js';
+import { watchContextLoss, bindScrollSensitivity, createRenderScheduler, graphicsOptions, pointerDragPoint, pointerSensitivityValue, scrollSensitivityCallbacks, SensitivityIndicator } from './viewport-performance.js';
 import { viewportOverlayOptions } from './viewport-overlays.js';
 import { makeChecker, makeTeamGlow, clearGroup, uniqueEdges, pointMarkerTexture, configurePointMaterial, emitSelection } from './viewport-shared.js';
 import { projectCompassAxes } from './viewport-compass.js';
-import { configureWideWirePattern } from '../src/wire-pattern.js';
 
-import { applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, planeScreenBasis, projectedPlaneTranslation, quadProjectedPlaneTranslation } from './viewport-math.js';
+import { snapshotPreviewCamera, restorePreviewCamera, applyViewPreset, applyModelCamera, gridDepthExtent, gridFrameRadius, orthographicHalfHeight, perspectiveFitDistance, updateDepthClipping, modelClipRadius, freeDragTranslation, planeScreenBasis, projectedPlaneTranslation, quadProjectedPlaneTranslation } from './viewport-math.js';
 import { createViewportGrid } from './viewport-grid.js';
 import { visualOptions, viewportAppearanceOptions, gridOptions, cameraBindings } from '../src/preferences.js';
-import { backgroundImageRect } from '../src/viewport-appearance.js';
 import { QUAD_VIEWS, viewWorkplane, viewportRects } from './quad-view.js';
 import { viewportPointDepth, viewportPointIndices } from './viewport-point-selection.js';
-import { composeViewportLayers } from './game-preview-capture.js';
+import { composeViewportLayers, drawPreviewBackground } from './game-preview-capture.js';
 import { createViewportSketch, SKETCH_CURSORS } from './viewport-sketch.js';
 
 const COLORS = [0xa9b6c1, 0x8caca8, 0xb9aa94, 0x939bb5, 0xb499a6, 0x9eac8b];
 import { gamePathKey as normalizedPath } from '../src/game-path.js';
 const selectionArray = selection => Array.from(selection || []);
-const asBuffer = bytes => bytes instanceof ArrayBuffer ? bytes : bytes?.buffer?.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 const sameCompassAxes = (left, right) => left?.length === right?.length && left.every((axis, index) => axis.id === right[index].id && Math.abs(axis.x - right[index].x) < .001 && Math.abs(axis.y - right[index].y) < .001 && Math.abs(axis.depth - right[index].depth) < .001);
 const identityMatrix = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 const isIdentityMatrix = matrix => matrix.elements.every((value, index) => Math.abs(value - identityMatrix[index]) < 1e-10);
-// Decoding BLP/TGA/DDS and browser images dominates repeated preview startup.
-// Assets are immutable within a session, so retain CPU pixels/images while
-// each viewport still creates and owns its own disposable GPU texture.
-const decodedRasterCache = new WeakMap(), decodedImageCache = new WeakMap();
-
-export async function textureFromAsset(asset, textureInfo = {}) {
-  const buffer = asBuffer(asset?.bytes);
-  let name = String(asset?.name || textureInfo.Image || '').toLowerCase();
-  if (buffer && buffer.byteLength >= 4 && new DataView(buffer).getUint32(0,true) === 0x20534444) name = name.replace(/\.[^.]+$/, '.dds');
-  let texture;
-  if (buffer && name.endsWith('.blp')) {
-    let pixels = decodedRasterCache.get(asset);
-    if (!pixels) { const bytes = new Uint8Array(buffer); pixels = bytes[0] === 66 && bytes[1] === 76 && bytes[2] === 80 && bytes[3] === 50 ? decodeBlp2(buffer) : getBLPImageData(decodeBLP(buffer), 0); decodedRasterCache.set(asset, pixels); }
-    texture = new THREE.DataTexture(new Uint8Array(pixels.data), pixels.width, pixels.height, THREE.RGBAFormat);
-    texture.needsUpdate = true;
-  } else if (buffer && name.endsWith('.tga')) {
-    let pixels = decodedRasterCache.get(asset); if (!pixels) { pixels = new TGALoader().parse(buffer); decodedRasterCache.set(asset, pixels); }
-    texture = new THREE.DataTexture(pixels.data, pixels.width, pixels.height, THREE.RGBAFormat);
-    texture.needsUpdate = true;
-  } else if (buffer && name.endsWith('.dds')) {
-    let pixels = decodedRasterCache.get(asset); if (!pixels) { pixels = decodeDds(buffer); decodedRasterCache.set(asset, pixels); }
-    texture = new THREE.DataTexture(new Uint8Array(pixels.data), pixels.width, pixels.height, THREE.RGBAFormat);
-    texture.needsUpdate = true;
-  } else {
-    let promise = asset && decodedImageCache.get(asset);
-    if (!promise) {
-      let url = asset?.url, temporary = false;
-      if (!url && buffer) { url = URL.createObjectURL(new Blob([buffer])); temporary = true; }
-      if (!url) throw new Error('Texture has no image data');
-      promise = new THREE.TextureLoader().loadAsync(url).then(loaded => { const image = loaded.image; loaded.dispose(); return image; }).finally(() => { if (temporary) URL.revokeObjectURL(url); });
-      if (asset) decodedImageCache.set(asset, promise);
-    }
-    try { texture = new THREE.Texture(await promise); texture.needsUpdate = true; }
-    catch (cause) { if (asset) decodedImageCache.delete(asset); throw cause; }
-  }
-  // Warcraft UV origin is at the top of the image. Keep its V coordinates intact.
-  texture.flipY = false;
-  // Match the classic Warcraft sampler: filter encoded texels, then decode
-  // exactly once in the mesh shader. This is independent of silhouette AA.
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.wrapS = textureInfo.Flags & 1 ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-  texture.wrapT = textureInfo.Flags & 2 ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-  return configureEditorTexture(texture);
-}
-
-function layerMaterial(layer, shaded = true) {
-  const shading = layer.Shading || 0, filter = layer.FilterMode || 0;
-  const material = !shaded || shading & 1 ? new THREE.MeshBasicMaterial() : new THREE.MeshPhongMaterial({ shininess: 9, specular: 0x1c242d });
-  material.userData.geosetTint = { value: new THREE.Vector3(1, 1, 1) };
-  material.onBeforeCompile = shader => {
-    shader.uniforms.uMdlxlGeosetTint = material.userData.geosetTint;
-    // Warcraft GeosetRGB multiplies the encoded final color. Applying it to
-    // Three's linear material color makes intermediate authored RGB too bright.
-    shader.fragmentShader = 'uniform vec3 uMdlxlGeosetTint;\n' + shader.fragmentShader.replace('#include <colorspace_fragment>', '#include <colorspace_fragment>\ngl_FragColor.rgb *= uMdlxlGeosetTint;');
-    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#ifdef USE_MAP\nvec4 sampledDiffuseColor = sRGBTransferEOTF(texture2D(map, vMapUv));\ndiffuseColor *= sampledDiffuseColor;\n#endif');
-    if (material.isMeshPhongMaterial) {
-      // A zero authored normal must stay finite before interpolation. Fixing
-      // normalize(0) afterwards is too late: it can poison the whole triangle.
-      shader.vertexShader = shader.vertexShader.replace('#include <normal_vertex>', THREE.ShaderChunk.normal_vertex.replace(
-        'vNormal = normalize( transformedNormal );',
-        'vNormal = dot(transformedNormal, transformedNormal) > 0.0 ? normalize(transformedNormal) : vec3(0.0);'));
-      // Compute derivatives before alpha/clipping discards or divergent branches.
-      // Only undefined lighting directions use the face; authored buffers stay intact.
-      shader.fragmentShader = shader.fragmentShader.replace('void main() {', 'void main() {\nvec3 mdlxlFaceNormal = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));')
-        .replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace(
-          'vec3 normal = normalize( vNormal );',
-          'vec3 normal = dot(vNormal, vNormal) > 1.e-12 ? normalize(vNormal) : mdlxlFaceNormal * faceDirection;'));
-    }
-  };
-  material.side = shading & 16 ? THREE.DoubleSide : THREE.FrontSide;
-  material.depthTest = !(shading & 64);
-  material.depthWrite = !(shading & 128) && filter < 2;
-  material.transparent = filter >= 2;
-  material.alphaTest = filter === 1 ? 0.75 : 0;
-  if (filter === 3) {
-    material.blending = THREE.CustomBlending; material.blendSrc = THREE.OneFactor; material.blendDst = THREE.OneFactor;
-  } else if (filter === 4) material.blending = THREE.AdditiveBlending;
-  else if (filter === 5 || filter === 6) {
-    material.blending = THREE.CustomBlending; material.blendSrc = THREE.DstColorFactor; material.blendDst = filter === 6 ? THREE.SrcColorFactor : THREE.ZeroFactor;
-  }
-  material.userData.layerBlending = material.blending;
-  return material;
-}
-
-function updateWideWireGeometry(entry) {
-  if (!entry?.wireGeometry || !entry.edgeIndices) return;
-  const source = entry.geometry.attributes.position.array, positions = new Float32Array(Math.max(6, entry.edgeIndices.length * 3));
-  for (let edge = 0; edge < entry.edgeIndices.length; edge++) {
-    const vertex = entry.edgeIndices[edge], target = edge * 3, from = vertex * 3;
-    positions[target] = source[from]; positions[target + 1] = source[from + 1]; positions[target + 2] = source[from + 2];
-  }
-  entry.wireGeometry.setPositions(positions); entry.wire.computeLineDistances();
-  if (entry.selectedWire) updateWideWireGeometry({ geometry: entry.geometry, edgeIndices: entry.selectedEdgeIndices || [], wireGeometry: entry.selectedWire.geometry, wire: entry.selectedWire });
-}
-
-function configureWideLine(material, appearance, width, height, hiddenOpacity = 1) {
-  material.color.set(appearance.color); material.linewidth = appearance.thickness;
-  material.opacity = appearance.opacity * hiddenOpacity; material.resolution.set(Math.max(1, width), Math.max(1, height));
-  const dashed = appearance.style !== 'solid'; if (material.dashed !== dashed) { material.dashed = dashed; material.needsUpdate = true; }
-  configureWideWirePattern(material, appearance);
-}
-
 export default function Viewport(inputProps) {
   const props = previewPresentationProps(inputProps);
   const { model, revision = 0, selectedGeoset = 0, selectedVertices = [], hiddenGeosets, mode = 'vertices', shaded = true, showSkeleton = false, showGrid = true, view = 'front', cameraMode = 'work', workplane = 'xy', transformMode = 'select', sequenceIndex = -1, time = 0, playing = false, teamColor = '#ff0000', textureAssets } = props;
@@ -181,22 +74,12 @@ export default function Viewport(inputProps) {
     const modelSmoothing = createModelSmoothing(renderer);
     const scene = new THREE.Scene(), modelGroup = new THREE.Group();
     scene.add(modelGroup);
-    let perspective = new THREE.PerspectiveCamera(42, 1, .2, 1000);
-    perspective.up.set(0, 0, 1); perspective.position.set(180, -260, 170);
-    let ortho = new THREE.OrthographicCamera(-100, 100, 100, -100, .2, 1000);
-    ortho.up.set(0, 0, 1);
-    let camera = perspective;
-    // The classic single view keeps the canvas itself as its input surface.
-    // Only Quad View creates separate input panes over the shared canvas.
+    // The classic single view uses the canvas; Quad View adds its own input panes.
     let surface = renderer.domElement;
-    let controls = new EditorCameraControls(camera, surface);
-    controls.enableDamping = false;
-    controls.mouseButtons = { LEFT: null, MIDDLE: null, RIGHT: THREE.MOUSE.PAN };
-    controls.target.set(0, 0, 45); controls.update();
-    const ambient = new THREE.HemisphereLight(0xd4e7ff, 0x52514a, 2.2);
-    ambient.position.set(0, 0, 300); scene.add(ambient);
-    const key = new THREE.DirectionalLight(0xffeed7, 2.8); key.position.set(200, -280, 350); scene.add(key);
-    scene.add(key.target); ambient.layers.enable(MODEL_LAYER); key.layers.enable(MODEL_LAYER);
+    let { perspective, ortho, controls } = createEditorCameras(surface, { target: [0, 0, 45] });
+    perspective.position.set(180, -260, 170); controls.update();
+    let camera = perspective;
+    const { ambient, key } = createEditorLights(scene); ambient.layers.enable(MODEL_LAYER); key.layers.enable(MODEL_LAYER);
     let cameraCanvas, normalCanvas, nodeCanvas, previewCanvas, anchorCanvas, editCanvas, gizmoCanvas, magnetButton, rotating = false, altHover = false;
     let grid = createViewportGrid(); scene.add(grid);
     const rigMarkers = createRigMarkersGL(renderer.getContext()); renderer.resetState();
@@ -259,14 +142,13 @@ export default function Viewport(inputProps) {
       const key = `${width}|${height}|${config.color}|${config.display}|${config.opacity}`;
       if (background.drawKey !== key) {
         background.canvas.width = width; background.canvas.height = height;
-        const context = background.canvas.getContext('2d'); context.globalAlpha = 1; context.fillStyle = config.color; context.fillRect(0, 0, width, height);
-        const rect = backgroundImageRect(background.image.naturalWidth || background.image.width, background.image.naturalHeight || background.image.height, width, height, config.display);
-        if (rect) { context.globalAlpha = config.opacity; context.drawImage(background.image, rect.x, rect.y, rect.width, rect.height); context.globalAlpha = 1; }
+        drawPreviewBackground(background.canvas.getContext('2d'), width, height, background.image, config.color, config);
         background.texture.needsUpdate = true; background.drawKey = key;
       }
       scene.background = background.texture;
     }
     state.refreshCursor = () => { surface.style.cursor = viewportCursor(latest.current.cameraMode, latest.current.rotationNormals ? 'rotateNormals' : latest.current.transformMode, rotating); };
+    state.restoreCamera = saved => { camera = restorePreviewCamera(saved, perspective, ortho, controls); state.camera = boundPane.camera = camera; };
     state.setCameraAngles = values => { if (quad && boundPane.workplane) return; if (setEditorCameraAngles(camera, controls.target, values)) { controls.update(); if (quad) activatePane(activePane); else invalidate(); } };
     function bindInput(pane) {
       const element = pane.surface;
@@ -279,16 +161,12 @@ export default function Viewport(inputProps) {
         element.addEventListener('focus', activate);
       }
       pane.controls.addEventListener('change', invalidate);
-      const unbindScroll = bindScrollSensitivity(element, {
-        getPreferences: () => latest.current.preferences,
-        onChange: value => latest.current.onSensitivityChange?.(value), onIndicator: value => { setAdjustingSensitivity(value); latest.current.onSensitivityIndicator?.(value); },
-        onPointerChange: value => latest.current.onPointerSensitivityChange?.(value),
-        onWheelModeChange: value => latest.current.onWheelModeChange?.(value),
+      const unbindScroll = bindScrollSensitivity(element, scrollSensitivityCallbacks(latest, {
+        onIndicator: value => { setAdjustingSensitivity(value); latest.current.onSensitivityIndicator?.(value); },
         // A Wisp left-button wheel gesture is a settings gesture, never a select or transform.
         onPointerAdjustment: () => cancelGesture(),
-        onCameraModeToggle: () => latest.current.onCameraModeToggle?.(),
         onWheel: (_event, sensitivity) => { pane.controls.zoomSpeed = sensitivity; },
-      });
+      }));
       element.addEventListener('pointerdown', pointerDown, true);
       element.addEventListener('pointermove', pointerMove);
       element.addEventListener('pointerup', pointerUp);
@@ -390,14 +268,15 @@ export default function Viewport(inputProps) {
           element.dataset.viewport = definition.id; element.setAttribute('aria-label', definition.label + ' viewport');
           const label = document.createElement('span'); label.className = 'quad-pane-label'; label.textContent = definition.label;
           element.appendChild(label); host.current.appendChild(element);
-          const perspective = singlePane.perspective.clone(), ortho = singlePane.ortho.clone();
+          const { perspective, ortho, controls: paneControls } = createEditorCameras(element, { target: singlePane.controls.target });
+          perspective.copy(singlePane.perspective); ortho.copy(singlePane.ortho);
           const camera = definition.view === 'perspective' ? perspective : ortho;
-          const paneControls = new EditorCameraControls(camera, element); paneControls.enableDamping = false; paneControls.target.copy(singlePane.controls.target);
+          paneControls.object = camera;
           const pane = { ...definition, workplane: viewWorkplane(definition.view), surface: element, perspective, ortho, camera, controls: paneControls, grid: createViewportGrid(), center: singlePane.center.clone(), radius: singlePane.radius, floor: singlePane.floor };
           scene.add(pane.grid);
           panes.push(pane); bindInput(pane); bindPane(pane);
           const saved = cameraMemory.current?.panes?.find(item => item.id === pane.id);
-          if (saved) { perspective.copy(saved.perspective); ortho.copy(saved.ortho); controls.target.copy(saved.target); state.center.copy(saved.center); state.radius = saved.radius; }
+          if (saved) { state.restoreCamera(saved); state.center.copy(saved.center); state.radius = saved.radius; }
           setPaneView(saved && viewWorkplane(saved.view) === pane.workplane ? saved.view : definition.view);
         }
       }
@@ -503,12 +382,7 @@ export default function Viewport(inputProps) {
       rotating = action === 'rotate'; latest.current.onCameraGestureChange?.(rotating);
       surface.style.cursor = viewportCursor(latest.current.cameraMode, latest.current.rotationNormals ? 'rotateNormals' : latest.current.transformMode, rotating);
       controls.enabled = true;
-      controls.rotateSpeed = controls.panSpeed = pointerSensitivityValue(latest.current.preferences?.pointerSensitivity);
-      const binding = cameraBindings(latest.current.preferences), mouseAction = value => value === 'pan' || value === 'rotate' && quad && boundPane.workplane ? THREE.MOUSE.PAN : value === 'rotate' ? THREE.MOUSE.ROTATE : value === 'zoom' ? THREE.MOUSE.DOLLY : null;
-      const navigationAction = value => quad ? value : preserveShiftCameraAction(value, event);
-      controls.mouseButtons.RIGHT = navigationAction(mouseAction(binding.right)); controls.mouseButtons.MIDDLE = navigationAction(mouseAction(binding.middle));
-      controls.mouseButtons.LEFT = navigationAction(mouseAction(action === 'move' ? 'pan' : action));
-      if (event.shiftKey && action !== 'work') controls.rotateSpeed = controls.panSpeed *= latest.current.preferences?.fineSensitivity ?? .2;
+      applyCameraButtons(controls, event, latest.current.preferences, { left: action === 'move' ? 'pan' : action, fine: action !== 'work', rotateAsPan: !!(quad && boundPane.workplane), preserveShift: !quad });
       if (action === 'move' || action === 'rotate') return;
       if (latest.current.presentation === 'preview' && action !== 'zoom') return;
       if (event.button !== 0) return;
@@ -805,14 +679,19 @@ export default function Viewport(inputProps) {
     };
     // Hotkeys consumes Escape before viewport key listeners. Its Clear command
     // gives an in-progress drag first refusal through this cancelable event.
-    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); } else if (!event.detail?.history && latest.current.onCancelPartDrag?.()) event.preventDefault(); };
+    const cancelCommand = event => { if (down) { cancelGesture(); event.preventDefault(); return true; } if (!event.detail?.history && latest.current.onCancelPartDrag?.()) { event.preventDefault(); return true; } return false; };
+    const claimWindowKey = claim => {
+      const {event,localWindow}=claim.detail,canvas=renderer.domElement;
+      if(event.key!=='Escape'||(event.target?.ownerDocument||document)!==canvas.ownerDocument||!canvas.getClientRects().length||localWindow&&!localWindow.contains(canvas))return;
+      claim.detail.claims.push({priority:0,run:()=>cancelCommand(claim)});
+    };
     const contextMenu = event => event.preventDefault();
     const pointerLeave = () => { if (!down) { clearHoveredGeoset(); partHover=null; latest.current.onHoverParts?.(null); } };
     bindInput(singlePane);
     window.addEventListener('mdlvis-frame', frameModel); window.addEventListener('keydown', cancelKey); window.addEventListener('keydown', gestureKey, true); window.addEventListener('keyup', gestureKey, true);
     window.addEventListener('mdlxl-cancel-gesture', cancelCommand);
-    const contextLost = event => { event.preventDefault(); state.scheduler?.dispose(); setError('The graphics context was lost. Reload the editor to restore the viewport. Save your work first.'); };
-    renderer.domElement.addEventListener('webglcontextlost', contextLost);
+    window.addEventListener('mdlxl-window-key',claimWindowKey);
+    const unwatchContext = watchContextLoss(renderer.domElement, () => { state.scheduler?.dispose(); setError('The graphics context was lost. Reload the editor to restore the viewport. Save your work first.'); });
 
     let callbackTime = performance.now();
     function render(now, delta) {
@@ -1067,16 +946,16 @@ export default function Viewport(inputProps) {
       latest.current.onCaptureReady?.(null);
       if (state.drag) latest.current.onTransformPreview?.(null);
       savePane();
-      const remember = pane => ({ id: pane.id, view: pane.view, perspective: pane.perspective.clone(), ortho: pane.ortho.clone(), target: pane.controls.target.clone(), center: pane.center.clone(), radius: pane.radius });
+      const remember = pane => ({ id: pane.id, view: pane.view, ...snapshotPreviewCamera(pane.camera, pane.perspective, pane.ortho, pane.controls), center: pane.center.clone(), radius: pane.radius });
       cameraMemory.current = { ...remember(singlePane), panes: panes.slice(1).map(remember) };
       if (latest.current.cameraHandoff) {
         // Quad panes own their cameras. Other editors inherit the single view.
         latest.current.cameraHandoff.current = { ...remember(singlePane), camera: singlePane.camera === singlePane.ortho ? 'ortho' : 'perspective' };
       }
       state.disposed = true; sketch.dispose(); state.scheduler.dispose(); document.removeEventListener('visibilitychange', state.scheduler.sync); resizeObserver.disconnect(); panes.forEach(pane => { pane.dispose(); pane.grid.dispose(); });
-      renderer.domElement.removeEventListener('webglcontextlost', contextLost);
+      unwatchContext();
       window.removeEventListener('mdlvis-frame', frameModel); window.removeEventListener('mdlxl-view-camera', viewCamera); window.removeEventListener('keydown', cancelKey); window.removeEventListener('keydown', gestureKey, true); window.removeEventListener('keyup', gestureKey, true);
-      window.removeEventListener('mdlxl-cancel-gesture', cancelCommand);
+      window.removeEventListener('mdlxl-cancel-gesture', cancelCommand); window.removeEventListener('mdlxl-window-key',claimWindowKey);
       cameraCanvas?.remove(); normalCanvas?.remove(); nodeCanvas?.remove(); previewCanvas?.remove(); anchorCanvas?.remove(); editCanvas?.remove(); gizmoCanvas?.remove(); magnetButton?.remove(); rigMarkers.dispose(); platform.dispose(); clearGroup(modelGroup); state.textures.forEach(texture => texture.dispose()); state.markerTextures.forEach(texture => texture.dispose()); state.background.texture.dispose(); state.checker.dispose(); state.teamGlow.dispose(); modelSmoothing.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); runtime.current = null;
     };
   }, []);
@@ -1137,7 +1016,7 @@ export default function Viewport(inputProps) {
     if (state.loadedSignature === null) {
       state.loadedSignature = signature; state.fit();
       const saved = cameraMemory.current || latest.current.cameraHandoff?.current;
-      if (saved && (latest.current.quadView || saved.view === latest.current.view || latest.current.cameraHandoff?.current === saved)) { if (latest.current.quadView) state.setView(saved.view); state.perspective.copy(saved.perspective); state.ortho.copy(saved.ortho); state.controls.target.copy(saved.target); if (saved.center) state.center.copy(saved.center); if (saved.radius) state.radius=saved.radius; state.resize(); state.controls.update(); }
+      if (saved && (latest.current.quadView || saved.view === latest.current.view || latest.current.cameraHandoff?.current === saved)) { if (latest.current.quadView) state.setView(saved.view); state.restoreCamera(saved); if (saved.center) state.center.copy(saved.center); if (saved.radius) state.radius=saved.radius; state.resize(); state.controls.update(); }
     }
   }, [model, revision, shaded, graphics.lighting, !!props.modelingOverlay]);
 
@@ -1196,7 +1075,7 @@ export default function Viewport(inputProps) {
       </svg>
       {compassAxes.map(axis => <button key={axis.id} type="button" aria-label={axis.title} title={axis.title} onPointerDown={event => event.stopPropagation()} onClick={() => props.onViewChange?.(axis.view)} style={{ position: 'absolute', left: 41 + axis.x * 25, top: 41 + axis.y * 25, width: 20, height: 20, transform: 'translate(-50%, -50%)', border: 0, borderRadius: '50%', padding: 0, background: 'transparent', color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: '20px', textShadow: '0 1px 1px #000', cursor: 'pointer' }}>{axis.label}</button>)}
     </div>}
-    {adjustingSensitivity !== null && <div role="status" style={sensitivityIndicatorStyle}>{sensitivityIndicatorText(adjustingSensitivity)}</div>}
+    <SensitivityIndicator value={adjustingSensitivity} />
     {textureMessage && <div role="status" style={{ position: 'absolute', bottom: 4, left: 5, color: '#fff0cb', fontSize: 11, pointerEvents: 'none' }}>{textureMessage}</div>}
     {backgroundMessage && <div role="status" style={{ position: 'absolute', top: 4, left: 5, color: '#5b2500', background: '#fff4d6dd', padding: '2px 5px', fontSize: 11, pointerEvents: 'none' }}>{backgroundMessage}</div>}
     {box && <div style={{ position: 'absolute', ...box, border: '1px dotted white', pointerEvents: 'none' }} />}
