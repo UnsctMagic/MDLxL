@@ -79,7 +79,7 @@ function reduce(messages, event, copy) {
       break;
     }
     case 'tool':
-      reply().parts.push({ type: 'tool', id: event.callId, name: event.name, detail: event.detail, status: 'running' });
+      reply().parts.push({ type: 'tool', id: event.callId, name: event.name, detail: event.detail, ...(event.line ? { line: event.line } : {}), status: 'running' });
       break;
     // A steering message may have split the reply since the tool started.
     case 'tool-result': {

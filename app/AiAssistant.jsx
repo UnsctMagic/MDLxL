@@ -126,8 +126,10 @@ const storedWidth = () => {
     return 400;
   }
 };
-// One readable line under a tool step, from the arguments the AI sent.
-function detailLine(detail) {
+// One readable line under a tool step, from the arguments the AI sent. Main
+// sends it as `line`; chats saved before that read it from the detail.
+function detailLine(detail, line) {
+  if (line) return line;
   if (!detail) return '';
   try {
     const value = JSON.parse(detail);
@@ -220,7 +222,7 @@ function readablePlan(detail) {
 function ToolPart({ part }) {
   const [open, setOpen] = useState(false),
     name = toolName(part.name),
-    line = detailLine(part.detail);
+    line = detailLine(part.detail, part.line);
   return (
     <div className={'ai-step ai-step-' + part.status + (open ? ' ai-open-part' : '')}>
       <button

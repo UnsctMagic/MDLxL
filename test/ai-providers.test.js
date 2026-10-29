@@ -322,3 +322,24 @@ test('provider URLs permit local models and reject cleartext remote credentials'
   assert.throws(() => endpoint('http://remote.example/v1'), /HTTPS/);
   assert.throws(() => endpoint('https://key:secret@example.com/v1'), /HTTPS/);
 });
+
+test('tool details keep a short line from the whole input and stay JSON when long', async () => {
+  const { toolDetail } = createRequire(import.meta.url)('../electron/ai-providers.cjs');
+  const { applyAiEvent } = await import('../src/ai-transcript.js');
+  assert.deepEqual(toolDetail({ path: '/Info' }), { detail: '{\n "path": "/Info"\n}' });
+  assert.deepEqual(toolDetail('{"action":"search","query":"cape"}'), { detail: '{"action":"search","query":"cape"}', line: 'search' });
+  assert.deepEqual(toolDetail('plain words'), { detail: 'plain words' });
+  // A long script: its label comes from past the 4000-character cut.
+  const script = toolDetail({ code: 'x'.repeat(9000), label: 'Recolour the cape' });
+  assert.equal(script.line, 'Recolour the cape');
+  assert.ok(script.detail.length <= 4001);
+  assert.equal(JSON.parse(script.detail).label, 'Recolour the cape');
+  // A long plan still reads as a plan.
+  const plan = { cause: 'c'.repeat(3000), reach: 'Cape', keep: ['Body'], options: [{ fix: 'f'.repeat(3000), cost: 'Low' }], choice: 0, why: 'w'.repeat(3000) };
+  const shown = JSON.parse(toolDetail(plan).detail);
+  assert.equal(shown.reach, 'Cape');
+  assert.equal(shown.options[0].cost, 'Low');
+  // The console keeps the line with its step.
+  const [, reply] = applyAiEvent([{ role: 'user', text: 'Go' }], { type: 'tool', callId: 'c', name: 'mdlxl_script', ...script });
+  assert.equal(reply.parts[0].line, 'Recolour the cape');
+});
