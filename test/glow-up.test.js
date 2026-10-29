@@ -219,3 +219,17 @@ test('glow visibility classifies Death, Decay and Dissipate by their first word'
     assert.equal(sampleGeosetAnimation(doc.model, id, sequence.Interval[0], index).alpha, index < 4 ? 1 : 0, sequence.Name);
   }
 });
+
+test('TextureID tracks count as hero glow while each glow filter rule stays local', () => {
+  const model = hero().model, size = originGlowSize(model);
+  const result = addHeroGlow(model, { origin: true });
+  const geoset = model.Geosets[result.geosetIndices[0]], layer = model.Materials[geoset.MaterialID].Layers[0];
+  const textureId = layer.TextureID;
+  layer.TextureID = { LineType: 0, GlobalSeqId: null, Keys: [0, 1000].map((Frame, i) => ({ Frame, Vector: Int32Array.of(i ? textureId : 0) })) };
+  geoset.Vertices = geoset.Vertices.map((v, i) => i % 3 === 2 ? 10000 : v);
+  assert.equal(hasHeroGlow(model), true);
+  assert.equal(originGlowSize(model), size, 'some team-glow key excludes the geoset from body sizing');
+  layer.FilterMode = 0;
+  assert.equal(hasHeroGlow(model), false, 'visible hero glow still requires additive filtering');
+  assert.equal(originGlowSize(model), size, 'body sizing still ignores glow regardless of filter');
+});

@@ -428,11 +428,7 @@ function shareIdentical(model, kept) {
   if (interpolatedTextureIds(model)) return;
   const used = [...new Set(kept.map(id => model.Geosets[id].MaterialID))], textures = new Map();
   const canonicalTexture = id => { const key = model.Textures[id] ? keyOf(model.Textures[id]) : `missing:${id}`; if (!textures.has(key)) textures.set(key, id); return textures.get(key); };
-  for (const materialId of used) for (const layer of model.Materials[materialId].Layers) for (const slot of slots) {
-    if (typeof layer[slot] === 'number') layer[slot] = canonicalTexture(layer[slot]);
-    else if (isTrack(layer[slot])) for (const key of layer[slot].Keys) if (key.Vector) key.Vector = new key.Vector.constructor(Array.from(key.Vector, canonicalTexture));
-    if (typeof layer._MdxDefaults?.[slot] === 'number') layer._MdxDefaults[slot] = canonicalTexture(layer._MdxDefaults[slot]);
-  }
+  visitTextureReferences({ Materials: used.map(id => model.Materials[id]) }, (id, set) => set(canonicalTexture(id)));
 }
 function referencedTextures(model) {
   const ids = new Set();

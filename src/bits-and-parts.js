@@ -1,3 +1,4 @@
+import { visitTextureReferences } from './texture-references.js';
 import { createResourceImporter, partTextureKey } from './model-import.js';
 export { partTextureKey } from './model-import.js';
 import { TEXTURE_SLOTS } from './mdx-compatibility.js';
@@ -20,12 +21,8 @@ const fingerprint = stableKey;
 export function partMaterialKey(model, source) {
   const material = structuredClone(source);
   const texture = id => id == null || id === -1 ? id : partTextureKey(model.Textures[id]);
+  visitTextureReferences({ Materials: [material] }, (id, set) => set(texture(id)), { arrayType: Array });
   for (const layer of material.Layers || []) {
-    for (const slot of TEXTURE_SLOTS) {
-      if (typeof layer[slot] === 'number') layer[slot] = texture(layer[slot]);
-      else if (layer[slot]?.Keys) for (const key of layer[slot].Keys) for (const field of ['Vector', 'InTan', 'OutTan']) if (key[field]) key[field] = Array.from(key[field], texture);
-      if (typeof layer._MdxDefaults?.[slot] === 'number') layer._MdxDefaults[slot] = texture(layer._MdxDefaults[slot]);
-    }
     if (layer.TVertexAnimId != null && layer.TVertexAnimId !== -1) layer.TVertexAnimId = structuredClone(model.TextureAnims[layer.TVertexAnimId]);
   }
   const globals = value => {

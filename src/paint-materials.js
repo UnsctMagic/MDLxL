@@ -1,3 +1,4 @@
+import { isTeamColorLayer, isTeamGlowLayer } from './texture-references.js';
 import {addPaintProjectTarget} from './paint-project.js';
 import {enumeratePaintTargets} from './paint-targets.js';
 import {isPaintRaster} from './paint-types.js';
@@ -27,7 +28,7 @@ function nextIndex(project,model,key,collection){
 function materialTemplate(model,index,textureId,basecoat,sourceLayer=null){
   const source=model.Materials?.[model.Geosets[index]?.MaterialID]||{},layers=source.Layers||[];
   const imageIndex=layers.findIndex(l=>Number.isInteger(l.TextureID)&&model.Textures?.[l.TextureID]?.Image&&!model.Textures[l.TextureID].ReplaceableId),image=sourceLayer||layers[imageIndex]||{};
-  const underlays=basecoat?[]:layers.slice(0,imageIndex<0?layers.length:imageIndex).filter(l=>model.Textures?.[l.TextureID]?.ReplaceableId===1).map(l=>({...structuredClone(l),CoordId:0}));
+  const underlays=basecoat?[]:layers.slice(0,imageIndex<0?layers.length:imageIndex).filter(l=>isTeamColorLayer(model,l)).map(l=>({...structuredClone(l),CoordId:0}));
   const layer={FilterMode:basecoat?0:imageIndex<0&&underlays.length?2:Number(image.FilterMode)||0,Shading:basecoat?Number(layerFor(model,index).Shading)&16:Number(image.Shading??(Number(layers[0]?.Shading)&16)),TextureID:textureId,TVertexAnimId:null,CoordId:0,Alpha:basecoat?1:structuredClone(image.Alpha??1)};
   return {...structuredClone(source),PriorityPlane:source.PriorityPlane||0,RenderMode:source.RenderMode||0,Layers:[...underlays,layer]};
 }
@@ -42,13 +43,13 @@ function updateTargetBindings(target,bindings){
 function sourceFor(model,sourceModel,index){return sourceModel?.Geosets?.[index]?sourceModel:model;}
 export function paintableGeosets(model,{requireUV=true}={}){
   if(!requireUV)return model.Geosets.map((g,i)=>{
-    const layers=model.Materials?.[g.MaterialID]?.Layers||[],teamGlowOnly=layers.length&&layers.every(l=>model.Textures?.[l.TextureID]?.ReplaceableId===2);
+    const layers=model.Materials?.[g.MaterialID]?.Layers||[],teamGlowOnly=layers.length&&layers.every(l=>isTeamGlowLayer(model,l));
     return !teamGlowOnly&&g.Vertices?.length&&g.Faces?.length?i:-1;
   }).filter(i=>i>=0);
   const imageParts=new Set(enumeratePaintTargets(model).flatMap(t=>t.geosetIndices));
   // Solid team-colour geometry can receive a new basecoat too. Team-glow
   // billboard planes (replaceable 2) are view helpers, never the miniature.
-  model.Geosets.forEach((g,i)=>{if(model.Materials?.[g.MaterialID]?.Layers?.some(l=>model.Textures?.[l.TextureID]?.ReplaceableId===1))imageParts.add(i);});
+  model.Geosets.forEach((g,i)=>{if(model.Materials?.[g.MaterialID]?.Layers?.some(l=>isTeamColorLayer(model,l)))imageParts.add(i);});
   return model.Geosets.map((g,i)=>imageParts.has(i)&&g.Vertices?.length&&g.TVertices?.some(uv=>uv?.length===g.Vertices.length/3*2)?i:-1).filter(i=>i>=0);
 }
 /** Older primer presets accidentally painted replaceable helper planes and

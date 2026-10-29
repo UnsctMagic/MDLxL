@@ -1,3 +1,4 @@
+import { isTeamGlowLayer } from './texture-references.js';
 import { sequenceWords, isDeathSequence, isDecaySequence, isDissipateSequence } from './sequence-editor.js';
 import { allNodes, isGlobalTrack, sampleNodeMatrices, sampleTrack, sampleGeosetAnimation, skinGeoset, skinGeosetNormals } from './animation.js';
 import { createRigNode } from './bone-tools.js';
@@ -21,7 +22,7 @@ const textureNames=(model,g)=>model.Materials[g.MaterialID]?.Layers.flatMap(l=>{
   const ids=typeof l.TextureID==='number'?[l.TextureID]:l.TextureID?.Keys?.map(k=>k.Vector[0])||[];
   return ids.map(id=>model.Textures[id]?.Image||'');
 })||[];
-const glow=(model,g)=>model.Materials[g.MaterialID]?.Layers.every(l=>model.Textures[l.TextureID]?.ReplaceableId===2||l.FilterMode>=3);
+const glow=(model,g)=>model.Materials[g.MaterialID]?.Layers.every(l=>isTeamGlowLayer(model,l)||l.FilterMode>=3);
 const bodyVisible=(model,id,frame,index)=>sampleGeosetAnimation(model,id,frame,index).alpha>.01&&model.Materials[model.Geosets[id].MaterialID]?.Layers.some(l=>sample(model,l.Alpha,frame,index,1)>.01);
 const corpseTexture=(model,g)=>textureNames(model,g).some(name=>/(?:^|[\\/])(?:gutz|guts|[^\\/]*corpse[^\\/]*)\.(?:blp|dds|tga)$/i.test(name));
 const key=(frame,value,line)=>({Frame:frame,Vector:vector(value),...(line>=2?{InTan:vector(line===2?Array(vector(value).length).fill(0):value),OutTan:vector(line===2?Array(vector(value).length).fill(0):value)}:{})});
