@@ -62,6 +62,7 @@ contextBridge.exposeInMainWorld('desktop', {
     return ()=>{ipcRenderer.send('model:externalReady',false);ipcRenderer.removeListener('model:externalOpen',listener);};
   },
   configure: payload => ipcRenderer.invoke('settings:configure',payload),
+  // Test-facing: the app reads settings through other channels.
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateStatus: () => ipcRenderer.invoke('updates:status'),
   checkUpdates: () => ipcRenderer.invoke('updates:check'),

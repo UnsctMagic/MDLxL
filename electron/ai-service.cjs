@@ -2164,7 +2164,6 @@ function registerAiService({ root, profile, electron, getWindow, readModel, writ
   ipcMain.on('ai:toolWaiting', (event, data) => {
     own(event);
     service.pending.get(data?.id)?.waiting(!!data.waiting);
-    service.emit({ type: 'waiting', waiting: !!data.waiting, document: String(data?.document || '') });
   });
   ipcMain.on('ai:toolResult', (event, data) => {
     own(event);
