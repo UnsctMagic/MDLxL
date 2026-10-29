@@ -1,3 +1,5 @@
+import { TEXTURE_SLOTS } from './mdx-compatibility.js';
+import { canonicalValue, stableKey } from './value-key.js';
 import { ensureDummyBone } from './dummy-bone.js';
 import { deleteGeoset, importGeosets, openDocument, recalculateExtents } from './editor-document.js';
 import { deleteVertices, setVertexPositions, transformVertices } from './editor-commands.js';
@@ -8,10 +10,9 @@ import { adaptPasteFormat } from './paste-format.js';
 import { createSequence, setSequenceName } from './sequence-editor.js';
 import { sampleGeosetAnimation, sampleTrack } from './animation.js';
 
-const TEXTURE_SLOTS = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
 export const partPathKey = value => String(value || '').replaceAll('/', '\\').toLowerCase();
-const canonical = value => Array.isArray(value) || ArrayBuffer.isView(value) ? Array.from(value, canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined).map(key => [key, canonical(value[key])])) : value;
-const fingerprint = value => JSON.stringify(canonical(value));
+const canonical = canonicalValue;
+const fingerprint = stableKey;
 export const partTextureKey = texture => fingerprint({ ...texture, Image: partPathKey(texture.Image), ReplaceableId: texture.ReplaceableId || 0, Flags: texture.Flags || 0 });
 
 export function partMaterialKey(model, source) {

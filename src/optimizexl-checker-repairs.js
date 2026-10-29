@@ -1,3 +1,4 @@
+import { typedJson } from './value-key.js';
 // General repairs for the bundled mdx-m3-viewer checker's findings. Each rule mirrors
 // one checker condition, so it works on any model rather than on the example
 // it was first seen in. A rule fixes every instance in the model at once and
@@ -8,7 +9,7 @@ import { createNode } from './editor-document.js';
 import { allNodes, sampleTrack } from './animation.js';
 import { changeNodeType, remapNodes } from './optimizexl-nodes.js';
 
-const json = x => JSON.stringify(x, (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v);
+const json = typedJson;
 const resolve = (m, path) => path.reduce((v, k) => v?.[k], m);
 const local = t => t.GlobalSeqId == null || t.GlobalSeqId === -1 || t.GlobalSeqId === 0xffffffff;
 const none = id => id == null || id === -1 || id === 0xffffffff;

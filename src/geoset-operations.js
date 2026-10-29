@@ -1,16 +1,13 @@
+import { TEXTURE_SLOTS } from './mdx-compatibility.js';
+import { canonicalValue, stableKey } from './value-key.js';
 import { appendGeosetGeometry, deleteGeoset } from './editor-document.js';
 import { gather, updateBounds } from './mesh-tools.js';
 
-const textureSlots = ['TextureID', 'NormalTextureID', 'ORMTextureID', 'EmissiveTextureID', 'TeamColorTextureID', 'ReflectionsTextureID'];
+const textureSlots = TEXTURE_SLOTS;
 const geometryFields = new Set(['Vertices', 'Normals', 'Faces', 'TVertices', 'VertexGroup', 'Groups', 'TotalGroupsCount', 'Tangents', 'SkinWeights', 'PrimitiveTypes', 'PrimitiveCounts', 'MinimumExtent', 'MaximumExtent', 'BoundsRadius', 'Anims', 'MaterialID', 'Name']);
 
-function signature(value) {
-  if (ArrayBuffer.isView(value)) return Array.from(value, signature);
-  if (Array.isArray(value)) return value.map(signature);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().filter(key => value[key] !== undefined).map(key => [key, signature(value[key])]));
-  return value;
-}
-const keyOf = value => JSON.stringify(signature(value));
+const signature = canonicalValue;
+const keyOf = stableKey;
 
 function materialKey(model, materialId) {
   const material = model.Materials?.[materialId];
