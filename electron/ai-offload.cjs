@@ -19,8 +19,12 @@ function nextBird(used = [], random = Math.random) {
     if (pool.length) return pool[Math.floor(random() * pool.length)];
   }
 }
-// A worker past half of its context hands over to a fresh one.
-const RETIRE_AT = 0.5;
+// A worker hands over to a fresh one once its context holds this many tokens, or
+// half of a smaller window. Long contexts cost more per call and recall less.
+const HANDOVER_TOKENS = 200000;
+const handoverAt = window => Math.min(HANDOVER_TOKENS, window * 0.5);
+// The contextUse at which a worker hands over.
+const RETIRE_AT = 1;
 
 // Messages the user sends while a task runs. Providers deliver them at their next
 // opportunity; anything left when the AI finishes starts a follow-up turn. While a
@@ -166,12 +170,13 @@ function settleConversation(conversation) {
   return conversation;
 }
 
-// How full a conversation's context is, 0..1. Providers report real token use;
-// otherwise it is estimated from the stored history.
+// How far a conversation's context is toward its handover point; 1 means hand
+// over. Providers report real token use; otherwise it is estimated from the
+// stored history against a 200K window.
 function contextUse(conversation) {
-  if (conversation.usage?.window) return conversation.usage.used / conversation.usage.window;
+  if (conversation.usage?.window) return conversation.usage.used / handoverAt(conversation.usage.window);
   const stored = JSON.stringify(conversation.messages || []).length + JSON.stringify(conversation.transcript || []).length;
-  return stored / 4 / 200000;
+  return stored / 4 / handoverAt(200000);
 }
 
 // Organisers per model file (or per unsaved tab), their earlier chats, memory notes
@@ -247,6 +252,7 @@ module.exports = {
   BIRDS,
   CORVIDS,
   nextBird,
+  HANDOVER_TOKENS,
   RETIRE_AT,
   AiSteering,
   AiRecorder,

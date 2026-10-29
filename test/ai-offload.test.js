@@ -7,7 +7,7 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
-const { nextBird, AiSteering, deleteProviderSessions, BIRDS, CORVIDS } = require('../electron/ai-offload.cjs');
+const { nextBird, AiSteering, deleteProviderSessions, BIRDS, CORVIDS, contextUse, RETIRE_AT, HANDOVER_TOKENS } = require('../electron/ai-offload.cjs');
 const root = path.resolve(import.meta.dirname, '..');
 const context = { target: 'selected', documentId: 'model', name: 'Footman.mdx', selection: { 0: [1, 2] } };
 const modelKey = 'D:/Models/Footman.mdx';
@@ -105,17 +105,28 @@ test('SD Brain and handbook are inherited by the bird, with one art brief and no
   assert.ok(!userText(f.requests.at(-1).data).includes('SD art brief'));
 });
 
-test('a worker past half of its memory hands over to a new bird and retires', async t => {
-  let turn = 0;
+test('a worker at 200K tokens hands over to a new bird with a note MDLxL writes, and retires', async t => {
+  // 200K tokens is the handover point on a 1M window; a 128K window hands over at half.
+  assert.ok(contextUse({ usage: { used: 199999, window: 1000000 } }) < RETIRE_AT);
+  assert.ok(contextUse({ usage: { used: HANDOVER_TOKENS, window: 1000000 } }) >= RETIRE_AT);
+  assert.ok(contextUse({ usage: { used: 63999, window: 128000 } }) < RETIRE_AT);
+  assert.ok(contextUse({ usage: { used: 64000, window: 128000 } }) >= RETIRE_AT);
   const f = await setup(t, {
-    organiser: data => (last(data).role === 'tool' ? say('ok') : ask(turn++ ? { worker: 'Crow', job: 'Spikes', instructions: 'Add spikes.' } : { job: 'Collars', instructions: 'Make collars.' })),
-    worker: data => (data.tools ? say('Collar report') : say('Handover: collars done on geoset 4; user wants no spike inside.')),
+    organiser: () => assert.fail('No organiser call'),
+    worker: data => (data.tools ? say('Collar report: collars done on geoset 4; user wants no spike inside.') : assert.fail('No tools-off handover turn')),
   });
   const { id } = await f.service.organiser({ modelKey });
   await f.service.send({ id, text: 'make collars', context });
   const organiser = await f.service.conversation(id, 'compatible');
-  organiser.workers[0].use = 0.6;
-  await f.service.send({ id, text: 'now spikes on Crow', context });
+  const crow = await f.service.conversation(organiser.workers[0].id, 'compatible');
+  crow.usage = { used: 199000, window: 1000000 };
+  organiser.workers[0].use = contextUse(crow);
+  await f.service.send({ id, text: 'now spikes on Crow', worker: 'Crow', context });
+  assert.equal(organiser.workers[0].status, 'idle', 'below 200K the bird keeps working');
+  crow.usage = { used: 200000, window: 1000000 };
+  organiser.workers[0].use = contextUse(crow);
+  const before = f.requests.length;
+  await f.service.send({ id, text: 'now spikes on Crow', worker: 'Crow', context });
   assert.deepEqual(
     organiser.workers.map(w => [w.name, w.status]),
     [
@@ -123,10 +134,12 @@ test('a worker past half of its memory hands over to a new bird and retires', as
       ['Jackdaw', 'idle'],
     ],
   );
-  // The handover ran without tools, and the new bird starts from its note.
-  const workerRequests = f.requests.filter(r => r.kind === 'worker');
-  assert.equal(workerRequests[1].data.tools, undefined);
-  assert.match(userText(workerRequests[2].data), /Handover note from Crow, who worked on this before you:\nHandover: collars done/);
+  // The handover makes no request of its own; the new bird starts from the note.
+  assert.equal(f.requests.length - before, 1, 'handover adds no request');
+  const note = userText(f.requests.at(-1).data);
+  assert.match(note, /Handover note from Crow, who worked on this before you:\nIts memory reached the handover size/);
+  assert.match(note, /Its last report:\nCollar report: collars done on geoset 4/);
+  assert.match(note, /Saved task state: \{/);
   assert.equal((await f.service.readConversation(organiser.workers[0].id)).retired, true);
   await assert.rejects(() => f.service.send({ id: organiser.workers[0].id, text: 'hi', context }), /The Crow is retired/);
 });
@@ -357,7 +370,7 @@ test('counting fixtures compare one job, two jobs and a real half-context handov
       await f.service.setOffload(enabled);
       const { id } = await f.service.organiser({ modelKey });
       for (let i = 0; i < count; i++) {
-        assert.equal((await f.service.send({ id, text: 'Inspect this region; keep protected parts unchanged.', route: i === split ? 'new' : 'continue', context: { ...context, fixturePayload: 'x'.repeat(padding) }, images: i === 0 ? ['data:image/png;base64,YQ=='] : [] })).ok, true);
+        assert.equal((await f.service.send({ id, text: 'Inspect this region; keep protected parts unchanged.', route: i === split ? 'new' : 'continue', context: { ...context, fixturePayload: 'x'.repeat(padding) + i }, images: i === 0 ? ['data:image/png;base64,YQ=='] : [] })).ok, true);
       }
       const org = await f.service.conversation(id, 'compatible');
       totals.push({ calls: f.requests.length, tokens: f.requests.reduce((n, r) => n + r.inputTokens, 0), handovers: org.workers?.filter(w => w.status === 'retired').length || 0 });
@@ -372,7 +385,7 @@ test('counting fixtures compare one job, two jobs and a real half-context handov
     }
     // The richer per-job instructions have a fixed cost; separating long histories must still save tokens.
     if (count === 18) assert.ok(totals[1].tokens < totals[0].tokens, JSON.stringify(totals));
-    if (count === 18) { assert.equal(totals[1].handovers, 1); assert.equal(totals[1].calls, count + 1); }
+    if (count === 18) { assert.equal(totals[1].handovers, 1); assert.equal(totals[1].calls, count, 'the handover note costs no request'); }
     else assert.equal(totals[1].calls, totals[0].calls);
     t.diagnostic(JSON.stringify({ messages: count, off: totals[0], on: totals[1] }));
   }
@@ -863,4 +876,59 @@ test('region routing rejects the same bird named by both name and id before disp
  assert.equal(f.requests.length-before,2,'only the router and its correction ran');
  assert.equal((await f.service.readConversation(id)).workers.length,1);
  assert.equal(f.service.workerLocks.size,0);assert.equal(f.service.tasks.size,0);
+});
+
+// An editor snapshot the size of a real one: ~120 nodes, 20 sequences and ~100 commands.
+const bigContext = (selection, frame) => ({
+  ...context, revision: 7, frame, sequence: 2, mode: 'vertex', counts: { geosets: 12, vertices: 4000, triangles: 6000, nodes: 120 },
+  geosets: Array.from({ length: 12 }, (_, index) => ({ index, vertices: 330, triangles: 500, material: index % 4 })),
+  nodes: Array.from({ length: 120 }, (_, id) => ({ id, name: 'Bone_Node_' + id, parent: id - 1 })),
+  sequences: Array.from({ length: 20 }, (_, i) => ({ Name: 'Stand ' + i, Interval: [i * 1000, i * 1000 + 999], MoveSpeed: 0, NonLooping: false, Rarity: 0, MinimumExtent: [-50, -50, 0], MaximumExtent: [50, 50, 120], BoundsRadius: 80 })),
+  diagnostics: Array.from({ length: 10 }, (_, i) => ({ severity: 'warning', text: 'Diagnostic message number ' + i + ' about this model' })),
+  commands: Array.from({ length: 100 }, (_, i) => ({ id: 'command-' + i, label: 'Editor command ' + i, enabled: true })),
+  selection,
+});
+
+test('a bird gets the full editor snapshot once; later messages carry the target and what changed', async t => {
+  const f = await setup(t, { organiser: () => assert.fail('No organiser'), worker: () => say('Done.') });
+  const { id } = await f.service.organiser({ modelKey });
+  const sent = [bigContext({ 0: [1, 2] }, 0), bigContext({ 0: [3] }, 0), { ...bigContext({ 0: [3] }, 250), target: 'next-target', diagnostics: [] }];
+  for (const [i, ctx] of sent.entries()) await f.service.send({ id, text: 'Inspect the selection ' + i, route: 'continue', context: ctx });
+  const prompts = f.requests.map(r => userText(r.data));
+  const contextPart = text => text.slice(text.indexOf('\n\nMDLxL context'));
+  const before = sent.map(ctx => ('\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(ctx)).length);
+  const after = prompts.map(p => contextPart(p).length);
+  t.diagnostic(JSON.stringify({ contextCharsPerMessage: { before, after } }));
+  assert.equal(prompts.length, 3);
+  assert.match(prompts[0], /MDLxL context captured when this prompt was sent/);
+  assert.ok(prompts[0].includes('Bone_Node_119'), 'first message has the full lists');
+  assert.ok(prompts.every(p => !p.includes('command-0')), 'the command list stays with mdlxl_context');
+  for (const p of prompts.slice(1)) {
+    assert.match(p, /Call mdlxl_context for the full lists/);
+    assert.ok(!p.includes('Bone_Node_'), 'unchanged lists are not repeated');
+  }
+  const delta = i => JSON.parse(contextPart(prompts[i]).split('\n').at(-1));
+  assert.deepEqual(delta(1), { target: 'selected', documentId: 'model', revision: 7, selection: { 0: [3] }, frame: 0, sequence: 2 });
+  assert.deepEqual(delta(2), { target: 'next-target', documentId: 'model', revision: 7, selection: { 0: [3] }, frame: 250, sequence: 2, diagnostics: [] });
+  assert.ok(after[1] * 10 < after[0] && after[2] * 10 < after[0], 'later messages are much smaller');
+  // A new bird starts again from the full snapshot.
+  await f.service.send({ id, text: 'Something new', route: 'new', context: sent[1] });
+  assert.ok(userText(f.requests.at(-1).data).includes('Bone_Node_119'));
+});
+
+test('Keep a summary gives Codex and Claude Code the stored bird reports and the diary', async t => {
+  const f = await setup(t, { organiser: () => assert.fail('No organiser'), worker: () => say('Crow report: garment separated into geoset 26.') });
+  const { id } = await f.service.organiser({ modelKey });
+  await f.service.send({ id, text: 'separate the garment', context });
+  const organiser = await f.service.conversation(id, 'compatible');
+  (await f.service.registry.model(modelKey)).diary = [{ id: 'd', at: '2026-10-29T00:00:00Z', request: 'separate the garment', edits: ['Split garment'], outcome: 'verified' }];
+  const prompts = [];
+  f.service.runTask = async ({ text }) => { prompts.push(text); };
+  for (const provider of ['codex', 'claude', 'compatible']) await f.service.memoryNote(organiser, { ...(await f.service.settings()), provider }, null);
+  for (const prompt of prompts.slice(0, 2)) {
+    assert.match(prompt, /User: separate the garment\n\nCrow: Crow report: garment separated into geoset 26\./);
+    assert.match(prompt, /Decision diary: .*\n- 2026-10-29: "separate the garment" \| edits: Split garment/);
+  }
+  // API routes already send the ledger as history; it is not repeated in the prompt.
+  assert.ok(!prompts[2].includes('Crow report'));
 });

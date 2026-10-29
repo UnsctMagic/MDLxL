@@ -48,6 +48,22 @@ const DAY = 24 * 60 * 60 * 1000;
 function cleanupDaysOf(config) {
   return typeof config.cleanupDays === 'number' ? config.cleanupDays : 3;
 }
+// The editor snapshot goes in full once per conversation (and again when its
+// provider history starts over); later prompts carry the target, where the user
+// is, and only the fields that changed. mdlxl_context returns everything,
+// including the editor command list, which prompts leave out.
+const CONTEXT_ALWAYS = ['target', 'documentId', 'revision', 'selection', 'frame', 'sequence', 'annotations', 'region'];
+function contextText(conversation, context) {
+  const { commands, ...snapshot } = context;
+  const fingerprints = Object.fromEntries(Object.entries(snapshot).map(([key, value]) => [key, crypto.createHash('sha1').update(JSON.stringify(value) ?? '').digest('base64')]));
+  const sent = (conversation.messages?.length || conversation.threadId) && conversation.sentContext;
+  conversation.sentContext = fingerprints;
+  if (!sent) return '\n\nMDLxL context captured when this prompt was sent (call mdlxl_context for the editor command list):\n' + JSON.stringify(snapshot);
+  const delta = {};
+  for (const key of Object.keys(snapshot)) if (CONTEXT_ALWAYS.includes(key) || fingerprints[key] !== sent[key]) delta[key] = snapshot[key];
+  for (const key of Object.keys(sent)) if (!(key in snapshot)) delta[key] = null;
+  return '\n\nMDLxL context for this prompt: the target and what changed since the full context earlier in this conversation. Call mdlxl_context for the full lists.\n' + JSON.stringify(delta);
+}
 
 class AiService {
   constructor({ root, profile, electron, getWindow, sdBrainAvailable }) {
@@ -827,7 +843,7 @@ class AiService {
     }
     if (await this.sdBrainAvailable()) prompt += `\n\nTask settings: SD Brain ${sd.enabled ? 'on' : 'off'} (policy ${sd.revision || 'n/a'}).`;
     if (this.awareness.enabled) prompt += '\n\n' + awarenessText(this.awareness.snapshot());
-    prompt += '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
+    prompt += contextText(conversation, context);
     const helperController = new AbortController();
     let helperPromise;
     const startHelper = spec => {
@@ -1015,7 +1031,7 @@ class AiService {
         }
         if (conversation.light && name === 'mdlxl_review' && (result.review?.passed === false || result.passed === false || (args.action === 'finish' && ['needs-correction', 'blocked'].includes(args.outcome)))) escalate('The lighter model review failed; continuing with the chosen model.');
         if (task.checkpointRequested && !task.checkpointNoticeSent && result && typeof result === 'object' && !Array.isArray(result)) {
-          result.organiserCheckpoint = 'Context is half full. At the next candidate/verification boundary, record mdlxl_job_checkpoint with evidence and remaining work. Do not repeat applied edits.';
+          result.organiserCheckpoint = 'Context reached its handover size. At the next candidate/verification boundary, record mdlxl_job_checkpoint with evidence and remaining work. Do not repeat applied edits.';
           task.checkpointNoticeSent = true;
         }
         return result;
@@ -1089,7 +1105,7 @@ class AiService {
         const late = steering.take();
         if (late) {
           recorder.separate();
-          prompt = late + '\n\nMDLxL context captured when this prompt was sent:\n' + JSON.stringify(context);
+          prompt = late + contextText(conversation, context);
           continue;
         }
         attempt++;
@@ -1117,8 +1133,7 @@ class AiService {
         prompt =
           'The edit is still unverified. Do not repeat the edit. Call mdlxl_review inspect with checksCode for the requested result and protected data, inspect the images, correct failures, then mdlxl_review finish. Current review: ' +
           JSON.stringify(review) +
-          '\n\nMDLxL context captured when this prompt was sent:\n' +
-          JSON.stringify(context);
+          contextText(conversation, context);
       }
       throw Error(
         'The edit is applied but verification is incomplete. Resume the task to finish checking it.',
@@ -1177,7 +1192,7 @@ class AiService {
     const entry = conversation.modelKey ? await this.registry.model(conversation.modelKey) : null;
     const lines = workers.map(
       worker =>
-        `- ${worker.name}${worker.tiny ? ' (tiny jobs)' : ''}: ${worker.job}; ${Math.round((worker.use || 0) * 100)}% of its memory used`,
+        `- ${worker.name}${worker.tiny ? ' (tiny jobs)' : ''}: ${worker.job}; ${Math.round((worker.use || 0) * 100)}% of the way to its handover`,
     );
     // Names the organiser can use before the worker exists: "I'll ask Crow to…".
     const tiny = workers.find(worker => worker.tiny);
@@ -1228,9 +1243,9 @@ class AiService {
         handover = { name: worker.name, note: this.workerHandover(previous, 'The follow-up requires the chosen model.') };
         await this.retireWorker(organiser, worker); worker = null; args = { ...args, forceChosen: true };
       }
-      // A worker past half of its memory writes a handover note and retires.
+      // A worker at its handover size retires; MDLxL writes the note from its saved task.
       if (worker && (worker.use || 0) >= RETIRE_AT) {
-        handover = { name: worker.name, note: args.resumeTask ? checkpointNote(args.resumeTask) : await this.handover(worker, settings, contract, context, signal, policy) };
+        handover = { name: worker.name, note: args.resumeTask ? checkpointNote(args.resumeTask) : this.sizeHandover(await this.conversation(worker.id, settings.provider)) };
         await this.retireWorker(organiser, worker);
         worker = null;
       }
@@ -1345,6 +1360,18 @@ class AiService {
   workerHandover(conversation, reason) {
     return reason + '\nApplied edits remain in the model; inspect and verify before making further changes. Do not repeat completed edits.\n' + JSON.stringify({ task: conversation.task?.prompt, steps: conversation.task?.steps, review: conversation.task?.checkpoint?.review, report: conversation.task?.summary }).slice(-12000);
   }
+  // A bird whose memory reached its handover size: its saved task state and last
+  // report, without an AI call re-reading that memory. The decision diary already
+  // reaches the next bird with its job.
+  sizeHandover(conversation) {
+    const task = conversation.task,
+      report = conversation.transcript?.findLast(entry => entry.role === 'assistant' && entry.text?.trim())?.text.trim().slice(-4000);
+    return (
+      'Its memory reached the handover size. Applied edits remain in the model; inspect and verify before making further changes. Do not repeat completed edits.' +
+      (task ? `\nIts last job: ${String(task.prompt || '').slice(0, 2000)}\nSaved task state: ${checkpointNote(task)}` : '') +
+      (report ? `\nIts last report:\n${report}` : '')
+    );
+  }
   // SD Brain's art director: one tool-free turn in a throwaway chat that turns the
   // user's words into an SD art brief. Nothing of it is kept but the brief.
   async artDirection({ text, images, context, settings, contract, signal, conversation }) {
@@ -1442,20 +1469,6 @@ class AiService {
       recorder.event({ type: 'notice', text });
       return null;
     }
-  }
-  async handover(worker, settings, contract, context, signal, policy) {
-    const conversation = await this.conversation(worker.id, settings.provider);
-    const recorder = new AiRecorder(conversation, value => this.emit({ id: worker.id, ...value }));
-    const steering = new AiSteering(() => {});
-    conversation.toolsOff = true;
-    try {
-      await this.runTask({ conversation, recorder, steering, text: contract.AI_HANDOVER_PROMPT, images: [], context, resume: false, settings, contract, signal, policy, entry: { from: 'organiser', job: 'Handover' } });
-    } finally {
-      delete conversation.toolsOff;
-      steering.close();
-      recorder.finish();
-    }
-    return recorder.report() || recorder.reply.text.trim() || '(no note)';
   }
   async retireWorker(organiser, worker) {
     worker.status = 'retired';
@@ -1723,13 +1736,22 @@ class AiService {
     this.active = active;
     const recorder = new AiRecorder(organiser, value => this.emit({ id: organiser.id, ...value }));
     const steering = new AiSteering(() => {});
+    // An Offload organiser is a local ledger: Codex and Claude Code have no thread
+    // holding the birds' reports, so they travel in the prompt (API routes send the
+    // ledger as history).
+    const ledger =
+      ['codex', 'claude'].includes(settings.provider) && !organiser.threadId && organiser.messages?.length
+        ? '\n\nThe requests and bird reports from this conversation, oldest first:\n' +
+          organiser.messages.map(m => (m.role === 'user' ? 'User: ' : '') + (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n\n').slice(-24000)
+        : '';
+    const diary = organiser.modelKey ? diaryText(await this.registry.model(organiser.modelKey)) : '';
     organiser.toolsOff = true;
     try {
       await this.runTask({
         conversation: organiser,
         recorder,
         steering,
-        text: contract.AI_MEMORY_PROMPT + (previousNote ? '\n\nThe earlier memory note to fold in:\n' + previousNote : ''),
+        text: contract.AI_MEMORY_PROMPT + ledger + (diary ? '\n\n' + diary : '') + (previousNote ? '\n\nThe earlier memory note to fold in:\n' + previousNote : ''),
         images: [],
         context: { target: 'cleanup' },
         resume: false,
