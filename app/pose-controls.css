@@ -21,7 +21,7 @@
 .pose-setup header { display: flex; align-items: center; justify-content: space-between; }
 .pose-setup p { margin: 7px 0; line-height: 1.35; }
 .pose-setup button { font-size: 11px; min-height: 24px; padding: 3px 5px; }
-.pose-error, .pose-setup [role="alert"] { color: var(--ui-error, #a32913); }
+.pose-error, .pose-setup [role="alert"] { color: var(--ui-danger, #a32913); }
 .pose-parts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 8px 0; }
 .pose-parts button { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--controller-color); }
 .pose-parts span { color: var(--ui-text, #111); }

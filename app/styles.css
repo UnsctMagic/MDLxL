@@ -86,7 +86,7 @@
 /* NormalsXL: transient controls inside the existing model view. */
 .normalizer-controls{position:absolute;z-index:6;top:34px;right:8px;width:268px;max-width:calc(100% - 20px);padding:8px;background:var(--ui-field,#eee);color:var(--ui-text,#111);border:1px solid var(--ui-border,#888);box-shadow:0 2px 8px #0004;font-size:12px;display:flex;flex-direction:column;gap:6px}
 .normalizer-heading{display:flex;align-items:center;gap:9px}
-.normalizer-heading span{flex:1;color:var(--ui-text-muted,#555);font-size:11px}
+.normalizer-heading span{flex:1;color:var(--ui-muted,#555);font-size:11px}
 .normalizer-heading button{padding:0 6px}
 .normalizer-strength{display:flex;align-items:center;gap:5px}
 .normalizer-strength input{flex:1;min-width:0}
