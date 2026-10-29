@@ -2,6 +2,7 @@ export const sensitivityValue = value => Math.max(.1, Math.min(10, Number.isFini
 export const pointerSensitivityValue = value => Math.max(.01, Math.min(4, Number.isFinite(Number(value)) ? Number(value) : 1));
 export const graphicsOptions = preferences => ({ pixelRatio: 1.5, antialias: false, maxFps: 60, textures: true, lighting: true, particles: true, pauseWhenHidden: true, ...preferences?.graphics });
 export const wheelPixels = event => event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 800 : 1);
+export const wheelZoomFactor = (event, sensitivity) => Math.exp(-wheelPixels(event) * .0015 * sensitivity);
 export const wheelMode = preferences => ['scroll', 'pointer'].includes(preferences?.wheelMode) ? preferences.wheelMode : 'rotate';
 // Three's GridHelper starts in XZ; Warcraft models use Z as the vertical axis.
 export const gridRotation = (workplane = 'xy') => workplane === 'yz' ? [0, 0, Math.PI / 2] : workplane === 'xz' ? [0, 0, 0] : [Math.PI / 2, 0, 0];

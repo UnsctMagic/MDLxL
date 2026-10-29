@@ -1,7 +1,7 @@
 import { beginRotationDrag, rotationDragDegrees, rotationOptions } from '../src/rotation-drag.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { applySelection, connectedVertices, insideTriangle } from './classic-gestures.js';
-import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText, wheelPixels } from './viewport-performance.js';
+import { bindScrollSensitivity, graphicsOptions, pointerDragPoint, pointerSensitivityValue, sensitivityIndicatorStyle, sensitivityIndicatorText, wheelZoomFactor } from './viewport-performance.js';
 import { cameraBindings, isTextEditingTarget, uvTransformSensitivity, visualOptions } from '../src/preferences.js';
 import { viewportCursor } from './viewport-cursors.js';
 import { eligibleUVVertices, eligibleUVFaces, restrictUVChange } from '../src/uv-selection.js';
@@ -272,7 +272,7 @@ export default function UVEditor({ geoset, revision = 0, uvSet = 0, textureUrl, 
     }
     function wheel(event, sensitivity) {
       event.preventDefault(); if (s.drag) return;
-      const { x, y } = point(event), before = mapping(); s.zoom = constrainZoom(s.zoom * Math.exp(-wheelPixels(event) * .0015 * sensitivity)); const after = mapping();
+      const { x, y } = point(event), before = mapping(); s.zoom = constrainZoom(s.zoom * wheelZoomFactor(event, sensitivity)); const after = mapping();
       s.panX += x - (after.x + (x - before.x) / before.sizeX * after.sizeX); s.panY += y - (after.y + (y - before.y) / before.sizeY * after.sizeY); draw();
     }
     const contextMenu = event => event.preventDefault();
