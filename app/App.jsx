@@ -11,7 +11,7 @@ import AiOffscreenRender from './AiOffscreenRender.jsx';
 import { sketchStore } from '../src/ai-sketch.js';
 import { directlyBoundBoneIds } from '../src/binding-inspection.js';
 import { applyPortraitModelTransform, modelControlGroups, modelControlRoots } from '../src/portrait-model-control.js';
-import { refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
+import { nodeSectionsChanged, refreshPortraitExtentsAfterRigEdit } from '../src/portrait-extents.js';
 import { attachToBone, changeVertexBinding, createRigNode, deleteRigNode, detachFromBone, renameRigNode, setBoneBillboarded } from '../src/bone-tools.js';
 import { applyAttachmentPlan, attachematorStandSequence } from '../src/attachemator.js';
 import { autoCorpse, AUTO_CORPSE_SECTIONS } from '../src/auto-corpse.js';
@@ -428,12 +428,15 @@ export default function App() {
       const ticket = selectionHistory.captureEdit(selectionState), guard = captureUVPreviewGuard(doc.model, session.uvPreviews);
       const result = doc.apply(label, sections, m => {
         const value = operation(m);
-        // Numeric fields, timeline edits and mouse drags share this commit.
-        // Temporary drag poses never pay for a complete animation sweep.
-        if (portraitModeActive && sections.includes('Nodes')) refreshPortraitExtentsAfterRigEdit(doc._committedModel, m);
         validateUVPreviewGuard(m, session.uvPreviews, guard);
         return value;
-      }, {validate:options.validate});
+      }, {
+        validate: options.validate,
+        // Numeric fields, timeline edits and mouse drags share this commit.
+        // Temporary drag poses never pay for a complete animation sweep. The
+        // check uses the sections the edit actually changed, not the declared list.
+        beforeCommit: portraitModeActive ? (m, changed, before) => nodeSectionsChanged(changed) && refreshPortraitExtentsAfterRigEdit(before, m) : undefined,
+      });
       selectionHistory.recordEdit(ticket, selectionState); refresh(); if (result !== false) say(label); return result;
     } catch (error) { refresh(); say(error.message, true); if(options.rethrow)throw error; return false; }
   };

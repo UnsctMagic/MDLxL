@@ -397,7 +397,11 @@ export class EditorDocument {
     try { return this.apply('Convert to MDX'+target,['Version','Materials','Geosets'],model=>normalizeVersionFields(model,target)); }
     finally { this._versionConversion=false; }
   }
-  apply(label, sections, mutator, { validate } = {}) {
+  /** sections is the caller's declared list, kept on the history entry as
+   * requestedSections; the recorded sections are the ones that actually
+   * changed. beforeCommit(model, changedSections, before) runs once those are
+   * known, inside the same undo step; it returns true when it changed the model. */
+  apply(label, sections, mutator, { validate, beforeCommit } = {}) {
     if (this.readOnly) throw new Error(`This document is read-only (format ${this.version ?? 'unknown'} or unsupported data).`);
     if (typeof mutator !== 'function') throw new TypeError('apply requires a model mutator function.');
     if (this._applying) throw new Error('Nested document edits are not supported.');
@@ -417,6 +421,12 @@ export class EditorDocument {
       // reused only after the complete byte-preserving diff proves their scope.
       changes = createChanges(before, next, { ignore: ignoreHistoryAlias });
       changed = [...new Set(changes.map((change) => change.path[0]).filter((key) => key in SECTION_TYPES))];
+      if (changes.length && beforeCommit?.(next, changed, before)) {
+        normalizeModel(next, before);
+        validate?.(next, before);
+        changes = createChanges(before, next, { ignore: ignoreHistoryAlias });
+        changed = [...new Set(changes.map((change) => change.path[0]).filter((key) => key in SECTION_TYPES))];
+      }
       const previousDiagnostics = this._committedDiagnostics ||= validateModel(before);
       const existingErrors = this._committedErrors ||= new Set(previousDiagnostics.filter((d) => d.severity === 'error').map((d) => `${d.code}:${d.path}`));
       const numericSections = changed.includes('GlobalSequences') ? null : new Set(changes.map(change => change.path[0]));
