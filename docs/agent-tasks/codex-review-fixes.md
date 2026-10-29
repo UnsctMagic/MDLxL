@@ -224,3 +224,8 @@ code and may be removed.
 - [x] Item 16: cancel an active collision draft when its selected handle no
   longer appears in the projected stage. Existing lost-pointer-capture and
   Escape cancellation remain. Packaged disappearing-handle regression pending.
+- [x] Item 17: MDX save impact explicitly lists standard comments among omitted
+  data, with translations. Save-impact/serialization/mark-clean regression passed.
+  Refined item 5 to omit the separator space for reserved-looking user comments
+  (native metadata requires that space), preserving pre-existing backslashes
+  without an ambiguous escape scheme. Literal-prefix regression passed.

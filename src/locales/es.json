@@ -6869,5 +6869,6 @@
   "Windows still opens MDL and MDX through MDLxL's older shared file type, so both show the same icon. Choose MDLxL again for .mdl and .mdx in Default apps.": "Windows aún abre MDL y MDX con el antiguo tipo de archivo compartido de MDLxL, por eso ambos muestran el mismo icono. Vuelve a elegir MDLxL para .mdl y .mdx en Aplicaciones predeterminadas.",
   "Opens Windows Default apps, where you can choose MDLxL for .mdl and .mdx files.": "Abre Aplicaciones predeterminadas de Windows, donde puedes elegir MDLxL para los archivos .mdl y .mdx.",
   "Maximum pixel ratio; lower values reduce GPU work. Below 1× the 3D views are drawn smaller and scaled up, which looks softer.": "Proporción de píxeles máxima; los valores bajos reducen el trabajo de la GPU. Por debajo de 1× las vistas 3D se dibujan más pequeñas y se amplían, con un aspecto más suave.",
-  "Loading chat…": "Cargando chat…"
+  "Loading chat…": "Cargando chat…",
+  "MDX leaves out standard model comments. Save as MDL to keep them.": "MDX omite los comentarios estándar del modelo. Guarda como MDL para conservarlos."
 }

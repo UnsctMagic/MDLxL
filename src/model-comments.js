@@ -15,8 +15,7 @@ export function readModelComments(input, format) {
   if (format !== 'mdl') return '';
   return headerComments(Buffer.from(input)).map(token => {
     const text = token.raw.toString('utf8');
-    if (token.kind === 'block-comment') return text.slice(2, -2).trim();
-    return text.slice(2).replace(/^ /, '').replace(/^\\(?=MDLXL_|\\)/, '');
+    return token.kind === 'line-comment' ? text.slice(2).replace(/^ /, '') : text.slice(2, -2).trim();
   }).join('\n');
 }
 export function writeModelComments(input, format, text = '') {
@@ -30,5 +29,5 @@ export function writeModelComments(input, format, text = '') {
   }
   parts.push(bytes.subarray(cursor));
   const body = Buffer.concat(parts);
-  return text ? Buffer.concat([Buffer.from(text.replace(/\r\n?/g, '\n').split('\n').map(line => '// ' + line.replace(/^(?=MDLXL_|\\)/, '\\')).join('\n') + '\n', 'utf8'), body]) : body;
+  return text ? Buffer.concat([Buffer.from(text.replace(/\r\n?/g, '\n').split('\n').map(line => (line.startsWith('MDLXL_') ? '//' : '// ') + line).join('\n') + '\n', 'utf8'), body]) : body;
 }
