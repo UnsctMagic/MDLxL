@@ -59,6 +59,20 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   await page.getByLabel('AI prompt', { exact: true }).fill('Count model A vertices');
   const contextA = await tool('mdlxl_context');
   check('A context contains only A and its donor', contextA.documents.map(d => d.name).join('|') === 'Model A.mdx|Donor A.mdx');
+  await app.evaluate(({ipcMain})=>{
+    const handler=ipcMain._invokeHandlers.get('ai:organiser');let hold=true;
+    ipcMain.removeHandler('ai:organiser');
+    ipcMain.handle('ai:organiser',async(...args)=>{
+      if(hold){hold=false;await new Promise(r=>global.releaseLoadingChat=r);}
+      return handler(...args);
+    });
+  });
+  await page.getByRole('tab',{name:'Model B.mdx',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="AI prompt"]').disabled);
+  check('composer is disabled while its model chat loads',await page.getByLabel('AI prompt',{exact:true}).isDisabled());
+  check('loading chat cannot accept stranded files',await page.getByRole('button',{name:'Attach',exact:true}).isDisabled());
+  await app.evaluate(()=>releaseLoadingChat());
+  await page.waitForFunction(()=>!document.querySelector('[aria-label="AI prompt"]').disabled);
   await show('Model B.mdx');
   check('B starts with no A attachments or draft', !(await donors()).length && !(await images()).length && await page.getByLabel('AI prompt', { exact: true }).inputValue() === '');
   await attach('Donor B.mdx', 'Image B.png');
@@ -121,6 +135,13 @@ async function images() { return page.locator('.ai-image-chip img').evaluateAll(
   const label = earlier.find(text => text.startsWith('Earlier chat'));
   await page.getByLabel('Retired chats', { exact: true }).selectOption({ label });
   check('earlier A chat retains only its own donors', (await donors()).join('|') === 'Donor A.mdx|Background donor.mdx|Delayed donor.mdx');
+  check('earlier chats disable attachment controls',await page.getByRole('button',{name:'Attach',exact:true}).isDisabled() && await page.locator('.ai-assistant input[type=file]').isDisabled());
+  const earlierImages=await images();
+  await page.evaluate(()=>{
+    const data=new DataTransfer();data.items.add(new File(['unused'],'stranded.png',{type:'image/png'}));
+    document.querySelector('[aria-label="AI prompt"]').dispatchEvent(new ClipboardEvent('paste',{bubbles:true,clipboardData:data}));
+  });
+  check('earlier chat paste adds no stranded attachment',JSON.stringify(await images())===JSON.stringify(earlierImages));
   await page.getByRole('button', { name: 'Organiser', exact: true }).click();
   check('returning to new organiser does not inherit old donors', !(await donors()).length);
   await show('Model B.mdx');

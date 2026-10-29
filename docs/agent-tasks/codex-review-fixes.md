@@ -205,3 +205,7 @@ code and may be removed.
 - [x] Item 11: region routing rejects duplicate destinations after resolving
   names/IDs to canonical birds, before region dispatch. Existing correction
   retry remains. Name plus uppercase-ID duplicate regression passed.
+- [x] Items 12–13: file selection/attachment/paste paths reject read-only or
+  unloaded chats; the composer is disabled with a localized loading state until
+  a draft key exists. Packaged attachment regressions now cover delayed chat
+  loading and earlier-chat controls/paste; execution pending the final build.

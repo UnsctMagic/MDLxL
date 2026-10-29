@@ -915,7 +915,7 @@ function AiAssistant({ bridge, visUI }) {
     }
   }
   async function attach(list) {
-    if (switching || !org) return;
+    if (!draftKey || switching || readOnly || busy || authBusy) return;
     const scope = bridge.referenceScope();
     for (const file of list) {
       if (/\.(mdl|mdx)$/i.test(file.name)) {
@@ -1627,10 +1627,12 @@ function AiAssistant({ bridge, visUI }) {
                   <textarea
                     ref={input}
                     rows={1}
-                    disabled={readOnly}
+                    disabled={readOnly || !draftKey}
                     aria-label="AI prompt" data-hotkey="prompt"
                     placeholder={
-                      readOnly
+                      !draftKey
+                        ? 'Loading chat…'
+                        : readOnly
                         ? viewWorker
                           ? `The ${viewWorker.name} is retired. Talk to the organiser to continue.`
                           : 'An earlier chat, read only. Use the organiser to continue.'
@@ -1662,7 +1664,7 @@ function AiAssistant({ bridge, visUI }) {
                       type="button"
                       className="ai-tool"
                       aria-label="Attach" data-hotkey="attach"
-                      disabled={busy || authBusy}
+                      disabled={readOnly || !draftKey || busy || authBusy}
                       title="Attach a model or picture."
                       onClick={() => files.current.click()}
                     >
@@ -1721,6 +1723,7 @@ function AiAssistant({ bridge, visUI }) {
                     <input
                       ref={files}
                       type="file"
+                      disabled={readOnly || !draftKey || busy || authBusy}
                       hidden
                       multiple
                       accept=".mdl,.mdx,.png,.jpg,.jpeg,.webp"

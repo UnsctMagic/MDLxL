@@ -6852,5 +6852,6 @@
   "Linear turns by drag distance; right or up is positive. Pivot-based follows a circular drag. Editor overrides keep their own choices when the default changes.": "Линейный поворачивает на расстояние перетаскивания; вправо или вверх — положительно. По опорной точке следует круговому перетаскиванию. Настройки отдельных редакторов сохраняются при смене значения по умолчанию.",
   "Windows still opens MDL and MDX through MDLxL's older shared file type, so both show the same icon. Choose MDLxL again for .mdl and .mdx in Default apps.": "Windows всё ещё открывает MDL и MDX через старый общий тип файлов MDLxL, поэтому у них одинаковый значок. Снова выберите MDLxL для .mdl и .mdx в разделе «Приложения по умолчанию».",
   "Opens Windows Default apps, where you can choose MDLxL for .mdl and .mdx files.": "Открывает «Приложения по умолчанию» Windows, где можно выбрать MDLxL для файлов .mdl и .mdx.",
-  "Maximum pixel ratio; lower values reduce GPU work. Below 1× the 3D views are drawn smaller and scaled up, which looks softer.": "Максимальная плотность пикселей; меньшие значения снижают нагрузку на видеокарту. Ниже 1× 3D-виды рисуются меньше и растягиваются, поэтому выглядят мягче."
+  "Maximum pixel ratio; lower values reduce GPU work. Below 1× the 3D views are drawn smaller and scaled up, which looks softer.": "Максимальная плотность пикселей; меньшие значения снижают нагрузку на видеокарту. Ниже 1× 3D-виды рисуются меньше и растягиваются, поэтому выглядят мягче.",
+  "Loading chat…": "Загрузка чата…"
 }
