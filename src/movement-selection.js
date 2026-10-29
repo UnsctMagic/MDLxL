@@ -1,18 +1,14 @@
 import { Vector3 } from 'three';
 import { allNodes, nodePivot, sampleNodeMatrices, skinGeoset } from './animation.js';
+import { vertexBones } from './part-bones.js';
 
 /** Count each directly influenced vertex once, including positive HD weights. */
 export function movementChildVertexCount(model, ids = []) {
   const bones = new Set((model.Bones || []).filter(node => ids.includes(node.ObjectId)).map(node => node.ObjectId));
   let count = 0;
   for (const geo of model.Geosets || []) {
-    const vertices = (geo.Vertices?.length || 0) / 3, skin = geo.SkinWeights;
-    for (let vertex = 0; vertex < vertices; vertex++) {
-      const bound = skin?.length === vertices * 8
-        ? [0, 1, 2, 3].some(slot => skin[vertex * 8 + slot + 4] > 0 && bones.has(skin[vertex * 8 + slot]))
-        : (geo.Groups?.[geo.VertexGroup?.[vertex]] || []).some(id => bones.has(id));
-      if (bound) count++;
-    }
+    const vertices = (geo.Vertices?.length || 0) / 3;
+    for (let vertex = 0; vertex < vertices; vertex++) if (vertexBones(geo, vertex).some(id => bones.has(id))) count++;
   }
   return count;
 }

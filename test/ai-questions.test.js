@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { recordAiEvent } from '../src/ai-transcript.js';
 import { tempDir } from './helpers/fixtures.cjs';
 const require = createRequire(import.meta.url);
 const { AiService } = require('../electron/ai-service.cjs');
@@ -19,7 +20,7 @@ async function setup(t) {
   const chat = id => {
     const conversation = { id, transcript: [], messages: [], provider: 'codex', name: id };
     service.conversations.set(id, conversation);
-    const recorder = new AiRecorder(conversation, value => service.emit({ id, ...value }));
+    const recorder = new AiRecorder(conversation, value => service.emit({ id, ...value }), recordAiEvent);
     recorder.start({ role: 'user', text: 'Switch the arms' });
     return { conversation, recorder };
   };
@@ -113,7 +114,7 @@ test('provider questions keep only plain text and choices; repeated notices shar
   assert.equal(claude.allowCustom, false);
   assert.equal(codexQuestions({ questions: [{ ...raw, isOther: true }] }).questions[0].allowCustom, undefined);
   const conversation = { id: 'n', transcript: [], messages: [] };
-  const recorder = new AiRecorder(conversation, () => {});
+  const recorder = new AiRecorder(conversation, () => {}, recordAiEvent);
   recorder.start({ role: 'user', text: 'Go' });
   for (const detail of ['1 of 3', '2 of 3']) recorder.event({ type: 'provider-notice', text: 'Tool progress', detail, severity: 'info' });
   const notices = recorder.parts().filter(p => p.type === 'provider-notice');

@@ -5,6 +5,7 @@ import { HD_UNSUPPORTED_MESSAGE } from '../src/model-version.js';
 import { collectPart, partPathKey, partRgbSnapshot, partTextureIndices, partTextureKey, positionPart, previewPart, previewPartReplacement } from '../src/bits-and-parts.js';
 import CollectBit from './CollectBit.jsx';
 import PartAnimations from './PartAnimations.jsx';
+import { hasDesktop, resolveGameFiles } from './desktop.js';
 import './bits-and-parts.css';
 
 function FolderTree({ entries, selected, onSelect }) {
@@ -52,7 +53,7 @@ export default function BitsAndParts({ model, preferences, selectionByGeoset, te
       if (!document.model.Geosets.length) throw Error('This part has no geosets.');
       const names = partTextureIndices(document.model).map(index => document.model.Textures[index]).filter(texture => !texture.ReplaceableId && texture.Image).map(texture => texture.Image);
       let records = [];
-      if (window.desktop?.resolveTextures) records = await window.desktop.resolveTextures({ path: record.path, names });
+      if (hasDesktop('resolveTextures')) records = await resolveGameFiles(names, record.path);
       else for (const name of names) { const relative = entry.id.split('/').slice(0, -1).concat(name.replaceAll('\\', '/')).join('/'), file = bank.assets.get(partPathKey(relative)) || bank.assets.get(partPathKey(name)); if (file) records.push({ name, bytes: new Uint8Array(await file.arrayBuffer()) }); }
       const loaded = new Map();
       for (const record of records) { const name = record.logicalName || record.texturePath || record.name; loaded.set(partPathKey(name), { ...record, name }); }

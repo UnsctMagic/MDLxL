@@ -1,4 +1,4 @@
-import { AI_TOOLS, aiToolEditsModel } from '../src/ai-tools.js';
+import { AI_TOOLS, aiToolEditsModel, aiToolRunsUnqueued } from '../src/ai-tools.js';
 import {
   aiSelectionSignature,
   checkAiTarget,
@@ -420,9 +420,9 @@ export class AiEditorBridge {
         this.editorChanged();
       }
     };
-    const readOnly = ['mdlxl_read', 'mdlxl_sample', 'mdlxl_capture', 'mdlxl_help', 'mdlxl_capabilities'].includes(name) || name === 'mdlxl_script' && !args.edit;
-    const op = readOnly ? run() : (this.queues.get(key) || Promise.resolve()).then(run);
-    if (readOnly) return op;
+    const unqueued = aiToolRunsUnqueued(name, args);
+    const op = unqueued ? run() : (this.queues.get(key) || Promise.resolve()).then(run);
+    if (unqueued) return op;
     const settled = op.catch(() => {});
     this.queues.set(key, settled);
     settled.then(() => this.queues.get(key) === settled && this.queues.delete(key));

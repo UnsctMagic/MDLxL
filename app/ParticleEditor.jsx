@@ -35,13 +35,14 @@ import {addHeroGlow,glowLayout,hasHeroGlow,weaponChoices} from '../src/glow-up.j
 import './resource-editors.css';
 import './particle-editor.css';
 import { gamePathKey } from '../src/game-path.js';
+import { hasDesktop, resolveGameFiles } from './desktop.js';
 const GamePreview=lazy(()=>import('./GamePreview.jsx'));
 const TextureLibrary=lazy(()=>import('./TextureLibrary.jsx'));
 const emptyAssets=new Map();
 const GLOW_SECTIONS=['Geosets','Materials','Textures','Bones','Nodes','PivotPoints','GeosetAnims','GlobalSequences','BindPoses','Info'];
 function starterLab(){const recipe=createStarterRecipe();return {doc:particleRecipeDocument(recipe),recipe,key:'lab-'+crypto.randomUUID(),assets:new Map()};}
 /** Reads stock pictures from the game data, like every other native texture. */
-async function stockAssets(names){const records=window.desktop?.resolveTextures?await window.desktop.resolveTextures({names}):[];return new Map((records||[]).filter(record=>record.bytes).map(record=>[gamePathKey(record.name),record]));}
+async function stockAssets(names){const records=await resolveGameFiles(names);return new Map((records||[]).filter(record=>record.bytes).map(record=>[gamePathKey(record.name),record]));}
 function labDraft(lab,mode){return stringifyParticleData({schema:'mdlxl-particle-draft',version:1,key:lab.key||lab.recipe.id,state:lab.doc.captureRecoveryState(),recipe:includeParticleAssets({...lab.recipe,native:lab.doc.model},lab.assets),mode});}
 async function keepLab(lab,mode,active=true){
   const data=labDraft(lab,mode);
@@ -52,7 +53,7 @@ async function assetsFor(recipe){
   // Effects saved by earlier versions used generated pictures; they now use the stock ones.
   for(const [owner,field] of [...recipe.native.Textures.map(t=>[t,'Image']),...(recipe.dependencies||[]).map(d=>[d,'path'])]){const image=nativeStarterTexture(owner[field]);if(image)owner[field]=image;}
   const assets=embeddedParticleAssets(recipe),names=recipe.native.Textures.filter(t=>t.Image&&!assets.has(gamePathKey(t.Image))).map(t=>t.Image);
-  if(names.length&&window.desktop?.resolveTextures){const sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await window.desktop.resolveTextures({names});for(const record of records||[])if(record.bytes)assets.set(gamePathKey(record.name),record);}
+  if(names.length&&hasDesktop('resolveTextures')){const sourceKey=recipe.sources?.find(source=>source.buildKey)?.buildKey;const records=sourceKey?await window.desktop.particleAssets({sourceKey,dependencies:recipe.dependencies.filter(dep=>names.includes(dep.path))}):await resolveGameFiles(names);for(const record of records||[])if(record.bytes)assets.set(gamePathKey(record.name),record);}
   return assets;
 }
 export default function ParticleEditor({doc,revision=doc?.revision||0,edit,refresh,modelPath,textureAssets=emptyAssets,preferences,teamColor=0,selectedNodeId,attachmentNodeId,selectedGeometry,sequenceIndex=0,previewFrame=0,onClose,onNodeChange,onPlacedAssets}) {

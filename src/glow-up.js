@@ -4,6 +4,8 @@ import { recalculateExtents } from './editor-document.js';
 import { fillSequenceExtents } from './sequence-editor.js';
 import { allNodes } from './animation.js';
 import { ribbonPolygonSelection } from './particle-ribbon-fit.js';
+import { nodeIndex, uniqueName } from './node-hierarchy.js';
+import { vertexBones } from './part-bones.js';
 
 // Hero glow as Blizzard and Gluma build it (docs/GLOW_UP.md): team glow
 // (ReplaceableId 2), Additive, Unshaded, alpha 0.75.
@@ -28,10 +30,8 @@ const ORIGIN_LAYERS = [
 ];
 
 const isTeamGlowGeoset = (model, g) => (model.Materials?.[g.MaterialID]?.Layers || []).some(l => model.Textures?.[l.TextureID]?.ReplaceableId === 2);
-const bindingsOf = (g, id) => {
-  if (g.SkinWeights?.length >= (id + 1) * 8) return Array.from(g.SkinWeights.slice(id * 8, id * 8 + 4)).filter((_, i) => g.SkinWeights[id * 8 + 4 + i] >= 128);
-  return Array.from(g.Groups?.[g.VertexGroup?.[id]] || []);
-};
+// Only a bone carrying at least half an HD vertex counts as holding it.
+const bindingsOf = (g, id) => vertexBones(g, id, { minWeight: 128 });
 const point = (g, id) => [g.Vertices[id * 3], g.Vertices[id * 3 + 1], g.Vertices[id * 3 + 2]];
 
 /** Does the model already carry visible team glow geometry? */
@@ -78,9 +78,9 @@ function principalAxis(points) {
 
 /** The hand-side reference: the nearest "hand" ancestor's pivot, else the bone's own pivot. */
 function gripOf(model, id) {
-  const nodes = model.Nodes || [];
-  for (let node = nodes[id], guard = 0; node && guard++ < 64; node = nodes[node.Parent]) if (/hand/i.test(node.Name || '')) return Array.from(node.PivotPoint || [0, 0, 0]);
-  return Array.from(nodes[id]?.PivotPoint || [0, 0, 0]);
+  const { byId, ancestors } = nodeIndex(model);
+  const hand = ancestors(id, true).map(at => byId.get(at)).find(node => /hand/i.test(node.Name || ''));
+  return Array.from((hand || byId.get(id))?.PivotPoint || [0, 0, 0]);
 }
 
 function weaponPoints(model, id) {
@@ -98,14 +98,13 @@ function weaponPoints(model, id) {
 
 /** Bones with geometry, likeliest weapon first: a weapon name, held in a hand, long and thin. */
 export function weaponCandidates(model) {
-  const nodes = model.Nodes || [], found = [], body = bodyHeight(model) ?? 100;
+  const tree = nodeIndex(model), found = [], body = bodyHeight(model) ?? 100;
   for (const bone of model.Bones || []) {
     const points = weaponPoints(model, bone.ObjectId);
     if (points.length < 4) continue;
     const fit = principalAxis(points), length = fit.max - fit.min;
     if (!(length > 4)) continue;
-    let held = false;
-    for (let node = nodes[bone.Parent], guard = 0; node && guard++ < 4; node = nodes[node.Parent]) if (/hand/i.test(node.Name || '')) held = true;
+    const held = tree.ancestors(bone.ObjectId).slice(0, 4).some(id => /hand/i.test(tree.byId.get(id).Name || ''));
     const named = WEAPON_NAME.test(bone.Name || ''), slender = length / fit.thickness;
     // An unnamed sword held in a hand (the Footman's Cone11) is long and thin: 2 + 1 + 1.
     const score = (named ? 4 : 0) + (held ? 2 : 0) + (slender > 3 ? 1 : 0) + (length > .35 * body ? 1 : 0) - (/hand(?!le)|arm|leg|foot|head|chest|root|spine|neck|tail|wing/i.test(bone.Name || '') ? 5 : 0);
@@ -177,15 +176,11 @@ export function weaponLine(model, { weaponId, marked, from, to } = {}) {
   return { start: place(from), end: place(to), butt, tip: at(tipT), parentId, from: onAxis(from), to: onAxis(to), frame: { along, side, other, size } };
 }
 
-function uniqueName(model, base) {
-  const names = new Set(allNodes(model).map(n => n.Name));
-  let name = base, suffix = 2; while (names.has(name)) name = `${base} ${suffix++}`;
-  return name;
-}
+const freeNodeName = (model, base) => uniqueName(base, new Set(allNodes(model).map(n => n.Name)));
 
 function addBone(model, name, center, parentId, flags) {
   const bone = createRigNode(model, 'Bone');
-  bone.Name = uniqueName(model, name); bone.Parent = parentId; bone.Flags = 256 | flags;
+  bone.Name = freeNodeName(model, name); bone.Parent = parentId; bone.Flags = 256 | flags;
   bone.PivotPoint.set(center);
   return bone;
 }

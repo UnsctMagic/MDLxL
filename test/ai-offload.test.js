@@ -933,3 +933,42 @@ test('Keep a summary gives Codex and Claude Code the stored bird reports and the
   // API routes already send the ledger as history; it is not repeated in the prompt.
   assert.ok(!prompts[2].includes('Crow report'));
 });
+
+test('an organiser task that is running stays running when the console asks about it', async t => {
+  const profile = tempDir('mdlxl-ai-taskinfo-');
+  t.after(() => fs.rm(profile, { recursive: true, force: true }));
+  const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
+  t.after(() => service.close());
+  await fs.mkdir(service.directory, { recursive: true });
+  service.conversations.set('organiser', { id: 'organiser', provider: 'codex', kind: 'organiser', transcript: [], messages: [], task: { status: 'running', phase: 'editing', steps: [] } });
+  service.tasks.set('organiser', { id: 'organiser' });
+  assert.equal((await service.taskInfo('organiser')).status, 'running');
+  service.tasks.delete('organiser');
+  assert.equal((await service.taskInfo('organiser')).status, 'interrupted');
+});
+
+test('removeFiles deletes what it is asked to, six folders deep at most', async t => {
+  const { removeFiles } = require('../electron/ai-offload.cjs');
+  const directory = tempDir('mdlxl-ai-remove-');
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const deep = n => path.join(directory, ...Array.from({ length: n }, (_, i) => 'd' + i));
+  await fs.mkdir(deep(7), { recursive: true });
+  for (const n of [0, 6, 7]) for (const name of ['old.log', 'keep.txt']) await fs.writeFile(path.join(deep(n), name), '');
+  const asked = [];
+  assert.equal(await removeFiles(directory, async (name, full) => (asked.push(full), name.endsWith('.log'))), 2);
+  assert.equal(asked.length, 4);
+  assert.deepEqual(await fs.readdir(deep(6)), ['d6', 'keep.txt']);
+  assert.deepEqual((await fs.readdir(deep(7))).sort(), ['keep.txt', 'old.log']);
+  assert.equal(await removeFiles(path.join(directory, 'missing'), () => true), 0);
+});
+
+test('connection settings are saved whole through a temporary file, in the order changed', async t => {
+  const profile = tempDir('mdlxl-ai-connections-');
+  t.after(() => fs.rm(profile, { recursive: true, force: true }));
+  const service = new AiService({ root, profile, electron: {}, getWindow: () => null });
+  t.after(() => service.close());
+  await Promise.all([service.setOffload(false), service.setWebResearch(true), service.setEditingHandbook(true), service.setOffload(true)]);
+  const saved = JSON.parse(await fs.readFile(path.join(service.directory, 'connections.json'), 'utf8'));
+  assert.deepEqual([saved.offload, saved.webResearch, saved.editingHandbook], [true, true, true]);
+  assert.deepEqual((await fs.readdir(service.directory)).filter(name => name.endsWith('.tmp')), []);
+});

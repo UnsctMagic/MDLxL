@@ -1,5 +1,6 @@
 import { typedJson } from './value-key.js';
 import { allNodes, sampleNodeMatrices } from './animation.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 // A classic matrix group averages its bones equally. Some edits fake uneven
 // weights by repeating a bone in the group and scaling a partner bone to zero
@@ -13,7 +14,7 @@ const json = typedJson;
 const reach = m => { const e = m.elements; return Math.max(Math.hypot(e[0], e[1], e[2]), Math.hypot(e[4], e[5], e[6]), Math.hypot(e[8], e[9], e[10])); };
 
 export function skinCollapseProposals(model) {
-  const nodes = allNodes(model), byId = new Map(nodes.map(n => [n.ObjectId, n]));
+  const nodes = allNodes(model), tree = nodeIndex(model, nodes), { byId } = tree;
   // Without a point-collapse scale key no matrix can collapse. Skip sampling.
   const zeroKey = n => n.Scaling?.Keys?.some(k => Math.max(...Array.from(k.Vector, Math.abs)) < COLLAPSED);
   if (!nodes.some(zeroKey)) return [];
@@ -23,7 +24,7 @@ export function skinCollapseProposals(model) {
     if (members.length > 1 && vertices) groups.push({ geoset, index, group: Array.from(group), members, vertices });
   }));
   if (!groups.length) return [];
-  const chain = id => { const ids = []; for (let n = byId.get(id); n && !ids.includes(n.ObjectId); n = byId.get(n.Parent)) ids.push(n.ObjectId); return ids; };
+  const chain = id => tree.ancestors(id, true);
   const scaled = [...new Set(groups.flatMap(g => g.members.flatMap(chain)))].map(id => byId.get(id)).filter(n => n?.Scaling?.Keys);
   const hits = new Map();
   model.Sequences.forEach((sequence, si) => {

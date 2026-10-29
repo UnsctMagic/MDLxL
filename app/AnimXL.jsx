@@ -8,6 +8,8 @@ import { Matrix4, Quaternion, Vector3 } from 'three';
 import { createSequenceFromCurrent, setSequenceName } from '../src/sequence-editor.js';
 import { createNode } from '../src/editor-document.js';
 import { suggestPoseRig } from '../src/pose-ik.js';
+import { vertexBones } from '../src/part-bones.js';
+import { uniqueName } from '../src/node-hierarchy.js';
 import { loadEventCatalog, resolveEventSound } from './node-event-data.js';
 import './resource-editors.css';
 import './anim-xl.css';
@@ -107,10 +109,9 @@ function weaponTip(model, weaponId) {
   let tip = pivot.clone(), far = 0;
   const point = new Vector3();
   for (const geo of model.Geosets || []) {
-    const count = geo.Vertices.length / 3, hd = geo.SkinWeights?.length === count * 8;
+    const count = geo.Vertices.length / 3;
     for (let v = 0; v < count; v++) {
-      const bound = hd ? [0, 1, 2, 3].some(j => geo.SkinWeights[v * 8 + j] === weaponId && geo.SkinWeights[v * 8 + 4 + j] > 0) : (geo.Groups?.[geo.VertexGroup?.[v]] || []).includes(weaponId);
-      if (!bound) continue;
+      if (!vertexBones(geo, v).includes(weaponId)) continue;
       const d = point.fromArray(geo.Vertices, v * 3).distanceTo(pivot);
       if (d > far) { far = d; tip = point.clone(); }
     }
@@ -418,8 +419,7 @@ export default function AnimXL({ doc, edit, sequenceIndex, textureAssets, prefer
   const commitAsNew = () => {
     if (!result?.tracks.length) return;
     const name = sequences[seq].Name || 'Animation', taken = new Set(sequences.map(s => s.Name));
-    let copyName = `${name} (AnimXL)`, n = 2;
-    while (taken.has(copyName)) copyName = `${name} (AnimXL ${n++})`;
+    const copyName = uniqueName(`${name} (AnimXL)`, taken, n => `${name} (AnimXL ${n})`);
     let created = -1;
     const sections = ['Sequences', 'Geosets', 'GeosetAnims', 'Materials', 'TextureAnims', 'Nodes', 'Cameras', ...(withSound ? ['EventObjects', 'PivotPoints', 'Info'] : [])];
     if (edit(`AnimXL: new animation from ${name}`, sections, m => {

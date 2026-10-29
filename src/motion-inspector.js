@@ -4,6 +4,7 @@ import { allNodes, isGlobalTrack, keysInInterval, nodePivot, sampleNodeMatrices,
 import { movementProperties, sampleMovement } from './movement.js';
 import { animationTrackId } from './animation-tracks.js';
 import { timelineDomain, setTimelineKeys } from './keyframe-timeline.js';
+import { nodeIndex } from './node-hierarchy.js';
 
 export const motionChannels = Object.values(movementProperties);
 const label = node => node.Name || `Node ${node.ObjectId}`;
@@ -15,9 +16,8 @@ export const rotationDistance = (a, b) => new Quaternion().fromArray(a).normaliz
 const distance = (a, b, property) => property === 'Rotation' ? rotationDistance(a, b) : Math.hypot(...a.map((v, i) => v - b[i]));
 
 export function motionParentChain(model, id) {
-  const byId = new Map(allNodes(model).map(node => [node.ObjectId, node])), chain = [], seen = new Set();
-  while (byId.has(id) && !seen.has(id)) { seen.add(id); const node = byId.get(id); chain.push(node); id = node.Parent; }
-  return chain;
+  const { byId, ancestors } = nodeIndex(model);
+  return ancestors(id, true).map(at => byId.get(at));
 }
 
 /** Only animation inputs cross the worker boundary; never clone mesh/texture data. */

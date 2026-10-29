@@ -199,3 +199,11 @@ test('creating and deleting rig bones retain the camera matrices after the node 
   assert.deepEqual(doc.model.BindPoses[0].Matrices.at(-1), cameraPose);
   for (const format of ['mdx','mdl']) assert.deepEqual(openDocument(doc.serialize(format)).model.BindPoses[0].Matrices.at(-1), cameraPose);
 });
+
+test('a new bone name skips helper and attachment names too', () => {
+  const doc = createStarterDocument();
+  const helper = doc.apply('Create helper', [], model => { const node = createNode(model, 'Helper'); node.Name = 'bone_new0'; return node; });
+  assert.equal(helper.Name, 'bone_new0');
+  const bone = doc.apply('Create bone', [], model => createRigNode(model, 'Bone'));
+  assert.equal(bone.Name, 'bone_new1');
+});

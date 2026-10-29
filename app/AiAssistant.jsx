@@ -7,11 +7,9 @@ import {
   Brain,
   Globe,
   Check,
-  ChevronRight,
   Eraser,
   Eye,
   EyeOff,
-  Frown,
   Highlighter,
   LoaderCircle,
   LogIn,
@@ -25,41 +23,16 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import AiMessage from './AiMessage.jsx';
+import { AssistantMessage, activity, birdColor, toolName } from './AiParts.jsx';
 import './ai-assistant.css';
 import { getLanguage, translate } from '../src/localization.js';
 import { sketchStore, SKETCH_COLORS } from '../src/ai-sketch.js';
-import BIRDS from '../src/ai-birds.json';
+import PROVIDERS from '../src/ai-providers.json';
 import { gamePathKey } from '../src/game-path.js';
+import { applyAiEvent } from '../src/ai-transcript.js';
 
-const providers = [
-  ['codex', 'Codex / ChatGPT'],
-  ['claude', 'Claude Code'],
-  ['openai', 'OpenAI API'],
-  ['anthropic', 'Claude API'],
-  ['compatible', 'Other AI / local model'],
-];
-const activity = {
-  mdlxl_context: 'Inspecting the model',
-  mdlxl_capabilities: 'Finding modeling tools',
-  mdlxl_sample: 'Inspecting the model',
-  mdlxl_assets: 'Checking model files',
-  mdlxl_read: 'Reading model data',
-  mdlxl_script: 'Working on the model',
-  mdlxl_patch: 'Applying a precise edit',
-  mdlxl_select: 'Selecting model elements',
-  mdlxl_command: 'Using an editor tool',
-  mdlxl_view: 'Inspecting a view',
-  mdlxl_capture: 'Checking the viewport',
-  mdlxl_document: 'Checking model files',
-  mdlxl_help: 'Reading MDLxL help',
-  mdlxl_ui: 'Using program controls',
-  mdlxl_review: 'Checking the result',
-  mdlxl_plan: 'Planning the change',
-  mdlxl_versions: 'Comparing versions',
-  outside_check: 'Outside check',
-  mdlxl_worker: 'Handing the job to a worker',
-};
+// What a connection supports decides which settings rows it shows.
+const providerInfo = id => PROVIDERS.find(p => p.id === id) || {};
 const phases = {
   inspecting: 'Inspecting the model',
   editing: 'Working on the model',
@@ -89,12 +62,6 @@ const tools = [
   },
 ];
 const DOCK_WIDTH = 'mdlxl-ai-width';
-// A steady colour per bird, spread around the colour wheel in naming order.
-const birdColor = name => {
-  const [base, round] = String(name || '').split(' ');
-  const index = Math.max(0, BIRDS.indexOf(base)) + (Number(round) > 1 ? (Number(round) - 1) * BIRDS.length : 0);
-  return `hsl(${Math.round((index * 137.508) % 360)} 62% 46%)`;
-};
 // Each model file (or unsaved tab) has its own organiser chat.
 const modelKeyOf = (path, documentId) =>
   path ? 'file:' + gamePathKey(path) : 'unsaved:' + documentId;
@@ -114,7 +81,6 @@ const CLEANUP_CHOICES = [
   ['summary', 'Keep a summary', 'Keep a short note of what was done; delete the chats.'],
   ['wipe', 'Wipe it all', 'Delete all chats and notes for this model.'],
 ];
-const toolName = name => name?.replace(/^mcp__mdlxl__/, '');
 const readImage = file =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -129,264 +95,6 @@ const storedWidth = () => {
     return 400;
   }
 };
-// One readable line under a tool step, from the arguments the AI sent.
-function detailLine(detail) {
-  if (!detail) return '';
-  try {
-    const value = JSON.parse(detail);
-    const line = value.label || value.id || value.action || value.query || value.name || '';
-    return typeof line === 'string' ? line : '';
-  } catch {
-    return '';
-  }
-}
-
-function ThinkingPart({ part, live }) {
-  const [open, setOpen] = useState(false),
-    body = useRef();
-  useEffect(() => {
-    if (live && !open && body.current) body.current.scrollTop = body.current.scrollHeight;
-  });
-  return (
-    <div className={'ai-thinking' + (open ? ' ai-open-part' : '') + (live ? ' ai-live' : '')}>
-      <button
-        type="button"
-        className="ai-part-toggle"
-        aria-expanded={open}
-        title="What the AI thought. Click to show."
-        onClick={() => setOpen(!open)}
-      >
-        <ChevronRight size={13} aria-hidden="true" />
-        {live ? 'Thinking…' : 'Thought process'}
-      </button>
-      <div ref={body} className="ai-thinking-text">
-        {part.text.trim()}
-      </div>
-    </div>
-  );
-}
-// SD Brain's art direction for the request: collapsed to one row until clicked.
-function ArtPart({ part }) {
-  const [open, setOpen] = useState(false),
-    running = part.status === 'running';
-  return (
-    <div className={'ai-thinking ai-art' + (open ? ' ai-open-part' : '') + (running ? ' ai-live' : '')}>
-      <button
-        type="button"
-        className="ai-part-toggle"
-        aria-expanded={open}
-        disabled={running || !part.text}
-        title={
-          part.status === 'error'
-            ? 'SD Brain could not write the art direction; the work continued without it. Click for the reason.'
-            : 'The SD art direction SD Brain wrote for this request. Click to show.'
-        }
-        onClick={() => setOpen(!open)}
-      >
-        <Brain size={13} aria-hidden="true" />
-        {running ? 'Planning the art direction…' : part.status === 'error' || !part.text ? 'Art direction unavailable' : 'Art direction'}
-      </button>
-      <div className="ai-thinking-text">{part.text}</div>
-    </div>
-  );
-}
-// The chat grew past what the AI can hold, so it summarizes older messages first.
-function CompactionPart({ part }) {
-  const running = part.status === 'running';
-  return (
-    <div
-      className={'ai-compaction' + (running ? ' ai-live' : '')}
-      role="status"
-      title="The chat is too long, so the AI is summarizing older messages."
-    >
-      <Frown size={15} aria-hidden="true" />
-      {running ? 'Compacting context… the chat got too long' : 'Context compacted: older messages were summarized'}
-    </div>
-  );
-}
-// The AI's plan as plain lines instead of the data it sent.
-function readablePlan(detail) {
-  try {
-    const plan = JSON.parse(detail);
-    return [
-      'Cause: ' + plan.cause,
-      'Reaches: ' + plan.reach,
-      'Keeps: ' + (plan.keep || []).join('; '),
-      'Options:',
-      ...(plan.options || []).map((option, index) => `  ${index + 1}. ${option.fix} (${option.cost})${index === plan.choice ? '  ← chosen' : ''}`),
-      'Why: ' + plan.why,
-    ].join('\n');
-  } catch {
-    return detail;
-  }
-}
-function ToolPart({ part }) {
-  const [open, setOpen] = useState(false),
-    name = toolName(part.name),
-    line = detailLine(part.detail);
-  return (
-    <div className={'ai-step ai-step-' + part.status + (open ? ' ai-open-part' : '')}>
-      <button
-        type="button"
-        className="ai-part-toggle"
-        aria-expanded={open}
-        title="A step the AI took. Click for details."
-        onClick={() => setOpen(!open)}
-      >
-        <span className="ai-step-icon" aria-hidden="true">
-          {part.status === 'running' ? (
-            <LoaderCircle size={13} className="ai-spin" />
-          ) : part.status === 'error' || part.status === 'stopped' ? (
-            <X size={13} />
-          ) : (
-            <Check size={13} />
-          )}
-        </span>
-        <span className="ai-step-label">{activity[name] || 'Using the editor'}</span>
-        {line && (
-          <span className="ai-step-detail" translate="no">
-            {line}
-          </span>
-        )}
-      </button>
-      {open && (
-        <pre className="ai-step-body" translate="no">
-          {name === 'mdlxl_plan' ? readablePlan(part.detail) : name}
-          {part.detail && name !== 'mdlxl_plan' ? '\n' + part.detail : ''}
-          {part.summary ? '\n\n→ ' + part.summary : ''}
-        </pre>
-      )}
-    </div>
-  );
-}
-// A job the organiser gave to a bird; click it to open that bird's chat.
-function WorkerPart({ part, onOpen }) {
-  const [open, setOpen] = useState(true);
-  return (
-    <div className={'ai-worker-row ai-worker-' + part.status} style={{ '--bird': birdColor(part.name) }}>
-      <button type="button" className="ai-part-toggle" title="Open this chat." onClick={() => onOpen?.(part.workerId)}>
-        <span className="ai-step-icon" aria-hidden="true">
-          {part.status === 'working' ? <LoaderCircle size={13} className="ai-spin" /> : part.status === 'failed' ? <X size={13} /> : <Bird size={13} />}
-        </span>
-        <b translate="no" style={{ color: birdColor(part.name) }}>{part.name}</b>
-        <span className="ai-step-detail">{part.job}{part.region && <small> · {part.region}</small>}{part.light && <small> · light model</small>}</span>
-        <span className="ai-worker-state">{part.status === 'working' ? 'working…' : part.status === 'done' ? 'done' : 'stopped'}</span>
-      </button>
-      {part.report && (
-        <button
-          type="button"
-          className="ai-part-toggle ai-worker-report-toggle"
-          aria-expanded={open}
-          title="What it reported back."
-          onClick={() => setOpen(!open)}
-        >
-          <ChevronRight size={13} aria-hidden="true" />
-          Report
-        </button>
-      )}
-      {open && part.report && <AiMessage text={part.report} />}
-      {part.cost && <CostLine cost={part.cost} />}
-    </div>
-  );
-}
-// What one API prompt cost: dollars for known Anthropic models, otherwise tokens.
-function CostLine({ cost }) {
-  const tokens = cost.tokens == null ? 'tokens unavailable' : cost.tokens.toLocaleString() + ' tokens';
-  const roles = Object.entries(cost.roles || {}).map(([role, use]) => `${role}: ${use.calls} ${use.unit === 'turn' ? 'provider turns' : 'calls'} · ${use.tokens === null ? 'tokens unavailable' : use.tokens.toLocaleString() + ' tokens'}`).join(' | ');
-  return (
-    <div
-      className="ai-cost"
-      title="What this prompt has cost on your API key so far. Each step resends the conversation; repeated text is billed at a lower rate."
-    >
-      {cost.model && <span>{cost.model}{cost.light ? ' · light model' : ''} · </span>}
-      {roles || (cost.usd === null ? tokens : `About ${cost.usd < 0.01 ? '0.01' : cost.usd.toFixed(2)} · ${tokens}`)}
-    </div>
-  );
-}
-function QuestionPart({ part }) {
-  const [values, setValues] = useState({}), [custom, setCustom] = useState({}),
-    [sending, setSending] = useState(false), [error, setError] = useState('');
-  const pending = part.status === 'running';
-  const answer = q => [...(values[q.id] || []), ...(custom[q.id]?.trim() ? [custom[q.id].trim()] : [])];
-  async function submit(event, cancel = false) {
-    event.preventDefault();
-    if (sending || !pending) return;
-    setSending(true); setError('');
-    try {
-      await window.desktop.aiAnswerQuestion({ questionId: part.questionId, cancel,
-        answers: Object.fromEntries(part.questions.map(q => [q.id, { answers: answer(q) }])) });
-    } catch (reason) { setError(reason.message); }
-    finally { setSending(false); }
-  }
-  return <form className="ai-question" onSubmit={submit}>
-    <div className="ai-message-note">{part.name && <span translate="no">{part.name}: </span>}{pending ? 'Waiting for your answer' : part.status === 'done' ? 'Answered' : 'Question stopped'}</div>
-    {part.message && <p translate="no">{part.message}</p>}
-    {part.questions.map(q => <fieldset key={q.id} disabled={!pending || sending}>
-      <legend><span translate="no">{q.question}</span>{q.required === false && <small title={q.multiSelect ? undefined : 'Click a chosen answer again to clear it.'}> (optional)</small>}</legend>
-      {q.description && <p translate="no">{q.description}</p>}
-      {q.link && <a href={q.link} target="_blank" rel="noreferrer" onClick={event => { event.preventDefault(); window.desktop.aiQuestionLink({ questionId: part.questionId, id: q.id }).catch(reason => setError(reason.message)); }} title="Opens this address in your web browser.">Open input page</a>}
-      {q.link && <small translate="no"> {linkHost(q.link)}</small>}
-      {pending ? <>
-        {!q.isSecret && (q.options || []).map((option, index) => <label key={index} className="ai-question-option">
-          <input type={q.multiSelect ? 'checkbox' : 'radio'} name={part.questionId + ':' + q.id} checked={(values[q.id] || []).includes(option.label)}
-            onClick={() => { if (!q.multiSelect && q.required === false && (values[q.id] || []).includes(option.label)) setValues(old => ({ ...old, [q.id]: [] })); }}
-            onChange={event => { const checked = event.target.checked; setValues(old => ({ ...old, [q.id]: q.multiSelect ? checked ? [...(old[q.id] || []), option.label] : (old[q.id] || []).filter(v => v !== option.label) : [option.label] })); if (!q.multiSelect) setCustom(old => ({ ...old, [q.id]: '' })); }} />
-          <span translate="no"><b>{option.label}</b>{option.description && <small>{option.description}</small>}</span>
-        </label>)}
-        {q.allowCustom !== false && <input type={q.isSecret ? 'password' : q.inputType || 'text'} aria-label={q.question} autoComplete="off"
-          min={q.minimum} max={q.maximum} minLength={q.minLength} maxLength={q.maxLength} step={q.step}
-          placeholder={q.options?.length ? 'Or type your answer' : 'Your answer'} value={custom[q.id] || ''}
-          onChange={event => { const value = event.target.value; setCustom(old => ({ ...old, [q.id]: value })); if (!q.multiSelect) setValues(old => ({ ...old, [q.id]: [] })); }} />}
-      </> : <div translate="no">{part.answers?.[q.id]?.answers.join(', ')}</div>}
-    </fieldset>)}
-    {pending && <div className="ai-row">
-      <button type="submit" title="Send these answers to the AI that asked." disabled={sending || part.questions.some(q => q.required !== false && !answer(q).length)}>Send answer</button>
-      <button type="button" title="Cancel this question without answering it." disabled={sending} onClick={event => submit(event, true)}>Cancel question</button>
-    </div>}
-    {part.reason && <p className="ai-message-note">{part.reason}</p>}
-    {error && <p className="ai-message-error" role="alert">{error}</p>}
-  </form>;
-}
-// The input page's site, shown beside its link so a question cannot hide where it leads.
-function linkHost(link) {
-  try { return new URL(link).host; } catch { return ''; }
-}
-function ProviderNotice({ part }) {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-  return <details className={'ai-provider-notice ai-provider-' + part.severity}>
-    <summary title="Provider notice: click to show or hide details."><ChevronRight size={12} aria-hidden="true" /><span>{part.name && <span translate="no">{part.name}: </span>}{part.text}</span>
-      <button type="button" aria-label="Dismiss provider notice" title="Hide this notice." onClick={event => { event.preventDefault(); setDismissed(true); }}><X size={12} /></button>
-    </summary>
-    {part.detail && <pre translate="no">{part.detail}</pre>}
-  </details>;
-}
-function AssistantMessage({ message, live, onOpenWorker }) {
-  // A worker row stands for the organiser's hand-off step, so that step is not shown twice.
-  const parts = (message.parts?.length ? message.parts : message.text ? [{ type: 'text', text: message.text }] : []).filter(
-    part => !(part.type === 'tool' && toolName(part.name) === 'mdlxl_worker'),
-  );
-  const shown = parts.map((part, index) =>
-    part.type === 'worker' ? (
-      <WorkerPart key={index} part={part} onOpen={onOpenWorker} />
-    ) : part.type === 'provider-notice' ? (
-      <ProviderNotice key={index} part={part} />
-    ) : part.type === 'question' ? (
-      <QuestionPart key={part.questionId} part={part} />
-    ) : part.type === 'thinking' ? (
-      <ThinkingPart key={index} part={part} live={live && index === parts.length - 1} />
-    ) : part.type === 'tool' ? (
-      <ToolPart key={index} part={part} />
-    ) : part.type === 'compaction' ? (
-      <CompactionPart key={index} part={part} />
-    ) : part.type === 'art' ? (
-      <ArtPart key={index} part={part} />
-    ) : (
-      <AiMessage key={index} text={part.text} />
-    ),
-  );
-  return message.cost ? [...shown, <CostLine key="cost" cost={message.cost} />] : shown;
-}
 // Everything the open console shows about the editor except the frame, which
 // changes on every playback tick; FrameLabel follows that on its own.
 function headerKey(bridge) {
@@ -400,7 +108,7 @@ function FrameLabel({ bridge }) {
 function AiAssistant({ bridge, visUI }) {
   const [open, setOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
-    [settings, setSettings] = useState({ provider: 'codex', model: '', executable: '', baseUrl: '' });
+    [settings, setSettings] = useState({ provider: PROVIDERS[0].id, model: '', executable: '', baseUrl: '' });
   const [apiKey, setApiKey] = useState(''),
     [models, setModels] = useState([]),
     [status, setStatus] = useState(''),
@@ -459,18 +167,6 @@ function AiAssistant({ bridge, visUI }) {
         setConnected(true);
       })
       .catch(reason => setError(reason.message));
-    // The reply streams into the newest assistant message as parts: what the AI
-    // says, thinks and does, in the order it happens.
-    const update = change =>
-      setMessages(previous => {
-        const list = [...previous];
-        let last = list.at(-1);
-        if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
-        const next = { ...last, parts: [...(last.parts || [])] };
-        change(next);
-        list[list.length - 1] = next;
-        return list;
-      });
     return window.desktop.onAiEvent(event => {
       // Roster and setting changes matter whichever chat is showing.
       if (event.type === 'roster') setOrg(previous => (previous?.id === event.id ? { ...previous, workers: event.workers } : previous));
@@ -481,102 +177,14 @@ function AiAssistant({ bridge, visUI }) {
       if (event.type === 'organiser-reset') setOrgReload(n => n + 1);
       if (event.type === 'running') setRunning(event.running);
       if (event.id && event.id !== activeId.current) return;
-      if (event.type === 'worker')
-        setMessages(previous => {
-          const at = previous.findLastIndex(m => m.parts?.some(p => p.type === 'worker' && p.workerId === event.workerId && p.status === 'working'));
-          if (at >= 0 && event.status !== 'working') {
-            const list = [...previous];
-            list[at] = {
-              ...list[at],
-              parts: list[at].parts.map(p =>
-                p.type === 'worker' && p.workerId === event.workerId && p.status === 'working' ? { ...p, status: event.status, report: event.report, cost: event.cost, model: event.model, light: event.light } : p,
-              ),
-            };
-            return list;
-          }
-          if (at >= 0) return previous;
-          const list = [...previous];
-          let last = list.at(-1);
-          if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
-          list[list.length - 1] = {
-            ...last,
-            parts: [...(last.parts || []), { type: 'worker', workerId: event.workerId, name: event.name, job: event.job, status: event.status, region: event.region, model: event.model, light: event.light }],
-          };
-          return list;
-        });
+      // A chat's events stream into its thread by the same rules main saves them
+      // with: what the AI says, thinks and does, in the order it happens. An error
+      // without a chat is about the app, not a reply, so it stays in the banner.
+      if (event.id || event.type !== 'error') setMessages(previous => applyAiEvent(previous, event));
       if (event.type === 'worker') setStatus(event.status === 'working' ? `The ${event.name} is working on: ${event.job}` : 'Organising');
-      if (event.type === 'text' || event.type === 'thinking')
-        update(message => {
-          if (event.type === 'text') message.text += event.text;
-          const last = message.parts.at(-1);
-          if (last?.type === event.type) message.parts[message.parts.length - 1] = { ...last, text: last.text + event.text };
-          else message.parts.push({ type: event.type, text: event.text });
-        });
-      if (event.type === 'question')
-        update(message => message.parts.push({ type: 'question', questionId: event.questionId, questions: event.questions, name: event.name, message: event.message, status: 'running' }));
-      // A repeated notice (usage, plan, tool progress) updates its row instead of adding one.
-      if (event.type === 'provider-notice') update(message => {
-        const part = { ...event, type: 'provider-notice' }, same = message.parts.findIndex(p => p.type === part.type && p.text === part.text && p.name === part.name);
-        if (same < 0) message.parts.push(part); else message.parts[same] = part;
-      });
-      if (event.type === 'question-result')
-        setMessages(previous => previous.map(message => ({ ...message, parts: message.parts?.map(part =>
-          part.type === 'question' && part.questionId === event.questionId ? { ...part, status: event.status, answers: event.answers, reason: event.reason } : part) })));
-      if (event.type === 'tool')
-        update(message =>
-          message.parts.push({ type: 'tool', id: event.callId, name: event.name, detail: event.detail, status: 'running' }),
-        );
-      if (event.type === 'art')
-        update(message => {
-          const at = message.parts.findLastIndex(p => p.type === 'art' && p.status === 'running');
-          const part = { type: 'art', status: event.status, text: event.text || '' };
-          if (at >= 0) message.parts[at] = part;
-          else message.parts.push(part);
-        });
-      if (event.type === 'cost')
-        update(message => {
-          message.cost = { usd: event.usd, tokens: event.tokens, roles: event.roles, model: event.model, light: event.light };
-        });
       if (event.type === 'art') setStatus(event.status === 'running' ? 'Planning the SD art direction' : 'Working on the model');
-      // A steering message may have split the reply since the tool started.
-      if (event.type === 'tool-result')
-        setMessages(previous => {
-          const matches = p =>
-            p.type === 'tool' &&
-            ((event.callId && p.id === event.callId) || (p.status === 'running' && p.name === event.name));
-          const at = previous.findLastIndex(m => m.parts?.some(matches));
-          if (at < 0) return previous;
-          const list = [...previous],
-            parts = [...list[at].parts],
-            index = parts.findLastIndex(matches);
-          parts[index] = { ...parts[index], status: event.error ? 'error' : 'done', summary: event.summary };
-          list[at] = { ...list[at], parts };
-          return list;
-        });
-      if (event.type === 'compaction')
-        setMessages(previous => {
-          const list = [...previous],
-            at = list.findLastIndex(m => m.parts?.some(p => p.type === 'compaction' && p.status === 'running'));
-          if (event.active && at < 0) {
-            let last = list.at(-1);
-            if (last?.role !== 'assistant') list.push((last = { role: 'assistant', text: '', parts: [] }));
-            list[list.length - 1] = { ...last, parts: [...(last.parts || []), { type: 'compaction', status: 'running' }] };
-          } else if (!event.active && at >= 0)
-            list[at] = {
-              ...list[at],
-              parts: list[at].parts.map(p => (p.type === 'compaction' && p.status === 'running' ? { ...p, status: 'done' } : p)),
-            };
-          else return previous;
-          return list;
-        });
       if (event.type === 'compaction')
         setStatus(event.active ? 'Compacting context: summarizing the long chat to make room' : 'Working on the model');
-      if (event.type === 'steer')
-        setMessages(previous => [
-          ...previous,
-          { role: 'user', text: event.text, steer: true },
-          { role: 'assistant', text: '', parts: [] },
-        ]);
       if (event.type === 'tool' || event.type === 'external')
         setStatus(activity[toolName(event.name)] || 'Using the editor');
       if (event.type === 'external-done' && !event.busy) setStatus('');
@@ -729,8 +337,9 @@ function AiAssistant({ bridge, visUI }) {
   const readOnly = viewWorker?.status === 'retired' || earlierView;
   const liveWorkers = org?.workers.filter(worker => worker.status !== 'retired') || [];
   const retiredWorkers = org?.workers.filter(worker => worker.status === 'retired') || [];
-  const native = ['codex', 'claude'].includes(settings.provider);
-  const providerName = providers.find(p => p[0] === settings.provider)?.[1] || 'AI';
+  const provider = providerInfo(settings.provider),
+    native = !!provider.native;
+  const providerName = provider.label || 'AI';
   const strokes = summary ? sketch.strokes.filter(s => s.documentId === summary.documentId) : [];
   const activeTool = tools.find(t => t.id === sketch.tool);
   const colorTool = sketch.tool === 'pen' || sketch.tool === 'marker' ? sketch.tool : null;
@@ -828,14 +437,6 @@ function AiAssistant({ bridge, visUI }) {
     pinned.current = true;
     try {
       await saveSettings();
-      if (native) {
-        const auth = await window.desktop.aiAuth('status');
-        setSignedIn(auth.loggedIn);
-        if (!auth.loggedIn) {
-          setSettingsOpen(true);
-          return;
-        }
-      }
       if (org && !viewWorker) {
         const fresh = await window.desktop.aiOrganiser({ modelKey: org.modelKey, name: summary.name });
         if (fresh.id !== sending) {
@@ -879,6 +480,8 @@ function AiAssistant({ bridge, visUI }) {
         lightChoice,
         route: jobRoute || (settings.routing === 'automatic' ? 'auto' : 'continue'),
       });
+      // Main checks the account once per session; a reply means it is signed in.
+      if (native && result.ok) setSignedIn(true);
       if (result.modelChoiceRequired) {
         updateSendingDraft({ modelQuestion: result.message, prompt: text, images: attached, jobRoute });
         const transcript = await window.desktop.aiTranscript(sending);
@@ -909,7 +512,7 @@ function AiAssistant({ bridge, visUI }) {
       setSignedIn(!!result.loggedIn);
       setStatus('');
       if (!result.loggedIn) setSettingsOpen(true);
-      else if (['codex', 'claude'].includes(settings.provider) && !models.length) { setModels(await window.desktop.aiModels()); setSettings(await window.desktop.aiStatus()); }
+      else if (native && !models.length) { setModels(await window.desktop.aiModels()); setSettings(await window.desktop.aiStatus()); }
     } catch (reason) {
       setError(reason.message);
       setSettingsOpen(true);
@@ -1233,7 +836,7 @@ function AiAssistant({ bridge, visUI }) {
                         disabled={anyBusy || authBusy}
                         onChange={event => changeProvider(event.target.value)}
                       >
-                        {providers.map(([value, label]) => (
+                        {PROVIDERS.map(({ id: value, label }) => (
                           <option key={value} value={value}>
                             {label}
                           </option>
@@ -1263,7 +866,7 @@ function AiAssistant({ bridge, visUI }) {
                           </button>
                         )}
                       </div>
-                    ) : (
+                    ) : provider.apiKey && (
                       <label title="Your key for the AI service, stored encrypted.">
                         API key
                         <input
@@ -1275,7 +878,7 @@ function AiAssistant({ bridge, visUI }) {
                         />
                       </label>
                     )}
-                    {settings.provider === 'compatible' && (
+                    {provider.baseUrl && (
                       <label title="Address of the AI server.">
                         API base URL
                         <input
@@ -1315,7 +918,7 @@ function AiAssistant({ bridge, visUI }) {
                         </select>
                       </label>}
                     </>)}
-                    {settings.provider !== 'compatible' && (
+                    {provider.effort && (
                       <label title={EFFORT_TIP}>
                         Thinking effort
                         <select aria-label="Thinking effort" data-hotkey="thinking-effort" value={settings.effort || 'high'} onChange={event => setSettings(previous => ({ ...previous, effort: event.target.value }))}>
@@ -1338,7 +941,7 @@ function AiAssistant({ bridge, visUI }) {
                       <input data-hotkey="outside-check" data-hotkey-label="Outside check" type="checkbox" checked={settings.outsideCheck !== false} onChange={event => setSettings(previous => ({ ...previous, outsideCheck: event.target.checked }))} />
                       Outside check
                     </label>
-                    {!native && (
+                    {provider.spendLimit && (
                       <label title="Optional. A prompt stops once it has cost about this much on your API key; progress is kept. Works for Anthropic models with known prices. Leave empty for no limit.">
                         Spending limit per prompt ($)
                         <input
@@ -1351,7 +954,7 @@ function AiAssistant({ bridge, visUI }) {
                         />
                       </label>
                     )}
-                    {settings.provider !== 'codex' && (
+                    {provider.stepLimit && (
                       <label title="Optional. A prompt stops after this many AI steps (each look, edit or check is a step); progress is kept. Leave empty for the usual maximum.">
                         Step limit per prompt
                         <input

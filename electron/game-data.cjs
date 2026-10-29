@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
+const { writeFileAtomic } = require('./atomic-file.cjs');
 const run = promisify(execFile);
 const ARCHIVE_ORDER = ['war3patch.mpq', 'war3x.mpq', 'war3xlocal.mpq', 'war3.mpq'];
 const CONTAINERS = ['Games', 'Warcraft III', 'Warcraft 3', 'WarcraftIII', 'War3', 'WC3', 'Blizzard', 'Blizzard Entertainment', 'Battle.net', 'Program Files', 'Program Files (x86)'];
@@ -27,6 +28,17 @@ function selectedGameDataSources(result, folder) {
   const folders = unique([root, ...(result?.folders || []).filter(candidate => isInsideFolder(candidate, root) && !result?.customSources?.cascFolders.includes(candidate))]);
   const archives = unique((result?.archives || []).filter(candidate => isInsideFolder(candidate, root) && !result?.customSources?.archives.includes(candidate))).sort(archiveSort);
   return { folder: root, folders, archives };
+}
+
+// Installed CASC folders in reading order. The Settings folder (and CASC
+// folders inside it) comes first unless `customFirst` puts added CASC sources
+// ahead of it; other discovered installations always come last.
+function orderedCascFolders(result, folder, { customFirst = false } = {}) {
+  const all = result?.cascFolders || [], custom = result?.customSources?.cascFolders || [];
+  const selected = selectedGameDataSources(result, folder).folders;
+  const chosen = all.filter(candidate => selected.includes(candidate) && !custom.includes(candidate));
+  const others = all.filter(candidate => !selected.includes(candidate) && !custom.includes(candidate));
+  return unique(customFirst ? [...custom, ...chosen, ...others] : [...chosen, ...custom, ...others]);
 }
 
 function parseRegistryPaths(text) {
@@ -160,11 +172,11 @@ class GameDataDiscovery {
         const files = [...result.archives, ...result.cascFolders.map(folder => path.join(folder,'.build.info'))];
         const stamps = await Promise.all(files.map(async file => { const info = await fs.stat(file); return { file, size: info.size, mtimeMs: info.mtimeMs }; }));
         await fs.mkdir(path.dirname(this.cacheFile), { recursive: true });
-        await fs.writeFile(this.cacheFile, JSON.stringify({ version: 2, selectedKey, folders: result.folders, stamps, result }));
+        await writeFileAtomic(this.cacheFile, JSON.stringify({ version: 2, selectedKey, folders: result.folders, stamps, result }));
       } catch {}
     }
     return result;
   }
 }
 
-module.exports = { GameDataDiscovery, parseRegistryPaths, archiveSort, selectedGameDataSources, isInsideFolder, registryGameFolders, fixedDriveRoots };
+module.exports = { GameDataDiscovery, parseRegistryPaths, archiveSort, selectedGameDataSources, orderedCascFolders, isInsideFolder, registryGameFolders, fixedDriveRoots };

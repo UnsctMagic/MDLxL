@@ -32,6 +32,7 @@ import {decodePaintImage,paintBaseRaster,paintRasterCanvas} from './paint-raster
 import {PAINT_BRUSH_SHAPES,paintBrushTip} from '../src/paint-brush-shapes.js';
 import {relatedPaintColors} from '../src/paint-palette.js';
 import {extractPaintCutout} from '../src/paint-selection.js';
+import {desktop,hasDesktop,resolveGameFiles} from './desktop.js';
 import './paint-workspace.css';
 import './paint-studio.css';
 
@@ -120,8 +121,8 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
     if(scene.dncModel){setDncModel(scene.dncModel);setDncStatus(msg('paint.dncLoaded'));return;}
     const path=wc3DncPath(scene.environment);setDncStatus(msg('paint.dncLoading'));
     const load=async()=>{
-      if(!window.desktop?.resolveEventResources)throw Error(msg('paint.dncDesktop'));
-      if(!dncCache.current.has(path)){const records=await window.desktop.resolveEventResources({names:[path],path:modelPath});if(!records[0]?.bytes)throw Error(msg('paint.dncMissing'));dncCache.current.set(path,readWarcraftDnc(records[0].bytes,path));}
+      if(!hasDesktop('resolveEventResources'))throw Error(msg('paint.dncDesktop'));
+      if(!dncCache.current.has(path)){const records=await desktop.resolveEventResources({names:[path],path:modelPath});if(!records[0]?.bytes)throw Error(msg('paint.dncMissing'));dncCache.current.set(path,readWarcraftDnc(records[0].bytes,path));}
       if(active){setDncModel(dncCache.current.get(path));setDncStatus(msg('paint.dncLoaded'));}
     };
     load().catch(e=>{if(active)setDncStatus(e.message);});return()=>{active=false;};
@@ -141,7 +142,7 @@ export default function PaintWorkspace({model,originalModel=model,cameraMemory,r
   async function initializeTarget(value,next){
     const existing=paintProjectTarget(next,value.id);if(existing)return existing;
     let asset=findTextureAsset(textureAssets,value.texturePath);
-    if(next.sourceMode==='current'&&!asset?.bytes&&window.desktop?.resolveTextures){const resolved=await window.desktop.resolveTextures({names:[value.texturePath],path:modelPath});const found=resolved.find(item=>item?.bytes);if(found)asset={...found,source:'gameData'};}
+    if(next.sourceMode==='current'&&!asset?.bytes){const resolved=await resolveGameFiles([value.texturePath],modelPath);const found=resolved.find(item=>item?.bytes);if(found)asset={...found,source:'gameData'};}
     if(next.sourceMode==='current'&&!asset?.bytes)throw Error('The existing skin '+value.texturePath+' is not loaded. Connect its Warcraft data or import that texture first.');
     let base=await paintBaseRaster(asset,next.resolution,next.sourceMode);
     // SD skins have very small allocations for broad geometry. Start with a
